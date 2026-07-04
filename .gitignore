@@ -1,17 +1,11 @@
 # Dependencies and build output
 node_modules/
-**/node_modules/
 dist/
-**/dist/
 build/
 .svelte-kit/
 .vite/
 .turbo/
 .cache/
-.astro/
-**/.astro/
-public/downloads/
-**/public/downloads/
 
 # Python/runtime artifacts
 __pycache__/
