@@ -1,0 +1,574 @@
+---
+// src/components/timeline/TimelineViewModes/MapView.astro
+// Complete overhaul - Interactive Universe Map with proper selection and navigation
+import type { TimelineEvent } from '@/services/TimelineService.client'
+import {
+  getEraClasses,
+  getEraDisplayName,
+} from '@/services/TimelineService.client'
+
+export interface Props {
+  events?: TimelineEvent[]
+  background?: string
+  selectedEventSlug?: string | null
+}
+
+const {
+  events = [],
+  background = '/assets/banner/0001.png',
+  selectedEventSlug = null,
+} = Astro.props
+
+const eventsWithLocations = events.filter(event => event.location)
+
+// Enhanced coordinate generation for better cosmic distribution
+function getUniverseCoordinates(location: string | undefined, era = 'unknown') {
+  if (!location) return { x: 50, y: 50, sector: 'unknown' }
+
+  // Create hash from location for consistent positioning
+  const locationHash = [...location].reduce(
+    (h, c) => (h * 31 + c.charCodeAt(0)) % 1000,
+    0,
+  )
+  const eraHash = [...era].reduce((h, c) => (h * 17 + c.charCodeAt(0)) % 100, 0)
+
+  // Create sectors based on era names instead of years
+  const eraToSector: Record<string, string> = {
+    'pre-war': 'inner-core',
+    war: 'mid-rim',
+    'post-war': 'outer-rim',
+    reconstruction: 'frontier',
+    unknown: 'unknown',
+  }
+
+  const sector = eraToSector[era.toLowerCase()] || 'frontier'
+
+  // Distribute coordinates in cosmic spiral pattern
+  const angle = (locationHash + eraHash) * 0.1
+  const radius = 20 + (locationHash % 60) // 20-80% from center
+
+  const x = 50 + Math.cos(angle) * radius * 0.8
+  const y = 50 + Math.sin(angle) * radius * 0.6
+
+  return {
+    x: Math.max(5, Math.min(95, x)),
+    y: Math.max(5, Math.min(95, y)),
+    sector,
+  }
+}
+
+// Group events by era for constellation connections
+const eraGroups = eventsWithLocations.reduce(
+  (acc, event) => {
+    const era = event.era || 'unknown'
+    if (!acc[era]) acc[era] = []
+    acc[era].push(event)
+    return acc
+  },
+  {} as Record<string, TimelineEvent[]>,
+)
+
+const mapViewId = `universe-map-${Math.random().toString(36).substring(2, 9)}`
+---
+
+<div class="universe-map relative" id={mapViewId} data-ready="false">
+  <!-- Instructions Panel -->
+  <div class="absolute top-4 right-4 z-30 bg-black/90 text-white text-xs rounded-lg p-3 backdrop-blur-sm border border-cyan-500/30">
+    <div class="font-bold mb-1 text-cyan-400">Universe Map Controls:</div>
+    <div>• Click once to select a location</div>
+    <div>• Click again to navigate to event</div>
+    <div>• Hover for quick preview</div>
+    <div>• Use mouse wheel to zoom</div>
+  </div>
+
+  <!-- Sector Legend -->
+  <div class="absolute top-4 left-4 z-30 bg-black/90 text-white text-xs rounded-lg p-3 backdrop-blur-sm border border-purple-500/30">
+    <div class="font-bold mb-2 text-purple-400">Cosmic Sectors:</div>
+    <div class="space-y-1">
+      <div class="flex items-center">
+        <div class="w-3 h-3 rounded-full bg-yellow-400 mr-2"></div>
+        <span>Inner Core</span>
+      </div>
+      <div class="flex items-center">
+        <div class="w-3 h-3 rounded-full bg-orange-400 mr-2"></div>
+        <span>Mid Rim</span>
+      </div>
+      <div class="flex items-center">
+        <div class="w-3 h-3 rounded-full bg-red-400 mr-2"></div>
+        <span>Outer Rim</span>
+      </div>
+      <div class="flex items-center">
+        <div class="w-3 h-3 rounded-full bg-purple-400 mr-2"></div>
+        <span>Frontier</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="relative z-10 overflow-hidden" style="height: calc(100vh - 160px);">
+    <!-- Universe Map Container -->
+    <div class="universe-viewport relative w-full h-full overflow-hidden cursor-grab" data-viewport>
+      <!-- Zoomable Content Wrapper -->
+      <div class="universe-content w-full h-full relative" data-content style="transform: scale(1) translate(0px, 0px);">
+        
+        <!-- Deep Space Background -->
+        <div class="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-950 to-black">
+          <!-- Animated Stars Background -->
+          <div class="stars-layer-1 absolute inset-0 opacity-60"></div>
+          <div class="stars-layer-2 absolute inset-0 opacity-40"></div>
+          <div class="stars-layer-3 absolute inset-0 opacity-20"></div>
+          
+          <!-- Nebula Effects -->
+          <div class="absolute inset-0 opacity-30">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-radial from-purple-600/20 via-blue-600/10 to-transparent rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-radial from-cyan-600/20 via-teal-600/10 to-transparent rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+            <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-radial from-pink-600/15 via-purple-600/8 to-transparent rounded-full blur-3xl animate-pulse" style="animation-delay: 4s;"></div>
+          </div>
+        </div>
+
+        <!-- Constellation Connections -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="constellation-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:cyan;stop-opacity:0.6"/>
+              <stop offset="50%" style="stop-color:purple;stop-opacity:0.4"/>
+              <stop offset="100%" style="stop-color:cyan;stop-opacity:0.6"/>
+            </linearGradient>
+          </defs>
+          
+          {Object.entries(eraGroups).map(([era, eraEvents]) => {
+            if (eraEvents.length < 2) return null;
+            const coords = eraEvents.map(event => getUniverseCoordinates(event.location, event.era));
+            return coords.slice(0, -1).map((coord, i) => {
+              const nextCoord = coords[i + 1];
+              return (
+                <line
+                  x1={coord.x}
+                  y1={coord.y}
+                  x2={nextCoord.x}
+                  y2={nextCoord.y}
+                  stroke="url(#constellation-gradient)"
+                  stroke-width="0.1"
+                  opacity="0.5"
+                  class="constellation-line"
+                />
+              );
+            });
+          })}
+        </svg>
+
+        <!-- Cosmic Grid -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none z-5" viewBox="0 0 100 100">
+          <defs>
+            <pattern id="cosmic-grid" width="10" height="10" patternUnits="userSpaceOnUse">
+              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="cyan" stroke-width="0.05" opacity="0.1"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#cosmic-grid)"/>
+        </svg>
+
+        <!-- Universe Locations -->
+        <div class="absolute inset-0 z-20">
+          {eventsWithLocations.map((event) => {
+            const coords = getUniverseCoordinates(event.location, event.era);
+            const sectorColors = {
+              'inner-core': 'from-yellow-400 to-orange-500',
+              'mid-rim': 'from-orange-400 to-red-500', 
+              'outer-rim': 'from-red-400 to-purple-500',
+              'frontier': 'from-purple-400 to-pink-500',
+              'unknown': 'from-gray-400 to-gray-600'
+            };
+            
+            return (
+              <div
+                class="cosmic-location absolute cursor-pointer group"
+                style={`left: ${coords.x}%; top: ${coords.y}%; transform: translate(-50%, -50%);`}
+                data-slug={event.slug}
+                data-title={event.title}
+                data-location={event.location}
+                data-era={event.era}
+                data-sector={coords.sector}
+              >
+                <!-- Location Pulse Effect -->
+                <div class="absolute inset-0 rounded-full animate-ping opacity-20 bg-gradient-to-r" classList:list={[sectorColors[coords.sector]]}></div>
+                
+                <!-- Main Location Marker -->
+                <div class:list={[
+                  "location-marker relative w-4 h-4 rounded-full transition-all duration-300 group-hover:scale-125",
+                  "bg-gradient-to-r shadow-lg border-2 border-white/30",
+                  sectorColors[coords.sector],
+                  selectedEventSlug === event.slug ? 'scale-150 ring-4 ring-cyan-400/50 ring-offset-2 ring-offset-transparent' : '',
+                  event.isKeyEvent ? 'w-6 h-6 shadow-xl shadow-white/50' : ''
+                ]}>
+                  <!-- Inner Core -->
+                  <div class="absolute inset-1 rounded-full bg-white/90 animate-pulse"></div>
+                  
+                  <!-- Key Event Crown -->
+                  {event.isKeyEvent && (
+                    <div class="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                      <svg class="w-3 h-3 text-yellow-300" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                <!-- Location Name -->
+                <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs font-medium text-white bg-black/80 px-2 py-1 rounded backdrop-blur-sm border border-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  {event.location}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="absolute bottom-4 left-4 right-4 z-30 transition-all duration-300" id="info-panel" style="transform: translateY(100%); opacity: 0;">
+      <div class="bg-black/95 text-white rounded-lg p-4 backdrop-blur-sm border border-cyan-500/30 max-w-2xl mx-auto">
+        <div class="flex items-start justify-between mb-3">
+          <div class="flex-1">
+            <h3 class="font-bold text-cyan-400 text-lg" id="info-title"></h3>
+            <div class="flex items-center gap-3 mt-1">
+              <span class="text-orange-300 text-sm" id="info-location"></span>
+              <span class="text-xs px-2 py-1 rounded-full bg-gradient-to-r from-purple-600 to-pink-600" id="info-era"></span>
+            </div>
+          </div>
+          <button class="close-info-panel text-gray-400 hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        
+        <p class="text-gray-300 mb-4 leading-relaxed" id="info-description"></p>
+        
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="flex items-center text-sm text-cyan-300" id="info-sector">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span id="sector-name"></span>
+            </div>
+            <div class="key-event-indicator hidden items-center text-sm text-yellow-300" id="key-event-indicator">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Key Event
+            </div>
+          </div>
+          
+          <div class="action-hint text-sm text-gray-400" id="action-hint">
+            Click again to navigate to this event
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Locations Message -->
+    {eventsWithLocations.length === 0 && (
+      <div class="absolute inset-0 flex items-center justify-center z-30">
+        <div class="text-center p-8 bg-black/90 backdrop-blur-sm rounded-xl border border-purple-500/30 max-w-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-purple-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+          </svg>
+          <p class="text-purple-400 font-bold text-lg mb-2">No Cosmic Locations Found</p>
+          <p class="text-gray-400">Add location data to your timeline events to see them mapped in the universe.</p>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
+<script define:vars={{ mapViewId, initialSelectedSlug: selectedEventSlug }}>
+  const rootElement = document.getElementById(mapViewId);
+  let currentSelectedSlug = initialSelectedSlug;
+  
+  if (rootElement) {
+    console.log("Universe Map script loaded for:", mapViewId);
+    
+    const viewport = rootElement.querySelector('[data-viewport]');
+    const content = rootElement.querySelector('[data-content]');
+    const infoPanel = rootElement.querySelector('#info-panel');
+    
+    let isDragging = false;
+    let currentScale = 1;
+    let currentX = 0;
+    let currentY = 0;
+    let startX = 0;
+    let startY = 0;
+    
+    const minScale = 0.5;
+    const maxScale = 3;
+    
+    // Create animated stars
+    function createStars() {
+      const layers = ['.stars-layer-1', '.stars-layer-2', '.stars-layer-3'];
+      const densities = [100, 50, 25];
+      
+      layers.forEach((layer, index) => {
+        const starLayer = rootElement.querySelector(layer);
+        if (starLayer) {
+          for (let i = 0; i < densities[index]; i++) {
+            const star = document.createElement('div');
+            star.className = 'absolute rounded-full bg-white';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.width = (Math.random() * 2 + 1) + 'px';
+            star.style.height = star.style.width;
+            star.style.opacity = Math.random() * 0.8 + 0.2;
+            star.style.animationDelay = Math.random() * 3 + 's';
+            starLayer.appendChild(star);
+          }
+        }
+      });
+    }
+    
+    // Update info panel
+    function updateInfoPanel(event, isVisible = true) {
+      if (!infoPanel) return;
+      
+      if (!isVisible) {
+        infoPanel.style.transform = 'translateY(100%)';
+        infoPanel.style.opacity = '0';
+        return;
+      }
+      
+      const coords = getUniverseCoordinates(event.location, event.era);
+      const sectorNames = {
+        'inner-core': 'Inner Core Sector',
+        'mid-rim': 'Mid Rim Territory', 
+        'outer-rim': 'Outer Rim Frontier',
+        'frontier': 'Frontier Space',
+        'unknown': 'Unknown Sector'
+      };
+      
+      rootElement.querySelector('#info-title').textContent = event.title;
+      rootElement.querySelector('#info-location').textContent = event.location;
+      rootElement.querySelector('#info-era').textContent = event.era || 'Unknown Era';
+      rootElement.querySelector('#info-description').textContent = event.description;
+      rootElement.querySelector('#sector-name').textContent = sectorNames[coords.sector];
+      
+      const keyEventIndicator = rootElement.querySelector('#key-event-indicator');
+      if (event.isKeyEvent) {
+        keyEventIndicator.classList.remove('hidden');
+        keyEventIndicator.classList.add('flex');
+      } else {
+        keyEventIndicator.classList.add('hidden');
+        keyEventIndicator.classList.remove('flex');
+      }
+      
+      infoPanel.style.transform = 'translateY(0)';
+      infoPanel.style.opacity = '1';
+    }
+    
+    // Helper function to get coordinates (matches Astro component)
+    function getUniverseCoordinates(location, era = 'unknown') {
+      if (!location) return { x: 50, y: 50, sector: 'unknown' };
+      
+      const locationHash = [...location].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 1000, 0);
+      const eraHash = [...era].reduce((h, c) => (h * 17 + c.charCodeAt(0)) % 100, 0);
+      
+      const eraToSector = {
+        'pre-war': 'inner-core',
+        'war': 'mid-rim',
+        'post-war': 'outer-rim',
+        'reconstruction': 'frontier',
+        'unknown': 'unknown'
+      };
+      
+      const sector = eraToSector[era.toLowerCase()] || 'frontier';
+      
+      const angle = (locationHash + eraHash) * 0.1;
+      const radius = 20 + (locationHash % 60);
+      
+      const x = 50 + (Math.cos(angle) * radius * 0.8);
+      const y = 50 + (Math.sin(angle) * radius * 0.6);
+      
+      return { 
+        x: Math.max(5, Math.min(95, x)), 
+        y: Math.max(5, Math.min(95, y)), 
+        sector 
+      };
+    }
+    
+    // Update visual states
+    function updateLocationStates() {
+      const locations = rootElement.querySelectorAll('.cosmic-location');
+      locations.forEach(location => {
+        const marker = location.querySelector('.location-marker');
+        const isSelected = location.dataset.slug === currentSelectedSlug;
+        
+        if (isSelected) {
+          marker.classList.add('scale-150', 'ring-4', 'ring-cyan-400/50', 'ring-offset-2', 'ring-offset-transparent');
+        } else {
+          marker.classList.remove('scale-150', 'ring-4', 'ring-cyan-400/50', 'ring-offset-2', 'ring-offset-transparent');
+        }
+      });
+    }
+    
+    // Handle location clicks
+    rootElement.addEventListener('click', (e) => {
+      const location = e.target.closest('.cosmic-location');
+      
+      // Close info panel if clicking outside
+      if (e.target.closest('.close-info-panel')) {
+        updateInfoPanel(null, false);
+        return;
+      }
+      
+      if (location) {
+        const slug = location.dataset.slug;
+        const eventData = {
+          title: location.dataset.title,
+          location: location.dataset.location,
+          era: location.dataset.era,
+          description: 'Loading event details...', // You might want to pass full event data
+          isKeyEvent: location.querySelector('.location-marker').classList.contains('w-6')
+        };
+        
+        if (currentSelectedSlug === slug) {
+          // Second click - navigate
+          console.log(`Universe Map: Navigating to /posts/${slug}/`);
+          window.location.href = `/posts/${slug}/`;
+          return;
+        }
+        
+        // First click - select
+        currentSelectedSlug = slug;
+        updateLocationStates();
+        updateInfoPanel(eventData, true);
+        
+        // Dispatch selection event
+        const selectEvent = new CustomEvent('universe-map:select', {
+          detail: { slug, title: eventData.title },
+          bubbles: true,
+          composed: true
+        });
+        rootElement.dispatchEvent(selectEvent);
+      } else if (!e.target.closest('#info-panel')) {
+        // Clicked on empty space - deselect
+        currentSelectedSlug = null;
+        updateLocationStates();
+        updateInfoPanel(null, false);
+      }
+    });
+    
+    // Zoom functionality
+    if (viewport && content) {
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newScale = Math.max(minScale, Math.min(maxScale, currentScale + delta));
+        
+        if (newScale !== currentScale) {
+          currentScale = newScale;
+          content.style.transform = `scale(${currentScale}) translate(${currentX}px, ${currentY}px)`;
+        }
+      }, { passive: false });
+      
+      // Pan functionality
+      viewport.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.cosmic-location, #info-panel')) return;
+        
+        isDragging = true;
+        startX = e.clientX - currentX;
+        startY = e.clientY - currentY;
+        viewport.style.cursor = 'grabbing';
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        currentX = e.clientX - startX;
+        currentY = e.clientY - startY;
+        content.style.transform = `scale(${currentScale}) translate(${currentX}px, ${currentY}px)`;
+      });
+      
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+        viewport.style.cursor = 'grab';
+      });
+    }
+    
+    // Initialize
+    setTimeout(() => {
+      createStars();
+      updateLocationStates();
+      rootElement.dataset.ready = "true";
+      
+      // Show initial selection if provided
+      if (currentSelectedSlug) {
+        const selectedLocation = rootElement.querySelector(`[data-slug="${currentSelectedSlug}"]`);
+        if (selectedLocation) {
+          const eventData = {
+            title: selectedLocation.dataset.title,
+            location: selectedLocation.dataset.location,
+            era: selectedLocation.dataset.era,
+            description: 'Event details...',
+            isKeyEvent: selectedLocation.querySelector('.location-marker').classList.contains('w-6')
+          };
+          updateInfoPanel(eventData, true);
+        }
+      }
+    }, 100);
+  }
+</script>
+
+<style>
+  .universe-map {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  .universe-viewport {
+    background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 40%, #0f0f23 100%);
+  }
+  
+  .location-marker {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .cosmic-location:hover .location-marker {
+    transform: scale(1.25);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+  }
+  
+  .constellation-line {
+    stroke-dasharray: 2, 2;
+    animation: constellation-flow 4s linear infinite;
+  }
+  
+  @keyframes constellation-flow {
+    0% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: 4; }
+  }
+  
+  .bg-gradient-radial {
+    background: radial-gradient(circle, var(--tw-gradient-stops));
+  }
+  
+  /* Custom scrollbar */
+  .universe-viewport::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .universe-viewport {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Stars animation */
+  .stars-layer-1 div,
+  .stars-layer-2 div,
+  .stars-layer-3 div {
+    animation: twinkle 3s infinite;
+  }
+  
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 1; }
+  }
+</style>

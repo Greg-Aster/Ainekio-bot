@@ -1,0 +1,11 @@
+---
+import SharedFooter from '@ainekio/blog-core/components/Footer.astro'
+import { profileConfig } from '../config/config'
+import { url } from '../utils/url-utils'
+---
+
+<SharedFooter
+  profileName={profileConfig.name}
+  rssUrl={url('rss.xml')}
+  sitemapUrl={url('sitemap-index.xml')}
+/>

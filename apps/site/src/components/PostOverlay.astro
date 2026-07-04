@@ -1,0 +1,89 @@
+---
+// PostOverlay.astro - Create this file in src/components/PostOverlay.astro
+import { Icon } from 'astro-icon/components';
+
+interface Props {
+  title?: string;
+}
+
+const { title = "" } = Astro.props;
+---
+
+<!-- This overlay needs to be outside the main content and positioned fixed to cover everything -->
+<div id="post-overlay" class="fixed inset-0 z-[200] bg-white dark:bg-gray-900 overflow-y-auto transform translate-y-full transition-transform duration-500 opacity-0 pointer-events-none">
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="flex justify-between items-center mb-6 sticky top-0 bg-white dark:bg-gray-900 py-4 z-10">
+      <h1 class="text-2xl md:text-3xl font-bold">{title}</h1>
+      <button id="close-overlay" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        <Icon name="material-symbols:close-rounded" class="text-2xl" />
+      </button>
+    </div>
+    
+    <div id="overlay-content" class="prose dark:prose-invert max-w-none">
+      <slot />
+    </div>
+  </div>
+</div>
+
+<script>
+  // Define types for window extensions
+  declare global {
+    interface Window {
+      openPostOverlay?: () => void;
+      closePostOverlay?: () => void;
+    }
+  }
+
+  const overlay = document.getElementById('post-overlay');
+  const closeButton = document.getElementById('close-overlay');
+  
+  // Handle close button click
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      if (overlay) {
+        overlay.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+        overlay.classList.remove('translate-y-0', 'opacity-100');
+        
+        // Re-enable scrolling on the body
+        document.body.classList.remove('overflow-hidden');
+      }
+    });
+  }
+  
+  // Handle ESC key to close overlay
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && overlay && !overlay.classList.contains('translate-y-full')) {
+      overlay.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+      overlay.classList.remove('translate-y-0', 'opacity-100');
+      
+      // Re-enable scrolling on the body
+      document.body.classList.remove('overflow-hidden');
+    }
+  });
+  
+  // Expose a function to open the overlay
+  window.openPostOverlay = () => {
+    if (overlay) {
+      // Reset scroll position
+      overlay.scrollTop = 0;
+      
+      // Show overlay
+      overlay.classList.remove('translate-y-full', 'opacity-0', 'pointer-events-none');
+      overlay.classList.add('translate-y-0', 'opacity-100');
+      
+      // Disable scrolling on the body
+      document.body.classList.add('overflow-hidden');
+    }
+  };
+  
+  // Expose a function to close the overlay
+  window.closePostOverlay = () => {
+    if (overlay) {
+      overlay.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+      overlay.classList.remove('translate-y-0', 'opacity-100');
+      
+      // Re-enable scrolling on the body
+      document.body.classList.remove('overflow-hidden');
+    }
+  };
+</script>

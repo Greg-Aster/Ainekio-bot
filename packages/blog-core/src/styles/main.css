@@ -1,0 +1,803 @@
+@tailwind components;
+
+@layer components {
+    /* PostCard image fix - override ImageWrapper's object-cover */
+    .postcard-image-fix img {
+        object-fit: contain !important;
+    }
+
+    /* ===================================================================
+     * GLOBAL CSS CUSTOM PROPERTIES - SINGLE SOURCE OF TRUTH
+     * ===================================================================
+     */
+    :root {
+        /* 🎯 TRANSPARENCY & OPACITY SYSTEM */
+        --bg-opacity: 0.85; /* Default transparency value */
+        --card-border-opacity: 0.2; /* Default opacity for general cards */
+        --card-border-subtle-opacity: 0.1; /* Subtle border opacity */
+
+        /* 🎯 TIMELINE BANNER SPECIFIC */
+        --timeline-banner-border-line-opacity: 0.3;
+        --timeline-banner-glow-opacity: 0.7;
+
+        /* 🎯 DESIGN SYSTEM COLORS - Enhanced for consistency */
+        --primary: #007bff;
+        --primary-hover: #0056b3;
+        --primary-rgb: 0, 123, 255;
+        --hue: 210; /* Base hue for color calculations */
+
+        /* 🎯 SURFACE COLORS - Light mode */
+        --card-bg: oklch(0.98 0.01 var(--hue));
+        --text-color: oklch(0.2 0.01 var(--hue));
+        --border-color: oklch(0.8 0.01 var(--hue));
+        --surface-1: oklch(0.95 0.01 var(--hue));
+        --surface-2: oklch(0.92 0.02 var(--hue));
+        --input-bg: oklch(0.96 0.01 var(--hue));
+        --input-border-color: oklch(0.7 0.01 var(--hue));
+        --text-on-primary: oklch(0.98 0.01 var(--hue));
+        --text-color-muted: oklch(0.5 0.01 var(--hue));
+
+        /* 🎯 RESPONSIVE SPACING - Tailwind-aligned */
+        --radius-large: 0.75rem; /* Tailwind lg rounded */
+        --spacing-panel: 5.25rem; /* Standard panel offset */
+
+        /* 🎯 LAYOUT - Responsive page width */
+        --page-width: 1280px; /* Default max width for content */
+
+        /* 🎯 ANIMATION TIMINGS - Consistent across site */
+        --transition-fast: 0.15s ease;
+        --transition-normal: 0.3s ease;
+        --transition-slow: 0.5s ease;
+    }
+
+    /* 🎯 RESPONSIVE PAGE WIDTH - Adjust for different screen sizes */
+    @media (min-width: 1536px) {
+        :root {
+            --page-width: 1536px; /* Larger width for 2xl screens */
+        }
+    }
+
+    @media (min-width: 1920px) {
+        :root {
+            --page-width: 1920px; /* Even larger for very wide screens */
+        }
+    }
+    
+    /* 🎯 DARK MODE - Automatic system preference */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: oklch(0.15 0.01 var(--hue));
+            --text-color: oklch(0.9 0.01 var(--hue));
+            --border-color: oklch(0.3 0.01 var(--hue));
+            --surface-1: oklch(0.2 0.01 var(--hue));
+            --surface-2: oklch(0.25 0.02 var(--hue));
+            --input-bg: oklch(0.18 0.01 var(--hue));
+            --input-border-color: oklch(0.4 0.01 var(--hue));
+            --text-on-primary: oklch(0.98 0.01 var(--hue));
+            --text-color-muted: oklch(0.6 0.01 var(--hue));
+        }
+    }
+
+    /* ===================================================================
+     * ⭐ NEW: MOBILE TIMELINE INTERACTION SYSTEM
+     * ===================================================================
+     */
+    
+    /* 🎯 Timeline mobile wrapper - ensure full dimensions */
+    #timeline-mobile-wrapper {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    
+    /* 🎯 Timeline mobile wrapper - inactive state (default) */
+    .timeline-mobile-inactive {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* Only apply mobile interaction on small screens */
+    @media (max-width: 767px) {
+        .timeline-mobile-inactive {
+            pointer-events: none; /* Disable all interactions by default */
+        }
+        
+        .timeline-mobile-inactive .timeline-mobile-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            pointer-events: auto; /* Allow clicking on the indicator */
+            cursor: pointer;
+        }
+        
+        .timeline-tap-hint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: pulse-hint 2s infinite;
+        }
+        
+        @keyframes pulse-hint {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        
+        /* 🎯 Timeline mobile wrapper - active state - only in timeline banner context */
+        .has-timeline-banner .timeline-mobile-active {
+            pointer-events: auto; /* Enable all interactions when active */
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .has-timeline-banner .timeline-mobile-active::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--primary), var(--primary-hover));
+            border-radius: 0.5rem;
+            z-index: -1;
+            opacity: 0.7;
+            animation: timeline-glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes timeline-glow {
+            from { box-shadow: 0 0 5px var(--primary); }
+            to { box-shadow: 0 0 20px var(--primary), 0 0 30px var(--primary); }
+        }
+        
+        .has-timeline-banner .timeline-mobile-active .timeline-mobile-indicator {
+            display: none; /* Hide tap hint when active */
+        }
+    }
+    
+    /* 🎯 Desktop behavior - always active, no mobile interaction wrapper */
+    @media (min-width: 768px) {
+        .has-timeline-banner .timeline-mobile-inactive,
+        .has-timeline-banner .timeline-mobile-active {
+            pointer-events: auto; /* Always interactive on desktop */
+            width: 100%;
+            height: 100%;
+        }
+        
+        .has-timeline-banner .timeline-mobile-indicator {
+            display: none !important; /* Never show mobile hint on desktop */
+        }
+    }
+
+    /* ===================================================================
+     * ⭐ SIMPLIFIED: FULLSCREEN MODE - MOBILE ONE-COLUMN FRIENDLY
+     * ===================================================================
+     */
+    
+    /* 🎯 FULLSCREEN MODE - Banner adjustments */
+    .force-mobile-view #banner-container {
+        /* Ensure banner uses full width */
+        width: 100vw !important;
+        margin-left: calc(-50vw + 50%) !important;
+    }
+    
+    /* 🎯 FULLSCREEN MODE - Main panel wrapper adjustments */
+    .force-mobile-view #main-panel-wrapper {
+        /* Remove max-width constraints */
+        max-width: none !important;
+        width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    
+    /* 🎯 FULLSCREEN MODE - Content wrapper adjustments */
+    .force-mobile-view #main-content-wrapper {
+        /* Ensure content can use full width */
+        width: 100% !important;
+        max-width: none !important;
+    }
+    
+    /* 🎯 FULLSCREEN MODE - Navbar adjustments */
+    .force-mobile-view #navbar-wrapper {
+        /* Ensure navbar spans full width */
+        width: 100vw !important;
+        margin-left: calc(-50vw + 50%) !important;
+    }
+    
+    .force-mobile-view #top-row {
+        /* Remove max-width from top row */
+        max-width: none !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* 🎯 FULLSCREEN MODE - TOC Visibility */
+    .force-mobile-view #toc-wrapper {
+        /* Hide table of contents in fullscreen mode */
+        display: none !important;
+    }
+
+    /* ===================================================================
+     * ⭐ SIMPLIFIED: BANNER SYSTEM - USES WORKING INLINE STYLES
+     * ===================================================================
+     */
+    
+    /* Banner aspect containers - simple structure that works with restored system */
+    .banner-aspect-container {
+        position: relative;
+        width: 100%;
+        max-width: clamp(100vw, 90vw, 85vw);
+        margin: 0 auto;
+        padding: 0 clamp(0.0vw, 0vw, 4vw);
+    }
+    
+    .banner-aspect-container::before {
+        content: '';
+        display: block;
+        padding-bottom: 56.25%; /* Standard 16:9 aspect ratio */
+    }
+    
+    .banner-content-wrapper {
+        position: absolute;
+        top: 0;
+        left: clamp(0.0vw, 0vw, 4vw);
+        right: clamp(0.0vw, 0vw, 4vw);
+        bottom: 0;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    /* ===================================================================
+     * CARD SYSTEM - UNIFIED DESIGN COMPONENTS
+     * ===================================================================
+     */
+    .card-base {
+        @apply rounded-xl overflow-hidden transition-all duration-300;
+        background-color: color-mix(in srgb, var(--card-bg), transparent calc((1 - var(--bg-opacity)) * 100%));
+        backdrop-filter: blur(3px);
+        box-sizing: border-box;
+        border: none;
+        box-shadow:
+            inset 0 0 0 2px transparent,
+            inset 0 0 0 2px color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 100%), transparent),
+            inset 0 0 5px 3px color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 70%), transparent),
+            inset 0 0 7px 3px color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 40%), transparent);
+    }
+
+    .card-base2 {
+        @apply rounded-xl overflow-hidden transition-all duration-300;
+        background-color: color-mix(in srgb, var(--card-bg), transparent calc((1 - var(--bg-opacity)) * 100%));
+        backdrop-filter: blur(3px);
+        box-sizing: border-box;
+        border: 1px solid color-mix(in srgb, var(--primary) calc(var(--card-border-subtle-opacity) * 100%), transparent);
+    }
+
+    /* ===================================================================
+     * TYPOGRAPHY SYSTEM - CONSISTENT TEXT UTILITIES
+     * ===================================================================
+     */
+    h1, h2, h3, h4, h5, h6, p, a, span, li, ul, ol, blockquote, code, pre, table, th, td, strong {
+        transition: color var(--transition-fast);
+    }
+
+    /* 🎯 TEXT OPACITY UTILITIES - Tailwind-aligned naming */
+    .text-90 { @apply text-black/90 dark:text-white/90; }
+    .text-75 { @apply text-black/75 dark:text-white/75; }
+    .text-50 { @apply text-black/50 dark:text-white/50; }
+    .text-30 { @apply text-black/30 dark:text-white/30; }
+    .text-25 { @apply text-black/25 dark:text-white/25; }
+
+    /* ===================================================================
+     * ANIMATION SYSTEM - CONSISTENT & PERFORMANT
+     * ===================================================================
+     */
+    .expand-animation {
+        @apply relative z-0 transition-all duration-300;
+        
+        &::before {
+            @apply absolute inset-0 -z-10 rounded-[inherit] transition-all duration-300 ease-out;
+            content: '';
+            transform: scale(0.85);
+            background: transparent;
+        }
+        
+        &:hover::before {
+            transform: scale(1);
+            background: var(--btn-plain-bg-hover);
+        }
+        
+        &:active::before {
+            background: var(--btn-plain-bg-active);
+        }
+    }
+
+    /* 🎯 ONLOAD ANIMATION - Consistent page loading */
+    .onload-animation {
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity var(--transition-slow), transform var(--transition-slow);
+    }
+    
+    .onload-animation.loaded {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* ===================================================================
+     * LINK SYSTEM - SIMPLIFIED & CONSISTENT
+     * ===================================================================
+     */
+    .link {
+        @apply transition-all duration-200 rounded-md p-1 -m-1;
+        @extend .expand-animation;
+    }
+    
+    .link-lg {
+        @apply transition-all duration-200 rounded-md p-1.5 -m-1.5;
+        @extend .expand-animation;
+    }
+
+    .link-underline {
+        @apply transition-all duration-200 underline decoration-2 decoration-dashed underline-offset-1;
+        text-decoration-color: var(--link-underline);
+        
+        &:hover { text-decoration-color: var(--link-hover); }
+        &:active { text-decoration-color: var(--link-active); }
+    }
+
+    /* ===================================================================
+     * BUTTON SYSTEM - UNIFIED & RESPONSIVE
+     * ===================================================================
+     */
+    .btn-card {
+        @apply transition-all duration-200 flex items-center justify-center;
+        background-color: var(--card-bg);
+        
+        &:hover { background-color: var(--btn-card-bg-hover); }
+        &:active { background-color: var(--btn-card-bg-active); }
+        &.disabled { @apply pointer-events-none text-black/10 dark:text-white/10; }
+    }
+
+    .btn-plain {
+        @apply transition-all duration-200 relative flex items-center justify-center bg-transparent;
+        @apply text-black/75 dark:text-white/75;
+        
+        &:hover {
+            color: var(--primary);
+        }
+        
+        &:not(.scale-animation) {
+            &:hover { background-color: var(--btn-plain-bg-hover); }
+            &:active { background-color: var(--btn-plain-bg-active); }
+        }
+        
+        &.scale-animation {
+            @extend .expand-animation;
+            
+            &.current-theme-btn {
+                color: var(--primary);
+                
+                &::before {
+                    transform: scale(1);
+                    opacity: 1;
+                    background: var(--btn-plain-bg-hover);
+                }
+            }
+        }
+    }
+
+    .btn-regular {
+        @apply transition-all duration-200 flex items-center justify-center;
+        background-color: var(--btn-regular-bg);
+        color: var(--btn-content);
+        
+        &:hover { background-color: var(--btn-regular-bg-hover); }
+        &:active { background-color: var(--btn-regular-bg-active); }
+        
+        @apply dark:text-white/75;
+    }
+
+    .btn-regular-dark {
+        @apply flex items-center justify-center transition-all duration-200;
+        background: oklch(0.45 0.01 var(--hue));
+        
+        &:hover { background: oklch(0.50 0.01 var(--hue)); }
+        &:active { background: oklch(0.55 0.01 var(--hue)); }
+        
+        @media (prefers-color-scheme: dark) {
+            background: oklch(0.30 0.02 var(--hue));
+            
+            &:hover { background: oklch(0.35 0.03 var(--hue)); }
+            &:active { background: oklch(0.40 0.03 var(--hue)); }
+        }
+        
+        &.success {
+            background: oklch(0.75 0.14 var(--hue)) !important;
+        }
+    }
+
+    /* ===================================================================
+     * PANEL SYSTEM - CONSISTENT POSITIONING
+     * ===================================================================
+     */
+    .float-panel {
+        @apply rounded-xl overflow-hidden shadow-xl transition-all duration-300;
+        @apply dark:shadow-none;
+        top: var(--spacing-panel);
+        background-color: var(--float-panel-bg);
+    }
+    
+    .float-panel-closed {
+        @apply -translate-y-1 opacity-0 pointer-events-none;
+    }
+
+    /* ⭐ SIDENAV PANEL SYSTEM - ENHANCED */
+    .sidenav-panel {
+        @apply opacity-0 -translate-x-4 pointer-events-none transition-all duration-200 ease-in-out;
+        @apply fixed z-[100] card-base shadow-lg rounded-lg;
+    }
+    
+    .sidenav-panel.panel-open {
+        @apply opacity-100 translate-x-0 pointer-events-auto;
+    }
+
+    /* ===================================================================
+     * SEARCH SYSTEM - CONSISTENT HIGHLIGHTING
+     * ===================================================================
+     */
+    .search-panel mark {
+        @apply bg-transparent;
+        color: var(--primary);
+    }
+
+    /* ===================================================================
+     * TABLE OF CONTENTS SYSTEM - SMOOTH BEHAVIOR
+     * ===================================================================
+     */
+    .toc-hide,
+    .toc-not-ready {
+        @apply opacity-0 pointer-events-none;
+    }
+    
+    #toc-wrapper {
+        transition: opacity var(--transition-normal);
+    }
+    
+    #toc-inner-wrapper {
+        mask-image: linear-gradient(
+            to bottom, 
+            transparent 0%, 
+            black 2rem, 
+            black calc(100% - 2rem), 
+            transparent 100%
+        );
+    }
+
+    /* ===================================================================
+     * HUE SLIDER SYSTEM - ENHANCED
+     * ===================================================================
+     */
+    .hue-gradient {
+        background: linear-gradient(to bottom, 
+            hsl(360, 100%, 50%), 
+            hsl(300, 100%, 50%), 
+            hsl(240, 100%, 50%), 
+            hsl(180, 100%, 50%), 
+            hsl(120, 100%, 50%), 
+            hsl(60, 100%, 50%), 
+            hsl(0, 100%, 50%));
+    }
+    
+    .hue-slider {
+        writing-mode: vertical-lr;
+        direction: rtl;
+        -webkit-appearance: slider-vertical;
+    }
+    
+    .hue-thumb {
+        top: calc((360 - 230)/360 * 100% - 1px);
+        transition: top 0.1s ease;
+    }
+
+    /* ===================================================================
+     * UTILITY CLASSES - ESSENTIAL HELPERS
+     * ===================================================================
+     */
+    .hide-scrollbar {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .collapsed {
+        height: var(--collapsedHeight);
+    }
+
+    /* ===================================================================
+     * ICON SYSTEM - CONSISTENT ICON STYLING
+     * ===================================================================
+     */
+    .meta-icon {
+        @apply w-8 h-8 transition-all duration-200 rounded-md flex items-center justify-center mr-2;
+        background-color: var(--btn-regular-bg);
+        color: var(--btn-content);
+    }
+
+    .with-divider {
+        @apply before:ml-1.5 before:mr-1.5 before:text-sm before:font-medium;
+        @apply before:first-of-type:hidden before:transition-colors before:duration-200;
+        
+        &::before {
+            content: '/';
+            color: var(--meta-divider);
+        }
+    }
+
+    /* ===================================================================
+     * COPY BUTTON SYSTEM - FEEDBACK STATES
+     * ===================================================================
+     */
+    .copy-btn-icon {
+        @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
+        transition: opacity var(--transition-fast);
+    }
+    
+    .copy-btn .copy-icon {
+        @apply opacity-100 fill-white dark:fill-white/75;
+    }
+    
+    .copy-btn.success .copy-icon {
+        @apply opacity-0;
+        fill: var(--deep-text);
+    }
+    
+    .copy-btn .success-icon {
+        @apply opacity-0;
+    }
+    
+    .copy-btn.success .success-icon {
+        @apply opacity-100;
+    }
+
+    /* ===================================================================
+     * VISUAL EFFECTS SYSTEM - ENHANCED AESTHETICS
+     * ===================================================================
+     */
+    .neon-text {
+        text-shadow: 
+            0 0 5px #fff, 
+            0 0 10px #fff, 
+            0 0 20px oklch(0.65 0.5 var(--hue)), 
+            0 0 40px oklch(0.65 0.5 var(--hue));
+        animation: glow 1.5s infinite alternate;
+    }
+    
+    @keyframes glow {
+        from {
+            text-shadow: 
+                0 0 5px #fff, 
+                0 0 10px #fff, 
+                0 0 20px oklch(0.65 0.5 var(--hue)), 
+                0 0 40px oklch(0.65 0.5 var(--hue));
+        }
+        to {
+            text-shadow: 
+                0 0 10px #fff, 
+                0 0 20px #fff, 
+                0 0 40px oklch(0.65 0.5 var(--hue)), 
+                0 0 80px oklch(0.65 0.5 var(--hue));
+        }
+    }
+
+    /* ===================================================================
+     * DECORATIVE ELEMENTS - DASH LINE
+     * ===================================================================
+     */
+    .dash-line {
+        position: relative;
+        
+        &::before {
+            content: "";
+            position: absolute;
+            width: 10%;
+            height: 100%;
+            left: calc(50% - 1px);
+            border-left: 2px dashed var(--line-color);
+            pointer-events: none;
+            transition: all var(--transition-normal);
+            transform: translateY(-50%);
+        }
+    }
+
+    /* ===================================================================
+     * FORM INPUT SYSTEM - BROWSER COMPATIBILITY
+     * ===================================================================
+     */
+    input:-webkit-autofill {
+        transition: color 9999s ease-out, background-color 9999s ease-out;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        input:-webkit-autofill {
+            -webkit-text-fill-color: oklch(0.85 0.01 var(--hue)) !important;
+            box-shadow: 0 0 0px 1000px oklch(0.25 0.01 var(--hue) / 0.7) inset !important;
+        }
+    }
+    
+    /* Firefox autofill support */
+    @-moz-document url-prefix() {
+        @media (prefers-color-scheme: dark) {
+            input:-moz-autofill {
+                color: oklch(0.85 0.01 var(--hue)) !important;
+                background-color: oklch(0.25 0.01 var(--hue) / 0.7) !important;
+            }
+        }
+    }
+
+    /* ===================================================================
+     * PARALLAX BACKGROUND SYSTEM - BANNER INTEGRATION
+     * ===================================================================
+     */
+    .parallax-bg {
+        @apply absolute top-0 left-0 w-full transition-opacity duration-300;
+        transform: translateZ(0);
+        height: 130vh;
+        opacity: 1;
+    }
+
+    /* Only apply will-change when actively scrolling */
+    .parallax-bg.is-scrolling {
+        will-change: transform;
+    }
+    
+    #parallax-banner {
+        @apply opacity-0 transition-opacity duration-500;
+        
+        &.loaded {
+            @apply opacity-100;
+        }
+    }
+
+    @keyframes fadeInParallax {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* ===================================================================
+     * PRODUCT CARD SYSTEM - ENHANCED INTERACTIONS
+     * ===================================================================
+     */
+    .product-card {
+        @apply transition-all duration-300;
+        
+        &.selected {
+            box-shadow: 
+                0 0 20px 7px var(--primary), 
+                0 0 10px 3px var(--primary-hover);
+            transform: scale(1.03);
+            z-index: 10;
+        }
+        
+        &.expanded {
+            .product-description-short {
+                @apply hidden;
+            }
+            
+            .product-description-full,
+            .product-additional-details {
+                @apply block opacity-100 overflow-visible;
+                max-height: 1000px;
+            }
+        }
+    }
+
+    .product-description-full,
+    .product-additional-details {
+        @apply hidden opacity-0 overflow-hidden;
+        max-height: 0;
+        transition: 
+            max-height 0.5s ease-in-out, 
+            opacity 0.5s ease-in-out;
+    }
+
+    /* ===================================================================
+     * ACCESSIBILITY & PERFORMANCE
+     * ===================================================================
+     */
+    
+    /* 🎯 REDUCED MOTION SUPPORT */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+        
+        .neon-text {
+            animation: none;
+        }
+        
+        .parallax-bg {
+            transform: none !important;
+        }
+        
+        /* Disable mobile timeline animations for reduced motion */
+        .timeline-tap-hint {
+            animation: none !important;
+        }
+        
+        .timeline-mobile-active::before {
+            animation: none !important;
+        }
+    }
+
+    /* 🎯 HIGH CONTRAST SUPPORT */
+    @media (prefers-contrast: high) {
+        .card-base,
+        .card-base2 {
+            border: 2px solid currentColor !important;
+        }
+        
+        .btn-plain:hover,
+        .btn-regular:hover {
+            outline: 2px solid currentColor !important;
+        }
+        
+        .timeline-mobile-active::before {
+            border: 2px solid currentColor !important;
+        }
+    }
+}
+
+/* ===================================================================
+ * GLOBAL STYLES OUTSIDE @layer - PRESERVED
+ * ===================================================================
+ */
+
+.custom-md img, 
+#post-cover img {
+    @apply cursor-zoom-in;
+}
+
+::selection {
+    background-color: var(--selection-bg);
+}
+
+/* ===================================================================
+ * ⭐ STREAMLINED: CLEAN MOBILE-FIRST RESPONSIVE SYSTEM
+ * ===================================================================
+ * 
+ * ✅ SIMPLIFIED TO SINGLE BREAKPOINT:
+ * - Mobile: One column layout, no sidebar, navbar always visible
+ * - Desktop (md+): Two column layout with sidebar
+ * 
+ * ✅ REMOVED COMPLEX GRID CSS:
+ * - No more conflicting grid styles
+ * - Clean separation: Tailwind classes handle layout, CSS handles styling
+ * 
+ * ✅ PRESERVED ALL FUNCTIONALITY:
+ * - All component styles, animations, effects intact  
+ * - Accessibility and performance optimizations kept
+ * - Dark mode, reduced motion, high contrast support preserved
+ * 
+ * ✅ RESULT:
+ * - Clean, maintainable mobile-first design
+ * - No layout conflicts or sudden shifts
+ * - Single md: breakpoint for consistent behavior
+ * ===================================================================
+ */

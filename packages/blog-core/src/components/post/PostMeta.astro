@@ -1,0 +1,92 @@
+---
+import { Icon } from 'astro-icon/components'
+import { formatDateToYYYYMMDD } from '../../utils/date-utils'
+import { getCategoryUrl, getTagUrl } from '../../utils/url-utils'
+
+interface Props {
+  class?: string
+  published: Date
+  updated?: Date
+  tags?: string[]
+  category?: string
+  showCategory?: boolean
+  showTags?: boolean
+  hideTagsForMobile?: boolean
+  hideUpdateDate?: boolean
+  uncategorizedLabel?: string
+  noTagsLabel?: string
+  baseUrl?: string
+}
+
+const {
+  published,
+  updated,
+  tags = [],
+  category = '',
+  showCategory = true,
+  showTags = true,
+  hideTagsForMobile = false,
+  hideUpdateDate = false,
+  uncategorizedLabel = 'Uncategorized',
+  noTagsLabel = 'No tags',
+  baseUrl = '',
+} = Astro.props
+
+const className = Astro.props.class
+---
+
+<div class:list={["flex flex-wrap text-neutral-500 dark:text-neutral-400 items-center gap-4 gap-x-4 gap-y-2", className]}>
+    <div class="flex items-center">
+        <div class="meta-icon">
+            <Icon name="material-symbols:calendar-today-outline-rounded" class="text-xl"></Icon>
+        </div>
+        <span class="text-50 text-sm font-medium">{formatDateToYYYYMMDD(published)}</span>
+    </div>
+
+    {!hideUpdateDate && updated && updated.getTime() !== published.getTime() && (
+        <div class="flex items-center">
+            <div class="meta-icon">
+                <Icon name="material-symbols:edit-calendar-outline-rounded" class="text-xl"></Icon>
+            </div>
+            <span class="text-50 text-sm font-medium">{formatDateToYYYYMMDD(updated)}</span>
+        </div>
+    )}
+
+    {showCategory && (
+      <div class="flex items-center">
+          <div class="meta-icon">
+              <Icon name="material-symbols:book-2-outline-rounded" class="text-xl"></Icon>
+          </div>
+          <div class="flex flex-row flex-nowrap items-center">
+              <a
+                href={getCategoryUrl(category || uncategorizedLabel, uncategorizedLabel, baseUrl)}
+                aria-label=`View all posts in the ${category || uncategorizedLabel} category`
+                class="link-lg transition text-50 text-sm font-medium hover:text-[var(--primary)] dark:hover:text-[var(--primary)] whitespace-nowrap"
+              >
+                  {category || uncategorizedLabel}
+              </a>
+          </div>
+      </div>
+    )}
+
+    {showTags && (
+      <div class:list={["items-center", {"flex": !hideTagsForMobile, "hidden md:flex": hideTagsForMobile}]}>
+          <div class="meta-icon">
+              <Icon name="material-symbols:tag-rounded" class="text-xl"></Icon>
+          </div>
+          <div class="flex flex-row flex-nowrap items-center">
+              {(tags && tags.length > 0) && tags.map((tag, i) => (
+                  <div class:list={[{"hidden": i == 0}, "mx-1.5 text-[var(--meta-divider)] text-sm"]}>/</div>
+                  <a
+                    href={getTagUrl(tag, baseUrl)}
+                    aria-label=`View all posts with the ${tag} tag`
+                    class="link-lg transition text-50 text-sm font-medium hover:text-[var(--primary)] dark:hover:text-[var(--primary)] whitespace-nowrap"
+                  >
+                      {tag}
+                  </a>
+              ))}
+              {!(tags && tags.length > 0) && <div class="transition text-50 text-sm font-medium">{noTagsLabel}</div>}
+          </div>
+      </div>
+    )}
+</div>

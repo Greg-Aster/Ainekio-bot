@@ -1,0 +1,386 @@
+---
+// src/components/timeline/TimelineViewModes/TreeView.astro
+import type { TimelineEvent } from '@/services/TimelineService.client'
+import {
+  getEraClasses,
+  getEraDisplayName,
+} from '@/services/TimelineService.client'
+
+export interface Props {
+  events?: TimelineEvent[]
+  background?: string
+  selectedEventSlug?: string | null
+}
+
+const {
+  events = [],
+  background = '/assets/banner/0001.png',
+  selectedEventSlug = null,
+} = Astro.props
+
+// Group events by era to create tree structure
+const groupedEvents = events.reduce(
+  (acc, event) => {
+    const era = event.era || 'unknown'
+    if (!acc[era]) {
+      acc[era] = []
+    }
+    acc[era].push(event)
+    return acc
+  },
+  {} as Record<string, TimelineEvent[]>,
+)
+
+// Sort eras and keep events in their original order within each era
+const sortedEras = Object.keys(groupedEvents).sort()
+// Note: Removed year sorting - events maintain their original chronological order
+
+const treeViewId = `tree-view-${Math.random().toString(36).substring(2, 9)}`
+---
+
+<div class="tree-view relative" id={treeViewId} data-ready="false">
+  <div class="absolute inset-0 -z-10 overflow-hidden">
+    <img src={background} alt="Timeline background" class="w-full h-full object-cover opacity-25" />
+    <div class="absolute inset-0 bg-gradient-to-r from-[oklch(0.35_0.05_var(--hue))] to-[oklch(0.25_0.05_var(--hue))] opacity-40 dark:opacity-30"></div>
+  </div>
+
+  <!-- Instructions Panel -->
+  <div class="absolute top-4 right-4 z-20 bg-black/80 text-white text-xs rounded-lg p-3 backdrop-blur-sm">
+    <div class="font-bold mb-1">Tree View Controls:</div>
+    <div>• Click once to select an event</div>
+    <div>• Click again to navigate to event</div>
+    <div>• Click era headers to expand/collapse</div>
+  </div>
+
+  <div class="relative z-10 overflow-y-auto scrollbar-timeline" style="max-height: calc(100vh - 160px);">
+    <div class="px-4 py-4">
+      <div class="tree-container">
+        {sortedEras.length > 0 ? (
+          sortedEras.map((era) => (
+            <div class="era-branch mb-6" data-era={era}>
+              <!-- Era Header (Root Node) -->
+              <button class="era-header flex items-center text-left w-full p-3 rounded-lg bg-[var(--card-bg)]/80 hover:bg-[var(--card-bg)] transition-all border-l-4 border-[var(--primary)]" data-era={era}>
+                <div class="era-icon mr-3 transition-transform duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-[var(--primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <div class="font-bold text-[var(--primary)] text-lg">{getEraDisplayName(era)}</div>
+                  <div class="text-50 text-sm">{groupedEvents[era].length} events</div>
+                </div>
+                <div class={`era-badge text-xs py-1 px-3 rounded-full ${getEraClasses(era)}`}>
+                  {getEraDisplayName(era)}
+                </div>
+              </button>
+
+              <!-- Era Events (Child Nodes) -->
+              <div class="era-events ml-8 mt-3 space-y-2 transition-all duration-300" data-era-content={era}>
+                <div class="tree-line absolute w-0.5 bg-[var(--primary)]/30 ml-2" style="height: 100%; top: 0;"></div>
+                
+                {groupedEvents[era].map((event, eventIndex) => (
+                  <button
+                    class:list={[
+                      "event-node relative flex items-start text-left w-full p-3 rounded-lg transition-all duration-200",
+                      "hover:bg-[var(--card-bg)]/60 hover:shadow-md hover:translate-x-1",
+                      "border border-transparent hover:border-[var(--primary)]/20",
+                      selectedEventSlug === event.slug ? 'selected-event bg-[var(--primary)]/10 border-[var(--primary)]/50 shadow-lg' : 'bg-[var(--card-bg)]/40'
+                    ]}
+                    data-event-slug={event.slug}
+                    data-event-title={event.title}
+                    data-era={era}
+                    style={`transition-delay: ${eventIndex * 50}ms;`}
+                  >
+                    <!-- Connection Line to Parent -->
+                    <div class="tree-connector absolute -left-8 top-1/2 w-6 h-0.5 bg-[var(--primary)]/30"></div>
+                    
+                    <!-- Event Node Circle -->
+                    <div class="event-circle flex-shrink-0 mr-3 mt-1">
+                      <div class:list={[
+                        "rounded-full transition-all duration-200",
+                        event.isKeyEvent 
+                          ? 'w-4 h-4 bg-[var(--primary)] shadow-lg shadow-[var(--primary)]/50' 
+                          : 'w-3 h-3 border-2 border-[var(--primary)] bg-[var(--card-bg)]',
+                        selectedEventSlug === event.slug ? 'ring-2 ring-[var(--primary)]/50 ring-offset-1 ring-offset-[var(--card-bg)]' : ''
+                      ]}></div>
+                    </div>
+
+                    <!-- Event Content -->
+                    <div class="event-content flex-1 min-w-0">
+                      <div class="flex items-center mb-2 flex-wrap gap-2">
+                        {event.isKeyEvent && (
+                          <span class="key-event-badge bg-[var(--primary)] text-white text-xs font-bold py-0.5 px-2 rounded-full">
+                            Key Event
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div class="event-title font-semibold text-90 mb-1 leading-tight">
+                        {event.title}
+                      </div>
+                      
+                      <div class="event-description text-75 text-sm leading-relaxed mb-2">
+                        {event.description}
+                      </div>
+                      
+                      {event.location && (
+                        <div class="event-location flex items-center text-xs text-[var(--primary)] mt-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                          </svg>
+                          <span class="truncate">{event.location}</span>
+                        </div>
+                      )}
+
+                      <!-- Selection Indicator -->
+                      {selectedEventSlug === event.slug && (
+                        <div class="selection-indicator text-xs text-[var(--primary)] font-medium mt-2 flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Selected • Click again to view
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div class="flex flex-col items-center justify-center py-10 text-center card-base p-8 mt-10">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-[var(--primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <div class="text-75 font-bold mt-4">No timeline events found</div>
+            <div class="text-50 text-sm mt-2">
+              Add timelineYear to your posts to see them in this timeline tree
+            </div>
+          </div>
+        )}
+      </div>
+      <div class="h-20"></div> {/* Bottom padding */}
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ treeViewId, initialSelectedSlug: selectedEventSlug }}>
+  const rootElement = document.getElementById(treeViewId);
+  let currentSelectedSlug = initialSelectedSlug;
+
+  if (rootElement) {
+    console.log("TreeView.astro script loaded for:", treeViewId);
+
+    // Animation and setup on mount
+    setTimeout(() => {
+      rootElement.dataset.ready = "true";
+      
+      // Initialize collapsed state for eras
+      const eraHeaders = rootElement.querySelectorAll('.era-header');
+      const eraContents = rootElement.querySelectorAll('[data-era-content]');
+      
+      // Start with all eras expanded, but add collapse functionality
+      eraHeaders.forEach((header, index) => {
+        const eraContent = eraContents[index];
+        const icon = header.querySelector('.era-icon svg');
+        
+        // Set initial state - expanded
+        if (eraContent) {
+          eraContent.style.maxHeight = eraContent.scrollHeight + 'px';
+          eraContent.style.opacity = '1';
+        }
+      });
+    }, 100);
+
+    // Era header click handler (expand/collapse)
+    rootElement.addEventListener('click', (e) => {
+      const eraHeader = e.target.closest('.era-header');
+      if (eraHeader) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const era = eraHeader.dataset.era;
+        const eraContent = rootElement.querySelector(`[data-era-content="${era}"]`);
+        const icon = eraHeader.querySelector('.era-icon svg');
+        
+        if (eraContent && icon) {
+          const isExpanded = eraContent.style.maxHeight !== '0px';
+          
+          if (isExpanded) {
+            // Collapse
+            eraContent.style.maxHeight = '0px';
+            eraContent.style.opacity = '0';
+            icon.style.transform = 'rotate(-90deg)';
+          } else {
+            // Expand
+            eraContent.style.maxHeight = eraContent.scrollHeight + 'px';
+            eraContent.style.opacity = '1';
+            icon.style.transform = 'rotate(0deg)';
+          }
+        }
+        return;
+      }
+
+      // Event node click handler
+      const eventNode = e.target.closest('.event-node');
+      if (eventNode) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const slug = eventNode.dataset.eventSlug;
+        const title = eventNode.dataset.eventTitle;
+
+        if (currentSelectedSlug === slug) {
+          // Second click on already selected event - navigate
+          console.log(`TreeView: Navigating to /posts/${slug}/ (selected event clicked again)`);
+          window.location.href = `/posts/${slug}/`;
+          return;
+        }
+
+        // First click - select the event
+        console.log(`TreeView: Selecting event - ${title} (${slug})`);
+        
+        // Update selection state
+        rootElement.querySelectorAll('.event-node').forEach(node => {
+          node.classList.remove('selected-event', 'bg-[var(--primary)]/10', 'border-[var(--primary)]/50', 'shadow-lg');
+          node.classList.add('bg-[var(--card-bg)]/40');
+          
+          // Remove selection indicators
+          const indicator = node.querySelector('.selection-indicator');
+          if (indicator) {
+            indicator.remove();
+          }
+          
+          // Remove ring effect from circles
+          const circle = node.querySelector('.event-circle > div');
+          if (circle) {
+            circle.classList.remove('ring-2', 'ring-[var(--primary)]/50', 'ring-offset-1', 'ring-offset-[var(--card-bg)]');
+          }
+        });
+        
+        // Apply selection to clicked event
+        eventNode.classList.add('selected-event', 'bg-[var(--primary)]/10', 'border-[var(--primary)]/50', 'shadow-lg');
+        eventNode.classList.remove('bg-[var(--card-bg)]/40');
+        
+        // Add ring effect to circle
+        const circle = eventNode.querySelector('.event-circle > div');
+        if (circle) {
+          circle.classList.add('ring-2', 'ring-[var(--primary)]/50', 'ring-offset-1', 'ring-offset-[var(--card-bg)]');
+        }
+        
+        // Add selection indicator
+        const eventContent = eventNode.querySelector('.event-content');
+        if (eventContent && !eventContent.querySelector('.selection-indicator')) {
+          const indicator = document.createElement('div');
+          indicator.className = 'selection-indicator text-xs text-[var(--primary)] font-medium mt-2 flex items-center';
+          indicator.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Selected • Click again to view
+          `;
+          eventContent.appendChild(indicator);
+        }
+        
+        currentSelectedSlug = slug;
+        
+        // Dispatch selection event for external listeners
+        const selectEvent = new CustomEvent('tree:select', {
+          detail: { 
+            slug, 
+            title,
+            era: eventNode.dataset.era 
+          },
+          bubbles: true,
+          composed: true
+        });
+        rootElement.dispatchEvent(selectEvent);
+      }
+    });
+
+    // Double-click as backup navigation method
+    rootElement.addEventListener('dblclick', (e) => {
+      const eventNode = e.target.closest('.event-node');
+      if (eventNode) {
+        const slug = eventNode.dataset.eventSlug;
+        console.log(`TreeView: Double-click navigation to /posts/${slug}/`);
+        window.location.href = `/posts/${slug}/`;
+      }
+    });
+  }
+</script>
+
+<style>
+  .tree-view {
+    font-family: inherit;
+  }
+
+  .era-events {
+    position: relative;
+  }
+
+  .tree-line {
+    left: 8px;
+  }
+
+  .tree-connector {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .event-node {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .event-node:hover .event-circle > div {
+    transform: scale(1.1);
+  }
+
+  .selected-event {
+    transform: translateX(4px);
+  }
+
+  .selection-indicator {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* Smooth transitions for era collapse/expand */
+  [data-era-content] {
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    overflow: hidden;
+  }
+
+  .era-icon svg {
+    transition: transform 0.2s ease-in-out;
+  }
+
+  /* Custom scrollbar for timeline */
+  .scrollbar-timeline::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-timeline::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-timeline::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+    opacity: 0.3;
+  }
+
+  .scrollbar-timeline::-webkit-scrollbar-thumb:hover {
+    opacity: 0.6;
+  }
+</style>

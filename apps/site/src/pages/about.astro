@@ -1,0 +1,186 @@
+---
+import MainGridLayout from '../layouts/MainGridLayout.astro';
+import { getEntry, getCollection } from 'astro:content';
+import { i18n } from '../i18n/translation';
+import I18nKey from '../i18n/i18nKey';
+import Markdown from '@components/misc/Markdown.astro';
+import { Icon } from 'astro-icon/components';
+import { collections } from '../content.config';
+import TOC from '@components/widget/TOC.astro'; // Import the TOC widget
+import { aboutConfig } from '../config/about.config';
+
+// Fetch the about content
+const aboutPost = await getEntry('spec', 'about');
+if (!aboutPost) {
+  throw new Error("About content not found in 'spec/about'");
+}
+const { Content, headings: aboutHeadings } = await aboutPost.render(); // Extract headings from the about content
+
+// Fetch team members
+const allTeamMembers = await getCollection('team');
+// Sort by order field (optional)
+const teamMembers = allTeamMembers.sort((a, b) => a.data.order - b.data.order);
+
+const processedTeamMembers = await Promise.all(
+  teamMembers.map(async (member) => {
+    const { Content: MemberContent } = await member.render();
+    return {
+      ...member.data,
+      slug: member.slug,
+      contentId: `member-content-${member.slug}`
+    };
+  })
+);
+
+// Helper function to get avatar shape class
+function getAvatarShapeClass(shape) {
+  switch(shape) {
+    case 'circle':
+      return 'rounded-full';
+    case 'rounded':
+      return 'rounded-lg';
+    case 'square':
+    default:
+      return '';
+  }
+}
+---
+
+<MainGridLayout 
+  title={i18n(I18nKey.about)} 
+  description={i18n(I18nKey.about)} 
+  headings={aboutConfig.content.showTableOfContents ? aboutHeadings : undefined}
+>
+  <!-- Team Section -->
+  {aboutConfig.team.enabled && (
+    <div id="team-section" class="card-base flex w-full rounded-[var(--radius-large)] overflow-hidden relative min-h-32 mb-4">
+      <div class="pl-6 md:pl-9 pr-6 md:pr-9 pt-6 md:pt-7 pb-6 w-full">
+        <h2 class="text-2xl font-bold text-90 mb-4 text-[var(--primary)] dark:text-[var(--primary)]">{aboutConfig.team.title}</h2>
+        {aboutConfig.team.description && (
+          <p class="text-neutral-600 dark:text-neutral-300 mb-4">{aboutConfig.team.description}</p>
+        )}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {processedTeamMembers.map((member, index) => (
+            <div class="team-member-card rounded-lg overflow-hidden transition-all hover:shadow-lg cursor-pointer"
+                 data-member-slug={member.slug}>
+              <img src={member.image} alt={member.name} class={`w-full h-64 object-cover ${getAvatarShapeClass(aboutConfig.team.avatarShape)}`} />
+              <div class="p-4">
+                <h3 class="text-xl font-bold text-90 mb-4 text-[var(--primary)] dark:text-[var(--primary)]">{member.name}</h3>
+                {aboutConfig.team.showRole && member.role && (
+                  <p class="text-sm text-neutral-400">{member.role}</p>
+                )}
+                {aboutConfig.team.showEmail && member.email && (
+                  <a href={`mailto:${member.email}`} class="text-[var(--primary)] hover:text-[var(--primary-dark)] block mt-2">{member.email}</a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )}
+
+  <!-- Dynamic Content Section (About/Team Member) -->
+  {aboutConfig.content.enabled && (
+    <div id="dynamic-content-section" class="card-base flex w-full rounded-[var(--radius-large)] overflow-hidden relative min-h-32 mb-4">
+      <div class="pl-6 md:pl-9 pr-6 md:pr-9 pt-6 md:pt-7 pb-6 w-full">
+        <h2 id="dynamic-section-title" class="text-2xl font-bold text-90 mb-4 text-[var(--primary)] dark:text-[var(--primary)]">{aboutConfig.content.defaultTitle}</h2>
+        <div id="about-content" class="mt-2">
+          <Markdown class="prose dark:prose-invert">
+            <Content />
+          </Markdown>
+        </div>
+        <div id="member-content" class="mt-2 hidden prose dark:prose-invert text-neutral-800 dark:text-neutral-200"></div>
+      </div>
+    </div>
+  )}
+
+  <!-- Hidden divs for each member's content -->
+  {teamMembers.map(async (member) => {
+    const { Content } = await member.render();
+    return (
+      <div id={`member-content-${member.slug}`} class="member-content-source prose dark:prose-invert text-neutral-800 dark:text-neutral-200" style="display: none;">
+        <Markdown class="prose dark:prose-invert">
+          <Content />
+        </Markdown>
+      </div>
+    );
+  })}
+
+  <!-- Contact Section -->
+  {aboutConfig.contact.enabled && (
+    <section class="card-base px-9 py-6 rounded-[var(--radius-large)]">
+      <h2 class="text-2xl font-bold text-90 mb-4 text-[var(--primary)] dark:text-[var(--primary)]">{aboutConfig.contact.title}</h2>
+      <div class="flex flex-col md:flex-row gap-8">
+        <div class="flex-1">
+          <p class="mtext-sm text-neutral-400">Have questions, ideas, or want to collaborate?</p>
+          <p class="mtext-sm text-neutral-400">We'd love to hear from you!</p>
+          <p class="mtext-sm text-neutral-400">Please Email</p>
+          <p class="mtext-sm text-neutral-400">Greg@dndiy.org</p>
+        </div>
+      </div>
+    </section>
+  )}
+</MainGridLayout>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const teamCards = document.querySelectorAll('.team-member-card');
+  const dynamicSectionTitle = document.getElementById('dynamic-section-title');
+  const aboutContent = document.getElementById('about-content');
+  const memberContent = document.getElementById('member-content');
+  
+  // Function to show the About Project content
+  const showAboutProject = () => {
+    if (dynamicSectionTitle) dynamicSectionTitle.textContent = 'About The Project';
+    if (aboutContent) aboutContent.classList.remove('hidden');
+    if (memberContent) memberContent.classList.add('hidden');
+    
+    // Remove active state from all cards
+    teamCards.forEach(card => {
+      card.classList.remove('ring-2', 'ring-[var(--primary)]');
+    });
+  };
+  
+  // Initialize with about project content
+  showAboutProject();
+  
+  // Add event listeners to team cards
+  teamCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      const slug = (card as HTMLElement).dataset.memberSlug;
+      if (!slug) return;
+      
+      // Update the section title with member name
+      const memberName = card.querySelector('h3')?.textContent || 'Team Member';
+      if (dynamicSectionTitle) dynamicSectionTitle.textContent = memberName;
+      
+      // Hide about content, show member content
+      if (aboutContent) aboutContent.classList.add('hidden');
+      if (memberContent) {
+        memberContent.classList.remove('hidden');
+        
+        // Get content from the hidden div and inject it
+        const contentElement = document.getElementById(`member-content-${slug}`);
+        
+        if (contentElement && memberContent) {
+          memberContent.innerHTML = contentElement.innerHTML;
+        }
+        
+        // Smooth scroll to content section
+        document.getElementById('dynamic-content-section')?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest' 
+        });
+      }
+      
+      // Add active state to the clicked card, remove from others
+      teamCards.forEach(c => {
+        c.classList.remove('ring-2', 'ring-[var(--primary)]');
+      });
+      card.classList.add('ring-2', 'ring-[var(--primary)]');
+    });
+  });
+});
+</script>

@@ -1,0 +1,21 @@
+{
+  "name": "ainekio-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter ainekio-site dev",
+    "build": "pnpm --filter ainekio-site build",
+    "preview": "pnpm --filter ainekio-site preview",
+    "build:all": "pnpm -r build",
+    "lint:all": "pnpm -r lint",
+    "format:all": "pnpm -r format",
+    "type-check:all": "pnpm -r type-check"
+  },
+  "devDependencies": {
+    "pnpm": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

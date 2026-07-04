@@ -1,0 +1,39 @@
+---
+// src/components/DynamicBannerObserver.astro
+export interface Props {
+  selector: string;
+  videoId: string;
+}
+
+const { selector, videoId } = Astro.props;
+---
+
+<script define:vars={{ selector, videoId }}>
+document.addEventListener('DOMContentLoaded', function() {
+  const targetSection = document.querySelector(selector);
+  
+  if (!targetSection) {
+    console.log('Target section not found:', selector);
+    return;
+  }
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        console.log('Target section is visible, changing banner...');
+        
+        // Use the banner manager if available
+        if (window.bannerManager) {
+          window.bannerManager.setVideoBanner(videoId);
+        } else {
+          console.log('Banner manager not available');
+        }
+        
+        observer.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+  
+  observer.observe(targetSection);
+});
+</script>

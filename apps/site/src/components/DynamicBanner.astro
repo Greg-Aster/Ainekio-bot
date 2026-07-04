@@ -1,0 +1,157 @@
+<!-- DynamicBanner.astro -->
+---
+import { Image } from 'astro:assets';
+import { BANNER_HEIGHT, BANNER_HEIGHT_MOBILE } from "../constants/constants";
+
+interface Props {
+  type: 'image' | 'video' | 'slideshow';
+  content: any; 
+  position?: 'top' | 'center' | 'bottom';
+  alt?: string;
+}
+
+const { type = 'image', content, position = 'center', alt = 'Banner content' } = Astro.props;
+
+// Handle different content types
+const isSlideshow = type === 'slideshow' && Array.isArray(content);
+const isVideo = type === 'video';
+const isImage = type === 'image' || (isSlideshow && content.length === 1);
+
+// Parse video URL for embed if needed
+let videoSrc = '';
+let videoProvider = '';
+if (isVideo && typeof content === 'string') {
+  if (content.includes('youtube.com') || content.includes('youtu.be')) {
+    videoProvider = 'youtube';
+    // Extract YouTube video ID
+    const match = content.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    if (match && match[1]) {
+      videoSrc = `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0`;
+    }
+  } else if (content.includes('vimeo.com')) {
+    videoProvider = 'vimeo';
+    // Extract Vimeo video ID
+    const match = content.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (match && match[1]) {
+      videoSrc = `https://player.vimeo.com/video/${match[1]}`;
+    }
+  } else {
+    // Assume it's a direct video file
+    videoSrc = content;
+  }
+}
+---
+
+<div id="dynamic-banner-wrapper" class="absolute z-10 w-full overflow-hidden transition-all duration-700" data-banner-type={type}>
+  {isImage && (
+    <div class="banner-image-container w-full h-full">
+      <img 
+        src={typeof content === 'string' ? content : content.src} 
+        alt={alt}
+        class="w-full h-full object-cover transition-opacity duration-700"
+        style={`object-position: center ${position};`}
+      />
+    </div>
+  )}
+
+  {isSlideshow && content.length > 1 && (
+    <div class="banner-slideshow-container w-full h-full">
+      {content.map((image, index) => (
+        <img
+          src={typeof image === 'string' ? image : image.src}
+          alt={`${alt} ${index + 1}`}
+          class={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+            index === 0 ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={`object-position: center ${position};`}
+          loading={index === 0 ? 'eager' : 'lazy'}
+        />
+      ))}
+    </div>
+  )}
+
+  {isVideo && (
+    <div class="banner-video-container w-full h-full flex items-center justify-center bg-black">
+      {videoProvider === 'youtube' || videoProvider === 'vimeo' ? (
+        <iframe 
+          src={videoSrc}
+          class="w-full h-full"
+          frameborder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen
+          title={alt}
+        ></iframe>
+      ) : (
+        <video 
+          src={videoSrc} 
+          class="w-full h-full object-cover"
+          controls
+          preload="metadata"
+          poster={typeof content === 'object' && content.poster ? content.poster : undefined}
+        >
+          Your browser does not support the video tag.
+        </video>
+      )}
+    </div>
+  )}
+</div>
+
+<style define:vars={{ 
+  bannerHeight: `${BANNER_HEIGHT}vh`, 
+  bannerHeightMobile: `${BANNER_HEIGHT_MOBILE}vh`,
+}}>
+  #dynamic-banner-wrapper {
+    height: var(--bannerHeight);
+  }
+
+  @media (max-width: 640px) {
+    #dynamic-banner-wrapper {
+      height: var(--bannerHeightMobile);
+    }
+  }
+
+  .banner-video-container iframe,
+  .banner-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+</style>
+
+<script>
+  // For slideshows - handles the automatic transitions
+  document.addEventListener('DOMContentLoaded', () => {
+    const bannerWrapper = document.getElementById('dynamic-banner-wrapper');
+    if (!bannerWrapper || bannerWrapper.getAttribute('data-banner-type') !== 'slideshow') return;
+    
+    const bannerImages = document.querySelectorAll('.banner-slideshow-container img');
+    if (bannerImages.length <= 1) return;
+    
+    let currentIndex = 0;
+    let direction = 1; // 1 = forward, -1 = backward
+  
+    function animateBanner() {
+      // Get the next image index
+      let nextIndex = (currentIndex + direction) % bannerImages.length;
+      if (nextIndex < 0) nextIndex = bannerImages.length - 1;
+  
+      // Fade in the next image
+      (bannerImages[nextIndex]as HTMLElement).style.opacity = '1';
+  
+      // Fade out the current image
+      setTimeout(() => {
+        (bannerImages[currentIndex]as HTMLElement).style.opacity = '0';
+      }, 100);
+  
+      // Update currentIndex
+      currentIndex = nextIndex;
+  
+      // Reverse direction at boundaries if needed
+      if (currentIndex >= bannerImages.length - 1) direction = -1;
+      if (currentIndex <= 0) direction = 1;
+    }
+  
+    // Start animation
+    setInterval(animateBanner, 5000);
+  });
+</script>

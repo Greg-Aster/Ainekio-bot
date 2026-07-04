@@ -1,0 +1,29 @@
+---
+import { h } from 'hastscript';
+
+// Define the component's props
+export interface Props {
+  title: string;
+  href: string;
+}
+
+// Destructure the props
+const { title, href } = Astro.props;
+---
+
+{
+  h(
+    'a',
+    {
+      class: 'card-bio',
+      href,
+      target: '_blank',
+    },
+    [
+      h('div', { class: 'bc-titlebar' }, [
+        h('div', { class: 'bc-title' }, title),
+      ]),
+      h('div', { class: 'bc-description' }, 'Click to view the expanded resume or bio.'),
+    ]
+  )
+}

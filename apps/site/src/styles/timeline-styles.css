@@ -1,0 +1,1162 @@
+@tailwind components;
+
+@layer components {
+    /* ===================================================================
+     * BANNER CSS CUSTOM PROPERTIES - 
+     * ===================================================================
+     */
+    :root {
+        /* Banner timing and animation properties - NEEDED BY SITE */
+        --banner-transition-duration: 0.4s;
+        --banner-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+        --banner-hover-scale: 1.02;
+        --banner-selected-scale: 1.01;
+        --banner-paused-scale: 1.002;
+        
+        /* Banner spacing and sizing - NEEDED BY SITE */
+        --banner-preview-padding-desktop: 4rem 3rem 3rem;
+        --banner-preview-padding-mobile: 3rem 1.5rem 2rem;
+        --banner-nav-btn-size-desktop: 3rem;
+        --banner-nav-btn-size-mobile: 2.5rem;
+        --banner-indicator-size-desktop: 0.5rem;
+        --banner-indicator-size-mobile: 0.375rem;
+        
+        /* Banner loading indicator properties - NEEDED BY SITE */
+        --banner-loading-bg: color-mix(in srgb, black 85%, transparent);
+        --banner-loading-border-radius: 0.75rem;
+        --banner-loading-padding: 1rem 1.5rem;
+        --banner-loading-gap: 0.75rem;
+        --banner-spinner-size: 1.25rem;
+        --banner-spinner-border-width: 2px;
+        
+        /* Banner z-index layers - CRITICAL FOR LAYERING */
+        --banner-z-base: 1;
+        --banner-z-default: 2;
+        --banner-z-interactive: 10;
+        --banner-z-paused: 15;
+        --banner-z-selected: 20;
+        --banner-z-link: 20;
+        --banner-z-overlay: 25;
+        --banner-z-preview: 30;
+        --banner-z-pause-indicator: 35;
+        --banner-z-navigation: 40;
+        --banner-z-loading: 50;
+        --banner-z-title: 45;
+    }
+
+    /* ===================================================================
+     * CONSOLIDATED LINK SYSTEM - DRY APPROACH (IMPROVED)
+     * ===================================================================
+     */
+
+    /* Base link class - shared properties */
+    .link-base {
+        @apply transition relative;
+        cursor: pointer;
+    }
+
+    /* Full-area interactive elements - builds on base */
+    .interactive-area {
+        @apply link-base;
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Banner-specific link - now DRY but preserves z-index */
+    .banner-link {
+        @apply interactive-area;
+        z-index: var(--banner-z-link);
+        /* ENHANCED: Better event handling - only apply to actual banner links */
+        user-select: none;
+    }
+    
+    /* Only apply touch-action manipulation to actual banner containers to prevent global scrolling issues */
+    .banner-container-timeline .banner-link,
+    .banner-container-image .banner-link,
+    .banner-container-video .banner-link,
+    .banner-container-standard .banner-link {
+        touch-action: manipulation;
+    }
+
+    /* ===================================================================
+     * BASE BANNER CONTAINER AND SLIDE STRUCTURE - 
+     * ===================================================================
+     */
+
+    /* Banner container - ensures proper sizing and overflow handling */
+    #standard-banner-container {
+        overflow: hidden;
+    }
+
+    /* Base banner slide - shared properties for all slide types */
+    .banner-slide {
+        /* Performance optimizations */
+        backface-visibility: hidden;
+        transform: translateZ(0); /* Layer promotion */
+
+        /* Transition properties */
+        transition-property: opacity, transform;
+        transition-duration: var(--banner-transition-duration);
+        transition-timing-function: var(--banner-transition-easing);
+
+        /* Critical positioning */
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: var(--banner-z-default);
+    }
+
+    /* Only apply will-change during active transitions */
+    .banner-slide.is-transitioning {
+        will-change: opacity;
+    }
+
+    /* Banner content (images and videos) - shared styling */
+    .banner-image,
+    .banner-video {
+        /* Performance optimizations */
+        backface-visibility: hidden;
+        transform: translateZ(0); /* Layer promotion */
+
+        /* Sizing and display */
+        display: block !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+        
+        /* Smooth transitions */
+        transition: transform 0.3s ease;
+    }
+
+    /* ===================================================================
+     * BANNER INTERACTION STATES - 
+     * ===================================================================
+     */
+
+    /* Interactive slide (current/active slide) */
+    .banner-slide.banner-interactive {
+        pointer-events: auto;
+        z-index: var(--banner-z-interactive) !important;
+    }
+
+    /* Non-interactive slide (background slides) */
+    .banner-slide.banner-non-interactive {
+        pointer-events: none;
+        z-index: var(--banner-z-base);
+    }
+
+    /* Paused state (when animation is paused) */
+    .banner-slide.banner-paused {
+        transform: scale(var(--banner-paused-scale));
+        z-index: var(--banner-z-paused) !important;
+    }
+
+    /* Selected state (mobile touch selection) */
+    .banner-slide.banner-selected {
+        transform: scale(var(--banner-selected-scale));
+        z-index: var(--banner-z-selected) !important;
+        pointer-events: auto !important;
+    }
+
+    /* Hover feedback (visual only - no preview showing) */
+    .banner-slide.banner-hover .banner-link {
+        transform: scale(var(--banner-hover-scale));
+        transition: transform 0.2s ease-out;
+    }
+
+    /* Focus state for keyboard navigation */
+    .banner-slide.banner-focused .banner-link {
+        outline: 2px solid rgba(var(--primary-rgb), 0.5);
+        outline-offset: 4px;
+    }
+
+    /* Touch feedback for mobile */
+    .banner-slide.banner-touch-active .banner-link {
+        transform: scale(0.98);
+        transition: transform 0.1s ease-out;
+    }
+
+    /* ===================================================================
+     * BANNER PREVIEW OVERLAY SYSTEM -  COMPLETELY
+     * ===================================================================
+     */
+
+    /* Main preview overlay - hidden by default, shown only on click */
+    .banner-postcard-preview {
+        @apply absolute inset-0 w-full h-full;
+        
+        /* Visual effects */
+        backdrop-filter: blur(8px);
+        
+        /* CLICK-TO-SHOW: Always hidden unless explicitly shown */
+        opacity: 0;
+        transform: translateY(10px);
+        visibility: hidden;
+        pointer-events: none;
+        
+        /* Transition */
+        transition: all var(--banner-transition-duration) var(--banner-transition-easing);
+        
+        /* Layering */
+        z-index: var(--banner-z-preview);
+        
+        /* Layout */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--banner-preview-padding-desktop);
+        
+        /* ENHANCED: Better click-outside functionality */
+        isolation: isolate;
+    }
+
+    /* ONLY show when explicitly made visible via JavaScript */
+    .banner-postcard-preview.banner-preview-visible {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: translateY(0) !important;
+        visibility: visible !important;
+        z-index: var(--banner-z-preview) !important;
+    }
+
+    /* Hidden state (explicit) */
+    .banner-postcard-preview.banner-preview-hidden {
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translateY(10px) !important;
+        visibility: hidden !important;
+    }
+
+    /* Preview card using existing design system */
+    .banner-preview-card {
+        max-width: 80%;
+        min-width: 300px;
+        transform: scale(0.95);
+        transition: all var(--banner-transition-duration) var(--banner-transition-easing);
+        position: relative; /* CRITICAL: Enables relative positioning for nav controls */
+    }
+
+    /* Scale up preview card when visible */
+    .banner-postcard-preview.banner-preview-visible .banner-preview-card {
+        transform: scale(1);
+    }
+
+    /* Enhanced hover overlay (background dimming) */
+    .banner-hover-overlay {
+        @apply absolute inset-0 w-full h-full;
+        
+        /* Visual effects */
+        background: linear-gradient(
+            135deg, 
+            color-mix(in srgb, black 30%, transparent),
+            color-mix(in srgb, black 50%, transparent)
+        );
+        backdrop-filter: blur(2px);
+        
+        /* Initial state */
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        z-index: var(--banner-z-overlay);
+    }
+
+    /* ===================================================================
+     * BANNER LOADING INDICATOR SYSTEM - 
+     * ===================================================================
+     */
+
+    /* Loading indicator container */
+    .banner-loading-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        
+        /* Visual styling using design system */
+        background: var(--banner-loading-bg);
+        backdrop-filter: blur(8px);
+        border: 1px solid color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 100%), transparent);
+        border-radius: var(--banner-loading-border-radius);
+        color: var(--text-color);
+        
+        /* Layout */
+        display: flex;
+        align-items: center;
+        gap: var(--banner-loading-gap);
+        padding: var(--banner-loading-padding);
+        
+        /* Interaction and layering */
+        pointer-events: none;
+        z-index: var(--banner-z-loading);
+        
+        /* Initial state */
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+        transition: all 0.3s ease;
+    }
+
+    /* Show loading indicator when visible */
+    .banner-loading-indicator[style*="flex"] {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Loading spinner */
+    .loading-spinner {
+        width: var(--banner-spinner-size);
+        height: var(--banner-spinner-size);
+        border: var(--banner-spinner-border-width) solid color-mix(in srgb, var(--text-color) 30%, transparent);
+        border-top: var(--banner-spinner-border-width) solid var(--primary);
+        border-radius: 50%;
+        animation: bannerSpinnerRotate 1s linear infinite;
+        flex-shrink: 0;
+    }
+
+    /* Loading text */
+    .loading-text {
+        font-size: 0.875rem;
+        font-weight: 500;
+        white-space: nowrap;
+        opacity: 0.9;
+    }
+
+    /* Spinner animation */
+    @keyframes bannerSpinnerRotate {
+        0% { 
+            transform: rotate(0deg);
+        }
+        100% { 
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ===================================================================
+     * NAVIGATION CONTROLS SYSTEM - FIXED POSITIONING
+     * ===================================================================
+     */
+
+    /* FIXED: Navigation controls container - positioned relative to preview card */
+    .banner-navigation-controls {
+        position: absolute;
+        top: 50%;
+        left: -4rem; /* FIXED: Position to left and right of card */
+        right: -4rem; /* FIXED: Position to left and right of card */
+        transform: translateY(-50%);
+        
+        /* Layout */
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0;
+        
+        /* Always visible when preview is shown */
+        pointer-events: none;
+        z-index: var(--banner-z-navigation);
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    /* Show navigation when preview is visible */
+    .banner-postcard-preview.banner-preview-visible .banner-navigation-controls {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* ENHANCED: Ensure buttons are always clickable */
+    .banner-navigation-controls .banner-nav-btn {
+        pointer-events: auto !important;
+    }
+
+    /* Navigation buttons - inherits from design system */
+    .banner-nav-btn {
+        @apply transition flex items-center justify-center;
+        
+        /* Sizing */
+        width: var(--banner-nav-btn-size-desktop);
+        height: var(--banner-nav-btn-size-desktop);
+        border-radius: 50%;
+        
+        /* Visual effects */
+        backdrop-filter: blur(8px);
+        border: 1px solid color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 100%), transparent);
+        box-shadow: 
+            0 4px 12px color-mix(in srgb, black 20%, transparent),
+            inset 0 0 0 1px color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 50%), transparent);
+        
+        /* Interaction */
+        transition: all 0.2s ease;
+        cursor: pointer;
+        
+        /* Layout */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        /* Styling */
+        color: var(--text-color);
+        opacity: 0.9;
+        
+        /* FIXED: Ensure buttons stay in position */
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    /* Navigation button hover states */
+    .banner-nav-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+        border-color: color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 150%), transparent);
+        box-shadow: 
+            0 6px 16px color-mix(in srgb, black 30%, transparent),
+            0 0 20px color-mix(in srgb, var(--primary) 30%, transparent),
+            inset 0 0 0 1px color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 80%), transparent);
+    }
+
+    /* Navigation button interaction states */
+    .banner-nav-btn:active {
+        transform: scale(0.95);
+    }
+
+    .banner-nav-btn:focus,
+    .banner-nav-btn:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+
+    /* Navigation icons */
+    .banner-nav-icon {
+        width: 1.2rem;
+        height: 1.2rem;
+        fill: currentColor;
+        transition: transform 0.2s ease;
+    }
+
+    .banner-nav-btn:hover .banner-nav-icon {
+        transform: scale(1.1);
+    }
+
+    /* ===================================================================
+     * POSITION INDICATOR SYSTEM - FIXED POSITIONING
+     * ===================================================================
+     */
+
+    /* FIXED: Position indicator container - positioned under preview card */
+    .banner-position-indicator {
+        position: absolute;
+        bottom: -3rem; /* FIXED: Position under the card */
+        left: 50%;
+        transform: translateX(-50%);
+        
+        /* Layout */
+        display: flex;
+        gap: 0.5rem;
+        
+        /* Always visible when preview is shown */
+        pointer-events: none;
+        z-index: var(--banner-z-navigation);
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    /* Show indicators when preview is visible */
+    .banner-postcard-preview.banner-preview-visible .banner-position-indicator {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Individual position dots */
+    .banner-position-dot {
+        width: var(--banner-indicator-size-desktop);
+        height: var(--banner-indicator-size-desktop);
+        border-radius: 50%;
+        background-color: color-mix(in srgb, var(--text-color) 40%, transparent);
+        transition: all 0.2s ease;
+        cursor: pointer;
+        /* ENHANCED: Ensure dots are always clickable */
+        pointer-events: auto !important;
+    }
+
+    /* Active position dot */
+    .banner-position-dot.active {
+        background-color: var(--primary);
+        transform: scale(1.2);
+        box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 60%, transparent);
+    }
+
+    /* ===================================================================
+     * INTERACTION INDICATORS AND FEEDBACK - 
+     * ===================================================================
+     */
+
+    /* Click indicator - shows users they can click for info */
+    .banner-click-indicator {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 15;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        opacity: 0.8;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+
+    .banner-slide:hover .banner-click-indicator,
+    .banner-slide.banner-hover .banner-click-indicator {
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.9);
+    }
+
+    /* Preview close button */
+    .banner-preview-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 25;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .banner-preview-close:hover {
+        background: rgba(0, 0, 0, 0.9);
+        transform: scale(1.1);
+    }
+
+    /* Preview link styling */
+    .banner-preview-link {
+        display: block;
+        text-decoration: none;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .banner-preview-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ===================================================================
+     * PAUSE INDICATOR SYSTEM - 
+     * ===================================================================
+     */
+
+    /* Enhanced pause indicator */
+    .banner-pause-indicator {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        z-index: var(--banner-z-pause-indicator);
+        background: rgba(255, 165, 0, 0.9);
+        color: white;
+        border: none;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 2px 8px rgba(255, 165, 0, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    /* Show pause indicator when banner is paused */
+    .banner-slide.banner-paused .banner-pause-indicator {
+        display: flex !important;
+        opacity: 1;
+        transform: scale(1);
+        animation: pausePulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pausePulse {
+        0%, 100% { 
+            opacity: 1; 
+            transform: scale(1); 
+        }
+        50% { 
+            opacity: 0.7; 
+            transform: scale(1.05); 
+        }
+    }
+
+    /* ===================================================================
+     * MOBILE HINT SYSTEM - 
+     * ===================================================================
+     */
+
+    .banner-mobile-hint {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        
+        /* Layout */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        /* Animation */
+        opacity: 0.7;
+        animation: bannerMobileHint 3s infinite;
+        pointer-events: none;
+        z-index: var(--banner-z-navigation);
+    }
+
+    /* Hide mobile hint when banner is selected */
+    .banner-slide.banner-selected .banner-mobile-hint {
+        opacity: 0;
+        transform: scale(0);
+    }
+
+    /* Mobile hint animation */
+    @keyframes bannerMobileHint {
+        0%, 85%, 100% {
+            opacity: 0.7;
+            transform: scale(1);
+        }
+        42% {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+    }
+
+    /* ===================================================================
+     * RESPONSIVE DESIGN - ENHANCED FOR MOBILE
+     * ===================================================================
+     */
+
+    @media (min-width: 769px) {
+        /* Image scaling on hover for desktop */
+        .banner-slide.banner-interactive .banner-link:hover .banner-image,
+        .banner-slide.banner-interactive .banner-link:hover .banner-video {
+            transform: scale(var(--banner-hover-scale));
+        }
+
+        /* Banner link hover effects for desktop */
+        .banner-slide.banner-interactive .banner-link:hover {
+            box-shadow: 
+                0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent),
+                0 0 20px color-mix(in srgb, var(--primary) 20%, transparent);
+            border-radius: inherit;
+        }
+    }
+
+    /* Mobile responsive adjustments */
+    @media (max-width: 768px) {
+        .banner-click-indicator {
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.375rem 0.5rem;
+            font-size: 0.625rem;
+        }
+        
+        .banner-preview-close {
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
+        }
+        
+        .banner-postcard-preview {
+            margin: 0.5rem;
+            padding: var(--banner-preview-padding-mobile);
+            /* ENHANCED: Better mobile preview positioning */
+            align-items: flex-start;
+            padding-top: 2rem;
+        }
+        
+        .banner-pause-indicator {
+            top: 0.5rem;
+            left: 0.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
+        }
+
+        .banner-nav-btn {
+            width: var(--banner-nav-btn-size-mobile);
+            height: var(--banner-nav-btn-size-mobile);
+            /* ENHANCED: Better mobile touch targets */
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .banner-position-dot {
+            width: var(--banner-indicator-size-mobile);
+            height: var(--banner-indicator-size-mobile);
+            /* ENHANCED: Better mobile touch targets */
+            min-width: 24px;
+            min-height: 24px;
+        }
+
+        /* FIXED: Mobile navigation positioning */
+        .banner-navigation-controls {
+            left: -2rem; /* Closer to card on mobile */
+            right: -2rem;
+        }
+
+        .banner-position-indicator {
+            bottom: -2rem; /* Closer to card on mobile */
+        }
+
+        /* Banner container responsive heights */
+        #banner-container.absolute, #animated-banner {
+            height: 40vh; /* Mobile banner height */
+        }
+    }
+
+    /* Large screen vignette effect */
+    @media (min-width: 1921px) {
+        .animated-banner-content:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to right, rgba(0,0,0,0.15), transparent 10%, transparent 90%, rgba(0,0,0,0.15));
+            z-index: 1;
+        }
+    }
+
+    /* ===================================================================
+     * ACCESSIBILITY SUPPORT - 
+     * ===================================================================
+     */
+
+    /* Banner link focus states for keyboard navigation */
+    .banner-link:focus,
+    .banner-link:focus-visible {
+        outline: 4px solid var(--primary);
+        outline-offset: 4px;
+        border-radius: inherit;
+    }
+
+    /* ENHANCED: Improved focus indicators for navigation */
+    .banner-nav-btn:focus-visible,
+    .banner-position-dot:focus-visible {
+        outline: 3px solid var(--primary);
+        outline-offset: 3px;
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+
+    /* ENHANCED: Screen reader support */
+    .banner-slide[aria-current="true"] {
+        outline: 2px solid transparent;
+    }
+
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+        .banner-nav-btn {
+            border: 2px solid white !important;
+            background-color: black !important;
+            color: white !important;
+        }
+        
+        .banner-position-dot {
+            border: 1px solid white !important;
+        }
+        
+        .banner-position-dot.active {
+            background-color: white !important;
+        }
+        
+        .banner-postcard-preview {
+            backdrop-filter: none;
+        }
+        
+        .banner-preview-card {
+            border: 2px solid white !important;
+        }
+        
+        .banner-pause-indicator {
+            border: 2px solid white !important;
+        }
+        
+        .banner-loading-indicator {
+            border: 2px solid white !important;
+            background-color: black !important;
+            color: white !important;
+            backdrop-filter: none;
+        }
+        
+        .loading-spinner {
+            border-color: white !important;
+            border-top-color: white !important;
+        }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+        .banner-slide,
+        .banner-image,
+        .banner-video,
+        .banner-postcard-preview,
+        .banner-hover-overlay,
+        .banner-pause-indicator,
+        .banner-navigation-controls,
+        .banner-nav-btn,
+        .banner-position-indicator,
+        .banner-position-dot,
+        .banner-title-display,
+        .banner-loading-indicator,
+        .loading-spinner {
+            transition: none !important;
+            animation: none !important;
+        }
+        
+        .banner-nav-btn:hover .banner-nav-icon {
+            transform: none !important;
+        }
+
+        /* ENHANCED: Remove all transforms for accessibility */
+        .banner-nav-btn,
+        .banner-position-dot {
+            transform: none !important;
+        }
+        
+        .banner-nav-btn:hover,
+        .banner-nav-btn:active,
+        .banner-position-dot:hover,
+        .banner-position-dot.active {
+            transform: none !important;
+        }
+    }
+
+    /* ===================================================================
+     * FULLSCREEN MODE SYSTEM - CRITICAL FOR SITE FUNCTIONALITY
+     * ===================================================================
+     */
+
+    /* Hide fullscreen toggle on tablets and mobile devices where it's not needed */
+    @media (max-width: 1024px) {
+        #fullscreen-toggle,
+        #fullscreen-btn {
+            display: none !important;
+        }
+    }
+
+    /* Simplified fullscreen mode - ONLY for desktop devices */
+    @media (min-width: 1024px) {
+        /* Force mobile view when class is present - DESKTOP ONLY */
+        body.force-mobile-view {
+            --force-mobile: 1;
+            --page-width: 95vw;
+        }
+        
+        body.force-mobile-view #main-panel-wrapper {
+            top: 0 !important;
+            max-width: 100vw !important;
+            padding: 0 !important;
+        }
+
+        body.force-mobile-view #main-grid {
+            grid-template-columns: 1fr !important;
+            grid-template-rows: auto 1fr auto !important;
+            margin-top: 5.5rem !important;
+            max-width: 100vw !important;
+            padding: 0 2rem !important;
+        }
+        
+        /* Override navbar container width */
+        body.force-mobile-view #top-row {
+            max-width: 100vw !important;
+            padding: 0 !important;
+        }
+        
+        /* Override navbar wrapper width */
+        body.force-mobile-view #navbar-wrapper .card-base {
+            max-width: 100vw !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+        }
+        
+        /* Hide sidebar in fullscreen mode */
+        body.force-mobile-view .sidebar,
+        body.force-mobile-view [class*="lg:col-span-1"]:first-child {
+            display: none !important;
+        }
+        
+        /* Force main content to full width */
+        body.force-mobile-view main#main {
+            grid-column: span 2 !important;
+            max-width: 100% !important;
+        }
+        
+        /* Hide TOC in fullscreen mode */
+        body.force-mobile-view #toc-wrapper,
+        body.force-mobile-view [class*="2xl:block"] {
+            display: none !important;
+        }
+    }
+
+    /* Force banner to none in fullscreen mode on ALL screen sizes */
+    body.force-mobile-view #banner-container {
+        display: none !important;
+    }
+
+    /* Smooth transition effect */
+    body.fullscreen-transitioning {
+        opacity: 0.7;
+        transition: opacity 0.3s ease;
+    }
+
+    /* ===================================================================
+     * BANNER TITLE DISPLAY SYSTEM - PRESERVED FROM ORIGINAL
+     * ===================================================================
+     */
+
+    /* Banner title overlay - displays when preview is NOT visible */
+    .banner-title-display {
+        position: absolute;
+        bottom: 2rem;
+        left: 2rem;
+        right: 2rem;
+        
+        /* Visual styling */
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5));
+        backdrop-filter: blur(8px);
+        border: 1px solid color-mix(in srgb, var(--primary) calc(var(--card-border-opacity) * 100%), transparent);
+        border-radius: var(--banner-loading-border-radius);
+        color: white;
+        
+        /* Layout */
+        padding: 1rem 1.5rem;
+        
+        /* Interaction and layering */
+        pointer-events: none;
+        z-index: var(--banner-z-title);
+        
+        /* Animation */
+        opacity: 0;
+        transform: translateY(1rem);
+        transition: all 0.3s ease;
+    }
+
+    /* Show title when banner is hovered and no preview is visible */
+    .banner-slide:hover .banner-title-display {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Hide title when preview is visible */
+    .banner-postcard-preview.banner-preview-visible ~ .banner-title-display {
+        opacity: 0;
+        transform: translateY(1rem);
+    }
+
+    .banner-title-display h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .banner-title-display p {
+        margin: 0;
+        font-size: 0.875rem;
+        opacity: 0.9;
+        color: white;
+    }
+
+    /* ===================================================================
+     * BANNER TRANSITION EFFECTS - PRESERVED FROM ORIGINAL
+     * ===================================================================
+     */
+
+    /* Fade transition effect */
+    .banner-slide.banner-fade-in {
+        animation: bannerFadeIn var(--banner-transition-duration) var(--banner-transition-easing) forwards;
+    }
+
+    .banner-slide.banner-fade-out {
+        animation: bannerFadeOut var(--banner-transition-duration) var(--banner-transition-easing) forwards;
+    }
+
+    @keyframes bannerFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(1rem);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes bannerFadeOut {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateY(-1rem);
+        }
+    }
+
+    /* Slide transition effect */
+    .banner-slide.banner-slide-in-right {
+        animation: bannerSlideInRight var(--banner-transition-duration) var(--banner-transition-easing) forwards;
+    }
+
+    .banner-slide.banner-slide-out-left {
+        animation: bannerSlideOutLeft var(--banner-transition-duration) var(--banner-transition-easing) forwards;
+    }
+
+    @keyframes bannerSlideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes bannerSlideOutLeft {
+        from {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateX(-100%);
+        }
+    }
+
+    /* ===================================================================
+     * DEBUG AND DEVELOPMENT SUPPORT
+     * ===================================================================
+     */
+
+    /* Debug mode styles (when data-debug="true" is set on banner container) */
+    [data-debug="true"] .banner-slide {
+        border: 2px dashed rgba(255, 0, 0, 0.5);
+    }
+
+    [data-debug="true"] .banner-slide::before {
+        content: attr(data-index);
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: rgba(255, 0, 0, 0.8);
+        color: white;
+        padding: 0.25rem;
+        font-size: 0.75rem;
+        z-index: 999;
+    }
+
+    [data-debug="true"] .banner-postcard-preview::after {
+        content: "PREVIEW ACTIVE";
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: rgba(0, 255, 0, 0.8);
+        color: white;
+        padding: 0.25rem;
+        font-size: 0.75rem;
+        z-index: 999;
+    }
+
+    /* Console log visual feedback */
+    [data-console-feedback="true"] .banner-nav-btn:active::after {
+        content: "CLICKED";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 255, 0, 0.9);
+        color: white;
+        padding: 0.125rem 0.25rem;
+        font-size: 0.625rem;
+        border-radius: 0.25rem;
+        z-index: 999;
+        animation: fadeOutFeedback 1s ease-out forwards;
+    }
+
+    @keyframes fadeOutFeedback {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    }
+} 
+
+/* End of @layer components */
+
+/* ===================================================================
+ * BANNER STYLES OUTSIDE @layer - 
+ * ===================================================================
+ */
+
+.banner-pause-indicator {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(255, 165, 0, 0.9);
+  color: white;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.banner-slide.banner-paused .banner-pause-indicator {
+  display: flex !important;
+  animation: pulse 2s infinite;
+}
+
+/* ===================================================================
+ * SUMMARY OF FIXES AND RESTORED FUNCTIONALITY:
+ * ===================================================================
+ * 
+ * WHAT WAS FIXED:
+ * - Navigation buttons now positioned on left/right of preview card (left: -4rem, right: -4rem)
+ * - Position dots now positioned under preview card (bottom: -3rem)
+ * - Added position: relative to .banner-preview-card for proper positioning context
+ * - Fixed mobile responsive positioning (closer spacing for mobile)
+ * 
+ * WHAT WAS RESTORED FROM ORIGINAL:
+ * - Banner title display system (bottom overlay when hovering, hidden when preview shown)
+ * - Banner transition effects (fade, slide animations)
+ * - All original animation keyframes
+ * - Complete positioning context for all elements
+ * 
+ * POSITIONING EXPLANATION:
+ * - Navigation controls: left/right of card using negative margins
+ * - Position indicators: below card using negative bottom margin
+ * - Both elements positioned relative to .banner-preview-card
+ * - Mobile adjustments reduce spacing for better fit
+ * 
+ * PRESERVED FUNCTIONALITY:
+ * - All original CSS custom properties
+ * - Complete interaction states
+ * - Full accessibility support
+ * - Responsive design
+ * - Fullscreen mode system
+ * - Debug support
+ * ===================================================================
+ */

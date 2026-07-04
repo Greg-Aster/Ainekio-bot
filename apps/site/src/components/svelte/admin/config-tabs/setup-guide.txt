@@ -1,0 +1,113 @@
+# Configuration System Setup Guide
+
+## 1. Folder Structure
+
+Create the following folder structure for your Svelte components:
+
+```
+/components/svelte/admin/
+  ├── AdminConfigPanel.svelte       # Main component that hosts all tabs
+  ├── config-tabs/
+  │   ├── GeneralConfigTab.svelte   # Site and license configuration
+  │   ├── NavigationConfigTab.svelte # Navigation menu configuration
+  │   ├── ProfileConfigTab.svelte   # User profile configuration
+  │   ├── AppearanceConfigTab.svelte # Theme colors and favicons
+  │   ├── TimelineConfigTab.svelte  # Timeline-specific configuration
+  │   └── AdvancedConfigTab.svelte  # JSON editor for direct configuration
+  └── timeline/
+      ├── EraEditor.svelte          # Editor for timeline eras
+      └── ViewSettingsEditor.svelte # Editor for timeline view settings
+```
+
+## 2. Installation Steps
+
+1. **Copy the component files** to their respective folders in your project structure.
+
+2. **Update the imports** in each file if your folder structure differs from the one above.
+
+3. **Ensure the Astro page** (`configs.astro`) is in your `/pages` directory to make the route accessible.
+
+## 3. Configuration Integration
+
+The configuration system works by:
+
+1. Loading existing configuration from your config files in `configs.astro`
+2. Passing this configuration to the Svelte components
+3. Letting users edit the configuration through the UI
+4. Storing changes temporarily in localStorage
+5. (In a production system) Saving changes back to your configuration files
+
+## 4. Authentication
+
+The system uses a simple username/password authentication stored in localStorage:
+
+```javascript
+// Default credentials
+const ADMIN_USERNAME = '<your-username>'; // Example only
+const ADMIN_PASSWORD = '<your-password>'; // Example only
+```
+
+For a production site, consider implementing a more secure authentication method.
+
+## 5. Customization
+
+You can customize the components by:
+
+- Adjusting styling to match your brand
+- Adding more configuration sections
+- Modifying the validation logic
+- Adding integration with a backend API for saving
+
+## 6. Saving Configuration Changes
+
+Currently, the system saves changes to localStorage for demonstration purposes. For a production system, you would need to:
+
+1. Create an API endpoint to receive configuration updates
+2. Update the `saveAllConfiguration` function in `AdminConfigPanel.svelte` to send changes to your API
+3. Implement server-side logic to update your configuration files
+
+Example server-side implementation (Node.js):
+
+```javascript
+// Save configuration to files
+app.post('/api/save-config', async (req, res) => {
+  try {
+    const { configType, configData } = req.body;
+    
+    // Map config types to file paths
+    const configPaths = {
+      siteConfig: './src/config/config.ts',
+      navBarConfig: './src/config/config.ts',
+      profileConfig: './src/config/config.ts',
+      licenseConfig: './src/config/config.ts',
+      timelineConfig: './src/TimelineConfig.ts'
+    };
+    
+    // Read the current file
+    const filePath = configPaths[configType];
+    let fileContent = await fs.readFile(filePath, 'utf8');
+    
+    // Update the specific configuration section
+    // This would require parsing the TypeScript file and updating just the relevant section
+    // For simplicity, this example just shows the concept
+    
+    // Write back to the file
+    await fs.writeFile(filePath, updatedContent, 'utf8');
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving config:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+```
+
+## 7. Testing the Integration
+
+After setting up all components:
+
+1. Navigate to `/configs` in your browser
+2. Login with the credentials
+3. Make changes to various configuration sections
+4. Test that changes are visible in the preview areas
+5. Save changes and verify they persist after page reload (via localStorage)

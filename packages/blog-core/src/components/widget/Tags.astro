@@ -1,0 +1,48 @@
+---
+import ButtonTag from '../control/ButtonTag.astro'
+import WidgetLayout from './WidgetLayout.astro'
+
+interface TagItem {
+  name: string
+  href: string
+  ariaLabel?: string
+}
+
+interface Props {
+  title: string
+  tags: TagItem[]
+  id?: string
+  collapseThreshold?: number
+  collapsedHeight?: string
+  class?: string
+  style?: string
+}
+
+const {
+  title,
+  tags = [],
+  id = 'tags',
+  collapseThreshold = 20,
+  collapsedHeight = '7.5rem',
+  style,
+}: Props = Astro.props
+
+const className = Astro.props.class
+const isCollapsed = tags.length >= collapseThreshold
+---
+<WidgetLayout
+  id={id}
+  name={title}
+  isCollapsed={isCollapsed}
+  collapsedHeight={collapsedHeight}
+  class={className}
+  style={style}
+>
+  <div class="flex gap-2 flex-wrap">
+    {tags.map((tag) =>
+      <ButtonTag href={tag.href} label={tag.ariaLabel}>
+        {tag.name}
+      </ButtonTag>
+    )}
+  </div>
+</WidgetLayout>

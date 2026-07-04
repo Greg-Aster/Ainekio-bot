@@ -1,0 +1,112 @@
+---
+// src/components/timeline/TimelineCard.astro
+import type { TimelineEvent } from '@/services/TimelineService.client'
+// Assuming getEraDisplayName might be needed if era badges display names, but it's not used in the Svelte template directly for class generation.
+// import { getEraDisplayName } from '@/services/TimelineService.client';
+
+export interface Props {
+  event: TimelineEvent
+  isSelected?: boolean
+  compact?: boolean
+  position?: 'top' | 'bottom' | 'left' | 'right'
+  isMobile?: boolean
+  isVisible?: boolean // Added to control rendering and transitions
+}
+
+const {
+  event,
+  isSelected = false,
+  compact = false,
+  position = 'bottom',
+  isMobile = false,
+  isVisible = true, // Default to visible if not specified
+} = Astro.props
+
+// Helper function to get CSS classes for era badges (moved from Svelte script)
+function getEraBadgeClass(era?: string): string {
+  if (!era)
+    return 'bg-[oklch(0.9_0.05_var(--hue))/0.1] dark:bg-[oklch(0.3_0.05_var(--hue))/0.2] text-[oklch(0.4_0.05_var(--hue))] dark:text-[oklch(0.9_0.05_var(--hue))]'
+  switch (era) {
+    case 'pre-spork':
+      return 'bg-[oklch(0.8_0.1_var(--hue))/0.1] dark:bg-[oklch(0.8_0.1_var(--hue))/0.2] text-[oklch(0.3_0.1_var(--hue))] dark:text-[oklch(0.8_0.1_var(--hue))]'
+    case 'spork-uprising':
+      return 'bg-[oklch(0.7_0.2_var(--hue))/0.1] dark:bg-[oklch(0.7_0.2_var(--hue))/0.2] text-[oklch(0.3_0.2_var(--hue))] dark:text-[oklch(0.7_0.2_var(--hue))]'
+    case 'snuggaloid':
+      return 'bg-[oklch(0.6_0.3_var(--hue))/0.1] dark:bg-[oklch(0.6_0.3_var(--hue))/0.2] text-[oklch(0.3_0.3_var(--hue))] dark:text-[oklch(0.6_0.3_var(--hue))]'
+    case 'post-extinction':
+      return 'bg-[oklch(0.5_0.1_var(--hue))/0.1] dark:bg-[oklch(0.5_0.1_var(--hue))/0.2] text-[oklch(0.2_0.1_var(--hue))] dark:text-[oklch(0.5_0.1_var(--hue))]'
+    default:
+      return 'bg-[oklch(0.9_0.05_var(--hue))/0.1] dark:bg-[oklch(0.3_0.05_var(--hue))/0.2] text-[oklch(0.4_0.05_var(--hue))] dark:text-[oklch(0.9_0.05_var(--hue))]'
+  }
+}
+
+const cardId = `timeline-card-${event.slug}-${Math.random().toString(36).substring(2, 9)}`
+
+let initialX = 0
+let initialY = 0
+
+if (isMobile) {
+  initialY = 20
+} else {
+  if (position === 'top') initialY = 10
+  else if (position === 'bottom') initialY = -10
+  else if (position === 'left') initialX = 10
+  else if (position === 'right') initialX = -10
+}
+
+const initialStyles = `opacity: 0; transform: translate(${initialX}px, ${initialY}px);`
+---
+
+{isVisible && (
+  <div
+    id={cardId}
+    class:list={[
+      "timeline-card",
+      "card-base",
+      isMobile ? "fixed-position mobile-card" : "absolute z-30",
+      "bg-[var(--card-bg)] backdrop-blur-sm shadow-lg",
+      isMobile ? "w-[280px] h-auto" : "w-[200px]",
+      compact ? "p-2 text-sm" : "p-3",
+      { "timeline-card-top": position === 'top' && !isMobile },
+      { "timeline-card-bottom": position === 'bottom' && !isMobile },
+      { "timeline-card-left": position === 'left' && !isMobile },
+      { "timeline-card-right": position === 'right' && !isMobile },
+    ]}
+    style={initialStyles}
+  >
+    <div class="font-bold text-75 text-sm mb-1 card-title">
+      {event.title}
+    </div>
+
+    {(!compact || isMobile) && (
+      <div class:list={["text-50 text-xs card-description", isMobile ? "line-clamp-3" : "line-clamp-2"]}>
+        {event.description}
+      </div>
+    )}
+
+    <a href={`/posts/${event.slug}/#post-container`} class="timeline-link text-[0.65rem] mt-1 inline-block py-0.5 px-1.5 rounded-full bg-[oklch(0.9_0.05_var(--hue))/0.1] dark:bg-[oklch(0.3_0.05_var(--hue))/0.2] text-[oklch(0.4_0.05_var(--hue))] dark:text-[oklch(0.9_0.05_var(--hue))]">
+      View Event &rarr;
+    </a>
+
+    {!isMobile && (
+      <div class="card-pointer absolute bg-inherit"></div>
+    )}
+  </div>
+)}
+
+<script define:vars={{ cardId, isVisible }}>
+  const cardElement = document.getElementById(cardId);
+
+  if (cardElement && isVisible) {
+    // Trigger the fly-in animation
+    requestAnimationFrame(() => {
+      setTimeout(() => { // Ensures styles are applied before transition starts
+        cardElement.style.opacity = '1';
+        cardElement.style.transform = 'translate(0px, 0px)';
+      }, 20); // A small delay can help ensure the initial styles are rendered
+    });
+  }
+  // Note: An "out" transition is harder to manage with Astro's default rendering
+  // if `isVisible` turns false and the element is removed from DOM.
+  // If it were to stay in DOM and be hidden by toggling a class, an out-transition could be added.
+</script>
