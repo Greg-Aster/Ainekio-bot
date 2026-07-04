@@ -1,0 +1,692 @@
+---
+import { defaultTimelineViewConfig } from '@/config/timelineconfig'
+import type { TimelineEvent } from '@/services/TimelineService.client'
+import type { EraConfigMap } from '@/services/TimelineService.client'
+// src/components/timeline/TimelineView.astro
+import StarNode from '../StarNode.astro'
+import TimelineCard from '../TimelineCard.astro'
+
+export interface Props {
+  id?: string
+  events: TimelineEvent[]
+  background: string
+  compact?: boolean
+  initialScale?: number
+  initialOffsetX?: number
+  initialOffsetY?: number
+  useEraColors?: boolean
+  startYear: number
+  endYear: number
+  eraConfig: EraConfigMap
+  selectedEventSlug?: string | null
+}
+
+const {
+  id = 'timeline-view',
+  events,
+  background,
+  compact = false,
+  initialScale = defaultTimelineViewConfig.defaultZoom,
+  initialOffsetX = 0,
+  initialOffsetY = 0,
+  useEraColors = false,
+  startYear,
+  endYear,
+  eraConfig,
+  selectedEventSlug = null,
+} = Astro.props
+
+// Generate event positions for server-side rendering
+const timespan = Math.max(1, endYear - startYear)
+const padding = defaultTimelineViewConfig.padding
+
+function getPositionPercentage(year: number, customPadding?: number): number {
+  if (timespan === 0) return 50
+  const paddingToUse = customPadding !== undefined ? customPadding : padding
+  const clampedYear = Math.max(startYear, Math.min(endYear, year))
+  const basePercentage = ((clampedYear - startYear) / timespan) * 100
+  return paddingToUse + (basePercentage * (100 - 2 * paddingToUse)) / 100
+}
+
+const eventPositions = events.map((event, index) => {
+  const eventEraConfig =
+    event.era && eraConfig[event.era] ? eraConfig[event.era] : null
+  const customPadding = eventEraConfig?.customPadding
+  const posPercentage = getPositionPercentage(event.year, customPadding)
+  const seed = (event.slug.charCodeAt(0) + index) * 11 + (event.year % 100)
+  const randomFactor = ((seed * 9301 + 49297) % 233280) / 233280
+  const offsetPosition = (randomFactor * 2 - 1) * 100
+  const clampedOffset = Math.max(-100, Math.min(100, offsetPosition))
+  const floatClass = `floating-animation-${(seed % 5) + 1}`
+  return {
+    event,
+    timelinePosition: posPercentage,
+    offsetPosition: clampedOffset,
+    floatClass,
+    shouldFloat: true,
+  }
+})
+
+const containerId = `${id}-container`
+const fadeOverlayId = `${id}-fade-overlay`
+---
+
+<div class="card-base relative overflow-hidden h-full" data-start-year={startYear} data-end-year={endYear}>
+  <div id={fadeOverlayId} class="fade-overlay absolute inset-0 bg-black z-50 opacity-0" style="transition: opacity 400ms ease-in-out; pointer-events: none;"></div>
+  
+  <!-- Background Layer -->
+  <div class="absolute inset-0 z-0 overflow-hidden">
+    <img 
+      src={background} 
+      alt="Timeline background" 
+      class="timeline-background w-full h-full object-cover" 
+      style={`transform: scale(${1.05 + 0.05 * initialScale}) translate(${-initialOffsetX * 0.05}px, ${-initialOffsetY * 0.05}px); transition: transform 0.3s ease-out;`}
+    />
+    <div class="absolute inset-0 bg-gradient-to-r from-[oklch(0.25_0.05_var(--hue))] to-[oklch(0.15_0.05_var(--hue))] opacity-20 dark:opacity-20 backdrop-blur-[2px]"></div>
+  </div>
+  
+  <!-- Starfield Overlay -->
+  <div class="absolute inset-0 z-0">
+    <div class="w-full h-full starfield-overlay"></div>
+  </div>
+  
+  <!-- Timeline Container -->
+  <div 
+    id={containerId}
+    class="timeline-container relative z-10 w-full h-full cursor-grab active:cursor-grabbing" 
+    role="application" 
+    aria-label="Interactive timeline visualization" 
+    tabindex="0" 
+    style={`transform: scale(${initialScale}) translate(${initialOffsetX / initialScale}px, ${initialOffsetY / initialScale}px); overflow: hidden !important; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);`}
+  >
+    <!-- Timeline Markers -->
+    <div class="timeline-center-line absolute w-full h-[2px] top-1/2 bg-gradient-to-r from-transparent via-[oklch(0.7_0.08_var(--hue))] to-transparent opacity-10"></div>
+    <div class="timeline-start-marker absolute left-[15%] w-[4px] top-[40%] bottom-[60%] bg-[oklch(0.7_0.2_var(--hue))] opacity-60 rounded-full"></div>
+    <div class="timeline-end-marker absolute right-[15%] w-[4px] top-[40%] bottom-[60%] bg-[oklch(0.7_0.2_var(--hue))] opacity-60 rounded-full"></div>
+
+    <!-- Timeline Events -->
+    {eventPositions.map(({ event, timelinePosition, offsetPosition, floatClass, shouldFloat }) => (
+      <div
+        class:list={[
+          "timeline-event absolute",
+          shouldFloat ? floatClass : ''
+        ]}
+        style={`left: ${timelinePosition}%; top: 50%; transform: translate(0, ${offsetPosition}px) scale(${1/initialScale}); transition: transform 0.3s ease-out;`}
+        data-event-slug={event.slug}
+      >
+        <div
+          class="event-node absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+          data-slug={event.slug}
+          data-year={event.year}
+          data-era={event.era}
+        >
+          <StarNode
+            era={event.era}
+            isKeyEvent={event.isKeyEvent}
+            isSelected={selectedEventSlug === event.slug}
+            identifier={event.slug}
+            useEraColors={useEraColors}
+            size={event.isKeyEvent ? 5 : 4}
+          />
+        </div>
+        <div class="card-wrapper" style={`transform: scale(${1/initialScale}); opacity:0; pointer-events:none; transition: opacity 0.2s ease-in, transform 0.25s ease-out;`}></div>
+      </div>
+    ))}
+  </div>
+  
+  <!-- Mobile Card Container -->
+  <div class="fixed-mobile-card-container" style="position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;"></div>
+  
+  <!-- Empty State -->
+  {events.length === 0 && (
+    <div class="flex flex-col items-center justify-center py-10 text-center absolute inset-0 z-20 bg-opacity-50 bg-slate-700">
+      <div class="text-6xl text-[var(--primary)] mb-4">
+        <svg viewBox="0 0 24 24" class="w-16 h-16 fill-current">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="white" stroke-width="1" />
+        </svg>
+      </div>
+      <div class="text-75 font-bold text-white">No timeline events found</div>
+      <div class="text-50 text-sm mt-2 text-slate-300">
+        Add timelineYear property to your post frontmatter to create timeline events
+      </div>
+    </div>
+  )}
+</div>
+
+<script define:vars={{ 
+  containerId,
+  fadeOverlayId,
+  events: JSON.stringify(events),
+  startYear,
+  endYear,
+  eraConfig,
+  useEraColors,
+  compact,
+  configDefaultZoom: defaultTimelineViewConfig.defaultZoom,
+  configMinZoom: defaultTimelineViewConfig.minZoom,
+  configMaxZoom: defaultTimelineViewConfig.maxZoom,
+  configZoomStep: defaultTimelineViewConfig.zoomStep,
+  configPadding: defaultTimelineViewConfig.padding,
+}}>
+  // TimelineCore implementation
+  class TimelineCore {
+    constructor() {
+      this.container = document.getElementById(containerId);
+      this.fadeOverlay = document.getElementById(fadeOverlayId);
+      this.background = this.container?.parentElement?.querySelector('.timeline-background');
+      this.mobileCardContainer = document.querySelector('.fixed-mobile-card-container');
+      
+      this.events = JSON.parse(events);
+      this.selectedEvent = null;
+      this.hoveredEvent = null;
+      this.scale = configDefaultZoom;
+      this.offsetX = 0;
+      this.offsetY = 0;
+      this.isMobile = window.innerWidth < 768;
+      this.isDragging = false;
+      this.isPinching = false;
+      this.isNavigating = false;
+      this.timespan = endYear - startYear;
+      this.containerWidth = 0;
+      this.containerHeight = 0;
+      this.hoverTimeoutId = null;
+      this.hoverOutDelay = 500;
+      this.randomlyHighlightedSlug = null;
+      this.randomHighlightIntervalId = null;
+      this.isTouchActive = false;
+      
+      this.touchStartDistance = 0;
+      this.touchStartScale = 1;
+      this.touchStartOffsetX = 0;
+      this.touchStartOffsetY = 0;
+      
+      this.init();
+    }
+
+    init() {
+      this.handleResize();
+      this.updateTransform();
+      this.bindEvents();
+      this.startRandomHighlight();
+      
+      window.addEventListener('resize', () => this.handleResize());
+      window.addEventListener('orientationchange', () => {
+        if (this.fadeOverlay) this.fadeOverlay.style.opacity = '1';
+        setTimeout(() => {
+          this.handleResize();
+          if (this.fadeOverlay) this.fadeOverlay.style.opacity = '0';
+        }, 600);
+      });
+
+      // Expose instance globally for parent component
+      window[`timelineCore_${containerId}`] = this;
+    }
+
+    handleResize() {
+      if (this.container && this.container.offsetParent) {
+        this.containerWidth = this.container.offsetWidth;
+        this.containerHeight = this.container.offsetHeight;
+      }
+      this.isMobile = window.innerWidth < 768;
+      
+      const eventElements = this.container?.querySelectorAll('.timeline-event');
+      eventElements?.forEach(el => {
+        el.classList.toggle('timeline-event-mobile', this.isMobile);
+        el.classList.toggle('timeline-event-desktop', !this.isMobile);
+      });
+    }
+
+    updateEvents(newEvents) {
+      this.events = newEvents;
+      // In a real implementation, we'd need to re-render events here
+      // For now, we'll dispatch an event for the parent to handle
+      this.container?.dispatchEvent(new CustomEvent('timeline:eventsUpdated', { 
+        detail: { events: newEvents },
+        bubbles: true 
+      }));
+    }
+
+    updateBackground(newBg) {
+      if (this.background && newBg) {
+        this.background.src = newBg;
+      }
+    }
+
+    updateTransform(duration = 300) {
+      if (!this.container) return;
+      this.scale = Math.max(configMinZoom, Math.min(configMaxZoom, this.scale));
+      this.container.style.transition = `transform ${duration}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+      this.container.style.transform = `scale(${this.scale}) translate(${this.offsetX / this.scale}px, ${this.offsetY / this.scale}px)`;
+
+      if (this.background) {
+        const bgScale = 1.05 + 0.05 * this.scale;
+        const bgTranslateX = -this.offsetX * 0.05;
+        const bgTranslateY = -this.offsetY * 0.05;
+        this.background.style.transform = `scale(${bgScale}) translate(${bgTranslateX}px, ${bgTranslateY}px)`;
+      }
+
+      const eventElements = this.container.querySelectorAll('.timeline-event');
+      eventElements.forEach(el => {
+        const verticalOffsetMatch = el.style.transform.match(/translate\(\s*[^,]+\s*,\s*(-?\d*\.?\d+)px\)/);
+        const verticalOffset = verticalOffsetMatch ? parseFloat(verticalOffsetMatch[1]) : 0;
+        el.style.transform = `translate(0, ${verticalOffset}px) scale(${1/this.scale})`;
+        const cardWrapper = el.querySelector('.card-wrapper');
+        if (cardWrapper) cardWrapper.style.transform = `scale(${1/this.scale})`;
+      });
+    }
+
+    bindEvents() {
+      if (!this.container) return;
+
+      // Click handler
+      this.container.addEventListener('click', (e) => {
+        const eventNode = e.target.closest('.event-node');
+        if (eventNode) {
+          const slug = eventNode.dataset.slug;
+          const eventData = this.events.find(ev => ev.slug === slug);
+          if (eventData) {
+            if (this.selectedEvent && this.selectedEvent.slug === slug) {
+              this.navigateToPost(slug);
+            } else {
+              this.updateSelectedEvent(eventData);
+            }
+          }
+        } else if (e.target === this.container || e.target.classList.contains('timeline-container')) {
+          this.updateSelectedEvent(null);
+        }
+      });
+
+      // Hover handlers
+      this.container.addEventListener('mouseover', (e) => {
+        if (this.isMobile) return;
+        const eventNode = e.target.closest('.event-node');
+        if (eventNode) {
+          const slug = eventNode.dataset.slug;
+          const eventData = this.events.find(ev => ev.slug === slug);
+          if (this.hoverTimeoutId) clearTimeout(this.hoverTimeoutId);
+          if (eventData) this.updateHoveredEvent(eventData, eventNode.closest('.timeline-event'));
+        }
+      });
+
+      this.container.addEventListener('mouseout', (e) => {
+        if (this.isMobile) return;
+        const eventNode = e.target.closest('.event-node');
+        if (eventNode) {
+          if (this.hoverTimeoutId) clearTimeout(this.hoverTimeoutId);
+          this.hoverTimeoutId = setTimeout(() => {
+            this.updateHoveredEvent(null, eventNode.closest('.timeline-event'));
+          }, this.hoverOutDelay);
+        }
+      });
+
+      // Mouse drag handlers
+      let dragStartX, dragStartY, dragStartOffsetX, dragStartOffsetY;
+      this.container.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.event-node')) return;
+        this.isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartOffsetX = this.offsetX;
+        dragStartOffsetY = this.offsetY;
+        this.container.style.cursor = 'grabbing';
+        this.container.classList.add('dragging');
+        this.setTouchMode(true, 0);
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!this.isDragging) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        this.offsetX = dragStartOffsetX + dx;
+        this.offsetY = dragStartOffsetY + dy;
+        this.updateTransform(0);
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!this.isDragging) return;
+        this.isDragging = false;
+        this.container.style.cursor = 'grab';
+        this.container.classList.remove('dragging');
+        this.setTouchMode(false);
+      });
+
+      // Double click zoom
+      this.container.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        if (this.scale >= configMaxZoom) return;
+
+        const zoomFactor = 1 + configZoomStep;
+        let newScale = Math.min(this.scale * zoomFactor, configMaxZoom);
+
+        const rect = this.container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const pointX = (mouseX - this.offsetX) / this.scale;
+        const pointY = (mouseY - this.offsetY) / this.scale;
+
+        const newOffsetX = mouseX - pointX * newScale;
+        const newOffsetY = mouseY - pointY * newScale;
+
+        this.scale = newScale;
+        this.offsetX = newOffsetX;
+        this.offsetY = newOffsetY;
+
+        this.updateTransform();
+      });
+
+      // Touch handlers
+      let touchStartX1, touchStartY1, touchStartX2, touchStartY2;
+      this.container.addEventListener('touchstart', (e) => {
+        this.setTouchMode(true, 0);
+        if (e.touches.length === 1) {
+          if (e.target.closest('.event-node')) {
+            const eventNode = e.target.closest('.event-node');
+            const slug = eventNode.dataset.slug;
+            const eventData = this.events.find(ev => ev.slug === slug);
+            if (eventData) {
+              if (this.selectedEvent && this.selectedEvent.slug === slug) {
+                this.navigateToPost(slug);
+              } else {
+                this.updateSelectedEvent(eventData);
+              }
+            }
+            return;
+          }
+          this.isDragging = true;
+          this.isPinching = false;
+          dragStartX = e.touches[0].clientX;
+          dragStartY = e.touches[0].clientY;
+          dragStartOffsetX = this.offsetX;
+          dragStartOffsetY = this.offsetY;
+        } else if (e.touches.length === 2) {
+          this.isDragging = false;
+          this.isPinching = true;
+          touchStartX1 = e.touches[0].clientX;
+          touchStartY1 = e.touches[0].clientY;
+          touchStartX2 = e.touches[1].clientX;
+          touchStartY2 = e.touches[1].clientY;
+          this.touchStartDistance = Math.hypot(touchStartX2 - touchStartX1, touchStartY2 - touchStartY1);
+          this.touchStartScale = this.scale;
+          this.touchStartOffsetX = this.offsetX;
+          this.touchStartOffsetY = this.offsetY;
+        }
+      }, { passive: false });
+
+      this.container.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (this.isDragging && e.touches.length === 1) {
+          const dx = e.touches[0].clientX - dragStartX;
+          const dy = e.touches[0].clientY - dragStartY;
+          this.offsetX = dragStartOffsetX + dx;
+          this.offsetY = dragStartOffsetY + dy;
+          this.updateTransform(0);
+        } else if (this.isPinching && e.touches.length === 2) {
+          const currentX1 = e.touches[0].clientX;
+          const currentY1 = e.touches[0].clientY;
+          const currentX2 = e.touches[1].clientX;
+          const currentY2 = e.touches[1].clientY;
+          const currentDistance = Math.hypot(currentX2 - currentX1, currentY2 - currentY1);
+          const newScale = this.touchStartScale * (currentDistance / this.touchStartDistance);
+          const midPointInitialX = (touchStartX1 + touchStartX2) / 2;
+          const midPointInitialY = (touchStartY1 + touchStartY2) / 2;
+          const midPointCurrentX = (currentX1 + currentX2) / 2;
+          const midPointCurrentY = (currentY1 + currentY2) / 2;
+          const newOffsetX = this.touchStartOffsetX + (midPointCurrentX - midPointInitialX) - (midPointInitialX - this.touchStartOffsetX) * (newScale / this.touchStartScale - 1);
+          const newOffsetY = this.touchStartOffsetY + (midPointCurrentY - midPointInitialY) - (midPointInitialY - this.touchStartOffsetY) * (newScale / this.touchStartScale - 1);
+          this.scale = newScale;
+          this.offsetX = newOffsetX;
+          this.offsetY = newOffsetY;
+          this.updateTransform(0);
+        }
+      }, { passive: false });
+
+      this.container.addEventListener('touchend', (e) => {
+        if (this.isDragging || this.isPinching) this.setTouchMode(false);
+        this.isDragging = false;
+        this.isPinching = false;
+      });
+    }
+
+    setTouchMode(enabled, duration = 300) {
+      if (!this.container) return;
+      this.isTouchActive = enabled;
+      this.container.classList.toggle('touch-active', enabled);
+      this.container.style.transitionDuration = enabled && duration === 0 ? '0ms' : `${duration}ms`;
+    }
+
+    updateSelectedEvent(newEvent) {
+      this.selectedEvent = newEvent;
+      
+      // Update star states
+      this.container?.querySelectorAll('.star-wrapper').forEach(starWrapper => {
+        const eventNode = starWrapper.closest('.event-node');
+        const slug = eventNode?.dataset.slug;
+        starWrapper.classList.toggle('is-selected', this.selectedEvent && slug === this.selectedEvent.slug);
+      });
+
+      // Handle card display
+      if (this.isMobile) {
+        this.renderCard(this.selectedEvent, this.mobileCardContainer, 'bottom');
+      } else {
+        // Clear all cards first
+        this.container?.querySelectorAll('.timeline-event .card-wrapper').forEach(cw => this.renderCard(null, cw));
+        
+        if (this.selectedEvent) {
+          const eventEl = this.container?.querySelector(`.timeline-event[data-event-slug="${this.selectedEvent.slug}"]`);
+          if (eventEl) {
+            const cardWrapper = eventEl.querySelector('.card-wrapper');
+            const offsetPositionMatch = eventEl.style.transform.match(/translateY\(([^p]+)px\)/);
+            const offsetPosition = offsetPositionMatch ? parseFloat(offsetPositionMatch[1]) : 0;
+            this.renderCard(this.selectedEvent, cardWrapper, offsetPosition < 0 ? 'top' : 'bottom');
+          }
+        }
+      }
+
+      // Dispatch event
+      this.container?.dispatchEvent(new CustomEvent('timeline:select', { 
+        detail: { event: this.selectedEvent },
+        bubbles: true 
+      }));
+    }
+
+    updateHoveredEvent(newEvent, eventElementContext) {
+      const newSlug = newEvent ? newEvent.slug : null;
+      const oldHoveredSlug = this.hoveredEvent ? this.hoveredEvent.slug : null;
+
+      // Clean up previously hovered event
+      if (oldHoveredSlug && oldHoveredSlug !== newSlug) {
+        if (!this.selectedEvent || this.selectedEvent.slug !== oldHoveredSlug) {
+          const previousEventElement = this.container?.querySelector(`.timeline-event[data-event-slug="${oldHoveredSlug}"]`);
+          if (previousEventElement) {
+            const prevCardWrapper = previousEventElement.querySelector('.card-wrapper');
+            if (prevCardWrapper) {
+              this.renderCard(null, prevCardWrapper);
+            }
+          }
+        }
+      }
+
+      // Update hover state
+      if (this.selectedEvent && newEvent && this.selectedEvent.slug === newSlug) {
+        this.hoveredEvent = null;
+      } else {
+        this.hoveredEvent = newEvent;
+      }
+
+      // Update star visual states
+      this.container?.querySelectorAll('.star-wrapper').forEach(starWrapper => {
+        const eventNode = starWrapper.closest('.event-node');
+        const slug = eventNode?.dataset.slug;
+        starWrapper.classList.toggle('is-hovered', this.hoveredEvent && slug === this.hoveredEvent.slug);
+      });
+
+      if (this.isMobile) return;
+
+      // Manage card for current element
+      if (eventElementContext) {
+        const cardWrapper = eventElementContext.querySelector('.card-wrapper');
+        if (!cardWrapper) return;
+
+        if (this.hoveredEvent && eventElementContext.dataset.eventSlug === this.hoveredEvent.slug) {
+          const offsetPositionMatch = eventElementContext.style.transform.match(/translateY\(([^p]+)px\)/);
+          const offsetPosition = offsetPositionMatch ? parseFloat(offsetPositionMatch[1]) : 0;
+          this.renderCard(this.hoveredEvent, cardWrapper, offsetPosition < 0 ? 'top' : 'bottom');
+        } else {
+          if (!this.selectedEvent || this.selectedEvent.slug !== eventElementContext.dataset.eventSlug) {
+            this.renderCard(null, cardWrapper);
+          }
+        }
+      }
+    }
+
+    renderCard(eventData, targetElement, positionType) {
+      if (!targetElement) return;
+      targetElement.innerHTML = '';
+      
+      if (!eventData) {
+        targetElement.style.opacity = '0';
+        targetElement.style.pointerEvents = 'none';
+        return;
+      }
+
+      const cardHTML = `
+        <div class="timeline-card card-base ${this.isMobile ? 'fixed-position mobile-card' : `absolute z-30 ${positionType === 'top' ? 'timeline-card-top' : 'timeline-card-bottom'}`} bg-[var(--card-bg)] backdrop-blur-sm shadow-lg ${this.isMobile ? 'w-[280px] h-auto' : 'w-[200px]'} ${compact ? 'p-2 text-sm' : 'p-3'}" style="opacity:1; transform: scale(1) translate(0,0);">
+          <div class="font-bold text-75 text-sm mb-1 card-title">${eventData.title}</div>
+          ${(!compact || this.isMobile) ? `<div class="text-50 text-xs ${this.isMobile ? 'line-clamp-3' : 'line-clamp-2'} card-description">${eventData.description || ''}</div>` : ''}
+          <a href="/posts/${eventData.slug}/#post-container" class="timeline-link text-[0.65rem] mt-1 inline-block py-0.5 px-1.5 rounded-full bg-[oklch(0.9_0.05_var(--hue))/0.1] dark:bg-[oklch(0.3_0.05_var(--hue))/0.2] text-[oklch(0.4_0.05_var(--hue))] dark:text-[oklch(0.9_0.05_var(--hue))]">View Event &rarr;</a>
+          ${!this.isMobile ? '<div class="card-pointer absolute bg-inherit"></div>' : ''}
+        </div>`;
+      
+      targetElement.innerHTML = cardHTML;
+      targetElement.style.opacity = '1';
+      targetElement.style.pointerEvents = 'auto';
+      
+      const newCard = targetElement.querySelector('.timeline-card');
+      if (newCard && !this.isMobile) {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (targetElement.contains(newCard)) {
+              newCard.style.opacity = '1';
+              newCard.style.transform = 'scale(1) translate(0,0)';
+            }
+          }, 20);
+        });
+      }
+    }
+
+    navigateToPost(slug) {
+      if (!slug || this.isNavigating) return;
+      this.isNavigating = true;
+      if (this.fadeOverlay) this.fadeOverlay.style.opacity = '1';
+      setTimeout(() => {
+        window.location.href = `/posts/${slug}/`;
+      }, 400);
+    }
+
+    startRandomHighlight() {
+      if (this.events.length > 0) {
+        this.randomHighlightIntervalId = setInterval(() => {
+          if (document.hidden || !this.container) return;
+          
+          const oldSlug = this.randomlyHighlightedSlug;
+          this.randomlyHighlightedSlug = null;
+          
+          if (oldSlug) {
+            const oldNode = this.container.querySelector(`.event-node[data-slug="${oldSlug}"] .star-wrapper`);
+            if (oldNode) oldNode.dataset.triggerHighlight = 'false';
+          }
+          
+          setTimeout(() => {
+            const randomIndex = Math.floor(Math.random() * this.events.length);
+            const randomEvent = this.events[randomIndex];
+            if (randomEvent) {
+              this.randomlyHighlightedSlug = randomEvent.slug;
+              const starNodeWrapper = this.container.querySelector(`.event-node[data-slug="${randomEvent.slug}"] .star-wrapper`);
+              if (starNodeWrapper) {
+                starNodeWrapper.dataset.triggerHighlight = 'true';
+                setTimeout(() => {
+                  if (this.randomlyHighlightedSlug === randomEvent.slug && starNodeWrapper) {
+                    starNodeWrapper.dataset.triggerHighlight = 'false';
+                    this.randomlyHighlightedSlug = null;
+                  }
+                }, 3000);
+              }
+            }
+          }, 50);
+        }, 5000 + Math.random() * 5000);
+      }
+    }
+
+    // Public API methods
+    zoomIn() {
+      this.scale += configZoomStep;
+      this.updateTransform();
+    }
+
+    zoomOut() {
+      this.scale -= configZoomStep;
+      this.updateTransform();
+    }
+
+    resetView() {
+      this.scale = configDefaultZoom;
+      this.offsetX = 0;
+      this.offsetY = 0;
+      this.updateTransform();
+      this.updateSelectedEvent(null);
+    }
+
+    panToYear(targetYear) {
+      const timespan = endYear - startYear;
+      if (timespan <= 0 || !this.containerWidth) return;
+      
+      const rawPercentage = ((targetYear - startYear) / timespan) * 100;
+      const targetPosition = (this.containerWidth * rawPercentage) / 100;
+      const viewportCenter = this.containerWidth / 2;
+      const requiredOffset = viewportCenter - targetPosition;
+      
+      this.offsetX = requiredOffset;
+      this.updateTransform();
+    }
+
+    navigateToEraRange(eraStart, eraEnd) {
+      const eraSpan = eraEnd - eraStart;
+      if (eraSpan <= 0 || !this.containerWidth) return this.resetView();
+      
+      const fullTimespan = endYear - startYear;
+      let targetZoom = configDefaultZoom;
+      
+      if (eraSpan < fullTimespan * 0.1) targetZoom = configMaxZoom * 0.8;
+      else if (eraSpan < fullTimespan * 0.3) targetZoom = configDefaultZoom * 1.5;
+      else if (eraSpan < fullTimespan * 0.6) targetZoom = configDefaultZoom * 1.2;
+      
+      this.scale = Math.max(configMinZoom, Math.min(configMaxZoom, targetZoom));
+      
+      const midYear = eraStart + eraSpan / 2;
+      setTimeout(() => this.panToYear(midYear), 50);
+    }
+  }
+
+  // Initialize TimelineCore
+  const timelineCore = new TimelineCore();
+</script>
+
+<style>
+  /* Floating animations for events */
+  @keyframes floating-animation-1 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(44px); } }
+  @keyframes floating-animation-2 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-60px); } }
+  @keyframes floating-animation-3 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(52px); } }
+  @keyframes floating-animation-4 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-48px); } }
+  @keyframes floating-animation-5 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(36px); } }
+  
+  .floating-animation-1 { animation: floating-animation-1 35s infinite ease-in-out; }
+  .floating-animation-2 { animation: floating-animation-2 40s infinite ease-in-out; animation-delay: -8s; }
+  .floating-animation-3 { animation: floating-animation-3 45s infinite ease-in-out; animation-delay: -15s; }
+  .floating-animation-4 { animation: floating-animation-4 38s infinite ease-in-out; animation-delay: -5s; }
+  .floating-animation-5 { animation: floating-animation-5 42s infinite ease-in-out; animation-delay: -10s; }
+  
+  .timeline-event-mobile { animation: none !important; }
+  .timeline-event-desktop { transition: transform 0.3s ease; }
+  .touch-active .card-wrapper, .touch-active .timeline-event { transition: none !important; }
+</style>

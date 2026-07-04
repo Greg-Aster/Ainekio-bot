@@ -1,0 +1,173 @@
+# Configuration System Troubleshooting Guide
+
+If you encounter issues with the configuration system, here are common problems and their solutions:
+
+## Configuration Page Not Loading
+
+### Symptoms
+- Blank page when navigating to `/configs`
+- Error message in browser console
+- Page shows only partial content
+
+### Possible Solutions
+1. **Check file paths**: Ensure all component files are in the correct directories
+2. **Check imports**: Verify import paths match your project structure
+3. **Check Astro configuration**: Make sure your Astro config properly integrates Svelte:
+
+```js
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+import svelte from '@astrojs/svelte';
+
+export default defineConfig({
+  integrations: [svelte()],
+  // other config...
+});
+```
+
+4. **Browser compatibility**: Ensure you're using a modern browser (Chrome, Firefox, Safari, Edge)
+
+## Login Not Working
+
+### Symptoms
+- Login form appears but authentication fails
+- Login form keeps reappearing after entering credentials
+
+### Possible Solutions
+1. **Check credentials**: Verify you're using the correct username and password
+2. **LocalStorage issues**: 
+   - Check if localStorage is enabled in your browser
+   - Clear localStorage: `localStorage.removeItem('isAuthenticated')`
+   - Try incognito/private browsing mode
+3. **Cookie conflicts**: Check if there are any conflicting authentication cookies
+
+## Changes Not Saving
+
+### Symptoms
+- Changes appear to save but disappear after refresh
+- Error message when clicking "Save Changes"
+
+### Possible Solutions
+1. **LocalStorage limits**: Check if you're exceeding browser storage limits
+2. **Browser permissions**: Ensure your browser allows localStorage for your domain
+3. **Custom implementation issues**: If you've customized the saving mechanism:
+   - Check your API endpoint
+   - Verify the request format
+   - Check server logs for errors
+
+## Specific Component Issues
+
+### Timeline Configuration
+
+#### Symptoms
+- Era editor not opening
+- Changes to eras not reflecting in the UI
+- View settings not updating
+
+#### Possible Solutions
+1. **Check data format**: Ensure your timeline configuration matches the expected structure
+2. **Check modal rendering**: Modal dialogs require proper z-index and positioning
+3. **Update reactivity**: Make sure you're using the proper Svelte reactivity patterns
+
+### Navigation Editor
+
+#### Symptoms
+- Can't add dropdown items
+- Reordering links doesn't work
+- Preset links not showing properly
+
+#### Possible Solutions
+1. **Verify presets**: Ensure your LinkPreset enum matches what's expected in the component
+2. **Check event handling**: Verify event propagation is working correctly
+3. **Array mutation**: Make sure array updates trigger reactivity by using assignment
+
+### JSON Editor
+
+#### Symptoms
+- JSON validation errors
+- Changes not applying
+- Format button not working
+
+#### Possible Solutions
+1. **JSON syntax**: Verify your JSON is valid (use a validator tool)
+2. **Update method**: Check that the update event is properly dispatched
+3. **Large configurations**: Very large configs might cause performance issues
+
+## Browser Console Errors
+
+### Common Errors and Solutions
+
+#### "Cannot read properties of undefined"
+- Check for null or undefined values in your configuration objects
+- Ensure all required configuration fields are initialized
+
+#### "Maximum call stack size exceeded"
+- Look for circular references in your data structures
+- Check for infinite loops in your reactive statements
+
+#### "Unexpected token in JSON"
+- Verify JSON syntax in your configuration
+- Check for trailing commas, which are not allowed in JSON
+
+## Integration with Astro Page Transitions
+
+If you're using Astro's view transitions:
+
+### Symptoms
+- Configuration state resets during page transitions
+- UI flickers when navigating
+- Authentication state lost
+
+### Possible Solutions
+1. **ViewTransitions directive**: Ensure you're properly using Astro's ViewTransitions:
+
+```astro
+---
+import { ViewTransitions } from 'astro:transitions';
+---
+<html>
+  <head>
+    <ViewTransitions />
+  </head>
+  <!-- ... -->
+</html>
+```
+
+2. **Persistent storage**: Use sessionStorage or cookies for critical state
+3. **State management**: Consider using a more robust state management solution for complex states
+
+## Component Styling Issues
+
+### Symptoms
+- Components don't match site styling
+- Dark/light mode not working properly
+- Inconsistent colors or sizing
+
+### Possible Solutions
+1. **CSS variables**: Ensure your CSS variables are properly defined and accessible:
+
+```css
+:root {
+  --primary: hsl(200, 100%, 50%);
+  --card-bg: #ffffff;
+  /* other variables */
+}
+
+:root.dark {
+  --primary: hsl(200, 100%, 60%);
+  --card-bg: #1a1a1a;
+  /* other dark mode variables */
+}
+```
+
+2. **Tailwind configuration**: Check your Tailwind configuration includes all needed classes
+3. **Component encapsulation**: Svelte's styling might be too encapsulated - use `:global()` where needed
+
+## Getting Further Help
+
+If you're still experiencing issues:
+
+1. Check the browser console for specific error messages
+2. Inspect network requests to identify API issues
+3. Compare your implementation with the provided example code
+4. Try a minimal reproduction case to isolate the problem

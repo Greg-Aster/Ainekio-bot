@@ -1,0 +1,114 @@
+---
+import { Icon } from 'astro-icon/components'
+import type { NavBarLink } from '../../types'
+import { url } from '../../utils'
+
+interface Props {
+  links: NavBarLink[]
+  isAuthenticated?: boolean
+}
+
+const links = Astro.props.links
+const isAuthenticated = Astro.props.isAuthenticated || false
+
+const adminLinks = [
+  {
+    name: 'New Post',
+    url: '/new-post',
+    icon: 'material-symbols:note-add-outline',
+  },
+  {
+    name: 'Configs',
+    url: '/configs',
+    icon: 'material-symbols:settings-outline',
+  },
+  {
+    name: 'Friends',
+    url: '/friends',
+    icon: 'material-symbols:group',
+  },
+]
+---
+
+<div id="nav-menu-panel" class:list={["float-panel float-panel-closed absolute transition-all fixed right-4 px-2 py-2"]}>
+    <div id="default-links" class:list={[{"hidden": isAuthenticated}]}>
+        {links.map((link) => (
+            <>
+                <a href={link.external ? link.url : url(link.url)} class="group flex justify-between items-center py-2 pl-3 pr-1 rounded-lg gap-8
+                    hover:bg-[var(--btn-plain-bg-hover)] active:bg-[var(--btn-plain-bg-active)] transition
+                "
+                   target={link.external ? "_blank" : null}
+                >
+                    <div class="transition text-black/75 dark:text-white/75 font-bold group-hover:text-[var(--primary)] group-active:text-[var(--primary)]">
+                        {link.name}
+                    </div>
+                    {link.dropdown && <Icon name="material-symbols:keyboard-arrow-down-rounded"
+                          class="transition text-[1.25rem] text-[var(--primary)]"
+                    >
+                    </Icon>}
+                    {!link.external && !link.dropdown && <Icon name="material-symbols:chevron-right-rounded"
+                          class="transition text-[1.25rem] text-[var(--primary)]"
+                    >
+                    </Icon>}
+                    {link.external && <Icon name="fa6-solid:arrow-up-right-from-square"
+                          class="transition text-[0.75rem] text-black/25 dark:text-white/25 -translate-x-1"
+                    >
+                    </Icon>}
+                </a>
+                {link.dropdown && (
+                    <div class="ml-4 mb-2">
+                        {link.dropdown.map((item) => (
+                            <a href={item.external ? item.url : url(item.url)} class="group flex justify-between items-center py-1.5 pl-3 pr-1 rounded-lg gap-6
+                                hover:bg-[var(--btn-plain-bg-hover)] active:bg-[var(--btn-plain-bg-active)] transition
+                            "
+                               target={item.external ? "_blank" : null}
+                            >
+                                <div class="transition text-black/75 dark:text-white/75 font-medium group-hover:text-[var(--primary)] group-active:text-[var(--primary)]">
+                                    {item.name}
+                                </div>
+                                {!item.external && <Icon name="material-symbols:chevron-right-rounded"
+                                      class="transition text-[1.25rem] text-[var(--primary)]"
+                                >
+                                </Icon>}
+                                {item.external && <Icon name="fa6-solid:arrow-up-right-from-square"
+                                      class="transition text-[0.75rem] text-black/25 dark:text-white/25 -translate-x-1"
+                                >
+                                </Icon>}
+                            </a>
+                        ))}
+                    </div>
+                )}
+            </>
+        ))}
+    </div>
+
+    <div id="admin-links" class:list={[{"hidden": !isAuthenticated}]}>
+        {adminLinks.map((link) => (
+            <a href={url(link.url)} class="group flex justify-between items-center py-2 pl-3 pr-1 rounded-lg gap-8
+                hover:bg-[var(--btn-plain-bg-hover)] active:bg-[var(--btn-plain-bg-active)] transition
+            ">
+                <div class="transition text-black/75 dark:text-white/75 font-bold group-hover:text-[var(--primary)] group-active:text-[var(--primary)]">
+                    {link.name}
+                </div>
+                <Icon name={link.icon} class="transition text-[1.25rem] text-[var(--primary)]"></Icon>
+            </a>
+        ))}
+
+        <button id="menu-logout-button" class="group flex justify-between items-center py-2 pl-3 pr-1 rounded-lg gap-8 w-full
+            hover:bg-[var(--btn-plain-bg-hover)] active:bg-[var(--btn-plain-bg-active)] transition
+        ">
+            <div class="transition text-black/75 dark:text-white/75 font-bold group-hover:text-[var(--primary)] group-active:text-[var(--primary)]">
+                Logout
+            </div>
+            <Icon name="material-symbols:logout" class="transition text-[1.25rem] text-[var(--primary)]"></Icon>
+        </button>
+    </div>
+</div>
+
+<script>
+  document.getElementById('menu-logout-button')?.addEventListener('click', () => {
+    localStorage.removeItem('isAuthenticated')
+    localStorage.removeItem('authExpiresAt')
+    window.location.href = '/'
+  })
+</script>

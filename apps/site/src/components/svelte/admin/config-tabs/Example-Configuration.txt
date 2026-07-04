@@ -1,0 +1,127 @@
+# Configuration System Usage Example
+
+This example demonstrates how to use the configuration system to edit your site settings.
+
+## Initial Setup
+
+First, ensure all Svelte components are properly installed in your project and your Astro page is set up correctly.
+
+## Editing Site Information
+
+### Step 1: Navigate to the Configuration Page
+
+Go to your website's `/configs` URL. If you're not already authenticated, you'll see the login form:
+
+```
+Username: <your-username>
+Password: <your-password>
+```
+
+### Step 2: Explore the General Tab
+
+![General Tab]
+
+The General tab allows you to edit:
+- Site title and subtitle
+- Language selection
+- Table of Contents settings
+- License information
+
+For example, to change your site's title:
+1. Locate the "Site Title" field
+2. Change the value from "Greg Aster" to your preferred title
+3. Click "Save Changes" at the bottom of the page
+
+### Step 3: Customize Navigation Menu
+
+Navigate to the "Navigation" tab to manage your site's navigation links:
+
+1. Click "Add Link" to create a new navigation item
+2. Choose between a "Preset Link" (predefined routes) or "Custom Link"
+3. For a custom link, enter:
+   - Link Name: "Portfolio"
+   - URL: "/portfolio/"
+   - External: No (leave unchecked)
+4. Click "Add Link" to save
+
+To add a dropdown menu to an existing link:
+1. Find the link you want to edit
+2. Click "Add Dropdown" at the bottom of the link card
+3. Enter details for the dropdown item
+4. Click "Add" to save the dropdown item
+
+### Step 4: Edit Timeline Settings
+
+The Timeline tab is particularly useful for your complex timeline configuration:
+
+1. Navigate to the "Timeline" tab
+2. Choose between "Eras" and "View Settings" sections
+3. In the Eras section:
+   - Click "Add Era" to create a new timeline era
+   - Enter details including key, display name, year range, and visualization settings
+   - Click "Create Era" to save
+4. In the View Settings section:
+   - Adjust zoom levels, thresholds, and other visualization parameters
+   - Changes are applied immediately
+
+### Step 5: Advanced Configuration
+
+For direct editing of configuration files:
+
+1. Navigate to the "Advanced" tab
+2. Select the configuration type you want to edit (e.g., "Timeline")
+3. Edit the JSON directly in the editor
+4. Click "Apply Changes" to save
+
+## Saving Configuration
+
+When you click "Save Changes" at the bottom of any tab, the following happens:
+
+1. Changes are stored in localStorage (in the demo version)
+2. A success message appears briefly
+3. In a production implementation, changes would be saved to your configuration files
+
+## Common Tasks
+
+### Adding a Social Media Link
+
+1. Go to the "Profile" tab
+2. Click "Add Social Link"
+3. Select the platform (e.g., "Bluesky")
+4. The URL will be pre-filled with the platform's prefix
+5. Complete your username/handle
+6. Click "Add Link"
+
+### Changing Theme Color
+
+1. Navigate to the "Appearance" tab
+2. Adjust the hue slider to select your desired color
+3. See the preview update in real-time
+4. For quick selection, click one of the color swatches
+5. Toggle "Use fixed theme color" to control whether users can customize the theme
+
+### Managing Favicons
+
+1. In the "Appearance" tab, scroll to the Favicon section
+2. Click "Add Favicon" to create a new favicon
+3. Upload an image or enter the path manually
+4. Select theme (light/dark/all) and size
+5. Click "Add Favicon" to save
+
+## Integrating with Your Components
+
+The configuration values are available to your components after saving:
+
+```javascript
+// Example: Using the updated site title in a component
+import { siteConfig } from '../config';
+
+function Header() {
+  return (
+    <header>
+      <h1>{siteConfig.title}</h1>
+      <p>{siteConfig.subtitle}</p>
+    </header>
+  );
+}
+```

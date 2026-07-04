@@ -1,0 +1,403 @@
+---
+import MainGridLayout from '../layouts/MainGridLayout.astro';
+import { Icon } from 'astro-icon/components';
+import FriendManager from '../components/svelte/friends/FriendManager.svelte';
+import { getCollection } from 'astro:content';
+import passwordConfig from '../config/password.config';
+
+// Get all saved friends from the content collection
+let savedFriends = [];
+try {
+  savedFriends = await getCollection('friends');
+  console.log(`Loaded ${savedFriends.length} saved friends from content collection`);
+} catch (error) {
+  console.error('Error loading friends from content collection:', error);
+  // This might happen if the collection doesn't exist yet
+  savedFriends = [];
+}
+---
+
+<MainGridLayout title="Content Sharing" description="Share and manage blog content with friends">
+  <Fragment slot="head">
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+  </Fragment>
+  <!-- Check authentication on page load -->
+  <div id="auth-check" class="card-base w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4 p-6 hidden">
+    <div class="text-center">
+      <h2 class="text-2xl font-bold text-90 mb-4 text-[var(--primary)]">Admin Authentication Required</h2>
+      <p class="text-neutral-600 dark:text-neutral-300 mb-6">
+        Please sign in to access the content sharing hub.
+      </p>
+      <div class="max-w-md mx-auto">
+        <div class="mb-4">
+          <label for="auth-username" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Username</label>
+          <input 
+            type="text" 
+            id="auth-username" 
+            class="w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm text-neutral-800 dark:text-neutral-200 transition" 
+          />
+        </div>
+        <div class="mb-4">
+          <label for="auth-password" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Password</label>
+          <input 
+            type="password" 
+            id="auth-password" 
+            class="w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm text-neutral-800 dark:text-neutral-200 transition" 
+          />
+        </div>
+        <button 
+          id="auth-submit" 
+          class="w-full py-2 px-4 bg-[var(--primary)] hover:opacity-90 text-white font-medium rounded-md transition-opacity"
+        >
+          Sign In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content (hidden until authenticated) -->
+  <div id="admin-content" class="admin-content hidden">
+    <!-- Header Section -->
+    <div class="card-base w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+      <div class="pl-6 md:pl-9 pr-6 md:pr-9 pt-6 md:pt-7 pb-6">
+        <h1 class="text-3xl font-bold text-90 mb-4 text-[var(--primary)]">Content Sharing Hub</h1>
+        <p class="text-neutral-600 dark:text-neutral-300 mb-4">
+          Manage your content, create packages to share with other blogs, and import content from friends.
+        </p>
+      </div>
+    </div>
+
+    <!-- Content Sharing Grid -->
+    <div class="card-base w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+      <div class="p-6 md:p-9">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- Publish Section -->
+          <div>
+            <h2 class="text-xl font-semibold text-black/80 dark:text-white/80 mb-4">Share Your Content</h2>
+            <p class="text-neutral-600 dark:text-neutral-300 mb-6">
+              Export your content as a package that others can import to their blogs. Choose what to include in your share package.
+            </p>
+            
+            <div class="space-y-4 bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-lg mb-6">
+              <div class="flex items-start">
+                <input type="checkbox" id="share-posts" class="mt-1 mr-3" checked />
+                <div>
+                  <label for="share-posts" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Blog Posts</label>
+                  <p class="text-xs text-neutral-500 dark:text-neutral-400">Include your blog content</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start">
+                <input type="checkbox" id="share-timeline" class="mt-1 mr-3" checked />
+                <div>
+                  <label for="share-timeline" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Timeline Events</label>
+                  <p class="text-xs text-neutral-500 dark:text-neutral-400">Include timeline data</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start">
+                <input type="checkbox" id="share-config" class="mt-1 mr-3" />
+                <div>
+                  <label for="share-config" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Site Configuration</label>
+                  <p class="text-xs text-neutral-500 dark:text-neutral-400">Include your site settings</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start">
+                <input type="checkbox" id="share-assets" class="mt-1 mr-3" checked />
+                <div>
+                  <label for="share-assets" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Media Assets</label>
+                  <p class="text-xs text-neutral-500 dark:text-neutral-400">Include images and other media files</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="space-y-4">
+              <button id="create-package-button" class="w-full px-4 py-3 bg-[var(--primary)] text-white font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center">
+                <Icon name="mdi:package-variant" class="w-5 h-5 mr-2" />
+                Create & Download Package
+              </button>
+            </div>
+          </div>
+          
+          <!-- Import Section -->
+          <div>
+            <h2 class="text-xl font-semibold text-black/80 dark:text-white/80 mb-4">Import Content</h2>
+            <p class="text-neutral-600 dark:text-neutral-300 mb-6">
+              Add content from other blogs to your site by uploading a package file.
+            </p>
+            
+            <div class="space-y-6">
+              <!-- Import by File -->
+              <div>
+                <h3 class="text-md font-medium text-black/70 dark:text-white/70 mb-3">Upload Package File</h3>
+                <div class="border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-lg p-4 text-center">
+                  <label for="package-file" class="block cursor-pointer">
+                    <Icon name="mdi:cloud-upload-outline" class="w-10 h-10 mx-auto text-neutral-400 dark:text-neutral-600 mb-2" />
+                    <span class="text-sm text-neutral-600 dark:text-neutral-400">Click to select a package file or drag and drop</span>
+                    <input id="package-file" type="file" accept=".zip,.json" class="hidden" />
+                  </label>
+                  <p id="file-name" class="mt-2 text-sm text-neutral-500 dark:text-neutral-500 hidden"></p>
+                </div>
+              </div>
+              
+              <!-- Import Options -->
+              <div id="import-options" class="space-y-4 bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-lg mb-6 hidden">
+                <h3 class="text-md font-medium text-black/70 dark:text-white/70 mb-2">Import Options</h3>
+                
+                <div class="flex items-start">
+                  <input type="checkbox" id="import-posts" class="mt-1 mr-3" checked />
+                  <div>
+                    <label for="import-posts" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Blog Posts</label>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400">Import blog content</p>
+                  </div>
+                </div>
+                
+                <div class="flex items-start">
+                  <input type="checkbox" id="import-timeline" class="mt-1 mr-3" checked />
+                  <div>
+                    <label for="import-timeline" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Timeline Events</label>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400">Import timeline data</p>
+                  </div>
+                </div>
+                
+                <div class="flex items-start">
+                  <input type="checkbox" id="import-config" class="mt-1 mr-3" />
+                  <div>
+                    <label for="import-config" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Site Configuration</label>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400">Replace your site settings (use with caution)</p>
+                  </div>
+                </div>
+                
+                <div class="flex items-start">
+                  <input type="checkbox" id="import-assets" class="mt-1 mr-3" checked />
+                  <div>
+                    <label for="import-assets" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Media Assets</label>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400">Import images and other media files</p>
+                  </div>
+                </div>
+                
+                <div class="pt-2">
+                  <button id="import-package-button" class="w-full px-4 py-3 bg-[var(--primary)] text-white font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center">
+                    <Icon name="mdi:import" class="w-5 h-5 mr-2" />
+                    Import Content
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+      
+    <!-- Connections Section -->
+    <div class="card-base w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+      <div class="p-6 md:p-9">
+        <h2 class="text-xl font-semibold text-black/80 dark:text-white/80 mb-4">Connected Friends</h2>
+        <p class="text-neutral-600 dark:text-neutral-300 mb-6">
+          Blogs you're connected with for automatic content sharing and updates.
+        </p>
+        
+        <!-- Friend Manager Component - Pass the saved friends -->
+        <FriendManager client:load savedFriends={savedFriends} />
+      </div>
+    </div>
+  </div>
+</MainGridLayout>
+
+<script define:vars={{ ADMIN_USERNAME: passwordConfig.username, ADMIN_PASSWORD_HASH: passwordConfig.passwordHash, ADMIN_NEEDS_SETUP: passwordConfig.needsSetup }}>
+  // Admin auth config is injected at build time.
+  const AUTH_KEY = 'isAuthenticated';
+  const AUTH_EXP_KEY = 'authExpiresAt';
+  const AUTH_TTL_MS = 1000 * 60 * 60 * 8; // 8 hours
+
+  function clearAuth() {
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(AUTH_EXP_KEY);
+  }
+
+  function hasValidAuth() {
+    const isAuthenticated = localStorage.getItem(AUTH_KEY) === 'true';
+    const expiresAt = Number(localStorage.getItem(AUTH_EXP_KEY) || '0');
+
+    if (!isAuthenticated || !expiresAt || Date.now() >= expiresAt) {
+      clearAuth();
+      return false;
+    }
+
+    return true;
+  }
+
+  function setAuthenticated() {
+    localStorage.setItem(AUTH_KEY, 'true');
+    localStorage.setItem(AUTH_EXP_KEY, String(Date.now() + AUTH_TTL_MS));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const authCheck = document.getElementById('auth-check');
+    const adminContent = document.getElementById('admin-content');
+    
+    // Check if already authenticated
+    const isAuthenticated = hasValidAuth();
+    
+    if (isAuthenticated) {
+      // Already authenticated - show content
+      adminContent.classList.remove('hidden');
+    } else {
+      // Not authenticated - show login
+      authCheck.classList.remove('hidden');
+      
+      // Set up auth form
+      const authForm = document.getElementById('auth-submit');
+      authForm.addEventListener('click', () => {
+        const username = document.getElementById('auth-username').value;
+        const password = document.getElementById('auth-password').value;
+        
+        if (ADMIN_NEEDS_SETUP) {
+          alert('Admin setup is incomplete. Please run first-time setup from the admin login panel.');
+          return;
+        }
+
+        const hashedPassword = btoa(password || '');
+        if (username === ADMIN_USERNAME && hashedPassword === ADMIN_PASSWORD_HASH) {
+          // Set authenticated and show admin content
+          setAuthenticated();
+          authCheck.classList.add('hidden');
+          adminContent.classList.remove('hidden');
+        } else {
+          alert('Invalid credentials. Please try again.');
+        }
+      });
+    }
+    
+    // Create Package Button
+    document.getElementById('create-package-button')?.addEventListener('click', () => {
+      const includePosts = document.getElementById('share-posts').checked;
+      const includeTimeline = document.getElementById('share-timeline').checked;
+      const includeConfig = document.getElementById('share-config').checked;
+      const includeAssets = document.getElementById('share-assets').checked;
+      
+      // Create a sample package content with site metadata for friends to connect back
+      const packageContent = {
+        metadata: {
+          created: new Date().toISOString(),
+          version: "1.0.0",
+          generator: "Static Site Admin",
+          siteInfo: {
+            name: document.title.split('|')[0].trim() || "My Blog",
+            url: window.location.origin,
+            bio: "Content shared from my blog",
+            avatar: "/favicon.png"
+          }
+        },
+        options: {
+          includePosts,
+          includeTimeline,
+          includeConfig,
+          includeAssets
+        },
+        content: {
+          posts: includePosts ? [
+            { id: "1", title: "Sample Post 1", content: "This is a sample post content" },
+            { id: "2", title: "Sample Post 2", content: "This is another sample post" }
+          ] : [],
+          timeline: includeTimeline ? [
+            { date: "2023-01-01", title: "Sample Event 1", description: "Event description" },
+            { date: "2023-02-15", title: "Sample Event 2", description: "Another event" }
+          ] : [],
+          config: includeConfig ? { 
+            sample: "This would contain your site configuration" 
+          } : null,
+          assets: includeAssets ? [
+            { name: "image1.jpg", type: "image/jpeg", url: "/images/sample.jpg" }
+          ] : []
+        }
+      };
+      
+      // Convert to JSON and download
+      const packageString = JSON.stringify(packageContent, null, 2);
+      downloadTextFile(`content-package-${new Date().toISOString().slice(0,10)}.json`, packageString);
+    });
+    
+    // File Upload Handling
+    const fileInput = document.getElementById('package-file');
+    fileInput?.addEventListener('change', (event) => {
+      const files = event.target.files;
+      
+      if (files.length > 0) {
+        const fileName = files[0].name;
+        const fileNameElement = document.getElementById('file-name');
+        fileNameElement.textContent = fileName;
+        fileNameElement.classList.remove('hidden');
+        
+        // Show import options
+        document.getElementById('import-options')?.classList.remove('hidden');
+        
+        // Read the file and extract friend data if available
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const packageData = JSON.parse(e.target.result);
+            
+            // You could use this data to pre-populate the friend form
+            console.log('Package data:', packageData);
+          } catch (error) {
+            console.error('Error parsing package:', error);
+          }
+        };
+        
+        reader.readAsText(files[0]);
+      }
+    });
+    
+    // Import Package Button
+    document.getElementById('import-package-button')?.addEventListener('click', () => {
+      const importPosts = document.getElementById('import-posts').checked;
+      const importTimeline = document.getElementById('import-timeline').checked;
+      const importConfig = document.getElementById('import-config').checked;
+      const importAssets = document.getElementById('import-assets').checked;
+      
+      // For demo purposes only - simulate an import
+      console.log('Importing package with options:', { importPosts, importTimeline, importConfig, importAssets });
+      
+      // Show success alert
+      alert('Content successfully imported!');
+    });
+    
+    // Debug helper for friend functionality
+    console.log('Friends page loaded');
+    
+    // Debug localStorage state
+    try {
+      const friendsData = localStorage.getItem('blogFriends');
+      if (friendsData) {
+        const friends = JSON.parse(friendsData);
+        console.log('Found', friends.length, 'friends in localStorage');
+      } else {
+        console.log('No friends found in localStorage');
+      }
+      
+      // Check auth status
+      console.log('Authentication status:', isAuthenticated);
+      
+      // Check friend content setting
+      const friendContentEnabled = localStorage.getItem('friendContentEnabled') !== 'false';
+      console.log('Friend content enabled:', friendContentEnabled);
+    } catch (error) {
+      console.error('Error checking friend data in localStorage:', error);
+    }
+  });
+  
+  // Helper function to download a text file
+  function downloadTextFile(filename, content) {
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+</script>

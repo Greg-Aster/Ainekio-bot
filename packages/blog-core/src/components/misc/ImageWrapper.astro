@@ -1,0 +1,93 @@
+---
+import path from 'path';
+import { Image } from 'astro:assets';
+import { url } from '../../utils/url-utils';
+
+interface Props {
+  id?: string;
+  src?: string;
+  class?: string;
+  alt?: string;
+  position?: string;
+  basePath?: string;
+  loading?: 'eager' | 'lazy';
+  widths?: number[];       // Add for responsive images
+  quality?: number;        // Add quality control
+  format?: 'webp' | 'avif' | 'png' | 'jpeg'; // Add format control
+}
+
+const {
+  id,
+  src,
+  alt,
+  position = 'center',
+  basePath = '/',
+  widths = [400, 800, 1200], // Default responsive widths
+  quality = 100,              // Default quality
+  format = 'webp'            // Default to WebP
+} = Astro.props;
+const className = Astro.props.class;
+
+// Early return if src is empty or undefined
+if (!src) {
+  return;
+}
+
+const isLocal = !(
+  src.startsWith('/') ||
+  src.startsWith('http') ||
+  src.startsWith('https') ||
+  src.startsWith('data:')
+);
+const isPublic = src.startsWith('/');
+
+// TODO temporary workaround for images dynamic import
+// https://github.com/withastro/astro/issues/3373
+let img;
+if (isLocal) {
+  const files = import.meta.glob<ImageMetadata>('../../**', {
+    import: 'default',
+  });
+  let normalizedPath = path
+    .normalize(path.join('../../', basePath, src))
+    .replace(/\\/g, '/');
+  const file = files[normalizedPath];
+  if (!file) {
+    console.error(`\n[ERROR] Image file not found: ${normalizedPath.replace('../../', 'src/')}`);
+  } else {
+    img = await file();
+  }
+}
+
+const imageClass = 'w-full h-full object-cover';
+const imageStyle = `object-position: ${position}`;
+const publicSrc = isPublic ? url(src, import.meta.env.BASE_URL) : src;
+---
+<div id={id} class:list={[className, 'overflow-hidden relative']}>
+  <div class="transition absolute inset-0 dark:bg-black/00 bg-opacity-50 pointer-events-none"></div>
+
+  {isLocal && img && (
+    <Image
+      src={img}
+      alt={alt || ""}
+      class={imageClass}
+      style={imageStyle}
+      widths={widths}
+      format={format}
+      quality={quality}
+      loading={Astro.props.loading || 'lazy'}
+      sizes="(max-width: 768px) 100vw, 10vw"
+    />
+  )}
+
+  {!isLocal && (
+    <img
+      src={publicSrc}
+      alt={alt || ""}
+      class={imageClass}
+      style={imageStyle}
+      loading={Astro.props.loading || 'lazy'}
+      decoding="async"
+    />
+  )}
+</div>

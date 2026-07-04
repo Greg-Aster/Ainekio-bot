@@ -1,0 +1,133 @@
+---
+import MainGridLayout from '../layouts/MainGridLayout.astro';
+import { i18n } from '../i18n/translation';
+import I18nKey from '../i18n/i18nKey';
+import { Icon } from 'astro-icon/components';
+import { siteConfig, navBarConfig, profileConfig, licenseConfig } from '../config/config';
+import { defaultEraConfig, defaultTimelineViewConfig } from '../config/timelineconfig';
+
+// Import a main Svelte component for the Config UI
+import AdminConfigPanel from '../components/svelte/admin/AdminConfigPanel.svelte';
+import passwordConfig from '../config/password.config';
+---
+
+<MainGridLayout title={i18n(I18nKey.configs)} description={i18n(I18nKey.configs)}>
+  <Fragment slot="head">
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+  </Fragment>
+
+  <!-- Auth Check Panel -->
+  <div id="auth-check" class="card-base w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4 p-6">
+    <div class="text-center">
+      <h2 class="text-2xl font-bold text-90 mb-4 text-[var(--primary)]">Admin Authentication Required</h2>
+      <p class="text-neutral-600 dark:text-neutral-300 mb-6">
+        Please sign in to access the configuration panel.
+      </p>
+      <div class="max-w-md mx-auto">
+        <div class="mb-4">
+          <label for="auth-username" class="block text-sm font-medium text-75 mb-1">Username</label>
+          <input 
+            type="text" 
+            id="auth-username" 
+            class="w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-l text-sm text-neutral-900 dark:text-neutral-100" 
+          />
+        </div>
+        <div class="mb-4">
+          <label for="auth-password" class="block text-sm font-medium text-75 mb-1">Password</label>
+          <input 
+            type="password" 
+            id="auth-password" 
+            class="w-full px-3 py-2 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-l text-sm text-neutral-900 dark:text-neutral-100" 
+          />
+        </div>
+        <button 
+          id="auth-submit" 
+          class="w-full py-2 px-4 bg-[var(--primary)] hover:opacity-90 text-white font-medium rounded-md transition-opacity"
+        >
+          Sign In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Content (hidden until authenticated) -->
+  <div id="admin-content" class="admin-content hidden">
+    <!-- Svelte Component for Admin Configuration Panel -->
+    <AdminConfigPanel 
+      client:only="svelte"
+      siteConfig={siteConfig}
+      navBarConfig={navBarConfig}
+      profileConfig={profileConfig}
+      licenseConfig={licenseConfig}
+      timelineConfig={{
+        eraConfig: defaultEraConfig,
+        viewConfig: defaultTimelineViewConfig
+      }}
+    />
+  </div>
+</MainGridLayout>
+
+<script define:vars={{ ADMIN_USERNAME: passwordConfig.username, ADMIN_PASSWORD_HASH: passwordConfig.passwordHash, ADMIN_NEEDS_SETUP: passwordConfig.needsSetup }}>
+  // Admin auth config is injected at build time.
+  const AUTH_KEY = 'isAuthenticated';
+  const AUTH_EXP_KEY = 'authExpiresAt';
+  const AUTH_TTL_MS = 1000 * 60 * 60 * 8; // 8 hours
+
+  function clearAuth() {
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(AUTH_EXP_KEY);
+  }
+
+  function hasValidAuth() {
+    const isAuthenticated = localStorage.getItem(AUTH_KEY) === 'true';
+    const expiresAt = Number(localStorage.getItem(AUTH_EXP_KEY) || '0');
+
+    if (!isAuthenticated || !expiresAt || Date.now() >= expiresAt) {
+      clearAuth();
+      return false;
+    }
+
+    return true;
+  }
+
+  function setAuthenticated() {
+    localStorage.setItem(AUTH_KEY, 'true');
+    localStorage.setItem(AUTH_EXP_KEY, String(Date.now() + AUTH_TTL_MS));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const authCheck = document.getElementById('auth-check');
+    const adminContent = document.getElementById('admin-content');
+    
+    // Check if already authenticated
+    const isAuthenticated = hasValidAuth();
+    
+    if (isAuthenticated) {
+      // Already authenticated - show content
+      authCheck.classList.add('hidden');
+      adminContent.classList.remove('hidden');
+    }
+    
+    // Set up auth form
+    const authForm = document.getElementById('auth-submit');
+    authForm?.addEventListener('click', () => {
+      const username = document.getElementById('auth-username').value;
+      const password = document.getElementById('auth-password').value;
+      
+      if (ADMIN_NEEDS_SETUP) {
+          alert('Admin setup is incomplete. Please run first-time setup from the admin login panel.');
+          return;
+        }
+
+        const hashedPassword = btoa(password || '');
+        if (username === ADMIN_USERNAME && hashedPassword === ADMIN_PASSWORD_HASH) {
+        // Set authenticated and show admin content
+        setAuthenticated();
+        authCheck.classList.add('hidden');
+        adminContent.classList.remove('hidden');
+      } else {
+        alert('Invalid credentials. Please try again.');
+      }
+    });
+  });
+</script>

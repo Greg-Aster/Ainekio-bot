@@ -1,0 +1,383 @@
+---
+// src/components/timeline/TimelineBanner.astro
+// RESTORED CONTROLLER COMPONENT - All features working (StarMapView removed)
+
+import ListView from './TimelineViewModes/ListView.astro'
+import MapView from './TimelineViewModes/MapView.astro'
+import TimelineView from './TimelineViewModes/TimelineView.astro'
+import TreeView from './TimelineViewModes/TreeView.astro'
+import { defaultTimelineViewConfig } from '@/config/timelineconfig'
+import { getTimelineEvents } from '@/services/TimelineService'
+import type { TimelineEvent } from '@/services/TimelineService.client'
+import {
+  type EraConfigMap,
+  extractEraConfig,
+} from '@/services/TimelineService.client'
+
+export interface Props {
+  id?: string
+  class?: string
+  category?: string
+  startYear?: number
+  endYear?: number
+  background?: string
+  compact?: boolean
+  asBanner?: boolean
+  bannerHeight?: string
+  mobileHeight?: string
+  initialViewMode?: 'timeline' | 'list' | 'tree' | 'map'
+  initialScale?: number
+  initialOffsetX?: number
+  initialOffsetY?: number
+  useEraColors?: boolean
+}
+
+const {
+  id = 'unified-timeline-area',
+  class: classList = '',
+  category = '',
+  startYear: propStartYear,
+  endYear: propEndYear,
+  background: initialBackground = '/assets/banner/0001.png',
+  compact = false,
+  asBanner = true,
+  bannerHeight = '500px',
+  mobileHeight = '400px',
+  initialViewMode = 'timeline',
+  useEraColors = false,
+  initialScale = defaultTimelineViewConfig.defaultZoom,
+  initialOffsetX = 0,
+  initialOffsetY = 0,
+} = Astro.props
+
+// Server-side data fetching & processing
+let events: TimelineEvent[] = []
+let currentBackground = initialBackground
+
+try {
+  events = await getTimelineEvents({
+    category: category || undefined,
+    startYear: propStartYear,
+    endYear: propEndYear,
+    includeBanners: true,
+  })
+
+  const bannerPostWithBg = events.find(event => event.bannerData?.background)
+  if (bannerPostWithBg?.bannerData?.background) {
+    currentBackground = bannerPostWithBg.bannerData.background
+  }
+} catch (error) {
+  console.error('Error fetching timeline events:', error)
+}
+
+// Configuration Extraction
+const eraConfig: EraConfigMap = extractEraConfig(events)
+const initialEra = Object.keys(eraConfig).length > 0 ? 'all-eras' : ''
+
+// Determine Effective Background
+let effectiveBackground = currentBackground
+if (events.length > 0 && !effectiveBackground) {
+  const firstEraKey = Object.keys(eraConfig).find(
+    key => key !== 'all-eras' && key !== 'all-time',
+  )
+  if (firstEraKey && eraConfig[firstEraKey]?.backgroundImage) {
+    effectiveBackground = eraConfig[firstEraKey].backgroundImage
+  } else if (eraConfig['all-eras']?.backgroundImage) {
+    effectiveBackground = eraConfig['all-eras'].backgroundImage
+  }
+}
+
+// Determine Year Range
+let startYear = propStartYear
+let endYear = propEndYear
+if (!startYear || !endYear) {
+  if (events.length > 0) {
+    const years = events.map(event => event.year)
+    const minYear = Math.min(...years)
+    const maxYear = Math.max(...years)
+    const yearPadding = Math.max(5, Math.ceil((maxYear - minYear) * 0.1))
+    if (!startYear) startYear = minYear - yearPadding
+    if (!endYear) endYear = maxYear + yearPadding
+  } else {
+    startYear = startYear || 2000
+    endYear = endYear || 2100
+  }
+}
+
+// Generate Unique IDs
+const wrapperId = `${id}-wrapper`
+const timelineViewId = `${id}-timeline-view`
+const listViewId = `${id}-list-view`
+const treeViewId = `${id}-tree-view`
+const mapViewId = `${id}-map-view`
+
+// View modes configuration (StarMapView removed)
+const viewModes = [
+  {
+    id: 'timeline',
+    label: 'Timeline',
+    svgPath:
+      'M3 12h18M7 8v8M12 6v12M17 9v6M7 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM12 4a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM17 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z',
+  },
+  {
+    id: 'list',
+    label: 'List',
+    svgPath:
+      'M6 7a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM6 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM6 17a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM8 6h12a1 1 0 0 1 0 2H8a1 1 0 1 1 0-2zM8 11h12a1 1 0 0 1 0 2H8a1 1 0 1 1 0-2zM8 16h12a1 1 0 0 1 0 2H8a1 1 0 1 1 0-2z',
+  },
+  {
+    id: 'tree',
+    label: 'Tree',
+    svgPath:
+      'M12 3v3m0 0c1.5 0 3 .5 3 2v2c0 1.5-1.5 2-3 2m0-6c-1.5 0-3 .5-3 2v2c0 1.5 1.5 2 3 2m0 0v3m0 0v3M8 15h1.5M14.5 15H16M8 21h1.5M14.5 21H16M12 18a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM12 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z',
+  },
+  {
+    id: 'map',
+    label: 'Map',
+    svgPath:
+      'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+  },
+]
+---
+
+<div
+  class:list={["timeline-wrapper relative w-full overflow-hidden", asBanner ? "timeline-banner-mode" : "", classList]}
+  id={wrapperId}
+  style={`height: ${bannerHeight};`}
+>
+  <!-- Main Content Area - Now fills full height with controls inside -->
+  <div class="timeline-viewport w-full h-full overflow-hidden relative">
+    
+    <!-- Floating Controls Inside Viewport -->
+    <div class="absolute top-4 left-4 right-4 flex justify-between items-center z-50 pointer-events-none">
+      <!-- View Switcher -->
+      <div class="flex flex-wrap gap-2 bg-black/40 p-2 rounded-lg backdrop-blur-sm pointer-events-auto">
+        {viewModes.map(mode => (
+          <button
+            class="view-switcher-button flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gray-700/80 hover:bg-sky-600 transition-colors duration-200 rounded-md"
+            data-viewmode={mode.id}
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={mode.svgPath}></path>
+            </svg>
+            <span class="hidden md:block">{mode.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <!-- Era Selector -->
+      <div class="bg-black/40 p-2 rounded-lg backdrop-blur-sm pointer-events-auto">
+        <select 
+          id={`${wrapperId}-era-select`}
+          class="px-3 py-2 text-sm bg-gray-700/80 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
+        >
+          <option value="all-eras">All Eras</option>
+          {Object.entries(eraConfig).map(([eraKey, config]) => 
+            eraKey !== 'all-eras' && eraKey !== 'all-time' && (
+              <option value={eraKey}>{config.displayName || eraKey}</option>
+            )
+          )}
+        </select>
+      </div>
+    </div>
+    
+    <!-- Timeline View -->
+    <div id={timelineViewId} class={`timeline-view-container w-full h-full ${initialViewMode === 'timeline' ? '' : 'hidden'}`}>
+      <TimelineView
+        id={`${id}-timeline`}
+        events={events}
+        background={effectiveBackground}
+        compact={compact}
+        initialScale={initialScale}
+        initialOffsetX={initialOffsetX}
+        initialOffsetY={initialOffsetY}
+        useEraColors={useEraColors}
+        startYear={startYear}
+        endYear={endYear}
+        eraConfig={eraConfig}
+      />
+    </div>
+
+    <!-- List View -->
+    <div id={listViewId} class={`list-view-container w-full h-full ${initialViewMode === 'list' ? '' : 'hidden'}`}>
+      <ListView
+        id={`${id}-list`}
+        events={events}
+        compact={compact}
+      />
+    </div>
+
+    <!-- Tree View -->
+    <div id={treeViewId} class={`tree-view-container w-full h-full ${initialViewMode === 'tree' ? '' : 'hidden'}`}>
+      <TreeView
+        id={`${id}-tree`}
+        events={events}
+        compact={compact}
+      />
+    </div>
+
+    <!-- Map View -->
+    <div id={mapViewId} class={`map-view-container w-full h-full ${initialViewMode === 'map' ? '' : 'hidden'}`}>
+      <MapView
+        id={`${id}-map`}
+        events={events}
+        compact={compact}
+      />
+    </div>
+
+  </div>
+</div>
+
+<script define:vars={{
+  wrapperId,
+  timelineViewId,
+  listViewId,
+  treeViewId,
+  mapViewId,
+  timelineContainerId: `${id}-timeline`,
+  initialViewMode,
+  initialEra,
+  eraConfig,
+  events: JSON.stringify(events)
+}}>
+  // --- Core State Management ---
+  const LAST_VIEW_MODE_KEY = 'timeline-last-view-mode';
+  
+  let currentViewMode = initialViewMode;
+  let currentEra = initialEra;
+  let currentEvents = JSON.parse(events);
+  let currentBackground = null;
+
+  // --- DOM Elements ---
+  const eraSelectElement = document.querySelector(`#${wrapperId}-era-select`);
+  const viewSwitcherButtons = document.querySelectorAll(`#${wrapperId} .view-switcher-button`);
+
+  // --- View Management ---
+  function setActiveView(viewMode) {
+    // Hide all views
+    document.getElementById(timelineViewId)?.classList.add('hidden');
+    document.getElementById(listViewId)?.classList.add('hidden');
+    document.getElementById(treeViewId)?.classList.add('hidden');
+    document.getElementById(mapViewId)?.classList.add('hidden');
+
+    // Show target view
+    const viewIdMap = {
+      timeline: timelineViewId,
+      list: listViewId,
+      tree: treeViewId,
+      map: mapViewId,
+    };
+    const targetElement = document.getElementById(viewIdMap[viewMode] || '');
+    if (targetElement) {
+      targetElement.classList.remove('hidden');
+    }
+
+    // Update button states
+    viewSwitcherButtons.forEach(btn => {
+      if (btn.dataset.viewmode === viewMode) {
+        btn.classList.add('bg-sky-600');
+        btn.classList.remove('bg-gray-700/80');
+      } else {
+        btn.classList.remove('bg-sky-600');
+        btn.classList.add('bg-gray-700/80');
+      }
+    });
+
+
+    currentViewMode = viewMode;
+    localStorage.setItem(LAST_VIEW_MODE_KEY, viewMode);
+  }
+
+  // --- Era Management ---
+  function handleEraChange(selectedEraKey) {
+    currentEra = selectedEraKey;
+    
+    let config = null;
+    let newBackground = null;
+    if (selectedEraKey !== 'all-eras' && selectedEraKey !== 'all-time' && eraConfig[selectedEraKey]) {
+      config = eraConfig[selectedEraKey];
+    }
+    if (config && config.backgroundImage) {
+      newBackground = config.backgroundImage;
+    }
+    currentBackground = newBackground;
+
+    // Filter events based on era
+    const allEventsUnfiltered = JSON.parse(events);
+    if (selectedEraKey === 'all-eras' || selectedEraKey === 'all-time' || !config || !config.startYear || !config.endYear) {
+      currentEvents = allEventsUnfiltered;
+    } else {
+      currentEvents = allEventsUnfiltered.filter(event => {
+        return event.year >= config.startYear && event.year <= config.endYear;
+      });
+    }
+
+    // Update timeline view
+    if (currentViewMode === 'timeline') {
+      const timelineCore = window[`timelineCore_${timelineContainerId}`];
+      if (timelineCore) {
+        timelineCore.updateBackground(currentBackground);
+        timelineCore.updateEvents(currentEvents);
+        if (config && config.startYear !== undefined && config.endYear !== undefined) {
+          timelineCore.navigateToEraRange(config.startYear, config.endYear);
+        } else {
+          timelineCore.resetView();
+        }
+      }
+    }
+  }
+
+
+  // --- Event Listeners & Initialization ---
+  function initialize() {
+    const savedViewMode = localStorage.getItem(LAST_VIEW_MODE_KEY);
+    const validViewModes = ["timeline", "list", "tree", "map"];
+    if (savedViewMode && validViewModes.includes(savedViewMode)) {
+      currentViewMode = savedViewMode;
+    }
+    
+    setActiveView(currentViewMode);
+
+    if (eraSelectElement) {
+      eraSelectElement.addEventListener('change', (event) => handleEraChange(event.target.value));
+      if (eraSelectElement.value !== currentEra) {
+        handleEraChange(eraSelectElement.value);
+      } else if (initialViewMode !== 'timeline') {
+        handleEraChange(currentEra);
+      }
+    } else {
+      handleEraChange(currentEra);
+    }
+
+    viewSwitcherButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const viewMode = button.dataset.viewmode;
+        if (viewMode) setActiveView(viewMode);
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize);
+  } else {
+    initialize();
+  }
+</script>
+
+<style is:global>
+  @import '../../styles/timeline-styles.css';
+  
+  .timeline-wrapper {
+    position: relative;
+  }
+  
+  .timeline-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .view-switcher-button.bg-sky-600 {
+    background-color: rgb(2 132 199) !important;
+  }
+</style>

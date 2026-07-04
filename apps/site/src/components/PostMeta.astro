@@ -1,0 +1,43 @@
+---
+import SharedPostMeta from '@ainekio/blog-core/components/post/PostMeta.astro'
+import { postCardConfig } from '../config/postcard.config'
+import I18nKey from '../i18n/i18nKey'
+import { i18n } from '../i18n/translation'
+
+interface Props {
+  class: string
+  published: Date
+  updated?: Date
+  tags: string[]
+  category: string
+  hideTagsForMobile?: boolean
+  hideUpdateDate?: boolean
+}
+const {
+  published,
+  updated,
+  tags,
+  category,
+  hideTagsForMobile = false,
+  hideUpdateDate = false,
+} = Astro.props
+const className = Astro.props.class
+
+// Get default configuration
+const config = postCardConfig.localPosts.content
+---
+
+<SharedPostMeta
+  class={className}
+  published={published}
+  updated={updated}
+  tags={tags}
+  category={category}
+  hideTagsForMobile={hideTagsForMobile}
+  hideUpdateDate={hideUpdateDate}
+  showCategory={config.showCategory}
+  showTags={config.showTags}
+  uncategorizedLabel={i18n(I18nKey.uncategorized)}
+  noTagsLabel={i18n(I18nKey.noTags)}
+  baseUrl={import.meta.env.BASE_URL}
+/>

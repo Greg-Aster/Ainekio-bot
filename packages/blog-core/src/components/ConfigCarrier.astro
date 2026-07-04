@@ -1,0 +1,9 @@
+---
+interface Props {
+  hue: number | string
+}
+
+const { hue } = Astro.props
+---
+
+<div id="config-carrier" data-hue={hue}></div>

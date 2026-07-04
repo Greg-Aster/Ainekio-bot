@@ -1,0 +1,169 @@
+---
+// src/components/PostCard.astro
+// This updated PostCard component adds data attributes to support client-side filtering
+
+import path from 'path';
+import PostMetadata from './PostMeta.astro';
+import ImageWrapper from './misc/ImageWrapper.astro';
+import { Icon } from 'astro-icon/components';
+import { i18n } from '../i18n/translation';
+import I18nKey from '../i18n/i18nKey';
+import { getDir } from '../utils/url-utils';
+import { postCardConfig } from '../config/postcard.config';
+
+interface Props {
+  class?: string;
+  entry: any;
+  title: string;
+  url: string;
+  published: Date;
+  updated?: Date;
+  tags: string[];
+  category: string;
+  image: string;
+  description: string;
+  draft: boolean;
+  style?: string;
+  isPostPage?: boolean;
+}
+
+const {
+  entry,
+  title,
+  url,
+  published,
+  updated,
+  tags,
+  category,
+  image,
+  description,
+  style = '',
+  isPostPage = false
+} = Astro.props;
+
+const className = Astro.props.class;
+
+// Modify the hasCover logic
+const hasCover = image !== undefined && image !== null && image !== '' && 
+  (!isPostPage || (isPostPage && entry.data.showImageOnPost !== false));
+
+// Get local post card config
+const config = postCardConfig.localPosts;
+
+// Set the cover width based on the configuration
+const coverWidth = `${config.layout.imageSizePercentage}%`;
+const usesRightAlignedImage = config.layout.imagePosition === 'right';
+
+const { remarkPluginFrontmatter } = await entry.render();
+
+// Calculate timestamp for data attribute
+const timestamp = published.getTime();
+const dateStr = published.toISOString().split('T')[0];
+const mobileDateStr = published.toLocaleDateString('en-US', {
+  month: 'numeric',
+  day: 'numeric',
+});
+---
+
+<div 
+  class:list={[
+    "card-base w-full overflow-hidden relative local-post",
+    usesRightAlignedImage ? "flex flex-row-reverse md:flex-col" : "flex flex-col-reverse md:flex-col",
+    config.layout.cardBorderRadius,
+    className
+  ]} 
+  style={style}
+  data-post-type="local"
+  data-post-id={entry.id}
+  data-post-date={dateStr}
+  data-post-timestamp={timestamp}
+  data-post-category={category?.toLowerCase()}
+  data-post-tags={tags?.join(',')?.toLowerCase()}
+  data-post-image={image}
+  data-post-description={description}>
+  
+  <div class:list={[
+    "relative min-w-0",
+    usesRightAlignedImage ? "flex flex-1 flex-col justify-center px-3 py-2.5 sm:px-4 sm:py-3 md:block md:pl-9 md:pr-2 md:pt-7 md:pb-6" : "pl-6 md:pl-9 pr-6 md:pr-2 pt-6 md:pt-7 pb-6",
+    {
+      "w-full md:w-[calc(100%_-_52px_-_12px)]": !hasCover,
+      "flex-1 md:w-[calc(100%_-_var(--coverWidth)_-_12px)]": hasCover && usesRightAlignedImage,
+      "w-full md:w-[calc(100%_-_var(--coverWidth)_-_12px)]": hasCover && !usesRightAlignedImage
+    }
+  ]}>
+    <a href={url}
+       class:list={["transition group w-full block min-h-[2.5rem] sm:min-h-[2.75rem] font-bold mb-2 md:mb-3 text-90 leading-tight pr-5 md:pr-8 line-clamp-2 hover:text-[var(--primary)] dark:hover:text-[var(--primary)] active:text-[var(--title-active)] dark:active:text-[var(--title-active)] before:w-1 before:h-5 before:rounded-md before:bg-[var(--primary)] before:absolute before:top-[35px] before:left-[18px] before:hidden md:before:block md:min-h-0", config.styling.titleSize]}>
+      {title}
+      <Icon class="inline text-[1.5rem] md:text-[2rem] text-[var(--primary)] md:hidden translate-y-0.5 absolute right-0 top-0" name="material-symbols:chevron-right-rounded" />
+      <Icon class="text-[var(--primary)] text-[2rem] transition hidden md:inline absolute translate-y-0.5 opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0" name="material-symbols:chevron-right-rounded" />
+    </a>
+
+    <!-- metadata -->
+    <div class="mb-4 hidden md:block">
+      <PostMetadata 
+        published={published} 
+        updated={updated} 
+        tags={tags} 
+        category={category} 
+        hideTagsForMobile={config.content.hideTagsOnMobile} 
+        hideUpdateDate={!config.content.showUpdateDate} 
+        class="gap-4">
+      </PostMetadata>
+    </div>
+
+    <!-- description -->
+    <div class:list={["transition text-75 text-[0.875rem] md:text-base min-h-[2.5rem] sm:min-h-[2.75rem] mb-0 md:mb-3.5 pr-0 md:pr-4 md:min-h-0", {[`line-clamp-${config.styling.descriptionLines}`]: true}]}>
+      { description || remarkPluginFrontmatter.excerpt }
+    </div>
+
+    <!-- word count and read time  -->
+    {(config.content.showWordCount || config.content.showReadTime) && (
+      <div class="text-sm text-black/30 dark:text-white/30 flex gap-4 transition">
+        {config.content.showWordCount && <div>{remarkPluginFrontmatter.words} {" " + i18n(I18nKey.wordsCount)}</div>}
+        {config.content.showWordCount && config.content.showReadTime && <div>|</div>}
+        {config.content.showReadTime && <div>{remarkPluginFrontmatter.minutes} {" " + i18n(I18nKey.minutesCount)}</div>}
+      </div>
+    )}
+  </div>
+
+  {hasCover && <a href={url} aria-label={title}
+                  class:list={["group",
+                      usesRightAlignedImage
+                        ? "w-[5.5rem] sm:w-28 shrink-0 self-stretch ml-0 mr-3 my-0 !rounded-none md:!rounded-xl md:m-0 md:w-[var(--coverWidth)] md:h-auto md:self-auto"
+                        : "max-h-[50vh] md:max-h-none mx-4 mt-4 -mb-2 md:mb-0 md:mx-0 md:mt-0",
+                      "relative md:absolute md:top-3 md:bottom-3 md:right-3 rounded-xl overflow-hidden active:scale-95"
+                  ]} >
+      <div class="absolute top-1.5 right-1.5 z-30 rounded-md bg-black/18 px-1.5 py-0.5 text-[10px] font-medium tracking-tight text-white/55 backdrop-blur-[2px] md:hidden">
+        <time datetime={published.toISOString()}>{mobileDateStr}</time>
+      </div>
+      <div class="absolute pointer-events-none z-10 w-full h-full group-hover:bg-black/30 group-active:bg-black/50 transition"></div>
+      <div class="absolute pointer-events-none z-20 w-full h-full flex items-center justify-center ">
+          <Icon name="material-symbols:chevron-right-rounded"
+                class="transition opacity-0 group-hover:opacity-100 scale-50 group-hover:scale-100 text-white text-5xl">
+          </Icon>
+      </div>
+      <ImageWrapper src={image} basePath={path.join("content/posts/", getDir(entry.id))} alt="Cover Image of the Post"
+                class="w-full h-full">
+      </ImageWrapper>
+  </a>}
+
+  {!hasCover && (
+      <div class="absolute top-3 right-3 z-20 rounded-md bg-black/5 px-1.5 py-0.5 text-[10px] font-medium tracking-tight text-25 md:hidden">
+        <time datetime={published.toISOString()}>{mobileDateStr}</time>
+      </div>
+  )}
+
+  {!hasCover && config.layout.showEnterButton &&
+      <a href={url} aria-label={title} class="!hidden md:!flex btn-regular w-[3.25rem]
+       absolute right-3 top-3 bottom-3 rounded-xl bg-[var(--enter-btn-bg)]
+       hover:bg-[var(--enter-btn-bg-hover)] active:bg-[var(--enter-btn-bg-active)] active:scale-95
+      ">
+          <Icon name="material-symbols:chevron-right-rounded"
+                class="transition text-[var(--primary)] text-4xl mx-auto">
+          </Icon>
+      </a>
+  }
+</div>
+
+<style define:vars={{coverWidth}}>
+</style>

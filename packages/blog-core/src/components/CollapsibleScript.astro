@@ -1,0 +1,113 @@
+<script>
+  function handleCollapsibleClick(event) {
+    event.preventDefault()
+
+    const header = event.currentTarget
+    const content = header.nextElementSibling
+
+    if (!(content instanceof HTMLElement)) return
+    if (content.hasAttribute('data-animating')) return
+
+    const isCurrentlyExpanded =
+      content.style.maxHeight !== '0px' && content.style.maxHeight !== ''
+
+    document.querySelectorAll('.collapsible-content').forEach(otherContent => {
+      if (!(otherContent instanceof HTMLElement)) return
+      if (otherContent !== content) {
+        const otherHeader = otherContent.previousElementSibling
+        collapseSection(otherContent, otherHeader)
+      }
+    })
+
+    if (!isCurrentlyExpanded) {
+      expandSection(content, header)
+    } else {
+      collapseSection(content, header)
+    }
+  }
+
+  function expandSection(content, header) {
+    const arrow = header?.querySelector?.('.indicator-arrow')
+
+    content.setAttribute('data-animating', 'true')
+    content.style.maxHeight = '0px'
+    content.style.opacity = '0'
+
+    requestAnimationFrame(() => {
+      const height = content.scrollHeight
+      content.style.maxHeight = `${height}px`
+      content.style.opacity = '1'
+
+      header?.setAttribute?.('aria-expanded', 'true')
+      arrow?.classList?.add?.('rotate-180')
+
+      setTimeout(() => {
+        content.removeAttribute('data-animating')
+      }, 300)
+    })
+  }
+
+  function collapseSection(content, header) {
+    const arrow = header?.querySelector?.('.indicator-arrow')
+
+    content.setAttribute('data-animating', 'true')
+    content.style.maxHeight = '0px'
+    content.style.opacity = '0'
+
+    header?.setAttribute?.('aria-expanded', 'false')
+    arrow?.classList?.remove?.('rotate-180')
+
+    setTimeout(() => {
+      content.removeAttribute('data-animating')
+    }, 300)
+  }
+
+  function initCollapsibles() {
+    const headers = document.querySelectorAll('.collapsible-header')
+    headers.forEach(header => {
+      header.removeEventListener('click', handleCollapsibleClick)
+      header.addEventListener('click', handleCollapsibleClick)
+
+      const content = header.nextElementSibling
+      if (content && content.classList.contains('collapsible-content')) {
+        content.style.maxHeight = '0px'
+        content.style.opacity = '0'
+        header.setAttribute('aria-expanded', 'false')
+      }
+    })
+  }
+
+  function safeInitialize() {
+    try {
+      initCollapsibles()
+    } catch (error) {
+      console.error('Collapsible initialization error:', error)
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', safeInitialize)
+  } else {
+    safeInitialize()
+  }
+
+  const observer = new MutationObserver(mutations => {
+    if (
+      mutations.some(mutation =>
+        Array.from(mutation.addedNodes).some(
+          node =>
+            node instanceof HTMLElement &&
+            (node.classList.contains('collapsible-header') ||
+              node.querySelector?.('.collapsible-header')),
+        ),
+      )
+    ) {
+      safeInitialize()
+    }
+  })
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  })
+</script>

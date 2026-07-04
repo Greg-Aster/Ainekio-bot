@@ -1,0 +1,53 @@
+---
+import { Icon } from 'astro-icon/components'
+
+interface Props {
+  title: string
+  class?: string
+  postUrl: string
+  authorLabel: string
+  authorName: string
+  publishedAtLabel: string
+  publishedAt: string
+  licenseLabel: string
+  licenseName: string
+  licenseUrl: string
+}
+
+const {
+  title,
+  postUrl,
+  authorLabel,
+  authorName,
+  publishedAtLabel,
+  publishedAt,
+  licenseLabel,
+  licenseName,
+  licenseUrl,
+} = Astro.props
+
+const className = Astro.props.class
+---
+<div class=`relative transition overflow-hidden bg-[var(--license-block-bg)] py-5 px-6 ${className || ''}`>
+    <div class="transition font-bold text-black/75 dark:text-white/75">
+        {title}
+    </div>
+    <a href={postUrl} class="link text-[var(--primary)]">
+        {postUrl}
+    </a>
+    <div class="flex gap-6 mt-2">
+        <div>
+            <div class="transition text-black/30 dark:text-white/30 text-sm">{authorLabel}</div>
+            <div class="transition text-black/75 dark:text-white/75 whitespace-nowrap">{authorName}</div>
+        </div>
+        <div>
+            <div class="transition text-black/30 dark:text-white/30 text-sm">{publishedAtLabel}</div>
+            <div class="transition text-black/75 dark:text-white/75 whitespace-nowrap">{publishedAt}</div>
+        </div>
+        <div>
+            <div class="transition text-black/30 dark:text-white/30 text-sm">{licenseLabel}</div>
+            <a href={licenseUrl} target="_blank" class="link text-[var(--primary)] whitespace-nowrap">{licenseName}</a>
+        </div>
+    </div>
+    <Icon name="fa6-brands:creative-commons" class="transition text-[15rem] absolute pointer-events-none right-6 top-1/2 -translate-y-1/2 text-black/5 dark:text-white/5"></Icon>
+</div>

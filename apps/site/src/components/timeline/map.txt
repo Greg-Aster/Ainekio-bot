@@ -1,0 +1,18 @@
+src/
+├── components/
+│   ├── timeline/
+│   │   ├── TimelineBanner.astro        # Main container (minimal Astro wrapper)
+│   │   ├── TimelineCore.svelte         # Main timeline visualization 
+│   │   ├── TimelineControls.svelte     # UI controls 
+│   │   ├── TimelineViewModes/          # Different view implementations
+│   │   │   ├── TimelineView.svelte     # Timeline visualization
+│   │   │   ├── ListView.svelte         # List view implementation
+│   │   │   ├── TreeView.svelte         # Tree view implementation
+│   │   │   └── MapView.svelte          # Map view implementation
+│   │   └── TimelineCard.svelte         # Card component for event details
+│   └── common/
+│       └── StarNode.svelte             # Reusable star visualization
+├── stores/
+│   └── timelineStore.ts                # Svelte store for timeline state
+└── services/
+    └── timelineService.ts              # Data fetching/processing (keep this)

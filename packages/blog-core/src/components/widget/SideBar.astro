@@ -1,0 +1,104 @@
+---
+import Profile from './Profile.astro'
+import Tag from './Tags.astro'
+import Categories from './Categories.astro'
+import type { MarkdownHeading } from 'astro'
+import type { ImageMetadata } from 'astro'
+
+interface SocialLink {
+  name: string
+  icon: string
+  url: string
+}
+
+interface CategoryItem {
+  name: string
+  count: string | number
+  url: string
+  ariaLabel?: string
+}
+
+interface TagItem {
+  name: string
+  count: string | number
+  url: string
+  ariaLabel?: string
+}
+
+interface Props {
+  class?: string
+  headings?: MarkdownHeading[]
+  postSlug?: string
+  customAvatar?: string
+  customName?: string
+  customBio?: string
+  hideProfile?: boolean
+  // Profile config from site
+  defaultName: string
+  defaultBio: string
+  socialLinks: SocialLink[]
+  avatarList: ImageMetadata[]
+  homeAvatar: ImageMetadata
+  animationInterval: number
+  activeAvatarIndex?: number
+  // Categories and tags data from site
+  categories: CategoryItem[]
+  categoriesTitle: string
+  tags: TagItem[]
+  tagsTitle: string
+}
+
+const className = Astro.props.class
+const headings = Astro.props.headings
+const postSlug = Astro.props.postSlug
+const customAvatar = Astro.props.customAvatar
+const customName = Astro.props.customName
+const customBio = Astro.props.customBio
+const hideProfile = Astro.props.hideProfile ?? false
+const {
+  defaultName,
+  defaultBio,
+  socialLinks,
+  avatarList,
+  homeAvatar,
+  animationInterval,
+  activeAvatarIndex,
+  categories,
+  categoriesTitle,
+  tags,
+  tagsTitle
+} = Astro.props
+---
+<div id="sidebar" class:list={[className, "w-full"]}>
+  {!hideProfile && (
+    <div class="flex flex-col w-full gap-4 mb-4">
+      <Profile
+        slug={postSlug}
+        customAvatar={customAvatar}
+        customName={customName}
+        customBio={customBio}
+        defaultName={defaultName}
+        defaultBio={defaultBio}
+        socialLinks={socialLinks}
+        avatarList={avatarList}
+        homeAvatar={homeAvatar}
+        animationInterval={animationInterval}
+        activeAvatarIndex={activeAvatarIndex}
+      ></Profile>
+    </div>
+  )}
+  <div id="sidebar-sticky" class="transition-all duration-700 flex flex-col w-full gap-4 top-4 sticky top-4">
+    <Categories
+      categories={categories}
+      title={categoriesTitle}
+      class="onload-animation"
+      style="animation-delay: 150ms"
+    ></Categories>
+    <Tag
+      tags={tags}
+      title={tagsTitle}
+      class="onload-animation"
+      style="animation-delay: 200ms"
+    ></Tag>
+  </div>
+</div>

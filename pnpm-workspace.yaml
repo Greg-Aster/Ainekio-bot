@@ -1,0 +1,11 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+verifyDepsBeforeRun: false
+overrides:
+  underscore: '>=1.13.8'
+allowBuilds:
+  '@biomejs/biome': true
+  esbuild: true
+  sharp: true
+  svelte-preprocess: true

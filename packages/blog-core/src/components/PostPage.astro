@@ -1,0 +1,42 @@
+---
+import { postCardConfig } from '@/config/postcard.config'
+import { formatDateToYYYYMMDD } from '@/utils/date-utils'
+import { getPostUrlBySlug } from '@utils/url-utils'
+import PostCard from '@components/PostCard.astro'
+import FriendContentIntegrator from '@components/svelte/friends/FriendContentIntegrator.svelte'
+
+const { page } = Astro.props
+
+let delay = 0
+const interval = 50
+const animationEnabled = postCardConfig.localPosts.styling.animationEnabled
+---
+
+<div id="posts-container" class="transition flex flex-col gap-4 mb-4">
+    {page.data.map((entry: any) => {
+        const dateStr = formatDateToYYYYMMDD(entry.data.published)
+        const timestamp = new Date(entry.data.published).getTime()
+
+        return (
+            <PostCard
+                entry={entry}
+                title={entry.data.title}
+                tags={entry.data.tags}
+                category={entry.data.category}
+                published={entry.data.published}
+                updated={entry.data.updated}
+                url={`${getPostUrlBySlug(entry.slug)}#post-container`}
+                image={entry.data.image}
+                description={entry.data.description}
+                draft={entry.data.draft}
+                class:list={animationEnabled ? 'onload-animation local-post' : 'local-post'}
+                style={animationEnabled ? `animation-delay: calc(var(--content-delay) + ${delay++ * interval}ms);` : ''}
+                data-post-type="local"
+                data-post-date={dateStr}
+                data-post-timestamp={timestamp}
+            />
+        )
+    })}
+
+    <FriendContentIntegrator client:load />
+</div>

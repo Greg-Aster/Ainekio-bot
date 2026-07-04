@@ -1,0 +1,11 @@
+---
+import SharedTOC from '@ainekio/blog-core/components/widget/TOC.astro'
+import { siteConfig } from '../../config/config'
+---
+
+<SharedTOC
+  {...Astro.props}
+  maxLevel={siteConfig.toc.depth}
+  usePrimaryIndicatorBorder={false}
+  useCardBaseSubtleStyling={false}
+/>

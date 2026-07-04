@@ -1,0 +1,164 @@
+---
+import { getCollection } from 'astro:content'
+import MainGridLayout from '../../layouts/MainGridLayout.astro'
+import Markdown from '../misc/Markdown.astro'
+import { parseJournalContent } from '../../utils/journal-utils'
+import { formatDate } from '../../utils/date-utils'
+
+interface Props {
+  collection?: string
+  slug: string
+  title?: string
+  eyebrow?: string
+  description?: string
+}
+
+const {
+  collection = 'updates',
+  slug,
+  title,
+  eyebrow,
+  description = 'Short updates, notes, and in-between entries.',
+} = Astro.props
+
+const collectionEntries = await getCollection(collection as any)
+const sourceEntry = collectionEntries.find((entry: any) => entry.slug === slug)
+
+if (!sourceEntry) {
+  throw new Error(`Updates content not found in '${collection}/${slug}'`)
+}
+
+const feedContent = await parseJournalContent(
+  sourceEntry.body,
+  sourceEntry.data.entries ?? [],
+)
+const entries = feedContent.entries
+const pageTitle =
+  title ?? sourceEntry.data.journalTitle ?? sourceEntry.data.title ?? 'Updates'
+const pageEyebrow =
+  eyebrow ?? sourceEntry.data.title ?? sourceEntry.data.journalTitle ?? 'Updates'
+---
+
+<MainGridLayout title={pageTitle} description={description}>
+  <div class="card-base w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+    <div class="pl-6 md:pl-9 pr-6 md:pr-9 pt-6 md:pt-7 pb-6 w-full">
+      <div class="mb-6">
+        <div class="text-[0.78rem] uppercase tracking-[0.08em] text-black/45 dark:text-white/45 mb-2">
+          {pageEyebrow}
+        </div>
+        <h1 class="text-3xl md:text-[2.25rem]/[2.75rem] font-bold text-black/90 dark:text-white/90">
+          {pageTitle}
+        </h1>
+      </div>
+
+      {feedContent.introHtml && (
+        <Markdown class="mb-8 markdown-content">
+          <div set:html={feedContent.introHtml} />
+        </Markdown>
+      )}
+
+      <div class="updates-feed-list">
+        {entries.map((entry, index) => (
+          <article class:list={['updates-feed-entry', { 'updates-feed-entry-border': index < entries.length - 1 }]}>
+            <div class="updates-feed-meta">
+              <div>
+                <div class="updates-feed-title">
+                  {entry.title || formatDate(entry.date)}
+                </div>
+                <div class="updates-feed-date">
+                  {formatDate(entry.date)}
+                </div>
+              </div>
+              {(entry.location || entry.mileage) && (
+                <div class="updates-feed-tags">
+                  {entry.location && <span>{entry.location}</span>}
+                  {entry.mileage && <span>{entry.mileage}</span>}
+                </div>
+              )}
+            </div>
+            <Markdown class="updates-feed-summary markdown-content">
+              <div set:html={entry.contentHtml} />
+            </Markdown>
+          </article>
+        ))}
+      </div>
+    </div>
+  </div>
+</MainGridLayout>
+
+<style>
+  .updates-feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .updates-feed-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .updates-feed-entry-border {
+    border-bottom: 1px dashed rgb(0 0 0 / 0.12);
+  }
+
+  .updates-feed-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    align-items: baseline;
+  }
+
+  .updates-feed-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: rgb(0 0 0 / 0.88);
+  }
+
+  .updates-feed-date {
+    margin-top: 0.15rem;
+    font-size: 0.82rem;
+    color: rgb(0 0 0 / 0.45);
+  }
+
+  .updates-feed-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    color: rgb(0 0 0 / 0.5);
+  }
+
+  .updates-feed-summary {
+    font-size: 0.98rem;
+    color: rgb(0 0 0 / 0.75);
+  }
+
+  .updates-feed-summary :global(:first-child) {
+    margin-top: 0;
+  }
+
+  .updates-feed-summary :global(:last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.dark) .updates-feed-entry-border {
+    border-bottom-color: rgb(255 255 255 / 0.12);
+  }
+
+  :global(.dark) .updates-feed-title {
+    color: rgb(255 255 255 / 0.88);
+  }
+
+  :global(.dark) .updates-feed-date,
+  :global(.dark) .updates-feed-tags {
+    color: rgb(255 255 255 / 0.5);
+  }
+
+  :global(.dark) .updates-feed-summary {
+    color: rgb(255 255 255 / 0.76);
+  }
+</style>

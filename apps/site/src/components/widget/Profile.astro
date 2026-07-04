@@ -1,0 +1,40 @@
+---
+import SharedProfile from '@ainekio/blog-core/components/widget/Profile.astro'
+import { profileConfig } from '../../config/config'
+import { avatarConfig, getAvatarIndexFromSlug } from '../../config/avatar.config'
+
+interface Props {
+  slug?: string;
+  customAvatar?: string;
+  customName?: string;
+  customBio?: string;
+  isHomePage?: boolean;
+}
+
+const {
+  slug = '',
+  customAvatar = '',
+  customName = '',
+  customBio = '',
+  isHomePage = false
+} = Astro.props;
+
+// Calculate active avatar index from slug
+const activeAvatarIndex = slug && !isHomePage && !customAvatar
+  ? getAvatarIndexFromSlug(slug, avatarConfig.avatarList.length)
+  : 0
+---
+<SharedProfile
+  slug={slug}
+  customAvatar={customAvatar}
+  customName={customName}
+  customBio={customBio}
+  isHomePage={isHomePage}
+  defaultName={profileConfig.name}
+  defaultBio={profileConfig.bio}
+  socialLinks={profileConfig.links}
+  avatarList={avatarConfig.avatarList}
+  homeAvatar={avatarConfig.homeAvatar}
+  animationInterval={avatarConfig.animationInterval}
+  activeAvatarIndex={activeAvatarIndex}
+/>

@@ -1,0 +1,16 @@
+---
+import UpdatesRail from '@ainekio/blog-core/components/widget/UpdatesRail.astro'
+import { siteConfig } from '../../config/config'
+
+const widgetConfig = siteConfig.rightRail?.widget
+---
+
+{siteConfig.rightRail?.enable === true && widgetConfig?.type === 'updates' && (
+  <UpdatesRail
+    collection={widgetConfig.collection || 'updates'}
+    slug={widgetConfig.slug || 'site-updates'}
+    excerptLength={widgetConfig.excerptLength ?? 320}
+    journalUrl={widgetConfig.pageUrl || '/updates/'}
+    journalLinkLabel={widgetConfig.pageLinkLabel || 'Open full updates page'}
+  />
+)}
