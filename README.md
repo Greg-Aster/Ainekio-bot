@@ -1,6 +1,6 @@
-# MetaHuman Robot Familiar
+# Ainekio the Robot Familiar
 
-  MetaHuman Robot Familiar is a hardware and software project for building a small robot companion powered by MetaHuman OS. The robot uses a physical body,
+  Ainekio the Robot Familiar is a hardware and software project for building a small robot companion powered by MetaHuman OS. The robot uses a physical body,
   onboard sensors, and a network connection to let MetaHuman OS see, listen, speak, move, and interact through a physical chassis.
 
 - Progress blog and current status: [link]
