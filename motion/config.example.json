@@ -1,0 +1,27 @@
+{
+  "motion": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+  "bridge": {
+    "url": "ws://127.0.0.1:4321/api/environment-bridge/events",
+    "catch_up_url": "http://127.0.0.1:4321/api/environment-bridge/actions",
+    "adapter_id": "ainekio-motion-local"
+  },
+  "backend": {
+    "active": "virtual",
+    "hardware_enabled": false,
+    "pca9685_address": "0x40",
+    "servo_frequency_hz": 50
+  },
+  "telemetry": {
+    "interval_ms": 100
+  },
+  "safety": {
+    "default_ttl_ms": 1200,
+    "lease_ttl_ms": 1500,
+    "stale_stop_ms": 600,
+    "motor_stagger_ms": 20,
+    "low_battery_mv": 6500
+  }
+}

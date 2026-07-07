@@ -1,0 +1,9 @@
+[project]
+name = "ainekio-motion"
+version = "0.1.0"
+description = "Ainekio semantic robot motion module"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
