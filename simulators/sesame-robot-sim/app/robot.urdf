@@ -1,0 +1,1401 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/b79f0bd00a8a2992e122c486/w/07a88731be16e1121125e6c3/e/ecd0205f62be89dd8084d827 -->
+<robot name="onshape">
+  <!-- Link internal_frame -->
+  <link name="internal_frame">
+    <inertial>
+      <origin xyz="0.000176894 -0.00474991 0.00186732" rpy="0 0 0"/>
+      <mass value="0.0625592"/>
+      <inertia ixx="3.98439e-05" ixy="-3.283e-08" ixz="1.10396e-07" iyy="2.96218e-05" iyz="3.312e-09" izz="6.48058e-05"/>
+    </inertial>
+    <!-- Part top_cover -->
+    <visual>
+      <origin xyz="-0.0256198 -0.00238918 -0.0151121" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/top_cover.stl"/>
+      </geometry>
+      <material name="top_cover_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part bottom_cover -->
+    <visual>
+      <origin xyz="-0.0256198 -0.00238918 -0.0151121" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/bottom_cover.stl"/>
+      </geometry>
+      <material name="bottom_cover_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part internal_frame -->
+    <visual>
+      <origin xyz="-0.0256198 -0.00238918 -0.0151121" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/internal_frame.stl"/>
+      </geometry>
+      <material name="internal_frame_material">
+        <color rgba="0.309804 0.309804 0.309804 1"/>
+      </material>
+    </visual>
+    <!-- Part oled_128x64_0_96_v1_main -->
+    <visual>
+      <origin xyz="-0.0311492 -0.0393268 0.0299338" rpy="-0.351482 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/oled_128x64_0_96_v1_main.stl"/>
+      </geometry>
+      <material name="oled_128x64_0_96_v1_main_material">
+        <color rgba="0.0823529 0.0823529 0.0823529 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_2 -->
+    <visual>
+      <origin xyz="0.0136034 -0.0246224 0.00170566" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_2_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00205566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_3 -->
+    <visual>
+      <origin xyz="0.0334034 -0.0159224 0.00170566" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_3_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_4 -->
+    <visual>
+      <origin xyz="0.0136034 -0.0159224 0.00170566" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_4_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00170566" rpy="0 0 -3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right -->
+    <visual>
+      <origin xyz="0.0191534 -0.0301724 0.00205566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_2 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_2_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_5 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_5_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_6 -->
+    <visual>
+      <origin xyz="-0.0133966 -0.0357224 0.00170566" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_6_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_2 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00205566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_2_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_7 -->
+    <visual>
+      <origin xyz="-0.0331966 -0.0444224 0.00170566" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_7_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_2 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_2_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_8 -->
+    <visual>
+      <origin xyz="-0.0133966 -0.0444224 0.00170566" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_8_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_2 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00170566" rpy="0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_2_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_2 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_2_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_2 -->
+    <visual>
+      <origin xyz="-0.0189466 -0.0301724 0.00205566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_2_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_3 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_3_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_9 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_9_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_10 -->
+    <visual>
+      <origin xyz="0.0136034 0.0261776 0.00170566" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_10_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_3 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00205566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_3_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_11 -->
+    <visual>
+      <origin xyz="0.0334034 0.0348776 0.00170566" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_11_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_3 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_3_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_12 -->
+    <visual>
+      <origin xyz="0.0136034 0.0348776 0.00170566" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_12_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_3 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00170566" rpy="-0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_3_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_3 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00170566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_3_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_3 -->
+    <visual>
+      <origin xyz="0.0191534 0.0206276 0.00205566" rpy="0 -0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_3_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_4 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_4_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_13 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_13_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_14 -->
+    <visual>
+      <origin xyz="-0.0133966 0.0150776 0.00170566" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_14_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_4 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00205566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_4_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_15 -->
+    <visual>
+      <origin xyz="-0.0331966 0.00637759 0.00170566" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_15_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_4 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_4_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_16 -->
+    <visual>
+      <origin xyz="-0.0133966 0.00637759 0.00170566" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_16_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_4 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00170566" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_4_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_4 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00170566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_4_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_4 -->
+    <visual>
+      <origin xyz="-0.0189466 0.0206276 0.00205566" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_4_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part kcd1_b2_base -->
+    <visual>
+      <origin xyz="0.0345034 -0.00477241 0.0337349" rpy="-0 0.783195 0"/>
+      <geometry>
+        <mesh filename="package://assets/kcd1_b2_base.stl"/>
+      </geometry>
+      <material name="kcd1_b2_base_material">
+        <color rgba="0.156863 0.156863 0.156863 1"/>
+      </material>
+    </visual>
+    <!-- Part kcd1_b2_rocker -->
+    <visual>
+      <origin xyz="0.0339191 -0.00477241 0.0330467" rpy="0.261799 0.783195 0"/>
+      <geometry>
+        <mesh filename="package://assets/kcd1_b2_rocker.stl"/>
+      </geometry>
+      <material name="kcd1_b2_rocker_material">
+        <color rgba="0.156863 0.156863 0.156863 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Link femur_joint_l2 -->
+  <link name="femur_joint_l2">
+    <inertial>
+      <origin xyz="-0.00781171 -0.0167497 0.00432361" rpy="0 0 0"/>
+      <mass value="0.000680634"/>
+      <inertia ixx="1.24813e-07" ixy="-2.9418e-08" ixz="2.3512e-08" iyy="9.7988e-08" iyz="4.5161e-08" izz="1.01443e-07"/>
+    </inertial>
+    <!-- Part sg90_horn -->
+    <visual>
+      <origin xyz="-0 0 -0.0038" rpy="-3.14159 -0 0.785398"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part femur_joint_l2 -->
+    <visual>
+      <origin xyz="0.0173524 0.0151982 0.0330178" rpy="3.14159 -0 2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/femur_joint_l2.stl"/>
+      </geometry>
+      <material name="femur_joint_l2_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_horn_2 -->
+    <visual>
+      <origin xyz="-0.0180234 -0.0340621 0.01779" rpy="-1.5708 0 -2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_2_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Link foot_joint_l4 -->
+  <link name="foot_joint_l4">
+    <inertial>
+      <origin xyz="-1.5443e-05 -0.00565475 -0.0161842" rpy="0 0 0"/>
+      <mass value="0.0139894"/>
+      <inertia ixx="9.39736e-07" ixy="-3.443e-09" ixz="9.8e-11" iyy="3.09467e-07" iyz="2.576e-09" izz="1.00347e-06"/>
+    </inertial>
+    <!-- Part foot_joint_l4 -->
+    <visual>
+      <origin xyz="-0.0152278 0.0598468 -0.00728707" rpy="0 1.5708 0"/>
+      <geometry>
+        <mesh filename="package://assets/foot_joint_l4.stl"/>
+      </geometry>
+      <material name="foot_joint_l4_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_5 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.0162" rpy="0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_5_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_17 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.0162" rpy="0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_17_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_18 -->
+    <visual>
+      <origin xyz="-0.00555 -0.0107 -0.0162" rpy="0 0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_18_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_5 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.01585" rpy="0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_5_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_19 -->
+    <visual>
+      <origin xyz="-0.01425 0.0091 -0.0162" rpy="0 0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_19_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_5 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.0162" rpy="0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_5_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_20 -->
+    <visual>
+      <origin xyz="-0.01425 -0.0107 -0.0162" rpy="0 0 3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_20_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_5 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.0162" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_5_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_5 -->
+    <visual>
+      <origin xyz="0 -0.00515 -0.0162" rpy="0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_5_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_5 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.01585" rpy="0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_5_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Frame l4_p1 (dummy link + fixed joint) -->
+  <link name="l4_p1">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l4_p1_frame" type="fixed">
+    <origin xyz="0.001905 -0.04706 -0.019813" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_l4"/>
+    <child link="l4_p1"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame l4_p2 (dummy link + fixed joint) -->
+  <link name="l4_p2">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l4_p2_frame" type="fixed">
+    <origin xyz="0.001905 -0.04706 -0.0120344" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_l4"/>
+    <child link="l4_p2"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame l4_p3 (dummy link + fixed joint) -->
+  <link name="l4_p3">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l4_p3_frame" type="fixed">
+    <origin xyz="-0.00508 -0.04706 -0.019813" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_l4"/>
+    <child link="l4_p3"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame l4_p4 (dummy link + fixed joint) -->
+  <link name="l4_p4">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l4_p4_frame" type="fixed">
+    <origin xyz="-0.00508 -0.04706 -0.0123397" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_l4"/>
+    <child link="l4_p4"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Joint from femur_joint_l2 to foot_joint_l4 -->
+  <joint name="l4" type="revolute">
+    <origin xyz="-0.0207104 -0.0313751 0.01779" rpy="-1.5708 0 -2.35619"/>
+    <parent link="femur_joint_l2"/>
+    <child link="foot_joint_l4"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from internal_frame to femur_joint_l2 -->
+  <joint name="l2" type="revolute">
+    <origin xyz="0.0243034 -0.0301724 0.0179057" rpy="-3.14159 0 -3.14159"/>
+    <parent link="internal_frame"/>
+    <child link="femur_joint_l2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Link femur_joint_r2 -->
+  <link name="femur_joint_r2">
+    <inertial>
+      <origin xyz="-0.00784353 0.0167717 0.004359" rpy="0 0 0"/>
+      <mass value="0.000678324"/>
+      <inertia ixx="1.24409e-07" ixy="2.9231e-08" ixz="2.3287e-08" iyy="9.7479e-08" iyz="-4.5005e-08" izz="1.0103e-07"/>
+    </inertial>
+    <!-- Part sg90_horn_3 -->
+    <visual>
+      <origin xyz="0 0 -0.0038" rpy="-3.14159 -0 -0.785398"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_3_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_horn_4 -->
+    <visual>
+      <origin xyz="-0.0180234 0.0340621 0.01779" rpy="1.5708 0 2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_4_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part femur_joint_r2 -->
+    <visual>
+      <origin xyz="0.0173524 -0.0151982 0.0330178" rpy="-3.14159 0 -2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/femur_joint_r2.stl"/>
+      </geometry>
+      <material name="femur_joint_r2_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Link foot_joint_r4 -->
+  <link name="foot_joint_r4">
+    <inertial>
+      <origin xyz="-1.59153e-05 0.00565415 -0.0161839" rpy="0 0 0"/>
+      <mass value="0.0139878"/>
+      <inertia ixx="9.39192e-07" ixy="3.401e-09" ixz="8.4e-11" iyy="3.09384e-07" iyz="-2.623e-09" izz="1.00287e-06"/>
+    </inertial>
+    <!-- Part foot_joint_r4 -->
+    <visual>
+      <origin xyz="-0.0152278 -0.0598468 -0.00728707" rpy="0 1.5708 0"/>
+      <geometry>
+        <mesh filename="package://assets/foot_joint_r4.stl"/>
+      </geometry>
+      <material name="foot_joint_r4_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_6 -->
+    <visual>
+      <origin xyz="-0 0.00515 -0.0162" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_6_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_21 -->
+    <visual>
+      <origin xyz="-0 0.00515 -0.0162" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_21_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_22 -->
+    <visual>
+      <origin xyz="0.00555 0.0107 -0.0162" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_22_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_6 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.01585" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_6_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_23 -->
+    <visual>
+      <origin xyz="0.01425 -0.0091 -0.0162" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_23_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_6 -->
+    <visual>
+      <origin xyz="-0 0.00515 -0.0162" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_6_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_24 -->
+    <visual>
+      <origin xyz="0.01425 0.0107 -0.0162" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_24_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_6 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.0162" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_6_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_6 -->
+    <visual>
+      <origin xyz="-0 0.00515 -0.0162" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_6_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_6 -->
+    <visual>
+      <origin xyz="-0 0.00515 -0.01585" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_6_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Frame r4_p1 (dummy link + fixed joint) -->
+  <link name="r4_p1">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r4_p1_frame" type="fixed">
+    <origin xyz="0.001905 0.04706 -0.0195906" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_r4"/>
+    <child link="r4_p1"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame r4_p2 (dummy link + fixed joint) -->
+  <link name="r4_p2">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r4_p2_frame" type="fixed">
+    <origin xyz="0.001905 0.04706 -0.0120344" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_r4"/>
+    <child link="r4_p2"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame r4_p3 (dummy link + fixed joint) -->
+  <link name="r4_p3">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r4_p3_frame" type="fixed">
+    <origin xyz="-0.00508 0.04706 -0.0192853" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_r4"/>
+    <child link="r4_p3"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame r4_p4 (dummy link + fixed joint) -->
+  <link name="r4_p4">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r4_p4_frame" type="fixed">
+    <origin xyz="-0.00508 0.04706 -0.0123397" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_r4"/>
+    <child link="r4_p4"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Joint from femur_joint_r2 to foot_joint_r4 -->
+  <joint name="r4" type="revolute">
+    <origin xyz="-0.0207104 0.0313751 0.01779" rpy="1.5708 0 2.35619"/>
+    <parent link="femur_joint_r2"/>
+    <child link="foot_joint_r4"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from internal_frame to femur_joint_r2 -->
+  <joint name="r2" type="revolute">
+    <origin xyz="0.0243034 0.0206276 0.0179057" rpy="3.14159 -0 3.14159"/>
+    <parent link="internal_frame"/>
+    <child link="femur_joint_r2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Link femur_joint_l1 -->
+  <link name="femur_joint_l1">
+    <inertial>
+      <origin xyz="-0.00780689 0.0167431 0.0043184" rpy="0 0 0"/>
+      <mass value="0.000680971"/>
+      <inertia ixx="1.24903e-07" ixy="2.9477e-08" ixz="2.3547e-08" iyy="9.8086e-08" iyz="-4.5208e-08" izz="1.01555e-07"/>
+    </inertial>
+    <!-- Part sg90_horn_5 -->
+    <visual>
+      <origin xyz="-0.0180234 0.0340621 0.01779" rpy="1.5708 -0 2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_5_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part femur_joint_l1 -->
+    <visual>
+      <origin xyz="0.0173524 -0.0151982 0.0330178" rpy="3.14159 0 -2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/femur_joint_l1.stl"/>
+      </geometry>
+      <material name="femur_joint_l1_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_horn_6 -->
+    <visual>
+      <origin xyz="0 -0 -0.0038" rpy="-3.14159 0 -0.785398"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_6_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Link foot_joint_l3 -->
+  <link name="foot_joint_l3">
+    <inertial>
+      <origin xyz="-1.71455e-05 0.00566323 -0.0161873" rpy="0 0 0"/>
+      <mass value="0.013998"/>
+      <inertia ixx="9.44445e-07" ixy="3.558e-09" ixz="4.2e-11" iyy="3.09884e-07" iyz="-2.038e-09" izz="1.00819e-06"/>
+    </inertial>
+    <!-- Part foot_joint_l3 -->
+    <visual>
+      <origin xyz="-0.0152278 -0.0598468 -0.00728707" rpy="-0 1.5708 0"/>
+      <geometry>
+        <mesh filename="package://assets/foot_joint_l3.stl"/>
+      </geometry>
+      <material name="foot_joint_l3_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_7 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.0162" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_7_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_25 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.0162" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_25_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_26 -->
+    <visual>
+      <origin xyz="0.00555 0.0107 -0.0162" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_26_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_7 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.01585" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_7_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_27 -->
+    <visual>
+      <origin xyz="0.01425 -0.0091 -0.0162" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_27_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_7 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.0162" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_7_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_28 -->
+    <visual>
+      <origin xyz="0.01425 0.0107 -0.0162" rpy="-0 0 -0"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_28_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_7 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.0162" rpy="-0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_7_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_7 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.0162" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_7_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_7 -->
+    <visual>
+      <origin xyz="0 0.00515 -0.01585" rpy="0 0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_7_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Frame l3_p1 (dummy link + fixed joint) -->
+  <link name="l3_p1">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l3_p1_frame" type="fixed">
+    <origin xyz="0.001905 0.04706 -0.0199857" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_l3"/>
+    <child link="l3_p1"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame l3_p2 (dummy link + fixed joint) -->
+  <link name="l3_p2">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l3_p2_frame" type="fixed">
+    <origin xyz="0.001905 0.04706 -0.0120344" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_l3"/>
+    <child link="l3_p2"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame l3_p3 (dummy link + fixed joint) -->
+  <link name="l3_p3">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l3_p3_frame" type="fixed">
+    <origin xyz="-0.00508 0.04706 -0.0199857" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_l3"/>
+    <child link="l3_p3"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame l3_p4 (dummy link + fixed joint) -->
+  <link name="l3_p4">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="l3_p4_frame" type="fixed">
+    <origin xyz="-0.00508 0.04706 -0.0123397" rpy="-1.5708 1.5708 0"/>
+    <parent link="foot_joint_l3"/>
+    <child link="l3_p4"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Joint from femur_joint_l1 to foot_joint_l3 -->
+  <joint name="l3" type="revolute">
+    <origin xyz="-0.0207104 0.0313751 0.01779" rpy="1.5708 -0 2.35619"/>
+    <parent link="femur_joint_l1"/>
+    <child link="foot_joint_l3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from internal_frame to femur_joint_l1 -->
+  <joint name="l1" type="revolute">
+    <origin xyz="-0.0240966 -0.0301724 0.0179057" rpy="-3.14159 0 -0"/>
+    <parent link="internal_frame"/>
+    <child link="femur_joint_l1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Link femur_joint_r1 -->
+  <link name="femur_joint_r1">
+    <inertial>
+      <origin xyz="-0.00781587 -0.0167529 0.00432657" rpy="0 0 0"/>
+      <mass value="0.000680443"/>
+      <inertia ixx="1.24764e-07" ixy="-2.9397e-08" ixz="2.3482e-08" iyy="9.795e-08" iyz="4.5138e-08" izz="1.01398e-07"/>
+    </inertial>
+    <!-- Part sg90_horn_7 -->
+    <visual>
+      <origin xyz="0 0 -0.0038" rpy="-3.14159 -0 0.785398"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_7_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_horn_8 -->
+    <visual>
+      <origin xyz="-0.0180234 -0.0340621 0.01779" rpy="-1.5708 0 -2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_horn.stl"/>
+      </geometry>
+      <material name="sg90_horn_8_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part femur_joint_r1 -->
+    <visual>
+      <origin xyz="0.0173524 0.0151982 0.0330178" rpy="3.14159 -0 2.35619"/>
+      <geometry>
+        <mesh filename="package://assets/femur_joint_r1.stl"/>
+      </geometry>
+      <material name="femur_joint_r1_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Link foot_joint_r3 -->
+  <link name="foot_joint_r3">
+    <inertial>
+      <origin xyz="-1.47339e-05 -0.00565439 -0.0161838" rpy="0 0 0"/>
+      <mass value="0.0139896"/>
+      <inertia ixx="9.39287e-07" ixy="-3.369e-09" ixz="7.4e-11" iyy="3.09541e-07" iyz="2.622e-09" izz="1.00311e-06"/>
+    </inertial>
+    <!-- Part foot_joint_r3 -->
+    <visual>
+      <origin xyz="-0.0152278 0.0598468 -0.00728707" rpy="-0 1.5708 0"/>
+      <geometry>
+        <mesh filename="package://assets/foot_joint_r3.stl"/>
+      </geometry>
+      <material name="foot_joint_r3_material">
+        <color rgba="1 0.47451 0.0745098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_bottom_8 -->
+    <visual>
+      <origin xyz="0 -0.00515 -0.0162" rpy="0 0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_bottom.stl"/>
+      </geometry>
+      <material name="sg90_bottom_8_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_29 -->
+    <visual>
+      <origin xyz="0 -0.00515 -0.0162" rpy="0 0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_29_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_30 -->
+    <visual>
+      <origin xyz="-0.00555 -0.0107 -0.0162" rpy="-0 0 -3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_30_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_left_8 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.01585" rpy="0 0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_left.stl"/>
+      </geometry>
+      <material name="sg90_side_left_8_material">
+        <color rgba="0.25098 0.25098 0.25098 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_31 -->
+    <visual>
+      <origin xyz="-0.01425 0.0091 -0.0162" rpy="-0 0 -3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_31_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_body_8 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.0162" rpy="0 0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_body.stl"/>
+      </geometry>
+      <material name="sg90_body_8_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_screw_32 -->
+    <visual>
+      <origin xyz="-0.01425 -0.0107 -0.0162" rpy="-0 0 -3.14159"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_screw.stl"/>
+      </geometry>
+      <material name="sg90_screw_32_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_top_8 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.0162" rpy="-0 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_top.stl"/>
+      </geometry>
+      <material name="sg90_top_8_material">
+        <color rgba="0.47451 0.47451 0.47451 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_pin_8 -->
+    <visual>
+      <origin xyz="0 -0.00515 -0.0162" rpy="0 0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_pin.stl"/>
+      </geometry>
+      <material name="sg90_pin_8_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+    <!-- Part sg90_side_right_8 -->
+    <visual>
+      <origin xyz="-0 -0.00515 -0.01585" rpy="0 0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/sg90_side_right.stl"/>
+      </geometry>
+      <material name="sg90_side_right_8_material">
+        <color rgba="1 1 1 1"/>
+      </material>
+    </visual>
+  </link>
+  <!-- Frame r3_p1 (dummy link + fixed joint) -->
+  <link name="r3_p1">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r3_p1_frame" type="fixed">
+    <origin xyz="0.001905 -0.04706 -0.0195906" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_r3"/>
+    <child link="r3_p1"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame r3_p4 (dummy link + fixed joint) -->
+  <link name="r3_p4">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r3_p4_frame" type="fixed">
+    <origin xyz="-0.00508 -0.04706 -0.0123397" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_r3"/>
+    <child link="r3_p4"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame r3_p2 (dummy link + fixed joint) -->
+  <link name="r3_p2">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r3_p2_frame" type="fixed">
+    <origin xyz="0.001905 -0.04706 -0.0120344" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_r3"/>
+    <child link="r3_p2"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Frame r3_p3 (dummy link + fixed joint) -->
+  <link name="r3_p3">
+    <origin xyz="0 0 0" rpy="0 -0 0"/>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-9"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="r3_p3_frame" type="fixed">
+    <origin xyz="-0.00508 -0.04706 -0.0192853" rpy="1.5708 1.5708 0"/>
+    <parent link="foot_joint_r3"/>
+    <child link="r3_p3"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- Joint from femur_joint_r1 to foot_joint_r3 -->
+  <joint name="r3" type="revolute">
+    <origin xyz="-0.0207104 -0.0313751 0.01779" rpy="-1.5708 0 -2.35619"/>
+    <parent link="femur_joint_r1"/>
+    <child link="foot_joint_r3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from internal_frame to femur_joint_r1 -->
+  <joint name="r1" type="revolute">
+    <origin xyz="-0.0240966 0.0206276 0.0179057" rpy="-3.14159 -0 0"/>
+    <parent link="internal_frame"/>
+    <child link="femur_joint_r1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+</robot>
