@@ -1,7 +1,6 @@
 """Ainekio semantic motion module."""
 
 from .backend import DisabledPca9685Backend, VirtualBackend
-from .bridge import filter_reconnect_actions
 from .commands import translate_environment_action
 from .config import MotionConfig, load_config
 from .safety import SafetyController
@@ -17,7 +16,6 @@ __all__ = [
     "SafetyController",
     "SequenceEngine",
     "VirtualBackend",
-    "filter_reconnect_actions",
     "load_config",
     "translate_environment_action",
 ]

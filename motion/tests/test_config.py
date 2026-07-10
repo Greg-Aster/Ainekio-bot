@@ -10,7 +10,7 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEqual(config.backend.active, "virtual")
         self.assertFalse(config.backend.hardware_enabled)
-        self.assertTrue(config.bridge.url.startswith("ws://"))
+        self.assertTrue(config.bridge.url.endswith("/api/environment-bridge/stream"))
         self.assertEqual(config.safety.motor_stagger_ms, 20)
 
 

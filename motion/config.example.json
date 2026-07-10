@@ -4,8 +4,7 @@
     "port": 8787
   },
   "bridge": {
-    "url": "ws://127.0.0.1:4321/api/environment-bridge/events",
-    "catch_up_url": "http://127.0.0.1:4321/api/environment-bridge/actions",
+    "url": "http://127.0.0.1:4321/api/environment-bridge/stream",
     "adapter_id": "ainekio-motion-local"
   },
   "backend": {

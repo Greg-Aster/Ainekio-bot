@@ -1,0 +1,275 @@
+from __future__ import annotations
+
+import argparse
+import json
+import queue
+import threading
+from dataclasses import asdict
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+from urllib import error, request
+
+from .types import MotionCommand, ServoFrame
+
+
+DEFAULT_SHIM_URL = "http://127.0.0.1:8788"
+
+
+def build_motion_payload(
+    *,
+    action_id: str | None,
+    session_id: str,
+    command: MotionCommand,
+    frames: list[ServoFrame],
+) -> dict[str, Any]:
+    simulator_command = command.metadata.get("simulatorCommand")
+    units = command.metadata.get("units")
+    return {
+        "schemaVersion": 1,
+        "source": "ainekio-adapter",
+        "actionId": action_id,
+        "sessionId": session_id,
+        "command": command.command.value,
+        "simulatorCommand": simulator_command if isinstance(simulator_command, str) else None,
+        "units": units if isinstance(units, int) else None,
+        "rootMotion": asdict(command.root_motion) if command.root_motion else None,
+        "frames": [asdict(frame) for frame in frames],
+    }
+
+
+class SimulatorShimClient:
+    def __init__(self, base_url: str = DEFAULT_SHIM_URL, *, timeout_s: float = 1.5) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.timeout_s = timeout_s
+
+    def publish_motion(self, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        req = request.Request(
+            f"{self.base_url}/motion",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with request.urlopen(req, timeout=self.timeout_s) as response:
+                response.read()
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"simulator shim HTTP {exc.code}: {detail}") from exc
+        except OSError as exc:
+            raise RuntimeError(f"simulator shim unavailable: {exc}") from exc
+
+
+class MotionHub:
+    def __init__(self) -> None:
+        self._subscribers: set[queue.Queue[dict[str, Any]]] = set()
+        self._lock = threading.Lock()
+        self._latest: dict[str, Any] | None = None
+
+    def subscribe(self) -> queue.Queue[dict[str, Any]]:
+        subscriber: queue.Queue[dict[str, Any]] = queue.Queue()
+        with self._lock:
+            self._subscribers.add(subscriber)
+        return subscriber
+
+    def unsubscribe(self, subscriber: queue.Queue[dict[str, Any]]) -> None:
+        with self._lock:
+            self._subscribers.discard(subscriber)
+
+    def publish(self, payload: dict[str, Any]) -> int:
+        with self._lock:
+            self._latest = payload
+            subscribers = list(self._subscribers)
+        for subscriber in subscribers:
+            subscriber.put(payload)
+        return len(subscribers)
+
+    def latest(self) -> dict[str, Any] | None:
+        with self._lock:
+            return self._latest
+
+
+class SimulatorShimServer(ThreadingHTTPServer):
+    def __init__(self, server_address: tuple[str, int]) -> None:
+        super().__init__(server_address, SimulatorShimHandler)
+        self.hub = MotionHub()
+
+
+class SimulatorShimHandler(BaseHTTPRequestHandler):
+    server: SimulatorShimServer
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self._send_cors_headers()
+        self.end_headers()
+
+    def do_GET(self) -> None:
+        if self.path in {"/", "/monitor"}:
+            self._send_monitor()
+            return
+        if self.path == "/health":
+            self._send_json({"ok": True})
+            return
+        if self.path == "/events":
+            self._stream_events()
+            return
+        self.send_error(404, "not found")
+
+    def do_POST(self) -> None:
+        if self.path != "/motion":
+            self.send_error(404, "not found")
+            return
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        raw = self.rfile.read(length)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.send_error(400, "invalid JSON")
+            return
+        if not isinstance(payload, dict):
+            self.send_error(400, "payload must be an object")
+            return
+        subscribers = self.server.hub.publish(payload)
+        print(
+            "[simulator-shim] motion "
+            f"command={payload.get('command', 'unknown')} "
+            f"session={payload.get('sessionId', '-')} "
+            f"frames={len(payload.get('frames', [])) if isinstance(payload.get('frames'), list) else 0} "
+            f"subscribers={subscribers}"
+        )
+        self._send_json({"ok": True, "subscribers": subscribers})
+
+    def log_message(self, format: str, *args: object) -> None:
+        print(f"[simulator-shim] {self.address_string()} - {format % args}")
+
+    def _stream_events(self) -> None:
+        subscriber = self.server.hub.subscribe()
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+        self.wfile.write(b"event: connected\ndata: {\"ok\":true}\n\n")
+        self.wfile.flush()
+        latest = self.server.hub.latest()
+        if latest is not None:
+            self._write_motion_event(latest)
+
+        try:
+            while True:
+                payload = subscriber.get()
+                self._write_motion_event(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        finally:
+            self.server.hub.unsubscribe(subscriber)
+
+    def _write_motion_event(self, payload: dict[str, Any]) -> None:
+        data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        self.wfile.write(b"event: motion\n")
+        self.wfile.write(b"data: " + data + b"\n\n")
+        self.wfile.flush()
+
+    def _send_json(self, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_monitor(self) -> None:
+        body = b"""<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ainekio Simulator Monitor</title>
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #0f172a; color: #f8fafc; font: 14px/1.4 system-ui, sans-serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 24px; }
+      .stage { position: relative; height: 360px; border: 1px solid #334155; background: linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px); background-size: 24px 24px; overflow: hidden; }
+      .bot { position: absolute; left: 50%; top: 50%; width: 36px; height: 46px; margin: -23px 0 0 -18px; border-radius: 9px; background: #38bdf8; box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.2); transition: transform 260ms ease; }
+      .bot:before { content: ""; position: absolute; left: 12px; top: -13px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 13px solid #38bdf8; }
+      .grid { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; margin-top: 16px; }
+      .label { color: #94a3b8; }
+      .ok { color: #86efac; }
+      .bad { color: #fca5a5; }
+      code { color: #bae6fd; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ainekio Simulator Monitor</h1>
+      <p>Keep this page open while the Ainekio adapter runs. It listens to <code>/events</code>.</p>
+      <div class="stage"><div id="bot" class="bot"></div></div>
+      <div class="grid">
+        <div class="label">status</div><div id="status" class="bad">offline</div>
+        <div class="label">command</div><div id="command">none</div>
+        <div class="label">frames</div><div id="frames">0</div>
+        <div class="label">session</div><div id="session">-</div>
+      </div>
+    </main>
+    <script>
+      let x = 0, y = 0, yaw = 0;
+      const status = document.getElementById("status");
+      const setText = (id, value) => document.getElementById(id).textContent = String(value);
+      const setStatus = (online) => {
+        status.textContent = online ? "online" : "offline";
+        status.className = online ? "ok" : "bad";
+      };
+      const events = new EventSource("/events");
+      events.addEventListener("connected", () => setStatus(true));
+      events.addEventListener("motion", (event) => {
+        setStatus(true);
+        const payload = JSON.parse(event.data);
+        const root = payload.rootMotion || {};
+        x += Number(root.strafe || 0) * 32;
+        y -= Number(root.forward || 0) * 40;
+        yaw += Number(root.yaw || 0) * 25;
+        x = Math.max(-330, Math.min(330, x));
+        y = Math.max(-150, Math.min(150, y));
+        document.getElementById("bot").style.transform = `translate(${x}px, ${y}px) rotate(${yaw}deg)`;
+        setText("command", payload.command || "unknown");
+        setText("frames", Array.isArray(payload.frames) ? payload.frames.length : 0);
+        setText("session", payload.sessionId || "-");
+      });
+      events.onerror = () => setStatus(false);
+    </script>
+  </body>
+</html>
+"""
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_cors_headers(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+
+def run_server(host: str = "127.0.0.1", port: int = 8788) -> None:
+    server = SimulatorShimServer((host, port))
+    print(f"Serving Ainekio simulator shim at http://{host}:{port}/")
+    print(f"Open the shim monitor at http://{host}:{port}/monitor")
+    print("Open the Sesame simulator at http://127.0.0.1:8765/ and keep this process running.")
+    server.serve_forever()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run the Ainekio simulator event shim.")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8788)
+    args = parser.parse_args(argv)
+    run_server(args.host, args.port)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

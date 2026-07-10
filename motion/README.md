@@ -14,8 +14,8 @@ can fit the Raspberry Pi Zero 2 W target.
 - The module does not expose raw servo-angle control to AI callers.
 - Virtual walking emits both joint telemetry and root-motion intent. A game
   adapter must apply root motion to the world/body transform.
-- Reconnect catch-up filters expired actions and must not become a polling
-  transport.
+- The MetaHuman bridge receives actions over a persistent server-sent event
+  stream.
 - Hardware actuation is disabled unless config explicitly enables it.
 
 ## Validation
