@@ -2,15 +2,31 @@
 
 This folder is reserved for bridge code that connects Ainekio semantic robot commands to development runtimes.
 
-The current Megameal game project no longer owns a copied Sesame player-avatar mesh or physics rig. Visual verification should use the simulator runtime in `../app/`, either directly at `http://127.0.0.1:8765/` or through Megameal `/simulator` while the simulator server is running.
+The active Ainekio simulator path is:
+
+```bash
+./simulators/sesame-robot-sim/run.sh
+./start-simulator-shim.sh
+./start-ainekio-adapter.sh
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+The browser page loads `app/ainekio-shim.js`, which listens to the local Ainekio simulator shim at `http://127.0.0.1:8788/events`.
 
 The bridge boundary stays the same:
 
 - AI callers send semantic robot commands, not raw servo angles.
-- Servo conversion is owned in Ainekio bridge code, outside Megameal.
-- Any future Megameal link must target the simulator runtime or a simulator-owned bridge, not a copied Megameal player-avatar rig.
+- Servo conversion and simulator publication are owned in Ainekio bridge code.
+- The Ainekio path does not depend on Megameal controller events.
 
-Useful dry-run commands for the existing motion event builder:
+Legacy note: `megameal_bridge.py` is old bridge code kept for reference only. It is not the current Ainekio simulator path.
+
+Useful dry-run commands for the motion event builder:
 
 ```bash
 PYTHONPATH=motion/src python3 simulators/sesame-robot-sim/bridge/megameal_bridge.py --dry-run stand

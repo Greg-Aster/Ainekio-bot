@@ -16,7 +16,6 @@ class MotionServerConfig:
 @dataclass(frozen=True)
 class BridgeConfig:
     url: str
-    catch_up_url: str | None
     adapter_id: str
 
 
@@ -82,7 +81,6 @@ def load_config(path: str | os.PathLike[str] | None = None) -> MotionConfig:
         ),
         bridge=BridgeConfig(
             url=bridge_url,
-            catch_up_url=str(bridge["catch_up_url"]) if bridge.get("catch_up_url") else None,
             adapter_id=str(bridge.get("adapter_id", "ainekio-motion-local")),
         ),
         backend=BackendConfig(

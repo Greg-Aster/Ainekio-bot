@@ -15,6 +15,15 @@ class SequenceEngineTests(unittest.TestCase):
         self.assertEqual(first_step[1].at_ms, 1020)
         self.assertEqual(first_step[-1].at_ms, 1140)
 
+    def test_stand_uses_stock_sesame_pose(self) -> None:
+        frames = SequenceEngine(motor_stagger_ms=0).render(MotionCommand(RobotCommand.STAND))
+        angles = {frame.servo: frame.angle for frame in frames}
+
+        self.assertEqual(
+            angles,
+            {"R1": 135, "R2": 45, "L1": 45, "L2": 135, "R4": 0, "R3": 180, "L3": 0, "L4": 180},
+        )
+
     def test_virtual_backend_preserves_root_motion(self) -> None:
         backend = VirtualBackend()
         command = MotionCommand(
