@@ -7,7 +7,7 @@
 - The adapter connects over WiFi to the MetaHuman web address, currently `http://192.168.0.44:4321`.
 - The adapter should use MetaHuman's environment bridge endpoints under that base address.
 - The Sesame simulator in `simulators/sesame-robot-sim` is the first testing ground.
-- The Pi Zero target comes later, after the adapter can listen, translate commands, apply safety, and drive the simulator.
+- The ESP32-S3 hardware target comes later, after the adapter can listen, translate commands, apply safety, and drive the simulator.
 - Current first priority is complete: MetaHuman Environment Mode can send typed movement instructions to the Ainekio adapter over the persistent bridge stream.
 - Current next priority: connect the Ainekio virtual backend to visible Sesame simulator movement.
 
@@ -24,13 +24,13 @@ Ainekio motion safety + sequence module
         |
         v
 Sesame simulator backend now
-PCA9685 hardware backend later
+ESP32-S3 firmware/backend later
 ```
 
 ## Decisions So Far
 
-- Use the Pi Zero 2 W as the hardware target.
-- Do not add an ESP32 by default.
+- Use the ESP32-S3 body plan as the hardware target.
+- Do not resurrect the obsolete hardware path.
 - Use existing MetaHuman HTTP environment bridge endpoints for v1.
 - First network target is same-LAN WiFi.
 - Treat `http://192.168.0.44:4321` as the MetaHuman base URL for the robot client.
@@ -124,9 +124,9 @@ PCA9685 hardware backend later
   - The simulator reset button already uses `hybrid.set_joint_q(...)` to set the 8 servo joints.
   - The runtime is held in a local module variable, so the next practical step is exposing it to the Ainekio shim as a controlled bridge hook.
 - Motion architecture decision:
-  - The robot should use named pre-programmed settings / sequences in the simulator and later on the Pi.
+  - The robot should use named pre-programmed settings / sequences in the simulator and later on the ESP32-S3 firmware.
   - MetaHuman should keep sending semantic commands like `walk`, `stop`, `wave`, not raw servo angles.
-  - Ainekio owns the preset-to-servo-frame translation.
+  - Ainekio owns the preset-to-servo-frame translation for the simulator and later ESP32-S3 firmware.
 - Existing Ainekio preset coverage:
   - Implemented sequences: `rest`, `stand`, `idle`, `stop`, `walk`, `backward`, `left`, `right`, `wave`.
   - Additional command names exist in `RobotCommand` but need actual sequences before they are meaningful.

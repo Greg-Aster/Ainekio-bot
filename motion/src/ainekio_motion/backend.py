@@ -26,11 +26,11 @@ class VirtualBackend:
         return frames
 
 
-class DisabledPca9685Backend:
+class DisabledHardwareBackend:
     def __init__(self, *, hardware_enabled: bool = False) -> None:
         self.hardware_enabled = hardware_enabled
 
     def apply(self, command: MotionCommand, *, start_ms: int = 0) -> list[ServoFrame]:
         if not self.hardware_enabled:
-            raise RuntimeError("PCA9685 hardware backend is disabled by config")
-        raise NotImplementedError("PCA9685 hardware driver is deferred until hardware validation")
+            raise RuntimeError("hardware backend is disabled by config")
+        raise NotImplementedError("hardware backend is deferred until target validation")
