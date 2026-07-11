@@ -6,9 +6,9 @@ deferred until the owner decides to open those repos for edits.
 
 ## Goal
 
-Build a compact motion module that can run on the Raspberry Pi Zero 2 W body,
-drive the Sesame-style servo chassis safely, and expose the same semantic
-motion behavior to a virtual Megameal adapter for testing.
+Build a compact motion/simulation module for Ainekio that accepts semantic
+commands, applies safety, drives the Sesame-style simulator now, and preserves
+the same semantic body behavior for the ESP32-S3 firmware/gateway path.
 
 The motion module owns robot-body behavior. MetaHuman OS should send intent.
 Megameal should render/test the body and move the root transform in the game
@@ -27,7 +27,7 @@ Implemented inside `motion/`:
 - Sequence engine with provisional Sesame servo names, basic built-in
   sequences, clamping, and per-servo start staggering.
 - Virtual backend that emits joint telemetry for Megameal-style adapters.
-- Disabled physical backend guard that refuses hardware actuation unless
+- Disabled hardware backend guard that refuses hardware actuation unless
   hardware is explicitly enabled in config.
 - JSON config loader and `config.example.json` for bridge URL, ports, backend,
   telemetry, and safety settings.
@@ -60,8 +60,8 @@ editing or deeper validation outside `/home/greggles/Ainekio`.
   this motion module without adding a primary polling loop.
 - Sesame simulator asset import: decide whether to import URDF/mesh assets from
   the simulator repo or use a separate authored GLB rig.
-- Physical hardware driver: wire the PCA9685 backend to the selected Python
-  hardware library after confirming the Pi image and dependency budget.
+- ESP32-S3 firmware hardware driver: implement the ESP-IDF MCPWM/I2S/camera
+  path after protocol, board variant, and pin-map validation.
 - Battery telemetry: choose and wire the I2C ADC before enforcing real voltage
   thresholds from live readings.
 - OLED face channel: define the local face/expression transport and render

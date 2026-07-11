@@ -4,8 +4,9 @@ This package is the robot-body motion boundary for Ainekio. It accepts semantic
 commands, applies safety rules, renders servo sequences, and can drive either a
 virtual backend or an explicitly enabled physical backend.
 
-It is intentionally small and standard-library-only in this first slice so it
-can fit the Raspberry Pi Zero 2 W target.
+It is intentionally small and standard-library-only in this first slice so the
+adapter and emulator tooling stay portable while the ESP32-S3 firmware path is
+specified separately.
 
 ## Boundaries
 

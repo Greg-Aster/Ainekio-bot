@@ -10,7 +10,6 @@
   "backend": {
     "active": "virtual",
     "hardware_enabled": false,
-    "pca9685_address": "0x40",
     "servo_frequency_hz": 50
   },
   "telemetry": {

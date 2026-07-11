@@ -23,7 +23,6 @@ class BridgeConfig:
 class BackendConfig:
     active: str = "virtual"
     hardware_enabled: bool = False
-    pca9685_address: str = "0x40"
     servo_frequency_hz: int = 50
 
 
@@ -86,7 +85,6 @@ def load_config(path: str | os.PathLike[str] | None = None) -> MotionConfig:
         backend=BackendConfig(
             active=str(backend.get("active", "virtual")),
             hardware_enabled=bool(backend.get("hardware_enabled", False)),
-            pca9685_address=str(backend.get("pca9685_address", "0x40")),
             servo_frequency_hz=int(backend.get("servo_frequency_hz", 50)),
         ),
         telemetry=TelemetryConfig(interval_ms=int(telemetry.get("interval_ms", 100))),

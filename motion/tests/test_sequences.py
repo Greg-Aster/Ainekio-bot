@@ -1,6 +1,6 @@
 import unittest
 
-from ainekio_motion.backend import DisabledPca9685Backend, VirtualBackend
+from ainekio_motion.backend import DisabledHardwareBackend, VirtualBackend
 from ainekio_motion.sequences import SESAME_PROVISIONAL_SERVO_ORDER, SequenceEngine
 from ainekio_motion.types import MotionCommand, RobotCommand, RootMotionIntent
 
@@ -35,8 +35,8 @@ class SequenceEngineTests(unittest.TestCase):
 
         self.assertEqual(backend.telemetry[-1].root_motion, command.root_motion)
 
-    def test_physical_backend_refuses_when_disabled(self) -> None:
-        backend = DisabledPca9685Backend(hardware_enabled=False)
+    def test_hardware_backend_refuses_when_disabled(self) -> None:
+        backend = DisabledHardwareBackend(hardware_enabled=False)
 
         with self.assertRaises(RuntimeError):
             backend.apply(MotionCommand(RobotCommand.WALK))
