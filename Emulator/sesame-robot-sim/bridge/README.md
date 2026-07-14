@@ -16,7 +16,10 @@ Then open:
 http://127.0.0.1:8765/
 ```
 
-The browser page loads `app/ainekio-shim.js`, which listens to the local Ainekio simulator shim at `http://127.0.0.1:8788/events`.
+The browser page loads `app/ainekio-shim.js`, which listens to the local Ainekio
+simulator shim at `http://127.0.0.1:8788/events`. After handing a command to the
+Sesame UART runtime, the browser reports its result to `/result`; a host motion
+request is not complete merely because `/events` published it.
 
 The bridge boundary stays the same:
 

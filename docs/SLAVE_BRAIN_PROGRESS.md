@@ -220,7 +220,7 @@ path is authoritative; it should not create a second all-in-one robot simulator.
 - [x] Replace unbounded simulator subscriber queues with bounded delivery, never
   replay stale movement to a newly connected subscriber, and give `stop` a direct
   preemption path.
-- [ ] Add a simulator execution result path so publication is not reported as
+- [x] Add a simulator execution result path so publication is not reported as
   `done` until the visual backend acknowledges execution or cancellation.
 - [ ] Test malformed and oversized input, stale and duplicate sequences,
   disconnect/reconnect, unavailable simulator, queue saturation, and stop
@@ -406,21 +406,26 @@ until target hardware is connected and flashed.
   body-initiated authentication, version rejection, fixture consumption,
   sequence/lifecycle handling, portable-core safety decisions, and the initial
   `stand`, `neutral`, `walk`, and `stop` renderer path.
+- Added a session-scoped renderer result contract. The HTTP motion request now
+  remains pending until the browser reports that it handed the command to the
+  Sesame UART runtime. No subscriber, result timeout, or browser rejection can
+  produce protocol `done`.
+- Kept stop locally authoritative: portable-core detachment and protocol
+  acknowledgement do not wait for the optional renderer, while renderer stop
+  publication is attempted through a bounded best-effort path.
 - Refactored repository ownership so active emulator code no longer imports the
   old Python motion package. The renderer shim lives under
   `Emulator/emulator/backends/`; the old package and scratchpad live under
   `Emulator/legacy/` and `docs/archive/` respectively.
-- Four-folder layout validation: 17 active emulator/gateway tests, 19 legacy
+- Four-folder layout validation: 25 active emulator/gateway tests, 19 legacy
   adapter tests, 12 protocol tests, 4 retained Megameal bridge tests, the
   portable C CTest target, and the full ESP-IDF v5.5.4 cross-build passed from
   their new paths. Python compilation and startup-script syntax checks also
   passed.
 
-The next open simulator item is a visual-backend execution acknowledgement path;
-the HTTP shim currently confirms publication, not completion inside the browser
-runtime. Broader malformed-input, reconnect, saturation, and 100 ms stop-latency
-coverage also remains open. Media capability adapters follow after those control
-path gaps are resolved.
+The next open simulator item is the broader malformed-input, reconnect,
+unavailable-renderer, saturation, and measured 100 ms stop-latency coverage.
+Media capability adapters follow after those control-path gaps are resolved.
 
 ## First-Pass Stop Condition
 
