@@ -1,0 +1,73 @@
+{
+  "protocol": 1,
+  "cases": [
+    {
+      "name": "hello",
+      "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN"}
+    },
+    {"name": "err_auth", "message": {"t": "err", "code": "auth"}},
+    {"name": "welcome", "message": {"t": "welcome", "ver": 1, "epoch": 13, "profile": "home"}},
+    {"name": "intent_sit", "message": {"t": "intent", "seq": 1, "name": "sit"}},
+    {
+      "name": "intent_look",
+      "message": {"t": "intent", "seq": 2, "name": "look", "yaw": -30, "pitch": 10, "ms": 400}
+    },
+    {
+      "name": "intent_walk",
+      "message": {"t": "intent", "seq": 3, "name": "walk", "dir": "fwd", "steps": 2}
+    },
+    {"name": "intent_face", "message": {"t": "intent", "seq": 4, "name": "face", "expr": "happy"}},
+    {"name": "intent_say", "message": {"t": "intent", "seq": 5, "name": "say", "asset": "greeting_1"}},
+    {"name": "stop", "message": {"t": "stop", "seq": 6}},
+    {"name": "tts_start", "message": {"t": "tts", "seq": 7, "op": "start"}},
+    {"name": "cam", "message": {"t": "cam", "seq": 8, "on": true, "fps": 5, "res": "VGA"}},
+    {"name": "snap", "message": {"t": "snap", "seq": 9}},
+    {"name": "mic", "message": {"t": "mic", "seq": 10, "on": true, "gate": "vad"}},
+    {"name": "profile", "message": {"t": "profile", "seq": 11, "name": "tether"}},
+    {"name": "state_idle", "message": {"t": "state", "seq": 12, "name": "idle"}},
+    {"name": "state_sleep", "message": {"t": "state", "seq": 13, "name": "sleep", "sleep_s": 28800}},
+    {"name": "ping", "message": {"t": "ping"}},
+    {"name": "mode", "message": {"t": "mode", "seq": 14, "name": "calibrate"}},
+    {"name": "servo", "message": {"t": "servo", "seq": 15, "id": 0, "deg": 45.0, "ms": 300}},
+    {
+      "name": "limits",
+      "message": {"t": "limits", "seq": 16, "id": 0, "min": 10.0, "max": 170.0, "invert": false, "center": 90.0}
+    },
+    {
+      "name": "pose_save",
+      "message": {"t": "pose_save", "seq": 17, "name": "neutral", "servos": [[0, 90.0], [1, 90.0]]}
+    },
+    {"name": "cal_save", "message": {"t": "cal_save", "seq": 18}},
+    {"name": "ack", "message": {"t": "ack", "seq": 19}},
+    {"name": "ack_sleep", "message": {"t": "ack", "seq": 20, "sleep_s": 28800}},
+    {
+      "name": "nak",
+      "message": {"t": "nak", "seq": 21, "code": "unsafe", "msg": "vbat below move threshold"}
+    },
+    {"name": "nak_unparseable", "message": {"t": "nak", "code": "malformed"}},
+    {"name": "done", "message": {"t": "done", "seq": 22}},
+    {"name": "cancelled", "message": {"t": "cancelled", "seq": 23, "code": "stop"}},
+    {
+      "name": "status",
+      "message": {
+        "t": "status",
+        "vbat": 7.42,
+        "rssi": -52,
+        "state": "active",
+        "uptime": 312,
+        "heap": 183000,
+        "sd": true,
+        "cam_drops": 4,
+        "spk_underruns": 0,
+        "mic_drops": 2
+      }
+    },
+    {"name": "event", "message": {"t": "event", "name": "vad_open"}},
+    {"name": "cam_meta", "message": {"t": "cam_meta", "res": "VGA", "fps": 5, "counter_base": 1042}},
+    {"name": "pong", "message": {"t": "pong"}},
+    {
+      "name": "forward_compatible_extra_field",
+      "message": {"t": "stop", "seq": 24, "future_field": "ignored"}
+    }
+  ]
+}

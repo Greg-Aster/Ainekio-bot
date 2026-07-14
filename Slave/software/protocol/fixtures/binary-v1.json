@@ -1,0 +1,56 @@
+{
+  "protocol": 1,
+  "cases": [
+    {
+      "name": "valid_mic_pcm",
+      "frame": {"type": 1, "counter": 1, "payload_repeat": "00", "payload_count": 640},
+      "valid": true,
+      "known_type": true
+    },
+    {
+      "name": "valid_speaker_pcm",
+      "frame": {"type": 16, "counter": 8, "payload_repeat": "00", "payload_count": 640},
+      "valid": true,
+      "known_type": true
+    },
+    {
+      "name": "valid_jpeg",
+      "frame": {"type": 2, "counter": 1042, "payload_hex": "ffd8ffd9"},
+      "valid": true,
+      "known_type": true
+    },
+    {
+      "name": "counter_wrap",
+      "frames": [
+        {"type": 1, "counter": 4294967295, "payload_repeat": "00", "payload_count": 640},
+        {"type": 1, "counter": 0, "payload_repeat": "00", "payload_count": 640}
+      ],
+      "valid": true,
+      "known_type": true
+    },
+    {
+      "name": "unknown_type",
+      "frame": {"type": 127, "counter": 3, "payload_hex": "0102"},
+      "valid": true,
+      "known_type": false
+    },
+    {
+      "name": "truncated_header",
+      "raw_hex": "01010000",
+      "valid": false,
+      "reason": "truncated:header"
+    },
+    {
+      "name": "invalid_audio_length",
+      "frame": {"type": 1, "counter": 4, "payload_repeat": "00", "payload_count": 639},
+      "valid": false,
+      "reason": "length:audio"
+    },
+    {
+      "name": "invalid_jpeg_format",
+      "frame": {"type": 2, "counter": 5, "payload_hex": "00010203"},
+      "valid": false,
+      "reason": "format:jpeg"
+    }
+  ]
+}
