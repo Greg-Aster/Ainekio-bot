@@ -129,6 +129,16 @@
         },
         {
           "type": "object",
+          "required": ["t", "seq", "name", "asset"],
+          "properties": {
+            "t": {"const": "intent"},
+            "seq": {"$ref": "#/$defs/sequence"},
+            "name": {"const": "emote"},
+            "asset": {"$ref": "#/$defs/assetName"}
+          }
+        },
+        {
+          "type": "object",
           "required": ["t", "seq", "name", "expr"],
           "properties": {
             "t": {"const": "intent"},

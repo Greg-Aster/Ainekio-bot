@@ -73,6 +73,9 @@ static void enter_setup_session(
     machine->pending_actions |= AINEKIO_PROVISION_ACTION_GENERATE_SETUP_SECRET |
                                 AINEKIO_PROVISION_ACTION_SHOW_SETUP |
                                 AINEKIO_PROVISION_ACTION_PLAY_SETUP_CUE;
+    if (machine->has_active_wifi) {
+        machine->pending_actions |= AINEKIO_PROVISION_ACTION_CONNECT_ACTIVE_WIFI;
+    }
     if (reason_shows_unavailable(reason)) {
         machine->pending_actions |= AINEKIO_PROVISION_ACTION_SHOW_WIFI_UNAVAILABLE;
     }
@@ -108,6 +111,9 @@ static void resume_setup_after_staged_failure(
     machine->state_started_ms = now_ms;
     start_setup_ap(machine);
     machine->pending_actions |= AINEKIO_PROVISION_ACTION_SHOW_SETUP;
+    if (machine->has_active_wifi) {
+        machine->pending_actions |= AINEKIO_PROVISION_ACTION_CONNECT_ACTIVE_WIFI;
+    }
 }
 
 void ainekio_provisioning_init(

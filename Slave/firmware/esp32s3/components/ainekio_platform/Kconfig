@@ -1,0 +1,33 @@
+menu "Ainekio platform"
+
+config AINEKIO_PIN_MAP_B
+    bool "Use provisional MAP_B pin allocation"
+    default y
+    help
+        Builds the Freenove ESP32-S3 N16R8 provisional MAP_B allocation.
+        Outputs remain disabled until the H2/H3 hardware gates pass.
+
+config AINEKIO_MIC_SLOT_RIGHT
+    bool "INMP441 drives the right I2S slot"
+    default n
+    help
+        Select this only when the microphone L/R strap is wired for the right
+        channel. The default reads the left slot and must be verified at H2/H4.
+
+config AINEKIO_SSD1306_ADDRESS
+    hex "SSD1306 7-bit I2C address"
+    range 0x3c 0x3d
+    default 0x3c
+    help
+        The common SSD1306 module address. H2 must verify the installed display;
+        display initialization failure never blocks the control runtime.
+
+config AINEKIO_BATTERY_DIVIDER_FACTOR
+    string "Battery divider ratio"
+    default "0.0"
+    help
+        Electrical divider ratio from the normative Parts Overview. Leave 0.0
+        until that document supplies the value; telemetry stays disabled and
+        physical movement remains gated rather than guessing a safety input.
+
+endmenu

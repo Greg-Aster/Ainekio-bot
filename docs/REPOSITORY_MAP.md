@@ -13,11 +13,14 @@ Slave/
   hardware/
     3d-print/                 CAD, Blender, and STL body assets
   software/
+    assets/                   Versioned LittleFS motion, face, and PCM assets
     core/                     Portable C commands, state, lifecycle, and safety
     protocol/                 Protocol-v1 schemas, validator, helpers, fixtures
     tests/                    Portable slave-software protocol tests
+    tools/                    Deterministic asset conversion and validation
   firmware/
     esp32s3/                  ESP-IDF project for the physical robot
+      components/             ESP32-S3 platform services and hardware ports
       main/app_main.c         Physical robot firmware entry point
 ```
 
@@ -30,10 +33,13 @@ Slave/
 ```text
 Master/
   gateway/                    Brain-side protocol-v1 WebSocket owner
-    server/                   Current local gateway test stub
+    server/                   Production gateway service and focused test stub
+    dashboard/                Authenticated operator dashboard
+    bridge_client/            MetaHuman environment bridge boundary
 ```
 
-The future production MetaHuman bridge and gateway stay under `Master/`.
+The production gateway, dashboard, plugins, security stores, and MetaHuman bridge
+boundary stay under `Master/`.
 
 ## Emulator
 
@@ -46,6 +52,7 @@ Emulator/
   sesame-robot-sim/           Runnable browser/WASM visual simulator
   legacy/motion/              Superseded Python MetaHuman SSE motion adapter
   requirements-host.txt       Host-only Python dependency pin
+  start-protocol-v1-stack.sh  Complete local inspection stack
   start-protocol-v1-emulator.sh
   start-simulator-shim.sh
   start-ainekio-adapter.sh    Legacy adapter launcher
@@ -59,6 +66,7 @@ browser renders accepted commands but does not own protocol or safety decisions.
 
 ```text
 docs/
+  README.md                   Normative-document authority
   Ainekio - System Specification v1.0.docx
   SLAVE_BRAIN_PROGRESS.md
   REPOSITORY_MAP.md
@@ -107,7 +115,7 @@ Emulator/start-ainekio-sim-stack.sh
 | `README.md` | Project introduction and short folder guide. |
 | `AGENTS.md`, `.agents/`, `.codex/` | Local collaboration instructions and agent tooling. |
 | `.git/` | Git metadata. |
-| `build/` | Generated host CMake output. |
+| `build/` | Generated acceptance reports, host builds, credentials, and runtime data. |
 | `node_modules/` | Generated JavaScript dependencies. |
 | `packages/` | Existing generated dependency links; no current Ainekio source owner. |
 

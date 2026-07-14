@@ -16,6 +16,7 @@
       "name": "intent_walk",
       "message": {"t": "intent", "seq": 3, "name": "walk", "dir": "fwd", "steps": 2}
     },
+    {"name": "intent_emote", "message": {"t": "intent", "seq": 25, "name": "emote", "asset": "wave"}},
     {"name": "intent_face", "message": {"t": "intent", "seq": 4, "name": "face", "expr": "happy"}},
     {"name": "intent_say", "message": {"t": "intent", "seq": 5, "name": "say", "asset": "greeting_1"}},
     {"name": "stop", "message": {"t": "stop", "seq": 6}},

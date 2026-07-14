@@ -39,6 +39,16 @@ class SesameBackendTests(unittest.TestCase):
         self.assertEqual(payload["protocolSequence"], 8)
         self.assertEqual(duration_ms, 140)
 
+    def test_sit_uses_the_verified_sesame_rest_pose(self) -> None:
+        payload, duration_ms = _renderer_payload(
+            {"t": "intent", "seq": 9, "name": "sit"},
+            session_id="session-1",
+        )
+
+        self.assertEqual(payload["command"], "sit")
+        self.assertEqual(payload["simulatorCommand"], "run rest")
+        self.assertEqual(duration_ms, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

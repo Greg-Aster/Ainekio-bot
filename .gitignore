@@ -2,6 +2,7 @@
 node_modules/
 dist/
 build/
+/Slave/firmware/esp32s3/managed_components/
 .svelte-kit/
 .vite/
 .turbo/

@@ -24,6 +24,11 @@
       "reason": "range:steps"
     },
     {
+      "name": "intent_emote_asset_name",
+      "message": {"t": "intent", "seq": 18, "name": "emote", "asset": "Wave!"},
+      "reason": "value:asset"
+    },
+    {
       "name": "intent_face_asset_name",
       "message": {"t": "intent", "seq": 4, "name": "face", "expr": "Happy Face"},
       "reason": "value:expr"

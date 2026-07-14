@@ -20,7 +20,9 @@ MAX_AUTH_CHARS = 128
 
 ASSET_NAME = re.compile(r"[a-z0-9_]{1,32}\Z")
 
-INTENT_NAMES = frozenset({"sit", "stand", "neutral", "look", "walk", "face", "say"})
+INTENT_NAMES = frozenset(
+    {"sit", "stand", "neutral", "look", "walk", "emote", "face", "say"}
+)
 WALK_DIRECTIONS = frozenset({"fwd", "back", "turn_l", "turn_r"})
 PROFILES = frozenset({"home", "tether"})
 CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA"})
@@ -183,6 +185,8 @@ def _validate_intent(message: Mapping[str, object]) -> None:
     elif name == "walk":
         _string(message, "dir", allowed=WALK_DIRECTIONS)
         _integer(message, "steps", minimum=1, maximum=10)
+    elif name == "emote":
+        _asset(message, "asset")
     elif name == "face":
         _asset(message, "expr")
     elif name == "say":

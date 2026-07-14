@@ -22,6 +22,10 @@ static void test_initial_state_is_safe(void)
     assert(core.profile == AINEKIO_PROFILE_HOME);
     assert(!core.boot_ready);
     assert(!core.servos_attached);
+    assert(AINEKIO_JOINT_MAP_VERSION == 1U);
+    assert(ainekio_joint_label(AINEKIO_JOINT_R1)[0] == 'R');
+    assert(ainekio_joint_label(AINEKIO_JOINT_L4)[1] == '4');
+    assert(ainekio_joint_label(AINEKIO_SERVO_COUNT) == NULL);
 }
 
 static void test_stop_detaches_until_next_movement(void)
@@ -49,6 +53,13 @@ static void test_stop_detaches_until_next_movement(void)
     assert(ainekio_core_accept(&core, &neutral).accepted);
     assert(!core.stop_latched);
     assert(core.servos_attached);
+
+    stop.sequence = 5U;
+    assert(ainekio_core_accept(&core, &stop).accepted);
+    ainekio_command_t emote = intent_command(6U, AINEKIO_INTENT_EMOTE);
+    assert(ainekio_core_accept(&core, &emote).accepted);
+    assert(!core.stop_latched);
+    assert(core.servos_attached);
 }
 
 static void test_session_boundary_detaches_servos(void)
@@ -66,6 +77,7 @@ static void test_session_boundary_detaches_servos(void)
     assert(!core.has_sequence);
     assert(!core.servos_attached);
     assert(core.stop_latched);
+    assert(core.mode == AINEKIO_MODE_NORMAL);
 }
 
 static void test_failsafe_detaches_servos(void)
@@ -102,6 +114,25 @@ static void test_sequence_and_safety_gates(void)
     assert(ainekio_core_accept(&core, &neutral).accepted);
 }
 
+static void test_cutoff_rejects_all_commands_until_recovery(void)
+{
+    ainekio_core_t core;
+    ainekio_core_init(&core);
+    ainekio_core_set_boot_ready(&core, true);
+    ainekio_core_set_power_guard(&core, AINEKIO_POWER_CUTOFF);
+
+    assert(core.state == AINEKIO_STATE_DEEP_SLEEP);
+    assert(!core.servos_attached);
+
+    ainekio_command_t stop = {.sequence = 1U, .kind = AINEKIO_COMMAND_STOP};
+    assert(ainekio_core_accept(&core, &stop).rejection == AINEKIO_REJECT_BUSY);
+
+    ainekio_core_set_power_guard(&core, AINEKIO_POWER_NORMAL);
+    assert(core.state == AINEKIO_STATE_ACTIVE);
+    ainekio_command_t stand = intent_command(2U, AINEKIO_INTENT_STAND);
+    assert(ainekio_core_accept(&core, &stand).accepted);
+}
+
 static void test_calibration_gate_and_lifecycle(void)
 {
     ainekio_core_t core;
@@ -120,6 +151,9 @@ static void test_calibration_gate_and_lifecycle(void)
 
     ainekio_command_t face = intent_command(4U, AINEKIO_INTENT_FACE);
     assert(ainekio_command_lifecycle(&face) == AINEKIO_LIFECYCLE_ACK_THEN_DONE);
+
+    ainekio_core_set_mode(&core, AINEKIO_MODE_NORMAL);
+    assert(core.mode == AINEKIO_MODE_NORMAL);
 }
 
 static void test_sequence_can_be_claimed_without_executing_a_command(void)
@@ -138,6 +172,44 @@ static void test_sequence_can_be_claimed_without_executing_a_command(void)
     assert(ainekio_core_claim_sequence(&core, 0U) == AINEKIO_REJECT_MALFORMED);
 }
 
+static void test_tether_profile_rejects_continuous_camera_and_open_microphone(void)
+{
+    ainekio_core_t core;
+    ainekio_core_init(&core);
+    ainekio_core_set_boot_ready(&core, true);
+    ainekio_core_begin_session(&core, 1U);
+    ainekio_core_set_profile(&core, AINEKIO_PROFILE_TETHER);
+
+    ainekio_command_t camera = {
+        .sequence = 1U,
+        .kind = AINEKIO_COMMAND_CAMERA,
+        .data.camera = {
+            .enabled = true,
+            .fps = 5U,
+            .resolution = AINEKIO_CAMERA_VGA,
+        },
+    };
+    ainekio_decision_t decision = ainekio_core_accept(&core, &camera);
+    assert(!decision.accepted);
+    assert(decision.rejection == AINEKIO_REJECT_PROFILE);
+
+    ainekio_command_t microphone = {
+        .sequence = 2U,
+        .kind = AINEKIO_COMMAND_MICROPHONE,
+        .data.microphone = {
+            .enabled = true,
+            .gate = AINEKIO_MIC_GATE_OPEN,
+        },
+    };
+    decision = ainekio_core_accept(&core, &microphone);
+    assert(!decision.accepted);
+    assert(decision.rejection == AINEKIO_REJECT_PROFILE);
+
+    microphone.sequence = 3U;
+    microphone.data.microphone.gate = AINEKIO_MIC_GATE_VAD;
+    assert(ainekio_core_accept(&core, &microphone).accepted);
+}
+
 int main(void)
 {
     test_initial_state_is_safe();
@@ -145,8 +217,10 @@ int main(void)
     test_session_boundary_detaches_servos();
     test_failsafe_detaches_servos();
     test_sequence_and_safety_gates();
+    test_cutoff_rejects_all_commands_until_recovery();
     test_calibration_gate_and_lifecycle();
     test_sequence_can_be_claimed_without_executing_a_command();
+    test_tether_profile_rejects_continuous_camera_and_open_microphone();
     puts("ainekio core tests passed");
     return 0;
 }

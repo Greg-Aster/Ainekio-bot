@@ -13,8 +13,12 @@ class CoreRejection(IntEnum):
     STALE = 1
     MODE = 2
     UNSAFE = 3
-    BUSY = 4
-    MALFORMED = 5
+    LIMIT = 4
+    UNKNOWN = 5
+    BUSY = 6
+    PROFILE = 7
+    ASSET_MISSING = 8
+    MALFORMED = 9
 
 
 class CoreLifecycle(IntEnum):
@@ -51,13 +55,16 @@ _INTENTS = {
     "neutral": 2,
     "look": 3,
     "walk": 4,
-    "face": 5,
-    "say": 6,
+    "emote": 5,
+    "face": 6,
+    "say": 7,
 }
 _TTS_OPERATIONS = {"start": 0, "end": 1, "cancel": 2}
 _PROFILES = {"home": 0, "tether": 1}
 _STATE_REQUESTS = {"idle": 0, "doze": 1, "sleep": 2}
 _MODES = {"normal": 0, "calibrate": 1}
+_POWER_GUARDS = {"normal": 0, "move_locked": 1, "cutoff": 2}
+_POWER_GUARD_NAMES = ("normal", "move_locked", "cutoff")
 
 
 def _default_library_path() -> Path:
@@ -99,6 +106,15 @@ class PortableCore:
         library.ainekio_emulator_core_begin_session.restype = None
         library.ainekio_emulator_core_enter_failsafe.argtypes = [ctypes.c_void_p]
         library.ainekio_emulator_core_enter_failsafe.restype = None
+        library.ainekio_emulator_core_set_mode.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        library.ainekio_emulator_core_set_mode.restype = None
+        library.ainekio_emulator_core_set_state.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        library.ainekio_emulator_core_set_state.restype = None
+        library.ainekio_emulator_core_set_power_guard.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int,
+        ]
+        library.ainekio_emulator_core_set_power_guard.restype = None
         library.ainekio_emulator_core_claim_sequence.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
         library.ainekio_emulator_core_claim_sequence.restype = ctypes.c_int
         library.ainekio_emulator_core_accept.argtypes = [
@@ -114,8 +130,12 @@ class PortableCore:
         library.ainekio_emulator_core_state.restype = ctypes.c_int
         library.ainekio_emulator_core_profile.argtypes = [ctypes.c_void_p]
         library.ainekio_emulator_core_profile.restype = ctypes.c_int
+        library.ainekio_emulator_core_mode.argtypes = [ctypes.c_void_p]
+        library.ainekio_emulator_core_mode.restype = ctypes.c_int
         library.ainekio_emulator_core_servos_attached.argtypes = [ctypes.c_void_p]
         library.ainekio_emulator_core_servos_attached.restype = ctypes.c_int
+        library.ainekio_emulator_core_power_guard.argtypes = [ctypes.c_void_p]
+        library.ainekio_emulator_core_power_guard.restype = ctypes.c_int
 
     def close(self) -> None:
         if self._handle:
@@ -135,6 +155,20 @@ class PortableCore:
 
     def enter_failsafe(self) -> None:
         self._library.ainekio_emulator_core_enter_failsafe(self._require_handle())
+
+    def set_mode(self, mode: str) -> None:
+        self._library.ainekio_emulator_core_set_mode(
+            self._require_handle(),
+            _MODES[mode],
+        )
+
+    def set_state(self, state: int) -> None:
+        self._library.ainekio_emulator_core_set_state(self._require_handle(), state)
+
+    def set_power_guard(self, guard: str) -> None:
+        self._library.ainekio_emulator_core_set_power_guard(
+            self._require_handle(), _POWER_GUARDS[guard]
+        )
 
     def claim_sequence(self, sequence: int) -> CoreRejection:
         rejection = self._library.ainekio_emulator_core_claim_sequence(
@@ -173,10 +207,21 @@ class PortableCore:
         return int(self._library.ainekio_emulator_core_profile(self._require_handle()))
 
     @property
+    def mode(self) -> int:
+        return int(self._library.ainekio_emulator_core_mode(self._require_handle()))
+
+    @property
     def servos_attached(self) -> bool:
         return bool(
             self._library.ainekio_emulator_core_servos_attached(self._require_handle())
         )
+
+    @property
+    def power_guard(self) -> str:
+        index = int(
+            self._library.ainekio_emulator_core_power_guard(self._require_handle())
+        )
+        return _POWER_GUARD_NAMES[index]
 
     def _require_handle(self) -> ctypes.c_void_p:
         if not self._handle:

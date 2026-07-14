@@ -1,0 +1,25 @@
+{
+  "assets": [
+    {
+      "kind": "generated_test_tone",
+      "name": "greeting_1",
+      "path": "audio/greeting_1.pcm",
+      "samples": 1600
+    },
+    {
+      "kind": "generated_test_tone",
+      "name": "setup_required",
+      "path": "audio/setup_required.pcm",
+      "samples": 1280
+    },
+    {
+      "kind": "generated_test_tone",
+      "name": "wifi_connected",
+      "path": "audio/wifi_connected.pcm",
+      "samples": 1280
+    }
+  ],
+  "format": "s16le-mono",
+  "sample_rate": 16000,
+  "schema_version": 1
+}

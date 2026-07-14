@@ -20,3 +20,13 @@
 The physical robot entry point is
 `Slave/firmware/esp32s3/main/app_main.c`. See `docs/REPOSITORY_MAP.md` for the
 complete ownership map.
+
+Run the complete local software stack with:
+
+```sh
+./Emulator/start-protocol-v1-stack.sh
+```
+
+The launcher prints the dashboard password and local inspection URLs. Run all
+A1-A30 software acceptance gates with
+`python3 Emulator/tools/run_acceptance.py`.
