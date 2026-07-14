@@ -1,0 +1,99 @@
+{
+  "protocol": 1,
+  "cases": [
+    {
+      "name": "hello_unsupported_version",
+      "message": {"t": "hello", "ver": 2, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN"},
+      "reason": "range:ver"
+    },
+    {"name": "err_unknown_code", "message": {"t": "err", "code": "other"}, "reason": "value:code"},
+    {
+      "name": "welcome_bad_profile",
+      "message": {"t": "welcome", "ver": 1, "epoch": 13, "profile": "fast"},
+      "reason": "value:profile"
+    },
+    {"name": "intent_unknown", "message": {"t": "intent", "seq": 1, "name": "jump"}, "reason": "value:name"},
+    {
+      "name": "intent_look_yaw_range",
+      "message": {"t": "intent", "seq": 2, "name": "look", "yaw": 91, "pitch": 0},
+      "reason": "range:yaw"
+    },
+    {
+      "name": "intent_walk_steps_range",
+      "message": {"t": "intent", "seq": 3, "name": "walk", "dir": "fwd", "steps": 0},
+      "reason": "range:steps"
+    },
+    {
+      "name": "intent_face_asset_name",
+      "message": {"t": "intent", "seq": 4, "name": "face", "expr": "Happy Face"},
+      "reason": "value:expr"
+    },
+    {"name": "stop_bad_seq", "message": {"t": "stop", "seq": 0}, "reason": "range:seq"},
+    {"name": "tts_bad_op", "message": {"t": "tts", "seq": 5, "op": "pause"}, "reason": "value:op"},
+    {
+      "name": "cam_fps_range",
+      "message": {"t": "cam", "seq": 6, "on": true, "fps": 16, "res": "VGA"},
+      "reason": "range:fps"
+    },
+    {"name": "snap_missing_seq", "message": {"t": "snap"}, "reason": "missing:seq"},
+    {
+      "name": "mic_bad_gate",
+      "message": {"t": "mic", "seq": 7, "on": true, "gate": "noise"},
+      "reason": "value:gate"
+    },
+    {
+      "name": "profile_bad_name",
+      "message": {"t": "profile", "seq": 8, "name": "mobile"},
+      "reason": "value:name"
+    },
+    {
+      "name": "state_sleep_missing_duration",
+      "message": {"t": "state", "seq": 9, "name": "sleep"},
+      "reason": "missing:sleep_s"
+    },
+    {"name": "ping_with_seq", "message": {"t": "ping", "seq": 10}, "reason": "unexpected:seq"},
+    {
+      "name": "mode_bad_name",
+      "message": {"t": "mode", "seq": 11, "name": "service"},
+      "reason": "value:name"
+    },
+    {
+      "name": "servo_bad_id",
+      "message": {"t": "servo", "seq": 12, "id": 8, "deg": 45.0, "ms": 300},
+      "reason": "range:id"
+    },
+    {
+      "name": "limits_center_outside",
+      "message": {"t": "limits", "seq": 13, "id": 0, "min": 10.0, "max": 170.0, "invert": false, "center": 180.0},
+      "reason": "range:limits"
+    },
+    {
+      "name": "pose_save_duplicate_servo",
+      "message": {"t": "pose_save", "seq": 14, "name": "neutral", "servos": [[0, 90.0], [0, 100.0]]},
+      "reason": "value:servos.duplicate"
+    },
+    {"name": "cal_save_missing_seq", "message": {"t": "cal_save"}, "reason": "missing:seq"},
+    {"name": "ack_seq_range", "message": {"t": "ack", "seq": 2147483648}, "reason": "range:seq"},
+    {"name": "nak_missing_seq", "message": {"t": "nak", "code": "unsafe"}, "reason": "missing:seq"},
+    {"name": "done_boolean_seq", "message": {"t": "done", "seq": true}, "reason": "type:seq"},
+    {
+      "name": "cancelled_bad_code",
+      "message": {"t": "cancelled", "seq": 15, "code": "timeout"},
+      "reason": "value:code"
+    },
+    {
+      "name": "status_missing_heap",
+      "message": {"t": "status", "vbat": 7.42, "rssi": -52, "state": "active", "uptime": 312, "sd": true, "cam_drops": 0, "spk_underruns": 0, "mic_drops": 0},
+      "reason": "missing:heap"
+    },
+    {"name": "event_bad_name", "message": {"t": "event", "name": "walking"}, "reason": "value:name"},
+    {
+      "name": "cam_meta_counter_range",
+      "message": {"t": "cam_meta", "res": "VGA", "fps": 5, "counter_base": 4294967296},
+      "reason": "range:counter_base"
+    },
+    {"name": "pong_with_seq", "message": {"t": "pong", "seq": 16}, "reason": "unexpected:seq"},
+    {"name": "unknown_message_type", "message": {"t": "dance", "seq": 17}, "reason": "value:t"},
+    {"name": "message_not_object", "message": ["stop"], "reason": "type:message"}
+  ]
+}
