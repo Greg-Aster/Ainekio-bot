@@ -18,6 +18,23 @@ class PortableCoreTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.core.close()
 
+    def test_rejection_enum_matches_portable_c_abi(self) -> None:
+        self.assertEqual(
+            {member.name: member.value for member in CoreRejection},
+            {
+                "NONE": 0,
+                "STALE": 1,
+                "MODE": 2,
+                "UNSAFE": 3,
+                "LIMIT": 4,
+                "UNKNOWN": 5,
+                "BUSY": 6,
+                "PROFILE": 7,
+                "ASSET_MISSING": 8,
+                "MALFORMED": 9,
+            },
+        )
+
     def test_accepts_movement_and_rejects_duplicate_sequence(self) -> None:
         stand = {"t": "intent", "seq": 1, "name": "stand"}
 

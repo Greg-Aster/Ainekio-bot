@@ -9,6 +9,18 @@
 #define AINEKIO_ASSET_NAME_MAX 32U
 #define AINEKIO_SERVO_COUNT 8U
 #define AINEKIO_MAX_SEQUENCE 0x7FFFFFFFU
+#define AINEKIO_JOINT_MAP_VERSION 1U
+
+typedef enum {
+    AINEKIO_JOINT_R1 = 0,
+    AINEKIO_JOINT_R2,
+    AINEKIO_JOINT_L1,
+    AINEKIO_JOINT_L2,
+    AINEKIO_JOINT_R4,
+    AINEKIO_JOINT_R3,
+    AINEKIO_JOINT_L3,
+    AINEKIO_JOINT_L4,
+} ainekio_joint_id_t;
 
 typedef enum {
     AINEKIO_COMMAND_INTENT = 0,
@@ -32,6 +44,7 @@ typedef enum {
     AINEKIO_INTENT_NEUTRAL,
     AINEKIO_INTENT_LOOK,
     AINEKIO_INTENT_WALK,
+    AINEKIO_INTENT_EMOTE,
     AINEKIO_INTENT_FACE,
     AINEKIO_INTENT_SAY,
 } ainekio_intent_kind_t;
@@ -53,6 +66,17 @@ typedef enum {
     AINEKIO_PROFILE_HOME = 0,
     AINEKIO_PROFILE_TETHER,
 } ainekio_profile_t;
+
+typedef enum {
+    AINEKIO_CAMERA_QVGA = 0,
+    AINEKIO_CAMERA_VGA,
+} ainekio_camera_resolution_t;
+
+typedef enum {
+    AINEKIO_MIC_GATE_OPEN = 0,
+    AINEKIO_MIC_GATE_VAD,
+    AINEKIO_MIC_GATE_WAKE,
+} ainekio_microphone_gate_t;
 
 typedef enum {
     AINEKIO_STATE_ACTIVE = 0,
@@ -100,6 +124,15 @@ typedef struct {
     union {
         ainekio_intent_t intent;
         ainekio_tts_operation_t tts_operation;
+        struct {
+            bool enabled;
+            uint8_t fps;
+            ainekio_camera_resolution_t resolution;
+        } camera;
+        struct {
+            bool enabled;
+            ainekio_microphone_gate_t gate;
+        } microphone;
         ainekio_profile_t profile;
         struct {
             ainekio_state_request_t request;
@@ -127,5 +160,6 @@ typedef struct {
 } ainekio_command_t;
 
 bool ainekio_intent_is_movement(ainekio_intent_kind_t intent);
+const char *ainekio_joint_label(uint8_t joint_id);
 
 #endif

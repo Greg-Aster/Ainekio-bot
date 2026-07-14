@@ -36,6 +36,21 @@ void ainekio_emulator_core_enter_failsafe(ainekio_emulator_core_t *emulator)
     ainekio_core_enter_failsafe(&emulator->core);
 }
 
+void ainekio_emulator_core_set_mode(ainekio_emulator_core_t *emulator, int mode)
+{
+    ainekio_core_set_mode(&emulator->core, (ainekio_mode_t)mode);
+}
+
+void ainekio_emulator_core_set_state(ainekio_emulator_core_t *emulator, int state)
+{
+    ainekio_core_set_state(&emulator->core, (ainekio_body_state_t)state);
+}
+
+void ainekio_emulator_core_set_power_guard(ainekio_emulator_core_t *emulator, int guard)
+{
+    ainekio_core_set_power_guard(&emulator->core, (ainekio_power_guard_t)guard);
+}
+
 int ainekio_emulator_core_claim_sequence(ainekio_emulator_core_t *emulator, uint32_t sequence)
 {
     return (int)ainekio_core_claim_sequence(&emulator->core, sequence);
@@ -89,7 +104,17 @@ int ainekio_emulator_core_profile(const ainekio_emulator_core_t *emulator)
     return (int)emulator->core.profile;
 }
 
+int ainekio_emulator_core_mode(const ainekio_emulator_core_t *emulator)
+{
+    return (int)emulator->core.mode;
+}
+
 int ainekio_emulator_core_servos_attached(const ainekio_emulator_core_t *emulator)
 {
     return emulator->core.servos_attached ? 1 : 0;
+}
+
+int ainekio_emulator_core_power_guard(const ainekio_emulator_core_t *emulator)
+{
+    return (int)emulator->core.power_guard;
 }

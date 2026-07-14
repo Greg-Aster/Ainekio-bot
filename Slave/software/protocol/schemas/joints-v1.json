@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "joint_map_version": 1,
+  "joints": [
+    {"id": 0, "label": "R1"},
+    {"id": 1, "label": "R2"},
+    {"id": 2, "label": "L1"},
+    {"id": 3, "label": "L2"},
+    {"id": 4, "label": "R4"},
+    {"id": 5, "label": "R3"},
+    {"id": 6, "label": "L3"},
+    {"id": 7, "label": "L4"}
+  ]
+}

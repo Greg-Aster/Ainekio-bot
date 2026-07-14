@@ -38,6 +38,7 @@ void ainekio_core_begin_session(ainekio_core_t *core, uint32_t epoch)
     core->highest_sequence = 0U;
     core->has_sequence = false;
     core->state = AINEKIO_STATE_ACTIVE;
+    core->mode = AINEKIO_MODE_NORMAL;
     core->servos_attached = false;
     core->stop_latched = true;
 }
@@ -54,6 +55,16 @@ void ainekio_core_set_profile(ainekio_core_t *core, ainekio_profile_t profile)
     core->profile = profile;
 }
 
+void ainekio_core_set_mode(ainekio_core_t *core, ainekio_mode_t mode)
+{
+    core->mode = mode;
+}
+
+void ainekio_core_set_state(ainekio_core_t *core, ainekio_body_state_t state)
+{
+    core->state = state;
+}
+
 void ainekio_core_set_boot_ready(ainekio_core_t *core, bool ready)
 {
     core->boot_ready = ready;
@@ -64,10 +75,14 @@ void ainekio_core_set_boot_ready(ainekio_core_t *core, bool ready)
 
 void ainekio_core_set_power_guard(ainekio_core_t *core, ainekio_power_guard_t guard)
 {
+    const ainekio_power_guard_t previous = core->power_guard;
     core->power_guard = guard;
     if (guard == AINEKIO_POWER_CUTOFF) {
         core->servos_attached = false;
+        core->stop_latched = true;
         core->state = AINEKIO_STATE_DEEP_SLEEP;
+    } else if (guard == AINEKIO_POWER_NORMAL && previous == AINEKIO_POWER_CUTOFF) {
+        core->state = AINEKIO_STATE_ACTIVE;
     }
 }
 
@@ -116,6 +131,9 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
         return rejected(sequence_rejection);
     }
 
+    if (core->state == AINEKIO_STATE_DEEP_SLEEP) {
+        return rejected(AINEKIO_REJECT_BUSY);
+    }
     if (is_stop) {
         return (ainekio_decision_t){true, AINEKIO_REJECT_NONE, AINEKIO_LIFECYCLE_ACK_ONLY};
     }
@@ -129,27 +147,37 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
         command->data.intent.kind != AINEKIO_INTENT_NEUTRAL) {
         return rejected(AINEKIO_REJECT_UNSAFE);
     }
+    if (core->profile == AINEKIO_PROFILE_TETHER &&
+        command->kind == AINEKIO_COMMAND_CAMERA && command->data.camera.enabled) {
+        return rejected(AINEKIO_REJECT_PROFILE);
+    }
+    if (core->profile == AINEKIO_PROFILE_TETHER &&
+        command->kind == AINEKIO_COMMAND_MICROPHONE &&
+        command->data.microphone.enabled &&
+        command->data.microphone.gate == AINEKIO_MIC_GATE_OPEN) {
+        return rejected(AINEKIO_REJECT_PROFILE);
+    }
 
     if (is_movement) {
         core->servos_attached = true;
         core->stop_latched = false;
     }
     if (command->kind == AINEKIO_COMMAND_MODE) {
-        core->mode = command->data.mode;
+        ainekio_core_set_mode(core, command->data.mode);
     } else if (command->kind == AINEKIO_COMMAND_PROFILE) {
         core->profile = command->data.profile;
     } else if (command->kind == AINEKIO_COMMAND_STATE) {
         if (command->data.state.request == AINEKIO_STATE_REQUEST_IDLE) {
-            core->state = AINEKIO_STATE_IDLE;
+            ainekio_core_set_state(core, AINEKIO_STATE_IDLE);
         } else if (command->data.state.request == AINEKIO_STATE_REQUEST_DOZE) {
-            core->state = AINEKIO_STATE_DOZING;
+            ainekio_core_set_state(core, AINEKIO_STATE_DOZING);
         } else {
-            core->state = AINEKIO_STATE_DEEP_SLEEP;
+            ainekio_core_set_state(core, AINEKIO_STATE_DEEP_SLEEP);
             core->servos_attached = false;
         }
     } else if (command->kind == AINEKIO_COMMAND_INTENT ||
                command->kind == AINEKIO_COMMAND_SNAPSHOT) {
-        core->state = AINEKIO_STATE_ACTIVE;
+        ainekio_core_set_state(core, AINEKIO_STATE_ACTIVE);
     }
 
     return (ainekio_decision_t){

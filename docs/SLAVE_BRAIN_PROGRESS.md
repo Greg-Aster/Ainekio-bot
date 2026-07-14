@@ -8,9 +8,12 @@ and drives the ESP32-S3 body hardware or simulator backend.
 
 ## Current Phase
 
-Software-only emulator control, protocol transport, safety parity, and
-provisioning design while the target hardware is in transit. Hardware flashing
-and bring-up remain explicitly pending.
+The software-only scope is implementation complete and accepted against the
+host emulator. Protocol v1, the portable C core, the emulator, the Master
+gateway/dashboard/bridge, and the ESP32-S3 platform port are present. The
+explicit A1-A30 runner passes 30/30, and the ESP-IDF v5.5.4 cross-build passes.
+Physical flashing, electrical verification, and H1-H15 evidence remain pending
+until the target hardware and the normative Parts Overview are available.
 
 ## Current Relevant Documents
 
@@ -20,6 +23,8 @@ and bring-up remain explicitly pending.
 - `docs/REPOSITORY_MAP.md` - current Master, Slave, Emulator, and docs ownership
   map with the physical robot entry point identified.
 - `docs/Ainekio - System Specification v1.0.docx` - current local system specification document.
+- `docs/README.md` - normative-document authority and the recorded absence of
+  the required electrical Parts Overview.
 - `docs/Ainekio - Spec v0.6 Amendment 1 (FINAL) + Freeze.docx` - local freeze/amendment reference.
 - `docs/archive/simulator-bridge-progress-scratchpad.md` - historical MetaHuman
   bridge, adapter, and Sesame simulator integration notes; not an architecture
@@ -27,6 +32,8 @@ and bring-up remain explicitly pending.
 - `Emulator/sesame-robot-sim/README.md` - local Sesame browser simulator and
   visual-backend run instructions.
 - ESP-IDF v5.5.4 documentation: `https://docs.espressif.com/projects/esp-idf/en/v5.5.4/esp32s3/` - pinned ESP32-S3 development framework reference.
+- `build/acceptance/a-series.json` - generated A1-A30 software-acceptance
+  evidence; regenerate it rather than treating a stale report as authoritative.
 
 ## Foundation Decisions
 
@@ -49,7 +56,7 @@ and bring-up remain explicitly pending.
 - Use the specification's WPA2 SoftAP provisioning flow for v1. Bluetooth LE is
   technically possible but is deferred unless the owner approves a specification
   change and its additional firmware-memory cost.
-- Preserve the board-mounted microSD slot for future removable-storage features.
+- Preserve the board-mounted microSD slot as a dedicated removable-storage bus.
   GPIO 38 (CMD), GPIO 39 (CLK), and GPIO 40 (DAT0) are reserved exclusively for
   SD_MMC 1-bit mode and must never be assigned to an accessory.
 
@@ -58,17 +65,22 @@ and bring-up remain explicitly pending.
 ```text
 Master/
   gateway/
+    bridge_client/
+    dashboard/
     server/
 
 Slave/
   hardware/
     3d-print/
   software/
+    assets/
     core/
     protocol/
     tests/
+    tools/
   firmware/
     esp32s3/
+      components/ainekio_platform/
       main/app_main.c
 
 Emulator/
@@ -117,6 +129,11 @@ partition, a reserved-unencrypted 4 KiB `nvs_keys` partition, 8 KiB OTA metadata
 two 3 MiB OTA slots, and all remaining aligned flash assigned to LittleFS. Flash
 core dumps are disabled so they do not require an undocumented partition.
 
+Sesame-derived multi-frame motion sequences, OLED frames, and canned sounds must
+remain LittleFS assets. Only `neutral`, `stand`, `stop`, and one default face are
+compiled fallbacks. This keeps behavioral parity data outside the 3 MiB OTA
+application image while preserving a safe minimum behavior if LittleFS fails.
+
 ## Memory and Growth Rules
 
 - Record application flash, DRAM, IRAM, and per-component size after every build.
@@ -146,8 +163,15 @@ core dumps are disabled so they do not require an undocumented partition.
 - [x] Consolidate the existing simulator stack behind protocol-v1 transport and
   the portable C safety core as described below.
 - [x] Implement and host-test the provisioning state machine before hardware arrives.
+- [x] Complete emulator phase 2 media, fault injection, and every A1-A30
+  software acceptance gate.
+- [x] Complete the production Master gateway, authenticated dashboard,
+  MetaHuman bridge boundary, plugin boundary, token revocation, and audit log.
+- [x] Cross-build the ESP32-S3 platform services that can be implemented without
+  physical electrical evidence.
 - [ ] Boot the target board and emit one structured boot-status message after it arrives.
-- [ ] Begin production firmware features only after the specification's firmware start gates pass.
+- [ ] Execute H1-H15 and record physical evidence after the Parts Overview and
+  target hardware satisfy the firmware start gates.
 
 ## Existing Sesame Emulator Finding
 
@@ -166,6 +190,62 @@ boundary:
   sent to Sesame.
 - Arduino-specific simulator internals must not leak into the portable C core or
   determine the ESP-IDF firmware architecture.
+
+## Sesame Behavioral Parity Decision
+
+System Specification v1.0 Erratum E2 makes the useful Sesame behavior set a
+required migration input rather than an optional historical reference. This is
+behavior and control parity, not an Arduino architecture port.
+
+- Freeze logical servo ids as `0=R1`, `1=R2`, `2=L1`, `3=L2`, `4=R4`, `5=R3`,
+  `6=L3`, and `7=L4`. The emulator, dashboard, assets, portable core, and ESP32-S3
+  platform configuration must use the same mapping. Physical GPIO, positive-angle
+  direction, invert, center, minimum, and maximum remain platform/calibration data.
+- Treat `docs/sesame-robot/firmware/movement-sequences.h` as the seed-motion source
+  of truth. The shortened `Emulator/legacy/motion/` Python sequences are useful
+  history but are not exact enough to generate parity fixtures.
+- Add a semantic `emote` intent with a bounded asset name. Normal operation never
+  carries raw servo angles; every expanded target still passes the portable safety
+  gate, calibration mapping, and limit checks.
+- Convert all 19 seed routines: rest, stand, the 13 expressive routines, and walk
+  forward/backward/turn-left/turn-right. Exact emulator fixtures cover logical
+  targets, holds, repeats, return pose, and face cues. Physical firmware preserves
+  the behavior through calibrated transforms rather than writing legacy angles
+  directly to PWM.
+- Store versioned bounded motion records in LittleFS with at most 256 frames,
+  20-5000 ms per frame, repeat count 1-16, eight known logical ids, and no
+  unbounded loops. Invalid or mismatched assets remain unavailable and follow the
+  specification's `asset_missing` behavior.
+- Import the required Sesame face catalog into LittleFS with normalized names,
+  1-6 monochrome 128x64 frames, fps 1-30, and `loop`, `once`, or `boomerang` mode.
+  Accept the legacy `defualt` spelling only during import and store it as `default`.
+- Preserve idle breathing, the 3-7 second blink interval, seeded 30 percent double
+  blink behavior, motion-to-face cues, and talk-face selection/restoration around
+  streamed speech. Display failure must never block audio, motion, networking, or
+  safety.
+- Recreate the old touch and gamepad ergonomics in the authenticated Master
+  dashboard. Held movement may keep at most one bounded walk command in flight;
+  release, neutral axis, browser blur, controller disconnect, or page loss must
+  signal the direct stop path. Do not restore unauthenticated raw-servo endpoints.
+- Translate legacy subtrim into named-joint center/invert/min/max calibration and
+  provide calibration-only single-joint, all-neutral, and detach diagnostics.
+
+### Sesame Parity Work Plan
+
+- [x] Add Erratum E2 `emote` to the language-neutral schema, Python validator,
+  portable C command model, golden fixtures, and lifecycle tests.
+- [x] Add one shared logical-joint contract and reject duplicate, missing, unknown,
+  or mismatched joint-map versions before motion execution.
+- [x] Build a deterministic converter/fixture set from the original Sesame motion
+  header and prove all 19 seed routines in the emulator.
+- [x] Define the compact LittleFS motion/face manifests and validate bounded asset
+  loading, malformed assets, version mismatch, and fallback behavior.
+- [x] Add motion-face, idle blink, and TTS talk-face lifecycle coverage without
+  coupling display success to command or audio success.
+- [x] Add authenticated dashboard emote controls plus mouse, touch, keyboard, and
+  gamepad release-to-stop acceptance coverage.
+- [x] Add logical-joint calibration diagnostics and the H15 physical joint/seed
+  motion smoke-test evidence template.
 
 ## Upgraded Body Capability Boundary
 
@@ -222,12 +302,13 @@ path is authoritative; it should not create a second all-in-one robot simulator.
   preemption path.
 - [x] Add a simulator execution result path so publication is not reported as
   `done` until the visual backend acknowledges execution or cancellation.
-- [ ] Test malformed and oversized input, stale and duplicate sequences,
+- [x] Test malformed and oversized input, stale and duplicate sequences,
   disconnect/reconnect, unavailable simulator, queue saturation, and stop
   preemption within the specification's 100 ms limit.
-- [x] Keep the old MetaHuman SSE adapter simulator-only. Later gateway bridge code
-  may translate MetaHuman actions into protocol v1, but the firmware must not
-  implement both the legacy SSE contract and the production WebSocket contract.
+- [x] Keep the old MetaHuman SSE adapter simulator-only. The gateway bridge under
+  `Master/gateway/bridge_client/` translates authenticated semantic MetaHuman
+  actions into protocol v1; the firmware implements only the production
+  WebSocket contract.
 
 ## WiFi Provisioning Decision
 
@@ -292,32 +373,33 @@ applied Erratum E1:
 - [x] Add a platform-neutral provisioning state machine with host tests for valid,
   missing, corrupt, staged, committed, and rolled-back configuration, plus the
   60-second connection window and automatic fallback cycle.
-- [ ] Add the ESP32-S3 NVS adapter with specified recovery behavior and atomic
+- [x] Add the ESP32-S3 NVS adapter with specified recovery behavior and atomic
   staging-to-active commit.
-- [ ] Add the ESP32-S3 WPA2 SoftAP and authenticated HTTP setup portal using
+- [x] Add the ESP32-S3 WPA2 SoftAP and authenticated HTTP setup portal using
   bounded request bodies and rate limits.
-- [ ] Add WiFi scanning, credential validation, connection progress, and clear
+- [x] Add WiFi scanning, credential validation, connection progress, and clear
   failure reporting without exposing the submitted password.
-- [ ] Keep exactly one active WiFi configuration and verify that a replacement is
+- [x] Keep exactly one active WiFi configuration and verify that a replacement is
   committed only after association and DHCP succeed; connection failure must
   leave the prior active namespace unchanged.
-- [ ] Treat SoftAP channel changes or a temporary setup-client disconnect as an
+- [x] Treat SoftAP channel changes or a temporary setup-client disconnect as an
   expected transition; determine success from ESP-IDF station/IP events rather
   than assuming the browser remains connected throughout the handoff.
-- [ ] Add authenticated network-only reset and post-boot BOOT-button entry paths
-  without confusing provisioning with ROM download mode or erasing robot
-  identity, calibration, poses, profile, or ADC settings.
-- [ ] Add bounded OLED status transitions and one-shot setup/success audio cues;
+- [x] Add network-only reset/manual-provisioning service entry points and the
+  post-boot 5-second BOOT-button path without erasing non-WiFi settings.
+- [ ] Expose authenticated dashboard provisioning and network-reset actions after
+  a numbered erratum defines their missing protocol-v1 messages.
+- [x] Add bounded OLED status transitions and one-shot setup/success audio cues;
   neither display nor audio failure may block networking or safety tasks.
-- [ ] Add emulator acceptance coverage for credential replacement and failed
+- [x] Add emulator/portable acceptance coverage for credential replacement and failed
   commit preservation, transient network recovery, automatic fallback, setup
-  timeout/cycling, and network-only reset; run the complete hardware provisioning
-  matrix when the board arrives.
-- [ ] Treat NVS encryption as a future security migration. Specification v1.0
+  timeout/cycling, and network-only reset.
+- [ ] Run the complete H12 hardware provisioning matrix when the board arrives.
+- [x] Record NVS encryption as a future security migration. Specification v1.0
   currently reserves `nvs_keys` but leaves it unused; enabling encryption requires
   an approved specification errata and migration test.
 
-## Provisioning Core Progress - 2026-07-13
+## Provisioning and Firmware Progress - 2026-07-14
 
 - Added a versioned NVS contract in
   `Slave/software/core/include/ainekio/config_schema.h`. Configuration uses two
@@ -337,15 +419,21 @@ applied Erratum E1:
 - Added a dedicated host C test target covering the NVS contract and provisioning
   transitions. Both portable C CTest targets pass under C11 with warnings as
   errors.
-- ESP-IDF v5.5.4 cross-build passed with `provisioning.c` compiled into the core
-  component. The current boot-shell image remains `0x299c0` bytes with 95 percent
-  of the 3 MiB OTA slot free because `app_main` does not call provisioning yet.
+- Added the ESP-IDF NVS adapter, schema migration, A/B staged configuration,
+  single-network replacement, and preservation of endpoint, identity/token,
+  calibration, poses, profile, and ADC settings during a network-only reset.
+  Unknown future schemas are preserved and block downgrade rather than being
+  silently erased.
+- Added the bounded WPA2 SoftAP portal, 12-character session secret, portal login
+  and rate limiting, WiFi scan, station-IP validation, AP+STA handoff, 60-second
+  connection policy, automatic AP cycle, saved-network return, and post-boot BOOT
+  polling. Credentials are never logged, echoed, or written to SD.
+- Added OLED setup/connection states and one-shot setup/success PCM cues. Either
+  service may fail without blocking provisioning, networking, motion, or safety.
+- `app_main` now composes provisioning with the runtime. The outdated boot-shell
+  status below is retained only as historical baseline evidence.
 
-The next provisioning item is the ESP32-S3 NVS adapter and its recovery and
-staging-to-active commit behavior. SoftAP and portal code remain later steps and
-must not be added before the storage adapter is host-tested at its boundary.
-
-## Foundation Baseline - 2026-07-13
+## Foundation Baseline - 2026-07-13 (Historical)
 
 Toolchain and editor setup:
 
@@ -382,10 +470,8 @@ Reconciled size-optimized ESP32-S3 shell baseline:
 | Internal data RAM | 13,804 bytes | `.data` plus `.bss` |
 | Executable internal RAM | 51,391 bytes | DIRAM text plus IRAM text and vectors |
 
-The build shell currently initializes only the portable core and emits a
-structured boot record. It does not initialize WiFi, servos, audio, display,
-camera, sensors, LittleFS, or PSRAM. The board boot record remains unverified
-until target hardware is connected and flashed.
+This table records the original empty-shell baseline, not the current firmware.
+The current implementation and size are recorded in the completion audit below.
 
 ## Simulator Consolidation Progress - 2026-07-13
 
@@ -413,24 +499,127 @@ until target hardware is connected and flashed.
 - Kept stop locally authoritative: portable-core detachment and protocol
   acknowledgement do not wait for the optional renderer, while renderer stop
   publication is attempted through a bounded best-effort path.
+- Added a bounded 32-message control dispatch queue. Stop bypasses that queue;
+  non-stop overflow closes the socket and enters local failsafe rather than
+  allowing unbounded latency or memory growth.
+- Added profile, camera/microphone settings, IDLE/DOZING/DEEP-SLEEP
+  transitions, scaled sleep/reconnect timing, calibration mode, calibrated-limit
+  enforcement, the 600-second calibration timeout, and atomic host calibration
+  persistence.
+- Added acceptance coverage for malformed recovery, oversized WebSocket frames,
+  stale sequences, renderer absence/rejection, duplicate authenticated sockets,
+  mid-motion disconnect/reconnect, queue saturation, and measured stop handling
+  below 100 ms.
 - Refactored repository ownership so active emulator code no longer imports the
   old Python motion package. The renderer shim lives under
   `Emulator/emulator/backends/`; the old package and scratchpad live under
   `Emulator/legacy/` and `docs/archive/` respectively.
-- Four-folder layout validation: 25 active emulator/gateway tests, 19 legacy
-  adapter tests, 12 protocol tests, 4 retained Megameal bridge tests, the
-  portable C CTest target, and the full ESP-IDF v5.5.4 cross-build passed from
-  their new paths. Python compilation and startup-script syntax checks also
-  passed.
+- Completed the remaining lifecycle, media, asset, display, battery, fault,
+  gateway, dashboard, and bridge work. The explicit acceptance runner now owns
+  current suite counts and A-series evidence; the earlier four-folder counts are
+  historical and must not be used as the current completion claim.
 
-The next open simulator item is the broader malformed-input, reconnect,
-unavailable-renderer, saturation, and measured 100 ms stop-latency coverage.
-Media capability adapters follow after those control-path gaps are resolved.
+`sit` is mapped to the verified Sesame `run rest` pose. Protocol `look` remains
+an implementation errata decision: v1 defines yaw/pitch but does not define how
+those axes map to the specified eight body servos, and the retained Sesame
+runtime has no corresponding command. No servo mapping will be invented without
+owner approval or a numbered specification erratum.
 
-## First-Pass Stop Condition
+## First-Pass Stop Condition (Historical)
 
 The initial technical scaffold met its build, host-test, normative
 partition-validation, protocol-layout, and size-report conditions. The partition
 and language-neutral protocol layouts are reconciled, and the emulator consumes
 the protocol fixture set through the portable core. This first-pass foundation
 stop condition is complete. No robot feature drivers are part of this pass.
+
+## Software Completion Audit - 2026-07-14
+
+### Completed Scope
+
+- B1 protocol library and shared valid/invalid/binary fixture contract.
+- B2 emulator control plane, lifecycle, safety, states, calibration, and portable
+  C-core authority.
+- B3 production gateway, authenticated dashboard, semantic manual controls,
+  token revocation, logging, plugins, and bridge-client boundary.
+- B4 emulator camera/microphone/speaker adapters, TTS ordering, bandwidth
+  profiles, battery/deep-sleep behavior, display behavior, and fault injection.
+- B5 MetaHuman action translation with monotonic freshness and a guard preventing
+  the legacy adapter from attaching to the robot deployment stream.
+- All 19 Sesame-derived motion assets, all required normalized face assets,
+  canned PCM assets, deterministic conversion/parity fixtures, logical-joint
+  contract, calibration diagnostics, and release-to-stop browser controls.
+- ESP32-S3 software that is safe to implement before hardware arrives: NVS and
+  migrations, provisioning, outbound WebSocket protocol runtime, bounded queues,
+  MCPWM motion, LittleFS, SSD1306 display, duplex I2S audio/microphone, battery
+  sampling and cutoff recovery, SD_MMC logging/retention/recovery, sleep, WSS
+  certificate bundle use, dual-slot OTA layout, and rollback acceptance only
+  after an authenticated gateway welcome.
+
+### Software Evidence
+
+Run from the repository root:
+
+```sh
+python3 Emulator/tools/run_acceptance.py
+```
+
+Current result: A1-A30 pass 30/30. The run includes the emulator/gateway Python
+suite, protocol fixtures, 11 portable C CTest targets, and headless-browser
+dashboard interaction. Machine-readable evidence is written to
+`build/acceptance/a-series.json`.
+
+The complete launcher was also exercised live: dashboard authentication
+succeeded, the gateway reported the emulator online in epoch 1, a semantic
+`stand` command was assigned sequence 2 after the Sesame page subscribed, the
+shim acknowledged renderer execution, and the lifecycle terminated as
+`{"t":"done","seq":2}` with body state `active` and face `stand`.
+
+The ESP-IDF v5.5.4 cross-build passes with rollback enabled and PSRAM disabled
+pending H2. Current size evidence:
+
+| Measurement | Used | Budget |
+| --- | ---: | ---: |
+| Application image | 1,118,883 bytes | 3 MiB OTA slot |
+| Padded application binary | `0x111320` | 64% of slot free |
+| Flash code | 773,040 bytes | recorded by `idf.py size` |
+| Flash data | 237,496 bytes | recorded by `idf.py size` |
+| Internal DIRAM | 219,639 bytes | 64.27%; 122,121 bytes remain |
+| RTC fast/slow | 120 / 36 bytes | 8 KiB each |
+
+The image is below the specification's 60% warning threshold for a 3 MiB OTA
+slot. Internal RAM, especially fixed queue storage, remains the tighter growth
+budget and must be measured after every firmware feature.
+
+### Deliberately Pending
+
+- H1-H15 require the physical robot, instruments, photos, logs, and measurements.
+- The normative Parts Overview is missing, so the battery-divider value and
+  electrical power facts cannot be selected or claimed. Movement remains gated
+  if no valid divider factor is configured.
+- Camera capture is not implemented in the ESP port because the board sensor
+  identity, exact signal-to-GPIO mapping, PSRAM behavior, and H2 concurrent soak
+  evidence are absent. `cam on:true` and `snap` reject explicitly; camera-off is
+  a safe no-op. The emulator provides complete protocol camera behavior.
+- Protocol `look(yaw,pitch)` defines limits but no mapping to the frozen eight
+  Sesame joints. Emulator and firmware reject it as unavailable until a numbered
+  erratum defines the mapping.
+- Section 8 requires dashboard SD retry/clear/reformat and provisioning/reset
+  actions, but protocol v1 defines no corresponding messages or lifecycle. The
+  SD and provisioning services expose bounded internal entry points; dashboard
+  controls remain disabled until a numbered erratum defines the wire contract.
+- Section 6.9 names `mklittlefs`, while the pinned `joltwallet/littlefs` ESP-IDF
+  component currently builds the checked image with `littlefs-python`. The image
+  is cross-built and mount format is owned by the pinned component, but a numbered
+  erratum should reconcile the tool name before CI makes an authority claim.
+
+### Inspection Entry Point
+
+```sh
+./Emulator/start-protocol-v1-stack.sh
+```
+
+The launcher starts the authenticated dashboard, production gateway, protocol-v1
+body emulator, simulator shim, and Sesame visual runtime. It prints a fresh
+dashboard password and each local inspection URL. This is the current software
+finish condition; it does not substitute for H-series physical evidence.

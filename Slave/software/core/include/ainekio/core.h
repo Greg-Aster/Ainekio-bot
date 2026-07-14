@@ -17,7 +17,11 @@ typedef enum {
     AINEKIO_REJECT_STALE,
     AINEKIO_REJECT_MODE,
     AINEKIO_REJECT_UNSAFE,
+    AINEKIO_REJECT_LIMIT,
+    AINEKIO_REJECT_UNKNOWN,
     AINEKIO_REJECT_BUSY,
+    AINEKIO_REJECT_PROFILE,
+    AINEKIO_REJECT_ASSET_MISSING,
     AINEKIO_REJECT_MALFORMED,
 } ainekio_reject_reason_t;
 
@@ -49,6 +53,8 @@ void ainekio_core_init(ainekio_core_t *core);
 void ainekio_core_begin_session(ainekio_core_t *core, uint32_t epoch);
 void ainekio_core_enter_failsafe(ainekio_core_t *core);
 void ainekio_core_set_profile(ainekio_core_t *core, ainekio_profile_t profile);
+void ainekio_core_set_mode(ainekio_core_t *core, ainekio_mode_t mode);
+void ainekio_core_set_state(ainekio_core_t *core, ainekio_body_state_t state);
 void ainekio_core_set_boot_ready(ainekio_core_t *core, bool ready);
 void ainekio_core_set_power_guard(ainekio_core_t *core, ainekio_power_guard_t guard);
 ainekio_reject_reason_t ainekio_core_claim_sequence(ainekio_core_t *core, uint32_t sequence);

@@ -5,11 +5,13 @@ Specification v1.0. It is separate from `Emulator/sesame-robot-sim`, which is
 an optional visual motion renderer and does not make protocol or safety
 decisions.
 
-Phase 1 currently implements the body-initiated WebSocket handshake, epoch and
-sequence reset, schema validation, portable-C freshness and safety decisions,
-JSON ping/pong, status messages, reconnect liveness, and the `stand`, `neutral`,
-`walk`, and `stop` command path. Other valid capabilities return an explicit
-`busy` response until their emulator ports exist.
+The emulator implements the complete A-series body surface: handshake and
+reconnect, protocol lifecycles, portable-C safety, bounded queues and direct
+stop, states and profiles, calibration, camera/microphone/speaker media, battery
+cutoff/recovery, LittleFS-equivalent assets, display timing, deep sleep, and
+fault injection. All 19 required motion routines can be sent to the optional
+Sesame renderer. Protocol `look` still returns an explicit unavailable response
+because v1 does not map yaw/pitch to the frozen eight-joint contract.
 
 Build the host bridge to the portable C core:
 
@@ -25,6 +27,10 @@ gateway:
 export AINEKIO_ROBOT_TOKEN='local-development-token'
 PYTHONPATH=Emulator:Slave/software python3 -m emulator.body
 ```
+
+Calibration limits and named poses are committed atomically to
+`build/emulator/calibration-v1.json` by default. Use `--calibration-file` to
+select another generated runtime path.
 
 Install the pinned host-only WebSocket dependency from
 `Emulator/requirements-host.txt`.

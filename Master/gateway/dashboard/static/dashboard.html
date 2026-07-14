@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ainekio Body Control</title>
+    <link rel="stylesheet" href="/assets/dashboard.css">
+    <script src="/assets/dashboard.js" defer></script>
+  </head>
+  <body class="dashboard-page">
+    <header class="app-header">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">A</div>
+        <div>
+          <p class="product-name">Ainekio</p>
+          <h1>Body Control</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="connection-state" class="connection-state offline">Offline</span>
+        <select id="robot-select" aria-label="Robot"></select>
+        <button id="logout-button" class="icon-button" type="button" title="Sign out" aria-label="Sign out">&#x21aa;</button>
+      </div>
+    </header>
+
+    <div class="safety-bar">
+      <button id="stop-button" class="stop-button" type="button">
+        <span class="stop-symbol" aria-hidden="true"></span>
+        Signal stop
+      </button>
+      <p id="command-result" class="command-result" role="status">Ready</p>
+    </div>
+
+    <main class="dashboard-grid">
+      <section class="control-section motion-section" aria-labelledby="motion-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Movement</p>
+            <h2 id="motion-title">Body motion</h2>
+          </div>
+          <div class="command-row compact">
+            <button type="button" data-intent="stand">Stand</button>
+            <button type="button" data-intent="neutral">Neutral</button>
+            <button type="button" data-intent="sit">Sit</button>
+          </div>
+        </div>
+        <div class="motion-pad" aria-label="Held movement controls">
+          <button class="motion-key forward" type="button" data-held-direction="fwd" aria-label="Walk forward">&#x25b2;</button>
+          <button class="motion-key left" type="button" data-held-direction="turn_l" aria-label="Turn left">&#x25c0;</button>
+          <button class="motion-key center" type="button" data-intent="neutral" aria-label="Neutral">&#x25a0;</button>
+          <button class="motion-key right" type="button" data-held-direction="turn_r" aria-label="Turn right">&#x25b6;</button>
+          <button class="motion-key backward" type="button" data-held-direction="back" aria-label="Walk backward">&#x25bc;</button>
+        </div>
+      </section>
+
+      <section class="control-section status-section" aria-labelledby="status-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Telemetry</p>
+            <h2 id="status-title">Robot status</h2>
+          </div>
+          <span id="body-state" class="state-chip">Unknown</span>
+        </div>
+        <dl class="telemetry-grid">
+          <div><dt>Battery</dt><dd id="status-battery">--</dd></div>
+          <div><dt>Signal</dt><dd id="status-rssi">--</dd></div>
+          <div><dt>Free heap</dt><dd id="status-heap">--</dd></div>
+          <div><dt>Uptime</dt><dd id="status-uptime">--</dd></div>
+          <div><dt>SD card</dt><dd id="status-sd">--</dd></div>
+          <div><dt>Epoch / next</dt><dd id="status-session">--</dd></div>
+          <div><dt>Heartbeat age</dt><dd id="status-heartbeat">--</dd></div>
+          <div><dt>Profile caps</dt><dd id="status-caps">--</dd></div>
+          <div><dt>Camera drops</dt><dd id="status-camera-drops">--</dd></div>
+          <div><dt>Audio faults</dt><dd id="status-audio-faults">--</dd></div>
+          <div><dt>Lifecycle</dt><dd id="status-lifecycle">--</dd></div>
+          <div><dt>Last command</dt><dd id="status-command">--</dd></div>
+          <div><dt>Face</dt><dd id="status-face">--</dd></div>
+        </dl>
+      </section>
+
+      <section class="control-section" aria-labelledby="behavior-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Behavior</p>
+            <h2 id="behavior-title">Operating mode</h2>
+          </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Profile</span>
+          <div class="segmented-control" role="group" aria-label="Profile">
+            <button type="button" data-profile="home">Home</button>
+            <button type="button" data-profile="tether">Tether</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Power state</span>
+          <div class="command-row">
+            <button type="button" data-state="idle">Idle</button>
+            <button type="button" data-state="doze">Doze</button>
+            <button type="button" data-state="sleep">Sleep 60s</button>
+          </div>
+        </div>
+        <form id="asset-intent-form" class="inline-form">
+          <label for="asset-name">Face or sound asset</label>
+          <div class="input-with-actions">
+            <input id="asset-name" name="asset" pattern="[a-z0-9_]{1,32}" maxlength="32" value="default" required>
+            <button type="submit" name="intent" value="face">Face</button>
+            <button type="submit" name="intent" value="say">Play</button>
+          </div>
+        </form>
+        <div class="emote-group">
+          <span class="field-label">Emotes</span>
+          <div class="emote-grid">
+            <button type="button" data-emote="rest">Rest</button>
+            <button type="button" data-emote="stand">Stand</button>
+            <button type="button" data-emote="wave">Wave</button>
+            <button type="button" data-emote="dance">Dance</button>
+            <button type="button" data-emote="swim">Swim</button>
+            <button type="button" data-emote="point">Point</button>
+            <button type="button" data-emote="pushup">Pushup</button>
+            <button type="button" data-emote="bow">Bow</button>
+            <button type="button" data-emote="cute">Cute</button>
+            <button type="button" data-emote="freaky">Freaky</button>
+            <button type="button" data-emote="worm">Worm</button>
+            <button type="button" data-emote="shake">Shake</button>
+            <button type="button" data-emote="shrug">Shrug</button>
+            <button type="button" data-emote="dead">Dead</button>
+            <button type="button" data-emote="crab">Crab</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-section" aria-labelledby="media-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Media</p>
+            <h2 id="media-title">Camera and audio</h2>
+          </div>
+          <button id="snapshot-button" type="button">Snapshot</button>
+        </div>
+        <form id="camera-form" class="settings-form">
+          <label class="switch-row">
+            <span>Camera</span>
+            <input name="on" type="checkbox">
+          </label>
+          <label>Resolution
+            <select name="res">
+              <option value="QVGA">QVGA</option>
+              <option value="VGA">VGA</option>
+            </select>
+          </label>
+          <label>Frame rate
+            <input name="fps" type="number" min="0" max="15" value="5">
+          </label>
+          <button type="submit">Apply camera</button>
+        </form>
+        <form id="microphone-form" class="settings-form">
+          <label class="switch-row">
+            <span>Microphone</span>
+            <input name="on" type="checkbox">
+          </label>
+          <label>Gate
+            <select name="gate">
+              <option value="vad">Voice activity</option>
+              <option value="wake">Wake word</option>
+              <option value="open">Open</option>
+            </select>
+          </label>
+          <button type="submit">Apply microphone</button>
+          <button id="speaker-test-button" type="button">Test speaker</button>
+        </form>
+        <label class="meter-label" for="microphone-level">Microphone level</label>
+        <progress id="microphone-level" max="1" value="0"></progress>
+      </section>
+
+      <section class="control-section calibration-section" aria-labelledby="calibration-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Service</p>
+            <h2 id="calibration-title">Joint calibration</h2>
+          </div>
+          <div class="segmented-control" role="group" aria-label="Calibration mode">
+            <button type="button" data-calibration-mode="calibrate">Enable</button>
+            <button type="button" data-calibration-mode="normal">Exit</button>
+          </div>
+        </div>
+        <form id="servo-form" class="calibration-grid">
+          <label>Joint<select name="id" data-joint-select required></select></label>
+          <label>Angle<input name="deg" type="number" min="0" max="180" step="0.1" value="90" required></label>
+          <label>Duration ms<input name="ms" type="number" min="0" max="5000" value="400" required></label>
+          <button type="submit">Move joint</button>
+        </form>
+        <form id="limits-form" class="calibration-grid limits-grid">
+          <label>Joint<select name="id" data-joint-select required></select></label>
+          <label>Minimum<input name="min" type="number" step="0.1" value="0" required></label>
+          <label>Center<input name="center" type="number" step="0.1" value="90" required></label>
+          <label>Maximum<input name="max" type="number" step="0.1" value="180" required></label>
+          <label class="switch-row invert-row"><span>Invert</span><input name="invert" type="checkbox"></label>
+          <button type="submit">Stage limits</button>
+        </form>
+        <div class="command-row">
+          <button id="calibration-neutral-button" type="button">All neutral</button>
+          <button id="calibration-detach-button" class="danger-command" type="button">Detach outputs</button>
+          <button id="calibration-save-button" class="primary-command" type="button">Save calibration</button>
+        </div>
+      </section>
+
+      <section class="control-section controller-section" aria-labelledby="controller-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Input</p>
+            <h2 id="controller-title">Controller mappings</h2>
+          </div>
+        </div>
+        <form id="controller-mapping-form" class="mapping-grid">
+          <label>Forward<input name="fwd" value="KeyW" maxlength="24" required></label>
+          <label>Backward<input name="back" value="KeyS" maxlength="24" required></label>
+          <label>Turn left<input name="turn_l" value="KeyA" maxlength="24" required></label>
+          <label>Turn right<input name="turn_r" value="KeyD" maxlength="24" required></label>
+          <button type="submit">Save mappings</button>
+        </form>
+      </section>
+
+      <section class="control-section sd-section" aria-labelledby="sd-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Storage</p>
+            <h2 id="sd-title">SD card</h2>
+          </div>
+          <span id="sd-state" class="state-chip">Unavailable</span>
+        </div>
+        <div class="command-row">
+          <button type="button" disabled>Retry mount</button>
+          <button type="button" disabled>Clear recordings</button>
+          <button type="button" class="danger-command" disabled>Reformat</button>
+        </div>
+      </section>
+
+      <section class="control-section security-section" aria-labelledby="security-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Access</p>
+            <h2 id="security-title">Robot tokens</h2>
+          </div>
+        </div>
+        <form id="token-form" class="inline-form">
+          <label for="token-robot-id">Robot ID</label>
+          <div class="input-with-actions">
+            <input id="token-robot-id" name="robot_id" maxlength="64" value="ainekio-test-01" required>
+            <button type="submit" name="action" value="generate">Generate</button>
+            <button type="submit" name="action" value="revoke" class="danger-command">Revoke</button>
+          </div>
+        </form>
+        <div id="token-result" class="token-result" hidden>
+          <span>New token</span>
+          <code id="token-value"></code>
+          <button id="token-dismiss-button" type="button">Dismiss</button>
+        </div>
+        <p class="stored-token-label">Configured robots</p>
+        <div id="token-robot-list" class="tag-list"></div>
+      </section>
+
+      <section class="control-section audit-section" aria-labelledby="audit-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Operations</p>
+            <h2 id="audit-title">Audit log</h2>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Time</th><th>Event</th><th>Robot</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

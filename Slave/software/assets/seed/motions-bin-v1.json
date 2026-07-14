@@ -1,0 +1,156 @@
+{
+  "assets": [
+    {
+      "bytes": 63,
+      "name": "rest",
+      "path": "motions/rest.amot",
+      "sha256": "0b722b8518fc0c9d192a95ea6e59b848bc5704b203939d9ba8a4c28c0d810944"
+    },
+    {
+      "bytes": 70,
+      "name": "stand",
+      "path": "motions/stand.amot",
+      "sha256": "ff1849cf8169a6b7fe6e575b4c98e57193d4c2edc63a8e78e97cbcce8f5cdd96"
+    },
+    {
+      "bytes": 173,
+      "name": "wave",
+      "path": "motions/wave.amot",
+      "sha256": "b3888576b3be8d2cbdfbf27f5f405f2a10aa94e05fb1511f8cf56c64110831e4"
+    },
+    {
+      "bytes": 256,
+      "name": "dance",
+      "path": "motions/dance.amot",
+      "sha256": "cf613c6343c3558d69dcbd9ad212fd652453fcf62801651da299fd885b8b3a75"
+    },
+    {
+      "bytes": 209,
+      "name": "swim",
+      "path": "motions/swim.amot",
+      "sha256": "2f579f711e3d4c509d096c21a7dac0ee9d0e581e7ccbd98ee28b3375ad0d7517"
+    },
+    {
+      "bytes": 106,
+      "name": "point",
+      "path": "motions/point.amot",
+      "sha256": "833b589e1526914265a69fccc1809fbe80fb75b3cbacc447edbbf69135e61c79"
+    },
+    {
+      "bytes": 195,
+      "name": "pushup",
+      "path": "motions/pushup.amot",
+      "sha256": "761fdb212d412305107dfcc47be480091052d934b84f9a34ba28f656545ffaba"
+    },
+    {
+      "bytes": 138,
+      "name": "bow",
+      "path": "motions/bow.amot",
+      "sha256": "703a2dfb5f8bb05fc1fdea630680e3b5f91eaf7c5b1d7cd155375674ea59b064"
+    },
+    {
+      "bytes": 221,
+      "name": "cute",
+      "path": "motions/cute.amot",
+      "sha256": "9ec45be22ca32cd3e605c24f2120797f9cd0e44b7252adc0a9e91e23f5032aa0"
+    },
+    {
+      "bytes": 165,
+      "name": "freaky",
+      "path": "motions/freaky.amot",
+      "sha256": "9a125f073b603df065947fa23c237379ac2947545ea2a404433c7528917ad032"
+    },
+    {
+      "bytes": 281,
+      "name": "worm",
+      "path": "motions/worm.amot",
+      "sha256": "bc631b0f3e6505d5bc8b75d1baa6d1c6a97c647ab2dccf4f59587b331df39c45"
+    },
+    {
+      "bytes": 217,
+      "name": "shake",
+      "path": "motions/shake.amot",
+      "sha256": "c5390da0d068ed1d4f0878f3d7e61769ffc90caa976734019616aa3334fa53e4"
+    },
+    {
+      "bytes": 144,
+      "name": "shrug",
+      "path": "motions/shrug.amot",
+      "sha256": "aa63a9c165b48b24367e058560bb03e0fcce98dde29864ec4989838b90ca480e"
+    },
+    {
+      "bytes": 78,
+      "name": "dead",
+      "path": "motions/dead.amot",
+      "sha256": "5da4e8b4dace96e4f3ad78716b6c7154d89bd1198eec46aa776f74ae22d1f2aa"
+    },
+    {
+      "bytes": 266,
+      "name": "crab",
+      "path": "motions/crab.amot",
+      "sha256": "e6d7a221ba2bd088ca5ecafbbc352efa415f901a04cf951a24b46253ba6094e7"
+    },
+    {
+      "bytes": 760,
+      "name": "walk_forward",
+      "path": "motions/walk_forward.amot",
+      "sha256": "afaea497f661058022d8a3a12a57b7c78b2ae17c3861d741c072bb05013d9a79"
+    },
+    {
+      "bytes": 746,
+      "name": "walk_backward",
+      "path": "motions/walk_backward.amot",
+      "sha256": "13f9eeff8c31860f9c9e29ded29445f8abd9a0f24db9c88ad193612414e4705d"
+    },
+    {
+      "bytes": 802,
+      "name": "turn_left",
+      "path": "motions/turn_left.amot",
+      "sha256": "fa7dc874d8432942897b77645a7f9f8bef82ce155b9feb8a88a730ae3ee0372e"
+    },
+    {
+      "bytes": 803,
+      "name": "turn_right",
+      "path": "motions/turn_right.amot",
+      "sha256": "537730c6f0fceca64c67768ebfd5c48b416e4ddfe8cc98e42b6a5eae2cc0728b"
+    }
+  ],
+  "joint_map": {
+    "joints": [
+      {
+        "id": 0,
+        "label": "R1"
+      },
+      {
+        "id": 1,
+        "label": "R2"
+      },
+      {
+        "id": 2,
+        "label": "L1"
+      },
+      {
+        "id": 3,
+        "label": "L2"
+      },
+      {
+        "id": 4,
+        "label": "R4"
+      },
+      {
+        "id": 5,
+        "label": "R3"
+      },
+      {
+        "id": 6,
+        "label": "L3"
+      },
+      {
+        "id": 7,
+        "label": "L4"
+      }
+    ],
+    "version": 1
+  },
+  "schema_version": 1
+}
