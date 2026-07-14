@@ -33,4 +33,6 @@ budget.
 
 `backends/sesame.py` translates accepted protocol-v1 motion into optional Sesame
 renderer messages. `backends/sesame_shim.py` owns the local HTTP/SSE renderer
-transport. Neither module is imported by ESP32 firmware.
+transport. A motion request completes only after the browser reports that the
+command was handed to the Sesame UART runtime; publication alone is not reported
+as protocol `done`. Neither module is imported by ESP32 firmware.
