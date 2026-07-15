@@ -65,7 +65,7 @@ until the target hardware and the normative Parts Overview are available.
 ```text
 Master/
   gateway/
-    bridge_client/
+    environment_adapter/
     dashboard/
     server/
 
@@ -89,7 +89,6 @@ Emulator/
     backends/
   tests/
   sesame-robot-sim/
-  legacy/motion/
 
 docs/
   archive/
@@ -99,8 +98,8 @@ docs/
 `Slave/` owns the physical robot. `Slave/firmware/esp32s3/main/app_main.c` is the
 ESP32-S3 entry point, `Slave/software/core/` owns portable body behavior and
 safety, and `Slave/software/protocol/` owns the wire contract. `Master/gateway/`
-owns the brain-side socket. `Emulator/emulator/` owns host body emulation and
-renderer transport. `Emulator/legacy/motion/` is superseded Python/SSE code.
+owns the brain-side socket and authenticated environment adapter.
+`Emulator/emulator/` owns host body emulation and renderer transport.
 `docs/sesame-robot/` is the ignored upstream reference clone, while
 `Emulator/sesame-robot-sim/` is the runnable visual simulator.
 
@@ -202,8 +201,8 @@ behavior and control parity, not an Arduino architecture port.
   platform configuration must use the same mapping. Physical GPIO, positive-angle
   direction, invert, center, minimum, and maximum remain platform/calibration data.
 - Treat `docs/sesame-robot/firmware/movement-sequences.h` as the seed-motion source
-  of truth. The shortened `Emulator/legacy/motion/` Python sequences are useful
-  history but are not exact enough to generate parity fixtures.
+  of truth. The removed Python/SSE adapter was not exact enough to generate
+  parity fixtures; its historical decisions remain in `docs/archive/`.
 - Add a semantic `emote` intent with a bounded asset name. Normal operation never
   carries raw servo angles; every expanded target still passes the portable safety
   gate, calibration mapping, and limit checks.
@@ -281,9 +280,9 @@ path is authoritative; it should not create a second all-in-one robot simulator.
   backend, and current safety controller.
 - [x] Establish that the existing Sesame runtime is the motion renderer and that
   upgraded Ainekio capabilities use separate protocol-backed host adapters.
-- [x] Keep Sesame as an optional renderer, isolate the old motion/SSE package
-  under `Emulator/legacy/motion/`, place normative body behavior in
-  `Emulator/emulator/`, and brain-side protocol behavior in `Master/gateway/`.
+- [x] Keep Sesame as an optional renderer, remove the old motion/SSE package,
+  place normative body behavior in `Emulator/emulator/`, and brain-side protocol
+  behavior in `Master/gateway/`.
 - [x] Reconcile the normative partition layout before additional firmware storage
   code is built on the provisional layout.
 - [x] Add a local gateway/brain stub that serves the exact protocol v1 WebSocket
@@ -305,10 +304,9 @@ path is authoritative; it should not create a second all-in-one robot simulator.
 - [x] Test malformed and oversized input, stale and duplicate sequences,
   disconnect/reconnect, unavailable simulator, queue saturation, and stop
   preemption within the specification's 100 ms limit.
-- [x] Keep the old MetaHuman SSE adapter simulator-only. The gateway bridge under
-  `Master/gateway/bridge_client/` translates authenticated semantic MetaHuman
-  actions into protocol v1; the firmware implements only the production
-  WebSocket contract.
+- [x] Remove the superseded direct MetaHuman HTTP/SSE client. The generic adapter
+  under `Master/gateway/environment_adapter/` accepts authenticated semantic
+  actions over `/environment`; the firmware implements only protocol v1.
 
 ## WiFi Provisioning Decision
 
@@ -478,7 +476,6 @@ The current implementation and size are recorded in the completion audit below.
 - Reconciled ownership with System Specification v1.0:
   `Emulator/emulator/` owns body emulation and host renderer transport,
   `Master/gateway/` owns the brain-side protocol,
-  `Emulator/legacy/motion/` contains the superseded Python/SSE path, and
   `Emulator/sesame-robot-sim/` is optional visual runtime code.
 - Defined the Sesame browser runtime as the visual motion backend only. Camera,
   microphone, speaker, display, and future sensors remain separate protocol-backed
@@ -492,10 +489,11 @@ The current implementation and size are recorded in the completion audit below.
   body-initiated authentication, version rejection, fixture consumption,
   sequence/lifecycle handling, portable-core safety decisions, and the initial
   `stand`, `neutral`, `walk`, and `stop` renderer path.
-- Added a session-scoped renderer result contract. The HTTP motion request now
-  remains pending until the browser reports that it handed the command to the
-  Sesame UART runtime. No subscriber, result timeout, or browser rejection can
-  produce protocol `done`.
+- Added a session-scoped renderer result contract. With a browser subscriber,
+  the HTTP motion request remains pending until the browser reports that it
+  handed the command to the Sesame UART runtime. With no subscriber, the host
+  body completes the bounded motion headlessly without retaining it for replay.
+  Renderer timeout or browser rejection cannot produce protocol `done`.
 - Kept stop locally authoritative: portable-core detachment and protocol
   acknowledgement do not wait for the optional renderer, while renderer stop
   publication is attempted through a bounded best-effort path.
@@ -507,13 +505,13 @@ The current implementation and size are recorded in the completion audit below.
   enforcement, the 600-second calibration timeout, and atomic host calibration
   persistence.
 - Added acceptance coverage for malformed recovery, oversized WebSocket frames,
-  stale sequences, renderer absence/rejection, duplicate authenticated sockets,
+  stale sequences, headless rendering/browser rejection, duplicate authenticated sockets,
   mid-motion disconnect/reconnect, queue saturation, and measured stop handling
   below 100 ms.
 - Refactored repository ownership so active emulator code no longer imports the
   old Python motion package. The renderer shim lives under
-  `Emulator/emulator/backends/`; the old package and scratchpad live under
-  `Emulator/legacy/` and `docs/archive/` respectively.
+  `Emulator/emulator/backends/`; the superseded package, launchers, and bridge
+  tests were removed, while the historical scratchpad remains in `docs/archive/`.
 - Completed the remaining lifecycle, media, asset, display, battery, fault,
   gateway, dashboard, and bridge work. The explicit acceptance runner now owns
   current suite counts and A-series evidence; the earlier four-folder counts are
@@ -541,11 +539,15 @@ stop condition is complete. No robot feature drivers are part of this pass.
 - B2 emulator control plane, lifecycle, safety, states, calibration, and portable
   C-core authority.
 - B3 production gateway, authenticated dashboard, semantic manual controls,
-  token revocation, logging, plugins, and bridge-client boundary.
+  token revocation, logging, plugins, and generic environment-adapter boundary.
 - B4 emulator camera/microphone/speaker adapters, TTS ordering, bandwidth
   profiles, battery/deep-sleep behavior, display behavior, and fault injection.
-- B5 MetaHuman action translation with monotonic freshness and a guard preventing
-  the legacy adapter from attaching to the robot deployment stream.
+- B5 generic MetaHuman environment integration: authenticated full-duplex
+  adapter, monotonic action freshness, semantic translation, correlated terminal
+  feedback, bounded JPEG return, and one event-driven follow-up observation per
+  result. Environment Mode streams the model's conversational response while
+  independently coordinating zero or more semantic robot actions. Periodic
+  status does not enqueue cognition.
 - All 19 Sesame-derived motion assets, all required normalized face assets,
   canned PCM assets, deterministic conversion/parity fixtures, logical-joint
   contract, calibration diagnostics, and release-to-stop browser controls.
@@ -616,7 +618,7 @@ budget and must be measured after every firmware feature.
 ### Inspection Entry Point
 
 ```sh
-./Emulator/start-protocol-v1-stack.sh
+./start.sh
 ```
 
 The launcher starts the authenticated dashboard, production gateway, protocol-v1

@@ -29,7 +29,7 @@
     y: 0,
     yaw: 0,
     connected: false,
-    pendingCommand: null,
+    events: null,
   };
 
   function install() {
@@ -178,8 +178,8 @@
   function sendSimulatorCommand(payload) {
     const runtime = getSesameRuntime();
     if (!runtime) {
-      state.pendingCommand = payload;
-      setModelStatus("waiting", "warn");
+      setModelStatus("unavailable", "bad");
+      void reportResult(payload, "rejected", "Sesame runtime unavailable");
       return;
     }
 
@@ -188,7 +188,6 @@
         ? payload.simulatorCommand.trim()
         : SIMULATOR_COMMANDS[String(payload.command || "").toLowerCase()];
     if (!simulatorCommand) {
-      state.pendingCommand = null;
       setText("ainekio-simulator-command", "unsupported");
       setModelStatus("unsupported", "bad");
       void reportResult(payload, "rejected", "unsupported simulator command");
@@ -204,12 +203,10 @@
     try {
       runtime.hybrid.send_uart(`${simulatorCommand}\n`);
     } catch (error) {
-      state.pendingCommand = null;
       setModelStatus("failed", "bad");
       void reportResult(payload, "rejected", "simulator UART rejected command");
       return;
     }
-    state.pendingCommand = null;
     setText("ainekio-simulator-command", simulatorCommand);
     setModelStatus("sent", "ok");
     void reportResult(payload, "accepted", "command sent to Sesame UART");
@@ -233,20 +230,10 @@
     sendSimulatorCommand(payload);
   }
 
-  function connect() {
-    install();
-    window.addEventListener("ainekio:sesame-runtime-ready", () => {
-      setModelStatus("ready", "ok");
-      if (state.pendingCommand) {
-        sendSimulatorCommand(state.pendingCommand);
-      }
-    });
-
-    if (getSesameRuntime()) {
-      setModelStatus("ready", "ok");
-    }
-
+  function startEventStream() {
+    if (state.events) return;
     const events = new EventSource(SHIM_EVENTS_URL);
+    state.events = events;
     events.addEventListener("connected", () => setConnected(true));
     events.addEventListener("motion", (event) => {
       setConnected(true);
@@ -257,6 +244,19 @@
       }
     });
     events.onerror = () => setConnected(false);
+  }
+
+  function connect() {
+    install();
+    window.addEventListener("ainekio:sesame-runtime-ready", () => {
+      setModelStatus("ready", "ok");
+      startEventStream();
+    });
+
+    if (getSesameRuntime()) {
+      setModelStatus("ready", "ok");
+      startEventStream();
+    }
   }
 
   if (document.readyState === "loading") {

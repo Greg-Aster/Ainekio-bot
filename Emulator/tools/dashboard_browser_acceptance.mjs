@@ -11,6 +11,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
 const staticRoot = path.join(repoRoot, "Master/gateway/dashboard/static");
 const requests = [];
+const requestWaiters = new Set();
 let nextSequence = 1;
 
 const statusPayload = {
@@ -104,7 +105,7 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && url.pathname.startsWith("/api/")) {
       const payload = await readRequestBody(request);
-      requests.push({ path: url.pathname, payload });
+      recordRequest({ path: url.pathname, payload });
       json(response, 200, { seq: nextSequence++ });
       return;
     }
@@ -128,6 +129,28 @@ function availablePort() {
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function recordRequest(item) {
+  requests.push(item);
+  for (const waiter of requestWaiters) waiter();
+}
+
+function waitForRequests(predicate, message, timeout = 2000) {
+  if (predicate(requests)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      requestWaiters.delete(check);
+      reject(new Error(message));
+    }, timeout);
+    const check = () => {
+      if (!predicate(requests)) return;
+      clearTimeout(timer);
+      requestWaiters.delete(check);
+      resolve();
+    };
+    requestWaiters.add(check);
+  });
 }
 
 class CdpClient {
@@ -271,45 +294,80 @@ try {
     button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1 }));
     button.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1 }));
   })()`);
-  await delay(150);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/stop"),
+    "pointer release did not signal stop",
+  );
+  await delay(50);
   assert(requests.filter((item) => item.path === "/api/intent").length === 1, "held pointer issued more than one walk");
   assert(requests.some((item) => item.path === "/api/stop"), "pointer release did not signal stop");
+  await waitFor(client, `document.querySelector(".motion-pad").getAttribute("aria-busy") !== "true"`);
 
   requests.length = 0;
   await evaluate(client, `(() => {
     document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, code: "KeyW" }));
     document.body.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, code: "KeyW" }));
   })()`);
-  await delay(150);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/intent")
+      && items.some((item) => item.path === "/api/stop"),
+    "keyboard motion lifecycle did not complete",
+  );
   assert(requests.some((item) => item.path === "/api/intent"), "keyboard did not issue semantic walk");
   assert(requests.some((item) => item.path === "/api/stop"), "keyboard release did not signal stop");
+  await waitFor(client, `document.querySelector(".motion-pad").getAttribute("aria-busy") !== "true"`);
 
   requests.length = 0;
-  await evaluate(client, `globalThis.__ainekioGamepads = [{ axes: [0, -1], buttons: [] }]`);
-  await delay(100);
+  await evaluate(client, `(() => {
+    globalThis.__ainekioGamepads = [{ axes: [0, -1], buttons: [] }];
+    window.dispatchEvent(new Event("gamepadconnected"));
+  })()`);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/intent"),
+    "gamepad did not issue semantic walk",
+  );
   await evaluate(client, `globalThis.__ainekioGamepads = [{ axes: [0, 0], buttons: [] }]`);
-  await delay(100);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/stop"),
+    "gamepad neutral did not signal stop",
+  );
   assert(requests.some((item) => item.path === "/api/intent"), "gamepad did not issue semantic walk");
   assert(requests.some((item) => item.path === "/api/stop"), "gamepad neutral did not signal stop");
+  await waitFor(client, `document.querySelector(".motion-pad").getAttribute("aria-busy") !== "true"`);
 
   requests.length = 0;
   await evaluate(client, `(() => {
     const button = document.querySelector('[data-held-direction="turn_l"]');
     button.setPointerCapture = () => {};
     button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 2 }));
-    window.dispatchEvent(new Event("blur"));
   })()`);
-  await delay(150);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/intent"),
+    "blur setup did not issue semantic walk",
+  );
+  await evaluate(client, `window.dispatchEvent(new Event("blur"))`);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/stop"),
+    "window blur did not signal stop",
+  );
   assert(requests.some((item) => item.path === "/api/stop"), "window blur did not signal stop");
+  await waitFor(client, `document.querySelector(".motion-pad").getAttribute("aria-busy") !== "true"`);
 
   requests.length = 0;
   await evaluate(client, `(() => {
     const button = document.querySelector('[data-held-direction="back"]');
     button.setPointerCapture = () => {};
     button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 3 }));
-    window.dispatchEvent(new PageTransitionEvent("pagehide"));
   })()`);
-  await delay(150);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/intent"),
+    "page-loss setup did not issue semantic walk",
+  );
+  await evaluate(client, `window.dispatchEvent(new PageTransitionEvent("pagehide"))`);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/stop"),
+    "page loss did not signal stop",
+  );
   assert(requests.some((item) => item.path === "/api/stop"), "page loss did not signal stop");
 
   await evaluate(client, `(() => {
@@ -420,5 +478,12 @@ try {
     await new Promise((resolve) => chrome.once("exit", resolve));
   }
   await new Promise((resolve) => server.close(resolve));
-  if (profileDirectory) await rm(profileDirectory, { recursive: true, force: true });
+  if (profileDirectory) {
+    await rm(profileDirectory, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 50,
+    });
+  }
 }

@@ -35,11 +35,11 @@ Master/
   gateway/                    Brain-side protocol-v1 WebSocket owner
     server/                   Production gateway service and focused test stub
     dashboard/                Authenticated operator dashboard
-    bridge_client/            MetaHuman environment bridge boundary
+    environment_adapter/      Authenticated environment WebSocket and semantic translation
 ```
 
-The production gateway, dashboard, plugins, security stores, and MetaHuman bridge
-boundary stay under `Master/`.
+The production gateway, dashboard, plugins, security stores, and generic
+environment adapter stay under `Master/`.
 
 ## Emulator
 
@@ -50,13 +50,10 @@ Emulator/
     backends/                 Optional Sesame renderer backend and HTTP/SSE shim
   tests/                      Host emulator and gateway integration tests
   sesame-robot-sim/           Runnable browser/WASM visual simulator
-  legacy/motion/              Superseded Python MetaHuman SSE motion adapter
   requirements-host.txt       Host-only Python dependency pin
   start-protocol-v1-stack.sh  Complete local inspection stack
   start-protocol-v1-emulator.sh
   start-simulator-shim.sh
-  start-ainekio-adapter.sh    Legacy adapter launcher
-  start-ainekio-sim-stack.sh  Legacy combined-stack launcher
 ```
 
 The host emulator uses the portable core from `Slave/software/core/`. The Sesame
@@ -96,15 +93,6 @@ Master/gateway
   -> Emulator/emulator/body
   -> Slave/software/core
   -> Emulator/emulator/backends
-  -> Emulator/sesame-robot-sim
-```
-
-Legacy development path:
-
-```text
-Emulator/start-ainekio-sim-stack.sh
-  -> Emulator/legacy/motion
-  -> Emulator/emulator/backends/sesame_shim.py
   -> Emulator/sesame-robot-sim
 ```
 

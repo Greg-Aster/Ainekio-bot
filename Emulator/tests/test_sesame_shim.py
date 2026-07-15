@@ -152,16 +152,20 @@ class SesameShimHttpTests(unittest.TestCase):
             [MotionResult("accepted", "command sent to Sesame UART")],
         )
 
-    def test_http_motion_fails_when_no_renderer_is_connected(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "HTTP 503"):
-            self.client.publish_motion(
-                {
-                    "actionId": "session-2:10",
-                    "sessionId": "session-2",
-                    "command": "stand",
-                    "frames": [],
-                }
-            )
+    def test_http_motion_completes_headlessly_when_no_renderer_is_connected(self) -> None:
+        result = self.client.publish_motion(
+            {
+                "actionId": "session-2:10",
+                "sessionId": "session-2",
+                "command": "stand",
+                "frames": [],
+            }
+        )
+
+        self.assertEqual(
+            result,
+            MotionResult("accepted", "headless execution; no renderer subscriber"),
+        )
 
 
 if __name__ == "__main__":

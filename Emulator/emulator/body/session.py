@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 from collections.abc import Awaitable, Callable, Mapping
 from time import monotonic
@@ -44,6 +45,7 @@ from emulator.faults import EmulatorFaultController
 
 EmitControl = Callable[[dict[str, object]], Awaitable[None]]
 EmitBinary = Callable[[bytes], Awaitable[None]]
+LOGGER = logging.getLogger(__name__)
 
 _BODY_COMMAND_TYPES = frozenset(
     {
@@ -596,7 +598,8 @@ class BodySession:
             await self._motion_backend.execute(message, session_id=self._session_id)
         except asyncio.CancelledError:
             return
-        except Exception:
+        except Exception as error:
+            LOGGER.error("motion backend failed for sequence %s: %s", sequence, error)
             async with self._lock:
                 if self._active_sequence == sequence:
                     self._active_sequence = None

@@ -1,9 +1,0 @@
-[project]
-name = "ainekio-legacy-motion"
-version = "0.1.0"
-description = "Legacy Ainekio MetaHuman SSE motion adapter"
-requires-python = ">=3.11"
-dependencies = []
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]

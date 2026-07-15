@@ -116,6 +116,15 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
 }
 
 .control-section:nth-child(odd) { border-right: 1px solid var(--line); }
+.simulator-section { grid-column: 1 / -1; padding-inline: 0; border-right: 0 !important; }
+.simulator-section .section-heading { padding-inline: 1.25rem; }
+.simulator-frame {
+  display: block;
+  width: 100%;
+  height: clamp(520px, 72vh, 820px);
+  border: 0;
+  background: var(--dark);
+}
 .section-heading { min-height: 44px; margin-bottom: 1.2rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .section-kicker { margin-bottom: 0.25rem; color: var(--blue); font-size: 0.68rem; font-weight: 850; text-transform: uppercase; }
 .command-row { display: flex; flex-wrap: wrap; gap: 0.55rem; }
@@ -207,6 +216,9 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .stop-button { width: 100%; min-width: 0; }
   .dashboard-grid { padding-inline: 0.75rem; }
   .control-section { padding-inline: 0.5rem; }
+  .simulator-section { padding-inline: 0; }
+  .simulator-section .section-heading { padding-inline: 0.5rem; }
+  .simulator-frame { height: 620px; }
   .section-heading { flex-direction: column; }
   .telemetry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-group { align-items: flex-start; flex-direction: column; }

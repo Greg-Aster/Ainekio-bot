@@ -28,18 +28,13 @@ PYTHONPATH=Master:Slave/software \
   python3 -m gateway.server --stub --commands stand,walk,neutral
 ```
 
-The old motion adapter under `Emulator/legacy/` remains a simulator-only
-development path and is not part of the robot deployment transport.
-
-To connect the gateway to MetaHuman OS, configure the same
-`MH_ENVIRONMENT_BRIDGE_TOKEN` in MetaHuman's `.env` and start the gateway with
-the following environment:
+To expose the generic environment adapter, configure a dedicated adapter token:
 
 ```sh
-export MH_ENVIRONMENT_BRIDGE_TOKEN='shared-metahuman-bridge-token'
-PYTHONPATH=Master:Slave/software python3 -m gateway.server \
-  --metahuman-url http://127.0.0.1:4321
+export AINEKIO_ENVIRONMENT_ADAPTER_TOKEN='shared-environment-adapter-token'
+PYTHONPATH=Master:Slave/software python3 -m gateway.server
 ```
 
-The token is sent only as a Bearer credential to the existing observation,
-action-stream, and result endpoints.
+The endpoint is `ws://127.0.0.1:8790/environment`. The connecting environment
+agent authenticates in its first protocol message. Ainekio does not contain a
+MetaHuman URL or call MetaHuman APIs directly.

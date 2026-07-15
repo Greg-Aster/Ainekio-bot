@@ -5,5 +5,6 @@ robot.
 
 - `gateway/server/` owns the brain side of the protocol-v1 WebSocket.
 - `gateway/dashboard/` owns the authenticated local operator interface.
-- `gateway/bridge_client/` owns MetaHuman environment-stream translation.
+- `gateway/environment_adapter/` owns the authenticated full-duplex environment
+  endpoint and semantic command translation.
 - `gateway/security.py` owns bounded dashboard-verifier and robot-token stores.
