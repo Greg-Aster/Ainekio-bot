@@ -204,13 +204,13 @@ CASES = {
         "Gateway freshness uses monotonic time across wall-clock jumps.",
         (
             PY + "test_gateway_service.GatewayServiceTests.test_wall_clock_jump_does_not_change_monotonic_freshness",
-            PY + "test_gateway_bridge.GatewayBridgeTests.test_bridge_uses_local_monotonic_receipt_for_freshness",
+            PY + "test_environment_adapter.EnvironmentAdapterTests.test_fresh_control_uses_local_monotonic_receipt",
         ),
     ),
     "A25": AcceptanceCase(
-        "Legacy bridge clients cannot attach to the robot deployment socket.",
+        "Environment actions remain semantic and reject raw servo-like commands.",
         (
-            PY + "test_gateway_bridge.GatewayBridgeTests.test_bridge_clients_cannot_target_robot_deployment_socket",
+            PY + "test_environment_adapter.EnvironmentAdapterTests.test_translation_emits_only_bounded_semantic_commands",
         ),
     ),
     "A26": AcceptanceCase(

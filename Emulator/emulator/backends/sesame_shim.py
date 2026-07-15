@@ -186,7 +186,14 @@ class SimulatorShimHandler(BaseHTTPRequestHandler):
             f"result={result.status if result else 'unavailable'}"
         )
         if subscribers == 0:
-            self._send_json({"ok": False, "error": "no renderer subscriber"}, status=503)
+            self._send_json(
+                {
+                    "ok": True,
+                    "subscribers": 0,
+                    "result": "accepted",
+                    "detail": "headless execution; no renderer subscriber",
+                }
+            )
             return
         if result is None:
             self._send_json({"ok": False, "error": "renderer result timeout"}, status=504)

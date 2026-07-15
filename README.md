@@ -13,7 +13,7 @@
 - `Slave/hardware/` - CAD and physical-body assets.
 - `Slave/software/` - portable slave-brain core, protocol, and tests.
 - `Slave/firmware/` - ESP32-S3 firmware that runs on the robot.
-- `Emulator/` - host body emulator, Sesame simulator, legacy adapter, and tests.
+- `Emulator/` - host body emulator, Sesame visual simulator, and tests.
 - `docs/` - specifications, progress records, repository map, and the ignored
   Sesame reference clone.
 
@@ -24,9 +24,15 @@ complete ownership map.
 Run the complete local software stack with:
 
 ```sh
-./Emulator/start-protocol-v1-stack.sh
+cp .env.example .env
+# Set AINEKIO_ENVIRONMENT_ADAPTER_TOKEN to the adapter token used by MetaHuman OS.
+./start.sh
 ```
 
-The launcher prints the dashboard password and local inspection URLs. Run all
-A1-A30 software acceptance gates with
+This one command starts the visual simulator, protocol-v1 body emulator, Master
+gateway, operator dashboard, and authenticated environment adapter. The
+launcher refuses to start when the shared bridge token is missing instead of
+silently running a disconnected gateway. It prints the dashboard password and
+local inspection URLs; pressing `Ctrl+C` stops the entire stack. Run all A1-A30
+software acceptance gates with
 `python3 Emulator/tools/run_acceptance.py`.

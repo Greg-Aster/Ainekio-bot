@@ -5,8 +5,11 @@
   let selectedRobotId = null;
   let heldDirection = null;
   let heldRequestPending = false;
+  let heldRequest = null;
   let statusTimer = null;
   let gamepadDirection = null;
+  let gamepadSampling = false;
+  let gamepadTimer = null;
   let keyMappings = loadKeyMappings();
 
   const byId = (id) => document.getElementById(id);
@@ -82,11 +85,20 @@
   }
 
   async function stopMotion(label = "Stop sent") {
+    const pendingRequest = heldRequest;
     heldDirection = null;
     gamepadDirection = null;
     document.querySelectorAll("[data-held-direction]").forEach((button) => button.classList.remove("is-active"));
+    const immediateStop = command("/api/stop", {}, label);
+    if (pendingRequest) {
+      await Promise.allSettled([pendingRequest, immediateStop]);
+      if (heldDirection === null) {
+        try { await command("/api/stop", {}, `${label} (confirmed)`); } catch (_error) { return; }
+      }
+      return;
+    }
     try {
-      await command("/api/stop", {}, label);
+      await immediateStop;
     } catch (_error) {
       return;
     }
@@ -97,14 +109,23 @@
     if (heldDirection !== null) await stopMotion("Direction changed");
     heldDirection = direction;
     heldRequestPending = true;
+    document.querySelector(".motion-pad").setAttribute("aria-busy", "true");
     if (element) element.classList.add("is-active");
+    const requestPromise = command(
+      "/api/intent",
+      { name: "walk", params: { dir: direction, steps: 1 } },
+      "Movement sent",
+    );
+    heldRequest = requestPromise;
     try {
-      await command("/api/intent", { name: "walk", params: { dir: direction, steps: 1 } }, "Movement sent");
+      await requestPromise;
     } catch (_error) {
       heldDirection = null;
       if (element) element.classList.remove("is-active");
     } finally {
+      if (heldRequest === requestPromise) heldRequest = null;
       heldRequestPending = false;
+      document.querySelector(".motion-pad").setAttribute("aria-busy", "false");
     }
   }
 
@@ -145,10 +166,18 @@
         stopMotion("Emergency stop sent");
       }
     });
-    window.addEventListener("blur", () => { if (heldDirection !== null) stopMotion("Window lost focus"); });
+    window.addEventListener("blur", () => stopMotion("Window lost focus"));
     window.addEventListener("pagehide", releaseOnPageLoss);
-    window.addEventListener("gamepaddisconnected", () => { if (gamepadDirection !== null) stopMotion("Controller disconnected"); });
-    window.requestAnimationFrame(pollGamepad);
+    window.addEventListener("gamepadconnected", startGamepadSampling);
+    window.addEventListener("gamepaddisconnected", () => {
+      gamepadSampling = false;
+      if (gamepadTimer !== null) window.clearTimeout(gamepadTimer);
+      gamepadTimer = null;
+      if (gamepadDirection !== null) stopMotion("Controller disconnected");
+    });
+    if (Array.from(navigator.getGamepads ? navigator.getGamepads() : []).some(Boolean)) {
+      startGamepadSampling();
+    }
   }
 
   function releaseOnPageLoss() {
@@ -162,22 +191,32 @@
     }).catch(() => {});
   }
 
+  function startGamepadSampling() {
+    if (gamepadSampling) return;
+    gamepadSampling = true;
+    pollGamepad();
+  }
+
   function pollGamepad() {
     const gamepad = Array.from(navigator.getGamepads ? navigator.getGamepads() : []).find(Boolean);
-    let direction = null;
-    if (gamepad) {
-      const horizontal = gamepad.axes[0] || 0;
-      const vertical = gamepad.axes[1] || 0;
-      if (Math.abs(vertical) > 0.55 && Math.abs(vertical) >= Math.abs(horizontal)) direction = vertical < 0 ? "fwd" : "back";
-      else if (Math.abs(horizontal) > 0.55) direction = horizontal < 0 ? "turn_l" : "turn_r";
-      if (gamepad.buttons[1] && gamepad.buttons[1].pressed) direction = null;
+    if (!gamepad) {
+      gamepadSampling = false;
+      gamepadTimer = null;
+      if (gamepadDirection !== null) stopMotion("Controller disconnected");
+      return;
     }
+    let direction = null;
+    const horizontal = gamepad.axes[0] || 0;
+    const vertical = gamepad.axes[1] || 0;
+    if (Math.abs(vertical) > 0.55 && Math.abs(vertical) >= Math.abs(horizontal)) direction = vertical < 0 ? "fwd" : "back";
+    else if (Math.abs(horizontal) > 0.55) direction = horizontal < 0 ? "turn_l" : "turn_r";
+    if (gamepad.buttons[1] && gamepad.buttons[1].pressed) direction = null;
     if (direction !== gamepadDirection) {
       if (gamepadDirection !== null) stopMotion("Controller neutral");
       gamepadDirection = direction;
       if (direction !== null) beginHeldMotion(direction);
     }
-    window.requestAnimationFrame(pollGamepad);
+    if (gamepadSampling) gamepadTimer = window.setTimeout(pollGamepad, 50);
   }
 
   function setupForms() {

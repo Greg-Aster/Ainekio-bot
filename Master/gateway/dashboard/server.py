@@ -368,7 +368,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _security_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Security-Policy", "default-src 'self'; connect-src 'self'")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; connect-src 'self'; frame-src http://127.0.0.1:8765",
+        )
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")

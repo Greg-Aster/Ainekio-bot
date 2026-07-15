@@ -405,6 +405,9 @@ class GatewayService:
                 "profile": self.config.profile,
             }
         )
+        await self._publish_event(
+            {"t": "connection", "status": "connected", "robot_id": robot_id, "epoch": epoch}
+        )
         try:
             await connection.run()
         except ConnectionClosed:
@@ -414,6 +417,9 @@ class GatewayService:
             async with self._lock:
                 if self._connections.get(robot_id) is connection:
                     del self._connections[robot_id]
+            await self._publish_event(
+                {"t": "connection", "status": "disconnected", "robot_id": robot_id, "epoch": epoch}
+            )
 
     async def wait_connected(self, robot_id: str, *, timeout: float = 3.0) -> None:
         deadline = self.clock() + timeout
