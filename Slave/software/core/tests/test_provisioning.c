@@ -39,6 +39,8 @@ static void test_nvs_contract_is_versioned_and_bounded(void)
         AINEKIO_NVS_KEY_NAMED_POSES,
         AINEKIO_NVS_KEY_DEFAULT_PROFILE,
         AINEKIO_NVS_KEY_ADC_FACTOR,
+        AINEKIO_NVS_KEY_WAKE_ENABLED,
+        AINEKIO_NVS_KEY_WAKE_MODEL,
     };
     assert(AINEKIO_NVS_SCHEMA_VERSION == 1U);
     assert(AINEKIO_CONFIG_SLOT_A != AINEKIO_CONFIG_SLOT_B);

@@ -13,6 +13,7 @@
     {"$ref": "#/$defs/cam"},
     {"$ref": "#/$defs/snap"},
     {"$ref": "#/$defs/mic"},
+    {"$ref": "#/$defs/wake"},
     {"$ref": "#/$defs/profile"},
     {"$ref": "#/$defs/state"},
     {"$ref": "#/$defs/ping"},
@@ -215,6 +216,18 @@
         "gate": {"type": "string", "enum": ["open", "vad", "wake"]}
       }
     },
+    "wake": {
+      "x-ainekio-message-type": "wake",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": ["t", "seq", "enabled", "model"],
+      "properties": {
+        "t": {"const": "wake"},
+        "seq": {"$ref": "#/$defs/sequence"},
+        "enabled": {"type": "boolean"},
+        "model": {"$ref": "#/$defs/assetName"}
+      }
+    },
     "profile": {
       "x-ainekio-message-type": "profile",
       "x-ainekio-direction": "brain-to-body",
@@ -414,7 +427,10 @@
         "sd": {"type": "boolean"},
         "cam_drops": {"type": "integer", "minimum": 0},
         "spk_underruns": {"type": "integer", "minimum": 0},
-        "mic_drops": {"type": "integer", "minimum": 0}
+        "mic_drops": {"type": "integer", "minimum": 0},
+        "wake_enabled": {"type": "boolean"},
+        "wake_model": {"$ref": "#/$defs/assetName"},
+        "wake_ready": {"type": "boolean"}
       }
     },
     "event": {

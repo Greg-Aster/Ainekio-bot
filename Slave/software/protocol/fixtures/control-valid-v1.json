@@ -24,6 +24,7 @@
     {"name": "cam", "message": {"t": "cam", "seq": 8, "on": true, "fps": 5, "res": "VGA"}},
     {"name": "snap", "message": {"t": "snap", "seq": 9}},
     {"name": "mic", "message": {"t": "mic", "seq": 10, "on": true, "gate": "vad"}},
+    {"name": "wake", "message": {"t": "wake", "seq": 26, "enabled": false, "model": "ainekio"}},
     {"name": "profile", "message": {"t": "profile", "seq": 11, "name": "tether"}},
     {"name": "state_idle", "message": {"t": "state", "seq": 12, "name": "idle"}},
     {"name": "state_sleep", "message": {"t": "state", "seq": 13, "name": "sleep", "sleep_s": 28800}},
@@ -60,7 +61,10 @@
         "sd": true,
         "cam_drops": 4,
         "spk_underruns": 0,
-        "mic_drops": 2
+        "mic_drops": 2,
+        "wake_enabled": false,
+        "wake_model": "ainekio",
+        "wake_ready": false
       }
     },
     {"name": "event", "message": {"t": "event", "name": "vad_open"}},

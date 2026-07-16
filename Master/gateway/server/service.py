@@ -522,6 +522,18 @@ class GatewayService:
             robot_id=robot_id,
         )
 
+    async def set_wake_configuration(
+        self,
+        *,
+        enabled: bool,
+        model: str,
+        robot_id: str | None = None,
+    ) -> int:
+        return await self._send(
+            {"t": "wake", "enabled": enabled, "model": model},
+            robot_id=robot_id,
+        )
+
     async def set_calibration_mode(
         self,
         mode: str,

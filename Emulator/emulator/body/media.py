@@ -24,7 +24,7 @@ class MicrophoneSource(Protocol):
 
 
 class FixtureCameraSource:
-    def __init__(self, jpeg: bytes = b"\xff\xd8\xff\xd9") -> None:
+    def __init__(self, jpeg: bytes) -> None:
         self.jpeg = jpeg
         self.captures: list[str] = []
 

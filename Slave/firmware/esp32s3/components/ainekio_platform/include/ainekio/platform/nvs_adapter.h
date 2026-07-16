@@ -39,5 +39,14 @@ esp_err_t ainekio_nvs_adapter_load_preferences(
 );
 esp_err_t ainekio_nvs_adapter_save_profile(ainekio_profile_t profile);
 esp_err_t ainekio_nvs_adapter_save_adc_factor(float adc_factor);
+esp_err_t ainekio_nvs_adapter_load_wake_preferences(
+    bool *enabled,
+    char model[AINEKIO_WAKE_MODEL_MAX + 1U],
+    bool *recovered
+);
+esp_err_t ainekio_nvs_adapter_save_wake_preferences(
+    bool enabled,
+    const char *model
+);
 
 #endif

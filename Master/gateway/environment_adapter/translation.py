@@ -24,6 +24,22 @@ SEED_EMOTES = frozenset(
     }
 )
 
+SUPPORTED_ROBOT_COMMANDS = tuple(
+    sorted(
+        {
+            "stop",
+            "sit",
+            "stand",
+            "neutral",
+            "walk",
+            "backward",
+            "left",
+            "right",
+            *SEED_EMOTES,
+        }
+    )
+)
+
 
 @dataclass(frozen=True)
 class BridgeAction:
@@ -49,7 +65,6 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
     command = _normalized(action.get("command"))
     aliases = {
         "idle": "neutral",
-        "rest": "sit",
         "back": "backward",
         "reverse": "backward",
         "walkbackward": "backward",

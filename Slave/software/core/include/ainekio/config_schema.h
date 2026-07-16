@@ -33,6 +33,8 @@
 #define AINEKIO_NVS_KEY_NAMED_POSES "named_pose_v1"
 #define AINEKIO_NVS_KEY_DEFAULT_PROFILE "profile"
 #define AINEKIO_NVS_KEY_ADC_FACTOR "adc_factor"
+#define AINEKIO_NVS_KEY_WAKE_ENABLED "wake_enabled"
+#define AINEKIO_NVS_KEY_WAKE_MODEL "wake_model"
 
 typedef enum {
     AINEKIO_CONFIG_SLOT_NONE = 0,

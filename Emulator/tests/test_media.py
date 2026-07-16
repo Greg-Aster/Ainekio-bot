@@ -36,7 +36,7 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.now = 0.0
         self.core = PortableCore(self.library_path)
-        self.camera = FixtureCameraSource()
+        self.camera = FixtureCameraSource(b"\xff\xd8fixture\xff\xd9")
         self.microphone = QueueMicrophoneSource()
         self.session = BodySession(
             self.core,
@@ -82,6 +82,53 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(decoded.frame_type, CAMERA_JPEG_FRAME_TYPE)
         self.assertEqual(decoded.counter, 0)
         self.assertFalse(self.core.servos_attached)
+
+    async def test_camera_is_optional_and_audio_streaming_still_works(self) -> None:
+        await self.session.close()
+        self.core.close()
+        self.core = PortableCore(self.library_path)
+        self.microphone = QueueMicrophoneSource([
+            struct.pack("<320h", *([1200] * 320))
+        ])
+        self.session = BodySession(
+            self.core,
+            ImmediateMotionBackend(),
+            clock=lambda: self.now,
+            microphone_source=self.microphone,
+        )
+        self.controls.clear()
+        self.frames.clear()
+        await self.session.begin(
+            {"t": "welcome", "ver": 1, "epoch": 2, "profile": "home"}
+        )
+
+        self.assertFalse(self.session.status()["camera_ready"])
+        await self.session.handle(
+            {"t": "snap", "seq": 1},
+            self.emit,
+            self.emit_binary,
+        )
+        await self.session.handle(
+            {"t": "cam", "seq": 2, "on": True, "fps": 5, "res": "VGA"},
+            self.emit,
+        )
+        await self.session.handle(
+            {"t": "mic", "seq": 3, "on": True, "gate": "open"},
+            self.emit,
+        )
+        await self.session.service_media(self.emit, self.emit_binary)
+
+        self.assertEqual(
+            self.controls[:2],
+            [
+                {"t": "nak", "seq": 1, "code": "busy", "msg": "camera unavailable"},
+                {"t": "ack", "seq": 2},
+            ],
+        )
+        self.assertEqual(
+            decode_binary_frame(self.frames[0]).frame_type,
+            MIC_PCM_FRAME_TYPE,
+        )
 
     async def test_camera_stream_respects_state_and_counts_oversize_drop(self) -> None:
         await self.session.handle(

@@ -13,7 +13,8 @@ host emulator. Protocol v1, the portable C core, the emulator, the Master
 gateway/dashboard/bridge, and the ESP32-S3 platform port are present. The
 explicit A1-A30 runner passes 30/30, and the ESP-IDF v5.5.4 cross-build passes.
 Physical flashing, electrical verification, and H1-H15 evidence remain pending
-until the target hardware and the normative Parts Overview are available.
+until the ordered target hardware arrives. The external normative Parts Overview
+has been reviewed for planning, but delivered hardware still must confirm it.
 
 ## Current Relevant Documents
 
@@ -23,8 +24,8 @@ until the target hardware and the normative Parts Overview are available.
 - `docs/REPOSITORY_MAP.md` - current Master, Slave, Emulator, and docs ownership
   map with the physical robot entry point identified.
 - `docs/Ainekio - System Specification v1.0.docx` - current local system specification document.
-- `docs/README.md` - normative-document authority and the recorded absence of
-  the required electrical Parts Overview.
+- `docs/README.md` - normative-document authority and the external Parts Overview
+  link, with planning facts separated from installed-hardware evidence.
 - `docs/Ainekio - Spec v0.6 Amendment 1 (FINAL) + Freeze.docx` - local freeze/amendment reference.
 - `docs/archive/simulator-bridge-progress-scratchpad.md` - historical MetaHuman
   bridge, adapter, and Sesame simulator integration notes; not an architecture
@@ -107,7 +108,8 @@ owns the brain-side socket and authenticated environment adapter.
 
 The current target is the ESP32-S3 N16R8 configuration: 16 MB flash and 8 MB
 PSRAM. The normative target below comes from section 6.4 of System Specification
-v1.0. PSRAM configuration remains disabled until target hardware bring-up.
+v1.0. The checked firmware now enables 8 MB octal PSRAM at 80 MHz with a startup
+memory test; detection and concurrent stability remain H2 hardware evidence.
 
 | Storage | Initial budget | Intended use |
 | --- | ---: | --- |
@@ -169,8 +171,8 @@ application image while preserving a safe minimum behavior if LittleFS fails.
 - [x] Cross-build the ESP32-S3 platform services that can be implemented without
   physical electrical evidence.
 - [ ] Boot the target board and emit one structured boot-status message after it arrives.
-- [ ] Execute H1-H15 and record physical evidence after the Parts Overview and
-  target hardware satisfy the firmware start gates.
+- [ ] Execute H1-H15 and record physical evidence after delivered target hardware
+  confirms the Parts Overview and satisfies the firmware start gates.
 
 ## Existing Sesame Emulator Finding
 
@@ -456,6 +458,20 @@ Validation completed:
 - SD_MMC preservation: GPIO 38/39/40 are reserved in the normative pin map and
   current software plan. Electrical pull-up and concurrent camera/PSRAM/SD/PWM
   behavior remain hardware gate H2 after the board arrives.
+- Freenove MAP_B preparation: one central pin header now includes the exact
+  camera, SD, UART, audio, OLED, ADC, and eight-servo map. Runtime validation
+  rejects definite duplicate/capability/resource conflicts while leaving the
+  specification's GPIO33/34 question to H2.
+- Camera preparation: pinned `espressif/esp32-camera` 2.1.7 cross-builds with an
+  OV2640-only QVGA/VGA JPEG service, PSRAM framebuffer, snapshots, bounded
+  streaming, two-frame drop-oldest queue, counters, and command lifecycle.
+- Wake-word implementation: protocol v1, ESP32 NVS, gateway, dashboard, and
+  emulator agree on a durable `enabled` setting and bounded model identifier.
+  The ESP32-S3 now cross-builds a pinned microWakeWord/TFLite Micro engine with
+  local feature generation, package SHA-256/provenance validation, quantized
+  tensor checks, and wake-then-VAD gating. First boot defaults to
+  `enabled=false`, `model=ainekio`. No trained weights are checked in, so status
+  remains `wake_ready=false` until a locally trained package is installed.
 
 Reconciled size-optimized ESP32-S3 shell baseline:
 
@@ -577,16 +593,17 @@ succeeded, the gateway reported the emulator online in epoch 1, a semantic
 shim acknowledged renderer execution, and the lifecycle terminated as
 `{"t":"done","seq":2}` with body state `active` and face `stand`.
 
-The ESP-IDF v5.5.4 cross-build passes with rollback enabled and PSRAM disabled
-pending H2. Current size evidence:
+The 2026-07-15 ESP-IDF v5.5.4 cross-build passes with rollback, 8 MB octal
+PSRAM, and the pinned OV2640 camera component enabled. H2 must still prove the
+configuration on the delivered board. Current size evidence:
 
 | Measurement | Used | Budget |
 | --- | ---: | ---: |
-| Application image | 1,118,883 bytes | 3 MiB OTA slot |
-| Padded application binary | `0x111320` | 64% of slot free |
-| Flash code | 773,040 bytes | recorded by `idf.py size` |
-| Flash data | 237,496 bytes | recorded by `idf.py size` |
-| Internal DIRAM | 219,639 bytes | 64.27%; 122,121 bytes remain |
+| Application image | 1,369,367 bytes | 3 MiB OTA slot |
+| Padded application binary | `0x14e590` (1,369,488 bytes) | 56% of slot free |
+| Flash code | 984,100 bytes | recorded by `idf.py size` |
+| Flash data | 268,020 bytes | recorded by `idf.py size` |
+| Internal DIRAM | 234,667 bytes | 68.66%; 107,093 bytes remain |
 | RTC fast/slow | 120 / 36 bytes | 8 KiB each |
 
 The image is below the specification's 60% warning threshold for a 3 MiB OTA
@@ -596,13 +613,26 @@ budget and must be measured after every firmware feature.
 ### Deliberately Pending
 
 - H1-H15 require the physical robot, instruments, photos, logs, and measurements.
-- The normative Parts Overview is missing, so the battery-divider value and
-  electrical power facts cannot be selected or claimed. Movement remains gated
-  if no valid divider factor is configured.
-- Camera capture is not implemented in the ESP port because the board sensor
-  identity, exact signal-to-GPIO mapping, PSRAM behavior, and H2 concurrent soak
-  evidence are absent. `cam on:true` and `snap` reject explicitly; camera-off is
-  a safe no-op. The emulator provides complete protocol camera behavior.
+- The external Parts Overview supplies a planned 100 kOhm/47 kOhm divider on
+  GPIO3 and factor `3.12766`. Battery monitoring is enabled with the existing
+  7.0 V warning, 6.8 V cutoff, and 7.2 V recovery guards. H9 still compares the
+  reported voltage with a multimeter and stores any required ADC correction.
+- The owner has enabled all eight physical servo channels for initial bring-up.
+  They start at calibrated center with a 20 ms channel stagger. Normal semantic
+  motions and calibration commands are limited to 25 percent of their source
+  range around logical center (`67.5`-`112.5` degrees) and a 100 ms minimum
+  frame duration; `stop` still detaches all signal outputs.
+- Camera capture is implemented and cross-built, but OV2640 identity, PSRAM,
+  MAP_B GPIO33/34, physical JPEG capture, and the H2 concurrent soak remain
+  unverified. Camera-on and snapshot commands reject explicitly if camera
+  initialization is unavailable; they no longer reject merely because the ESP
+  port lacks a driver.
+- The runtime microWakeWord engine is implemented, but the locally trained and
+  hardware-evaluated `Ainekio` model artifact remains pending. Inference is
+  entirely local through TensorFlow Lite Micro. No outside training service or
+  shared voice corpus is permitted for this model. The local artifact must be
+  versioned and its dataset sources, evaluation, and license recorded before it
+  is installed.
 - Protocol `look(yaw,pitch)` defines limits but no mapping to the frozen eight
   Sesame joints. Emulator and firmware reject it as unavailable until a numbered
   erratum defines the mapping.

@@ -23,6 +23,8 @@ typedef struct {
     const char *firmware_version;
     float battery_divider_factor;
     float battery_adc_factor;
+    bool wake_enabled;
+    const char *wake_model;
     bool boot_event_pending;
     bool brownout_recovered_pending;
     bool littlefs_failure_pending;
@@ -37,6 +39,7 @@ esp_err_t ainekio_runtime_network_online(
     const ainekio_config_record_t *active_config
 );
 bool ainekio_runtime_audio_ready(const ainekio_runtime_t *runtime);
+bool ainekio_runtime_camera_ready(const ainekio_runtime_t *runtime);
 bool ainekio_runtime_display_ready(const ainekio_runtime_t *runtime);
 bool ainekio_runtime_telemetry_ready(const ainekio_runtime_t *runtime);
 bool ainekio_runtime_sd_ready(const ainekio_runtime_t *runtime);

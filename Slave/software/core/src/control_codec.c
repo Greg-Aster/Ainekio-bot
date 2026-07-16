@@ -872,6 +872,23 @@ static ainekio_decode_result_t decode_microphone(
     return AINEKIO_DECODE_OK;
 }
 
+static ainekio_decode_result_t decode_wake_config(
+    const json_parser_t *parser,
+    int root,
+    ainekio_control_message_t *message
+)
+{
+    ainekio_decode_result_t result =
+        decode_simple_command(parser, root, message, AINEKIO_COMMAND_WAKE_CONFIG);
+    if (result == AINEKIO_DECODE_OK) {
+        result = required_boolean(parser, root, "enabled", &message->command.data.wake.enabled);
+    }
+    if (result == AINEKIO_DECODE_OK) {
+        result = asset_string(parser, root, "model", message->command.data.wake.model);
+    }
+    return result;
+}
+
 static ainekio_decode_result_t decode_profile(
     const json_parser_t *parser,
     int root,
@@ -1208,7 +1225,7 @@ ainekio_decode_result_t ainekio_control_decode(
     }
     static const char *const types[] = {
         "hello", "err", "welcome", "intent", "stop", "tts", "cam", "snap",
-        "mic", "profile", "state", "ping", "mode", "servo", "limits",
+        "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
         "event", "cam_meta", "pong",
     };
@@ -1265,6 +1282,8 @@ ainekio_decode_result_t ainekio_control_decode(
         return decode_simple_command(&parser, root, message, AINEKIO_COMMAND_SNAPSHOT);
     case AINEKIO_MESSAGE_MICROPHONE:
         return decode_microphone(&parser, root, message);
+    case AINEKIO_MESSAGE_WAKE_CONFIG:
+        return decode_wake_config(&parser, root, message);
     case AINEKIO_MESSAGE_PROFILE:
         return decode_profile(&parser, root, message);
     case AINEKIO_MESSAGE_STATE:

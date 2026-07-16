@@ -6,11 +6,44 @@
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define AINEKIO_MCPWM_RESOLUTION_HZ UINT32_C(1000000)
 #define AINEKIO_MCPWM_PERIOD_TICKS UINT32_C(20000)
 
 static const char *TAG = "ainekio_mcpwm";
+
+static esp_err_t enable_output(
+    ainekio_mcpwm_adapter_t *adapter,
+    uint8_t joint_id,
+    float physical_degrees
+)
+{
+    ESP_RETURN_ON_ERROR(
+        mcpwm_comparator_set_compare_value(
+            adapter->comparators[joint_id],
+            ainekio_servo_degrees_to_pulse(physical_degrees)
+        ),
+        TAG,
+        "compare update failed"
+    );
+    if (adapter->output_enabled[joint_id]) {
+        return ESP_OK;
+    }
+    ESP_RETURN_ON_ERROR(
+        gpio_set_direction(ainekio_servo_pins[joint_id].gpio, GPIO_MODE_OUTPUT),
+        TAG,
+        "output attach failed"
+    );
+    ESP_RETURN_ON_ERROR(
+        mcpwm_generator_set_force_level(adapter->generators[joint_id], -1, true),
+        TAG,
+        "output release failed"
+    );
+    adapter->output_enabled[joint_id] = true;
+    return ESP_OK;
+}
 
 static size_t operator_slot(uint8_t group, uint8_t operator_index)
 {
@@ -155,6 +188,43 @@ esp_err_t ainekio_mcpwm_adapter_init(ainekio_mcpwm_adapter_t *adapter)
     return ESP_OK;
 }
 
+esp_err_t ainekio_mcpwm_adapter_enable_all(
+    ainekio_mcpwm_adapter_t *adapter,
+    ainekio_servo_bank_t *bank,
+    uint16_t stagger_ms
+)
+{
+    if (adapter == NULL || bank == NULL || !adapter->initialized) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {
+        ainekio_servo_channel_t *channel = &bank->channels[joint_id];
+        const float center = channel->calibration.center_degrees;
+        channel->current_degrees = center;
+        channel->target_degrees = center;
+        channel->remaining_ticks = 0U;
+        channel->attached = true;
+        const esp_err_t result = enable_output(adapter, joint_id, center);
+        if (result != ESP_OK) {
+            ainekio_servo_detach_all(bank);
+            (void)ainekio_mcpwm_adapter_detach_all(adapter);
+            return result;
+        }
+        ESP_LOGI(
+            TAG,
+            "startup joint=%u label=%s gpio=%d center=%.1f enabled=true",
+            (unsigned int)joint_id,
+            ainekio_servo_pins[joint_id].label,
+            ainekio_servo_pins[joint_id].gpio,
+            (double)center
+        );
+        if (stagger_ms > 0U && joint_id + 1U < AINEKIO_SERVO_COUNT) {
+            vTaskDelay(pdMS_TO_TICKS(stagger_ms));
+        }
+    }
+    return ESP_OK;
+}
+
 esp_err_t ainekio_mcpwm_adapter_detach(
     ainekio_mcpwm_adapter_t *adapter,
     uint8_t joint_id
@@ -208,26 +278,10 @@ esp_err_t ainekio_mcpwm_adapter_sync(
             continue;
         }
         ESP_RETURN_ON_ERROR(
-            mcpwm_comparator_set_compare_value(
-                adapter->comparators[joint_id],
-                ainekio_servo_degrees_to_pulse(channel->current_degrees)
-            ),
+            enable_output(adapter, joint_id, channel->current_degrees),
             TAG,
-            "compare update failed"
+            "channel enable failed"
         );
-        if (!adapter->output_enabled[joint_id]) {
-            ESP_RETURN_ON_ERROR(
-                gpio_set_direction(ainekio_servo_pins[joint_id].gpio, GPIO_MODE_OUTPUT),
-                TAG,
-                "output attach failed"
-            );
-            ESP_RETURN_ON_ERROR(
-                mcpwm_generator_set_force_level(adapter->generators[joint_id], -1, true),
-                TAG,
-                "output release failed"
-            );
-            adapter->output_enabled[joint_id] = true;
-        }
     }
     return ESP_OK;
 }

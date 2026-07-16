@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "sdkconfig.h"
 
 #define MOTION_NOTIFY_JOB BIT0
 #define MOTION_NOTIFY_STOP BIT1
@@ -13,6 +14,19 @@
 #define STOP_DURATION_MS 300U
 
 static const char *TAG = "ainekio_motion";
+
+static float configured_logical_degrees(float logical_degrees)
+{
+    const float scale = (float)CONFIG_AINEKIO_MOTION_RANGE_PERCENT / 100.0F;
+    return 90.0F + (logical_degrees - 90.0F) * scale;
+}
+
+static uint16_t configured_duration_ms(uint16_t duration_ms)
+{
+    return duration_ms < CONFIG_AINEKIO_MOTION_MIN_FRAME_MS
+               ? CONFIG_AINEKIO_MOTION_MIN_FRAME_MS
+               : duration_ms;
+}
 
 static bool service_notifications(ainekio_motion_service_t *service)
 {
@@ -38,13 +52,14 @@ static esp_err_t run_frame(
     const ainekio_motion_frame_t *frame
 )
 {
+    const uint16_t duration_ms = configured_duration_ms(frame->duration_ms);
     for (uint8_t index = 0U; index < frame->target_count; ++index) {
         const ainekio_motion_target_t *target = &frame->targets[index];
         const ainekio_servo_result_t result = ainekio_servo_move_logical(
             service->servos,
             target->joint_id,
-            (float)target->centidegrees / 100.0F,
-            frame->duration_ms
+            configured_logical_degrees((float)target->centidegrees / 100.0F),
+            duration_ms
         );
         if (result != AINEKIO_SERVO_OK) {
             return result == AINEKIO_SERVO_LIMIT ? ESP_ERR_INVALID_ARG
@@ -55,7 +70,7 @@ static esp_err_t run_frame(
     const TickType_t period = pdMS_TO_TICKS(AINEKIO_SERVO_TICK_MS);
     TickType_t wake = xTaskGetTickCount();
     const uint16_t ticks = (uint16_t)(
-        (frame->duration_ms + AINEKIO_SERVO_TICK_MS - 1U) /
+        (duration_ms + AINEKIO_SERVO_TICK_MS - 1U) /
         AINEKIO_SERVO_TICK_MS
     );
     for (uint16_t tick = 0U; tick < ticks; ++tick) {
@@ -184,8 +199,8 @@ static esp_err_t run_calibration(ainekio_motion_service_t *service)
                 ainekio_servo_move_logical(
                     service->servos,
                     joint_id,
-                    degrees[joint_id],
-                    durations[joint_id]
+                    configured_logical_degrees(degrees[joint_id]),
+                    configured_duration_ms(durations[joint_id])
                 ) != AINEKIO_SERVO_OK) {
                 return ESP_ERR_INVALID_ARG;
             }
@@ -355,6 +370,14 @@ esp_err_t ainekio_motion_service_start(
         service->task = NULL;
         return ESP_ERR_NO_MEM;
     }
+    ESP_LOGI(
+        TAG,
+        "all-servo profile range=%d%% logical=%.1f..%.1f min_frame_ms=%d",
+        CONFIG_AINEKIO_MOTION_RANGE_PERCENT,
+        (double)configured_logical_degrees(0.0F),
+        (double)configured_logical_degrees(180.0F),
+        CONFIG_AINEKIO_MOTION_MIN_FRAME_MS
+    );
     return ESP_OK;
 }
 

@@ -33,13 +33,14 @@ class _CommandKind(IntEnum):
     CAMERA = 3
     SNAPSHOT = 4
     MICROPHONE = 5
-    PROFILE = 6
-    STATE = 7
-    MODE = 8
-    SERVO = 9
-    LIMITS = 10
-    POSE_SAVE = 11
-    CALIBRATION_SAVE = 12
+    WAKE_CONFIG = 6
+    PROFILE = 7
+    STATE = 8
+    MODE = 9
+    SERVO = 10
+    LIMITS = 11
+    POSE_SAVE = 12
+    CALIBRATION_SAVE = 13
 
 
 @dataclass(frozen=True)
@@ -243,6 +244,8 @@ def _normalize_command(message: Mapping[str, object]) -> tuple[_CommandKind, int
         return _CommandKind.SNAPSHOT, 0
     if message_type == "mic":
         return _CommandKind.MICROPHONE, 0
+    if message_type == "wake":
+        return _CommandKind.WAKE_CONFIG, 0
     if message_type == "profile":
         return _CommandKind.PROFILE, _PROFILES[str(message["name"])]
     if message_type == "state":

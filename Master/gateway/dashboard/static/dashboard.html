@@ -87,6 +87,7 @@
           <div><dt>Profile caps</dt><dd id="status-caps">--</dd></div>
           <div><dt>Camera drops</dt><dd id="status-camera-drops">--</dd></div>
           <div><dt>Audio faults</dt><dd id="status-audio-faults">--</dd></div>
+          <div><dt>Wake word</dt><dd id="status-wake">--</dd></div>
           <div><dt>Lifecycle</dt><dd id="status-lifecycle">--</dd></div>
           <div><dt>Last command</dt><dd id="status-command">--</dd></div>
           <div><dt>Face</dt><dd id="status-face">--</dd></div>
@@ -177,12 +178,25 @@
           <label>Gate
             <select name="gate">
               <option value="vad">Voice activity</option>
-              <option value="wake">Wake word</option>
+              <option value="wake" data-requires-wake>Wake word</option>
               <option value="open">Open</option>
             </select>
           </label>
           <button type="submit">Apply microphone</button>
           <button id="speaker-test-button" type="button">Test speaker</button>
+        </form>
+        <form id="wake-form" class="settings-form">
+          <label class="switch-row">
+            <span>Wake word enabled</span>
+            <input name="enabled" type="checkbox">
+          </label>
+          <label>Wake model
+            <select name="model">
+              <option value="ainekio">Ainekio</option>
+            </select>
+          </label>
+          <button type="submit">Save wake setting</button>
+          <p id="wake-capability">Waiting for robot status</p>
         </form>
         <label class="meter-label" for="microphone-level">Microphone level</label>
         <progress id="microphone-level" max="1" value="0"></progress>

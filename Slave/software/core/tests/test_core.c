@@ -146,10 +146,14 @@ static void test_calibration_gate_and_lifecycle(void)
     assert(ainekio_core_accept(&core, &mode).accepted);
 
     servo.sequence = 3U;
+    assert(ainekio_core_accept(&core, &servo).rejection == AINEKIO_REJECT_BUSY);
+
+    ainekio_core_set_boot_ready(&core, true);
+    servo.sequence = 4U;
     assert(ainekio_core_accept(&core, &servo).accepted);
     assert(ainekio_command_lifecycle(&servo) == AINEKIO_LIFECYCLE_ACK_ONLY);
 
-    ainekio_command_t face = intent_command(4U, AINEKIO_INTENT_FACE);
+    ainekio_command_t face = intent_command(5U, AINEKIO_INTENT_FACE);
     assert(ainekio_command_lifecycle(&face) == AINEKIO_LIFECYCLE_ACK_THEN_DONE);
 
     ainekio_core_set_mode(&core, AINEKIO_MODE_NORMAL);
