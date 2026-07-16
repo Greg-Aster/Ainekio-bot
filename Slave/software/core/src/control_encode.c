@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ainekio/assets.h"
+
 typedef struct {
     char *output;
     size_t capacity;
@@ -231,7 +233,8 @@ size_t ainekio_encode_status(
         "active", "idle", "dozing", "deep-sleep", "failsafe",
     };
     if (status == NULL || (unsigned int)status->state >= sizeof(states) / sizeof(states[0]) ||
-        status->rssi > 0 || !isfinite(status->battery_voltage)) {
+        status->rssi > 0 || !isfinite(status->battery_voltage) ||
+        !ainekio_asset_name_valid(status->wake_model)) {
         return 0U;
     }
     json_writer_t writer = begin(output, capacity);
@@ -253,6 +256,12 @@ size_t ainekio_encode_status(
     append_u32(&writer, status->speaker_underruns);
     append_literal(&writer, ",\"mic_drops\":");
     append_u32(&writer, status->microphone_drops);
+    append_literal(&writer, ",\"wake_enabled\":");
+    append_literal(&writer, status->wake_enabled ? "true" : "false");
+    append_literal(&writer, ",\"wake_model\":\"");
+    append_literal(&writer, status->wake_model);
+    append_literal(&writer, "\",\"wake_ready\":");
+    append_literal(&writer, status->wake_ready ? "true" : "false");
     append_literal(&writer, "}");
     return finish(&writer);
 }

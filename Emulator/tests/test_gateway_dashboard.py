@@ -39,6 +39,9 @@ class FakeGateway:
                         "cam_drops": 0,
                         "spk_underruns": 0,
                         "mic_drops": 0,
+                        "wake_enabled": False,
+                        "wake_model": "ainekio",
+                        "wake_ready": False,
                         "face": "default",
                     },
                 }
@@ -65,6 +68,9 @@ class FakeGateway:
 
     async def set_microphone(self, **kwargs: object) -> int:
         return self._record("microphone", kwargs)
+
+    async def set_wake_configuration(self, **kwargs: object) -> int:
+        return self._record("wake", kwargs)
 
     async def tts_speak(self, frames: object, **kwargs: object) -> int:
         return self._record("tts", (list(frames), kwargs))
@@ -280,6 +286,34 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [joint["label"] for joint in payload["joint_contract"]["joints"]],
             ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"],
+        )
+
+    async def test_wake_configuration_api_requires_auth_and_forwards_model(self) -> None:
+        cookie, csrf = await self._login()
+        status, payload, _headers = await self._request(
+            "POST",
+            "/api/wake",
+            {
+                "robot_id": "ainekio-test-01",
+                "enabled": False,
+                "model": "ainekio",
+            },
+            cookie=cookie,
+            csrf=csrf,
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["seq"], 1)
+        self.assertEqual(
+            self.gateway.calls[-1],
+            (
+                "wake",
+                {
+                    "enabled": False,
+                    "model": "ainekio",
+                    "robot_id": "ainekio-test-01",
+                },
+            ),
         )
 
 

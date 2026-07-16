@@ -312,6 +312,65 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.session.profile, "tether")
         self.assertEqual(self.session.sleep_seconds, 60)
 
+    async def test_wake_configuration_is_off_by_default_and_rejects_unready_model(self) -> None:
+        self.assertEqual(
+            self.session.wake_settings,
+            {"enabled": False, "model": "ainekio", "ready": False},
+        )
+
+        await self.session.handle(
+            {"t": "wake", "seq": 1, "enabled": False, "model": "ainekio"},
+            self.emit,
+        )
+        await self.session.handle(
+            {"t": "wake", "seq": 2, "enabled": True, "model": "ainekio"},
+            self.emit,
+        )
+        await self.session.handle(
+            {"t": "wake", "seq": 3, "enabled": False, "model": "other_model"},
+            self.emit,
+        )
+        await self.session.handle(
+            {"t": "mic", "seq": 4, "on": True, "gate": "wake"},
+            self.emit,
+        )
+
+        self.assertEqual(
+            self.messages,
+            [
+                {"t": "ack", "seq": 1},
+                {
+                    "t": "nak",
+                    "seq": 2,
+                    "code": "busy",
+                    "msg": "wake model unavailable",
+                },
+                {
+                    "t": "nak",
+                    "seq": 3,
+                    "code": "asset_missing",
+                    "msg": "wake model unavailable",
+                },
+                {
+                    "t": "nak",
+                    "seq": 4,
+                    "code": "busy",
+                    "msg": "wake model unavailable",
+                },
+            ],
+        )
+        self.assertFalse(self.session.status()["wake_enabled"])
+        self.assertEqual(self.session.status()["wake_model"], "ainekio")
+        self.assertFalse(self.session.status()["wake_ready"])
+
+        await self.session.begin(
+            {"t": "welcome", "ver": 1, "epoch": 10, "profile": "home"}
+        )
+        self.assertEqual(
+            self.session.wake_settings,
+            {"enabled": False, "model": "ainekio", "ready": False},
+        )
+
     async def test_calibration_limits_and_idle_timeout_are_enforced(self) -> None:
         await self.session.handle(
             {"t": "mode", "seq": 1, "name": "calibrate"},

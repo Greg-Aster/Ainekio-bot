@@ -244,6 +244,12 @@
       const values = new FormData(form);
       command("/api/microphone", { on: form.elements.on.checked, gate: values.get("gate") }, "Microphone setting applied");
     });
+    byId("wake-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const values = new FormData(form);
+      command("/api/wake", { enabled: form.elements.enabled.checked, model: values.get("model") }, "Wake setting sent");
+    });
     byId("snapshot-button").addEventListener("click", () => command("/api/snap", {}, "Snapshot requested"));
     byId("speaker-test-button").addEventListener("click", () => command("/api/speaker-test", {}, "Speaker test sent"));
     byId("servo-form").addEventListener("submit", (event) => {
@@ -343,6 +349,17 @@
     text("status-caps", caps ? `${payload.profile}: ${caps.camera_max_fps} fps` : "--");
     text("status-camera-drops", status ? status.cam_drops : "--");
     text("status-audio-faults", status ? `${status.mic_drops} / ${status.spk_underruns}` : "--");
+    const wakeReady = Boolean(status && status.wake_ready);
+    const wakeEnabled = Boolean(status && status.wake_enabled);
+    const wakeModel = status && status.wake_model ? status.wake_model : "ainekio";
+    text("status-wake", status ? `${wakeEnabled ? "On" : "Off"} / ${wakeModel} / ${wakeReady ? "Ready" : "Model unavailable"}` : "--");
+    const wakeForm = byId("wake-form");
+    if (!wakeForm.contains(document.activeElement)) {
+      wakeForm.elements.enabled.checked = wakeEnabled;
+      wakeForm.elements.model.value = wakeModel;
+    }
+    text("wake-capability", wakeReady ? "WakeNet model ready" : "WakeNet model is not installed; enabling is blocked");
+    document.querySelectorAll("[data-requires-wake]").forEach((option) => { option.disabled = !wakeReady || !wakeEnabled; });
     text("status-lifecycle", entry ? `${entry.pending} pending / ${entry.last_terminal ? entry.last_terminal.t : "none"}` : "--");
     const lastCommand = entry && entry.last_command;
     text("status-command", lastCommand ? `${lastCommand.t}${lastCommand.name ? `:${lastCommand.name}` : ""} #${lastCommand.seq}` : "--");

@@ -17,6 +17,11 @@ typedef struct {
 } ainekio_mcpwm_adapter_t;
 
 esp_err_t ainekio_mcpwm_adapter_init(ainekio_mcpwm_adapter_t *adapter);
+esp_err_t ainekio_mcpwm_adapter_enable_all(
+    ainekio_mcpwm_adapter_t *adapter,
+    ainekio_servo_bank_t *bank,
+    uint16_t stagger_ms
+);
 esp_err_t ainekio_mcpwm_adapter_sync(
     ainekio_mcpwm_adapter_t *adapter,
     ainekio_servo_bank_t *bank

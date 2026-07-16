@@ -1,11 +1,55 @@
 menu "Ainekio platform"
 
 config AINEKIO_PIN_MAP_B
-    bool "Use provisional MAP_B pin allocation"
+    bool "Use Freenove N16R8 provisional MAP_B pin allocation"
     default y
     help
         Builds the Freenove ESP32-S3 N16R8 provisional MAP_B allocation.
-        Outputs remain disabled until the H2/H3 hardware gates pass.
+        The current owner-directed profile enables its eight servo outputs;
+        H2/H3 still determine whether the provisional map is retained.
+
+config AINEKIO_PHYSICAL_MOTION_ENABLED
+    bool "Enable all eight servo outputs and semantic motion"
+    default y
+    help
+        Enables all eight MAP_B servo outputs after platform initialization and
+        permits normal semantic motion plus calibration commands. The current
+        owner-directed bring-up profile starts every channel at its calibrated
+        center and applies the range and timing limits below.
+
+config AINEKIO_MOTION_RANGE_PERCENT
+    int "Initial motion range around logical center (percent)"
+    range 10 100
+    default 25
+    help
+        Scales every platform motion target around logical center 90 degrees.
+        The default maps the source 0-180 degree range to 67.5-112.5 degrees.
+        Raise only after the installed linkage limits are calibrated.
+
+config AINEKIO_MOTION_MIN_FRAME_MS
+    int "Minimum platform motion frame duration (milliseconds)"
+    range 20 1000
+    default 100
+    help
+        Prevents imported motion frames from commanding the initial reduced
+        range faster than this duration.
+
+config AINEKIO_SERVO_STARTUP_STAGGER_MS
+    int "Delay between enabling servo channels at startup (milliseconds)"
+    range 0 200
+    default 20
+    help
+        Enables the eight centered 50 Hz outputs sequentially to reduce the
+        instantaneous current step, following the Sesame firmware pattern.
+
+config AINEKIO_BATTERY_MONITOR_ENABLED
+    bool "Enable the GPIO3 battery divider and cutoff monitor"
+    default y
+    help
+        Samples the planned 100k/47k divider on GPIO3, reports battery voltage,
+        and applies the configured warning, cutoff, and recovery guards. H9
+        refines the ADC correction against a multimeter; it does not gate
+        initial monitoring.
 
 config AINEKIO_MIC_SLOT_RIGHT
     bool "INMP441 drives the right I2S slot"
@@ -24,10 +68,9 @@ config AINEKIO_SSD1306_ADDRESS
 
 config AINEKIO_BATTERY_DIVIDER_FACTOR
     string "Battery divider ratio"
-    default "0.0"
+    default "3.12766"
     help
-        Electrical divider ratio from the normative Parts Overview. Leave 0.0
-        until that document supplies the value; telemetry stays disabled and
-        physical movement remains gated rather than guessing a safety input.
+        Planned ratio for the Parts Overview's 100k upper and 47k lower divider.
+        H9 still measures the installed divider and stores ADC calibration.
 
 endmenu

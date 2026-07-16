@@ -52,6 +52,9 @@ typedef struct {
     uint32_t camera_drops;
     uint32_t speaker_underruns;
     uint32_t microphone_drops;
+    bool wake_enabled;
+    bool wake_ready;
+    char wake_model[AINEKIO_WAKE_MODEL_MAX + 1U];
 } ainekio_status_t;
 
 size_t ainekio_encode_hello(

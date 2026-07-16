@@ -116,6 +116,49 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
 
         core.close()
 
+    async def test_gateway_persists_disabled_wake_configuration_on_body(self) -> None:
+        service = GatewayService(
+            GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
+        )
+        core = PortableCore(self.library_path)
+        session = BodySession(core, ImmediateMotionBackend())
+
+        async with websockets.serve(
+            service.handler,
+            "127.0.0.1",
+            0,
+            ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            client = ProtocolV1BodyClient(
+                BodyClientConfig(
+                    endpoint=f"ws://127.0.0.1:{port}/robot",
+                    robot_id="ainekio-test-01",
+                    auth_token="test-token",
+                ),
+                session,
+            )
+            client_task = asyncio.create_task(client.run_once())
+            await service.wait_connected("ainekio-test-01")
+
+            sequence = await service.set_wake_configuration(
+                enabled=False,
+                model="ainekio",
+            )
+            self.assertEqual(
+                await service.wait_terminal(sequence),
+                {"t": "ack", "seq": sequence},
+            )
+            self.assertEqual(
+                session.wake_settings,
+                {"enabled": False, "model": "ainekio", "ready": False},
+            )
+
+            await service.revoke_token("ainekio-test-01")
+            await client_task
+
+        core.close()
+
     async def test_tts_api_preserves_start_frames_end_order(self) -> None:
         service = GatewayService(
             GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})

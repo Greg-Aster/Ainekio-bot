@@ -7,6 +7,8 @@
 
 #define AINEKIO_PROTOCOL_VERSION 1U
 #define AINEKIO_ASSET_NAME_MAX 32U
+#define AINEKIO_WAKE_MODEL_MAX AINEKIO_ASSET_NAME_MAX
+#define AINEKIO_DEFAULT_WAKE_MODEL "ainekio"
 #define AINEKIO_SERVO_COUNT 8U
 #define AINEKIO_MAX_SEQUENCE 0x7FFFFFFFU
 #define AINEKIO_JOINT_MAP_VERSION 1U
@@ -29,6 +31,7 @@ typedef enum {
     AINEKIO_COMMAND_CAMERA,
     AINEKIO_COMMAND_SNAPSHOT,
     AINEKIO_COMMAND_MICROPHONE,
+    AINEKIO_COMMAND_WAKE_CONFIG,
     AINEKIO_COMMAND_PROFILE,
     AINEKIO_COMMAND_STATE,
     AINEKIO_COMMAND_MODE,
@@ -133,6 +136,10 @@ typedef struct {
             bool enabled;
             ainekio_microphone_gate_t gate;
         } microphone;
+        struct {
+            bool enabled;
+            char model[AINEKIO_WAKE_MODEL_MAX + 1U];
+        } wake;
         ainekio_profile_t profile;
         struct {
             ainekio_state_request_t request;

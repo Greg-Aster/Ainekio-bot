@@ -196,6 +196,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             )
             return {"ok": True, "seq": sequence}
+        if path == "/api/wake":
+            sequence = self.server.call_gateway(
+                self.server.gateway.set_wake_configuration(
+                    enabled=_required_bool(payload, "enabled"),
+                    model=_required_string(payload, "model"),
+                    robot_id=robot_id,
+                )
+            )
+            return {"ok": True, "seq": sequence}
         if path == "/api/speaker-test":
             sequence = self.server.call_gateway(
                 self.server.gateway.tts_speak(

@@ -45,9 +45,15 @@ int main(void)
         .sd_available = true,
         .camera_drops = 4U,
         .microphone_drops = 2U,
+        .wake_enabled = false,
+        .wake_ready = false,
+        .wake_model = AINEKIO_DEFAULT_WAKE_MODEL,
     };
     length = ainekio_encode_status(&status, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_STATUS);
+    assert(strstr(output, "\"wake_enabled\":false") != NULL);
+    assert(strstr(output, "\"wake_model\":\"ainekio\"") != NULL);
+    assert(strstr(output, "\"wake_ready\":false") != NULL);
     length = ainekio_encode_event(AINEKIO_EVENT_LITTLEFS_FAIL, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_EVENT);
     length = ainekio_encode_camera_meta(AINEKIO_CAMERA_VGA, 5U, UINT32_MAX, output, sizeof(output));

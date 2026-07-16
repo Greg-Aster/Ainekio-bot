@@ -35,7 +35,6 @@ from .media import (
     MAX_JPEG_BYTES,
     CameraSource,
     EnergyVad,
-    FixtureCameraSource,
     MediaBudget,
     MicrophoneSource,
     QueueMicrophoneSource,
@@ -55,6 +54,7 @@ _BODY_COMMAND_TYPES = frozenset(
         "cam",
         "snap",
         "mic",
+        "wake",
         "profile",
         "state",
         "mode",
@@ -66,7 +66,7 @@ _BODY_COMMAND_TYPES = frozenset(
 )
 _SUPPORTED_MOVEMENT = frozenset({"sit", "stand", "neutral", "walk", "emote"})
 _SUPPORTED_CONTROL = frozenset(
-    {"cam", "mic", "profile", "state", "mode", "servo", "limits", "pose_save", "cal_save"}
+    {"cam", "mic", "wake", "profile", "state", "mode", "servo", "limits", "pose_save", "cal_save"}
 )
 _REJECTION_CODES = {
     CoreRejection.STALE: "stale",
@@ -133,7 +133,7 @@ class BodySession:
         self._battery = BatteryMonitor()
         self._simulated_vbat = self._battery.volts
         self._pending_battery_events: list[str] = []
-        self._camera_source = camera_source or FixtureCameraSource()
+        self._camera_source = camera_source
         self._microphone_source = microphone_source or QueueMicrophoneSource()
         self._vad = EnergyVad()
         self._faults = faults
@@ -149,6 +149,11 @@ class BodySession:
         self._lock = asyncio.Lock()
         self._camera_settings: dict[str, object] = {"on": False, "fps": 0, "res": "QVGA"}
         self._microphone_settings: dict[str, object] = {"on": False, "gate": "vad"}
+        self._wake_settings: dict[str, object] = {
+            "enabled": False,
+            "model": "ainekio",
+            "ready": False,
+        }
         self._servo_positions: dict[int, float] = {}
         self._sleep_seconds: int | None = None
         self._calibration_last_activity: float | None = None
@@ -388,6 +393,49 @@ class BodySession:
             else:
                 await emit(_decision_nak(sequence, rejection))
             return
+        if (
+            message.get("t") == "mic"
+            and message.get("on") is True
+            and message.get("gate") == "wake"
+            and (
+                not bool(self._wake_settings["enabled"])
+                or not bool(self._wake_settings["ready"])
+            )
+        ):
+            rejection = self._core.claim_sequence(sequence)
+            if rejection == CoreRejection.NONE:
+                await emit(
+                    {
+                        "t": "nak",
+                        "seq": sequence,
+                        "code": "busy",
+                        "msg": "wake model unavailable",
+                    }
+                )
+            else:
+                await emit(_decision_nak(sequence, rejection))
+            return
+        if message.get("t") == "wake" and (
+            message.get("model") != "ainekio"
+            or (message.get("enabled") is True and not bool(self._wake_settings["ready"]))
+        ):
+            rejection = self._core.claim_sequence(sequence)
+            if rejection == CoreRejection.NONE:
+                await emit(
+                    {
+                        "t": "nak",
+                        "seq": sequence,
+                        "code": (
+                            "asset_missing"
+                            if message.get("model") != "ainekio"
+                            else "busy"
+                        ),
+                        "msg": "wake model unavailable",
+                    }
+                )
+            else:
+                await emit(_decision_nak(sequence, rejection))
+            return
         if message.get("t") == "cam":
             fps = int(message["fps"])
             resolution = str(message["res"])
@@ -454,6 +502,12 @@ class BodySession:
             self._microphone_settings = {
                 "on": bool(message["on"]),
                 "gate": str(message["gate"]),
+            }
+        elif message_type == "wake":
+            self._wake_settings = {
+                "enabled": bool(message["enabled"]),
+                "model": str(message["model"]),
+                "ready": bool(self._wake_settings["ready"]),
             }
         elif message_type == "profile" and message.get("name") == "tether":
             if self._microphone_settings["gate"] == "open":
@@ -650,6 +704,20 @@ class BodySession:
         emit_binary: EmitBinary | None,
     ) -> None:
         sequence = int(message["seq"])
+        if self._camera_source is None:
+            rejection = self._core.claim_sequence(sequence)
+            if rejection == CoreRejection.NONE:
+                await emit(
+                    {
+                        "t": "nak",
+                        "seq": sequence,
+                        "code": "busy",
+                        "msg": "camera unavailable",
+                    }
+                )
+            else:
+                await emit(_decision_nak(sequence, rejection))
+            return
         decision = self._core.accept(message)
         if not decision.accepted:
             await emit(_decision_nak(sequence, decision.rejection))
@@ -716,6 +784,7 @@ class BodySession:
         fps = int(self._camera_settings["fps"])
         if (
             self._core.state == _CORE_STATE_ACTIVE
+            and self._camera_source is not None
             and bool(self._camera_settings["on"])
             and fps > 0
             and now >= self._next_camera_at
@@ -770,6 +839,8 @@ class BodySession:
         await self._display.service(now)
 
     async def _stream_camera_frame(self, emit_binary: EmitBinary) -> None:
+        if self._camera_source is None:
+            return
         try:
             if self._faults is not None and self._faults.take_oversize_camera():
                 payload = bytes(MAX_JPEG_BYTES + 1)
@@ -1041,6 +1112,10 @@ class BodySession:
             "cam_drops": self._camera_drops,
             "spk_underruns": self._speaker_underruns,
             "mic_drops": self._microphone_drops,
+            "camera_ready": self._camera_source is not None,
+            "wake_enabled": bool(self._wake_settings["enabled"]),
+            "wake_model": str(self._wake_settings["model"]),
+            "wake_ready": bool(self._wake_settings["ready"]),
             "display_failures": self._display.failure_count,
             "face": self._display.current_name,
         }
@@ -1082,6 +1157,10 @@ class BodySession:
     @property
     def microphone_settings(self) -> dict[str, object]:
         return dict(self._microphone_settings)
+
+    @property
+    def wake_settings(self) -> dict[str, object]:
+        return dict(self._wake_settings)
 
     @property
     def calibration(self) -> dict[str, object]:

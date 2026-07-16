@@ -2,17 +2,20 @@
 
 #include <string.h>
 
+#include "ainekio/assets.h"
 #include "ainekio/binary_codec.h"
 #include "ainekio/control_codec.h"
 #include "ainekio/control_encode.h"
 #include "ainekio/platform/motion_service.h"
 #include "ainekio/platform/nvs_adapter.h"
 #include "ainekio/platform/audio_service.h"
+#include "ainekio/platform/camera_service.h"
 #include "ainekio/platform/display_service.h"
 #include "ainekio/platform/sd_service.h"
 #include "ainekio/platform/telemetry_service.h"
 #include "ainekio/platform/sleep_service.h"
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_random.h"
@@ -31,6 +34,7 @@
 #define TX_QUEUE_LENGTH 32U
 #define FAST_TX_QUEUE_LENGTH 8U
 #define MIC_QUEUE_LENGTH 10U
+#define CAMERA_QUEUE_LENGTH 2U
 #define RX_TEXT_BYTES (AINEKIO_CONTROL_MAX_BYTES + 1U)
 #define TX_TEXT_BYTES 1536U
 #define WRITE_TIMEOUT_MS 100U
@@ -60,6 +64,7 @@ typedef enum {
     TX_MESSAGE_NONE = 0,
     TX_MESSAGE_CAPABILITY_UNAVAILABLE,
     TX_MESSAGE_NVS_WRITE_FAILED,
+    TX_MESSAGE_WAKE_MODEL_UNAVAILABLE,
 } tx_message_t;
 
 typedef struct {
@@ -143,6 +148,16 @@ typedef struct {
     size_t length;
 } mic_tx_item_t;
 
+typedef struct {
+    uint32_t session_serial;
+    bool snapshot;
+    uint32_t sequence;
+    ainekio_camera_resolution_t resolution;
+    uint32_t counter;
+    uint8_t *bytes;
+    size_t length;
+} camera_tx_item_t;
+
 struct ainekio_runtime {
     ainekio_core_t *core;
     ainekio_servo_bank_t *servos;
@@ -154,6 +169,7 @@ struct ainekio_runtime {
 
     ainekio_motion_service_t motion;
     ainekio_audio_service_t *audio;
+    ainekio_camera_service_t *camera;
     ainekio_display_service_t *display;
     ainekio_telemetry_service_t *telemetry;
     ainekio_sd_service_t *sd;
@@ -193,6 +209,7 @@ struct ainekio_runtime {
     QueueHandle_t tx_queue;
     QueueHandle_t fast_tx_queue;
     QueueHandle_t mic_queue;
+    QueueHandle_t camera_queue;
     QueueHandle_t battery_queue;
     QueueHandle_t sd_queue;
     StaticQueue_t command_queue_control;
@@ -226,10 +243,16 @@ struct ainekio_runtime {
     uint32_t microphone_drops;
     ainekio_battery_events_t battery_events_pending;
     bool camera_enabled;
+    bool camera_stream_applied;
     uint8_t camera_fps;
+    uint8_t camera_applied_fps;
     ainekio_camera_resolution_t camera_resolution;
+    ainekio_camera_resolution_t camera_applied_resolution;
     bool microphone_enabled;
     ainekio_microphone_gate_t microphone_gate;
+    bool wake_enabled;
+    bool wake_ready;
+    char wake_model[AINEKIO_WAKE_MODEL_MAX + 1U];
 };
 
 static const char *TAG = "ainekio_runtime";
@@ -238,6 +261,37 @@ static ainekio_runtime_t singleton;
 static int64_t now_us(void)
 {
     return esp_timer_get_time();
+}
+
+static ainekio_status_t runtime_status(
+    const ainekio_runtime_t *runtime,
+    int8_t rssi,
+    ainekio_body_state_t state,
+    uint32_t uptime_seconds
+)
+{
+    const bool wake_ready = runtime->wake_ready &&
+                            ainekio_audio_wake_ready(runtime->audio);
+    ainekio_status_t status = {
+        .battery_voltage = runtime->battery_voltage,
+        .rssi = rssi,
+        .state = state,
+        .uptime_seconds = uptime_seconds,
+        .free_heap = esp_get_free_heap_size(),
+        .sd_available = runtime->sd_available,
+        .camera_drops = runtime->camera_drops,
+        .speaker_underruns = runtime->speaker_underruns,
+        .microphone_drops = runtime->microphone_drops,
+        .wake_enabled = runtime->wake_enabled,
+        .wake_ready = wake_ready,
+    };
+    (void)strcpy(status.wake_model, runtime->wake_model);
+    return status;
+}
+
+static bool wake_model_known(const char *model)
+{
+    return strcmp(model, AINEKIO_DEFAULT_WAKE_MODEL) == 0;
 }
 
 static uint32_t current_serial(ainekio_runtime_t *runtime)
@@ -287,6 +341,15 @@ static void signal_failsafe(ainekio_runtime_t *runtime)
     taskEXIT_CRITICAL(&runtime->state_lock);
     if (!first) {
         return;
+    }
+    if (runtime->camera != NULL) {
+        (void)ainekio_camera_configure(
+            runtime->camera,
+            false,
+            runtime->camera_fps,
+            runtime->camera_resolution
+        );
+        runtime->camera_stream_applied = false;
     }
     ainekio_motion_service_request_failsafe(&runtime->motion);
     (void)cancel_audio(runtime);
@@ -401,6 +464,8 @@ static const char *tx_message_text(tx_message_t message)
         return "capability unavailable";
     case TX_MESSAGE_NVS_WRITE_FAILED:
         return "nvs write failed";
+    case TX_MESSAGE_WAKE_MODEL_UNAVAILABLE:
+        return "wake model unavailable";
     case TX_MESSAGE_NONE:
     default:
         return NULL;
@@ -531,6 +596,38 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
     taskEXIT_CRITICAL(&runtime->state_lock);
 }
 
+static bool send_binary(
+    ainekio_runtime_t *runtime,
+    uint32_t session_serial,
+    const uint8_t *bytes,
+    size_t length
+)
+{
+    if (!session_matches(runtime, session_serial, true)) {
+        return false;
+    }
+    if (xSemaphoreTake(runtime->client_lock, pdMS_TO_TICKS(WRITE_TIMEOUT_MS)) !=
+        pdTRUE) {
+        force_disconnect(runtime);
+        return false;
+    }
+    esp_websocket_client_handle_t client = runtime->client;
+    const int sent = client != NULL && esp_websocket_client_is_connected(client)
+                         ? esp_websocket_client_send_bin(
+                               client,
+                               (const char *)bytes,
+                               (int)length,
+                               pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
+                           )
+                         : -1;
+    (void)xSemaphoreGive(runtime->client_lock);
+    if (sent != (int)length) {
+        force_disconnect(runtime);
+        return false;
+    }
+    return true;
+}
+
 static void tx_task(void *argument)
 {
     ainekio_runtime_t *runtime = argument;
@@ -561,26 +658,37 @@ static void tx_task(void *argument)
         mic_tx_item_t microphone;
         if (xQueueReceive(runtime->mic_queue, &microphone, 0U) == pdTRUE &&
             session_matches(runtime, microphone.session_serial, true)) {
-            if (xSemaphoreTake(
-                    runtime->client_lock,
-                    pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
-                ) != pdTRUE) {
-                force_disconnect(runtime);
-                continue;
+            (void)send_binary(
+                runtime,
+                microphone.session_serial,
+                microphone.bytes,
+                microphone.length
+            );
+            continue;
+        }
+        camera_tx_item_t camera;
+        if (xQueueReceive(runtime->camera_queue, &camera, 0U) == pdTRUE) {
+            if (session_matches(runtime, camera.session_serial, true)) {
+                if (camera.snapshot) {
+                    tx_item_t meta = tx_base(runtime, TX_CAMERA_META);
+                    meta.data.camera_meta.resolution = camera.resolution;
+                    meta.data.camera_meta.fps = 0U;
+                    meta.data.camera_meta.counter_base = camera.counter;
+                    send_tx_item(runtime, &meta);
+                }
+                const bool sent = send_binary(
+                    runtime,
+                    camera.session_serial,
+                    camera.bytes,
+                    camera.length
+                );
+                if (sent && camera.snapshot) {
+                    tx_item_t done = tx_base(runtime, TX_DONE);
+                    done.data.sequence = camera.sequence;
+                    send_tx_item(runtime, &done);
+                }
             }
-            esp_websocket_client_handle_t client = runtime->client;
-            const int sent = client != NULL && esp_websocket_client_is_connected(client)
-                                 ? esp_websocket_client_send_bin(
-                                       client,
-                                       (const char *)microphone.bytes,
-                                       (int)microphone.length,
-                                       pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
-                                   )
-                                 : -1;
-            (void)xSemaphoreGive(runtime->client_lock);
-            if (sent != (int)microphone.length) {
-                force_disconnect(runtime);
-            }
+            heap_caps_free(camera.bytes);
         }
     }
 }
@@ -680,6 +788,130 @@ static void audio_gate(void *context, bool open, bool wake_word)
     if (wake_word) {
         queue_event(runtime, AINEKIO_EVENT_WAKE_WORD);
     }
+}
+
+static void count_camera_drop(ainekio_runtime_t *runtime)
+{
+    taskENTER_CRITICAL(&runtime->state_lock);
+    ++runtime->camera_drops;
+    taskEXIT_CRITICAL(&runtime->state_lock);
+}
+
+static void cancel_snapshot(ainekio_runtime_t *runtime, uint32_t sequence)
+{
+    if (sequence == 0U) {
+        return;
+    }
+    tx_item_t item = tx_base(runtime, TX_CANCELLED);
+    item.data.cancelled.sequence = sequence;
+    item.data.cancelled.code = AINEKIO_CANCEL_OVERFLOW;
+    (void)enqueue_tx(runtime, &item, false);
+}
+
+static void camera_frame(
+    void *context,
+    bool snapshot,
+    uint32_t sequence,
+    ainekio_camera_resolution_t resolution,
+    uint32_t counter,
+    const uint8_t *jpeg,
+    size_t length
+)
+{
+    ainekio_runtime_t *runtime = context;
+    const uint32_t serial = current_serial(runtime);
+    if (!session_matches(runtime, serial, true)) {
+        return;
+    }
+    const size_t capacity = AINEKIO_BINARY_HEADER_BYTES + length;
+    uint8_t *bytes = heap_caps_malloc(
+        capacity,
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
+    );
+    size_t encoded_length = 0U;
+    if (bytes == NULL ||
+        ainekio_binary_encode(
+            AINEKIO_FRAME_CAMERA_JPEG,
+            counter,
+            jpeg,
+            length,
+            bytes,
+            capacity,
+            &encoded_length
+        ) != AINEKIO_BINARY_OK) {
+        heap_caps_free(bytes);
+        count_camera_drop(runtime);
+        if (snapshot) {
+            cancel_snapshot(runtime, sequence);
+        }
+        return;
+    }
+    const camera_tx_item_t item = {
+        .session_serial = serial,
+        .snapshot = snapshot,
+        .sequence = sequence,
+        .resolution = resolution,
+        .counter = counter,
+        .bytes = bytes,
+        .length = encoded_length,
+    };
+    if (xQueueSend(runtime->camera_queue, &item, 0U) == pdTRUE) {
+        return;
+    }
+
+    camera_tx_item_t discarded;
+    if (xQueueReceive(runtime->camera_queue, &discarded, 0U) == pdTRUE) {
+        heap_caps_free(discarded.bytes);
+        count_camera_drop(runtime);
+        if (discarded.snapshot) {
+            cancel_snapshot(runtime, discarded.sequence);
+        }
+    }
+    if (xQueueSend(runtime->camera_queue, &item, 0U) != pdTRUE) {
+        heap_caps_free(bytes);
+        count_camera_drop(runtime);
+        if (snapshot) {
+            cancel_snapshot(runtime, sequence);
+        }
+    }
+}
+
+static void camera_failed(void *context, bool snapshot, uint32_t sequence)
+{
+    ainekio_runtime_t *runtime = context;
+    count_camera_drop(runtime);
+    if (snapshot && session_matches(runtime, current_serial(runtime), true)) {
+        cancel_snapshot(runtime, sequence);
+    }
+}
+
+static esp_err_t sync_camera_stream(ainekio_runtime_t *runtime)
+{
+    if (runtime->camera == NULL) {
+        runtime->camera_stream_applied = false;
+        return ESP_OK;
+    }
+    const bool wanted = runtime->camera_enabled && runtime->camera_fps > 0U &&
+                        runtime->core->state == AINEKIO_STATE_ACTIVE &&
+                        runtime->core->profile == AINEKIO_PROFILE_HOME;
+    if (runtime->camera_stream_applied == wanted &&
+        (!wanted ||
+         (runtime->camera_applied_fps == runtime->camera_fps &&
+          runtime->camera_applied_resolution == runtime->camera_resolution))) {
+        return ESP_OK;
+    }
+    const esp_err_t result = ainekio_camera_configure(
+        runtime->camera,
+        wanted,
+        runtime->camera_fps,
+        runtime->camera_resolution
+    );
+    if (result == ESP_OK) {
+        runtime->camera_stream_applied = wanted;
+        runtime->camera_applied_fps = runtime->camera_fps;
+        runtime->camera_applied_resolution = runtime->camera_resolution;
+    }
+    return result;
 }
 
 static void battery_observation(
@@ -861,6 +1093,46 @@ static void dispatch_command(
         return;
     }
     if (command->kind == AINEKIO_COMMAND_SNAPSHOT) {
+        if (runtime->camera == NULL) {
+            claim_and_nak(
+                runtime,
+                command->sequence,
+                AINEKIO_NAK_BUSY,
+                TX_MESSAGE_CAPABILITY_UNAVAILABLE
+            );
+            return;
+        }
+        const ainekio_decision_t decision =
+            ainekio_core_accept(runtime->core, command);
+        if (!decision.accepted) {
+            (void)queue_nak(
+                runtime,
+                true,
+                command->sequence,
+                rejection_code(decision.rejection),
+                TX_MESSAGE_NONE,
+                false
+            );
+            return;
+        }
+        if (ainekio_camera_snapshot(runtime->camera, command->sequence) != ESP_OK) {
+            (void)queue_nak(
+                runtime,
+                true,
+                command->sequence,
+                AINEKIO_NAK_BUSY,
+                TX_MESSAGE_NONE,
+                false
+            );
+            return;
+        }
+        (void)queue_ack(runtime, command->sequence, 0U, false);
+        runtime->last_intent_us = now_us();
+        (void)sync_camera_stream(runtime);
+        return;
+    }
+    if (command->kind == AINEKIO_COMMAND_CAMERA &&
+        command->data.camera.enabled && runtime->camera == NULL) {
         claim_and_nak(
             runtime,
             command->sequence,
@@ -869,13 +1141,42 @@ static void dispatch_command(
         );
         return;
     }
-    if (command->kind == AINEKIO_COMMAND_CAMERA &&
-        command->data.camera.enabled) {
+    if (command->kind == AINEKIO_COMMAND_WAKE_CONFIG &&
+        (!wake_model_known(command->data.wake.model) ||
+         (command->data.wake.enabled &&
+          !ainekio_audio_wake_ready(runtime->audio)))) {
+        claim_and_nak(
+            runtime,
+            command->sequence,
+            !wake_model_known(command->data.wake.model)
+                ? AINEKIO_NAK_ASSET_MISSING
+                : AINEKIO_NAK_BUSY,
+            TX_MESSAGE_WAKE_MODEL_UNAVAILABLE
+        );
+        return;
+    }
+    if (command->kind == AINEKIO_COMMAND_MICROPHONE &&
+        command->data.microphone.enabled &&
+        command->data.microphone.gate == AINEKIO_MIC_GATE_WAKE &&
+        (!runtime->wake_enabled ||
+         !ainekio_audio_wake_ready(runtime->audio))) {
         claim_and_nak(
             runtime,
             command->sequence,
             AINEKIO_NAK_BUSY,
-            TX_MESSAGE_CAPABILITY_UNAVAILABLE
+            TX_MESSAGE_WAKE_MODEL_UNAVAILABLE
+        );
+        return;
+    }
+    if (command->kind == AINEKIO_COMMAND_CAMERA &&
+        command->data.camera.enabled &&
+        runtime->core->profile == AINEKIO_PROFILE_HOME &&
+        command->data.camera.fps > 10U) {
+        claim_and_nak(
+            runtime,
+            command->sequence,
+            AINEKIO_NAK_PROFILE,
+            TX_MESSAGE_NONE
         );
         return;
     }
@@ -987,17 +1288,12 @@ static void dispatch_command(
                                 ? access_point.rssi
                                 : -127;
         tx_item_t status = tx_base(runtime, TX_STATUS);
-        status.data.status = (ainekio_status_t){
-            .battery_voltage = runtime->battery_voltage,
-            .rssi = rssi,
-            .state = AINEKIO_STATE_DEEP_SLEEP,
-            .uptime_seconds = (uint32_t)(now_us() / INT64_C(1000000)),
-            .free_heap = esp_get_free_heap_size(),
-            .sd_available = runtime->sd_available,
-            .camera_drops = runtime->camera_drops,
-            .speaker_underruns = runtime->speaker_underruns,
-            .microphone_drops = runtime->microphone_drops,
-        };
+        status.data.status = runtime_status(
+            runtime,
+            rssi,
+            AINEKIO_STATE_DEEP_SLEEP,
+            (uint32_t)(now_us() / INT64_C(1000000))
+        );
         tx_item_t done = tx_base(runtime, TX_DONE);
         done.data.sequence = command->sequence;
         tx_item_t close = tx_base(runtime, TX_CLOSE);
@@ -1017,6 +1313,24 @@ static void dispatch_command(
         persistence = ainekio_nvs_adapter_save_profile(command->data.profile);
         if (persistence != ESP_OK) {
             ainekio_core_set_profile(runtime->core, prior_profile);
+        }
+    } else if (command->kind == AINEKIO_COMMAND_WAKE_CONFIG) {
+        persistence = ainekio_nvs_adapter_save_wake_preferences(
+            command->data.wake.enabled,
+            command->data.wake.model
+        );
+        if (persistence == ESP_OK) {
+            runtime->wake_enabled = command->data.wake.enabled;
+            (void)strcpy(runtime->wake_model, command->data.wake.model);
+            if (!runtime->wake_enabled && runtime->microphone_enabled &&
+                runtime->microphone_gate == AINEKIO_MIC_GATE_WAKE) {
+                runtime->microphone_enabled = false;
+                ainekio_audio_set_microphone(
+                    runtime->audio,
+                    false,
+                    AINEKIO_MIC_GATE_WAKE
+                );
+            }
         }
     } else if (command->kind == AINEKIO_COMMAND_LIMITS) {
         const ainekio_servo_calibration_t calibration = {
@@ -1071,9 +1385,19 @@ static void dispatch_command(
             (void)ainekio_motion_service_request_stop(&runtime->motion);
         }
     } else if (command->kind == AINEKIO_COMMAND_CAMERA) {
+        const bool prior_enabled = runtime->camera_enabled;
+        const uint8_t prior_fps = runtime->camera_fps;
+        const ainekio_camera_resolution_t prior_resolution =
+            runtime->camera_resolution;
         runtime->camera_enabled = command->data.camera.enabled;
         runtime->camera_fps = command->data.camera.fps;
         runtime->camera_resolution = command->data.camera.resolution;
+        persistence = sync_camera_stream(runtime);
+        if (persistence != ESP_OK) {
+            runtime->camera_enabled = prior_enabled;
+            runtime->camera_fps = prior_fps;
+            runtime->camera_resolution = prior_resolution;
+        }
     } else if (command->kind == AINEKIO_COMMAND_MICROPHONE) {
         runtime->microphone_enabled = command->data.microphone.enabled;
         runtime->microphone_gate = command->data.microphone.gate;
@@ -1142,13 +1466,26 @@ static void dispatch_command(
                 ? AINEKIO_NAK_LIMIT
                 : (persistence == ESP_ERR_NOT_FOUND ? AINEKIO_NAK_ASSET_MISSING
                                                     : AINEKIO_NAK_BUSY),
-            persistence == ESP_ERR_INVALID_ARG ? TX_MESSAGE_NONE
-                                               : TX_MESSAGE_NVS_WRITE_FAILED,
+            (command->kind == AINEKIO_COMMAND_PROFILE ||
+             command->kind == AINEKIO_COMMAND_WAKE_CONFIG ||
+             command->kind == AINEKIO_COMMAND_CALIBRATION_SAVE)
+                ? TX_MESSAGE_NVS_WRITE_FAILED
+                : TX_MESSAGE_NONE,
             false
         );
         return;
     }
     (void)queue_ack(runtime, command->sequence, 0U, false);
+    if (command->kind == AINEKIO_COMMAND_CAMERA) {
+        tx_item_t meta = tx_base(runtime, TX_CAMERA_META);
+        meta.data.camera_meta.resolution = command->data.camera.resolution;
+        meta.data.camera_meta.fps = command->data.camera.enabled
+                                        ? command->data.camera.fps
+                                        : 0U;
+        meta.data.camera_meta.counter_base =
+            ainekio_camera_counter_base(runtime->camera);
+        (void)enqueue_tx(runtime, &meta, false);
+    }
     if (audio_overflow) {
         queue_event(runtime, AINEKIO_EVENT_TTS_OVERFLOW);
     }
@@ -1291,17 +1628,12 @@ static void dispatch_battery(
                                 ? access_point.rssi
                                 : -127;
         tx_item_t status = tx_base(runtime, TX_STATUS);
-        status.data.status = (ainekio_status_t){
-            .battery_voltage = runtime->battery_voltage,
-            .rssi = rssi,
-            .state = AINEKIO_STATE_DEEP_SLEEP,
-            .uptime_seconds = (uint32_t)(now_us() / INT64_C(1000000)),
-            .free_heap = esp_get_free_heap_size(),
-            .sd_available = runtime->sd_available,
-            .camera_drops = runtime->camera_drops,
-            .speaker_underruns = runtime->speaker_underruns,
-            .microphone_drops = runtime->microphone_drops,
-        };
+        status.data.status = runtime_status(
+            runtime,
+            rssi,
+            AINEKIO_STATE_DEEP_SLEEP,
+            (uint32_t)(now_us() / INT64_C(1000000))
+        );
         tx_item_t close = tx_base(runtime, TX_CLOSE);
         close.data.close.code = 1000U;
         close.data.close.sleep_seconds = 30U * 60U;
@@ -1368,6 +1700,7 @@ static void dispatcher_tick(ainekio_runtime_t *runtime)
             runtime->core->state == AINEKIO_STATE_IDLE
         );
     }
+    (void)sync_camera_stream(runtime);
     if (!session_matches(runtime, current_serial(runtime), true) ||
         now < runtime->next_status_us) {
         return;
@@ -1381,17 +1714,12 @@ static void dispatcher_tick(ainekio_runtime_t *runtime)
                             ? access_point.rssi
                             : -127;
     tx_item_t status = tx_base(runtime, TX_STATUS);
-    status.data.status = (ainekio_status_t){
-        .battery_voltage = runtime->battery_voltage,
-        .rssi = rssi,
-        .state = runtime->core->state,
-        .uptime_seconds = (uint32_t)(now / INT64_C(1000000)),
-        .free_heap = esp_get_free_heap_size(),
-        .sd_available = runtime->sd_available,
-        .camera_drops = runtime->camera_drops,
-        .speaker_underruns = runtime->speaker_underruns,
-        .microphone_drops = runtime->microphone_drops,
-    };
+    status.data.status = runtime_status(
+        runtime,
+        rssi,
+        runtime->core->state,
+        (uint32_t)(now / INT64_C(1000000))
+    );
     (void)enqueue_tx(runtime, &status, false);
     const bool slow = runtime->core->profile == AINEKIO_PROFILE_TETHER ||
                       runtime->core->state == AINEKIO_STATE_DOZING;
@@ -1704,6 +2032,11 @@ static void flush_session_queues(ainekio_runtime_t *runtime)
     (void)xQueueReset(runtime->tx_queue);
     (void)xQueueReset(runtime->fast_tx_queue);
     (void)xQueueReset(runtime->mic_queue);
+    camera_tx_item_t camera;
+    while (xQueueReceive(runtime->camera_queue, &camera, 0U) == pdTRUE) {
+        heap_caps_free(camera.bytes);
+    }
+    (void)xQueueReset(runtime->camera_queue);
 }
 
 static void destroy_client(ainekio_runtime_t *runtime)
@@ -1913,6 +2246,10 @@ static bool initialize_queues(ainekio_runtime_t *runtime)
         runtime->mic_queue_storage,
         &runtime->mic_queue_control
     );
+    runtime->camera_queue = xQueueCreate(
+        CAMERA_QUEUE_LENGTH,
+        sizeof(camera_tx_item_t)
+    );
     runtime->battery_queue = xQueueCreateStatic(
         1U,
         sizeof(battery_item_t),
@@ -1928,7 +2265,8 @@ static bool initialize_queues(ainekio_runtime_t *runtime)
     return runtime->command_queue != NULL && runtime->stop_queue != NULL &&
            runtime->internal_queue != NULL && runtime->tx_queue != NULL &&
            runtime->fast_tx_queue != NULL && runtime->mic_queue != NULL &&
-           runtime->battery_queue != NULL && runtime->sd_queue != NULL;
+           runtime->camera_queue != NULL && runtime->battery_queue != NULL &&
+           runtime->sd_queue != NULL;
 }
 
 esp_err_t ainekio_runtime_start(
@@ -1940,7 +2278,9 @@ esp_err_t ainekio_runtime_start(
         dependencies->servos == NULL || dependencies->poses == NULL ||
         dependencies->mcpwm == NULL || dependencies->assets == NULL ||
         dependencies->provisioning == NULL || dependencies->firmware_version == NULL ||
-        strlen(dependencies->firmware_version) > 32U) {
+        dependencies->wake_model == NULL ||
+        strlen(dependencies->firmware_version) > 32U ||
+        !ainekio_asset_name_valid(dependencies->wake_model)) {
         return ESP_ERR_INVALID_ARG;
     }
     ainekio_runtime_t *runtime = &singleton;
@@ -1955,6 +2295,9 @@ esp_err_t ainekio_runtime_start(
     runtime->brownout_recovered_pending =
         dependencies->brownout_recovered_pending;
     runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
+    runtime->wake_enabled = dependencies->wake_enabled;
+    runtime->wake_ready = false;
+    (void)strcpy(runtime->wake_model, dependencies->wake_model);
     runtime->display_state = UINT8_MAX;
     runtime->state_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
     (void)strcpy(runtime->firmware_version, dependencies->firmware_version);
@@ -1987,6 +2330,19 @@ esp_err_t ainekio_runtime_start(
     if (display_result != ESP_OK) {
         runtime->display = NULL;
         ESP_LOGW(TAG, "display service unavailable: %s", esp_err_to_name(display_result));
+    }
+    const ainekio_camera_callbacks_t camera_callbacks = {
+        .context = runtime,
+        .frame = camera_frame,
+        .failed = camera_failed,
+    };
+    const esp_err_t camera_result = ainekio_camera_service_start(
+        &camera_callbacks,
+        &runtime->camera
+    );
+    if (camera_result != ESP_OK) {
+        runtime->camera = NULL;
+        ESP_LOGW(TAG, "camera service unavailable: %s", esp_err_to_name(camera_result));
     }
     if (xTaskCreatePinnedToCore(
             tx_task,
@@ -2060,6 +2416,7 @@ esp_err_t ainekio_runtime_start(
     };
     const esp_err_t audio_result = ainekio_audio_service_start(
         runtime->assets,
+        runtime->wake_model,
         &audio_callbacks,
         &runtime->audio
     );
@@ -2067,6 +2424,7 @@ esp_err_t ainekio_runtime_start(
         runtime->audio = NULL;
         ESP_LOGW(TAG, "audio service unavailable: %s", esp_err_to_name(audio_result));
     }
+    runtime->wake_ready = ainekio_audio_wake_ready(runtime->audio);
     *runtime_output = runtime;
     return ESP_OK;
 }
@@ -2098,6 +2456,11 @@ esp_err_t ainekio_runtime_network_online(
 bool ainekio_runtime_audio_ready(const ainekio_runtime_t *runtime)
 {
     return runtime != NULL && runtime->audio != NULL;
+}
+
+bool ainekio_runtime_camera_ready(const ainekio_runtime_t *runtime)
+{
+    return runtime != NULL && runtime->camera != NULL;
 }
 
 bool ainekio_runtime_display_ready(const ainekio_runtime_t *runtime)

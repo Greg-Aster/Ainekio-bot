@@ -108,6 +108,57 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(ready["type"], "bridge.ready")
                 self.assertEqual(ready["observation"]["adapter"], "ainekio-gateway")
 
+    async def test_authenticated_replacement_closes_previous_without_handler_failure(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        handler_errors: list[Exception] = []
+
+        async def handler(websocket: object, _path: str) -> None:
+            try:
+                await adapter.handler(websocket)  # type: ignore[arg-type]
+            except Exception as error:
+                handler_errors.append(error)
+
+        async with websockets.serve(
+            handler,
+            "127.0.0.1",
+            0,
+            ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            uri = f"ws://127.0.0.1:{port}/environment"
+            async with websockets.connect(uri, ping_interval=None) as first:
+                await first.send(
+                    json.dumps(
+                        {
+                            "type": "bridge.connect",
+                            "version": 1,
+                            "token": "adapter-secret",
+                        }
+                    )
+                )
+                await first.recv()
+
+                async with websockets.connect(uri, ping_interval=None) as second:
+                    await second.send(
+                        json.dumps(
+                            {
+                                "type": "bridge.connect",
+                                "version": 1,
+                                "token": "adapter-secret",
+                            }
+                        )
+                    )
+                    await second.recv()
+                    with self.assertRaises(ConnectionClosedError) as closed:
+                        await first.recv()
+                    self.assertEqual(closed.exception.code, 4000)
+
+        self.assertEqual(handler_errors, [])
+
     async def test_action_feedback_is_followed_by_one_observation(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(

@@ -77,6 +77,7 @@
       "message": {"t": "pose_save", "seq": 14, "name": "neutral", "servos": [[0, 90.0], [0, 100.0]]},
       "reason": "value:servos.duplicate"
     },
+    {"name": "wake_bad_model", "message": {"t": "wake", "seq": 18, "enabled": false, "model": "Ainekio!"}, "reason": "value:model"},
     {"name": "cal_save_missing_seq", "message": {"t": "cal_save"}, "reason": "missing:seq"},
     {"name": "ack_seq_range", "message": {"t": "ack", "seq": 2147483648}, "reason": "range:seq"},
     {"name": "nak_missing_seq", "message": {"t": "nak", "code": "unsafe"}, "reason": "missing:seq"},

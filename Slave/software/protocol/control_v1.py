@@ -219,6 +219,12 @@ def _validate_mic(message: Mapping[str, object]) -> None:
     _string(message, "gate", allowed=MIC_GATES)
 
 
+def _validate_wake(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _boolean(message, "enabled")
+    _asset(message, "model")
+
+
 def _validate_profile(message: Mapping[str, object]) -> None:
     _seq(message)
     _string(message, "name", allowed=PROFILES)
@@ -316,6 +322,12 @@ def _validate_status(message: Mapping[str, object]) -> None:
     _integer(message, "cam_drops", minimum=0)
     _integer(message, "spk_underruns", minimum=0)
     _integer(message, "mic_drops", minimum=0)
+    if "wake_enabled" in message:
+        _boolean(message, "wake_enabled")
+    if "wake_model" in message:
+        _asset(message, "wake_model")
+    if "wake_ready" in message:
+        _boolean(message, "wake_ready")
 
 
 def _validate_event(message: Mapping[str, object]) -> None:
@@ -338,6 +350,7 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "cam": _validate_cam,
     "snap": _validate_snap,
     "mic": _validate_mic,
+    "wake": _validate_wake,
     "profile": _validate_profile,
     "state": _validate_state,
     "ping": _validate_ping_or_pong,

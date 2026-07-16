@@ -23,6 +23,20 @@ data. Authentication values in fixtures use the literal `REDACTED-TOKEN`.
 Contract tests verify that all fixture message types remain represented by both
 the language-neutral schema and the Python validator.
 
+Wake-word preferences use a separate persistent command from the session-only
+microphone stream command:
+
+```json
+{"t":"wake","seq":42,"enabled":false,"model":"ainekio"}
+```
+
+`model` is a bounded trained-model identifier, not arbitrary text to be turned
+into a wake word. The ESP32 stores the accepted setting in NVS. Status frames
+may report `wake_enabled`, `wake_model`, and `wake_ready`; `wake_ready=false`
+means firmware must reject both enabling the setting and opening a microphone
+with `gate="wake"`. These status additions remain optional so an older
+protocol-v1 body is still accepted by the gateway validator.
+
 Run the host fixture suite from the repository root:
 
 ```sh

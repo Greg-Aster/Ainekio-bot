@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ainekio/platform/pin_map.h"
+#include "ainekio/platform/wake_word_service.h"
 #include "driver/i2s_std.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -19,6 +20,7 @@
 #define AUDIO_BUS_WORDS 640U
 #define VAD_THRESHOLD 900U
 #define VAD_HANGOVER_FRAMES 10U
+#define WAKE_SPEECH_HANGOVER_FRAMES 35U
 
 typedef enum {
     SPEAKER_PCM = 0,
@@ -33,6 +35,7 @@ typedef struct {
 struct ainekio_audio_service {
     ainekio_asset_store_t *assets;
     ainekio_audio_callbacks_t callbacks;
+    ainekio_wake_word_service_t *wake_word;
     i2s_chan_handle_t tx_channel;
     i2s_chan_handle_t rx_channel;
     TaskHandle_t task;
@@ -42,6 +45,7 @@ struct ainekio_audio_service {
     uint8_t speaker_queue_storage[SPEAKER_QUEUE_LENGTH * sizeof(speaker_item_t)];
     int32_t bus_buffer[AUDIO_BUS_WORDS];
     uint8_t mic_payload[AINEKIO_AUDIO_PAYLOAD_BYTES];
+    int16_t mic_samples[AINEKIO_AUDIO_PAYLOAD_BYTES / 2U];
     char asset_path[96];
     uint32_t tts_sequence;
     uint32_t asset_sequence;
@@ -56,6 +60,8 @@ struct ainekio_audio_service {
     bool asset_active;
     bool microphone_enabled;
     bool vad_open;
+    bool wake_latched;
+    bool microphone_reset_pending;
     bool orphan_reported;
 };
 
@@ -126,35 +132,70 @@ static void read_microphone(ainekio_audio_service_t *service)
 #endif
     for (size_t index = 0U; index < AINEKIO_AUDIO_PAYLOAD_BYTES / 2U; ++index) {
         const int16_t sample = (int16_t)(service->bus_buffer[index * 2U + slot] >> 16U);
+        service->mic_samples[index] = sample;
         service->mic_payload[index * 2U] = (uint8_t)((uint16_t)sample & 0xFFU);
         service->mic_payload[index * 2U + 1U] =
             (uint8_t)(((uint16_t)sample >> 8U) & 0xFFU);
     }
 
     bool enabled = false;
+    bool reset_pending = false;
     ainekio_microphone_gate_t gate = AINEKIO_MIC_GATE_VAD;
     taskENTER_CRITICAL(&service->state_lock);
     enabled = service->microphone_enabled;
     gate = service->microphone_gate;
+    reset_pending = service->microphone_reset_pending;
+    service->microphone_reset_pending = false;
     taskEXIT_CRITICAL(&service->state_lock);
+    if (reset_pending) {
+        if (service->vad_open && service->callbacks.gate != NULL) {
+            service->callbacks.gate(service->callbacks.context, false, false);
+        }
+        service->vad_hangover = 0U;
+        service->vad_open = false;
+        service->wake_latched = false;
+        ainekio_wake_word_reset(service->wake_word);
+    }
     if (!enabled) {
         return;
     }
     const bool voice = mic_energy(service->mic_payload) >= VAD_THRESHOLD;
-    if (voice) {
-        service->vad_hangover = VAD_HANGOVER_FRAMES;
-    } else if (service->vad_hangover > 0U) {
-        --service->vad_hangover;
+    bool wake_word = false;
+    if (gate == AINEKIO_MIC_GATE_WAKE && !service->wake_latched) {
+        const ainekio_wake_word_result_t wake_result = ainekio_wake_word_process(
+            service->wake_word,
+            service->mic_samples,
+            AINEKIO_AUDIO_PAYLOAD_BYTES / 2U
+        );
+        if (wake_result == AINEKIO_WAKE_WORD_DETECTED) {
+            service->wake_latched = true;
+            service->vad_hangover = WAKE_SPEECH_HANGOVER_FRAMES;
+            wake_word = true;
+        } else if (wake_result == AINEKIO_WAKE_WORD_ERROR) {
+            return;
+        }
+    } else if (gate != AINEKIO_MIC_GATE_OPEN) {
+        if (voice) {
+            service->vad_hangover = gate == AINEKIO_MIC_GATE_WAKE
+                                        ? WAKE_SPEECH_HANGOVER_FRAMES
+                                        : VAD_HANGOVER_FRAMES;
+        } else if (service->vad_hangover > 0U) {
+            --service->vad_hangover;
+        }
     }
-    const bool gate_open = gate == AINEKIO_MIC_GATE_OPEN || voice ||
-                           service->vad_hangover > 0U;
+    const bool gate_open = gate == AINEKIO_MIC_GATE_OPEN ||
+                           (gate == AINEKIO_MIC_GATE_VAD &&
+                            (voice || service->vad_hangover > 0U)) ||
+                           (gate == AINEKIO_MIC_GATE_WAKE &&
+                            service->wake_latched &&
+                            (wake_word || voice || service->vad_hangover > 0U));
     if (gate_open != service->vad_open) {
         service->vad_open = gate_open;
         if (service->callbacks.gate != NULL) {
             service->callbacks.gate(
                 service->callbacks.context,
                 gate_open,
-                false
+                wake_word
             );
         }
     }
@@ -163,6 +204,10 @@ static void read_microphone(ainekio_audio_service_t *service)
             service->callbacks.context,
             service->mic_payload
         );
+    }
+    if (gate == AINEKIO_MIC_GATE_WAKE && service->wake_latched && !gate_open) {
+        service->wake_latched = false;
+        ainekio_wake_word_reset(service->wake_word);
     }
 }
 
@@ -325,11 +370,12 @@ static esp_err_t initialize_i2s(ainekio_audio_service_t *service)
 
 esp_err_t ainekio_audio_service_start(
     ainekio_asset_store_t *assets,
+    const char *wake_model,
     const ainekio_audio_callbacks_t *callbacks,
     ainekio_audio_service_t **service_output
 )
 {
-    if (assets == NULL || service_output == NULL) {
+    if (assets == NULL || wake_model == NULL || service_output == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     ainekio_audio_service_t *service = &singleton;
@@ -339,6 +385,20 @@ esp_err_t ainekio_audio_service_start(
     service->microphone_gate = AINEKIO_MIC_GATE_VAD;
     if (callbacks != NULL) {
         service->callbacks = *callbacks;
+    }
+    const esp_err_t wake_result = ainekio_wake_word_service_start(
+        assets,
+        wake_model,
+        &service->wake_word
+    );
+    if (wake_result != ESP_OK) {
+        service->wake_word = NULL;
+        ESP_LOGW(
+            TAG,
+            "wake model %s unavailable: %s",
+            wake_model,
+            esp_err_to_name(wake_result)
+        );
     }
     service->speaker_queue = xQueueCreateStatic(
         SPEAKER_QUEUE_LENGTH,
@@ -546,13 +606,30 @@ void ainekio_audio_set_microphone(
         return;
     }
     taskENTER_CRITICAL(&service->state_lock);
+    const bool changed = service->microphone_enabled != enabled ||
+                         service->microphone_gate != gate;
     service->microphone_enabled = enabled;
     service->microphone_gate = gate;
-    if (!enabled) {
-        service->vad_hangover = 0U;
-        service->vad_open = false;
+    if (changed) {
+        service->microphone_reset_pending = true;
     }
     taskEXIT_CRITICAL(&service->state_lock);
+}
+
+bool ainekio_audio_wake_ready(const ainekio_audio_service_t *service)
+{
+    return service != NULL && ainekio_wake_word_ready(service->wake_word);
+}
+
+bool ainekio_audio_wake_model_available(
+    const ainekio_audio_service_t *service,
+    const char *model
+)
+{
+    const char *installed = service == NULL
+                                ? NULL
+                                : ainekio_wake_word_model(service->wake_word);
+    return installed != NULL && model != NULL && strcmp(installed, model) == 0;
 }
 
 uint32_t ainekio_audio_speaker_underruns(const ainekio_audio_service_t *service)

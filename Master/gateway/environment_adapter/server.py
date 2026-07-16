@@ -11,8 +11,13 @@ from typing import Any, Callable, Mapping
 
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
+from websockets.exceptions import ConnectionClosed
 
-from .translation import BridgeAction, translate_environment_action
+from .translation import (
+    SUPPORTED_ROBOT_COMMANDS,
+    BridgeAction,
+    translate_environment_action,
+)
 
 
 ADAPTER_PROTOCOL_VERSION = 1
@@ -113,6 +118,8 @@ class EnvironmentAdapter:
                     observation_sent = self._camera_observation_count > previous_camera_count
                 if not observation_sent:
                     await self._send_observation()
+        except ConnectionClosed:
+            pass
         finally:
             if self._websocket is websocket:
                 self._websocket = None
@@ -265,6 +272,7 @@ class EnvironmentAdapter:
             "timestamp": self.utcnow().isoformat(),
             "capabilities": {
                 "actions": ["robotCommand", "move", "stop", "sendText"],
+                "robotCommands": list(SUPPORTED_ROBOT_COMMANDS),
                 "text": True,
                 "movement": True,
                 "visual": True,

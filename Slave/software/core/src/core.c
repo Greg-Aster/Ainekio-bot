@@ -119,6 +119,8 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
 {
     const bool is_stop = command->kind == AINEKIO_COMMAND_STOP;
     const bool is_movement = command_is_movement(command);
+    const bool is_powered_motion =
+        is_movement || command->kind == AINEKIO_COMMAND_SERVO;
 
     if (is_stop) {
         core->servos_attached = false;
@@ -140,7 +142,7 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
     if (command_is_calibration_only(command->kind) && core->mode != AINEKIO_MODE_CALIBRATE) {
         return rejected(AINEKIO_REJECT_MODE);
     }
-    if (is_movement && !core->boot_ready) {
+    if (is_powered_motion && !core->boot_ready) {
         return rejected(AINEKIO_REJECT_BUSY);
     }
     if (is_movement && core->power_guard != AINEKIO_POWER_NORMAL &&

@@ -46,6 +46,7 @@ typedef struct {
 
 esp_err_t ainekio_audio_service_start(
     ainekio_asset_store_t *assets,
+    const char *wake_model,
     const ainekio_audio_callbacks_t *callbacks,
     ainekio_audio_service_t **service
 );
@@ -73,6 +74,11 @@ void ainekio_audio_set_microphone(
     ainekio_audio_service_t *service,
     bool enabled,
     ainekio_microphone_gate_t gate
+);
+bool ainekio_audio_wake_ready(const ainekio_audio_service_t *service);
+bool ainekio_audio_wake_model_available(
+    const ainekio_audio_service_t *service,
+    const char *model
 );
 uint32_t ainekio_audio_speaker_underruns(const ainekio_audio_service_t *service);
 uint32_t ainekio_audio_microphone_drops(const ainekio_audio_service_t *service);

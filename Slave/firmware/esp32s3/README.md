@@ -30,15 +30,37 @@ idf.py size
 idf.py size-components
 ```
 
-Run these commands from `Slave/firmware/esp32s3`. The checked-in defaults do not yet
-enable PSRAM because the exact module and board wiring must be confirmed during
-hardware bring-up. No WiFi credentials or other secrets belong in `sdkconfig`,
-NVS images, build logs, or committed source.
+Run these commands from `Slave/firmware/esp32s3`. The checked-in Freenove N16R8
+profile enables 8 MB octal PSRAM at 80 MHz and pins `esp32-camera` 2.1.7. No WiFi
+credentials or other secrets belong in `sdkconfig`, NVS images, build logs, or
+committed source.
 
 The current cross-built port includes the portable safety core, MCPWM motion,
 LittleFS assets, NVS configuration and migration, WPA2 SoftAP provisioning,
 outbound protocol-v1 WebSocket runtime, full-duplex I2S audio/microphone, SSD1306
 display, ADC battery safety, SD_MMC storage, deep sleep, and OTA rollback
-validation after gateway authentication. Camera capture remains disabled until
-the H2 board/sensor/pin evidence exists; camera-on and snapshot requests reject
-explicitly instead of claiming success.
+validation after gateway authentication. The OV2640 camera path now supports
+QVGA/VGA JPEG snapshots and bounded streaming when the sensor and expected PSRAM
+initialize; commands still reject explicitly if the physical camera is
+unavailable.
+
+The audio service also includes a real microWakeWord/TensorFlow Lite Micro
+backend. It loads `/assets/wake/<model>/manifest.json` plus its quantized TFLite
+model, verifies the package and tensor contract, and reports ready only after the
+interpreter and frontend initialize. No trained `Ainekio` weights are checked in,
+so the current seed image safely reports `wake_ready=false`. See
+`../../../docs/LOCAL_WAKE_WORD.md` for the owner-local training and packaging
+workflow.
+
+The central MAP_B definition is
+`components/ainekio_platform/include/ainekio/platform/pin_map.h`. It preserves
+SD_MMC and the specification's provisional GPIO33/34 servo assignments. Software
+checks detect definite duplicate, capability, SD, GPIO35-37 PSRAM, and MCPWM
+conflicts, but only physical H2 can accept or reject GPIO33/34. Battery
+monitoring is enabled on GPIO3 with the planned `3.12766` divider factor; H9
+still refines its ADC correction against a multimeter. Per the owner's bring-up
+decision, all eight servo outputs are enabled after startup at their calibrated
+centers with a 20 ms channel stagger. Normal semantic
+motions and calibration commands use 25 percent of the source range around
+logical center (`67.5`-`112.5` degrees) and a 100 ms minimum frame duration.
+`stop` still returns every servo signal GPIO to high impedance.

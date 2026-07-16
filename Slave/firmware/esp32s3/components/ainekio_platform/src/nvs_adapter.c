@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "ainekio/assets.h"
 #include "ainekio/config_schema.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -568,4 +569,71 @@ esp_err_t ainekio_nvs_adapter_save_adc_factor(float adc_factor)
     ainekio_profile_t profile = AINEKIO_PROFILE_HOME;
     const esp_err_t loaded = ainekio_nvs_adapter_load_preferences(&profile, &current_factor, &recovered);
     return loaded == ESP_OK ? save_preferences(profile, adc_factor) : loaded;
+}
+
+esp_err_t ainekio_nvs_adapter_save_wake_preferences(
+    bool enabled,
+    const char *model
+)
+{
+    if (!ainekio_asset_name_valid(model)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    nvs_handle_t handle = 0U;
+    esp_err_t error = nvs_open(AINEKIO_NVS_NAMESPACE_PREFERENCES, NVS_READWRITE, &handle);
+    if (error == ESP_OK) error = write_schema(handle);
+    if (error == ESP_OK) {
+        error = nvs_set_u8(handle, AINEKIO_NVS_KEY_WAKE_ENABLED, enabled ? 1U : 0U);
+    }
+    if (error == ESP_OK) {
+        error = nvs_set_str(handle, AINEKIO_NVS_KEY_WAKE_MODEL, model);
+    }
+    if (error == ESP_OK) error = nvs_commit(handle);
+    if (handle != 0U) nvs_close(handle);
+    return error;
+}
+
+esp_err_t ainekio_nvs_adapter_load_wake_preferences(
+    bool *enabled,
+    char model[AINEKIO_WAKE_MODEL_MAX + 1U],
+    bool *recovered
+)
+{
+    if (enabled == NULL || model == NULL || recovered == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *enabled = false;
+    (void)strcpy(model, AINEKIO_DEFAULT_WAKE_MODEL);
+    *recovered = false;
+
+    nvs_handle_t handle = 0U;
+    uint32_t schema = 0U;
+    uint8_t enabled_value = 0U;
+    esp_err_t error = nvs_open(AINEKIO_NVS_NAMESPACE_PREFERENCES, NVS_READONLY, &handle);
+    if (error == ESP_OK) error = nvs_get_u32(handle, AINEKIO_NVS_KEY_SCHEMA_VERSION, &schema);
+    if (error == ESP_OK) error = nvs_get_u8(handle, AINEKIO_NVS_KEY_WAKE_ENABLED, &enabled_value);
+    if (error == ESP_OK) {
+        error = get_bounded_string(
+            handle,
+            AINEKIO_NVS_KEY_WAKE_MODEL,
+            model,
+            AINEKIO_WAKE_MODEL_MAX + 1U
+        );
+    }
+    if (handle != 0U) nvs_close(handle);
+    if (error == ESP_OK && schema == AINEKIO_NVS_SCHEMA_VERSION && enabled_value <= 1U &&
+        ainekio_asset_name_valid(model)) {
+        *enabled = enabled_value != 0U;
+        return ESP_OK;
+    }
+    if (error != ESP_ERR_NVS_NOT_FOUND && error != ESP_OK &&
+        error != ESP_ERR_NVS_INVALID_LENGTH && error != ESP_ERR_NVS_TYPE_MISMATCH) {
+        return error;
+    }
+
+    *recovered = error != ESP_ERR_NVS_NOT_FOUND ||
+                 (schema != 0U && schema != AINEKIO_NVS_SCHEMA_VERSION);
+    *enabled = false;
+    (void)strcpy(model, AINEKIO_DEFAULT_WAKE_MODEL);
+    return ainekio_nvs_adapter_save_wake_preferences(*enabled, model);
 }

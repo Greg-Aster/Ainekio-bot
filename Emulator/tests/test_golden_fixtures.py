@@ -18,6 +18,7 @@ _BRAIN_TO_BODY = frozenset(
         "cam",
         "snap",
         "mic",
+        "wake",
         "profile",
         "state",
         "ping",

@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "ainekio/core.h"
@@ -6,6 +7,7 @@
 #include "ainekio/platform/asset_store.h"
 #include "ainekio/platform/mcpwm_adapter.h"
 #include "ainekio/platform/nvs_adapter.h"
+#include "ainekio/platform/pin_map.h"
 #include "ainekio/platform/provisioning_portal.h"
 #include "ainekio/platform/provisioning_service.h"
 #include "ainekio/platform/runtime_service.h"
@@ -14,7 +16,9 @@
 #include "ainekio/provisioning.h"
 #include "ainekio/settings.h"
 #include "esp_app_desc.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_psram.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
 
@@ -43,6 +47,24 @@ static float configured_battery_divider(void)
                    *end == '\0' && isfinite(value) && value > 0.0F
                ? value
                : 0.0F;
+}
+
+static bool physical_motion_enabled(void)
+{
+#ifdef CONFIG_AINEKIO_PHYSICAL_MOTION_ENABLED
+    return true;
+#else
+    return false;
+#endif
+}
+
+static bool battery_monitor_enabled(void)
+{
+#ifdef CONFIG_AINEKIO_BATTERY_MONITOR_ENABLED
+    return true;
+#else
+    return false;
+#endif
 }
 
 static esp_err_t runtime_online(
@@ -76,6 +98,9 @@ void app_main(void)
     bool calibration_recovered = false;
     bool poses_recovered = false;
     bool preferences_recovered = false;
+    bool wake_preferences_recovered = false;
+    bool wake_enabled = false;
+    char wake_model[AINEKIO_WAKE_MODEL_MAX + 1U] = AINEKIO_DEFAULT_WAKE_MODEL;
     ainekio_profile_t saved_profile = AINEKIO_PROFILE_HOME;
     esp_err_t settings_error = nvs_error;
     if (settings_error == ESP_OK) {
@@ -96,13 +121,21 @@ void app_main(void)
         );
     }
     if (settings_error == ESP_OK) {
+        settings_error = ainekio_nvs_adapter_load_wake_preferences(
+            &wake_enabled,
+            wake_model,
+            &wake_preferences_recovered
+        );
+    }
+    if (settings_error == ESP_OK) {
         ainekio_core_set_profile(&slave_brain, saved_profile);
     }
 
     const float battery_divider_factor = configured_battery_divider();
     bool brownout_recovered_pending = false;
     float recovery_voltage = 0.0F;
-    if (ainekio_sleep_battery_recheck_pending()) {
+    if (battery_monitor_enabled() &&
+        ainekio_sleep_battery_recheck_pending()) {
         bool recovered = false;
         const esp_err_t recovery_error =
             battery_divider_factor > 0.0F
@@ -131,7 +164,18 @@ void app_main(void)
         );
     }
 
-    const esp_err_t mcpwm_error = ainekio_mcpwm_adapter_init(&mcpwm_adapter);
+    esp_err_t mcpwm_error = ainekio_mcpwm_adapter_init(&mcpwm_adapter);
+    if (settings_error == ESP_OK && mcpwm_error == ESP_OK &&
+        physical_motion_enabled()) {
+        mcpwm_error = ainekio_mcpwm_adapter_enable_all(
+            &mcpwm_adapter,
+            &servo_bank,
+            CONFIG_AINEKIO_SERVO_STARTUP_STAGGER_MS
+        );
+        if (mcpwm_error == ESP_OK) {
+            slave_brain.servos_attached = true;
+        }
+    }
     const esp_err_t asset_error = settings_error == ESP_OK
                                       ? ainekio_asset_store_init(
                                             &asset_store,
@@ -142,7 +186,7 @@ void app_main(void)
     ainekio_core_set_boot_ready(
         &slave_brain,
         settings_error == ESP_OK && mcpwm_error == ESP_OK &&
-            battery_divider_factor > 0.0F
+            physical_motion_enabled()
     );
     const ainekio_runtime_dependencies_t runtime_dependencies = {
         .core = &slave_brain,
@@ -152,8 +196,12 @@ void app_main(void)
         .assets = &asset_store,
         .provisioning = &provisioning_service,
         .firmware_version = app->version,
-        .battery_divider_factor = battery_divider_factor,
+        .battery_divider_factor = battery_monitor_enabled()
+                                      ? battery_divider_factor
+                                      : 0.0F,
         .battery_adc_factor = battery_adc_factor,
+        .wake_enabled = wake_enabled,
+        .wake_model = wake_model,
         .boot_event_pending = true,
         .brownout_recovered_pending = brownout_recovered_pending,
         .littlefs_failure_pending = littlefs_failure_pending,
@@ -217,24 +265,31 @@ void app_main(void)
 
     ESP_LOGI(TAG,
              "{\"event\":\"boot\",\"firmware\":\"%s\",\"protocol\":%u,"
-             "\"idf\":\"%s\",\"state\":%u,\"servos_attached\":false,"
+             "\"idf\":\"%s\",\"board\":\"%s\",\"state\":%u,"
+             "\"servos_attached\":%s,"
              "\"boot_ready\":%s,"
              "\"config_status\":%u,\"nvs_recovered\":%s,"
              "\"settings_recovered\":%s,\"assets_mounted\":%s,"
              "\"asset_unavailable\":%u,\"littlefs_fail_pending\":%s,"
              "\"runtime_service\":%s,\"audio_service\":%s,"
+             "\"camera_service\":%s,\"psram_bytes\":%u,"
              "\"display_service\":%s,\"telemetry_service\":%s,"
              "\"sd_service\":%s,\"sd_mounted\":%s,"
-             "\"battery_divider_configured\":%s,"
+             "\"battery_divider_configured\":%s,\"battery_monitor\":%s,"
+             "\"motion_build_gate\":%s,\"motion_range_percent\":%d,"
+             "\"motion_min_frame_ms\":%d,\"servo_startup_stagger_ms\":%d,"
              "\"provisioning_service\":%s}",
              app->version,
              AINEKIO_PROTOCOL_VERSION,
              esp_get_idf_version(),
+             AINEKIO_BOARD_PROFILE_ID,
              (unsigned int)slave_brain.state,
+             slave_brain.servos_attached ? "true" : "false",
              slave_brain.boot_ready ? "true" : "false",
              (unsigned int)config_result,
              nvs_adapter.partition_erased_during_init ? "true" : "false",
-             calibration_recovered || poses_recovered || preferences_recovered
+             calibration_recovered || poses_recovered || preferences_recovered ||
+                     wake_preferences_recovered
                  ? "true"
                  : "false",
              asset_error == ESP_OK ? "true" : "false",
@@ -244,6 +299,10 @@ void app_main(void)
              runtime_error == ESP_OK && ainekio_runtime_audio_ready(runtime_service)
                  ? "true"
                  : "false",
+             runtime_error == ESP_OK && ainekio_runtime_camera_ready(runtime_service)
+                 ? "true"
+                 : "false",
+             (unsigned int)(esp_psram_is_initialized() ? esp_psram_get_size() : 0U),
              runtime_error == ESP_OK && ainekio_runtime_display_ready(runtime_service)
                  ? "true"
                  : "false",
@@ -257,7 +316,17 @@ void app_main(void)
                  ? "true"
                  : "false",
              battery_divider_factor > 0.0F ? "true" : "false",
+             battery_monitor_enabled() ? "true" : "false",
+             physical_motion_enabled() ? "true" : "false",
+             CONFIG_AINEKIO_MOTION_RANGE_PERCENT,
+             CONFIG_AINEKIO_MOTION_MIN_FRAME_MS,
+             CONFIG_AINEKIO_SERVO_STARTUP_STAGGER_MS,
              provisioning_error == ESP_OK ? "true" : "false");
+    (void)gpio_dump_io_configuration(
+        stdout,
+        (UINT64_C(1) << AINEKIO_PIN_SERVO_R4) |
+            (UINT64_C(1) << AINEKIO_PIN_SERVO_R3)
+    );
     if (settings_error != ESP_OK) {
         ESP_LOGE(TAG, "settings unavailable: %s", esp_err_to_name(settings_error));
     }
@@ -267,7 +336,19 @@ void app_main(void)
     if (battery_divider_factor <= 0.0F) {
         ESP_LOGW(
             TAG,
-            "battery divider is not configured; telemetry disabled and movement gated"
+            "battery divider is not configured; battery telemetry disabled"
+        );
+    }
+    if (!physical_motion_enabled()) {
+        ESP_LOGW(
+            TAG,
+            "physical motion build gate is disabled; all servo motion remains gated"
+        );
+    }
+    if (!battery_monitor_enabled()) {
+        ESP_LOGW(
+            TAG,
+            "battery monitoring is disabled by the build configuration"
         );
     }
     if (asset_error != ESP_OK) {
