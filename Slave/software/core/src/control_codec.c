@@ -8,7 +8,7 @@
 
 #include "ainekio/assets.h"
 
-#define JSON_MAX_TOKENS 192U
+#define JSON_MAX_TOKENS 400U
 #define JSON_MAX_DEPTH 8U
 #define JSON_STRING_BUFFER 192U
 
@@ -782,6 +782,99 @@ static ainekio_decode_result_t decode_simple_command(
     return result;
 }
 
+static ainekio_decode_result_t decode_motion_plan(
+    const json_parser_t *parser,
+    int root,
+    ainekio_control_message_t *message
+)
+{
+    ainekio_decode_result_t result =
+        decode_simple_command(parser, root, message, AINEKIO_COMMAND_MOTION_PLAN);
+    int64_t joint_map = 0;
+    if (result == AINEKIO_DECODE_OK) {
+        result = required_integer(
+            parser,
+            root,
+            "map",
+            AINEKIO_JOINT_MAP_VERSION,
+            AINEKIO_JOINT_MAP_VERSION,
+            &joint_map
+        );
+    }
+    int frames = -1;
+    if (result == AINEKIO_DECODE_OK) {
+        result = required_token(parser, root, "frames", &frames);
+    }
+    if (result != AINEKIO_DECODE_OK) {
+        return result;
+    }
+    if (parser->tokens[frames].type != JSON_TOKEN_ARRAY ||
+        parser->tokens[frames].children < 1U ||
+        parser->tokens[frames].children > AINEKIO_MOTION_PLAN_MAX_FRAMES) {
+        return AINEKIO_DECODE_RANGE;
+    }
+
+    ainekio_motion_plan_t *plan = &message->command.data.motion_plan;
+    plan->joint_map_version = (uint8_t)joint_map;
+    plan->frame_count = (uint8_t)parser->tokens[frames].children;
+    uint32_t total_duration_ms = 0U;
+    for (uint8_t frame_index = 0U; frame_index < plan->frame_count; ++frame_index) {
+        const int frame = array_get(parser, frames, frame_index);
+        if (frame < 0 || parser->tokens[frame].type != JSON_TOKEN_ARRAY ||
+            parser->tokens[frame].children != 2U) {
+            return AINEKIO_DECODE_TYPE;
+        }
+        int64_t duration_ms = 0;
+        if (!token_integer(parser, array_get(parser, frame, 0U), &duration_ms)) {
+            return AINEKIO_DECODE_TYPE;
+        }
+        if (duration_ms < AINEKIO_MOTION_PLAN_MIN_FRAME_MS ||
+            duration_ms > AINEKIO_MOTION_PLAN_MAX_FRAME_MS) {
+            return AINEKIO_DECODE_RANGE;
+        }
+        total_duration_ms += (uint32_t)duration_ms;
+        if (total_duration_ms > AINEKIO_MOTION_PLAN_MAX_TOTAL_MS) {
+            return AINEKIO_DECODE_RANGE;
+        }
+
+        const int targets = array_get(parser, frame, 1U);
+        if (targets < 0 || parser->tokens[targets].type != JSON_TOKEN_ARRAY ||
+            parser->tokens[targets].children != AINEKIO_SERVO_COUNT) {
+            return AINEKIO_DECODE_RANGE;
+        }
+        ainekio_motion_plan_frame_t *output_frame = &plan->frames[frame_index];
+        output_frame->duration_ms = (uint16_t)duration_ms;
+        for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {
+            int64_t centidegrees = 0;
+            if (!token_integer(parser, array_get(parser, targets, joint_id), &centidegrees)) {
+                return AINEKIO_DECODE_TYPE;
+            }
+            if (centidegrees < 0 ||
+                centidegrees > AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES) {
+                return AINEKIO_DECODE_RANGE;
+            }
+            output_frame->targets[joint_id] = (uint16_t)centidegrees;
+        }
+    }
+    plan->total_duration_ms = (uint16_t)total_duration_ms;
+
+    char end[8];
+    result = required_string(parser, root, "end", end, sizeof(end), 4U, 7U);
+    if (result != AINEKIO_DECODE_OK) {
+        return result;
+    }
+    if (strcmp(end, "hold") == 0) {
+        plan->end = AINEKIO_MOTION_PLAN_END_HOLD;
+    } else if (strcmp(end, "stand") == 0) {
+        plan->end = AINEKIO_MOTION_PLAN_END_STAND;
+    } else if (strcmp(end, "neutral") == 0) {
+        plan->end = AINEKIO_MOTION_PLAN_END_NEUTRAL;
+    } else {
+        return AINEKIO_DECODE_VALUE;
+    }
+    return AINEKIO_DECODE_OK;
+}
+
 static ainekio_decode_result_t decode_tts(
     const json_parser_t *parser,
     int root,
@@ -1129,6 +1222,44 @@ static ainekio_decode_result_t validate_outbound(
         if (result == AINEKIO_DECODE_OK) {
             result = required_string(parser, root, "auth", string, sizeof(string), 1U, 128U);
         }
+        const int features = object_get(parser, root, "features");
+        if (result == AINEKIO_DECODE_OK && features >= 0) {
+            if (parser->tokens[features].type != JSON_TOKEN_ARRAY ||
+                parser->tokens[features].children > 16U) {
+                return AINEKIO_DECODE_RANGE;
+            }
+            for (uint16_t index = 0U; index < parser->tokens[features].children; ++index) {
+                const int feature = array_get(parser, features, index);
+                size_t feature_length = 0U;
+                char feature_name[33];
+                if (!token_string_copy(
+                        parser,
+                        feature,
+                        feature_name,
+                        sizeof(feature_name),
+                        &feature_length
+                    ) ||
+                    feature_length < 1U || feature_length > 32U) {
+                    return AINEKIO_DECODE_TYPE;
+                }
+                for (size_t character = 0U; character < feature_length; ++character) {
+                    const char value = feature_name[character];
+                    if (!((value >= 'a' && value <= 'z') ||
+                          (value >= '0' && value <= '9') || value == '_')) {
+                        return AINEKIO_DECODE_VALUE;
+                    }
+                }
+                for (uint16_t previous = 0U; previous < index; ++previous) {
+                    if (token_string_equal(
+                            parser,
+                            array_get(parser, features, previous),
+                            feature_name
+                        )) {
+                        return AINEKIO_DECODE_VALUE;
+                    }
+                }
+            }
+        }
     } else if (message->kind == AINEKIO_MESSAGE_ACK ||
                message->kind == AINEKIO_MESSAGE_DONE) {
         result = sequence(parser, root, message);
@@ -1224,7 +1355,7 @@ ainekio_decode_result_t ainekio_control_decode(
         return result;
     }
     static const char *const types[] = {
-        "hello", "err", "welcome", "intent", "stop", "tts", "cam", "snap",
+        "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
         "event", "cam_meta", "pong",
@@ -1274,6 +1405,8 @@ ainekio_decode_result_t ainekio_control_decode(
         return decode_intent(&parser, root, message);
     case AINEKIO_MESSAGE_STOP:
         return decode_simple_command(&parser, root, message, AINEKIO_COMMAND_STOP);
+    case AINEKIO_MESSAGE_MOTION_PLAN:
+        return decode_motion_plan(&parser, root, message);
     case AINEKIO_MESSAGE_TTS:
         return decode_tts(&parser, root, message);
     case AINEKIO_MESSAGE_CAMERA:

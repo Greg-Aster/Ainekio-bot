@@ -90,6 +90,12 @@ class EnergyVad:
         self.is_open = False
         self._hangover = 0
 
+    def reset(self) -> bool:
+        was_open = self.is_open
+        self.is_open = False
+        self._hangover = 0
+        return was_open
+
     def process(self, payload: bytes) -> str | None:
         if len(payload) != AUDIO_FRAME_BYTES:
             raise ValueError("microphone frame must contain exactly 640 bytes")

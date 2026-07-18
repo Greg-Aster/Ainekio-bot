@@ -1,7 +1,18 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Mapping
+
+from protocol.control_v1 import (
+    MOTION_PLAN_JOINT_MAP,
+    MOTION_PLAN_MAX_CENTIDEGREES,
+    MOTION_PLAN_MAX_FRAMES,
+    MOTION_PLAN_MAX_FRAME_MS,
+    MOTION_PLAN_MAX_TOTAL_MS,
+    MOTION_PLAN_MIN_FRAME_MS,
+)
+from protocol.joints_v1 import JOINT_LABELS
 
 
 SEED_EMOTES = frozenset(
@@ -40,7 +51,6 @@ SUPPORTED_ROBOT_COMMANDS = tuple(
     )
 )
 
-
 @dataclass(frozen=True)
 class BridgeAction:
     kind: str
@@ -50,6 +60,8 @@ class BridgeAction:
 
 def translate_environment_action(action: Mapping[str, object]) -> BridgeAction | None:
     action_type = _normalized(action.get("type"))
+    if action_type == "captureimage":
+        return BridgeAction("snapshot", "captureImage")
     if action_type == "sendtext":
         text = action.get("text")
         if not isinstance(text, str) or not text.strip():
@@ -59,6 +71,8 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         return BridgeAction("stop")
     if action_type == "move":
         return _translate_move(action)
+    if action_type == "robotmotionplan":
+        return _translate_motion_plan(action)
     if action_type != "robotcommand":
         return None
 
@@ -96,6 +110,70 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
     if command in SEED_EMOTES:
         return BridgeAction("intent", "emote", {"asset": command})
     return None
+
+
+def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
+    raw_frames = action.get("frames")
+    if not isinstance(raw_frames, list) or not 1 <= len(raw_frames) <= MOTION_PLAN_MAX_FRAMES:
+        return None
+    frames: list[object] = []
+    total_duration_ms = 0
+    label_to_id = {label: joint_id for joint_id, label in enumerate(JOINT_LABELS)}
+    for raw_frame in raw_frames:
+        if not isinstance(raw_frame, Mapping):
+            return None
+        duration_ms = raw_frame.get("durationMs")
+        targets = raw_frame.get("targets")
+        if (
+            type(duration_ms) is not int
+            or not MOTION_PLAN_MIN_FRAME_MS <= duration_ms <= MOTION_PLAN_MAX_FRAME_MS
+            or not isinstance(targets, list)
+            or len(targets) != len(JOINT_LABELS)
+        ):
+            return None
+        total_duration_ms += duration_ms
+        if total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
+            return None
+        compact_targets: list[int | None] = [None] * len(JOINT_LABELS)
+        for target in targets:
+            if not isinstance(target, Mapping):
+                return None
+            joint = target.get("joint")
+            degrees = target.get("degrees")
+            if (
+                not isinstance(joint, str)
+                or joint not in label_to_id
+                or type(degrees) not in {int, float}
+                or not math.isfinite(float(degrees))
+            ):
+                return None
+            joint_id = label_to_id[joint]
+            if compact_targets[joint_id] is not None:
+                return None
+            scaled = float(degrees) * 100.0
+            centidegrees = round(scaled)
+            if (
+                abs(scaled - centidegrees) > 1e-6
+                or not 0 <= centidegrees <= MOTION_PLAN_MAX_CENTIDEGREES
+            ):
+                return None
+            compact_targets[joint_id] = centidegrees
+        if any(target is None for target in compact_targets):
+            return None
+        frames.append([duration_ms, compact_targets])
+
+    end = action.get("endPose", "hold")
+    if end not in {"hold", "stand", "neutral"}:
+        return None
+    return BridgeAction(
+        "motion_plan",
+        "freestyle",
+        {
+            "map": MOTION_PLAN_JOINT_MAP,
+            "frames": frames,
+            "end": end,
+        },
+    )
 
 
 def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:

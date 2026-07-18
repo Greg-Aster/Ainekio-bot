@@ -19,7 +19,16 @@ from protocol.binary_helpers import (
     decode_binary_frame,
     encode_binary_frame,
 )
-from protocol.control_v1 import PROTOCOL_VERSION, VALIDATORS
+from protocol.control_v1 import (
+    MAX_SEQUENCE,
+    MOTION_PLAN_JOINTS,
+    MOTION_PLAN_MAX_CENTIDEGREES,
+    MOTION_PLAN_MAX_FRAMES,
+    MOTION_PLAN_JOINT_MAP,
+    PROTOCOL_VERSION,
+    VALIDATORS,
+    validate_control_message,
+)
 
 
 SOFTWARE_ROOT = Path(__file__).resolve().parents[2]
@@ -147,6 +156,20 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
             servo_ids = [target[0] for target in instance["servos"]]
             if len(servo_ids) != len(set(servo_ids)):
                 raise SchemaMismatch("duplicate servo id")
+        elif rule == "unique-items":
+            if not isinstance(instance, list) or len(instance) != len(set(instance)):
+                raise SchemaMismatch("duplicate array item")
+        elif rule == "motion-plan-total-duration":
+            if not isinstance(instance, dict):
+                raise SchemaMismatch("motion plan is not an object")
+            frames = instance.get("frames")
+            if not isinstance(frames, list) or any(
+                not isinstance(frame, list) or not frame or type(frame[0]) is not int
+                for frame in frames
+            ):
+                raise SchemaMismatch("motion plan frame duration is malformed")
+            if sum(frame[0] for frame in frames) > 10000:
+                raise SchemaMismatch("motion plan duration exceeds limit")
         else:
             raise SchemaMismatch(f"unknown semantic rule: {rule}")
 
@@ -186,6 +209,21 @@ class ControlSchemaTests(unittest.TestCase):
             if isinstance(case["message"], dict) and case["message"].get("t") in VALIDATORS
         }
         self.assertEqual(covered, set(VALIDATORS))
+
+    def test_maximum_frame_count_motion_plan_fits_control_limit(self) -> None:
+        message = {
+            "t": "motion_plan",
+            "seq": MAX_SEQUENCE,
+            "map": MOTION_PLAN_JOINT_MAP,
+            "frames": [
+                [312, [MOTION_PLAN_MAX_CENTIDEGREES] * MOTION_PLAN_JOINTS]
+                for _ in range(MOTION_PLAN_MAX_FRAMES)
+            ],
+            "end": "neutral",
+        }
+        validate_control_message(message)
+        encoded = json.dumps(message, separators=(",", ":")).encode("utf-8")
+        self.assertLessEqual(len(encoded), 4096)
 
 
 class BinaryContractTests(unittest.TestCase):

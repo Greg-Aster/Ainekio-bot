@@ -10,7 +10,11 @@ from typing import Any
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from protocol.control_v1 import PROTOCOL_VERSION, validate_control_message
+from protocol.control_v1 import (
+    MOTION_PLAN_FEATURE,
+    PROTOCOL_VERSION,
+    validate_control_message,
+)
 
 from .session import BodySession
 from emulator.faults import EmulatorFaultController
@@ -85,6 +89,7 @@ class ProtocolV1BodyClient:
                     "fw": self._config.firmware_version,
                     "id": self._config.robot_id,
                     "auth": self._config.auth_token,
+                    "features": [MOTION_PLAN_FEATURE],
                 }
             )
             welcome = await _receive_control(websocket)

@@ -8,8 +8,9 @@ static bool command_is_calibration_only(ainekio_command_kind_t kind)
 
 static bool command_is_movement(const ainekio_command_t *command)
 {
-    return command->kind == AINEKIO_COMMAND_INTENT &&
-           ainekio_intent_is_movement(command->data.intent.kind);
+    return command->kind == AINEKIO_COMMAND_MOTION_PLAN ||
+           (command->kind == AINEKIO_COMMAND_INTENT &&
+            ainekio_intent_is_movement(command->data.intent.kind));
 }
 
 static ainekio_decision_t rejected(ainekio_reject_reason_t reason)
@@ -102,7 +103,9 @@ ainekio_reject_reason_t ainekio_core_claim_sequence(ainekio_core_t *core, uint32
 
 ainekio_lifecycle_t ainekio_command_lifecycle(const ainekio_command_t *command)
 {
-    if (command->kind == AINEKIO_COMMAND_INTENT || command->kind == AINEKIO_COMMAND_SNAPSHOT) {
+    if (command->kind == AINEKIO_COMMAND_INTENT ||
+        command->kind == AINEKIO_COMMAND_MOTION_PLAN ||
+        command->kind == AINEKIO_COMMAND_SNAPSHOT) {
         return AINEKIO_LIFECYCLE_ACK_THEN_DONE;
     }
     if (command->kind == AINEKIO_COMMAND_TTS && command->data.tts_operation == AINEKIO_TTS_START) {
@@ -145,8 +148,11 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
     if (is_powered_motion && !core->boot_ready) {
         return rejected(AINEKIO_REJECT_BUSY);
     }
+    const bool is_neutral_intent =
+        command->kind == AINEKIO_COMMAND_INTENT &&
+        command->data.intent.kind == AINEKIO_INTENT_NEUTRAL;
     if (is_movement && core->power_guard != AINEKIO_POWER_NORMAL &&
-        command->data.intent.kind != AINEKIO_INTENT_NEUTRAL) {
+        !is_neutral_intent) {
         return rejected(AINEKIO_REJECT_UNSAFE);
     }
     if (core->profile == AINEKIO_PROFILE_TETHER &&
@@ -178,6 +184,7 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
             core->servos_attached = false;
         }
     } else if (command->kind == AINEKIO_COMMAND_INTENT ||
+               command->kind == AINEKIO_COMMAND_MOTION_PLAN ||
                command->kind == AINEKIO_COMMAND_SNAPSHOT) {
         ainekio_core_set_state(core, AINEKIO_STATE_ACTIVE);
     }

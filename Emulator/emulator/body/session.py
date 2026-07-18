@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import math
+from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
 from time import monotonic
 from typing import Protocol
@@ -50,6 +51,7 @@ _BODY_COMMAND_TYPES = frozenset(
     {
         "intent",
         "stop",
+        "motion_plan",
         "tts",
         "cam",
         "snap",
@@ -91,6 +93,8 @@ _ACTIVE_IDLE_SECONDS = 60.0
 _SPEAKER_QUEUE_DEPTH = 25
 _CALIBRATION_APPLY_INTERVAL_SECONDS = 0.05
 _BATTERY_WAKE_SECONDS = 30 * 60
+_MICROPHONE_PRE_ROLL_FRAMES = 5
+_MICROPHONE_COOLDOWN_SECONDS = 0.8
 
 
 class MotionBackend(Protocol):
@@ -148,7 +152,7 @@ class BodySession:
         self._active_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self._camera_settings: dict[str, object] = {"on": False, "fps": 0, "res": "QVGA"}
-        self._microphone_settings: dict[str, object] = {"on": False, "gate": "vad"}
+        self._microphone_settings: dict[str, object] = {"on": True, "gate": "vad"}
         self._wake_settings: dict[str, object] = {
             "enabled": False,
             "model": "ainekio",
@@ -175,6 +179,10 @@ class BodySession:
         self._microphone_drops = 0
         self._next_camera_at = self._clock()
         self._next_microphone_at = self._clock()
+        self._microphone_resume_at = self._clock()
+        self._microphone_pre_roll: deque[bytes] = deque(
+            maxlen=_MICROPHONE_PRE_ROLL_FRAMES
+        )
         self._calibration_last_apply: dict[tuple[str, int], float] = {}
         self._calibration_pending: dict[tuple[str, int], dict[str, object]] = {}
 
@@ -206,6 +214,9 @@ class BodySession:
         self._last_intent_activity = self._clock()
         self._next_camera_at = self._clock()
         self._next_microphone_at = self._clock()
+        self._microphone_resume_at = self._clock()
+        self._microphone_pre_roll.clear()
+        self._vad.reset()
         self._calibration_last_apply.clear()
         self._calibration_pending.clear()
         self._display_state = None
@@ -264,6 +275,10 @@ class BodySession:
             await self._handle_snapshot(message, emit, emit_binary)
             return
 
+        if message_type == "motion_plan":
+            await self._handle_motion_plan(message, emit)
+            return
+
         if message_type == "intent" and message.get("name") in _SUPPORTED_MOVEMENT:
             await self._handle_movement(message, emit)
             return
@@ -314,6 +329,7 @@ class BodySession:
             self._tts_start_sequence = None
             await emit({"t": "event", "name": "tts_overflow"})
             await self._reset_speaker(restart=True)
+            self._resume_microphone_after_speaker()
             await emit({"t": "cancelled", "seq": start_sequence, "code": "overflow"})
             return
 
@@ -352,6 +368,7 @@ class BodySession:
             self._tts_start_sequence = sequence
             self._tts_open = True
             self._tts_orphan_burst = False
+            await self._suspend_microphone_for_speaker(emit)
             await self._display.begin_tts()
             await emit({"t": "ack", "seq": sequence})
             return
@@ -368,6 +385,7 @@ class BodySession:
         if start_sequence is not None:
             await emit({"t": "done", "seq": start_sequence})
         await self._display.end_tts()
+        self._resume_microphone_after_speaker()
 
     async def _handle_control(
         self,
@@ -609,6 +627,46 @@ class BodySession:
                 name=f"ainekio-motion-{sequence}",
             )
 
+    async def _handle_motion_plan(
+        self, message: Mapping[str, object], emit: EmitControl
+    ) -> None:
+        sequence = int(message["seq"])
+        if not self._motion_plan_within_limits(message):
+            rejection = self._core.claim_sequence(sequence)
+            if rejection == CoreRejection.NONE:
+                await emit({"t": "nak", "seq": sequence, "code": "limit"})
+            else:
+                await emit(_decision_nak(sequence, rejection))
+            return
+
+        async with self._lock:
+            busy = self._active_task is not None
+        if busy:
+            rejection = self._core.claim_sequence(sequence)
+            if rejection == CoreRejection.NONE:
+                await emit({"t": "nak", "seq": sequence, "code": "busy"})
+            else:
+                await emit(_decision_nak(sequence, rejection))
+            return
+
+        decision = self._core.accept(message)
+        if not decision.accepted:
+            await emit(_decision_nak(sequence, decision.rejection))
+            return
+
+        self._last_intent_activity = self._clock()
+        await emit({"t": "ack", "seq": sequence})
+        if decision.lifecycle != CoreLifecycle.ACK_THEN_DONE:
+            return
+
+        prepared = self._motion_plan_message(message)
+        async with self._lock:
+            self._active_sequence = sequence
+            self._active_task = asyncio.create_task(
+                self._run_movement(sequence, prepared, emit),
+                name=f"ainekio-motion-plan-{sequence}",
+            )
+
     async def _handle_stop(
         self, message: Mapping[str, object], emit: EmitControl
     ) -> None:
@@ -777,6 +835,9 @@ class BodySession:
         if (
             microphone_allowed
             and bool(self._microphone_settings["on"])
+            and self._tts_start_sequence is None
+            and self._say_task is None
+            and now >= self._microphone_resume_at
             and now >= self._next_microphone_at
         ):
             self._next_microphone_at = now + 0.020
@@ -875,10 +936,24 @@ class BodySession:
             event = self._vad.process(payload)
             if event is not None:
                 await emit({"t": "event", "name": event})
-            if gate == "open" or (gate == "vad" and self._vad.is_open):
-                self._media_budget.consume_audio(len(payload))
+            outgoing: list[bytes] = []
+            if gate == "open":
+                outgoing.append(payload)
+            elif gate == "vad" and self._vad.is_open:
+                if event == "vad_open":
+                    outgoing.extend(self._microphone_pre_roll)
+                    self._microphone_pre_roll.clear()
+                outgoing.append(payload)
+            else:
+                self._microphone_pre_roll.append(payload)
+            for outgoing_payload in outgoing:
+                self._media_budget.consume_audio(len(outgoing_payload))
                 await emit_binary(
-                    encode_binary_frame(MIC_PCM_FRAME_TYPE, self._microphone_counter, payload)
+                    encode_binary_frame(
+                        MIC_PCM_FRAME_TYPE,
+                        self._microphone_counter,
+                        outgoing_payload,
+                    )
                 )
                 self._microphone_counter = (
                     self._microphone_counter + 1
@@ -966,6 +1041,7 @@ class BodySession:
             await emit(_decision_nak(sequence, decision.rejection))
             return
         self._last_intent_activity = self._clock()
+        await self._suspend_microphone_for_speaker(emit)
         await emit({"t": "ack", "seq": sequence})
         self._say_sequence = sequence
         self._say_task = asyncio.create_task(
@@ -993,6 +1069,7 @@ class BodySession:
             if self._say_sequence == sequence:
                 self._say_sequence = None
                 self._say_task = None
+                self._resume_microphone_after_speaker()
 
     def _motion_asset(self, message: Mapping[str, object]) -> MotionAsset | None:
         name = str(message["name"])
@@ -1025,6 +1102,46 @@ class BodySession:
         prepared["_joint_map_version"] = asset.joint_map_version
         return prepared
 
+    def _motion_plan_within_limits(self, message: Mapping[str, object]) -> bool:
+        frames = message.get("frames")
+        if not isinstance(frames, list):
+            return False
+        for frame in frames:
+            if not isinstance(frame, list) or len(frame) != 2:
+                return False
+            targets = frame[1]
+            if not isinstance(targets, list) or len(targets) != 8:
+                return False
+            for joint_id, centidegrees in enumerate(targets):
+                if type(centidegrees) is not int or not self._calibration_store.logical_target_within_limits(
+                    joint_id,
+                    centidegrees / 100.0,
+                ):
+                    return False
+        return True
+
+    def _motion_plan_message(
+        self, message: Mapping[str, object]
+    ) -> dict[str, object]:
+        prepared = dict(message)
+        raw_frames = message["frames"]
+        assert isinstance(raw_frames, list)
+        prepared["_motion_plan_frames"] = [
+            {
+                "duration_ms": int(frame[0]),
+                "targets": [
+                    [joint_id, int(centidegrees) / 100.0]
+                    for joint_id, centidegrees in enumerate(frame[1])
+                ],
+            }
+            for frame in raw_frames
+            if isinstance(frame, list)
+            and len(frame) == 2
+            and isinstance(frame[1], list)
+        ]
+        prepared["_joint_map_version"] = int(message["map"])
+        return prepared
+
     async def enter_failsafe(self) -> None:
         self._core.enter_failsafe()
         await self._cancel_active()
@@ -1044,6 +1161,8 @@ class BodySession:
         self._tts_open = False
         await self._reset_speaker(restart=True)
         await self._display.end_tts()
+        if start_sequence is not None:
+            self._resume_microphone_after_speaker()
         if start_sequence is not None and emit is not None:
             await emit({"t": "cancelled", "seq": start_sequence, "code": code})
 
@@ -1225,9 +1344,21 @@ class BodySession:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
             await self._speaker_sink.stop()
+            self._resume_microphone_after_speaker()
         if sequence is not None and emit is not None:
             await emit({"t": "cancelled", "seq": sequence, "code": code})
         return sequence
+
+    async def _suspend_microphone_for_speaker(self, emit: EmitControl) -> None:
+        self._microphone_resume_at = float("inf")
+        self._microphone_pre_roll.clear()
+        if self._vad.reset():
+            await emit({"t": "event", "name": "vad_close"})
+
+    def _resume_microphone_after_speaker(self) -> None:
+        self._microphone_resume_at = self._clock() + _MICROPHONE_COOLDOWN_SECONDS
+        self._next_microphone_at = self._microphone_resume_at
+        self._microphone_pre_roll.clear()
 
 
 def _decision_nak(sequence: int, rejection: CoreRejection) -> dict[str, object]:

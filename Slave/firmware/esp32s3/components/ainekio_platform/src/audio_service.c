@@ -21,6 +21,8 @@
 #define VAD_THRESHOLD 900U
 #define VAD_HANGOVER_FRAMES 10U
 #define WAKE_SPEECH_HANGOVER_FRAMES 35U
+#define MICROPHONE_PRE_ROLL_FRAMES 5U
+#define MICROPHONE_COOLDOWN_FRAMES 40U
 
 typedef enum {
     SPEAKER_PCM = 0,
@@ -45,6 +47,7 @@ struct ainekio_audio_service {
     uint8_t speaker_queue_storage[SPEAKER_QUEUE_LENGTH * sizeof(speaker_item_t)];
     int32_t bus_buffer[AUDIO_BUS_WORDS];
     uint8_t mic_payload[AINEKIO_AUDIO_PAYLOAD_BYTES];
+    uint8_t mic_pre_roll[MICROPHONE_PRE_ROLL_FRAMES][AINEKIO_AUDIO_PAYLOAD_BYTES];
     int16_t mic_samples[AINEKIO_AUDIO_PAYLOAD_BYTES / 2U];
     char asset_path[96];
     uint32_t tts_sequence;
@@ -53,6 +56,9 @@ struct ainekio_audio_service {
     uint32_t speaker_underruns;
     uint32_t microphone_drops;
     uint8_t speaker_frames_queued;
+    uint8_t mic_pre_roll_count;
+    uint8_t mic_pre_roll_next;
+    uint8_t microphone_cooldown_frames;
     ainekio_microphone_gate_t microphone_gate;
     uint8_t vad_hangover;
     bool tts_open;
@@ -62,6 +68,7 @@ struct ainekio_audio_service {
     bool vad_open;
     bool wake_latched;
     bool microphone_reset_pending;
+    bool speaker_was_active;
     bool orphan_reported;
 };
 
@@ -112,6 +119,48 @@ static uint32_t mic_energy(const uint8_t payload[AINEKIO_AUDIO_PAYLOAD_BYTES])
     return sum / (AINEKIO_AUDIO_PAYLOAD_BYTES / 2U);
 }
 
+static void clear_microphone_pre_roll(ainekio_audio_service_t *service)
+{
+    service->mic_pre_roll_count = 0U;
+    service->mic_pre_roll_next = 0U;
+}
+
+static void remember_microphone_pre_roll(ainekio_audio_service_t *service)
+{
+    memcpy(
+        service->mic_pre_roll[service->mic_pre_roll_next],
+        service->mic_payload,
+        AINEKIO_AUDIO_PAYLOAD_BYTES
+    );
+    service->mic_pre_roll_next =
+        (uint8_t)((service->mic_pre_roll_next + 1U) % MICROPHONE_PRE_ROLL_FRAMES);
+    if (service->mic_pre_roll_count < MICROPHONE_PRE_ROLL_FRAMES) {
+        ++service->mic_pre_roll_count;
+    }
+}
+
+static void emit_microphone_pre_roll(ainekio_audio_service_t *service)
+{
+    if (service->callbacks.microphone == NULL) {
+        clear_microphone_pre_roll(service);
+        return;
+    }
+    const uint8_t oldest = (uint8_t)(
+        (service->mic_pre_roll_next + MICROPHONE_PRE_ROLL_FRAMES -
+         service->mic_pre_roll_count) %
+        MICROPHONE_PRE_ROLL_FRAMES
+    );
+    for (uint8_t offset = 0U; offset < service->mic_pre_roll_count; ++offset) {
+        const uint8_t index =
+            (uint8_t)((oldest + offset) % MICROPHONE_PRE_ROLL_FRAMES);
+        service->callbacks.microphone(
+            service->callbacks.context,
+            service->mic_pre_roll[index]
+        );
+    }
+    clear_microphone_pre_roll(service);
+}
+
 static void read_microphone(ainekio_audio_service_t *service)
 {
     size_t bytes = 0U;
@@ -140,11 +189,13 @@ static void read_microphone(ainekio_audio_service_t *service)
 
     bool enabled = false;
     bool reset_pending = false;
+    bool speaker_active = false;
     ainekio_microphone_gate_t gate = AINEKIO_MIC_GATE_VAD;
     taskENTER_CRITICAL(&service->state_lock);
     enabled = service->microphone_enabled;
     gate = service->microphone_gate;
     reset_pending = service->microphone_reset_pending;
+    speaker_active = service->tts_open || service->asset_active;
     service->microphone_reset_pending = false;
     taskEXIT_CRITICAL(&service->state_lock);
     if (reset_pending) {
@@ -154,9 +205,35 @@ static void read_microphone(ainekio_audio_service_t *service)
         service->vad_hangover = 0U;
         service->vad_open = false;
         service->wake_latched = false;
+        service->microphone_cooldown_frames = 0U;
+        clear_microphone_pre_roll(service);
         ainekio_wake_word_reset(service->wake_word);
     }
     if (!enabled) {
+        service->speaker_was_active = speaker_active;
+        clear_microphone_pre_roll(service);
+        return;
+    }
+    if (speaker_active) {
+        if (service->vad_open && service->callbacks.gate != NULL) {
+            service->callbacks.gate(service->callbacks.context, false, false);
+        }
+        service->vad_hangover = 0U;
+        service->vad_open = false;
+        service->wake_latched = false;
+        service->speaker_was_active = true;
+        service->microphone_cooldown_frames = MICROPHONE_COOLDOWN_FRAMES;
+        clear_microphone_pre_roll(service);
+        ainekio_wake_word_reset(service->wake_word);
+        return;
+    }
+    if (service->speaker_was_active) {
+        service->speaker_was_active = false;
+        service->microphone_cooldown_frames = MICROPHONE_COOLDOWN_FRAMES;
+    }
+    if (service->microphone_cooldown_frames > 0U) {
+        --service->microphone_cooldown_frames;
+        clear_microphone_pre_roll(service);
         return;
     }
     const bool voice = mic_energy(service->mic_payload) >= VAD_THRESHOLD;
@@ -189,6 +266,7 @@ static void read_microphone(ainekio_audio_service_t *service)
                            (gate == AINEKIO_MIC_GATE_WAKE &&
                             service->wake_latched &&
                             (wake_word || voice || service->vad_hangover > 0U));
+    const bool opening = gate_open && !service->vad_open;
     if (gate_open != service->vad_open) {
         service->vad_open = gate_open;
         if (service->callbacks.gate != NULL) {
@@ -200,10 +278,15 @@ static void read_microphone(ainekio_audio_service_t *service)
         }
     }
     if (gate_open && service->callbacks.microphone != NULL) {
+        if (opening) {
+            emit_microphone_pre_roll(service);
+        }
         service->callbacks.microphone(
             service->callbacks.context,
             service->mic_payload
         );
+    } else if (!gate_open) {
+        remember_microphone_pre_roll(service);
     }
     if (gate == AINEKIO_MIC_GATE_WAKE && service->wake_latched && !gate_open) {
         service->wake_latched = false;

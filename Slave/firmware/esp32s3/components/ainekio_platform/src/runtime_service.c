@@ -2297,6 +2297,8 @@ esp_err_t ainekio_runtime_start(
     runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
     runtime->wake_enabled = dependencies->wake_enabled;
     runtime->wake_ready = false;
+    runtime->microphone_enabled = true;
+    runtime->microphone_gate = AINEKIO_MIC_GATE_VAD;
     (void)strcpy(runtime->wake_model, dependencies->wake_model);
     runtime->display_state = UINT8_MAX;
     runtime->state_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
@@ -2424,6 +2426,11 @@ esp_err_t ainekio_runtime_start(
         runtime->audio = NULL;
         ESP_LOGW(TAG, "audio service unavailable: %s", esp_err_to_name(audio_result));
     }
+    ainekio_audio_set_microphone(
+        runtime->audio,
+        runtime->microphone_enabled,
+        runtime->microphone_gate
+    );
     runtime->wake_ready = ainekio_audio_wake_ready(runtime->audio);
     *runtime_output = runtime;
     return ESP_OK;

@@ -1,7 +1,7 @@
 # Ainekio and MetaHuman Closed-Loop Status
 
 Status: implemented software foundation
-Updated: 2026-07-14
+Updated: 2026-07-17
 
 ## Current Path
 
@@ -19,6 +19,18 @@ MetaHuman Environment Mode
   -> MetaHuman Environment Mode
 ```
 
+The microphone return path uses the same connection:
+
+```text
+Robot 20 ms PCM frames
+  -> Ainekio VAD-bounded utterance assembly
+  -> bounded WAV audio.utterance message
+  -> MetaHuman Environment Bridge
+  -> Whisper speech-to-text
+  -> generic text observation
+  -> MetaHuman Environment Mode
+```
+
 MetaHuman owns the connection agent and cognition. Ainekio owns device-specific
 translation, protocol-v1 correlation, media bounds, and robot safety. Ainekio
 does not contain a MetaHuman URL or make MetaHuman API calls.
@@ -28,6 +40,17 @@ does not contain a MetaHuman URL or make MetaHuman API calls.
 - The MetaHuman Environment Bridge is a real PID-tracked agent with Start, Stop,
   Restart, Run On Boot, Adapter URL, and Graph controls.
 - The agent and Ainekio gateway use one authenticated full-duplex WebSocket.
+- Ainekio groups 16 kHz mono signed-16 PCM frames between `vad_open` and
+  `vad_close`, preserves wake and frame-gap metadata, inserts silence for
+  missing counters, and caps an utterance at 15 seconds.
+- The gateway sends one validated WAV utterance to the Environment Bridge. The
+  bridge uses MetaHuman's public Whisper service and emits one ordinary text
+  observation with robot, utterance, timing, wake, gap, and truncation metadata.
+- The transcription queue and binary envelope are bounded. Raw 20 ms PCM frames
+  are not sent independently to Whisper or Environment Mode.
+- Firmware and emulator capture 100 ms of microphone pre-roll. Microphone
+  forwarding is suspended while robot speech plays and rearms after an 800 ms
+  cooldown, preventing the robot from immediately transcribing its own voice.
 - Actions remain semantic. Raw servo-like model output is rejected.
 - Robot terminal lifecycle is returned as environment feedback.
 - The action-result call settles the command task but does not own feedback
@@ -79,8 +102,12 @@ configuration and are not committed.
 
 - Physical camera, microphone, speaker, servo, display, SD, and sensor behavior
   still require hardware validation when the ESP32-S3 board arrives.
-- Robot PCM utterance assembly and Whisper routing are not connected yet.
-- Wake-word detection is not implemented.
+- Physical microphone capture and acoustic behavior still need board-level
+  validation. The current emulator was launched without an ALSA capture device.
+- The local microWakeWord engine is implemented, but no accepted production
+  Ainekio model is installed; wake therefore remains intentionally not ready.
+- Full acoustic echo cancellation is not implemented. The current policy is
+  deliberate half-duplex microphone suspension plus cooldown.
 - Continuous video is intentionally not sent to the model; the current loop uses
   correlated still images.
 - GPS and additional sensor drivers are future work, although generic state and

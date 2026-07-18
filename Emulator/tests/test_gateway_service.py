@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import struct
 import unittest
+import wave
 from collections.abc import Mapping
 from time import monotonic
 
@@ -69,6 +71,49 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sequence, 1)
             self.assertEqual(terminal, {"t": "done", "seq": 1})
             self.assertEqual(service.terminals[-1]["epoch"], 1)
+
+            await service.revoke_token("ainekio-test-01")
+            await client_task
+
+        core.close()
+
+    async def test_gateway_motion_plan_requires_feature_and_tracks_done(self) -> None:
+        service = GatewayService(
+            GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
+        )
+        core = PortableCore(self.library_path)
+        session = BodySession(core, ImmediateMotionBackend())
+
+        async with websockets.serve(
+            service.handler,
+            "127.0.0.1",
+            0,
+            ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            client = ProtocolV1BodyClient(
+                BodyClientConfig(
+                    endpoint=f"ws://127.0.0.1:{port}/robot",
+                    robot_id="ainekio-test-01",
+                    auth_token="test-token",
+                ),
+                session,
+            )
+            client_task = asyncio.create_task(client.run_once())
+            await service.wait_connected("ainekio-test-01")
+
+            self.assertEqual(
+                service.status()["robots"]["ainekio-test-01"]["features"],
+                ["motion_plan_v1"],
+            )
+            sequence = await service.queue_motion_plan(
+                [[300, [9000] * 8]],
+                end="hold",
+            )
+            self.assertEqual(
+                await service.wait_terminal(sequence),
+                {"t": "done", "seq": sequence},
+            )
 
             await service.revoke_token("ainekio-test-01")
             await client_task
@@ -322,9 +367,16 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             transcript_ready.set()
 
         service.subscribe_transcripts(receive_transcript)
-        AudioTranscriptPlugin(service, lambda _payload: "fixture transcript")
+        transcribed_audio: list[bytes] = []
+
+        def transcribe(payload: bytes) -> str:
+            transcribed_audio.append(payload)
+            return "fixture transcript"
+
+        AudioTranscriptPlugin(service, transcribe)
         microphone = QueueMicrophoneSource(
             [struct.pack("<320h", *([1200] * 320))]
+            + [bytes(640) for _ in range(6)]
         )
         core = PortableCore(self.library_path)
         session = BodySession(
@@ -355,7 +407,14 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(transcript_ready.wait(), timeout=2.0)
 
             self.assertEqual(transcripts[0]["text"], "fixture transcript")
-            self.assertEqual(transcripts[0]["counter"], 0)
+            self.assertEqual(transcripts[0]["first_counter"], 0)
+            self.assertEqual(transcripts[0]["last_counter"], 5)
+            self.assertEqual(transcripts[0]["duration_ms"], 120)
+            with wave.open(io.BytesIO(transcribed_audio[0]), "rb") as wav:
+                self.assertEqual(wav.getnchannels(), 1)
+                self.assertEqual(wav.getsampwidth(), 2)
+                self.assertEqual(wav.getframerate(), 16000)
+                self.assertEqual(wav.getnframes(), 1920)
             await service.revoke_token("ainekio-test-01")
             await client_task
         core.close()

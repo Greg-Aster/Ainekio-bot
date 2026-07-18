@@ -29,18 +29,19 @@ class CoreLifecycle(IntEnum):
 class _CommandKind(IntEnum):
     INTENT = 0
     STOP = 1
-    TTS = 2
-    CAMERA = 3
-    SNAPSHOT = 4
-    MICROPHONE = 5
-    WAKE_CONFIG = 6
-    PROFILE = 7
-    STATE = 8
-    MODE = 9
-    SERVO = 10
-    LIMITS = 11
-    POSE_SAVE = 12
-    CALIBRATION_SAVE = 13
+    MOTION_PLAN = 2
+    TTS = 3
+    CAMERA = 4
+    SNAPSHOT = 5
+    MICROPHONE = 6
+    WAKE_CONFIG = 7
+    PROFILE = 8
+    STATE = 9
+    MODE = 10
+    SERVO = 11
+    LIMITS = 12
+    POSE_SAVE = 13
+    CALIBRATION_SAVE = 14
 
 
 @dataclass(frozen=True)
@@ -236,6 +237,8 @@ def _normalize_command(message: Mapping[str, object]) -> tuple[_CommandKind, int
         return _CommandKind.INTENT, _INTENTS[str(message["name"])]
     if message_type == "stop":
         return _CommandKind.STOP, 0
+    if message_type == "motion_plan":
+        return _CommandKind.MOTION_PLAN, 0
     if message_type == "tts":
         return _CommandKind.TTS, _TTS_OPERATIONS[str(message["op"])]
     if message_type == "cam":

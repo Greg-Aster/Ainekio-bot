@@ -12,6 +12,11 @@
 #define AINEKIO_SERVO_COUNT 8U
 #define AINEKIO_MAX_SEQUENCE 0x7FFFFFFFU
 #define AINEKIO_JOINT_MAP_VERSION 1U
+#define AINEKIO_MOTION_PLAN_MAX_FRAMES 32U
+#define AINEKIO_MOTION_PLAN_MIN_FRAME_MS 100U
+#define AINEKIO_MOTION_PLAN_MAX_FRAME_MS 5000U
+#define AINEKIO_MOTION_PLAN_MAX_TOTAL_MS 10000U
+#define AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES 18000U
 
 typedef enum {
     AINEKIO_JOINT_R1 = 0,
@@ -27,6 +32,7 @@ typedef enum {
 typedef enum {
     AINEKIO_COMMAND_INTENT = 0,
     AINEKIO_COMMAND_STOP,
+    AINEKIO_COMMAND_MOTION_PLAN,
     AINEKIO_COMMAND_TTS,
     AINEKIO_COMMAND_CAMERA,
     AINEKIO_COMMAND_SNAPSHOT,
@@ -105,6 +111,25 @@ typedef struct {
     float degrees;
 } ainekio_servo_target_t;
 
+typedef enum {
+    AINEKIO_MOTION_PLAN_END_HOLD = 0,
+    AINEKIO_MOTION_PLAN_END_STAND,
+    AINEKIO_MOTION_PLAN_END_NEUTRAL,
+} ainekio_motion_plan_end_t;
+
+typedef struct {
+    uint16_t duration_ms;
+    uint16_t targets[AINEKIO_SERVO_COUNT];
+} ainekio_motion_plan_frame_t;
+
+typedef struct {
+    uint8_t joint_map_version;
+    uint8_t frame_count;
+    uint16_t total_duration_ms;
+    ainekio_motion_plan_end_t end;
+    ainekio_motion_plan_frame_t frames[AINEKIO_MOTION_PLAN_MAX_FRAMES];
+} ainekio_motion_plan_t;
+
 typedef struct {
     ainekio_intent_kind_t kind;
     union {
@@ -126,6 +151,7 @@ typedef struct {
     ainekio_command_kind_t kind;
     union {
         ainekio_intent_t intent;
+        ainekio_motion_plan_t motion_plan;
         ainekio_tts_operation_t tts_operation;
         struct {
             bool enabled;
