@@ -123,6 +123,90 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.session.active_sequence)
         self.assertEqual(self.backend.messages[-1], {"t": "stop", "seq": 2})
 
+    async def test_motion_plan_acks_executes_frames_and_completes(self) -> None:
+        self.backend.release.set()
+        plan = {
+            "t": "motion_plan",
+            "seq": 1,
+            "map": 1,
+            "frames": [
+                [300, [9500, 8500, 9000, 9000, 8000, 10000, 9000, 9000]],
+                [400, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]],
+            ],
+            "end": "hold",
+        }
+
+        await self.session.handle(plan, self.emit)
+        await self.session.wait_until_idle()
+
+        self.assertEqual(
+            self.messages,
+            [{"t": "ack", "seq": 1}, {"t": "done", "seq": 1}],
+        )
+        rendered = self.backend.messages[0]
+        self.assertEqual(rendered["t"], "motion_plan")
+        self.assertEqual(rendered["_joint_map_version"], 1)
+        self.assertEqual(len(rendered["_motion_plan_frames"]), 2)
+        self.assertEqual(
+            rendered["_motion_plan_frames"][0]["targets"][0],
+            [0, 95.0],
+        )
+
+    async def test_motion_plan_limit_rejection_causes_zero_movement(self) -> None:
+        await self.session.handle(
+            {"t": "mode", "seq": 1, "name": "calibrate"},
+            self.emit,
+        )
+        await self.session.handle(
+            {
+                "t": "limits",
+                "seq": 2,
+                "id": 0,
+                "min": 80.0,
+                "max": 100.0,
+                "center": 90.0,
+                "invert": False,
+            },
+            self.emit,
+        )
+        await self.session.handle(
+            {
+                "t": "motion_plan",
+                "seq": 3,
+                "map": 1,
+                "frames": [[300, [18000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]],
+                "end": "hold",
+            },
+            self.emit,
+        )
+
+        self.assertEqual(self.messages[-1], {"t": "nak", "seq": 3, "code": "limit"})
+        self.assertEqual(self.backend.messages, [])
+
+    async def test_stop_cancels_active_motion_plan(self) -> None:
+        await self.session.handle(
+            {
+                "t": "motion_plan",
+                "seq": 1,
+                "map": 1,
+                "frames": [[1000, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]],
+                "end": "hold",
+            },
+            self.emit,
+        )
+        await self.backend.started.wait()
+        await self.session.handle({"t": "stop", "seq": 2}, self.emit)
+
+        self.assertEqual(
+            self.messages,
+            [
+                {"t": "ack", "seq": 1},
+                {"t": "ack", "seq": 2},
+                {"t": "cancelled", "seq": 1, "code": "stop"},
+            ],
+        )
+        self.assertFalse(self.core.servos_attached)
+
     async def test_renderer_failure_never_reports_done(self) -> None:
         self.backend.failure = RuntimeError("renderer unavailable")
 
@@ -308,11 +392,15 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.messages[6]["state"], "deep-sleep")
         self.assertEqual(self.messages[7], {"t": "done", "seq": 5})
         self.assertEqual(self.session.camera_settings, {"on": True, "fps": 5, "res": "VGA"})
-        self.assertEqual(self.session.microphone_settings, {"on": False, "gate": "vad"})
+        self.assertEqual(self.session.microphone_settings, {"on": True, "gate": "vad"})
         self.assertEqual(self.session.profile, "tether")
         self.assertEqual(self.session.sleep_seconds, 60)
 
     async def test_wake_configuration_is_off_by_default_and_rejects_unready_model(self) -> None:
+        self.assertEqual(
+            self.session.microphone_settings,
+            {"on": True, "gate": "vad"},
+        )
         self.assertEqual(
             self.session.wake_settings,
             {"enabled": False, "model": "ainekio", "ready": False},

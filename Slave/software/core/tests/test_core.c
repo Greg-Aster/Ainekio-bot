@@ -214,6 +214,32 @@ static void test_tether_profile_rejects_continuous_camera_and_open_microphone(vo
     assert(ainekio_core_accept(&core, &microphone).accepted);
 }
 
+static void test_motion_plan_uses_normal_movement_safety_and_lifecycle(void)
+{
+    ainekio_core_t core;
+    ainekio_core_init(&core);
+
+    ainekio_command_t plan = {
+        .sequence = 1U,
+        .kind = AINEKIO_COMMAND_MOTION_PLAN,
+    };
+    plan.data.motion_plan.joint_map_version = AINEKIO_JOINT_MAP_VERSION;
+    plan.data.motion_plan.frame_count = 1U;
+    plan.data.motion_plan.total_duration_ms = 300U;
+    plan.data.motion_plan.frames[0].duration_ms = 300U;
+
+    assert(ainekio_core_accept(&core, &plan).rejection == AINEKIO_REJECT_BUSY);
+    ainekio_core_set_boot_ready(&core, true);
+    plan.sequence = 2U;
+    assert(ainekio_core_accept(&core, &plan).accepted);
+    assert(core.servos_attached);
+    assert(ainekio_command_lifecycle(&plan) == AINEKIO_LIFECYCLE_ACK_THEN_DONE);
+
+    ainekio_core_set_power_guard(&core, AINEKIO_POWER_MOVE_LOCKED);
+    plan.sequence = 3U;
+    assert(ainekio_core_accept(&core, &plan).rejection == AINEKIO_REJECT_UNSAFE);
+}
+
 int main(void)
 {
     test_initial_state_is_safe();
@@ -225,6 +251,7 @@ int main(void)
     test_calibration_gate_and_lifecycle();
     test_sequence_can_be_claimed_without_executing_a_command();
     test_tether_profile_rejects_continuous_camera_and_open_microphone();
+    test_motion_plan_uses_normal_movement_safety_and_lifecycle();
     puts("ainekio core tests passed");
     return 0;
 }

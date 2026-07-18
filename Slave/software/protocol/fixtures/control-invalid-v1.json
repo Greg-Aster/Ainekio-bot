@@ -6,6 +6,11 @@
       "message": {"t": "hello", "ver": 2, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN"},
       "reason": "range:ver"
     },
+    {
+      "name": "hello_duplicate_feature",
+      "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN", "features": ["motion_plan_v1", "motion_plan_v1"]},
+      "reason": "value:features.duplicate"
+    },
     {"name": "err_unknown_code", "message": {"t": "err", "code": "other"}, "reason": "value:code"},
     {
       "name": "welcome_bad_profile",
@@ -34,6 +39,21 @@
       "reason": "value:expr"
     },
     {"name": "stop_bad_seq", "message": {"t": "stop", "seq": 0}, "reason": "range:seq"},
+    {
+      "name": "motion_plan_wrong_target_count",
+      "message": {"t": "motion_plan", "seq": 19, "map": 1, "frames": [[300, [9000, 9000]]], "end": "hold"},
+      "reason": "range:frames.targets"
+    },
+    {
+      "name": "motion_plan_target_out_of_range",
+      "message": {"t": "motion_plan", "seq": 20, "map": 1, "frames": [[300, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 18001]]], "end": "hold"},
+      "reason": "range:frames.target"
+    },
+    {
+      "name": "motion_plan_total_duration",
+      "message": {"t": "motion_plan", "seq": 21, "map": 1, "frames": [[5000, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]], [5000, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]], [100, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]], "end": "hold"},
+      "reason": "range:frames.total_duration"
+    },
     {"name": "tts_bad_op", "message": {"t": "tts", "seq": 5, "op": "pause"}, "reason": "value:op"},
     {
       "name": "cam_fps_range",

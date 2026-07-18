@@ -120,15 +120,23 @@ Close this software gate before using physical camera, microphone, or speaker re
 
 ### Virtual hearing and speaking
 
-- [ ] Build a microphone fixture from multiple 640-byte, 16 kHz mono PCM frames with silence, speech-like energy, and explicit VAD open/close boundaries.
-- [ ] Buffer a bounded utterance before transcription. Do not invoke speech recognition independently for every 20 ms PCM frame.
-- [ ] Install the configured transcription path in production gateway startup and prove one utterance becomes one generic Environment Bridge text observation.
+- [x] Build a microphone fixture from multiple 640-byte, 16 kHz mono PCM frames with silence, speech-like energy, and explicit VAD open/close boundaries.
+- [x] Buffer a bounded utterance before transcription. Do not invoke speech recognition independently for every 20 ms PCM frame.
+- [x] Install the configured transcription path in production gateway startup and prove one utterance becomes one generic Environment Bridge text observation.
 - [ ] Define the generic outbound speech-delivery contract separately from `sendText`; conversational text acknowledgement alone does not play the robot speaker.
 - [ ] Route synthesized 16 kHz mono PCM through `GatewayService.tts_speak`, preserving start, frame, end, cancellation, and completion order.
 - [ ] Use a recording or fixture speaker sink to prove the outbound PCM stream without ALSA or physical hardware.
 - [ ] Prove camera frames, microphone frames, and speaker frames retain their bandwidth priority and drop/counter behavior under combined virtual load.
 
 **Pass:** A known virtual image reaches the image model, a bounded virtual utterance reaches MetaHuman as text, and a bounded MetaHuman speech response reaches a recording speaker sink. No physical device, Linux webcam, or ALSA device is required for this pass.
+
+**Hearing evidence (2026-07-17):** Focused gateway and bridge tests prove VAD
+grouping, missing-frame silence, bounded duration, WAV validation, one Whisper
+call, and one metadata-bearing text observation. A live 2.1-second, 16 kHz mono
+PCM fixture passed through the Ainekio binary-envelope parser and MetaHuman's
+running `base.en` Whisper server. Whisper returned `Inekio hears this test
+phrase.` The full Foundation 0 pass remains open because virtual vision and
+outbound speech delivery are separate unfinished gates.
 
 ### Local microWakeWord implementation
 
@@ -146,7 +154,8 @@ Close this software gate before using physical camera, microphone, or speaker re
 - [ ] Install the locally trained package and measure RAM, PSRAM, flash, CPU, false accepts, false rejects, camera, Wi-Fi, servo, speaker, and audio coexistence on the N16R8 board.
 - [ ] Extend robot status with an installed-model list so the gateway model selector is populated from the robot rather than a hard-coded option.
 - [ ] Define and prove an authenticated, checksummed or signed model-package install/activation/rollback path. Switching an installed model should not require application reflashing; a new phrase still requires a trained model artifact.
-- [ ] Add bounded pre-roll, maximum utterance duration, gateway utterance assembly, speaker-time microphone muting, and cooldown. The initial 700 ms speech-end hangover is implemented but still needs hardware calibration.
+- [x] Add bounded pre-roll, maximum utterance duration, gateway utterance assembly, speaker-time microphone muting, and cooldown.
+- [ ] Calibrate the 100 ms pre-roll, 15 second maximum, 700 ms speech-end hangover, and 800 ms post-speaker cooldown on physical hardware.
 
 **Current result:** The durable control plane and real microWakeWord inference engine are implemented and cross-build. No `Ainekio` weights are installed, so the checked-in image intentionally remains `wake_ready=false` and first boot remains disabled. The gateway is a controller and display surface, not the source of truth.
 

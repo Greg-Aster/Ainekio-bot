@@ -49,6 +49,35 @@ class SesameBackendTests(unittest.TestCase):
         self.assertEqual(payload["simulatorCommand"], "run rest")
         self.assertEqual(duration_ms, 400)
 
+    def test_motion_plan_uses_bounded_frames_without_named_uart_command(self) -> None:
+        payload, duration_ms = _renderer_payload(
+            {
+                "t": "motion_plan",
+                "seq": 10,
+                "map": 1,
+                "end": "hold",
+                "_joint_map_version": 1,
+                "_motion_plan_frames": [
+                    {
+                        "duration_ms": 300,
+                        "targets": [[joint_id, 90.0] for joint_id in range(8)],
+                    },
+                    {
+                        "duration_ms": 400,
+                        "targets": [[joint_id, 100.0] for joint_id in range(8)],
+                    },
+                ],
+            },
+            session_id="session-1",
+        )
+
+        self.assertEqual(payload["command"], "freestyle")
+        self.assertIsNone(payload["simulatorCommand"])
+        self.assertEqual(payload["jointMapVersion"], 1)
+        self.assertEqual(payload["endPose"], "hold")
+        self.assertEqual(len(payload["frames"]), 2)
+        self.assertEqual(duration_ms, 700)
+
 
 if __name__ == "__main__":
     unittest.main()

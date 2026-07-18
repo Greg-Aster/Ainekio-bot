@@ -3,7 +3,7 @@
   "cases": [
     {
       "name": "hello",
-      "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN"}
+      "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN", "features": ["motion_plan_v1"]}
     },
     {"name": "err_auth", "message": {"t": "err", "code": "auth"}},
     {"name": "welcome", "message": {"t": "welcome", "ver": 1, "epoch": 13, "profile": "home"}},
@@ -20,6 +20,19 @@
     {"name": "intent_face", "message": {"t": "intent", "seq": 4, "name": "face", "expr": "happy"}},
     {"name": "intent_say", "message": {"t": "intent", "seq": 5, "name": "say", "asset": "greeting_1"}},
     {"name": "stop", "message": {"t": "stop", "seq": 6}},
+    {
+      "name": "motion_plan",
+      "message": {
+        "t": "motion_plan",
+        "seq": 27,
+        "map": 1,
+        "frames": [
+          [300, [9500, 8500, 9000, 9000, 8000, 10000, 9000, 9000]],
+          [400, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]
+        ],
+        "end": "hold"
+      }
+    },
     {"name": "tts_start", "message": {"t": "tts", "seq": 7, "op": "start"}},
     {"name": "cam", "message": {"t": "cam", "seq": 8, "on": true, "fps": 5, "res": "VGA"}},
     {"name": "snap", "message": {"t": "snap", "seq": 9}},

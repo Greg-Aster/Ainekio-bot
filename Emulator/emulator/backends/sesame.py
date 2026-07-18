@@ -70,6 +70,21 @@ def _renderer_payload(
         root_motion = None
         duration_ms = 140
         intent = "stop"
+        frames: object = []
+        end_pose: object = None
+    elif message_type == "motion_plan":
+        intent = "motion_plan"
+        command = "freestyle"
+        simulator_command = None
+        units = None
+        root_motion = None
+        frames = message.get("_motion_plan_frames", [])
+        end_pose = message.get("end")
+        duration_ms = sum(
+            int(frame.get("duration_ms", 0))
+            for frame in frames
+            if isinstance(frame, dict)
+        ) if isinstance(frames, list) else 0
     elif message_type == "intent":
         intent = str(message["name"])
         if intent in _STATIONARY_COMMANDS:
@@ -97,6 +112,8 @@ def _renderer_payload(
             root_motion = None
         else:
             raise RuntimeError(f"intent {intent!r} has no Sesame renderer mapping")
+        frames = message.get("_motion_asset_frames", [])
+        end_pose = None
     else:
         raise RuntimeError("message is not a motion command")
 
@@ -110,8 +127,9 @@ def _renderer_payload(
             "simulatorCommand": simulator_command,
             "units": units,
             "rootMotion": root_motion,
-            "frames": message.get("_motion_asset_frames", []),
+            "frames": frames,
             "jointMapVersion": message.get("_joint_map_version"),
+            "endPose": end_pose,
             "protocolSequence": message["seq"],
             "protocolIntent": intent,
         },

@@ -1,6 +1,7 @@
 import json
 import threading
 import unittest
+from pathlib import Path
 from urllib import request
 
 from emulator.backends.sesame_shim import (
@@ -12,6 +13,21 @@ from emulator.backends.sesame_shim import (
 
 
 class SesameShimTests(unittest.TestCase):
+    def test_browser_joint_mapping_matches_sesame_servo_setter_contract(self) -> None:
+        source = (
+            Path(__file__).parents[1]
+            / "sesame-robot-sim"
+            / "app"
+            / "ainekio-shim.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "Object.freeze([1, 2, 3, 4, 5, 6, 7, 8])",
+            source,
+        )
+        self.assertIn("targets[jointId] * Math.PI / 180", source)
+        self.assertNotIn("const jointState = runtime.hybrid.joint_q()", source)
+
     def test_does_not_replay_payload_to_late_subscriber(self) -> None:
         hub = MotionHub()
         payload = {"command": "walk", "frames": [1, 2, 3]}

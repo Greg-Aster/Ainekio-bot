@@ -24,12 +24,19 @@
     dead: "rn dd",
     crab: "rn cb",
   });
+  // Sesame's own reset path addresses the eight servos as joints 1..8.
+  // Joint 0 is the floating root and must never receive a servo target.
+  const LOGICAL_TO_SESAME_JOINT = Object.freeze([1, 2, 3, 4, 5, 6, 7, 8]);
+  const STAND_TARGETS = Object.freeze([135, 45, 45, 135, 0, 180, 0, 180]);
+  const NEUTRAL_TARGETS = Object.freeze([90, 90, 90, 90, 90, 90, 90, 90]);
   const state = {
     x: 0,
     y: 0,
     yaw: 0,
     connected: false,
     events: null,
+    frameAnimation: null,
+    currentTargets: Array.from(STAND_TARGETS),
   };
 
   function install() {
@@ -212,6 +219,129 @@
     void reportResult(payload, "accepted", "command sent to Sesame UART");
   }
 
+  function cancelFrameAnimation() {
+    if (state.frameAnimation !== null) {
+      cancelAnimationFrame(state.frameAnimation);
+      state.frameAnimation = null;
+    }
+  }
+
+  function normalizedFreestyleFrames(payload) {
+    if (payload.jointMapVersion !== 1 || !Array.isArray(payload.frames)) return null;
+    if (payload.frames.length < 1 || payload.frames.length > 32) return null;
+    let totalDurationMs = 0;
+    const frames = [];
+    for (const frame of payload.frames) {
+      if (!frame || !Number.isInteger(frame.duration_ms)) return null;
+      if (frame.duration_ms < 100 || frame.duration_ms > 5000) return null;
+      if (!Array.isArray(frame.targets) || frame.targets.length !== 8) return null;
+      const targets = new Array(8);
+      const seen = new Set();
+      for (const target of frame.targets) {
+        if (!Array.isArray(target) || target.length !== 2) return null;
+        const jointId = target[0];
+        const degrees = target[1];
+        if (!Number.isInteger(jointId) || jointId < 0 || jointId >= 8 || seen.has(jointId)) {
+          return null;
+        }
+        if (typeof degrees !== "number" || !Number.isFinite(degrees) || degrees < 0 || degrees > 180) {
+          return null;
+        }
+        seen.add(jointId);
+        targets[jointId] = degrees;
+      }
+      totalDurationMs += frame.duration_ms;
+      if (totalDurationMs > 10000) return null;
+      frames.push({ durationMs: frame.duration_ms, targets });
+    }
+    return frames;
+  }
+
+  function applyLogicalTargets(runtime, targets) {
+    if (!runtime.hybrid || typeof runtime.hybrid.set_joint_q !== "function") {
+      throw new Error("Sesame runtime does not expose eight joints");
+    }
+    for (let jointId = 0; jointId < 8; jointId += 1) {
+      const radians = targets[jointId] * Math.PI / 180;
+      runtime.hybrid.set_joint_q(LOGICAL_TO_SESAME_JOINT[jointId], radians);
+    }
+    state.currentTargets = Array.from(targets);
+  }
+
+  function playFreestyle(payload) {
+    const runtime = getSesameRuntime();
+    const frames = normalizedFreestyleFrames(payload);
+    if (!runtime || !frames) {
+      setModelStatus("rejected", "bad");
+      void reportResult(
+        payload,
+        "rejected",
+        runtime ? "invalid freestyle frame contract" : "Sesame runtime unavailable",
+      );
+      return;
+    }
+
+    cancelFrameAnimation();
+    if (window.__AINEKIO_SIM_ACTIVITY__ && typeof window.__AINEKIO_SIM_ACTIVITY__.wake === "function") {
+      window.__AINEKIO_SIM_ACTIVITY__.wake(12000, "freestyle-motion");
+    }
+    setText("ainekio-command", "freestyle");
+    setText("ainekio-simulator-command", `${frames.length} generated frames`);
+    setText("ainekio-session", payload.sessionId || "-");
+    setModelStatus("freestyle", "ok");
+
+    let frameIndex = 0;
+    let frameStart = performance.now();
+    let startTargets = Array.from(state.currentTargets);
+    const tick = (timestamp) => {
+      const frame = frames[frameIndex];
+      const progress = Math.max(0, Math.min(1, (timestamp - frameStart) / frame.durationMs));
+      const interpolated = frame.targets.map(
+        (target, jointId) => startTargets[jointId] + (target - startTargets[jointId]) * progress,
+      );
+      try {
+        applyLogicalTargets(runtime, interpolated);
+      } catch (error) {
+        cancelFrameAnimation();
+        setModelStatus("failed", "bad");
+        console.warn("[ainekio-shim] freestyle frame application failed", error);
+        void reportResult(payload, "rejected", `freestyle frame application failed: ${String(error)}`);
+        return;
+      }
+      if (progress < 1) {
+        state.frameAnimation = requestAnimationFrame(tick);
+        return;
+      }
+      frameIndex += 1;
+      if (frameIndex < frames.length) {
+        startTargets = Array.from(frame.targets);
+        frameStart = timestamp;
+        state.frameAnimation = requestAnimationFrame(tick);
+        return;
+      }
+
+      const endTargets = payload.endPose === "stand"
+        ? STAND_TARGETS
+        : payload.endPose === "neutral"
+          ? NEUTRAL_TARGETS
+          : frame.targets;
+      const hold = () => {
+        try {
+          applyLogicalTargets(runtime, endTargets);
+          state.frameAnimation = requestAnimationFrame(hold);
+        } catch (error) {
+          cancelFrameAnimation();
+          setModelStatus("failed", "bad");
+          console.warn("[ainekio-shim] freestyle hold failed", error);
+          void reportResult(payload, "rejected", `freestyle hold failed: ${String(error)}`);
+        }
+      };
+      state.frameAnimation = requestAnimationFrame(hold);
+    };
+    state.frameAnimation = requestAnimationFrame(tick);
+    void reportResult(payload, "accepted", "generated frame sequence scheduled");
+  }
+
   function applyMotion(payload) {
     const root = payload.rootMotion || {};
     state.x += Number(root.strafe || 0) * 20;
@@ -227,6 +357,11 @@
 
     setText("ainekio-command", payload.command || "unknown");
     setText("ainekio-session", payload.sessionId || "-");
+    if (payload.command === "freestyle") {
+      playFreestyle(payload);
+      return;
+    }
+    cancelFrameAnimation();
     sendSimulatorCommand(payload);
   }
 

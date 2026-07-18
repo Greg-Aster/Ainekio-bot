@@ -17,8 +17,19 @@ from protocol.binary_helpers import (
 PROTOCOL_VERSION = 1
 MAX_SEQUENCE = (1 << 31) - 1
 MAX_AUTH_CHARS = 128
+MAX_FEATURES = 16
+MAX_FEATURE_CHARS = 32
+MOTION_PLAN_FEATURE = "motion_plan_v1"
+MOTION_PLAN_JOINT_MAP = 1
+MOTION_PLAN_JOINTS = 8
+MOTION_PLAN_MAX_FRAMES = 32
+MOTION_PLAN_MIN_FRAME_MS = 100
+MOTION_PLAN_MAX_FRAME_MS = 5000
+MOTION_PLAN_MAX_TOTAL_MS = 10000
+MOTION_PLAN_MAX_CENTIDEGREES = 18000
 
 ASSET_NAME = re.compile(r"[a-z0-9_]{1,32}\Z")
+FEATURE_NAME = re.compile(r"[a-z0-9_]{1,32}\Z")
 
 INTENT_NAMES = frozenset(
     {"sit", "stand", "neutral", "look", "walk", "emote", "face", "say"}
@@ -159,6 +170,21 @@ def _validate_hello(message: Mapping[str, object]) -> None:
     _string(message, "fw", max_length=32)
     _string(message, "id", max_length=64)
     _string(message, "auth", max_length=MAX_AUTH_CHARS)
+    if "features" in message:
+        features = message["features"]
+        if not isinstance(features, list):
+            _fail("type:features")
+        if len(features) > MAX_FEATURES:
+            _fail("range:features")
+        seen: set[str] = set()
+        for feature in features:
+            if not isinstance(feature, str):
+                _fail("type:features")
+            if len(feature) > MAX_FEATURE_CHARS or FEATURE_NAME.fullmatch(feature) is None:
+                _fail("value:features")
+            if feature in seen:
+                _fail("value:features.duplicate")
+            seen.add(feature)
 
 
 def _validate_err(message: Mapping[str, object]) -> None:
@@ -195,6 +221,41 @@ def _validate_intent(message: Mapping[str, object]) -> None:
 
 def _validate_stop(message: Mapping[str, object]) -> None:
     _seq(message)
+
+
+def _validate_motion_plan(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _integer(
+        message,
+        "map",
+        minimum=MOTION_PLAN_JOINT_MAP,
+        maximum=MOTION_PLAN_JOINT_MAP,
+    )
+    frames = _required(message, "frames")
+    if not isinstance(frames, list):
+        _fail("type:frames")
+    if not 1 <= len(frames) <= MOTION_PLAN_MAX_FRAMES:
+        _fail("range:frames")
+    total_duration_ms = 0
+    for frame in frames:
+        if not isinstance(frame, list) or len(frame) != 2:
+            _fail("type:frames.frame")
+        duration_ms, targets = frame
+        if type(duration_ms) is not int:
+            _fail("type:frames.duration")
+        if not MOTION_PLAN_MIN_FRAME_MS <= duration_ms <= MOTION_PLAN_MAX_FRAME_MS:
+            _fail("range:frames.duration")
+        total_duration_ms += duration_ms
+        if total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
+            _fail("range:frames.total_duration")
+        if not isinstance(targets, list) or len(targets) != MOTION_PLAN_JOINTS:
+            _fail("range:frames.targets")
+        for target in targets:
+            if type(target) is not int:
+                _fail("type:frames.target")
+            if not 0 <= target <= MOTION_PLAN_MAX_CENTIDEGREES:
+                _fail("range:frames.target")
+    _string(message, "end", allowed=frozenset({"hold", "stand", "neutral"}))
 
 
 def _validate_tts(message: Mapping[str, object]) -> None:
@@ -346,6 +407,7 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "welcome": _validate_welcome,
     "intent": _validate_intent,
     "stop": _validate_stop,
+    "motion_plan": _validate_motion_plan,
     "tts": _validate_tts,
     "cam": _validate_cam,
     "snap": _validate_snap,

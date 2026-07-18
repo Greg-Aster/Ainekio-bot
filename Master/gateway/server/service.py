@@ -20,6 +20,8 @@ from protocol.binary_helpers import (
 )
 from protocol.control_v1 import (
     MAX_SEQUENCE,
+    MOTION_PLAN_FEATURE,
+    MOTION_PLAN_JOINT_MAP,
     PROTOCOL_VERSION,
     ProtocolValidationError,
     validate_binary_frame,
@@ -107,11 +109,13 @@ class GatewayConnection:
         websocket: Any,
         robot_id: str,
         epoch: int,
+        features: tuple[str, ...] = (),
     ) -> None:
         self.service = service
         self.websocket = websocket
         self.robot_id = robot_id
         self.epoch = epoch
+        self.features = features
         self.next_sequence = 1
         self.pending: dict[int, PendingCommand] = {}
         self.completed: dict[int, dict[str, object]] = {}
@@ -392,7 +396,14 @@ class GatewayService:
             previous = self._connections.get(robot_id)
             epoch = self._epochs.get(robot_id, 0) + 1
             self._epochs[robot_id] = epoch
-            connection = GatewayConnection(self, websocket, robot_id, epoch)
+            features = tuple(str(feature) for feature in hello.get("features", []))
+            connection = GatewayConnection(
+                self,
+                websocket,
+                robot_id,
+                epoch,
+                features,
+            )
             self._connections[robot_id] = connection
         if previous is not None:
             await previous.close(4000, "new authenticated connection", cancel_code="reconnect")
@@ -406,7 +417,13 @@ class GatewayService:
             }
         )
         await self._publish_event(
-            {"t": "connection", "status": "connected", "robot_id": robot_id, "epoch": epoch}
+            {
+                "t": "connection",
+                "status": "connected",
+                "robot_id": robot_id,
+                "epoch": epoch,
+                "features": list(connection.features),
+            }
         )
         try:
             await connection.run()
@@ -454,6 +471,29 @@ class GatewayService:
             {"asset": asset},
             robot_id=robot_id,
             received_at=received_at,
+        )
+
+    async def queue_motion_plan(
+        self,
+        frames: list[object],
+        *,
+        end: str,
+        robot_id: str | None = None,
+        received_at: float | None = None,
+    ) -> int:
+        connection = self._connection(robot_id)
+        if MOTION_PLAN_FEATURE not in connection.features:
+            raise GatewayError(
+                f"robot {connection.robot_id} does not advertise {MOTION_PLAN_FEATURE}"
+            )
+        return await connection.send_command(
+            {
+                "t": "motion_plan",
+                "map": MOTION_PLAN_JOINT_MAP,
+                "frames": frames,
+                "end": end,
+            },
+            received_at=self.clock() if received_at is None else received_at,
         )
 
     async def estop(
@@ -660,6 +700,7 @@ class GatewayService:
                     "epoch": connection.epoch,
                     "next_sequence": connection.next_sequence,
                     "profile": connection.profile,
+                    "features": list(connection.features),
                     "effective_caps": _profile_caps(connection.profile),
                     "pending": sum(
                         not command.future.done() for command in connection.pending.values()
@@ -760,7 +801,7 @@ async def _send_control(websocket: Any, message: Mapping[str, object]) -> None:
 def _command_needs_done(command: Mapping[str, object]) -> bool:
     message_type = command.get("t")
     return (
-        message_type in {"intent", "snap"}
+        message_type in {"intent", "motion_plan", "snap"}
         or (message_type == "tts" and command.get("op") == "start")
         or (message_type == "state" and command.get("name") == "sleep")
     )

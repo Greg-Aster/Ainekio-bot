@@ -14,7 +14,9 @@ from protocol.binary_helpers import (
     CAMERA_JPEG_FRAME_TYPE,
     MAX_BINARY_COUNTER,
     MIC_PCM_FRAME_TYPE,
+    SPEAKER_PCM_FRAME_TYPE,
     decode_binary_frame,
+    encode_binary_frame,
 )
 from Emulator.tests.support import build_core_library
 
@@ -177,6 +179,58 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(decoded)
         self.assertTrue(all(frame.frame_type == MIC_PCM_FRAME_TYPE for frame in decoded))
         self.assertEqual(decoded[0].counter, 0)
+
+    async def test_vad_includes_bounded_pre_roll_before_trigger_frame(self) -> None:
+        silence = bytes(640)
+        voice = struct.pack("<320h", *([1200] * 320))
+        self.microphone.append(silence)
+        self.microphone.append(silence)
+        self.microphone.append(voice)
+        await self.session.handle(
+            {"t": "mic", "seq": 1, "on": True, "gate": "vad"},
+            self.emit,
+        )
+
+        for index in range(3):
+            self.now = index * 0.021
+            await self.session.service_media(self.emit, self.emit_binary)
+
+        decoded = [decode_binary_frame(frame) for frame in self.frames]
+        self.assertEqual([frame.counter for frame in decoded], [0, 1, 2])
+        self.assertEqual(self.frames[0][5:], silence)
+        self.assertEqual(self.frames[1][5:], silence)
+        self.assertEqual(self.frames[2][5:], voice)
+
+    async def test_microphone_is_suspended_during_tts_and_rearms_after_cooldown(self) -> None:
+        voice = struct.pack("<320h", *([1200] * 320))
+        self.microphone.append(voice)
+        await self.session.handle(
+            {"t": "mic", "seq": 1, "on": True, "gate": "open"},
+            self.emit,
+        )
+        await self.session.handle(
+            {"t": "tts", "seq": 2, "op": "start"},
+            self.emit,
+        )
+        await self.session.handle_binary(
+            encode_binary_frame(SPEAKER_PCM_FRAME_TYPE, 0, bytes(640)),
+            self.emit,
+        )
+        await self.session.service_media(self.emit, self.emit_binary)
+        self.assertEqual(self.frames, [])
+
+        await self.session.handle(
+            {"t": "tts", "seq": 3, "op": "end"},
+            self.emit,
+        )
+        self.now = 0.79
+        await self.session.service_media(self.emit, self.emit_binary)
+        self.assertEqual(self.frames, [])
+        self.now = 0.81
+        await self.session.service_media(self.emit, self.emit_binary)
+
+        self.assertEqual(len(self.frames), 1)
+        self.assertEqual(decode_binary_frame(self.frames[0]).frame_type, MIC_PCM_FRAME_TYPE)
 
     async def test_tether_rejects_streaming_and_open_mic_but_allows_vga_snap(self) -> None:
         await self.session.begin(
