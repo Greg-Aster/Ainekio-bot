@@ -313,24 +313,25 @@ esp_err_t ainekio_nvs_adapter_erase_config_namespaces(void)
     return ESP_OK;
 }
 
-esp_err_t ainekio_nvs_adapter_store_setup_hash(
-    const uint8_t hash[AINEKIO_SETUP_HASH_BYTES]
+esp_err_t ainekio_nvs_adapter_store_setup_key(
+    const char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U]
 )
 {
-    if (hash == NULL) {
+    if (setup_key == NULL ||
+        strnlen(setup_key, AINEKIO_SETUP_KEY_CHARS + 1U) !=
+            AINEKIO_SETUP_KEY_CHARS) {
         return ESP_ERR_INVALID_ARG;
     }
     nvs_handle_t handle;
-    esp_err_t error = nvs_open(AINEKIO_NVS_NAMESPACE_META, NVS_READWRITE, &handle);
+    esp_err_t error = nvs_open(
+        AINEKIO_NVS_NAMESPACE_DEVICE,
+        NVS_READWRITE,
+        &handle
+    );
     if (error != ESP_OK) {
         return error;
     }
-    error = nvs_set_blob(
-        handle,
-        AINEKIO_NVS_KEY_SETUP_HASH,
-        hash,
-        AINEKIO_SETUP_HASH_BYTES
-    );
+    error = nvs_set_str(handle, AINEKIO_NVS_KEY_SETUP_KEY, setup_key);
     if (error == ESP_OK) {
         error = nvs_commit(handle);
     }
@@ -338,24 +339,42 @@ esp_err_t ainekio_nvs_adapter_store_setup_hash(
     return error;
 }
 
-esp_err_t ainekio_nvs_adapter_read_setup_hash(
-    uint8_t hash[AINEKIO_SETUP_HASH_BYTES]
+esp_err_t ainekio_nvs_adapter_read_setup_key(
+    char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U]
 )
 {
-    if (hash == NULL) {
+    if (setup_key == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
+    setup_key[0] = '\0';
     nvs_handle_t handle;
-    esp_err_t error = nvs_open(AINEKIO_NVS_NAMESPACE_META, NVS_READONLY, &handle);
+    esp_err_t error = nvs_open(
+        AINEKIO_NVS_NAMESPACE_DEVICE,
+        NVS_READONLY,
+        &handle
+    );
     if (error != ESP_OK) {
         return error;
     }
-    size_t size = AINEKIO_SETUP_HASH_BYTES;
-    error = nvs_get_blob(handle, AINEKIO_NVS_KEY_SETUP_HASH, hash, &size);
+    size_t size = AINEKIO_SETUP_KEY_CHARS + 1U;
+    error = nvs_get_str(
+        handle,
+        AINEKIO_NVS_KEY_SETUP_KEY,
+        setup_key,
+        &size
+    );
     nvs_close(handle);
-    return error == ESP_OK && size != AINEKIO_SETUP_HASH_BYTES
-               ? ESP_ERR_NVS_INVALID_LENGTH
-               : error;
+    if (error != ESP_OK) {
+        setup_key[0] = '\0';
+        return error;
+    }
+    if (size != AINEKIO_SETUP_KEY_CHARS + 1U ||
+        strnlen(setup_key, AINEKIO_SETUP_KEY_CHARS + 1U) !=
+            AINEKIO_SETUP_KEY_CHARS) {
+        setup_key[0] = '\0';
+        return ESP_ERR_NVS_INVALID_LENGTH;
+    }
+    return ESP_OK;
 }
 
 static esp_err_t reset_namespace(const char *namespace_name)

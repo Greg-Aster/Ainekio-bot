@@ -1,8 +1,10 @@
 # Freestyle Movement
 
-Status: emulator milestone complete; physical execution disabled
+Status: emulator milestone complete; ESP32-S3 execution not advertised
 Owner decision: approved direction
-Updated: 2026-07-17
+Specification status: post-v1.0 extension pending numbered consolidation before
+physical enablement
+Updated: 2026-07-21
 
 This file is the implementation plan and progress ledger for bounded, AI-generated
 movement on Ainekio. Update the progress section after every implementation or
@@ -109,7 +111,7 @@ Environment Observation
   -> Environment Bridge Out
 ```
 
-Freestyle movement adds one explicit generation branch without replacing the
+Freestyle movement uses one explicit generation branch without replacing the
 existing semantic-action branch:
 
 ```text
@@ -127,7 +129,7 @@ Environment LLM
            -> visible rejection; no movement action
 ```
 
-The new graph node is named **Movement Generator** and uses the node type
+The graph node is named **Movement Generator** and uses the node type
 `movement_generator`. It receives the interpreted movement request, original
 instruction, relevant observation state, connected-body capabilities, logical
 joint catalog, current commanded pose when available, and the frozen motion-plan
@@ -170,7 +172,7 @@ Older bodies must never receive a command type they cannot decode.
 Capability absence must produce an explicit unsupported/rejected result. It must
 not fall back to calibration or decompose the request into servo commands.
 
-## Proposed MetaHuman Action
+## Implemented MetaHuman Action
 
 The model-facing action favors readable logical degrees and named fields:
 
@@ -200,7 +202,7 @@ The model-facing action favors readable logical degrees and named fields:
 The model does not provide `seq`, calibration, GPIO, pulse width, or a persistence
 flag. Unknown fields are removed before the plan crosses into Ainekio.
 
-## Proposed Body Command
+## Implemented Body Command
 
 The adapter converts the readable action into a compact protocol message. Angles
 are unsigned integer centidegrees from 0 to 180 degrees to match the existing
@@ -222,8 +224,10 @@ frame contains all eight joints, `map: 1` fixes their positional order as
 
 A 32-frame command with all eight integer targets per frame is approximately
 2.1 KiB before WebSocket framing, within the existing 4096-byte control limit.
-The exact schema and maximum encoded size must be locked by fixtures before code
-is added to the firmware.
+The schema, bounds, and maximum encoded size are locked by the shared fixtures.
+The portable core can decode and safety-gate the command, but the ESP32-S3
+runtime does not advertise `motion_plan_v1` or dispatch the plan to physical
+motion.
 
 ## Initial Motion-Plan Limits
 
@@ -528,11 +532,11 @@ progress and terminal lifecycle, known commands retain their semantic path, and
 live `stop` cancels remaining frames. Physical firmware execution remains
 disabled and is not claimed complete.
 
-Baseline review completed against the checked-in language-neutral protocol,
+The initial baseline review covered the checked-in language-neutral protocol,
 portable C core, motion asset format, ESP32-S3 motion service, emulator, gateway,
 Ainekio environment adapter, and MetaHuman bridge contract. No existing
-`motion_plan` or equivalent generated-trajectory command was found. The current
-calibration-only `servo` boundary remains unchanged.
+`motion_plan` or equivalent generated-trajectory command was found at that time.
+The calibration-only `servo` boundary remains unchanged.
 
 | Phase | Status | Evidence / next action |
 | --- | --- | --- |
@@ -597,7 +601,6 @@ physical validation.
   tests, JavaScript syntax validation, and the then-current emulator/gateway suite
   passed. Live renderer evidence and MetaHuman Movement Generator routing were
   completed in the later entries above.
-  Live renderer evidence and MetaHuman Movement Generator routing remain.
 - 2026-07-17: Implementation started. Added optional bounded `hello.features`,
   the `motion_plan_v1` feature name, and the `motion_plan` JSON schema using
   joint map version 1 and compact eight-target frames. Added 1..32 frame,

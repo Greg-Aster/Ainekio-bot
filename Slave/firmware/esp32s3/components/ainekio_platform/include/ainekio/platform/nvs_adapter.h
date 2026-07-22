@@ -11,16 +11,14 @@ typedef struct {
     bool partition_erased_during_init;
 } ainekio_nvs_adapter_t;
 
-#define AINEKIO_SETUP_HASH_BYTES 32U
-
 esp_err_t ainekio_nvs_adapter_init(ainekio_nvs_adapter_t *adapter);
 ainekio_config_store_port_t ainekio_nvs_adapter_port(ainekio_nvs_adapter_t *adapter);
 esp_err_t ainekio_nvs_adapter_erase_config_namespaces(void);
-esp_err_t ainekio_nvs_adapter_store_setup_hash(
-    const uint8_t hash[AINEKIO_SETUP_HASH_BYTES]
+esp_err_t ainekio_nvs_adapter_store_setup_key(
+    const char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U]
 );
-esp_err_t ainekio_nvs_adapter_read_setup_hash(
-    uint8_t hash[AINEKIO_SETUP_HASH_BYTES]
+esp_err_t ainekio_nvs_adapter_read_setup_key(
+    char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U]
 );
 esp_err_t ainekio_nvs_adapter_load_calibration(
     ainekio_servo_bank_t *servos,

@@ -14,8 +14,8 @@
 #include "freertos/event_groups.h"
 
 #define AINEKIO_SETUP_SSID "Ainekio-Setup"
-#define AINEKIO_SETUP_SECRET_CHARS 12U
 #define AINEKIO_WIFI_SCAN_MAX 16U
+#define AINEKIO_IPV4_ADDRESS_CHARS 15U
 
 typedef struct {
     char ssid[AINEKIO_WIFI_SSID_BYTES];
@@ -45,13 +45,17 @@ esp_err_t ainekio_wifi_connect(
 esp_err_t ainekio_wifi_disconnect(ainekio_wifi_adapter_t *adapter);
 esp_err_t ainekio_wifi_start_setup(
     ainekio_wifi_adapter_t *adapter,
-    const char secret[AINEKIO_SETUP_SECRET_CHARS + 1U]
+    const char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U]
 );
 esp_err_t ainekio_wifi_stop_setup(ainekio_wifi_adapter_t *adapter);
 bool ainekio_wifi_has_ip(const ainekio_wifi_adapter_t *adapter);
 bool ainekio_wifi_wait_for_ip(
     ainekio_wifi_adapter_t *adapter,
     uint32_t timeout_ms
+);
+bool ainekio_wifi_station_address(
+    const ainekio_wifi_adapter_t *adapter,
+    char address[AINEKIO_IPV4_ADDRESS_CHARS + 1U]
 );
 esp_err_t ainekio_wifi_scan(
     ainekio_wifi_adapter_t *adapter,

@@ -1,21 +1,21 @@
 menu "Ainekio platform"
 
 config AINEKIO_PIN_MAP_B
-    bool "Use Freenove N16R8 provisional MAP_B pin allocation"
+    bool "Use Freenove N16R8 MAP_B board-only servo remap"
     default y
     help
-        Builds the Freenove ESP32-S3 N16R8 provisional MAP_B allocation.
-        The current owner-directed profile enables its eight servo outputs;
-        H2/H3 still determine whether the provisional map is retained.
+        Builds the Freenove ESP32-S3 N16R8 allocation with all eight servo
+        outputs on exposed GPIOs. GPIO0 and GPIO43 hand off their boot-time
+        roles to the OLED I2C bus; GPIO47 and GPIO48 drive servos R4 and R3.
 
 config AINEKIO_PHYSICAL_MOTION_ENABLED
     bool "Enable all eight servo outputs and semantic motion"
     default y
     help
         Enables all eight MAP_B servo outputs after platform initialization and
-        permits normal semantic motion plus calibration commands. The current
-        owner-directed bring-up profile starts every channel at its calibrated
-        center and applies the range and timing limits below.
+        permits normal semantic motion plus calibration commands. Startup keeps
+        the 20 ms channel stagger and reduced-range safety profile; the pin-map
+        guard rejects any future servo assignment on N16R8 PSRAM GPIO33-37.
 
 config AINEKIO_MOTION_RANGE_PERCENT
     int "Initial motion range around logical center (percent)"

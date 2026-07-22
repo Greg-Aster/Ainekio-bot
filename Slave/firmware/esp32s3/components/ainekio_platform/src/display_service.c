@@ -7,6 +7,7 @@
 
 #include "ainekio/platform/pin_map.h"
 #include "driver/i2c_master.h"
+#include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -443,6 +444,27 @@ static void display_task(void *argument)
     }
 }
 
+static void release_display_hardware(ainekio_display_service_t *service)
+{
+    if (service->device != NULL) {
+        (void)i2c_master_bus_rm_device(service->device);
+        service->device = NULL;
+    }
+    if (service->bus != NULL) {
+        (void)i2c_del_master_bus(service->bus);
+        service->bus = NULL;
+    }
+    /* MAP_B hands the console TX pin to OLED SCL. Return that pin to UART when
+     * display startup fails so the board remains diagnosable. */
+    (void)uart_set_pin(
+        CONFIG_ESP_CONSOLE_UART_NUM,
+        AINEKIO_PIN_UART_TX,
+        AINEKIO_PIN_UART_RX,
+        UART_PIN_NO_CHANGE,
+        UART_PIN_NO_CHANGE
+    );
+}
+
 static esp_err_t initialize_display(ainekio_display_service_t *service)
 {
     const i2c_master_bus_config_t bus_config = {
@@ -473,6 +495,9 @@ static esp_err_t initialize_display(ainekio_display_service_t *service)
     };
     if (result == ESP_OK) {
         result = send_commands(service, init, sizeof(init));
+    }
+    if (result != ESP_OK) {
+        release_display_hardware(service);
     }
     return result;
 }
@@ -506,6 +531,7 @@ esp_err_t ainekio_display_service_start(
     compiled_default_face(service->display_buffer);
     result = send_buffer(service);
     if (result != ESP_OK) {
+        release_display_hardware(service);
         return result;
     }
     if (xTaskCreate(
@@ -516,6 +542,7 @@ esp_err_t ainekio_display_service_start(
             DISPLAY_TASK_PRIORITY,
             &service->task
         ) != pdPASS) {
+        release_display_hardware(service);
         return ESP_ERR_NO_MEM;
     }
     *service_output = service;

@@ -65,14 +65,23 @@ browser renders accepted commands but does not own protocol or safety decisions.
 docs/
   README.md                   Normative-document authority
   Ainekio - System Specification v1.0.docx
+  HARDWARE_BRINGUP_CHECKLIST.md
+  PINOUT_DIAGNOSTICS.md
+  AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md
+  LOCAL_WAKE_WORD.md
+  freestyle-movement.md
   SLAVE_BRAIN_PROGRESS.md
   REPOSITORY_MAP.md
-  archive/                    Historical notes
+  Freenove_ESP32_S3_WROOM_Board-main/
+                              Current vendor board reference bundle
+  archive/                    Superseded specifications and historical notes
   sesame-robot/               Ignored upstream Sesame reference clone
 ```
 
-`docs/sesame-robot/` is inspection material only. It is not imported, linked, or
-built by Ainekio.
+`docs/sesame-robot/` supplies upstream seed material to the deterministic asset
+conversion tools, but it is not imported, linked, or built into Ainekio. The
+Freenove bundle identifies the delivered board's physical headers and onboard
+buses; neither reference directory owns Ainekio behavior or safety decisions.
 
 ## Runtime Paths
 

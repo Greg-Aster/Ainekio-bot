@@ -8,6 +8,7 @@
 #include "ainekio/platform/asset_store.h"
 #include "ainekio/platform/mcpwm_adapter.h"
 #include "ainekio/platform/provisioning_service.h"
+#include "ainekio/platform/wifi_adapter.h"
 #include "ainekio/settings.h"
 #include "esp_err.h"
 
@@ -20,6 +21,7 @@ typedef struct {
     ainekio_mcpwm_adapter_t *mcpwm;
     ainekio_asset_store_t *assets;
     ainekio_provisioning_service_t *provisioning;
+    ainekio_wifi_adapter_t *wifi;
     const char *firmware_version;
     float battery_divider_factor;
     float battery_adc_factor;
@@ -47,7 +49,7 @@ bool ainekio_runtime_sd_mounted(const ainekio_runtime_t *runtime);
 esp_err_t ainekio_runtime_provision_display(
     ainekio_runtime_t *runtime,
     ainekio_provision_display_t status,
-    const char *setup_secret
+    const ainekio_provision_display_info_t *info
 );
 esp_err_t ainekio_runtime_provision_cue(
     ainekio_runtime_t *runtime,

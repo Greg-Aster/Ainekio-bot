@@ -26,6 +26,11 @@ ASSERT_NOT_SD(AINEKIO_PIN_I2S_WS);
 ASSERT_NOT_SD(AINEKIO_PIN_I2C_SDA);
 ASSERT_NOT_SD(AINEKIO_PIN_I2C_SCL);
 
+_Static_assert(AINEKIO_PIN_I2C_SDA == AINEKIO_PIN_BOOT,
+               "OLED SDA must retain the GPIO0 boot-button handoff");
+_Static_assert(AINEKIO_PIN_I2C_SCL == AINEKIO_PIN_UART_TX,
+               "OLED SCL must retain the GPIO43 boot-UART handoff");
+
 const ainekio_servo_pin_t ainekio_servo_pins[AINEKIO_SERVO_COUNT] = {
     {AINEKIO_JOINT_R1, "R1", AINEKIO_PIN_SERVO_R1, 0U, 0U, 0U, true},
     {AINEKIO_JOINT_R2, "R2", AINEKIO_PIN_SERVO_R2, 0U, 0U, 1U, true},
@@ -45,8 +50,7 @@ bool ainekio_pin_is_reserved_for_sd(int gpio)
 
 bool ainekio_pin_is_reserved_for_psram(int gpio)
 {
-    /* Normative MAP_B reserves GPIO35-37; GPIO33/34 remain an H2 gate. */
-    return gpio >= 35 && gpio <= 37;
+    return gpio >= 33 && gpio <= 37;
 }
 
 static bool claim_pin(int gpio, bool output, uint64_t *claimed)
@@ -63,18 +67,19 @@ static bool claim_pin(int gpio, bool output, uint64_t *claimed)
 bool ainekio_pin_map_valid(void)
 {
     uint64_t claimed = 0U;
+    /* GPIO0 and GPIO43 are claimed once by I2C after their boot-time roles. */
     const int output_pins[] = {
         AINEKIO_PIN_I2S_AMP_DOUT, AINEKIO_PIN_I2S_BCLK,
         AINEKIO_PIN_I2S_WS,       AINEKIO_PIN_I2C_SDA,
-        AINEKIO_PIN_I2C_SCL,      AINEKIO_PIN_UART_TX,
-        AINEKIO_PIN_SD_CMD,       AINEKIO_PIN_SD_CLK,
-        AINEKIO_PIN_CAMERA_XCLK,  AINEKIO_PIN_CAMERA_SCCB_SDA,
+        AINEKIO_PIN_I2C_SCL,      AINEKIO_PIN_SD_CMD,
+        AINEKIO_PIN_SD_CLK,       AINEKIO_PIN_CAMERA_XCLK,
+        AINEKIO_PIN_CAMERA_SCCB_SDA,
         AINEKIO_PIN_CAMERA_SCCB_SCL,
     };
     const int input_pins[] = {
-        AINEKIO_PIN_BOOT,         AINEKIO_PIN_BATTERY_ADC,
-        AINEKIO_PIN_I2S_MIC_DIN,  AINEKIO_PIN_UART_RX,
-        AINEKIO_PIN_SD_DAT0,      AINEKIO_PIN_CAMERA_D0,
+        AINEKIO_PIN_BATTERY_ADC,  AINEKIO_PIN_I2S_MIC_DIN,
+        AINEKIO_PIN_UART_RX,      AINEKIO_PIN_SD_DAT0,
+        AINEKIO_PIN_CAMERA_D0,
         AINEKIO_PIN_CAMERA_D1,    AINEKIO_PIN_CAMERA_D2,
         AINEKIO_PIN_CAMERA_D3,    AINEKIO_PIN_CAMERA_D4,
         AINEKIO_PIN_CAMERA_D5,    AINEKIO_PIN_CAMERA_D6,

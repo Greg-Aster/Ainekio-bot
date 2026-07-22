@@ -55,6 +55,33 @@ ainekio_battery_events_t ainekio_battery_observe(
     monitor->last_sample_ms = now_ms;
     monitor->has_sample_time = true;
 
+    /* A controller powered from USB can legitimately have no battery-divider
+     * input. Only classify near-zero as disconnected before a plausible
+     * battery has ever been observed; a later near-zero reading remains a
+     * cutoff-worthy wiring or power fault. */
+    if (!monitor->present_latched &&
+        monitor->state != AINEKIO_BATTERY_CUTOFF) {
+        if (monitor->volts <= AINEKIO_BATTERY_DISCONNECTED_MAX_VOLTS) {
+            monitor->disconnected_sets = qualified_count(
+                monitor->disconnected_sets,
+                true
+            );
+            monitor->warn_sets = 0U;
+            monitor->cutoff_sets = 0U;
+            monitor->recovery_sets = 0U;
+            if (monitor->disconnected_sets >=
+                AINEKIO_BATTERY_QUALIFYING_SETS) {
+                monitor->state = AINEKIO_BATTERY_DISCONNECTED;
+            }
+            return AINEKIO_BATTERY_EVENT_NONE;
+        }
+        monitor->present_latched = true;
+        monitor->disconnected_sets = 0U;
+        if (monitor->state == AINEKIO_BATTERY_DISCONNECTED) {
+            monitor->state = AINEKIO_BATTERY_NORMAL;
+        }
+    }
+
     if (monitor->state == AINEKIO_BATTERY_CUTOFF) {
         monitor->recovery_sets = qualified_count(
             monitor->recovery_sets,
@@ -65,6 +92,8 @@ ainekio_battery_events_t ainekio_battery_observe(
             monitor->warn_sets = 0U;
             monitor->cutoff_sets = 0U;
             monitor->recovery_sets = 0U;
+            monitor->disconnected_sets = 0U;
+            monitor->present_latched = true;
             return AINEKIO_BATTERY_EVENT_RECOVERED;
         }
         return AINEKIO_BATTERY_EVENT_NONE;

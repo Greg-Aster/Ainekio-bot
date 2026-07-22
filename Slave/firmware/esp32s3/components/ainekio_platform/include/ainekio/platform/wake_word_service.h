@@ -25,6 +25,7 @@ esp_err_t ainekio_wake_word_service_start(
     const char *model_id,
     ainekio_wake_word_service_t **service
 );
+void ainekio_wake_word_service_stop(ainekio_wake_word_service_t *service);
 bool ainekio_wake_word_ready(const ainekio_wake_word_service_t *service);
 const char *ainekio_wake_word_model(const ainekio_wake_word_service_t *service);
 ainekio_wake_word_result_t ainekio_wake_word_process(

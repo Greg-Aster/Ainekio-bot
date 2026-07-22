@@ -25,10 +25,16 @@ typedef enum {
     AINEKIO_PROVISION_CUE_CONNECTED,
 } ainekio_provision_cue_t;
 
+typedef struct {
+    const char *setup_key;
+    const char *wifi_ssid;
+    const char *ip_address;
+} ainekio_provision_display_info_t;
+
 typedef esp_err_t (*ainekio_provision_display_fn)(
     void *context,
     ainekio_provision_display_t status,
-    const char *setup_secret
+    const ainekio_provision_display_info_t *info
 );
 typedef esp_err_t (*ainekio_provision_cue_fn)(
     void *context,
@@ -53,16 +59,20 @@ typedef struct {
     ainekio_provisioning_portal_t *portal;
     ainekio_provision_io_t io;
     TaskHandle_t task;
-    char setup_secret[AINEKIO_SETUP_SECRET_CHARS + 1U];
+    char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U];
     char staged_ssid[AINEKIO_WIFI_SSID_BYTES];
     char staged_psk[AINEKIO_WIFI_PSK_BYTES];
     uint32_t retry_at_ms;
     uint32_t retry_delay_ms;
+    uint32_t setup_retry_at_ms;
     uint32_t boot_pressed_at_ms;
+    bool setup_requested;
+    bool setup_services_ready;
+    bool setup_network_only;
     bool boot_press_active;
     bool boot_press_triggered;
     bool previous_ip;
-    bool serial_secret_printed;
+    bool serial_key_printed;
 } ainekio_provisioning_service_t;
 
 esp_err_t ainekio_provisioning_service_start(

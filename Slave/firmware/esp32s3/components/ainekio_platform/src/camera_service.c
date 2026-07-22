@@ -115,8 +115,23 @@ static void camera_task(void *argument)
     ainekio_camera_service_t *service = argument;
     int64_t next_stream_us = 0;
     while (true) {
+        TickType_t wait_ticks = portMAX_DELAY;
+        if (service->enabled && service->fps > 0U) {
+            const int64_t now = esp_timer_get_time();
+            if (next_stream_us == 0 || now >= next_stream_us) {
+                capture_frame(service, false, 0U);
+                next_stream_us = now + INT64_C(1000000) / service->fps;
+                continue;
+            }
+            const uint64_t wait_ms =
+                (uint64_t)(next_stream_us - now + INT64_C(999)) / 1000U;
+            wait_ticks = pdMS_TO_TICKS(wait_ms);
+            if (wait_ticks == 0U) {
+                wait_ticks = 1U;
+            }
+        }
         camera_command_t command;
-        if (xQueueReceive(service->queue, &command, pdMS_TO_TICKS(10U)) == pdTRUE) {
+        if (xQueueReceive(service->queue, &command, wait_ticks) == pdTRUE) {
             if (command.kind == CAMERA_COMMAND_CONFIGURE) {
                 if (!set_resolution(service, command.resolution)) {
                     service->enabled = false;
@@ -131,13 +146,6 @@ static void camera_task(void *argument)
             }
             continue;
         }
-        const int64_t now = esp_timer_get_time();
-        if (!service->enabled || service->fps == 0U ||
-            (next_stream_us != 0 && now < next_stream_us)) {
-            continue;
-        }
-        capture_frame(service, false, 0U);
-        next_stream_us = now + INT64_C(1000000) / service->fps;
     }
 }
 
@@ -185,7 +193,7 @@ esp_err_t ainekio_camera_service_start(
     ESP_RETURN_ON_ERROR(esp_camera_init(&config), TAG, "camera init failed");
 
     sensor_t *sensor = esp_camera_sensor_get();
-    if (sensor == NULL || sensor->id.PID != OV2640_PID) {
+    if (sensor == NULL || sensor->id.PID != OV3660_PID) {
         (void)esp_camera_deinit();
         return ESP_ERR_NOT_SUPPORTED;
     }
@@ -220,7 +228,7 @@ esp_err_t ainekio_camera_service_start(
     *service_output = service;
     ESP_LOGI(
         TAG,
-        "OV2640 ready profile=%s psram=%u",
+        "OV3660 ready profile=%s psram=%u",
         AINEKIO_BOARD_PROFILE_ID,
         (unsigned int)esp_psram_get_size()
     );

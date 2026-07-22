@@ -143,9 +143,11 @@ static esp_err_t run_fallback(
     ainekio_fallback_motion_t fallback
 )
 {
-    ainekio_motion_asset_t asset;
-    ainekio_motion_asset_fallback(fallback, &asset);
-    return run_asset(service, &asset, 1U);
+    /* This asset is intentionally stored in the service rather than on the
+     * motion task's 6 KiB stack. The full eight-channel fallback asset is
+     * large enough to overflow that stack during a battery-cutoff stop. */
+    ainekio_motion_asset_fallback(fallback, &service->prepared_asset);
+    return run_asset(service, &service->prepared_asset, 1U);
 }
 
 static void clear_active(ainekio_motion_service_t *service, uint32_t sequence)

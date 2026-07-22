@@ -4,14 +4,20 @@
 #include <string.h>
 
 #include "ainekio/platform/pin_map.h"
+#include "ainekio/platform/nvs_adapter.h"
 #include "driver/gpio.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_random.h"
 #include "esp_timer.h"
+#include "nvs.h"
 
 #define SERVICE_PERIOD_MS 100U
 #define BOOT_HOLD_MS 5000U
 #define RETRY_INITIAL_MS 1000U
 #define RETRY_MAX_MS 30000U
+#define STAGED_DISCONNECT_SETTLE_MS 250U
+#define SETUP_RETRY_MS 2000U
 #define REQUEST_MANUAL BIT0
 #define REQUEST_NETWORK_RESET BIT1
 #define REQUEST_GATEWAY_AUTH_FAILED BIT2
@@ -69,22 +75,122 @@ static void connect_staged(ainekio_provisioning_service_t *service, uint32_t now
     schedule_retry(service, now);
 }
 
-static void show_status(
+static void begin_staged_connection(
     ainekio_provisioning_service_t *service,
-    ainekio_provision_display_t status,
-    const char *secret
+    uint32_t now
 )
 {
+    /*
+     * Manual setup intentionally leaves the active station association alive.
+     * Clear it before staged validation so the next station IP is a real edge
+     * that can commit the candidate, even when the SSID did not change.
+     */
+    const esp_err_t result = ainekio_wifi_disconnect(service->wifi);
+    if (result != ESP_OK) {
+        ESP_LOGW(
+            TAG,
+            "staged network disconnect failed: %s",
+            esp_err_to_name(result)
+        );
+    }
+    service->previous_ip = false;
+    service->retry_delay_ms = 0U;
+    service->retry_at_ms = now + STAGED_DISCONNECT_SETTLE_MS;
+}
+
+static esp_err_t start_setup_services(
+    ainekio_provisioning_service_t *service,
+    uint32_t now
+)
+{
+    const bool recovering = service->setup_retry_at_ms != 0U;
+    const esp_err_t wifi_result =
+        ainekio_wifi_start_setup(service->wifi, service->setup_key);
+    const esp_err_t result = wifi_result == ESP_OK
+                                 ? ainekio_provisioning_portal_start(
+                                       service->portal,
+                                       service->setup_network_only
+                                   )
+                                 : wifi_result;
+    service->setup_services_ready = result == ESP_OK;
+    service->setup_retry_at_ms = result == ESP_OK ? 0U : now + SETUP_RETRY_MS;
+    if (result != ESP_OK) {
+        const uint32_t caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
+        ESP_LOGE(
+            TAG,
+            "setup service start failed: %s (internal free=%u largest=%u)",
+            esp_err_to_name(result),
+            (unsigned int)heap_caps_get_free_size(caps),
+            (unsigned int)heap_caps_get_largest_free_block(caps)
+        );
+    } else if (recovering) {
+        ESP_LOGI(TAG, "setup services recovered");
+    }
+    return result;
+}
+
+static void show_status(
+    ainekio_provisioning_service_t *service,
+    ainekio_provision_display_t status
+)
+{
+    char address[AINEKIO_IPV4_ADDRESS_CHARS + 1U] = {0};
+    const bool has_address = ainekio_wifi_station_address(service->wifi, address);
+    const char *ssid = NULL;
+    if (service->machine->state == AINEKIO_PROVISION_STATE_VALIDATING_STAGED &&
+        service->staged_ssid[0] != '\0') {
+        ssid = service->staged_ssid;
+    } else if (service->config_store->has_active) {
+        ssid = service->config_store->active.wifi_ssid;
+    }
+    const ainekio_provision_display_info_t info = {
+        .setup_key = status == AINEKIO_PROVISION_DISPLAY_SETUP
+                         ? service->setup_key
+                         : NULL,
+        .wifi_ssid = ssid,
+        .ip_address = has_address ? address : NULL,
+    };
     const esp_err_t result = service->io.display == NULL
                                  ? ESP_ERR_NOT_SUPPORTED
-                                 : service->io.display(service->io.context, status, secret);
+                                 : service->io.display(service->io.context, status, &info);
     if (status == AINEKIO_PROVISION_DISPLAY_SETUP && result != ESP_OK &&
-        secret != NULL && !service->serial_secret_printed) {
-        printf("Ainekio setup network: %s\nAinekio setup secret: %s\n",
+        service->setup_key[0] != '\0' && !service->serial_key_printed) {
+        printf("Ainekio setup network: %s\nAinekio setup key: %s\n"
+               "Ainekio setup address: http://192.168.4.1/\n",
                AINEKIO_SETUP_SSID,
-               secret);
-        service->serial_secret_printed = true;
+               service->setup_key);
+        service->serial_key_printed = true;
     }
+}
+
+static esp_err_t load_or_create_setup_key(
+    ainekio_provisioning_service_t *service
+)
+{
+    if (service->setup_key[0] != '\0') {
+        return ESP_OK;
+    }
+    esp_err_t result = ainekio_nvs_adapter_read_setup_key(service->setup_key);
+    if (result == ESP_OK) {
+        return ESP_OK;
+    }
+    if (result != ESP_ERR_NVS_NOT_FOUND &&
+        result != ESP_ERR_NVS_INVALID_LENGTH) {
+        return result;
+    }
+    static const char base32[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    uint64_t random = 0U;
+    esp_fill_random(&random, sizeof(random));
+    for (size_t index = 0U; index < AINEKIO_SETUP_KEY_CHARS; ++index) {
+        service->setup_key[index] = base32[random & 0x1FU];
+        random >>= 5U;
+    }
+    service->setup_key[AINEKIO_SETUP_KEY_CHARS] = '\0';
+    result = ainekio_nvs_adapter_store_setup_key(service->setup_key);
+    if (result != ESP_OK) {
+        memset(service->setup_key, 0, sizeof(service->setup_key));
+    }
+    return result;
 }
 
 static void play_cue(
@@ -174,6 +280,13 @@ static void process_link_state(ainekio_provisioning_service_t *service, uint32_t
 
 static void process_retry(ainekio_provisioning_service_t *service, uint32_t now)
 {
+    if (service->setup_requested && !service->setup_services_ready &&
+        service->setup_key[0] != '\0' &&
+        (int32_t)(now - service->setup_retry_at_ms) >= 0) {
+        if (start_setup_services(service, now) == ESP_OK) {
+            show_status(service, AINEKIO_PROVISION_DISPLAY_SETUP);
+        }
+    }
     if (ainekio_wifi_has_ip(service->wifi) || service->retry_at_ms == 0U ||
         (int32_t)(now - service->retry_at_ms) < 0) {
         return;
@@ -206,45 +319,37 @@ static void process_actions(
         memset(service->staged_ssid, 0, sizeof(service->staged_ssid));
         memset(service->staged_psk, 0, sizeof(service->staged_psk));
     }
-    if (includes(actions, AINEKIO_PROVISION_ACTION_GENERATE_SETUP_SECRET)) {
-        memset(service->setup_secret, 0, sizeof(service->setup_secret));
-        service->serial_secret_printed = false;
-        const esp_err_t result = ainekio_provisioning_portal_generate_secret(
-            service->portal,
-            service->setup_secret
-        );
+    if (includes(actions, AINEKIO_PROVISION_ACTION_LOAD_SETUP_KEY)) {
+        service->serial_key_printed = false;
+        const esp_err_t result = load_or_create_setup_key(service);
         if (result != ESP_OK) {
-            ESP_LOGE(TAG, "setup secret generation failed: %s", esp_err_to_name(result));
+            ESP_LOGE(TAG, "setup key unavailable: %s", esp_err_to_name(result));
         }
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_START_SETUP_AP) &&
-        service->setup_secret[0] != '\0') {
-        const esp_err_t wifi_result =
-            ainekio_wifi_start_setup(service->wifi, service->setup_secret);
-        const esp_err_t portal_result = wifi_result == ESP_OK
-                                            ? ainekio_provisioning_portal_start(
-                                                  service->portal,
-                                                  service->config_store->has_active
-                                              )
-                                            : wifi_result;
-        if (portal_result != ESP_OK) {
-            ESP_LOGE(TAG, "setup service start failed: %s", esp_err_to_name(portal_result));
-        }
+        service->setup_key[0] != '\0') {
+        service->setup_requested = true;
+        service->setup_network_only = service->config_store->has_active &&
+                                      service->machine->reason ==
+                                          AINEKIO_PROVISION_REASON_NETWORK_RESET;
+        (void)start_setup_services(service, now);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_STOP_SETUP_AP)) {
+        service->setup_requested = false;
+        service->setup_services_ready = false;
+        service->setup_retry_at_ms = 0U;
         (void)ainekio_wifi_stop_setup(service->wifi);
         if (service->machine->state == AINEKIO_PROVISION_STATE_AUTOMATIC_RETRY) {
             (void)ainekio_provisioning_portal_suspend(service->portal);
         } else {
             (void)ainekio_provisioning_portal_stop(service->portal);
-            memset(service->setup_secret, 0, sizeof(service->setup_secret));
         }
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_CONNECT_ACTIVE_WIFI)) {
         connect_active(service, now);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_CONNECT_STAGED_WIFI)) {
-        connect_staged(service, now);
+        begin_staged_connection(service, now);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_COMMIT_STAGED_CONFIG)) {
         const bool committed =
@@ -262,19 +367,19 @@ static void process_actions(
         }
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_SHOW_CONNECTING)) {
-        show_status(service, AINEKIO_PROVISION_DISPLAY_CONNECTING, NULL);
+        show_status(service, AINEKIO_PROVISION_DISPLAY_CONNECTING);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_SHOW_WIFI_UNAVAILABLE)) {
-        show_status(service, AINEKIO_PROVISION_DISPLAY_UNAVAILABLE, NULL);
+        show_status(service, AINEKIO_PROVISION_DISPLAY_UNAVAILABLE);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_SHOW_SETUP)) {
-        show_status(service, AINEKIO_PROVISION_DISPLAY_SETUP, service->setup_secret);
+        show_status(service, AINEKIO_PROVISION_DISPLAY_SETUP);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_SHOW_CONNECTED)) {
-        show_status(service, AINEKIO_PROVISION_DISPLAY_CONNECTED, NULL);
+        show_status(service, AINEKIO_PROVISION_DISPLAY_CONNECTED);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_SHOW_GATEWAY_AUTH_FAILED)) {
-        show_status(service, AINEKIO_PROVISION_DISPLAY_GATEWAY_AUTH_FAILED, NULL);
+        show_status(service, AINEKIO_PROVISION_DISPLAY_GATEWAY_AUTH_FAILED);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_PLAY_SETUP_CUE)) {
         play_cue(service, AINEKIO_PROVISION_CUE_SETUP);
@@ -314,6 +419,30 @@ static void provisioning_task(void *argument)
     }
 }
 
+static esp_err_t prepare_boot_button(void)
+{
+#if AINEKIO_PIN_BOOT == AINEKIO_PIN_I2C_SDA || \
+    AINEKIO_PIN_BOOT == AINEKIO_PIN_I2C_SCL
+    /*
+     * The display service already owns this open-drain line. A held BOOT
+     * button still reads continuously low, while normal I2C transitions are
+     * far shorter than BOOT_HOLD_MS. Reconfiguring the GPIO here would detach
+     * the OLED from its bus.
+     */
+    ESP_LOGI(TAG, "boot button shares OLED I2C; preserving open-drain pin mode");
+    return ESP_OK;
+#else
+    const gpio_config_t boot_config = {
+        .pin_bit_mask = UINT64_C(1) << AINEKIO_PIN_BOOT,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    return gpio_config(&boot_config);
+#endif
+}
+
 esp_err_t ainekio_provisioning_service_start(
     ainekio_provisioning_service_t *service,
     ainekio_provisioning_t *machine,
@@ -335,14 +464,7 @@ esp_err_t ainekio_provisioning_service_start(
     if (io != NULL) {
         service->io = *io;
     }
-    const gpio_config_t boot_config = {
-        .pin_bit_mask = UINT64_C(1) << AINEKIO_PIN_BOOT,
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    const esp_err_t gpio_result = gpio_config(&boot_config);
+    const esp_err_t gpio_result = prepare_boot_button();
     if (gpio_result != ESP_OK) {
         return gpio_result;
     }

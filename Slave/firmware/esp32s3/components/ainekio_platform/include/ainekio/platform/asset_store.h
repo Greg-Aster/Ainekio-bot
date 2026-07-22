@@ -42,19 +42,18 @@ typedef struct {
     bool available;
 } ainekio_audio_index_entry_t;
 
+typedef struct ainekio_asset_storage ainekio_asset_storage_t;
+
 typedef struct {
     ainekio_servo_bank_t *servos;
     SemaphoreHandle_t lock;
     StaticSemaphore_t lock_storage;
-    ainekio_motion_index_entry_t motions[AINEKIO_ASSET_MAX_MOTIONS];
-    ainekio_face_index_entry_t faces[AINEKIO_ASSET_MAX_FACES];
-    ainekio_audio_index_entry_t audio[AINEKIO_ASSET_MAX_AUDIO];
+    ainekio_asset_storage_t *storage;
     uint8_t motion_count;
     uint8_t face_count;
     uint8_t audio_count;
     uint16_t unavailable_count;
     bool mounted;
-    uint8_t io_buffer[AINEKIO_MOTION_MAX_FILE_BYTES];
 } ainekio_asset_store_t;
 
 esp_err_t ainekio_asset_store_init(

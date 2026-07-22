@@ -1,7 +1,8 @@
 # Ainekio and MetaHuman Closed-Loop Status
 
-Status: implemented software foundation
-Updated: 2026-07-17
+Status: software loop implemented; controller USB bring-up verified; assembled
+hardware loop pending
+Updated: 2026-07-21
 
 ## Current Path
 
@@ -79,11 +80,27 @@ does not contain a MetaHuman URL or make MetaHuman API calls.
 
 ## Configuration
 
-Ainekio:
+Start the physical brain-side gateway from this repository with its robot and
+Environment Bridge credentials supplied only at runtime:
+
+```sh
+export AINEKIO_ROBOT_ID=ainekio-01
+export AINEKIO_ROBOT_TOKEN='<random robot pairing token>'
+export AINEKIO_ENVIRONMENT_ADAPTER_TOKEN='<random shared adapter token>'
+./Master/start-physical-gateway.sh
+```
+
+The physical launcher binds the shared WebSocket service to the brain's LAN on
+port 8790 and keeps its dashboard on `127.0.0.1:8791`. On the currently observed
+home network, the robot endpoint is `ws://192.168.0.44:8790/robot`; reserve that
+address in the router because DHCP can change it.
+
+Ainekio's setup form stores:
 
 ```text
-AINEKIO_ENVIRONMENT_ADAPTER_TOKEN=<random shared adapter token>
-AINEKIO_ENVIRONMENT_SESSION_ID=ainekio-sim-1
+endpoint_url=ws://<brain-lan-ip>:8790/robot
+robot_id=ainekio-01
+robot_token=<same robot pairing token used to seed the gateway>
 ```
 
 MetaHuman:
@@ -100,10 +117,19 @@ configuration and are not committed.
 
 ## Deferred
 
-- Physical camera, microphone, speaker, servo, display, SD, and sensor behavior
-  still require hardware validation when the ESP32-S3 board arrives.
+- The delivered ESP32-S3 controller has passed USB-only boot, OV3660 detection,
+  8 MB PSRAM validation, and initialization of all eight remapped MCPWM channels.
+  Physical JPEG output, servo signals and joints, the external 5 V rails,
+  microphone, speaker, OLED, SD card, and combined-load behavior still require
+  assembly and H-series evidence.
+- The stable-key/direct-form firmware image and physical gateway launcher pass
+  software validation. The image is installed with immutable-partition digest
+  readback, boots on the delivered board, and broadcasts `Ainekio-Setup`. The
+  home-WiFi form submission, gateway authentication, OLED IP/state, and physical
+  full-duplex path still need live evidence.
 - Physical microphone capture and acoustic behavior still need board-level
-  validation. The current emulator was launched without an ALSA capture device.
+  validation. Emulator fixture evidence does not substitute for the installed
+  INMP441 and enclosure.
 - The local microWakeWord engine is implemented, but no accepted production
   Ainekio model is installed; wake therefore remains intentionally not ready.
 - Full acoustic echo cancellation is not implemented. The current policy is

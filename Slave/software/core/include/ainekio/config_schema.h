@@ -13,13 +13,15 @@
 #define AINEKIO_NVS_NAMESPACE_META "ainekio_meta"
 #define AINEKIO_NVS_NAMESPACE_CONFIG_A "config_a"
 #define AINEKIO_NVS_NAMESPACE_CONFIG_B "config_b"
+#define AINEKIO_NVS_NAMESPACE_DEVICE "device_setup"
 #define AINEKIO_NVS_NAMESPACE_CALIBRATION "robot_cal"
 #define AINEKIO_NVS_NAMESPACE_POSES "robot_poses"
 #define AINEKIO_NVS_NAMESPACE_PREFERENCES "robot_prefs"
 
 #define AINEKIO_NVS_KEY_SCHEMA_VERSION "schema_ver"
 #define AINEKIO_NVS_KEY_ACTIVE_SLOT "active_slot"
-#define AINEKIO_NVS_KEY_SETUP_HASH "setup_hash"
+#define AINEKIO_NVS_KEY_SETUP_KEY "setup_key"
+#define AINEKIO_SETUP_KEY_CHARS 8U
 
 #define AINEKIO_NVS_KEY_GENERATION "generation"
 #define AINEKIO_NVS_KEY_COMPLETE "complete"
