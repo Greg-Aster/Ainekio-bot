@@ -17,9 +17,12 @@
 #include "ainekio/settings.h"
 #include "esp_app_desc.h"
 #include "driver/gpio.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_psram.h"
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "sdkconfig.h"
 
 static const char *TAG = "ainekio_boot";
@@ -78,10 +81,10 @@ static esp_err_t runtime_online(
 static esp_err_t runtime_display(
     void *context,
     ainekio_provision_display_t status,
-    const char *setup_secret
+    const ainekio_provision_display_info_t *info
 )
 {
-    return ainekio_runtime_provision_display(context, status, setup_secret);
+    return ainekio_runtime_provision_display(context, status, info);
 }
 
 static esp_err_t runtime_cue(void *context, ainekio_provision_cue_t cue)
@@ -195,6 +198,7 @@ void app_main(void)
         .mcpwm = &mcpwm_adapter,
         .assets = &asset_store,
         .provisioning = &provisioning_service,
+        .wifi = &wifi_adapter,
         .firmware_version = app->version,
         .battery_divider_factor = battery_monitor_enabled()
                                       ? battery_divider_factor
@@ -322,6 +326,25 @@ void app_main(void)
              CONFIG_AINEKIO_MOTION_MIN_FRAME_MS,
              CONFIG_AINEKIO_SERVO_STARTUP_STAGGER_MS,
              provisioning_error == ESP_OK ? "true" : "false");
+    ESP_LOGI(
+        TAG,
+        "{\"event\":\"memory\",\"internal_free\":%u,"
+        "\"internal_min\":%u,\"internal_largest\":%u,"
+        "\"psram_free\":%u,\"main_stack_high_water\":%u}",
+        (unsigned int)heap_caps_get_free_size(
+            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT
+        ),
+        (unsigned int)heap_caps_get_minimum_free_size(
+            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT
+        ),
+        (unsigned int)heap_caps_get_largest_free_block(
+            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT
+        ),
+        (unsigned int)heap_caps_get_free_size(
+            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
+        ),
+        (unsigned int)uxTaskGetStackHighWaterMark(NULL)
+    );
     (void)gpio_dump_io_configuration(
         stdout,
         (UINT64_C(1) << AINEKIO_PIN_SERVO_R4) |

@@ -22,12 +22,13 @@ static void test_nvs_contract_is_versioned_and_bounded(void)
         AINEKIO_NVS_NAMESPACE_META,
         AINEKIO_NVS_NAMESPACE_CONFIG_A,
         AINEKIO_NVS_NAMESPACE_CONFIG_B,
+        AINEKIO_NVS_NAMESPACE_DEVICE,
         AINEKIO_NVS_NAMESPACE_CALIBRATION,
         AINEKIO_NVS_NAMESPACE_POSES,
         AINEKIO_NVS_NAMESPACE_PREFERENCES,
         AINEKIO_NVS_KEY_SCHEMA_VERSION,
         AINEKIO_NVS_KEY_ACTIVE_SLOT,
-        AINEKIO_NVS_KEY_SETUP_HASH,
+        AINEKIO_NVS_KEY_SETUP_KEY,
         AINEKIO_NVS_KEY_GENERATION,
         AINEKIO_NVS_KEY_COMPLETE,
         AINEKIO_NVS_KEY_WIFI_SSID,
@@ -43,6 +44,7 @@ static void test_nvs_contract_is_versioned_and_bounded(void)
         AINEKIO_NVS_KEY_WAKE_MODEL,
     };
     assert(AINEKIO_NVS_SCHEMA_VERSION == 1U);
+    assert(AINEKIO_SETUP_KEY_CHARS == 8U);
     assert(AINEKIO_CONFIG_SLOT_A != AINEKIO_CONFIG_SLOT_B);
     for (size_t index = 0U; index < sizeof(names) / sizeof(names[0]); ++index) {
         assert_nvs_name(names[index]);
@@ -66,7 +68,7 @@ static void test_valid_boot_uses_sixty_second_window(void)
     assert(machine.reason == AINEKIO_PROVISION_REASON_WIFI_TIMEOUT);
     actions = ainekio_provisioning_take_actions(&machine);
     assert(includes(actions, AINEKIO_PROVISION_ACTION_START_SETUP_AP));
-    assert(includes(actions, AINEKIO_PROVISION_ACTION_GENERATE_SETUP_SECRET));
+    assert(includes(actions, AINEKIO_PROVISION_ACTION_LOAD_SETUP_KEY));
     assert(includes(actions, AINEKIO_PROVISION_ACTION_SHOW_WIFI_UNAVAILABLE));
 }
 
@@ -105,7 +107,7 @@ static void test_automatic_setup_cycles_without_replaying_setup_cue(void)
     actions = ainekio_provisioning_take_actions(&machine);
     assert(includes(actions, AINEKIO_PROVISION_ACTION_START_SETUP_AP));
     assert(includes(actions, AINEKIO_PROVISION_ACTION_SHOW_SETUP));
-    assert(!includes(actions, AINEKIO_PROVISION_ACTION_GENERATE_SETUP_SECRET));
+    assert(!includes(actions, AINEKIO_PROVISION_ACTION_LOAD_SETUP_KEY));
     assert(!includes(actions, AINEKIO_PROVISION_ACTION_PLAY_SETUP_CUE));
 }
 
@@ -143,6 +145,7 @@ static void test_staged_config_commits_only_after_station_ip(void)
     assert(machine.state == AINEKIO_PROVISION_STATE_VALIDATING_STAGED);
     ainekio_provision_actions_t actions = ainekio_provisioning_take_actions(&machine);
     assert(includes(actions, AINEKIO_PROVISION_ACTION_CONNECT_STAGED_WIFI));
+    assert(includes(actions, AINEKIO_PROVISION_ACTION_SHOW_CONNECTING));
     assert(!includes(actions, AINEKIO_PROVISION_ACTION_COMMIT_STAGED_CONFIG));
 
     ainekio_provisioning_on_staged_wifi_ip(&machine, 200U);
@@ -207,7 +210,7 @@ static void test_network_reset_clears_only_wifi_state(void)
     const ainekio_provision_actions_t actions =
         ainekio_provisioning_take_actions(&machine);
     assert(includes(actions, AINEKIO_PROVISION_ACTION_CLEAR_ACTIVE_WIFI));
-    assert(includes(actions, AINEKIO_PROVISION_ACTION_GENERATE_SETUP_SECRET));
+    assert(includes(actions, AINEKIO_PROVISION_ACTION_LOAD_SETUP_KEY));
     assert(includes(actions, AINEKIO_PROVISION_ACTION_SHOW_SETUP));
 }
 

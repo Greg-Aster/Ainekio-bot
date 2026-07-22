@@ -37,7 +37,8 @@
 #define CAMERA_QUEUE_LENGTH 2U
 #define RX_TEXT_BYTES (AINEKIO_CONTROL_MAX_BYTES + 1U)
 #define TX_TEXT_BYTES 1536U
-#define WRITE_TIMEOUT_MS 100U
+#define WRITE_TIMEOUT_MS 1000U
+#define NETWORK_CONNECT_TIMEOUT_MS 10000U
 #define CONTROL_PING_US INT64_C(2000000)
 #define CONTROL_FAILSAFE_US INT64_C(3000000)
 #define ACTIVE_IDLE_US INT64_C(60000000)
@@ -158,6 +159,25 @@ typedef struct {
     size_t length;
 } camera_tx_item_t;
 
+/*
+ * These buffers are accessed by tasks, but they are not DMA descriptors,
+ * interrupt state, or FreeRTOS control blocks. Keeping them in PSRAM leaves
+ * internal RAM available for WiFi/LwIP tasks, the setup DHCP server, and the
+ * provisioning HTTP server.
+ */
+typedef struct {
+    char rx_text[RX_TEXT_BYTES];
+    ainekio_control_message_t rx_message;
+    char tx_text[TX_TEXT_BYTES];
+    uint8_t rx_binary[AINEKIO_BINARY_HEADER_BYTES + AINEKIO_AUDIO_PAYLOAD_BYTES];
+    uint8_t command_queue[COMMAND_QUEUE_LENGTH * sizeof(rx_command_item_t)];
+    uint8_t stop_queue[STOP_QUEUE_LENGTH * sizeof(stop_item_t)];
+    uint8_t internal_queue[INTERNAL_QUEUE_LENGTH * sizeof(internal_item_t)];
+    uint8_t tx_queue[TX_QUEUE_LENGTH * sizeof(tx_item_t)];
+    uint8_t fast_tx_queue[FAST_TX_QUEUE_LENGTH * sizeof(tx_item_t)];
+    uint8_t mic_queue[MIC_QUEUE_LENGTH * sizeof(mic_tx_item_t)];
+} runtime_buffers_t;
+
 struct ainekio_runtime {
     ainekio_core_t *core;
     ainekio_servo_bank_t *servos;
@@ -165,6 +185,7 @@ struct ainekio_runtime {
     ainekio_mcpwm_adapter_t *mcpwm;
     ainekio_asset_store_t *assets;
     ainekio_provisioning_service_t *provisioning;
+    ainekio_wifi_adapter_t *wifi;
     char firmware_version[33];
 
     ainekio_motion_service_t motion;
@@ -196,10 +217,9 @@ struct ainekio_runtime {
     int64_t last_rx_control_us;
     int64_t last_tx_control_us;
 
-    char rx_text[RX_TEXT_BYTES];
+    runtime_buffers_t *buffers;
     size_t rx_text_expected;
     bool rx_text_discard;
-    uint8_t rx_binary[AINEKIO_BINARY_HEADER_BYTES + AINEKIO_AUDIO_PAYLOAD_BYTES];
     size_t rx_binary_expected;
     bool rx_binary_discard;
 
@@ -220,12 +240,6 @@ struct ainekio_runtime {
     StaticQueue_t mic_queue_control;
     StaticQueue_t battery_queue_control;
     StaticQueue_t sd_queue_control;
-    uint8_t command_queue_storage[COMMAND_QUEUE_LENGTH * sizeof(rx_command_item_t)];
-    uint8_t stop_queue_storage[STOP_QUEUE_LENGTH * sizeof(stop_item_t)];
-    uint8_t internal_queue_storage[INTERNAL_QUEUE_LENGTH * sizeof(internal_item_t)];
-    uint8_t tx_queue_storage[TX_QUEUE_LENGTH * sizeof(tx_item_t)];
-    uint8_t fast_tx_queue_storage[FAST_TX_QUEUE_LENGTH * sizeof(tx_item_t)];
-    uint8_t mic_queue_storage[MIC_QUEUE_LENGTH * sizeof(mic_tx_item_t)];
     uint8_t battery_queue_storage[sizeof(battery_item_t)];
     uint8_t sd_queue_storage[sizeof(sd_item_t)];
     uint32_t microphone_counter;
@@ -257,6 +271,33 @@ struct ainekio_runtime {
 
 static const char *TAG = "ainekio_runtime";
 static ainekio_runtime_t singleton;
+
+static void show_gateway_status(ainekio_runtime_t *runtime, const char *status)
+{
+    if (runtime == NULL || runtime->display == NULL || status == NULL) {
+        return;
+    }
+    char ssid[AINEKIO_WIFI_SSID_BYTES] = {0};
+    bool configured = false;
+    taskENTER_CRITICAL(&runtime->state_lock);
+    configured = runtime->has_config;
+    if (configured) {
+        (void)strcpy(ssid, runtime->active_config.wifi_ssid);
+    }
+    taskEXIT_CRITICAL(&runtime->state_lock);
+    if (!configured) {
+        return;
+    }
+    char address[AINEKIO_IPV4_ADDRESS_CHARS + 1U] = {0};
+    (void)ainekio_wifi_station_address(runtime->wifi, address);
+    (void)ainekio_display_show_status(
+        runtime->display,
+        status,
+        ssid,
+        address[0] != '\0' ? address : NULL,
+        NULL
+    );
+}
 
 static int64_t now_us(void)
 {
@@ -571,13 +612,17 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
         return;
     }
 
-    char output[TX_TEXT_BYTES];
-    const size_t length = encode_tx(runtime, item, output, sizeof(output));
+    const size_t length = encode_tx(
+        runtime,
+        item,
+        runtime->buffers->tx_text,
+        sizeof(runtime->buffers->tx_text)
+    );
     int sent = -1;
     if (length > 0U) {
         sent = esp_websocket_client_send_text(
             client,
-            output,
+            runtime->buffers->tx_text,
             (int)length,
             pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
         );
@@ -631,6 +676,9 @@ static bool send_binary(
 static void tx_task(void *argument)
 {
     ainekio_runtime_t *runtime = argument;
+    (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    const TickType_t tx_queue_wait_ticks =
+        pdMS_TO_TICKS(5U) > 0U ? pdMS_TO_TICKS(5U) : 1U;
     while (true) {
         tx_item_t item;
         if (xQueueReceive(runtime->fast_tx_queue, &item, 0U) == pdTRUE) {
@@ -644,7 +692,7 @@ static void tx_task(void *argument)
             }
             continue;
         }
-        if (xQueueReceive(runtime->tx_queue, &item, pdMS_TO_TICKS(5U)) == pdTRUE) {
+        if (xQueueReceive(runtime->tx_queue, &item, tx_queue_wait_ticks) == pdTRUE) {
             send_tx_item(runtime, &item);
             if (item.kind == TX_CLOSE && item.data.close.sleep_seconds > 0U) {
                 vTaskDelay(pdMS_TO_TICKS(20U));
@@ -1560,6 +1608,7 @@ static void dispatch_internal(
     taskENTER_CRITICAL(&runtime->state_lock);
     runtime->authenticated = true;
     taskEXIT_CRITICAL(&runtime->state_lock);
+    show_gateway_status(runtime, "GATEWAY ONLINE");
     runtime->last_intent_us = now_us();
     runtime->next_status_us = now_us();
     if (!runtime->ota_validation_checked) {
@@ -1608,11 +1657,11 @@ static void dispatch_battery(
     runtime->battery_voltage = item->volts;
     ainekio_core_set_power_guard(
         runtime->core,
-        item->state == AINEKIO_BATTERY_NORMAL
-            ? AINEKIO_POWER_NORMAL
+        item->state == AINEKIO_BATTERY_CUTOFF
+            ? AINEKIO_POWER_CUTOFF
             : (item->state == AINEKIO_BATTERY_WARN
                    ? AINEKIO_POWER_MOVE_LOCKED
-                   : AINEKIO_POWER_CUTOFF)
+                   : AINEKIO_POWER_NORMAL)
     );
     runtime->battery_events_pending |= item->events;
     if ((runtime->battery_events_pending & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
@@ -1729,6 +1778,7 @@ static void dispatcher_tick(ainekio_runtime_t *runtime)
 static void dispatcher_task(void *argument)
 {
     ainekio_runtime_t *runtime = argument;
+    (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     while (true) {
         sd_item_t sd;
         if (xQueueReceive(runtime->sd_queue, &sd, 0U) == pdTRUE) {
@@ -1886,7 +1936,7 @@ static void handle_text_chunk(
         return;
     }
     memcpy(
-        runtime->rx_text + (size_t)data->payload_offset,
+        runtime->buffers->rx_text + (size_t)data->payload_offset,
         data->data_ptr,
         (size_t)data->data_len
     );
@@ -1894,18 +1944,22 @@ static void handle_text_chunk(
         runtime->rx_text_expected) {
         return;
     }
-    runtime->rx_text[runtime->rx_text_expected] = '\0';
+    runtime->buffers->rx_text[runtime->rx_text_expected] = '\0';
     taskENTER_CRITICAL(&runtime->state_lock);
     runtime->last_rx_control_us = now_us();
     const uint32_t serial = runtime->session_serial;
     taskEXIT_CRITICAL(&runtime->state_lock);
-    ainekio_control_message_t message;
     const ainekio_decode_result_t result = ainekio_control_decode(
-        runtime->rx_text,
+        runtime->buffers->rx_text,
         runtime->rx_text_expected,
-        &message
+        &runtime->buffers->rx_message
     );
-    handle_decoded_control(runtime, &message, result, serial);
+    handle_decoded_control(
+        runtime,
+        &runtime->buffers->rx_message,
+        result,
+        serial
+    );
 }
 
 static void handle_binary_chunk(
@@ -1919,7 +1973,8 @@ static void handle_binary_chunk(
                                           : 0U;
         runtime->rx_binary_discard = runtime->audio == NULL || !data->fin ||
                                      data->payload_len <= 0 ||
-                                     data->payload_len > (int)sizeof(runtime->rx_binary);
+                                     data->payload_len >
+                                         (int)sizeof(runtime->buffers->rx_binary);
         if (!runtime->rx_binary_discard && data->data_len > 0 &&
             (uint8_t)data->data_ptr[0] != AINEKIO_FRAME_SPEAKER_PCM) {
             runtime->rx_binary_discard = true;
@@ -1932,7 +1987,7 @@ static void handle_binary_chunk(
         return;
     }
     memcpy(
-        runtime->rx_binary + (size_t)data->payload_offset,
+        runtime->buffers->rx_binary + (size_t)data->payload_offset,
         data->data_ptr,
         (size_t)data->data_len
     );
@@ -1942,7 +1997,7 @@ static void handle_binary_chunk(
     }
     ainekio_binary_frame_t frame;
     if (ainekio_binary_decode(
-            runtime->rx_binary,
+            runtime->buffers->rx_binary,
             runtime->rx_binary_expected,
             &frame
         ) != AINEKIO_BINARY_OK ||
@@ -2013,6 +2068,7 @@ static void websocket_event(
         runtime->authenticated = false;
         runtime->ping_pending = false;
         taskEXIT_CRITICAL(&runtime->state_lock);
+        show_gateway_status(runtime, "GATEWAY OFFLINE");
         signal_failsafe(runtime);
         if (runtime->supervisor_task != NULL) {
             (void)xTaskNotify(
@@ -2068,14 +2124,14 @@ static esp_err_t create_client(ainekio_runtime_t *runtime)
         .task_core_id = 0,
         .task_prio = 10,
         .task_name = "ws_rx",
-        .task_stack = 6144,
+        .task_stack = 8192,
         .buffer_size = AINEKIO_CONTROL_MAX_BYTES,
         .crt_bundle_attach = secure ? esp_crt_bundle_attach : NULL,
         .keep_alive_enable = true,
         .keep_alive_idle = 5,
         .keep_alive_interval = 5,
         .keep_alive_count = 3,
-        .network_timeout_ms = WRITE_TIMEOUT_MS,
+        .network_timeout_ms = NETWORK_CONNECT_TIMEOUT_MS,
         .ping_interval_sec = 10U,
     };
     esp_websocket_client_handle_t client = esp_websocket_client_init(&config);
@@ -2156,6 +2212,7 @@ static void supervisor_liveness(ainekio_runtime_t *runtime)
 static void supervisor_task(void *argument)
 {
     ainekio_runtime_t *runtime = argument;
+    (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     uint32_t backoff_ms = 1000U;
     int64_t attempt_at_us = 0;
     uint32_t seen_generation = 0U;
@@ -2205,6 +2262,10 @@ static void supervisor_task(void *argument)
                 }
             }
         }
+        /* A close can enqueue another close notification while the client is
+         * being destroyed. Always yield so a reconnect storm cannot starve
+         * the WiFi and idle tasks on CPU0. */
+        vTaskDelay(pdMS_TO_TICKS(10U));
     }
 }
 
@@ -2213,37 +2274,37 @@ static bool initialize_queues(ainekio_runtime_t *runtime)
     runtime->command_queue = xQueueCreateStatic(
         COMMAND_QUEUE_LENGTH,
         sizeof(rx_command_item_t),
-        runtime->command_queue_storage,
+        runtime->buffers->command_queue,
         &runtime->command_queue_control
     );
     runtime->stop_queue = xQueueCreateStatic(
         STOP_QUEUE_LENGTH,
         sizeof(stop_item_t),
-        runtime->stop_queue_storage,
+        runtime->buffers->stop_queue,
         &runtime->stop_queue_control
     );
     runtime->internal_queue = xQueueCreateStatic(
         INTERNAL_QUEUE_LENGTH,
         sizeof(internal_item_t),
-        runtime->internal_queue_storage,
+        runtime->buffers->internal_queue,
         &runtime->internal_queue_control
     );
     runtime->tx_queue = xQueueCreateStatic(
         TX_QUEUE_LENGTH,
         sizeof(tx_item_t),
-        runtime->tx_queue_storage,
+        runtime->buffers->tx_queue,
         &runtime->tx_queue_control
     );
     runtime->fast_tx_queue = xQueueCreateStatic(
         FAST_TX_QUEUE_LENGTH,
         sizeof(tx_item_t),
-        runtime->fast_tx_queue_storage,
+        runtime->buffers->fast_tx_queue,
         &runtime->fast_tx_queue_control
     );
     runtime->mic_queue = xQueueCreateStatic(
         MIC_QUEUE_LENGTH,
         sizeof(mic_tx_item_t),
-        runtime->mic_queue_storage,
+        runtime->buffers->mic_queue,
         &runtime->mic_queue_control
     );
     runtime->camera_queue = xQueueCreate(
@@ -2269,87 +2330,33 @@ static bool initialize_queues(ainekio_runtime_t *runtime)
            runtime->sd_queue != NULL;
 }
 
-esp_err_t ainekio_runtime_start(
-    const ainekio_runtime_dependencies_t *dependencies,
-    ainekio_runtime_t **runtime_output
-)
+static void delete_runtime_task(TaskHandle_t *task)
 {
-    if (dependencies == NULL || runtime_output == NULL || dependencies->core == NULL ||
-        dependencies->servos == NULL || dependencies->poses == NULL ||
-        dependencies->mcpwm == NULL || dependencies->assets == NULL ||
-        dependencies->provisioning == NULL || dependencies->firmware_version == NULL ||
-        dependencies->wake_model == NULL ||
-        strlen(dependencies->firmware_version) > 32U ||
-        !ainekio_asset_name_valid(dependencies->wake_model)) {
-        return ESP_ERR_INVALID_ARG;
+    if (*task != NULL) {
+        vTaskDelete(*task);
+        *task = NULL;
     }
-    ainekio_runtime_t *runtime = &singleton;
-    memset(runtime, 0, sizeof(*runtime));
-    runtime->core = dependencies->core;
-    runtime->servos = dependencies->servos;
-    runtime->poses = dependencies->poses;
-    runtime->mcpwm = dependencies->mcpwm;
-    runtime->assets = dependencies->assets;
-    runtime->provisioning = dependencies->provisioning;
-    runtime->boot_event_pending = dependencies->boot_event_pending;
-    runtime->brownout_recovered_pending =
-        dependencies->brownout_recovered_pending;
-    runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
-    runtime->wake_enabled = dependencies->wake_enabled;
-    runtime->wake_ready = false;
-    runtime->microphone_enabled = true;
-    runtime->microphone_gate = AINEKIO_MIC_GATE_VAD;
-    (void)strcpy(runtime->wake_model, dependencies->wake_model);
-    runtime->display_state = UINT8_MAX;
-    runtime->state_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
-    (void)strcpy(runtime->firmware_version, dependencies->firmware_version);
-    runtime->client_lock = xSemaphoreCreateMutexStatic(&runtime->client_lock_storage);
-    if (runtime->client_lock == NULL || !initialize_queues(runtime)) {
-        return ESP_ERR_NO_MEM;
-    }
+}
 
-    const ainekio_motion_callbacks_t callbacks = {
-        .context = runtime,
-        .done = motion_done,
-        .failed = motion_failed,
-        .face = motion_face,
-    };
-    esp_err_t result = ainekio_motion_service_start(
-        &runtime->motion,
-        runtime->servos,
-        runtime->poses,
-        runtime->mcpwm,
-        runtime->assets,
-        &callbacks
-    );
-    if (result != ESP_OK) {
-        return result;
+static void release_runtime_backbone(ainekio_runtime_t *runtime)
+{
+    delete_runtime_task(&runtime->supervisor_task);
+    delete_runtime_task(&runtime->dispatcher_task);
+    delete_runtime_task(&runtime->tx_task);
+    if (runtime->camera_queue != NULL) {
+        vQueueDelete(runtime->camera_queue);
+        runtime->camera_queue = NULL;
     }
-    const esp_err_t display_result = ainekio_display_service_start(
-        runtime->assets,
-        &runtime->display
-    );
-    if (display_result != ESP_OK) {
-        runtime->display = NULL;
-        ESP_LOGW(TAG, "display service unavailable: %s", esp_err_to_name(display_result));
-    }
-    const ainekio_camera_callbacks_t camera_callbacks = {
-        .context = runtime,
-        .frame = camera_frame,
-        .failed = camera_failed,
-    };
-    const esp_err_t camera_result = ainekio_camera_service_start(
-        &camera_callbacks,
-        &runtime->camera
-    );
-    if (camera_result != ESP_OK) {
-        runtime->camera = NULL;
-        ESP_LOGW(TAG, "camera service unavailable: %s", esp_err_to_name(camera_result));
-    }
+    heap_caps_free(runtime->buffers);
+    runtime->buffers = NULL;
+}
+
+static bool create_runtime_tasks(ainekio_runtime_t *runtime)
+{
     if (xTaskCreatePinnedToCore(
             tx_task,
             "ws_tx",
-            4096U,
+            6144U,
             runtime,
             9U,
             &runtime->tx_task,
@@ -2373,7 +2380,113 @@ esp_err_t ainekio_runtime_start(
             &runtime->supervisor_task,
             0
         ) != pdPASS) {
+        return false;
+    }
+    return true;
+}
+
+static void start_runtime_tasks(ainekio_runtime_t *runtime)
+{
+    (void)xTaskNotifyGive(runtime->tx_task);
+    (void)xTaskNotifyGive(runtime->dispatcher_task);
+    (void)xTaskNotifyGive(runtime->supervisor_task);
+}
+
+esp_err_t ainekio_runtime_start(
+    const ainekio_runtime_dependencies_t *dependencies,
+    ainekio_runtime_t **runtime_output
+)
+{
+    if (dependencies == NULL || runtime_output == NULL || dependencies->core == NULL ||
+        dependencies->servos == NULL || dependencies->poses == NULL ||
+        dependencies->mcpwm == NULL || dependencies->assets == NULL ||
+        dependencies->provisioning == NULL || dependencies->wifi == NULL ||
+        dependencies->firmware_version == NULL ||
+        dependencies->wake_model == NULL ||
+        strlen(dependencies->firmware_version) > 32U ||
+        !ainekio_asset_name_valid(dependencies->wake_model)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    ainekio_runtime_t *runtime = &singleton;
+    memset(runtime, 0, sizeof(*runtime));
+    runtime->core = dependencies->core;
+    runtime->servos = dependencies->servos;
+    runtime->poses = dependencies->poses;
+    runtime->mcpwm = dependencies->mcpwm;
+    runtime->assets = dependencies->assets;
+    runtime->provisioning = dependencies->provisioning;
+    runtime->wifi = dependencies->wifi;
+    runtime->boot_event_pending = dependencies->boot_event_pending;
+    runtime->brownout_recovered_pending =
+        dependencies->brownout_recovered_pending;
+    runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
+    runtime->wake_enabled = dependencies->wake_enabled;
+    runtime->wake_ready = false;
+    runtime->microphone_enabled = true;
+    runtime->microphone_gate = AINEKIO_MIC_GATE_VAD;
+    (void)strcpy(runtime->wake_model, dependencies->wake_model);
+    runtime->display_state = UINT8_MAX;
+    runtime->state_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
+    (void)strcpy(runtime->firmware_version, dependencies->firmware_version);
+    runtime->buffers = heap_caps_calloc(
+        1U,
+        sizeof(*runtime->buffers),
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
+    );
+    runtime->client_lock = xSemaphoreCreateMutexStatic(&runtime->client_lock_storage);
+    if (runtime->buffers == NULL || runtime->client_lock == NULL ||
+        !initialize_queues(runtime)) {
+        release_runtime_backbone(runtime);
         return ESP_ERR_NO_MEM;
+    }
+    if (!create_runtime_tasks(runtime)) {
+        release_runtime_backbone(runtime);
+        return ESP_ERR_NO_MEM;
+    }
+    ESP_LOGI(
+        TAG,
+        "runtime buffers allocated in PSRAM: %u bytes",
+        (unsigned int)sizeof(*runtime->buffers)
+    );
+
+    const ainekio_motion_callbacks_t callbacks = {
+        .context = runtime,
+        .done = motion_done,
+        .failed = motion_failed,
+        .face = motion_face,
+    };
+    esp_err_t result = ainekio_motion_service_start(
+        &runtime->motion,
+        runtime->servos,
+        runtime->poses,
+        runtime->mcpwm,
+        runtime->assets,
+        &callbacks
+    );
+    if (result != ESP_OK) {
+        release_runtime_backbone(runtime);
+        return result;
+    }
+    const esp_err_t display_result = ainekio_display_service_start(
+        runtime->assets,
+        &runtime->display
+    );
+    if (display_result != ESP_OK) {
+        runtime->display = NULL;
+        ESP_LOGW(TAG, "display service unavailable: %s", esp_err_to_name(display_result));
+    }
+    const ainekio_camera_callbacks_t camera_callbacks = {
+        .context = runtime,
+        .frame = camera_frame,
+        .failed = camera_failed,
+    };
+    const esp_err_t camera_result = ainekio_camera_service_start(
+        &camera_callbacks,
+        &runtime->camera
+    );
+    if (camera_result != ESP_OK) {
+        runtime->camera = NULL;
+        ESP_LOGW(TAG, "camera service unavailable: %s", esp_err_to_name(camera_result));
     }
     const ainekio_sd_callbacks_t sd_callbacks = {
         .context = runtime,
@@ -2433,6 +2546,7 @@ esp_err_t ainekio_runtime_start(
     );
     runtime->wake_ready = ainekio_audio_wake_ready(runtime->audio);
     *runtime_output = runtime;
+    start_runtime_tasks(runtime);
     return ESP_OK;
 }
 
@@ -2493,10 +2607,10 @@ bool ainekio_runtime_sd_mounted(const ainekio_runtime_t *runtime)
 esp_err_t ainekio_runtime_provision_display(
     ainekio_runtime_t *runtime,
     ainekio_provision_display_t status,
-    const char *setup_secret
+    const ainekio_provision_display_info_t *info
 )
 {
-    if (runtime == NULL || runtime->display == NULL) {
+    if (runtime == NULL || runtime->display == NULL || info == NULL) {
         return ESP_ERR_NOT_SUPPORTED;
     }
     switch (status) {
@@ -2504,7 +2618,7 @@ esp_err_t ainekio_runtime_provision_display(
         return ainekio_display_show_status(
             runtime->display,
             "CONNECTING TO WIFI",
-            NULL,
+            info->wifi_ssid,
             NULL,
             NULL
         );
@@ -2512,7 +2626,7 @@ esp_err_t ainekio_runtime_provision_display(
         return ainekio_display_show_status(
             runtime->display,
             "WIFI UNAVAILABLE",
-            NULL,
+            info->wifi_ssid,
             NULL,
             NULL
         );
@@ -2520,25 +2634,25 @@ esp_err_t ainekio_runtime_provision_display(
         return ainekio_display_show_status(
             runtime->display,
             "AINEKIO-SETUP",
-            "SETUP SECRET",
-            setup_secret,
-            NULL
+            "SETUP KEY",
+            info->setup_key,
+            "192.168.4.1"
         );
     case AINEKIO_PROVISION_DISPLAY_CONNECTED:
         return ainekio_display_show_status(
             runtime->display,
             "WIFI CONNECTED",
-            NULL,
-            NULL,
-            NULL
+            info->wifi_ssid,
+            info->ip_address,
+            "GATEWAY CONNECTING"
         );
     case AINEKIO_PROVISION_DISPLAY_GATEWAY_AUTH_FAILED:
         return ainekio_display_show_status(
             runtime->display,
             "GATEWAY AUTH FAILED",
-            "CHECK ROBOT TOKEN",
-            NULL,
-            NULL
+            info->wifi_ssid,
+            info->ip_address,
+            "CHECK BRAIN TOKEN"
         );
     default:
         return ESP_ERR_INVALID_ARG;

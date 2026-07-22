@@ -99,10 +99,53 @@ static void test_battery_debounce_recovery_and_quiet_window(void)
     assert(monitor.state == AINEKIO_BATTERY_NORMAL);
 }
 
+static void test_startup_disconnected_battery_and_presence_latch(void)
+{
+    ainekio_battery_monitor_t monitor;
+    ainekio_battery_init(&monitor, 1.0F);
+    float samples[AINEKIO_BATTERY_MIN_SAMPLES];
+
+    fill_samples(samples, 0.0F);
+    for (uint32_t reading = 0U;
+         reading < AINEKIO_BATTERY_QUALIFYING_SETS - 1U;
+         ++reading) {
+        assert(ainekio_battery_observe(&monitor, samples, 16U, reading * 5000U) ==
+               AINEKIO_BATTERY_EVENT_NONE);
+        assert(monitor.state == AINEKIO_BATTERY_NORMAL);
+    }
+    assert(ainekio_battery_observe(&monitor, samples, 16U, 10000U) ==
+           AINEKIO_BATTERY_EVENT_NONE);
+    assert(monitor.state == AINEKIO_BATTERY_DISCONNECTED);
+    assert(!monitor.present_latched);
+
+    fill_samples(samples, 7.4F);
+    assert(ainekio_battery_observe(&monitor, samples, 16U, 15000U) ==
+           AINEKIO_BATTERY_EVENT_NONE);
+    assert(monitor.state == AINEKIO_BATTERY_NORMAL);
+    assert(monitor.present_latched);
+
+    fill_samples(samples, 0.0F);
+    for (uint32_t reading = 0U;
+         reading < AINEKIO_BATTERY_QUALIFYING_SETS - 1U;
+         ++reading) {
+        assert(ainekio_battery_observe(
+                   &monitor,
+                   samples,
+                   16U,
+                   20000U + reading * 5000U
+               ) == AINEKIO_BATTERY_EVENT_NONE);
+        assert(monitor.state == AINEKIO_BATTERY_NORMAL);
+    }
+    assert(ainekio_battery_observe(&monitor, samples, 16U, 30000U) ==
+           AINEKIO_BATTERY_EVENT_CUTOFF);
+    assert(monitor.state == AINEKIO_BATTERY_CUTOFF);
+}
+
 int main(void)
 {
     test_servo_mapping_and_interpolation();
     test_battery_debounce_recovery_and_quiet_window();
+    test_startup_disconnected_battery_and_presence_latch();
     puts("ainekio servo and battery tests passed");
     return 0;
 }

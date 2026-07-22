@@ -11,7 +11,7 @@
 #error "No reviewed Ainekio ESP32-S3 pin map is selected"
 #endif
 
-#define AINEKIO_BOARD_PROFILE_ID "freenove-esp32s3-cam-n16r8-map-b"
+#define AINEKIO_BOARD_PROFILE_ID "freenove-esp32s3-cam-n16r8-map-b-remap"
 #define AINEKIO_EXPECTED_FLASH_BYTES (16U * 1024U * 1024U)
 #define AINEKIO_EXPECTED_PSRAM_BYTES (8U * 1024U * 1024U)
 
@@ -21,10 +21,15 @@
 #define AINEKIO_PIN_I2S_AMP_DOUT 20
 #define AINEKIO_PIN_I2S_BCLK 41
 #define AINEKIO_PIN_I2S_WS 42
-#define AINEKIO_PIN_I2C_SDA 47
-#define AINEKIO_PIN_I2C_SCL 48
 #define AINEKIO_PIN_UART_TX 43
 #define AINEKIO_PIN_UART_RX 44
+
+/*
+ * GPIO0 is sampled by the ROM at reset, then becomes the OLED SDA line.
+ * GPIO43 carries boot-time UART output, then becomes the OLED SCL line.
+ */
+#define AINEKIO_PIN_I2C_SDA AINEKIO_PIN_BOOT
+#define AINEKIO_PIN_I2C_SCL AINEKIO_PIN_UART_TX
 
 #define AINEKIO_PIN_SD_CMD 38
 #define AINEKIO_PIN_SD_CLK 39
@@ -51,8 +56,8 @@
 #define AINEKIO_PIN_SERVO_R2 2
 #define AINEKIO_PIN_SERVO_L1 14
 #define AINEKIO_PIN_SERVO_L2 21
-#define AINEKIO_PIN_SERVO_R4 33
-#define AINEKIO_PIN_SERVO_R3 34
+#define AINEKIO_PIN_SERVO_R4 47
+#define AINEKIO_PIN_SERVO_R3 48
 #define AINEKIO_PIN_SERVO_L3 45
 #define AINEKIO_PIN_SERVO_L4 46
 

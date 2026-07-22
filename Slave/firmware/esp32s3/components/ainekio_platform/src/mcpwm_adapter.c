@@ -14,6 +14,26 @@
 
 static const char *TAG = "ainekio_mcpwm";
 
+static bool physical_motion_enabled(void)
+{
+#ifdef CONFIG_AINEKIO_PHYSICAL_MOTION_ENABLED
+    return true;
+#else
+    return false;
+#endif
+}
+
+static bool servo_pin_map_safe_for_motion(void)
+{
+    for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {
+        const int gpio = ainekio_servo_pins[joint_id].gpio;
+        if (ainekio_pin_is_reserved_for_psram(gpio)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static esp_err_t enable_output(
     ainekio_mcpwm_adapter_t *adapter,
     uint8_t joint_id,
@@ -159,10 +179,19 @@ static esp_err_t configure_channel(
 
 esp_err_t ainekio_mcpwm_adapter_init(ainekio_mcpwm_adapter_t *adapter)
 {
-    if (adapter == NULL || !ainekio_pin_map_valid()) {
+    if (adapter == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     memset(adapter, 0, sizeof(*adapter));
+    if (!physical_motion_enabled()) {
+        adapter->initialized = true;
+        ESP_LOGW(TAG, "physical motion disabled; servo GPIO mux remains untouched");
+        return ESP_OK;
+    }
+    if (!ainekio_pin_map_valid() || !servo_pin_map_safe_for_motion()) {
+        ESP_LOGE(TAG, "physical motion blocked: servo pin map is unsafe");
+        return ESP_ERR_INVALID_ARG;
+    }
     ESP_RETURN_ON_ERROR(configure_timer(adapter, 0U), TAG, "group 0 timer failed");
     ESP_RETURN_ON_ERROR(configure_timer(adapter, 1U), TAG, "group 1 timer failed");
     for (uint8_t operator_index = 0U; operator_index < 3U; ++operator_index) {
@@ -196,6 +225,9 @@ esp_err_t ainekio_mcpwm_adapter_enable_all(
 {
     if (adapter == NULL || bank == NULL || !adapter->initialized) {
         return ESP_ERR_INVALID_ARG;
+    }
+    if (!physical_motion_enabled()) {
+        return ESP_ERR_INVALID_STATE;
     }
     for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {
         ainekio_servo_channel_t *channel = &bank->channels[joint_id];
@@ -233,6 +265,9 @@ esp_err_t ainekio_mcpwm_adapter_detach(
     if (adapter == NULL || !adapter->initialized || joint_id >= AINEKIO_SERVO_COUNT) {
         return ESP_ERR_INVALID_ARG;
     }
+    if (!physical_motion_enabled()) {
+        return ESP_OK;
+    }
     ESP_RETURN_ON_ERROR(
         mcpwm_generator_set_force_level(adapter->generators[joint_id], 0, true),
         TAG,
@@ -252,6 +287,9 @@ esp_err_t ainekio_mcpwm_adapter_detach_all(ainekio_mcpwm_adapter_t *adapter)
     if (adapter == NULL || !adapter->initialized) {
         return ESP_ERR_INVALID_ARG;
     }
+    if (!physical_motion_enabled()) {
+        return ESP_OK;
+    }
     for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {
         ESP_RETURN_ON_ERROR(ainekio_mcpwm_adapter_detach(adapter, joint_id), TAG,
                             "channel detach failed");
@@ -266,6 +304,9 @@ esp_err_t ainekio_mcpwm_adapter_sync(
 {
     if (adapter == NULL || bank == NULL || !adapter->initialized) {
         return ESP_ERR_INVALID_ARG;
+    }
+    if (!physical_motion_enabled()) {
+        return ESP_ERR_INVALID_STATE;
     }
     ainekio_servo_tick(bank);
     for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {

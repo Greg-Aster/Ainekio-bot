@@ -1,8 +1,21 @@
 # Ainekio Hardware Bring-Up Checklist
 
-This document records the intended power topology and the steps for verifying the assembled robot before normal motion is enabled. It also records the software media gates that must pass before physical camera and audio results are attributed to hardware. It is an execution checklist and evidence record; `Ainekio - System Specification v1.0.docx` remains the behavior and safety authority, and the externally maintained [Parts Overview](https://docs.google.com/document/d/1wz0kyqttPK3HHL0P0_9lLtRW_B87U5u4kEt-UhttHFA/edit?usp=sharing) remains the electrical-facts authority.
+This document records the intended power topology and the steps for verifying
+the assembled robot before normal motion is accepted. It also records the
+software media gates that must pass before physical camera and audio results are
+attributed to hardware. It is an execution checklist and evidence record;
+`Ainekio - System Specification v1.0.docx` remains the behavior and safety
+authority, the externally maintained
+[Parts Overview](https://docs.google.com/document/d/1wz0kyqttPK3HHL0P0_9lLtRW_B87U5u4kEt-UhttHFA/edit?usp=sharing)
+remains the electrical-parts authority, and
+[`PINOUT_DIAGNOSTICS.md`](PINOUT_DIAGNOSTICS.md) records the current flashed
+board map and diagnostic values.
 
-The Parts Overview has been reviewed for firmware preparation. Its values below are planned values, not installed-hardware evidence. Parts are still on order, so every physical checkbox remains open until the delivered markings, wiring, measurements, and photographs confirm them.
+The Parts Overview has been reviewed for firmware preparation. Its values below
+remain planned values until delivered markings, wiring, measurements, and
+photographs confirm them. The controller, OV3660 camera, and eight remapped PWM
+allocations now have USB-only evidence; the external power system, physical
+servo signals and joints, and attached peripherals remain open physical gates.
 
 The companion MetaHuman OS plan is `docs/implementation-plans/VISION_MODEL_IMPLEMENTATION.md` in the MetaHuman repository. MetaHuman owns provider-neutral image-model routing. Ainekio owns real and virtual capture, bounded JPEG and PCM transport, utterance handling, speaker delivery, and hardware safety. Neither program should import the other's private implementation.
 
@@ -17,15 +30,15 @@ The companion MetaHuman OS plan is `docs/implementation-plans/VISION_MODEL_IMPLE
 
 The topology above is clear. The checks below do not question it. They establish that the particular buck converter, wiring, connectors, regulator, and power source remain within their ratings when the assembled robot is operating. They also establish values that cannot be obtained from a 5 V output label alone, such as loaded voltage drop and the upstream battery-to-ADC measurement ratio.
 
-## Planned parts record
+## Parts and installed-evidence record
 
 These planning values come from the Parts Overview. Replace or confirm them from delivered labels and manufacturer specifications before applying power.
 
 | Item | Installed value | Source or evidence |
 | --- | --- | --- |
-| Controller board and PCB revision | Freenove ESP32-S3-WROOM CAM; PCB revision pending delivery | Parts Overview; H2 photo required |
+| Controller board and PCB revision | Freenove ESP32-S3-WROOM CAM delivered; PCB revision not yet recorded | Delivered board; H2 photo required |
 | ESP32-S3 module, flash, and PSRAM | ESP32-S3-WROOM-1 N16R8; 16 MB quad flash + 8 MB octal PSRAM | Parts Overview; module-marking photo required |
-| Camera sensor/module | Built-in OV2640 | Parts Overview; H1/H2 identification required |
+| Camera sensor/module | Built-in OV3660 | Delivered module marking and successful firmware identification |
 | INMP441 microphone module and L/R strap | INMP441; L/R strap not yet selected/observed | Parts Overview; F inspection required |
 | MAX98357A amplifier board and supply voltage | MAX98357A at 5 V from electronics buck | Parts Overview; F inspection required |
 | MAX98357A gain/channel/shutdown configuration |  |  |
@@ -60,50 +73,52 @@ Start with the servo plugs disconnected and the robot supported so no joint can 
 
 ## Firmware preparation record - 2026-07-15
 
-This work prepares an installable image; it does not pass any physical H-series gate.
+This dated record prepared the original installable image. The later USB-only
+board evidence is recorded under the MAP_B remap and Results sections; it does
+not close the remaining assembled-hardware gates.
 
 - [x] Re-read System Specification v1.0 sections 6.2-6.7, H2/H3, and the risk register before changing the map.
-- [x] Retain normative provisional MAP_B and the required SD_MMC bus. No servo was moved to GPIO38/39/40 and SD was not removed.
+- [x] Preserve the required SD_MMC bus. No servo was moved to GPIO38/39/40 and SD was not removed.
 - [x] Consolidate the Freenove N16R8 module facts, camera pins, accessory pins, and eight servo pins in `components/ainekio_platform/include/ainekio/platform/pin_map.h`.
-- [x] Add software validation for duplicate active GPIOs, invalid input/output use, SD conflicts, normative PSRAM-reserved GPIO35-37, logical joint order, and MCPWM resource collisions.
+- [x] Add software validation for duplicate active GPIOs, invalid input/output use, SD conflicts, N16R8 PSRAM-reserved GPIO33-37, logical joint order, and MCPWM resource collisions.
 - [x] Configure 16 MB DIO flash at 80 MHz and 8 MB octal PSRAM at 80 MHz with the startup memory test enabled.
-- [x] Pin `espressif/esp32-camera` 2.1.7 and integrate an OV2640-only camera task using Freenove's GPIO map, 10 MHz XCLK, JPEG, QVGA startup, PSRAM framebuffer, a two-frame drop-oldest media queue, snapshots, QVGA/VGA changes, and protocol counters.
+- [x] Pin `espressif/esp32-camera` 2.1.7 and integrate an OV3660 camera task using Freenove's GPIO map, 10 MHz XCLK, JPEG, QVGA startup, PSRAM framebuffer, a two-frame drop-oldest media queue, snapshots, QVGA/VGA changes, and protocol counters.
 - [x] Configure the planned GPIO3 100 kOhm/47 kOhm divider factor `3.12766` and enable battery monitoring; H9 still compares reported voltage with a multimeter and refines the ADC correction if required.
 - [x] Keep the owner-directed all-servo motion profile independent of battery-monitor configuration while retaining the active low-voltage power guard.
-- [x] Retain the existing battery policy: 16-sample sets every 5 seconds, warning below 7.0 V, cutoff below 6.8 V, recovery at or above 7.2 V, and three qualifying sets before a state transition.
-- [x] Enable all eight MAP_B servo outputs after platform initialization at calibrated center, staggered by 20 ms, matching Sesame's always-attached main-firmware model rather than its detachable motor-tester model.
+- [x] Retain the existing battery policy: 16-sample sets every 5 seconds, warning below 7.0 V, cutoff below 6.8 V, recovery at or above 7.2 V, and three qualifying sets before a state transition. Three startup sets at or below 0.25 V classify the battery input as disconnected; after any plausible battery voltage is seen, near-zero readings use the cutoff path.
+- [x] Retain all eight MCPWM channels and the staggered-center implementation behind the physical-motion build gate.
 - [x] Apply an initial 25 percent platform motion range around logical center (`67.5`-`112.5` degrees; `1250`-`1750` us with default calibration) and a 100 ms minimum motion-frame duration to normal semantic motions and calibration commands.
 - [x] Preserve explicit `stop`/failsafe detachment of all eight signal GPIOs. This affects the 3.3 V PWM signals only; the external 5 V servo rail is not software-switched.
-- [x] Add boot reporting for board profile, PSRAM size, camera readiness, battery-monitor state, and the physical-motion build gate; dump GPIO33/34 configuration for H2 evidence.
+- [x] Add boot reporting for board profile, PSRAM size, camera readiness, battery-monitor state, and the physical-motion build gate; dump remapped GPIO47/48 configuration for H2 evidence.
 - [x] Pass all 11 portable C tests after enabling battery monitoring, including battery thresholds and the calibration-motion gate.
 - [x] Re-run the complete A1-A30 emulator/protocol acceptance suite after enabling the all-servo profile; all 30 cases pass.
 - [x] Cross-build with ESP-IDF 5.5.4 and battery monitoring enabled. Padded image size is `0x119c20` bytes (1,154,080 bytes), leaving 63 percent of a 3 MiB OTA slot free; DIRAM use is 230,875 bytes (67.55 percent).
 
-### MAP_B retained for H2/H3
+### MAP_B board-only remap for H2/H3 - 2026-07-21
 
 | Function | GPIO |
 | --- | --- |
 | Camera | 4-13 and 15-18, using Freenove's exact signal order in `pin_map.h` |
-| Servos R1, R2, L1, L2, R4, R3, L3, L4 | 1, 2, 14, 21, 33, 34, 45, 46 |
+| Servos R1, R2, L1, L2, R4, R3, L3, L4 | 1, 2, 14, 21, 47, 48, 45, 46 |
 | Battery ADC | 3 |
 | I2S mic DIN, amp DOUT, BCLK, WS | 19, 20, 41, 42 |
-| OLED SDA, SCL | 47, 48 |
-| CH343 UART TX, RX | 43, 44 |
+| OLED SDA, SCL | 0, 43 after startup |
+| CH343 UART TX, RX | 43, 44 during ROM/boot; GPIO43 hands off to OLED SCL |
 | SD_MMC CMD, CLK, DAT0 | 38, 39, 40 |
-| BOOT | 0 |
+| BOOT | 0 at reset and as the held-button input; GPIO0 hands off to OLED SDA |
 
-MAP_B is still provisional. GPIO33/34 are deliberately not declared safe by software: H2 must confirm that the delivered schematic/module exposes them, that ESP-IDF does not reserve them at runtime, and that PSRAM, camera, SD, and PWM remain stable together for 30 minutes. If H2 rejects either pin, follow the specification's existing ladder in order: move battery sensing to an I2C ADC to free GPIO3; use an I2C PWM expander for two or all eight servos; then consider a board change. Do not silently substitute another layout.
+Delivered-hardware H2 rejected GPIO33/34: initializing MCPWM on those N16R8 octal-PSRAM signals immediately corrupted memory. The board-only remap preserves the six valid servo outputs and moves only R4/R3 to exposed GPIO47/48. The OLED moves to GPIO0/43. Its open-drain SDA configuration preserves GPIO0's normal high boot strap and allows a continuous five-second BOOT-button hold to remain distinguishable from short I2C transitions. GPIO43 provides boot-time UART output and is handed to I2C when the display starts. If no OLED responds, the failed I2C bus is released and GPIO43 returns to UART so later faults remain visible. The full-feature image enables all eight remapped PWM channels under the reduced-range safety profile; physical servo movement remains unverified until the signal leads and external 5 V rail are connected.
 
-GPIO3/45/46 remain H3 strapping tests. GPIO19/20 intentionally sacrifice native USB for I2S while CH343 UART remains available. GPIO48 is also wired to the board's WS2812 input; MAP_B assigns it to OLED SCL, so the onboard RGB LED is unavailable and H2/D must confirm that the attached LED input does not disturb I2C. SD CMD and DAT0 pull-ups remain an H2 schematic/physical check.
+GPIO0/3/45/46 remain H3 strapping tests. GPIO19/20 intentionally sacrifice native USB for I2S after bring-up. Runtime CH343 transmit logging is unavailable after a responding OLED takes GPIO43; ROM/bootloader UART remains available before that handoff, and an absent OLED now restores the UART. GPIO48 is also wired to the board's WS2812 input, so the onboard RGB LED is unavailable and H2 must confirm that the attached LED input does not disturb its servo signal. SD CMD and DAT0 pull-ups remain an H2 schematic/physical check.
 
-### Still requires delivered hardware
+### Still requires physical assembly or recorded evidence
 
 - [ ] H1 reference blink, Wi-Fi, and Freenove camera example.
-- [ ] H2 module photo, schematic/pull-up review, GPIO33/34 runtime dump, and concurrent soak.
+- [ ] H2 GPIO0/43 handoff, GPIO47/48 PWM initialization, module photo, pull-up review, and concurrent soak.
 - [ ] H3 boot-strapping matrix with the divider and all servo signal leads attached.
 - [ ] H9 installed-divider and ADC calibration against a multimeter.
-- [ ] OV2640 identification and repeated Ainekio snapshot/stream capture.
-- [ ] Verify the enabled centered/reduced-range outputs on delivered hardware before increasing range above 25 percent.
+- [x] OV3660 identification and repeated boot-time camera initialization.
+- [ ] Verify the enabled remapped centered/reduced-range signals and physical outputs on delivered hardware before increasing range above 25 percent.
 
 ## Foundation 0: prove media contracts without physical hardware
 
@@ -203,8 +218,16 @@ outbound speech delivery are separate unfinished gates.
 - [ ] Connect only the SSD1306 OLED to the documented I2C power and pins.
 - [ ] Confirm whether its address is `0x3C` or `0x3D`.
 - [ ] Confirm the display initializes without blocking the rest of the firmware if it is absent or faulty.
-- [ ] Confirm the setup network name and secret are legible on the physical display.
-- [ ] Prefer displaying the 12-character setup secret in groups such as `ABCD EFGH JKLM`; do not reduce the WPA2 password to four characters.
+- [ ] Confirm the setup network, stable eight-character key, and
+  `192.168.4.1` setup address are legible on the physical display.
+- [ ] Join `Ainekio-Setup` with that key and confirm the configuration form opens
+  directly at `http://192.168.4.1/` without a second login prompt.
+- [ ] While AP+STA mode is active, confirm the same setup HTTP service rejects a
+  request arriving through the normal station interface.
+- [ ] Reboot twice and confirm the device setup key remains unchanged; a full
+  NVS erase is the only service operation that should replace it.
+- [ ] After setup, confirm the joined SSID, DHCP address, and gateway state are
+  legible and accurate.
 - [ ] Exercise all 37 named expressions and all 48 encoded face frames, checking alignment, corruption, and transitions.
 - [ ] Measure the 3.3 V rail during display updates.
 
@@ -231,7 +254,7 @@ Reference constraints:
 
 - INMP441 supply: 1.8-3.3 V; use the board's regulated 3.3 V rail for the installed module unless its manufacturer documentation says otherwise.
 - INMP441 output: 24-bit I2S in a 32-clock slot. Its L/R strap must match `CONFIG_AINEKIO_MIC_SLOT_RIGHT`.
-- Current provisional audio pins: microphone DIN GPIO19, amplifier DOUT GPIO20, BCLK GPIO41, and WS/LRCLK GPIO42.
+- Current flashed audio pins: microphone DIN GPIO19, amplifier DOUT GPIO20, BCLK GPIO41, and WS/LRCLK GPIO42.
 - MAX98357A supply: 2.5-5.5 V. A 5 V supply provides the expected output range for the installed 8 ohm speaker.
 - Connect the speaker only between amplifier `OUTP` and `OUTN`. Neither speaker lead is a ground connection.
 - Keep the amplifier shut down while clocks are absent or being stopped; establish BCLK and LRCLK before enabling its output.
@@ -290,11 +313,11 @@ The owner-directed initial all-servo profile is enabled independently of battery
 - [ ] With servos disconnected, compare raw ADC readings and firmware-reported voltage against a multimeter at full, nominal, and lower source voltages.
 - [ ] Compare the configured `3.12766` divider factor with the installed resistor values and adjust it if required.
 - [ ] Verify the movement-enable, low-voltage, cutoff, recovery, and hysteresis behavior against measured voltages.
-- [ ] With battery monitoring enabled, confirm that invalid, missing, or implausible readings trigger the documented power guard and detach behavior.
+- [ ] With battery monitoring enabled, confirm that invalid or implausible readings trigger the documented power guard and detach behavior; also confirm that a startup-disconnected input remains awake and that disconnecting after a plausible battery reading triggers cutoff.
 
 **Pass:** Firmware voltage agrees with the multimeter closely enough for the chosen safety thresholds, and every invalid or low-power condition fails safe.
 
-The current plan is the Parts Overview's 100 kOhm/47 kOhm divider with a 0.1 uF filter on GPIO3, upstream of the bucks. If that circuit is omitted or changed during assembly, record it explicitly and keep battery monitoring disabled until the owner accepts a revised power-readiness design. The buck specifications alone cannot fill this firmware value.
+The current plan is the Parts Overview's 100 kOhm/47 kOhm divider with a 0.1 uF filter on GPIO3, upstream of the bucks. If the battery or divider is disconnected at startup, three readings at or below 0.25 V select the disconnected state and allow USB-only operation. Once a plausible battery voltage is observed, that exception remains disabled until reboot and a later near-zero reading fails safe through cutoff. Omitting or changing the divider still removes meaningful battery protection and must be recorded; the buck specifications alone cannot fill this firmware value.
 
 ## I. Test one unloaded servo
 
@@ -337,16 +360,19 @@ The current plan is the Parts Overview's 100 kOhm/47 kOhm divider with a 0.1 uF 
 - [x] Configure the Parts Overview's planned `3.12766` divider factor and enable the GPIO3 battery monitor.
 - [ ] Validate the installed divider/ADC against a multimeter at H9 and store any required correction factor.
 - [x] Require the same hardware-ready safety gate for calibration motion as for normal motion.
-- [x] Validate definite MAP_B GPIO capability, duplicate-use, SD, GPIO35-37 PSRAM, and MCPWM conflicts in firmware.
-- [ ] Accept or reject provisional GPIO33/34 and the GPIO48 OLED/WS2812 attachment with H2 evidence; do not infer this from a successful build.
+- [x] Validate definite MAP_B GPIO capability, explicit boot-time handoffs, duplicate-use, SD, GPIO33-37 PSRAM, and MCPWM conflicts in firmware.
+- [x] Reject GPIO33/34 from delivered-hardware evidence and remap the two servo signals to GPIO47/48.
+- [ ] Validate the GPIO0/43 OLED handoff and GPIO48 servo/WS2812 attachment with H2 evidence; do not infer this from a successful build.
 - [x] Enable 8 MB octal PSRAM and its startup memory test in the checked configuration.
-- [ ] Verify detected PSRAM size and stability on the delivered N16R8 board.
-- [x] Add the pinned OV2640 ESP32-S3 camera driver, bounded task/queues, and protocol snapshot/stream path.
-- [ ] Verify physical OV2640 identification, JPEG capture, streaming, drop counters, and rail stability.
+- [x] Verify the detected 8 MB PSRAM size and startup memory test on the delivered N16R8 board.
+- [ ] Verify concurrent PSRAM stability during the assembled-system H2 soak.
+- [x] Add the pinned OV3660 ESP32-S3 camera driver, bounded task/queues, and protocol snapshot/stream path.
+- [ ] Verify physical OV3660 JPEG capture, streaming, drop counters, and rail stability.
 - [ ] Verify the INMP441 L/R strap, 24-bit sample extraction, measured levels, and VAD thresholds.
 - [ ] Verify MAX98357A gain/channel/shutdown configuration, stable-clock enable ordering, and bounded initial volume.
 - [ ] Prove production microphone utterance transcription and outbound TTS speaker delivery; physical I2S success alone does not close the hearing/speaking loop.
-- [x] Enable all eight servo channels at calibrated center and permit normal semantic movement plus calibration under the initial 25 percent range/100 ms minimum-frame profile.
+- [x] Enable all eight remapped servo channels at calibrated center under the initial 25 percent range/100 ms minimum-frame profile.
+- [ ] Verify the GPIO47/48 signals and all eight physical joints through H2/H3 before increasing range.
 - [x] Enable battery monitoring without making the owner-enabled initial motion profile depend on H9 completion; H9 remains required to validate voltage accuracy and cutoff behavior.
 - [ ] Verify the centered startup, normal walking, standing, emote, and stop/detach behavior through Sections I and J before increasing the range.
 
@@ -370,9 +396,12 @@ Do not continue by increasing a current limit or bypassing a firmware guard unti
 | Section/step | Pass/fail | Measured value or observation | Evidence path | Date/operator |
 | --- | --- | --- | --- | --- |
 | Firmware portable core | Pass | 11/11 tests | `build/acceptance/core` (regenerable; not hardware evidence) | 2026-07-15 / Codex |
-| A-series software acceptance | Pass | A1-A30, 30/30 | `build/acceptance/a-series.json` (regenerable; not hardware evidence) | 2026-07-15 / Codex |
+| A-series software acceptance | Pass | A1-A30, 30/30 | `build/acceptance/a-series.json` (regenerable; not hardware evidence) | 2026-07-21 / Codex |
 | Firmware cross-build | Pass | Image `0x119c20`; battery monitor enabled; OTA slot 63% free; DIRAM 67.55% | `Slave/firmware/esp32s3/build` (regenerable) | 2026-07-15 / Codex |
-| H1-H15 physical evidence | Pending | Parts on order; no physical pass claimed | Add photos/logs/measurements when available | 2026-07-15 / owner pending |
+| Board-only servo remap build | Pass | Safe motion-disabled image `0x14bd40`; OTA slot 57% free; DIRAM 75.36%; A1-A30 30/30 | `Slave/firmware/esp32s3/build`, `build/acceptance/a-series.json` | 2026-07-21 / Codex |
+| Full-feature board-only boot | Pass within connected hardware | Image `0x14fc70`; all eight MCPWM channels enabled at center; OV3660 and 8 MB PSRAM ready; LittleFS, audio, Wi-Fi, SD service, telemetry, and provisioning started; missing OLED restored UART; GPIO3 measured 0.000 V and entered startup-disconnected state at 12.488 s, then remained awake through 27.488 s; application flash digest matched; A1-A30 30/30 | `Slave/firmware/esp32s3/build`, live CH343 boot log, `build/acceptance/a-series.json` | 2026-07-21 / Codex |
+| Stable-key provisioning image | Pass within connected hardware; portal submission pending | Image `0x14f7c0`; the first two portal guards falsely rejected the owner's legitimate setup client and are superseded by this setup-interface-bound build; application digest readback matched; bootloader, partition table, and LittleFS were already verified; 8 MB PSRAM test and all eight MCPWM channels passed; `Ainekio-Setup` observed at full signal; physical gateway launcher smoke-tested; 11/11 portable C tests and A1-A30 30/30 | `Slave/firmware/esp32s3/build`, live CH343 boot log, `build/acceptance/a-series.json` | 2026-07-21 / Codex |
+| H1-H15 physical evidence | Partial | Controller USB-only boot evidence recorded; assembled power, peripherals, physical motion, and soak tests remain open | Add photos/logs/measurements as assembly proceeds | 2026-07-21 / owner pending |
 
 ## Completion
 

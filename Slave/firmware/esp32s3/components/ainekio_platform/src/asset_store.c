@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 
 #include "cJSON.h"
+#include "esp_heap_caps.h"
 #include "esp_littlefs.h"
 #include "esp_log.h"
 
@@ -14,6 +15,13 @@
 static const char *TAG = "ainekio_assets";
 static const char *const joint_labels[AINEKIO_SERVO_COUNT] = {
     "R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4",
+};
+
+struct ainekio_asset_storage {
+    ainekio_motion_index_entry_t motions[AINEKIO_ASSET_MAX_MOTIONS];
+    ainekio_face_index_entry_t faces[AINEKIO_ASSET_MAX_FACES];
+    ainekio_audio_index_entry_t audio[AINEKIO_ASSET_MAX_AUDIO];
+    uint8_t io_buffer[AINEKIO_MOTION_MAX_FILE_BYTES];
 };
 
 static bool integer_in_range(const cJSON *value, int minimum, int maximum)
@@ -132,7 +140,7 @@ static bool name_duplicate_motion(
 )
 {
     for (uint8_t index = 0U; index < store->motion_count; ++index) {
-        if (strcmp(store->motions[index].name, name) == 0) {
+        if (strcmp(store->storage->motions[index].name, name) == 0) {
             return true;
         }
     }
@@ -146,7 +154,7 @@ static esp_err_t read_motion_file(
 )
 {
     char path[96];
-    if (entry->bytes == 0U || entry->bytes > sizeof(store->io_buffer) ||
+    if (entry->bytes == 0U || entry->bytes > sizeof(store->storage->io_buffer) ||
         !make_path(entry->path, path, sizeof(path))) {
         return ESP_ERR_INVALID_SIZE;
     }
@@ -154,14 +162,14 @@ static esp_err_t read_motion_file(
     if (file == NULL) {
         return ESP_ERR_NOT_FOUND;
     }
-    const size_t read = fread(store->io_buffer, 1U, entry->bytes, file);
+    const size_t read = fread(store->storage->io_buffer, 1U, entry->bytes, file);
     const int trailing = fgetc(file);
     fclose(file);
     if (read != entry->bytes || trailing != EOF) {
         return ESP_ERR_INVALID_SIZE;
     }
     const ainekio_asset_result_t decoded =
-        ainekio_motion_asset_decode(store->io_buffer, entry->bytes, asset);
+        ainekio_motion_asset_decode(store->storage->io_buffer, entry->bytes, asset);
     if (decoded != AINEKIO_ASSET_OK || strcmp(asset->name, entry->name) != 0) {
         return ESP_ERR_INVALID_RESPONSE;
     }
@@ -184,7 +192,8 @@ static esp_err_t load_motion_index(ainekio_asset_store_t *store)
     }
     cJSON *item = NULL;
     cJSON_ArrayForEach(item, assets) {
-        ainekio_motion_index_entry_t *entry = &store->motions[store->motion_count];
+        ainekio_motion_index_entry_t *entry =
+            &store->storage->motions[store->motion_count];
         const cJSON *name = cJSON_GetObjectItemCaseSensitive(item, "name");
         const cJSON *path = cJSON_GetObjectItemCaseSensitive(item, "path");
         const cJSON *bytes = cJSON_GetObjectItemCaseSensitive(item, "bytes");
@@ -220,7 +229,7 @@ static esp_err_t load_motion_index(ainekio_asset_store_t *store)
         return ESP_ERR_NO_MEM;
     }
     for (uint8_t index = 0U; index < store->motion_count; ++index) {
-        ainekio_motion_index_entry_t *entry = &store->motions[index];
+        ainekio_motion_index_entry_t *entry = &store->storage->motions[index];
         entry->available = file_size_is(entry->path, entry->bytes) &&
                            read_motion_file(store, entry, scratch) == ESP_OK;
         if (!entry->available) {
@@ -235,7 +244,7 @@ static esp_err_t load_motion_index(ainekio_asset_store_t *store)
 static bool name_duplicate_face(const ainekio_asset_store_t *store, const char *name)
 {
     for (uint8_t index = 0U; index < store->face_count; ++index) {
-        if (strcmp(store->faces[index].name, name) == 0) {
+        if (strcmp(store->storage->faces[index].name, name) == 0) {
             return true;
         }
     }
@@ -272,7 +281,8 @@ static esp_err_t load_face_index(ainekio_asset_store_t *store)
     }
     cJSON *item = NULL;
     cJSON_ArrayForEach(item, faces) {
-        ainekio_face_index_entry_t *entry = &store->faces[store->face_count];
+        ainekio_face_index_entry_t *entry =
+            &store->storage->faces[store->face_count];
         const cJSON *name = cJSON_GetObjectItemCaseSensitive(item, "name");
         const cJSON *width = cJSON_GetObjectItemCaseSensitive(item, "width");
         const cJSON *height = cJSON_GetObjectItemCaseSensitive(item, "height");
@@ -317,7 +327,7 @@ static esp_err_t load_face_index(ainekio_asset_store_t *store)
 static bool name_duplicate_audio(const ainekio_asset_store_t *store, const char *name)
 {
     for (uint8_t index = 0U; index < store->audio_count; ++index) {
-        if (strcmp(store->audio[index].name, name) == 0) {
+        if (strcmp(store->storage->audio[index].name, name) == 0) {
             return true;
         }
     }
@@ -340,7 +350,8 @@ static esp_err_t load_audio_index(ainekio_asset_store_t *store)
     }
     cJSON *item = NULL;
     cJSON_ArrayForEach(item, assets) {
-        ainekio_audio_index_entry_t *entry = &store->audio[store->audio_count];
+        ainekio_audio_index_entry_t *entry =
+            &store->storage->audio[store->audio_count];
         const cJSON *name = cJSON_GetObjectItemCaseSensitive(item, "name");
         const cJSON *path = cJSON_GetObjectItemCaseSensitive(item, "path");
         const cJSON *samples = cJSON_GetObjectItemCaseSensitive(item, "samples");
@@ -374,6 +385,16 @@ esp_err_t ainekio_asset_store_init(
     memset(store, 0, sizeof(*store));
     store->servos = servos;
     store->lock = xSemaphoreCreateMutexStatic(&store->lock_storage);
+    store->storage = heap_caps_calloc(
+        1U,
+        sizeof(*store->storage),
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
+    );
+    if (store->lock == NULL || store->storage == NULL) {
+        heap_caps_free(store->storage);
+        store->storage = NULL;
+        return ESP_ERR_NO_MEM;
+    }
     const esp_vfs_littlefs_conf_t configuration = {
         .base_path = AINEKIO_ASSET_MOUNT_PATH,
         .partition_label = "littlefs",
@@ -384,6 +405,8 @@ esp_err_t ainekio_asset_store_init(
     };
     esp_err_t result = esp_vfs_littlefs_register(&configuration);
     if (result != ESP_OK) {
+        heap_caps_free(store->storage);
+        store->storage = NULL;
         return result;
     }
     store->mounted = true;
@@ -397,6 +420,11 @@ esp_err_t ainekio_asset_store_init(
     if (result != ESP_OK) {
         (void)esp_vfs_littlefs_unregister("littlefs");
         store->mounted = false;
+        store->motion_count = 0U;
+        store->face_count = 0U;
+        store->audio_count = 0U;
+        heap_caps_free(store->storage);
+        store->storage = NULL;
         return result;
     }
     return ESP_OK;
@@ -408,14 +436,14 @@ esp_err_t ainekio_asset_store_load_motion(
     ainekio_motion_asset_t *asset
 )
 {
-    if (store == NULL || !store->mounted || !ainekio_asset_name_valid(name) ||
-        asset == NULL) {
+    if (store == NULL || !store->mounted || store->storage == NULL ||
+        !ainekio_asset_name_valid(name) || asset == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     const ainekio_motion_index_entry_t *entry = NULL;
     for (uint8_t index = 0U; index < store->motion_count; ++index) {
-        if (strcmp(store->motions[index].name, name) == 0) {
-            entry = &store->motions[index];
+        if (strcmp(store->storage->motions[index].name, name) == 0) {
+            entry = &store->storage->motions[index];
             break;
         }
     }
@@ -435,13 +463,13 @@ const ainekio_motion_index_entry_t *ainekio_asset_store_motion(
     const char *name
 )
 {
-    if (store == NULL || name == NULL) {
+    if (store == NULL || store->storage == NULL || name == NULL) {
         return NULL;
     }
     for (uint8_t index = 0U; index < store->motion_count; ++index) {
-        if (store->motions[index].available &&
-            strcmp(store->motions[index].name, name) == 0) {
-            return &store->motions[index];
+        if (store->storage->motions[index].available &&
+            strcmp(store->storage->motions[index].name, name) == 0) {
+            return &store->storage->motions[index];
         }
     }
     return NULL;
@@ -452,12 +480,13 @@ const ainekio_face_index_entry_t *ainekio_asset_store_face(
     const char *name
 )
 {
-    if (store == NULL || name == NULL) {
+    if (store == NULL || store->storage == NULL || name == NULL) {
         return NULL;
     }
     for (uint8_t index = 0U; index < store->face_count; ++index) {
-        if (store->faces[index].available && strcmp(store->faces[index].name, name) == 0) {
-            return &store->faces[index];
+        if (store->storage->faces[index].available &&
+            strcmp(store->storage->faces[index].name, name) == 0) {
+            return &store->storage->faces[index];
         }
     }
     return NULL;
@@ -494,12 +523,13 @@ const ainekio_audio_index_entry_t *ainekio_asset_store_audio(
     const char *name
 )
 {
-    if (store == NULL || name == NULL) {
+    if (store == NULL || store->storage == NULL || name == NULL) {
         return NULL;
     }
     for (uint8_t index = 0U; index < store->audio_count; ++index) {
-        if (store->audio[index].available && strcmp(store->audio[index].name, name) == 0) {
-            return &store->audio[index];
+        if (store->storage->audio[index].available &&
+            strcmp(store->storage->audio[index].name, name) == 0) {
+            return &store->storage->audio[index];
         }
     }
     return NULL;

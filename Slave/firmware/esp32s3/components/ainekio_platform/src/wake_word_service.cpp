@@ -153,26 +153,39 @@ bool sha256_string(const char *value)
     return true;
 }
 
+void *aligned_memory(size_t bytes, uint32_t preferred_caps, uint32_t fallback_caps);
+
 esp_err_t read_manifest(const char *path, const char *model_id, Manifest *manifest)
 {
     FILE *file = std::fopen(path, "rb");
     if (file == nullptr) {
         return ESP_ERR_NOT_FOUND;
     }
-    char bytes[kManifestMaximumBytes + 1U]{};
+    char *bytes = static_cast<char *>(aligned_memory(
+        kManifestMaximumBytes + 1U,
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT,
+        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT
+    ));
+    if (bytes == nullptr) {
+        std::fclose(file);
+        return ESP_ERR_NO_MEM;
+    }
     const size_t count = std::fread(bytes, 1U, kManifestMaximumBytes + 1U, file);
     const bool io_error = std::ferror(file) != 0;
     std::fclose(file);
     if (io_error) {
+        heap_caps_free(bytes);
         return ESP_FAIL;
     }
     if (count == 0U || count > kManifestMaximumBytes) {
+        heap_caps_free(bytes);
         return ESP_ERR_INVALID_SIZE;
     }
     bytes[count] = '\0';
     cJSON *root = cJSON_ParseWithLength(bytes, count);
     if (!cJSON_IsObject(root)) {
         cJSON_Delete(root);
+        heap_caps_free(bytes);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
@@ -236,6 +249,7 @@ esp_err_t read_manifest(const char *path, const char *model_id, Manifest *manife
         manifest->tensor_arena_size = tensor_arena;
     }
     cJSON_Delete(root);
+    heap_caps_free(bytes);
     return valid ? ESP_OK : ESP_ERR_INVALID_RESPONSE;
 }
 
@@ -612,6 +626,15 @@ extern "C" esp_err_t ainekio_wake_word_service_start(
         static_cast<unsigned int>(service->manifest.feature_step_ms)
     );
     return ESP_OK;
+}
+
+extern "C" void ainekio_wake_word_service_stop(
+    ainekio_wake_word_service_t *service
+)
+{
+    if (service != nullptr) {
+        release_service(service);
+    }
 }
 
 extern "C" bool ainekio_wake_word_ready(

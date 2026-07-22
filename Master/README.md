@@ -8,3 +8,5 @@ robot.
 - `gateway/environment_adapter/` owns the authenticated full-duplex environment
   endpoint and semantic command translation.
 - `gateway/security.py` owns bounded dashboard-verifier and robot-token stores.
+- `start-physical-gateway.sh` starts the real brain-side gateway on the LAN while
+  keeping the operator dashboard bound to localhost.

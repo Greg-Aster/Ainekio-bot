@@ -70,7 +70,7 @@ static void enter_setup_session(
     machine->state_started_ms = now_ms;
     machine->session_started_ms = now_ms;
     start_setup_ap(machine);
-    machine->pending_actions |= AINEKIO_PROVISION_ACTION_GENERATE_SETUP_SECRET |
+    machine->pending_actions |= AINEKIO_PROVISION_ACTION_LOAD_SETUP_KEY |
                                 AINEKIO_PROVISION_ACTION_SHOW_SETUP |
                                 AINEKIO_PROVISION_ACTION_PLAY_SETUP_CUE;
     if (machine->has_active_wifi) {
@@ -256,6 +256,7 @@ bool ainekio_provisioning_begin_staged_validation(
     machine->state_started_ms = now_ms;
     machine->has_staged_config = true;
     machine->pending_actions |= AINEKIO_PROVISION_ACTION_CONNECT_STAGED_WIFI;
+    machine->pending_actions |= AINEKIO_PROVISION_ACTION_SHOW_CONNECTING;
     return true;
 }
 

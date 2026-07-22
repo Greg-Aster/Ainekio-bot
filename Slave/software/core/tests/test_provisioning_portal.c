@@ -64,30 +64,10 @@ static void test_malformed_duplicate_and_oversize_payloads_fail_closed(void)
            ) == AINEKIO_PORTAL_PARSE_TOO_LARGE);
 }
 
-static void test_login_rate_and_lockout(void)
-{
-    ainekio_portal_rate_limit_t limit;
-    ainekio_portal_rate_limit_init(&limit);
-    for (uint32_t attempt = 0U; attempt < 5U; ++attempt) {
-        assert(ainekio_portal_login_allowed(&limit, 1000U));
-        ainekio_portal_login_failed(&limit, 1000U);
-    }
-    assert(!ainekio_portal_login_allowed(&limit, 1000U));
-    for (uint32_t attempt = 0U; attempt < 5U; ++attempt) {
-        assert(ainekio_portal_login_allowed(&limit, 61000U));
-        ainekio_portal_login_failed(&limit, 61000U);
-    }
-    assert(!ainekio_portal_login_allowed(&limit, 121000U));
-    assert(ainekio_portal_login_allowed(&limit, 361000U));
-    ainekio_portal_login_succeeded(&limit);
-    assert(ainekio_portal_login_allowed(&limit, 361001U));
-}
-
 int main(void)
 {
     test_bounded_initial_and_network_only_payloads();
     test_malformed_duplicate_and_oversize_payloads_fail_closed();
-    test_login_rate_and_lockout();
     puts("ainekio provisioning portal tests passed");
     return 0;
 }

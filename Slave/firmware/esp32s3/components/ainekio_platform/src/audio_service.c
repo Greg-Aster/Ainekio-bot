@@ -451,6 +451,22 @@ static esp_err_t initialize_i2s(ainekio_audio_service_t *service)
     return result;
 }
 
+static void release_audio_startup(ainekio_audio_service_t *service)
+{
+    if (service->rx_channel != NULL) {
+        (void)i2s_channel_disable(service->rx_channel);
+        (void)i2s_del_channel(service->rx_channel);
+        service->rx_channel = NULL;
+    }
+    if (service->tx_channel != NULL) {
+        (void)i2s_channel_disable(service->tx_channel);
+        (void)i2s_del_channel(service->tx_channel);
+        service->tx_channel = NULL;
+    }
+    ainekio_wake_word_service_stop(service->wake_word);
+    service->wake_word = NULL;
+}
+
 esp_err_t ainekio_audio_service_start(
     ainekio_asset_store_t *assets,
     const char *wake_model,
@@ -490,10 +506,12 @@ esp_err_t ainekio_audio_service_start(
         &service->speaker_queue_control
     );
     if (service->speaker_queue == NULL) {
+        release_audio_startup(service);
         return ESP_ERR_NO_MEM;
     }
     esp_err_t result = initialize_i2s(service);
     if (result != ESP_OK) {
+        release_audio_startup(service);
         return result;
     }
     if (xTaskCreatePinnedToCore(
@@ -505,6 +523,7 @@ esp_err_t ainekio_audio_service_start(
             &service->task,
             1
         ) != pdPASS) {
+        release_audio_startup(service);
         return ESP_ERR_NO_MEM;
     }
     *service_output = service;

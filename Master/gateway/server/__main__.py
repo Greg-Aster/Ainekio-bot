@@ -44,6 +44,37 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _advertised_host(bind_host: str) -> str | None:
+    configured = os.environ.get("AINEKIO_GATEWAY_ADVERTISED_HOST", "").strip()
+    if configured:
+        return configured
+    if bind_host not in {"0.0.0.0", "::"}:
+        return bind_host
+    return None
+
+
+def _print_gateway_addresses(
+    *, bind_host: str, port: int, environment_enabled: bool
+) -> None:
+    print(f"Ainekio gateway bind: {bind_host}:{port}")
+    host = _advertised_host(bind_host)
+    if host is None:
+        print("Ainekio robot setup URL unavailable; configure an advertised host.")
+        if environment_enabled:
+            print(
+                "Ainekio environment URL unavailable; configure an advertised host."
+            )
+        else:
+            print("Ainekio environment: disabled")
+        return
+    print(f"Ainekio robot setup URL: ws://{host}:{port}/robot")
+    print(
+        f"Ainekio environment URL: ws://{host}:{port}/environment"
+        if environment_enabled
+        else "Ainekio environment: disabled"
+    )
+
+
 async def _run_stub(args: argparse.Namespace, token: str) -> None:
     names = [name.strip() for name in args.commands.split(",") if name.strip()]
     stub = GatewayStub(
@@ -58,7 +89,11 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
         max_queue=32,
         ping_interval=None,
     ):
-        print(f"Ainekio gateway stub listening at ws://{args.host}:{args.port}/robot")
+        _print_gateway_addresses(
+            bind_host=args.host,
+            port=args.port,
+            environment_enabled=False,
+        )
         await asyncio.Future()
 
 
@@ -130,10 +165,10 @@ async def _run_production(args: argparse.Namespace) -> None:
             max_queue=32,
             ping_interval=None,
         ):
-            print(f"Ainekio robot gateway: ws://{args.host}:{args.port}/robot")
-            print(
-                "Ainekio environment:  "
-                + (f"ws://{args.host}:{args.port}/environment" if adapter else "disabled")
+            _print_gateway_addresses(
+                bind_host=args.host,
+                port=args.port,
+                environment_enabled=adapter is not None,
             )
             print(f"Ainekio dashboard:    http://{args.dashboard_host}:{args.dashboard_port}/")
             await asyncio.Future()
@@ -168,15 +203,18 @@ def _audit_fields(payload: dict[str, object]) -> dict[str, object]:
 
 def main() -> int:
     args = _parser().parse_args()
-    if args.stub:
-        token = os.environ.get("AINEKIO_ROBOT_TOKEN")
-        if not token:
-            raise SystemExit(
-                "AINEKIO_ROBOT_TOKEN must be set; tokens are not stored in the repo"
-            )
-        asyncio.run(_run_stub(args, token))
-    else:
-        asyncio.run(_run_production(args))
+    try:
+        if args.stub:
+            token = os.environ.get("AINEKIO_ROBOT_TOKEN")
+            if not token:
+                raise SystemExit(
+                    "AINEKIO_ROBOT_TOKEN must be set; tokens are not stored in the repo"
+                )
+            asyncio.run(_run_stub(args, token))
+        else:
+            asyncio.run(_run_production(args))
+    except KeyboardInterrupt:
+        return 130
     return 0
 
 

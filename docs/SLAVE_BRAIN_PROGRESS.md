@@ -8,13 +8,22 @@ and drives the ESP32-S3 body hardware or simulator backend.
 
 ## Current Phase
 
-The software-only scope is implementation complete and accepted against the
-host emulator. Protocol v1, the portable C core, the emulator, the Master
+The software scope is implementation complete and accepted against the host
+emulator. Protocol v1, the portable C core, the emulator, the Master
 gateway/dashboard/bridge, and the ESP32-S3 platform port are present. The
 explicit A1-A30 runner passes 30/30, and the ESP-IDF v5.5.4 cross-build passes.
-Physical flashing, electrical verification, and H1-H15 evidence remain pending
-until the ordered target hardware arrives. The external normative Parts Overview
-has been reviewed for planning, but delivered hardware still must confirm it.
+USB-only delivered-hardware bring-up identified the OV3660 camera, validated
+8 MB PSRAM before PWM initialization, fixed the `ws_tx` watchdog loop, and
+proved that the old GPIO33/34 servo assignments corrupt the N16R8 octal-PSRAM
+bus. The board-only remap now uses GPIO47/48 for those two servos and hands
+GPIO0/43 from BOOT/UART to the OLED bus after startup. The full-feature image
+enables all eight remapped PWM channels under the reduced-range safety profile;
+the delivered board initialized every channel, detected OV3660, and passed its
+8 MB PSRAM test. A battery-cutoff stack overflow found by the missing-divider
+test is fixed, a startup-zero battery input now permits USB-only operation while
+retaining cutoff after a plausible battery has been seen, and a missing OLED
+now returns GPIO43 to UART. Physical joints and the external 5 V rail remain
+H2/H3 evidence.
 
 ## Current Relevant Documents
 
@@ -26,7 +35,11 @@ has been reviewed for planning, but delivered hardware still must confirm it.
 - `docs/Ainekio - System Specification v1.0.docx` - current local system specification document.
 - `docs/README.md` - normative-document authority and the external Parts Overview
   link, with planning facts separated from installed-hardware evidence.
-- `docs/Ainekio - Spec v0.6 Amendment 1 (FINAL) + Freeze.docx` - local freeze/amendment reference.
+- `docs/PINOUT_DIAGNOSTICS.md` - current flashed board map, physical header
+  numbering, and expected diagnostic values.
+- `docs/HARDWARE_BRINGUP_CHECKLIST.md` - physical assembly gates and evidence.
+- `docs/archive/specifications/` - superseded v0.6 specification lineage; not
+  current authority.
 - `docs/archive/simulator-bridge-progress-scratchpad.md` - historical MetaHuman
   bridge, adapter, and Sesame simulator integration notes; not an architecture
   authority.
@@ -44,7 +57,11 @@ has been reviewed for planning, but delivered hardware still must confirm it.
   a portable C core with no ESP-IDF, FreeRTOS, socket, GPIO, or filesystem headers.
 - Keep FreeRTOS tasks, networking, storage, OTA, and hardware drivers inside the
   ESP32-S3 platform implementation.
-- Use semantic robot commands. Remote AI callers never provide raw servo angles.
+- Use semantic robot commands for ordinary motion. Remote AI callers never
+  provide GPIOs, PWM values, calibration writes, or raw physical servo control.
+  The separately owner-approved `motion_plan_v1` extension accepts only a
+  complete bounded logical-joint trajectory and remains disabled on the
+  physical ESP32-S3 runtime.
 - Use fixed-size command structures, bounded messages and queues, and explicit
   timeouts. Avoid heap allocation in safety and motion-control paths after startup.
 - Treat a future Linux body controller as another platform implementation of the
@@ -93,6 +110,7 @@ Emulator/
 
 docs/
   archive/
+  Freenove_ESP32_S3_WROOM_Board-main/
   sesame-robot/
 ```
 
@@ -109,7 +127,9 @@ owns the brain-side socket and authenticated environment adapter.
 The current target is the ESP32-S3 N16R8 configuration: 16 MB flash and 8 MB
 PSRAM. The normative target below comes from section 6.4 of System Specification
 v1.0. The checked firmware now enables 8 MB octal PSRAM at 80 MHz with a startup
-memory test; detection and concurrent stability remain H2 hardware evidence.
+memory test. Delivered-board boot has confirmed the expected PSRAM size and
+startup memory test; concurrent camera, SD, audio, and PWM soak remains H2
+evidence.
 
 | Storage | Initial budget | Intended use |
 | --- | ---: | --- |
@@ -170,9 +190,9 @@ application image while preserving a safe minimum behavior if LittleFS fails.
   MetaHuman bridge boundary, plugin boundary, token revocation, and audit log.
 - [x] Cross-build the ESP32-S3 platform services that can be implemented without
   physical electrical evidence.
-- [ ] Boot the target board and emit one structured boot-status message after it arrives.
-- [ ] Execute H1-H15 and record physical evidence after delivered target hardware
-  confirms the Parts Overview and satisfies the firmware start gates.
+- [x] Boot the target board and record structured status for the N16R8 profile,
+  OV3660 camera, PSRAM, battery state, and eight remapped MCPWM allocations.
+- [ ] Complete H1-H15 and record the remaining assembled-hardware evidence.
 
 ## Existing Sesame Emulator Finding
 
@@ -324,14 +344,16 @@ the 64 KB NVS partition.
 The setup connection is not the production robot WebSocket. In provisioning mode
 the robot temporarily broadcasts a WPA2 WiFi access point named
 `Ainekio-Setup` and serves a local HTTP setup portal. A phone or computer joins
-that temporary network, enters the target WiFi name and password plus gateway
-identity settings, and presses save. ESP-IDF supports this SoftAP-to-station
-provisioning flow using one radio in AP+STA mode. After successful validation and
-an atomic NVS commit, the setup service stops and the robot opens its normal
-outbound WebSocket to the configured gateway.
+that temporary network once with the stable per-device eight-character setup
+key. The form opens directly at `http://192.168.4.1/`; there is no second portal
+password. The user enters the target WiFi name and password plus gateway
+identity settings and presses save. HTTP sessions are bound to the setup AP
+network interface. After successful station validation and an atomic NVS commit,
+the setup service stops and the robot opens its normal full-duplex outbound
+WebSocket to the configured brain gateway.
 
-Normative v1 provisioning behavior from specification section 6.7, including
-applied Erratum E1:
+Current provisioning behavior combines specification section 6.7, applied
+Erratum E1, and the owner-approved 2026-07-21 single-key UX delta:
 
 - Enter provisioning when no valid NVS exists, NVS recovery fails, an
   authenticated dashboard action requests it, BOOT is held for 5 seconds after
@@ -340,9 +362,11 @@ applied Erratum E1:
   and DHCP with bounded backoff for 60 seconds. Apply the same window after a
   connected robot loses WiFi/IP. A gateway or WebSocket failure alone does not
   trigger WiFi provisioning.
-- Generate a new 12-character base32 setup secret for every provisioning entry.
-  Use it as both the SoftAP WPA2 password and portal login, and display it on the
-  OLED for that session with a one-time UART fallback.
+- Generate one eight-character base32 setup key for the device and store it in a
+  dedicated NVS namespace outside replaceable network configuration. Use it as
+  the SoftAP WPA2 password only; do not ask for it again in the portal. Preserve
+  it across reboot, WiFi replacement, and network-configuration repair. A full
+  NVS partition erase generates a new device key.
 - Accept `wifi_ssid`, `wifi_psk`, `endpoint_url`, `robot_id`, and `robot_token`.
 - Stage the complete replacement, require association and a station IP within 60
   seconds, and only then atomically replace the active configuration. Invalid
@@ -355,7 +379,8 @@ applied Erratum E1:
   out after 10 minutes and resumes the old configuration; with no valid
   credentials, continue the AP cycle until setup succeeds.
 - Use the OLED as the primary status channel: `Connecting to WiFi`, `WiFi
-  unavailable`, setup network/secret screens, and a brief `WiFi connected` notice.
+  unavailable`, setup network/key/address, joined SSID/DHCP address, and gateway
+  connecting/online/offline/auth-failed state.
   Emit one short non-repeating audio cue when setup is required and a distinct cue
   on connection success; audio failure never blocks provisioning.
 - BOOT entry does not erase configuration. An authenticated network-only reset
@@ -369,14 +394,15 @@ applied Erratum E1:
 ### Provisioning Implementation Plan
 
 - [x] Define the versioned NVS namespaces and keys for WiFi, endpoint, robot
-  identity/token, calibration, profile, ADC factor, and setup-secret hash.
+  identity/token, calibration, profile, ADC factor, and the stable device setup
+  key.
 - [x] Add a platform-neutral provisioning state machine with host tests for valid,
   missing, corrupt, staged, committed, and rolled-back configuration, plus the
   60-second connection window and automatic fallback cycle.
 - [x] Add the ESP32-S3 NVS adapter with specified recovery behavior and atomic
   staging-to-active commit.
-- [x] Add the ESP32-S3 WPA2 SoftAP and authenticated HTTP setup portal using
-  bounded request bodies and rate limits.
+- [x] Add the ESP32-S3 WPA2 SoftAP and setup-interface-bound direct HTTP
+  form using bounded request bodies.
 - [x] Add WiFi scanning, credential validation, connection progress, and clear
   failure reporting without exposing the submitted password.
 - [x] Keep exactly one active WiFi configuration and verify that a replacement is
@@ -414,7 +440,7 @@ applied Erratum E1:
   connection window, WiFi-loss recovery, manual setup timeout, automatic setup
   AP cycling, staged validation, commit, rollback, network-only reset, saved
   network return, and gateway-failure separation.
-- Setup-secret generation, display states, and one-shot audio cues are emitted as
+- Setup-key loading, display states, and one-shot audio cues are emitted as
   bounded platform actions. The state machine does not log or retain credentials.
 - Added a dedicated host C test target covering the NVS contract and provisioning
   transitions. Both portable C CTest targets pass under C11 with warnings as
@@ -424,12 +450,14 @@ applied Erratum E1:
   calibration, poses, profile, and ADC settings during a network-only reset.
   Unknown future schemas are preserved and block downgrade rather than being
   silently erased.
-- Added the bounded WPA2 SoftAP portal, 12-character session secret, portal login
-  and rate limiting, WiFi scan, station-IP validation, AP+STA handoff, 60-second
-  connection policy, automatic AP cycle, saved-network return, and post-boot BOOT
-  polling. Credentials are never logged, echoed, or written to SD.
-- Added OLED setup/connection states and one-shot setup/success PCM cues. Either
-  service may fail without blocking provisioning, networking, motion, or safety.
+- Added the bounded WPA2 SoftAP portal, stable eight-character device key,
+  setup-subnet-only direct configuration form, WiFi scan, station-IP validation,
+  AP+STA handoff, 60-second connection policy, automatic AP cycle,
+  saved-network return, and post-boot BOOT polling. Credentials are never echoed
+  by HTTP or written to logs or SD.
+- Added OLED setup key/address, joined SSID/IP, gateway-state screens, and
+  one-shot setup/success PCM cues. Either service may fail without blocking
+  provisioning, networking, motion, or safety.
 - `app_main` now composes provisioning with the runtime. The outdated boot-shell
   status below is retained only as historical baseline evidence.
 
@@ -457,13 +485,12 @@ Validation completed:
   and ends exactly at `0x1000000`.
 - SD_MMC preservation: GPIO 38/39/40 are reserved in the normative pin map and
   current software plan. Electrical pull-up and concurrent camera/PSRAM/SD/PWM
-  behavior remain hardware gate H2 after the board arrives.
-- Freenove MAP_B preparation: one central pin header now includes the exact
-  camera, SD, UART, audio, OLED, ADC, and eight-servo map. Runtime validation
-  rejects definite duplicate/capability/resource conflicts while leaving the
-  specification's GPIO33/34 question to H2.
+  behavior remain hardware gate H2 during assembled-system testing.
+- Freenove MAP_B preparation: delivered H2 evidence rejected GPIO33/34. The
+  central map now reserves GPIO33-37 for N16R8 PSRAM, assigns the two displaced
+  servos to GPIO47/48, and explicitly models the GPIO0/43 boot-to-OLED handoff.
 - Camera preparation: pinned `espressif/esp32-camera` 2.1.7 cross-builds with an
-  OV2640-only QVGA/VGA JPEG service, PSRAM framebuffer, snapshots, bounded
+  OV3660 QVGA/VGA JPEG service, PSRAM framebuffer, snapshots, bounded
   streaming, two-frame drop-oldest queue, counters, and command lifecycle.
 - Wake-word implementation: protocol v1, ESP32 NVS, gateway, dashboard, and
   emulator agree on a durable `enabled` setting and bounded model identifier.
@@ -567,12 +594,12 @@ stop condition is complete. No robot feature drivers are part of this pass.
 - All 19 Sesame-derived motion assets, all required normalized face assets,
   canned PCM assets, deterministic conversion/parity fixtures, logical-joint
   contract, calibration diagnostics, and release-to-stop browser controls.
-- ESP32-S3 software that is safe to implement before hardware arrives: NVS and
-  migrations, provisioning, outbound WebSocket protocol runtime, bounded queues,
-  MCPWM motion, LittleFS, SSD1306 display, duplex I2S audio/microphone, battery
-  sampling and cutoff recovery, SD_MMC logging/retention/recovery, sleep, WSS
-  certificate bundle use, dual-slot OTA layout, and rollback acceptance only
-  after an authenticated gateway welcome.
+- ESP32-S3 platform services: NVS and migrations, provisioning, outbound
+  WebSocket protocol runtime, bounded queues, MCPWM motion, LittleFS, SSD1306
+  display, duplex I2S audio/microphone, battery sampling and cutoff recovery,
+  SD_MMC logging/retention/recovery, sleep, WSS certificate bundle use,
+  dual-slot OTA layout, and rollback acceptance only after an authenticated
+  gateway welcome.
 
 ### Software Evidence
 
@@ -593,40 +620,55 @@ succeeded, the gateway reported the emulator online in epoch 1, a semantic
 shim acknowledged renderer execution, and the lifecycle terminated as
 `{"t":"done","seq":2}` with body state `active` and face `stand`.
 
-The 2026-07-15 ESP-IDF v5.5.4 cross-build passes with rollback, 8 MB octal
-PSRAM, and the pinned OV2640 camera component enabled. H2 must still prove the
-configuration on the delivered board. Current size evidence:
+The 2026-07-21 ESP-IDF v5.5.4 full-feature cross-build passes with rollback,
+8 MB octal PSRAM, OV3660 support, and the board-only eight-servo remap enabled.
+Current size evidence:
 
 | Measurement | Used | Budget |
 | --- | ---: | ---: |
-| Application image | 1,369,367 bytes | 3 MiB OTA slot |
-| Padded application binary | `0x14e590` (1,369,488 bytes) | 56% of slot free |
-| Flash code | 984,100 bytes | recorded by `idf.py size` |
-| Flash data | 268,020 bytes | recorded by `idf.py size` |
-| Internal DIRAM | 234,667 bytes | 68.66%; 107,093 bytes remain |
+| Application image | 1,374,027 bytes | 3 MiB OTA slot |
+| Padded application binary | `0x14f7c0` (1,374,144 bytes) | 56% of slot free |
+| Flash code | 987,516 bytes | recorded by `idf.py size` |
+| Flash data | 268,924 bytes | recorded by `idf.py size` |
+| Internal DIRAM | 257,487 bytes | 75.34%; 84,273 bytes remain |
 | RTC fast/slow | 120 / 36 bytes | 8 KiB each |
 
 The image is below the specification's 60% warning threshold for a 3 MiB OTA
 slot. Internal RAM, especially fixed queue storage, remains the tighter growth
-budget and must be measured after every firmware feature.
+budget and must be measured after every firmware feature. This image contains
+the stable setup key, direct setup form, and OLED network/gateway status changes.
+Its immutable flash partitions passed independent digest readback; the delivered
+board booted it, passed the 8 MB PSRAM test, initialized all eight servo channels,
+and broadcast `Ainekio-Setup`. Setup-key persistence, form submission, and live
+gateway authentication remain physical provisioning UX evidence.
+
+The first successful home-WiFi submission exposed an ESP WebSocket startup
+timeout error: the 100 ms bounded write timeout had also been applied to network
+connection setup. The corrected runtime keeps 100 ms writes but allows five
+seconds for LAN ARP, TCP, and WebSocket establishment.
 
 ### Deliberately Pending
 
-- H1-H15 require the physical robot, instruments, photos, logs, and measurements.
+- The USB-only controller subset has evidence; completing H1-H15 still requires
+  the assembled robot, instruments, photos, logs, and measurements.
 - The external Parts Overview supplies a planned 100 kOhm/47 kOhm divider on
   GPIO3 and factor `3.12766`. Battery monitoring is enabled with the existing
-  7.0 V warning, 6.8 V cutoff, and 7.2 V recovery guards. H9 still compares the
-  reported voltage with a multimeter and stores any required ADC correction.
-- The owner has enabled all eight physical servo channels for initial bring-up.
-  They start at calibrated center with a 20 ms channel stagger. Normal semantic
-  motions and calibration commands are limited to 25 percent of their source
-  range around logical center (`67.5`-`112.5` degrees) and a 100 ms minimum
-  frame duration; `stop` still detaches all signal outputs.
-- Camera capture is implemented and cross-built, but OV2640 identity, PSRAM,
-  MAP_B GPIO33/34, physical JPEG capture, and the H2 concurrent soak remain
-  unverified. Camera-on and snapshot commands reject explicitly if camera
-  initialization is unavailable; they no longer reject merely because the ESP
-  port lacks a driver.
+  7.0 V warning, 6.8 V cutoff, and 7.2 V recovery guards. Three startup readings
+  at or below 0.25 V classify the input as disconnected and leave USB-only
+  operation awake. Once a plausible battery voltage is observed, subsequent
+  near-zero readings still trigger cutoff. H9 still compares the reported
+  voltage with a multimeter and stores any required ADC correction.
+- All eight remapped firmware servo channels are enabled, including the
+  GPIO47/48 pair. They start at calibrated center with a 20 ms channel stagger
+  and retain the 25 percent initial range and 100 ms minimum frame duration.
+  Live initialization of all eight MCPWM resources and the safe battery-cutoff
+  detach path are confirmed. Physical signal and joint behavior remain H2/H3
+  evidence.
+- Camera capture is implemented and the delivered sensor identifies as OV3660.
+  Physical JPEG capture, the responding-OLED GPIO0/43 handoff, GPIO47/48 signal
+  measurement, and the concurrent H2 soak remain unverified. Camera-on and
+  snapshot commands reject explicitly if camera initialization is unavailable;
+  they no longer reject merely because the ESP port lacks a driver.
 - The runtime microWakeWord engine is implemented, but the locally trained and
   hardware-evaluated `Ainekio` model artifact remains pending. Inference is
   entirely local through TensorFlow Lite Micro. No outside training service or

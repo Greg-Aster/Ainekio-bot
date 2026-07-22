@@ -2,8 +2,6 @@
 
 #include <string.h>
 
-#define AINEKIO_PORTAL_WINDOW_MS UINT32_C(60000)
-
 typedef struct {
     const char *name;
     char *destination;
@@ -74,55 +72,6 @@ static portal_field_t *find_field(
         }
     }
     return NULL;
-}
-
-void ainekio_portal_rate_limit_init(ainekio_portal_rate_limit_t *limit)
-{
-    memset(limit, 0, sizeof(*limit));
-}
-
-bool ainekio_portal_login_allowed(
-    ainekio_portal_rate_limit_t *limit,
-    uint32_t now_ms
-)
-{
-    if (limit->lock_until_ms != 0U &&
-        (int32_t)(limit->lock_until_ms - now_ms) > 0) {
-        return false;
-    }
-    if (limit->lock_until_ms != 0U) {
-        limit->lock_until_ms = 0U;
-        limit->consecutive_failures = 0U;
-    }
-    if (!limit->initialized ||
-        (uint32_t)(now_ms - limit->window_started_ms) >= AINEKIO_PORTAL_WINDOW_MS) {
-        limit->window_started_ms = now_ms;
-        limit->window_attempts = 0U;
-        limit->initialized = true;
-    }
-    if (limit->window_attempts >= AINEKIO_PORTAL_ATTEMPTS_PER_MINUTE) {
-        return false;
-    }
-    ++limit->window_attempts;
-    return true;
-}
-
-void ainekio_portal_login_failed(
-    ainekio_portal_rate_limit_t *limit,
-    uint32_t now_ms
-)
-{
-    if (limit->consecutive_failures < UINT8_MAX) {
-        ++limit->consecutive_failures;
-    }
-    if (limit->consecutive_failures >= AINEKIO_PORTAL_LOCK_AFTER_FAILURES) {
-        limit->lock_until_ms = now_ms + AINEKIO_PORTAL_LOCK_MS;
-    }
-}
-
-void ainekio_portal_login_succeeded(ainekio_portal_rate_limit_t *limit)
-{
-    ainekio_portal_rate_limit_init(limit);
 }
 
 ainekio_portal_parse_result_t ainekio_portal_parse_config(
