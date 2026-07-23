@@ -31,9 +31,12 @@ from protocol.joints_v1 import joint_contract
 from websockets.exceptions import ConnectionClosed
 
 
+# One-second heartbeats leave three additional send opportunities before the
+# connection is failed safe. The old two/three-second pair had only one second
+# of scheduling margin and dropped healthy LAN sessions under brief jitter.
 MAX_WEBSOCKET_MESSAGE_BYTES = (120 * 1024) + 5
-PING_AFTER_SECONDS = 2.0
-OFFLINE_AFTER_SECONDS = 3.0
+PING_AFTER_SECONDS = 1.0
+OFFLINE_AFTER_SECONDS = 4.0
 
 GatewayCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 
@@ -110,12 +113,14 @@ class GatewayConnection:
         robot_id: str,
         epoch: int,
         features: tuple[str, ...] = (),
+        transport: str = "lan",
     ) -> None:
         self.service = service
         self.websocket = websocket
         self.robot_id = robot_id
         self.epoch = epoch
         self.features = features
+        self.transport = transport
         self.next_sequence = 1
         self.pending: dict[int, PendingCommand] = {}
         self.completed: dict[int, dict[str, object]] = {}
@@ -126,6 +131,8 @@ class GatewayConnection:
         self.connected_at = service.clock()
         self.last_control_at = self.connected_at
         self.last_sent_at = self.connected_at
+        self.close_code: int | None = None
+        self.close_reason: str | None = None
         self._send_lock = asyncio.Lock()
         self._speaker_lock = asyncio.Lock()
         self._cancel_code = "disconnect"
@@ -332,6 +339,8 @@ class GatewayConnection:
 
     async def close(self, code: int, reason: str, *, cancel_code: str) -> None:
         self._cancel_code = cancel_code
+        self.close_code = code
+        self.close_reason = reason
         self.cancel_pending(cancel_code)
         if not self.websocket.closed:
             await self.websocket.close(code=code, reason=reason)
@@ -370,7 +379,13 @@ class GatewayService:
         self._command_callbacks: list[GatewayCallback] = []
         self.terminals: list[dict[str, object]] = []
 
-    async def handler(self, websocket: Any, path: str) -> None:
+    async def handler(
+        self,
+        websocket: Any,
+        path: str,
+        *,
+        transport: str = "lan",
+    ) -> None:
         if path != "/robot":
             await websocket.close(code=1008, reason="wrong endpoint")
             return
@@ -403,6 +418,7 @@ class GatewayService:
                 robot_id,
                 epoch,
                 features,
+                transport,
             )
             self._connections[robot_id] = connection
         if previous is not None:
@@ -423,20 +439,32 @@ class GatewayService:
                 "robot_id": robot_id,
                 "epoch": epoch,
                 "features": list(connection.features),
+                "transport": connection.transport,
             }
         )
         try:
             await connection.run()
-        except ConnectionClosed:
-            pass
+        except ConnectionClosed as error:
+            if connection.close_code is None:
+                connection.close_code = error.code
+                connection.close_reason = error.reason
         finally:
             connection.cancel_pending()
             async with self._lock:
                 if self._connections.get(robot_id) is connection:
                     del self._connections[robot_id]
-            await self._publish_event(
-                {"t": "connection", "status": "disconnected", "robot_id": robot_id, "epoch": epoch}
-            )
+            disconnected: dict[str, object] = {
+                "t": "connection",
+                "status": "disconnected",
+                "robot_id": robot_id,
+                "epoch": epoch,
+                "transport": connection.transport,
+            }
+            if connection.close_code is not None:
+                disconnected["close_code"] = connection.close_code
+            if connection.close_reason:
+                disconnected["close_reason"] = connection.close_reason
+            await self._publish_event(disconnected)
 
     async def wait_connected(self, robot_id: str, *, timeout: float = 3.0) -> None:
         deadline = self.clock() + timeout
@@ -700,6 +728,7 @@ class GatewayService:
                     "epoch": connection.epoch,
                     "next_sequence": connection.next_sequence,
                     "profile": connection.profile,
+                    "transport": connection.transport,
                     "features": list(connection.features),
                     "effective_caps": _profile_caps(connection.profile),
                     "pending": sum(

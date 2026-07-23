@@ -7,9 +7,11 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from typing import Callable
 
 from gateway.dashboard.server import start_dashboard_server
 from gateway.security import DashboardPasswordStore, RobotTokenStore
+from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.joints_v1 import joint_contract
 
 
@@ -18,6 +20,13 @@ class FakeGateway:
         self.next_sequence = 1
         self.tokens: dict[str, str] = {}
         self.calls: list[tuple[str, object]] = []
+        self.frame_callbacks: list[Callable[[dict[str, object]], object]] = []
+
+    def subscribe_frames(
+        self,
+        callback: Callable[[dict[str, object]], object],
+    ) -> None:
+        self.frame_callbacks.append(callback)
 
     async def status_snapshot(self) -> dict[str, object]:
         return {
@@ -137,7 +146,25 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         cookie: str | None = None,
         csrf: str | None = None,
     ) -> tuple[int, dict[str, object], dict[str, str]]:
-        def perform() -> tuple[int, dict[str, object], dict[str, str]]:
+        status, raw, response_headers = await self._raw_request(
+            method,
+            path,
+            payload,
+            cookie=cookie,
+            csrf=csrf,
+        )
+        return status, json.loads(raw), response_headers
+
+    async def _raw_request(
+        self,
+        method: str,
+        path: str,
+        payload: dict[str, object] | None = None,
+        *,
+        cookie: str | None = None,
+        csrf: str | None = None,
+    ) -> tuple[int, bytes, dict[str, str]]:
+        def perform() -> tuple[int, bytes, dict[str, str]]:
             connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
             headers: dict[str, str] = {}
             body = None
@@ -153,7 +180,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             raw = response.read()
             response_headers = {name.lower(): value for name, value in response.getheaders()}
             connection.close()
-            return response.status, json.loads(raw), response_headers
+            return response.status, raw, response_headers
 
         return await asyncio.to_thread(perform)
 
@@ -314,6 +341,57 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
                     "robot_id": "ainekio-test-01",
                 },
             ),
+        )
+
+    async def test_dashboard_serves_latest_authenticated_camera_frame(self) -> None:
+        status, payload, _headers = await self._request(
+            "GET",
+            "/api/camera/frame?robot_id=ainekio-test-01",
+        )
+        self.assertEqual((status, payload["error"]), (401, "authentication_required"))
+
+        cookie, _csrf = await self._login()
+        jpeg = b"\xff\xd8camera-frame\xff\xd9"
+        for callback in self.gateway.frame_callbacks:
+            callback(
+                {
+                    "robot_id": "ainekio-test-01",
+                    "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                    "counter": 17,
+                    "payload": jpeg,
+                }
+            )
+
+        status, body, headers = await self._raw_request(
+            "GET",
+            "/api/camera/frame?robot_id=ainekio-test-01",
+            cookie=cookie,
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, jpeg)
+        self.assertEqual(headers["content-type"], "image/jpeg")
+        self.assertEqual(headers["x-ainekio-camera-counter"], "17")
+        self.assertIn("img-src 'self' blob:", headers["content-security-policy"])
+
+    async def test_dashboard_defaults_to_physical_camera_panel(self) -> None:
+        cookie, _csrf = await self._login()
+        status, body, _headers = await self._raw_request("GET", "/", cookie=cookie)
+
+        self.assertEqual(status, 200)
+        html = body.decode("utf-8")
+        self.assertIn('data-dashboard-primary="camera"', html)
+        self.assertIn('data-dashboard-panel="camera"', html)
+        self.assertIn('data-dashboard-panel="simulator"', html)
+
+    async def test_dashboard_can_select_emulator_panel(self) -> None:
+        cookie, _csrf = await self._login()
+        self.server.primary_view = "simulator"
+        status, body, _headers = await self._raw_request("GET", "/", cookie=cookie)
+
+        self.assertEqual(status, 200)
+        self.assertIn(
+            'data-dashboard-primary="simulator"',
+            body.decode("utf-8"),
         )
 
 

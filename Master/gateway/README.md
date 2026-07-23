@@ -21,7 +21,7 @@ token through the environment. Do not commit either value:
 export AINEKIO_ROBOT_ID='ainekio-01'
 export AINEKIO_ROBOT_TOKEN='<strong generated robot token>'
 export AINEKIO_ENVIRONMENT_ADAPTER_TOKEN='<strong generated environment token>'
-# Optional on first launch; otherwise the terminal prints one generated password.
+# Optional; otherwise each launch generates and prints a fresh password.
 export AINEKIO_DASHBOARD_PASSWORD='<strong local dashboard password>'
 ./Master/start-physical-gateway.sh
 ```
@@ -32,11 +32,17 @@ but keeps the dashboard on `127.0.0.1:8791`. Configure the robot with
 `ws://127.0.0.1:8790/environment`. Reserve the brain computer's address in the
 home router or update the robot setting if DHCP changes it. Runtime tokens and
 password verifiers remain under ignored `build/gateway/physical/` storage.
-The local dashboard password verifier persists there, so it does not change on
-every gateway restart. Dashboard authentication is separate from robot WiFi
-setup and is never presented by the ESP32 setup portal.
+The physical launcher prints the active dashboard password on every start. If
+`AINEKIO_DASHBOARD_PASSWORD` is unset, it generates a fresh password and replaces
+the prior verifier; if it is set, it prints and installs that configured value.
+Only the verifier persists. Dashboard authentication is separate from robot
+WiFi setup and is never presented by the ESP32 setup portal.
 
 The launcher stays in the foreground. Press Ctrl+C to stop it.
+The physical dashboard uses the selected robot's authenticated JPEG stream as
+its first panel; enable the camera in **Camera and audio** if the panel is
+waiting for frames. The emulator stack keeps the visual robot simulator in that
+position instead.
 
 Run the production gateway with development credentials supplied through the
 environment on first startup:

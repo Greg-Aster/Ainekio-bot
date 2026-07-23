@@ -78,17 +78,19 @@ class DashboardPasswordStore:
         output: TextIO | None = None,
         password: str | None = None,
     ) -> str | None:
+        if password is not None:
+            self.set_password(password)
+            return password
         if self.path.exists():
             self._record()
             return None
-        if password is None:
-            if output is None or not output.isatty():
-                raise RuntimeError(
-                    "dashboard password store is missing and no interactive TTY is available"
-                )
-            password = secrets.token_urlsafe(18)
-            output.write(f"Ainekio dashboard password: {password}\n")
-            output.flush()
+        if output is None or not output.isatty():
+            raise RuntimeError(
+                "dashboard password store is missing and no interactive TTY is available"
+            )
+        password = secrets.token_urlsafe(18)
+        output.write(f"Ainekio dashboard password: {password}\n")
+        output.flush()
         self.set_password(password)
         return password
 

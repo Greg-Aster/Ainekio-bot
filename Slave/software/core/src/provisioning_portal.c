@@ -91,7 +91,8 @@ ainekio_portal_parse_result_t ainekio_portal_parse_config(
     portal_field_t fields[] = {
         {"wifi_ssid", candidate->wifi_ssid, sizeof(candidate->wifi_ssid), true, false},
         {"wifi_psk", candidate->wifi_psk, sizeof(candidate->wifi_psk), true, false},
-        {"endpoint_url", candidate->endpoint_url, sizeof(candidate->endpoint_url), !network_only, false},
+        {"transport_mode", candidate->transport_mode, sizeof(candidate->transport_mode), !network_only, false},
+        {"endpoint_url", candidate->endpoint_url, sizeof(candidate->endpoint_url), false, false},
         {"robot_id", candidate->robot_id, sizeof(candidate->robot_id), !network_only, false},
         {"robot_token", candidate->robot_token, sizeof(candidate->robot_token), !network_only, false},
     };

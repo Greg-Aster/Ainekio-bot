@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/assets/dashboard.css">
     <script src="/assets/dashboard.js" defer></script>
   </head>
-  <body class="dashboard-page">
+  <body class="dashboard-page" data-dashboard-primary="camera">
     <header class="app-header">
       <div class="brand-block">
         <div class="brand-mark" aria-hidden="true">A</div>
@@ -32,20 +32,36 @@
     </div>
 
     <main class="dashboard-grid">
-      <section class="control-section simulator-section" aria-labelledby="simulator-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Emulator</p>
-            <h2 id="simulator-title">Visual robot</h2>
+      <div class="primary-view-container">
+        <section class="control-section primary-view-section camera-view-section" data-dashboard-panel="camera" aria-labelledby="camera-view-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Physical robot</p>
+              <h2 id="camera-view-title">Camera view</h2>
+            </div>
           </div>
-        </div>
-        <iframe
-          class="simulator-frame"
-          src="http://127.0.0.1:8765/"
-          title="Ainekio visual robot simulator"
-          loading="eager"
-        ></iframe>
-      </section>
+          <div class="camera-stage">
+            <img id="camera-view" class="camera-frame" alt="Live view from the selected Ainekio robot" hidden>
+            <p id="camera-view-message" class="camera-view-message">Waiting for camera frames. Turn on the camera below if needed.</p>
+          </div>
+        </section>
+
+        <section class="control-section primary-view-section simulator-section" data-dashboard-panel="simulator" aria-labelledby="simulator-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Emulator</p>
+              <h2 id="simulator-title">Visual robot</h2>
+            </div>
+          </div>
+          <iframe
+            id="simulator-frame"
+            class="simulator-frame"
+            data-src="http://127.0.0.1:8765/"
+            title="Ainekio visual robot simulator"
+            loading="eager"
+          ></iframe>
+        </section>
+      </div>
 
       <section class="control-section motion-section" aria-labelledby="motion-title">
         <div class="section-heading">

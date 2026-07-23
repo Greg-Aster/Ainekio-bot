@@ -16,6 +16,7 @@
 #define BOOT_HOLD_MS 5000U
 #define RETRY_INITIAL_MS 1000U
 #define RETRY_MAX_MS 30000U
+#define STAGED_RESPONSE_GRACE_MS 2000U
 #define STAGED_DISCONNECT_SETTLE_MS 250U
 #define SETUP_RETRY_MS 2000U
 #define REQUEST_MANUAL BIT0
@@ -75,7 +76,18 @@ static void connect_staged(ainekio_provisioning_service_t *service, uint32_t now
     schedule_retry(service, now);
 }
 
-static void begin_staged_connection(
+static void schedule_staged_connection(
+    ainekio_provisioning_service_t *service,
+    uint32_t now
+)
+{
+    /* Keep both interfaces stable long enough for the setup acknowledgement. */
+    service->staged_disconnect_pending = true;
+    service->retry_delay_ms = 0U;
+    service->retry_at_ms = now + STAGED_RESPONSE_GRACE_MS;
+}
+
+static void disconnect_for_staged_connection(
     ainekio_provisioning_service_t *service,
     uint32_t now
 )
@@ -93,6 +105,7 @@ static void begin_staged_connection(
             esp_err_to_name(result)
         );
     }
+    service->staged_disconnect_pending = false;
     service->previous_ip = false;
     service->retry_delay_ms = 0U;
     service->retry_at_ms = now + STAGED_DISCONNECT_SETTLE_MS;
@@ -287,6 +300,12 @@ static void process_retry(ainekio_provisioning_service_t *service, uint32_t now)
             show_status(service, AINEKIO_PROVISION_DISPLAY_SETUP);
         }
     }
+    if (service->machine->state == AINEKIO_PROVISION_STATE_VALIDATING_STAGED &&
+        service->staged_disconnect_pending && service->retry_at_ms != 0U &&
+        (int32_t)(now - service->retry_at_ms) >= 0) {
+        disconnect_for_staged_connection(service, now);
+        return;
+    }
     if (ainekio_wifi_has_ip(service->wifi) || service->retry_at_ms == 0U ||
         (int32_t)(now - service->retry_at_ms) < 0) {
         return;
@@ -318,6 +337,9 @@ static void process_actions(
         (void)ainekio_config_store_discard(service->config_store);
         memset(service->staged_ssid, 0, sizeof(service->staged_ssid));
         memset(service->staged_psk, 0, sizeof(service->staged_psk));
+        service->staged_disconnect_pending = false;
+        service->retry_at_ms = 0U;
+        service->retry_delay_ms = 0U;
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_LOAD_SETUP_KEY)) {
         service->serial_key_printed = false;
@@ -349,7 +371,7 @@ static void process_actions(
         connect_active(service, now);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_CONNECT_STAGED_WIFI)) {
-        begin_staged_connection(service, now);
+        schedule_staged_connection(service, now);
     }
     if (includes(actions, AINEKIO_PROVISION_ACTION_COMMIT_STAGED_CONFIG)) {
         const bool committed =
@@ -358,6 +380,9 @@ static void process_actions(
         if (committed) {
             memset(service->staged_ssid, 0, sizeof(service->staged_ssid));
             memset(service->staged_psk, 0, sizeof(service->staged_psk));
+            service->staged_disconnect_pending = false;
+            service->retry_at_ms = 0U;
+            service->retry_delay_ms = 0U;
             if (service->io.online != NULL && service->config_store->has_active) {
                 (void)service->io.online(
                     service->io.context,
@@ -508,4 +533,17 @@ void ainekio_provisioning_service_request_gateway_auth_failure(
     if (service != NULL && service->task != NULL) {
         (void)xTaskNotify(service->task, REQUEST_GATEWAY_AUTH_FAILED, eSetBits);
     }
+}
+
+bool ainekio_provisioning_service_setup_active(
+    const ainekio_provisioning_service_t *service
+)
+{
+    if (service == NULL || service->machine == NULL) {
+        return false;
+    }
+    return service->machine->state == AINEKIO_PROVISION_STATE_MANUAL_AP ||
+           service->machine->state == AINEKIO_PROVISION_STATE_AUTOMATIC_AP ||
+           service->machine->state == AINEKIO_PROVISION_STATE_VALIDATING_STAGED ||
+           service->machine->state == AINEKIO_PROVISION_STATE_COMMITTING_STAGED;
 }

@@ -3,7 +3,7 @@
 Date: 2026-07-22  
 Reviewer: Robot Police  
 Target: `Slave/firmware/esp32s3`, including the current uncommitted revisions  
-Status: Software remediation pass build-verified; hardware validation and F5 tuning pending
+Status: All software findings remediated and build-verified; flash artifacts ready; hardware validation pending
 
 ## Purpose
 
@@ -226,9 +226,11 @@ accepted model and owner-approved configuration are present.
 
 ## Will the Firmware Be Leaner?
 
-The expected answer is yes, but only the stack defect and unnecessary wakeup
-counts can be proven directly from the current code. Final improvement must be
-measured after implementation.
+The software result is leaner: the linked image recovers 49,472 bytes of static
+BSS and the confirmed stack overrun is removed without adding a task, queue, or
+long-lived service. Reduced idle wakeups and bounded network-write latency are
+confirmed structurally and by cross-build; their CPU, power, and drop-rate
+effects still require on-board measurement.
 
 The intended result is:
 
@@ -272,6 +274,16 @@ below pass.
    that no earlier service or task remains active.
 10. Re-run the hardware safety and physical-motion gates separately before
     treating controller-only stability as proof of safe servo operation.
+
+Current evidence status:
+
+- Items 1, 4, and 5 pass in the final software build.
+- Item 2 passes for the compiled frame; its on-board watermark remains pending.
+- Item 3 is instrumented; live boot values remain pending.
+- Item 8 now has a source-level bounded-write correction and build proof;
+  degraded-network measurements remain pending.
+- Items 6, 7, 9, and 10 require the controller or a dedicated ESP-IDF fault
+  harness and are not claimed by this software-only pass.
 
 ## Remediation Order
 
@@ -403,3 +415,44 @@ evidence is explicitly named.
 
 Owner authorization covers the scoped remediation above. It does not authorize
 a rewrite or expansion of the firmware architecture.
+
+### 2026-07-22 11:47 PDT - F5 corrected and flash-ready build verified
+
+- Separated the application write bound from the 10-second connection timeout.
+  Runtime ownership-lock waits are now bounded to 10 ms and WebSocket operations
+  to 60 ms instead of using one 1,000 ms value for both.
+- Confirmed against pinned `esp_websocket_client` 1.7.0 source that the client
+  may spend the supplied timeout on its internal lock, WebSocket header write,
+  and payload write. A compile-time invariant keeps those waits plus the runtime
+  lock within 190 ms, below the ten-frame microphone queue's 200 ms audio
+  window.
+- A 645-byte microphone frame remains one WebSocket client chunk. Larger camera
+  messages now use standard WebSocket fragmentation in 4,096-byte chunks with a
+  shared decreasing timeout budget instead of receiving a fresh full timeout
+  for every chunk. Failure follows the existing disconnect/failsafe path.
+- No queue length, drop policy, task, priority, core assignment, protocol frame,
+  TTS ordering rule, control-overflow behavior, or E-stop path changed.
+- Final ESP-IDF v5.5.4 build passed. The application is `0x150430` bytes with
+  `56%` free in each 3 MiB OTA slot. The F5 correction adds 528 bytes of flash
+  code over the prior remediation build and no static RAM: DIRAM remains 169,267
+  of 341,760 bytes (`49.53%`) and BSS remains 68,160 bytes.
+- The final wake startup frame remains `0x210` bytes (528 bytes). The bootloader
+  and application images both pass `esptool image_info` checksum and validation-
+  hash checks.
+- All 11 strict portable-core tests and all 13 Python protocol contract tests
+  pass. The first direct Python discovery invocation lacked the repository
+  module path; the recorded successful command is
+  `PYTHONPATH=Slave/software python3 -m unittest discover -s Slave/software/tests/protocol -v`.
+- Firmware asset staging retains `motions-bin-v1.json` and all 19 `.amot`
+  records while excluding only emulator `motions-v1.json`.
+- Flash-ready files and offsets are recorded in `build/flash_args`: bootloader
+  `0x0`, partition table `0x8000`, OTA data `0x1a000`, application `0x20000`,
+  and LittleFS `0x620000`.
+- Final application SHA-256:
+  `7b7ea24d8bf18b103fc902189ea6f51282f677ba5731b13aefe4821d02d0dcc2`.
+  Final LittleFS SHA-256:
+  `cc48c77e3bfaedb49ca3c2629791fa1ef85cf82f9666d3f34ec37ef3966d1965`.
+- No serial controller was present at `/dev/ttyACM0` or `/dev/ttyUSB0`. The
+  system is flash-ready, but flashed boot behavior, live memory/stack values,
+  impairment results, soak stability, allocation-failure rollback, and physical
+  safety gates remain explicitly unclaimed hardware evidence.

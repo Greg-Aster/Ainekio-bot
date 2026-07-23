@@ -43,6 +43,7 @@ int main(void)
         .uptime_seconds = 312U,
         .free_heap = 183000U,
         .sd_available = true,
+        .camera_ready = true,
         .camera_drops = 4U,
         .microphone_drops = 2U,
         .wake_enabled = false,
@@ -52,6 +53,7 @@ int main(void)
     length = ainekio_encode_status(&status, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_STATUS);
     assert(strstr(output, "\"wake_enabled\":false") != NULL);
+    assert(strstr(output, "\"camera_ready\":true") != NULL);
     assert(strstr(output, "\"wake_model\":\"ainekio\"") != NULL);
     assert(strstr(output, "\"wake_ready\":false") != NULL);
     length = ainekio_encode_event(AINEKIO_EVENT_LITTLEFS_FAIL, output, sizeof(output));

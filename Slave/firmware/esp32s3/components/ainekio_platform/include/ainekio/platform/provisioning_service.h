@@ -69,6 +69,7 @@ typedef struct {
     bool setup_requested;
     bool setup_services_ready;
     bool setup_network_only;
+    bool staged_disconnect_pending;
     bool boot_press_active;
     bool boot_press_triggered;
     bool previous_ip;
@@ -91,6 +92,9 @@ void ainekio_provisioning_service_request_network_reset(
 );
 void ainekio_provisioning_service_request_gateway_auth_failure(
     ainekio_provisioning_service_t *service
+);
+bool ainekio_provisioning_service_setup_active(
+    const ainekio_provisioning_service_t *service
 );
 
 #endif

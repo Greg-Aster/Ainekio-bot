@@ -380,6 +380,8 @@ def _validate_status(message: Mapping[str, object]) -> None:
     _integer(message, "uptime", minimum=0)
     _integer(message, "heap", minimum=0)
     _boolean(message, "sd")
+    if "camera_ready" in message:
+        _boolean(message, "camera_ready")
     _integer(message, "cam_drops", minimum=0)
     _integer(message, "spk_underruns", minimum=0)
     _integer(message, "mic_drops", minimum=0)

@@ -274,6 +274,19 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         service = GatewayService(
             GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
         )
+        first_disconnected = asyncio.Event()
+        events: list[dict[str, object]] = []
+
+        def record_event(event: dict[str, object]) -> None:
+            events.append(event)
+            if (
+                event.get("t") == "connection"
+                and event.get("status") == "disconnected"
+                and event.get("epoch") == 1
+            ):
+                first_disconnected.set()
+
+        service.subscribe_events(record_event)
         async with websockets.serve(
             service.handler,
             "127.0.0.1",
@@ -316,11 +329,58 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             await first.wait_closed()
 
             self.assertEqual(first.close_code, 4000)
+            await asyncio.wait_for(first_disconnected.wait(), timeout=1.0)
+            self.assertIn(
+                {
+                    "t": "connection",
+                    "status": "disconnected",
+                    "robot_id": "ainekio-test-01",
+                    "epoch": 1,
+                    "close_code": 4000,
+                    "close_reason": "new authenticated connection",
+                },
+                events,
+            )
             self.assertEqual(
                 service.terminals[-1]["result"],
                 {"t": "cancelled", "seq": sequence, "code": "reconnect"},
             )
             await second.close()
+
+    async def test_gateway_tolerates_brief_control_gap(self) -> None:
+        service = GatewayService(
+            GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
+        )
+        async with websockets.serve(
+            service.handler,
+            "127.0.0.1",
+            0,
+            ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            socket = await websockets.connect(
+                f"ws://127.0.0.1:{port}/robot",
+                ping_interval=None,
+            )
+            await socket.send(
+                json.dumps(
+                    {
+                        "t": "hello",
+                        "ver": 1,
+                        "fw": "test",
+                        "id": "ainekio-test-01",
+                        "auth": "test-token",
+                    }
+                )
+            )
+            self.assertEqual(json.loads(await socket.recv())["t"], "welcome")
+
+            # This exceeded the former three-second timeout. It must remain
+            # connected long enough for a delayed control response to recover.
+            await asyncio.sleep(3.2)
+            await socket.send(json.dumps({"t": "pong"}))
+            self.assertFalse(socket.closed)
+            await socket.close()
 
     async def test_token_revocation_closes_active_socket_and_rejects_reconnect(self) -> None:
         service = GatewayService(

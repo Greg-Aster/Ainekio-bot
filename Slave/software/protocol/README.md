@@ -32,7 +32,9 @@ microphone stream command:
 
 `model` is a bounded trained-model identifier, not arbitrary text to be turned
 into a wake word. The ESP32 stores the accepted setting in NVS. Status frames
-may report `wake_enabled`, `wake_model`, and `wake_ready`; `wake_ready=false`
+may report `camera_ready`, `wake_enabled`, `wake_model`, and `wake_ready`;
+`camera_ready=false` means snapshot/visual capability must not be advertised,
+and `wake_ready=false`
 means firmware must reject both enabling the setting and opening a microphone
 with `gate="wake"`. These status additions remain optional so an older
 protocol-v1 body is still accepted by the gateway validator.

@@ -4,15 +4,17 @@ import asyncio
 import json
 import math
 import struct
+import threading
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 from gateway.server.service import GatewayError, GatewayService
+from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.control_v1 import ProtocolValidationError
 
 from .auth import AuditLog, DashboardSession, DashboardSessions, LoginRateLimiter
@@ -41,7 +43,10 @@ class DashboardHttpServer(ThreadingHTTPServer):
         password_store: DashboardPasswordStore,
         token_store: RobotTokenStore,
         audit_log: AuditLog | None = None,
+        primary_view: str = "camera",
     ) -> None:
+        if primary_view not in {"camera", "simulator"}:
+            raise ValueError("primary_view must be camera or simulator")
         super().__init__(server_address, DashboardHandler)
         self.gateway = gateway
         self.event_loop = event_loop
@@ -51,17 +56,56 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.sessions = DashboardSessions()
         self.login_limiter = LoginRateLimiter()
         self.stop_latched = False
+        self.primary_view = primary_view
+        self._camera_condition = threading.Condition()
+        self._camera_frames: dict[str, tuple[int, bytes]] = {}
+        gateway.subscribe_frames(self._record_camera_frame)
 
     def call_gateway(self, awaitable: Any, *, timeout: float = 10.0) -> object:
         future = asyncio.run_coroutine_threadsafe(awaitable, self.event_loop)
         return future.result(timeout=timeout)
+
+    def _record_camera_frame(self, frame: dict[str, object]) -> None:
+        if frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
+            return
+        robot_id = frame.get("robot_id")
+        counter = frame.get("counter")
+        payload = frame.get("payload")
+        if (
+            not isinstance(robot_id, str)
+            or type(counter) is not int
+            or not isinstance(payload, bytes)
+        ):
+            return
+        with self._camera_condition:
+            self._camera_frames[robot_id] = (counter, payload)
+            self._camera_condition.notify_all()
+
+    def wait_for_camera_frame(
+        self,
+        robot_id: str,
+        after_counter: int | None,
+        *,
+        timeout: float = 10.0,
+    ) -> tuple[int, bytes] | None:
+        def frame_is_new() -> bool:
+            frame = self._camera_frames.get(robot_id)
+            return frame is not None and (
+                after_counter is None or frame[0] != after_counter
+            )
+
+        with self._camera_condition:
+            if not self._camera_condition.wait_for(frame_is_new, timeout=timeout):
+                return None
+            return self._camera_frames[robot_id]
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
     server: DashboardHttpServer
 
     def do_GET(self) -> None:
-        path = urlsplit(self.path).path
+        parsed_url = urlsplit(self.path)
+        path = parsed_url.path
         if path in STATIC_FILES:
             filename, content_type, requires_auth = STATIC_FILES[path]
             if requires_auth and self._session() is None:
@@ -89,7 +133,60 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if path == "/api/camera/frame":
+            if self._require_session() is None:
+                return
+            self._camera_frame(parsed_url.query)
+            return
         self._send_json({"error": "not_found"}, status=HTTPStatus.NOT_FOUND)
+
+    def _camera_frame(self, query_string: str) -> None:
+        query = parse_qs(query_string, keep_blank_values=True)
+        robot_ids = query.get("robot_id", [])
+        if len(robot_ids) != 1 or not robot_ids[0]:
+            self._send_json(
+                {"error": "robot_id is required"},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+            return
+        after_counter: int | None = None
+        after_values = query.get("after", [])
+        if after_values:
+            if len(after_values) != 1:
+                self._send_json(
+                    {"error": "invalid after counter"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            try:
+                after_counter = int(after_values[0])
+            except ValueError:
+                self._send_json(
+                    {"error": "invalid after counter"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            if not 0 <= after_counter <= 0xFFFFFFFF:
+                self._send_json(
+                    {"error": "invalid after counter"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+        frame = self.server.wait_for_camera_frame(robot_ids[0], after_counter)
+        if frame is None:
+            self.send_response(HTTPStatus.NO_CONTENT)
+            self._security_headers()
+            self.end_headers()
+            return
+        counter, payload = frame
+        try:
+            self._send_bytes(
+                payload,
+                "image/jpeg",
+                extra_headers={"X-Ainekio-Camera-Counter": str(counter)},
+            )
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
@@ -351,10 +448,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _send_static(self, filename: str, content_type: str) -> None:
         body = (STATIC_ROOT / filename).read_bytes()
+        if filename == "dashboard.html":
+            body = body.replace(
+                b'data-dashboard-primary="camera"',
+                f'data-dashboard-primary="{self.server.primary_view}"'.encode("ascii"),
+                1,
+            )
+        self._send_bytes(body, content_type)
+
+    def _send_bytes(
+        self,
+        body: bytes,
+        content_type: str,
+        *,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         self.send_response(HTTPStatus.OK)
         self._security_headers()
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -379,7 +493,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; connect-src 'self'; frame-src http://127.0.0.1:8765",
+            "default-src 'self'; connect-src 'self'; img-src 'self' blob:; "
+            "frame-src http://127.0.0.1:8765",
         )
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -398,6 +513,7 @@ def start_dashboard_server(
     password_store: DashboardPasswordStore,
     token_store: RobotTokenStore,
     audit_log: AuditLog | None = None,
+    primary_view: str = "camera",
 ) -> DashboardHttpServer:
     return DashboardHttpServer(
         (host, port),
@@ -406,6 +522,7 @@ def start_dashboard_server(
         password_store=password_store,
         token_store=token_store,
         audit_log=audit_log,
+        primary_view=primary_view,
     )
 
 
