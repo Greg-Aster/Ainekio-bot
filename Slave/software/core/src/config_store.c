@@ -32,6 +32,14 @@ static bool endpoint_valid(const char *endpoint, size_t length)
            (length > 6U && strncmp(endpoint, "wss://", 6U) == 0);
 }
 
+static bool transport_valid(const char *transport, size_t length)
+{
+    return (length == strlen(AINEKIO_TRANSPORT_LOCAL) &&
+            strcmp(transport, AINEKIO_TRANSPORT_LOCAL) == 0) ||
+           (length == strlen(AINEKIO_TRANSPORT_REMOTE) &&
+            strcmp(transport, AINEKIO_TRANSPORT_REMOTE) == 0);
+}
+
 static ainekio_config_slot_t inactive_slot(ainekio_config_slot_t active)
 {
     return active == AINEKIO_CONFIG_SLOT_A ? AINEKIO_CONFIG_SLOT_B
@@ -168,11 +176,17 @@ bool ainekio_config_record_valid(const ainekio_config_record_t *record, bool req
 
     size_t ssid_length;
     size_t psk_length;
+    size_t transport_length;
     size_t endpoint_length;
     size_t robot_id_length;
     size_t token_length;
     if (!bounded_length(record->wifi_ssid, sizeof(record->wifi_ssid), &ssid_length) ||
         !bounded_length(record->wifi_psk, sizeof(record->wifi_psk), &psk_length) ||
+        !bounded_length(
+            record->transport_mode,
+            sizeof(record->transport_mode),
+            &transport_length
+        ) ||
         !bounded_length(record->endpoint_url, sizeof(record->endpoint_url), &endpoint_length) ||
         !bounded_length(record->robot_id, sizeof(record->robot_id), &robot_id_length) ||
         !bounded_length(record->robot_token, sizeof(record->robot_token), &token_length)) {
@@ -186,8 +200,19 @@ bool ainekio_config_record_valid(const ainekio_config_record_t *record, bool req
         (has_wifi && (psk_length < 8U || psk_length > 64U))) {
         return false;
     }
-    return endpoint_valid(record->endpoint_url, endpoint_length) &&
-           robot_id_length > 0U && token_length > 0U;
+    if (!transport_valid(record->transport_mode, transport_length)) {
+        return false;
+    }
+    const bool remote = strcmp(
+        record->transport_mode,
+        AINEKIO_TRANSPORT_REMOTE
+    ) == 0;
+    const bool endpoint_ok = remote
+                                 ? (endpoint_length > 6U &&
+                                    strncmp(record->endpoint_url, "wss://", 6U) == 0)
+                                 : (endpoint_length == 0U ||
+                                    endpoint_valid(record->endpoint_url, endpoint_length));
+    return endpoint_ok && robot_id_length > 0U && token_length > 0U;
 }
 
 ainekio_store_result_t ainekio_config_store_stage_initial(

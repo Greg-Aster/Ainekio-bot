@@ -52,11 +52,11 @@ def _normalized_action_type(action: Mapping[str, object]) -> str:
 @dataclass(frozen=True)
 class EnvironmentAdapterConfig:
     token: str
-    session_id: str = "ainekio-sim-1"
+    session_id: str = "ainekio-01"
     environment_id: str = "ainekio"
     adapter_id: str = "ainekio-gateway"
     robot_id: str | None = None
-    snapshot_after_action: bool = True
+    snapshot_after_action: bool = False
     max_utterance_ms: int = 15000
     freestyle_enabled: bool = True
 
@@ -105,6 +105,7 @@ class EnvironmentAdapter:
         self._send_lock = asyncio.Lock()
         self._camera_observation_count = 0
         self._pending_snapshot_context: dict[str, object] | None = None
+        self._pending_snapshot_feedback: dict[str, object] | None = None
         self._snapshot_lock = asyncio.Lock()
         self._last_microphone_level_at = float("-inf")
         self._last_audio_result: dict[str, object] | None = None
@@ -194,14 +195,16 @@ class EnvironmentAdapter:
             not capture_image
             and feedback["type"] == "completed"
             and self.config.snapshot_after_action
+            and self._camera_ready()
         ):
             previous_camera_count = self._camera_observation_count
             await self._request_post_action_snapshot(
-                self._snapshot_context(action)
+                self._snapshot_context(action),
+                feedback=feedback,
             )
             observation_sent = self._camera_observation_count > previous_camera_count
         if not observation_sent:
-            await self._send_observation()
+            await self._send_observation(feedback=[feedback])
 
     async def handle_action(
         self,
@@ -240,6 +243,29 @@ class EnvironmentAdapter:
                 }
             )
             return self._feedback(action_id, "completed", "text_received", command="sendText")
+
+        robot_id, robot = self._selected_robot()
+        if robot is None:
+            if translated.kind == "motion_plan":
+                await self._send_motion_plan_status(
+                    action_id,
+                    "rejected",
+                    message="requested robot is not connected",
+                )
+            return self._feedback(
+                action_id,
+                "rejected",
+                "requested robot is not connected",
+                command=translated.name or translated.kind,
+            )
+        if translated.kind == "snapshot" and not self._camera_ready():
+            return self._feedback(
+                action_id,
+                "rejected",
+                "camera is not ready",
+                command=translated.name,
+            )
+        robot_epoch = robot.get("epoch")
 
         accepted_at = self.clock() if received_at is None else received_at
         progress_task: asyncio.Task[None] | None = None
@@ -343,6 +369,8 @@ class EnvironmentAdapter:
             message,
             command=translated.name or translated.kind,
             sequence=sequence,
+            robot_id=robot_id,
+            epoch=robot_epoch if type(robot_epoch) is int else None,
         )
 
     async def _report_motion_plan_progress(
@@ -422,9 +450,12 @@ class EnvironmentAdapter:
     async def _request_post_action_snapshot(
         self,
         snapshot_context: dict[str, object] | None = None,
+        *,
+        feedback: dict[str, object] | None = None,
     ) -> None:
         async with self._snapshot_lock:
             self._pending_snapshot_context = snapshot_context
+            self._pending_snapshot_feedback = feedback
             try:
                 sequence = await self.gateway.request_snap(robot_id=self.config.robot_id)
                 await self.gateway.wait_terminal(
@@ -437,6 +468,8 @@ class EnvironmentAdapter:
             finally:
                 if self._pending_snapshot_context is snapshot_context:
                     self._pending_snapshot_context = None
+                if self._pending_snapshot_feedback is feedback:
+                    self._pending_snapshot_feedback = None
 
     def _snapshot_context(
         self,
@@ -477,6 +510,7 @@ class EnvironmentAdapter:
                         "heap",
                         "sd",
                         "cam_drops",
+                        "camera_ready",
                         "spk_underruns",
                         "mic_drops",
                         "wake_enabled",
@@ -557,8 +591,11 @@ class EnvironmentAdapter:
         if not isinstance(payload, bytes):
             return
         snapshot_context = self._pending_snapshot_context
+        snapshot_feedback = self._pending_snapshot_feedback
         if snapshot_context is not None:
             self._pending_snapshot_context = None
+        if snapshot_feedback is not None:
+            self._pending_snapshot_feedback = None
         visual = {
             "id": f"ainekio-camera-{frame.get('counter', int(self.clock() * 1000))}",
             "timestamp": self.utcnow().isoformat(),
@@ -580,6 +617,7 @@ class EnvironmentAdapter:
         await self._send_observation(
             visual=visual,
             metadata=snapshot_context,
+            feedback=[snapshot_feedback] if snapshot_feedback is not None else None,
         )
         self._camera_observation_count += 1
 
@@ -608,6 +646,7 @@ class EnvironmentAdapter:
         visual: dict[str, object] | None = None,
         body_event: dict[str, object] | None = None,
         metadata: dict[str, object] | None = None,
+        feedback: list[dict[str, object]] | None = None,
     ) -> None:
         await self._send(
             {
@@ -619,6 +658,7 @@ class EnvironmentAdapter:
                     visual=visual,
                     body_event=body_event,
                     metadata=metadata,
+                    feedback=feedback,
                 ),
             }
         )
@@ -630,12 +670,35 @@ class EnvironmentAdapter:
         visual: dict[str, object] | None = None,
         body_event: dict[str, object] | None = None,
         metadata: dict[str, object] | None = None,
+        feedback: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
+        gateway_status = self.gateway.status()
+        robot_id, robot = self._selected_robot(gateway_status)
+        body_authenticated = robot is not None
+        body_status = robot.get("status") if robot is not None else None
+        camera_ready = (
+            body_authenticated
+            and isinstance(body_status, Mapping)
+            and body_status.get("camera_ready") is True
+        )
+        heartbeat_age_ms = robot.get("heartbeat_age_ms") if robot is not None else None
         state: dict[str, object] = {
             "transport": "protocol-v1",
             "safety": "body-owned",
-            "gateway": self.gateway.status(),
-            "freestyleMovement": self._motion_plan_support_status(),
+            "adapterConnected": True,
+            "body": {
+                "authenticated": body_authenticated,
+                "robotId": robot_id,
+                "heartbeatAgeMs": heartbeat_age_ms
+                if type(heartbeat_age_ms) is int
+                else None,
+                "motionAvailable": body_authenticated,
+                "cameraReady": camera_ready,
+                "microphoneReady": None,
+                "speakerReady": None,
+            },
+            "gateway": gateway_status,
+            "freestyleMovement": self._motion_plan_support_status(gateway_status),
         }
         if body_event is not None:
             state["bodyEvent"] = {
@@ -645,8 +708,14 @@ class EnvironmentAdapter:
             }
         if self._last_audio_result is not None:
             state["lastAudioResult"] = dict(self._last_audio_result)
-        actions = ["robotCommand", "move", "stop", "sendText"]
-        if self._motion_plan_available():
+        actions = ["sendText"]
+        robot_commands: list[str] = []
+        if body_authenticated:
+            actions.extend(["robotCommand", "move", "stop"])
+            robot_commands = list(SUPPORTED_ROBOT_COMMANDS)
+        if camera_ready:
+            actions.append("captureImage")
+        if self._motion_plan_available(gateway_status):
             actions.append("robotMotionPlan")
         observation: dict[str, object] = {
             "environmentId": self.config.environment_id,
@@ -655,10 +724,10 @@ class EnvironmentAdapter:
             "timestamp": self.utcnow().isoformat(),
             "capabilities": {
                 "actions": actions,
-                "robotCommands": list(SUPPORTED_ROBOT_COMMANDS),
+                "robotCommands": robot_commands,
                 "text": True,
-                "movement": True,
-                "visual": True,
+                "movement": body_authenticated,
+                "visual": camera_ready,
                 "map": False,
             },
             "state": state,
@@ -670,30 +739,51 @@ class EnvironmentAdapter:
             observation["visuals"] = [visual]
         if metadata:
             observation["metadata"] = dict(metadata)
+        if feedback:
+            observation["feedback"] = feedback
         return observation
 
-    def _motion_plan_available(self) -> bool:
-        return self._motion_plan_support_status()["available"] is True
-
-    def _motion_plan_support_status(self) -> dict[str, bool]:
-        robots = self.gateway.status().get("robots")
+    def _selected_robot(
+        self,
+        gateway_status: Mapping[str, object] | None = None,
+    ) -> tuple[str | None, Mapping[str, object] | None]:
+        status = gateway_status if gateway_status is not None else self.gateway.status()
+        robots = status.get("robots")
         if not isinstance(robots, Mapping):
-            return {
-                "supported": False,
-                "enabled": self.config.freestyle_enabled,
-                "available": False,
-            }
+            return None, None
         if self.config.robot_id is not None:
             robot = robots.get(self.config.robot_id)
-        elif len(robots) == 1:
-            robot = next(iter(robots.values()))
-        else:
-            return {
-                "supported": False,
-                "enabled": self.config.freestyle_enabled,
-                "available": False,
-            }
-        if not isinstance(robot, Mapping):
+            return (
+                self.config.robot_id,
+                robot if isinstance(robot, Mapping) and robot.get("connected") is True else None,
+            )
+        if len(robots) != 1:
+            return None, None
+        robot_id, robot = next(iter(robots.items()))
+        if not isinstance(robot_id, str) or not isinstance(robot, Mapping):
+            return None, None
+        return (
+            robot_id,
+            robot if robot.get("connected") is True else None,
+        )
+
+    def _camera_ready(self) -> bool:
+        _, robot = self._selected_robot()
+        status = robot.get("status") if robot is not None else None
+        return isinstance(status, Mapping) and status.get("camera_ready") is True
+
+    def _motion_plan_available(
+        self,
+        gateway_status: Mapping[str, object] | None = None,
+    ) -> bool:
+        return self._motion_plan_support_status(gateway_status)["available"] is True
+
+    def _motion_plan_support_status(
+        self,
+        gateway_status: Mapping[str, object] | None = None,
+    ) -> dict[str, bool]:
+        _, robot = self._selected_robot(gateway_status)
+        if robot is None:
             return {
                 "supported": False,
                 "enabled": self.config.freestyle_enabled,
@@ -749,6 +839,8 @@ class EnvironmentAdapter:
         *,
         command: str | None = None,
         sequence: int | None = None,
+        robot_id: str | None = None,
+        epoch: int | None = None,
     ) -> dict[str, object]:
         return {
             "id": f"ainekio-result-{action_id or int(self.clock() * 1000)}",
@@ -756,5 +848,10 @@ class EnvironmentAdapter:
             "type": status,
             "message": message,
             "actionId": action_id,
-            "data": {"command": command, "sequence": sequence},
+            "data": {
+                "command": command,
+                "sequence": sequence,
+                "robotId": robot_id,
+                "epoch": epoch,
+            },
         }

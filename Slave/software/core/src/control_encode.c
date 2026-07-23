@@ -250,6 +250,8 @@ size_t ainekio_encode_status(
     append_u32(&writer, status->free_heap);
     append_literal(&writer, ",\"sd\":");
     append_literal(&writer, status->sd_available ? "true" : "false");
+    append_literal(&writer, ",\"camera_ready\":");
+    append_literal(&writer, status->camera_ready ? "true" : "false");
     append_literal(&writer, ",\"cam_drops\":");
     append_u32(&writer, status->camera_drops);
     append_literal(&writer, ",\"spk_underruns\":");

@@ -106,6 +106,7 @@ static ainekio_config_record_t initial_record(void)
     };
     (void)strcpy(record.wifi_ssid, "first-network");
     (void)strcpy(record.wifi_psk, "first-password");
+    (void)strcpy(record.transport_mode, AINEKIO_TRANSPORT_LOCAL);
     (void)strcpy(record.endpoint_url, "ws://192.168.1.2:8790/robot");
     (void)strcpy(record.robot_id, "ainekio-01");
     (void)strcpy(record.robot_token, "secret-token");
@@ -161,6 +162,7 @@ static void test_network_replacement_commits_only_after_meta_switch(void)
     assert(store.meta.active_slot == AINEKIO_CONFIG_SLOT_B);
     assert(strcmp(store.active.wifi_ssid, "second-network") == 0);
     assert(strcmp(store.active.robot_token, "secret-token") == 0);
+    assert(strcmp(store.active.transport_mode, AINEKIO_TRANSPORT_LOCAL) == 0);
 }
 
 static void test_failed_stage_and_network_reset_preserve_non_wifi_values(void)
@@ -216,6 +218,20 @@ static void test_bounds_and_corrupt_metadata_fail_closed(void)
     assert(memory.meta.schema_version == 99U);
 }
 
+static void test_transport_mode_requires_secure_explicit_remote_endpoint(void)
+{
+    ainekio_config_record_t record = initial_record();
+    record.endpoint_url[0] = '\0';
+    assert(ainekio_config_record_valid(&record, true));
+
+    (void)strcpy(record.transport_mode, AINEKIO_TRANSPORT_REMOTE);
+    assert(!ainekio_config_record_valid(&record, true));
+    (void)strcpy(record.endpoint_url, "ws://relay.example/robot");
+    assert(!ainekio_config_record_valid(&record, true));
+    (void)strcpy(record.endpoint_url, "wss://relay.example/robot");
+    assert(ainekio_config_record_valid(&record, true));
+}
+
 static void test_legacy_schema_migrates_without_losing_wifi(void)
 {
     memory_store_t memory = {0};
@@ -243,6 +259,7 @@ int main(void)
     test_network_replacement_commits_only_after_meta_switch();
     test_failed_stage_and_network_reset_preserve_non_wifi_values();
     test_bounds_and_corrupt_metadata_fail_closed();
+    test_transport_mode_requires_secure_explicit_remote_endpoint();
     test_legacy_schema_migrates_without_losing_wifi();
     puts("ainekio config store tests passed");
     return 0;

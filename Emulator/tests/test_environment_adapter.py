@@ -75,6 +75,8 @@ class FakeGateway:
                 "test-body": {
                     "connected": True,
                     "features": ["motion_plan_v1"],
+                    "heartbeat_age_ms": 125,
+                    "status": {"camera_ready": True},
                 }
             },
         }
@@ -167,6 +169,13 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(
                     "robotMotionPlan",
                     ready["observation"]["capabilities"]["actions"],
+                )
+                self.assertIn(
+                    "captureImage",
+                    ready["observation"]["capabilities"]["actions"],
+                )
+                self.assertTrue(
+                    ready["observation"]["state"]["body"]["authenticated"]
                 )
 
     async def test_authenticated_replacement_closes_previous_without_handler_failure(self) -> None:
@@ -360,7 +369,10 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = SnapshotGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(
+                token="adapter-secret",
+                snapshot_after_action=True,
+            ),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -579,6 +591,61 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.calls, [])
         self.assertEqual(gateway.transcripts[0]["text"], "hello")
 
+    async def test_body_action_is_rejected_before_dispatch_when_robot_is_offline(self) -> None:
+        gateway = FakeGateway()
+        gateway.status = lambda: {"profile": "home", "robots": {}}  # type: ignore[method-assign]
+        now = datetime.now(timezone.utc)
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+            utcnow=lambda: now,
+        )
+
+        result = await adapter.handle_action(
+            {
+                "id": "move-offline",
+                "type": "move",
+                "direction": "forward",
+                "createdAt": now.isoformat(),
+            }
+        )
+
+        self.assertEqual(result["type"], "rejected")
+        self.assertEqual(result["message"], "requested robot is not connected")
+        self.assertEqual(gateway.calls, [])
+
+    async def test_snapshot_is_rejected_when_body_camera_is_not_ready(self) -> None:
+        gateway = FakeGateway()
+        gateway.status = lambda: {  # type: ignore[method-assign]
+            "profile": "home",
+            "robots": {
+                "test-body": {
+                    "connected": True,
+                    "features": [],
+                    "heartbeat_age_ms": 10,
+                    "status": {"camera_ready": False},
+                }
+            },
+        }
+        now = datetime.now(timezone.utc)
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+            utcnow=lambda: now,
+        )
+
+        result = await adapter.handle_action(
+            {
+                "id": "capture-unavailable",
+                "type": "captureImage",
+                "createdAt": now.isoformat(),
+            }
+        )
+
+        self.assertEqual(result["type"], "rejected")
+        self.assertEqual(result["message"], "camera is not ready")
+        self.assertEqual(gateway.calls, [])
+
     async def test_camera_frame_becomes_bounded_multimodal_observation(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
@@ -723,6 +790,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 "uptime": 12,
                 "heap": 120000,
                 "sd": True,
+                "camera_ready": True,
                 "cam_drops": 2,
                 "spk_underruns": 3,
                 "mic_drops": 4,
@@ -733,6 +801,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         message = json.loads(websocket.sent[0])
         self.assertEqual(message["type"], "environment.telemetry")
         self.assertEqual(message["telemetry"]["kind"], "robot.status")
+        self.assertTrue(message["telemetry"]["camera_ready"])
         self.assertEqual(message["telemetry"]["mic_drops"], 4)
         self.assertNotIn("observation", message)
 

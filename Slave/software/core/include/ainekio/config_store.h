@@ -9,6 +9,7 @@
 
 #define AINEKIO_WIFI_SSID_BYTES 33U
 #define AINEKIO_WIFI_PSK_BYTES 65U
+#define AINEKIO_TRANSPORT_MODE_BYTES 8U
 #define AINEKIO_ENDPOINT_URL_BYTES 256U
 #define AINEKIO_ROBOT_ID_BYTES 65U
 #define AINEKIO_ROBOT_TOKEN_BYTES 129U
@@ -19,6 +20,7 @@ typedef struct {
     bool complete;
     char wifi_ssid[AINEKIO_WIFI_SSID_BYTES];
     char wifi_psk[AINEKIO_WIFI_PSK_BYTES];
+    char transport_mode[AINEKIO_TRANSPORT_MODE_BYTES];
     char endpoint_url[AINEKIO_ENDPOINT_URL_BYTES];
     char robot_id[AINEKIO_ROBOT_ID_BYTES];
     char robot_token[AINEKIO_ROBOT_TOKEN_BYTES];

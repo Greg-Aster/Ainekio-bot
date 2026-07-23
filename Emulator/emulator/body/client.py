@@ -21,8 +21,10 @@ from emulator.faults import EmulatorFaultController
 
 
 MAX_WEBSOCKET_MESSAGE_BYTES = (120 * 1024) + 5
-PING_AFTER_SECONDS = 2.0
-FAILSAFE_AFTER_SECONDS = 3.0
+# Keep emulator liveness identical to the physical controller: a heartbeat each
+# second and a local failsafe after four seconds without gateway control.
+PING_AFTER_SECONDS = 1.0
+FAILSAFE_AFTER_SECONDS = 4.0
 CONTROL_QUEUE_DEPTH = 32
 
 

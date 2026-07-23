@@ -27,9 +27,13 @@
 #define AINEKIO_NVS_KEY_COMPLETE "complete"
 #define AINEKIO_NVS_KEY_WIFI_SSID "wifi_ssid"
 #define AINEKIO_NVS_KEY_WIFI_PSK "wifi_psk"
+#define AINEKIO_NVS_KEY_TRANSPORT_MODE "transport"
 #define AINEKIO_NVS_KEY_ENDPOINT_URL "endpoint_url"
 #define AINEKIO_NVS_KEY_ROBOT_ID "robot_id"
 #define AINEKIO_NVS_KEY_ROBOT_TOKEN "robot_token"
+
+#define AINEKIO_TRANSPORT_LOCAL "local"
+#define AINEKIO_TRANSPORT_REMOTE "remote"
 
 #define AINEKIO_NVS_KEY_SERVO_CALIBRATION "servo_cal_v1"
 #define AINEKIO_NVS_KEY_NAMED_POSES "named_pose_v1"

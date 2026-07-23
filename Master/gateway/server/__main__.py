@@ -17,6 +17,21 @@ from gateway.security import DashboardPasswordStore, RobotTokenStore
 from .service import GatewayService, GatewayServiceConfig, MAX_WEBSOCKET_MESSAGE_BYTES
 from .stub import GatewayStub, GatewayStubConfig, build_phase_one_commands
 
+WEBSOCKET_OPEN_TIMEOUT_SECONDS = 10.0
+
+
+class BoundedHandshakeProtocol(websockets.WebSocketServerProtocol):
+    async def handshake(self, *args: object, **kwargs: object) -> str:
+        try:
+            return await asyncio.wait_for(
+                super().handshake(*args, **kwargs),
+                timeout=WEBSOCKET_OPEN_TIMEOUT_SECONDS,
+            )
+        except TimeoutError as exc:
+            raise websockets.exceptions.InvalidHandshake(
+                "opening handshake timed out"
+            ) from exc
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the Ainekio protocol-v1 gateway.")
@@ -25,10 +40,16 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", choices=("home", "tether"), default="home")
     parser.add_argument("--dashboard-host", default="127.0.0.1")
     parser.add_argument("--dashboard-port", type=int, default=8791)
+    parser.add_argument(
+        "--dashboard-primary-view",
+        choices=("camera", "simulator"),
+        default="camera",
+        help="Primary Body Control panel",
+    )
     parser.add_argument("--data-dir", type=Path, default=Path("build/gateway"))
     parser.add_argument(
         "--environment-session-id",
-        default=os.environ.get("AINEKIO_ENVIRONMENT_SESSION_ID", "ainekio-sim-1"),
+        default=os.environ.get("AINEKIO_ENVIRONMENT_SESSION_ID", "ainekio-01"),
         help="Session ID exposed by the authenticated environment adapter",
     )
     parser.add_argument(
@@ -51,6 +72,16 @@ def _advertised_host(bind_host: str) -> str | None:
     if bind_host not in {"0.0.0.0", "::"}:
         return bind_host
     return None
+
+
+def _robot_transport(websocket: object) -> str:
+    headers = getattr(websocket, "request_headers", None)
+    if headers is not None and (
+        headers.get("CF-Ray") is not None
+        or headers.get("CF-Connecting-IP") is not None
+    ):
+        return "relay"
+    return "lan"
 
 
 def _print_gateway_addresses(
@@ -88,6 +119,7 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
         max_size=MAX_WEBSOCKET_MESSAGE_BYTES,
         max_queue=32,
         ping_interval=None,
+        create_protocol=BoundedHandshakeProtocol,
     ):
         _print_gateway_addresses(
             bind_host=args.host,
@@ -130,6 +162,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         password_store=password_store,
         token_store=token_store,
         audit_log=audit_log,
+        primary_view=args.dashboard_primary_view,
     )
     dashboard_thread = threading.Thread(
         target=dashboard.serve_forever,
@@ -149,7 +182,11 @@ async def _run_production(args: argparse.Namespace) -> None:
 
     async def route(websocket: object, path: str) -> None:
         if path == "/robot":
-            await service.handler(websocket, path)
+            await service.handler(
+                websocket,
+                path,
+                transport=_robot_transport(websocket),
+            )
             return
         if path == "/environment" and adapter is not None:
             await adapter.handler(websocket)
@@ -164,6 +201,7 @@ async def _run_production(args: argparse.Namespace) -> None:
             max_size=MAX_WEBSOCKET_MESSAGE_BYTES,
             max_queue=32,
             ping_interval=None,
+            create_protocol=BoundedHandshakeProtocol,
         ):
             _print_gateway_addresses(
                 bind_host=args.host,
@@ -197,6 +235,9 @@ def _audit_fields(payload: dict[str, object]) -> dict[str, object]:
         "code",
         "frame_type",
         "counter",
+        "status",
+        "close_code",
+        "close_reason",
     }
     return {key: value for key, value in payload.items() if key in allowed}
 

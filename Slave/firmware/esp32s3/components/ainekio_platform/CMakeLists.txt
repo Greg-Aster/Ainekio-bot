@@ -5,6 +5,7 @@ idf_component_register(
         "src/battery_adc.c"
         "src/camera_service.c"
         "src/display_service.c"
+        "src/local_discovery.c"
         "src/mcpwm_adapter.c"
         "src/motion_service.c"
         "src/nvs_adapter.c"
@@ -18,5 +19,5 @@ idf_component_register(
         "src/wake_word_service.cpp"
         "src/wifi_adapter.c"
     INCLUDE_DIRS "include"
-    REQUIRES app_update core esp_adc esp_driver_gpio esp_driver_i2c esp_driver_i2s esp_driver_mcpwm esp_driver_sdmmc esp_event esp_http_server esp_netif esp_psram esp_timer esp_wifi espressif__esp32-camera espressif__esp-tflite-micro espressif__esp_websocket_client esphome__esp-micro-speech-features fatfs joltwallet__littlefs json mbedtls nvs_flash sdmmc
+    REQUIRES app_update core esp_adc esp_driver_gpio esp_driver_i2c esp_driver_i2s esp_driver_mcpwm esp_driver_sdmmc esp_event esp_http_server esp_netif esp_psram esp_timer esp_wifi espressif__esp32-camera espressif__esp-tflite-micro espressif__esp_websocket_client espressif__mdns esphome__esp-micro-speech-features fatfs joltwallet__littlefs json mbedtls nvs_flash sdmmc
 )

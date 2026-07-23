@@ -49,6 +49,17 @@ class GatewaySecurityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "interactive TTY"):
             store.initialize()
 
+    def test_explicit_password_replaces_existing_verifier(self) -> None:
+        path = self.root / "dashboard-auth.json"
+        store = DashboardPasswordStore(path)
+        old_password = "old-dashboard-password"
+        new_password = "new-dashboard-password"
+
+        store.initialize(password=old_password)
+        self.assertEqual(store.initialize(password=new_password), new_password)
+        self.assertFalse(store.verify(old_password))
+        self.assertTrue(store.verify(new_password))
+
     def test_invalid_store_fails_closed(self) -> None:
         path = self.root / "robot-tokens.json"
         path.write_text('{"schema_version":1,"tokens":{"robot":42}}', encoding="utf-8")

@@ -24,6 +24,20 @@ class FakeGateway:
         return {}
 
 
+class ConnectedGateway(FakeGateway):
+    def status(self) -> dict[str, object]:
+        return {
+            "robots": {
+                "test-body": {
+                    "connected": True,
+                    "heartbeat_age_ms": 25,
+                    "features": [],
+                    "status": {"camera_ready": True},
+                }
+            }
+        }
+
+
 class EnvironmentCommandCatalogTests(unittest.TestCase):
     def test_every_advertised_robot_command_translates_to_firmware_protocol(self) -> None:
         for command in SUPPORTED_ROBOT_COMMANDS:
@@ -41,7 +55,7 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
 
     def test_environment_observation_advertises_the_owned_command_catalog(self) -> None:
         adapter = EnvironmentAdapter(
-            FakeGateway(),  # type: ignore[arg-type]
+            ConnectedGateway(),  # type: ignore[arg-type]
             EnvironmentAdapterConfig(token="adapter-secret"),
         )
         capabilities = adapter._observation()["capabilities"]
@@ -49,6 +63,21 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
             capabilities["robotCommands"],  # type: ignore[index]
             list(SUPPORTED_ROBOT_COMMANDS),
         )
+        self.assertIn("captureImage", capabilities["actions"])  # type: ignore[index]
+
+    def test_offline_observation_advertises_no_body_capabilities(self) -> None:
+        adapter = EnvironmentAdapter(
+            FakeGateway(),  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+
+        observation = adapter._observation()
+        capabilities = observation["capabilities"]
+        self.assertEqual(capabilities["actions"], ["sendText"])  # type: ignore[index]
+        self.assertEqual(capabilities["robotCommands"], [])  # type: ignore[index]
+        self.assertFalse(capabilities["movement"])  # type: ignore[index]
+        self.assertFalse(capabilities["visual"])  # type: ignore[index]
+        self.assertFalse(observation["state"]["body"]["authenticated"])  # type: ignore[index]
 
 
 if __name__ == "__main__":

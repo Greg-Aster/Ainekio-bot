@@ -11,6 +11,7 @@
 #include "ainekio/platform/audio_service.h"
 #include "ainekio/platform/camera_service.h"
 #include "ainekio/platform/display_service.h"
+#include "ainekio/platform/local_discovery.h"
 #include "ainekio/platform/sd_service.h"
 #include "ainekio/platform/telemetry_service.h"
 #include "ainekio/platform/sleep_service.h"
@@ -37,15 +38,37 @@
 #define CAMERA_QUEUE_LENGTH 2U
 #define RX_TEXT_BYTES (AINEKIO_CONTROL_MAX_BYTES + 1U)
 #define TX_TEXT_BYTES 1536U
-#define WRITE_TIMEOUT_MS 1000U
+#define CLIENT_LOCK_TIMEOUT_MS 10U
+#define WRITE_TIMEOUT_MS 60U
 #define NETWORK_CONNECT_TIMEOUT_MS 10000U
-#define CONTROL_PING_US INT64_C(2000000)
-#define CONTROL_FAILSAFE_US INT64_C(3000000)
+#define MICROPHONE_FRAME_MS 20U
+/* Preserve a fast local failsafe while allowing three additional heartbeat
+ * opportunities after the first one-second control interval. */
+#define CONTROL_PING_US INT64_C(1000000)
+#define CONTROL_FAILSAFE_US INT64_C(4000000)
 #define ACTIVE_IDLE_US INT64_C(60000000)
 #define CALIBRATION_IDLE_US INT64_C(600000000)
 #define SUPERVISOR_ONLINE BIT0
 #define SUPERVISOR_DISCONNECTED BIT1
 #define SUPERVISOR_FORCE_CLOSE BIT2
+
+/* A microphone frame fits one client TX chunk. The pinned WebSocket stack can
+ * spend its timeout on its internal lock, header write, and payload write, so
+ * keep those plus our ownership lock inside the drop-oldest queue window. */
+_Static_assert(
+    AINEKIO_BINARY_HEADER_BYTES + AINEKIO_AUDIO_PAYLOAD_BYTES <=
+        AINEKIO_CONTROL_MAX_BYTES,
+    "microphone frame must fit one WebSocket client TX chunk"
+);
+_Static_assert(
+    CLIENT_LOCK_TIMEOUT_MS + (3U * WRITE_TIMEOUT_MS) <=
+        (MIC_QUEUE_LENGTH * MICROPHONE_FRAME_MS),
+    "WebSocket write budget must not exceed microphone queue duration"
+);
+_Static_assert(
+    CONTROL_FAILSAFE_US >= 4 * CONTROL_PING_US,
+    "control failsafe must tolerate four heartbeat intervals"
+);
 
 typedef enum {
     TX_HELLO = 0,
@@ -277,6 +300,9 @@ static void show_gateway_status(ainekio_runtime_t *runtime, const char *status)
     if (runtime == NULL || runtime->display == NULL || status == NULL) {
         return;
     }
+    if (ainekio_provisioning_service_setup_active(runtime->provisioning)) {
+        return;
+    }
     char ssid[AINEKIO_WIFI_SSID_BYTES] = {0};
     bool configured = false;
     taskENTER_CRITICAL(&runtime->state_lock);
@@ -320,6 +346,7 @@ static ainekio_status_t runtime_status(
         .uptime_seconds = uptime_seconds,
         .free_heap = esp_get_free_heap_size(),
         .sd_available = runtime->sd_available,
+        .camera_ready = runtime->camera != NULL,
         .camera_drops = runtime->camera_drops,
         .speaker_underruns = runtime->speaker_underruns,
         .microphone_drops = runtime->microphone_drops,
@@ -586,8 +613,10 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
     if (!session_matches(runtime, item->session_serial, false)) {
         return;
     }
-    if (xSemaphoreTake(runtime->client_lock, pdMS_TO_TICKS(WRITE_TIMEOUT_MS)) !=
-        pdTRUE) {
+    if (xSemaphoreTake(
+            runtime->client_lock,
+            pdMS_TO_TICKS(CLIENT_LOCK_TIMEOUT_MS)
+        ) != pdTRUE) {
         force_disconnect(runtime);
         return;
     }
@@ -641,6 +670,70 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
     taskEXIT_CRITICAL(&runtime->state_lock);
 }
 
+static TickType_t remaining_write_ticks(
+    TickType_t started,
+    TickType_t budget
+)
+{
+    const TickType_t elapsed = xTaskGetTickCount() - started;
+    return elapsed < budget ? budget - elapsed : 0U;
+}
+
+static int send_binary_frame(
+    esp_websocket_client_handle_t client,
+    const uint8_t *bytes,
+    size_t length,
+    TickType_t timeout
+)
+{
+    if (length <= AINEKIO_CONTROL_MAX_BYTES) {
+        return esp_websocket_client_send_bin(
+            client,
+            (const char *)bytes,
+            (int)length,
+            timeout
+        );
+    }
+
+    const TickType_t started = xTaskGetTickCount();
+    size_t offset = 0U;
+    bool first = true;
+    while (offset < length) {
+        const TickType_t remaining = remaining_write_ticks(started, timeout);
+        if (remaining == 0U) {
+            return -1;
+        }
+        const size_t available = length - offset;
+        const size_t chunk = available < AINEKIO_CONTROL_MAX_BYTES
+                                 ? available
+                                 : AINEKIO_CONTROL_MAX_BYTES;
+        const int sent = first
+                             ? esp_websocket_client_send_bin_partial(
+                                   client,
+                                   (const char *)(bytes + offset),
+                                   (int)chunk,
+                                   remaining
+                               )
+                             : esp_websocket_client_send_cont_msg(
+                                   client,
+                                   (const char *)(bytes + offset),
+                                   (int)chunk,
+                                   remaining
+                               );
+        if (sent != (int)chunk) {
+            return -1;
+        }
+        first = false;
+        offset += chunk;
+    }
+
+    const TickType_t remaining = remaining_write_ticks(started, timeout);
+    if (remaining == 0U || esp_websocket_client_send_fin(client, remaining) != 0) {
+        return -1;
+    }
+    return (int)length;
+}
+
 static bool send_binary(
     ainekio_runtime_t *runtime,
     uint32_t session_serial,
@@ -651,17 +744,19 @@ static bool send_binary(
     if (!session_matches(runtime, session_serial, true)) {
         return false;
     }
-    if (xSemaphoreTake(runtime->client_lock, pdMS_TO_TICKS(WRITE_TIMEOUT_MS)) !=
-        pdTRUE) {
+    if (xSemaphoreTake(
+            runtime->client_lock,
+            pdMS_TO_TICKS(CLIENT_LOCK_TIMEOUT_MS)
+        ) != pdTRUE) {
         force_disconnect(runtime);
         return false;
     }
     esp_websocket_client_handle_t client = runtime->client;
     const int sent = client != NULL && esp_websocket_client_is_connected(client)
-                         ? esp_websocket_client_send_bin(
+                         ? send_binary_frame(
                                client,
-                               (const char *)bytes,
-                               (int)length,
+                               bytes,
+                               length,
                                pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
                            )
                          : -1;
@@ -1608,7 +1703,12 @@ static void dispatch_internal(
     taskENTER_CRITICAL(&runtime->state_lock);
     runtime->authenticated = true;
     taskEXIT_CRITICAL(&runtime->state_lock);
-    show_gateway_status(runtime, "GATEWAY ONLINE");
+    show_gateway_status(
+        runtime,
+        strcmp(runtime->active_config.transport_mode, AINEKIO_TRANSPORT_REMOTE) == 0
+            ? "CONNECTED REMOTE"
+            : "CONNECTED LOCAL"
+    );
     runtime->last_intent_us = now_us();
     runtime->next_status_us = now_us();
     if (!runtime->ota_validation_checked) {
@@ -1744,10 +1844,12 @@ static void dispatcher_tick(ainekio_runtime_t *runtime)
     }
     if (runtime->display_state != (uint8_t)runtime->core->state) {
         runtime->display_state = (uint8_t)runtime->core->state;
-        ainekio_display_set_idle(
-            runtime->display,
-            runtime->core->state == AINEKIO_STATE_IDLE
-        );
+        if (runtime->core->state != AINEKIO_STATE_FAILSAFE) {
+            ainekio_display_set_idle(
+                runtime->display,
+                runtime->core->state == AINEKIO_STATE_IDLE
+            );
+        }
     }
     (void)sync_camera_stream(runtime);
     if (!session_matches(runtime, current_serial(runtime), true) ||
@@ -1856,6 +1958,7 @@ static void handle_decoded_control(
             message->data.session_error == AINEKIO_SESSION_ERROR_AUTH ? 4001U
                                                                       : 4002U;
         if (message->data.session_error == AINEKIO_SESSION_ERROR_AUTH) {
+            show_gateway_status(runtime, "AUTH REJECTED");
             ainekio_provisioning_service_request_gateway_auth_failure(
                 runtime->provisioning
             );
@@ -2044,6 +2147,7 @@ static void websocket_event(
         runtime->last_tx_control_us = runtime->last_rx_control_us;
         const uint32_t serial = runtime->session_serial;
         taskEXIT_CRITICAL(&runtime->state_lock);
+        show_gateway_status(runtime, "VERIFYING GATEWAY");
         const tx_item_t hello = {
             .session_serial = serial,
             .kind = TX_HELLO,
@@ -2111,9 +2215,32 @@ static void destroy_client(ainekio_runtime_t *runtime)
 
 static esp_err_t create_client(ainekio_runtime_t *runtime)
 {
+    bool remote = false;
     taskENTER_CRITICAL(&runtime->state_lock);
-    (void)strcpy(runtime->client_endpoint, runtime->active_config.endpoint_url);
+    remote = strcmp(
+        runtime->active_config.transport_mode,
+        AINEKIO_TRANSPORT_REMOTE
+    ) == 0;
+    if (remote) {
+        (void)strcpy(runtime->client_endpoint, runtime->active_config.endpoint_url);
+    } else {
+        runtime->client_endpoint[0] = '\0';
+    }
     taskEXIT_CRITICAL(&runtime->state_lock);
+    if (!remote) {
+        show_gateway_status(runtime, "SEARCHING GATEWAY");
+        const esp_err_t discovery = ainekio_local_gateway_discover(
+            AINEKIO_LOCAL_GATEWAY_ID,
+            runtime->client_endpoint,
+            sizeof(runtime->client_endpoint)
+        );
+        if (discovery != ESP_OK) {
+            show_gateway_status(runtime, "GATEWAY NOT FOUND");
+            return discovery;
+        }
+    } else {
+        show_gateway_status(runtime, "CONNECTING REMOTE");
+    }
     const bool secure = strncmp(runtime->client_endpoint, "wss://", 6U) == 0;
     const esp_websocket_client_config_t config = {
         .uri = runtime->client_endpoint,
@@ -2195,6 +2322,7 @@ static void supervisor_liveness(ainekio_runtime_t *runtime)
     }
     taskEXIT_CRITICAL(&runtime->state_lock);
     if (failsafe) {
+        show_gateway_status(runtime, "CONTROL TIMEOUT");
         force_disconnect(runtime);
     } else if (ping) {
         const tx_item_t item = {
@@ -2422,7 +2550,7 @@ esp_err_t ainekio_runtime_start(
     runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
     runtime->wake_enabled = dependencies->wake_enabled;
     runtime->wake_ready = false;
-    runtime->microphone_enabled = true;
+    runtime->microphone_enabled = false;
     runtime->microphone_gate = AINEKIO_MIC_GATE_VAD;
     (void)strcpy(runtime->wake_model, dependencies->wake_model);
     runtime->display_state = UINT8_MAX;

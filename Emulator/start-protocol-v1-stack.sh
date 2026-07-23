@@ -92,7 +92,9 @@ start_process "Sesame simulator" "$SCRIPT_DIR/sesame-robot-sim/run.sh"
 start_process "Simulator shim" "$SCRIPT_DIR/start-simulator-shim.sh"
 start_process "Gateway" env \
   PYTHONPATH="$REPO_ROOT/Master:$REPO_ROOT/Slave/software${PYTHONPATH:+:$PYTHONPATH}" \
-  python3 -m gateway.server --data-dir "$AINEKIO_STACK_DATA_DIR"
+  python3 -m gateway.server \
+    --dashboard-primary-view simulator \
+    --data-dir "$AINEKIO_STACK_DATA_DIR"
 start_process "Body emulator" "$SCRIPT_DIR/start-protocol-v1-emulator.sh" \
   --robot-id "$AINEKIO_ROBOT_ID"
 

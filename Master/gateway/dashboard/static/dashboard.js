@@ -10,6 +10,11 @@
   let gamepadDirection = null;
   let gamepadSampling = false;
   let gamepadTimer = null;
+  let cameraViewActive = false;
+  let cameraRequestController = null;
+  let cameraFrameCounter = null;
+  let cameraFrameRobotId = null;
+  let cameraObjectUrl = null;
   let keyMappings = loadKeyMappings();
 
   const byId = (id) => document.getElementById(id);
@@ -45,6 +50,81 @@
     if (!output) return;
     output.textContent = message;
     output.classList.toggle("error", error);
+  }
+
+  function resetCameraView(message = "Waiting for camera frames. Turn on the camera below if needed.") {
+    cameraFrameCounter = null;
+    cameraFrameRobotId = null;
+    if (cameraRequestController) cameraRequestController.abort();
+    const image = byId("camera-view");
+    const output = byId("camera-view-message");
+    if (!image || !output) return;
+    image.hidden = true;
+    output.textContent = message;
+    output.hidden = false;
+    if (cameraObjectUrl) URL.revokeObjectURL(cameraObjectUrl);
+    cameraObjectUrl = null;
+  }
+
+  function delay(milliseconds) {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  }
+
+  function setupPrimaryView() {
+    if (document.body.dataset.dashboardPrimary !== "simulator") return;
+    const frame = byId("simulator-frame");
+    frame.src = frame.dataset.src;
+  }
+
+  async function runCameraView() {
+    if (document.body.dataset.dashboardPrimary !== "camera" || cameraViewActive) return;
+    cameraViewActive = true;
+    while (cameraViewActive) {
+      const robotId = selectedRobotId;
+      if (!robotId) {
+        resetCameraView("Waiting for a physical robot to connect.");
+        await delay(500);
+        continue;
+      }
+      if (cameraFrameRobotId !== robotId) {
+        resetCameraView();
+        cameraFrameRobotId = robotId;
+      }
+      const query = new URLSearchParams({ robot_id: robotId });
+      if (cameraFrameCounter !== null) query.set("after", String(cameraFrameCounter));
+      const controller = new AbortController();
+      cameraRequestController = controller;
+      try {
+        const response = await fetch(`/api/camera/frame?${query}`, {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (response.status === 401) {
+          window.location.assign("/login");
+          return;
+        }
+        if (response.status === 204) continue;
+        if (!response.ok) throw new Error(`camera request failed (${response.status})`);
+        if (robotId !== selectedRobotId) continue;
+        const blob = await response.blob();
+        const nextUrl = URL.createObjectURL(blob);
+        const image = byId("camera-view");
+        image.src = nextUrl;
+        image.hidden = false;
+        byId("camera-view-message").hidden = true;
+        if (cameraObjectUrl) URL.revokeObjectURL(cameraObjectUrl);
+        cameraObjectUrl = nextUrl;
+        cameraFrameCounter = response.headers.get("X-Ainekio-Camera-Counter");
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          if (!cameraObjectUrl) resetCameraView("Camera view is temporarily unavailable.");
+          await delay(1000);
+        }
+      } finally {
+        if (cameraRequestController === controller) cameraRequestController = null;
+      }
+    }
   }
 
   async function command(path, payload = {}, label = "Command sent") {
@@ -310,11 +390,13 @@
       const option = new Option("No robot connected", "");
       select.add(option);
       selectedRobotId = null;
+      if (previous !== null) resetCameraView("Waiting for a physical robot to connect.");
       return;
     }
     robotIds.forEach((robotId) => select.add(new Option(robotId, robotId)));
     selectedRobotId = robotIds.includes(previous) ? previous : robotIds[0];
     select.value = selectedRobotId;
+    if (selectedRobotId !== previous) resetCameraView();
   }
 
   function text(id, value) { byId(id).textContent = value; }
@@ -423,11 +505,17 @@
   async function setupDashboard() {
     const session = await request("/api/session");
     csrfToken = session.csrf;
-    byId("robot-select").addEventListener("change", (event) => { selectedRobotId = event.target.value || null; refreshStatus(); });
+    setupPrimaryView();
+    byId("robot-select").addEventListener("change", (event) => {
+      selectedRobotId = event.target.value || null;
+      resetCameraView();
+      refreshStatus();
+    });
     setupMotionControls();
     setupForms();
     setupSecurity();
     await refreshStatus();
+    runCameraView();
     statusTimer = window.setInterval(refreshStatus, 1000);
   }
 
@@ -435,5 +523,10 @@
     setupDashboard().catch((error) => showResult(error.message, true));
   }
 
-  window.addEventListener("beforeunload", () => { if (statusTimer !== null) window.clearInterval(statusTimer); });
+  window.addEventListener("beforeunload", () => {
+    if (statusTimer !== null) window.clearInterval(statusTimer);
+    cameraViewActive = false;
+    if (cameraRequestController) cameraRequestController.abort();
+    if (cameraObjectUrl) URL.revokeObjectURL(cameraObjectUrl);
+  });
 })();

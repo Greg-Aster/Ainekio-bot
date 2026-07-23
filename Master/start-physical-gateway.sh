@@ -36,6 +36,8 @@ GATEWAY_HOST="${AINEKIO_GATEWAY_HOST:-0.0.0.0}"
 GATEWAY_PORT="${AINEKIO_GATEWAY_PORT:-8790}"
 DASHBOARD_HOST="${AINEKIO_DASHBOARD_HOST:-127.0.0.1}"
 DASHBOARD_PORT="${AINEKIO_DASHBOARD_PORT:-8791}"
+GATEWAY_ID="${AINEKIO_GATEWAY_ID:-ainekio-gateway-01}"
+LOCAL_DISCOVERY="${AINEKIO_LOCAL_DISCOVERY:-1}"
 
 if [[ -z "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
   echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required for the MetaHuman Environment Bridge." >&2
@@ -49,6 +51,12 @@ if [[ ! -f "$DATA_DIR/robot-tokens.json" && -z "${AINEKIO_ROBOT_TOKEN:-}" ]]; th
 fi
 
 export AINEKIO_ROBOT_ID="${AINEKIO_ROBOT_ID:-ainekio-01}"
+export AINEKIO_GATEWAY_ID="$GATEWAY_ID"
+export AINEKIO_ENVIRONMENT_SESSION_ID="${AINEKIO_ENVIRONMENT_SESSION_ID:-$AINEKIO_ROBOT_ID}"
+if [[ -z "${AINEKIO_DASHBOARD_PASSWORD:-}" ]]; then
+  AINEKIO_DASHBOARD_PASSWORD="$(openssl rand -base64 18 | tr -d '\n')"
+fi
+export AINEKIO_DASHBOARD_PASSWORD
 mkdir -p "$DATA_DIR"
 
 lan_addresses="$(hostname -I 2>/dev/null || true)"
@@ -70,7 +78,7 @@ fi
 echo "Starting the physical Ainekio gateway."
 echo "  Gateway bind:       ${GATEWAY_HOST}:${GATEWAY_PORT}"
 if [[ -n "$advertised_host" ]]; then
-  echo "  Robot setup URL:    ws://${advertised_host}:${GATEWAY_PORT}/robot"
+  echo "  Direct LAN check:   ws://${advertised_host}:${GATEWAY_PORT}/robot"
   echo "  Environment URL:    ws://${advertised_host}:${GATEWAY_PORT}/environment"
 else
   echo "  Robot setup URL:    unavailable; set AINEKIO_GATEWAY_ADVERTISED_HOST"
@@ -80,11 +88,44 @@ if [[ -n "$lan_addresses" ]]; then
   echo "  Brain LAN addresses: ${lan_addresses}"
 fi
 echo "  Robot ID:           ${AINEKIO_ROBOT_ID}"
+echo "  Gateway ID:         ${GATEWAY_ID}"
 echo "  Runtime data:       ${DATA_DIR}"
+echo "  Dashboard password: ${AINEKIO_DASHBOARD_PASSWORD}"
 echo "Press Ctrl+C to stop the gateway."
 
 cd "$REPO_ROOT"
-exec env \
+
+discovery_pid=""
+cleanup_discovery() {
+  if [[ -n "$discovery_pid" ]] && kill -0 "$discovery_pid" 2>/dev/null; then
+    kill "$discovery_pid" 2>/dev/null || true
+    wait "$discovery_pid" 2>/dev/null || true
+  fi
+}
+trap cleanup_discovery EXIT
+
+if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
+  if ! command -v avahi-publish-service >/dev/null 2>&1; then
+    echo "Local discovery requires avahi-publish-service." >&2
+    exit 2
+  fi
+  avahi-publish-service \
+    --service \
+    "Ainekio Gateway" \
+    _ainekio._tcp \
+    "$GATEWAY_PORT" \
+    "protocol=1" \
+    "path=/robot" \
+    "gateway_id=$GATEWAY_ID" \
+    "transport=lan" \
+    "tls=0" &
+  discovery_pid=$!
+  echo "  Local discovery:   _ainekio._tcp.local (${GATEWAY_ID})"
+else
+  echo "  Local discovery:   disabled explicitly"
+fi
+
+env \
   AINEKIO_GATEWAY_ADVERTISED_HOST="$advertised_host" \
   PYTHONPATH="$REPO_ROOT/Master:$REPO_ROOT/Slave/software${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m gateway.server \
@@ -92,5 +133,6 @@ exec env \
     --port "$GATEWAY_PORT" \
     --dashboard-host "$DASHBOARD_HOST" \
     --dashboard-port "$DASHBOARD_PORT" \
+    --dashboard-primary-view camera \
     --data-dir "$DATA_DIR" \
     "$@"

@@ -22,6 +22,7 @@ required before those values count as installed-hardware evidence.
 | [PINOUT_DIAGNOSTICS.md](PINOUT_DIAGNOSTICS.md) | Physical Freenove header numbering, the flashed GPIO map, peripheral wiring, and expected diagnostic values |
 | [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Current robot-body software status, implementation evidence, and deliberately pending work |
 | [AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md](AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md) | Current generic Environment Bridge ownership and closed-loop software status |
+| [BRIDGE_HARDENING_PLAN.md](BRIDGE_HARDENING_PLAN.md) | Live physical-bridge findings, remediation phases, ownership, and acceptance criteria |
 | [LOCAL_WAKE_WORD.md](LOCAL_WAKE_WORD.md) | Owner-local microWakeWord training, packaging, installation, and validation workflow |
 | [freestyle-movement.md](freestyle-movement.md) | Owner-approved bounded motion-plan extension, emulator evidence, and physical enablement gate |
 | [REPOSITORY_MAP.md](REPOSITORY_MAP.md) | Current Master, Slave, Emulator, documentation, and reference ownership map |

@@ -133,6 +133,18 @@ static ainekio_store_result_t read_record_port(
     if (error == ESP_OK) {
         error = get_bounded_string(
             handle,
+            AINEKIO_NVS_KEY_TRANSPORT_MODE,
+            record->transport_mode,
+            sizeof(record->transport_mode)
+        );
+        if (error == ESP_ERR_NVS_NOT_FOUND) {
+            (void)strcpy(record->transport_mode, AINEKIO_TRANSPORT_LOCAL);
+            error = ESP_OK;
+        }
+    }
+    if (error == ESP_OK) {
+        error = get_bounded_string(
+            handle,
             AINEKIO_NVS_KEY_WIFI_SSID,
             record->wifi_ssid,
             sizeof(record->wifi_ssid)
@@ -211,6 +223,13 @@ static ainekio_store_result_t write_record_port(
     }
     if (error == ESP_OK) {
         error = nvs_set_str(handle, AINEKIO_NVS_KEY_WIFI_PSK, record->wifi_psk);
+    }
+    if (error == ESP_OK) {
+        error = nvs_set_str(
+            handle,
+            AINEKIO_NVS_KEY_TRANSPORT_MODE,
+            record->transport_mode
+        );
     }
     if (error == ESP_OK) {
         error = nvs_set_str(
