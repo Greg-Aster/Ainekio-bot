@@ -42,7 +42,9 @@ static const esp_ip4_addr_t *select_local_ipv4(const mdns_result_t *result)
     esp_netif_ip_info_t station_info = {0};
     const bool has_station_info = station != NULL &&
                                   esp_netif_get_ip_info(station, &station_info) == ESP_OK;
-    const esp_ip4_addr_t *fallback = NULL;
+    if (!has_station_info || station_info.netmask.addr == 0U) {
+        return NULL;
+    }
     for (const mdns_ip_addr_t *address = result->addr;
          address != NULL;
          address = address->next) {
@@ -50,17 +52,13 @@ static const esp_ip4_addr_t *select_local_ipv4(const mdns_result_t *result)
             continue;
         }
         const esp_ip4_addr_t *ipv4 = &address->addr.u_addr.ip4;
-        if (fallback == NULL) {
-            fallback = ipv4;
-        }
-        if (has_station_info &&
-            (ipv4->addr & station_info.netmask.addr) ==
+        if ((ipv4->addr & station_info.netmask.addr) ==
                 (station_info.ip.addr & station_info.netmask.addr) &&
             ipv4->addr != station_info.ip.addr) {
             return ipv4;
         }
     }
-    return fallback;
+    return NULL;
 }
 
 static esp_err_t ensure_mdns(void)
@@ -76,13 +74,11 @@ static esp_err_t ensure_mdns(void)
 }
 
 esp_err_t ainekio_local_gateway_discover(
-    const char *expected_gateway_id,
     char *endpoint,
     size_t endpoint_capacity
 )
 {
-    if (expected_gateway_id == NULL || expected_gateway_id[0] == '\0' ||
-        endpoint == NULL || endpoint_capacity == 0U) {
+    if (endpoint == NULL || endpoint_capacity == 0U) {
         return ESP_ERR_INVALID_ARG;
     }
     endpoint[0] = '\0';
@@ -104,13 +100,15 @@ esp_err_t ainekio_local_gateway_discover(
     }
 
     result = ESP_ERR_NOT_FOUND;
+    bool selected = false;
+    esp_ip4_addr_t selected_address = {0};
+    uint16_t selected_port = 0U;
     for (const mdns_result_t *candidate = results;
          candidate != NULL;
          candidate = candidate->next) {
         if (candidate->port == 0U ||
             !txt_equals(candidate, "protocol", "1") ||
             !txt_equals(candidate, "path", "/robot") ||
-            !txt_equals(candidate, "gateway_id", expected_gateway_id) ||
             !txt_equals(candidate, "transport", "lan") ||
             !txt_equals(candidate, "tls", "0")) {
             continue;
@@ -119,30 +117,42 @@ esp_err_t ainekio_local_gateway_discover(
         if (address == NULL) {
             continue;
         }
-        char address_text[16] = {0};
-        if (esp_ip4addr_ntoa(address, address_text, sizeof(address_text)) == NULL) {
-            continue;
-        }
-        const int written = snprintf(
-            endpoint,
-            endpoint_capacity,
-            "ws://%s:%u/robot",
-            address_text,
-            (unsigned int)candidate->port
-        );
-        if (written < 0 || (size_t)written >= endpoint_capacity) {
-            endpoint[0] = '\0';
-            result = ESP_ERR_INVALID_SIZE;
+        if (selected &&
+            (selected_address.addr != address->addr ||
+             selected_port != candidate->port)) {
+            ESP_LOGW(TAG, "multiple local gateways discovered");
+            result = ESP_ERR_INVALID_STATE;
+            selected = false;
             break;
         }
-        ESP_LOGI(
-            TAG,
-            "discovered gateway %s at %s",
-            expected_gateway_id,
-            endpoint
-        );
-        result = ESP_OK;
-        break;
+        selected = true;
+        selected_address = *address;
+        selected_port = candidate->port;
+    }
+    if (selected) {
+        char address_text[16] = {0};
+        if (esp_ip4addr_ntoa(
+                &selected_address,
+                address_text,
+                sizeof(address_text)
+            ) == NULL) {
+            result = ESP_FAIL;
+        } else {
+            const int written = snprintf(
+                endpoint,
+                endpoint_capacity,
+                "ws://%s:%u/robot",
+                address_text,
+                (unsigned int)selected_port
+            );
+            if (written < 0 || (size_t)written >= endpoint_capacity) {
+                endpoint[0] = '\0';
+                result = ESP_ERR_INVALID_SIZE;
+            } else {
+                ESP_LOGI(TAG, "discovered local gateway at %s", endpoint);
+                result = ESP_OK;
+            }
+        }
     }
     mdns_query_results_free(results);
     return result;

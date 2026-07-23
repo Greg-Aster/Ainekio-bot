@@ -7,10 +7,21 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import gateway.server.__main__ as gateway_main
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 
 
 class GatewaySecurityTests(unittest.TestCase):
+    def test_environment_peer_must_be_loopback(self) -> None:
+        class Peer:
+            def __init__(self, host: str) -> None:
+                self.remote_address = (host, 12345)
+
+        self.assertTrue(gateway_main._peer_is_loopback(Peer("127.0.0.1")))
+        self.assertTrue(gateway_main._peer_is_loopback(Peer("::1")))
+        self.assertFalse(gateway_main._peer_is_loopback(Peer("192.168.0.20")))
+        self.assertFalse(gateway_main._peer_is_loopback(object()))
+
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary_directory.name)

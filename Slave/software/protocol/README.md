@@ -23,6 +23,13 @@ data. Authentication values in fixtures use the literal `REDACTED-TOKEN`.
 Contract tests verify that all fixture message types remain represented by both
 the language-neutral schema and the Python validator.
 
+The current protocol-v1 liveness contract sends an application control ping
+after one second without a control transmission and enters FAILSAFE/offline
+after four seconds without receiving a valid control frame. The four-second
+bound intentionally leaves three additional heartbeat opportunities after the
+first ping. The gateway and firmware use the same values; WebSocket library
+keepalives do not replace this application-level safety contract.
+
 Wake-word preferences use a separate persistent command from the session-only
 microphone stream command:
 

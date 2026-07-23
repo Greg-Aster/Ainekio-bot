@@ -67,6 +67,16 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.7.0
+  espressif/mdns:
+    component_hash: e81ca7a7f53ea34e78274df054da692c272e1315572876b237b1748e267c013b
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.11.3
   idf:
     source:
       type: idf
@@ -87,8 +97,9 @@ direct_dependencies:
 - espressif/esp-tflite-micro
 - espressif/esp32-camera
 - espressif/esp_websocket_client
+- espressif/mdns
 - idf
 - joltwallet/littlefs
-manifest_hash: 50cb60da3ac91dc25e1ded8f01a58115abfdbc938501768f31eca7d767706fa4
+manifest_hash: 9ffe389b8017af3ba281d8c1fc7a75cc2f2885027d7218900050db6b8c85cfb0
 target: esp32s3
 version: 2.0.0

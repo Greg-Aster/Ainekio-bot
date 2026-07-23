@@ -9,7 +9,10 @@ robot.
   endpoint and semantic command translation.
 - `gateway/security.py` owns bounded dashboard-verifier and robot-token stores.
 - `start-physical-gateway.sh` starts the real brain-side gateway on the LAN while
-  keeping the operator dashboard bound to localhost.
+  keeping the operator dashboard bound to localhost. It publishes the one
+  default `_ainekio._tcp.local` discovery identity.
+- `ainekio-gateway.service` supervises that same launcher for normal physical
+  use; it does not introduce another gateway implementation.
 - `start-physical-relay.sh` starts the optional foreground Cloudflare transport
   for `wss://robot-gateway.ainek.io/robot`; it publishes no dashboard or
   Environment Bridge route and keeps tunnel credentials outside the repository.

@@ -22,8 +22,13 @@ internal RAM, and fewer invalid partial-start states.
 ## Current Verified Baseline
 
 - The current firmware builds under the repo-pinned ESP-IDF v5.5.4 toolchain.
-- The application binary is `0x14ff10` bytes, leaving `56%` of the 3 MiB OTA
-  application slot free.
+- The local-discovery application binary is `0x158250` bytes (1,409,616),
+  leaving `55%` of the 3 MiB OTA application slot free. Compared with the
+  1,375,520-byte pre-discovery build, DNS-SD adds 34,096 bytes (about 2.5%).
+- The linked mDNS component accounts for 28,838 bytes of flash and 2,346 bytes
+  of static RAM. It is trimmed to the upstream minimum of two interface slots,
+  one service, an eight-entry action queue, station-only networking, and no CLI
+  or multiple-instance support.
 - Linked DIRAM use is 218,703 of 341,760 bytes (`63.99%`), leaving 123,057 bytes
   before dynamic task stacks, WiFi, TLS, DMA, driver allocations, and other
   runtime heap use.
@@ -189,9 +194,11 @@ firmware uses the ESP-IDF 5.5 I2S standard driver, I2C master bus API, MCPWM
 prelude API, and ADC oneshot API. Component versions are explicitly pinned.
 
 No residual provisioning password/hash/session/login implementation was found
-after the current provisioning revisions. The duplicated station-address logic
-and firmware-only inclusion of the emulator manifest are the concrete low-level
-cruft found in this pass.
+after the current provisioning revisions. Local connection now has one active
+path: DNS-SD supplies the endpoint and the old saved LAN URL is ignored. Remote
+relay mode is explicit and does not participate in local fallback. The
+duplicated station-address logic and firmware-only inclusion of the emulator
+manifest are the remaining concrete low-level cruft found in this pass.
 
 This is a review against the repo-pinned toolchain. It is not an internet-based
 claim that every third-party dependency is the newest available release.

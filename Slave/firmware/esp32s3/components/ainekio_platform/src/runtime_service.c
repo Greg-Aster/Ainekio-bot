@@ -91,6 +91,12 @@ typedef enum {
     TX_MESSAGE_WAKE_MODEL_UNAVAILABLE,
 } tx_message_t;
 
+typedef enum {
+    DISCONNECT_OFFLINE = 0,
+    DISCONNECT_CONTROL_TIMEOUT,
+    DISCONNECT_AUTH_REJECTED,
+} disconnect_reason_t;
+
 typedef struct {
     uint32_t session_serial;
     tx_kind_t kind;
@@ -228,6 +234,7 @@ struct ainekio_runtime {
     bool authenticated;
     bool failsafe_signalled;
     bool ping_pending;
+    disconnect_reason_t disconnect_reason;
     bool boot_event_pending;
     bool brownout_recovered_pending;
     bool littlefs_failure_pending;
@@ -328,6 +335,17 @@ static void show_gateway_status(ainekio_runtime_t *runtime, const char *status)
 static int64_t now_us(void)
 {
     return esp_timer_get_time();
+}
+
+static const char *disconnect_status(disconnect_reason_t reason)
+{
+    if (reason == DISCONNECT_CONTROL_TIMEOUT) {
+        return "CONTROL TIMEOUT";
+    }
+    if (reason == DISCONNECT_AUTH_REJECTED) {
+        return "AUTH REJECTED";
+    }
+    return "GATEWAY OFFLINE";
 }
 
 static ainekio_status_t runtime_status(
@@ -1958,7 +1976,9 @@ static void handle_decoded_control(
             message->data.session_error == AINEKIO_SESSION_ERROR_AUTH ? 4001U
                                                                       : 4002U;
         if (message->data.session_error == AINEKIO_SESSION_ERROR_AUTH) {
-            show_gateway_status(runtime, "AUTH REJECTED");
+            taskENTER_CRITICAL(&runtime->state_lock);
+            runtime->disconnect_reason = DISCONNECT_AUTH_REJECTED;
+            taskEXIT_CRITICAL(&runtime->state_lock);
             ainekio_provisioning_service_request_gateway_auth_failure(
                 runtime->provisioning
             );
@@ -2143,6 +2163,7 @@ static void websocket_event(
         runtime->authenticated = false;
         runtime->failsafe_signalled = false;
         runtime->ping_pending = false;
+        runtime->disconnect_reason = DISCONNECT_OFFLINE;
         runtime->last_rx_control_us = now_us();
         runtime->last_tx_control_us = runtime->last_rx_control_us;
         const uint32_t serial = runtime->session_serial;
@@ -2171,8 +2192,9 @@ static void websocket_event(
         runtime->connected = false;
         runtime->authenticated = false;
         runtime->ping_pending = false;
+        const disconnect_reason_t reason = runtime->disconnect_reason;
         taskEXIT_CRITICAL(&runtime->state_lock);
-        show_gateway_status(runtime, "GATEWAY OFFLINE");
+        show_gateway_status(runtime, disconnect_status(reason));
         signal_failsafe(runtime);
         if (runtime->supervisor_task != NULL) {
             (void)xTaskNotify(
@@ -2230,12 +2252,15 @@ static esp_err_t create_client(ainekio_runtime_t *runtime)
     if (!remote) {
         show_gateway_status(runtime, "SEARCHING GATEWAY");
         const esp_err_t discovery = ainekio_local_gateway_discover(
-            AINEKIO_LOCAL_GATEWAY_ID,
             runtime->client_endpoint,
             sizeof(runtime->client_endpoint)
         );
         if (discovery != ESP_OK) {
-            show_gateway_status(runtime, "GATEWAY NOT FOUND");
+            show_gateway_status(
+                runtime,
+                discovery == ESP_ERR_INVALID_STATE ? "MULTIPLE GATEWAYS"
+                                                   : "GATEWAY NOT FOUND"
+            );
             return discovery;
         }
     } else {
@@ -2322,7 +2347,9 @@ static void supervisor_liveness(ainekio_runtime_t *runtime)
     }
     taskEXIT_CRITICAL(&runtime->state_lock);
     if (failsafe) {
-        show_gateway_status(runtime, "CONTROL TIMEOUT");
+        taskENTER_CRITICAL(&runtime->state_lock);
+        runtime->disconnect_reason = DISCONNECT_CONTROL_TIMEOUT;
+        taskEXIT_CRITICAL(&runtime->state_lock);
         force_disconnect(runtime);
     } else if (ping) {
         const tx_item_t item = {

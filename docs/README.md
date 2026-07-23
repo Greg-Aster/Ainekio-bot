@@ -62,6 +62,12 @@ new specification revision, readers must keep these boundaries explicit:
   protocol/core, gateway, environment adapter, and emulator. The ESP32-S3
   runtime does not advertise or execute it, so physical freestyle remains
   disabled pending specification consolidation and hardware-derived limits.
+- Local robot transport now defaults to `_ainekio._tcp.local` DNS-SD discovery,
+  rejects off-subnet advertised addresses, and never silently falls back to the
+  optional Cloudflare relay. The maintained implementation uses one-second
+  control pings and a four-second FAILSAFE/offline bound. The v1.0 DOCX still
+  needs a numbered erratum for this local-discovery and liveness contract; the
+  prepared controller image has not yet been flashed.
 
 ## Reference inputs
 
