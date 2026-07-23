@@ -336,6 +336,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
                     "status": "disconnected",
                     "robot_id": "ainekio-test-01",
                     "epoch": 1,
+                    "transport": "lan",
                     "close_code": 4000,
                     "close_reason": "new authenticated connection",
                 },

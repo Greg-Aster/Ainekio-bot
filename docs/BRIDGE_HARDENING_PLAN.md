@@ -175,6 +175,72 @@ controller.
 | B8 | Source complete; physical display check pending | Incomplete WebSocket openings now close after a bounded ten-second handshake, with a regression test. Firmware OLED online state remains tied to authenticated `welcome`; disconnect/close moves it offline and signals failsafe. |
 | B9 | Documented hardware limitation | No software claim of positional proof was added. A commissioning gate for attached and powered three-wire servos remains an owner decision because the controller cannot detect their physical attachment. |
 
+## Local-First Connection Audit - 2026-07-22
+
+The primary physical path is now one body-initiated local connection. This is a
+replacement for saved LAN addresses, not an additional fallback chain:
+
+```text
+saved WiFi -> _ainekio._tcp.local -> same-subnet gateway -> /robot
+```
+
+- Local mode is the configuration default and does not use the saved endpoint
+  field. An older record without a transport key migrates to local mode without
+  erasing WiFi, robot identity, calibration, poses, assets, or preferences.
+- Discovery requires protocol v1, `/robot`, LAN transport, the expected gateway
+  service, and an IPv4 address on the robot's current WiFi subnet. An advertised
+  Docker, VPN, or other off-subnet address is rejected; there is no first-address
+  fallback. The earlier fixed `gateway_id` TXT value was removed because it was
+  duplicated configuration and provided no authentication.
+- If more than one distinct matching LAN service is visible, the controller
+  refuses to choose and displays `MULTIPLE GATEWAYS`; it never connects to the
+  first reply nondeterministically.
+- Remote relay mode is explicit and requires a `wss://` endpoint. Local mode
+  never silently falls back through Cloudflare.
+- `/robot` remains LAN-facing on the one gateway listener. `/environment` now
+  rejects every non-loopback peer, preserving MetaHuman's existing
+  `ws://127.0.0.1:8790/environment` configuration without adding a second
+  listener or service.
+- OLED states now distinguish searching, not found, verifying, authentication
+  rejection, local/remote connection, and control timeout. A specific
+  authentication or liveness failure is preserved across the socket close
+  event instead of immediately becoming `GATEWAY OFFLINE`.
+- Microphone transport starts disabled, continuous camera transport remains
+  disabled, and automatic post-action snapshots now default off. Media moves
+  only after an explicit control action or setting.
+- `Master/ainekio-gateway.service` is a single systemd user-service wrapper
+  around the existing launcher. It is linked, enabled, and running on the owner
+  computer; the old terminal-owned gateway was stopped after confirming it had
+  no active body or Environment Bridge sockets.
+
+The mDNS component is configured for the smallest supported interface count,
+one advertised service, an eight-entry action queue, WiFi station only, and no
+console CLI or multiple-instance support. Setting its interface count below two
+does not compile because the upstream component internally compares two
+interface slots; two is therefore the minimum supported build value even
+though Ainekio enables only the station interface.
+
+### Still open before production-ready local operation
+
+- Local discovery currently locates but does not cryptographically identify the
+  gateway: it uses plaintext `ws://`, then the existing robot-token handshake.
+  A pinned local WSS identity requires an owner-approved one-time certificate
+  pairing flow and must replace this transport rather than coexist as another
+  automatic path.
+- The 1/4-second liveness values above are now the maintained implementation
+  contract, but the v1.0 DOCX still contains the older 2/3-second wording and
+  requires a numbered erratum.
+- The prepared firmware has not been flashed. The existing controller therefore
+  does not yet perform DNS-SD discovery or show these revised states.
+- Physical acceptance still requires reboot, DHCP-address change, WiFi outage,
+  gateway restart, multicast-unavailable, and at least 15-minute soak tests.
+
+Host activation evidence: systemd reports the user unit enabled and active;
+one Python gateway owns `0.0.0.0:8790` and `127.0.0.1:8791`; Avahi resolves the
+service on WiFi as `192.168.0.44:8790` with `protocol=1`, `path=/robot`,
+`transport=lan`, and `tls=0`. User lingering is disabled, so automatic startup
+currently occurs at owner login rather than before login.
+
 ### Ainekio source changes
 
 - `Master/gateway/environment_adapter/server.py` now derives actions from one
@@ -219,8 +285,8 @@ controller.
   incomplete-handshake regression.
 - Portable C core: all 11 tests passed.
 - Python protocol contract: all 13 tests passed.
-- ESP-IDF 5.5.4 firmware build: passed; application image size `0x1504f0`, with
-  56 percent of the smallest application partition free.
+- ESP-IDF 5.5.4 firmware build: passed; local-discovery application image size
+  `0x158250`, with 55 percent of the smallest application partition free.
 - MetaHuman focused Robot Operator/Environment parser suite: 7 tests passed.
 - MetaHuman Environment Bridge coordinator compatibility suite: passed,
   including adapter-only rejection, pending lifecycle wording, terminal feedback

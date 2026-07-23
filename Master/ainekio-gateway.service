@@ -1,0 +1,14 @@
+[Unit]
+Description=Ainekio physical gateway
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Ainekio
+ExecStart=%h/Ainekio/Master/start-physical-gateway.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

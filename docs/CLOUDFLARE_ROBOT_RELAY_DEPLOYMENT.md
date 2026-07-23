@@ -133,13 +133,13 @@ gateway/body path.
 | Finding | Status and required resolution |
 | --- | --- |
 | C1 - Bridge compatibility | Compatible. The relay is transport-only and does not invalidate the existing bridge hardening. Any implementation that publishes `/environment`, translates messages, stores/replays commands, or reports completion itself would violate this boundary. |
-| C2 - Liveness contract drift | **Unresolved production blocker.** System Specification v1.0 section 3.7 still specifies ping after 2 seconds and FAILSAFE/offline after 3 seconds. Prepared gateway/controller source uses a 1-second heartbeat and 4-second offline/failsafe bound. Resolve this through an approved specification erratum or restore the normative 2/3-second behavior before claiming relay acceptance. Record both the source constants and the behavior of the image actually installed on the controller. |
+| C2 - Liveness contract drift | **Implementation resolved; specification erratum pending.** The maintained protocol README, gateway, controller source, and delayed-heartbeat regression use a 1-second heartbeat and 4-second offline/failsafe bound. System Specification v1.0 section 3.7 still needs a numbered erratum. The installed controller remains on its prior image until the next owner-approved flash. |
 | C3 - Stop-latency measurement | **Test correction required.** The normative 100 ms safety bound starts when the body receives `stop`. Relay testing must separately record gateway-send-to-body-receipt network latency and body-receipt-to-motion-preemption latency. Internet round-trip time must not be presented as the local S7 deadline. |
 | C4 - Cloudflare Access | **Known production blocker.** The current controller does not attach Access service-token headers to the WebSocket upgrade. Enabling Access now would prevent connection. Adding it requires protected configuration/NVS fields, provisioning and rotation behavior, upgrade-header support, tests, and a later owner-approved firmware flash. |
 | C5 - Privacy boundary | **Owner decision required before primary use.** Cloudflare terminates TLS, so robot authentication data, camera images, microphone audio, commands, and feedback are no longer confined to the owner LAN even though the relay must not persist them. Document the accepted trust, logging, retention, and media-use policy. |
 | C6 - Source versus installed firmware | Source inspection confirms WSS URL support and ESP-IDF CA-bundle attachment. The currently flashed image and real certificate negotiation remain unproven until R4. Do not describe source capability as physical evidence. |
-| C7 - Process availability | The pilot relay launcher is deliberately foreground-only. A stable DNS name does not keep the gateway or `cloudflared` running after reboot. Primary use needs coordinated startup, shutdown, failure reporting, and recovery for both processes. |
-| C8 - Operator guidance | The current setup portal still instructs the operator to enter a brain LAN address even though it accepts `wss://`. Update and physically verify that guidance with the next approved firmware/UI batch; it does not require a standalone flash. |
+| C7 - Process availability | The local-first gateway now runs under one enabled systemd user unit that supervises the existing launcher and its Avahi publisher. It starts at owner login and restarts after failure. The optional Cloudflare relay remains foreground-only because it is not the default transport. |
+| C8 - Operator guidance | **Source resolved; flash pending.** The setup portal defaults to local discovery, asks for no brain LAN address, and labels relay mode as explicit. Physical form and reconnect behavior require the next owner-approved firmware flash. |
 
 ## Acceptance gates
 
@@ -181,9 +181,9 @@ is recorded here.
 
 ### Safety and reliability
 
-- [ ] The 2/3-second specification versus prepared 1/4-second liveness behavior
-      is resolved, and tunnel interruption causes body FAILSAFE within the
-      approved bound.
+- [ ] The 1/4-second maintained liveness contract receives its numbered DOCX
+      erratum, and tunnel interruption causes body FAILSAFE within the approved
+      bound.
 - [ ] Body reconnects after tunnel restoration without replaying an old command.
 - [ ] Gateway-send-to-body-receipt latency is measured under representative
       relay conditions.
@@ -269,7 +269,7 @@ record, credentials, repo-local launcher, and test evidence are retained but
 inactive so the work remains recoverable for a later, explicitly scoped remote
 access experiment. Nothing starts the relay automatically.
 
-The selected local stabilization path is a DHCP reservation in the CenturyLink
+The initial recovery recommendation was a DHCP reservation in the CenturyLink
 router for the brain's WiFi interface:
 
 ```text
@@ -278,16 +278,17 @@ Reserved IPv4:      192.168.0.44
 Robot endpoint:     ws://192.168.0.44:8790/robot
 ```
 
-Do not use `DNDIY.local` yet. The brain runs Avahi, but current IPv4 resolution
-advertises Docker's `172.17.0.1` rather than the WiFi address, so it is not a
-valid robot endpoint without a separately approved and physically tested mDNS
-configuration change.
+That manual endpoint is now superseded in source by service-specific DNS-SD.
+The gateway advertises `_ainekio._tcp.local`; the robot filters the service TXT
+contract and accepts only an IPv4 address on its own WiFi subnet. It does not
+resolve the ambiguous host name `DNDIY.local`, does not select Docker's
+`172.17.0.1`, and does not retain a changing LAN address. A DHCP reservation is
+still a useful diagnostic fallback, not the normal owner workflow.
 
-After the DHCP reservation is saved, use manual provisioning to replace only
-the endpoint with the local URL above while re-entering the current WiFi,
-identity, and protected robot token. Then verify a sustained body session and
-resolve the pre-existing 1011 `control timeout` before declaring the local path
-stable. The Cloudflare R4/R5 acceptance work is no longer an active target.
+The DNS-SD firmware has been built but not flashed. After the next
+owner-approved flash, verify a sustained local body session and the prepared
+control-timeout correction before declaring the local path stable. The
+Cloudflare R4/R5 acceptance work is no longer an active target.
 
 ### Owner-authorized R2 procedure
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import ipaddress
 import os
 import sys
 import threading
@@ -84,6 +85,16 @@ def _robot_transport(websocket: object) -> str:
     return "lan"
 
 
+def _peer_is_loopback(websocket: object) -> bool:
+    remote_address = getattr(websocket, "remote_address", None)
+    if not isinstance(remote_address, tuple) or not remote_address:
+        return False
+    try:
+        return ipaddress.ip_address(str(remote_address[0])).is_loopback
+    except ValueError:
+        return False
+
+
 def _print_gateway_addresses(
     *, bind_host: str, port: int, environment_enabled: bool
 ) -> None:
@@ -91,16 +102,10 @@ def _print_gateway_addresses(
     host = _advertised_host(bind_host)
     if host is None:
         print("Ainekio robot setup URL unavailable; configure an advertised host.")
-        if environment_enabled:
-            print(
-                "Ainekio environment URL unavailable; configure an advertised host."
-            )
-        else:
-            print("Ainekio environment: disabled")
-        return
-    print(f"Ainekio robot setup URL: ws://{host}:{port}/robot")
+    else:
+        print(f"Ainekio robot setup URL: ws://{host}:{port}/robot")
     print(
-        f"Ainekio environment URL: ws://{host}:{port}/environment"
+        f"Ainekio environment URL: ws://127.0.0.1:{port}/environment"
         if environment_enabled
         else "Ainekio environment: disabled"
     )
@@ -188,7 +193,11 @@ async def _run_production(args: argparse.Namespace) -> None:
                 transport=_robot_transport(websocket),
             )
             return
-        if path == "/environment" and adapter is not None:
+        if (
+            path == "/environment"
+            and adapter is not None
+            and _peer_is_loopback(websocket)
+        ):
             await adapter.handler(websocket)
             return
         await websocket.close(code=1008, reason="wrong or unavailable endpoint")
