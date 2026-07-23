@@ -268,20 +268,33 @@ size_t ainekio_encode_status(
     return finish(&writer);
 }
 
-size_t ainekio_encode_event(ainekio_event_t event, char *output, size_t capacity)
+size_t ainekio_encode_event(
+    ainekio_event_t event,
+    bool has_origin_id,
+    uint32_t origin_id,
+    char *output,
+    size_t capacity
+)
 {
     static const char *const names[] = {
         "vad_open", "vad_close", "wake_word", "battery_warn", "battery_cutoff",
         "brownout_recovered", "boot", "sd_fail", "sd_corrupt", "littlefs_fail",
         "asset_missing", "tts_orphan", "tts_overflow",
     };
-    if ((unsigned int)event >= sizeof(names) / sizeof(names[0])) {
+    if ((unsigned int)event >= sizeof(names) / sizeof(names[0]) ||
+        (has_origin_id && event != AINEKIO_EVENT_VAD_OPEN &&
+         event != AINEKIO_EVENT_VAD_CLOSE)) {
         return 0U;
     }
     json_writer_t writer = begin(output, capacity);
     append_literal(&writer, "{\"t\":\"event\",\"name\":\"");
     append_literal(&writer, names[event]);
-    append_literal(&writer, "\"}");
+    append_literal(&writer, "\"");
+    if (has_origin_id) {
+        append_literal(&writer, ",\"origin_id\":");
+        append_u32(&writer, origin_id);
+    }
+    append_literal(&writer, "}");
     return finish(&writer);
 }
 
@@ -289,20 +302,37 @@ size_t ainekio_encode_camera_meta(
     ainekio_camera_resolution_t resolution,
     uint8_t fps,
     uint32_t counter_base,
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id,
     char *output,
     size_t capacity
 )
 {
-    if (resolution > AINEKIO_CAMERA_VGA || fps > 15U) {
+    static const char *const resolutions[] = {"QVGA", "VGA", "XGA"};
+    static const char *const origins[] = {"", "request", "action", "audio"};
+    if ((unsigned int)resolution >=
+            sizeof(resolutions) / sizeof(resolutions[0]) ||
+        fps > 15U ||
+        (unsigned int)origin >= sizeof(origins) / sizeof(origins[0]) ||
+        (origin == AINEKIO_CAMERA_ORIGIN_NONE && origin_id != 0U) ||
+        ((origin == AINEKIO_CAMERA_ORIGIN_REQUEST ||
+          origin == AINEKIO_CAMERA_ORIGIN_ACTION) &&
+         (origin_id == 0U || origin_id > AINEKIO_MAX_SEQUENCE))) {
         return 0U;
     }
     json_writer_t writer = begin(output, capacity);
     append_literal(&writer, "{\"t\":\"cam_meta\",\"res\":\"");
-    append_literal(&writer, resolution == AINEKIO_CAMERA_QVGA ? "QVGA" : "VGA");
+    append_literal(&writer, resolutions[resolution]);
     append_literal(&writer, "\",\"fps\":");
     append_u32(&writer, fps);
     append_literal(&writer, ",\"counter_base\":");
     append_u32(&writer, counter_base);
+    if (origin != AINEKIO_CAMERA_ORIGIN_NONE) {
+        append_literal(&writer, ",\"origin\":\"");
+        append_literal(&writer, origins[origin]);
+        append_literal(&writer, "\",\"origin_id\":");
+        append_u32(&writer, origin_id);
+    }
     append_literal(&writer, "}");
     return finish(&writer);
 }

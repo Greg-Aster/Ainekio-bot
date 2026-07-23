@@ -24,6 +24,10 @@ MAX_BINARY_COUNTER = (1 << 32) - 1
 TranscriptFunction = Callable[[bytes], str | None | Awaitable[str | None]]
 CameraFunction = Callable[[bytes], object | Awaitable[object]]
 
+def robot_utterance_id(robot_id: str, epoch: int, origin_id: int) -> str:
+    """Return the stable bridge identifier for one firmware-owned utterance."""
+    return f"audio:{robot_id}:{epoch}:{origin_id}"
+
 
 @dataclass(frozen=True)
 class AudioUtterance:
@@ -82,6 +86,7 @@ UtteranceFunction = Callable[
 @dataclass
 class _PendingUtterance:
     utterance_id: str
+    origin_id: int | None
     robot_id: str
     epoch: int
     started_at: str
@@ -141,8 +146,14 @@ class AudioUtteranceAssembler:
             if key in self._pending:
                 await self._finish(key, truncated=True)
             self._blocked.discard(key)
+            origin_id = self._event_origin_id(event)
             self._pending[key] = _PendingUtterance(
-                utterance_id=self.id_factory(),
+                utterance_id=(
+                    robot_utterance_id(key[0], key[1], origin_id)
+                    if origin_id is not None
+                    else self.id_factory()
+                ),
+                origin_id=origin_id,
                 robot_id=key[0],
                 epoch=key[1],
                 started_at=self.utcnow().isoformat(),
@@ -151,6 +162,14 @@ class AudioUtteranceAssembler:
             self._pending_wake.discard(key)
             return
         if name == "vad_close":
+            pending = self._pending.get(key)
+            origin_id = self._event_origin_id(event)
+            if (
+                pending is not None
+                and pending.origin_id is not None
+                and origin_id != pending.origin_id
+            ):
+                return
             self._blocked.discard(key)
             self._pending_wake.discard(key)
             await self._finish(key, truncated=False)
@@ -204,6 +223,15 @@ class AudioUtteranceAssembler:
         if not isinstance(robot_id, str) or not robot_id or type(epoch) is not int:
             return None
         return robot_id, epoch
+
+    @staticmethod
+    def _event_origin_id(value: dict[str, object]) -> int | None:
+        origin_id = value.get("origin_id")
+        return (
+            origin_id
+            if type(origin_id) is int and 0 <= origin_id <= MAX_BINARY_COUNTER
+            else None
+        )
 
     @staticmethod
     def _total_frames(pending: _PendingUtterance) -> int:

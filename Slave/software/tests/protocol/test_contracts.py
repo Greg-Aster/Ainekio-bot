@@ -170,6 +170,26 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
                 raise SchemaMismatch("motion plan frame duration is malformed")
             if sum(frame[0] for frame in frames) > 10000:
                 raise SchemaMismatch("motion plan duration exceeds limit")
+        elif rule == "event-origin":
+            if not isinstance(instance, dict):
+                raise SchemaMismatch("event is not an object")
+            if (
+                "origin_id" in instance
+                and instance.get("name") not in {"vad_open", "vad_close"}
+            ):
+                raise SchemaMismatch("event origin is only valid for VAD boundaries")
+        elif rule == "camera-origin-pair":
+            if not isinstance(instance, dict):
+                raise SchemaMismatch("camera metadata is not an object")
+            has_origin = "origin" in instance
+            has_origin_id = "origin_id" in instance
+            if has_origin != has_origin_id:
+                raise SchemaMismatch("camera origin fields must be paired")
+            if (
+                instance.get("origin") in {"request", "action"}
+                and not 1 <= instance.get("origin_id", 0) <= MAX_SEQUENCE
+            ):
+                raise SchemaMismatch("command camera origin is out of range")
         else:
             raise SchemaMismatch(f"unknown semantic rule: {rule}")
 

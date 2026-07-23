@@ -39,10 +39,29 @@
               <p class="section-kicker">Physical robot</p>
               <h2 id="camera-view-title">Camera view</h2>
             </div>
+            <button id="snapshot-button" type="button" title="Capture a fresh 1024 by 768 still image">Snapshot · XGA</button>
           </div>
-          <div class="camera-stage">
-            <img id="camera-view" class="camera-frame" alt="Live view from the selected Ainekio robot" hidden>
-            <p id="camera-view-message" class="camera-view-message">Waiting for camera frames. Turn on the camera below if needed.</p>
+          <div class="camera-workspace">
+            <div class="camera-stage">
+              <img id="camera-view" class="camera-frame" alt="Live view from the selected Ainekio robot" hidden>
+              <p id="camera-view-message" class="camera-view-message">Waiting for camera frames. Turn on the camera if needed.</p>
+            </div>
+            <form id="camera-form" class="camera-controls">
+              <label class="switch-row">
+                <span>Camera</span>
+                <input name="on" type="checkbox">
+              </label>
+              <label>Resolution
+                <select name="res">
+                  <option value="QVGA">QVGA</option>
+                  <option value="VGA">VGA</option>
+                </select>
+              </label>
+              <label>Frame rate
+                <input name="fps" type="number" min="0" max="15" value="1">
+              </label>
+              <button type="submit">Apply camera</button>
+            </form>
           </div>
         </section>
 
@@ -166,26 +185,9 @@
         <div class="section-heading">
           <div>
             <p class="section-kicker">Media</p>
-            <h2 id="media-title">Camera and audio</h2>
+            <h2 id="media-title">Audio</h2>
           </div>
-          <button id="snapshot-button" type="button">Snapshot</button>
         </div>
-        <form id="camera-form" class="settings-form">
-          <label class="switch-row">
-            <span>Camera</span>
-            <input name="on" type="checkbox">
-          </label>
-          <label>Resolution
-            <select name="res">
-              <option value="QVGA">QVGA</option>
-              <option value="VGA">VGA</option>
-            </select>
-          </label>
-          <label>Frame rate
-            <input name="fps" type="number" min="0" max="15" value="5">
-          </label>
-          <button type="submit">Apply camera</button>
-        </form>
         <form id="microphone-form" class="settings-form">
           <label class="switch-row">
             <span>Microphone</span>

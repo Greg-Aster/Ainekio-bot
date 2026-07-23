@@ -91,11 +91,19 @@ size_t ainekio_encode_status(
     char *output,
     size_t capacity
 );
-size_t ainekio_encode_event(ainekio_event_t event, char *output, size_t capacity);
+size_t ainekio_encode_event(
+    ainekio_event_t event,
+    bool has_origin_id,
+    uint32_t origin_id,
+    char *output,
+    size_t capacity
+);
 size_t ainekio_encode_camera_meta(
     ainekio_camera_resolution_t resolution,
     uint8_t fps,
     uint32_t counter_base,
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id,
     char *output,
     size_t capacity
 );

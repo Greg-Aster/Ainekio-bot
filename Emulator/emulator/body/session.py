@@ -175,6 +175,7 @@ class BodySession:
         self._say_task: asyncio.Task[None] | None = None
         self._camera_counter = 0
         self._microphone_counter = 0
+        self._active_utterance_id: int | None = None
         self._camera_drops = 0
         self._microphone_drops = 0
         self._next_camera_at = self._clock()
@@ -276,11 +277,11 @@ class BodySession:
             return
 
         if message_type == "motion_plan":
-            await self._handle_motion_plan(message, emit)
+            await self._handle_motion_plan(message, emit, emit_binary)
             return
 
         if message_type == "intent" and message.get("name") in _SUPPORTED_MOVEMENT:
-            await self._handle_movement(message, emit)
+            await self._handle_movement(message, emit, emit_binary)
             return
 
         if message_type == "intent" and message.get("name") == "face":
@@ -581,7 +582,10 @@ class BodySession:
             self._core.set_state(_CORE_STATE_IDLE)
 
     async def _handle_movement(
-        self, message: Mapping[str, object], emit: EmitControl
+        self,
+        message: Mapping[str, object],
+        emit: EmitControl,
+        emit_binary: EmitBinary | None,
     ) -> None:
         sequence = int(message["seq"])
         asset = self._motion_asset(message)
@@ -623,12 +627,20 @@ class BodySession:
         async with self._lock:
             self._active_sequence = sequence
             self._active_task = asyncio.create_task(
-                self._run_movement(sequence, self._motion_message(message, asset), emit),
+                self._run_movement(
+                    sequence,
+                    self._motion_message(message, asset),
+                    emit,
+                    emit_binary,
+                ),
                 name=f"ainekio-motion-{sequence}",
             )
 
     async def _handle_motion_plan(
-        self, message: Mapping[str, object], emit: EmitControl
+        self,
+        message: Mapping[str, object],
+        emit: EmitControl,
+        emit_binary: EmitBinary | None,
     ) -> None:
         sequence = int(message["seq"])
         if not self._motion_plan_within_limits(message):
@@ -663,7 +675,7 @@ class BodySession:
         async with self._lock:
             self._active_sequence = sequence
             self._active_task = asyncio.create_task(
-                self._run_movement(sequence, prepared, emit),
+                self._run_movement(sequence, prepared, emit, emit_binary),
                 name=f"ainekio-motion-plan-{sequence}",
             )
 
@@ -700,6 +712,7 @@ class BodySession:
         sequence: int,
         message: Mapping[str, object],
         emit: EmitControl,
+        emit_binary: EmitBinary | None,
     ) -> None:
         try:
             cues = message.get("_motion_face_cues", [])
@@ -724,7 +737,7 @@ class BodySession:
                 return
             self._active_sequence = None
             self._active_task = None
-        await emit({"t": "done", "seq": sequence})
+        await self._complete_action(sequence, emit, emit_binary)
         cues = message.get("_motion_face_cues", [])
         if isinstance(cues, list) and len(cues) > 1:
             final = cues[-1]
@@ -782,30 +795,14 @@ class BodySession:
             return
         self._last_intent_activity = self._clock()
         await emit({"t": "ack", "seq": sequence})
-        if emit_binary is None:
+        if not await self._emit_snapshot(
+            "request",
+            sequence,
+            emit,
+            emit_binary,
+        ):
             await emit({"t": "cancelled", "seq": sequence, "code": "overflow"})
             return
-        resolution = str(self._camera_settings["res"])
-        try:
-            payload = await self._camera_source.capture_jpeg(resolution)
-        except Exception:
-            self._camera_drops += 1
-            await emit({"t": "cancelled", "seq": sequence, "code": "overflow"})
-            return
-        if not 1 <= len(payload) <= MAX_JPEG_BYTES:
-            self._camera_drops += 1
-            await emit({"t": "cancelled", "seq": sequence, "code": "overflow"})
-            return
-        await emit(
-            {
-                "t": "cam_meta",
-                "res": resolution,
-                "fps": 0,
-                "counter_base": self._camera_counter,
-            }
-        )
-        await emit_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, self._camera_counter, payload))
-        self._camera_counter = (self._camera_counter + 1) & MAX_BINARY_COUNTER
         await emit({"t": "done", "seq": sequence})
 
     async def service_media(
@@ -935,7 +932,13 @@ class BodySession:
             gate = str(self._microphone_settings["gate"])
             event = self._vad.process(payload)
             if event is not None:
-                await emit({"t": "event", "name": event})
+                if event == "vad_open":
+                    self._active_utterance_id = self._microphone_counter
+                origin_id = self._active_utterance_id
+                event_message: dict[str, object] = {"t": "event", "name": event}
+                if origin_id is not None:
+                    event_message["origin_id"] = origin_id
+                await emit(event_message)
             outgoing: list[bytes] = []
             if gate == "open":
                 outgoing.append(payload)
@@ -958,6 +961,15 @@ class BodySession:
                 self._microphone_counter = (
                     self._microphone_counter + 1
                 ) & MAX_BINARY_COUNTER
+            if event == "vad_close" and self._active_utterance_id is not None:
+                origin_id = self._active_utterance_id
+                self._active_utterance_id = None
+                await self._emit_snapshot(
+                    "audio",
+                    origin_id,
+                    emit,
+                    emit_binary,
+                )
         except Exception:
             self._microphone_drops += 1
 
@@ -1070,6 +1082,49 @@ class BodySession:
                 self._say_sequence = None
                 self._say_task = None
                 self._resume_microphone_after_speaker()
+
+    async def _complete_action(
+        self,
+        sequence: int,
+        emit: EmitControl,
+        emit_binary: EmitBinary | None,
+    ) -> None:
+        await self._emit_snapshot("action", sequence, emit, emit_binary)
+        await emit({"t": "done", "seq": sequence})
+
+    async def _emit_snapshot(
+        self,
+        origin: str,
+        origin_id: int,
+        emit: EmitControl,
+        emit_binary: EmitBinary | None,
+    ) -> bool:
+        if self._camera_source is None or emit_binary is None:
+            return False
+        resolution = "XGA"
+        try:
+            payload = await self._camera_source.capture_jpeg(resolution)
+            if not 1 <= len(payload) <= MAX_JPEG_BYTES:
+                raise ValueError("camera snapshot is oversized")
+            counter = self._camera_counter
+            await emit(
+                {
+                    "t": "cam_meta",
+                    "res": resolution,
+                    "fps": 0,
+                    "counter_base": counter,
+                    "origin": origin,
+                    "origin_id": origin_id,
+                }
+            )
+            await emit_binary(
+                encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, counter, payload)
+            )
+            self._camera_counter = (counter + 1) & MAX_BINARY_COUNTER
+            return True
+        except Exception:
+            self._camera_drops += 1
+            return False
 
     def _motion_asset(self, message: Mapping[str, object]) -> MotionAsset | None:
         name = str(message["name"])

@@ -60,7 +60,7 @@ does not contain a MetaHuman URL or make MetaHuman API calls.
 - Every terminal result produces one follow-up observation. A completed action
   requests one camera snapshot; if no frame is available, state is returned.
 - The gateway converts a bounded protocol-v1 JPEG into a data URL observation.
-- MetaHuman validates one JPEG at a maximum of 120 KiB and creates an image_url
+- MetaHuman validates one JPEG at a maximum of 256 KiB and creates an image_url
   model content part.
 - Environment Context Builder sends text and image content together; the model
   router and vLLM client preserve that structured request.

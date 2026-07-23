@@ -126,6 +126,7 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
         max_size=MAX_WEBSOCKET_MESSAGE_BYTES,
         max_queue=32,
         ping_interval=None,
+        close_timeout=1.0,
         create_protocol=BoundedHandshakeProtocol,
     ):
         _print_gateway_addresses(
@@ -213,6 +214,7 @@ async def _run_production(args: argparse.Namespace) -> None:
             max_size=MAX_WEBSOCKET_MESSAGE_BYTES,
             max_queue=32,
             ping_interval=None,
+            close_timeout=1.0,
             create_protocol=BoundedHandshakeProtocol,
         ):
             _print_gateway_addresses(
@@ -250,6 +252,9 @@ def _audit_fields(payload: dict[str, object]) -> dict[str, object]:
         "status",
         "close_code",
         "close_reason",
+        "control_frames_received",
+        "json_pings_sent",
+        "last_control_type",
     }
     return {key: value for key, value in payload.items() if key in allowed}
 

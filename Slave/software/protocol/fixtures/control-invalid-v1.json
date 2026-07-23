@@ -60,6 +60,11 @@
       "message": {"t": "cam", "seq": 6, "on": true, "fps": 16, "res": "VGA"},
       "reason": "range:fps"
     },
+    {
+      "name": "cam_xga_stream_rejected",
+      "message": {"t": "cam", "seq": 6, "on": true, "fps": 1, "res": "XGA"},
+      "reason": "value:res"
+    },
     {"name": "snap_missing_seq", "message": {"t": "snap"}, "reason": "missing:seq"},
     {
       "name": "mic_bad_gate",

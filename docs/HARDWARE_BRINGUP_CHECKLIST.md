@@ -82,7 +82,7 @@ not close the remaining assembled-hardware gates.
 - [x] Consolidate the Freenove N16R8 module facts, camera pins, accessory pins, and eight servo pins in `components/ainekio_platform/include/ainekio/platform/pin_map.h`.
 - [x] Add software validation for duplicate active GPIOs, invalid input/output use, SD conflicts, N16R8 PSRAM-reserved GPIO33-37, logical joint order, and MCPWM resource collisions.
 - [x] Configure 16 MB DIO flash at 80 MHz and 8 MB octal PSRAM at 80 MHz with the startup memory test enabled.
-- [x] Pin `espressif/esp32-camera` 2.1.7 and integrate an OV3660 camera task using Freenove's GPIO map, 10 MHz XCLK, JPEG, QVGA startup, PSRAM framebuffer, a two-frame drop-oldest media queue, snapshots, QVGA/VGA changes, and protocol counters.
+- [x] Pin `espressif/esp32-camera` 2.1.7 and integrate an OV3660 camera task using Freenove's GPIO map, 10 MHz XCLK, JPEG, one XGA-sized PSRAM framebuffer, fresh 1024x768 snapshots, bounded QVGA/VGA preview, a two-frame drop-oldest transmit queue, and protocol counters.
 - [x] Configure the planned GPIO3 100 kOhm/47 kOhm divider factor `3.12766` and enable battery monitoring; H9 still compares reported voltage with a multimeter and refines the ADC correction if required.
 - [x] Keep the owner-directed all-servo motion profile independent of battery-monitor configuration while retaining the active low-voltage power guard.
 - [x] Retain the existing battery policy: 16-sample sets every 5 seconds, warning below 7.0 V, cutoff below 6.8 V, recovery at or above 7.2 V, and three qualifying sets before a state transition. Three startup sets at or below 0.25 V classify the battery input as disconnected; after any plausible battery voltage is seen, near-zero readings use the cutoff path.

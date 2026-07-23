@@ -11,7 +11,11 @@ from datetime import datetime, timezone
 from time import monotonic
 from typing import Any, Callable, Mapping
 
-from gateway.plugins import AudioUtterance, AudioUtterancePlugin
+from gateway.plugins import (
+    AudioUtterance,
+    AudioUtterancePlugin,
+    robot_utterance_id,
+)
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 from websockets.exceptions import ConnectionClosed
@@ -56,7 +60,6 @@ class EnvironmentAdapterConfig:
     environment_id: str = "ainekio"
     adapter_id: str = "ainekio-gateway"
     robot_id: str | None = None
-    snapshot_after_action: bool = True
     max_utterance_ms: int = 15000
     freestyle_enabled: bool = True
 
@@ -65,8 +68,6 @@ class EnvironmentAdapterConfig:
             raise ValueError("a bounded environment adapter token is required")
         if not 20 <= self.max_utterance_ms <= 15000 or self.max_utterance_ms % 20:
             raise ValueError("max utterance duration must be a 20 ms multiple up to 15 seconds")
-
-
 def encode_audio_utterance_message(
     utterance: AudioUtterance,
     *,
@@ -105,8 +106,10 @@ class EnvironmentAdapter:
         self._send_lock = asyncio.Lock()
         self._camera_observation_count = 0
         self._pending_snapshot_context: dict[str, object] | None = None
-        self._pending_snapshot_feedback: dict[str, object] | None = None
         self._pending_snapshot_counter: int | None = None
+        self._robot_action_contexts: dict[int, dict[str, object]] = {}
+        self._robot_snapshot_contexts: dict[int, dict[str, object]] = {}
+        self._deferred_snapshot_visuals: dict[str, dict[str, object]] = {}
         self._snapshot_in_flight = False
         self._snapshot_lock = asyncio.Lock()
         self._last_microphone_level_at = float("-inf")
@@ -178,8 +181,6 @@ class EnvironmentAdapter:
                 self._websocket = None
 
     async def _process_environment_action(self, action: dict[str, Any]) -> None:
-        capture_image = _normalized_action_type(action) == "captureimage"
-        previous_camera_count = self._camera_observation_count
         feedback = await self.handle_action(action)
         await self._send(
             {
@@ -189,22 +190,20 @@ class EnvironmentAdapter:
                 "feedback": feedback,
             }
         )
-        observation_sent = (
-            capture_image
-            and self._camera_observation_count > previous_camera_count
+        action_id = action.get("id")
+        visual = (
+            self._deferred_snapshot_visuals.pop(action_id, None)
+            if isinstance(action_id, str)
+            else None
         )
-        if (
-            not capture_image
-            and feedback["type"] == "completed"
-            and self.config.snapshot_after_action
-            and self._camera_ready()
-        ):
-            previous_camera_count = self._camera_observation_count
-            await self._request_post_action_snapshot(
-                self._snapshot_context(action),
-                feedback=feedback,
+        observation_sent = visual is not None
+        if visual is not None:
+            await self._send_observation(
+                visual=visual,
+                metadata=self._snapshot_context(action),
+                feedback=[feedback],
             )
-            observation_sent = self._camera_observation_count > previous_camera_count
+            self._camera_observation_count += 1
         if not observation_sent:
             await self._send_observation(feedback=[feedback])
 
@@ -272,12 +271,9 @@ class EnvironmentAdapter:
         accepted_at = self.clock() if received_at is None else received_at
         progress_task: asyncio.Task[None] | None = None
         snapshot_lock_acquired = False
-        snapshot_context = (
-            self._snapshot_context(action)
-            if translated.kind == "snapshot"
-            else None
-        )
+        snapshot_context = self._snapshot_context(action)
         frame_durations: list[int] = []
+        sequence: int | None = None
         if translated.kind == "motion_plan":
             frames = translated.params.get("frames")
             if isinstance(frames, list):
@@ -307,6 +303,12 @@ class EnvironmentAdapter:
                 self._pending_snapshot_context = snapshot_context
                 self._pending_snapshot_counter = None
             sequence = await self._dispatch(translated, accepted_at)
+            if snapshot_context is not None:
+                self._remember_bounded(
+                    self._robot_action_contexts,
+                    sequence,
+                    snapshot_context,
+                )
             if translated.kind == "motion_plan":
                 await self._send_motion_plan_status(
                     action_id,
@@ -348,7 +350,10 @@ class EnvironmentAdapter:
                 self._pending_snapshot_counter = None
                 self._snapshot_in_flight = False
                 self._snapshot_lock.release()
+            if sequence is not None:
+                self._robot_action_contexts.pop(sequence, None)
 
+        assert sequence is not None
         terminal_type = str(terminal.get("t"))
         if terminal_type in {"ack", "done"}:
             status = "completed"
@@ -453,34 +458,6 @@ class EnvironmentAdapter:
             return await self.gateway.request_snap(robot_id=self.config.robot_id)
         raise GatewayError("unsupported translated environment action")
 
-    async def _request_post_action_snapshot(
-        self,
-        snapshot_context: dict[str, object] | None = None,
-        *,
-        feedback: dict[str, object] | None = None,
-    ) -> None:
-        async with self._snapshot_lock:
-            self._snapshot_in_flight = True
-            self._pending_snapshot_context = snapshot_context
-            self._pending_snapshot_feedback = feedback
-            self._pending_snapshot_counter = None
-            try:
-                sequence = await self.gateway.request_snap(robot_id=self.config.robot_id)
-                await self.gateway.wait_terminal(
-                    sequence,
-                    robot_id=self.config.robot_id,
-                    timeout=10.0,
-                )
-            except (GatewayError, TimeoutError):
-                return
-            finally:
-                if self._pending_snapshot_context is snapshot_context:
-                    self._pending_snapshot_context = None
-                if self._pending_snapshot_feedback is feedback:
-                    self._pending_snapshot_feedback = None
-                self._pending_snapshot_counter = None
-                self._snapshot_in_flight = False
-
     def _snapshot_context(
         self,
         action: Mapping[str, object],
@@ -492,6 +469,7 @@ class EnvironmentAdapter:
             else None
         )
         correlation_id = action.get("correlationId") or action.get("id")
+        action_id = action.get("id")
         if not isinstance(robot_observer, Mapping) and not isinstance(
             correlation_id, str
         ):
@@ -499,9 +477,23 @@ class EnvironmentAdapter:
         context: dict[str, object] = {}
         if isinstance(correlation_id, str) and correlation_id.strip():
             context["correlationId"] = correlation_id.strip()
+        if isinstance(action_id, str) and action_id.strip():
+            context["actionId"] = action_id.strip()
         if isinstance(robot_observer, Mapping):
             context["robotObserver"] = dict(robot_observer)
         return context or None
+
+    @staticmethod
+    def _remember_bounded(
+        values: dict[int, dict[str, object]],
+        key: int,
+        value: dict[str, object],
+        *,
+        maximum: int = 32,
+    ) -> None:
+        values[key] = value
+        while len(values) > maximum:
+            del values[next(iter(values))]
 
     async def _handle_gateway_event(self, event: dict[str, object]) -> None:
         if event.get("t") == "status":
@@ -532,6 +524,47 @@ class EnvironmentAdapter:
             return
         if event.get("t") == "cam_meta":
             counter = event.get("counter_base")
+            origin = event.get("origin")
+            origin_id = event.get("origin_id")
+            if (
+                event.get("fps") == 0
+                and type(counter) is int
+                and origin in {"request", "action"}
+                and type(origin_id) is int
+            ):
+                context = self._robot_action_contexts.get(origin_id)
+                if context is not None:
+                    self._remember_bounded(
+                        self._robot_snapshot_contexts,
+                        counter,
+                        context,
+                    )
+                    return
+            if (
+                event.get("fps") == 0
+                and type(counter) is int
+                and origin == "audio"
+                and type(origin_id) is int
+                and isinstance(event.get("robot_id"), str)
+                and type(event.get("epoch")) is int
+            ):
+                utterance_id = robot_utterance_id(
+                    str(event["robot_id"]),
+                    int(event["epoch"]),
+                    origin_id,
+                )
+                self._remember_bounded(
+                    self._robot_snapshot_contexts,
+                    counter,
+                    {
+                        "correlationId": utterance_id,
+                        "audioUtteranceId": utterance_id,
+                        "robotId": event["robot_id"],
+                        "epoch": event["epoch"],
+                        "perceptionEvent": "audio_utterance",
+                    },
+                )
+                return
             if (
                 self._snapshot_in_flight
                 and event.get("fps") == 0
@@ -541,15 +574,21 @@ class EnvironmentAdapter:
             return
         if event.get("t") not in {"connection", "event"}:
             return
-        if event.get("t") == "event" and event.get("name") == "vad_close":
-            await self._send_telemetry(
-                "audio.level",
-                {
-                    "robot_id": event.get("robot_id"),
-                    "epoch": event.get("epoch"),
-                    "level": 0.0,
-                },
-            )
+        if event.get("t") == "event" and event.get("name") in {
+            "vad_open",
+            "vad_close",
+            "wake_word",
+        }:
+            if event.get("name") == "vad_close":
+                await self._send_telemetry(
+                    "audio.level",
+                    {
+                        "robot_id": event.get("robot_id"),
+                        "epoch": event.get("epoch"),
+                        "level": 0.0,
+                    },
+                )
+            return
         await self._send_observation(body_event=event)
 
     async def _handle_gateway_utterance(self, utterance: AudioUtterance) -> None:
@@ -609,18 +648,20 @@ class EnvironmentAdapter:
         payload = frame.get("payload")
         if not isinstance(payload, bytes):
             return
-        if (
-            not self._snapshot_in_flight
-            or type(frame.get("counter")) is not int
-            or frame.get("counter") != self._pending_snapshot_counter
-        ):
+        counter = frame.get("counter")
+        if type(counter) is not int:
             return
-        snapshot_context = self._pending_snapshot_context
-        snapshot_feedback = self._pending_snapshot_feedback
+        snapshot_context = self._robot_snapshot_contexts.pop(counter, None)
+        if (
+            snapshot_context is None
+            and self._snapshot_in_flight
+            and counter == self._pending_snapshot_counter
+        ):
+            snapshot_context = self._pending_snapshot_context
+        if snapshot_context is None:
+            return
         if snapshot_context is not None:
             self._pending_snapshot_context = None
-        if snapshot_feedback is not None:
-            self._pending_snapshot_feedback = None
         visual = {
             "id": f"ainekio-camera-{frame.get('counter', int(self.clock() * 1000))}",
             "timestamp": self.utcnow().isoformat(),
@@ -631,18 +672,25 @@ class EnvironmentAdapter:
                 "robotId": frame.get("robot_id"),
                 "counter": frame.get("counter"),
                 "bytes": len(payload),
-                **(
-                    {"correlationId": snapshot_context["correlationId"]}
+                **{
+                    key: snapshot_context[key]
+                    for key in ("correlationId", "audioUtteranceId", "actionId")
                     if snapshot_context is not None
-                    and "correlationId" in snapshot_context
-                    else {}
-                ),
+                    and isinstance(snapshot_context.get(key), str)
+                },
             },
         }
+        action_id = (
+            snapshot_context.get("actionId")
+            if snapshot_context is not None
+            else None
+        )
+        if isinstance(action_id, str):
+            self._deferred_snapshot_visuals[action_id] = visual
+            return
         await self._send_observation(
             visual=visual,
             metadata=snapshot_context,
-            feedback=[snapshot_feedback] if snapshot_feedback is not None else None,
         )
         self._camera_observation_count += 1
 

@@ -36,7 +36,9 @@ INTENT_NAMES = frozenset(
 )
 WALK_DIRECTIONS = frozenset({"fwd", "back", "turn_l", "turn_r"})
 PROFILES = frozenset({"home", "tether"})
-CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA"})
+CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA", "XGA"})
+CAMERA_STREAM_RESOLUTIONS = frozenset({"QVGA", "VGA"})
+CAMERA_ORIGINS = frozenset({"request", "action", "audio"})
 MIC_GATES = frozenset({"open", "vad", "wake"})
 BODY_STATES = frozenset({"active", "idle", "dozing", "deep-sleep", "failsafe"})
 EVENT_NAMES = frozenset(
@@ -267,7 +269,7 @@ def _validate_cam(message: Mapping[str, object]) -> None:
     _seq(message)
     _boolean(message, "on")
     _integer(message, "fps", minimum=0, maximum=15)
-    _string(message, "res", allowed=CAMERA_RESOLUTIONS)
+    _string(message, "res", allowed=CAMERA_STREAM_RESOLUTIONS)
 
 
 def _validate_snap(message: Mapping[str, object]) -> None:
@@ -394,13 +396,26 @@ def _validate_status(message: Mapping[str, object]) -> None:
 
 
 def _validate_event(message: Mapping[str, object]) -> None:
-    _string(message, "name", allowed=EVENT_NAMES)
+    name = _string(message, "name", allowed=EVENT_NAMES)
+    if "origin_id" in message:
+        if name not in {"vad_open", "vad_close"}:
+            _fail("unexpected:origin_id")
+        _integer(message, "origin_id", minimum=0, maximum=MAX_BINARY_COUNTER)
 
 
 def _validate_cam_meta(message: Mapping[str, object]) -> None:
     _string(message, "res", allowed=CAMERA_RESOLUTIONS)
     _integer(message, "fps", minimum=0, maximum=15)
     _integer(message, "counter_base", minimum=0, maximum=MAX_BINARY_COUNTER)
+    has_origin = "origin" in message
+    has_origin_id = "origin_id" in message
+    if has_origin != has_origin_id:
+        _fail("missing:camera_origin_pair")
+    if has_origin:
+        origin = _string(message, "origin", allowed=CAMERA_ORIGINS)
+        minimum = 0 if origin == "audio" else 1
+        maximum = MAX_BINARY_COUNTER if origin == "audio" else MAX_SEQUENCE
+        _integer(message, "origin_id", minimum=minimum, maximum=maximum)
 
 
 VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {

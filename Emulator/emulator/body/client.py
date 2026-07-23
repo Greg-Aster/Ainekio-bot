@@ -10,6 +10,7 @@ from typing import Any
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from protocol.binary_helpers import MAX_JPEG_BYTES
 from protocol.control_v1 import (
     MOTION_PLAN_FEATURE,
     PROTOCOL_VERSION,
@@ -20,11 +21,10 @@ from .session import BodySession
 from emulator.faults import EmulatorFaultController
 
 
-MAX_WEBSOCKET_MESSAGE_BYTES = (120 * 1024) + 5
-# Keep emulator liveness identical to the physical controller: a heartbeat each
-# second and a local failsafe after four seconds without gateway control.
+MAX_WEBSOCKET_MESSAGE_BYTES = MAX_JPEG_BYTES + 5
+# Keep the emulator session behavior aligned with the physical controller:
+# heartbeats continue during idle, and only a real transport failure reconnects.
 PING_AFTER_SECONDS = 1.0
-FAILSAFE_AFTER_SECONDS = 4.0
 CONTROL_QUEUE_DEPTH = 32
 
 
@@ -102,20 +102,16 @@ class ProtocolV1BodyClient:
             await self._session.begin(welcome)
 
             command_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=CONTROL_QUEUE_DEPTH)
-            last_received = monotonic()
             next_status = monotonic()
             sleep_delay: float | None = None
 
             async def receive_controls() -> None:
-                nonlocal last_received
                 while True:
                     raw = await websocket.recv()
                     if isinstance(raw, bytes):
                         await command_queue.join()
                         await self._session.handle_binary(raw, emit)
                         continue
-                    last_received = monotonic()
-
                     try:
                         candidate = json.loads(raw)
                     except (json.JSONDecodeError, UnicodeError):
@@ -152,9 +148,6 @@ class ProtocolV1BodyClient:
                 nonlocal next_status, sleep_delay
                 while True:
                     now = monotonic()
-                    if now - last_received >= FAILSAFE_AFTER_SECONDS:
-                        await websocket.close(code=1011, reason="control timeout")
-                        raise RuntimeError("gateway control liveness timeout")
                     if self._faults is not None and self._faults.take_drop_link():
                         await websocket.close(code=1011, reason="injected link drop")
                         return

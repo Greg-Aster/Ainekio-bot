@@ -1314,8 +1314,8 @@ static ainekio_decode_result_t validate_outbound(
         };
         result = validate_string_enum(parser, root, "name", events, sizeof(events) / sizeof(events[0]));
     } else if (message->kind == AINEKIO_MESSAGE_CAMERA_META) {
-        static const char *const resolutions[] = {"QVGA", "VGA"};
-        result = validate_string_enum(parser, root, "res", resolutions, 2U);
+        static const char *const resolutions[] = {"QVGA", "VGA", "XGA"};
+        result = validate_string_enum(parser, root, "res", resolutions, 3U);
         if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "fps", 0, 15, &integer);
         if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "counter_base", 0, UINT32_MAX, &integer);
     }

@@ -37,6 +37,7 @@ GATEWAY_PORT="${AINEKIO_GATEWAY_PORT:-8790}"
 DASHBOARD_HOST="${AINEKIO_DASHBOARD_HOST:-127.0.0.1}"
 DASHBOARD_PORT="${AINEKIO_DASHBOARD_PORT:-8791}"
 LOCAL_DISCOVERY="${AINEKIO_LOCAL_DISCOVERY:-1}"
+GATEWAY_PID_FILE="$DATA_DIR/physical-gateway.pid"
 
 if [[ -z "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
   echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required for the MetaHuman Environment Bridge." >&2
@@ -52,6 +53,38 @@ fi
 export AINEKIO_ROBOT_ID="${AINEKIO_ROBOT_ID:-ainekio-01}"
 export AINEKIO_ENVIRONMENT_SESSION_ID="${AINEKIO_ENVIRONMENT_SESSION_ID:-$AINEKIO_ROBOT_ID}"
 mkdir -p "$DATA_DIR"
+
+if [[ -z "${AINEKIO_DASHBOARD_PASSWORD:-}" ]]; then
+  AINEKIO_DASHBOARD_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
+  export AINEKIO_DASHBOARD_PASSWORD
+fi
+
+if [[ -r "$GATEWAY_PID_FILE" ]]; then
+  IFS= read -r recorded_gateway_pid <"$GATEWAY_PID_FILE" || true
+  if [[ "${recorded_gateway_pid:-}" =~ ^[0-9]+$ ]] &&
+     kill -0 "$recorded_gateway_pid" 2>/dev/null; then
+    recorded_command="$(tr '\0' ' ' <"/proc/$recorded_gateway_pid/cmdline" 2>/dev/null || true)"
+    if [[ "$recorded_command" == *" -m gateway.server "* &&
+          "$recorded_command" == *" --data-dir $DATA_DIR"* ]]; then
+      echo "The physical Ainekio gateway is already running (PID $recorded_gateway_pid)." >&2
+      echo "Stop it with: $SCRIPT_DIR/stop-physical-gateway.sh" >&2
+      exit 1
+    fi
+  fi
+  rm -f "$GATEWAY_PID_FILE"
+fi
+
+if command -v ss >/dev/null 2>&1; then
+  for required_port in "$GATEWAY_PORT" "$DASHBOARD_PORT"; do
+    if [[ -n "$(ss -H -ltn "sport = :$required_port" 2>/dev/null || true)" ]]; then
+      echo "Port $required_port is already in use." >&2
+      echo "If this is an older physical gateway, stop it with:" >&2
+      echo "  $SCRIPT_DIR/stop-physical-gateway.sh" >&2
+      exit 1
+    fi
+  done
+  unset required_port
+fi
 
 lan_addresses="$(hostname -I 2>/dev/null || true)"
 advertised_host="${AINEKIO_GATEWAY_ADVERTISED_HOST:-}"
@@ -83,23 +116,35 @@ if [[ -n "$lan_addresses" ]]; then
 fi
 echo "  Robot ID:           ${AINEKIO_ROBOT_ID}"
 echo "  Runtime data:       ${DATA_DIR}"
-if [[ -n "${AINEKIO_DASHBOARD_PASSWORD:-}" ]]; then
-  echo "  Dashboard password: configured from environment"
-else
-  echo "  Dashboard password: existing verifier"
-fi
+echo "  Dashboard password: ${AINEKIO_DASHBOARD_PASSWORD}"
 echo "Press Ctrl+C to stop the gateway."
 
 cd "$REPO_ROOT"
 
 discovery_pid=""
-cleanup_discovery() {
+gateway_pid=""
+cleanup_services() {
+  local exit_status=$?
+  trap - EXIT INT TERM
+  if [[ -n "$gateway_pid" ]] && kill -0 "$gateway_pid" 2>/dev/null; then
+    kill -TERM "$gateway_pid" 2>/dev/null || true
+    wait "$gateway_pid" 2>/dev/null || true
+  fi
   if [[ -n "$discovery_pid" ]] && kill -0 "$discovery_pid" 2>/dev/null; then
-    kill "$discovery_pid" 2>/dev/null || true
+    kill -TERM "$discovery_pid" 2>/dev/null || true
     wait "$discovery_pid" 2>/dev/null || true
   fi
+  if [[ -r "$GATEWAY_PID_FILE" ]]; then
+    IFS= read -r recorded_gateway_pid <"$GATEWAY_PID_FILE" || true
+    if [[ "${recorded_gateway_pid:-}" == "$gateway_pid" ]]; then
+      rm -f "$GATEWAY_PID_FILE"
+    fi
+  fi
+  return "$exit_status"
 }
-trap cleanup_discovery EXIT
+trap cleanup_services EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
   if ! command -v avahi-publish-service >/dev/null 2>&1; then
@@ -131,4 +176,13 @@ env \
     --dashboard-port "$DASHBOARD_PORT" \
     --dashboard-primary-view camera \
     --data-dir "$DATA_DIR" \
-    "$@"
+    "$@" &
+gateway_pid=$!
+umask 077
+printf '%s\n' "$gateway_pid" >"$GATEWAY_PID_FILE"
+
+set +e
+wait "$gateway_pid"
+gateway_status=$?
+set -e
+exit "$gateway_status"

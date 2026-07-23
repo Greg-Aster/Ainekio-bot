@@ -1,8 +1,9 @@
 # Ainekio and MetaHuman Bridge Hardening Plan
 
-Status: source hardening implemented and host-validated on 2026-07-22; process
-activation, controller flash, and physical acceptance remain pending. No gateway
-or MetaHuman service was restarted and no firmware was flashed during this work.
+Status: source hardening implemented and host-validated on 2026-07-22; the
+supervised gateway is active and the controller is flashed. Physical acceptance
+is not complete because the live connection still repeats a `1011 control
+timeout` after authentication.
 
 ## Purpose
 
@@ -206,10 +207,10 @@ saved WiFi -> _ainekio._tcp.local -> same-subnet gateway -> /robot
   `ws://127.0.0.1:8790/environment` configuration without adding a second
   listener or service. Requests carrying Cloudflare relay headers are also
   rejected even though the local tunnel connector itself reaches loopback.
-- OLED states now distinguish searching, not found, verifying, authentication
-  rejection, local/remote connection, and control timeout. A specific
-  authentication or liveness failure is preserved across the socket close
-  event instead of immediately becoming `GATEWAY OFFLINE`.
+- OLED states distinguish searching, not found, verifying, authentication
+  rejection, and local/remote connection. Only a real socket, gateway, or Wi-Fi
+  failure moves an authenticated session offline; conversational idle and a
+  late application heartbeat do not.
 - For bring-up testing, microphone transport starts enabled behind VAD while
   wake-word gating remains separate and off by default. Every completed action
   requests a correlated still when the camera is ready, and `captureImage`
@@ -235,13 +236,49 @@ though Ainekio enables only the station interface.
   discovered gateway or encrypt LAN traffic. Keep the robot on the owner's
   private WPA2 network, do not reuse its robot token, and rotate that token if
   an untrusted device joins the LAN or compromise is suspected.
-- The 1/4-second liveness values above are now the maintained implementation
-  contract, but the v1.0 DOCX still contains the older 2/3-second wording and
-  requires a numbered erratum.
-- The prepared firmware has not been flashed. The existing controller therefore
-  does not yet perform DNS-SD discovery or show these revised states.
-- Physical acceptance still requires reboot, DHCP-address change, WiFi outage,
-  gateway restart, multicast-unavailable, and at least 15-minute soak tests.
+- The maintained liveness contract is now one-second diagnostic heartbeats and
+  a four-second action-level stale guard. A stale heartbeat stops active motion
+  but does not close the WebSocket. The v1.0 DOCX contains older connection-
+  timeout wording and requires a numbered erratum.
+- The prepared firmware and LittleFS image were flashed on 2026-07-22. Separate
+  digest verification passed for the bootloader, application, partition table,
+  and LittleFS regions. NVS was not written, preserving provisioning and robot
+  configuration. The mutable OTA-data digest changed after boot as expected.
+- The controller boots, passes the 8 MB PSRAM test, initializes all eight
+  remapped servo outputs, discovers the gateway, and authenticates. The first
+  physical A/B correction enabled Espressif's separate WebSocket TX lock and
+  increased the authenticated exchange from roughly 6-10 seconds to about 31
+  seconds, with 36 valid control frames observed, but the gateway still closed
+  the session as `1011 control timeout`. On 2026-07-22 the owner rejected idle
+  heartbeat expiry as a session teardown condition. The prepared replacement
+  keeps the short motion stop guard, removes timer-driven gateway/body session
+  closure, and reserves reconnect for real transport failure. Physical flash
+  and the 15-minute soak remain required before this finding closes.
+
+### Local media testing policy - 2026-07-22
+
+The owner selected the following bring-up behavior while wake-word support is
+deferred:
+
+- The controller microphone starts enabled with the VAD gate. Wake-word gating
+  remains a separate persisted setting and is off by default.
+- Every completed robot action requests one fresh JPEG when camera health is
+  available. That image and the terminal feedback share the correlated
+  Environment observation used for the LLM's next decision.
+- The LLM can request a still directly through the existing `captureImage`
+  action.
+- Continuous camera frames are consumed by the local Body Control dashboard
+  only. The Environment adapter now admits a JPEG only when the snapshot
+  command's `cam_meta` counter identifies it as the requested still. This
+  prevents dashboard live view from becoming continuous LLM image traffic.
+- Body Control retains live JPEG viewing, camera enable/disable, microphone
+  enable/disable and gating, and the live microphone-level meter. Audio sent to
+  MetaHuman remains VAD-bounded utterances rather than a continuous raw stream.
+
+Source and host tests are complete, the supervised host gateway was reloaded,
+and the controller now contains the new microphone startup default and image
+routing counterpart. Physical camera/audio acceptance remains pending behind
+the recurring control-timeout failure.
 
 Host activation evidence: systemd reports the user unit enabled and active;
 one Python gateway owns `0.0.0.0:8790` and `127.0.0.1:8791`; Avahi resolves the
@@ -289,8 +326,9 @@ currently occurs at owner login rather than before login.
 
 ### Validation evidence
 
-- Ainekio emulator/gateway suite: all 137 tests passed, including dedicated
-  incomplete-handshake and loopback-only Environment-route regressions.
+- Ainekio emulator/gateway suite: all 138 tests passed, including dedicated
+  incomplete-handshake, loopback-only Environment-route, correlated snapshot,
+  and continuous-camera isolation regressions.
 - Portable C core: all 11 tests passed.
 - Python protocol contract: all 13 tests passed.
 - ESP-IDF 5.5.4 firmware build: passed; local-discovery application image size
@@ -322,17 +360,50 @@ currently occurs at owner login rather than before login.
 
 ## Work Prepared but Not Active on the Controller
 
-The source tree contains the following built but unflashed liveness correction:
+The source tree contains the following unflashed owner-approved liveness
+correction:
 
 - one-second control heartbeats;
-- four-second control failsafe, allowing multiple heartbeat opportunities;
-- gateway disconnect code and reason in the safe audit fields;
-- emulator parity and delayed-heartbeat regression coverage.
+- four-second stale-control motion stop without WebSocket teardown;
+- no gateway or controller disconnect caused only by an idle timer;
+- reconnect only after a real WebSocket, gateway, or Wi-Fi failure;
+- duplicate native WebSocket pings disabled in the pinned client; protocol-v1
+  remains the only application heartbeat;
+- a separate upstream WebSocket TX lock for the existing dedicated TX task;
+- gateway heartbeat counters for JSON pings sent, valid control frames received,
+  and last control type;
+- firmware counters and failure-only logs for frame metadata, decode rejection,
+  heartbeat enqueue, and control send result;
+- emulator parity and a regression proving that a silent authenticated body is
+  not disconnected by a timer.
 
-The gateway-side change becomes active after the gateway process restarts. The
-controller-side change requires a later firmware flash. It has been built and
-host-tested but has not yet been physically verified. The current controller
-continues to run the prior heartbeat behavior until that flash occurs.
+The controller currently runs the verified transient-write diagnostic A/B image.
+It includes temporary cumulative status fields and still has the aggressive TCP
+keepalive values. Those temporary wire fields have been removed from prepared
+source; the clean keepalive-free policy still requires one application-only
+flash after rebuild and host tests pass.
+The first replacement-image soak stayed authenticated past the former 31-second
+cutoff but ended with abnormal socket close `1006` at about 68 seconds,
+immediately after the remaining 60-second native client ping. That native ping
+is now removed from the prepared image rather than allowed to compete with the
+protocol heartbeat.
+The next physical session still ended as `1006` after about 93 seconds, proving
+the native ping was not the sole cause. Status delivery paused and later
+recovered in bursts before the close. The next prepared A/B change therefore
+treats a bounded single-frame control or microphone write failure as transient:
+it drops that frame, stops motion when control becomes stale, and keeps the
+authenticated socket. The physical A/B image also exposed temporary cumulative
+status counters, which supplied the evidence below and were then removed from
+prepared source. A failed fragmented camera frame still rebuilds the socket
+because continuing after a partial WebSocket message would corrupt the stream.
+That image extended the next session to about 171 seconds. Live TCP inspection
+then showed the controller link at roughly 444 ms RTT, congestion window one,
+retransmissions, and a 6.2-second retransmission timeout. Firmware still had
+TCP keepalive configured to declare failure after an approximately 20-second
+idle/retry window, matching the observed recoverable 20-30 second pauses. The
+next prepared image removes that duplicate transport timer. Protocol heartbeat
+age still stops motion, while real Wi-Fi and WebSocket error events retain the
+normal reconnect/failsafe path.
 
 ## Hardening Plan
 
@@ -340,10 +411,9 @@ continues to run the prior heartbeat behavior until that flash occurs.
 
 Owners: Ainekio gateway and physical firmware
 
-1. Restart the physical gateway when the owner is ready so the prepared
-   gateway-side heartbeat and disconnect diagnostics become active.
-2. Include the prepared controller heartbeat change in the next owner-approved
-   firmware update; do not perform a standalone flash solely for this document.
+1. Restart the physical gateway so timer-driven session closure is removed.
+2. Flash the application-only controller change, preserving NVS, LittleFS,
+   pairing, and Wi-Fi configuration.
 3. Add or verify a bounded WebSocket opening/handshake timeout so incomplete TCP
    clients cannot remain indefinitely as misleading established sockets.
 4. Confirm every disconnect records a bounded code and reason without secrets.
@@ -359,8 +429,8 @@ Acceptance:
   the existing failsafe.
 - Restarting the gateway creates one new authenticated epoch without duplicate
   active robot sessions or replayed commands.
-- The audit records the close cause for deliberate timeout, replacement, and
-  gateway-stop cases.
+- The audit records the close cause for malformed input, replacement, and
+  gateway-stop cases; it records no idle-timer disconnect.
 
 ### Phase 2 - Separate adapter, body, and capability state
 

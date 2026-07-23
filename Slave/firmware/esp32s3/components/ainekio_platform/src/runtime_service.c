@@ -39,13 +39,16 @@
 #define RX_TEXT_BYTES (AINEKIO_CONTROL_MAX_BYTES + 1U)
 #define TX_TEXT_BYTES 1536U
 #define CLIENT_LOCK_TIMEOUT_MS 10U
-#define WRITE_TIMEOUT_MS 60U
-#define NETWORK_CONNECT_TIMEOUT_MS 10000U
+#define CONTROL_WRITE_TIMEOUT_MS 250U
+#define MICROPHONE_WRITE_TIMEOUT_MS 60U
+#define CAMERA_WRITE_TIMEOUT_MS 1000U
+#define NETWORK_OPERATION_TIMEOUT_MS 2000U
 #define MICROPHONE_FRAME_MS 20U
-/* Preserve a fast local failsafe while allowing three additional heartbeat
- * opportunities after the first one-second control interval. */
+/* User messages may be arbitrarily far apart. This lightweight application
+ * heartbeat reports control-loop health; a stale heartbeat stops active
+ * motion, but only a real transport failure tears down the session. */
 #define CONTROL_PING_US INT64_C(1000000)
-#define CONTROL_FAILSAFE_US INT64_C(4000000)
+#define CONTROL_STALE_US INT64_C(4000000)
 #define ACTIVE_IDLE_US INT64_C(60000000)
 #define CALIBRATION_IDLE_US INT64_C(600000000)
 #define SUPERVISOR_ONLINE BIT0
@@ -61,13 +64,17 @@ _Static_assert(
     "microphone frame must fit one WebSocket client TX chunk"
 );
 _Static_assert(
-    CLIENT_LOCK_TIMEOUT_MS + (3U * WRITE_TIMEOUT_MS) <=
+    CLIENT_LOCK_TIMEOUT_MS + (3U * MICROPHONE_WRITE_TIMEOUT_MS) <=
         (MIC_QUEUE_LENGTH * MICROPHONE_FRAME_MS),
     "WebSocket write budget must not exceed microphone queue duration"
 );
 _Static_assert(
-    CONTROL_FAILSAFE_US >= 4 * CONTROL_PING_US,
-    "control failsafe must tolerate four heartbeat intervals"
+    CONTROL_WRITE_TIMEOUT_MS * 3U < CONTROL_STALE_US / INT64_C(1000),
+    "control writes must leave multiple retries before motion stop"
+);
+_Static_assert(
+    CONTROL_STALE_US >= 4 * CONTROL_PING_US,
+    "stale control must tolerate four heartbeat intervals"
 );
 
 typedef enum {
@@ -93,7 +100,6 @@ typedef enum {
 
 typedef enum {
     DISCONNECT_OFFLINE = 0,
-    DISCONNECT_CONTROL_TIMEOUT,
     DISCONNECT_AUTH_REJECTED,
 } disconnect_reason_t;
 
@@ -117,11 +123,17 @@ typedef struct {
             ainekio_cancel_code_t code;
         } cancelled;
         ainekio_status_t status;
-        ainekio_event_t event;
+        struct {
+            ainekio_event_t event;
+            bool has_origin_id;
+            uint32_t origin_id;
+        } event;
         struct {
             ainekio_camera_resolution_t resolution;
             uint8_t fps;
             uint32_t counter_base;
+            ainekio_camera_origin_t origin;
+            uint32_t origin_id;
         } camera_meta;
         struct {
             uint16_t code;
@@ -174,14 +186,17 @@ typedef struct {
 
 typedef struct {
     uint32_t session_serial;
+    bool boundary;
+    ainekio_event_t event;
+    uint32_t origin_id;
     uint8_t bytes[AINEKIO_BINARY_HEADER_BYTES + AINEKIO_AUDIO_PAYLOAD_BYTES];
     size_t length;
 } mic_tx_item_t;
 
 typedef struct {
     uint32_t session_serial;
-    bool snapshot;
-    uint32_t sequence;
+    ainekio_camera_origin_t origin;
+    uint32_t origin_id;
     ainekio_camera_resolution_t resolution;
     uint32_t counter;
     uint8_t *bytes;
@@ -234,6 +249,7 @@ struct ainekio_runtime {
     bool authenticated;
     bool failsafe_signalled;
     bool ping_pending;
+    bool control_stale;
     disconnect_reason_t disconnect_reason;
     bool boot_event_pending;
     bool brownout_recovered_pending;
@@ -244,6 +260,11 @@ struct ainekio_runtime {
     uint8_t display_state;
     uint32_t config_generation;
     uint32_t session_serial;
+    uint32_t rx_control_frames;
+    uint32_t rx_control_rejections;
+    uint32_t tx_control_frames;
+    uint32_t tx_control_failures;
+    uint32_t control_pings_enqueued;
     int64_t last_rx_control_us;
     int64_t last_tx_control_us;
 
@@ -273,6 +294,8 @@ struct ainekio_runtime {
     uint8_t battery_queue_storage[sizeof(battery_item_t)];
     uint8_t sd_queue_storage[sizeof(sd_item_t)];
     uint32_t microphone_counter;
+    uint32_t active_utterance_id;
+    bool utterance_active;
 
     TaskHandle_t supervisor_task;
     TaskHandle_t tx_task;
@@ -339,9 +362,6 @@ static int64_t now_us(void)
 
 static const char *disconnect_status(disconnect_reason_t reason)
 {
-    if (reason == DISCONNECT_CONTROL_TIMEOUT) {
-        return "CONTROL TIMEOUT";
-    }
     if (reason == DISCONNECT_AUTH_REJECTED) {
         return "AUTH REJECTED";
     }
@@ -465,7 +485,10 @@ static bool enqueue_tx(
         return true;
     }
     ESP_LOGE(TAG, "%s control queue overflow", fast ? "fast" : "normal");
-    force_disconnect(runtime);
+    taskENTER_CRITICAL(&runtime->state_lock);
+    ++runtime->tx_control_failures;
+    taskEXIT_CRITICAL(&runtime->state_lock);
+    (void)ainekio_motion_service_request_stop(&runtime->motion);
     return false;
 }
 
@@ -513,7 +536,23 @@ static void queue_event(ainekio_runtime_t *runtime, ainekio_event_t event)
         return;
     }
     tx_item_t item = tx_base(runtime, TX_EVENT);
-    item.data.event = event;
+    item.data.event.event = event;
+    (void)enqueue_tx(runtime, &item, false);
+}
+
+static void queue_correlated_event(
+    ainekio_runtime_t *runtime,
+    ainekio_event_t event,
+    uint32_t origin_id
+)
+{
+    if (!session_matches(runtime, current_serial(runtime), true)) {
+        return;
+    }
+    tx_item_t item = tx_base(runtime, TX_EVENT);
+    item.data.event.event = event;
+    item.data.event.has_origin_id = true;
+    item.data.event.origin_id = origin_id;
     (void)enqueue_tx(runtime, &item, false);
 }
 
@@ -607,12 +646,20 @@ static size_t encode_tx(
     case TX_STATUS:
         return ainekio_encode_status(&item->data.status, output, capacity);
     case TX_EVENT:
-        return ainekio_encode_event(item->data.event, output, capacity);
+        return ainekio_encode_event(
+            item->data.event.event,
+            item->data.event.has_origin_id,
+            item->data.event.origin_id,
+            output,
+            capacity
+        );
     case TX_CAMERA_META:
         return ainekio_encode_camera_meta(
             item->data.camera_meta.resolution,
             item->data.camera_meta.fps,
             item->data.camera_meta.counter_base,
+            item->data.camera_meta.origin,
+            item->data.camera_meta.origin_id,
             output,
             capacity
         );
@@ -635,7 +682,18 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
             runtime->client_lock,
             pdMS_TO_TICKS(CLIENT_LOCK_TIMEOUT_MS)
         ) != pdTRUE) {
-        force_disconnect(runtime);
+        taskENTER_CRITICAL(&runtime->state_lock);
+        ++runtime->tx_control_failures;
+        if (item->kind == TX_PING) {
+            runtime->ping_pending = false;
+        }
+        taskEXIT_CRITICAL(&runtime->state_lock);
+        ESP_LOGE(
+            TAG,
+            "control ownership lock timeout kind=%u session=%u",
+            (unsigned int)item->kind,
+            (unsigned int)item->session_serial
+        );
         return;
     }
     esp_websocket_client_handle_t client = runtime->client;
@@ -650,7 +708,7 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
             item->data.close.code,
             NULL,
             0,
-            pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
+            pdMS_TO_TICKS(CONTROL_WRITE_TIMEOUT_MS)
         );
         (void)xSemaphoreGive(runtime->client_lock);
         if (result != ESP_OK) {
@@ -671,16 +729,29 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
             client,
             runtime->buffers->tx_text,
             (int)length,
-            pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
+            pdMS_TO_TICKS(CONTROL_WRITE_TIMEOUT_MS)
         );
     }
     (void)xSemaphoreGive(runtime->client_lock);
     if (length == 0U || sent != (int)length) {
-        ESP_LOGE(TAG, "bounded control write failed kind=%u", (unsigned int)item->kind);
-        force_disconnect(runtime);
+        taskENTER_CRITICAL(&runtime->state_lock);
+        ++runtime->tx_control_failures;
+        if (item->kind == TX_PING) {
+            runtime->ping_pending = false;
+        }
+        taskEXIT_CRITICAL(&runtime->state_lock);
+        ESP_LOGE(
+            TAG,
+            "bounded control write failed kind=%u encoded=%u sent=%d session=%u",
+            (unsigned int)item->kind,
+            (unsigned int)length,
+            sent,
+            (unsigned int)item->session_serial
+        );
         return;
     }
     taskENTER_CRITICAL(&runtime->state_lock);
+    ++runtime->tx_control_frames;
     runtime->last_tx_control_us = now_us();
     if (item->kind == TX_PING) {
         runtime->ping_pending = false;
@@ -756,7 +827,8 @@ static bool send_binary(
     ainekio_runtime_t *runtime,
     uint32_t session_serial,
     const uint8_t *bytes,
-    size_t length
+    size_t length,
+    TickType_t timeout
 )
 {
     if (!session_matches(runtime, session_serial, true)) {
@@ -766,7 +838,6 @@ static bool send_binary(
             runtime->client_lock,
             pdMS_TO_TICKS(CLIENT_LOCK_TIMEOUT_MS)
         ) != pdTRUE) {
-        force_disconnect(runtime);
         return false;
     }
     esp_websocket_client_handle_t client = runtime->client;
@@ -775,12 +846,17 @@ static bool send_binary(
                                client,
                                bytes,
                                length,
-                               pdMS_TO_TICKS(WRITE_TIMEOUT_MS)
+                               timeout
                            )
                          : -1;
     (void)xSemaphoreGive(runtime->client_lock);
     if (sent != (int)length) {
-        force_disconnect(runtime);
+        /* A failed fragmented camera frame leaves an incomplete WebSocket
+         * message on the wire, so that case requires a clean new session.
+         * A single-frame microphone write can be dropped and retried. */
+        if (length > AINEKIO_CONTROL_MAX_BYTES) {
+            force_disconnect(runtime);
+        }
         return false;
     }
     return true;
@@ -817,35 +893,52 @@ static void tx_task(void *argument)
             continue;
         }
         mic_tx_item_t microphone;
-        if (xQueueReceive(runtime->mic_queue, &microphone, 0U) == pdTRUE &&
-            session_matches(runtime, microphone.session_serial, true)) {
-            (void)send_binary(
-                runtime,
-                microphone.session_serial,
-                microphone.bytes,
-                microphone.length
-            );
+        if (xQueueReceive(runtime->mic_queue, &microphone, 0U) == pdTRUE) {
+            if (!session_matches(runtime, microphone.session_serial, true)) {
+                continue;
+            }
+            if (microphone.boundary) {
+                tx_item_t event = tx_base(runtime, TX_EVENT);
+                event.session_serial = microphone.session_serial;
+                event.data.event.event = microphone.event;
+                event.data.event.has_origin_id = true;
+                event.data.event.origin_id = microphone.origin_id;
+                send_tx_item(runtime, &event);
+            } else {
+                (void)send_binary(
+                    runtime,
+                    microphone.session_serial,
+                    microphone.bytes,
+                    microphone.length,
+                    pdMS_TO_TICKS(MICROPHONE_WRITE_TIMEOUT_MS)
+                );
+            }
             continue;
         }
         camera_tx_item_t camera;
         if (xQueueReceive(runtime->camera_queue, &camera, 0U) == pdTRUE) {
             if (session_matches(runtime, camera.session_serial, true)) {
-                if (camera.snapshot) {
+                if (camera.origin != AINEKIO_CAMERA_ORIGIN_NONE) {
                     tx_item_t meta = tx_base(runtime, TX_CAMERA_META);
                     meta.data.camera_meta.resolution = camera.resolution;
                     meta.data.camera_meta.fps = 0U;
                     meta.data.camera_meta.counter_base = camera.counter;
+                    meta.data.camera_meta.origin = camera.origin;
+                    meta.data.camera_meta.origin_id = camera.origin_id;
                     send_tx_item(runtime, &meta);
                 }
                 const bool sent = send_binary(
                     runtime,
                     camera.session_serial,
                     camera.bytes,
-                    camera.length
+                    camera.length,
+                    pdMS_TO_TICKS(CAMERA_WRITE_TIMEOUT_MS)
                 );
-                if (sent && camera.snapshot) {
+                if (sent &&
+                    (camera.origin == AINEKIO_CAMERA_ORIGIN_REQUEST ||
+                     camera.origin == AINEKIO_CAMERA_ORIGIN_ACTION)) {
                     tx_item_t done = tx_base(runtime, TX_DONE);
-                    done.data.sequence = camera.sequence;
+                    done.data.sequence = camera.origin_id;
                     send_tx_item(runtime, &done);
                 }
             }
@@ -857,6 +950,14 @@ static void tx_task(void *argument)
 static void motion_done(void *context, uint32_t sequence)
 {
     ainekio_runtime_t *runtime = context;
+    if (runtime->camera != NULL &&
+        ainekio_camera_snapshot(
+            runtime->camera,
+            AINEKIO_CAMERA_ORIGIN_ACTION,
+            sequence
+        ) == ESP_OK) {
+        return;
+    }
     tx_item_t item = tx_base(runtime, TX_DONE);
     item.data.sequence = sequence;
     (void)enqueue_tx(runtime, &item, false);
@@ -891,7 +992,9 @@ static void audio_done(void *context, uint32_t sequence)
 {
     ainekio_runtime_t *runtime = context;
     ainekio_display_end_talk(runtime->display);
-    motion_done(context, sequence);
+    tx_item_t item = tx_base(runtime, TX_DONE);
+    item.data.sequence = sequence;
+    (void)enqueue_tx(runtime, &item, false);
 }
 
 static void audio_failed(void *context, uint32_t sequence, bool overflow)
@@ -932,20 +1035,93 @@ static void audio_microphone(
         return;
     }
     mic_tx_item_t discarded;
-    (void)xQueueReceive(runtime->mic_queue, &discarded, 0U);
+    if (xQueueReceive(runtime->mic_queue, &discarded, 0U) == pdTRUE &&
+        discarded.boundary) {
+        queue_correlated_event(
+            runtime,
+            discarded.event,
+            discarded.origin_id
+        );
+    }
     ++runtime->microphone_drops;
     if (xQueueSend(runtime->mic_queue, &item, 0U) != pdTRUE) {
         ++runtime->microphone_drops;
     }
 }
 
+static bool queue_audio_boundary(
+    ainekio_runtime_t *runtime,
+    ainekio_event_t event,
+    uint32_t origin_id
+)
+{
+    if (!session_matches(runtime, current_serial(runtime), true)) {
+        return false;
+    }
+    const mic_tx_item_t item = {
+        .session_serial = current_serial(runtime),
+        .boundary = true,
+        .event = event,
+        .origin_id = origin_id,
+    };
+    if (xQueueSend(runtime->mic_queue, &item, 0U) == pdTRUE) {
+        return true;
+    }
+    mic_tx_item_t discarded;
+    if (xQueueReceive(runtime->mic_queue, &discarded, 0U) == pdTRUE &&
+        discarded.boundary) {
+        queue_correlated_event(
+            runtime,
+            discarded.event,
+            discarded.origin_id
+        );
+    }
+    ++runtime->microphone_drops;
+    return xQueueSend(runtime->mic_queue, &item, 0U) == pdTRUE;
+}
+
 static void audio_gate(void *context, bool open, bool wake_word)
 {
     ainekio_runtime_t *runtime = context;
-    queue_event(
-        runtime,
-        open ? AINEKIO_EVENT_VAD_OPEN : AINEKIO_EVENT_VAD_CLOSE
-    );
+    if (open) {
+        runtime->active_utterance_id = runtime->microphone_counter;
+        runtime->utterance_active = true;
+        if (!queue_audio_boundary(
+                runtime,
+                AINEKIO_EVENT_VAD_OPEN,
+                runtime->active_utterance_id
+            )) {
+            queue_correlated_event(
+                runtime,
+                AINEKIO_EVENT_VAD_OPEN,
+                runtime->active_utterance_id
+            );
+        }
+    } else {
+        const bool utterance_active = runtime->utterance_active;
+        const uint32_t origin_id = runtime->active_utterance_id;
+        runtime->utterance_active = false;
+        if (utterance_active) {
+            if (!queue_audio_boundary(
+                    runtime,
+                    AINEKIO_EVENT_VAD_CLOSE,
+                    origin_id
+                )) {
+                queue_correlated_event(
+                    runtime,
+                    AINEKIO_EVENT_VAD_CLOSE,
+                    origin_id
+                );
+            }
+            if (runtime->camera != NULL) {
+                (void)ainekio_camera_snapshot(
+                    runtime->camera,
+                    AINEKIO_CAMERA_ORIGIN_AUDIO,
+                    origin_id
+                );
+            }
+        }
+    }
     if (wake_word) {
         queue_event(runtime, AINEKIO_EVENT_WAKE_WORD);
     }
@@ -958,21 +1134,33 @@ static void count_camera_drop(ainekio_runtime_t *runtime)
     taskEXIT_CRITICAL(&runtime->state_lock);
 }
 
-static void cancel_snapshot(ainekio_runtime_t *runtime, uint32_t sequence)
+static void finish_failed_snapshot(
+    ainekio_runtime_t *runtime,
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id
+)
 {
-    if (sequence == 0U) {
+    if (origin != AINEKIO_CAMERA_ORIGIN_REQUEST &&
+        origin != AINEKIO_CAMERA_ORIGIN_ACTION) {
         return;
     }
-    tx_item_t item = tx_base(runtime, TX_CANCELLED);
-    item.data.cancelled.sequence = sequence;
-    item.data.cancelled.code = AINEKIO_CANCEL_OVERFLOW;
+    tx_item_t item = tx_base(
+        runtime,
+        origin == AINEKIO_CAMERA_ORIGIN_REQUEST ? TX_CANCELLED : TX_DONE
+    );
+    if (origin == AINEKIO_CAMERA_ORIGIN_REQUEST) {
+        item.data.cancelled.sequence = origin_id;
+        item.data.cancelled.code = AINEKIO_CANCEL_OVERFLOW;
+    } else {
+        item.data.sequence = origin_id;
+    }
     (void)enqueue_tx(runtime, &item, false);
 }
 
 static void camera_frame(
     void *context,
-    bool snapshot,
-    uint32_t sequence,
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id,
     ainekio_camera_resolution_t resolution,
     uint32_t counter,
     const uint8_t *jpeg,
@@ -1002,15 +1190,13 @@ static void camera_frame(
         ) != AINEKIO_BINARY_OK) {
         heap_caps_free(bytes);
         count_camera_drop(runtime);
-        if (snapshot) {
-            cancel_snapshot(runtime, sequence);
-        }
+        finish_failed_snapshot(runtime, origin, origin_id);
         return;
     }
     const camera_tx_item_t item = {
         .session_serial = serial,
-        .snapshot = snapshot,
-        .sequence = sequence,
+        .origin = origin,
+        .origin_id = origin_id,
         .resolution = resolution,
         .counter = counter,
         .bytes = bytes,
@@ -1024,25 +1210,29 @@ static void camera_frame(
     if (xQueueReceive(runtime->camera_queue, &discarded, 0U) == pdTRUE) {
         heap_caps_free(discarded.bytes);
         count_camera_drop(runtime);
-        if (discarded.snapshot) {
-            cancel_snapshot(runtime, discarded.sequence);
-        }
+        finish_failed_snapshot(
+            runtime,
+            discarded.origin,
+            discarded.origin_id
+        );
     }
     if (xQueueSend(runtime->camera_queue, &item, 0U) != pdTRUE) {
         heap_caps_free(bytes);
         count_camera_drop(runtime);
-        if (snapshot) {
-            cancel_snapshot(runtime, sequence);
-        }
+        finish_failed_snapshot(runtime, origin, origin_id);
     }
 }
 
-static void camera_failed(void *context, bool snapshot, uint32_t sequence)
+static void camera_failed(
+    void *context,
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id
+)
 {
     ainekio_runtime_t *runtime = context;
     count_camera_drop(runtime);
-    if (snapshot && session_matches(runtime, current_serial(runtime), true)) {
-        cancel_snapshot(runtime, sequence);
+    if (session_matches(runtime, current_serial(runtime), true)) {
+        finish_failed_snapshot(runtime, origin, origin_id);
     }
 }
 
@@ -1276,7 +1466,11 @@ static void dispatch_command(
             );
             return;
         }
-        if (ainekio_camera_snapshot(runtime->camera, command->sequence) != ESP_OK) {
+        if (ainekio_camera_snapshot(
+                runtime->camera,
+                AINEKIO_CAMERA_ORIGIN_REQUEST,
+                command->sequence
+            ) != ESP_OK) {
             (void)queue_nak(
                 runtime,
                 true,
@@ -1645,6 +1839,8 @@ static void dispatch_command(
                                         : 0U;
         meta.data.camera_meta.counter_base =
             ainekio_camera_counter_base(runtime->camera);
+        meta.data.camera_meta.origin = AINEKIO_CAMERA_ORIGIN_NONE;
+        meta.data.camera_meta.origin_id = 0U;
         (void)enqueue_tx(runtime, &meta, false);
     }
     if (audio_overflow) {
@@ -1789,7 +1985,7 @@ static void dispatch_battery(
             ainekio_sleep_enter(30U * 60U, true);
         }
         tx_item_t event = tx_base(runtime, TX_EVENT);
-        event.data.event = AINEKIO_EVENT_BATTERY_CUTOFF;
+        event.data.event.event = AINEKIO_EVENT_BATTERY_CUTOFF;
         wifi_ap_record_t access_point;
         const int8_t rssi = esp_wifi_sta_get_ap_info(&access_point) == ESP_OK
                                 ? access_point.rssi
@@ -2042,6 +2238,20 @@ static void handle_text_chunk(
         runtime->rx_text_discard = data->payload_len <= 0 ||
                                    data->payload_len > (int)AINEKIO_CONTROL_MAX_BYTES ||
                                    !data->fin;
+        if (runtime->rx_text_discard) {
+            taskENTER_CRITICAL(&runtime->state_lock);
+            ++runtime->rx_control_rejections;
+            taskEXIT_CRITICAL(&runtime->state_lock);
+            ESP_LOGW(
+                TAG,
+                "control frame rejected opcode=%d fin=%u offset=%d chunk=%d payload=%d",
+                data->op_code,
+                data->fin ? 1U : 0U,
+                data->payload_offset,
+                data->data_len,
+                data->payload_len
+            );
+        }
     }
     if (runtime->rx_text_discard || data->payload_offset < 0 || data->data_len < 0 ||
         (size_t)data->payload_offset + (size_t)data->data_len >
@@ -2068,15 +2278,30 @@ static void handle_text_chunk(
         return;
     }
     runtime->buffers->rx_text[runtime->rx_text_expected] = '\0';
-    taskENTER_CRITICAL(&runtime->state_lock);
-    runtime->last_rx_control_us = now_us();
-    const uint32_t serial = runtime->session_serial;
-    taskEXIT_CRITICAL(&runtime->state_lock);
     const ainekio_decode_result_t result = ainekio_control_decode(
         runtime->buffers->rx_text,
         runtime->rx_text_expected,
         &runtime->buffers->rx_message
     );
+    taskENTER_CRITICAL(&runtime->state_lock);
+    const uint32_t serial = runtime->session_serial;
+    if (result == AINEKIO_DECODE_OK || result == AINEKIO_DECODE_UNKNOWN) {
+        runtime->last_rx_control_us = now_us();
+        runtime->control_stale = false;
+        ++runtime->rx_control_frames;
+    } else {
+        ++runtime->rx_control_rejections;
+    }
+    taskEXIT_CRITICAL(&runtime->state_lock);
+    if (result != AINEKIO_DECODE_OK && result != AINEKIO_DECODE_UNKNOWN) {
+        ESP_LOGW(
+            TAG,
+            "control decode rejected result=%u bytes=%u session=%u",
+            (unsigned int)result,
+            (unsigned int)runtime->rx_text_expected,
+            (unsigned int)serial
+        );
+    }
     handle_decoded_control(
         runtime,
         &runtime->buffers->rx_message,
@@ -2163,6 +2388,12 @@ static void websocket_event(
         runtime->authenticated = false;
         runtime->failsafe_signalled = false;
         runtime->ping_pending = false;
+        runtime->control_stale = false;
+        runtime->rx_control_frames = 0U;
+        runtime->rx_control_rejections = 0U;
+        runtime->tx_control_frames = 0U;
+        runtime->tx_control_failures = 0U;
+        runtime->control_pings_enqueued = 0U;
         runtime->disconnect_reason = DISCONNECT_OFFLINE;
         runtime->last_rx_control_us = now_us();
         runtime->last_tx_control_us = runtime->last_rx_control_us;
@@ -2192,6 +2423,7 @@ static void websocket_event(
         runtime->connected = false;
         runtime->authenticated = false;
         runtime->ping_pending = false;
+        runtime->control_stale = false;
         const disconnect_reason_t reason = runtime->disconnect_reason;
         taskEXIT_CRITICAL(&runtime->state_lock);
         show_gateway_status(runtime, disconnect_status(reason));
@@ -2221,10 +2453,11 @@ static void flush_session_queues(ainekio_runtime_t *runtime)
     (void)xQueueReset(runtime->camera_queue);
 }
 
-static void destroy_client(ainekio_runtime_t *runtime)
+static bool destroy_client(ainekio_runtime_t *runtime)
 {
     if (xSemaphoreTake(runtime->client_lock, pdMS_TO_TICKS(1000U)) != pdTRUE) {
-        return;
+        ESP_LOGE(TAG, "gateway client teardown deferred; TX still owns client");
+        return false;
     }
     esp_websocket_client_handle_t client = runtime->client;
     runtime->client = NULL;
@@ -2233,6 +2466,7 @@ static void destroy_client(ainekio_runtime_t *runtime)
         (void)esp_websocket_client_destroy(client);
     }
     (void)xSemaphoreGive(runtime->client_lock);
+    return true;
 }
 
 static esp_err_t create_client(ainekio_runtime_t *runtime)
@@ -2279,12 +2513,17 @@ static esp_err_t create_client(ainekio_runtime_t *runtime)
         .task_stack = 8192,
         .buffer_size = AINEKIO_CONTROL_MAX_BYTES,
         .crt_bundle_attach = secure ? esp_crt_bundle_attach : NULL,
-        .keep_alive_enable = true,
-        .keep_alive_idle = 5,
-        .keep_alive_interval = 5,
-        .keep_alive_count = 3,
-        .network_timeout_ms = NETWORK_CONNECT_TIMEOUT_MS,
-        .ping_interval_sec = 10U,
+        /* The application heartbeat owns control health. Aggressive TCP
+         * keepalive previously destroyed sessions during recoverable 20-30
+         * second Wi-Fi stalls. Actual socket/Wi-Fi errors still surface
+         * through WEBSOCKET_EVENT_DISCONNECTED. */
+        .keep_alive_enable = false,
+        .network_timeout_ms = NETWORK_OPERATION_TIMEOUT_MS,
+        /* Protocol-v1 already carries the application heartbeat. The pinned
+         * client treats SIZE_MAX as an explicit request for no duplicate
+         * native PING frames. */
+        .ping_interval_sec = SIZE_MAX,
+        .disable_pingpong_discon = true,
     };
     esp_websocket_client_handle_t client = esp_websocket_client_init(&config);
     if (client == NULL) {
@@ -2329,29 +2568,53 @@ static uint32_t jittered_delay(uint32_t base_ms)
 static void supervisor_liveness(ainekio_runtime_t *runtime)
 {
     const int64_t now = now_us();
-    bool connected = false;
     bool authenticated = false;
     bool ping = false;
-    bool failsafe = false;
+    bool stop_motion = false;
     uint32_t serial = 0U;
     taskENTER_CRITICAL(&runtime->state_lock);
-    connected = runtime->connected;
     authenticated = runtime->authenticated;
     serial = runtime->session_serial;
-    if (connected && now - runtime->last_rx_control_us >= CONTROL_FAILSAFE_US) {
-        failsafe = true;
-    } else if (authenticated && !runtime->ping_pending &&
-               now - runtime->last_tx_control_us >= CONTROL_PING_US) {
+    if (authenticated && !runtime->control_stale &&
+        now - runtime->last_rx_control_us >= CONTROL_STALE_US) {
+        runtime->control_stale = true;
+        stop_motion = true;
+    }
+    if (authenticated && !runtime->ping_pending &&
+        now - runtime->last_tx_control_us >= CONTROL_PING_US) {
         runtime->ping_pending = true;
         ping = true;
     }
     taskEXIT_CRITICAL(&runtime->state_lock);
-    if (failsafe) {
+    if (stop_motion) {
+        uint32_t rx_frames = 0U;
+        uint32_t rx_rejections = 0U;
+        uint32_t tx_frames = 0U;
+        uint32_t tx_failures = 0U;
+        uint32_t pings_enqueued = 0U;
+        int64_t last_rx_age_ms = 0;
         taskENTER_CRITICAL(&runtime->state_lock);
-        runtime->disconnect_reason = DISCONNECT_CONTROL_TIMEOUT;
+        rx_frames = runtime->rx_control_frames;
+        rx_rejections = runtime->rx_control_rejections;
+        tx_frames = runtime->tx_control_frames;
+        tx_failures = runtime->tx_control_failures;
+        pings_enqueued = runtime->control_pings_enqueued;
+        last_rx_age_ms = (now - runtime->last_rx_control_us) / INT64_C(1000);
         taskEXIT_CRITICAL(&runtime->state_lock);
-        force_disconnect(runtime);
-    } else if (ping) {
+        ESP_LOGE(
+            TAG,
+            "control stale; motion stopped session=%u rx=%u rejected=%u tx=%u tx_failed=%u pings=%u age_ms=%lld",
+            (unsigned int)serial,
+            (unsigned int)rx_frames,
+            (unsigned int)rx_rejections,
+            (unsigned int)tx_frames,
+            (unsigned int)tx_failures,
+            (unsigned int)pings_enqueued,
+            (long long)last_rx_age_ms
+        );
+        (void)ainekio_motion_service_request_stop(&runtime->motion);
+    }
+    if (ping) {
         const tx_item_t item = {
             .session_serial = serial,
             .kind = TX_PING,
@@ -2359,6 +2622,10 @@ static void supervisor_liveness(ainekio_runtime_t *runtime)
         if (!enqueue_tx(runtime, &item, true)) {
             taskENTER_CRITICAL(&runtime->state_lock);
             runtime->ping_pending = false;
+            taskEXIT_CRITICAL(&runtime->state_lock);
+        } else {
+            taskENTER_CRITICAL(&runtime->state_lock);
+            ++runtime->control_pings_enqueued;
             taskEXIT_CRITICAL(&runtime->state_lock);
         }
     }
@@ -2388,7 +2655,15 @@ static void supervisor_task(void *argument)
         taskEXIT_CRITICAL(&runtime->state_lock);
 
         if ((notifications & (SUPERVISOR_FORCE_CLOSE | SUPERVISOR_DISCONNECTED)) != 0U) {
-            destroy_client(runtime);
+            if (!destroy_client(runtime)) {
+                (void)xTaskNotify(
+                    runtime->supervisor_task,
+                    SUPERVISOR_FORCE_CLOSE,
+                    eSetBits
+                );
+                vTaskDelay(pdMS_TO_TICKS(20U));
+                continue;
+            }
             flush_session_queues(runtime);
             attempt_at_us = now_us() + (int64_t)jittered_delay(backoff_ms) * 1000;
             backoff_ms = backoff_ms < 30000U ? backoff_ms * 2U : 30000U;
@@ -2398,7 +2673,15 @@ static void supervisor_task(void *argument)
         }
         if ((notifications & SUPERVISOR_ONLINE) != 0U ||
             generation != seen_generation) {
-            destroy_client(runtime);
+            if (!destroy_client(runtime)) {
+                (void)xTaskNotify(
+                    runtime->supervisor_task,
+                    SUPERVISOR_ONLINE,
+                    eSetBits
+                );
+                vTaskDelay(pdMS_TO_TICKS(20U));
+                continue;
+            }
             flush_session_queues(runtime);
             seen_generation = generation;
             backoff_ms = 1000U;

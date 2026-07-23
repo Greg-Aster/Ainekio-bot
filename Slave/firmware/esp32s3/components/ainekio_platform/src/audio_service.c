@@ -17,12 +17,29 @@
 #define AUDIO_NOTIFY_ASSET BIT0
 #define AUDIO_NOTIFY_CANCEL BIT1
 #define AUDIO_TASK_PRIORITY (configMAX_PRIORITIES - 2U)
-#define AUDIO_BUS_WORDS 640U
+#define AUDIO_SAMPLE_RATE_HZ 16000U
+#define AUDIO_FRAME_SAMPLES (AINEKIO_AUDIO_PAYLOAD_BYTES / sizeof(int16_t))
+#define AUDIO_FRAME_DURATION_MS \
+    ((AUDIO_FRAME_SAMPLES * 1000U) / AUDIO_SAMPLE_RATE_HZ)
+#define AUDIO_BUS_WORDS (AUDIO_FRAME_SAMPLES * 2U)
+#define AUDIO_WRITE_TIMEOUT_MS 60U
+#define AUDIO_WRITE_FAILURE_BACKOFF_MS AUDIO_FRAME_DURATION_MS
+#define AUDIO_WRITE_LOG_INTERVAL_MS 5000U
 #define VAD_THRESHOLD 900U
 #define VAD_HANGOVER_FRAMES 10U
 #define WAKE_SPEECH_HANGOVER_FRAMES 35U
 #define MICROPHONE_PRE_ROLL_FRAMES 5U
 #define MICROPHONE_COOLDOWN_FRAMES 40U
+
+_Static_assert(
+    (AUDIO_FRAME_SAMPLES * 1000U) % AUDIO_SAMPLE_RATE_HZ == 0U,
+    "audio frame duration must be an exact number of milliseconds"
+);
+_Static_assert(
+    pdMS_TO_TICKS(AUDIO_WRITE_TIMEOUT_MS) >
+        pdMS_TO_TICKS(AUDIO_FRAME_DURATION_MS),
+    "I2S write timeout must exceed one audio frame after tick rounding"
+);
 
 typedef enum {
     SPEAKER_PCM = 0,
@@ -55,6 +72,8 @@ struct ainekio_audio_service {
     uint32_t asset_samples;
     uint32_t speaker_underruns;
     uint32_t microphone_drops;
+    uint32_t speaker_write_failures_since_log;
+    uint32_t last_speaker_write_log_ms;
     uint8_t speaker_frames_queued;
     uint8_t mic_pre_roll_count;
     uint8_t mic_pre_roll_next;
@@ -97,14 +116,40 @@ static void silence_bus(int32_t bus[AUDIO_BUS_WORDS])
 static bool write_bus(ainekio_audio_service_t *service)
 {
     size_t written = 0U;
-    return i2s_channel_write(
-               service->tx_channel,
-               service->bus_buffer,
-               sizeof(service->bus_buffer),
-               &written,
-               25U
-           ) == ESP_OK &&
-           written == sizeof(service->bus_buffer);
+    const esp_err_t result = i2s_channel_write(
+        service->tx_channel,
+        service->bus_buffer,
+        sizeof(service->bus_buffer),
+        &written,
+        AUDIO_WRITE_TIMEOUT_MS
+    );
+    if (result == ESP_OK && written == sizeof(service->bus_buffer)) {
+        if (service->last_speaker_write_log_ms != 0U) {
+            ESP_LOGI(TAG, "speaker I2S write recovered");
+            service->last_speaker_write_log_ms = 0U;
+            service->speaker_write_failures_since_log = 0U;
+        }
+        return true;
+    }
+
+    ++service->speaker_write_failures_since_log;
+    const uint32_t now_ms = esp_log_timestamp();
+    if (service->last_speaker_write_log_ms == 0U ||
+        now_ms - service->last_speaker_write_log_ms >=
+            AUDIO_WRITE_LOG_INTERVAL_MS) {
+        ESP_LOGW(
+            TAG,
+            "speaker I2S write failed: result=%s bytes=%u/%u repeats=%lu",
+            esp_err_to_name(result),
+            (unsigned int)written,
+            (unsigned int)sizeof(service->bus_buffer),
+            (unsigned long)service->speaker_write_failures_since_log
+        );
+        service->last_speaker_write_log_ms = now_ms == 0U ? 1U : now_ms;
+        service->speaker_write_failures_since_log = 0U;
+    }
+    vTaskDelay(pdMS_TO_TICKS(AUDIO_WRITE_FAILURE_BACKOFF_MS));
+    return false;
 }
 
 static uint32_t mic_energy(const uint8_t payload[AINEKIO_AUDIO_PAYLOAD_BYTES])
@@ -398,9 +443,7 @@ static void audio_task(void *argument)
             }
             silence_bus(service->bus_buffer);
         }
-        if (!write_bus(service)) {
-            ESP_LOGW(TAG, "speaker DMA write failed");
-        }
+        (void)write_bus(service);
         read_microphone(service);
     }
 }
@@ -410,7 +453,7 @@ static esp_err_t initialize_i2s(ainekio_audio_service_t *service)
     i2s_chan_config_t channel_config =
         I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     channel_config.dma_desc_num = 8U;
-    channel_config.dma_frame_num = 320U;
+    channel_config.dma_frame_num = AUDIO_FRAME_SAMPLES;
     esp_err_t result = i2s_new_channel(
         &channel_config,
         &service->tx_channel,
@@ -420,7 +463,7 @@ static esp_err_t initialize_i2s(ainekio_audio_service_t *service)
         return result;
     }
     const i2s_std_config_t standard_config = {
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(16000U),
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(AUDIO_SAMPLE_RATE_HZ),
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(
             I2S_DATA_BIT_WIDTH_32BIT,
             I2S_SLOT_MODE_STEREO

@@ -40,7 +40,7 @@
       "name": "camera_jpeg",
       "direction": "body-to-brain",
       "payload": {
-        "maximumBytes": 122880,
+        "maximumBytes": 262144,
         "encoding": "jpeg",
         "startsWithHex": "ffd8",
         "endsWithHex": "ffd9"

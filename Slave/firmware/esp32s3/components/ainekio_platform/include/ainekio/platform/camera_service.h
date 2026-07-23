@@ -14,14 +14,18 @@ typedef struct {
     void *context;
     void (*frame)(
         void *context,
-        bool snapshot,
-        uint32_t sequence,
+        ainekio_camera_origin_t origin,
+        uint32_t origin_id,
         ainekio_camera_resolution_t resolution,
         uint32_t counter,
         const uint8_t *jpeg,
         size_t length
     );
-    void (*failed)(void *context, bool snapshot, uint32_t sequence);
+    void (*failed)(
+        void *context,
+        ainekio_camera_origin_t origin,
+        uint32_t origin_id
+    );
 } ainekio_camera_callbacks_t;
 
 esp_err_t ainekio_camera_service_start(
@@ -36,7 +40,8 @@ esp_err_t ainekio_camera_configure(
 );
 esp_err_t ainekio_camera_snapshot(
     ainekio_camera_service_t *service,
-    uint32_t sequence
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id
 );
 uint32_t ainekio_camera_counter_base(
     const ainekio_camera_service_t *service
