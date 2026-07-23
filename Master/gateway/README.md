@@ -11,7 +11,8 @@ log live under the ignored `build/gateway/` runtime directory by default.
 The physical robot and the Environment Bridge share one authenticated,
 full-duplex gateway process. Ainekio connects to the LAN-facing `/robot` route;
 MetaHuman OS connects from loopback to `/environment`. Non-loopback peers are
-rejected from `/environment`. Once established, either side can send data,
+rejected from `/environment`, as are requests carrying Cloudflare relay
+headers. Once established, either side can send data,
 so the fact that the ESP32 initiates its connection does not make communication
 one-way.
 
@@ -36,6 +37,11 @@ stored on the robot and DHCP changes require no reconfiguration. A
 same-computer MetaHuman OS process continues to use
 `ws://127.0.0.1:8790/environment`. Runtime tokens and password verifiers remain
 under ignored `build/gateway/physical/` storage.
+
+This one-off home deployment intentionally uses authenticated `ws://` on the
+owner's private WPA2 LAN. It is the smallest local path, but the LAN is part of
+the trust boundary: do not use it on guest, shared, or public WiFi. Remote mode
+remains explicit and requires `wss://`; it is never an automatic fallback.
 On the first interactive launch, an unset `AINEKIO_DASHBOARD_PASSWORD` creates
 and prints one password. Later launches reuse its stored verifier instead of
 rotating it. Setting the environment variable explicitly replaces the verifier
@@ -58,7 +64,15 @@ repository remains at `~/Ainekio`.
 The physical dashboard uses the selected robot's authenticated JPEG stream as
 its first panel; enable the camera in **Camera and audio** if the panel is
 waiting for frames. The emulator stack keeps the visual robot simulator in that
-position instead.
+position instead. For bring-up testing, the body microphone starts enabled with
+the VAD gate; the same panel can turn it off or select another supported gate
+and shows the live input level. Camera streaming is local to this dashboard and
+is not forwarded as a continuous image stream to MetaHuman.
+
+Every completed robot action requests one fresh still for correlated LLM
+feedback when the camera is ready. MetaHuman can also request `captureImage`
+directly. These bounded snapshots share the camera service with the dashboard
+but are the only camera images admitted to the Environment observation path.
 
 Run the production gateway with development credentials supplied through the
 environment on first startup:

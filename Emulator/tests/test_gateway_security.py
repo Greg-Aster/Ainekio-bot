@@ -22,6 +22,11 @@ class GatewaySecurityTests(unittest.TestCase):
         self.assertFalse(gateway_main._peer_is_loopback(Peer("192.168.0.20")))
         self.assertFalse(gateway_main._peer_is_loopback(object()))
 
+        relay = Peer("127.0.0.1")
+        relay.request_headers = {"CF-Ray": "test"}
+        self.assertTrue(gateway_main._request_uses_relay(relay))
+        self.assertEqual(gateway_main._robot_transport(relay), "relay")
+
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary_directory.name)
