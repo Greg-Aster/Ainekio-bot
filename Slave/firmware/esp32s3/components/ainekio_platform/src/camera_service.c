@@ -16,6 +16,9 @@
 
 #define CAMERA_COMMAND_QUEUE_LENGTH 4U
 #define CAMERA_XCLK_HZ 10000000
+#define CAMERA_JPEG_QUALITY 10
+#define CAMERA_SNAPSHOT_WIDTH 1024U
+#define CAMERA_SNAPSHOT_HEIGHT 768U
 
 typedef enum {
     CAMERA_COMMAND_CONFIGURE = 0,
@@ -27,7 +30,8 @@ typedef struct {
     bool enabled;
     uint8_t fps;
     ainekio_camera_resolution_t resolution;
-    uint32_t sequence;
+    ainekio_camera_origin_t origin;
+    uint32_t origin_id;
 } camera_command_t;
 
 struct ainekio_camera_service {
@@ -39,6 +43,7 @@ struct ainekio_camera_service {
     bool enabled;
     uint8_t fps;
     ainekio_camera_resolution_t resolution;
+    camera_fb_t *held_frame;
 };
 
 static const char *TAG = "ainekio_camera";
@@ -46,7 +51,16 @@ static ainekio_camera_service_t singleton;
 
 static framesize_t frame_size(ainekio_camera_resolution_t resolution)
 {
-    return resolution == AINEKIO_CAMERA_VGA ? FRAMESIZE_VGA : FRAMESIZE_QVGA;
+    switch (resolution) {
+    case AINEKIO_CAMERA_QVGA:
+        return FRAMESIZE_QVGA;
+    case AINEKIO_CAMERA_VGA:
+        return FRAMESIZE_VGA;
+    case AINEKIO_CAMERA_XGA:
+        return FRAMESIZE_XGA;
+    default:
+        return FRAMESIZE_INVALID;
+    }
 }
 
 static bool set_resolution(
@@ -54,8 +68,11 @@ static bool set_resolution(
     ainekio_camera_resolution_t resolution
 )
 {
-    if (resolution > AINEKIO_CAMERA_VGA) {
+    if (resolution > AINEKIO_CAMERA_XGA) {
         return false;
+    }
+    if (service->resolution == resolution) {
+        return true;
     }
     sensor_t *sensor = esp_camera_sensor_get();
     if (sensor == NULL || sensor->set_framesize(sensor, frame_size(resolution)) != 0) {
@@ -73,53 +90,149 @@ static uint32_t next_counter(ainekio_camera_service_t *service)
     return counter;
 }
 
-static void capture_frame(
+static void fail_capture(
     ainekio_camera_service_t *service,
-    bool snapshot,
-    uint32_t sequence
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id
 )
 {
+    (void)next_counter(service);
+    if (service->callbacks.failed != NULL) {
+        service->callbacks.failed(
+            service->callbacks.context,
+            origin,
+            origin_id
+        );
+    }
+}
+
+static void capture_frame(
+    ainekio_camera_service_t *service,
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id
+)
+{
+    const bool snapshot = origin != AINEKIO_CAMERA_ORIGIN_NONE;
+    /*
+     * Keep the single framebuffer checked out between captures. Returning it
+     * here wakes the sensor for one new frame, so an explicit snapshot or
+     * preview interval receives a fresh image instead of the driver's queued
+     * frame from the previous interval. This also leaves the capture engine
+     * idle while streaming is disabled without allocating a second buffer.
+     */
+    if (service->held_frame != NULL) {
+        esp_camera_fb_return(service->held_frame);
+        service->held_frame = NULL;
+    }
     camera_fb_t *frame = esp_camera_fb_get();
+    service->held_frame = frame;
     if (frame == NULL || frame->format != PIXFORMAT_JPEG || frame->len < 4U ||
         frame->len > AINEKIO_MAX_JPEG_BYTES) {
-        (void)next_counter(service);
-        if (service->callbacks.failed != NULL) {
-            service->callbacks.failed(
-                service->callbacks.context,
-                snapshot,
-                sequence
-            );
-        }
-        if (frame != NULL) {
-            esp_camera_fb_return(frame);
-        }
+        fail_capture(service, origin, origin_id);
+        return;
+    }
+    if (snapshot &&
+        (frame->width != CAMERA_SNAPSHOT_WIDTH ||
+         frame->height != CAMERA_SNAPSHOT_HEIGHT)) {
+        ESP_LOGE(
+            TAG,
+            "snapshot dimensions invalid: %ux%u",
+            (unsigned int)frame->width,
+            (unsigned int)frame->height
+        );
+        fail_capture(service, origin, origin_id);
         return;
     }
     const uint32_t counter = next_counter(service);
     if (service->callbacks.frame != NULL) {
         service->callbacks.frame(
             service->callbacks.context,
-            snapshot,
-            sequence,
+            origin,
+            origin_id,
             service->resolution,
             counter,
             frame->buf,
             frame->len
         );
     }
-    esp_camera_fb_return(frame);
+    if (snapshot) {
+        const int64_t captured_us =
+            (int64_t)frame->timestamp.tv_sec * INT64_C(1000000) +
+            frame->timestamp.tv_usec;
+        const int64_t age_us = esp_timer_get_time() - captured_us;
+        ESP_LOGI(
+            TAG,
+            "snapshot XGA %ux%u bytes=%u age_ms=%lld",
+            (unsigned int)frame->width,
+            (unsigned int)frame->height,
+            (unsigned int)frame->len,
+            (long long)(age_us > 0 ? age_us / 1000 : 0)
+        );
+    }
+}
+
+static void process_command(
+    ainekio_camera_service_t *service,
+    const camera_command_t *command,
+    int64_t *next_stream_us
+)
+{
+    if (command->kind == CAMERA_COMMAND_CONFIGURE) {
+        if (!set_resolution(service, command->resolution)) {
+            service->enabled = false;
+            ESP_LOGE(TAG, "camera resolution change failed");
+        } else {
+            service->enabled = command->enabled && command->fps > 0U;
+            service->fps = command->fps;
+            *next_stream_us = 0;
+        }
+        return;
+    }
+
+    const bool restore_preview = service->enabled && service->fps > 0U;
+    const ainekio_camera_resolution_t preview_resolution = service->resolution;
+    if (!set_resolution(service, AINEKIO_CAMERA_XGA)) {
+        ESP_LOGE(TAG, "snapshot XGA resolution change failed");
+        fail_capture(service, command->origin, command->origin_id);
+        return;
+    }
+    capture_frame(service, command->origin, command->origin_id);
+    if (restore_preview && !set_resolution(service, preview_resolution)) {
+        service->enabled = false;
+        ESP_LOGE(TAG, "camera preview resolution restore failed");
+    }
 }
 
 static void camera_task(void *argument)
 {
     ainekio_camera_service_t *service = argument;
     int64_t next_stream_us = 0;
+
+    /*
+     * The driver fills one frame immediately after initialization. Hold that
+     * frame so the sensor is quiescent until a command requests a fresh one.
+     */
+    service->held_frame = esp_camera_fb_get();
+    if (service->held_frame == NULL) {
+        ESP_LOGE(TAG, "initial camera frame unavailable");
+    }
+
     while (true) {
+        camera_command_t command;
+        if (xQueueReceive(service->queue, &command, 0U) == pdTRUE) {
+            process_command(service, &command, &next_stream_us);
+            continue;
+        }
+
         TickType_t wait_ticks = portMAX_DELAY;
         if (service->enabled && service->fps > 0U) {
             const int64_t now = esp_timer_get_time();
             if (next_stream_us == 0 || now >= next_stream_us) {
-                capture_frame(service, false, 0U);
+                capture_frame(
+                    service,
+                    AINEKIO_CAMERA_ORIGIN_NONE,
+                    0U
+                );
                 next_stream_us = now + INT64_C(1000000) / service->fps;
                 continue;
             }
@@ -130,20 +243,8 @@ static void camera_task(void *argument)
                 wait_ticks = 1U;
             }
         }
-        camera_command_t command;
         if (xQueueReceive(service->queue, &command, wait_ticks) == pdTRUE) {
-            if (command.kind == CAMERA_COMMAND_CONFIGURE) {
-                if (!set_resolution(service, command.resolution)) {
-                    service->enabled = false;
-                    ESP_LOGE(TAG, "camera resolution change failed");
-                } else {
-                    service->enabled = command.enabled && command.fps > 0U;
-                    service->fps = command.fps;
-                    next_stream_us = 0;
-                }
-            } else {
-                capture_frame(service, true, command.sequence);
-            }
+            process_command(service, &command, &next_stream_us);
             continue;
         }
     }
@@ -184,8 +285,13 @@ esp_err_t ainekio_camera_service_start(
         .ledc_timer = LEDC_TIMER_0,
         .ledc_channel = LEDC_CHANNEL_0,
         .pixel_format = PIXFORMAT_JPEG,
-        .frame_size = FRAMESIZE_QVGA,
-        .jpeg_quality = 10,
+        /*
+         * The driver sizes its only PSRAM framebuffer at initialization.
+         * Initialize at the largest supported still size so later XGA captures
+         * cannot inherit a QVGA-sized buffer.
+         */
+        .frame_size = FRAMESIZE_XGA,
+        .jpeg_quality = CAMERA_JPEG_QUALITY,
         .fb_count = 1,
         .fb_location = CAMERA_FB_IN_PSRAM,
         .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
@@ -201,7 +307,7 @@ esp_err_t ainekio_camera_service_start(
     ainekio_camera_service_t *service = &singleton;
     memset(service, 0, sizeof(*service));
     service->callbacks = *callbacks;
-    service->resolution = AINEKIO_CAMERA_QVGA;
+    service->resolution = AINEKIO_CAMERA_XGA;
     service->counter_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
     service->queue = xQueueCreate(
         CAMERA_COMMAND_QUEUE_LENGTH,
@@ -257,15 +363,21 @@ esp_err_t ainekio_camera_configure(
 
 esp_err_t ainekio_camera_snapshot(
     ainekio_camera_service_t *service,
-    uint32_t sequence
+    ainekio_camera_origin_t origin,
+    uint32_t origin_id
 )
 {
-    if (service == NULL || sequence == 0U) {
+    if (service == NULL || origin == AINEKIO_CAMERA_ORIGIN_NONE ||
+        origin > AINEKIO_CAMERA_ORIGIN_AUDIO ||
+        ((origin == AINEKIO_CAMERA_ORIGIN_REQUEST ||
+          origin == AINEKIO_CAMERA_ORIGIN_ACTION) &&
+         (origin_id == 0U || origin_id > AINEKIO_MAX_SEQUENCE))) {
         return ESP_ERR_INVALID_ARG;
     }
     const camera_command_t command = {
         .kind = CAMERA_COMMAND_SNAPSHOT,
-        .sequence = sequence,
+        .origin = origin,
+        .origin_id = origin_id,
     };
     return xQueueSend(service->queue, &command, 0U) == pdTRUE ? ESP_OK
                                                               : ESP_ERR_TIMEOUT;

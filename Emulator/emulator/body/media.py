@@ -7,9 +7,10 @@ from time import monotonic
 from typing import Callable
 from typing import Protocol
 
+from protocol.binary_helpers import MAX_JPEG_BYTES
+
 
 AUDIO_FRAME_BYTES = 640
-MAX_JPEG_BYTES = 120 * 1024
 DEFAULT_MEDIA_BYTES_PER_SECOND = 512 * 1024
 
 

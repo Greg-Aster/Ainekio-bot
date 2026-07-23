@@ -56,10 +56,46 @@ int main(void)
     assert(strstr(output, "\"camera_ready\":true") != NULL);
     assert(strstr(output, "\"wake_model\":\"ainekio\"") != NULL);
     assert(strstr(output, "\"wake_ready\":false") != NULL);
-    length = ainekio_encode_event(AINEKIO_EVENT_LITTLEFS_FAIL, output, sizeof(output));
+    length = ainekio_encode_event(
+        AINEKIO_EVENT_LITTLEFS_FAIL,
+        false,
+        0U,
+        output,
+        sizeof(output)
+    );
     valid(output, length, AINEKIO_MESSAGE_EVENT);
-    length = ainekio_encode_camera_meta(AINEKIO_CAMERA_VGA, 5U, UINT32_MAX, output, sizeof(output));
+    length = ainekio_encode_event(
+        AINEKIO_EVENT_VAD_OPEN,
+        true,
+        UINT32_MAX,
+        output,
+        sizeof(output)
+    );
+    valid(output, length, AINEKIO_MESSAGE_EVENT);
+    assert(strstr(output, "\"origin_id\":4294967295") != NULL);
+    length = ainekio_encode_camera_meta(
+        AINEKIO_CAMERA_VGA,
+        5U,
+        UINT32_MAX,
+        AINEKIO_CAMERA_ORIGIN_NONE,
+        0U,
+        output,
+        sizeof(output)
+    );
     valid(output, length, AINEKIO_MESSAGE_CAMERA_META);
+    length = ainekio_encode_camera_meta(
+        AINEKIO_CAMERA_XGA,
+        0U,
+        1U,
+        AINEKIO_CAMERA_ORIGIN_ACTION,
+        4U,
+        output,
+        sizeof(output)
+    );
+    valid(output, length, AINEKIO_MESSAGE_CAMERA_META);
+    assert(strstr(output, "\"res\":\"XGA\"") != NULL);
+    assert(strstr(output, "\"origin\":\"action\"") != NULL);
+    assert(strstr(output, "\"origin_id\":4") != NULL);
     length = ainekio_encode_ping(false, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_PING);
     length = ainekio_encode_ping(true, output, sizeof(output));

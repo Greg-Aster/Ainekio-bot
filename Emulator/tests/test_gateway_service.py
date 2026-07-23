@@ -40,6 +40,15 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUpClass(cls) -> None:
         cls.library_path = build_core_library()
 
+    def test_gateway_liveness_defaults_match_physical_body_contract(self) -> None:
+        config = GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
+        self.assertEqual(config.ping_interval_s, 1.0)
+        with self.assertRaisesRegex(ValueError, "between 0.01 and 60"):
+            GatewayServiceConfig(
+                tokens={"ainekio-test-01": "test-token"},
+                ping_interval_s=0.0,
+            )
+
     async def test_gateway_api_tracks_command_lifecycle(self) -> None:
         service = GatewayService(
             GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
@@ -350,7 +359,10 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_gateway_tolerates_brief_control_gap(self) -> None:
         service = GatewayService(
-            GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
+            GatewayServiceConfig(
+                tokens={"ainekio-test-01": "test-token"},
+                ping_interval_s=0.05,
+            )
         )
         async with websockets.serve(
             service.handler,
@@ -376,11 +388,57 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(json.loads(await socket.recv())["t"], "welcome")
 
-            # This exceeded the former three-second timeout. It must remain
-            # connected long enough for a delayed control response to recover.
-            await asyncio.sleep(3.2)
+            self.assertEqual(json.loads(await socket.recv())["t"], "ping")
+            # A response can arrive after multiple scheduler ticks without
+            # converting an idle but healthy session into an outage.
+            await asyncio.sleep(0.1)
             await socket.send(json.dumps({"t": "pong"}))
             self.assertFalse(socket.closed)
+            self.assertEqual(json.loads(await socket.recv())["t"], "ping")
+            await socket.send(json.dumps({"t": "pong"}))
+            await socket.close()
+
+    async def test_silent_controller_is_not_disconnected_by_idle_timer(self) -> None:
+        events: list[dict[str, object]] = []
+        service = GatewayService(
+            GatewayServiceConfig(
+                tokens={"ainekio-test-01": "test-token"},
+                ping_interval_s=0.05,
+            )
+        )
+        service.subscribe_events(events.append)
+        async with websockets.serve(
+            service.handler,
+            "127.0.0.1",
+            0,
+            ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            socket = await websockets.connect(
+                f"ws://127.0.0.1:{port}/robot",
+                ping_interval=None,
+            )
+            await socket.send(
+                json.dumps(
+                    {
+                        "t": "hello",
+                        "ver": 1,
+                        "fw": "test",
+                        "id": "ainekio-test-01",
+                        "auth": "test-token",
+                    }
+                )
+            )
+            self.assertEqual(json.loads(await socket.recv())["t"], "welcome")
+            # Staying silent for several heartbeat periods must not turn an
+            # established home-companion session into an outage.
+            for _ in range(4):
+                self.assertEqual(json.loads(await socket.recv())["t"], "ping")
+            self.assertFalse(socket.closed)
+            self.assertIn("ainekio-test-01", service.status()["robots"])
+            self.assertFalse(
+                any(event.get("status") == "disconnected" for event in events)
+            )
             await socket.close()
 
     async def test_token_revocation_closes_active_socket_and_rejects_reconnect(self) -> None:

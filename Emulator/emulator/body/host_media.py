@@ -5,7 +5,7 @@ import asyncio
 from .media import AUDIO_FRAME_BYTES, MAX_JPEG_BYTES
 
 
-_RESOLUTIONS = {"QVGA": "320x240", "VGA": "640x480"}
+_RESOLUTIONS = {"QVGA": "320x240", "VGA": "640x480", "XGA": "1024x768"}
 
 
 class WebcamCameraSource:

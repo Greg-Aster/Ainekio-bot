@@ -23,7 +23,7 @@ token through the environment. Do not commit either value:
 export AINEKIO_ROBOT_ID='ainekio-01'
 export AINEKIO_ROBOT_TOKEN='<strong generated robot token>'
 export AINEKIO_ENVIRONMENT_ADAPTER_TOKEN='<strong generated environment token>'
-# Optional after the first interactive launch; setting it replaces the verifier.
+# Optional fixed password; the physical launcher otherwise creates one per start.
 export AINEKIO_DASHBOARD_PASSWORD='<strong local dashboard password>'
 ./Master/start-physical-gateway.sh
 ```
@@ -42,12 +42,13 @@ This one-off home deployment intentionally uses authenticated `ws://` on the
 owner's private WPA2 LAN. It is the smallest local path, but the LAN is part of
 the trust boundary: do not use it on guest, shared, or public WiFi. Remote mode
 remains explicit and requires `wss://`; it is never an automatic fallback.
-On the first interactive launch, an unset `AINEKIO_DASHBOARD_PASSWORD` creates
-and prints one password. Later launches reuse its stored verifier instead of
-rotating it. Setting the environment variable explicitly replaces the verifier
-with that configured password. Only the verifier persists. Dashboard
-authentication is separate from robot WiFi setup and is never presented by the
-ESP32 setup portal.
+On every physical-launcher start, the terminal prints the dashboard password.
+If `AINEKIO_DASHBOARD_PASSWORD` is unset, the launcher creates a fresh password
+for that run and replaces the prior verifier. Setting the environment variable
+uses and prints that configured password instead. Only the verifier persists;
+the generated plaintext is not written to the repository or runtime data.
+Dashboard authentication is separate from robot WiFi setup and is never
+presented by the ESP32 setup portal.
 
 The launcher stays in the foreground. Press Ctrl+C to stop it. For normal
 owner operation it can instead be supervised by the included user service.
@@ -69,10 +70,13 @@ the VAD gate; the same panel can turn it off or select another supported gate
 and shows the live input level. Camera streaming is local to this dashboard and
 is not forwarded as a continuous image stream to MetaHuman.
 
-Every completed robot action requests one fresh still for correlated LLM
-feedback when the camera is ready. MetaHuman can also request `captureImage`
-directly. These bounded snapshots share the camera service with the dashboard
-but are the only camera images admitted to the Environment observation path.
+The robot controller now originates one fresh still after completed physical
+actions and VAD-delimited microphone utterances. The gateway receives the
+firmware correlation metadata and JPEG, validates them, and forwards one
+correlated Environment observation; it does not send a second automatic
+snapshot command. MetaHuman can still request `captureImage` directly. These
+bounded snapshots share the camera service with the dashboard but are the only
+camera images admitted to the Environment observation path.
 
 Run the production gateway with development credentials supplied through the
 environment on first startup:
@@ -106,3 +110,9 @@ PYTHONPATH=Master:Slave/software python3 -m gateway.server
 The endpoint is `ws://127.0.0.1:8790/environment`. The connecting environment
 agent authenticates in its first protocol message. Ainekio does not contain a
 MetaHuman URL or call MetaHuman APIs directly.
+
+Completed microphone utterances and completed physical actions arrive with one
+firmware-originated correlated still when the camera is ready. Future typed
+safety or sensor events should opt into the same controller-owned trigger and
+correlation fields. Routine status, heartbeat, individual PCM frames, and
+dashboard preview traffic do not produce Environment snapshots.

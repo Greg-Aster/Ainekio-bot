@@ -12,6 +12,25 @@ from gateway.security import DashboardPasswordStore, RobotTokenStore
 
 
 class GatewaySecurityTests(unittest.TestCase):
+    def test_audit_allows_only_secret_free_heartbeat_diagnostics(self) -> None:
+        self.assertEqual(
+            gateway_main._audit_fields(
+                {
+                    "robot_id": "ainekio-test-01",
+                    "control_frames_received": 3,
+                    "json_pings_sent": 4,
+                    "last_control_type": "pong",
+                    "auth": "secret-robot-token",
+                }
+            ),
+            {
+                "robot_id": "ainekio-test-01",
+                "control_frames_received": 3,
+                "json_pings_sent": 4,
+                "last_control_type": "pong",
+            },
+        )
+
     def test_environment_peer_must_be_loopback(self) -> None:
         class Peer:
             def __init__(self, host: str) -> None:

@@ -79,7 +79,15 @@ typedef enum {
 typedef enum {
     AINEKIO_CAMERA_QVGA = 0,
     AINEKIO_CAMERA_VGA,
+    AINEKIO_CAMERA_XGA,
 } ainekio_camera_resolution_t;
+
+typedef enum {
+    AINEKIO_CAMERA_ORIGIN_NONE = 0,
+    AINEKIO_CAMERA_ORIGIN_REQUEST,
+    AINEKIO_CAMERA_ORIGIN_ACTION,
+    AINEKIO_CAMERA_ORIGIN_AUDIO,
+} ainekio_camera_origin_t;
 
 typedef enum {
     AINEKIO_MIC_GATE_OPEN = 0,

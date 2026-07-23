@@ -13,6 +13,7 @@ from emulator.faults import EmulatorFaultController
 from protocol.binary_helpers import (
     CAMERA_JPEG_FRAME_TYPE,
     MAX_BINARY_COUNTER,
+    MAX_JPEG_BYTES,
     MIC_PCM_FRAME_TYPE,
     SPEAKER_PCM_FRAME_TYPE,
     decode_binary_frame,
@@ -76,7 +77,14 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
             self.controls,
             [
                 {"t": "ack", "seq": 1},
-                {"t": "cam_meta", "res": "QVGA", "fps": 0, "counter_base": 0},
+                {
+                    "t": "cam_meta",
+                    "res": "XGA",
+                    "fps": 0,
+                    "counter_base": 0,
+                    "origin": "request",
+                    "origin_id": 1,
+                },
                 {"t": "done", "seq": 1},
             ],
         )
@@ -84,6 +92,32 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(decoded.frame_type, CAMERA_JPEG_FRAME_TYPE)
         self.assertEqual(decoded.counter, 0)
         self.assertFalse(self.core.servos_attached)
+
+    async def test_completed_motion_emits_snapshot_before_done(self) -> None:
+        await self.session.handle(
+            {"t": "intent", "seq": 2, "name": "stand"},
+            self.emit,
+            self.emit_binary,
+        )
+        await self.session.wait_until_idle()
+
+        self.assertEqual(self.controls[0], {"t": "ack", "seq": 2})
+        self.assertEqual(
+            self.controls[-2],
+            {
+                "t": "cam_meta",
+                "res": "XGA",
+                "fps": 0,
+                "counter_base": 0,
+                "origin": "action",
+                "origin_id": 2,
+            },
+        )
+        self.assertEqual(self.controls[-1], {"t": "done", "seq": 2})
+        self.assertEqual(
+            decode_binary_frame(self.frames[-1]).frame_type,
+            CAMERA_JPEG_FRAME_TYPE,
+        )
 
     async def test_camera_is_optional_and_audio_streaming_still_works(self) -> None:
         await self.session.close()
@@ -153,7 +187,7 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(decode_binary_frame(self.frames[0]).frame_type, CAMERA_JPEG_FRAME_TYPE)
 
         self.now = 1.0
-        self.camera.jpeg = bytes((120 * 1024) + 1)
+        self.camera.jpeg = bytes(MAX_JPEG_BYTES + 1)
         await self.session.service_media(self.emit, self.emit_binary)
         self.assertEqual(self.session.status()["cam_drops"], 1)
         self.assertEqual(len(self.frames), 1)
@@ -173,12 +207,36 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
             self.now = index * 0.021
             await self.session.service_media(self.emit, self.emit_binary)
 
-        self.assertIn({"t": "event", "name": "vad_open"}, self.controls)
-        self.assertIn({"t": "event", "name": "vad_close"}, self.controls)
+        self.assertIn(
+            {"t": "event", "name": "vad_open", "origin_id": 0},
+            self.controls,
+        )
+        self.assertIn(
+            {"t": "event", "name": "vad_close", "origin_id": 0},
+            self.controls,
+        )
+        self.assertIn(
+            {
+                "t": "cam_meta",
+                "res": "XGA",
+                "fps": 0,
+                "counter_base": 0,
+                "origin": "audio",
+                "origin_id": 0,
+            },
+            self.controls,
+        )
         decoded = [decode_binary_frame(frame) for frame in self.frames]
         self.assertTrue(decoded)
-        self.assertTrue(all(frame.frame_type == MIC_PCM_FRAME_TYPE for frame in decoded))
-        self.assertEqual(decoded[0].counter, 0)
+        microphone = [
+            frame for frame in decoded if frame.frame_type == MIC_PCM_FRAME_TYPE
+        ]
+        snapshots = [
+            frame for frame in decoded if frame.frame_type == CAMERA_JPEG_FRAME_TYPE
+        ]
+        self.assertTrue(microphone)
+        self.assertEqual(microphone[0].counter, 0)
+        self.assertEqual(len(snapshots), 1)
 
     async def test_vad_includes_bounded_pre_roll_before_trigger_frame(self) -> None:
         silence = bytes(640)
@@ -232,7 +290,7 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.frames), 1)
         self.assertEqual(decode_binary_frame(self.frames[0]).frame_type, MIC_PCM_FRAME_TYPE)
 
-    async def test_tether_rejects_streaming_and_open_mic_but_allows_vga_snap(self) -> None:
+    async def test_tether_rejects_streaming_and_open_mic_but_allows_xga_snap(self) -> None:
         await self.session.begin(
             {"t": "welcome", "ver": 1, "epoch": 2, "profile": "tether"}
         )
@@ -257,8 +315,8 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.controls[0], {"t": "nak", "seq": 1, "code": "profile"})
         self.assertEqual(self.controls[1], {"t": "ack", "seq": 2})
         self.assertEqual(self.controls[3], {"t": "nak", "seq": 3, "code": "profile"})
-        self.assertEqual(self.controls[5]["res"], "VGA")
-        self.assertEqual(self.camera.captures[-1], "VGA")
+        self.assertEqual(self.controls[5]["res"], "XGA")
+        self.assertEqual(self.camera.captures[-1], "XGA")
 
     async def test_camera_counter_wraps_without_affecting_lifecycle(self) -> None:
         self.session._camera_counter = MAX_BINARY_COUNTER  # acceptance hook

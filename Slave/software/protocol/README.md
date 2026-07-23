@@ -24,11 +24,12 @@ Contract tests verify that all fixture message types remain represented by both
 the language-neutral schema and the Python validator.
 
 The current protocol-v1 liveness contract sends an application control ping
-after one second without a control transmission and enters FAILSAFE/offline
-after four seconds without receiving a valid control frame. The four-second
-bound intentionally leaves three additional heartbeat opportunities after the
-first ping. The gateway and firmware use the same values; WebSocket library
-keepalives do not replace this application-level safety contract.
+after one second without a control transmission. User-message timing is
+irrelevant: the lightweight heartbeat continues while conversation is idle.
+Four seconds without a valid control frame stops active motion but does not
+destroy the authenticated session. A real WebSocket, gateway, or Wi-Fi failure
+enters FAILSAFE/offline and starts reconnection. This keeps the home companion
+connected while preserving an action-level actuator guard.
 
 Wake-word preferences use a separate persistent command from the session-only
 microphone stream command:
@@ -45,6 +46,22 @@ and `wake_ready=false`
 means firmware must reject both enabling the setting and opening a microphone
 with `gate="wake"`. These status additions remain optional so an older
 protocol-v1 body is still accepted by the gateway validator.
+
+Firmware-owned perception snapshots use optional correlation fields without
+embedding media in JSON. VAD boundary events carry one robot-generated
+`origin_id`; the following snapshot metadata repeats that identifier:
+
+```json
+{"t":"event","name":"vad_close","origin_id":73}
+{"t":"cam_meta","res":"XGA","fps":0,"counter_base":18,"origin":"audio","origin_id":73}
+```
+
+The JPEG remains the next bounded camera binary frame with counter `18`.
+Completed physical actions use `origin="action"` and the command sequence as
+`origin_id`; firmware sends the JPEG before `{"t":"done","seq":...}`. An
+explicit `snap` command uses `origin="request"`. These fields are optional for
+protocol-v1 compatibility with older bodies, but when present they must occur
+as a validated pair.
 
 Run the host fixture suite from the repository root:
 

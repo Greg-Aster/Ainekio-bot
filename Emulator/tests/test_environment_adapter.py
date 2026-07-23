@@ -83,17 +83,24 @@ class FakeGateway:
 
 
 class SnapshotGateway(FakeGateway):
-    async def request_snap(self, **kwargs: object) -> int:
-        self.calls.append(("snap", kwargs))
+    def __init__(self) -> None:
+        super().__init__()
+        self.camera_counter = 31
+
+    async def _emit_snapshot(self, origin: str, origin_id: int) -> None:
+        counter = self.camera_counter
+        self.camera_counter += 1
         for callback in self.event_callbacks:
             await callback(
                 {
                     "robot_id": "test-body",
                     "epoch": 1,
                     "t": "cam_meta",
-                    "res": "QVGA",
+                    "res": "XGA",
                     "fps": 0,
-                    "counter_base": 31,
+                    "counter_base": counter,
+                    "origin": origin,
+                    "origin_id": origin_id,
                 }
             )
         for callback in self.frame_callbacks:
@@ -102,11 +109,21 @@ class SnapshotGateway(FakeGateway):
                     "robot_id": "test-body",
                     "epoch": 1,
                     "frame_type": CAMERA_JPEG_FRAME_TYPE,
-                    "counter": 31,
+                    "counter": counter,
                     "payload": b"\xff\xd8\xff\xd9",
                 }
             )
+
+    async def request_snap(self, **kwargs: object) -> int:
+        self.calls.append(("snap", kwargs))
+        await self._emit_snapshot("request", 9)
         return 9
+
+    async def wait_terminal(self, sequence: int, **kwargs: object) -> dict[str, object]:
+        self.calls.append(("wait", (sequence, kwargs)))
+        if sequence != 9:
+            await self._emit_snapshot("action", sequence)
+        return {"t": "done", "seq": sequence}
 
 
 class BlockingMotionGateway(FakeGateway):
@@ -244,10 +261,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(
-                token="adapter-secret",
-                snapshot_after_action=False,
-            ),
+            EnvironmentAdapterConfig(token="adapter-secret"),
         )
 
         async with websockets.serve(
@@ -365,7 +379,10 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(len(observations), 1)
         self.assertEqual(feedback[0]["type"], "completed")
+        self.assertEqual(len(observations[0]["feedback"]), 1)
+        self.assertEqual(observations[0]["feedback"][0]["id"], feedback[0]["id"])
         self.assertEqual(observations[0]["metadata"]["correlationId"], "cycle-1")
+        self.assertEqual(observations[0]["metadata"]["actionId"], "capture-1")
         self.assertEqual(
             observations[0]["metadata"]["robotObserver"],
             robot_observer,
@@ -373,6 +390,10 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             observations[0]["visual"]["metadata"]["correlationId"],
             "cycle-1",
+        )
+        self.assertEqual(
+            observations[0]["visual"]["metadata"]["actionId"],
+            "capture-1",
         )
         self.assertEqual([call[0] for call in gateway.calls], ["snap", "wait"])
 
@@ -418,9 +439,11 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             if message["type"] == "environment.observation"
         )
         self.assertEqual(observation["metadata"]["robotObserver"], robot_observer)
+        self.assertEqual(observation["metadata"]["actionId"], "move-2")
+        self.assertEqual(len(observation["feedback"]), 1)
         self.assertEqual(
             [call[0] for call in gateway.calls],
-            ["intent", "wait", "snap", "wait"],
+            ["intent", "wait"],
         )
 
     async def test_freestyle_action_translates_dispatches_and_advertises_only_when_enabled(self) -> None:
@@ -432,7 +455,6 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 token="adapter-secret",
                 robot_id="test-body",
                 freestyle_enabled=True,
-                snapshot_after_action=False,
             ),
             utcnow=lambda: now,
         )
@@ -486,7 +508,6 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 token="adapter-secret",
                 robot_id="test-body",
                 freestyle_enabled=True,
-                snapshot_after_action=False,
             ),
             utcnow=lambda: now,
         )
@@ -665,6 +686,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
         adapter._snapshot_in_flight = True
+        adapter._pending_snapshot_context = {"correlationId": "test-snapshot"}
         await adapter._handle_gateway_event(
             {"t": "cam_meta", "res": "QVGA", "fps": 0, "counter_base": 3}
         )
@@ -766,7 +788,78 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             pcm = wav.readframes(960)
         self.assertEqual(pcm[640:1280], bytes(640))
 
-    async def test_body_event_name_is_preserved_in_environment_state(self) -> None:
+    async def test_completed_utterance_receives_one_firmware_correlated_snapshot(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+        assembler = adapter._audio_utterances.assembler
+        identity = {"robot_id": "test-body", "epoch": 2}
+
+        await assembler.handle_event(
+            {"t": "event", "name": "vad_open", "origin_id": 7, **identity}
+        )
+        await assembler.handle_frame(
+            {
+                **identity,
+                "frame_type": MIC_PCM_FRAME_TYPE,
+                "counter": 7,
+                "payload": bytes([1, 0]) * 320,
+            }
+        )
+        await assembler.handle_event(
+            {"t": "event", "name": "vad_close", "origin_id": 7, **identity}
+        )
+
+        encoded = next(message for message in websocket.sent if isinstance(message, bytes))
+        metadata_bytes = struct.unpack("<I", encoded[8:12])[0]
+        audio_metadata = json.loads(encoded[12 : 12 + metadata_bytes])
+        await adapter._handle_gateway_event(
+            {
+                "t": "cam_meta",
+                "res": "XGA",
+                "fps": 0,
+                "counter_base": 31,
+                "origin": "audio",
+                "origin_id": 7,
+                **identity,
+            }
+        )
+        await adapter._handle_gateway_frame(
+            {
+                **identity,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "counter": 31,
+                "payload": b"\xff\xd8\xff\xd9",
+            }
+        )
+        observation = next(
+            json.loads(message)["observation"]
+            for message in websocket.sent
+            if isinstance(message, str)
+            and json.loads(message).get("type") == "environment.observation"
+        )
+
+        self.assertEqual(
+            observation["metadata"]["audioUtteranceId"],
+            audio_metadata["utteranceId"],
+        )
+        self.assertEqual(
+            observation["visual"]["metadata"]["audioUtteranceId"],
+            audio_metadata["utteranceId"],
+        )
+        self.assertEqual(observation["metadata"]["robotId"], "test-body")
+        self.assertEqual(observation["metadata"]["epoch"], 2)
+        self.assertEqual(
+            audio_metadata["utteranceId"],
+            "audio:test-body:2:7",
+        )
+        self.assertEqual(gateway.calls, [])
+
+    async def test_non_audio_body_event_name_is_preserved_in_environment_state(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
@@ -776,13 +869,47 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         adapter._websocket = websocket  # type: ignore[assignment]
 
         await adapter._handle_gateway_event(
-            {"t": "event", "name": "wake_word", "robot_id": "test-body", "epoch": 1}
+            {"t": "event", "name": "orientation_fault", "robot_id": "test-body", "epoch": 1}
         )
 
         message = json.loads(websocket.sent[0])
-        self.assertEqual(message["observation"]["state"]["bodyEvent"]["name"], "wake_word")
+        self.assertEqual(
+            message["observation"]["state"]["bodyEvent"]["name"],
+            "orientation_fault",
+        )
 
-    async def test_vad_close_clears_microphone_meter_before_body_event(self) -> None:
+    async def test_body_event_does_not_cause_a_gateway_snapshot_command(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+
+        await adapter._handle_gateway_event(
+            {
+                "t": "event",
+                "name": "orientation_fault",
+                "robot_id": "test-body",
+                "epoch": 4,
+                "counter": 22,
+            }
+        )
+        observation = next(
+            json.loads(message)["observation"]
+            for message in websocket.sent
+            if isinstance(message, str)
+            and json.loads(message).get("type") == "environment.observation"
+        )
+        self.assertEqual(
+            observation["state"]["bodyEvent"]["name"],
+            "orientation_fault",
+        )
+        self.assertNotIn("visual", observation)
+        self.assertEqual(gateway.calls, [])
+
+    async def test_vad_close_clears_microphone_meter_without_enqueuing_observation(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
@@ -796,13 +923,9 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
 
         telemetry = json.loads(websocket.sent[0])
-        observation = json.loads(websocket.sent[1])
         self.assertEqual(telemetry["telemetry"]["kind"], "audio.level")
         self.assertEqual(telemetry["telemetry"]["level"], 0.0)
-        self.assertEqual(
-            observation["observation"]["state"]["bodyEvent"]["name"],
-            "vad_close",
-        )
+        self.assertEqual(len(websocket.sent), 1)
 
     async def test_robot_status_uses_diagnostic_telemetry_not_an_observation(self) -> None:
         gateway = FakeGateway()

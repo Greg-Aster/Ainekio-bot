@@ -11,6 +11,11 @@ robot.
 - `start-physical-gateway.sh` starts the real brain-side gateway on the LAN while
   keeping the operator dashboard bound to localhost. It publishes the one
   default `_ainekio._tcp.local` discovery identity.
+- `stop-physical-gateway.sh` stops only the physical gateway. It stops the user
+  service first when supervised, then narrowly matches the repo runtime data as
+  a fallback for older manual/background launches. Pass `--disable` to also
+  prevent the enabled user service from starting automatically after login or
+  reboot.
 - `ainekio-gateway.service` supervises that same launcher for normal physical
   use; it does not introduce another gateway implementation.
 - `start-physical-relay.sh` starts the optional foreground Cloudflare transport

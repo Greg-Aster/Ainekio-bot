@@ -57,6 +57,10 @@
     },
     "cameraResolution": {
       "type": "string",
+      "enum": ["QVGA", "VGA", "XGA"]
+    },
+    "cameraStreamResolution": {
+      "type": "string",
       "enum": ["QVGA", "VGA"]
     },
     "hello": {
@@ -237,7 +241,7 @@
         "seq": {"$ref": "#/$defs/sequence"},
         "on": {"type": "boolean"},
         "fps": {"type": "integer", "minimum": 0, "maximum": 15},
-        "res": {"$ref": "#/$defs/cameraResolution"}
+        "res": {"$ref": "#/$defs/cameraStreamResolution"}
       }
     },
     "snap": {
@@ -489,8 +493,10 @@
         "name": {
           "type": "string",
           "enum": ["vad_open", "vad_close", "wake_word", "battery_warn", "battery_cutoff", "brownout_recovered", "boot", "sd_fail", "sd_corrupt", "littlefs_fail", "asset_missing", "tts_orphan", "tts_overflow"]
-        }
-      }
+        },
+        "origin_id": {"$ref": "#/$defs/counter"}
+      },
+      "x-ainekio-rules": ["event-origin"]
     },
     "cam_meta": {
       "x-ainekio-message-type": "cam_meta",
@@ -501,8 +507,11 @@
         "t": {"const": "cam_meta"},
         "res": {"$ref": "#/$defs/cameraResolution"},
         "fps": {"type": "integer", "minimum": 0, "maximum": 15},
-        "counter_base": {"$ref": "#/$defs/counter"}
-      }
+        "counter_base": {"$ref": "#/$defs/counter"},
+        "origin": {"type": "string", "enum": ["request", "action", "audio"]},
+        "origin_id": {"$ref": "#/$defs/counter"}
+      },
+      "x-ainekio-rules": ["camera-origin-pair"]
     },
     "pong": {
       "x-ainekio-message-type": "pong",

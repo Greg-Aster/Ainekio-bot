@@ -23,6 +23,7 @@ required before those values count as installed-hardware evidence.
 | [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Current robot-body software status, implementation evidence, and deliberately pending work |
 | [AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md](AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md) | Current generic Environment Bridge ownership and closed-loop software status |
 | [BRIDGE_HARDENING_PLAN.md](BRIDGE_HARDENING_PLAN.md) | Live physical-bridge findings, remediation phases, ownership, and acceptance criteria |
+| [BRIDGE_LIVENESS_HANDOFF_2026-07-22.md](BRIDGE_LIVENESS_HANDOFF_2026-07-22.md) | Exact paused controller/gateway state, physical timeout evidence, diagnostic cleanup, and next-session procedure |
 | [LOCAL_WAKE_WORD.md](LOCAL_WAKE_WORD.md) | Owner-local microWakeWord training, packaging, installation, and validation workflow |
 | [freestyle-movement.md](freestyle-movement.md) | Owner-approved bounded motion-plan extension, emulator evidence, and physical enablement gate |
 | [REPOSITORY_MAP.md](REPOSITORY_MAP.md) | Current Master, Slave, Emulator, documentation, and reference ownership map |
@@ -67,9 +68,12 @@ new specification revision, readers must keep these boundaries explicit:
   optional Cloudflare relay. The owner selected authenticated `ws://` on the
   private home WPA2 LAN as the intentionally minimal local transport; pinned
   local WSS is not a parallel pending path. The maintained implementation uses
-  one-second control pings and a four-second FAILSAFE/offline bound. The v1.0
-  DOCX still needs a numbered erratum for this local-discovery and liveness
-  contract; the prepared controller image has not yet been flashed.
+  one-second control pings and a four-second active-motion stale guard without
+  timer-driven session teardown. Actual Wi-Fi/WebSocket errors still enter
+  FAILSAFE/offline. The v1.0 DOCX needs a numbered erratum for this
+  local-discovery and liveness contract. The keepalive-free application is
+  prepared in source but has not yet been flashed; the dated bridge-liveness
+  handoff records the exact source-versus-controller boundary.
 
 ## Reference inputs
 

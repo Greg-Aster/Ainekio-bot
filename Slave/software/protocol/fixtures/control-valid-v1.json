@@ -80,8 +80,8 @@
         "wake_ready": false
       }
     },
-    {"name": "event", "message": {"t": "event", "name": "vad_open"}},
-    {"name": "cam_meta", "message": {"t": "cam_meta", "res": "VGA", "fps": 5, "counter_base": 1042}},
+    {"name": "event", "message": {"t": "event", "name": "vad_open", "origin_id": 23}},
+    {"name": "cam_meta", "message": {"t": "cam_meta", "res": "XGA", "fps": 0, "counter_base": 1042, "origin": "action", "origin_id": 22}},
     {"name": "pong", "message": {"t": "pong"}},
     {
       "name": "forward_compatible_extra_field",

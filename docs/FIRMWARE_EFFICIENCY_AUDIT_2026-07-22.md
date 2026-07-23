@@ -3,7 +3,7 @@
 Date: 2026-07-22  
 Reviewer: Robot Police  
 Target: `Slave/firmware/esp32s3`, including the current uncommitted revisions  
-Status: All software findings remediated and build-verified; flash artifacts ready; hardware validation pending
+Status: Software findings remediated; build, flash, gateway, camera capture, and audio timing verified; physical audio and broader hardware soak remain pending
 
 ## Purpose
 
@@ -463,3 +463,164 @@ a rewrite or expansion of the firmware architecture.
   system is flash-ready, but flashed boot behavior, live memory/stack values,
   impairment results, soak stability, allocation-failure rollback, and physical
   safety gates remain explicitly unclaimed hardware evidence.
+
+### 2026-07-23 11:01 PDT - Camera DMA correction flashed and hardware-verified
+
+- The flashed controller detected the OV3660 camera but repeatedly reported
+  `NO-EOI - JPEG end marker missing` and frame-capture timeouts with optional
+  direct PSRAM camera DMA enabled. This was captured over the controller UART;
+  it was not inferred from the dashboard.
+- Disabled `CONFIG_CAMERA_PSRAM_DMA` in both the tracked defaults and resolved
+  configuration, returning the driver to its default non-direct-PSRAM DMA path.
+  Camera pins, clock, resolution, JPEG format, task ownership, protocol, and
+  queue sizes were not changed.
+- Rebuilt successfully under ESP-IDF v5.5.4. The application binary is
+  `0x158970` bytes (1,411,440), leaves 55 percent of each 3 MiB OTA slot free,
+  and has SHA-256
+  `1605c51d4ec77a2f435977bf939d3533dcb761ff8ea3aeb3e83c07546b5fb139`.
+  Linked DIRAM is 171,683 of 341,760 bytes (`50.23%`), including 70,544 bytes
+  of BSS.
+- Flashed the application partition only at `0x20000`, preserving NVS, OTA
+  state, and LittleFS. The flasher verified the write hash, and a separate
+  `esptool verify_flash` digest comparison passed.
+- After reboot, `ainekio-01` reconnected to the physical gateway as epoch 14.
+  During a 35-second observation window, the gateway accepted 241 camera JPEG
+  frames (counters 623 through 863), approximately 6.9 frames per second, with
+  seven status updates and no disconnect event. The protocol validator accepts
+  camera frames only when the payload has valid JPEG start/end markers and is
+  within the 120 KiB bound.
+- The camera-only UART monitor showed no recurrence of the prior `NO-EOI` or
+  frame-timeout errors during the same live stream. This verifies the camera
+  capture and robot-to-gateway media path; visual image quality and a longer
+  concurrent-peripheral soak remain owner-observed hardware checks.
+- Separate unresolved evidence: the audio task reports `speaker DMA write
+  failed` every 20 ms. That 50 Hz failure/log loop is real resource waste and
+  may indicate incorrect I2S state. It was not changed during this controlled
+  camera test and requires its own root-cause pass before the controller can be
+  called fully clean or soak-ready.
+
+### 2026-07-23 11:15 PDT - Audio DMA timing loop corrected and flashed
+
+- Confirmed the missing external speaker was not the source of the driver
+  failure. The ESP32-S3 I2S transmitter has no amplifier or speaker
+  acknowledgement path; it writes to its local DMA channel whether or not an
+  output device is attached.
+- The firmware requested a 25 ms I2S write timeout for one 20 ms audio frame.
+  At the configured 100 Hz FreeRTOS tick rate, ESP-IDF converted that deadline
+  to two ticks, exactly 20 ms. This left no scheduling margin and matched the
+  measured failure cadence.
+- Kept the existing full-duplex audio task, microphone clocking, speaker queue,
+  TTS behavior, wake-word path, pins, sample rate, frame size, core assignment,
+  and priority. No audio capability or other robot function was disabled.
+- Defined the 16 kHz sample rate and 320-sample frame once, increased the
+  bounded write deadline to 60 ms, and added a compile-time check that its
+  tick-rounded duration exceeds one audio frame.
+- A genuine future write failure now reports the ESP-IDF result and partial byte
+  count at most once every five seconds. A one-frame delay bounds retry CPU use
+  if the driver returns an immediate persistent error. Successful recovery is
+  reported once.
+- ESP-IDF v5.5.4 build and `idf.py size` passed. The application is `0x158a30`
+  bytes (1,411,632), 192 bytes larger than the camera-verified image, with 55
+  percent OTA-slot headroom. DIRAM is 171,691 of 341,760 bytes (`50.24%`);
+  static BSS increased by only eight bytes to 70,552 bytes.
+- Application SHA-256:
+  `1e1ed35a9277828b37231feb61328d2229e604fb595415dedd86629c2882de0f`.
+  The application-only flash at `0x20000` passed the flasher hash check and an
+  independent `esptool verify_flash` digest comparison. NVS, OTA state, and
+  LittleFS were preserved.
+- A controlled reboot showed the OV3660 camera ready with direct PSRAM DMA
+  disabled, WiFi connected, OTA acceptance after gateway authentication, and
+  continuing five-second status reports. The final connection remained
+  authenticated after the intentional flash/verification/monitor resets.
+- No speaker/I2S write failure or recovery message appeared during more than
+  110 seconds of filtered live UART observation. The old loop would have
+  emitted roughly 5,500 warnings in that interval. This verifies removal of
+  the failure/log loop with the current no-speaker hardware state.
+- After the UART window, Body Control issued three snapshot commands on the
+  same authenticated epoch. The gateway accepted three corresponding
+  protocol-valid JPEG frames with counters 0, 1, and 2 while the corrected audio
+  service remained active. Status continued afterward without a disconnect.
+  This closes the immediate camera/audio-clock regression check; sustained
+  multi-peripheral soak remains separate.
+- Known non-audio states remained explicit: the disconnected OLED made display
+  startup unavailable, the SD card reported unavailable, and the optional wake
+  model package was not found. These are not compile-time-disabled functions
+  and were not altered by this correction.
+
+### 2026-07-23 12:10 PDT - Fresh XGA still path implemented, flashed, and verified
+
+- Traced the observed snapshot lag to the ESP camera driver's single-buffer
+  `CAMERA_GRAB_WHEN_EMPTY` behavior. The driver fills an available buffer
+  immediately, so the former capture path could return the image waiting since
+  the previous request. The three prior snapshots were about six seconds apart,
+  making a roughly one-request-old image consistent with the implementation.
+- Kept the existing single camera task, single driver framebuffer, bounded
+  two-entry drop-oldest transmit queue, and semantic `snap` command. No second
+  framebuffer, camera task, image-resize stage, video codec, or continuous
+  still-capture loop was added.
+- The camera task now holds its one framebuffer between requested captures.
+  Releasing it only when a snapshot or preview interval is due makes the sensor
+  acquire one fresh frame and leaves the capture engine idle between frames.
+  Preview remains off by default and explicitly limited to QVGA/VGA; XGA is
+  rejected as a preview-stream setting.
+- Snapshot capture now temporarily selects the OV3660's native XGA mode
+  (1024x768, 4:3), retains JPEG quality 10, performs no crop, resize, rotation,
+  or aspect-ratio conversion, and reports `cam_meta.res=XGA`. If low-resolution
+  preview is active, its configured resolution is restored after the still.
+- The driver allocates framebuffer capacity from its initialization resolution.
+  Initialization therefore uses XGA even though streaming remains disabled.
+  This prevents an XGA capture from inheriting a QVGA-sized PSRAM allocation.
+  Only one driver buffer is still allocated.
+- The necessary dynamic-memory tradeoff is explicit: the driver's automatic
+  JPEG buffer grows from about 15,360 bytes at QVGA to about 157,286 bytes at
+  XGA, approximately 142 KiB of additional PSRAM plus unchanged DMA overhead.
+  It does not consume internal static RAM, and the final live status still
+  reported 8,173,088 bytes of free heap.
+- Raised the protocol-valid JPEG ceiling from 120 KiB to a bounded 256 KiB
+  consistently across firmware, protocol schema/helper, gateway WebSocket
+  limit, and emulator. This is a validation/transport ceiling, not a static
+  256 KiB firmware allocation. The physical driver's automatic XGA JPEG buffer
+  remains approximately 154 KiB plus DMA overhead.
+- Updated the physical dashboard label to `Snapshot · XGA`; the preview form
+  still offers only QVGA and VGA and defaults to one frame per second when
+  enabled. The emulator now mirrors the physical split: XGA for snapshots and
+  QVGA/VGA for explicit preview.
+- Portable C build and all 11 CTest targets passed. The focused protocol,
+  emulator, and gateway run passed 70 tests. The complete A-series acceptance
+  suite then passed 30/30 gates: emulator, protocol, portable C, and dashboard
+  browser.
+- ESP-IDF v5.5.4 build and `idf.py size` passed. The application binary is
+  `0x158d00` bytes (1,412,352), 720 bytes larger than the last flashed image,
+  with 55 percent of the 3 MiB app partition free. DIRAM is 171,699 of 341,760
+  bytes (`50.24%`), including 70,560 bytes of BSS; static BSS increased by
+  eight bytes.
+- Application SHA-256:
+  `62f31502ef67bcac82787a6eb9c91f7b70a748f2d0352f3c7783daca6cf84d17`.
+- Flashed only the application partition at `0x20000`, preserving NVS, OTA
+  state, and LittleFS. The flasher verified its write hash and a separate
+  `esptool verify_flash` comparison passed for all 1,412,352 bytes.
+- Restarted the physical gateway so its live process loaded the new XGA metadata
+  and 256 KiB transport contract. With preview off, an authenticated dashboard
+  snapshot returned a valid 29,618-byte baseline JPEG at exactly 1024x768.
+  A separate local command-to-new-JPEG measurement returned a valid
+  28,885-byte 1024x768 frame in 969 ms.
+- The complete mixed-mode hardware sequence passed: QVGA preview at one frame
+  per second produced a 320x240 frame at counter 8; the next explicit snapshot
+  produced a 1024x768 frame at counter 9; the following preview frame returned
+  to 320x240 at counter 10. After an explicit camera-off command, zero camera
+  frames were recorded more than one second later.
+- The final authenticated status showed the robot connected over LAN with no
+  pending commands, 877 ms heartbeat age, RSSI -51 dBm, 8,173,088 bytes free
+  heap, and zero camera, speaker, or microphone drops. Camera preview was left
+  off.
+- One diagnostic snapshot attempt emitted XGA metadata and then coincided with
+  a WebSocket 1006 disconnect while a UART monitor was attached. The robot
+  reconnected automatically after 21 seconds; the subsequent timed snapshot,
+  mixed-mode sequence, continuing status, and zero drop counters all passed.
+  The disconnect was not reproduced, but remains explicit evidence for the
+  longer multi-peripheral soak.
+- The controller's per-snapshot `age_ms` log could not be decoded after startup
+  because MAP_B hands console GPIO43 to OLED SCL. The measured 969 ms
+  command-to-JPEG result is therefore the current physical responsiveness
+  evidence; the code-level stale-frame cause and single-buffer ownership fix
+  remain independently confirmed.

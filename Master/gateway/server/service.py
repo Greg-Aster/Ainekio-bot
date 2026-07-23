@@ -14,6 +14,7 @@ from time import monotonic
 from typing import Any
 
 from protocol.binary_helpers import (
+    MAX_JPEG_BYTES,
     MIC_PCM_FRAME_TYPE,
     SPEAKER_PCM_FRAME_TYPE,
     encode_binary_frame,
@@ -31,12 +32,8 @@ from protocol.joints_v1 import joint_contract
 from websockets.exceptions import ConnectionClosed
 
 
-# One-second heartbeats leave three additional send opportunities before the
-# connection is failed safe. The old two/three-second pair had only one second
-# of scheduling margin and dropped healthy LAN sessions under brief jitter.
-MAX_WEBSOCKET_MESSAGE_BYTES = (120 * 1024) + 5
-PING_AFTER_SECONDS = 1.0
-OFFLINE_AFTER_SECONDS = 4.0
+MAX_WEBSOCKET_MESSAGE_BYTES = MAX_JPEG_BYTES + 5
+DEFAULT_PING_INTERVAL_SECONDS = 1.0
 
 GatewayCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 
@@ -89,12 +86,15 @@ class GatewayServiceConfig:
     tokens: Mapping[str, str]
     profile: str = "home"
     max_action_age_ms: int = 2000
+    ping_interval_s: float = DEFAULT_PING_INTERVAL_SECONDS
 
     def __post_init__(self) -> None:
         if self.profile not in {"home", "tether"}:
             raise ValueError("profile must be home or tether")
         if not 1 <= self.max_action_age_ms <= 60000:
             raise ValueError("max_action_age_ms must be between 1 and 60000")
+        if not 0.01 <= self.ping_interval_s <= 60.0:
+            raise ValueError("ping_interval_s must be between 0.01 and 60")
 
 
 @dataclass
@@ -131,6 +131,9 @@ class GatewayConnection:
         self.connected_at = service.clock()
         self.last_control_at = self.connected_at
         self.last_sent_at = self.connected_at
+        self.control_frames_received = 0
+        self.json_pings_sent = 0
+        self.last_control_type: str | None = None
         self.close_code: int | None = None
         self.close_reason: str | None = None
         self._send_lock = asyncio.Lock()
@@ -224,11 +227,9 @@ class GatewayConnection:
     async def run(self) -> None:
         while True:
             now = self.service.clock()
-            if now - self.last_control_at >= OFFLINE_AFTER_SECONDS:
-                await self.close(1011, "control timeout", cancel_code="disconnect")
-                return
-            if now - self.last_sent_at >= PING_AFTER_SECONDS:
+            if now - self.last_sent_at >= self.service.config.ping_interval_s:
                 await self.send_control({"t": "ping"})
+                self.json_pings_sent += 1
 
             try:
                 raw = await asyncio.wait_for(self.websocket.recv(), timeout=0.1)
@@ -248,6 +249,8 @@ class GatewayConnection:
                 await self.websocket.close(code=1002, reason="control frame must be an object")
                 return
             self.last_control_at = self.service.clock()
+            self.control_frames_received += 1
+            self.last_control_type = str(message.get("t"))
             await self._handle_control(message)
 
     async def _handle_binary(self, raw: bytes) -> None:
@@ -566,6 +569,8 @@ class GatewayService:
         robot_id: str | None = None,
     ) -> int:
         connection = self._connection(robot_id)
+        if resolution not in {"QVGA", "VGA"}:
+            raise GatewayError("camera preview resolution must be QVGA or VGA")
         if connection.profile == "home" and fps > 10:
             raise GatewayError("home profile camera limit is 10 fps")
         if connection.profile == "tether" and fps != 0:
@@ -738,6 +743,12 @@ class GatewayService:
                     "heartbeat_age_ms": int(
                         max(0.0, self.clock() - connection.last_control_at) * 1000
                     ),
+                    "heartbeat": {
+                        "ping_interval_s": self.config.ping_interval_s,
+                        "control_frames_received": connection.control_frames_received,
+                        "json_pings_sent": connection.json_pings_sent,
+                        "last_control_type": connection.last_control_type,
+                    },
                     "last_terminal": (
                         next(reversed(connection.completed.values()))
                         if connection.completed

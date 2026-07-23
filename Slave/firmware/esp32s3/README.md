@@ -39,10 +39,21 @@ The current cross-built port includes the portable safety core, MCPWM motion,
 LittleFS assets, NVS configuration and migration, WPA2 SoftAP provisioning,
 outbound protocol-v1 WebSocket runtime, full-duplex I2S audio/microphone, SSD1306
 display, ADC battery safety, SD_MMC storage, deep sleep, and OTA rollback
-validation after gateway authentication. The OV3660 camera path now supports
-QVGA/VGA JPEG snapshots and bounded streaming when the sensor and expected PSRAM
-initialize; commands still reject explicitly if the physical camera is
-unavailable.
+validation after gateway authentication. The OV3660 camera path now captures
+fresh XGA (1024x768) JPEG stills while keeping preview streaming bounded to
+QVGA/VGA and off until requested. It uses one PSRAM framebuffer and leaves the
+capture engine idle between frames; commands still reject explicitly if the
+physical camera is unavailable.
+
+The controller also queues that same snapshot operation at two local event
+boundaries: after a completed motion action, and after a
+VAD-delimited microphone utterance closes. It attaches the action sequence or
+robot-generated utterance identifier to `cam_meta`, sends the JPEG, and only
+then reports action completion. Snapshot failure never converts already
+completed motion into failure. Speaker/TTS completion remains terminal without
+creating a perception image. This reuses the existing camera task,
+four-entry command queue, single framebuffer, and bounded outgoing JPEG copy;
+it adds no camera polling task or continuous stream.
 
 Provisioning uses one stable eight-character device key as the
 `Ainekio-Setup` WPA2 password. The key is stored separately from replaceable

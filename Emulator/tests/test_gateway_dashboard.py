@@ -381,6 +381,10 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         html = body.decode("utf-8")
         self.assertIn('data-dashboard-primary="camera"', html)
         self.assertIn('data-dashboard-panel="camera"', html)
+        self.assertLess(
+            html.index('id="camera-form"'),
+            html.index('data-dashboard-panel="simulator"'),
+        )
         self.assertIn('data-dashboard-panel="simulator"', html)
 
     async def test_dashboard_can_select_emulator_panel(self) -> None:
