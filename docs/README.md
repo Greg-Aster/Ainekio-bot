@@ -64,10 +64,12 @@ new specification revision, readers must keep these boundaries explicit:
   disabled pending specification consolidation and hardware-derived limits.
 - Local robot transport now defaults to `_ainekio._tcp.local` DNS-SD discovery,
   rejects off-subnet advertised addresses, and never silently falls back to the
-  optional Cloudflare relay. The maintained implementation uses one-second
-  control pings and a four-second FAILSAFE/offline bound. The v1.0 DOCX still
-  needs a numbered erratum for this local-discovery and liveness contract; the
-  prepared controller image has not yet been flashed.
+  optional Cloudflare relay. The owner selected authenticated `ws://` on the
+  private home WPA2 LAN as the intentionally minimal local transport; pinned
+  local WSS is not a parallel pending path. The maintained implementation uses
+  one-second control pings and a four-second FAILSAFE/offline bound. The v1.0
+  DOCX still needs a numbered erratum for this local-discovery and liveness
+  contract; the prepared controller image has not yet been flashed.
 
 ## Reference inputs
 

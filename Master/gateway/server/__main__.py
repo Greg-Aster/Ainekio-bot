@@ -75,14 +75,16 @@ def _advertised_host(bind_host: str) -> str | None:
     return None
 
 
-def _robot_transport(websocket: object) -> str:
+def _request_uses_relay(websocket: object) -> bool:
     headers = getattr(websocket, "request_headers", None)
-    if headers is not None and (
+    return headers is not None and (
         headers.get("CF-Ray") is not None
         or headers.get("CF-Connecting-IP") is not None
-    ):
-        return "relay"
-    return "lan"
+    )
+
+
+def _robot_transport(websocket: object) -> str:
+    return "relay" if _request_uses_relay(websocket) else "lan"
 
 
 def _peer_is_loopback(websocket: object) -> bool:
@@ -197,6 +199,7 @@ async def _run_production(args: argparse.Namespace) -> None:
             path == "/environment"
             and adapter is not None
             and _peer_is_loopback(websocket)
+            and not _request_uses_relay(websocket)
         ):
             await adapter.handler(websocket)
             return

@@ -56,7 +56,7 @@ class EnvironmentAdapterConfig:
     environment_id: str = "ainekio"
     adapter_id: str = "ainekio-gateway"
     robot_id: str | None = None
-    snapshot_after_action: bool = False
+    snapshot_after_action: bool = True
     max_utterance_ms: int = 15000
     freestyle_enabled: bool = True
 
@@ -106,6 +106,8 @@ class EnvironmentAdapter:
         self._camera_observation_count = 0
         self._pending_snapshot_context: dict[str, object] | None = None
         self._pending_snapshot_feedback: dict[str, object] | None = None
+        self._pending_snapshot_counter: int | None = None
+        self._snapshot_in_flight = False
         self._snapshot_lock = asyncio.Lock()
         self._last_microphone_level_at = float("-inf")
         self._last_audio_result: dict[str, object] | None = None
@@ -301,7 +303,9 @@ class EnvironmentAdapter:
             if translated.kind == "snapshot":
                 await self._snapshot_lock.acquire()
                 snapshot_lock_acquired = True
+                self._snapshot_in_flight = True
                 self._pending_snapshot_context = snapshot_context
+                self._pending_snapshot_counter = None
             sequence = await self._dispatch(translated, accepted_at)
             if translated.kind == "motion_plan":
                 await self._send_motion_plan_status(
@@ -341,6 +345,8 @@ class EnvironmentAdapter:
             if snapshot_lock_acquired:
                 if self._pending_snapshot_context is snapshot_context:
                     self._pending_snapshot_context = None
+                self._pending_snapshot_counter = None
+                self._snapshot_in_flight = False
                 self._snapshot_lock.release()
 
         terminal_type = str(terminal.get("t"))
@@ -454,8 +460,10 @@ class EnvironmentAdapter:
         feedback: dict[str, object] | None = None,
     ) -> None:
         async with self._snapshot_lock:
+            self._snapshot_in_flight = True
             self._pending_snapshot_context = snapshot_context
             self._pending_snapshot_feedback = feedback
+            self._pending_snapshot_counter = None
             try:
                 sequence = await self.gateway.request_snap(robot_id=self.config.robot_id)
                 await self.gateway.wait_terminal(
@@ -470,6 +478,8 @@ class EnvironmentAdapter:
                     self._pending_snapshot_context = None
                 if self._pending_snapshot_feedback is feedback:
                     self._pending_snapshot_feedback = None
+                self._pending_snapshot_counter = None
+                self._snapshot_in_flight = False
 
     def _snapshot_context(
         self,
@@ -519,6 +529,15 @@ class EnvironmentAdapter:
                     }
                 },
             )
+            return
+        if event.get("t") == "cam_meta":
+            counter = event.get("counter_base")
+            if (
+                self._snapshot_in_flight
+                and event.get("fps") == 0
+                and type(counter) is int
+            ):
+                self._pending_snapshot_counter = counter
             return
         if event.get("t") not in {"connection", "event"}:
             return
@@ -589,6 +608,12 @@ class EnvironmentAdapter:
             return
         payload = frame.get("payload")
         if not isinstance(payload, bytes):
+            return
+        if (
+            not self._snapshot_in_flight
+            or type(frame.get("counter")) is not int
+            or frame.get("counter") != self._pending_snapshot_counter
+        ):
             return
         snapshot_context = self._pending_snapshot_context
         snapshot_feedback = self._pending_snapshot_feedback

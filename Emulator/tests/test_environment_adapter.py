@@ -85,6 +85,17 @@ class FakeGateway:
 class SnapshotGateway(FakeGateway):
     async def request_snap(self, **kwargs: object) -> int:
         self.calls.append(("snap", kwargs))
+        for callback in self.event_callbacks:
+            await callback(
+                {
+                    "robot_id": "test-body",
+                    "epoch": 1,
+                    "t": "cam_meta",
+                    "res": "QVGA",
+                    "fps": 0,
+                    "counter_base": 31,
+                }
+            )
         for callback in self.frame_callbacks:
             await callback(
                 {
@@ -371,7 +382,6 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             gateway,  # type: ignore[arg-type]
             EnvironmentAdapterConfig(
                 token="adapter-secret",
-                snapshot_after_action=True,
             ),
         )
         websocket = FakeWebSocket()
@@ -654,6 +664,10 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
+        adapter._snapshot_in_flight = True
+        await adapter._handle_gateway_event(
+            {"t": "cam_meta", "res": "QVGA", "fps": 0, "counter_base": 3}
+        )
 
         await adapter._handle_gateway_frame(
             {
@@ -669,6 +683,26 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         visual = message["observation"]["visual"]
         self.assertEqual(visual["mimeType"], "image/jpeg")
         self.assertEqual(visual["dataUrl"], "data:image/jpeg;base64,/9j/2Q==")
+
+    async def test_continuous_camera_frame_stays_out_of_llm_observations(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+
+        await adapter._handle_gateway_frame(
+            {
+                "robot_id": "test-body",
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "counter": 4,
+                "payload": b"\xff\xd8\xff\xd9",
+            }
+        )
+
+        self.assertEqual(websocket.sent, [])
 
     async def test_vad_frames_become_one_bounded_binary_wav_utterance(self) -> None:
         gateway = FakeGateway()

@@ -2577,7 +2577,7 @@ esp_err_t ainekio_runtime_start(
     runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
     runtime->wake_enabled = dependencies->wake_enabled;
     runtime->wake_ready = false;
-    runtime->microphone_enabled = false;
+    runtime->microphone_enabled = true;
     runtime->microphone_gate = AINEKIO_MIC_GATE_VAD;
     (void)strcpy(runtime->wake_model, dependencies->wake_model);
     runtime->display_state = UINT8_MAX;

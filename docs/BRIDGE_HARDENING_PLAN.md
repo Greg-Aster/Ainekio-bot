@@ -197,17 +197,26 @@ saved WiFi -> _ainekio._tcp.local -> same-subnet gateway -> /robot
   first reply nondeterministically.
 - Remote relay mode is explicit and requires a `wss://` endpoint. Local mode
   never silently falls back through Cloudflare.
+- Owner decision: this one-off home companion uses authenticated `ws://` as its
+  local transport. The trusted private WPA2 LAN is part of the security
+  boundary. Pinned local WSS is not another pending connection path and should
+  be reconsidered only if the robot moves to a shared or untrusted network.
 - `/robot` remains LAN-facing on the one gateway listener. `/environment` now
   rejects every non-loopback peer, preserving MetaHuman's existing
   `ws://127.0.0.1:8790/environment` configuration without adding a second
-  listener or service.
+  listener or service. Requests carrying Cloudflare relay headers are also
+  rejected even though the local tunnel connector itself reaches loopback.
 - OLED states now distinguish searching, not found, verifying, authentication
   rejection, local/remote connection, and control timeout. A specific
   authentication or liveness failure is preserved across the socket close
   event instead of immediately becoming `GATEWAY OFFLINE`.
-- Microphone transport starts disabled, continuous camera transport remains
-  disabled, and automatic post-action snapshots now default off. Media moves
-  only after an explicit control action or setting.
+- For bring-up testing, microphone transport starts enabled behind VAD while
+  wake-word gating remains separate and off by default. Every completed action
+  requests a correlated still when the camera is ready, and `captureImage`
+  remains directly available to the LLM. Continuous camera transport stays off
+  until enabled in Body Control; its frames feed only the local dashboard, not
+  the Environment/LLM observation path. The dashboard also exposes the live
+  microphone level and can enable or disable both devices.
 - `Master/ainekio-gateway.service` is a single systemd user-service wrapper
   around the existing launcher. It is linked, enabled, and running on the owner
   computer; the old terminal-owned gateway was stopped after confirming it had
@@ -222,11 +231,10 @@ though Ainekio enables only the station interface.
 
 ### Still open before production-ready local operation
 
-- Local discovery currently locates but does not cryptographically identify the
-  gateway: it uses plaintext `ws://`, then the existing robot-token handshake.
-  A pinned local WSS identity requires an owner-approved one-time certificate
-  pairing flow and must replace this transport rather than coexist as another
-  automatic path.
+- The chosen local `ws://` design does not cryptographically identify the
+  discovered gateway or encrypt LAN traffic. Keep the robot on the owner's
+  private WPA2 network, do not reuse its robot token, and rotate that token if
+  an untrusted device joins the LAN or compromise is suspected.
 - The 1/4-second liveness values above are now the maintained implementation
   contract, but the v1.0 DOCX still contains the older 2/3-second wording and
   requires a numbered erratum.
@@ -281,8 +289,8 @@ currently occurs at owner login rather than before login.
 
 ### Validation evidence
 
-- Ainekio emulator/gateway suite: all 136 tests passed, including the dedicated
-  incomplete-handshake regression.
+- Ainekio emulator/gateway suite: all 137 tests passed, including dedicated
+  incomplete-handshake and loopback-only Environment-route regressions.
 - Portable C core: all 11 tests passed.
 - Python protocol contract: all 13 tests passed.
 - ESP-IDF 5.5.4 firmware build: passed; local-discovery application image size
