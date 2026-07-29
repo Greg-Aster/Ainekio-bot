@@ -245,9 +245,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.server.audit_log.record("stop_cleared", robot_id=robot_id)
             return {"ok": True, "seq": sequence}
         if path == "/api/stop":
-            sequence = self.server.call_gateway(self.server.gateway.estop(robot_id=robot_id))
+            sequence = self.server.call_gateway(
+                self.server.gateway.estop(robot_id=robot_id, detach=False)
+            )
             self.server.stop_latched = True
             self.server.audit_log.record("stop_issued", robot_id=robot_id)
+            return {"ok": True, "seq": sequence}
+        if path == "/api/detach":
+            sequence = self.server.call_gateway(
+                self.server.gateway.estop(robot_id=robot_id, detach=True)
+            )
+            self.server.stop_latched = True
+            self.server.audit_log.record("detach_issued", robot_id=robot_id)
             return {"ok": True, "seq": sequence}
         if path == "/api/profile":
             sequence = self.server.call_gateway(
@@ -361,9 +370,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             return {"ok": True, "sequences": sequences}
         if path == "/api/calibration/detach":
-            sequence = self.server.call_gateway(self.server.gateway.estop(robot_id=robot_id))
+            sequence = self.server.call_gateway(
+                self.server.gateway.estop(robot_id=robot_id, detach=True)
+            )
             self.server.stop_latched = True
-            self.server.audit_log.record("stop_issued", robot_id=robot_id)
+            self.server.audit_log.record("detach_issued", robot_id=robot_id)
             return {"ok": True, "seq": sequence}
         if path == "/api/tokens/generate":
             new_robot_id = _required_string(payload, "robot_id")

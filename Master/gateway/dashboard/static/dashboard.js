@@ -164,16 +164,17 @@
     return true;
   }
 
-  async function stopMotion(label = "Stop sent") {
+  async function stopMotion(label = "Stop sent", detach = false) {
     const pendingRequest = heldRequest;
+    const endpoint = detach ? "/api/detach" : "/api/stop";
     heldDirection = null;
     gamepadDirection = null;
     document.querySelectorAll("[data-held-direction]").forEach((button) => button.classList.remove("is-active"));
-    const immediateStop = command("/api/stop", {}, label);
+    const immediateStop = command(endpoint, {}, label);
     if (pendingRequest) {
       await Promise.allSettled([pendingRequest, immediateStop]);
       if (heldDirection === null) {
-        try { await command("/api/stop", {}, `${label} (confirmed)`); } catch (_error) { return; }
+        try { await command(endpoint, {}, `${label} (confirmed)`); } catch (_error) { return; }
       }
       return;
     }
@@ -227,7 +228,7 @@
       button.addEventListener("pointercancel", release);
       button.addEventListener("lostpointercapture", release);
     });
-    byId("stop-button").addEventListener("click", () => stopMotion("Emergency stop sent"));
+    byId("stop-button").addEventListener("click", () => stopMotion("Emergency stop sent", true));
 
     window.addEventListener("keydown", (event) => {
       const direction = directionForKey(event.code);
@@ -243,10 +244,14 @@
       }
       if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) {
         event.preventDefault();
-        stopMotion("Emergency stop sent");
+        stopMotion("Emergency stop sent", true);
       }
     });
-    window.addEventListener("blur", () => stopMotion("Window lost focus"));
+    window.addEventListener("blur", () => {
+      if (heldDirection !== null || gamepadDirection !== null || heldRequestPending) {
+        stopMotion("Window lost focus");
+      }
+    });
     window.addEventListener("pagehide", releaseOnPageLoss);
     window.addEventListener("gamepadconnected", startGamepadSampling);
     window.addEventListener("gamepaddisconnected", () => {

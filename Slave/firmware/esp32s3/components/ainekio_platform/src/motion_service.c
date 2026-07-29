@@ -28,6 +28,38 @@ static uint16_t configured_duration_ms(uint16_t duration_ms)
                : duration_ms;
 }
 
+static bool motion_plan_valid(const ainekio_motion_plan_t *plan)
+{
+    if (plan == NULL ||
+        plan->joint_map_version != AINEKIO_JOINT_MAP_VERSION ||
+        plan->frame_count == 0U ||
+        plan->frame_count > AINEKIO_MOTION_PLAN_MAX_FRAMES ||
+        plan->end > AINEKIO_MOTION_PLAN_END_NEUTRAL) {
+        return false;
+    }
+    uint32_t total_duration_ms = 0U;
+    for (uint8_t frame_index = 0U; frame_index < plan->frame_count;
+         ++frame_index) {
+        const ainekio_motion_plan_frame_t *frame = &plan->frames[frame_index];
+        if (frame->duration_ms < AINEKIO_MOTION_PLAN_MIN_FRAME_MS ||
+            frame->duration_ms > AINEKIO_MOTION_PLAN_MAX_FRAME_MS) {
+            return false;
+        }
+        total_duration_ms += frame->duration_ms;
+        if (total_duration_ms > AINEKIO_MOTION_PLAN_MAX_TOTAL_MS) {
+            return false;
+        }
+        for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT;
+             ++joint_id) {
+            if (frame->targets[joint_id] >
+                AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES) {
+                return false;
+            }
+        }
+    }
+    return total_duration_ms == plan->total_duration_ms;
+}
+
 static bool service_notifications(ainekio_motion_service_t *service)
 {
     uint32_t notifications = 0U;
@@ -47,12 +79,161 @@ static bool service_notifications(ainekio_motion_service_t *service)
     return false;
 }
 
+#if CONFIG_AINEKIO_MOTION_SMOOTH_PLAYBACK
+static esp_err_t run_smoothed_source_frame(
+    ainekio_motion_service_t *service,
+    const ainekio_motion_frame_t *frame,
+    uint16_t duration_ms,
+    TickType_t period,
+    TickType_t *wake
+)
+{
+    float start_degrees[AINEKIO_SERVO_COUNT];
+    float target_degrees[AINEKIO_SERVO_COUNT];
+
+    for (uint8_t index = 0U; index < frame->target_count; ++index) {
+        const ainekio_motion_target_t *target = &frame->targets[index];
+        const uint8_t joint_id = target->joint_id;
+        if (joint_id >= AINEKIO_SERVO_COUNT) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        const ainekio_servo_result_t result = ainekio_servo_map_logical(
+            &service->servos->channels[joint_id].calibration,
+            configured_logical_degrees(
+                (float)target->centidegrees / 100.0F
+            ),
+            &target_degrees[index]
+        );
+        if (result != AINEKIO_SERVO_OK) {
+            return result == AINEKIO_SERVO_LIMIT ? ESP_ERR_INVALID_ARG
+                                                 : ESP_ERR_INVALID_STATE;
+        }
+        start_degrees[index] =
+            service->servos->channels[joint_id].current_degrees;
+    }
+
+    const uint16_t transition_ms =
+        duration_ms < CONFIG_AINEKIO_MOTION_SMOOTH_TRANSITION_MS
+            ? duration_ms
+            : CONFIG_AINEKIO_MOTION_SMOOTH_TRANSITION_MS;
+    const uint16_t transition_ticks = (uint16_t)(
+        (transition_ms + AINEKIO_SERVO_TICK_MS - 1U) /
+        AINEKIO_SERVO_TICK_MS
+    );
+    const uint16_t total_ticks = (uint16_t)(
+        (duration_ms + AINEKIO_SERVO_TICK_MS - 1U) /
+        AINEKIO_SERVO_TICK_MS
+    );
+
+    for (uint16_t tick = 1U; tick <= total_ticks; ++tick) {
+        if (service_notifications(service)) {
+            return ESP_ERR_INVALID_RESPONSE;
+        }
+        if (tick <= transition_ticks) {
+            const float progress =
+                (float)tick / (float)transition_ticks;
+            const float eased =
+                progress * progress * (3.0F - 2.0F * progress);
+            for (uint8_t index = 0U; index < frame->target_count; ++index) {
+                const uint8_t joint_id = frame->targets[index].joint_id;
+                const float degrees =
+                    start_degrees[index] +
+                    (target_degrees[index] - start_degrees[index]) * eased;
+                const ainekio_servo_result_t result =
+                    ainekio_servo_move_physical(
+                        service->servos,
+                        joint_id,
+                        degrees,
+                        0U
+                    );
+                if (result != AINEKIO_SERVO_OK) {
+                    return result == AINEKIO_SERVO_LIMIT
+                               ? ESP_ERR_INVALID_ARG
+                               : ESP_ERR_INVALID_STATE;
+                }
+            }
+        }
+        const esp_err_t result =
+            ainekio_mcpwm_adapter_sync(service->mcpwm, service->servos);
+        if (result != ESP_OK) {
+            return result;
+        }
+        vTaskDelayUntil(wake, period);
+    }
+    return ESP_OK;
+}
+#endif
+
 static esp_err_t run_frame(
     ainekio_motion_service_t *service,
-    const ainekio_motion_frame_t *frame
+    const ainekio_motion_frame_t *frame,
+    bool sequential_servo_timing
 )
 {
     const uint16_t duration_ms = configured_duration_ms(frame->duration_ms);
+    const TickType_t period = pdMS_TO_TICKS(AINEKIO_SERVO_TICK_MS);
+    TickType_t wake = xTaskGetTickCount();
+
+    if (sequential_servo_timing) {
+#if CONFIG_AINEKIO_MOTION_SMOOTH_PLAYBACK
+        return run_smoothed_source_frame(
+            service,
+            frame,
+            duration_ms,
+            period,
+            &wake
+        );
+#else
+        const uint16_t servo_time_ms =
+            (uint16_t)frame->target_count * AINEKIO_SERVO_TICK_MS;
+        if (duration_ms < servo_time_ms) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        for (uint8_t index = 0U; index < frame->target_count; ++index) {
+            const ainekio_motion_target_t *target = &frame->targets[index];
+            const ainekio_servo_result_t result = ainekio_servo_move_logical(
+                service->servos,
+                target->joint_id,
+                configured_logical_degrees(
+                    (float)target->centidegrees / 100.0F
+                ),
+                AINEKIO_SERVO_TICK_MS
+            );
+            if (result != AINEKIO_SERVO_OK) {
+                return result == AINEKIO_SERVO_LIMIT
+                           ? ESP_ERR_INVALID_ARG
+                           : ESP_ERR_INVALID_STATE;
+            }
+            if (service_notifications(service)) {
+                return ESP_ERR_INVALID_RESPONSE;
+            }
+            const esp_err_t sync_result =
+                ainekio_mcpwm_adapter_sync(service->mcpwm, service->servos);
+            if (sync_result != ESP_OK) {
+                return sync_result;
+            }
+            vTaskDelayUntil(&wake, period);
+        }
+
+        const uint16_t hold_ticks = (uint16_t)(
+            (duration_ms - servo_time_ms + AINEKIO_SERVO_TICK_MS - 1U) /
+            AINEKIO_SERVO_TICK_MS
+        );
+        for (uint16_t tick = 0U; tick < hold_ticks; ++tick) {
+            if (service_notifications(service)) {
+                return ESP_ERR_INVALID_RESPONSE;
+            }
+            const esp_err_t sync_result =
+                ainekio_mcpwm_adapter_sync(service->mcpwm, service->servos);
+            if (sync_result != ESP_OK) {
+                return sync_result;
+            }
+            vTaskDelayUntil(&wake, period);
+        }
+        return ESP_OK;
+#endif
+    }
+
     for (uint8_t index = 0U; index < frame->target_count; ++index) {
         const ainekio_motion_target_t *target = &frame->targets[index];
         const ainekio_servo_result_t result = ainekio_servo_move_logical(
@@ -67,15 +248,13 @@ static esp_err_t run_frame(
         }
     }
 
-    const TickType_t period = pdMS_TO_TICKS(AINEKIO_SERVO_TICK_MS);
-    TickType_t wake = xTaskGetTickCount();
     const uint16_t ticks = (uint16_t)(
         (duration_ms + AINEKIO_SERVO_TICK_MS - 1U) /
         AINEKIO_SERVO_TICK_MS
     );
     for (uint16_t tick = 0U; tick < ticks; ++tick) {
         if (service_notifications(service)) {
-            return ESP_ERR_INVALID_STATE;
+            return ESP_ERR_INVALID_RESPONSE;
         }
         const esp_err_t result =
             ainekio_mcpwm_adapter_sync(service->mcpwm, service->servos);
@@ -110,7 +289,11 @@ static esp_err_t run_asset(
                     }
                     ++cue_index;
                 }
-                const esp_err_t result = run_frame(service, &asset->frames[frame_index]);
+                const esp_err_t result = run_frame(
+                    service,
+                    &asset->frames[frame_index],
+                    asset->sequential_servo_timing
+                );
                 if (result != ESP_OK) {
                     return result;
                 }
@@ -135,7 +318,7 @@ static esp_err_t run_pose(
         frame.targets[index].centidegrees =
             (uint16_t)(pose->targets[index].degrees * 100.0F + 0.5F);
     }
-    return run_frame(service, &frame);
+    return run_frame(service, &frame, false);
 }
 
 static esp_err_t run_fallback(
@@ -163,22 +346,42 @@ static void clear_active(ainekio_motion_service_t *service, uint32_t sequence)
 
 static void perform_stop(ainekio_motion_service_t *service)
 {
-    bool attached = false;
-    for (uint8_t index = 0U; index < AINEKIO_SERVO_COUNT; ++index) {
-        attached = attached || service->servos->channels[index].attached;
+    bool detach = false;
+    taskENTER_CRITICAL(&service->state_lock);
+    detach = service->detach_requested;
+    taskEXIT_CRITICAL(&service->state_lock);
+
+    esp_err_t hold_result = ESP_OK;
+    while (!detach) {
+        hold_result = run_fallback(service, AINEKIO_FALLBACK_NEUTRAL);
+        taskENTER_CRITICAL(&service->state_lock);
+        detach = service->detach_requested;
+        taskEXIT_CRITICAL(&service->state_lock);
+        if (hold_result != ESP_ERR_INVALID_RESPONSE) {
+            break;
+        }
     }
-    if (attached) {
-        (void)run_fallback(service, AINEKIO_FALLBACK_NEUTRAL);
-    }
-    ainekio_servo_detach_all(service->servos);
-    (void)ainekio_mcpwm_adapter_detach_all(service->mcpwm);
 
     taskENTER_CRITICAL(&service->state_lock);
+    detach = detach || service->detach_requested;
+    service->detach_requested = false;
     service->active_sequence = 0U;
     service->active_cancelled = false;
     service->job_pending = false;
     service->calibration_pending_mask = 0U;
     taskEXIT_CRITICAL(&service->state_lock);
+
+    if (detach || hold_result != ESP_OK) {
+        ainekio_servo_detach_all(service->servos);
+        (void)ainekio_mcpwm_adapter_detach_all(service->mcpwm);
+        ESP_LOGW(
+            TAG,
+            "motion outputs detached%s",
+            hold_result == ESP_OK ? "" : " after neutral hold failed"
+        );
+    } else {
+        ESP_LOGI(TAG, "motion stopped at neutral; PWM hold remains enabled");
+    }
 }
 
 static esp_err_t run_calibration(ainekio_motion_service_t *service)
@@ -208,7 +411,7 @@ static esp_err_t run_calibration(ainekio_motion_service_t *service)
             }
         }
         if (service_notifications(service)) {
-            return ESP_ERR_INVALID_STATE;
+            return ESP_ERR_INVALID_RESPONSE;
         }
         const esp_err_t result =
             ainekio_mcpwm_adapter_sync(service->mcpwm, service->servos);
@@ -245,6 +448,19 @@ static esp_err_t execute_job(
         const ainekio_named_pose_t *pose =
             ainekio_pose_bank_find(service->poses, job->name);
         return pose == NULL ? ESP_ERR_NOT_FOUND : run_pose(service, pose, 300U);
+    }
+    if (job->kind == AINEKIO_MOTION_JOB_PLAN) {
+        const esp_err_t result = run_asset(service, &service->prepared_asset, 1U);
+        if (result != ESP_OK ||
+            job->plan_end == AINEKIO_MOTION_PLAN_END_HOLD) {
+            return result;
+        }
+        return run_fallback(
+            service,
+            job->plan_end == AINEKIO_MOTION_PLAN_END_STAND
+                ? AINEKIO_FALLBACK_STAND
+                : AINEKIO_FALLBACK_NEUTRAL
+        );
     }
 
     esp_err_t result = run_asset(
@@ -372,14 +588,28 @@ esp_err_t ainekio_motion_service_start(
         service->task = NULL;
         return ESP_ERR_NO_MEM;
     }
+#if CONFIG_AINEKIO_MOTION_SMOOTH_PLAYBACK
     ESP_LOGI(
         TAG,
-        "all-servo profile range=%d%% logical=%.1f..%.1f min_frame_ms=%d",
+        "all-servo profile range=%d%% logical=%.1f..%.1f min_frame_ms=%d "
+        "playback=smooth transition_ms=%d",
+        CONFIG_AINEKIO_MOTION_RANGE_PERCENT,
+        (double)configured_logical_degrees(0.0F),
+        (double)configured_logical_degrees(180.0F),
+        CONFIG_AINEKIO_MOTION_MIN_FRAME_MS,
+        CONFIG_AINEKIO_MOTION_SMOOTH_TRANSITION_MS
+    );
+#else
+    ESP_LOGI(
+        TAG,
+        "all-servo profile range=%d%% logical=%.1f..%.1f min_frame_ms=%d "
+        "playback=sesame_exact",
         CONFIG_AINEKIO_MOTION_RANGE_PERCENT,
         (double)configured_logical_degrees(0.0F),
         (double)configured_logical_degrees(180.0F),
         CONFIG_AINEKIO_MOTION_MIN_FRAME_MS
     );
+#endif
     return ESP_OK;
 }
 
@@ -436,6 +666,68 @@ ainekio_motion_submit_result_t ainekio_motion_service_prepare(
     return AINEKIO_MOTION_SUBMIT_OK;
 }
 
+ainekio_motion_submit_result_t ainekio_motion_service_prepare_plan(
+    ainekio_motion_service_t *service,
+    uint32_t sequence,
+    const ainekio_motion_plan_t *plan
+)
+{
+    if (service == NULL || service->task == NULL || sequence == 0U ||
+        !motion_plan_valid(plan)) {
+        return AINEKIO_MOTION_SUBMIT_LIMIT;
+    }
+    taskENTER_CRITICAL(&service->state_lock);
+    const bool busy = service->active_sequence != 0U;
+    if (!busy) {
+        service->active_sequence = sequence;
+        service->active_cancelled = false;
+    }
+    taskEXIT_CRITICAL(&service->state_lock);
+    if (busy) {
+        return AINEKIO_MOTION_SUBMIT_BUSY;
+    }
+
+    ainekio_motion_asset_t *asset = &service->prepared_asset;
+    memset(asset, 0, sizeof(*asset));
+    (void)strcpy(asset->name, "motion_plan");
+    asset->frame_count = plan->frame_count;
+    asset->repeat_count = 1U;
+    for (uint8_t frame_index = 0U; frame_index < plan->frame_count;
+         ++frame_index) {
+        const ainekio_motion_plan_frame_t *input = &plan->frames[frame_index];
+        ainekio_motion_frame_t *output = &asset->frames[frame_index];
+        output->duration_ms = input->duration_ms;
+        output->target_count = AINEKIO_SERVO_COUNT;
+        for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT;
+             ++joint_id) {
+            output->targets[joint_id].joint_id = joint_id;
+            output->targets[joint_id].centidegrees = input->targets[joint_id];
+        }
+    }
+    if (ainekio_motion_asset_check_limits(asset, service->servos) !=
+        AINEKIO_ASSET_OK) {
+        clear_active(service, sequence);
+        return AINEKIO_MOTION_SUBMIT_LIMIT;
+    }
+
+    const ainekio_motion_job_t job = {
+        .sequence = sequence,
+        .kind = AINEKIO_MOTION_JOB_PLAN,
+        .repetitions = 1U,
+        .plan_end = plan->end,
+    };
+    taskENTER_CRITICAL(&service->state_lock);
+    const bool preempted = service->active_cancelled;
+    if (!preempted) {
+        service->pending_job = job;
+    }
+    taskEXIT_CRITICAL(&service->state_lock);
+    if (preempted) {
+        return AINEKIO_MOTION_SUBMIT_PREEMPTED;
+    }
+    return AINEKIO_MOTION_SUBMIT_OK;
+}
+
 ainekio_motion_submit_result_t ainekio_motion_service_commit(
     ainekio_motion_service_t *service,
     uint32_t sequence
@@ -483,7 +775,10 @@ ainekio_motion_submit_result_t ainekio_motion_service_submit(
                : prepared;
 }
 
-uint32_t ainekio_motion_service_request_stop(ainekio_motion_service_t *service)
+static uint32_t request_stop_mode(
+    ainekio_motion_service_t *service,
+    bool detach
+)
 {
     if (service == NULL || service->task == NULL) {
         return 0U;
@@ -494,14 +789,37 @@ uint32_t ainekio_motion_service_request_stop(ainekio_motion_service_t *service)
                                    : service->active_sequence;
     service->active_cancelled = true;
     service->job_pending = false;
+    service->detach_requested = service->detach_requested || detach;
     taskEXIT_CRITICAL(&service->state_lock);
     (void)xTaskNotify(service->task, MOTION_NOTIFY_STOP, eSetBits);
     return cancelled;
 }
 
+uint32_t ainekio_motion_service_request_stop(ainekio_motion_service_t *service)
+{
+    return request_stop_mode(service, false);
+}
+
+uint32_t ainekio_motion_service_request_detach(ainekio_motion_service_t *service)
+{
+    return request_stop_mode(service, true);
+}
+
 void ainekio_motion_service_request_failsafe(ainekio_motion_service_t *service)
 {
-    (void)ainekio_motion_service_request_stop(service);
+    if (service == NULL || service->task == NULL) {
+        return;
+    }
+    bool should_hold = false;
+    taskENTER_CRITICAL(&service->state_lock);
+    should_hold = service->active_sequence != 0U;
+    taskEXIT_CRITICAL(&service->state_lock);
+    for (uint8_t index = 0U; !should_hold && index < AINEKIO_SERVO_COUNT; ++index) {
+        should_hold = service->servos->channels[index].attached;
+    }
+    if (should_hold) {
+        (void)ainekio_motion_service_request_stop(service);
+    }
 }
 
 bool ainekio_motion_service_busy(const ainekio_motion_service_t *service)

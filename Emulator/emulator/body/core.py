@@ -236,7 +236,7 @@ def _normalize_command(message: Mapping[str, object]) -> tuple[_CommandKind, int
     if message_type == "intent":
         return _CommandKind.INTENT, _INTENTS[str(message["name"])]
     if message_type == "stop":
-        return _CommandKind.STOP, 0
+        return _CommandKind.STOP, 1 if message.get("detach") is True else 0
     if message_type == "motion_plan":
         return _CommandKind.MOTION_PLAN, 0
     if message_type == "tts":

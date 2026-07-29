@@ -74,6 +74,25 @@ static void test_corruption_truncation_and_trailing_data_are_rejected(void)
     free(extended);
 }
 
+static void test_sesame_walk_preserves_original_timing(void)
+{
+    size_t length = 0U;
+    uint8_t *bytes = read_asset("walk_forward", &length);
+    ainekio_motion_asset_t *asset = malloc(sizeof(*asset));
+    assert(asset != NULL);
+    assert(ainekio_motion_asset_decode(bytes, length, asset) == AINEKIO_ASSET_OK);
+    assert(asset->sequential_servo_timing);
+    assert(asset->return_pose[0] == '\0');
+
+    uint32_t duration_ms = 0U;
+    for (uint16_t index = 0U; index < asset->frame_count; ++index) {
+        duration_ms += asset->frames[index].duration_ms;
+    }
+    assert(duration_ms == 9540U);
+    free(asset);
+    free(bytes);
+}
+
 static void test_fallbacks_are_bounded(void)
 {
     ainekio_motion_asset_t *asset = malloc(sizeof(*asset));
@@ -92,6 +111,7 @@ int main(void)
 {
     test_all_seed_assets_decode_and_fit_default_calibration();
     test_corruption_truncation_and_trailing_data_are_rejected();
+    test_sesame_walk_preserves_original_timing();
     test_fallbacks_are_bounded();
     puts("asset tests passed");
     return 0;

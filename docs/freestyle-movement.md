@@ -1,10 +1,11 @@
 # Freestyle Movement
 
-Status: emulator milestone complete; ESP32-S3 execution not advertised
+Status: ESP32-S3 execution and post-action snapshot flashed, verified, and
+connected; owner-supervised physical movement validation pending
 Owner decision: approved direction
 Specification status: post-v1.0 extension pending numbered consolidation before
 physical enablement
-Updated: 2026-07-21
+Updated: 2026-07-23
 
 This file is the implementation plan and progress ledger for bounded, AI-generated
 movement on Ainekio. Update the progress section after every implementation or
@@ -164,8 +165,8 @@ Older bodies must never receive a command type they cannot decode.
    - the connected body reports `motion_plan_v1`;
    - the gateway and adapter support the same version; and
    - the owner-controlled freestyle policy is enabled.
-4. Keep physical execution unavailable until the physical body explicitly
-   advertises `motion_plan_v1` after bring-up.
+4. Keep physical execution unavailable until the physical body runs the
+   validated build and explicitly advertises `motion_plan_v1` after bring-up.
 5. Keep the adapter policy enabled by default. A maintenance launch may
    explicitly set `AINEKIO_FREESTYLE_ENABLED=0` without changing body support.
 
@@ -225,9 +226,11 @@ frame contains all eight joints, `map: 1` fixes their positional order as
 A 32-frame command with all eight integer targets per frame is approximately
 2.1 KiB before WebSocket framing, within the existing 4096-byte control limit.
 The schema, bounds, and maximum encoded size are locked by the shared fixtures.
-The portable core can decode and safety-gate the command, but the ESP32-S3
-runtime does not advertise `motion_plan_v1` or dispatch the plan to physical
-motion.
+The portable core decodes and safety-gates the command. Current ESP32-S3 source
+advertises `motion_plan_v1` when physical motion is enabled, copies the bounded
+plan into the motion service's existing prepared asset buffer, and dispatches
+it through the existing motion task. Successful completion queues the same
+controller-owned XGA snapshot used by named walking before reporting `done`.
 
 ## Initial Motion-Plan Limits
 
@@ -529,8 +532,10 @@ Overall: the owner-visible MetaHuman-to-Ainekio emulator milestone is complete.
 Environment Mode routes off-script requests through Movement Generator, both
 bridges carry one validated plan, Sesame visibly executes it, diagnostics report
 progress and terminal lifecycle, known commands retain their semantic path, and
-live `stop` cancels remaining frames. Physical firmware execution remains
-disabled and is not claimed complete.
+live `stop` cancels remaining frames. The physical firmware containing the same
+bounded plan and completion still is now installed and connected, but no
+physical plan has been executed and physical motion acceptance is not claimed
+complete.
 
 The initial baseline review covered the checked-in language-neutral protocol,
 portable C core, motion asset format, ESP32-S3 motion service, emulator, gateway,
@@ -546,15 +551,32 @@ The calibration-only `servo` boundary remains unchanged.
 | 3. Motion service and emulator | Complete | The emulator validates before ack, executes atomically, interpolates the eight Sesame servo joints using Sesame's verified 1..8 setter contract, reports done/rejected, and supports stop cancellation. Live UI requests visibly execute without renderer errors. |
 | 4. Gateway and adapter | Complete | Gateway feature negotiation, bounded queueing, lifecycle tracking, strict readable-to-centidegree translation, owner policy, and concurrent stop preemption are implemented. The full 127-test Ainekio emulator/gateway/adapter suite passes. |
 | 5. MetaHuman contract | Complete | Added typed normalization, the `movement_generator` node, explicit graph branch/rejoin, exact-instruction ownership, upstream-refusal recovery, compact private generator output with one bounded correction retry, semantic bypass, and production build coverage. Seven focused tests and all 21 graph validations pass. |
-| 6. ESP32-S3 integration | Not started; disabled | The physical body does not advertise/enable freestyle. Implement fixed-size firmware execution and hardware-derived transition gates before changing that policy. |
+| 6. ESP32-S3 integration | Installed and connected | Reuses the existing fixed prepared asset buffer and motion task, advertises `motion_plan_v1`, preserves core/calibration/stop/failsafe gates, and queues the post-action XGA still before `done`. The installed application and other immutable regions passed post-boot digest readback. |
 | 7. Diagnostics and policy | Complete for emulator | The owner interface reports transport/media flow plus freestyle supported/enabled/available state, plan id, sequence, frames, duration, active frame, terminal result, rejection detail, and stop events. |
-| 8. Hardware rollout | Blocked on hardware validation | Keep physical freestyle disabled. |
+| 8. Hardware rollout | Flash complete; movement validation pending | The controller and matching gateway are connected. Use a conservative owner-supervised bounded plan to verify transition behavior, stop preemption, completion JPEG, PSRAM headroom, and final connection health. |
 
 ## Progress Log
 
 Add newest entries first. Separate implemented software, emulator validation, and
 physical validation.
 
+- 2026-07-23: Flashed and independently verified the 1,413,536-byte
+  freestyle/lifecycle application plus its matching bootloader, partition table,
+  OTA seed, and LittleFS. The matching gateway restarted, MetaHuman reconnected,
+  and `ainekio-01` emitted a new boot event followed by five-second status
+  traffic. No physical movement was issued. Conservative plan execution, stop
+  preemption, completion JPEG delivery, and minimum-free PSRAM measurement
+  remain owner-supervised hardware acceptance.
+- 2026-07-23: Implemented the bounded physical `motion_plan_v1` execution path.
+  The runtime advertises the feature only in a physical-motion build, converts
+  at most 32 frames/10 seconds into the existing prepared motion asset, validates
+  every logical target against current calibration, and uses the existing motion
+  task, range scaling, stop/failsafe path, and terminal callback. A successful
+  plan now queues one controller-owned XGA still with the same action sequence,
+  sends JPEG before `done`, and requires no new task, queue, or frame buffer.
+  The candidate firmware builds with 55 percent app-partition headroom. It is
+  not flashed and no physical motion was commanded in this source-validation
+  pass.
 - 2026-07-18: Made the environment adapter's freestyle policy enabled by default
   in both its configuration and production gateway startup. Future launches no
   longer depend on remembering `AINEKIO_FREESTYLE_ENABLED=1`; an explicit `0`

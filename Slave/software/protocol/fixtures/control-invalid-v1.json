@@ -39,6 +39,7 @@
       "reason": "value:expr"
     },
     {"name": "stop_bad_seq", "message": {"t": "stop", "seq": 0}, "reason": "range:seq"},
+    {"name": "stop_bad_detach", "message": {"t": "stop", "seq": 19, "detach": 1}, "reason": "type:detach"},
     {
       "name": "motion_plan_wrong_target_count",
       "message": {"t": "motion_plan", "seq": 19, "map": 1, "frames": [[300, [9000, 9000]]], "end": "hold"},

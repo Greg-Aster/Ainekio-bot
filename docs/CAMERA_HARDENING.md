@@ -1,8 +1,8 @@
 # Camera Hardening
 
-Status: firmware-owned snapshot-trigger revision implemented, validated,
-flashed, and connected; automatic motion proof awaits an owner-issued safe
-movement, and physical audio proof awaits a microphone
+Status: freestyle completion and gateway lifecycle revision flashed, verified,
+and connected; physical motion proof awaits owner-supervised validation and
+physical audio proof awaits a microphone
 Owner decision recorded: 2026-07-23
 Applies to: Ainekio physical controller, Ainekio gateway Environment adapter,
 and the maintained MetaHuman Environment Mode path
@@ -287,7 +287,7 @@ mode, bounded continuation, and raw-servo rejection remain deterministic.
 | CH-2 remove phrase matching | Source complete | Only structured model actions reach deterministic capability and safety validation |
 | CH-3 semantic embodiment | Source complete | Camera is described as the robot's visual sense; sensor truth is explicit |
 | CH-4 utterance plus still | Source complete | One bounded correlation join accepts transcript and matching JPEG in either order |
-| CH-5 selected event stills | Firmware-owned revision implemented | VAD close and semantic motion completion queue the existing controller snapshot path; the gateway receives rather than requests |
+| CH-5 selected event stills | Firmware-owned revision plus freestyle candidate implemented | VAD close, named semantic motion, and bounded freestyle-plan completion queue the existing controller snapshot path; the gateway receives rather than requests |
 | CH-6 bounded continuation | Source complete | Audio, typed user perception, and returned action observations reuse the finite Robot Observer counter and recover prior intent by action ID |
 | CH-7 JPEG ceiling | Source complete | Both maintained boundaries now accept one validated JPEG up to 256 KiB |
 | CH-8 automated validation | Complete for firmware-owned revision | Portable C, protocol, focused adapter/media, gateway integration, final firmware build, and full A-series acceptance pass |
@@ -659,6 +659,197 @@ mode, bounded continuation, and raw-servo rejection remain deterministic.
   safe motion. A real VAD-close still remains hardware-blocked until a
   microphone is attached.
 
+### 2026-07-23 - Freestyle completion and gateway lifecycle follow-up
+
+- Reviewed the supplied independent audit against current source. The blocking
+  camera delivery, epoch-insufficient correlation, unbounded deferred visuals,
+  PSRAM peak uncertainty, incomplete physical acceptance, and missing clean
+  commit boundary were all accurately described.
+- Implemented physical `motion_plan_v1` execution in the current candidate
+  source. The body advertises the feature only in a physical-motion build,
+  validates the existing 1..32 frame and 10-second contract, copies it into the
+  motion service's existing prepared asset buffer, and executes it on the
+  existing motion task with current calibration, range, stop, and failsafe
+  gates. No raw PWM, GPIO, calibration write, new motion task, queue, or plan
+  buffer was added.
+- A successful freestyle plan reaches the existing `motion_done` callback.
+  The controller therefore emits action-correlated `cam_meta`, one XGA JPEG,
+  and only then `done`, exactly like a completed walk. Cancellation, rejection,
+  stop, or execution failure produces no completion still.
+- Removed camera encoding and Environment WebSocket delivery from the robot
+  receive callback. Correlated JPEGs now enter one bounded host-side delivery
+  slot, and bridge sends have a two-second ceiling. Action completion waits only
+  when its frame has actually arrived; camera failure does not introduce a
+  blind two-second delay.
+- Changed action and camera correlation keys from bare sequence/counter values
+  to `(robot_id, epoch, sequence)` and `(robot_id, epoch, counter)`. Connection
+  changes remove stale correlations, so a rebooted counter cannot inherit an
+  image context from the previous body epoch.
+- Replaced the unrestricted deferred-image dictionary with at most 32 pending
+  action futures. Each action removes its future on completion, rejection,
+  timeout, or cancellation, and a late image is discarded rather than retained
+  or attached to newer work.
+- The outgoing controller queue remains two entries, but a full queue now
+  evicts and frees its oldest JPEG before allocating the incoming copy. The
+  theoretical transient copy ceiling falls from three 256-KiB copies
+  (approximately 768 KiB) to two (approximately 512 KiB), plus the existing
+  camera driver framebuffer. Actual physical fragmentation/minimum-free-PSRAM
+  evidence remains an activation measurement rather than a proven result.
+- Focused validation currently passes: 13/13 protocol tests, all 11 portable C
+  targets, 43/43 adapter/media tests including freestyle JPEG-before-`done`,
+  epoch-reconnect rejection, bounded queueing, and late-image discard, plus
+  24/24 gateway/WebSocket integration tests. The final full A-series runner
+  passes 30/30 across emulator, protocol, portable C, and dashboard-browser
+  gates. A preceding sandbox-denied run was invalid and its overwritten report
+  was immediately replaced by this successful host-capable run.
+- The application is 1,413,536 bytes (`0x1591a0`), 512 bytes larger than the
+  preceding firmware-owned snapshot image. DIRAM remains unchanged at 171,707
+  bytes with 170,053 bytes free, and the 3-MiB application partition retains 55
+  percent headroom.
+- At the close of this implementation pass the matching gateway and firmware
+  image had not yet been activated. The subsequent owner-approved activation is
+  recorded below. The worktree remains uncommitted because no commit or push
+  was requested.
+
+### 2026-07-23 - Freestyle/lifecycle revision flash and activation
+
+- Reconfirmed the connected serial device, exact candidate artifact hashes,
+  clean `git diff --check`, and the passing A-series 30/30 acceptance report
+  before touching the controller.
+- Stopped the older in-memory physical gateway before flashing. The first
+  unprivileged serial-open attempt was denied before erase or write because the
+  login session did not have `dialout` access; the exact validated command was
+  then run with owner-authorized device privileges.
+- Flashed the bootloader, 1,413,536-byte application, partition table, initial
+  OTA selector, and 10,354,688-byte LittleFS image. Esptool verified the digest
+  of every region during the write and hard-reset the ESP32-S3.
+- Independent post-boot readback matched the bootloader, application, partition
+  table, and LittleFS digests exactly. The initial OTA-selector image is not a
+  post-boot immutable region because the bootloader updates slot state there;
+  its write-time digest check passed.
+- The serial boot record confirmed the expected application build, successful
+  8-MiB PSRAM test, and eight servo-channel initialization. UART output becomes
+  unreadable when the display takes ownership of shared GPIO43; this is the
+  documented MAP_B OLED/UART handoff rather than evidence of a runtime crash.
+- Restarted the physical gateway from the matching revised source. The local
+  MetaHuman Environment Bridge reconnected, then `ainekio-01` connected from
+  `192.168.0.84`, emitted a fresh `boot` event, reported the expected existing
+  `sd_fail` condition, and resumed five-second status traffic.
+- No servo movement or freestyle plan was issued during activation. Physical
+  transition behavior, stop preemption, completion JPEG delivery, and
+  minimum-free/fragmentation PSRAM evidence remain owner-supervised acceptance
+  work. Microphone/VAD acceptance remains hardware-blocked.
+
+### 2026-07-23 - Duplicate same-cycle capture root fix
+
+- Reproduced the owner-reported three-message sequence from persisted runtime
+  evidence. One typed request produced two physical `snap` commands and then a
+  third camera proposal was stopped by the existing three-step interaction
+  ceiling.
+- The controller and gateway each handled the commands correctly. The duplicate
+  originated in MetaHuman: after the first correlated JPEG returned, the
+  automatic continuation reused the original capture imperative and continued
+  advertising `captureImage`, causing the local model to request the same
+  acquisition again.
+- Added one shared bounded-JPEG and cycle-correlation check at the MetaHuman
+  environment boundary. A continuation with a valid image correlated to its
+  active cycle now treats visual acquisition as complete, presents the original
+  user goal as context, and removes `captureImage` from that continuation's
+  available actions.
+- Added a final same-cycle dispatch invariant. If a model nevertheless emits
+  another `captureImage` after the correlated frame has arrived, no command is
+  sent and the bridge record explicitly reports
+  `capture_already_satisfied` with the suppressed action. The conversational
+  image analysis is preserved rather than replaced with another fixed
+  "Camera request queued" response.
+- The rule is correlation-based, not phrase-based. A later explicit user
+  request for another photograph starts a new interaction and remains allowed.
+  The three-step safety ceiling remains unchanged as a last-resort guard.
+- Focused regression evidence passes: the returned correlated image produces
+  zero additional camera tasks, an explicit retake produces exactly one task,
+  the Environment Bridge coordinator suite passes, the provider multimodal
+  suite passes, and adjacent Robot Operator and environment diagnostics suites
+  pass. `git diff --check` also passes for the affected MetaHuman files.
+- The repository-wide MetaHuman core typecheck remains blocked by existing
+  errors in unrelated agent, cognitive-layer, connector, encryption, and other
+  modules; none of its reported errors reference the changed environment or
+  camera files.
+- This revision changes MetaHuman orchestration only. It adds no firmware task,
+  buffer, timer, camera operation, or gateway round trip, and it requires no
+  controller flash.
+- Rebuilt the MetaHuman production bundle and restarted it through the
+  repository stop/start scripts. The installed server bundle contains both the
+  completion instruction and `capture_already_satisfied` dispatch result,
+  returned HTTP 200 on the local interface, and re-established one active
+  Environment Bridge subscriber/session without issuing a robot action.
+
+### 2026-07-23 - XGA WebSocket transport stability investigation
+
+- Reproduced the physical disconnect at the controller/gateway boundary. A
+  failed capture consistently emitted `cam_meta`, then closed the body
+  WebSocket with code 1006 before a JPEG media frame or `done` reached the
+  gateway. This proves the later MetaHuman offline responses were consequences
+  of the body transport loss, not duplicate camera inference or a text/image
+  collision.
+- Removed the controller's outer manual partial/continuation loop. The pinned
+  ESP WebSocket client already fragments a binary message across its configured
+  4-KiB transmit buffer while retaining its own transmit lock and message
+  state. The controller now gives one complete bounded JPEG to that existing
+  API instead of repeatedly releasing and reacquiring the client around each
+  fragment.
+- Physical acceptance showed that framing correction alone was insufficient.
+  A 1,000-ms camera write window was shorter than the physical build's
+  1,500-ms TCP retransmission interval. A 3,000-ms candidate improved delivery
+  and later completed five consecutive XGA frames in epoch 4, counters 7
+  through 11, but one earlier capture on that same candidate still timed out.
+  That failure is retained here rather than being hidden by the later passing
+  sequence.
+- Host socket evidence showed the robot link operating with a two-packet
+  congestion window, repeated retransmissions, and roughly 100-200-ms TCP RTT
+  despite controller telemetry reporting `-50` to `-51 dBm`. A direct ICMP
+  check after an intermediate flash returned only one of two robot packets and that
+  reply took 1,111 ms. In the same interval the gateway computer reached the
+  local router six of six times in 3-6 ms. The impaired link is therefore
+  specific to the robot side; plain PLA is not an RF shield, but antenna
+  clearance, orientation, nearby battery/wiring/metal, or local 2.4-GHz
+  interference remains a physical variable.
+- The final bounded camera-write window is 6,000 ms, covering the initial
+  1,500-ms TCP retry and its first backoff interval. This does not keep the
+  camera active, add a retry task, enlarge a queue or framebuffer, or allocate
+  RAM. Stop and receive processing retain their existing tasks; only an
+  already-started still-image write is allowed more time to recover.
+- A rapid one-second-spacing stress run then delivered all five JPEGs before
+  the session closed. That moved the remaining fault beyond the binary
+  payload: the small post-image `done` frame still used a 250-ms control-write
+  budget, six times shorter than the configured TCP retransmission interval.
+  The ESP client aborts its socket when that transport write expires even
+  though the application correctly records the failed control send.
+- Increased the existing control header/payload write budget to 1,900 ms. This
+  permits one TCP retransmission while the compile-time bound proves the
+  external ownership lock plus both WebSocket writes still fit below the
+  unchanged four-second motion-stale safety cutoff. No control retry loop,
+  delayed-work item, task, queue, or timer was added.
+- The final application is 1,413,360 bytes, 176 bytes smaller than the
+  previously installed freestyle/lifecycle image. The 3-MiB application
+  partition retains 1,732,368 bytes (`0x1a6f10`), or 55 percent, free. The
+  latest ESP-IDF size report remains 171,707 bytes of DIRAM use with 170,053
+  bytes available.
+- Full A-series acceptance passes 30/30 for the final source across emulator,
+  protocol, portable C, and dashboard-browser gates. `git diff --check` also
+  passes.
+- Flashed only the final application partition at `0x020000`; esptool verified
+  all 1,413,360 bytes against SHA-256
+  `a742f3cef78396c24b7baa8ddb763221b9f010a510a29bd837b988e731927790`
+  and hard-reset the controller. Bootloader, partition table, OTA selector,
+  NVS, and LittleFS were not rewritten in this pass.
+- Final post-flash acceptance passed. Five XGA snapshots spaced five seconds
+  apart produced counters 0 through 4, each 32,510 to 32,654 bytes, in epoch 1.
+  Status traffic continued after the fifth frame with no disconnect or epoch
+  change. Final live state reports RSSI `-42 dBm`, 8,172,264 bytes free heap,
+  camera ready, zero camera drops, and heartbeat age 694 ms. The case-open
+  check remains a useful physical diagnostic if the previously measured
+  robot-specific packet loss returns, but it did not block this final soak.
+
 ### Remaining hardware-dependent acceptance
 
 - No microphone is attached to the body. A real VAD-bounded utterance, STT
@@ -673,29 +864,31 @@ mode, bounded continuation, and raw-servo rejection remain deterministic.
 
 | Requirement | Final evidence |
 | --- | --- |
-| CH-1 truthful capability | Final live state reports the authenticated body, `cameraReady: true`, `captureImage`, and heartbeat age 0 ms; periodic five-second status remains telemetry-only |
+| CH-1 truthful capability | Final live state reports the authenticated body, `cameraReady: true`, `captureImage`, and heartbeat age 694 ms; periodic five-second status remains telemetry-only |
 | CH-2 no phrase manufacturing | Maintained Environment action sources contain no `what do you see`, `tell me what`, photo, snapshot, or camera-request matcher; final novel typed requests produced structured model actions |
 | CH-3 semantic embodiment | The local model inferred `captureImage` and waited for a correlated frame before describing the physical scene |
 | CH-4 utterance/still join | Audio/visual tests prove either arrival order, text-only timeout, wrong-robot rejection, bounded pending work, and one observation; physical microphone check is the one recorded hardware deferral |
-| CH-5 selected event stills | Firmware and emulator queue one still on VAD close and completed semantic motion; 39 focused adapter/media tests and 24 gateway integration tests pass with no gateway-generated return snap command |
+| CH-5 selected event stills | Firmware and emulator queue one still on VAD close, completed named motion, and completed bounded freestyle plans; current focused adapter/media result is 43/43 and gateway integration is 24/24 |
 | CH-6 bounded continuation | Returned state carried the same cycle/action correlation, step 2 of the configured 3-step ceiling, and the originating request recovered locally by action ID; the model stopped after its useful visual response |
-| CH-7 JPEG ceiling | MetaHuman validates one structured JPEG through 256 KiB and rejects an oversized payload; accepted physical XGA stills were 28,101 to 30,249 bytes |
-| CH-8 validation | Current A-series result is 30/30; firmware-owned focused results are portable C pass, protocol 9/9, adapter/media 39/39, and gateway integration 24/24; MetaHuman focused result remains 20/20 |
-| CH-8 activation | Firmware-owned revision is flashed; immutable flash regions verify exactly; the matching receiver-only gateway is running; `ainekio-01` reconnected and continues five-second status traffic |
-| Constrained-device efficiency | No firmware task, queue, stack, framebuffer, recurring diagnostic process, or routine JPEG field was added; application size is 1,413,024 bytes (+672), DIRAM is 171,707 bytes (+8), and the app partition retains 55 percent headroom |
+| CH-7 JPEG ceiling | MetaHuman validates one structured JPEG through 256 KiB and rejects an oversized payload; controlled physical XGA stills were 28,101 to 37,650 bytes |
+| CH-8 validation | Current candidate passes A-series 30/30, portable C 11/11, protocol 13/13, adapter/media 43/43, and gateway integration 24/24 |
+| CH-8 activation | The final 1,413,360-byte application is flashed and verifies exactly; the matching receiver-only gateway is running; five post-flash XGA captures passed in one epoch with continued status traffic |
+| Constrained-device efficiency | Freestyle and the transport correction reuse the existing motion task, camera path, WebSocket client, and buffers; no firmware task, queue, stack, plan buffer, or framebuffer was added; installed application size is 1,413,360 bytes (-176 versus the preceding image), DIRAM remains 171,707 bytes, and the app partition retains 55 percent headroom |
 | Safety boundary | Semantic capability checks, body authentication, action freshness, Active Operator policy, stop handling, finite continuation, and raw-servo rejection remain in force |
 
-### Flash-ready artifact identity
+### Installed artifact identity
 
-The firmware-owned revision changes controller source and was flashed on
-2026-07-23. No firmware source, header, CMake file, `sdkconfig`, or defaults
-file is newer than the following validated build. These are the installed
-explicit flash artifacts.
+The controller's application partition now contains the 1,413,360-byte image
+with SHA-256
+`a742f3cef78396c24b7baa8ddb763221b9f010a510a29bd837b988e731927790`.
+That application passed both write-time verification and a separate
+`verify_flash` comparison. The other four artifacts below are unchanged from
+the preceding full flash and its recorded verification.
 
 | Address | Artifact | Bytes | SHA-256 |
 | --- | --- | ---: | --- |
 | `0x000000` | `build/bootloader/bootloader.bin` | 20,912 | `5b21be18c46ade9cc6557d8201031bf8189161fc1cc0c8ef0a1699157b9774ad` |
 | `0x008000` | `build/partition_table/partition-table.bin` | 3,072 | `91b86c339a5e1f2410e4a62f5b8f44f200eafccd2286288ac42e49cff06c7aad` |
 | `0x01a000` | `build/ota_data_initial.bin` | 8,192 | `7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f` |
-| `0x020000` | `build/ainekio_slave_brain.bin` | 1,413,024 | `806d85cc0f7e84881c5646fe26daad7be0e18db0fce5d0cdf025971100419649` |
+| `0x020000` | `build/ainekio_slave_brain.bin` | 1,413,360 | `a742f3cef78396c24b7baa8ddb763221b9f010a510a29bd837b988e731927790` |
 | `0x620000` | `build/littlefs.bin` | 10,354,688 | `cc48c77e3bfaedb49ca3c2629791fa1ef85cf82f9666d3f34ec37ef3966d1965` |

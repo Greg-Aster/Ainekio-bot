@@ -32,8 +32,10 @@ The launcher listens for the robot and Environment Bridge on `0.0.0.0:8790`
 but permits `/environment` only from loopback and keeps the dashboard on
 `127.0.0.1:8791`. In the default local mode the
 launcher advertises `_ainekio._tcp.local`, and the robot accepts only an
-advertised IPv4 address on its current WiFi subnet. No brain IP address is
-stored on the robot and DHCP changes require no reconfiguration. A
+advertised IPv4 address on its current WiFi subnet. After authentication the
+robot caches that local endpoint and tries it first on the next boot or
+transport reconnect. A failed cached attempt falls back to DNS-SD, so DHCP or
+network changes require no reconfiguration. A
 same-computer MetaHuman OS process continues to use
 `ws://127.0.0.1:8790/environment`. Runtime tokens and password verifiers remain
 under ignored `build/gateway/physical/` storage.

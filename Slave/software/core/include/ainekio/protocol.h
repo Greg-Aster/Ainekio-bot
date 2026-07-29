@@ -158,6 +158,9 @@ typedef struct {
     uint32_t sequence;
     ainekio_command_kind_t kind;
     union {
+        struct {
+            bool detach;
+        } stop;
         ainekio_intent_t intent;
         ainekio_motion_plan_t motion_plan;
         ainekio_tts_operation_t tts_operation;

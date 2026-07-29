@@ -232,7 +232,30 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["seq"], 1)
-        self.assertEqual(self.gateway.calls[0][0], "stop")
+        self.assertEqual(
+            self.gateway.calls[0],
+            (
+                "stop",
+                {"robot_id": "ainekio-test-01", "detach": False},
+            ),
+        )
+
+        status, payload, _headers = await self._request(
+            "POST",
+            "/api/detach",
+            {"robot_id": "ainekio-test-01"},
+            cookie=cookie,
+            csrf=csrf,
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["seq"], 2)
+        self.assertEqual(
+            self.gateway.calls[1],
+            (
+                "stop",
+                {"robot_id": "ainekio-test-01", "detach": True},
+            ),
+        )
 
     async def test_login_is_rate_limited_after_five_failures(self) -> None:
         for _ in range(5):
@@ -303,6 +326,10 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("limits", call_names)
         self.assertIn("cal_save", call_names)
         self.assertEqual(call_names[-1], "stop")
+        self.assertEqual(
+            self.gateway.calls[-1][1],
+            {"robot_id": "ainekio-test-01", "detach": True},
+        )
 
         status, payload, _headers = await self._request(
             "GET",

@@ -50,8 +50,10 @@ static void test_servo_mapping_and_interpolation(void)
         ainekio_servo_tick(&bank);
     }
     assert(close_enough(bank.channels[AINEKIO_JOINT_R1].current_degrees, 140.0F));
-    assert(ainekio_servo_degrees_to_pulse(0.0F) == 500U);
-    assert(ainekio_servo_degrees_to_pulse(90.0F) == 1500U);
+    assert(ainekio_servo_degrees_to_pulse(0.0F) == 732U);
+    assert(ainekio_servo_degrees_to_pulse(45.0F) == 1174U);
+    assert(ainekio_servo_degrees_to_pulse(90.0F) == 1616U);
+    assert(ainekio_servo_degrees_to_pulse(135.0F) == 2058U);
     assert(ainekio_servo_degrees_to_pulse(180.0F) == 2500U);
 
     ainekio_servo_detach_all(&bank);

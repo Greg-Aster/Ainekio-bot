@@ -703,8 +703,8 @@ class BodySession:
         try:
             await asyncio.wait_for(stop_task, timeout=_STOP_BACKEND_WAIT_SECONDS)
         except Exception:
-            # The portable core has already detached motion. Renderer transport
-            # must never delay or invalidate the stop path.
+            # The portable core has already latched the stop mode. Renderer
+            # transport must never delay or invalidate the stop path.
             pass
 
     async def _run_movement(

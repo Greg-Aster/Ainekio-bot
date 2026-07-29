@@ -282,8 +282,10 @@ That manual endpoint is now superseded in source by service-specific DNS-SD.
 The gateway advertises `_ainekio._tcp.local`; the robot filters the service TXT
 contract and accepts only an IPv4 address on its own WiFi subnet. It does not
 resolve the ambiguous host name `DNDIY.local`, does not select Docker's
-`172.17.0.1`, and does not retain a changing LAN address. A DHCP reservation is
-still a useful diagnostic fallback, not the normal owner workflow.
+`172.17.0.1`, and does not treat a changing LAN address as fixed configuration.
+It retains only the last authenticated endpoint as a bounded first attempt,
+then returns to DNS-SD if that address is stale. A DHCP reservation is still a
+useful diagnostic fallback, not the normal owner workflow.
 
 The DNS-SD firmware has been built but not flashed. After the next
 owner-approved flash, verify a sustained local body session and the prepared

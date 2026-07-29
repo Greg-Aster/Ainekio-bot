@@ -118,6 +118,7 @@ size_t ainekio_encode_hello(
     const char *firmware,
     const char *robot_id,
     const char *auth_token,
+    bool motion_plan_v1,
     char *output,
     size_t capacity
 )
@@ -129,6 +130,11 @@ size_t ainekio_encode_hello(
     append_string(&writer, robot_id, 64U);
     append_literal(&writer, ",\"auth\":");
     append_string(&writer, auth_token, 128U);
+    if (motion_plan_v1) {
+        append_literal(&writer, ",\"features\":[");
+        append_literal(&writer, "\"motion_plan_v1\"");
+        append_literal(&writer, "]");
+    }
     append_literal(&writer, "}");
     return finish(&writer);
 }

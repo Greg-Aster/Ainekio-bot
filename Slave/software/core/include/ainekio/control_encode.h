@@ -62,6 +62,7 @@ size_t ainekio_encode_hello(
     const char *firmware,
     const char *robot_id,
     const char *auth_token,
+    bool motion_plan_v1,
     char *output,
     size_t capacity
 );

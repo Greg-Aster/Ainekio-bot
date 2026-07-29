@@ -29,6 +29,7 @@ static void test_nvs_contract_is_versioned_and_bounded(void)
         AINEKIO_NVS_KEY_SCHEMA_VERSION,
         AINEKIO_NVS_KEY_ACTIVE_SLOT,
         AINEKIO_NVS_KEY_SETUP_KEY,
+        AINEKIO_NVS_KEY_LOCAL_GATEWAY,
         AINEKIO_NVS_KEY_GENERATION,
         AINEKIO_NVS_KEY_COMPLETE,
         AINEKIO_NVS_KEY_WIFI_SSID,

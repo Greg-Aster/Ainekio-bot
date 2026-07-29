@@ -20,6 +20,7 @@
     {"name": "intent_face", "message": {"t": "intent", "seq": 4, "name": "face", "expr": "happy"}},
     {"name": "intent_say", "message": {"t": "intent", "seq": 5, "name": "say", "asset": "greeting_1"}},
     {"name": "stop", "message": {"t": "stop", "seq": 6}},
+    {"name": "emergency_detach", "message": {"t": "stop", "seq": 28, "detach": true}},
     {
       "name": "motion_plan",
       "message": {

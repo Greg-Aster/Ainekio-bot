@@ -627,6 +627,23 @@ static ainekio_decode_result_t required_boolean(
     return token_boolean(parser, token, output) ? AINEKIO_DECODE_OK : AINEKIO_DECODE_TYPE;
 }
 
+static ainekio_decode_result_t optional_boolean(
+    const json_parser_t *parser,
+    int object,
+    const char *name,
+    bool default_value,
+    bool *output
+)
+{
+    const int token = object_get(parser, object, name);
+    if (token < 0) {
+        *output = default_value;
+        return AINEKIO_DECODE_OK;
+    }
+    return token_boolean(parser, token, output) ? AINEKIO_DECODE_OK
+                                                : AINEKIO_DECODE_TYPE;
+}
+
 static bool string_in(const char *value, const char *const *allowed, size_t count)
 {
     for (size_t index = 0U; index < count; ++index) {
@@ -778,6 +795,26 @@ static ainekio_decode_result_t decode_simple_command(
     if (result == AINEKIO_DECODE_OK) {
         message->has_command = true;
         message->command.kind = kind;
+    }
+    return result;
+}
+
+static ainekio_decode_result_t decode_stop(
+    const json_parser_t *parser,
+    int root,
+    ainekio_control_message_t *message
+)
+{
+    ainekio_decode_result_t result =
+        decode_simple_command(parser, root, message, AINEKIO_COMMAND_STOP);
+    if (result == AINEKIO_DECODE_OK) {
+        result = optional_boolean(
+            parser,
+            root,
+            "detach",
+            false,
+            &message->command.data.stop.detach
+        );
     }
     return result;
 }
@@ -1404,7 +1441,7 @@ ainekio_decode_result_t ainekio_control_decode(
     case AINEKIO_MESSAGE_INTENT:
         return decode_intent(&parser, root, message);
     case AINEKIO_MESSAGE_STOP:
-        return decode_simple_command(&parser, root, message, AINEKIO_COMMAND_STOP);
+        return decode_stop(&parser, root, message);
     case AINEKIO_MESSAGE_MOTION_PLAN:
         return decode_motion_plan(&parser, root, message);
     case AINEKIO_MESSAGE_TTS:
