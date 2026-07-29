@@ -69,6 +69,9 @@ int ainekio_emulator_core_accept(ainekio_emulator_core_t *emulator,
     };
 
     switch (command.kind) {
+    case AINEKIO_COMMAND_STOP:
+        command.data.stop.detach = command_value != 0;
+        break;
     case AINEKIO_COMMAND_INTENT:
         command.data.intent.kind = (ainekio_intent_kind_t)command_value;
         break;

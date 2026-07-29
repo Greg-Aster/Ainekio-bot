@@ -91,7 +91,7 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         decoded = decode_binary_frame(self.frames[0])
         self.assertEqual(decoded.frame_type, CAMERA_JPEG_FRAME_TYPE)
         self.assertEqual(decoded.counter, 0)
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
 
     async def test_completed_motion_emits_snapshot_before_done(self) -> None:
         await self.session.handle(
@@ -114,6 +114,40 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
             },
         )
         self.assertEqual(self.controls[-1], {"t": "done", "seq": 2})
+        self.assertEqual(
+            decode_binary_frame(self.frames[-1]).frame_type,
+            CAMERA_JPEG_FRAME_TYPE,
+        )
+
+    async def test_completed_freestyle_plan_emits_snapshot_before_done(self) -> None:
+        await self.session.handle(
+            {
+                "t": "motion_plan",
+                "seq": 3,
+                "map": 1,
+                "frames": [
+                    [300, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]
+                ],
+                "end": "hold",
+            },
+            self.emit,
+            self.emit_binary,
+        )
+        await self.session.wait_until_idle()
+
+        self.assertEqual(self.controls[0], {"t": "ack", "seq": 3})
+        self.assertEqual(
+            self.controls[-2],
+            {
+                "t": "cam_meta",
+                "res": "XGA",
+                "fps": 0,
+                "counter_base": 0,
+                "origin": "action",
+                "origin_id": 3,
+            },
+        )
+        self.assertEqual(self.controls[-1], {"t": "done", "seq": 3})
         self.assertEqual(
             decode_binary_frame(self.frames[-1]).frame_type,
             CAMERA_JPEG_FRAME_TYPE,

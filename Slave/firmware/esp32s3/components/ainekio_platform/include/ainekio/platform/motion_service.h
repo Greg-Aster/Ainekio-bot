@@ -26,6 +26,7 @@ typedef enum {
     AINEKIO_MOTION_JOB_NEUTRAL,
     AINEKIO_MOTION_JOB_STAND,
     AINEKIO_MOTION_JOB_POSE,
+    AINEKIO_MOTION_JOB_PLAN,
 } ainekio_motion_job_kind_t;
 
 typedef struct {
@@ -33,6 +34,7 @@ typedef struct {
     ainekio_motion_job_kind_t kind;
     char name[AINEKIO_ASSET_NAME_MAX + 1U];
     uint8_t repetitions;
+    ainekio_motion_plan_end_t plan_end;
 } ainekio_motion_job_t;
 
 typedef void (*ainekio_motion_done_fn)(void *context, uint32_t sequence);
@@ -63,6 +65,7 @@ typedef struct {
     uint32_t active_sequence;
     bool active_cancelled;
     bool job_pending;
+    bool detach_requested;
     float calibration_degrees[AINEKIO_SERVO_COUNT];
     uint16_t calibration_duration_ms[AINEKIO_SERVO_COUNT];
     uint8_t calibration_pending_mask;
@@ -88,6 +91,11 @@ ainekio_motion_submit_result_t ainekio_motion_service_prepare(
     ainekio_motion_service_t *service,
     const ainekio_motion_job_t *job
 );
+ainekio_motion_submit_result_t ainekio_motion_service_prepare_plan(
+    ainekio_motion_service_t *service,
+    uint32_t sequence,
+    const ainekio_motion_plan_t *plan
+);
 ainekio_motion_submit_result_t ainekio_motion_service_commit(
     ainekio_motion_service_t *service,
     uint32_t sequence
@@ -97,6 +105,7 @@ void ainekio_motion_service_abort(
     uint32_t sequence
 );
 uint32_t ainekio_motion_service_request_stop(ainekio_motion_service_t *service);
+uint32_t ainekio_motion_service_request_detach(ainekio_motion_service_t *service);
 void ainekio_motion_service_request_failsafe(ainekio_motion_service_t *service);
 bool ainekio_motion_service_busy(const ainekio_motion_service_t *service);
 ainekio_motion_submit_result_t ainekio_motion_service_calibrate_servo(

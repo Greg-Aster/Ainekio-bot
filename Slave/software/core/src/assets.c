@@ -4,6 +4,7 @@
 
 #define MOTION_SCHEMA_VERSION 1U
 #define MOTION_FLAG_RETURN_POSE 0x01U
+#define MOTION_FLAG_SEQUENTIAL_SERVO_TIMING 0x02U
 
 typedef struct {
     const uint8_t *bytes;
@@ -120,7 +121,9 @@ ainekio_asset_result_t ainekio_motion_asset_decode(
         expected_crc) {
         return AINEKIO_ASSET_CHECKSUM;
     }
-    if ((flags & (uint8_t)~MOTION_FLAG_RETURN_POSE) != 0U || reserved != 0U ||
+    if ((flags & (uint8_t)~(MOTION_FLAG_RETURN_POSE |
+                            MOTION_FLAG_SEQUENTIAL_SERVO_TIMING)) != 0U ||
+        reserved != 0U ||
         repeat_count < 1U || repeat_count > 16U || frame_count < 1U ||
         frame_count > AINEKIO_MOTION_MAX_FRAMES ||
         (uint32_t)frame_count * repeat_count > AINEKIO_MOTION_MAX_EXPANDED_FRAMES ||
@@ -133,6 +136,8 @@ ainekio_asset_result_t ainekio_motion_asset_decode(
     asset->frame_count = frame_count;
     asset->repeat_count = repeat_count;
     asset->face_cue_count = (uint8_t)cue_count;
+    asset->sequential_servo_timing =
+        (flags & MOTION_FLAG_SEQUENTIAL_SERVO_TIMING) != 0U;
     asset_reader_t reader = {
         .bytes = bytes + AINEKIO_MOTION_BINARY_HEADER_BYTES,
         .length = payload_length,
@@ -177,6 +182,11 @@ ainekio_asset_result_t ainekio_motion_asset_decode(
                 return AINEKIO_ASSET_MALFORMED;
             }
             seen |= (uint8_t)(1U << target->joint_id);
+        }
+        if (asset->sequential_servo_timing &&
+            frame->duration_ms <
+                (uint16_t)frame->target_count * AINEKIO_SERVO_TICK_MS) {
+            return AINEKIO_ASSET_MALFORMED;
         }
     }
     return reader.offset == reader.length ? AINEKIO_ASSET_OK : AINEKIO_ASSET_MALFORMED;

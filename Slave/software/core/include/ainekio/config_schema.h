@@ -21,6 +21,7 @@
 #define AINEKIO_NVS_KEY_SCHEMA_VERSION "schema_ver"
 #define AINEKIO_NVS_KEY_ACTIVE_SLOT "active_slot"
 #define AINEKIO_NVS_KEY_SETUP_KEY "setup_key"
+#define AINEKIO_NVS_KEY_LOCAL_GATEWAY "last_gateway"
 #define AINEKIO_SETUP_KEY_CHARS 8U
 
 #define AINEKIO_NVS_KEY_GENERATION "generation"

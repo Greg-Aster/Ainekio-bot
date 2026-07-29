@@ -223,6 +223,8 @@ def _validate_intent(message: Mapping[str, object]) -> None:
 
 def _validate_stop(message: Mapping[str, object]) -> None:
     _seq(message)
+    if "detach" in message:
+        _boolean(message, "detach")
 
 
 def _validate_motion_plan(message: Mapping[str, object]) -> None:

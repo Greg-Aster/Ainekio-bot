@@ -74,6 +74,7 @@ class FakeGateway:
             "robots": {
                 "test-body": {
                     "connected": True,
+                    "epoch": 1,
                     "features": ["motion_plan_v1"],
                     "heartbeat_age_ms": 125,
                     "status": {"camera_ready": True},
@@ -725,6 +726,127 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(websocket.sent, [])
+
+    async def test_camera_delivery_is_queued_outside_robot_receive_callback(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+        adapter._camera_delivery_queue = asyncio.Queue(maxsize=1)
+        adapter._robot_snapshot_contexts[("test-body", 1, 4)] = {
+            "correlationId": "first",
+        }
+        adapter._robot_snapshot_contexts[("test-body", 1, 5)] = {
+            "correlationId": "second",
+        }
+
+        await adapter._handle_gateway_frame(
+            {
+                "robot_id": "test-body",
+                "epoch": 1,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "counter": 4,
+                "payload": b"\xff\xd8\xff\xd9",
+            }
+        )
+        await adapter._handle_gateway_frame(
+            {
+                "robot_id": "test-body",
+                "epoch": 1,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "counter": 5,
+                "payload": b"\xff\xd8\xff\xd9",
+            }
+        )
+
+        self.assertEqual(adapter._camera_delivery_queue.qsize(), 1)
+        queued_frame, queued_context = adapter._camera_delivery_queue.get_nowait()
+        self.assertEqual(queued_frame["counter"], 5)
+        self.assertEqual(queued_context["correlationId"], "second")
+        self.assertEqual(websocket.sent, [])
+
+    async def test_snapshot_correlation_is_cleared_across_robot_epochs(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        adapter._robot_action_contexts[("test-body", 1, 7)] = {
+            "actionId": "old-action",
+        }
+        await adapter._handle_gateway_event(
+            {
+                "t": "cam_meta",
+                "robot_id": "test-body",
+                "epoch": 1,
+                "res": "XGA",
+                "fps": 0,
+                "counter_base": 0,
+                "origin": "action",
+                "origin_id": 7,
+            }
+        )
+        self.assertIn(
+            ("test-body", 1, 0),
+            adapter._robot_snapshot_contexts,
+        )
+
+        await adapter._handle_gateway_event(
+            {
+                "t": "connection",
+                "status": "connected",
+                "robot_id": "test-body",
+                "epoch": 2,
+            }
+        )
+
+        self.assertEqual(adapter._robot_action_contexts, {})
+        self.assertEqual(adapter._robot_snapshot_contexts, {})
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+        await adapter._handle_gateway_frame(
+            {
+                "robot_id": "test-body",
+                "epoch": 2,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "counter": 0,
+                "payload": b"\xff\xd8\xff\xd9",
+            }
+        )
+        self.assertEqual(websocket.sent, [])
+
+    async def test_pending_action_visuals_are_bounded_and_late_images_drop(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+        )
+        loop = asyncio.get_running_loop()
+        for index in range(40):
+            adapter._remember_action_visual(
+                f"action-{index}",
+                loop.create_future(),
+            )
+        self.assertEqual(len(adapter._pending_action_visuals), 32)
+        self.assertNotIn("action-0", adapter._pending_action_visuals)
+
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+        await adapter._deliver_camera_frame(
+            {
+                "robot_id": "test-body",
+                "epoch": 1,
+                "counter": 41,
+                "payload": b"\xff\xd8\xff\xd9",
+            },
+            {"actionId": "expired-action"},
+        )
+        self.assertEqual(websocket.sent, [])
+        for future in adapter._pending_action_visuals.values():
+            future.cancel()
 
     async def test_vad_frames_become_one_bounded_binary_wav_utterance(self) -> None:
         gateway = FakeGateway()

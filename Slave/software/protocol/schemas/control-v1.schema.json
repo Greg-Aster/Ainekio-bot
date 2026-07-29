@@ -182,7 +182,8 @@
       "required": ["t", "seq"],
       "properties": {
         "t": {"const": "stop"},
-        "seq": {"$ref": "#/$defs/sequence"}
+        "seq": {"$ref": "#/$defs/sequence"},
+        "detach": {"type": "boolean", "default": false}
       }
     },
     "motionPlanTargets": {

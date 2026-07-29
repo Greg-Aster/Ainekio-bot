@@ -14,25 +14,44 @@ config AINEKIO_PHYSICAL_MOTION_ENABLED
     help
         Enables all eight MAP_B servo outputs after platform initialization and
         permits normal semantic motion plus calibration commands. Startup keeps
-        the 20 ms channel stagger and reduced-range safety profile; the pin-map
-        guard rejects any future servo assignment on N16R8 PSRAM GPIO33-37.
+        the 20 ms channel stagger; the pin-map guard rejects any future servo
+        assignment on N16R8 PSRAM GPIO33-37.
 
 config AINEKIO_MOTION_RANGE_PERCENT
     int "Initial motion range around logical center (percent)"
     range 10 100
-    default 25
+    default 100
     help
         Scales every platform motion target around logical center 90 degrees.
-        The default maps the source 0-180 degree range to 67.5-112.5 degrees.
-        Raise only after the installed linkage limits are calibrated.
+        The default preserves the source 0-180 degree Sesame motion range.
+        Installed linkage limits remain enforced by per-servo calibration.
 
 config AINEKIO_MOTION_MIN_FRAME_MS
     int "Minimum platform motion frame duration (milliseconds)"
     range 20 1000
-    default 100
+    default 20
     help
-        Prevents imported motion frames from commanding the initial reduced
-        range faster than this duration.
+        Sets the minimum motion frame duration. The default preserves Sesame's
+        20 ms delay between individual servo writes.
+
+config AINEKIO_MOTION_SMOOTH_PLAYBACK
+    bool "Smooth Sesame motion asset playback"
+    default y
+    help
+        Keeps the original Sesame motion targets and total frame durations, but
+        moves all targets in each source frame together with bounded
+        ease-in/ease-out interpolation. Disable this option to reproduce the
+        original sequential 20 ms servo writes exactly.
+
+config AINEKIO_MOTION_SMOOTH_TRANSITION_MS
+    int "Smooth motion transition duration (milliseconds)"
+    range 20 500
+    default 120
+    depends on AINEKIO_MOTION_SMOOTH_PLAYBACK
+    help
+        Limits how long a source frame spends approaching its target. Any
+        remaining frame time holds the target, so the original motion asset's
+        overall timing does not increase.
 
 config AINEKIO_SERVO_STARTUP_STAGGER_MS
     int "Delay between enabling servo channels at startup (milliseconds)"

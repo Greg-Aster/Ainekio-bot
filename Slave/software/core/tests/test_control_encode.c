@@ -16,14 +16,28 @@ static void valid(const char *json, size_t length, ainekio_message_kind_t kind)
 int main(void)
 {
     char output[512];
+    const char *detach_json = "{\"t\":\"stop\",\"seq\":1,\"detach\":true}";
+    ainekio_control_message_t detach_message;
+    assert(
+        ainekio_control_decode(
+            detach_json,
+            strlen(detach_json),
+            &detach_message
+        ) == AINEKIO_DECODE_OK
+    );
+    assert(detach_message.command.kind == AINEKIO_COMMAND_STOP);
+    assert(detach_message.command.data.stop.detach);
+
     size_t length = ainekio_encode_hello(
         "0.1.0\"test",
         "ainekio-01",
         "token\\value",
+        true,
         output,
         sizeof(output)
     );
     valid(output, length, AINEKIO_MESSAGE_HELLO);
+    assert(strstr(output, "\"features\":[\"motion_plan_v1\"]") != NULL);
     length = ainekio_encode_ack(1U, 0U, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_ACK);
     length = ainekio_encode_ack(2U, 28800U, output, sizeof(output));
@@ -101,7 +115,7 @@ int main(void)
     length = ainekio_encode_ping(true, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_PONG);
     assert(ainekio_encode_ack(0U, 0U, output, sizeof(output)) == 0U);
-    assert(ainekio_encode_hello("0.1.0", "id", "token", output, 8U) == 0U);
+    assert(ainekio_encode_hello("0.1.0", "id", "token", false, output, 8U) == 0U);
     puts("control encoder tests passed");
     return 0;
 }

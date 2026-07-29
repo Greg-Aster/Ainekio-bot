@@ -55,6 +55,16 @@ creating a perception image. This reuses the existing camera task,
 four-entry command queue, single framebuffer, and bounded outgoing JPEG copy;
 it adds no camera polling task or continuous stream.
 
+The physical runtime now implements the existing bounded `motion_plan_v1`
+contract when physical motion is enabled. It advertises the feature in `hello`,
+copies at most 32 validated frames into the motion service's existing prepared
+asset buffer, applies the existing calibration/range/stop/failsafe gates, and
+executes on the existing motion task. Successful completion reaches the same
+post-motion XGA snapshot callback as named walking and emotes. This source must
+match the installed controller and gateway before use; the current revision is
+flashed, digest-verified, and connected. Hardware transition validation remains
+an explicit owner-supervised acceptance requirement.
+
 Provisioning uses one stable eight-character device key as the
 `Ainekio-Setup` WPA2 password. The key is stored separately from replaceable
 network configuration and survives normal reboots and WiFi changes. After a

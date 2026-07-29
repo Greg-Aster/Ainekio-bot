@@ -60,8 +60,11 @@ H2/H3 evidence.
 - Use semantic robot commands for ordinary motion. Remote AI callers never
   provide GPIOs, PWM values, calibration writes, or raw physical servo control.
   The separately owner-approved `motion_plan_v1` extension accepts only a
-  complete bounded logical-joint trajectory and remains disabled on the
-  physical ESP32-S3 runtime.
+  complete bounded logical-joint trajectory. Current ESP32-S3 source executes
+  it through the existing safety-gated motion service and completion snapshot,
+  and the matching build is flashed, digest-verified, and connected. Physical
+  transition, stop, completion-image, and memory-headroom validation remain
+  owner-supervised.
 - Use fixed-size command structures, bounded messages and queues, and explicit
   timeouts. Avoid heap allocation in safety and motion-control paths after startup.
 - Treat a future Linux body controller as another platform implementation of the

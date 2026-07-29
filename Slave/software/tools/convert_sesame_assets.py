@@ -19,6 +19,7 @@ JOINT_IDS = {label: index for index, label in enumerate(JOINT_LABELS)}
 JOINT_MAP_VERSION = 1
 FRAME_DELAY_MS = 100
 WALK_CYCLES = 10
+MOTOR_CURRENT_DELAY_MS = 20
 MAX_MOTION_FRAMES = 256
 MAX_FACE_FRAMES = 6
 FACE_BYTES = 128 * 64 // 8
@@ -122,6 +123,7 @@ def convert_assets(sources: SourcePaths, output_root: Path) -> None:
             "sha256": _sha256(sources.motion_header),
             "frame_delay_ms": FRAME_DELAY_MS,
             "walk_cycles": WALK_CYCLES,
+            "motor_current_delay_ms": MOTOR_CURRENT_DELAY_MS,
         },
         "assets": motions,
     }
@@ -244,24 +246,36 @@ def _convert_motion(name: str, body: str) -> dict[str, object]:
     expanded = _expand_loops(_strip_comments(body))
     frames: list[dict[str, object]] = []
     face_cues: list[dict[str, object]] = []
-    targets: dict[int, float] = {}
+    targets: list[tuple[int, float]] = []
 
-    def flush(duration_ms: int) -> None:
+    def flush(hold_ms: int) -> None:
         nonlocal targets
         if not targets:
             return
+        duration_ms = hold_ms + len(targets) * MOTOR_CURRENT_DELAY_MS
         if not 20 <= duration_ms <= 5000:
             raise RuntimeError(f"motion {name} has invalid frame duration {duration_ms}")
         frames.append(
             {
                 "duration_ms": duration_ms,
-                "targets": [[joint_id, targets[joint_id]] for joint_id in sorted(targets)],
+                "targets": [[joint_id, degrees] for joint_id, degrees in targets],
             }
         )
-        targets = {}
+        targets = []
 
     def apply_stand(show_face: bool) -> None:
-        targets.update({0: 135.0, 1: 45.0, 2: 45.0, 3: 135.0, 4: 0.0, 5: 180.0, 6: 0.0, 7: 180.0})
+        targets.extend(
+            (
+                (0, 135.0),
+                (1, 45.0),
+                (2, 45.0),
+                (3, 135.0),
+                (4, 0.0),
+                (5, 180.0),
+                (6, 0.0),
+                (7, 180.0),
+            )
+        )
         if show_face:
             face_cues.append({"frame": len(frames), "name": "stand", "mode": "once"})
 
@@ -277,13 +291,15 @@ def _convert_motion(name: str, body: str) -> dict[str, object]:
         elif token.group("joint") is not None:
             joint_value = token.group("joint")
             joint_id = int(joint_value) if joint_value.isdigit() else JOINT_IDS[joint_value]
-            targets[joint_id] = float(token.group("angle"))
+            if any(existing_id == joint_id for existing_id, _ in targets):
+                flush(0)
+            targets.append((joint_id, float(token.group("angle"))))
         elif token.group("delay") is not None or token.group("press_delay") is not None:
             value = token.group("delay") or token.group("press_delay")
             flush(FRAME_DELAY_MS if value == "frameDelay" else int(value))
         elif token.group("stand_face") is not None:
             apply_stand(token.group("stand_face") == "1")
-    flush(20)
+    flush(0)
 
     if not 1 <= len(frames) <= MAX_MOTION_FRAMES:
         raise RuntimeError(f"motion {name} expanded to {len(frames)} frames")
@@ -294,13 +310,15 @@ def _convert_motion(name: str, body: str) -> dict[str, object]:
         if any(not 0.0 <= target[1] <= 180.0 for target in frame["targets"]):
             raise RuntimeError(f"motion {name} contains an out-of-range source angle")
 
-    final_targets = {target[0]: target[1] for target in frames[-1]["targets"]}
-    return_pose = "stand" if final_targets == {0: 135.0, 1: 45.0, 2: 45.0, 3: 135.0, 4: 0.0, 5: 180.0, 6: 0.0, 7: 180.0} else None
     return {
         "name": name,
         "joint_map_version": JOINT_MAP_VERSION,
         "repeat_count": 1,
-        "return_pose": return_pose,
+        # The retained Sesame functions already contain their terminal pose.
+        # Re-applying it in the runtime adds motion and delay not present in
+        # the original firmware.
+        "return_pose": None,
+        "sequential_servo_timing": True,
         "face_cues": face_cues,
         "frames": frames,
     }
@@ -372,7 +390,9 @@ def _encode_motion_binary(motion: dict[str, object]) -> bytes:
                 raise RuntimeError(f"motion {motion['name']} has an invalid target")
             body.extend(struct.pack("<BH", int(joint_id), centidegrees))
 
-    flags = 1 if return_pose else 0
+    flags = (1 if return_pose else 0) | (
+        2 if motion.get("sequential_servo_timing") else 0
+    )
     header = MOTION_BINARY_HEADER.pack(
         MOTION_BINARY_MAGIC,
         MOTION_BINARY_VERSION,

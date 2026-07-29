@@ -153,6 +153,7 @@ class GatewayConnection:
         command: Mapping[str, object],
         *,
         received_at: float,
+        on_sequence: Callable[[int], None] | None = None,
     ) -> int:
         async with self._send_lock:
             age_ms = (self.service.clock() - received_at) * 1000.0
@@ -178,6 +179,8 @@ class GatewayConnection:
                 future=future,
             )
             try:
+                if on_sequence is not None:
+                    on_sequence(sequence)
                 await self.websocket.send(json.dumps(message, separators=(",", ":")))
             except Exception:
                 self.pending.pop(sequence, None)
@@ -484,11 +487,17 @@ class GatewayService:
         *,
         robot_id: str | None = None,
         received_at: float | None = None,
+        on_sequence: Callable[[int], None] | None = None,
     ) -> int:
         command: dict[str, object] = {"t": "intent", "name": name}
         if params:
             command.update(params)
-        return await self._send(command, robot_id=robot_id, received_at=received_at)
+        return await self._send(
+            command,
+            robot_id=robot_id,
+            received_at=received_at,
+            on_sequence=on_sequence,
+        )
 
     async def emote(
         self,
@@ -511,6 +520,7 @@ class GatewayService:
         end: str,
         robot_id: str | None = None,
         received_at: float | None = None,
+        on_sequence: Callable[[int], None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         if MOTION_PLAN_FEATURE not in connection.features:
@@ -525,6 +535,7 @@ class GatewayService:
                 "end": end,
             },
             received_at=self.clock() if received_at is None else received_at,
+            on_sequence=on_sequence,
         )
 
     async def estop(
@@ -532,9 +543,13 @@ class GatewayService:
         *,
         robot_id: str | None = None,
         received_at: float | None = None,
+        detach: bool = False,
     ) -> int:
+        command: dict[str, object] = {"t": "stop"}
+        if detach:
+            command["detach"] = True
         return await self._send(
-            {"t": "stop"},
+            command,
             robot_id=robot_id,
             received_at=received_at,
         )
@@ -557,8 +572,17 @@ class GatewayService:
             command["sleep_s"] = sleep_s
         return await self._send(command, robot_id=robot_id)
 
-    async def request_snap(self, *, robot_id: str | None = None) -> int:
-        return await self._send({"t": "snap"}, robot_id=robot_id)
+    async def request_snap(
+        self,
+        *,
+        robot_id: str | None = None,
+        on_sequence: Callable[[int], None] | None = None,
+    ) -> int:
+        return await self._send(
+            {"t": "snap"},
+            robot_id=robot_id,
+            on_sequence=on_sequence,
+        )
 
     async def set_camera(
         self,
@@ -775,11 +799,13 @@ class GatewayService:
         *,
         robot_id: str | None,
         received_at: float | None = None,
+        on_sequence: Callable[[int], None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         return await connection.send_command(
             command,
             received_at=self.clock() if received_at is None else received_at,
+            on_sequence=on_sequence,
         )
 
     def _connection(self, robot_id: str | None) -> GatewayConnection:

@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "ainekio/platform/pin_map.h"
-#include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -51,11 +50,6 @@ static esp_err_t enable_output(
     if (adapter->output_enabled[joint_id]) {
         return ESP_OK;
     }
-    ESP_RETURN_ON_ERROR(
-        gpio_set_direction(ainekio_servo_pins[joint_id].gpio, GPIO_MODE_OUTPUT),
-        TAG,
-        "output attach failed"
-    );
     ESP_RETURN_ON_ERROR(
         mcpwm_generator_set_force_level(adapter->generators[joint_id], -1, true),
         TAG,
@@ -164,10 +158,8 @@ static esp_err_t configure_channel(
         TAG,
         "compare action failed"
     );
-    ESP_RETURN_ON_ERROR(gpio_set_direction(pin->gpio, GPIO_MODE_DISABLE), TAG,
-                        "initial high impedance failed");
     ESP_LOGI(TAG,
-             "joint=%u label=%s group=%u operator=%u generator=%u gpio=%d detached=high-z",
+             "joint=%u label=%s group=%u operator=%u generator=%u gpio=%d disabled=forced-low",
              (unsigned int)pin->joint_id,
              pin->label,
              (unsigned int)pin->mcpwm_group,
@@ -272,11 +264,6 @@ esp_err_t ainekio_mcpwm_adapter_detach(
         mcpwm_generator_set_force_level(adapter->generators[joint_id], 0, true),
         TAG,
         "force low before detach failed"
-    );
-    ESP_RETURN_ON_ERROR(
-        gpio_set_direction(ainekio_servo_pins[joint_id].gpio, GPIO_MODE_DISABLE),
-        TAG,
-        "high impedance detach failed"
     );
     adapter->output_enabled[joint_id] = false;
     return ESP_OK;

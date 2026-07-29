@@ -39,10 +39,23 @@
 #define RX_TEXT_BYTES (AINEKIO_CONTROL_MAX_BYTES + 1U)
 #define TX_TEXT_BYTES 1536U
 #define CLIENT_LOCK_TIMEOUT_MS 10U
-#define CONTROL_WRITE_TIMEOUT_MS 250U
+/*
+ * A control frame uses one WebSocket header write and one bounded payload
+ * write. Keep each write alive through the configured 1500-ms TCP
+ * retransmission interval without exceeding the motion-stale safety window.
+ */
+#define CONTROL_WRITE_TIMEOUT_MS 1900U
 #define MICROPHONE_WRITE_TIMEOUT_MS 60U
-#define CAMERA_WRITE_TIMEOUT_MS 1000U
+/*
+ * Keep a camera fragment alive through at least one TCP retransmission.
+ * CONFIG_LWIP_TCP_RTO_TIME is 1500 ms in the physical build. Allow the
+ * initial retry and its first backoff interval; shorter windows made otherwise
+ * healthy XGA transfers fail when consecutive packets or acknowledgements
+ * were lost.
+ */
+#define CAMERA_WRITE_TIMEOUT_MS 6000U
 #define NETWORK_OPERATION_TIMEOUT_MS 2000U
+#define RECONNECT_BACKOFF_MAX_MS 15000U
 #define MICROPHONE_FRAME_MS 20U
 /* User messages may be arbitrarily far apart. This lightweight application
  * heartbeat reports control-loop health; a stale heartbeat stops active
@@ -54,6 +67,7 @@
 #define SUPERVISOR_ONLINE BIT0
 #define SUPERVISOR_DISCONNECTED BIT1
 #define SUPERVISOR_FORCE_CLOSE BIT2
+#define SUPERVISOR_AUTHENTICATED BIT3
 
 /* A microphone frame fits one client TX chunk. The pinned WebSocket stack can
  * spend its timeout on its internal lock, header write, and payload write, so
@@ -69,8 +83,9 @@ _Static_assert(
     "WebSocket write budget must not exceed microphone queue duration"
 );
 _Static_assert(
-    CONTROL_WRITE_TIMEOUT_MS * 3U < CONTROL_STALE_US / INT64_C(1000),
-    "control writes must leave multiple retries before motion stop"
+    CLIENT_LOCK_TIMEOUT_MS + (2U * CONTROL_WRITE_TIMEOUT_MS) <
+        CONTROL_STALE_US / INT64_C(1000),
+    "control header and payload writes must finish before motion stop"
 );
 _Static_assert(
     CONTROL_STALE_US >= 4 * CONTROL_PING_US,
@@ -247,6 +262,7 @@ struct ainekio_runtime {
     bool has_config;
     bool connected;
     bool authenticated;
+    bool prefer_cached_gateway;
     bool failsafe_signalled;
     bool ping_pending;
     bool control_stale;
@@ -488,7 +504,7 @@ static bool enqueue_tx(
     taskENTER_CRITICAL(&runtime->state_lock);
     ++runtime->tx_control_failures;
     taskEXIT_CRITICAL(&runtime->state_lock);
-    (void)ainekio_motion_service_request_stop(&runtime->motion);
+    (void)ainekio_motion_service_request_detach(&runtime->motion);
     return false;
 }
 
@@ -614,6 +630,7 @@ static size_t encode_tx(
             runtime->firmware_version,
             config.robot_id,
             config.robot_token,
+            CONFIG_AINEKIO_PHYSICAL_MOTION_ENABLED,
             output,
             capacity
         );
@@ -759,15 +776,6 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
     taskEXIT_CRITICAL(&runtime->state_lock);
 }
 
-static TickType_t remaining_write_ticks(
-    TickType_t started,
-    TickType_t budget
-)
-{
-    const TickType_t elapsed = xTaskGetTickCount() - started;
-    return elapsed < budget ? budget - elapsed : 0U;
-}
-
 static int send_binary_frame(
     esp_websocket_client_handle_t client,
     const uint8_t *bytes,
@@ -775,52 +783,21 @@ static int send_binary_frame(
     TickType_t timeout
 )
 {
-    if (length <= AINEKIO_CONTROL_MAX_BYTES) {
-        return esp_websocket_client_send_bin(
-            client,
-            (const char *)bytes,
-            (int)length,
-            timeout
-        );
-    }
-
-    const TickType_t started = xTaskGetTickCount();
-    size_t offset = 0U;
-    bool first = true;
-    while (offset < length) {
-        const TickType_t remaining = remaining_write_ticks(started, timeout);
-        if (remaining == 0U) {
-            return -1;
-        }
-        const size_t available = length - offset;
-        const size_t chunk = available < AINEKIO_CONTROL_MAX_BYTES
-                                 ? available
-                                 : AINEKIO_CONTROL_MAX_BYTES;
-        const int sent = first
-                             ? esp_websocket_client_send_bin_partial(
-                                   client,
-                                   (const char *)(bytes + offset),
-                                   (int)chunk,
-                                   remaining
-                               )
-                             : esp_websocket_client_send_cont_msg(
-                                   client,
-                                   (const char *)(bytes + offset),
-                                   (int)chunk,
-                                   remaining
-                               );
-        if (sent != (int)chunk) {
-            return -1;
-        }
-        first = false;
-        offset += chunk;
-    }
-
-    const TickType_t remaining = remaining_write_ticks(started, timeout);
-    if (remaining == 0U || esp_websocket_client_send_fin(client, remaining) != 0) {
-        return -1;
-    }
-    return (int)length;
+    /*
+     * The pinned ESP WebSocket client already splits payloads larger than its
+     * configured 4-KiB TX buffer into one correct fragmented message while
+     * retaining ownership of its internal TX state. Keep the entire JPEG in
+     * that single API call. An outer partial/continuation loop repeatedly
+     * released and reacquired the client lock and applied a shrinking
+     * whole-image timeout, intermittently aborting otherwise healthy XGA
+     * transfers.
+     */
+    return esp_websocket_client_send_bin(
+        client,
+        (const char *)bytes,
+        (int)length,
+        timeout
+    );
 }
 
 static bool send_binary(
@@ -1172,6 +1149,18 @@ static void camera_frame(
     if (!session_matches(runtime, serial, true)) {
         return;
     }
+    if (uxQueueSpacesAvailable(runtime->camera_queue) == 0U) {
+        camera_tx_item_t discarded;
+        if (xQueueReceive(runtime->camera_queue, &discarded, 0U) == pdTRUE) {
+            heap_caps_free(discarded.bytes);
+            count_camera_drop(runtime);
+            finish_failed_snapshot(
+                runtime,
+                discarded.origin,
+                discarded.origin_id
+            );
+        }
+    }
     const size_t capacity = AINEKIO_BINARY_HEADER_BYTES + length;
     uint8_t *bytes = heap_caps_malloc(
         capacity,
@@ -1205,22 +1194,9 @@ static void camera_frame(
     if (xQueueSend(runtime->camera_queue, &item, 0U) == pdTRUE) {
         return;
     }
-
-    camera_tx_item_t discarded;
-    if (xQueueReceive(runtime->camera_queue, &discarded, 0U) == pdTRUE) {
-        heap_caps_free(discarded.bytes);
-        count_camera_drop(runtime);
-        finish_failed_snapshot(
-            runtime,
-            discarded.origin,
-            discarded.origin_id
-        );
-    }
-    if (xQueueSend(runtime->camera_queue, &item, 0U) != pdTRUE) {
-        heap_caps_free(bytes);
-        count_camera_drop(runtime);
-        finish_failed_snapshot(runtime, origin, origin_id);
-    }
+    heap_caps_free(bytes);
+    count_camera_drop(runtime);
+    finish_failed_snapshot(runtime, origin, origin_id);
 }
 
 static void camera_failed(
@@ -1274,7 +1250,7 @@ static void battery_observation(
 {
     ainekio_runtime_t *runtime = context;
     if ((events & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
-        (void)ainekio_motion_service_request_stop(&runtime->motion);
+        (void)ainekio_motion_service_request_detach(&runtime->motion);
         (void)cancel_audio(runtime);
     }
     const battery_item_t item = {
@@ -1414,6 +1390,55 @@ static void dispatch_movement(
     }
 }
 
+static void dispatch_motion_plan(
+    ainekio_runtime_t *runtime,
+    const ainekio_command_t *command
+)
+{
+    const ainekio_motion_submit_result_t prepared =
+        ainekio_motion_service_prepare_plan(
+            &runtime->motion,
+            command->sequence,
+            &command->data.motion_plan
+        );
+    if (prepared != AINEKIO_MOTION_SUBMIT_OK) {
+        claim_and_nak(
+            runtime,
+            command->sequence,
+            prepared == AINEKIO_MOTION_SUBMIT_LIMIT ? AINEKIO_NAK_LIMIT
+                                                    : AINEKIO_NAK_BUSY,
+            TX_MESSAGE_NONE
+        );
+        return;
+    }
+
+    const ainekio_decision_t decision =
+        ainekio_core_accept(runtime->core, command);
+    if (!decision.accepted) {
+        ainekio_motion_service_abort(&runtime->motion, command->sequence);
+        (void)queue_nak(
+            runtime,
+            true,
+            command->sequence,
+            rejection_code(decision.rejection),
+            TX_MESSAGE_NONE,
+            false
+        );
+        return;
+    }
+    if (!queue_ack(runtime, command->sequence, 0U, false)) {
+        ainekio_motion_service_abort(&runtime->motion, command->sequence);
+        return;
+    }
+    runtime->last_intent_us = now_us();
+    const ainekio_motion_submit_result_t committed =
+        ainekio_motion_service_commit(&runtime->motion, command->sequence);
+    if (committed != AINEKIO_MOTION_SUBMIT_OK &&
+        committed != AINEKIO_MOTION_SUBMIT_PREEMPTED) {
+        motion_failed(runtime, command->sequence);
+    }
+}
+
 static bool calibration_limits_valid(const ainekio_command_t *command)
 {
     const ainekio_servo_calibration_t calibration = {
@@ -1441,6 +1466,10 @@ static void dispatch_command(
     if (command->kind == AINEKIO_COMMAND_INTENT &&
         ainekio_intent_is_movement(command->data.intent.kind)) {
         dispatch_movement(runtime, command);
+        return;
+    }
+    if (command->kind == AINEKIO_COMMAND_MOTION_PLAN) {
+        dispatch_motion_plan(runtime, command);
         return;
     }
     if (command->kind == AINEKIO_COMMAND_SNAPSHOT) {
@@ -1628,7 +1657,7 @@ static void dispatch_command(
 
     if (command->kind == AINEKIO_COMMAND_STATE &&
         command->data.state.request == AINEKIO_STATE_REQUEST_SLEEP) {
-        (void)ainekio_motion_service_request_stop(&runtime->motion);
+        (void)ainekio_motion_service_request_detach(&runtime->motion);
         (void)cancel_audio(runtime);
         if (!queue_ack(
                 runtime,
@@ -1914,14 +1943,40 @@ static void dispatch_internal(
     }
     ainekio_core_begin_session(runtime->core, item->epoch);
     ainekio_core_set_profile(runtime->core, item->profile);
+    bool local = false;
+    char authenticated_endpoint[AINEKIO_ENDPOINT_URL_BYTES] = {0};
     taskENTER_CRITICAL(&runtime->state_lock);
     runtime->authenticated = true;
+    local = strcmp(
+        runtime->active_config.transport_mode,
+        AINEKIO_TRANSPORT_LOCAL
+    ) == 0;
+    runtime->prefer_cached_gateway = local;
+    if (local) {
+        (void)strcpy(authenticated_endpoint, runtime->client_endpoint);
+    }
     taskEXIT_CRITICAL(&runtime->state_lock);
+    if (runtime->supervisor_task != NULL) {
+        (void)xTaskNotify(
+            runtime->supervisor_task,
+            SUPERVISOR_AUTHENTICATED,
+            eSetBits
+        );
+    }
+    if (local) {
+        const esp_err_t cached =
+            ainekio_nvs_adapter_save_local_gateway(authenticated_endpoint);
+        if (cached != ESP_OK) {
+            ESP_LOGW(
+                TAG,
+                "local gateway cache update failed: %s",
+                esp_err_to_name(cached)
+            );
+        }
+    }
     show_gateway_status(
         runtime,
-        strcmp(runtime->active_config.transport_mode, AINEKIO_TRANSPORT_REMOTE) == 0
-            ? "CONNECTED REMOTE"
-            : "CONNECTED LOCAL"
+        local ? "CONNECTED LOCAL" : "CONNECTED REMOTE"
     );
     runtime->last_intent_us = now_us();
     runtime->next_status_us = now_us();
@@ -2203,11 +2258,14 @@ static void handle_decoded_control(
         return;
     }
     if (message->command.kind == AINEKIO_COMMAND_STOP) {
+        const bool detach = message->command.data.stop.detach;
         const stop_item_t stop = {
             .session_serial = serial,
             .command = message->command,
             .cancelled_sequence =
-                ainekio_motion_service_request_stop(&runtime->motion),
+                detach
+                    ? ainekio_motion_service_request_detach(&runtime->motion)
+                    : ainekio_motion_service_request_stop(&runtime->motion),
             .cancelled_audio_sequence = cancel_audio(runtime),
         };
         if (xQueueSend(runtime->stop_queue, &stop, 0U) != pdTRUE) {
@@ -2472,6 +2530,7 @@ static bool destroy_client(ainekio_runtime_t *runtime)
 static esp_err_t create_client(ainekio_runtime_t *runtime)
 {
     bool remote = false;
+    bool try_cached_gateway = false;
     taskENTER_CRITICAL(&runtime->state_lock);
     remote = strcmp(
         runtime->active_config.transport_mode,
@@ -2481,21 +2540,45 @@ static esp_err_t create_client(ainekio_runtime_t *runtime)
         (void)strcpy(runtime->client_endpoint, runtime->active_config.endpoint_url);
     } else {
         runtime->client_endpoint[0] = '\0';
+        try_cached_gateway = runtime->prefer_cached_gateway;
+        runtime->prefer_cached_gateway = false;
     }
     taskEXIT_CRITICAL(&runtime->state_lock);
     if (!remote) {
-        show_gateway_status(runtime, "SEARCHING GATEWAY");
-        const esp_err_t discovery = ainekio_local_gateway_discover(
-            runtime->client_endpoint,
-            sizeof(runtime->client_endpoint)
-        );
-        if (discovery != ESP_OK) {
-            show_gateway_status(
-                runtime,
-                discovery == ESP_ERR_INVALID_STATE ? "MULTIPLE GATEWAYS"
-                                                   : "GATEWAY NOT FOUND"
+        if (try_cached_gateway) {
+            const esp_err_t cached = ainekio_nvs_adapter_load_local_gateway(
+                runtime->client_endpoint
             );
-            return discovery;
+            if (cached == ESP_OK) {
+                show_gateway_status(runtime, "TRYING LAST GATEWAY");
+                ESP_LOGI(
+                    TAG,
+                    "trying last authenticated gateway at %s",
+                    runtime->client_endpoint
+                );
+            } else if (cached != ESP_ERR_NOT_FOUND &&
+                       cached != ESP_ERR_INVALID_STATE) {
+                ESP_LOGW(
+                    TAG,
+                    "local gateway cache unavailable: %s",
+                    esp_err_to_name(cached)
+                );
+            }
+        }
+        if (runtime->client_endpoint[0] == '\0') {
+            show_gateway_status(runtime, "SEARCHING GATEWAY");
+            const esp_err_t discovery = ainekio_local_gateway_discover(
+                runtime->client_endpoint,
+                sizeof(runtime->client_endpoint)
+            );
+            if (discovery != ESP_OK) {
+                show_gateway_status(
+                    runtime,
+                    discovery == ESP_ERR_INVALID_STATE ? "MULTIPLE GATEWAYS"
+                                                       : "GATEWAY NOT FOUND"
+                );
+                return discovery;
+            }
         }
     } else {
         show_gateway_status(runtime, "CONNECTING REMOTE");
@@ -2557,12 +2640,25 @@ static esp_err_t create_client(ainekio_runtime_t *runtime)
 
 static uint32_t jittered_delay(uint32_t base_ms)
 {
+    if (base_ms > RECONNECT_BACKOFF_MAX_MS) {
+        base_ms = RECONNECT_BACKOFF_MAX_MS;
+    }
     const uint32_t span = base_ms / 5U;
     if (span == 0U) {
         return base_ms;
     }
-    const uint32_t width = span * 2U + 1U;
-    return base_ms - span + esp_random() % width;
+    /* Keep retry jitter below the configured ceiling instead of allowing the
+     * old symmetric jitter to exceed it by 20 percent. */
+    return base_ms - span + esp_random() % (span + 1U);
+}
+
+static uint32_t next_backoff(uint32_t current_ms)
+{
+    if (current_ms >= RECONNECT_BACKOFF_MAX_MS ||
+        current_ms > RECONNECT_BACKOFF_MAX_MS / 2U) {
+        return RECONNECT_BACKOFF_MAX_MS;
+    }
+    return current_ms * 2U;
 }
 
 static void supervisor_liveness(ainekio_runtime_t *runtime)
@@ -2612,7 +2708,7 @@ static void supervisor_liveness(ainekio_runtime_t *runtime)
             (unsigned int)pings_enqueued,
             (long long)last_rx_age_ms
         );
-        (void)ainekio_motion_service_request_stop(&runtime->motion);
+        ainekio_motion_service_request_failsafe(&runtime->motion);
     }
     if (ping) {
         const tx_item_t item = {
@@ -2654,6 +2750,10 @@ static void supervisor_task(void *argument)
         const bool connected = runtime->connected;
         taskEXIT_CRITICAL(&runtime->state_lock);
 
+        if ((notifications & SUPERVISOR_AUTHENTICATED) != 0U) {
+            backoff_ms = 1000U;
+            attempt_at_us = 0;
+        }
         if ((notifications & (SUPERVISOR_FORCE_CLOSE | SUPERVISOR_DISCONNECTED)) != 0U) {
             if (!destroy_client(runtime)) {
                 (void)xTaskNotify(
@@ -2666,10 +2766,7 @@ static void supervisor_task(void *argument)
             }
             flush_session_queues(runtime);
             attempt_at_us = now_us() + (int64_t)jittered_delay(backoff_ms) * 1000;
-            backoff_ms = backoff_ms < 30000U ? backoff_ms * 2U : 30000U;
-            if (backoff_ms > 30000U) {
-                backoff_ms = 30000U;
-            }
+            backoff_ms = next_backoff(backoff_ms);
         }
         if ((notifications & SUPERVISOR_ONLINE) != 0U ||
             generation != seen_generation) {
@@ -2694,10 +2791,7 @@ static void supervisor_task(void *argument)
                 ESP_LOGW(TAG, "gateway connection start failed: %s", esp_err_to_name(result));
                 attempt_at_us =
                     now_us() + (int64_t)jittered_delay(backoff_ms) * 1000;
-                backoff_ms = backoff_ms < 30000U ? backoff_ms * 2U : 30000U;
-                if (backoff_ms > 30000U) {
-                    backoff_ms = 30000U;
-                }
+                backoff_ms = next_backoff(backoff_ms);
             }
         }
         /* A close can enqueue another close notification while the client is
@@ -3000,6 +3094,7 @@ esp_err_t ainekio_runtime_network_online(
     taskENTER_CRITICAL(&runtime->state_lock);
     runtime->active_config = *active_config;
     runtime->has_config = true;
+    runtime->prefer_cached_gateway = true;
     ++runtime->config_generation;
     if (runtime->config_generation == 0U) {
         ++runtime->config_generation;

@@ -40,14 +40,12 @@ void ainekio_core_begin_session(ainekio_core_t *core, uint32_t epoch)
     core->has_sequence = false;
     core->state = AINEKIO_STATE_ACTIVE;
     core->mode = AINEKIO_MODE_NORMAL;
-    core->servos_attached = false;
     core->stop_latched = true;
 }
 
 void ainekio_core_enter_failsafe(ainekio_core_t *core)
 {
     core->state = AINEKIO_STATE_FAILSAFE;
-    core->servos_attached = false;
     core->stop_latched = true;
 }
 
@@ -69,9 +67,8 @@ void ainekio_core_set_state(ainekio_core_t *core, ainekio_body_state_t state)
 void ainekio_core_set_boot_ready(ainekio_core_t *core, bool ready)
 {
     core->boot_ready = ready;
-    if (!ready) {
-        core->servos_attached = false;
-    }
+    core->servos_attached =
+        ready && core->power_guard != AINEKIO_POWER_CUTOFF;
 }
 
 void ainekio_core_set_power_guard(ainekio_core_t *core, ainekio_power_guard_t guard)
@@ -126,7 +123,9 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
         is_movement || command->kind == AINEKIO_COMMAND_SERVO;
 
     if (is_stop) {
-        core->servos_attached = false;
+        core->servos_attached =
+            !command->data.stop.detach && core->boot_ready &&
+            core->power_guard != AINEKIO_POWER_CUTOFF;
         core->stop_latched = true;
     }
 

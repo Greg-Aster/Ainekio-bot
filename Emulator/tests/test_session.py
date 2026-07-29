@@ -109,7 +109,10 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         await self.session.handle(walk, self.emit)
         await self.backend.started.wait()
 
-        await self.session.handle({"t": "stop", "seq": 2}, self.emit)
+        await self.session.handle(
+            {"t": "stop", "seq": 2, "detach": True},
+            self.emit,
+        )
 
         self.assertEqual(
             self.messages,
@@ -122,6 +125,16 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.core.servos_attached)
         self.assertIsNone(self.session.active_sequence)
         self.assertEqual(self.backend.messages[-1], {"t": "stop", "seq": 2})
+
+    async def test_ordinary_stop_cancels_active_movement_and_holds_neutral(self) -> None:
+        walk = {"t": "intent", "seq": 1, "name": "walk", "dir": "fwd", "steps": 10}
+        await self.session.handle(walk, self.emit)
+        await self.backend.started.wait()
+
+        await self.session.handle({"t": "stop", "seq": 2}, self.emit)
+
+        self.assertTrue(self.core.servos_attached)
+        self.assertIsNone(self.session.active_sequence)
 
     async def test_motion_plan_acks_executes_frames_and_completes(self) -> None:
         self.backend.release.set()
@@ -205,7 +218,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
                 {"t": "cancelled", "seq": 1, "code": "stop"},
             ],
         )
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
 
     async def test_renderer_failure_never_reports_done(self) -> None:
         self.backend.failure = RuntimeError("renderer unavailable")
@@ -228,7 +241,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         await self.session.handle({"t": "stop", "seq": 1}, self.emit)
 
         self.assertEqual(self.messages, [{"t": "ack", "seq": 1}])
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
 
     async def test_renderer_timeout_cannot_block_stop(self) -> None:
         self.backend.stop_release = asyncio.Event()
@@ -241,7 +254,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         elapsed = monotonic() - started
 
         self.assertEqual(self.messages, [{"t": "ack", "seq": 1}])
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
         self.assertLess(elapsed, 0.1)
 
     async def test_unavailable_capability_is_bounded_and_claims_sequence(self) -> None:
@@ -637,7 +650,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
                 {"t": "cancelled", "seq": 1, "code": "stop"},
             ],
         )
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
 
     async def test_speaker_queue_overflow_cancels_whole_utterance(self) -> None:
         speaker = ControlledSpeakerSink()
@@ -740,7 +753,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
                 ],
                 asset_name,
             )
-            self.assertFalse(self.core.servos_attached, asset_name)
+            self.assertTrue(self.core.servos_attached, asset_name)
             sequence += 2
 
     async def test_missing_emote_asset_is_explicit(self) -> None:
@@ -757,7 +770,10 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_face_and_say_complete_without_reattaching_after_stop(self) -> None:
-        await self.session.handle({"t": "stop", "seq": 1}, self.emit)
+        await self.session.handle(
+            {"t": "stop", "seq": 1, "detach": True},
+            self.emit,
+        )
         await self.session.handle(
             {"t": "intent", "seq": 2, "name": "face", "expr": "happy"},
             self.emit,

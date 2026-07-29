@@ -42,6 +42,7 @@ typedef struct {
     uint16_t frame_count;
     uint8_t repeat_count;
     uint8_t face_cue_count;
+    bool sequential_servo_timing;
     ainekio_motion_face_cue_t face_cues[AINEKIO_MOTION_MAX_FACE_CUES];
     ainekio_motion_frame_t frames[AINEKIO_MOTION_MAX_FRAMES];
 } ainekio_motion_asset_t;

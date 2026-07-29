@@ -396,6 +396,139 @@ esp_err_t ainekio_nvs_adapter_read_setup_key(
     return ESP_OK;
 }
 
+static bool parse_endpoint_number(
+    const char **cursor,
+    char delimiter,
+    uint32_t maximum,
+    uint32_t *value
+)
+{
+    if (cursor == NULL || *cursor == NULL || value == NULL) {
+        return false;
+    }
+    const char *position = *cursor;
+    uint32_t parsed = 0U;
+    size_t digits = 0U;
+    while (*position >= '0' && *position <= '9') {
+        if (digits >= 5U) {
+            return false;
+        }
+        parsed = parsed * 10U + (uint32_t)(*position - '0');
+        if (parsed > maximum) {
+            return false;
+        }
+        ++digits;
+        ++position;
+    }
+    if (digits == 0U || *position != delimiter) {
+        return false;
+    }
+    *cursor = position + 1;
+    *value = parsed;
+    return true;
+}
+
+static bool local_gateway_endpoint_valid(const char *endpoint)
+{
+    if (endpoint == NULL ||
+        strnlen(endpoint, AINEKIO_ENDPOINT_URL_BYTES) >=
+            AINEKIO_ENDPOINT_URL_BYTES ||
+        strncmp(endpoint, "ws://", 5U) != 0) {
+        return false;
+    }
+    const char *cursor = endpoint + 5U;
+    uint32_t component = 0U;
+    for (size_t octet = 0U; octet < 3U; ++octet) {
+        if (!parse_endpoint_number(&cursor, '.', 255U, &component)) {
+            return false;
+        }
+    }
+    if (!parse_endpoint_number(&cursor, ':', 255U, &component)) {
+        return false;
+    }
+    uint32_t port = 0U;
+    return parse_endpoint_number(&cursor, '/', 65535U, &port) &&
+           port != 0U && strcmp(cursor, "robot") == 0;
+}
+
+esp_err_t ainekio_nvs_adapter_load_local_gateway(
+    char endpoint[AINEKIO_ENDPOINT_URL_BYTES]
+)
+{
+    if (endpoint == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    endpoint[0] = '\0';
+    nvs_handle_t handle;
+    esp_err_t error = nvs_open(
+        AINEKIO_NVS_NAMESPACE_DEVICE,
+        NVS_READONLY,
+        &handle
+    );
+    if (error != ESP_OK) {
+        return error == ESP_ERR_NVS_NOT_FOUND ? ESP_ERR_NOT_FOUND : error;
+    }
+    error = get_bounded_string(
+        handle,
+        AINEKIO_NVS_KEY_LOCAL_GATEWAY,
+        endpoint,
+        AINEKIO_ENDPOINT_URL_BYTES
+    );
+    nvs_close(handle);
+    if (error != ESP_OK) {
+        endpoint[0] = '\0';
+        return error == ESP_ERR_NVS_NOT_FOUND ? ESP_ERR_NOT_FOUND : error;
+    }
+    if (!local_gateway_endpoint_valid(endpoint)) {
+        endpoint[0] = '\0';
+        return ESP_ERR_INVALID_STATE;
+    }
+    return ESP_OK;
+}
+
+esp_err_t ainekio_nvs_adapter_save_local_gateway(const char *endpoint)
+{
+    if (!local_gateway_endpoint_valid(endpoint)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    nvs_handle_t handle;
+    esp_err_t error = nvs_open(
+        AINEKIO_NVS_NAMESPACE_DEVICE,
+        NVS_READWRITE,
+        &handle
+    );
+    if (error != ESP_OK) {
+        return error;
+    }
+
+    char current[AINEKIO_ENDPOINT_URL_BYTES] = {0};
+    size_t current_size = sizeof(current);
+    const esp_err_t read_error = nvs_get_str(
+        handle,
+        AINEKIO_NVS_KEY_LOCAL_GATEWAY,
+        current,
+        &current_size
+    );
+    if (read_error == ESP_OK && strcmp(current, endpoint) == 0) {
+        nvs_close(handle);
+        return ESP_OK;
+    }
+    if (read_error != ESP_OK && read_error != ESP_ERR_NVS_NOT_FOUND) {
+        error = nvs_erase_key(handle, AINEKIO_NVS_KEY_LOCAL_GATEWAY);
+        if (error == ESP_ERR_NVS_NOT_FOUND) {
+            error = ESP_OK;
+        }
+    }
+    if (error == ESP_OK) {
+        error = nvs_set_str(handle, AINEKIO_NVS_KEY_LOCAL_GATEWAY, endpoint);
+    }
+    if (error == ESP_OK) {
+        error = nvs_commit(handle);
+    }
+    nvs_close(handle);
+    return error;
+}
+
 static esp_err_t reset_namespace(const char *namespace_name)
 {
     nvs_handle_t handle;

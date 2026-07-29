@@ -60,17 +60,23 @@ new specification revision, readers must keep these boundaries explicit:
   accepted production `Ainekio` model is installed. First boot remains
   `wake_enabled=false` and `wake_ready=false`.
 - `motion_plan_v1` is an owner-approved bounded extension implemented in the
-  protocol/core, gateway, environment adapter, and emulator. The ESP32-S3
-  runtime does not advertise or execute it, so physical freestyle remains
-  disabled pending specification consolidation and hardware-derived limits.
+  protocol/core, gateway, environment adapter, emulator, and current ESP32-S3
+  source. The physical port reuses the existing prepared motion buffer/task and
+  post-action camera callback. The matching revision is flashed, digest-verified,
+  and connected; physical freestyle remains pending owner-supervised transition,
+  stop, completion-image, and memory-headroom validation.
 - Local robot transport now defaults to `_ainekio._tcp.local` DNS-SD discovery,
-  rejects off-subnet advertised addresses, and never silently falls back to the
-  optional Cloudflare relay. The owner selected authenticated `ws://` on the
-  private home WPA2 LAN as the intentionally minimal local transport; pinned
-  local WSS is not a parallel pending path. The maintained implementation uses
-  one-second control pings and a four-second active-motion stale guard without
-  timer-driven session teardown. Actual Wi-Fi/WebSocket errors still enter
-  FAILSAFE/offline. The v1.0 DOCX needs a numbered erratum for this
+  rejects off-subnet advertised addresses, and caches the last authenticated
+  local endpoint as a first-attempt optimization. A stale cached endpoint gets
+  one bounded attempt before DNS-SD resumes; it is not a fixed configuration.
+  Reconnect backoff resets after authenticated `welcome` and never exceeds 15
+  seconds. Local mode never silently falls back to the optional Cloudflare
+  relay. The owner selected authenticated `ws://` on the private home WPA2 LAN
+  as the intentionally minimal local transport; pinned local WSS is not a
+  parallel pending path. The maintained implementation uses one-second control
+  pings and a four-second active-motion stale guard without timer-driven session
+  teardown. Actual Wi-Fi/WebSocket errors still enter FAILSAFE/offline. The v1.0
+  DOCX needs a numbered erratum for this
   local-discovery and liveness contract. The keepalive-free application is
   prepared in source but has not yet been flashed; the dated bridge-liveness
   handoff records the exact source-versus-controller boundary.

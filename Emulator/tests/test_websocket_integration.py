@@ -295,7 +295,7 @@ class WebSocketIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(close_codes, [1009])
         self.assertEqual(core.state, 4)
-        self.assertFalse(core.servos_attached)
+        self.assertTrue(core.servos_attached)
         core.close()
 
     async def test_stop_bypasses_saturated_control_queue(self) -> None:
@@ -330,7 +330,9 @@ class WebSocketIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     json.dumps({"t": "profile", "seq": sequence, "name": "home"})
                 )
             stop_sent_at = asyncio.get_running_loop().time()
-            await websocket.send(json.dumps({"t": "stop", "seq": 34}))
+            await websocket.send(
+                json.dumps({"t": "stop", "seq": 34, "detach": True})
+            )
             await websocket.send(json.dumps({"t": "profile", "seq": 35, "name": "home"}))
 
             try:
@@ -424,7 +426,7 @@ class WebSocketIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await client.run_once()
             self.assertTrue(backend.started.is_set())
             self.assertEqual(core.state, 4)
-            self.assertFalse(core.servos_attached)
+            self.assertTrue(core.servos_attached)
             self.assertIsNone(session.active_sequence)
 
             backend.release.set()

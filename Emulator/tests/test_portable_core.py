@@ -48,18 +48,22 @@ class PortableCoreTests(unittest.TestCase):
 
     def test_claims_unavailable_sequence_without_executing(self) -> None:
         self.assertEqual(self.core.claim_sequence(4), CoreRejection.NONE)
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
 
         stop = {"t": "stop", "seq": 4}
         self.assertEqual(self.core.accept(stop).rejection, CoreRejection.STALE)
 
-    def test_failsafe_detaches_servos(self) -> None:
+    def test_failsafe_holds_neutral_unless_outputs_were_detached(self) -> None:
         self.core.accept({"t": "intent", "seq": 1, "name": "stand"})
 
         self.core.enter_failsafe()
 
-        self.assertFalse(self.core.servos_attached)
+        self.assertTrue(self.core.servos_attached)
         self.assertEqual(self.core.state, 4)
+
+        self.core.accept({"t": "stop", "seq": 2, "detach": True})
+        self.core.enter_failsafe()
+        self.assertFalse(self.core.servos_attached)
 
 
 if __name__ == "__main__":

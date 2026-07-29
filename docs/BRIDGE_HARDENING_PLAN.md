@@ -182,12 +182,17 @@ The primary physical path is now one body-initiated local connection. This is a
 replacement for saved LAN addresses, not an additional fallback chain:
 
 ```text
-saved WiFi -> _ainekio._tcp.local -> same-subnet gateway -> /robot
+saved WiFi -> last authenticated local endpoint -> _ainekio._tcp.local fallback
+           -> same-subnet gateway -> /robot
 ```
 
 - Local mode is the configuration default and does not use the saved endpoint
   field. An older record without a transport key migrates to local mode without
   erasing WiFi, robot identity, calibration, poses, assets, or preferences.
+- The controller stores one non-secret endpoint only after an authenticated
+  `welcome`. It tries that endpoint once on boot or transport reconnect, then
+  resumes DNS-SD if the address is stale or unavailable. This is a bounded cache,
+  not hardcoded network configuration.
 - Discovery requires protocol v1, `/robot`, LAN transport, the expected gateway
   service, and an IPv4 address on the robot's current WiFi subnet. An advertised
   Docker, VPN, or other off-subnet address is rejected; there is no first-address
@@ -208,9 +213,10 @@ saved WiFi -> _ainekio._tcp.local -> same-subnet gateway -> /robot
   listener or service. Requests carrying Cloudflare relay headers are also
   rejected even though the local tunnel connector itself reaches loopback.
 - OLED states distinguish searching, not found, verifying, authentication
-  rejection, and local/remote connection. Only a real socket, gateway, or Wi-Fi
-  failure moves an authenticated session offline; conversational idle and a
-  late application heartbeat do not.
+  rejection, cached-address connection, and local/remote connection. Retry
+  backoff resets after authenticated `welcome` and is capped at 15 seconds.
+  Only a real socket, gateway, or Wi-Fi failure moves an authenticated session
+  offline; conversational idle and a late application heartbeat do not.
 - For bring-up testing, microphone transport starts enabled behind VAD while
   wake-word gating remains separate and off by default. Every completed action
   requests a correlated still when the camera is ready, and `captureImage`

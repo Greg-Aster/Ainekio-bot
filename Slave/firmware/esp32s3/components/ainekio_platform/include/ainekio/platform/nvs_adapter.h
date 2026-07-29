@@ -20,6 +20,10 @@ esp_err_t ainekio_nvs_adapter_store_setup_key(
 esp_err_t ainekio_nvs_adapter_read_setup_key(
     char setup_key[AINEKIO_SETUP_KEY_CHARS + 1U]
 );
+esp_err_t ainekio_nvs_adapter_load_local_gateway(
+    char endpoint[AINEKIO_ENDPOINT_URL_BYTES]
+);
+esp_err_t ainekio_nvs_adapter_save_local_gateway(const char *endpoint);
 esp_err_t ainekio_nvs_adapter_load_calibration(
     ainekio_servo_bank_t *servos,
     bool *recovered
