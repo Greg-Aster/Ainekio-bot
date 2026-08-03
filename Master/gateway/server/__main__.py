@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import errno
 import ipaddress
+import logging
 import os
 import sys
 import threading
+from collections.abc import Callable
 from pathlib import Path
+from time import monotonic
 
 import websockets
 
@@ -14,11 +18,88 @@ from gateway.dashboard.auth import AuditLog
 from gateway.dashboard.server import start_dashboard_server
 from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.security import DashboardPasswordStore, RobotTokenStore
+from protocol.binary_helpers import MIC_PCM_FRAME_TYPE
 
 from .service import GatewayService, GatewayServiceConfig, MAX_WEBSOCKET_MESSAGE_BYTES
 from .stub import GatewayStub, GatewayStubConfig, build_phase_one_commands
 
 WEBSOCKET_OPEN_TIMEOUT_SECONDS = 10.0
+MICROPHONE_AUDIT_INTERVAL_SECONDS = 1.0
+EXPECTED_DISCONNECT_ERRNOS = frozenset(
+    error_number
+    for error_number in (
+        getattr(errno, "ECONNABORTED", None),
+        getattr(errno, "ECONNRESET", None),
+        getattr(errno, "EHOSTDOWN", None),
+        getattr(errno, "EHOSTUNREACH", None),
+        getattr(errno, "ENETDOWN", None),
+        getattr(errno, "ENETUNREACH", None),
+        getattr(errno, "ENOTCONN", None),
+        getattr(errno, "EPIPE", None),
+        getattr(errno, "ETIMEDOUT", None),
+    )
+    if error_number is not None
+)
+
+
+class ConciseWebSocketDisconnectFilter(logging.Filter):
+    """Keep expected network loss visible without an internal library traceback."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.msg != "data transfer failed" or record.exc_info is None:
+            return True
+        error = record.exc_info[1]
+        if (
+            not isinstance(error, OSError)
+            or error.errno not in EXPECTED_DISCONNECT_ERRNOS
+        ):
+            return True
+        record.levelno = logging.WARNING
+        record.levelname = "WARNING"
+        record.msg = "WebSocket peer disconnected: %s"
+        record.args = (error,)
+        record.exc_info = None
+        record.exc_text = None
+        return True
+
+
+def _websocket_logger() -> logging.Logger:
+    logger = logging.getLogger("ainekio.gateway.websocket")
+    if not any(
+        isinstance(existing, ConciseWebSocketDisconnectFilter)
+        for existing in logger.filters
+    ):
+        logger.addFilter(ConciseWebSocketDisconnectFilter())
+    return logger
+
+
+class MicrophoneFrameAudit:
+    """Keep microphone evidence without doing disk I/O for every PCM frame."""
+
+    def __init__(
+        self,
+        audit_log: AuditLog,
+        *,
+        clock: Callable[[], float] = monotonic,
+    ) -> None:
+        self._audit_log = audit_log
+        self._clock = clock
+        self._last_microphone_at: dict[str, tuple[object, float]] = {}
+
+    def record(self, frame: dict[str, object]) -> None:
+        if frame.get("frame_type") == MIC_PCM_FRAME_TYPE:
+            robot_id = str(frame.get("robot_id", ""))
+            epoch = frame.get("epoch")
+            now = self._clock()
+            previous = self._last_microphone_at.get(robot_id)
+            if (
+                previous is not None
+                and previous[0] == epoch
+                and now - previous[1] < MICROPHONE_AUDIT_INTERVAL_SECONDS
+            ):
+                return
+            self._last_microphone_at[robot_id] = (epoch, now)
+        self._audit_log.record("media_frame", **_audit_fields(frame))
 
 
 class BoundedHandshakeProtocol(websockets.WebSocketServerProtocol):
@@ -128,6 +209,7 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
         ping_interval=None,
         close_timeout=1.0,
         create_protocol=BoundedHandshakeProtocol,
+        logger=_websocket_logger(),
     ):
         _print_gateway_addresses(
             bind_host=args.host,
@@ -159,9 +241,7 @@ async def _run_production(args: argparse.Namespace) -> None:
     service.subscribe_events(
         lambda event: audit_log.record("body_event", **_audit_fields(event))
     )
-    service.subscribe_frames(
-        lambda frame: audit_log.record("media_frame", **_audit_fields(frame))
-    )
+    service.subscribe_frames(MicrophoneFrameAudit(audit_log).record)
     dashboard = start_dashboard_server(
         args.dashboard_host,
         args.dashboard_port,
@@ -216,6 +296,7 @@ async def _run_production(args: argparse.Namespace) -> None:
             ping_interval=None,
             close_timeout=1.0,
             create_protocol=BoundedHandshakeProtocol,
+            logger=_websocket_logger(),
         ):
             _print_gateway_addresses(
                 bind_host=args.host,
@@ -255,6 +336,8 @@ def _audit_fields(payload: dict[str, object]) -> dict[str, object]:
         "control_frames_received",
         "json_pings_sent",
         "last_control_type",
+        "rssi",
+        "mic_drops",
     }
     return {key: value for key, value in payload.items() if key in allowed}
 

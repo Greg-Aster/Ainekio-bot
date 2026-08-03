@@ -218,7 +218,7 @@ file. Replace the example provenance values with the real dataset/model record:
 ```sh
 python3 Slave/software/tools/package_micro_wake_word.py \
   --model /home/greggles/ainekio-wake-training/micro-wake-word/trained_models/wakeword/tflite_stream_state_internal_quant/stream_state_internal_quant.tflite \
-  --output-dir Slave/software/assets/seed/wake/ainekio \
+  --output-dir Slave/software/assets/local/wake/ainekio \
   --id ainekio \
   --wake-word Ainekio \
   --author "Ainekio local training" \
@@ -231,8 +231,11 @@ python3 Slave/software/tools/package_micro_wake_word.py \
   --tensor-arena-size 26080
 ```
 
-The tool refuses accidental replacement unless `--replace` is supplied. It
-copies the model unchanged and writes `manifest.json` using schema
+The device-local asset directory is gitignored so the trained model and its
+provenance remain on the owning machine. Firmware asset staging copies the
+checked-in seed assets first, then overlays this directory. The tool refuses
+accidental replacement unless `--replace` is supplied. It copies the model
+unchanged and writes `manifest.json` using schema
 `ainekio-microwakeword-v1`, including the model SHA-256 and required provenance.
 
 At boot, firmware accepts the package only after checking the bounded manifest,
@@ -241,9 +244,11 @@ and runtime arena allocation. Only then does status report `wake_ready=true`.
 
 ## 5. Install and validate
 
-The current preparation path builds the package into the LittleFS image. The
-LittleFS partition can be rebuilt and flashed without replacing either OTA
-application slot:
+The current preparation path builds the seed assets and device-local overlay
+into the LittleFS image. An ordinary `idf.py flash` intentionally excludes this
+partition, so an application update cannot erase an installed local model.
+Changing assets is a separate, explicit operation that rebuilds and flashes
+LittleFS without replacing either OTA application slot:
 
 ```sh
 cd Slave/firmware/esp32s3

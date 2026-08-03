@@ -80,6 +80,7 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
 .connection-state { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.78rem; font-weight: 800; }
 .connection-state::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #7d858d; }
 .connection-state.online::before { background: #55ca86; }
+.connection-state.stale::before { background: #e3a43b; }
 
 .safety-bar {
   position: sticky;
@@ -199,6 +200,11 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .input-with-actions { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; gap: 0.5rem; }
 .settings-form { margin-top: 0.85rem; padding-top: 0.85rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 0.7rem; border-top: 1px solid var(--line); }
 .settings-form label { display: grid; gap: 0.35rem; }
+.speaker-test-form { grid-template-columns: minmax(180px, 1fr) auto; }
+.speaker-test-volume-heading { display: flex; justify-content: space-between; gap: 1rem; }
+.speaker-test-volume-heading output { color: var(--ink); }
+.speaker-test-form input[type="range"] { padding-inline: 0; accent-color: var(--blue); }
+.speaker-test-help { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 0.75rem; }
 .switch-row { display: flex !important; min-height: 42px; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .switch-row input { width: 20px; min-height: 20px; accent-color: var(--blue); }
 .meter-label { display: block; margin-top: 1rem; }
@@ -262,6 +268,7 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .telemetry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-group { align-items: flex-start; flex-direction: column; }
   .settings-form, .calibration-grid, .limits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .speaker-test-form { grid-template-columns: 1fr; }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .input-with-actions { grid-template-columns: 1fr 1fr; }
   .emote-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

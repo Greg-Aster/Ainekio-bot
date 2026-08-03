@@ -156,6 +156,18 @@ class FakeWebSocket:
         self.sent.append(payload)
 
 
+class BlockingWebSocket(FakeWebSocket):
+    def __init__(self) -> None:
+        super().__init__()
+        self.send_started = asyncio.Event()
+        self.release_send = asyncio.Event()
+
+    async def send(self, payload: str | bytes) -> None:
+        self.send_started.set()
+        await self.release_send.wait()
+        await super().send(payload)
+
+
 class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
     async def test_environment_websocket_requires_auth_and_returns_ready_observation(self) -> None:
         gateway = FakeGateway()
@@ -910,7 +922,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             pcm = wav.readframes(960)
         self.assertEqual(pcm[640:1280], bytes(640))
 
-    async def test_completed_utterance_receives_one_firmware_correlated_snapshot(self) -> None:
+    async def test_wake_utterance_receives_one_firmware_correlated_snapshot(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
@@ -923,6 +935,9 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
 
         await assembler.handle_event(
             {"t": "event", "name": "vad_open", "origin_id": 7, **identity}
+        )
+        await assembler.handle_event(
+            {"t": "event", "name": "wake_word", "origin_id": 7, **identity}
         )
         await assembler.handle_frame(
             {
@@ -979,6 +994,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             audio_metadata["utteranceId"],
             "audio:test-body:2:7",
         )
+        self.assertTrue(audio_metadata["wakeTriggered"])
         self.assertEqual(gateway.calls, [])
 
     async def test_non_audio_body_event_name_is_preserved_in_environment_state(self) -> None:
@@ -1104,14 +1120,52 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
 
         await adapter._handle_gateway_frame(frame)
         await adapter._handle_gateway_frame({**frame, "counter": 11})
+        first_task = adapter._microphone_level_task
+        self.assertIsNotNone(first_task)
+        await first_task
         now = 0.11
         await adapter._handle_gateway_frame({**frame, "counter": 12})
+        second_task = adapter._microphone_level_task
+        self.assertIsNotNone(second_task)
+        await second_task
 
         self.assertEqual(len(websocket.sent), 2)
         first = json.loads(websocket.sent[0])
         self.assertEqual(first["telemetry"]["kind"], "audio.level")
         self.assertEqual(first["telemetry"]["level"], 0.5)
         self.assertNotIn("payload", first["telemetry"])
+
+    async def test_slow_microphone_telemetry_does_not_block_robot_frames(self) -> None:
+        gateway = FakeGateway()
+        now = 0.0
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(token="adapter-secret"),
+            clock=lambda: now,
+        )
+        websocket = BlockingWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+        frame = {
+            "robot_id": "test-body",
+            "epoch": 1,
+            "frame_type": MIC_PCM_FRAME_TYPE,
+            "counter": 10,
+            "payload": struct.pack("<320h", *([1200] * 320)),
+        }
+
+        await asyncio.wait_for(adapter._handle_gateway_frame(frame), timeout=0.05)
+        await asyncio.wait_for(websocket.send_started.wait(), timeout=0.05)
+        now = 0.11
+        await asyncio.wait_for(
+            adapter._handle_gateway_frame({**frame, "counter": 11}),
+            timeout=0.05,
+        )
+
+        task = adapter._microphone_level_task
+        self.assertIsNotNone(task)
+        websocket.release_send.set()
+        await task
+        self.assertEqual(len(websocket.sent), 1)
 
     async def test_maximum_duration_emits_one_truncated_utterance_until_vad_closes(self) -> None:
         gateway = FakeGateway()

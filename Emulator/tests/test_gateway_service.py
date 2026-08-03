@@ -49,6 +49,31 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
                 ping_interval_s=0.0,
             )
 
+    def test_gateway_reports_stale_before_transport_disconnects(self) -> None:
+        class Socket:
+            closed = False
+
+        now = [10.0]
+        service = GatewayService(
+            GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"}),
+            clock=lambda: now[0],
+        )
+        service._connections["ainekio-test-01"] = GatewayConnection(
+            service,
+            Socket(),
+            "ainekio-test-01",
+            1,
+        )
+
+        fresh = service.status()["robots"]["ainekio-test-01"]
+        self.assertEqual(fresh["connection_state"], "online")
+        self.assertEqual(fresh["heartbeat_age_ms"], 0)
+
+        now[0] += 4.0
+        stale = service.status()["robots"]["ainekio-test-01"]
+        self.assertEqual(stale["connection_state"], "stale")
+        self.assertEqual(stale["heartbeat_age_ms"], 4000)
+
     async def test_gateway_api_tracks_command_lifecycle(self) -> None:
         service = GatewayService(
             GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
@@ -249,6 +274,47 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             await client_task
 
         core.close()
+
+    async def test_tts_waits_for_start_ack_before_sending_pcm(self) -> None:
+        class Socket:
+            closed = False
+
+            def __init__(self) -> None:
+                self.sent: list[object] = []
+
+            async def send(self, payload: object) -> None:
+                self.sent.append(payload)
+
+        service = GatewayService(
+            GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
+        )
+        socket = Socket()
+        connection = GatewayConnection(
+            service,
+            socket,
+            "ainekio-test-01",
+            1,
+        )
+        service._connections["ainekio-test-01"] = connection
+
+        send_task = asyncio.create_task(service.tts_speak([bytes(640)]))
+        await asyncio.sleep(0)
+
+        self.assertEqual(len(socket.sent), 1)
+        self.assertEqual(
+            json.loads(str(socket.sent[0])),
+            {"t": "tts", "op": "start", "seq": 1},
+        )
+
+        await connection._handle_control({"t": "ack", "seq": 1})
+        self.assertEqual(await send_task, 1)
+        self.assertEqual(len(socket.sent), 3)
+        self.assertIsInstance(socket.sent[1], bytes)
+        self.assertEqual(len(socket.sent[1]), 645)
+        self.assertEqual(
+            json.loads(str(socket.sent[2])),
+            {"t": "tts", "op": "end", "seq": 2},
+        )
 
     async def test_wrong_token_and_offline_actions_are_rejected(self) -> None:
         service = GatewayService(

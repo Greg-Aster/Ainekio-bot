@@ -61,6 +61,12 @@ typedef enum {
     AINEKIO_FALLBACK_STAND,
 } ainekio_fallback_motion_t;
 
+typedef enum {
+    AINEKIO_MOTION_FEEDBACK_NONE = 0,
+    AINEKIO_MOTION_FEEDBACK_LISTEN,
+    AINEKIO_MOTION_FEEDBACK_TALK,
+} ainekio_motion_feedback_t;
+
 bool ainekio_asset_name_valid(const char *name);
 ainekio_asset_result_t ainekio_motion_asset_decode(
     const uint8_t *bytes,
@@ -74,6 +80,12 @@ ainekio_asset_result_t ainekio_motion_asset_check_limits(
 void ainekio_motion_asset_fallback(
     ainekio_fallback_motion_t fallback,
     ainekio_motion_asset_t *asset
+);
+bool ainekio_motion_feedback_frame(
+    ainekio_motion_feedback_t feedback,
+    bool engaged,
+    const uint16_t base_centidegrees[AINEKIO_SERVO_COUNT],
+    ainekio_motion_frame_t *frame
 );
 
 #endif

@@ -33,6 +33,7 @@ AGENTS.md
 /docs/sesame-robot/
 
 # Robot/runtime data
+/Slave/software/assets/local/
 logs/**/*.log
 logs/runtime/
 logs/telemetry/

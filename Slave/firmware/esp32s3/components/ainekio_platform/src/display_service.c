@@ -607,11 +607,15 @@ void ainekio_display_begin_talk(ainekio_display_service_t *service)
     taskEXIT_CRITICAL(&service->state_lock);
     char candidate[AINEKIO_ASSET_NAME_MAX + 1U];
     const int written = snprintf(candidate, sizeof(candidate), "talk_%s", prior);
-    if (written > 0 && (size_t)written < sizeof(candidate) &&
-        ainekio_asset_store_face(service->assets, candidate) != NULL) {
+    const char *talk_face =
+        written > 0 && (size_t)written < sizeof(candidate) &&
+                ainekio_asset_store_face(service->assets, candidate) != NULL
+            ? candidate
+            : "talk_happy";
+    if (ainekio_asset_store_face(service->assets, talk_face) != NULL) {
         (void)ainekio_display_show_face(
             service,
-            candidate,
+            talk_face,
             AINEKIO_FACE_MODE_LOOP,
             false,
             false
@@ -619,7 +623,7 @@ void ainekio_display_begin_talk(ainekio_display_service_t *service)
     }
 }
 
-void ainekio_display_end_talk(ainekio_display_service_t *service)
+void ainekio_display_restore(ainekio_display_service_t *service)
 {
     if (service == NULL) {
         return;
@@ -635,6 +639,30 @@ void ainekio_display_end_talk(ainekio_display_service_t *service)
     queue_command(service, &command);
 }
 
+void ainekio_display_end_talk(ainekio_display_service_t *service)
+{
+    ainekio_display_restore(service);
+}
+
+void ainekio_display_begin_listen(ainekio_display_service_t *service)
+{
+    if (service == NULL) {
+        return;
+    }
+    (void)ainekio_display_show_face(
+        service,
+        "surprised",
+        AINEKIO_FACE_MODE_ONCE,
+        false,
+        false
+    );
+}
+
+void ainekio_display_end_listen(ainekio_display_service_t *service)
+{
+    ainekio_display_restore(service);
+}
+
 void ainekio_display_set_idle(ainekio_display_service_t *service, bool idle)
 {
     if (service == NULL) {
@@ -644,6 +672,6 @@ void ainekio_display_set_idle(ainekio_display_service_t *service, bool idle)
         const display_command_t command = {.kind = DISPLAY_COMMAND_IDLE};
         queue_command(service, &command);
     } else {
-        ainekio_display_end_talk(service);
+        ainekio_display_restore(service);
     }
 }

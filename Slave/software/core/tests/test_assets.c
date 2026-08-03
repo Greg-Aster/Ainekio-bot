@@ -107,12 +107,85 @@ static void test_fallbacks_are_bounded(void)
     free(asset);
 }
 
+static void test_feedback_frames_are_small_and_pose_relative(void)
+{
+    static const uint16_t base[AINEKIO_SERVO_COUNT] = {
+        13500U, 4500U, 4500U, 13500U, 0U, 18000U, 0U, 18000U,
+    };
+    ainekio_motion_frame_t frame;
+
+    assert(ainekio_motion_feedback_frame(
+        AINEKIO_MOTION_FEEDBACK_LISTEN,
+        true,
+        base,
+        &frame
+    ));
+    assert(frame.duration_ms == 300U);
+    assert(frame.target_count == AINEKIO_SERVO_COUNT);
+    assert(frame.targets[AINEKIO_JOINT_R1].centidegrees == 13500U);
+    assert(frame.targets[AINEKIO_JOINT_L1].centidegrees == 4500U);
+    assert(frame.targets[AINEKIO_JOINT_R2].centidegrees == 5100U);
+    assert(frame.targets[AINEKIO_JOINT_L2].centidegrees == 12900U);
+    assert(frame.targets[AINEKIO_JOINT_R4].centidegrees == 600U);
+    assert(frame.targets[AINEKIO_JOINT_L4].centidegrees == 17400U);
+
+    assert(ainekio_motion_feedback_frame(
+        AINEKIO_MOTION_FEEDBACK_TALK,
+        true,
+        base,
+        &frame
+    ));
+    assert(frame.duration_ms == 420U);
+    assert(frame.targets[AINEKIO_JOINT_R1].centidegrees == 13300U);
+    assert(frame.targets[AINEKIO_JOINT_R2].centidegrees == 4700U);
+    assert(frame.targets[AINEKIO_JOINT_R3].centidegrees == 17700U);
+    assert(frame.targets[AINEKIO_JOINT_R4].centidegrees == 300U);
+    assert(frame.targets[AINEKIO_JOINT_L3].centidegrees == 300U);
+    assert(frame.targets[AINEKIO_JOINT_L4].centidegrees == 17700U);
+
+    assert(ainekio_motion_feedback_frame(
+        AINEKIO_MOTION_FEEDBACK_TALK,
+        false,
+        base,
+        &frame
+    ));
+    for (uint8_t index = 0U; index < AINEKIO_SERVO_COUNT; ++index) {
+        assert(frame.targets[index].joint_id == index);
+        assert(frame.targets[index].centidegrees == base[index]);
+    }
+
+    static const uint16_t neutral[AINEKIO_SERVO_COUNT] = {
+        9000U, 9000U, 9000U, 9000U, 9000U, 9000U, 9000U, 9000U,
+    };
+    assert(ainekio_motion_feedback_frame(
+        AINEKIO_MOTION_FEEDBACK_LISTEN,
+        true,
+        neutral,
+        &frame
+    ));
+    assert(frame.targets[AINEKIO_JOINT_R2].centidegrees == 9600U);
+    assert(frame.targets[AINEKIO_JOINT_L2].centidegrees == 8400U);
+    assert(frame.targets[AINEKIO_JOINT_R4].centidegrees == 9600U);
+    assert(frame.targets[AINEKIO_JOINT_L4].centidegrees == 8400U);
+
+    uint16_t invalid[AINEKIO_SERVO_COUNT];
+    memcpy(invalid, base, sizeof(invalid));
+    invalid[AINEKIO_JOINT_R1] = 18001U;
+    assert(!ainekio_motion_feedback_frame(
+        AINEKIO_MOTION_FEEDBACK_LISTEN,
+        true,
+        invalid,
+        &frame
+    ));
+}
+
 int main(void)
 {
     test_all_seed_assets_decode_and_fit_default_calibration();
     test_corruption_truncation_and_trailing_data_are_rejected();
     test_sesame_walk_preserves_original_timing();
     test_fallbacks_are_bounded();
+    test_feedback_frames_are_small_and_pose_relative();
     puts("asset tests passed");
     return 0;
 }
