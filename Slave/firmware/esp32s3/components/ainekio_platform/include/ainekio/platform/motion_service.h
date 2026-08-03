@@ -68,7 +68,12 @@ typedef struct {
     bool detach_requested;
     float calibration_degrees[AINEKIO_SERVO_COUNT];
     uint16_t calibration_duration_ms[AINEKIO_SERVO_COUNT];
+    uint16_t feedback_base_centidegrees[AINEKIO_SERVO_COUNT];
     uint8_t calibration_pending_mask;
+    ainekio_motion_feedback_t requested_feedback;
+    ainekio_motion_feedback_t active_feedback;
+    bool feedback_base_valid;
+    bool calibration_active;
     SemaphoreHandle_t quiet_ready;
     SemaphoreHandle_t quiet_release;
     StaticSemaphore_t quiet_ready_storage;
@@ -108,6 +113,10 @@ uint32_t ainekio_motion_service_request_stop(ainekio_motion_service_t *service);
 uint32_t ainekio_motion_service_request_detach(ainekio_motion_service_t *service);
 void ainekio_motion_service_request_failsafe(ainekio_motion_service_t *service);
 bool ainekio_motion_service_busy(const ainekio_motion_service_t *service);
+void ainekio_motion_service_set_feedback(
+    ainekio_motion_service_t *service,
+    ainekio_motion_feedback_t feedback
+);
 ainekio_motion_submit_result_t ainekio_motion_service_calibrate_servo(
     ainekio_motion_service_t *service,
     uint8_t joint_id,

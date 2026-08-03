@@ -201,7 +201,28 @@
             </select>
           </label>
           <button type="submit">Apply microphone</button>
-          <button id="speaker-test-button" type="button">Test speaker</button>
+        </form>
+        <form id="speaker-test-form" class="settings-form speaker-test-form">
+          <label for="speaker-test-volume">
+            <span class="speaker-test-volume-heading">
+              Test volume
+              <output id="speaker-test-volume-output" for="speaker-test-volume">15%</output>
+            </span>
+            <input
+              id="speaker-test-volume"
+              name="volume_percent"
+              type="range"
+              min="1"
+              max="100"
+              step="1"
+              value="15"
+              aria-describedby="speaker-test-help"
+            >
+          </label>
+          <button id="speaker-test-button" type="submit">Test speaker</button>
+          <p id="speaker-test-help" class="speaker-test-help">
+            Sends a buffered 2-second tone. Start low and increase gradually.
+          </p>
         </form>
         <form id="wake-form" class="settings-form">
           <label class="switch-row">

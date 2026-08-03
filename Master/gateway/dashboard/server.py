@@ -5,6 +5,7 @@ import json
 import math
 import struct
 import threading
+from collections.abc import AsyncIterator
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -22,6 +23,13 @@ from .auth import AuditLog, DashboardSession, DashboardSessions, LoginRateLimite
 
 MAX_REQUEST_BODY_BYTES = 16 * 1024
 SESSION_COOKIE = "ainekio_dashboard_session"
+DEFAULT_TEST_TONE_VOLUME_PERCENT = 15
+PCM_S16_MAX = 32767
+TEST_TONE_FRAME_COUNT = 100
+TEST_TONE_FRAME_SECONDS = 0.020
+TEST_TONE_PREBUFFER_FRAMES = 20
+TEST_TONE_PACING_FRAMES = 5
+TEST_TONE_PACING_SECONDS = TEST_TONE_FRAME_SECONDS * TEST_TONE_PACING_FRAMES
 STATIC_ROOT = Path(__file__).with_name("static")
 STATIC_FILES = {
     "/": ("dashboard.html", "text/html; charset=utf-8", True),
@@ -312,9 +320,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return {"ok": True, "seq": sequence}
         if path == "/api/speaker-test":
+            volume_percent = payload.get(
+                "volume_percent",
+                DEFAULT_TEST_TONE_VOLUME_PERCENT,
+            )
+            if type(volume_percent) is not int:
+                raise ValueError("volume_percent must be an integer")
+            if not 1 <= volume_percent <= 100:
+                raise ValueError("volume_percent must be between 1 and 100")
             sequence = self.server.call_gateway(
                 self.server.gateway.tts_speak(
-                    _test_tone_frames(),
+                    _test_tone_frames(volume_percent),
                     robot_id=robot_id,
                 )
             )
@@ -574,14 +590,36 @@ def _required_bool(payload: dict[str, object], name: str) -> bool:
     return value
 
 
-def _test_tone_frames() -> list[bytes]:
-    frames: list[bytes] = []
+async def _test_tone_frames(
+    volume_percent: int = DEFAULT_TEST_TONE_VOLUME_PERCENT,
+) -> AsyncIterator[bytes]:
+    if not 1 <= volume_percent <= 100:
+        raise ValueError("volume_percent must be between 1 and 100")
+    amplitude = round(PCM_S16_MAX * volume_percent / 100)
     phase = 0
-    for _ in range(10):
+    pacing_block_started_at = asyncio.get_running_loop().time()
+    for frame_index in range(TEST_TONE_FRAME_COUNT):
+        if (
+            frame_index >= TEST_TONE_PREBUFFER_FRAMES
+            and (frame_index - TEST_TONE_PREBUFFER_FRAMES)
+            % TEST_TONE_PACING_FRAMES
+            == 0
+        ):
+            # Refill in bounded 100 ms blocks. Account for the time spent
+            # transmitting the prior block so socket backpressure does not
+            # reduce the average below the required 50 frames/second.
+            remaining = TEST_TONE_PACING_SECONDS - (
+                asyncio.get_running_loop().time() - pacing_block_started_at
+            )
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+            pacing_block_started_at = asyncio.get_running_loop().time()
         samples = []
         for _sample in range(320):
-            value = int(5000 * math.sin(2.0 * math.pi * 440.0 * phase / 16000.0))
+            value = int(
+                amplitude
+                * math.sin(2.0 * math.pi * 440.0 * phase / 16000.0)
+            )
             samples.append(value)
             phase += 1
-        frames.append(struct.pack("<320h", *samples))
-    return frames
+        yield struct.pack("<320h", *samples)

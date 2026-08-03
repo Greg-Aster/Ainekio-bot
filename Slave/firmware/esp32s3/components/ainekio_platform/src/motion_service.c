@@ -1,5 +1,6 @@
 #include "ainekio/platform/motion_service.h"
 
+#include <math.h>
 #include <string.h>
 
 #include "esp_log.h"
@@ -9,6 +10,7 @@
 #define MOTION_NOTIFY_STOP BIT1
 #define MOTION_NOTIFY_CALIBRATION BIT2
 #define MOTION_NOTIFY_QUIET BIT3
+#define MOTION_NOTIFY_FEEDBACK BIT4
 #define MOTION_STACK_BYTES 6144U
 #define MOTION_TASK_PRIORITY (configMAX_PRIORITIES - 1U)
 #define STOP_DURATION_MS 300U
@@ -65,7 +67,7 @@ static bool service_notifications(ainekio_motion_service_t *service)
     uint32_t notifications = 0U;
     (void)xTaskNotifyWait(
         0U,
-        MOTION_NOTIFY_STOP | MOTION_NOTIFY_QUIET,
+        MOTION_NOTIFY_STOP | MOTION_NOTIFY_QUIET | MOTION_NOTIFY_FEEDBACK,
         &notifications,
         0U
     );
@@ -76,7 +78,7 @@ static bool service_notifications(ainekio_motion_service_t *service)
         (void)xSemaphoreGive(service->quiet_ready);
         (void)xSemaphoreTake(service->quiet_release, pdMS_TO_TICKS(20U));
     }
-    return false;
+    return (notifications & MOTION_NOTIFY_FEEDBACK) != 0U;
 }
 
 #if CONFIG_AINEKIO_MOTION_SMOOTH_PLAYBACK
@@ -333,15 +335,56 @@ static esp_err_t run_fallback(
     return run_asset(service, &service->prepared_asset, 1U);
 }
 
+static bool capture_feedback_base(ainekio_motion_service_t *service)
+{
+    const float scale = (float)CONFIG_AINEKIO_MOTION_RANGE_PERCENT / 100.0F;
+    uint16_t captured[AINEKIO_SERVO_COUNT];
+    for (uint8_t index = 0U; index < AINEKIO_SERVO_COUNT; ++index) {
+        const ainekio_servo_channel_t *channel = &service->servos->channels[index];
+        if (!channel->attached ||
+            !ainekio_servo_calibration_valid(&channel->calibration)) {
+            return false;
+        }
+        const float direction = channel->calibration.invert ? -1.0F : 1.0F;
+        const float configured =
+            90.0F + direction *
+                        (channel->current_degrees -
+                         channel->calibration.center_degrees);
+        float source = 90.0F + (configured - 90.0F) / scale;
+        if (!isfinite(source) || source < -0.05F || source > 180.05F) {
+            return false;
+        }
+        if (source < 0.0F) {
+            source = 0.0F;
+        } else if (source > 180.0F) {
+            source = 180.0F;
+        }
+        captured[index] = (uint16_t)(source * 100.0F + 0.5F);
+    }
+    memcpy(
+        service->feedback_base_centidegrees,
+        captured,
+        sizeof(captured)
+    );
+    service->feedback_base_valid = true;
+    return true;
+}
+
 static void clear_active(ainekio_motion_service_t *service, uint32_t sequence)
 {
+    bool resume_feedback = false;
     taskENTER_CRITICAL(&service->state_lock);
     if (service->active_sequence == sequence) {
         service->active_sequence = 0U;
         service->active_cancelled = false;
         service->job_pending = false;
+        resume_feedback =
+            service->requested_feedback != AINEKIO_MOTION_FEEDBACK_NONE;
     }
     taskEXIT_CRITICAL(&service->state_lock);
+    if (resume_feedback && service->task != NULL) {
+        (void)xTaskNotify(service->task, MOTION_NOTIFY_FEEDBACK, eSetBits);
+    }
 }
 
 static void perform_stop(ainekio_motion_service_t *service)
@@ -349,6 +392,9 @@ static void perform_stop(ainekio_motion_service_t *service)
     bool detach = false;
     taskENTER_CRITICAL(&service->state_lock);
     detach = service->detach_requested;
+    service->requested_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+    service->active_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+    service->feedback_base_valid = false;
     taskEXIT_CRITICAL(&service->state_lock);
 
     esp_err_t hold_result = ESP_OK;
@@ -369,6 +415,7 @@ static void perform_stop(ainekio_motion_service_t *service)
     service->active_cancelled = false;
     service->job_pending = false;
     service->calibration_pending_mask = 0U;
+    service->calibration_active = false;
     taskEXIT_CRITICAL(&service->state_lock);
 
     if (detach || hold_result != ESP_OK) {
@@ -381,6 +428,124 @@ static void perform_stop(ainekio_motion_service_t *service)
         );
     } else {
         ESP_LOGI(TAG, "motion stopped at neutral; PWM hold remains enabled");
+    }
+}
+
+static esp_err_t run_feedback(ainekio_motion_service_t *service)
+{
+    while (true) {
+        ainekio_motion_feedback_t requested = AINEKIO_MOTION_FEEDBACK_NONE;
+        uint32_t active_sequence = 0U;
+        bool cancelled = false;
+        bool capture_base = false;
+        taskENTER_CRITICAL(&service->state_lock);
+        requested = service->requested_feedback;
+        active_sequence = service->active_sequence;
+        cancelled = service->active_cancelled;
+        if (!cancelled && active_sequence == 0U &&
+            requested != AINEKIO_MOTION_FEEDBACK_NONE) {
+            capture_base = !service->feedback_base_valid;
+            service->active_feedback = requested;
+        }
+        taskEXIT_CRITICAL(&service->state_lock);
+
+        if (cancelled) {
+            perform_stop(service);
+            return ESP_OK;
+        }
+        if (active_sequence != 0U) {
+            taskENTER_CRITICAL(&service->state_lock);
+            service->active_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+            taskEXIT_CRITICAL(&service->state_lock);
+            return ESP_OK;
+        }
+        if (capture_base) {
+            if (!capture_feedback_base(service)) {
+                taskENTER_CRITICAL(&service->state_lock);
+                service->requested_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+                service->active_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+                service->feedback_base_valid = false;
+                taskEXIT_CRITICAL(&service->state_lock);
+                return ESP_ERR_INVALID_STATE;
+            }
+            taskENTER_CRITICAL(&service->state_lock);
+            const bool preempted =
+                service->active_sequence != 0U ||
+                service->active_cancelled ||
+                service->requested_feedback != requested;
+            taskEXIT_CRITICAL(&service->state_lock);
+            if (preempted) {
+                continue;
+            }
+        }
+
+        if (requested == AINEKIO_MOTION_FEEDBACK_NONE) {
+            bool restore = false;
+            taskENTER_CRITICAL(&service->state_lock);
+            restore = service->active_feedback !=
+                          AINEKIO_MOTION_FEEDBACK_NONE &&
+                      service->feedback_base_valid;
+            taskEXIT_CRITICAL(&service->state_lock);
+            if (restore) {
+                ainekio_motion_frame_t frame;
+                if (!ainekio_motion_feedback_frame(
+                        AINEKIO_MOTION_FEEDBACK_NONE,
+                        false,
+                        service->feedback_base_centidegrees,
+                        &frame
+                    )) {
+                    return ESP_ERR_INVALID_ARG;
+                }
+                const esp_err_t result = run_frame(service, &frame, false);
+                if (result == ESP_ERR_INVALID_RESPONSE) {
+                    continue;
+                }
+                if (result != ESP_OK) {
+                    return result;
+                }
+            }
+            taskENTER_CRITICAL(&service->state_lock);
+            service->active_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+            service->feedback_base_valid = false;
+            taskEXIT_CRITICAL(&service->state_lock);
+            return ESP_OK;
+        }
+
+        ainekio_motion_frame_t frame;
+        if (!ainekio_motion_feedback_frame(
+                requested,
+                true,
+                service->feedback_base_centidegrees,
+                &frame
+            )) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        esp_err_t result = run_frame(service, &frame, false);
+        if (result == ESP_ERR_INVALID_RESPONSE) {
+            continue;
+        }
+        if (result != ESP_OK) {
+            return result;
+        }
+        if (requested == AINEKIO_MOTION_FEEDBACK_LISTEN) {
+            return ESP_OK;
+        }
+
+        if (!ainekio_motion_feedback_frame(
+                AINEKIO_MOTION_FEEDBACK_TALK,
+                false,
+                service->feedback_base_centidegrees,
+                &frame
+            )) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        result = run_frame(service, &frame, false);
+        if (result == ESP_ERR_INVALID_RESPONSE) {
+            continue;
+        }
+        if (result != ESP_OK) {
+            return result;
+        }
     }
 }
 
@@ -495,16 +660,57 @@ static void motion_task(void *argument)
             (void)xSemaphoreTake(service->quiet_release, pdMS_TO_TICKS(20U));
         }
         if ((notifications & MOTION_NOTIFY_CALIBRATION) != 0U) {
+            taskENTER_CRITICAL(&service->state_lock);
+            service->active_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+            service->feedback_base_valid = false;
+            service->calibration_active = true;
+            taskEXIT_CRITICAL(&service->state_lock);
             const esp_err_t result = run_calibration(service);
+            taskENTER_CRITICAL(&service->state_lock);
+            service->calibration_active = false;
+            taskEXIT_CRITICAL(&service->state_lock);
             if (result == ESP_ERR_INVALID_STATE) {
                 perform_stop(service);
             } else if (result != ESP_OK) {
                 ESP_LOGE(TAG, "calibration motion failed: %s", esp_err_to_name(result));
                 perform_stop(service);
+            } else {
+                bool resume_feedback = false;
+                taskENTER_CRITICAL(&service->state_lock);
+                resume_feedback =
+                    service->requested_feedback !=
+                    AINEKIO_MOTION_FEEDBACK_NONE;
+                taskEXIT_CRITICAL(&service->state_lock);
+                if (resume_feedback) {
+                    (void)xTaskNotify(
+                        service->task,
+                        MOTION_NOTIFY_FEEDBACK,
+                        eSetBits
+                    );
+                }
             }
             continue;
         }
         if ((notifications & MOTION_NOTIFY_JOB) == 0U) {
+            if ((notifications & MOTION_NOTIFY_FEEDBACK) != 0U) {
+                const esp_err_t result = run_feedback(service);
+                if (result != ESP_OK) {
+                    ESP_LOGE(
+                        TAG,
+                        "feedback motion failed: %s",
+                        esp_err_to_name(result)
+                    );
+                    taskENTER_CRITICAL(&service->state_lock);
+                    service->requested_feedback =
+                        AINEKIO_MOTION_FEEDBACK_NONE;
+                    service->active_feedback =
+                        AINEKIO_MOTION_FEEDBACK_NONE;
+                    service->feedback_base_valid = false;
+                    taskEXIT_CRITICAL(&service->state_lock);
+                    ainekio_servo_detach_all(service->servos);
+                    (void)ainekio_mcpwm_adapter_detach_all(service->mcpwm);
+                }
+            }
             continue;
         }
 
@@ -514,6 +720,8 @@ static void motion_task(void *argument)
         job = service->pending_job;
         cancelled = service->active_cancelled;
         service->job_pending = false;
+        service->active_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+        service->feedback_base_valid = false;
         taskEXIT_CRITICAL(&service->state_lock);
         if (cancelled) {
             perform_stop(service);
@@ -622,15 +830,21 @@ ainekio_motion_submit_result_t ainekio_motion_service_prepare(
         job->sequence == 0U || job->repetitions == 0U) {
         return AINEKIO_MOTION_SUBMIT_IO_ERROR;
     }
+    bool interrupt_feedback = false;
     taskENTER_CRITICAL(&service->state_lock);
     const bool busy = service->active_sequence != 0U;
     if (!busy) {
         service->active_sequence = job->sequence;
         service->active_cancelled = false;
+        interrupt_feedback =
+            service->active_feedback != AINEKIO_MOTION_FEEDBACK_NONE;
     }
     taskEXIT_CRITICAL(&service->state_lock);
     if (busy) {
         return AINEKIO_MOTION_SUBMIT_BUSY;
+    }
+    if (interrupt_feedback) {
+        (void)xTaskNotify(service->task, MOTION_NOTIFY_FEEDBACK, eSetBits);
     }
 
     if (job->kind == AINEKIO_MOTION_JOB_ASSET) {
@@ -676,15 +890,21 @@ ainekio_motion_submit_result_t ainekio_motion_service_prepare_plan(
         !motion_plan_valid(plan)) {
         return AINEKIO_MOTION_SUBMIT_LIMIT;
     }
+    bool interrupt_feedback = false;
     taskENTER_CRITICAL(&service->state_lock);
     const bool busy = service->active_sequence != 0U;
     if (!busy) {
         service->active_sequence = sequence;
         service->active_cancelled = false;
+        interrupt_feedback =
+            service->active_feedback != AINEKIO_MOTION_FEEDBACK_NONE;
     }
     taskEXIT_CRITICAL(&service->state_lock);
     if (busy) {
         return AINEKIO_MOTION_SUBMIT_BUSY;
+    }
+    if (interrupt_feedback) {
+        (void)xTaskNotify(service->task, MOTION_NOTIFY_FEEDBACK, eSetBits);
     }
 
     ainekio_motion_asset_t *asset = &service->prepared_asset;
@@ -790,6 +1010,7 @@ static uint32_t request_stop_mode(
     service->active_cancelled = true;
     service->job_pending = false;
     service->detach_requested = service->detach_requested || detach;
+    service->requested_feedback = AINEKIO_MOTION_FEEDBACK_NONE;
     taskEXIT_CRITICAL(&service->state_lock);
     (void)xTaskNotify(service->task, MOTION_NOTIFY_STOP, eSetBits);
     return cancelled;
@@ -833,6 +1054,31 @@ bool ainekio_motion_service_busy(const ainekio_motion_service_t *service)
     return busy;
 }
 
+void ainekio_motion_service_set_feedback(
+    ainekio_motion_service_t *service,
+    ainekio_motion_feedback_t feedback
+)
+{
+    if (service == NULL || service->task == NULL ||
+        feedback > AINEKIO_MOTION_FEEDBACK_TALK) {
+        return;
+    }
+    bool notify = false;
+    taskENTER_CRITICAL(&service->state_lock);
+    if (service->requested_feedback != feedback) {
+        service->requested_feedback = feedback;
+        notify =
+            !service->calibration_active &&
+            service->active_sequence == 0U &&
+            (service->active_feedback != AINEKIO_MOTION_FEEDBACK_NONE ||
+             feedback != AINEKIO_MOTION_FEEDBACK_NONE);
+    }
+    taskEXIT_CRITICAL(&service->state_lock);
+    if (notify) {
+        (void)xTaskNotify(service->task, MOTION_NOTIFY_FEEDBACK, eSetBits);
+    }
+}
+
 ainekio_motion_submit_result_t ainekio_motion_service_calibrate_servo(
     ainekio_motion_service_t *service,
     uint8_t joint_id,
@@ -853,16 +1099,22 @@ ainekio_motion_submit_result_t ainekio_motion_service_calibrate_servo(
         return AINEKIO_MOTION_SUBMIT_LIMIT;
     }
     (void)physical;
+    bool interrupt_feedback = false;
     taskENTER_CRITICAL(&service->state_lock);
     const bool busy = service->active_sequence != 0U;
     if (!busy) {
         service->calibration_degrees[joint_id] = logical_degrees;
         service->calibration_duration_ms[joint_id] = duration_ms;
         service->calibration_pending_mask |= (uint8_t)(1U << joint_id);
+        interrupt_feedback =
+            service->active_feedback != AINEKIO_MOTION_FEEDBACK_NONE;
     }
     taskEXIT_CRITICAL(&service->state_lock);
     if (busy) {
         return AINEKIO_MOTION_SUBMIT_BUSY;
+    }
+    if (interrupt_feedback) {
+        (void)xTaskNotify(service->task, MOTION_NOTIFY_FEEDBACK, eSetBits);
     }
     (void)xTaskNotify(service->task, MOTION_NOTIFY_CALIBRATION, eSetBits);
     return AINEKIO_MOTION_SUBMIT_OK;

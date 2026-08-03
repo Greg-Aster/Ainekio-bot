@@ -27,8 +27,11 @@ esp_err_t ainekio_display_show_status(
     const char *line_3,
     const char *line_4
 );
+void ainekio_display_restore(ainekio_display_service_t *service);
 void ainekio_display_begin_talk(ainekio_display_service_t *service);
 void ainekio_display_end_talk(ainekio_display_service_t *service);
+void ainekio_display_begin_listen(ainekio_display_service_t *service);
+void ainekio_display_end_listen(ainekio_display_service_t *service);
 void ainekio_display_set_idle(ainekio_display_service_t *service, bool idle);
 
 #endif

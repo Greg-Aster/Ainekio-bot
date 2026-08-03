@@ -241,3 +241,52 @@ void ainekio_motion_asset_fallback(
         asset->frames[0].targets[index].centidegrees = is_stand ? stand[index] : neutral[index];
     }
 }
+
+static uint16_t feedback_shift(uint16_t centidegrees, int16_t amount)
+{
+    const int32_t shifted = (int32_t)centidegrees + amount;
+    if (shifted < 0) {
+        return 0U;
+    }
+    return shifted > 18000 ? 18000U : (uint16_t)shifted;
+}
+
+bool ainekio_motion_feedback_frame(
+    ainekio_motion_feedback_t feedback,
+    bool engaged,
+    const uint16_t base_centidegrees[AINEKIO_SERVO_COUNT],
+    ainekio_motion_frame_t *frame
+)
+{
+    if (feedback > AINEKIO_MOTION_FEEDBACK_TALK ||
+        base_centidegrees == NULL || frame == NULL) {
+        return false;
+    }
+    for (uint8_t index = 0U; index < AINEKIO_SERVO_COUNT; ++index) {
+        if (base_centidegrees[index] > 18000U) {
+            return false;
+        }
+    }
+
+    memset(frame, 0, sizeof(*frame));
+    frame->duration_ms =
+        feedback == AINEKIO_MOTION_FEEDBACK_TALK ? 420U : 300U;
+    frame->target_count = AINEKIO_SERVO_COUNT;
+    for (uint8_t index = 0U; index < AINEKIO_SERVO_COUNT; ++index) {
+        uint16_t target = base_centidegrees[index];
+        if (engaged && feedback == AINEKIO_MOTION_FEEDBACK_LISTEN) {
+            static const int16_t listen_shift[AINEKIO_SERVO_COUNT] = {
+                0, 600, 0, -600, 600, 0, 0, -600,
+            };
+            target = feedback_shift(target, listen_shift[index]);
+        } else if (engaged && feedback == AINEKIO_MOTION_FEEDBACK_TALK) {
+            static const int16_t talk_shift[AINEKIO_SERVO_COUNT] = {
+                -200, 200, 200, -200, 300, -300, 300, -300,
+            };
+            target = feedback_shift(target, talk_shift[index]);
+        }
+        frame->targets[index].joint_id = index;
+        frame->targets[index].centidegrees = target;
+    }
+    return true;
+}

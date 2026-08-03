@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import http.client
 import json
+import struct
 import tempfile
 import threading
 import unittest
+from collections.abc import AsyncIterable
 from pathlib import Path
 from typing import Callable
+from unittest.mock import AsyncMock, patch
 
 from gateway.dashboard.server import start_dashboard_server
 from gateway.security import DashboardPasswordStore, RobotTokenStore
@@ -34,6 +37,7 @@ class FakeGateway:
             "robots": {
                 "ainekio-test-01": {
                     "connected": True,
+                    "connection_state": "online",
                     "epoch": 3,
                     "next_sequence": self.next_sequence,
                     "pending": 0,
@@ -82,7 +86,11 @@ class FakeGateway:
         return self._record("wake", kwargs)
 
     async def tts_speak(self, frames: object, **kwargs: object) -> int:
-        return self._record("tts", (list(frames), kwargs))
+        if isinstance(frames, AsyncIterable):
+            received_frames = [frame async for frame in frames]
+        else:
+            received_frames = list(frames)  # type: ignore[arg-type]
+        return self._record("tts", (received_frames, kwargs))
 
     async def set_calibration_mode(self, name: str, **kwargs: object) -> int:
         return self._record("mode", (name, kwargs))
@@ -370,6 +378,55 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
 
+    async def test_speaker_test_accepts_bounded_variable_volume(self) -> None:
+        cookie, csrf = await self._login()
+        with patch(
+            "gateway.dashboard.server.asyncio.sleep",
+            new_callable=AsyncMock,
+        ) as paced_sleep:
+            status, payload, _headers = await self._request(
+                "POST",
+                "/api/speaker-test",
+                {
+                    "robot_id": "ainekio-test-01",
+                    "volume_percent": 25,
+                },
+                cookie=cookie,
+                csrf=csrf,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["seq"], 1)
+        self.assertEqual(paced_sleep.await_count, 16)
+        self.assertTrue(
+            all(
+                0 < call.args[0] <= 0.100
+                for call in paced_sleep.await_args_list
+            )
+        )
+        call_name, call_value = self.gateway.calls[-1]
+        self.assertEqual(call_name, "tts")
+        frames, kwargs = call_value
+        self.assertEqual(len(frames), 100)
+        self.assertEqual(kwargs, {"robot_id": "ainekio-test-01"})
+        samples = struct.unpack("<320h", frames[0])
+        self.assertGreater(max(abs(sample) for sample in samples), 8000)
+        self.assertLessEqual(max(abs(sample) for sample in samples), 8192)
+
+        for invalid_volume in (0, 101):
+            status, invalid_payload, _headers = await self._request(
+                "POST",
+                "/api/speaker-test",
+                {
+                    "robot_id": "ainekio-test-01",
+                    "volume_percent": invalid_volume,
+                },
+                cookie=cookie,
+                csrf=csrf,
+            )
+            self.assertEqual(status, 400)
+            self.assertIn("between 1 and 100", str(invalid_payload["error"]))
+
     async def test_dashboard_serves_latest_authenticated_camera_frame(self) -> None:
         status, payload, _headers = await self._request(
             "GET",
@@ -408,6 +465,9 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         html = body.decode("utf-8")
         self.assertIn('data-dashboard-primary="camera"', html)
         self.assertIn('data-dashboard-panel="camera"', html)
+        self.assertIn('id="speaker-test-form"', html)
+        self.assertIn('id="speaker-test-volume"', html)
+        self.assertIn('name="volume_percent"', html)
         self.assertLess(
             html.index('id="camera-form"'),
             html.index('data-dashboard-panel="simulator"'),

@@ -138,6 +138,7 @@ class EnvironmentAdapter:
         self._snapshot_in_flight = False
         self._snapshot_lock = asyncio.Lock()
         self._last_microphone_level_at = float("-inf")
+        self._microphone_level_task: asyncio.Task[None] | None = None
         self._last_audio_result: dict[str, object] | None = None
         self._action_tasks: set[asyncio.Task[None]] = set()
         self._audio_utterances = AudioUtterancePlugin(
@@ -170,6 +171,7 @@ class EnvironmentAdapter:
 
         previous = self._websocket
         previous_camera_task = self._camera_delivery_task
+        previous_microphone_level_task = self._microphone_level_task
         self._websocket = websocket
         self._camera_delivery_queue = asyncio.Queue(
             maxsize=CAMERA_DELIVERY_QUEUE_LENGTH
@@ -177,9 +179,16 @@ class EnvironmentAdapter:
         self._camera_delivery_task = asyncio.create_task(
             self._camera_delivery_worker(websocket)
         )
+        self._microphone_level_task = None
         if previous_camera_task is not None:
             previous_camera_task.cancel()
             await asyncio.gather(previous_camera_task, return_exceptions=True)
+        if previous_microphone_level_task is not None:
+            previous_microphone_level_task.cancel()
+            await asyncio.gather(
+                previous_microphone_level_task,
+                return_exceptions=True,
+            )
         if previous is not None and previous is not websocket:
             await previous.close(code=4000, reason="new authenticated environment connection")
 
@@ -237,6 +246,13 @@ class EnvironmentAdapter:
                     )
                 self._camera_delivery_task = None
                 self._camera_delivery_queue = None
+                if self._microphone_level_task is not None:
+                    self._microphone_level_task.cancel()
+                    await asyncio.gather(
+                        self._microphone_level_task,
+                        return_exceptions=True,
+                    )
+                self._microphone_level_task = None
 
     async def _process_speech_audio(self, speech: SpeechAudioMessage) -> None:
         robot_id, robot = self._selected_robot()
@@ -875,14 +891,13 @@ class EnvironmentAdapter:
                     sum(sample * sample for sample in samples) / len(samples)
                 ) / 32768.0
                 self._last_microphone_level_at = now
-                await self._send_telemetry(
-                    "audio.level",
+                self._schedule_microphone_level(
                     {
                         "robot_id": frame.get("robot_id"),
                         "epoch": frame.get("epoch"),
                         "counter": frame.get("counter"),
                         "level": round(level, 4),
-                    },
+                    }
                 )
             return
         if frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
@@ -986,6 +1001,20 @@ class EnvironmentAdapter:
             metadata=snapshot_context,
         )
         self._camera_observation_count += 1
+
+    def _schedule_microphone_level(self, data: dict[str, object]) -> None:
+        task = self._microphone_level_task
+        if task is not None and not task.done():
+            return
+        task = asyncio.create_task(self._send_telemetry("audio.level", data))
+        self._microphone_level_task = task
+        task.add_done_callback(self._microphone_level_finished)
+
+    def _microphone_level_finished(self, task: asyncio.Task[None]) -> None:
+        if self._microphone_level_task is task:
+            self._microphone_level_task = None
+        if not task.cancelled():
+            task.exception()
 
     async def _send_telemetry(
         self,

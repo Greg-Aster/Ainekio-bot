@@ -14,6 +14,7 @@
 
 #define SPEAKER_PCM_LIMIT 25U
 #define SPEAKER_QUEUE_LENGTH (SPEAKER_PCM_LIMIT + 1U)
+#define SPEAKER_PREBUFFER_FRAMES 12U
 #define AUDIO_NOTIFY_ASSET BIT0
 #define AUDIO_NOTIFY_CANCEL BIT1
 #define AUDIO_TASK_PRIORITY (configMAX_PRIORITIES - 2U)
@@ -39,6 +40,11 @@ _Static_assert(
     pdMS_TO_TICKS(AUDIO_WRITE_TIMEOUT_MS) >
         pdMS_TO_TICKS(AUDIO_FRAME_DURATION_MS),
     "I2S write timeout must exceed one audio frame after tick rounding"
+);
+_Static_assert(
+    SPEAKER_PREBUFFER_FRAMES > 0U &&
+        SPEAKER_PREBUFFER_FRAMES < SPEAKER_PCM_LIMIT,
+    "speaker prebuffer must leave room for streaming refills"
 );
 
 typedef enum {
@@ -82,6 +88,7 @@ struct ainekio_audio_service {
     uint8_t vad_hangover;
     bool tts_open;
     bool tts_ending;
+    bool tts_buffering;
     bool asset_active;
     bool microphone_enabled;
     bool vad_open;
@@ -347,6 +354,7 @@ static void finish_tts(ainekio_audio_service_t *service)
     service->tts_sequence = 0U;
     service->tts_open = false;
     service->tts_ending = false;
+    service->tts_buffering = false;
     service->speaker_frames_queued = 0U;
     service->orphan_reported = false;
     taskEXIT_CRITICAL(&service->state_lock);
@@ -420,8 +428,16 @@ static void audio_task(void *argument)
             continue;
         }
 
+        bool tts_open = false;
+        bool tts_buffering = false;
+        taskENTER_CRITICAL(&service->state_lock);
+        tts_open = service->tts_open;
+        tts_buffering = service->tts_buffering;
+        taskEXIT_CRITICAL(&service->state_lock);
+
         speaker_item_t item;
         const bool has_item =
+            (!tts_open || !tts_buffering) &&
             xQueueReceive(service->speaker_queue, &item, 0U) == pdTRUE;
         if (has_item && item.kind == SPEAKER_END) {
             finish_tts(service);
@@ -434,11 +450,7 @@ static void audio_task(void *argument)
             taskEXIT_CRITICAL(&service->state_lock);
             pcm_to_bus(item.payload, service->bus_buffer);
         } else {
-            bool tts_open = false;
-            taskENTER_CRITICAL(&service->state_lock);
-            tts_open = service->tts_open;
-            taskEXIT_CRITICAL(&service->state_lock);
-            if (tts_open) {
+            if (tts_open && !tts_buffering) {
                 ++service->speaker_underruns;
             }
             silence_bus(service->bus_buffer);
@@ -586,6 +598,7 @@ ainekio_audio_result_t ainekio_audio_tts_start(
     if (!busy) {
         service->tts_open = true;
         service->tts_ending = false;
+        service->tts_buffering = true;
         service->speaker_frames_queued = 0U;
         service->tts_sequence = sequence;
         service->orphan_reported = false;
@@ -603,6 +616,7 @@ ainekio_audio_result_t ainekio_audio_tts_end(ainekio_audio_service_t *service)
     const bool open = service->tts_open && !service->tts_ending;
     if (open) {
         service->tts_ending = true;
+        service->tts_buffering = false;
     }
     taskEXIT_CRITICAL(&service->state_lock);
     if (!open) {
@@ -628,6 +642,7 @@ uint32_t ainekio_audio_cancel(ainekio_audio_service_t *service)
                                                 : service->asset_sequence;
     service->tts_open = false;
     service->tts_ending = false;
+    service->tts_buffering = false;
     service->speaker_frames_queued = 0U;
     service->tts_sequence = 0U;
     service->asset_active = false;
@@ -681,6 +696,10 @@ ainekio_audio_result_t ainekio_audio_push_speaker(
     if (xQueueSend(service->speaker_queue, &item, 0U) == pdTRUE) {
         taskENTER_CRITICAL(&service->state_lock);
         ++service->speaker_frames_queued;
+        if (service->tts_buffering &&
+            service->speaker_frames_queued >= SPEAKER_PREBUFFER_FRAMES) {
+            service->tts_buffering = false;
+        }
         taskEXIT_CRITICAL(&service->state_lock);
         return AINEKIO_AUDIO_OK;
     }

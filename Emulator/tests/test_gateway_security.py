@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import errno
 import json
+import logging
 import os
 import stat
 import tempfile
@@ -9,9 +11,97 @@ from pathlib import Path
 
 import gateway.server.__main__ as gateway_main
 from gateway.security import DashboardPasswordStore, RobotTokenStore
+from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 
 
 class GatewaySecurityTests(unittest.TestCase):
+    def test_expected_websocket_network_loss_is_logged_without_traceback(self) -> None:
+        error = OSError(errno.EHOSTUNREACH, "No route to host")
+        record = logging.LogRecord(
+            "websockets.server",
+            logging.ERROR,
+            __file__,
+            1,
+            "data transfer failed",
+            (),
+            (OSError, error, None),
+        )
+
+        self.assertTrue(
+            gateway_main.ConciseWebSocketDisconnectFilter().filter(record)
+        )
+        self.assertEqual(
+            record.getMessage(),
+            "WebSocket peer disconnected: [Errno 113] No route to host",
+        )
+        self.assertEqual(record.levelno, logging.WARNING)
+        self.assertIsNone(record.exc_info)
+
+    def test_unexpected_websocket_error_keeps_diagnostic_traceback(self) -> None:
+        error = RuntimeError("unexpected failure")
+        exc_info = (RuntimeError, error, None)
+        record = logging.LogRecord(
+            "websockets.server",
+            logging.ERROR,
+            __file__,
+            1,
+            "data transfer failed",
+            (),
+            exc_info,
+        )
+
+        self.assertTrue(
+            gateway_main.ConciseWebSocketDisconnectFilter().filter(record)
+        )
+        self.assertEqual(record.msg, "data transfer failed")
+        self.assertIs(record.exc_info, exc_info)
+
+    def test_microphone_frame_audit_is_rate_limited_per_robot_epoch(self) -> None:
+        class RecordingAuditLog:
+            def __init__(self) -> None:
+                self.entries: list[tuple[str, dict[str, object]]] = []
+
+            def record(self, event: str, **details: object) -> None:
+                self.entries.append((event, details))
+
+        now = 10.0
+        log = RecordingAuditLog()
+        audit = gateway_main.MicrophoneFrameAudit(  # type: ignore[arg-type]
+            log,
+            clock=lambda: now,
+        )
+        microphone = {
+            "robot_id": "ainekio-test-01",
+            "epoch": 3,
+            "frame_type": MIC_PCM_FRAME_TYPE,
+            "counter": 1,
+        }
+
+        audit.record(microphone)
+        now = 10.02
+        audit.record({**microphone, "counter": 2})
+        now = 11.0
+        audit.record({**microphone, "counter": 50})
+        audit.record(
+            {
+                **microphone,
+                "epoch": 4,
+                "counter": 51,
+            }
+        )
+        audit.record(
+            {
+                **microphone,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "counter": 52,
+            }
+        )
+
+        self.assertEqual(
+            [details["counter"] for _, details in log.entries],
+            [1, 50, 51, 52],
+        )
+
     def test_audit_allows_only_secret_free_heartbeat_diagnostics(self) -> None:
         self.assertEqual(
             gateway_main._audit_fields(

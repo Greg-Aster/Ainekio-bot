@@ -34,6 +34,8 @@ from websockets.exceptions import ConnectionClosed
 
 MAX_WEBSOCKET_MESSAGE_BYTES = MAX_JPEG_BYTES + 5
 DEFAULT_PING_INTERVAL_SECONDS = 1.0
+CONTROL_STALE_SECONDS = 4.0
+TTS_START_ACK_TIMEOUT_SECONDS = 2.0
 
 GatewayCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 
@@ -102,6 +104,7 @@ class PendingCommand:
     command: dict[str, object]
     needs_done: bool
     future: asyncio.Future[dict[str, object]]
+    acknowledgement: asyncio.Future[dict[str, object]]
     acknowledged: bool = False
 
 
@@ -173,10 +176,14 @@ class GatewayConnection:
             future: asyncio.Future[dict[str, object]] = (
                 asyncio.get_running_loop().create_future()
             )
+            acknowledgement: asyncio.Future[dict[str, object]] = (
+                asyncio.get_running_loop().create_future()
+            )
             self.pending[sequence] = PendingCommand(
                 command=message,
                 needs_done=_command_needs_done(message),
                 future=future,
+                acknowledgement=acknowledgement,
             )
             try:
                 if on_sequence is not None:
@@ -206,6 +213,22 @@ class GatewayConnection:
                 {"t": "tts", "op": "start"},
                 received_at=received_at,
             )
+            try:
+                await self.wait_acknowledged(
+                    start_sequence,
+                    timeout=TTS_START_ACK_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError as error:
+                try:
+                    await self.send_command(
+                        {"t": "tts", "op": "cancel"},
+                        received_at=self.service.clock(),
+                    )
+                except Exception:
+                    pass
+                raise GatewayError(
+                    f"robot {self.robot_id} did not acknowledge TTS start"
+                ) from error
             counter = 0
             if isinstance(pcm_stream, AsyncIterable):
                 async for payload in pcm_stream:
@@ -305,6 +328,8 @@ class GatewayConnection:
             return
         if message_type == "ack":
             pending.acknowledged = True
+            if not pending.acknowledgement.done():
+                pending.acknowledgement.set_result(dict(message))
             if not pending.needs_done:
                 self._finish_pending(sequence, message)
             return
@@ -316,7 +341,11 @@ class GatewayConnection:
 
     def _finish_pending(self, sequence: int, result: dict[str, object]) -> None:
         pending = self.pending.pop(sequence, None)
-        if pending is None or pending.future.done():
+        if pending is None:
+            return
+        if not pending.acknowledgement.done():
+            pending.acknowledgement.set_result(dict(result))
+        if pending.future.done():
             return
         if (
             result.get("t") == "ack"
@@ -328,6 +357,34 @@ class GatewayConnection:
         while len(self.completed) > 256:
             del self.completed[next(iter(self.completed))]
         self.service._record_terminal(self, sequence, result)
+
+    async def wait_acknowledged(
+        self,
+        sequence: int,
+        *,
+        timeout: float,
+    ) -> dict[str, object]:
+        completed = self.completed.get(sequence)
+        if completed is not None:
+            if completed.get("t") != "ack":
+                raise GatewayError(
+                    f"sequence {sequence} ended before acknowledgement"
+                )
+            return dict(completed)
+        pending = self.pending.get(sequence)
+        if pending is None:
+            raise GatewayError(
+                f"sequence {sequence} is not pending in epoch {self.epoch}"
+            )
+        result = await asyncio.wait_for(
+            asyncio.shield(pending.acknowledgement),
+            timeout=timeout,
+        )
+        if result.get("t") != "ack":
+            raise GatewayError(
+                f"sequence {sequence} ended before acknowledgement"
+            )
+        return dict(result)
 
     async def wait_terminal(
         self,
@@ -746,6 +803,7 @@ class GatewayService:
         await _publish(self._transcript_callbacks, transcript)
 
     def status(self) -> dict[str, object]:
+        now = self.clock()
         return {
             "profile": self.config.profile,
             "effective_caps": _profile_caps(self.config.profile),
@@ -754,6 +812,11 @@ class GatewayService:
             "robots": {
                 robot_id: {
                     "connected": True,
+                    "connection_state": (
+                        "stale"
+                        if now - connection.last_control_at >= CONTROL_STALE_SECONDS
+                        else "online"
+                    ),
                     "epoch": connection.epoch,
                     "next_sequence": connection.next_sequence,
                     "profile": connection.profile,
@@ -765,7 +828,7 @@ class GatewayService:
                     ),
                     "pending_sequences": sorted(connection.pending),
                     "heartbeat_age_ms": int(
-                        max(0.0, self.clock() - connection.last_control_at) * 1000
+                        max(0.0, now - connection.last_control_at) * 1000
                     ),
                     "heartbeat": {
                         "ping_interval_s": self.config.ping_interval_s,

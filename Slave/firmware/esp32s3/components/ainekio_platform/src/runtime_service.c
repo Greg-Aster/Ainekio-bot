@@ -1,5 +1,6 @@
 #include "ainekio/platform/runtime_service.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "ainekio/assets.h"
@@ -41,11 +42,12 @@
 #define CLIENT_LOCK_TIMEOUT_MS 10U
 /*
  * A control frame uses one WebSocket header write and one bounded payload
- * write. Keep each write alive through the configured 1500-ms TCP
- * retransmission interval without exceeding the motion-stale safety window.
+ * write. The physical LAN has exhibited recoverable multi-second stalls, so
+ * keep transport operations alive through TCP retransmission backoff. Motion
+ * safety remains independently bounded by CONTROL_STALE_US.
  */
-#define CONTROL_WRITE_TIMEOUT_MS 1900U
-#define MICROPHONE_WRITE_TIMEOUT_MS 60U
+#define CONTROL_WRITE_TIMEOUT_MS 6000U
+#define MICROPHONE_WRITE_TIMEOUT_MS 6000U
 /*
  * Keep a camera fragment alive through at least one TCP retransmission.
  * CONFIG_LWIP_TCP_RTO_TIME is 1500 ms in the physical build. Allow the
@@ -54,9 +56,10 @@
  * were lost.
  */
 #define CAMERA_WRITE_TIMEOUT_MS 6000U
-#define NETWORK_OPERATION_TIMEOUT_MS 2000U
+#define NETWORK_OPERATION_TIMEOUT_MS 6000U
 #define RECONNECT_BACKOFF_MAX_MS 15000U
 #define MICROPHONE_FRAME_MS 20U
+#define AUDIO_SNAPSHOT_MIN_UTTERANCE_US INT64_C(300000)
 /* User messages may be arbitrarily far apart. This lightweight application
  * heartbeat reports control-loop health; a stale heartbeat stops active
  * motion, but only a real transport failure tears down the session. */
@@ -64,28 +67,24 @@
 #define CONTROL_STALE_US INT64_C(4000000)
 #define ACTIVE_IDLE_US INT64_C(60000000)
 #define CALIBRATION_IDLE_US INT64_C(600000000)
+#define BATTERY_FAULT_DISPLAY_MS 1500U
 #define SUPERVISOR_ONLINE BIT0
 #define SUPERVISOR_DISCONNECTED BIT1
 #define SUPERVISOR_FORCE_CLOSE BIT2
 #define SUPERVISOR_AUTHENTICATED BIT3
 
-/* A microphone frame fits one client TX chunk. The pinned WebSocket stack can
- * spend its timeout on its internal lock, header write, and payload write, so
- * keep those plus our ownership lock inside the drop-oldest queue window. */
+/* A microphone frame fits one client TX chunk. The microphone queue remains
+ * drop-oldest while one frame is in flight, so give the transport enough time
+ * to survive its configured TCP retransmission interval instead of tearing
+ * down a healthy session during an ordinary delayed acknowledgement. */
 _Static_assert(
     AINEKIO_BINARY_HEADER_BYTES + AINEKIO_AUDIO_PAYLOAD_BYTES <=
         AINEKIO_CONTROL_MAX_BYTES,
     "microphone frame must fit one WebSocket client TX chunk"
 );
 _Static_assert(
-    CLIENT_LOCK_TIMEOUT_MS + (3U * MICROPHONE_WRITE_TIMEOUT_MS) <=
-        (MIC_QUEUE_LENGTH * MICROPHONE_FRAME_MS),
-    "WebSocket write budget must not exceed microphone queue duration"
-);
-_Static_assert(
-    CLIENT_LOCK_TIMEOUT_MS + (2U * CONTROL_WRITE_TIMEOUT_MS) <
-        CONTROL_STALE_US / INT64_C(1000),
-    "control header and payload writes must finish before motion stop"
+    MICROPHONE_WRITE_TIMEOUT_MS > CONFIG_LWIP_TCP_RTO_TIME,
+    "microphone write budget must cover one TCP retransmission interval"
 );
 _Static_assert(
     CONTROL_STALE_US >= 4 * CONTROL_PING_US,
@@ -311,7 +310,9 @@ struct ainekio_runtime {
     uint8_t sd_queue_storage[sizeof(sd_item_t)];
     uint32_t microphone_counter;
     uint32_t active_utterance_id;
+    int64_t active_utterance_started_us;
     bool utterance_active;
+    bool active_utterance_wake_triggered;
 
     TaskHandle_t supervisor_task;
     TaskHandle_t tx_task;
@@ -320,6 +321,12 @@ struct ainekio_runtime {
     int64_t calibration_activity_us;
     int64_t next_status_us;
     float battery_voltage;
+    ainekio_battery_state_t battery_state;
+    uint8_t battery_motion_ready_sets;
+    bool battery_motion_safe;
+    bool battery_warning_displayed;
+    bool listen_feedback_active;
+    bool talk_feedback_active;
     bool sd_available;
     uint32_t camera_drops;
     uint32_t speaker_underruns;
@@ -437,8 +444,54 @@ static bool session_matches(
     return matches;
 }
 
+static void sync_audio_motion_feedback(ainekio_runtime_t *runtime)
+{
+    bool listen = false;
+    bool talk = false;
+    bool battery_safe = false;
+    taskENTER_CRITICAL(&runtime->state_lock);
+    listen = runtime->listen_feedback_active;
+    talk = runtime->talk_feedback_active;
+    battery_safe = runtime->battery_motion_safe;
+    taskEXIT_CRITICAL(&runtime->state_lock);
+
+    bool servos_ready = true;
+    for (uint8_t index = 0U; index < AINEKIO_SERVO_COUNT; ++index) {
+        servos_ready = servos_ready && runtime->servos->channels[index].attached;
+    }
+    const bool body_ready =
+        runtime->core->mode == AINEKIO_MODE_NORMAL &&
+        runtime->core->power_guard == AINEKIO_POWER_NORMAL &&
+        (runtime->core->state == AINEKIO_STATE_ACTIVE ||
+         runtime->core->state == AINEKIO_STATE_IDLE);
+    ainekio_motion_feedback_t feedback = AINEKIO_MOTION_FEEDBACK_NONE;
+    if (battery_safe && servos_ready && body_ready) {
+        feedback = talk ? AINEKIO_MOTION_FEEDBACK_TALK
+                        : (listen ? AINEKIO_MOTION_FEEDBACK_LISTEN
+                                  : AINEKIO_MOTION_FEEDBACK_NONE);
+    }
+    ainekio_motion_service_set_feedback(&runtime->motion, feedback);
+}
+
+static void set_listen_feedback(ainekio_runtime_t *runtime, bool active)
+{
+    taskENTER_CRITICAL(&runtime->state_lock);
+    runtime->listen_feedback_active = active;
+    taskEXIT_CRITICAL(&runtime->state_lock);
+    sync_audio_motion_feedback(runtime);
+}
+
+static void set_talk_feedback(ainekio_runtime_t *runtime, bool active)
+{
+    taskENTER_CRITICAL(&runtime->state_lock);
+    runtime->talk_feedback_active = active;
+    taskEXIT_CRITICAL(&runtime->state_lock);
+    sync_audio_motion_feedback(runtime);
+}
+
 static uint32_t cancel_audio(ainekio_runtime_t *runtime)
 {
+    set_talk_feedback(runtime, false);
     if (runtime->audio == NULL) {
         return 0U;
     }
@@ -473,6 +526,7 @@ static void signal_failsafe(ainekio_runtime_t *runtime)
         );
         runtime->camera_stream_applied = false;
     }
+    set_listen_feedback(runtime, false);
     ainekio_motion_service_request_failsafe(&runtime->motion);
     (void)cancel_audio(runtime);
     const internal_item_t item = {
@@ -765,6 +819,7 @@ static void send_tx_item(ainekio_runtime_t *runtime, const tx_item_t *item)
             sent,
             (unsigned int)item->session_serial
         );
+        force_disconnect(runtime);
         return;
     }
     taskENTER_CRITICAL(&runtime->state_lock);
@@ -828,12 +883,20 @@ static bool send_binary(
                          : -1;
     (void)xSemaphoreGive(runtime->client_lock);
     if (sent != (int)length) {
-        /* A failed fragmented camera frame leaves an incomplete WebSocket
-         * message on the wire, so that case requires a clean new session.
-         * A single-frame microphone write can be dropped and retried. */
-        if (length > AINEKIO_CONTROL_MAX_BYTES) {
-            force_disconnect(runtime);
-        }
+        /*
+         * A timed-out write may already have placed a header or a partial
+         * payload on the wire. Continuing with the next microphone frame can
+         * then corrupt WebSocket framing, so every incomplete binary write
+         * requires a clean session instead of a frame-level retry.
+         */
+        ESP_LOGE(
+            TAG,
+            "binary send incomplete sent=%d expected=%u session=%u",
+            sent,
+            (unsigned int)length,
+            (unsigned int)session_serial
+        );
+        force_disconnect(runtime);
         return false;
     }
     return true;
@@ -968,6 +1031,7 @@ static void motion_face(
 static void audio_done(void *context, uint32_t sequence)
 {
     ainekio_runtime_t *runtime = context;
+    set_talk_feedback(runtime, false);
     ainekio_display_end_talk(runtime->display);
     tx_item_t item = tx_base(runtime, TX_DONE);
     item.data.sequence = sequence;
@@ -977,6 +1041,7 @@ static void audio_done(void *context, uint32_t sequence)
 static void audio_failed(void *context, uint32_t sequence, bool overflow)
 {
     ainekio_runtime_t *runtime = context;
+    set_talk_feedback(runtime, false);
     ainekio_display_end_talk(runtime->display);
     if (overflow) {
         queue_event(runtime, AINEKIO_EVENT_TTS_OVERFLOW);
@@ -1061,8 +1126,12 @@ static void audio_gate(void *context, bool open, bool wake_word)
 {
     ainekio_runtime_t *runtime = context;
     if (open) {
+        ainekio_display_begin_listen(runtime->display);
+        set_listen_feedback(runtime, true);
         runtime->active_utterance_id = runtime->microphone_counter;
+        runtime->active_utterance_started_us = now_us();
         runtime->utterance_active = true;
+        runtime->active_utterance_wake_triggered = wake_word;
         if (!queue_audio_boundary(
                 runtime,
                 AINEKIO_EVENT_VAD_OPEN,
@@ -1077,7 +1146,16 @@ static void audio_gate(void *context, bool open, bool wake_word)
     } else {
         const bool utterance_active = runtime->utterance_active;
         const uint32_t origin_id = runtime->active_utterance_id;
+        const int64_t closed_at = now_us();
+        const int64_t utterance_started_at =
+            runtime->active_utterance_started_us;
+        const bool wake_triggered =
+            runtime->active_utterance_wake_triggered;
         runtime->utterance_active = false;
+        runtime->active_utterance_started_us = 0;
+        runtime->active_utterance_wake_triggered = false;
+        set_listen_feedback(runtime, false);
+        ainekio_display_end_listen(runtime->display);
         if (utterance_active) {
             if (!queue_audio_boundary(
                     runtime,
@@ -1090,7 +1168,12 @@ static void audio_gate(void *context, bool open, bool wake_word)
                     origin_id
                 );
             }
-            if (runtime->camera != NULL) {
+            const bool snapshot_due =
+                runtime->camera != NULL &&
+                wake_triggered &&
+                closed_at - utterance_started_at >=
+                    AUDIO_SNAPSHOT_MIN_UTTERANCE_US;
+            if (snapshot_due) {
                 (void)ainekio_camera_snapshot(
                     runtime->camera,
                     AINEKIO_CAMERA_ORIGIN_AUDIO,
@@ -1249,6 +1332,22 @@ static void battery_observation(
 )
 {
     ainekio_runtime_t *runtime = context;
+    taskENTER_CRITICAL(&runtime->state_lock);
+    runtime->battery_state = state;
+    if (state == AINEKIO_BATTERY_NORMAL &&
+        volts >= AINEKIO_BATTERY_RECOVERY_VOLTS) {
+        if (runtime->battery_motion_ready_sets <
+            AINEKIO_BATTERY_QUALIFYING_SETS) {
+            ++runtime->battery_motion_ready_sets;
+        }
+    } else {
+        runtime->battery_motion_ready_sets = 0U;
+    }
+    runtime->battery_motion_safe =
+        runtime->battery_motion_ready_sets >=
+        AINEKIO_BATTERY_QUALIFYING_SETS;
+    taskEXIT_CRITICAL(&runtime->state_lock);
+    sync_audio_motion_feedback(runtime);
     if ((events & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
         (void)ainekio_motion_service_request_detach(&runtime->motion);
         (void)cancel_audio(runtime);
@@ -1799,6 +1898,7 @@ static void dispatch_command(
             );
             if (audio_result == AINEKIO_AUDIO_OK) {
                 ainekio_display_begin_talk(runtime->display);
+                set_talk_feedback(runtime, true);
             }
         } else if (command->data.tts_operation == AINEKIO_TTS_END) {
             audio_result = ainekio_audio_tts_end(runtime->audio);
@@ -1828,6 +1928,7 @@ static void dispatch_command(
                               : ESP_ERR_INVALID_STATE;
         } else {
             ainekio_display_begin_talk(runtime->display);
+            set_talk_feedback(runtime, true);
         }
     } else if (command->kind == AINEKIO_COMMAND_INTENT &&
                command->data.intent.kind == AINEKIO_INTENT_FACE &&
@@ -2033,9 +2134,62 @@ static void dispatch_battery(
                    : AINEKIO_POWER_NORMAL)
     );
     runtime->battery_events_pending |= item->events;
+    if ((item->events & AINEKIO_BATTERY_EVENT_WARN) != 0U) {
+        char voltage_line[22] = {0};
+        (void)snprintf(
+            voltage_line,
+            sizeof(voltage_line),
+            "VOLTAGE %.2f V",
+            (double)item->volts
+        );
+        (void)ainekio_display_show_status(
+            runtime->display,
+            "LOW BATTERY",
+            voltage_line,
+            "MOTION LOCKED",
+            "CHARGE BATTERY"
+        );
+        runtime->battery_warning_displayed = true;
+    } else if (runtime->battery_warning_displayed &&
+               item->state == AINEKIO_BATTERY_NORMAL) {
+        runtime->battery_warning_displayed = false;
+        ainekio_display_restore(runtime->display);
+    }
     if ((runtime->battery_events_pending & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
         ainekio_core_set_state(runtime->core, AINEKIO_STATE_DEEP_SLEEP);
         runtime->battery_events_pending &= ~AINEKIO_BATTERY_EVENT_CUTOFF;
+        runtime->battery_warning_displayed = false;
+        esp_err_t display_result = ESP_ERR_NOT_SUPPORTED;
+        if (item->volts <= AINEKIO_BATTERY_DISCONNECTED_MAX_VOLTS) {
+            display_result = ainekio_display_show_status(
+                runtime->display,
+                "BATTERY SENSOR LOST",
+                "MOTION LOCKED",
+                "CHECK SENSOR WIRE",
+                "SHUTTING DOWN"
+            );
+        } else {
+            char voltage_line[22] = {0};
+            (void)snprintf(
+                voltage_line,
+                sizeof(voltage_line),
+                "VOLTAGE %.2f V",
+                (double)item->volts
+            );
+            display_result = ainekio_display_show_status(
+                runtime->display,
+                "BATTERY CRITICAL",
+                voltage_line,
+                "MOTION LOCKED",
+                "SHUTTING DOWN"
+            );
+        }
+        /* The display command is asynchronous. Motion and audio are already
+         * stopped by battery_observation(), so briefly yield here to make the
+         * safety reason readable before Wi-Fi stops and deep sleep begins. */
+        if (display_result == ESP_OK) {
+            vTaskDelay(pdMS_TO_TICKS(BATTERY_FAULT_DISPLAY_MS));
+        }
         if (!session_matches(runtime, current_serial(runtime), true)) {
             ainekio_sleep_enter(30U * 60U, true);
         }
@@ -2120,6 +2274,7 @@ static void dispatcher_tick(ainekio_runtime_t *runtime)
             );
         }
     }
+    sync_audio_motion_feedback(runtime);
     (void)sync_camera_stream(runtime);
     if (!session_matches(runtime, current_serial(runtime), true) ||
         now < runtime->next_status_us) {
@@ -2436,6 +2591,19 @@ static void websocket_event(
     (void)event_base;
     ainekio_runtime_t *runtime = handler_argument;
     esp_websocket_event_data_t *data = event_data;
+    if (event_id == WEBSOCKET_EVENT_ERROR) {
+        if (data == NULL || data->data_ptr == NULL || data->data_len <= 0) {
+            ESP_LOGE(TAG, "gateway websocket error without diagnostics");
+            return;
+        }
+        ESP_LOGE(
+            TAG,
+            "gateway websocket error: %.*s",
+            data->data_len,
+            data->data_ptr
+        );
+        return;
+    }
     if (event_id == WEBSOCKET_EVENT_CONNECTED) {
         taskENTER_CRITICAL(&runtime->state_lock);
         ++runtime->session_serial;
@@ -2955,10 +3123,13 @@ esp_err_t ainekio_runtime_start(
     runtime->wake_enabled = dependencies->wake_enabled;
     runtime->wake_ready = false;
     runtime->microphone_enabled = true;
-    runtime->microphone_gate = AINEKIO_MIC_GATE_VAD;
+    runtime->microphone_gate = runtime->wake_enabled
+                                   ? AINEKIO_MIC_GATE_WAKE
+                                   : AINEKIO_MIC_GATE_VAD;
     (void)strcpy(runtime->wake_model, dependencies->wake_model);
     runtime->display_state = UINT8_MAX;
     runtime->state_lock = (portMUX_TYPE)portMUX_INITIALIZER_UNLOCKED;
+    runtime->battery_state = AINEKIO_BATTERY_DISCONNECTED;
     (void)strcpy(runtime->firmware_version, dependencies->firmware_version);
     runtime->buffers = heap_caps_calloc(
         1U,

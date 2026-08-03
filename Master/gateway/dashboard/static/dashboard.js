@@ -336,7 +336,23 @@
       command("/api/wake", { enabled: form.elements.enabled.checked, model: values.get("model") }, "Wake setting sent");
     });
     byId("snapshot-button").addEventListener("click", () => command("/api/snap", {}, "Snapshot requested"));
-    byId("speaker-test-button").addEventListener("click", () => command("/api/speaker-test", {}, "Speaker test sent"));
+    const speakerTestForm = byId("speaker-test-form");
+    const speakerTestVolume = byId("speaker-test-volume");
+    const speakerTestVolumeOutput = byId("speaker-test-volume-output");
+    const updateSpeakerTestVolume = () => {
+      speakerTestVolumeOutput.value = `${speakerTestVolume.value}%`;
+    };
+    speakerTestVolume.addEventListener("input", updateSpeakerTestVolume);
+    updateSpeakerTestVolume();
+    speakerTestForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const volumePercent = Number(new FormData(speakerTestForm).get("volume_percent"));
+      command(
+        "/api/speaker-test",
+        { volume_percent: volumePercent },
+        `Speaker test sent at ${volumePercent}%`,
+      );
+    });
     byId("servo-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const values = new FormData(event.currentTarget);
@@ -419,8 +435,10 @@
       });
     });
     const connection = byId("connection-state");
-    connection.textContent = entry ? "Online" : "Offline";
-    connection.classList.toggle("online", Boolean(entry));
+    const connectionState = entry ? entry.connection_state || "online" : "offline";
+    connection.textContent = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
+    connection.classList.toggle("online", connectionState === "online");
+    connection.classList.toggle("stale", connectionState === "stale");
     connection.classList.toggle("offline", !entry);
     const state = status ? status.state : "unknown";
     text("body-state", state);
