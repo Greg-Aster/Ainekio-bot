@@ -375,6 +375,13 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         assert emote is not None
         self.assertEqual((emote.name, emote.params), ("emote", {"asset": "wave"}))
 
+        for command in ("sit", "sit down", "take a seat", "have a seat"):
+            with self.subTest(command=command):
+                sit = translate_environment_action(
+                    {"type": "robotCommand", "command": command}
+                )
+                self.assertEqual((sit.kind, sit.name, sit.params), ("intent", "sit", {}))
+
         for command in (
             "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
             "sad", "curious", "turn_left_45", "turn_right_45",

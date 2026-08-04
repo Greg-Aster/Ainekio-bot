@@ -29,6 +29,10 @@
   const LOGICAL_TO_SESAME_JOINT = Object.freeze([1, 2, 3, 4, 5, 6, 7, 8]);
   const STAND_TARGETS = Object.freeze([135, 45, 45, 135, 0, 180, 0, 180]);
   const NEUTRAL_TARGETS = Object.freeze([90, 90, 90, 90, 90, 90, 90, 90]);
+  const GENERATED_FRAME_LIMIT = 32;
+  const GENERATED_DURATION_LIMIT_MS = 10000;
+  const ASSET_FRAME_LIMIT = 256;
+  const ASSET_DURATION_LIMIT_MS = 60000;
   const state = {
     x: 0,
     y: 0,
@@ -226,16 +230,26 @@
     }
   }
 
-  function normalizedFreestyleFrames(payload) {
+  function normalizedMotionFrames(payload) {
     if (payload.jointMapVersion !== 1 || !Array.isArray(payload.frames)) return null;
-    if (payload.frames.length < 1 || payload.frames.length > 32) return null;
+    const generated = payload.command === "freestyle";
+    const frameLimit = generated ? GENERATED_FRAME_LIMIT : ASSET_FRAME_LIMIT;
+    const durationLimitMs = generated ? GENERATED_DURATION_LIMIT_MS : ASSET_DURATION_LIMIT_MS;
+    const minimumFrameDurationMs = generated ? 100 : 20;
+    if (payload.frames.length < 1 || payload.frames.length > frameLimit) return null;
     let totalDurationMs = 0;
     const frames = [];
+    let previousTargets = Array.from(state.currentTargets);
     for (const frame of payload.frames) {
       if (!frame || !Number.isInteger(frame.duration_ms)) return null;
-      if (frame.duration_ms < 100 || frame.duration_ms > 5000) return null;
-      if (!Array.isArray(frame.targets) || frame.targets.length !== 8) return null;
-      const targets = new Array(8);
+      if (frame.duration_ms < minimumFrameDurationMs || frame.duration_ms > 5000) return null;
+      if (
+        !Array.isArray(frame.targets)
+        || frame.targets.length < 1
+        || frame.targets.length > 8
+        || (generated && frame.targets.length !== 8)
+      ) return null;
+      const targets = Array.from(previousTargets);
       const seen = new Set();
       for (const target of frame.targets) {
         if (!Array.isArray(target) || target.length !== 2) return null;
@@ -251,8 +265,9 @@
         targets[jointId] = degrees;
       }
       totalDurationMs += frame.duration_ms;
-      if (totalDurationMs > 10000) return null;
+      if (totalDurationMs > durationLimitMs) return null;
       frames.push({ durationMs: frame.duration_ms, targets });
+      previousTargets = targets;
     }
     return frames;
   }
@@ -268,15 +283,15 @@
     state.currentTargets = Array.from(targets);
   }
 
-  function playFreestyle(payload) {
+  function playFrameSequence(payload) {
     const runtime = getSesameRuntime();
-    const frames = normalizedFreestyleFrames(payload);
+    const frames = normalizedMotionFrames(payload);
     if (!runtime || !frames) {
       setModelStatus("rejected", "bad");
       void reportResult(
         payload,
         "rejected",
-        runtime ? "invalid freestyle frame contract" : "Sesame runtime unavailable",
+        runtime ? "invalid motion frame contract" : "Sesame runtime unavailable",
       );
       return;
     }
@@ -285,10 +300,10 @@
     if (window.__AINEKIO_SIM_ACTIVITY__ && typeof window.__AINEKIO_SIM_ACTIVITY__.wake === "function") {
       window.__AINEKIO_SIM_ACTIVITY__.wake(12000, "freestyle-motion");
     }
-    setText("ainekio-command", "freestyle");
-    setText("ainekio-simulator-command", `${frames.length} generated frames`);
+    setText("ainekio-command", payload.command || "motion");
+    setText("ainekio-simulator-command", `${frames.length} motion frames`);
     setText("ainekio-session", payload.sessionId || "-");
-    setModelStatus("freestyle", "ok");
+    setModelStatus("motion", "ok");
 
     let frameIndex = 0;
     let frameStart = performance.now();
@@ -339,7 +354,7 @@
       state.frameAnimation = requestAnimationFrame(hold);
     };
     state.frameAnimation = requestAnimationFrame(tick);
-    void reportResult(payload, "accepted", "generated frame sequence scheduled");
+    void reportResult(payload, "accepted", "motion frame sequence scheduled");
   }
 
   function applyMotion(payload) {
@@ -357,8 +372,8 @@
 
     setText("ainekio-command", payload.command || "unknown");
     setText("ainekio-session", payload.sessionId || "-");
-    if (payload.command === "freestyle") {
-      playFreestyle(payload);
+    if (payload.jointMapVersion === 1 && Array.isArray(payload.frames) && payload.frames.length > 0) {
+      playFrameSequence(payload);
       return;
     }
     cancelFrameAnimation();

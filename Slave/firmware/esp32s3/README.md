@@ -87,6 +87,18 @@ not inertial heading claims. Every named and generated motion frame uses the
 same bounded cubic ease-in/ease-out playback, with a 300 ms maximum transition
 window and unchanged total asset duration.
 
+The existing semantic `sit` intent owns a dedicated held pose rather than
+aliasing `rest`: R4 and L4 move to 60 degrees, R3 and L3 move to 180 degrees,
+the remaining joints retain the stand geometry, and the display holds the
+owner-authored `bored` face until another command changes the pose or face.
+
+`macarena` now performs two complete 16-count cycles in the recognizable
+right/left arm, palm, shoulder, head, hip, and sway order, ending each cycle
+with a bounded visual turn cue rather than an unmeasured heading claim. `salsa`
+performs two forward/back basics followed by two side basics on explicit
+eight-count phrases, stepping on 1-2-3 and 5-6-7 and holding 4 and 8. Both use
+direct, unclipped owner targets and the shared smoothed playback path.
+
 Battery voltage is intentionally non-authoritative as of the owner's 2026-08-03
 policy. Low, critical, recovered, and disconnected classifications remain in
 status telemetry and OLED warnings, but they cannot lock motion, cancel audio,

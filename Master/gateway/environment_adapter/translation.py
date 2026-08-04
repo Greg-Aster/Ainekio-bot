@@ -95,6 +95,9 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
     command = _normalized(action.get("command"))
     aliases = {
         "idle": "neutral",
+        "sitdown": "sit",
+        "takeaseat": "sit",
+        "haveaseat": "sit",
         "back": "backward",
         "reverse": "backward",
         "walkbackward": "backward",

@@ -7,7 +7,7 @@ from .sesame_shim import SimulatorShimClient
 
 
 _STATIONARY_COMMANDS = {
-    "sit": ("sit", "run rest", 400),
+    "sit": ("sit", None, 1450),
     "stand": ("stand", "run stand", 140),
     "neutral": ("stand", "run stand", 140),
 }
@@ -34,11 +34,11 @@ _EMOTE_COMMANDS = {
     "dead": ("dead", "rn dd", 1800),
     "crab": ("crab", "rn cb", 1800),
     "nod": ("nod", None, 2460),
-    "celebrate": ("celebrate", None, 3460),
+    "celebrate": ("celebrate", None, 6130),
     "stretch": ("stretch", None, 4330),
-    "macarena": ("macarena", None, 6140),
-    "salsa": ("salsa", None, 5580),
-    "surprised": ("surprised", None, 2860),
+    "macarena": ("macarena", None, 15680),
+    "salsa": ("salsa", None, 13120),
+    "surprised": ("surprised", None, 5000),
     "sad": ("sad", None, 4660),
     "curious": ("curious", None, 18490),
     "turn_left_45": ("turn_left_45", None, 6240),

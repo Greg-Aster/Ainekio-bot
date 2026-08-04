@@ -10,6 +10,7 @@ from emulator.backends.sesame_shim import (
     SimulatorShimClient,
     SimulatorShimServer,
 )
+from emulator.body.assets import AssetStore
 
 
 class SesameShimTests(unittest.TestCase):
@@ -27,6 +28,42 @@ class SesameShimTests(unittest.TestCase):
         )
         self.assertIn("targets[jointId] * Math.PI / 180", source)
         self.assertNotIn("const jointState = runtime.hybrid.joint_q()", source)
+
+    def test_owner_motion_frames_are_rendered_instead_of_falling_back_to_uart(self) -> None:
+        source = (
+            Path(__file__).parents[1]
+            / "sesame-robot-sim"
+            / "app"
+            / "ainekio-shim.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("const ASSET_FRAME_LIMIT = 256", source)
+        self.assertIn("const ASSET_DURATION_LIMIT_MS = 60000", source)
+        self.assertIn("let previousTargets = Array.from(state.currentTargets)", source)
+        self.assertIn("const targets = Array.from(previousTargets)", source)
+        self.assertIn("generated && frame.targets.length !== 8", source)
+        self.assertIn(
+            'payload.jointMapVersion === 1 && Array.isArray(payload.frames) && payload.frames.length > 0',
+            source,
+        )
+        self.assertIn("playFrameSequence(payload)", source)
+
+    def test_browser_asset_bounds_cover_the_complete_motion_catalog(self) -> None:
+        store = AssetStore()
+        for name in store.motion_names:
+            with self.subTest(name=name):
+                motion = store.motion(name)
+                assert motion is not None
+                self.assertLessEqual(len(motion.frames), 256)
+                self.assertLessEqual(
+                    sum(frame.duration_ms for frame in motion.frames),
+                    60000,
+                )
+                for frame in motion.frames:
+                    self.assertGreaterEqual(frame.duration_ms, 20)
+                    self.assertLessEqual(frame.duration_ms, 5000)
+                    self.assertGreaterEqual(len(frame.targets), 1)
+                    self.assertLessEqual(len(frame.targets), 8)
 
     def test_does_not_replay_payload_to_late_subscriber(self) -> None:
         hub = MotionHub()

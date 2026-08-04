@@ -40,15 +40,31 @@ class SesameBackendTests(unittest.TestCase):
         self.assertEqual(payload["protocolSequence"], 8)
         self.assertEqual(duration_ms, 140)
 
-    def test_sit_uses_the_verified_sesame_rest_pose(self) -> None:
+    def test_sit_uses_the_owner_authored_asset(self) -> None:
+        motion = AssetStore().motion("sit")
+        assert motion is not None
         payload, duration_ms = _renderer_payload(
-            {"t": "intent", "seq": 9, "name": "sit"},
+            {
+                "t": "intent",
+                "seq": 9,
+                "name": "sit",
+                "_joint_map_version": motion.joint_map_version,
+                "_motion_asset_frames": motion.renderer_frames(),
+            },
             session_id="session-1",
         )
 
         self.assertEqual(payload["command"], "sit")
-        self.assertEqual(payload["simulatorCommand"], "run rest")
-        self.assertEqual(duration_ms, 400)
+        self.assertIsNone(payload["simulatorCommand"])
+        self.assertEqual(payload["jointMapVersion"], 1)
+        self.assertEqual(
+            payload["frames"][-1]["targets"],
+            [
+                [0, 135.0], [1, 45.0], [2, 45.0], [3, 135.0],
+                [4, 60.0], [5, 180.0], [6, 180.0], [7, 60.0],
+            ],
+        )
+        self.assertEqual(duration_ms, 1450)
 
     def test_motion_plan_uses_bounded_frames_without_named_uart_command(self) -> None:
         payload, duration_ms = _renderer_payload(
@@ -82,11 +98,11 @@ class SesameBackendTests(unittest.TestCase):
     def test_owner_emotes_use_asset_frames_without_legacy_uart_commands(self) -> None:
         expected = {
             "nod": 2460,
-            "celebrate": 3460,
+            "celebrate": 6130,
             "stretch": 4330,
-            "macarena": 6140,
-            "salsa": 5580,
-            "surprised": 2860,
+            "macarena": 15680,
+            "salsa": 13120,
+            "surprised": 5000,
             "sad": 4660,
             "curious": 18490,
             "turn_left_45": 6240,

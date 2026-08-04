@@ -25,7 +25,13 @@ WAVE_SUPPORT_MOVE_MS = 120
 WAVE_SUPPORT_SETTLE_MS = 500
 TURN_FRAME_MS = 220
 TURN_CYCLE_ESTIMATE_DEGREES = 15
+MACARENA_BEAT_MS = 460
+MACARENA_CYCLES = 2
+SALSA_BEAT_MS = 380
+SALSA_FORWARD_BACK_CYCLES = 2
+SALSA_SIDE_CYCLES = 2
 OWNER_MOTION_NAMES = (
+    "sit",
     "nod",
     "celebrate",
     "stretch",
@@ -44,12 +50,13 @@ OWNER_MOTION_NAMES = (
     "run",
 )
 OWNER_MOTION_EXPRESSION_SCALE = {
+    "sit": 1.0,
     "nod": 2.0,
-    "celebrate": 1.75,
+    "celebrate": 1.0,
     "stretch": 1.5,
-    "macarena": 1.75,
-    "salsa": 2.0,
-    "surprised": 2.0,
+    "macarena": 1.0,
+    "salsa": 1.0,
+    "surprised": 1.0,
     "sad": 1.5,
     "curious": 0.75,
     "turn_left_45": 0.75,
@@ -62,11 +69,25 @@ OWNER_MOTION_EXPRESSION_SCALE = {
     "run": 1.5,
 }
 OWNER_MOTION_METADATA = {
+    "sit": {"design": "owner_authored_held_pose", "face": "bored"},
     "nod": {"design": "owner_authored", "face": "nod"},
-    "celebrate": {"design": "owner_authored", "face": "celebrate"},
+    "celebrate": {
+        "design": "owner_authored_cute_pose_all_leg_wave",
+        "face": "celebrate",
+    },
     "stretch": {"design": "owner_authored", "face": "stretch"},
-    "macarena": {"design": "owner_authored_easter_egg", "face": "macarena"},
-    "salsa": {"design": "owner_authored_easter_egg", "face": "salsa"},
+    "macarena": {
+        "design": "owner_authored_counted_choreography",
+        "face": "macarena",
+        "choreography": "two_16_count_cycles",
+        "adaptation": "front_arm_sequence_with_bounded_hip_turn_cue",
+    },
+    "salsa": {
+        "design": "owner_authored_counted_choreography",
+        "face": "salsa",
+        "choreography": "two_forward_back_basics_then_two_side_basics",
+        "timing": "steps_1_2_3_and_5_6_7_with_holds_4_and_8",
+    },
     "surprised": {"design": "owner_authored", "face": "surprised_motion"},
     "sad": {"design": "owner_authored", "face": "sad_motion"},
     "curious": {
@@ -108,6 +129,7 @@ OWNER_MOTION_METADATA = {
     "run": {"design": "owner_authored_bounded_trot", "face": "run"},
 }
 OWNER_FACE_NAMES = (
+    "bored",
     "nod",
     "celebrate",
     "stretch",
@@ -236,6 +258,11 @@ def convert_assets(sources: SourcePaths, output_root: Path) -> None:
             "wave_support_settle_ms": WAVE_SUPPORT_SETTLE_MS,
             "turn_frame_ms": TURN_FRAME_MS,
             "turn_cycle_estimate_degrees": TURN_CYCLE_ESTIMATE_DEGREES,
+            "macarena_beat_ms": MACARENA_BEAT_MS,
+            "macarena_cycles": MACARENA_CYCLES,
+            "salsa_beat_ms": SALSA_BEAT_MS,
+            "salsa_forward_back_cycles": SALSA_FORWARD_BACK_CYCLES,
+            "salsa_side_cycles": SALSA_SIDE_CYCLES,
         },
         "owner_motions": {
             name: {
@@ -569,6 +596,12 @@ def _owner_motion_assets() -> list[dict[str, object]]:
             "frames": frames,
         }
 
+    def full_pose(overrides: dict[int, float]) -> list[list[float | int]]:
+        return [
+            [int(joint_id), overrides.get(int(joint_id), float(degrees))]
+            for joint_id, degrees in stand_targets
+        ]
+
     left_turn_pattern = [
         (TURN_FRAME_MS, [[5, 145.0], [7, 145.0]]),
         (TURN_FRAME_MS, [[0, 165.0], [3, 165.0]]),
@@ -605,8 +638,68 @@ def _owner_motion_assets() -> list[dict[str, object]]:
         (120, [[5, 142.0], [6, 38.0], [1, 25.0], [2, 65.0]]),
         (120, [[5, 180.0], [6, 0.0], [1, 45.0], [2, 45.0]]),
     ]
+    macarena_cycle = [
+        # 1-4: right/left front arms out, then the palm-up equivalents.
+        (MACARENA_BEAT_MS, full_pose({0: 150.0, 5: 135.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 150.0, 2: 30.0, 5: 135.0, 6: 45.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 150.0, 2: 30.0, 5: 90.0, 6: 45.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 150.0, 2: 30.0, 5: 90.0, 6: 90.0})),
+        # 5-8: cross to shoulders, then move behind the head.
+        (MACARENA_BEAT_MS, full_pose({0: 100.0, 2: 30.0, 5: 120.0, 6: 90.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 100.0, 2: 80.0, 5: 120.0, 6: 60.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 85.0, 2: 80.0, 5: 145.0, 6: 60.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 85.0, 2: 95.0, 5: 145.0, 6: 35.0})),
+        # 9-12: opposite hips, then the rear-pocket equivalents.
+        (MACARENA_BEAT_MS, full_pose({0: 115.0, 2: 95.0, 5: 165.0, 6: 35.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 115.0, 2: 65.0, 5: 165.0, 6: 15.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 140.0, 2: 65.0, 5: 175.0, 6: 15.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 140.0, 2: 40.0, 5: 175.0, 6: 5.0})),
+        # 13-16: hip sway, center, and a bounded visual turn cue.
+        (MACARENA_BEAT_MS, full_pose({0: 140.0, 1: 60.0, 2: 40.0, 3: 120.0, 4: 25.0, 5: 175.0, 6: 5.0, 7: 160.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 140.0, 1: 30.0, 2: 40.0, 3: 150.0, 4: 5.0, 5: 175.0, 6: 5.0, 7: 180.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 140.0, 1: 55.0, 2: 40.0, 3: 125.0, 4: 20.0, 5: 175.0, 6: 5.0, 7: 165.0})),
+        (MACARENA_BEAT_MS, full_pose({0: 145.0, 1: 35.0, 2: 55.0, 3: 125.0, 4: 20.0, 5: 165.0, 6: 15.0, 7: 160.0})),
+    ]
+    salsa_center = full_pose({
+        0: 130.0, 1: 50.0, 2: 40.0, 3: 130.0,
+        4: 15.0, 5: 165.0, 6: 15.0, 7: 165.0,
+    })
+    salsa_forward_back_basic = [
+        (SALSA_BEAT_MS, full_pose({0: 130.0, 1: 60.0, 2: 25.0, 3: 130.0, 4: 30.0, 5: 165.0, 6: 50.0, 7: 165.0})),
+        (SALSA_BEAT_MS, full_pose({0: 125.0, 1: 52.0, 2: 38.0, 3: 130.0, 4: 18.0, 5: 155.0, 6: 25.0, 7: 165.0})),
+        (SALSA_BEAT_MS, salsa_center),
+        (SALSA_BEAT_MS, salsa_center),
+        (SALSA_BEAT_MS, full_pose({0: 150.0, 1: 50.0, 2: 40.0, 3: 120.0, 4: 15.0, 5: 130.0, 6: 15.0, 7: 145.0})),
+        (SALSA_BEAT_MS, full_pose({0: 142.0, 1: 50.0, 2: 45.0, 3: 128.0, 4: 15.0, 5: 150.0, 6: 20.0, 7: 158.0})),
+        (SALSA_BEAT_MS, salsa_center),
+        (SALSA_BEAT_MS, salsa_center),
+    ]
+    salsa_side_basic = [
+        (SALSA_BEAT_MS, full_pose({0: 115.0, 1: 65.0, 2: 35.0, 3: 125.0, 4: 35.0, 5: 155.0, 6: 25.0, 7: 155.0})),
+        (SALSA_BEAT_MS, full_pose({0: 125.0, 1: 55.0, 2: 40.0, 3: 130.0, 4: 22.0, 5: 160.0, 6: 20.0, 7: 160.0})),
+        (SALSA_BEAT_MS, salsa_center),
+        (SALSA_BEAT_MS, salsa_center),
+        (SALSA_BEAT_MS, full_pose({0: 140.0, 1: 55.0, 2: 65.0, 3: 115.0, 4: 20.0, 5: 160.0, 6: 45.0, 7: 145.0})),
+        (SALSA_BEAT_MS, full_pose({0: 135.0, 1: 50.0, 2: 52.0, 3: 125.0, 4: 18.0, 5: 165.0, 6: 28.0, 7: 155.0})),
+        (SALSA_BEAT_MS, salsa_center),
+        (SALSA_BEAT_MS, salsa_center),
+    ]
 
+    sit_targets = [
+        [0, 135.0], [1, 45.0], [2, 45.0], [3, 135.0],
+        [4, 60.0], [5, 180.0], [6, 180.0], [7, 60.0],
+    ]
     motions = [
+        {
+            "name": "sit",
+            "face_cues": [
+                {"frame": 0, "name": "bored", "mode": "boomerang"},
+            ],
+            "frames": [
+                frame(650, sit_targets),
+                frame(800, sit_targets),
+            ],
+        },
         sequence(
             "nod",
             "nod",
@@ -624,16 +717,31 @@ def _owner_motion_assets() -> list[dict[str, object]]:
             "celebrate",
             "celebrate",
             [
-                frame(420, [[0, 120.0], [3, 120.0], [4, 35.0], [7, 145.0]]),
-                frame(340, [[1, 60.0], [2, 30.0], [5, 140.0], [6, 40.0]]),
-                frame(320, [[1, 60.0], [2, 30.0], [5, 140.0], [6, 40.0]]),
-                frame(300, [[4, 20.0], [5, 165.0], [6, 15.0], [7, 160.0]]),
-                frame(320, [[0, 110.0], [3, 130.0], [4, 45.0], [7, 150.0]]),
-                frame(320, [[0, 140.0], [3, 110.0], [4, 20.0], [7, 135.0]]),
-                frame(340, [[1, 65.0], [2, 25.0], [5, 135.0], [6, 45.0]]),
-                frame(320, [[1, 65.0], [2, 25.0], [5, 135.0], [6, 45.0]]),
+                # Ease through the midpoint before reaching the exact full-body
+                # lying pose established by the legacy cute motion.
+                frame(500, full_pose({
+                    0: 157.5, 1: 32.5, 2: 22.5, 3: 147.5,
+                    4: 90.0, 5: 90.0, 6: 90.0, 7: 90.0,
+                })),
+                frame(650, full_pose({
+                    0: 180.0, 1: 20.0, 2: 0.0, 3: 160.0,
+                    4: 180.0, 5: 0.0, 6: 180.0, 7: 0.0,
+                })),
+                # Lift all four distal leg joints, then alternate diagonals so
+                # every leg participates in the celebratory wave.
+                frame(500, [[4, 150.0], [5, 30.0], [6, 150.0], [7, 30.0]]),
+                *repeated(
+                    [
+                        (420, [[4, 175.0], [5, 45.0], [6, 135.0], [7, 5.0]]),
+                        (420, [[4, 135.0], [5, 5.0], [6, 175.0], [7, 45.0]]),
+                    ],
+                    3,
+                ),
+                frame(450, [[4, 150.0], [5, 30.0], [6, 150.0], [7, 30.0]]),
+                frame(500, [[4, 180.0], [5, 0.0], [6, 180.0], [7, 0.0]]),
             ],
             face_mode="loop",
+            final_ms=650,
         ),
         sequence(
             "stretch",
@@ -651,58 +759,40 @@ def _owner_motion_assets() -> list[dict[str, object]]:
         sequence(
             "macarena",
             "macarena",
-            [
-                frame(450, [[0, 120.0], [3, 120.0], [4, 30.0], [7, 150.0]]),
-                frame(320, [[5, 180.0], [6, 65.0]]),
-                frame(240, [[5, 180.0], [6, 65.0]]),
-                frame(280, [[5, 180.0], [6, 20.0]]),
-                frame(320, [[5, 115.0], [6, 0.0]]),
-                frame(240, [[5, 115.0], [6, 0.0]]),
-                frame(350, [[5, 130.0], [6, 50.0]]),
-                frame(260, [[5, 130.0], [6, 50.0]]),
-                frame(320, [[0, 120.0], [2, 60.0], [5, 150.0], [6, 30.0]]),
-                frame(340, [[0, 110.0], [1, 60.0], [2, 30.0], [3, 125.0]]),
-                frame(300, [[0, 135.0], [1, 45.0], [2, 45.0], [3, 135.0]]),
-                frame(340, [[0, 145.0], [1, 30.0], [2, 60.0], [3, 110.0]]),
-                frame(300, [[4, 40.0], [5, 160.0], [6, 20.0], [7, 140.0]]),
-                frame(300, [[4, 10.0], [5, 140.0], [6, 40.0], [7, 170.0]]),
-                frame(300, [[4, 40.0], [5, 160.0], [6, 20.0], [7, 140.0]]),
-                frame(300, [[4, 10.0], [5, 140.0], [6, 40.0], [7, 170.0]]),
-                frame(320, [[5, 135.0], [6, 45.0]]),
-            ],
+            repeated(macarena_cycle, MACARENA_CYCLES),
             face_mode="loop",
-            final_ms=500,
+            final_ms=600,
         ),
         sequence(
             "salsa",
             "salsa",
             [
-                frame(400, [[0, 125.0], [1, 55.0], [2, 35.0], [3, 125.0], [4, 15.0], [5, 165.0], [6, 15.0], [7, 165.0]]),
-                *repeated(
-                    [
-                        (280, [[0, 110.0], [3, 115.0], [4, 35.0], [6, 30.0]]),
-                        (280, [[0, 125.0], [3, 125.0], [4, 15.0], [6, 15.0]]),
-                        (520, [[1, 70.0], [2, 50.0], [5, 145.0], [7, 145.0]]),
-                        (280, [[1, 55.0], [2, 35.0], [5, 165.0], [7, 165.0]]),
-                        (280, [[0, 140.0], [2, 25.0], [4, 25.0], [7, 150.0]]),
-                        (520, [[0, 125.0], [2, 35.0], [4, 15.0], [7, 165.0]]),
-                    ],
-                    2,
-                ),
+                *repeated(salsa_forward_back_basic, SALSA_FORWARD_BACK_CYCLES),
+                *repeated(salsa_side_basic, SALSA_SIDE_CYCLES),
             ],
             face_mode="loop",
-            final_ms=500,
+            final_ms=600,
         ),
         sequence(
             "surprised",
             "surprised_motion",
             [
-                frame(220, [[0, 120.0], [1, 60.0], [2, 30.0], [3, 120.0], [4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
-                frame(900, [[0, 120.0], [1, 60.0], [2, 30.0], [3, 120.0], [4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
-                frame(180, [[4, 28.0], [5, 152.0], [6, 28.0], [7, 152.0]]),
-                frame(180, [[4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
-                frame(600, [[4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
+                # Start from the established dead pose: all four arm joints flat.
+                frame(500, [[4, 90.0], [5, 90.0], [6, 90.0], [7, 90.0]]),
+                frame(650, [[4, 90.0], [5, 90.0], [6, 90.0], [7, 90.0]]),
+                # R3 and L3 are the front pair. Their orientation mirrors the
+                # R4/L4 pair used by the established cute wave.
+                frame(500, [[5, 0.0], [6, 180.0]]),
+                *repeated(
+                    [
+                        (340, [[5, 0.0], [6, 135.0]]),
+                        (340, [[5, 45.0], [6, 180.0]]),
+                    ],
+                    3,
+                ),
+                frame(450, [[5, 90.0], [6, 90.0]]),
             ],
+            final_ms=500,
         ),
         sequence(
             "sad",
@@ -823,6 +913,7 @@ def _owner_motion_assets() -> list[dict[str, object]]:
 
 def _owner_face_assets() -> list[dict[str, object]]:
     settings = {
+        "bored": (2, "boomerang"),
         "nod": (3, "boomerang"),
         "celebrate": (5, "loop"),
         "stretch": (2, "boomerang"),
@@ -867,7 +958,14 @@ def _draw_owner_face(name: str, variant: int) -> bytes:
             _bitmap_circle(canvas, center_x, 25, 10, width=2)
             _bitmap_circle(canvas, center_x + pupil_shift, 26, 3, filled=True)
 
-    if name == "nod":
+    if name == "bored":
+        eye_y = 23 + variant
+        line([(25, eye_y), (36, eye_y + 2), (46, eye_y)], 2)
+        line([(82, eye_y), (92, eye_y + 2), (103, eye_y)], 2)
+        _bitmap_circle(canvas, 36, eye_y + 5, 2, filled=True)
+        _bitmap_circle(canvas, 92, eye_y + 5, 2, filled=True)
+        line([(47, 48 + variant), (63, 47 + variant), (81, 48 + variant)], 2)
+    elif name == "nod":
         closed_eyes(variant)
         smile()
         line([(61, 10 + variant), (64, 13 + variant), (67, 10 + variant)], 1)
