@@ -44,10 +44,13 @@ new specification revision, readers must keep these boundaries explicit:
   PSRAM. The flashed board profile uses GPIO47/48 for R4/R3 and hands GPIO0/43
   from BOOT/UART to the OLED. `PINOUT_DIAGNOSTICS.md` is the current physical
   wiring reference; the old provisional map must not be wired.
-- The flashed battery monitor classifies three startup readings at or below
-  0.25 V reconstructed battery voltage as a disconnected divider so USB-only
-  operation remains awake. After a plausible battery is observed, later
-  near-zero readings still follow cutoff behavior.
+- Owner policy as of 2026-08-03 makes the GPIO3 battery sensor telemetry and
+  warning-only. The firmware still classifies low, critical, recovered, and
+  disconnected readings, but those readings never lock motion, cancel audio,
+  close the gateway, or enter deep sleep. Undervoltage shutdown is owned only
+  by the battery pack's hardware protection circuit. The installed pack's
+  cutoff behavior is not yet documented, so it must be treated as unverified
+  and replaced with a properly protected pack if necessary.
 - The checked firmware uses a stable per-device eight-character WPA2 setup key
   instead of generating a new 12-character secret for every entry. Joining
   `Ainekio-Setup` is the only setup authentication step; the portal opens its

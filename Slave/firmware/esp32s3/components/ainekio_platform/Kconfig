@@ -35,23 +35,24 @@ config AINEKIO_MOTION_MIN_FRAME_MS
         20 ms delay between individual servo writes.
 
 config AINEKIO_MOTION_SMOOTH_PLAYBACK
-    bool "Smooth Sesame motion asset playback"
+    bool "Smooth all semantic motion playback"
     default y
     help
-        Keeps the original Sesame motion targets and total frame durations, but
-        moves all targets in each source frame together with bounded
-        ease-in/ease-out interpolation. Disable this option to reproduce the
-        original sequential 20 ms servo writes exactly.
+        Keeps every motion target and total frame duration, but moves all
+        targets in each frame together with bounded ease-in/ease-out
+        interpolation. This applies to imported Sesame assets, owner-authored
+        motions, and feedback poses. Disable this option to reproduce the
+        original asset timing behavior exactly.
 
 config AINEKIO_MOTION_SMOOTH_TRANSITION_MS
     int "Smooth motion transition duration (milliseconds)"
     range 20 500
-    default 120
+    default 300
     depends on AINEKIO_MOTION_SMOOTH_PLAYBACK
     help
-        Limits how long a source frame spends approaching its target. Any
-        remaining frame time holds the target, so the original motion asset's
-        overall timing does not increase.
+        Limits how long a frame spends approaching its target. Any remaining
+        frame time holds the target, so the motion asset's overall timing does
+        not increase.
 
 config AINEKIO_SERVO_STARTUP_STAGGER_MS
     int "Delay between enabling servo channels at startup (milliseconds)"

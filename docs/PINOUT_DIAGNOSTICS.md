@@ -207,18 +207,20 @@ Firmware reconstructs battery voltage with a staged divider factor of
 | --- | --- | --- |
 | 8.40 V | 2.686 V | Full 2S pack |
 | 7.40 V | 2.366 V | Nominal 2S pack |
-| 7.20 V | 2.302 V | Recovery threshold after cutoff |
-| 7.00 V | 2.238 V | Warning boundary; movement locks below this after qualification |
-| 6.80 V | 2.174 V | Cutoff boundary; deep-sleep path below this after qualification |
+| 7.20 V | 2.302 V | Recovered telemetry threshold |
+| 7.00 V | 2.238 V | Low-battery warning boundary after qualification |
+| 6.80 V | 2.174 V | Critical-battery warning boundary after qualification |
 | 0.25 V reconstructed | 0.080 V | Maximum startup reading still classified as disconnected |
 | 0 V | 0 V | Disconnected divider or unpowered system |
 
 The firmware averages at least 16 calibrated ADC samples every 5 seconds and
 requires three qualifying sets for state changes. Three startup sets at or below
 0.25 V reconstructed battery voltage classify the battery input as disconnected,
-allowing USB-only operation. After any plausible battery voltage is observed,
-that exception latches off and a later near-zero input follows the normal cutoff
-path.
+allowing USB-only operation. After any plausible battery voltage is observed, a
+later near-zero input becomes a critical sensor warning. Battery classifications
+remain telemetry-only: they do not lock motion, stop audio, close the gateway,
+or enter deep sleep. The battery pack's hardware protection owns undervoltage
+shutdown.
 
 The divider connects to battery voltage after the master switch and before the
 buck converters. Never derive battery state from either regulated 5 V output.

@@ -47,8 +47,8 @@ These planning values come from the Parts Overview. Replace or confirm them from
 | 5 V buck converter make/model | Two MusRock MINI560 PRO 5 A modules; one servo, one electronics | Parts Overview; delivered markings required |
 | Buck input-voltage range | Pending manufacturer/delivered-part verification | B evidence required |
 | Buck continuous and peak current ratings | Advertised 5 A; actual continuous/thermal capability pending load test | B evidence required |
-| Power source/battery chemistry and cell count | Protected 2S1P battery, 2600 mAh | Parts Overview; delivered label required |
-| Source nominal, full, and minimum safe voltage | 7.4 V nominal, 8.4 V full; minimum governed by S1/S2 and battery protection | Parts Overview; H5/H9 evidence required |
+| Power source/battery chemistry and cell count | Sea Jump 2S 7.4 V Li-ion battery, 1000 mAh; hardware protection unverified | Owner-identified delivered battery; manufacturer evidence required |
+| Source nominal, full, and minimum safe voltage | 7.4 V nominal, 8.4 V full; minimum governed by battery hardware protection, whose cutoff behavior is not yet verified | Owner policy; H5/H9 evidence required |
 | Servo make/model and quantity | Eight MG90S | Parts Overview; delivered labels required |
 | Servo specified operating-voltage range |  |  |
 | Servo no-load, moving, and stall current |  |  |
@@ -84,8 +84,8 @@ not close the remaining assembled-hardware gates.
 - [x] Configure 16 MB DIO flash at 80 MHz and 8 MB octal PSRAM at 80 MHz with the startup memory test enabled.
 - [x] Pin `espressif/esp32-camera` 2.1.7 and integrate an OV3660 camera task using Freenove's GPIO map, 10 MHz XCLK, JPEG, one XGA-sized PSRAM framebuffer, fresh 1024x768 snapshots, bounded QVGA/VGA preview, a two-frame drop-oldest transmit queue, and protocol counters.
 - [x] Configure the planned GPIO3 100 kOhm/47 kOhm divider factor `3.12766` and enable battery monitoring; H9 still compares reported voltage with a multimeter and refines the ADC correction if required.
-- [x] Keep the owner-directed all-servo motion profile independent of battery-monitor configuration while retaining the active low-voltage power guard.
-- [x] Retain the existing battery policy: 16-sample sets every 5 seconds, warning below 7.0 V, cutoff below 6.8 V, recovery at or above 7.2 V, and three qualifying sets before a state transition. Three startup sets at or below 0.25 V classify the battery input as disconnected; after any plausible battery voltage is seen, near-zero readings use the cutoff path.
+- [x] Keep the owner-directed all-servo motion profile independent of battery-monitor readings. As of 2026-08-03, battery voltage cannot engage the firmware power guard.
+- [x] Retain 16-sample sets every 5 seconds and the 7.0 V low, 6.8 V critical, 7.2 V recovered, and 0.25 V disconnected classifications for telemetry and OLED warnings only. These classifications do not detach motion, cancel audio, close the gateway, or enter deep sleep.
 - [x] Retain all eight MCPWM channels and the staggered-center implementation behind the physical-motion build gate.
 - [x] Apply an initial 25 percent platform motion range around logical center (`67.5`-`112.5` degrees; `1250`-`1750` us with default calibration) and a 100 ms minimum motion-frame duration to normal semantic motions and calibration commands.
 - [x] Preserve explicit `stop`/failsafe detachment of all eight signal GPIOs. This affects the 3.3 V PWM signals only; the external 5 V servo rail is not software-switched.
@@ -162,15 +162,15 @@ outbound speech delivery are separate unfinished gates.
 - [x] Add gateway API and dashboard controls for the setting, plus protocol, emulator, gateway, and dashboard coverage.
 - [x] Keep `wake_ready=false` and reject both wake enablement and `mic` with `gate=wake` while no trained model is installed. The fixed energy detector is not presented as wake-word detection.
 - [x] Select the open microWakeWord quantized TFLite format instead of attempting to reverse engineer proprietary WakeNet weights. Pin TensorFlow Lite Micro 1.3.7, ESP-NN 1.1.2, and the micro-speech frontend 1.2.3.
-- [x] Integrate on-device 16 kHz streaming feature generation and TFLite Micro inference. Wake mode now keeps PCM local until a real model detection, emits the wake event once, forwards the following VAD-bounded utterance, closes after approximately 700 ms of silence, and rearms after reset/warm-up.
+- [x] Integrate on-device 16 kHz streaming feature generation and TFLite Micro inference. Wake mode keeps PCM local until a real model detection, emits the wake event once, and forwards the following bounded utterance through the existing VAD boundary protocol.
 - [x] Add the bounded `ainekio-microwakeword-v1` installed-model manifest, SHA-256 verification, TFLite/tensor/operator validation, provenance fields, and a tested local packaging tool.
 - [x] Document an entirely local training, packaging, and LittleFS loading workflow in `docs/LOCAL_WAKE_WORD.md`. Voice data, generated features, checkpoints, and weights stay on owner-controlled hardware.
 - [ ] Freeze the intended pronunciation of “Ainekio,” then locally train, license, version, and evaluate the actual quantized model. Do not mark it ready based on synthetic training accuracy alone.
 - [ ] Install the locally trained package and measure RAM, PSRAM, flash, CPU, false accepts, false rejects, camera, Wi-Fi, servo, speaker, and audio coexistence on the N16R8 board.
 - [ ] Extend robot status with an installed-model list so the gateway model selector is populated from the robot rather than a hard-coded option.
 - [ ] Define and prove an authenticated, checksummed or signed model-package install/activation/rollback path. Switching an installed model should not require application reflashing; a new phrase still requires a trained model artifact.
-- [x] Add bounded pre-roll, maximum utterance duration, gateway utterance assembly, speaker-time microphone muting, and cooldown.
-- [ ] Calibrate the 100 ms pre-roll, 15 second maximum, 700 ms speech-end hangover, and 800 ms post-speaker cooldown on physical hardware.
+- [x] Add bounded pre-roll, a 15-second firmware and gateway maximum, Espressif `vadnet1_medium` post-wake endpointing, gateway utterance assembly, speaker-time microphone muting, cooldown, and a 2.56-second PSRAM microphone transport queue. Keep the custom `Ainekio` microWakeWord model and do not enable WakeNet, AEC, or command recognition.
+- [ ] Measure VADNet RAM, PSRAM, CPU, model-load time, microphone drops, and audio-task stack margin on the physical N16R8 controller. Calibrate the 100 ms pre-roll, one-second minimum, one-second VAD silence window, VAD mode, 15-second maximum, and 800 ms post-speaker cooldown using quiet, fan, music, and normal-speech trials.
 
 **Current result:** The durable control plane and real microWakeWord inference engine are implemented and cross-build. No `Ainekio` weights are installed, so the checked-in image intentionally remains `wake_ready=false` and first boot remains disabled. The gateway is a controller and display surface, not the source of truth.
 
@@ -301,9 +301,9 @@ Official references:
 
 **Pass:** Each device and the combined peripheral load operate within board-regulator and GPIO limits without boot failure, reset, or excessive heat.
 
-## H. Establish battery measurement and power guards
+## H. Establish battery measurement and hardware protection
 
-The owner-directed initial all-servo profile is enabled independently of battery-monitor configuration. Battery monitoring is enabled on GPIO3 with the planned divider and protection thresholds, while this section remains the physical voltage-accuracy and cutoff-behavior validation. Measuring only either regulated 5 V rail cannot provide the upstream battery value.
+The owner-directed initial all-servo profile is enabled independently of battery-monitor readings. Battery monitoring is enabled on GPIO3 for voltage telemetry and OLED warnings only. Firmware does not lock motion or shut the controller down based on this input; the battery pack's hardware protection circuit is the sole undervoltage cutoff. Measuring either regulated 5 V rail cannot provide the upstream battery value.
 
 - [ ] Identify the physical battery-monitor circuit, if one is installed.
 - [ ] Verify that it samples the source upstream of the 5 V buck.
@@ -312,12 +312,13 @@ The owner-directed initial all-servo profile is enabled independently of battery
 - [ ] Confirm that the highest possible source voltage cannot exceed the ADC pin's allowed voltage.
 - [ ] With servos disconnected, compare raw ADC readings and firmware-reported voltage against a multimeter at full, nominal, and lower source voltages.
 - [ ] Compare the configured `3.12766` divider factor with the installed resistor values and adjust it if required.
-- [ ] Verify the movement-enable, low-voltage, cutoff, recovery, and hysteresis behavior against measured voltages.
-- [ ] With battery monitoring enabled, confirm that invalid or implausible readings trigger the documented power guard and detach behavior; also confirm that a startup-disconnected input remains awake and that disconnecting after a plausible battery reading triggers cutoff.
+- [ ] Verify low, critical, recovered, and disconnected telemetry classifications against measured voltages.
+- [ ] Confirm that low, critical, and disconnected readings show warnings while motion, audio, Wi-Fi, and the gateway session remain operational.
+- [ ] Obtain reliable evidence that the installed battery contains an undervoltage protection circuit and record its cutoff/release behavior, or replace it with a pack that has documented protection.
 
-**Pass:** Firmware voltage agrees with the multimeter closely enough for the chosen safety thresholds, and every invalid or low-power condition fails safe.
+**Pass:** Firmware voltage agrees with the multimeter closely enough for useful warnings, sensor faults do not stop the controller, and the installed battery has verified hardware undervoltage protection.
 
-The current plan is the Parts Overview's 100 kOhm/47 kOhm divider with a 0.1 uF filter on GPIO3, upstream of the bucks. If the battery or divider is disconnected at startup, three readings at or below 0.25 V select the disconnected state and allow USB-only operation. Once a plausible battery voltage is observed, that exception remains disabled until reboot and a later near-zero reading fails safe through cutoff. Omitting or changing the divider still removes meaningful battery protection and must be recorded; the buck specifications alone cannot fill this firmware value.
+The installed divider uses 100 kOhm/47 kOhm with a 0.1 uF filter on GPIO3, upstream of the bucks. Three readings at or below 0.25 V select the disconnected telemetry state. Once a plausible voltage is observed, a later near-zero reading is reported as a critical sensor warning, but the controller stays online. Omitting or changing the divider removes useful voltage telemetry; it does not replace or change the required battery hardware protection.
 
 ## I. Test one unloaded servo
 
@@ -373,7 +374,7 @@ The current plan is the Parts Overview's 100 kOhm/47 kOhm divider with a 0.1 uF 
 - [ ] Prove production microphone utterance transcription and outbound TTS speaker delivery; physical I2S success alone does not close the hearing/speaking loop.
 - [x] Enable all eight remapped servo channels at calibrated center under the initial 25 percent range/100 ms minimum-frame profile.
 - [ ] Verify the GPIO47/48 signals and all eight physical joints through H2/H3 before increasing range.
-- [x] Enable battery monitoring without making the owner-enabled initial motion profile depend on H9 completion; H9 remains required to validate voltage accuracy and cutoff behavior.
+- [x] Enable warning-only battery telemetry without making the owner-enabled initial motion profile depend on H9 completion; H9 remains required to validate voltage accuracy and the battery pack's hardware cutoff behavior.
 - [ ] Verify the centered startup, normal walking, standing, emote, and stop/detach behavior through Sections I and J before increasing the range.
 
 ## Stop conditions

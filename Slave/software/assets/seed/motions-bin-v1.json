@@ -13,10 +13,10 @@
       "sha256": "b497cf053558a3694054e5cd86201be6426d3c5f79b6b7cb6d7af070dbfa0722"
     },
     {
-      "bytes": 168,
+      "bytes": 183,
       "name": "wave",
       "path": "motions/wave.amot",
-      "sha256": "6b3f778c6a396abaa7def9bcf711550a74474a0a64cc69297426488e182fbd51"
+      "sha256": "0f7ef64f7a06ad213297d62671f1e7845a3654730276ea4ead13798f1f7773c9"
     },
     {
       "bytes": 251,
@@ -91,16 +91,16 @@
       "sha256": "b9291a50c8766e84f4c76fa700944a55b77edf9350d384ac3b230356c21100c1"
     },
     {
-      "bytes": 755,
+      "bytes": 425,
       "name": "walk_forward",
       "path": "motions/walk_forward.amot",
-      "sha256": "1e67f18c285bfbbf416a54b08a30326a77e85cc1dbe427f73dc1dcb813f6993e"
+      "sha256": "6b0f462201193ced7ff543eb976b60546bf74817b9d5139fb73487a12b929b80"
     },
     {
-      "bytes": 741,
+      "bytes": 411,
       "name": "walk_backward",
       "path": "motions/walk_backward.amot",
-      "sha256": "f9f6e59ab76ab05c9cd8c78feec6521087343bb4d92c21f12a77744886a7be2e"
+      "sha256": "ceb5cf3d4bd94bd77d07b62b98f2fdc613778ae933a1b9b3d3cb2e8aaa5191f9"
     },
     {
       "bytes": 797,
@@ -113,6 +113,102 @@
       "name": "turn_right",
       "path": "motions/turn_right.amot",
       "sha256": "225f28ffab87118f6f554df3fb3f6aa38565a56d0073d540bd9a9711c0d84e82"
+    },
+    {
+      "bytes": 160,
+      "name": "nod",
+      "path": "motions/nod.amot",
+      "sha256": "f982e3cb0b4c5b1c008d9f1cb7f3e81318bb9f01fd6fb46549b57c9c9593d784"
+    },
+    {
+      "bytes": 229,
+      "name": "celebrate",
+      "path": "motions/celebrate.amot",
+      "sha256": "874aedd37ed56c42d667edecd3014f0cf63cba4945909d9b0fd9b4bf12883462"
+    },
+    {
+      "bytes": 183,
+      "name": "stretch",
+      "path": "motions/stretch.amot",
+      "sha256": "61c27bc34c2d95ee8c31b8746f432ead7adb071acf7cb7489c8f8e2c3a6c0208"
+    },
+    {
+      "bytes": 314,
+      "name": "macarena",
+      "path": "motions/macarena.amot",
+      "sha256": "c3ea2bc09ed1e82c7b550f08dac8af19d173f24f5d34482855929965a862bd5b"
+    },
+    {
+      "bytes": 308,
+      "name": "salsa",
+      "path": "motions/salsa.amot",
+      "sha256": "d97634da141df5a7021f86bb952f345eba5205517d49afdf1d641fe7c4ec4def"
+    },
+    {
+      "bytes": 215,
+      "name": "surprised",
+      "path": "motions/surprised.amot",
+      "sha256": "8830d7ddece00443b0129891625948f0c4a0cde842959cd20e14e2b54c150244"
+    },
+    {
+      "bytes": 218,
+      "name": "sad",
+      "path": "motions/sad.amot",
+      "sha256": "63a82814df0f57306c65b725f32bb4e4f9a5a340c5d78faa7c876fd41f7fb0d5"
+    },
+    {
+      "bytes": 819,
+      "name": "curious",
+      "path": "motions/curious.amot",
+      "sha256": "3d93a131190d89aca8a4e516d366a7bdb540e8e43ac7d11fdbd6914d616f6eab"
+    },
+    {
+      "bytes": 331,
+      "name": "turn_left_45",
+      "path": "motions/turn_left_45.amot",
+      "sha256": "30d4e1e8ae5b1c29e16ef620464a2e31822f5466465a435d7c0e61443dcd64ea"
+    },
+    {
+      "bytes": 333,
+      "name": "turn_right_45",
+      "path": "motions/turn_right_45.amot",
+      "sha256": "8debac0c997548f998aca9b870b476620300a8566c0e5147fb6edf046e838e65"
+    },
+    {
+      "bytes": 547,
+      "name": "turn_left_90",
+      "path": "motions/turn_left_90.amot",
+      "sha256": "8298dfb1ec3b0938001dc0fbf187665def446baa0467468675409f6e11282a6e"
+    },
+    {
+      "bytes": 549,
+      "name": "turn_right_90",
+      "path": "motions/turn_right_90.amot",
+      "sha256": "495d677165c8902cd433975b63606798ba2496fa26d50cda3ca33166f4a24efb"
+    },
+    {
+      "bytes": 980,
+      "name": "turn_left_180",
+      "path": "motions/turn_left_180.amot",
+      "sha256": "e056d833e4bdda072a6e041488da76d2a38194fb647396a7c9dc25d5b199eca3"
+    },
+    {
+      "bytes": 982,
+      "name": "turn_right_180",
+      "path": "motions/turn_right_180.amot",
+      "sha256": "8f3b5e15b119bb034503463c904cdfee5ef53a7a137de11bdc87843284eb0d7f"
+    },
+    {
+      "bytes": 379,
+      "name": "walk_slow",
+      "path": "motions/walk_slow.amot",
+      "sha256": "f4c2e38d317973c5832c85329a2b034fc08df86994fd6425cf52378501f014e5"
+    },
+    {
+      "bytes": 577,
+      "name": "run",
+      "path": "motions/run.amot",
+      "sha256": "bdbe91b89d4dea546077085f54996d3ba900e2db8541c14ffc868ec51e483037"
     }
   ],
   "joint_map": {

@@ -382,7 +382,165 @@
       "mode": "once",
       "name": "talk_thinking",
       "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/nod/0.bin",
+        "faces/nod/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "nod",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 5,
+      "frames": [
+        "faces/celebrate/0.bin",
+        "faces/celebrate/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "celebrate",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/stretch/0.bin",
+        "faces/stretch/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "stretch",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 5,
+      "frames": [
+        "faces/macarena/0.bin",
+        "faces/macarena/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "macarena",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 5,
+      "frames": [
+        "faces/salsa/0.bin",
+        "faces/salsa/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "salsa",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/surprised_motion/0.bin",
+        "faces/surprised_motion/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "surprised_motion",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/sad_motion/0.bin",
+        "faces/sad_motion/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "sad_motion",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/curious/0.bin",
+        "faces/curious/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "curious",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/turn_left_90/0.bin",
+        "faces/turn_left_90/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "turn_left_90",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/turn_right_90/0.bin",
+        "faces/turn_right_90/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "turn_right_90",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/walk_slow/0.bin",
+        "faces/walk_slow/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "walk_slow",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 5,
+      "frames": [
+        "faces/run/0.bin",
+        "faces/run/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "run",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
     }
+  ],
+  "owner_faces": [
+    "nod",
+    "celebrate",
+    "stretch",
+    "macarena",
+    "salsa",
+    "surprised_motion",
+    "sad_motion",
+    "curious",
+    "turn_left_90",
+    "turn_right_90",
+    "walk_slow",
+    "run"
   ],
   "schema_version": 1,
   "source": {

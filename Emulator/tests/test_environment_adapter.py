@@ -312,12 +312,29 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
 
+                accepted = json.loads(await websocket.recv())
+                self.assertEqual(gateway.calls, [])
+                await websocket.send(json.dumps({
+                    "type": "environment.feedback.ack",
+                    "feedbackId": accepted["feedback"]["id"],
+                    "admitted": True,
+                }))
                 feedback = json.loads(await websocket.recv())
+                await websocket.send(json.dumps({
+                    "type": "environment.feedback.ack",
+                    "feedbackId": feedback["feedback"]["id"],
+                    "admitted": True,
+                }))
                 observation = json.loads(await websocket.recv())
+                await asyncio.sleep(0)
 
+        self.assertEqual(accepted["type"], "environment.feedback")
+        self.assertEqual(accepted["feedback"]["type"], "accepted")
         self.assertEqual(feedback["type"], "environment.feedback")
         self.assertEqual(feedback["feedback"]["type"], "completed")
+        self.assertNotEqual(accepted["feedback"]["id"], feedback["feedback"]["id"])
         self.assertEqual(observation["type"], "environment.observation")
+        self.assertEqual(adapter._pending_feedback, {})
 
     def test_translation_emits_only_bounded_semantic_commands(self) -> None:
         snapshot = translate_environment_action({"type": "captureImage"})
@@ -334,12 +351,46 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((move.kind, move.name), ("intent", "walk"))
         self.assertEqual(move.params, {"dir": "back", "steps": 10})
 
+        for action, asset in (
+            ({"type": "move", "direction": "left"}, "turn_left_45"),
+            ({"type": "robotCommand", "command": "turn right"}, "turn_right_45"),
+            ({"type": "robotCommand", "command": "turn left quarter turn"}, "turn_left_45"),
+            ({"type": "robotCommand", "command": "turn right half turn"}, "turn_right_90"),
+            ({"type": "robotCommand", "command": "turn around"}, "turn_right_180"),
+            ({"type": "robotCommand", "command": "look around"}, "curious"),
+        ):
+            with self.subTest(action=action):
+                turn = translate_environment_action(action)
+                self.assertIsNotNone(turn)
+                assert turn is not None
+                self.assertEqual(
+                    (turn.kind, turn.name, turn.params),
+                    ("intent", "emote", {"asset": asset}),
+                )
+
         emote = translate_environment_action(
             {"type": "robotCommand", "command": "wave"}
         )
         self.assertIsNotNone(emote)
         assert emote is not None
         self.assertEqual((emote.name, emote.params), ("emote", {"asset": "wave"}))
+
+        for command in (
+            "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
+            "sad", "curious", "turn_left_45", "turn_right_45",
+            "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
+            "walk_slow", "run",
+        ):
+            with self.subTest(command=command):
+                translated = translate_environment_action(
+                    {"type": "robotCommand", "command": command}
+                )
+                self.assertIsNotNone(translated)
+                assert translated is not None
+                self.assertEqual(
+                    (translated.name, translated.params),
+                    ("emote", {"asset": command}),
+                )
 
         self.assertIsNone(
             translate_environment_action(
@@ -355,6 +406,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
+        adapter._bridge_ready = True
         now = datetime.now(timezone.utc)
         robot_observer = {
             "cycleId": "cycle-1",
@@ -420,6 +472,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
+        adapter._bridge_ready = True
         now = datetime.now(timezone.utc)
         robot_observer = {
             "cycleId": "cycle-2",

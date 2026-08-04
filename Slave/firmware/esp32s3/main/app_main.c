@@ -11,7 +11,6 @@
 #include "ainekio/platform/provisioning_portal.h"
 #include "ainekio/platform/provisioning_service.h"
 #include "ainekio/platform/runtime_service.h"
-#include "ainekio/platform/sleep_service.h"
 #include "ainekio/platform/wifi_adapter.h"
 #include "ainekio/provisioning.h"
 #include "ainekio/settings.h"
@@ -135,37 +134,6 @@ void app_main(void)
     }
 
     const float battery_divider_factor = configured_battery_divider();
-    bool brownout_recovered_pending = false;
-    float recovery_voltage = 0.0F;
-    if (battery_monitor_enabled() &&
-        ainekio_sleep_battery_recheck_pending()) {
-        bool recovered = false;
-        const esp_err_t recovery_error =
-            battery_divider_factor > 0.0F
-                ? ainekio_sleep_battery_recovered(
-                      battery_divider_factor,
-                      battery_adc_factor,
-                      &recovery_voltage,
-                      &recovered
-                  )
-                : ESP_ERR_INVALID_STATE;
-        if (recovery_error != ESP_OK || !recovered) {
-            ESP_LOGW(
-                TAG,
-                "battery cutoff recheck failed or remains unsafe: error=%s volts=%.3f",
-                esp_err_to_name(recovery_error),
-                (double)recovery_voltage
-            );
-            ainekio_sleep_enter(30U * 60U, true);
-        }
-        ainekio_sleep_clear_battery_recheck();
-        brownout_recovered_pending = true;
-        ESP_LOGI(
-            TAG,
-            "battery recovered before platform startup: volts=%.3f",
-            (double)recovery_voltage
-        );
-    }
 
     esp_err_t mcpwm_error = ainekio_mcpwm_adapter_init(&mcpwm_adapter);
     if (settings_error == ESP_OK && mcpwm_error == ESP_OK &&
@@ -207,7 +175,6 @@ void app_main(void)
         .wake_enabled = wake_enabled,
         .wake_model = wake_model,
         .boot_event_pending = true,
-        .brownout_recovered_pending = brownout_recovered_pending,
         .littlefs_failure_pending = littlefs_failure_pending,
     };
     const esp_err_t runtime_error = mcpwm_error == ESP_OK

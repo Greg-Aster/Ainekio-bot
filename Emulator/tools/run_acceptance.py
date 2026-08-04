@@ -84,11 +84,12 @@ CASES = {
         ),
     ),
     "A8": AcceptanceCase(
-        "Battery debounce, warning lock, cutoff, and recovery work during walking.",
+        "Battery telemetry warns without locking motion or entering software shutdown.",
         (
             PY + "test_battery.BatteryMonitorTests.test_sample_sets_are_bounded_and_thresholds_need_three_readings",
-            PY + "test_session.BodySessionTests.test_battery_warning_locks_movement_but_allows_neutral",
-            PY + "test_session.BodySessionTests.test_battery_cutoff_preempts_continuous_walk_and_recovers",
+            PY + "test_session.BodySessionTests.test_battery_warning_is_telemetry_and_allows_movement",
+            PY + "test_session.BodySessionTests.test_battery_critical_does_not_preempt_motion_or_sleep",
+            PY + "test_firmware_battery_policy.FirmwareBatteryPolicyTests.test_battery_dispatch_is_warning_only",
         ),
     ),
     "A9": AcceptanceCase(

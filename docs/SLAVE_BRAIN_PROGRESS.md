@@ -19,11 +19,11 @@ bus. The board-only remap now uses GPIO47/48 for those two servos and hands
 GPIO0/43 from BOOT/UART to the OLED bus after startup. The full-feature image
 enables all eight remapped PWM channels under the reduced-range safety profile;
 the delivered board initialized every channel, detected OV3660, and passed its
-8 MB PSRAM test. A battery-cutoff stack overflow found by the missing-divider
-test is fixed, a startup-zero battery input now permits USB-only operation while
-retaining cutoff after a plausible battery has been seen, and a missing OLED
-now returns GPIO43 to UART. Physical joints and the external 5 V rail remain
-H2/H3 evidence.
+8 MB PSRAM test. Battery voltage is sampled for telemetry and OLED warnings,
+but the owner-directed 2026-08-03 policy prevents those readings from locking
+motion or shutting down the controller; the battery pack's hardware protection
+owns undervoltage cutoff. A missing OLED returns GPIO43 to UART. Physical joints
+and the external 5 V rail remain H2/H3 evidence.
 
 ## Current Relevant Documents
 
@@ -141,7 +141,8 @@ evidence.
 | OTA metadata | 8 KB | Active and rollback OTA selection |
 | OTA application slot 0 | 3 MB | Running or previous firmware image |
 | OTA application slot 1 | 3 MB | Update firmware image |
-| LittleFS | 9.875 MiB (10,112 KiB) | Versioned poses, display assets, and small sounds |
+| LittleFS | 9.375 MiB (9,600 KiB) | Versioned poses, display assets, custom wake model, and small sounds |
+| ESP-SR model | 512 KiB | Pinned `vadnet1_medium` post-wake voice-activity model |
 
 Large recordings, captured media, and continuous logs do not belong in internal
 flash. They must be streamed, stored on the board-mounted microSD card, or
@@ -484,8 +485,9 @@ Validation completed:
 - ESP32-S3 cross-build: passed with the portable core linked as an ESP-IDF
   component.
 - Normative partition table: passed the ESP-IDF v5.5.4 partition validator and a
-  clean cross-build for 16 MB flash. LittleFS begins at `0x620000`, is 10,112 KiB,
-  and ends exactly at `0x1000000`.
+  clean cross-build for 16 MB flash. LittleFS begins at `0x620000`, is 9,600 KiB,
+  and ends at `0xf80000`; the 512 KiB ESP-SR model partition fills the remaining
+  flash through `0x1000000`.
 - SD_MMC preservation: GPIO 38/39/40 are reserved in the normative pin map and
   current software plan. Electrical pull-up and concurrent camera/PSRAM/SD/PWM
   behavior remain hardware gate H2 during assembled-system testing.
@@ -499,7 +501,10 @@ Validation completed:
   emulator agree on a durable `enabled` setting and bounded model identifier.
   The ESP32-S3 now cross-builds a pinned microWakeWord/TFLite Micro engine with
   local feature generation, package SHA-256/provenance validation, quantized
-  tensor checks, and wake-then-VAD gating. First boot defaults to
+  tensor checks, and a separate pinned `vadnet1_medium` post-wake endpoint with
+  a one-second minimum, one-second VAD silence window, 15-second ceiling, and
+  2.56 seconds of microphone transport buffering in PSRAM. WakeNet, AEC, and
+  command recognition remain disabled. First boot defaults to
   `enabled=false`, `model=ainekio`. No trained weights are checked in, so status
   remains `wake_ready=false` until a locally trained package is installed.
 
@@ -587,7 +592,8 @@ stop condition is complete. No robot feature drivers are part of this pass.
 - B3 production gateway, authenticated dashboard, semantic manual controls,
   token revocation, logging, plugins, and generic environment-adapter boundary.
 - B4 emulator camera/microphone/speaker adapters, TTS ordering, bandwidth
-  profiles, battery/deep-sleep behavior, display behavior, and fault injection.
+  profiles, warning-only battery telemetry, command-requested deep-sleep
+  behavior, display behavior, and fault injection.
 - B5 generic MetaHuman environment integration: authenticated full-duplex
   adapter, monotonic action freshness, semantic translation, correlated terminal
   feedback, bounded JPEG return, and one event-driven follow-up observation per
@@ -599,8 +605,8 @@ stop condition is complete. No robot feature drivers are part of this pass.
   contract, calibration diagnostics, and release-to-stop browser controls.
 - ESP32-S3 platform services: NVS and migrations, provisioning, outbound
   WebSocket protocol runtime, bounded queues, MCPWM motion, LittleFS, SSD1306
-  display, duplex I2S audio/microphone, battery sampling and cutoff recovery,
-  SD_MMC logging/retention/recovery, sleep, WSS certificate bundle use,
+  display, duplex I2S audio/microphone, warning-only battery sampling,
+  SD_MMC logging/retention/recovery, command-requested sleep, WSS certificate bundle use,
   dual-slot OTA layout, and rollback acceptance only after an authenticated
   gateway welcome.
 
@@ -656,17 +662,17 @@ seconds for LAN ARP, TCP, and WebSocket establishment.
   the assembled robot, instruments, photos, logs, and measurements.
 - The external Parts Overview supplies a planned 100 kOhm/47 kOhm divider on
   GPIO3 and factor `3.12766`. Battery monitoring is enabled with the existing
-  7.0 V warning, 6.8 V cutoff, and 7.2 V recovery guards. Three startup readings
+  7.0 V low, 6.8 V critical, and 7.2 V recovered classifications. Three startup readings
   at or below 0.25 V classify the input as disconnected and leave USB-only
-  operation awake. Once a plausible battery voltage is observed, subsequent
-  near-zero readings still trigger cutoff. H9 still compares the reported
-  voltage with a multimeter and stores any required ADC correction.
+  operation awake. All classifications are telemetry and warnings only; they do
+  not lock motion, cancel audio, close the gateway, or enter deep sleep. H9 still
+  compares the reported voltage with a multimeter, stores any required ADC
+  correction, and verifies the battery pack's hardware cutoff.
 - All eight remapped firmware servo channels are enabled, including the
   GPIO47/48 pair. They start at calibrated center with a 20 ms channel stagger
   and retain the 25 percent initial range and 100 ms minimum frame duration.
-  Live initialization of all eight MCPWM resources and the safe battery-cutoff
-  detach path are confirmed. Physical signal and joint behavior remain H2/H3
-  evidence.
+  Live initialization of all eight MCPWM resources is confirmed. Physical
+  signal and joint behavior remain H2/H3 evidence.
 - Camera capture is implemented and the delivered sensor identifies as OV3660.
   Physical JPEG capture, the responding-OLED GPIO0/43 handoff, GPIO47/48 signal
   measurement, and the concurrent H2 soak remain unverified. Camera-on and

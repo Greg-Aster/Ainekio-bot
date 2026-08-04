@@ -38,12 +38,23 @@ committed source.
 The current cross-built port includes the portable safety core, MCPWM motion,
 LittleFS assets, NVS configuration and migration, WPA2 SoftAP provisioning,
 outbound protocol-v1 WebSocket runtime, full-duplex I2S audio/microphone, SSD1306
-display, ADC battery safety, SD_MMC storage, deep sleep, and OTA rollback
+display, ADC battery telemetry/warnings, SD_MMC storage, command-requested deep
+sleep, and OTA rollback
 validation after gateway authentication. The OV3660 camera path now captures
 fresh XGA (1024x768) JPEG stills while keeping preview streaming bounded to
 QVGA/VGA and off until requested. It uses one PSRAM framebuffer and leaves the
 capture engine idle between frames; commands still reject explicitly if the
 physical camera is unavailable.
+
+After a wake-word detection, microphone endpointing uses Espressif's pinned
+`vadnet1_medium` neural voice-activity model instead of the former raw-energy
+threshold. The custom owner-trained `Ainekio` microWakeWord model remains the
+wake authority; WakeNet, AEC, command recognition, and the rest of the AFE
+pipeline are not enabled. VADNet uses the existing 16 kHz PCM audio task and
+existing `vad_open`/`vad_close` protocol, with a one-second minimum capture,
+one-second VAD silence window, and 15-second absolute ceiling. The outgoing
+microphone queue buffers 2.56 seconds in PSRAM so short WebSocket stalls do not
+discard spoken input.
 
 The controller also queues that same snapshot operation at two local event
 boundaries: after a completed motion action, and after a
@@ -64,6 +75,23 @@ post-motion XGA snapshot callback as named walking and emotes. This source must
 match the installed controller and gateway before use; the current revision is
 flashed, digest-verified, and connected. Hardware transition validation remains
 an explicit owner-supervised acceptance requirement.
+
+Named motion assets now expose conservative `turn_left_45`, `turn_right_45`,
+`turn_left_90`, `turn_right_90`, `turn_left_180`, and `turn_right_180`
+commands. Generic left/right movement uses the 45-degree asset. `curious` (also
+accepted upstream as `look around`) performs an estimated 30-degree right scan,
+returns to its starting heading, repeats to the left, returns again, dips the
+front legs slightly, and finishes in the stand pose. The degree values are
+open-loop gait estimates and require owner-observed floor calibration; they are
+not inertial heading claims. Every named and generated motion frame uses the
+same bounded cubic ease-in/ease-out playback, with a 300 ms maximum transition
+window and unchanged total asset duration.
+
+Battery voltage is intentionally non-authoritative as of the owner's 2026-08-03
+policy. Low, critical, recovered, and disconnected classifications remain in
+status telemetry and OLED warnings, but they cannot lock motion, cancel audio,
+close the gateway, or request deep sleep. The battery pack's hardware protection
+circuit is the only undervoltage shutdown mechanism.
 
 Provisioning uses one stable eight-character device key as the
 `Ainekio-Setup` WPA2 password. The key is stored separately from replaceable
@@ -97,6 +125,7 @@ consecutive startup readings at or below `0.25 V` are classified as a
 disconnected battery so USB-only operation remains awake. Once any plausible
 battery voltage has been observed, that exception latches off and a later
 near-zero reading follows the normal cutoff path. All eight servo outputs are
-enabled in the checked full-feature configuration. The existing 25 percent
-range, 100 ms minimum frame duration, staggered centering, N16R8 PSRAM-pin
-guard, and high-impedance stop behavior remain active.
+enabled in the checked full-feature configuration. The checked motion profile
+uses the full calibrated logical range, a 20 ms minimum frame duration, 300 ms
+bounded easing, staggered centering, the N16R8 PSRAM-pin guard, and
+high-impedance stop behavior.

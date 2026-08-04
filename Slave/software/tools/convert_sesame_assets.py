@@ -18,8 +18,109 @@ JOINT_LABELS = ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4")
 JOINT_IDS = {label: index for index, label in enumerate(JOINT_LABELS)}
 JOINT_MAP_VERSION = 1
 FRAME_DELAY_MS = 100
-WALK_CYCLES = 10
+WALK_CYCLES = 5
+TURN_CYCLES = 10
 MOTOR_CURRENT_DELAY_MS = 20
+WAVE_SUPPORT_MOVE_MS = 120
+WAVE_SUPPORT_SETTLE_MS = 500
+TURN_FRAME_MS = 220
+TURN_CYCLE_ESTIMATE_DEGREES = 15
+OWNER_MOTION_NAMES = (
+    "nod",
+    "celebrate",
+    "stretch",
+    "macarena",
+    "salsa",
+    "surprised",
+    "sad",
+    "curious",
+    "turn_left_45",
+    "turn_right_45",
+    "turn_left_90",
+    "turn_right_90",
+    "turn_left_180",
+    "turn_right_180",
+    "walk_slow",
+    "run",
+)
+OWNER_MOTION_EXPRESSION_SCALE = {
+    "nod": 2.0,
+    "celebrate": 1.75,
+    "stretch": 1.5,
+    "macarena": 1.75,
+    "salsa": 2.0,
+    "surprised": 2.0,
+    "sad": 1.5,
+    "curious": 0.75,
+    "turn_left_45": 0.75,
+    "turn_right_45": 0.75,
+    "turn_left_90": 0.75,
+    "turn_right_90": 0.75,
+    "turn_left_180": 0.75,
+    "turn_right_180": 0.75,
+    "walk_slow": 1.5,
+    "run": 1.5,
+}
+OWNER_MOTION_METADATA = {
+    "nod": {"design": "owner_authored", "face": "nod"},
+    "celebrate": {"design": "owner_authored", "face": "celebrate"},
+    "stretch": {"design": "owner_authored", "face": "stretch"},
+    "macarena": {"design": "owner_authored_easter_egg", "face": "macarena"},
+    "salsa": {"design": "owner_authored_easter_egg", "face": "salsa"},
+    "surprised": {"design": "owner_authored", "face": "surprised_motion"},
+    "sad": {"design": "owner_authored", "face": "sad_motion"},
+    "curious": {
+        "design": "owner_authored_open_loop_scan",
+        "face": "curious",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "turn_left_45": {
+        "design": "owner_authored_open_loop_turn",
+        "face": "turn_left_90",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "turn_right_45": {
+        "design": "owner_authored_open_loop_turn",
+        "face": "turn_right_90",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "turn_left_90": {
+        "design": "owner_authored_open_loop_turn",
+        "face": "turn_left_90",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "turn_right_90": {
+        "design": "owner_authored_open_loop_turn",
+        "face": "turn_right_90",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "turn_left_180": {
+        "design": "owner_authored_open_loop_turn",
+        "face": "turn_left_90",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "turn_right_180": {
+        "design": "owner_authored_open_loop_turn",
+        "face": "turn_right_90",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "walk_slow": {"design": "owner_authored_stable_crawl", "face": "walk_slow"},
+    "run": {"design": "owner_authored_bounded_trot", "face": "run"},
+}
+OWNER_FACE_NAMES = (
+    "nod",
+    "celebrate",
+    "stretch",
+    "macarena",
+    "salsa",
+    "surprised_motion",
+    "sad_motion",
+    "curious",
+    "turn_left_90",
+    "turn_right_90",
+    "walk_slow",
+    "run",
+)
 MAX_MOTION_FRAMES = 256
 MAX_FACE_FRAMES = 6
 FACE_BYTES = 128 * 64 // 8
@@ -112,9 +213,12 @@ def convert_assets(sources: SourcePaths, output_root: Path) -> None:
     firmware_text = sources.firmware_source.read_text(encoding="utf-8")
     functions = _extract_functions(motion_text)
     motions = [
-        _convert_motion(name, functions[function_name])
+        _apply_owner_motion_adjustments(
+            _convert_motion(name, functions[function_name])
+        )
         for name, function_name in MOTION_FUNCTIONS.items()
     ]
+    motions.extend(_owner_motion_assets())
     motion_manifest = {
         "schema_version": 1,
         "joint_map": _joint_contract(),
@@ -123,7 +227,22 @@ def convert_assets(sources: SourcePaths, output_root: Path) -> None:
             "sha256": _sha256(sources.motion_header),
             "frame_delay_ms": FRAME_DELAY_MS,
             "walk_cycles": WALK_CYCLES,
+            "turn_cycles": TURN_CYCLES,
             "motor_current_delay_ms": MOTOR_CURRENT_DELAY_MS,
+        },
+        "owner_adjustments": {
+            "wave_arm_joint": "L3",
+            "wave_support_move_ms": WAVE_SUPPORT_MOVE_MS,
+            "wave_support_settle_ms": WAVE_SUPPORT_SETTLE_MS,
+            "turn_frame_ms": TURN_FRAME_MS,
+            "turn_cycle_estimate_degrees": TURN_CYCLE_ESTIMATE_DEGREES,
+        },
+        "owner_motions": {
+            name: {
+                **metadata,
+                "expression_scale": OWNER_MOTION_EXPRESSION_SCALE[name],
+            }
+            for name, metadata in OWNER_MOTION_METADATA.items()
         },
         "assets": motions,
     }
@@ -184,6 +303,26 @@ def convert_assets(sources: SourcePaths, output_root: Path) -> None:
         if alias is not None:
             entry["source_alias"] = alias
         faces.append(entry)
+    for owner_face in _owner_face_assets():
+        name = str(owner_face["name"])
+        frame_paths = []
+        for index, payload in enumerate(owner_face["frames"]):
+            relative = Path("faces") / name / f"{index}.bin"
+            destination = output_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(payload)
+            frame_paths.append(str(relative))
+        faces.append(
+            {
+                "name": name,
+                "width": 128,
+                "height": 64,
+                "fps": owner_face["fps"],
+                "mode": owner_face["mode"],
+                "frames": frame_paths,
+                "source": "ainekio_owner_authored_bitmap",
+            }
+        )
     face_manifest = {
         "schema_version": 1,
         "source": {
@@ -192,6 +331,7 @@ def convert_assets(sources: SourcePaths, output_root: Path) -> None:
             "runtime_path": _source_label(sources.firmware_source),
             "runtime_sha256": _sha256(sources.firmware_source),
         },
+        "owner_faces": list(OWNER_FACE_NAMES),
         "faces": faces,
     }
     _write_json(output_root / "faces-v1.json", face_manifest)
@@ -243,7 +383,12 @@ def _extract_functions(source: str) -> dict[str, str]:
 
 
 def _convert_motion(name: str, body: str) -> dict[str, object]:
-    expanded = _expand_loops(_strip_comments(body))
+    movement_cycles = (
+        WALK_CYCLES
+        if name in {"walk_forward", "walk_backward"}
+        else TURN_CYCLES
+    )
+    expanded = _expand_loops(_strip_comments(body), movement_cycles)
     frames: list[dict[str, object]] = []
     face_cues: list[dict[str, object]] = []
     targets: list[tuple[int, float]] = []
@@ -324,7 +469,559 @@ def _convert_motion(name: str, body: str) -> dict[str, object]:
     }
 
 
-def _expand_loops(source: str) -> str:
+def _apply_owner_motion_adjustments(
+    motion: dict[str, object],
+) -> dict[str, object]:
+    if motion["name"] != "wave":
+        return motion
+
+    frames = motion["frames"]
+    cues = motion["face_cues"]
+    if not isinstance(frames, list) or not isinstance(cues, list):
+        raise RuntimeError("wave motion has invalid collections")
+
+    setup_index = 1
+    expected_targets = [[4, 80.0], [6, 180.0], [3, 90.0], [0, 100.0]]
+    setup_frame = frames[setup_index] if len(frames) > setup_index else None
+    if not isinstance(setup_frame, dict) or setup_frame.get("targets") != expected_targets:
+        raise RuntimeError("wave source setup changed; owner balance override needs review")
+
+    original_duration_ms = int(setup_frame["duration_ms"])
+    original_hold_ms = original_duration_ms - (
+        len(expected_targets) * MOTOR_CURRENT_DELAY_MS
+    )
+    support_targets = [target for target in expected_targets if target[0] != 6]
+    arm_targets = [target for target in expected_targets if target[0] == 6]
+    frames[setup_index : setup_index + 1] = [
+        {
+            "duration_ms": WAVE_SUPPORT_MOVE_MS,
+            "targets": support_targets,
+        },
+        {
+            "duration_ms": WAVE_SUPPORT_SETTLE_MS,
+            "targets": support_targets,
+        },
+        {
+            "duration_ms": original_hold_ms + MOTOR_CURRENT_DELAY_MS,
+            "targets": arm_targets,
+        },
+    ]
+    for cue in cues:
+        if int(cue["frame"]) > setup_index:
+            cue["frame"] = int(cue["frame"]) + 2
+    return motion
+
+
+def _owner_motion_assets() -> list[dict[str, object]]:
+    stand_targets = [
+        [0, 135.0],
+        [1, 45.0],
+        [2, 45.0],
+        [3, 135.0],
+        [4, 0.0],
+        [5, 180.0],
+        [6, 0.0],
+        [7, 180.0],
+    ]
+
+    def frame(duration_ms: int, targets: list[list[float | int]]) -> dict[str, object]:
+        return {"duration_ms": duration_ms, "targets": targets}
+
+    def repeated(
+        pattern: list[tuple[int, list[list[float | int]]]],
+        count: int,
+    ) -> list[dict[str, object]]:
+        return [frame(duration_ms, targets) for _ in range(count) for duration_ms, targets in pattern]
+
+    def sequence(
+        name: str,
+        face: str,
+        steps: list[dict[str, object]],
+        *,
+        face_mode: str = "once",
+        final_ms: int = 420,
+    ) -> dict[str, object]:
+        scale = OWNER_MOTION_EXPRESSION_SCALE[name]
+        expanded_steps = []
+        stand_degrees = {int(joint_id): float(degrees) for joint_id, degrees in stand_targets}
+        for step in steps:
+            expanded_targets = []
+            for joint_id, degrees in step["targets"]:
+                stand_degrees_for_joint = stand_degrees[int(joint_id)]
+                expanded_degrees = stand_degrees_for_joint + (
+                    float(degrees) - stand_degrees_for_joint
+                ) * scale
+                expanded_targets.append(
+                    [int(joint_id), round(max(0.0, min(180.0, expanded_degrees)), 1)]
+                )
+            expanded_steps.append(frame(int(step["duration_ms"]), expanded_targets))
+        frames = [
+            frame(360, stand_targets),
+            *expanded_steps,
+            frame(final_ms, stand_targets),
+        ]
+        return {
+            "name": name,
+            "face_cues": [
+                {"frame": 0, "name": face, "mode": face_mode},
+                {"frame": len(frames) - 1, "name": "stand", "mode": "once"},
+            ],
+            "frames": frames,
+        }
+
+    left_turn_pattern = [
+        (TURN_FRAME_MS, [[5, 145.0], [7, 145.0]]),
+        (TURN_FRAME_MS, [[0, 165.0], [3, 165.0]]),
+        (TURN_FRAME_MS, [[5, 180.0], [7, 180.0]]),
+        (TURN_FRAME_MS, [[0, 135.0], [3, 135.0]]),
+        (TURN_FRAME_MS, [[4, 35.0], [6, 35.0]]),
+        (TURN_FRAME_MS, [[1, 75.0], [2, 75.0]]),
+        (TURN_FRAME_MS, [[4, 0.0], [6, 0.0]]),
+        (TURN_FRAME_MS, [[1, 45.0], [2, 45.0]]),
+    ]
+    right_turn_pattern = [
+        (TURN_FRAME_MS, [[4, 35.0], [6, 35.0]]),
+        (TURN_FRAME_MS, [[1, 15.0], [2, 15.0]]),
+        (TURN_FRAME_MS, [[4, 0.0], [6, 0.0]]),
+        (TURN_FRAME_MS, [[1, 45.0], [2, 45.0]]),
+        (TURN_FRAME_MS, [[5, 145.0], [7, 145.0]]),
+        (TURN_FRAME_MS, [[0, 105.0], [3, 105.0]]),
+        (TURN_FRAME_MS, [[5, 180.0], [7, 180.0]]),
+        (TURN_FRAME_MS, [[0, 135.0], [3, 135.0]]),
+    ]
+    slow_crawl_pattern = [
+        (420, [[5, 150.0], [6, 15.0], [1, 55.0], [2, 35.0]]),
+        (420, [[4, 30.0], [0, 150.0]]),
+        (420, [[4, 0.0], [0, 135.0]]),
+        (420, [[5, 165.0], [6, 30.0]]),
+        (420, [[4, 15.0], [5, 165.0], [6, 30.0], [7, 165.0]]),
+        (420, [[7, 150.0], [3, 120.0]]),
+        (420, [[7, 180.0], [3, 135.0]]),
+        (420, [[4, 0.0], [5, 180.0], [6, 0.0], [7, 180.0]]),
+    ]
+    run_trot_pattern = [
+        (120, [[4, 38.0], [7, 142.0], [0, 155.0], [3, 115.0]]),
+        (120, [[4, 0.0], [7, 180.0], [0, 135.0], [3, 135.0]]),
+        (120, [[5, 142.0], [6, 38.0], [1, 25.0], [2, 65.0]]),
+        (120, [[5, 180.0], [6, 0.0], [1, 45.0], [2, 45.0]]),
+    ]
+
+    motions = [
+        sequence(
+            "nod",
+            "nod",
+            [
+                frame(280, [[5, 142.0], [6, 38.0]]),
+                frame(220, [[5, 142.0], [6, 38.0]]),
+                frame(260, [[5, 180.0], [6, 0.0]]),
+                frame(160, [[5, 180.0], [6, 0.0]]),
+                frame(280, [[5, 142.0], [6, 38.0]]),
+                frame(220, [[5, 142.0], [6, 38.0]]),
+                frame(260, [[5, 180.0], [6, 0.0]]),
+            ],
+        ),
+        sequence(
+            "celebrate",
+            "celebrate",
+            [
+                frame(420, [[0, 120.0], [3, 120.0], [4, 35.0], [7, 145.0]]),
+                frame(340, [[1, 60.0], [2, 30.0], [5, 140.0], [6, 40.0]]),
+                frame(320, [[1, 60.0], [2, 30.0], [5, 140.0], [6, 40.0]]),
+                frame(300, [[4, 20.0], [5, 165.0], [6, 15.0], [7, 160.0]]),
+                frame(320, [[0, 110.0], [3, 130.0], [4, 45.0], [7, 150.0]]),
+                frame(320, [[0, 140.0], [3, 110.0], [4, 20.0], [7, 135.0]]),
+                frame(340, [[1, 65.0], [2, 25.0], [5, 135.0], [6, 45.0]]),
+                frame(320, [[1, 65.0], [2, 25.0], [5, 135.0], [6, 45.0]]),
+            ],
+            face_mode="loop",
+        ),
+        sequence(
+            "stretch",
+            "stretch",
+            [
+                frame(420, [[1, 55.0], [3, 125.0], [4, 25.0], [7, 155.0]]),
+                frame(600, [[0, 165.0], [2, 15.0], [5, 120.0], [6, 60.0]]),
+                frame(900, [[0, 165.0], [2, 15.0], [5, 120.0], [6, 60.0]]),
+                frame(400, [[5, 108.0], [6, 72.0]]),
+                frame(700, [[5, 108.0], [6, 72.0]]),
+                frame(450, [[0, 150.0], [2, 30.0], [5, 135.0], [6, 45.0]]),
+            ],
+            final_ms=500,
+        ),
+        sequence(
+            "macarena",
+            "macarena",
+            [
+                frame(450, [[0, 120.0], [3, 120.0], [4, 30.0], [7, 150.0]]),
+                frame(320, [[5, 180.0], [6, 65.0]]),
+                frame(240, [[5, 180.0], [6, 65.0]]),
+                frame(280, [[5, 180.0], [6, 20.0]]),
+                frame(320, [[5, 115.0], [6, 0.0]]),
+                frame(240, [[5, 115.0], [6, 0.0]]),
+                frame(350, [[5, 130.0], [6, 50.0]]),
+                frame(260, [[5, 130.0], [6, 50.0]]),
+                frame(320, [[0, 120.0], [2, 60.0], [5, 150.0], [6, 30.0]]),
+                frame(340, [[0, 110.0], [1, 60.0], [2, 30.0], [3, 125.0]]),
+                frame(300, [[0, 135.0], [1, 45.0], [2, 45.0], [3, 135.0]]),
+                frame(340, [[0, 145.0], [1, 30.0], [2, 60.0], [3, 110.0]]),
+                frame(300, [[4, 40.0], [5, 160.0], [6, 20.0], [7, 140.0]]),
+                frame(300, [[4, 10.0], [5, 140.0], [6, 40.0], [7, 170.0]]),
+                frame(300, [[4, 40.0], [5, 160.0], [6, 20.0], [7, 140.0]]),
+                frame(300, [[4, 10.0], [5, 140.0], [6, 40.0], [7, 170.0]]),
+                frame(320, [[5, 135.0], [6, 45.0]]),
+            ],
+            face_mode="loop",
+            final_ms=500,
+        ),
+        sequence(
+            "salsa",
+            "salsa",
+            [
+                frame(400, [[0, 125.0], [1, 55.0], [2, 35.0], [3, 125.0], [4, 15.0], [5, 165.0], [6, 15.0], [7, 165.0]]),
+                *repeated(
+                    [
+                        (280, [[0, 110.0], [3, 115.0], [4, 35.0], [6, 30.0]]),
+                        (280, [[0, 125.0], [3, 125.0], [4, 15.0], [6, 15.0]]),
+                        (520, [[1, 70.0], [2, 50.0], [5, 145.0], [7, 145.0]]),
+                        (280, [[1, 55.0], [2, 35.0], [5, 165.0], [7, 165.0]]),
+                        (280, [[0, 140.0], [2, 25.0], [4, 25.0], [7, 150.0]]),
+                        (520, [[0, 125.0], [2, 35.0], [4, 15.0], [7, 165.0]]),
+                    ],
+                    2,
+                ),
+            ],
+            face_mode="loop",
+            final_ms=500,
+        ),
+        sequence(
+            "surprised",
+            "surprised_motion",
+            [
+                frame(220, [[0, 120.0], [1, 60.0], [2, 30.0], [3, 120.0], [4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
+                frame(900, [[0, 120.0], [1, 60.0], [2, 30.0], [3, 120.0], [4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
+                frame(180, [[4, 28.0], [5, 152.0], [6, 28.0], [7, 152.0]]),
+                frame(180, [[4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
+                frame(600, [[4, 35.0], [5, 145.0], [6, 35.0], [7, 145.0]]),
+            ],
+        ),
+        sequence(
+            "sad",
+            "sad_motion",
+            [
+                frame(700, [[0, 155.0], [1, 50.0], [2, 25.0], [3, 130.0], [4, 10.0], [5, 125.0], [6, 55.0], [7, 170.0]]),
+                frame(900, [[0, 155.0], [1, 50.0], [2, 25.0], [3, 130.0], [4, 10.0], [5, 125.0], [6, 55.0], [7, 170.0]]),
+                frame(500, [[0, 145.0], [2, 20.0], [5, 120.0], [6, 60.0]]),
+                frame(500, [[0, 145.0], [2, 20.0], [5, 120.0], [6, 60.0]]),
+                frame(500, [[0, 160.0], [2, 35.0], [5, 135.0], [6, 45.0]]),
+                frame(500, [[0, 160.0], [2, 35.0], [5, 135.0], [6, 45.0]]),
+            ],
+            final_ms=700,
+        ),
+        sequence(
+            "curious",
+            "curious",
+            [
+                *repeated(right_turn_pattern, 2),
+                frame(500, stand_targets),
+                *repeated(left_turn_pattern, 2),
+                frame(650, stand_targets),
+                *repeated(left_turn_pattern, 2),
+                frame(500, stand_targets),
+                *repeated(right_turn_pattern, 2),
+                frame(650, stand_targets),
+                frame(500, [[0, 127.0], [2, 37.0], [5, 160.0], [6, 20.0]]),
+                frame(650, [[0, 127.0], [2, 37.0], [5, 160.0], [6, 20.0]]),
+            ],
+            face_mode="boomerang",
+            final_ms=600,
+        ),
+        sequence(
+            "turn_left_45",
+            "turn_left_90",
+            repeated(left_turn_pattern, 3),
+            face_mode="loop",
+            final_ms=600,
+        ),
+        sequence(
+            "turn_right_45",
+            "turn_right_90",
+            repeated(right_turn_pattern, 3),
+            face_mode="loop",
+            final_ms=600,
+        ),
+        sequence(
+            "turn_left_90",
+            "turn_left_90",
+            repeated(left_turn_pattern, 6),
+            face_mode="loop",
+            final_ms=600,
+        ),
+        sequence(
+            "turn_right_90",
+            "turn_right_90",
+            repeated(right_turn_pattern, 6),
+            face_mode="loop",
+            final_ms=600,
+        ),
+        sequence(
+            "turn_left_180",
+            "turn_left_90",
+            repeated(left_turn_pattern, 12),
+            face_mode="loop",
+            final_ms=700,
+        ),
+        sequence(
+            "turn_right_180",
+            "turn_right_90",
+            repeated(right_turn_pattern, 12),
+            face_mode="loop",
+            final_ms=700,
+        ),
+        sequence(
+            "walk_slow",
+            "walk_slow",
+            repeated(slow_crawl_pattern, 3),
+            face_mode="loop",
+            final_ms=500,
+        ),
+        sequence(
+            "run",
+            "run",
+            repeated(run_trot_pattern, 8),
+            face_mode="loop",
+            final_ms=360,
+        ),
+    ]
+
+    if tuple(str(motion["name"]) for motion in motions) != OWNER_MOTION_NAMES:
+        raise RuntimeError("owner motion catalog order drifted")
+
+    for motion in motions:
+        frames = motion["frames"]
+        if not isinstance(frames, list) or not 1 <= len(frames) <= MAX_MOTION_FRAMES:
+            raise RuntimeError(f"owner motion {motion['name']} has invalid frames")
+        for frame in frames:
+            targets = frame["targets"]
+            duration_ms = frame["duration_ms"]
+            if type(duration_ms) is not int or not 20 <= duration_ms <= 5000:
+                raise RuntimeError(f"owner motion {motion['name']} has an invalid duration")
+            ids = [target[0] for target in targets]
+            if len(ids) != len(set(ids)) or any(joint_id not in range(8) for joint_id in ids):
+                raise RuntimeError(f"owner motion {motion['name']} has an invalid joint map")
+            if any(not 0.0 <= target[1] <= 180.0 for target in targets):
+                raise RuntimeError(f"owner motion {motion['name']} has an invalid target")
+        motion.update(
+            {
+                "joint_map_version": JOINT_MAP_VERSION,
+                "repeat_count": 1,
+                "return_pose": None,
+                "sequential_servo_timing": False,
+            }
+        )
+    return motions
+
+
+def _owner_face_assets() -> list[dict[str, object]]:
+    settings = {
+        "nod": (3, "boomerang"),
+        "celebrate": (5, "loop"),
+        "stretch": (2, "boomerang"),
+        "macarena": (5, "loop"),
+        "salsa": (5, "loop"),
+        "surprised_motion": (4, "boomerang"),
+        "sad_motion": (2, "boomerang"),
+        "curious": (3, "boomerang"),
+        "turn_left_90": (3, "loop"),
+        "turn_right_90": (3, "loop"),
+        "walk_slow": (2, "boomerang"),
+        "run": (5, "loop"),
+    }
+    assets = []
+    for name in OWNER_FACE_NAMES:
+        fps, mode = settings[name]
+        frames = [_draw_owner_face(name, variant) for variant in range(2)]
+        if any(len(payload) != FACE_BYTES for payload in frames):
+            raise RuntimeError(f"owner face {name} has an invalid frame size")
+        if any(not any(payload) for payload in frames):
+            raise RuntimeError(f"owner face {name} rendered blank")
+        assets.append({"name": name, "fps": fps, "mode": mode, "frames": frames})
+    return assets
+
+
+def _draw_owner_face(name: str, variant: int) -> bytes:
+    canvas = bytearray(FACE_BYTES)
+
+    def line(points: list[tuple[int, int]], width: int = 2) -> None:
+        for start, end in zip(points, points[1:]):
+            _bitmap_line(canvas, *start, *end, width=width)
+
+    def smile() -> None:
+        line([(45, 43), (52, 48), (63, 51), (75, 48), (83, 42)], 2)
+
+    def closed_eyes(offset: int = 0) -> None:
+        line([(25, 26 + offset), (35, 22 + offset), (45, 26 + offset)], 2)
+        line([(83, 26 + offset), (93, 22 + offset), (103, 26 + offset)], 2)
+
+    def round_eyes(pupil_shift: int = 0) -> None:
+        for center_x in (36, 92):
+            _bitmap_circle(canvas, center_x, 25, 10, width=2)
+            _bitmap_circle(canvas, center_x + pupil_shift, 26, 3, filled=True)
+
+    if name == "nod":
+        closed_eyes(variant)
+        smile()
+        line([(61, 10 + variant), (64, 13 + variant), (67, 10 + variant)], 1)
+    elif name == "celebrate":
+        radius = 8 + variant
+        for center_x in (36, 92):
+            _bitmap_star(canvas, center_x, 24, radius)
+        smile()
+        _bitmap_star(canvas, 64, 10 + (variant * 2), 4)
+    elif name == "stretch":
+        closed_eyes(variant)
+        _bitmap_circle(canvas, 64, 46, 8 + variant, width=2)
+        line([(12, 16), (18, 12), (24, 16)], 1)
+    elif name == "macarena":
+        closed_eyes()
+        smile()
+        _bitmap_music_note(canvas, 15, 17 + (variant * 3), mirrored=False)
+        _bitmap_music_note(canvas, 111, 14 + ((1 - variant) * 3), mirrored=True)
+    elif name == "salsa":
+        line([(25, 25), (36, 22), (46, 25)], 2)
+        _bitmap_circle(canvas, 92, 25, 9, width=2)
+        _bitmap_circle(canvas, 94 - (variant * 3), 26, 3, filled=True)
+        smile()
+        _bitmap_music_note(canvas, 16, 13 + (variant * 4), mirrored=False)
+    elif name == "surprised_motion":
+        round_eyes(0)
+        _bitmap_circle(canvas, 64, 48, 8 + variant, width=2)
+        if variant:
+            for start, end in [((17, 12), (11, 7)), ((111, 12), (117, 7)), ((64, 8), (64, 2))]:
+                _bitmap_line(canvas, *start, *end, width=2)
+    elif name == "sad_motion":
+        line([(25, 17), (36, 22), (46, 20)], 2)
+        line([(82, 20), (92, 22), (103, 17)], 2)
+        _bitmap_circle(canvas, 36, 28, 3, filled=True)
+        _bitmap_circle(canvas, 92, 28, 3, filled=True)
+        line([(45, 52), (54, 45), (64, 42), (74, 45), (83, 52)], 2)
+        tear_y = 35 + (variant * 6)
+        _bitmap_line(canvas, 102, tear_y, 102, tear_y + 6, width=2)
+        _bitmap_circle(canvas, 102, tear_y + 7, 2, filled=True)
+    elif name == "curious":
+        pupil_shift = -4 if variant == 0 else 4
+        round_eyes(pupil_shift)
+        line([(25, 13 + variant), (45, 9 + variant)], 2)
+        line([(83, 9 + (1 - variant)), (103, 13 + (1 - variant))], 2)
+        _bitmap_circle(canvas, 64, 48, 4, width=2)
+    elif name in {"turn_left_90", "turn_right_90"}:
+        round_eyes(-2 if name == "turn_left_90" else 2)
+        direction = -1 if name == "turn_left_90" else 1
+        center_x = 64 + (variant * direction * 4)
+        _bitmap_arrow(canvas, center_x, 48, direction)
+    elif name == "walk_slow":
+        line([(25, 24 + variant), (46, 24 + variant)], 3)
+        line([(82, 24 + variant), (103, 24 + variant)], 3)
+        line([(52, 47), (64, 49), (76, 47)], 2)
+    elif name == "run":
+        line([(23, 16 + variant), (46, 23 + variant)], 3)
+        line([(82, 23 + variant), (105, 16 + variant)], 3)
+        _bitmap_circle(canvas, 37, 28, 4, filled=True)
+        _bitmap_circle(canvas, 91, 28, 4, filled=True)
+        line([(46, 45), (57, 50), (70, 50), (82, 44)], 2)
+        _bitmap_line(canvas, 8 + (variant * 4), 31, 18 + (variant * 4), 31, width=2)
+    else:
+        raise RuntimeError(f"unknown owner face {name}")
+
+    return bytes(canvas)
+
+
+def _bitmap_pixel(canvas: bytearray, x: int, y: int) -> None:
+    if 0 <= x < 128 and 0 <= y < 64:
+        canvas[(y * 16) + (x // 8)] |= 0x80 >> (x % 8)
+
+
+def _bitmap_line(
+    canvas: bytearray,
+    x0: int,
+    y0: int,
+    x1: int,
+    y1: int,
+    *,
+    width: int = 1,
+) -> None:
+    dx = abs(x1 - x0)
+    step_x = 1 if x0 < x1 else -1
+    dy = -abs(y1 - y0)
+    step_y = 1 if y0 < y1 else -1
+    error = dx + dy
+    while True:
+        radius = max(0, width - 1)
+        for offset_y in range(-radius, radius + 1):
+            for offset_x in range(-radius, radius + 1):
+                if abs(offset_x) + abs(offset_y) <= radius:
+                    _bitmap_pixel(canvas, x0 + offset_x, y0 + offset_y)
+        if x0 == x1 and y0 == y1:
+            break
+        twice_error = 2 * error
+        if twice_error >= dy:
+            error += dy
+            x0 += step_x
+        if twice_error <= dx:
+            error += dx
+            y0 += step_y
+
+
+def _bitmap_circle(
+    canvas: bytearray,
+    center_x: int,
+    center_y: int,
+    radius: int,
+    *,
+    width: int = 1,
+    filled: bool = False,
+) -> None:
+    outer_squared = radius * radius
+    inner_radius = max(0, radius - width)
+    inner_squared = inner_radius * inner_radius
+    for y in range(center_y - radius, center_y + radius + 1):
+        for x in range(center_x - radius, center_x + radius + 1):
+            squared = ((x - center_x) ** 2) + ((y - center_y) ** 2)
+            if squared <= outer_squared and (filled or squared >= inner_squared):
+                _bitmap_pixel(canvas, x, y)
+
+
+def _bitmap_star(canvas: bytearray, center_x: int, center_y: int, radius: int) -> None:
+    for x1, y1, x2, y2 in [
+        (center_x - radius, center_y, center_x + radius, center_y),
+        (center_x, center_y - radius, center_x, center_y + radius),
+        (center_x - radius + 2, center_y - radius + 2, center_x + radius - 2, center_y + radius - 2),
+        (center_x - radius + 2, center_y + radius - 2, center_x + radius - 2, center_y - radius + 2),
+    ]:
+        _bitmap_line(canvas, x1, y1, x2, y2, width=2)
+
+
+def _bitmap_music_note(
+    canvas: bytearray,
+    x: int,
+    y: int,
+    *,
+    mirrored: bool,
+) -> None:
+    direction = -1 if mirrored else 1
+    _bitmap_line(canvas, x, y, x, y + 13, width=2)
+    _bitmap_line(canvas, x, y, x + (8 * direction), y + 3, width=2)
+    _bitmap_circle(canvas, x - (3 * direction), y + 15, 4, filled=True)
+
+
+def _bitmap_arrow(canvas: bytearray, center_x: int, center_y: int, direction: int) -> None:
+    tail_x = center_x - (18 * direction)
+    head_x = center_x + (18 * direction)
+    _bitmap_line(canvas, tail_x, center_y, head_x, center_y, width=3)
+    _bitmap_line(canvas, head_x, center_y, head_x - (9 * direction), center_y - 8, width=3)
+    _bitmap_line(canvas, head_x, center_y, head_x - (9 * direction), center_y + 8, width=3)
+
+
+def _expand_loops(source: str, movement_cycles: int) -> str:
     output = []
     cursor = 0
     loop_pattern = re.compile(r"\bfor\s*\(\s*int\s+(\w+)\s*=\s*0\s*;\s*\1\s*<\s*(\d+|walkCycles)\s*;[^)]*\)")
@@ -347,7 +1044,7 @@ def _expand_loops(source: str) -> str:
                 raise RuntimeError("unterminated source for-loop")
             body = source[body_start : body_end + 1]
             cursor = body_end + 1
-        count = WALK_CYCLES if match.group(2) == "walkCycles" else int(match.group(2))
+        count = movement_cycles if match.group(2) == "walkCycles" else int(match.group(2))
         variable = match.group(1)
         for index in range(count):
             expanded = re.sub(
@@ -355,7 +1052,7 @@ def _expand_loops(source: str) -> str:
                 f"setServoAngle({index},",
                 body,
             )
-            output.append(_expand_loops(expanded))
+            output.append(_expand_loops(expanded, movement_cycles))
     return "".join(output)
 
 
