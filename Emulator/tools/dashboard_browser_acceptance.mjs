@@ -238,7 +238,8 @@ const expectedEmotes = [
   "cute", "freaky", "worm", "shake", "shrug", "dead", "crab",
   "nod", "celebrate", "stretch",
   "macarena", "salsa", "surprised", "sad", "curious",
-  "turn_left_90", "turn_right_90", "walk_slow", "run",
+  "turn_left_45", "turn_right_45", "turn_left_90", "turn_right_90",
+  "turn_left_180", "turn_right_180", "walk_slow", "run",
 ];
 
 let chrome;
@@ -288,6 +289,33 @@ try {
     `Array.from(document.querySelectorAll("[data-emote]"), element => element.dataset.emote)`,
   );
   assert(JSON.stringify(emotes) === JSON.stringify(expectedEmotes), "full seed emote catalog is not exposed");
+
+  requests.length = 0;
+  await evaluate(client, `document.querySelector('[data-intent="sit"]').click()`);
+  await waitForRequests(
+    (items) => items.some((item) => item.path === "/api/intent" && item.payload.name === "sit"),
+    "visible sit control did not issue the semantic sit intent",
+  );
+
+  await evaluate(client, `(() => new Promise((resolve) => {
+    window.dispatchEvent(new Event("beforeunload"));
+    const image = document.querySelector("#camera-view");
+    image.addEventListener("load", resolve, { once: true });
+    image.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='768'%3E%3Crect width='1024' height='768' fill='%23111827'/%3E%3C/svg%3E";
+    image.hidden = false;
+    document.querySelector("#camera-view-message").hidden = true;
+  }))()`);
+  const cameraLayout = await evaluate(client, `(() => {
+    const stage = document.querySelector(".camera-stage").getBoundingClientRect();
+    const image = document.querySelector("#camera-view").getBoundingClientRect();
+    return {
+      stage: { top: stage.top, bottom: stage.bottom },
+      image: { top: image.top, bottom: image.bottom, width: image.width, height: image.height },
+    };
+  })()`);
+  assert(Math.abs((cameraLayout.image.width / cameraLayout.image.height) - (4 / 3)) < 0.01, "camera image aspect ratio is distorted");
+  assert(cameraLayout.image.top >= cameraLayout.stage.top, "camera image top is clipped");
+  assert(cameraLayout.image.bottom <= cameraLayout.stage.bottom, "camera image bottom is clipped");
 
   requests.length = 0;
   await evaluate(client, `(() => {
@@ -457,6 +485,8 @@ try {
     result: "passed",
     checks: [
       "full-emote-catalog",
+      "visible-semantic-sit",
+      "camera-full-frame",
       "pointer-release-stop",
       "keyboard-release-stop",
       "gamepad-neutral-stop",

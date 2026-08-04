@@ -26,8 +26,8 @@ CONVERTER_PATH = REPO_ROOT / "Slave" / "software" / "tools" / "convert_sesame_as
 class AssetTests(unittest.TestCase):
     def test_all_seed_motions_and_faces_load(self) -> None:
         store = AssetStore(ASSET_ROOT)
-        self.assertEqual(len(store.motion_names), 35)
-        self.assertEqual(len(store.face_names), 49)
+        self.assertEqual(len(store.motion_names), 36)
+        self.assertEqual(len(store.face_names), 50)
         self.assertIn("walk_forward", store.motion_names)
         self.assertIn("talk_happy", store.face_names)
         audio = store.audio("greeting_1")
@@ -72,6 +72,11 @@ class AssetTests(unittest.TestCase):
                 "wave_support_settle_ms": 500,
                 "turn_frame_ms": 220,
                 "turn_cycle_estimate_degrees": 15,
+                "macarena_beat_ms": 460,
+                "macarena_cycles": 2,
+                "salsa_beat_ms": 380,
+                "salsa_forward_back_cycles": 2,
+                "salsa_side_cycles": 2,
             },
         )
         self.assertEqual(len(wave.frames), 14)
@@ -92,7 +97,7 @@ class AssetTests(unittest.TestCase):
         face_manifest = json.loads((ASSET_ROOT / "faces-v1.json").read_text())
 
         owner_names = {
-            "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
+            "sit", "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
             "sad", "curious", "turn_left_45", "turn_right_45",
             "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
             "walk_slow", "run",
@@ -100,7 +105,7 @@ class AssetTests(unittest.TestCase):
         self.assertEqual(set(manifest["owner_motions"]), owner_names)
         self.assertEqual(
             manifest["owner_motions"]["celebrate"]["design"],
-            "owner_authored",
+            "owner_authored_cute_pose_all_leg_wave",
         )
         self.assertEqual(
             manifest["owner_motions"]["turn_left_90"]["calibration"],
@@ -119,8 +124,11 @@ class AssetTests(unittest.TestCase):
             assert motion is not None
             raw = next(asset for asset in manifest["assets"] if asset["name"] == name)
             self.assertFalse(raw["sequential_servo_timing"], name)
-            self.assertEqual(motion.frames[-1].targets[0], (0, 135.0), name)
-            self.assertEqual(motion.face_cues[-1].name, "stand", name)
+            if name == "sit":
+                self.assertEqual(motion.face_cues[-1].name, "bored", name)
+            else:
+                self.assertEqual(motion.frames[-1].targets[0], (0, 135.0), name)
+                self.assertEqual(motion.face_cues[-1].name, "stand", name)
             face_name = manifest["owner_motions"][name]["face"]
             face = store.face(face_name)
             assert face is not None
@@ -130,11 +138,12 @@ class AssetTests(unittest.TestCase):
 
         stand_degrees = (135.0, 45.0, 45.0, 135.0, 0.0, 180.0, 0.0, 180.0)
         minimum_peak_excursions = {
+            "sit": 90.0,
             "nod": 75.0,
             "celebrate": 75.0,
             "stretch": 100.0,
-            "macarena": 110.0,
-            "salsa": 70.0,
+            "macarena": 85.0,
+            "salsa": 50.0,
             "surprised": 70.0,
             "sad": 90.0,
             "curious": 25.0,
@@ -160,6 +169,105 @@ class AssetTests(unittest.TestCase):
                     *(abs(degrees - stand_degrees[joint_id]) for joint_id, degrees in enumerate(pose)),
                 )
             self.assertGreaterEqual(peak_excursion, minimum_peak, name)
+
+    def test_sit_holds_owner_pose_with_bored_face(self) -> None:
+        store = AssetStore(ASSET_ROOT)
+        motion = store.motion("sit")
+        assert motion is not None
+
+        expected_pose = (
+            (0, 135.0), (1, 45.0), (2, 45.0), (3, 135.0),
+            (4, 60.0), (5, 180.0), (6, 180.0), (7, 60.0),
+        )
+        self.assertEqual(len(motion.frames), 2)
+        self.assertEqual(motion.frames[0].targets, expected_pose)
+        self.assertEqual(motion.frames[1].targets, expected_pose)
+        self.assertEqual(motion.face_cues[0].name, "bored")
+        self.assertEqual(motion.face_cues[0].mode, "boomerang")
+
+    def test_dances_follow_complete_counted_choreography(self) -> None:
+        store = AssetStore(ASSET_ROOT)
+        manifest = json.loads((ASSET_ROOT / "motions-v1.json").read_text())
+        macarena = store.motion("macarena")
+        salsa = store.motion("salsa")
+        assert macarena is not None
+        assert salsa is not None
+
+        self.assertEqual(manifest["owner_motions"]["macarena"]["expression_scale"], 1.0)
+        self.assertEqual(manifest["owner_motions"]["salsa"]["expression_scale"], 1.0)
+        self.assertEqual(len(macarena.frames), 34)
+        self.assertTrue(all(frame.duration_ms == 460 for frame in macarena.frames[1:33]))
+        self.assertEqual(macarena.frames[1].targets, macarena.frames[17].targets)
+        self.assertEqual(dict(macarena.frames[1].targets)[5], 135.0)
+        self.assertEqual(dict(macarena.frames[3].targets)[5], 90.0)
+        self.assertEqual(dict(macarena.frames[7].targets)[0], 85.0)
+        self.assertEqual(dict(macarena.frames[13].targets)[4], 25.0)
+
+        self.assertEqual(len(salsa.frames), 34)
+        self.assertTrue(all(frame.duration_ms == 380 for frame in salsa.frames[1:33]))
+        self.assertEqual(salsa.frames[1].targets, salsa.frames[9].targets)
+        self.assertEqual(salsa.frames[17].targets, salsa.frames[25].targets)
+        self.assertEqual(salsa.frames[3].targets, salsa.frames[4].targets)
+        self.assertEqual(salsa.frames[7].targets, salsa.frames[8].targets)
+
+    def test_celebrate_uses_cute_lie_pose_and_waves_all_four_legs(self) -> None:
+        store = AssetStore(ASSET_ROOT)
+        manifest = json.loads((ASSET_ROOT / "motions-v1.json").read_text())
+        celebrate = store.motion("celebrate")
+        cute = store.motion("cute")
+        assert celebrate is not None
+        assert cute is not None
+
+        self.assertEqual(manifest["owner_motions"]["celebrate"]["expression_scale"], 1.0)
+        self.assertEqual(len(celebrate.frames), 13)
+        self.assertEqual(
+            dict(celebrate.frames[2].targets),
+            dict(cute.frames[1].targets),
+        )
+        self.assertEqual(
+            celebrate.frames[3].targets,
+            ((4, 150.0), (5, 30.0), (6, 150.0), (7, 30.0)),
+        )
+        self.assertEqual(
+            [frame.targets for frame in celebrate.frames[4:10]],
+            [
+                ((4, 175.0), (5, 45.0), (6, 135.0), (7, 5.0)),
+                ((4, 135.0), (5, 5.0), (6, 175.0), (7, 45.0)),
+            ] * 3,
+        )
+        self.assertTrue(all(
+            {joint_id for joint_id, _degrees in frame.targets} == {4, 5, 6, 7}
+            for frame in celebrate.frames[3:12]
+        ))
+        self.assertEqual(
+            celebrate.frames[-1].targets,
+            (
+                (0, 135.0), (1, 45.0), (2, 45.0), (3, 135.0),
+                (4, 0.0), (5, 180.0), (6, 0.0), (7, 180.0),
+            ),
+        )
+
+    def test_surprised_uses_dead_pose_and_reversed_cute_front_arm_wave(self) -> None:
+        store = AssetStore(ASSET_ROOT)
+        motion = store.motion("surprised")
+        assert motion is not None
+
+        flat_arms = ((4, 90.0), (5, 90.0), (6, 90.0), (7, 90.0))
+        self.assertEqual(motion.frames[1].targets, flat_arms)
+        self.assertEqual(motion.frames[2].targets, flat_arms)
+        self.assertEqual(motion.frames[3].targets, ((5, 0.0), (6, 180.0)))
+        self.assertEqual(
+            [frame.targets for frame in motion.frames[4:10]],
+            [((5, 0.0), (6, 135.0)), ((5, 45.0), (6, 180.0))] * 3,
+        )
+        self.assertEqual(motion.frames[10].targets, ((5, 90.0), (6, 90.0)))
+        self.assertEqual(
+            motion.frames[-1].targets,
+            (
+                (0, 135.0), (1, 45.0), (2, 45.0), (3, 135.0),
+                (4, 0.0), (5, 180.0), (6, 0.0), (7, 180.0),
+            ),
+        )
 
     def test_converter_output_is_deterministic(self) -> None:
         spec = importlib.util.spec_from_file_location("convert_sesame_assets", CONVERTER_PATH)

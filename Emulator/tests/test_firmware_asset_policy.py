@@ -11,6 +11,19 @@ from Slave.software.tools.stage_firmware_assets import stage_assets
 
 ROOT = Path(__file__).resolve().parents[2]
 FIRMWARE_CMAKE = ROOT / "Slave" / "firmware" / "esp32s3" / "CMakeLists.txt"
+ASSET_STORE_HEADER = (
+    ROOT
+    / "Slave"
+    / "firmware"
+    / "esp32s3"
+    / "components"
+    / "ainekio_platform"
+    / "include"
+    / "ainekio"
+    / "platform"
+    / "asset_store.h"
+)
+MOTION_MANIFEST = ROOT / "Slave" / "software" / "assets" / "seed" / "motions-bin-v1.json"
 
 
 class FirmwareAssetPolicyTests(unittest.TestCase):
@@ -75,6 +88,16 @@ class FirmwareAssetPolicyTests(unittest.TestCase):
             ")", 1
         )[0]
         self.assertNotIn("FLASH_IN_PROJECT", littlefs_call)
+
+    def test_firmware_motion_index_fits_the_seed_catalog(self) -> None:
+        header = ASSET_STORE_HEADER.read_text(encoding="utf-8")
+        marker = "#define AINEKIO_ASSET_MAX_MOTIONS "
+        line = next(line for line in header.splitlines() if line.startswith(marker))
+        capacity = int(line.removeprefix(marker).removesuffix("U"))
+        manifest = json.loads(MOTION_MANIFEST.read_text(encoding="utf-8"))
+
+        self.assertLessEqual(len(manifest["assets"]), capacity)
+        self.assertGreaterEqual(capacity - len(manifest["assets"]), 2)
 
 
 if __name__ == "__main__":

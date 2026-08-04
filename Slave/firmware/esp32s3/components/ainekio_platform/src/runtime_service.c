@@ -1369,7 +1369,7 @@ static bool movement_job(
     switch (intent->kind) {
     case AINEKIO_INTENT_SIT:
         job->kind = AINEKIO_MOTION_JOB_ASSET;
-        (void)strcpy(job->name, "rest");
+        (void)strcpy(job->name, "sit");
         return true;
     case AINEKIO_INTENT_STAND:
         job->kind = AINEKIO_MOTION_JOB_STAND;

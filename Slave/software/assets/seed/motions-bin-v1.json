@@ -115,16 +115,22 @@
       "sha256": "225f28ffab87118f6f554df3fb3f6aa38565a56d0073d540bd9a9711c0d84e82"
     },
     {
+      "bytes": 90,
+      "name": "sit",
+      "path": "motions/sit.amot",
+      "sha256": "9593254c92fb5f35d31095e5dd4926fbe62c2d910e3932beeed44f15f667bb70"
+    },
+    {
       "bytes": 160,
       "name": "nod",
       "path": "motions/nod.amot",
       "sha256": "f982e3cb0b4c5b1c008d9f1cb7f3e81318bb9f01fd6fb46549b57c9c9593d784"
     },
     {
-      "bytes": 229,
+      "bytes": 298,
       "name": "celebrate",
       "path": "motions/celebrate.amot",
-      "sha256": "874aedd37ed56c42d667edecd3014f0cf63cba4945909d9b0fd9b4bf12883462"
+      "sha256": "cbd6b0ade29284bfab7bf132211c7cda9b8f1068e0cb5c2b780687050d9899cc"
     },
     {
       "bytes": 183,
@@ -133,22 +139,22 @@
       "sha256": "61c27bc34c2d95ee8c31b8746f432ead7adb071acf7cb7489c8f8e2c3a6c0208"
     },
     {
-      "bytes": 314,
+      "bytes": 971,
       "name": "macarena",
       "path": "motions/macarena.amot",
-      "sha256": "c3ea2bc09ed1e82c7b550f08dac8af19d173f24f5d34482855929965a862bd5b"
+      "sha256": "836c5dbac7e848cb70199c38c59217e5ef9fc61fdf979948a514dd9860462cc3"
     },
     {
-      "bytes": 308,
+      "bytes": 965,
       "name": "salsa",
       "path": "motions/salsa.amot",
-      "sha256": "d97634da141df5a7021f86bb952f345eba5205517d49afdf1d641fe7c4ec4def"
+      "sha256": "b3d8af563a0d72a1815ef055f7e267b1efe39ad51f0b4e28f201b26193bf3a4c"
     },
     {
-      "bytes": 215,
+      "bytes": 218,
       "name": "surprised",
       "path": "motions/surprised.amot",
-      "sha256": "8830d7ddece00443b0129891625948f0c4a0cde842959cd20e14e2b54c150244"
+      "sha256": "68e83a1d063e20b4b44b1d73a4a660862a9d53cd79a283fa418add0e1b6f2fdc"
     },
     {
       "bytes": 218,

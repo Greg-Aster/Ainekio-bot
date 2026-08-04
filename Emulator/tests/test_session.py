@@ -724,11 +724,33 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.messages[-1], {"t": "nak", "seq": 4, "code": "limit"})
 
+    async def test_sit_sends_front_standing_back_flat_pose_to_renderer(self) -> None:
+        self.backend.release.set()
+        await self.session.handle(
+            {"t": "intent", "seq": 1, "name": "sit"},
+            self.emit,
+        )
+        await self.session.wait_until_idle()
+
+        rendered = self.backend.messages[0]
+        self.assertEqual(rendered["_joint_map_version"], 1)
+        self.assertEqual(
+            rendered["_motion_asset_frames"][-1]["targets"],
+            [
+                [0, 135.0], [1, 45.0], [2, 45.0], [3, 135.0],
+                [4, 60.0], [5, 180.0], [6, 180.0], [7, 60.0],
+            ],
+        )
+        self.assertEqual(
+            rendered["_motion_face_cues"][0],
+            {"frame": 0, "name": "bored", "mode": "boomerang"},
+        )
+
     async def test_every_seed_motion_is_limit_checked_and_stop_preemptible(self) -> None:
         assets = AssetStore()
         calibration = CalibrationStore(self.calibration_path)
         asset_names = assets.motion_names
-        self.assertEqual(len(asset_names), 35)
+        self.assertEqual(len(asset_names), 36)
 
         sequence = 1
         for asset_name in asset_names:

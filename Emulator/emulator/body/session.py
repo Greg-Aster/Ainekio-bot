@@ -1088,7 +1088,7 @@ class BodySession:
                 "turn_r": "turn_right_45",
             }[str(message["dir"])]
         elif name == "sit":
-            asset_name = "rest"
+            asset_name = "sit"
         else:
             asset_name = "stand"
         return self._assets.motion(asset_name)

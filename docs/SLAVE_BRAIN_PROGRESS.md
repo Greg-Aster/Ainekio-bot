@@ -568,7 +568,9 @@ The current implementation and size are recorded in the completion audit below.
   current suite counts and A-series evidence; the earlier four-folder counts are
   historical and must not be used as the current completion claim.
 
-`sit` is mapped to the verified Sesame `run rest` pose. Protocol `look` remains
+`sit` now executes its own held asset: R4/L4 move to 105 degrees, R3/L3 move
+to 90 degrees, the other joints retain stand geometry, and the display uses the
+owner-authored `bored` face. Protocol `look` remains
 an implementation errata decision: v1 defines yaw/pitch but does not define how
 those axes map to the specified eight body servos, and the retained Sesame
 runtime has no corresponding command. No servo mapping will be invented without

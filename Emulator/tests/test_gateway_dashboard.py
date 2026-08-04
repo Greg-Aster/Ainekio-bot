@@ -473,6 +473,17 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             html.index('data-dashboard-panel="simulator"'),
         )
         self.assertIn('data-dashboard-panel="simulator"', html)
+        self.assertIn('data-intent="sit">Sit · bored</button>', html)
+
+        status, body, _headers = await self._raw_request(
+            "GET",
+            "/assets/dashboard.css",
+            cookie=cookie,
+        )
+        self.assertEqual(status, 200)
+        css = body.decode("utf-8")
+        self.assertIn(".camera-frame { width: 100%; height: auto;", css)
+        self.assertNotIn(".camera-frame { width: 100%; height: 100%;", css)
 
     async def test_dashboard_can_select_emulator_panel(self) -> None:
         cookie, _csrf = await self._login()

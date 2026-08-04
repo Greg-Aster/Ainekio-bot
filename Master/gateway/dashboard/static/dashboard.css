@@ -132,10 +132,9 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .camera-stage {
   position: relative;
   width: 100%;
-  height: clamp(360px, 65vh, 720px);
+  min-height: clamp(360px, 65vh, 720px);
   display: grid;
   place-items: center;
-  overflow: hidden;
   background: var(--dark);
 }
 .camera-workspace {
@@ -153,7 +152,7 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 }
 .camera-controls label { display: grid; gap: 0.35rem; }
 .camera-controls button { width: 100%; }
-.camera-frame { width: 100%; height: 100%; display: block; object-fit: contain; }
+.camera-frame { width: 100%; height: auto; display: block; object-fit: contain; }
 .camera-frame[hidden] { display: none; }
 .camera-view-message { max-width: 36rem; margin: 0; padding: 1rem; color: var(--muted); text-align: center; }
 .section-heading { min-height: 44px; margin-bottom: 1.2rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
@@ -262,7 +261,7 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .primary-view-section { padding-inline: 0; }
   .primary-view-section .section-heading { padding-inline: 0.5rem; }
   .simulator-frame { height: 620px; }
-  .camera-stage { height: clamp(300px, 55vh, 520px); }
+  .camera-stage { min-height: clamp(300px, 55vh, 520px); }
   .camera-controls { grid-template-columns: 1fr; padding-inline: 0.75rem; }
   .section-heading { flex-direction: column; }
   .telemetry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
