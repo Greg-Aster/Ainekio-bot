@@ -46,6 +46,13 @@ QVGA/VGA and off until requested. It uses one PSRAM framebuffer and leaves the
 capture engine idle between frames; commands still reject explicitly if the
 physical camera is unavailable.
 
+The OV3660 uses an immediate motion-capture profile: an approximately 16.6 ms
+manual exposure (72 XGA lines, aligned with 60 Hz indoor light), moderate sensor
+gain (24), one brightness step, denoise level 3, and neutral sharpening. Night
+mode and automatic exposure/gain are off so the first frame does not wait for
+convergence or lengthen its shutter while the robot is moving. JPEG quality
+remains 10 to preserve detail within the bounded camera payload.
+
 After a wake-word detection, microphone endpointing uses Espressif's pinned
 `vadnet1_medium` neural voice-activity model instead of the former raw-energy
 threshold. The custom owner-trained `Ainekio` microWakeWord model remains the

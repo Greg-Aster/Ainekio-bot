@@ -19,6 +19,18 @@
 #define CAMERA_JPEG_QUALITY 10
 #define CAMERA_SNAPSHOT_WIDTH 1024U
 #define CAMERA_SNAPSHOT_HEIGHT 768U
+/*
+ * The pinned OV3660 profile uses 2,300 clocks per XGA line and a 10 MHz
+ * pixel clock. A 72-line exposure is therefore approximately 16.6 ms (1/60 s),
+ * short enough to reduce motion blur while aligning with 60 Hz indoor light.
+ * Moderate manual sensor gain makes the first frame usable immediately without
+ * exposing the fixed-pattern noise seen at the driver's upper gain range.
+ */
+#define CAMERA_FAST_EXPOSURE_LINES 72
+#define CAMERA_FAST_SENSOR_GAIN 24
+#define CAMERA_FAST_BRIGHTNESS 1
+#define CAMERA_FAST_DENOISE 3
+#define CAMERA_FAST_SHARPNESS 0
 
 typedef enum {
     CAMERA_COMMAND_CONFIGURE = 0,
@@ -48,6 +60,46 @@ struct ainekio_camera_service {
 
 static const char *TAG = "ainekio_camera";
 static ainekio_camera_service_t singleton;
+
+static esp_err_t configure_fast_capture_profile(sensor_t *sensor)
+{
+    if (sensor == NULL || sensor->set_aec2 == NULL ||
+        sensor->set_exposure_ctrl == NULL || sensor->set_aec_value == NULL ||
+        sensor->set_gain_ctrl == NULL || sensor->set_agc_gain == NULL ||
+        sensor->set_brightness == NULL || sensor->set_denoise == NULL ||
+        sensor->set_sharpness == NULL) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    /*
+     * Night mode and automatic exposure can lengthen the first exposure and
+     * blur an action-correlated image. Use a deterministic fast shutter and
+     * moderate sensor gain instead; denoise limits amplified sensor patterning
+     * and sharpening remains neutral so it cannot emphasize that pattern.
+     */
+    if (sensor->set_aec2(sensor, 0) != 0 ||
+        sensor->set_exposure_ctrl(sensor, 0) != 0 ||
+        sensor->set_aec_value(sensor, CAMERA_FAST_EXPOSURE_LINES) != 0 ||
+        sensor->set_gain_ctrl(sensor, 0) != 0 ||
+        sensor->set_agc_gain(sensor, CAMERA_FAST_SENSOR_GAIN) != 0 ||
+        sensor->set_brightness(sensor, CAMERA_FAST_BRIGHTNESS) != 0 ||
+        sensor->set_denoise(sensor, CAMERA_FAST_DENOISE) != 0 ||
+        sensor->set_sharpness(sensor, CAMERA_FAST_SHARPNESS) != 0) {
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(
+        TAG,
+        "fast capture profile exposure_lines=%d gain=%d brightness=%d "
+        "denoise=%d sharpness=%d",
+        CAMERA_FAST_EXPOSURE_LINES,
+        CAMERA_FAST_SENSOR_GAIN,
+        CAMERA_FAST_BRIGHTNESS,
+        CAMERA_FAST_DENOISE,
+        CAMERA_FAST_SHARPNESS
+    );
+    return ESP_OK;
+}
 
 static framesize_t frame_size(ainekio_camera_resolution_t resolution)
 {
@@ -302,6 +354,16 @@ esp_err_t ainekio_camera_service_start(
     if (sensor == NULL || sensor->id.PID != OV3660_PID) {
         (void)esp_camera_deinit();
         return ESP_ERR_NOT_SUPPORTED;
+    }
+    esp_err_t profile_result = configure_fast_capture_profile(sensor);
+    if (profile_result != ESP_OK) {
+        ESP_LOGE(
+            TAG,
+            "fast capture profile failed: %s",
+            esp_err_to_name(profile_result)
+        );
+        (void)esp_camera_deinit();
+        return profile_result;
     }
 
     ainekio_camera_service_t *service = &singleton;
