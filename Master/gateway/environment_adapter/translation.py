@@ -32,6 +32,22 @@ SEED_EMOTES = frozenset(
         "shrug",
         "dead",
         "crab",
+        "nod",
+        "celebrate",
+        "stretch",
+        "macarena",
+        "salsa",
+        "surprised",
+        "sad",
+        "curious",
+        "turn_left_45",
+        "turn_right_45",
+        "turn_left_90",
+        "turn_right_90",
+        "turn_left_180",
+        "turn_right_180",
+        "walk_slow",
+        "run",
     }
 )
 
@@ -86,6 +102,30 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         "forward": "walk",
         "turnleft": "left",
         "turnright": "right",
+        "leftquarterturn": "turnleft45",
+        "rightquarterturn": "turnright45",
+        "quarterturnleft": "turnleft45",
+        "quarterturnright": "turnright45",
+        "turnleftquarterturn": "turnleft45",
+        "turnrightquarterturn": "turnright45",
+        "turnleftonequarterturn": "turnleft45",
+        "turnrightonequarterturn": "turnright45",
+        "lefthalfturn": "turnleft90",
+        "righthalfturn": "turnright90",
+        "halfturnleft": "turnleft90",
+        "halfturnright": "turnright90",
+        "turnlefthalfturn": "turnleft90",
+        "turnrighthalfturn": "turnright90",
+        "turnleftonehalfturn": "turnleft90",
+        "turnrightonehalfturn": "turnright90",
+        "turnleft45degrees": "turnleft45",
+        "turnright45degrees": "turnright45",
+        "turnleft90degrees": "turnleft90",
+        "turnright90degrees": "turnright90",
+        "turnleft180degrees": "turnleft180",
+        "turnright180degrees": "turnright180",
+        "turnaround": "turnright180",
+        "lookaround": "curious",
         "pushups": "pushup",
         "playdead": "dead",
         "die": "dead",
@@ -95,20 +135,28 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         return BridgeAction("stop")
     if command in {"stand", "neutral", "sit"}:
         return BridgeAction("intent", command)
-    if command in {"walk", "backward", "left", "right"}:
+    if command in {"left", "right"}:
+        return BridgeAction(
+            "intent",
+            "emote",
+            {"asset": f"turn_{command}_45"},
+        )
+    if command in {"walk", "backward"}:
         direction = {
             "walk": "fwd",
             "backward": "back",
-            "left": "turn_l",
-            "right": "turn_r",
         }[command]
         return BridgeAction(
             "intent",
             "walk",
             {"dir": direction, "steps": _bounded_steps(action.get("units"))},
         )
-    if command in SEED_EMOTES:
-        return BridgeAction("intent", "emote", {"asset": command})
+    emote_asset = next(
+        (asset for asset in SEED_EMOTES if _normalized(asset) == command),
+        None,
+    )
+    if emote_asset is not None:
+        return BridgeAction("intent", "emote", {"asset": emote_asset})
     return None
 
 
@@ -178,6 +226,13 @@ def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
 
 def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:
     direction = _normalized(action.get("direction") or "forward")
+    if direction in {"left", "turnleft", "right", "turnright"}:
+        side = "left" if direction in {"left", "turnleft"} else "right"
+        return BridgeAction(
+            "intent",
+            "emote",
+            {"asset": f"turn_{side}_45"},
+        )
     directions = {
         "forward": "fwd",
         "ahead": "fwd",
@@ -185,10 +240,6 @@ def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:
         "back": "back",
         "backward": "back",
         "down": "back",
-        "left": "turn_l",
-        "turnleft": "turn_l",
-        "right": "turn_r",
-        "turnright": "turn_r",
     }
     wire_direction = directions.get(direction)
     if wire_direction is None:

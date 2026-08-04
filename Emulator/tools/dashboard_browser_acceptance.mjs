@@ -236,6 +236,9 @@ function assert(condition, message) {
 const expectedEmotes = [
   "rest", "stand", "wave", "dance", "swim", "point", "pushup", "bow",
   "cute", "freaky", "worm", "shake", "shrug", "dead", "crab",
+  "nod", "celebrate", "stretch",
+  "macarena", "salsa", "surprised", "sad", "curious",
+  "turn_left_90", "turn_right_90", "walk_slow", "run",
 ];
 
 let chrome;

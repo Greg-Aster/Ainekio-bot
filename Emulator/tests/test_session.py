@@ -699,7 +699,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
 
         rendered = self.backend.messages[0]
         self.assertEqual(rendered["_joint_map_version"], 1)
-        self.assertEqual(len(rendered["_motion_asset_frames"]), 12)
+        self.assertEqual(len(rendered["_motion_asset_frames"]), 14)
         self.assertEqual(self.messages, [{"t": "ack", "seq": 1}, {"t": "done", "seq": 1}])
 
         await self.session.handle(
@@ -728,7 +728,7 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         assets = AssetStore()
         calibration = CalibrationStore(self.calibration_path)
         asset_names = assets.motion_names
-        self.assertEqual(len(asset_names), 19)
+        self.assertEqual(len(asset_names), 35)
 
         sequence = 1
         for asset_name in asset_names:
@@ -846,29 +846,25 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.messages[3], {"t": "nak", "seq": 3, "code": "busy"})
         self.assertEqual(self.messages[-1], {"t": "done", "seq": 2})
 
-    async def test_battery_warning_locks_movement_but_allows_neutral(self) -> None:
+    async def test_battery_warning_is_telemetry_and_allows_movement(self) -> None:
         self.session.set_simulated_battery(6.9)
         for _ in range(3):
             await self.session.service_media(self.emit, lambda _frame: asyncio.sleep(0))
 
-        await self.session.handle(
-            {"t": "intent", "seq": 1, "name": "walk", "dir": "fwd", "steps": 1},
-            self.emit,
-        )
         self.backend.release.set()
         await self.session.handle(
-            {"t": "intent", "seq": 2, "name": "neutral"},
+            {"t": "intent", "seq": 1, "name": "walk", "dir": "fwd", "steps": 1},
             self.emit,
         )
         await self.session.wait_until_idle()
 
         self.assertEqual(self.messages.count({"t": "event", "name": "battery_warn"}), 1)
-        self.assertIn({"t": "nak", "seq": 1, "code": "unsafe"}, self.messages)
-        self.assertIn({"t": "done", "seq": 2}, self.messages)
-        self.assertEqual(self.core.power_guard, "move_locked")
+        self.assertIn({"t": "ack", "seq": 1}, self.messages)
+        self.assertIn({"t": "done", "seq": 1}, self.messages)
+        self.assertEqual(self.core.power_guard, "normal")
         self.assertEqual(self.session.status()["vbat"], 6.9)
 
-    async def test_battery_cutoff_preempts_continuous_walk_and_recovers(self) -> None:
+    async def test_battery_critical_does_not_preempt_motion_or_sleep(self) -> None:
         await self.session.handle(
             {"t": "intent", "seq": 1, "name": "walk", "dir": "fwd", "steps": 10},
             self.emit,
@@ -879,15 +875,17 @@ class BodySessionTests(unittest.IsolatedAsyncioTestCase):
             await self.session.service_media(self.emit, lambda _frame: asyncio.sleep(0))
 
         self.assertIn({"t": "event", "name": "battery_warn"}, self.messages)
-        self.assertIn({"t": "event", "name": "battery_cutoff"}, self.messages)
-        self.assertIn({"t": "cancelled", "seq": 1, "code": "stop"}, self.messages)
-        self.assertEqual(self.backend.messages[-1], {"t": "stop", "seq": 1})
-        self.assertEqual(self.session.status()["state"], "deep-sleep")
-        self.assertFalse(self.core.servos_attached)
-        self.assertEqual(self.session.take_sleep_request(), 1800)
+        self.assertNotIn({"t": "event", "name": "battery_cutoff"}, self.messages)
+        self.assertNotIn({"t": "cancelled", "seq": 1, "code": "stop"}, self.messages)
+        self.assertEqual(self.session.active_sequence, 1)
+        self.assertEqual(self.session.status()["state"], "active")
+        self.assertTrue(self.core.servos_attached)
+        self.assertIsNone(self.session.take_sleep_request())
+        self.assertEqual(self.core.power_guard, "normal")
 
-        await self.session.handle({"t": "stop", "seq": 2}, self.emit)
-        self.assertEqual(self.messages[-1], {"t": "nak", "seq": 2, "code": "busy"})
+        self.backend.release.set()
+        await self.session.wait_until_idle()
+        self.assertIn({"t": "done", "seq": 1}, self.messages)
 
         self.session.set_simulated_battery(7.2)
         for _ in range(3):

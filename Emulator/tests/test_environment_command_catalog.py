@@ -52,6 +52,14 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
         )
         self.assertEqual((rest.kind, rest.name, rest.params), ("intent", "emote", {"asset": "rest"}))
         self.assertTrue(SEED_EMOTES.issubset(SUPPORTED_ROBOT_COMMANDS))
+        self.assertTrue(
+            {
+                "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
+                "sad", "curious", "turn_left_45", "turn_right_45",
+                "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
+                "walk_slow", "run",
+            }.issubset(SEED_EMOTES)
+        )
 
     def test_environment_observation_advertises_the_owned_command_catalog(self) -> None:
         adapter = EnvironmentAdapter(

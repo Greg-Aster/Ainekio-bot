@@ -1,4 +1,5 @@
 set(AINEKIO_CORE_SOURCES
+    "src/audio_endpoint.c"
     "src/assets.c"
     "src/core.c"
     "src/binary_codec.c"
@@ -31,6 +32,17 @@ else()
     add_executable(ainekio_core_tests "tests/test_core.c")
     target_link_libraries(ainekio_core_tests PRIVATE ainekio_core)
     target_compile_options(ainekio_core_tests PRIVATE -Wall -Wextra -Werror -Wpedantic)
+
+    add_executable(ainekio_audio_endpoint_tests "tests/test_audio_endpoint.c")
+    target_link_libraries(ainekio_audio_endpoint_tests PRIVATE ainekio_core)
+    target_compile_options(
+        ainekio_audio_endpoint_tests
+        PRIVATE
+        -Wall
+        -Wextra
+        -Werror
+        -Wpedantic
+    )
 
     add_executable(ainekio_provisioning_tests "tests/test_provisioning.c")
     target_link_libraries(ainekio_provisioning_tests PRIVATE ainekio_core)
@@ -151,6 +163,7 @@ else()
 
     enable_testing()
     add_test(NAME ainekio_core_tests COMMAND ainekio_core_tests)
+    add_test(NAME ainekio_audio_endpoint_tests COMMAND ainekio_audio_endpoint_tests)
     add_test(NAME ainekio_provisioning_tests COMMAND ainekio_provisioning_tests)
     add_test(NAME ainekio_config_store_tests COMMAND ainekio_config_store_tests)
     add_test(NAME ainekio_servo_battery_tests COMMAND ainekio_servo_battery_tests)

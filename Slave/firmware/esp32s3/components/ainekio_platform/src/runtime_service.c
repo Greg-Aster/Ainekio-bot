@@ -35,7 +35,7 @@
 #define INTERNAL_QUEUE_LENGTH 8U
 #define TX_QUEUE_LENGTH 32U
 #define FAST_TX_QUEUE_LENGTH 8U
-#define MIC_QUEUE_LENGTH 10U
+#define MIC_QUEUE_LENGTH 128U
 #define CAMERA_QUEUE_LENGTH 2U
 #define RX_TEXT_BYTES (AINEKIO_CONTROL_MAX_BYTES + 1U)
 #define TX_TEXT_BYTES 1536U
@@ -67,7 +67,6 @@
 #define CONTROL_STALE_US INT64_C(4000000)
 #define ACTIVE_IDLE_US INT64_C(60000000)
 #define CALIBRATION_IDLE_US INT64_C(600000000)
-#define BATTERY_FAULT_DISPLAY_MS 1500U
 #define SUPERVISOR_ONLINE BIT0
 #define SUPERVISOR_DISCONNECTED BIT1
 #define SUPERVISOR_FORCE_CLOSE BIT2
@@ -152,7 +151,6 @@ typedef struct {
         struct {
             uint16_t code;
             uint32_t sleep_seconds;
-            bool battery_cutoff;
         } close;
     } data;
 } tx_item_t;
@@ -267,7 +265,6 @@ struct ainekio_runtime {
     bool control_stale;
     disconnect_reason_t disconnect_reason;
     bool boot_event_pending;
-    bool brownout_recovered_pending;
     bool littlefs_failure_pending;
     bool sd_failure_pending;
     bool sd_corrupt_pending;
@@ -322,8 +319,6 @@ struct ainekio_runtime {
     int64_t next_status_us;
     float battery_voltage;
     ainekio_battery_state_t battery_state;
-    uint8_t battery_motion_ready_sets;
-    bool battery_motion_safe;
     bool battery_warning_displayed;
     bool listen_feedback_active;
     bool talk_feedback_active;
@@ -448,11 +443,9 @@ static void sync_audio_motion_feedback(ainekio_runtime_t *runtime)
 {
     bool listen = false;
     bool talk = false;
-    bool battery_safe = false;
     taskENTER_CRITICAL(&runtime->state_lock);
     listen = runtime->listen_feedback_active;
     talk = runtime->talk_feedback_active;
-    battery_safe = runtime->battery_motion_safe;
     taskEXIT_CRITICAL(&runtime->state_lock);
 
     bool servos_ready = true;
@@ -465,7 +458,7 @@ static void sync_audio_motion_feedback(ainekio_runtime_t *runtime)
         (runtime->core->state == AINEKIO_STATE_ACTIVE ||
          runtime->core->state == AINEKIO_STATE_IDLE);
     ainekio_motion_feedback_t feedback = AINEKIO_MOTION_FEEDBACK_NONE;
-    if (battery_safe && servos_ready && body_ready) {
+    if (servos_ready && body_ready) {
         feedback = talk ? AINEKIO_MOTION_FEEDBACK_TALK
                         : (listen ? AINEKIO_MOTION_FEEDBACK_LISTEN
                                   : AINEKIO_MOTION_FEEDBACK_NONE);
@@ -914,10 +907,7 @@ static void tx_task(void *argument)
             send_tx_item(runtime, &item);
             if (item.kind == TX_CLOSE && item.data.close.sleep_seconds > 0U) {
                 vTaskDelay(pdMS_TO_TICKS(20U));
-                ainekio_sleep_enter(
-                    item.data.close.sleep_seconds,
-                    item.data.close.battery_cutoff
-                );
+                ainekio_sleep_enter(item.data.close.sleep_seconds);
             }
             continue;
         }
@@ -925,10 +915,7 @@ static void tx_task(void *argument)
             send_tx_item(runtime, &item);
             if (item.kind == TX_CLOSE && item.data.close.sleep_seconds > 0U) {
                 vTaskDelay(pdMS_TO_TICKS(20U));
-                ainekio_sleep_enter(
-                    item.data.close.sleep_seconds,
-                    item.data.close.battery_cutoff
-                );
+                ainekio_sleep_enter(item.data.close.sleep_seconds);
             }
             continue;
         }
@@ -1334,24 +1321,7 @@ static void battery_observation(
     ainekio_runtime_t *runtime = context;
     taskENTER_CRITICAL(&runtime->state_lock);
     runtime->battery_state = state;
-    if (state == AINEKIO_BATTERY_NORMAL &&
-        volts >= AINEKIO_BATTERY_RECOVERY_VOLTS) {
-        if (runtime->battery_motion_ready_sets <
-            AINEKIO_BATTERY_QUALIFYING_SETS) {
-            ++runtime->battery_motion_ready_sets;
-        }
-    } else {
-        runtime->battery_motion_ready_sets = 0U;
-    }
-    runtime->battery_motion_safe =
-        runtime->battery_motion_ready_sets >=
-        AINEKIO_BATTERY_QUALIFYING_SETS;
     taskEXIT_CRITICAL(&runtime->state_lock);
-    sync_audio_motion_feedback(runtime);
-    if ((events & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
-        (void)ainekio_motion_service_request_detach(&runtime->motion);
-        (void)cancel_audio(runtime);
-    }
     const battery_item_t item = {
         .volts = volts,
         .state = state,
@@ -1409,7 +1379,7 @@ static bool movement_job(
         return true;
     case AINEKIO_INTENT_WALK: {
         static const char *const names[] = {
-            "walk_forward", "walk_backward", "turn_left", "turn_right",
+            "walk_forward", "walk_backward", "turn_left_45", "turn_right_45",
         };
         job->kind = AINEKIO_MOTION_JOB_ASSET;
         job->repetitions = intent->data.walk.steps;
@@ -1782,7 +1752,6 @@ static void dispatch_command(
         tx_item_t close = tx_base(runtime, TX_CLOSE);
         close.data.close.code = 1000U;
         close.data.close.sleep_seconds = command->data.state.sleep_seconds;
-        close.data.close.battery_cutoff = false;
         (void)enqueue_tx(runtime, &status, false);
         (void)enqueue_tx(runtime, &done, false);
         (void)enqueue_tx(runtime, &close, false);
@@ -2101,10 +2070,6 @@ static void dispatch_internal(
         runtime->boot_event_pending = false;
         queue_event(runtime, AINEKIO_EVENT_BOOT);
     }
-    if (runtime->brownout_recovered_pending) {
-        runtime->brownout_recovered_pending = false;
-        queue_event(runtime, AINEKIO_EVENT_BROWNOUT_RECOVERED);
-    }
     if (runtime->littlefs_failure_pending) {
         runtime->littlefs_failure_pending = false;
         queue_event(runtime, AINEKIO_EVENT_LITTLEFS_FAIL);
@@ -2125,16 +2090,37 @@ static void dispatch_battery(
 )
 {
     runtime->battery_voltage = item->volts;
-    ainekio_core_set_power_guard(
-        runtime->core,
-        item->state == AINEKIO_BATTERY_CUTOFF
-            ? AINEKIO_POWER_CUTOFF
-            : (item->state == AINEKIO_BATTERY_WARN
-                   ? AINEKIO_POWER_MOVE_LOCKED
-                   : AINEKIO_POWER_NORMAL)
-    );
+    /* Battery voltage is telemetry and warning input only. The battery pack's
+     * hardware protection circuit owns undervoltage shutdown. */
+    ainekio_core_set_power_guard(runtime->core, AINEKIO_POWER_NORMAL);
     runtime->battery_events_pending |= item->events;
-    if ((item->events & AINEKIO_BATTERY_EVENT_WARN) != 0U) {
+    if ((item->events & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
+        char voltage_line[22] = {0};
+        if (item->volts <= AINEKIO_BATTERY_DISCONNECTED_MAX_VOLTS) {
+            (void)ainekio_display_show_status(
+                runtime->display,
+                "BATTERY SENSOR LOST",
+                "TELEMETRY WARNING",
+                "CHECK SENSOR WIRE",
+                "CONTROLLER ONLINE"
+            );
+        } else {
+            (void)snprintf(
+                voltage_line,
+                sizeof(voltage_line),
+                "VOLTAGE %.2f V",
+                (double)item->volts
+            );
+            (void)ainekio_display_show_status(
+                runtime->display,
+                "BATTERY CRITICAL",
+                voltage_line,
+                "TELEMETRY WARNING",
+                "CONTROLLER ONLINE"
+            );
+        }
+        runtime->battery_warning_displayed = true;
+    } else if ((item->events & AINEKIO_BATTERY_EVENT_WARN) != 0U) {
         char voltage_line[22] = {0};
         (void)snprintf(
             voltage_line,
@@ -2146,8 +2132,8 @@ static void dispatch_battery(
             runtime->display,
             "LOW BATTERY",
             voltage_line,
-            "MOTION LOCKED",
-            "CHARGE BATTERY"
+            "TELEMETRY WARNING",
+            "CONTROLLER ONLINE"
         );
         runtime->battery_warning_displayed = true;
     } else if (runtime->battery_warning_displayed &&
@@ -2155,74 +2141,12 @@ static void dispatch_battery(
         runtime->battery_warning_displayed = false;
         ainekio_display_restore(runtime->display);
     }
-    if ((runtime->battery_events_pending & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
-        ainekio_core_set_state(runtime->core, AINEKIO_STATE_DEEP_SLEEP);
-        runtime->battery_events_pending &= ~AINEKIO_BATTERY_EVENT_CUTOFF;
-        runtime->battery_warning_displayed = false;
-        esp_err_t display_result = ESP_ERR_NOT_SUPPORTED;
-        if (item->volts <= AINEKIO_BATTERY_DISCONNECTED_MAX_VOLTS) {
-            display_result = ainekio_display_show_status(
-                runtime->display,
-                "BATTERY SENSOR LOST",
-                "MOTION LOCKED",
-                "CHECK SENSOR WIRE",
-                "SHUTTING DOWN"
-            );
-        } else {
-            char voltage_line[22] = {0};
-            (void)snprintf(
-                voltage_line,
-                sizeof(voltage_line),
-                "VOLTAGE %.2f V",
-                (double)item->volts
-            );
-            display_result = ainekio_display_show_status(
-                runtime->display,
-                "BATTERY CRITICAL",
-                voltage_line,
-                "MOTION LOCKED",
-                "SHUTTING DOWN"
-            );
-        }
-        /* The display command is asynchronous. Motion and audio are already
-         * stopped by battery_observation(), so briefly yield here to make the
-         * safety reason readable before Wi-Fi stops and deep sleep begins. */
-        if (display_result == ESP_OK) {
-            vTaskDelay(pdMS_TO_TICKS(BATTERY_FAULT_DISPLAY_MS));
-        }
-        if (!session_matches(runtime, current_serial(runtime), true)) {
-            ainekio_sleep_enter(30U * 60U, true);
-        }
-        tx_item_t event = tx_base(runtime, TX_EVENT);
-        event.data.event.event = AINEKIO_EVENT_BATTERY_CUTOFF;
-        wifi_ap_record_t access_point;
-        const int8_t rssi = esp_wifi_sta_get_ap_info(&access_point) == ESP_OK
-                                ? access_point.rssi
-                                : -127;
-        tx_item_t status = tx_base(runtime, TX_STATUS);
-        status.data.status = runtime_status(
-            runtime,
-            rssi,
-            AINEKIO_STATE_DEEP_SLEEP,
-            (uint32_t)(now_us() / INT64_C(1000000))
-        );
-        tx_item_t close = tx_base(runtime, TX_CLOSE);
-        close.data.close.code = 1000U;
-        close.data.close.sleep_seconds = 30U * 60U;
-        close.data.close.battery_cutoff = true;
-        (void)enqueue_tx(runtime, &event, true);
-        (void)enqueue_tx(runtime, &status, true);
-        (void)enqueue_tx(runtime, &close, true);
-        return;
-    }
     if (!session_matches(runtime, current_serial(runtime), true)) {
         return;
     }
-    if ((runtime->battery_events_pending & AINEKIO_BATTERY_EVENT_WARN) != 0U) {
+    if ((runtime->battery_events_pending &
+         (AINEKIO_BATTERY_EVENT_WARN | AINEKIO_BATTERY_EVENT_CUTOFF)) != 0U) {
         queue_event(runtime, AINEKIO_EVENT_BATTERY_WARN);
-    }
-    if ((runtime->battery_events_pending & AINEKIO_BATTERY_EVENT_CUTOFF) != 0U) {
-        queue_event(runtime, AINEKIO_EVENT_BATTERY_CUTOFF);
     }
     if ((runtime->battery_events_pending & AINEKIO_BATTERY_EVENT_RECOVERED) != 0U) {
         queue_event(runtime, AINEKIO_EVENT_BROWNOUT_RECOVERED);
@@ -3117,8 +3041,6 @@ esp_err_t ainekio_runtime_start(
     runtime->provisioning = dependencies->provisioning;
     runtime->wifi = dependencies->wifi;
     runtime->boot_event_pending = dependencies->boot_event_pending;
-    runtime->brownout_recovered_pending =
-        dependencies->brownout_recovered_pending;
     runtime->littlefs_failure_pending = dependencies->littlefs_failure_pending;
     runtime->wake_enabled = dependencies->wake_enabled;
     runtime->wake_ready = false;

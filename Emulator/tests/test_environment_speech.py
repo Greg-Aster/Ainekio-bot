@@ -101,6 +101,7 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket
+        adapter._bridge_ready = True
         speech = SpeechAudioMessage(
             session_id="ainekio-01",
             action_id="speech-action-1",

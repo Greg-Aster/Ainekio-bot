@@ -14,8 +14,8 @@ _STATIONARY_COMMANDS = {
 _WALK_PROFILES = {
     "fwd": ("walk", "run walk", 1.0, 0.0, 840),
     "back": ("backward", "rn wb", -1.0, 0.0, 840),
-    "turn_l": ("left", "rn tl", 0.0, 1.0, 250),
-    "turn_r": ("right", "rn tr", 0.0, -1.0, 250),
+    "turn_l": ("turn_left_45", None, 0.0, 1.8, 6240),
+    "turn_r": ("turn_right_45", None, 0.0, -1.8, 6240),
 }
 _EMOTE_COMMANDS = {
     "rest": ("sit", "run rest", 400),
@@ -33,6 +33,22 @@ _EMOTE_COMMANDS = {
     "shrug": ("shrug", "rn sg", 1200),
     "dead": ("dead", "rn dd", 1800),
     "crab": ("crab", "rn cb", 1800),
+    "nod": ("nod", None, 2460),
+    "celebrate": ("celebrate", None, 3460),
+    "stretch": ("stretch", None, 4330),
+    "macarena": ("macarena", None, 6140),
+    "salsa": ("salsa", None, 5580),
+    "surprised": ("surprised", None, 2860),
+    "sad": ("sad", None, 4660),
+    "curious": ("curious", None, 18490),
+    "turn_left_45": ("turn_left_45", None, 6240),
+    "turn_right_45": ("turn_right_45", None, 6240),
+    "turn_left_90": ("turn_left_90", None, 11520),
+    "turn_right_90": ("turn_right_90", None, 11520),
+    "turn_left_180": ("turn_left_180", None, 22180),
+    "turn_right_180": ("turn_right_180", None, 22180),
+    "walk_slow": ("walk_slow", None, 10940),
+    "run": ("run", None, 4560),
 }
 
 
@@ -95,6 +111,9 @@ def _renderer_payload(
             direction = str(message["dir"])
             command, simulator_command, forward, yaw, duration_ms = _WALK_PROFILES[direction]
             units = int(message["steps"])
+            if direction in {"turn_l", "turn_r"}:
+                yaw *= units
+                duration_ms *= units
             root_motion = {
                 "forward": forward,
                 "strafe": 0.0,

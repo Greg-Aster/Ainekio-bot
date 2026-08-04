@@ -92,7 +92,6 @@ _CORE_STATE_DOZING = 2
 _ACTIVE_IDLE_SECONDS = 60.0
 _SPEAKER_QUEUE_DEPTH = 25
 _CALIBRATION_APPLY_INTERVAL_SECONDS = 0.05
-_BATTERY_WAKE_SECONDS = 30 * 60
 _MICROPHONE_PRE_ROLL_FRAMES = 5
 _MICROPHONE_COOLDOWN_SECONDS = 0.8
 
@@ -136,7 +135,6 @@ class BodySession:
         self._idle_extra_blinks = 0
         self._battery = BatteryMonitor()
         self._simulated_vbat = self._battery.volts
-        self._pending_battery_events: list[str] = []
         self._camera_source = camera_source
         self._microphone_source = microphone_source or QueueMicrophoneSource()
         self._vad = EnergyVad()
@@ -201,16 +199,8 @@ class BodySession:
         self._epoch = int(welcome["epoch"])
         self._session_id = f"protocol-v1:{self._epoch}"
         self._core.begin_session(self._epoch, str(welcome["profile"]))
-        if self._battery.state == BatteryState.CUTOFF:
-            for _ in range(3):
-                update = self._battery.observe_constant(self._simulated_vbat)
-                self._pending_battery_events.extend(update.events)
-        self._core.set_power_guard(self._battery.state.value)
-        self._sleep_seconds = (
-            _BATTERY_WAKE_SECONDS
-            if self._battery.state == BatteryState.CUTOFF
-            else None
-        )
+        self._core.set_power_guard(BatteryState.NORMAL.value)
+        self._sleep_seconds = None
         self._calibration_last_activity = None
         self._last_intent_activity = self._clock()
         self._next_camera_at = self._clock()
@@ -813,10 +803,6 @@ class BodySession:
         self._expire_active_state()
         if self._faults is not None:
             self.set_simulated_battery(self._faults.snapshot().battery_volts)
-        if self._pending_battery_events:
-            for event in self._pending_battery_events:
-                await emit({"t": "event", "name": event})
-            self._pending_battery_events.clear()
         await self._apply_battery_update(
             self._battery.observe_constant(self._simulated_vbat), emit
         )
@@ -978,53 +964,17 @@ class BodySession:
         update: BatteryUpdate,
         emit: EmitControl,
     ) -> None:
-        cutoff = "battery_cutoff" in update.events
-        cancelled: list[int] = []
-        if cutoff:
-            active_sequence = await self._cancel_active()
-            say_sequence = await self._cancel_say(None, code="stop")
-            tts_sequence = self._tts_start_sequence
-            await self._cancel_tts(None, code="stop")
-            cancelled.extend(
-                sequence
-                for sequence in (active_sequence, say_sequence, tts_sequence)
-                if sequence is not None
-            )
-            self._core.set_power_guard(BatteryState.CUTOFF.value)
-            if active_sequence is not None:
-                try:
-                    await asyncio.wait_for(
-                        self._motion_backend.stop(
-                            active_sequence,
-                            session_id=self._session_id,
-                        ),
-                        timeout=_STOP_BACKEND_WAIT_SECONDS,
-                    )
-                except Exception:
-                    pass
-            self._sleep_seconds = _BATTERY_WAKE_SECONDS
-        else:
-            self._core.set_power_guard(update.state.value)
-            if update.state == BatteryState.NORMAL:
-                self._sleep_seconds = None
-
+        # Match the physical owner policy: voltage monitoring reports warnings,
+        # while the battery pack's hardware owns undervoltage shutdown.
+        self._core.set_power_guard(BatteryState.NORMAL.value)
+        self._sleep_seconds = None
         for event in update.events:
-            await emit({"t": "event", "name": event})
-        for sequence in cancelled:
-            await emit({"t": "cancelled", "seq": sequence, "code": "stop"})
-        if cutoff:
-            await self._play_low_battery_asset()
-
-    async def _play_low_battery_asset(self) -> None:
-        asset = self._assets.audio("low_battery")
-        if asset is None:
-            return
-        try:
-            payload = self._assets.audio_pcm(asset)
-            for offset in range(0, len(payload), 640):
-                await self._play_speaker_pcm(payload[offset : offset + 640])
-        except Exception:
-            self._speaker_underruns += 1
+            await emit(
+                {
+                    "t": "event",
+                    "name": "battery_warn" if event == "battery_cutoff" else event,
+                }
+            )
 
     async def _handle_say(
         self,
@@ -1134,8 +1084,8 @@ class BodySession:
             asset_name = {
                 "fwd": "walk_forward",
                 "back": "walk_backward",
-                "turn_l": "turn_left",
-                "turn_r": "turn_right",
+                "turn_l": "turn_left_45",
+                "turn_r": "turn_right_45",
             }[str(message["dir"])]
         elif name == "sit":
             asset_name = "rest"

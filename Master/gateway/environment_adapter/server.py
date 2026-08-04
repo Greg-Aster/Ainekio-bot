@@ -46,6 +46,7 @@ BRIDGE_SEND_TIMEOUT_SECONDS = 2.0
 ACTION_VISUAL_WAIT_SECONDS = 2.0
 CAMERA_DELIVERY_QUEUE_LENGTH = 1
 MAX_PENDING_ACTION_VISUALS = 32
+MAX_PENDING_FEEDBACK = 256
 NON_REPLAYABLE_ACTION_TYPES = frozenset(
     {
         "move",
@@ -141,6 +142,9 @@ class EnvironmentAdapter:
         self._microphone_level_task: asyncio.Task[None] | None = None
         self._last_audio_result: dict[str, object] | None = None
         self._action_tasks: set[asyncio.Task[None]] = set()
+        self._pending_feedback: dict[str, dict[str, object]] = {}
+        self._pending_admissions: dict[str, tuple[str, object]] = {}
+        self._bridge_ready = False
         self._audio_utterances = AudioUtterancePlugin(
             gateway,
             self._handle_gateway_utterance,
@@ -173,6 +177,7 @@ class EnvironmentAdapter:
         previous_camera_task = self._camera_delivery_task
         previous_microphone_level_task = self._microphone_level_task
         self._websocket = websocket
+        self._bridge_ready = False
         self._camera_delivery_queue = asyncio.Queue(
             maxsize=CAMERA_DELIVERY_QUEUE_LENGTH
         )
@@ -192,7 +197,7 @@ class EnvironmentAdapter:
         if previous is not None and previous is not websocket:
             await previous.close(code=4000, reason="new authenticated environment connection")
 
-        await self._send(
+        ready_sent = await self._send(
             {
                 "type": "bridge.ready",
                 "version": ADAPTER_PROTOCOL_VERSION,
@@ -200,6 +205,9 @@ class EnvironmentAdapter:
                 "observation": self._observation(),
             }
         )
+        self._bridge_ready = ready_sent
+        if ready_sent:
+            await self._replay_pending_feedback()
         try:
             async for raw in websocket:
                 if isinstance(raw, bytes):
@@ -215,9 +223,27 @@ class EnvironmentAdapter:
                             reason="malformed environment speech frame",
                         )
                         return
-                    await self._process_speech_audio(speech)
+                    accepted = self._feedback(
+                        speech.action_id,
+                        "accepted",
+                        "accepted",
+                        command="speak",
+                    )
+                    self._pending_admissions[str(accepted["id"])] = (
+                        "speech",
+                        speech,
+                    )
+                    await self._send_feedback(accepted)
                     continue
                 message = self._decode_message(raw)
+                if message.get("type") == "environment.feedback.ack":
+                    feedback_id = message.get("feedbackId")
+                    if isinstance(feedback_id, str):
+                        self._acknowledge_feedback(
+                            feedback_id,
+                            admitted=message.get("admitted") is True,
+                        )
+                    continue
                 if message.get("type") == "audio.utterance.result":
                     self._last_audio_result = {
                         key: value
@@ -230,13 +256,24 @@ class EnvironmentAdapter:
                 action = message.get("action")
                 if not isinstance(action, dict):
                     continue
-                task = asyncio.create_task(self._process_environment_action(action))
-                self._action_tasks.add(task)
-                task.add_done_callback(self._action_tasks.discard)
+                action_id = action.get("id")
+                if isinstance(action_id, str) and action_id:
+                    accepted = self._feedback(
+                        action_id,
+                        "accepted",
+                        "accepted",
+                        command=str(action.get("type", "environment.action")),
+                    )
+                    self._pending_admissions[str(accepted["id"])] = (
+                        "action",
+                        action,
+                    )
+                    await self._send_feedback(accepted)
         except ConnectionClosed:
             pass
         finally:
             if self._websocket is websocket:
+                self._bridge_ready = False
                 self._websocket = None
                 if self._camera_delivery_task is not None:
                     self._camera_delivery_task.cancel()
@@ -297,14 +334,7 @@ class EnvironmentAdapter:
                     command="speak",
                     robot_id=robot_id,
                 )
-        await self._send(
-            {
-                "type": "environment.feedback",
-                "version": ADAPTER_PROTOCOL_VERSION,
-                "sessionId": self.config.session_id,
-                "feedback": feedback,
-            }
-        )
+        await self._send_feedback(feedback)
 
     async def _process_environment_action(self, action: dict[str, Any]) -> None:
         action_id = action.get("id")
@@ -338,14 +368,7 @@ class EnvironmentAdapter:
                     )
                 except asyncio.TimeoutError:
                     visual = None
-            await self._send(
-                {
-                    "type": "environment.feedback",
-                    "version": ADAPTER_PROTOCOL_VERSION,
-                    "sessionId": self.config.session_id,
-                    "feedback": feedback,
-                }
-            )
+            await self._send_feedback(feedback)
             if visual is not None:
                 await self._send_observation(
                     visual=visual,
@@ -1192,14 +1215,62 @@ class EnvironmentAdapter:
             "available": supported and self.config.freestyle_enabled,
         }
 
-    async def _send(self, message: Mapping[str, object]) -> None:
+    async def _send_feedback(self, feedback: Mapping[str, object]) -> bool:
+        feedback_id = feedback.get("id")
+        if not isinstance(feedback_id, str) or not feedback_id:
+            raise GatewayError("environment feedback requires an id")
+        self._pending_feedback[feedback_id] = dict(feedback)
+        while len(self._pending_feedback) > MAX_PENDING_FEEDBACK:
+            discarded = next(iter(self._pending_feedback))
+            del self._pending_feedback[discarded]
+            self._pending_admissions.pop(discarded, None)
+        if not self._bridge_ready:
+            return False
+        return await self._send(
+            {
+                "type": "environment.feedback",
+                "version": ADAPTER_PROTOCOL_VERSION,
+                "sessionId": self.config.session_id,
+                "feedback": feedback,
+            }
+        )
+
+    async def _replay_pending_feedback(self) -> None:
+        for feedback in tuple(self._pending_feedback.values()):
+            sent = await self._send(
+                {
+                    "type": "environment.feedback",
+                    "version": ADAPTER_PROTOCOL_VERSION,
+                    "sessionId": self.config.session_id,
+                    "feedback": feedback,
+                }
+            )
+            if not sent:
+                return
+
+    def _acknowledge_feedback(self, feedback_id: str, *, admitted: bool) -> None:
+        self._pending_feedback.pop(feedback_id, None)
+        pending = self._pending_admissions.pop(feedback_id, None)
+        if not admitted or pending is None:
+            return
+        kind, payload = pending
+        if kind == "speech" and isinstance(payload, SpeechAudioMessage):
+            task = asyncio.create_task(self._process_speech_audio(payload))
+        elif kind == "action" and isinstance(payload, dict):
+            task = asyncio.create_task(self._process_environment_action(payload))
+        else:
+            return
+        self._action_tasks.add(task)
+        task.add_done_callback(self._action_tasks.discard)
+
+    async def _send(self, message: Mapping[str, object]) -> bool:
         websocket = self._websocket
         if websocket is None or websocket.closed:
-            return
+            return False
         encoded = json.dumps(message, separators=(",", ":"))
         if len(encoded.encode("utf-8")) > MAX_ADAPTER_JSON_MESSAGE_BYTES:
             raise GatewayError("environment adapter message exceeds its size limit")
-        await self._send_payload(websocket, encoded)
+        return await self._send_payload(websocket, encoded)
 
     async def _send_payload(self, websocket: Any, payload: str | bytes) -> bool:
         async with self._send_lock:
@@ -1264,7 +1335,7 @@ class EnvironmentAdapter:
         epoch: int | None = None,
     ) -> dict[str, object]:
         return {
-            "id": f"ainekio-result-{action_id or int(self.clock() * 1000)}",
+            "id": f"ainekio-result-{action_id or int(self.clock() * 1000)}-{status}",
             "timestamp": self.utcnow().isoformat(),
             "type": status,
             "message": message,

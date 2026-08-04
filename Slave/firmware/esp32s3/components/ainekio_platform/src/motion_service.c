@@ -82,7 +82,7 @@ static bool service_notifications(ainekio_motion_service_t *service)
 }
 
 #if CONFIG_AINEKIO_MOTION_SMOOTH_PLAYBACK
-static esp_err_t run_smoothed_source_frame(
+static esp_err_t run_smoothed_frame(
     ainekio_motion_service_t *service,
     const ainekio_motion_frame_t *frame,
     uint16_t duration_ms,
@@ -176,16 +176,17 @@ static esp_err_t run_frame(
     const TickType_t period = pdMS_TO_TICKS(AINEKIO_SERVO_TICK_MS);
     TickType_t wake = xTaskGetTickCount();
 
-    if (sequential_servo_timing) {
 #if CONFIG_AINEKIO_MOTION_SMOOTH_PLAYBACK
-        return run_smoothed_source_frame(
-            service,
-            frame,
-            duration_ms,
-            period,
-            &wake
-        );
-#else
+    return run_smoothed_frame(
+        service,
+        frame,
+        duration_ms,
+        period,
+        &wake
+    );
+#endif
+
+    if (sequential_servo_timing) {
         const uint16_t servo_time_ms =
             (uint16_t)frame->target_count * AINEKIO_SERVO_TICK_MS;
         if (duration_ms < servo_time_ms) {
@@ -233,7 +234,6 @@ static esp_err_t run_frame(
             vTaskDelayUntil(&wake, period);
         }
         return ESP_OK;
-#endif
     }
 
     for (uint8_t index = 0U; index < frame->target_count; ++index) {
@@ -330,7 +330,8 @@ static esp_err_t run_fallback(
 {
     /* This asset is intentionally stored in the service rather than on the
      * motion task's 6 KiB stack. The full eight-channel fallback asset is
-     * large enough to overflow that stack during a battery-cutoff stop. */
+     * large enough to overflow that stack during the earlier battery-cutoff
+     * stop policy. */
     ainekio_motion_asset_fallback(fallback, &service->prepared_asset);
     return run_asset(service, &service->prepared_asset, 1U);
 }

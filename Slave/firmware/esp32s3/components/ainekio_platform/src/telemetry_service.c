@@ -81,14 +81,14 @@ static void telemetry_task(void *argument)
                 service->battery.state == AINEKIO_BATTERY_DISCONNECTED) {
                 ESP_LOGI(
                     TAG,
-                    "battery input disconnected at %.3f V; USB-only operation remains enabled",
+                    "battery input disconnected at %.3f V; telemetry remains enabled",
                     (double)service->battery.volts
                 );
             } else if (previous_state == AINEKIO_BATTERY_DISCONNECTED &&
                        service->battery.state != AINEKIO_BATTERY_DISCONNECTED) {
                 ESP_LOGI(
                     TAG,
-                    "battery input detected at %.3f V; low-voltage protection armed",
+                    "battery input detected at %.3f V; voltage monitoring active",
                     (double)service->battery.volts
                 );
             }

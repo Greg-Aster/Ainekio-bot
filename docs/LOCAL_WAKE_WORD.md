@@ -260,8 +260,10 @@ idf.py littlefs-flash
 After reboot, confirm `wake_ready=true` while `wake_enabled` remains false. Enable
 the model through the authenticated gateway/dashboard, then issue microphone
 mode `gate=wake`. In this mode, PCM stays local until detection. A detection
-emits the wake event and opens bounded VAD forwarding; about 700 ms of silence
-closes the utterance and rearms the detector after its warm-up interval.
+emits the wake event and opens bounded VADNet forwarding; one second of detected
+silence closes the utterance after the one-second minimum capture window. A
+15-second hard ceiling closes it if environmental noise never settles, then the
+detector rearms after its warm-up interval.
 
 An authenticated network model upload/activation/rollback protocol is still a
 separate pending feature. Until that exists, changing model bytes does not

@@ -28,7 +28,6 @@ typedef struct {
     bool wake_enabled;
     const char *wake_model;
     bool boot_event_pending;
-    bool brownout_recovered_pending;
     bool littlefs_failure_pending;
 } ainekio_runtime_dependencies_t;
 
