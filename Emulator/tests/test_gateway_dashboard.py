@@ -474,6 +474,8 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn('data-dashboard-panel="simulator"', html)
         self.assertIn('data-intent="sit">Sit · bored</button>', html)
+        self.assertIn('data-emote="number_one">#1 · hydrant</button>', html)
+        self.assertIn('data-emote="number_two">#2 · squat</button>', html)
 
         status, body, _headers = await self._raw_request(
             "GET",

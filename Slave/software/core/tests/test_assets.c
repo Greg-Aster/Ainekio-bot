@@ -43,7 +43,7 @@ static void test_all_seed_assets_decode_and_fit_default_calibration(void)
         "sit", "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
         "sad", "curious", "turn_left_45", "turn_right_45", "turn_left_90",
         "turn_right_90", "turn_left_180", "turn_right_180", "walk_slow",
-        "run",
+        "run", "number_one", "number_two",
     };
     ainekio_servo_bank_t servos;
     ainekio_servo_bank_init(&servos);

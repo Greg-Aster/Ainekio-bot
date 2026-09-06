@@ -95,9 +95,33 @@ same bounded cubic ease-in/ease-out playback, with a 300 ms maximum transition
 window and unchanged total asset duration.
 
 The existing semantic `sit` intent owns a dedicated held pose rather than
-aliasing `rest`: R4 and L4 move to 60 degrees, R3 and L3 move to 180 degrees,
-the remaining joints retain the stand geometry, and the display holds the
-owner-authored `bored` face until another command changes the pose or face.
+aliasing `rest`: the front legs retain their mirrored stand geometry at R3 180
+degrees and L3 0 degrees, while the rear pair folds symmetrically to R4 60
+degrees and L4 120 degrees. The remaining joints retain the stand geometry,
+and the display holds the owner-authored `bored` face until another command
+changes the pose or face.
+
+`walk_slow` and `run` retain the same lift, sweep, plant, and weight-transfer
+order as the physical `walk_forward` gait. The slow variant uses longer frame
+durations for three cycles; the run variant uses a modestly faster cadence for
+six cycles. Neither cadence variant amplifies the established walk targets.
+
+Body Control directional holds issue one bounded ten-step semantic `walk`
+intent, then use the direct non-detaching stop path on pointer, keyboard, or
+gamepad release. Firmware stop recovery now moves to `stand` and keeps PWM hold
+enabled instead of applying the all-90-degree `neutral` fallback. The explicit
+Neutral control remains neutral, and emergency detach remains high impedance.
+
+The pet-joke commands `#1` and `#2` map at the gateway boundary to the
+protocol-safe `number_one` and `number_two` assets. `number_one` uses one
+estimated 15-degree right-turn cycle, the established `bow` front geometry,
+and a 500 ms balance settle before translating the established `point` lift
+onto the back-left L2/L4 pair. It lowers the leg and returns to stand.
+`number_two` folds both rear pairs through mirrored squat targets,
+briefly pulses deeper, and returns to stand. Each has a dedicated animated face;
+the application and LittleFS images were flashed and digest-matched on
+2026-09-01, but the motion estimates still require owner-supervised physical
+balance tuning.
 
 `macarena` now performs two complete 16-count cycles in the recognizable
 right/left arm, palm, shoulder, head, hip, and sway order, ending each cycle

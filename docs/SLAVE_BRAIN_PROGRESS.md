@@ -568,13 +568,40 @@ The current implementation and size are recorded in the completion audit below.
   current suite counts and A-series evidence; the earlier four-folder counts are
   historical and must not be used as the current completion claim.
 
-`sit` now executes its own held asset: R4/L4 move to 105 degrees, R3/L3 move
-to 90 degrees, the other joints retain stand geometry, and the display uses the
-owner-authored `bored` face. Protocol `look` remains
+`sit` now executes its own held asset: the front legs retain their mirrored
+stand geometry at R3 180 degrees and L3 0 degrees, while the rear pair folds
+symmetrically to R4 60 degrees and L4 120 degrees. The other joints retain
+stand geometry, and the display uses the owner-authored `bored` face. Protocol `look` remains
 an implementation errata decision: v1 defines yaw/pitch but does not define how
 those axes map to the specified eight body servos, and the retained Sesame
 runtime has no corresponding command. No servo mapping will be invented without
 owner approval or a numbered specification erratum.
+
+Two bounded pet-joke emotes were flashed to the physical controller and matched
+against the built application and LittleFS images on 2026-09-01.
+Gateway commands `#1` and `#2` resolve to protocol-safe motion assets
+`number_one` and `number_two`, are advertised through the Environment command
+catalog, and are available in Body Control. `number_one` performs an estimated
+15-degree right turn, a shallow balance bow, and a back-left L2/L4 lift with a
+cheeky animated face. Its first physical test was unstable because the original
+7/12-degree front preparation was too small for its 40/65-degree rear lift. A
+second physical test found the 30-degree front fold and reduced lift stable but
+visually too small. The flashed revision now uses the retained `bow` front pose,
+the retained `point` support targets, a 500 ms settle, and a point-equivalent
+145-degree L4 lift. `number_two` performs a mirrored rear-leg squat and small
+strain pulse with its own animated face. Both lower under bounded frames and
+finish in stand; neither has physical balance or semantic-completion evidence
+until the assembled robot performs the command and is observed.
+
+A 2026-09-01 physical Body Control trial showed that each directional arrow
+correctly admitted a semantic walk command, but its release immediately invoked
+firmware stop recovery at the all-90-degree `neutral` fallback, laying the robot
+down. The canonical source repair gives each dashboard hold one bounded ten-step
+walk command and preserves direct release-to-stop cancellation; non-detaching
+firmware stop recovery now moves to `stand` with PWM hold enabled. Explicit
+Neutral and emergency detach remain separate. The application repair was
+flashed on 2026-09-01 and its installed partition digest matched the built
+binary. Physical stop-to-stand motion remains owner-observed acceptance.
 
 ## First-Pass Stop Condition (Historical)
 

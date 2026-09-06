@@ -118,7 +118,7 @@
       "bytes": 90,
       "name": "sit",
       "path": "motions/sit.amot",
-      "sha256": "9593254c92fb5f35d31095e5dd4926fbe62c2d910e3932beeed44f15f667bb70"
+      "sha256": "c0ff3d87b5137756de342a7af4959a4a2e6e97536a76732c546ac564bfab9845"
     },
     {
       "bytes": 160,
@@ -205,16 +205,28 @@
       "sha256": "8f3b5e15b119bb034503463c904cdfee5ef53a7a137de11bdc87843284eb0d7f"
     },
     {
-      "bytes": 379,
+      "bytes": 322,
       "name": "walk_slow",
       "path": "motions/walk_slow.amot",
-      "sha256": "f4c2e38d317973c5832c85329a2b034fc08df86994fd6425cf52378501f014e5"
+      "sha256": "a23639cdc6830c7988bfb3b0aa60cc8a747df302f0dfd6f62203a1e3958be5fa"
     },
     {
-      "bytes": 577,
+      "bytes": 508,
       "name": "run",
       "path": "motions/run.amot",
-      "sha256": "bdbe91b89d4dea546077085f54996d3ba900e2db8541c14ffc868ec51e483037"
+      "sha256": "6d40a50c25d65544269dd33ae4fe73cb0a031f26b4d6b2c0181d36de4194bbe2"
+    },
+    {
+      "bytes": 399,
+      "name": "number_one",
+      "path": "motions/number_one.amot",
+      "sha256": "ab6c72dadcdfd974e520841c8a7b3b8c1779115c134d52b1a84e74b3841ed459"
+    },
+    {
+      "bytes": 300,
+      "name": "number_two",
+      "path": "motions/number_two.amot",
+      "sha256": "3d1e2576dea4db4e78318d36d730fec382515d3478e2b8f584c666f595ccf14c"
     }
   ],
   "joint_map": {

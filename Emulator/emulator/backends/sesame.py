@@ -47,8 +47,10 @@ _EMOTE_COMMANDS = {
     "turn_right_90": ("turn_right_90", None, 11520),
     "turn_left_180": ("turn_left_180", None, 22180),
     "turn_right_180": ("turn_right_180", None, 22180),
-    "walk_slow": ("walk_slow", None, 10940),
-    "run": ("run", None, 4560),
+    "walk_slow": ("walk_slow", None, 6740),
+    "run": ("run", None, 5180),
+    "number_one": ("number_one", None, 7690),
+    "number_two": ("number_two", None, 4870),
 }
 
 

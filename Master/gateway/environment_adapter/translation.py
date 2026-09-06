@@ -48,24 +48,66 @@ SEED_EMOTES = frozenset(
         "turn_right_180",
         "walk_slow",
         "run",
+        "number_one",
+        "number_two",
     }
 )
 
-SUPPORTED_ROBOT_COMMANDS = tuple(
-    sorted(
-        {
-            "stop",
-            "sit",
-            "stand",
-            "neutral",
-            "walk",
-            "backward",
-            "left",
-            "right",
-            *SEED_EMOTES,
-        }
-    )
-)
+# This is the gateway-owned semantic capability catalog presented to MetaHuman.
+# Descriptions explain physical effects to the selector LLM; translation below
+# remains the sole authority for converting the selected exact name to the body
+# protocol. Generic seed descriptions are deliberately literal rather than
+# inventing behavior not guaranteed by the named motion asset.
+ROBOT_COMMAND_DESCRIPTIONS: dict[str, str] = {
+    **{
+        command: f"perform the preprogrammed {command.replace('_', ' ')} motion"
+        for command in SEED_EMOTES
+    },
+    "stop": "stop the current body motion",
+    "sit": "lower into the preprogrammed held sitting pose",
+    "stand": "move into the upright standing pose",
+    "neutral": "move into the body-control neutral pose",
+    "rest": "move into the preprogrammed rest pose",
+    "wave": "raise and wave one leg, then return to stand",
+    "dance": "alternate paired legs in a rhythmic dance, then return to stand",
+    "swim": "paddle the upper leg joints in a swimming-like motion, then return to stand",
+    "point": "hold an asymmetric pointing pose, then return to stand",
+    "pushup": "lower the front body for repeated push-ups, then return to stand",
+    "bow": "lower the front body into a sustained bow, then return to stand",
+    "cute": "move into a low expressive pose and wave the rear legs, then return to stand",
+    "freaky": "move into a low asymmetric pose and pulse one leg, then return to stand",
+    "worm": "lower the body and alternately undulate all legs, then return to stand",
+    "shake": "shake the rear leg pair, then return to stand",
+    "shrug": "flatten then lift all distal legs in a shrug-like gesture, then return to stand",
+    "dead": "lower all distal legs into a flat play-dead pose and hold it",
+    "crab": "perform an alternating crab-like leg motion, then return to stand",
+    "nod": "dip the front leg pair twice in a nodding gesture, then return to stand",
+    "celebrate": "lower into a full-body pose and wave all four legs, then return to stand",
+    "stretch": "extend diagonal and front leg pairs in a stretch, then return to stand",
+    "macarena": "perform two cycles of Macarena-style front-leg choreography, then return to stand",
+    "salsa": "perform forward-back and side-to-side salsa steps, then return to stand",
+    "surprised": "lower into a flat pose and wave the front legs, then return to stand",
+    "sad": "hold and sway through a lowered sad pose, then return to stand",
+    "walk": "walk forward; optional units choose the requested step count",
+    "backward": "walk backward; optional units choose the requested step count",
+    "left": "turn left approximately 45 degrees",
+    "right": "turn right approximately 45 degrees",
+    "turn_left_45": "turn left approximately 45 degrees",
+    "turn_right_45": "turn right approximately 45 degrees",
+    "turn_left_90": "turn left approximately 90 degrees",
+    "turn_right_90": "turn right approximately 90 degrees",
+    "turn_left_180": "turn left approximately 180 degrees",
+    "turn_right_180": "turn right approximately 180 degrees",
+    "walk_slow": "walk forward using the preprogrammed slow gait",
+    "run": "move forward using the preprogrammed brisk gait",
+    "curious": "perform the preprogrammed left-right scanning and curious pose motion",
+    "number_one": "perform the bow-supported rear-leg-lift number-one gesture",
+    "number_two": "perform the mirrored rear-leg-squat number-two gesture",
+    "#1": "alias for the bow-supported rear-leg-lift number-one gesture",
+    "#2": "alias for the mirrored rear-leg-squat number-two gesture",
+}
+
+SUPPORTED_ROBOT_COMMANDS = tuple(sorted(ROBOT_COMMAND_DESCRIPTIONS))
 
 @dataclass(frozen=True)
 class BridgeAction:
@@ -129,6 +171,10 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         "turnright180degrees": "turnright180",
         "turnaround": "turnright180",
         "lookaround": "curious",
+        "#1": "numberone",
+        "#2": "numbertwo",
+        "number1": "numberone",
+        "number2": "numbertwo",
         "pushups": "pushup",
         "playdead": "dead",
         "die": "dead",

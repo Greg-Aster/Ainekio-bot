@@ -48,6 +48,8 @@ OWNER_MOTION_NAMES = (
     "turn_right_180",
     "walk_slow",
     "run",
+    "number_one",
+    "number_two",
 )
 OWNER_MOTION_EXPRESSION_SCALE = {
     "sit": 1.0,
@@ -65,8 +67,10 @@ OWNER_MOTION_EXPRESSION_SCALE = {
     "turn_right_90": 0.75,
     "turn_left_180": 0.75,
     "turn_right_180": 0.75,
-    "walk_slow": 1.5,
-    "run": 1.5,
+    "walk_slow": 1.0,
+    "run": 1.0,
+    "number_one": 1.0,
+    "number_two": 1.0,
 }
 OWNER_MOTION_METADATA = {
     "sit": {"design": "owner_authored_held_pose", "face": "bored"},
@@ -125,8 +129,29 @@ OWNER_MOTION_METADATA = {
         "face": "turn_right_90",
         "calibration": "initial_estimate_requires_physical_tuning",
     },
-    "walk_slow": {"design": "owner_authored_stable_crawl", "face": "walk_slow"},
-    "run": {"design": "owner_authored_bounded_trot", "face": "run"},
+    "walk_slow": {
+        "design": "derived_from_walk_forward",
+        "face": "walk_slow",
+        "cadence": "slow",
+    },
+    "run": {
+        "design": "derived_from_walk_forward",
+        "face": "run",
+        "cadence": "brisk",
+    },
+    "number_one": {
+        "design": "derived_from_bow_and_point_rear_leg_lift",
+        "face": "number_one",
+        "heading": "estimated_right_15_degrees",
+        "balance": "full_bow_front_with_point_style_support",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
+    "number_two": {
+        "design": "owner_authored_rear_squat",
+        "face": "number_two",
+        "balance": "mirrored_rear_leg_fold",
+        "calibration": "initial_estimate_requires_physical_tuning",
+    },
 }
 OWNER_FACE_NAMES = (
     "bored",
@@ -142,6 +167,8 @@ OWNER_FACE_NAMES = (
     "turn_right_90",
     "walk_slow",
     "run",
+    "number_one",
+    "number_two",
 )
 MAX_MOTION_FRAMES = 256
 MAX_FACE_FRAMES = 6
@@ -622,22 +649,40 @@ def _owner_motion_assets() -> list[dict[str, object]]:
         (TURN_FRAME_MS, [[5, 180.0], [7, 180.0]]),
         (TURN_FRAME_MS, [[0, 135.0], [3, 135.0]]),
     ]
-    slow_crawl_pattern = [
-        (420, [[5, 150.0], [6, 15.0], [1, 55.0], [2, 35.0]]),
-        (420, [[4, 30.0], [0, 150.0]]),
-        (420, [[4, 0.0], [0, 135.0]]),
-        (420, [[5, 165.0], [6, 30.0]]),
-        (420, [[4, 15.0], [5, 165.0], [6, 30.0], [7, 165.0]]),
-        (420, [[7, 150.0], [3, 120.0]]),
-        (420, [[7, 180.0], [3, 135.0]]),
-        (420, [[4, 0.0], [5, 180.0], [6, 0.0], [7, 180.0]]),
+    # One cycle of the established right turn after its 0.75 expression scale.
+    # Keeping these effective targets explicit lets number_one use unscaled,
+    # symmetric balance poses for the remainder of the emote.
+    right_turn_15_pattern = [
+        (TURN_FRAME_MS, [[4, 26.2], [6, 26.2]]),
+        (TURN_FRAME_MS, [[1, 22.5], [2, 22.5]]),
+        (TURN_FRAME_MS, [[4, 0.0], [6, 0.0]]),
+        (TURN_FRAME_MS, [[1, 45.0], [2, 45.0]]),
+        (TURN_FRAME_MS, [[5, 153.8], [7, 153.8]]),
+        (TURN_FRAME_MS, [[0, 112.5], [3, 112.5]]),
+        (TURN_FRAME_MS, [[5, 180.0], [7, 180.0]]),
+        (TURN_FRAME_MS, [[0, 135.0], [3, 135.0]]),
     ]
-    run_trot_pattern = [
-        (120, [[4, 38.0], [7, 142.0], [0, 155.0], [3, 115.0]]),
-        (120, [[4, 0.0], [7, 180.0], [0, 135.0], [3, 135.0]]),
-        (120, [[5, 142.0], [6, 38.0], [1, 25.0], [2, 65.0]]),
-        (120, [[5, 180.0], [6, 0.0], [1, 45.0], [2, 45.0]]),
+    forward_gait_setup = [
+        [5, 135.0], [6, 45.0], [1, 100.0], [2, 25.0],
     ]
+
+    def forward_gait_pattern(
+        short_frame_ms: int,
+        long_frame_ms: int,
+    ) -> list[tuple[int, list[list[float | int]]]]:
+        # This is the retained walk_forward lift, sweep, plant, and transfer
+        # order. Cadence variants must preserve the working joint topology.
+        return [
+            (short_frame_ms, [[5, 135.0], [6, 0.0]]),
+            (long_frame_ms, [[7, 135.0], [3, 90.0], [4, 0.0], [0, 180.0]]),
+            (short_frame_ms, [[1, 45.0], [2, 90.0]]),
+            (short_frame_ms, [[4, 45.0], [7, 180.0]]),
+            (long_frame_ms, [[5, 180.0], [6, 45.0], [1, 90.0], [2, 0.0]]),
+            (short_frame_ms, [[3, 135.0], [0, 90.0]]),
+        ]
+
+    slow_walk_pattern = forward_gait_pattern(280, 360)
+    run_pattern = forward_gait_pattern(110, 140)
     macarena_cycle = [
         # 1-4: right/left front arms out, then the palm-up equivalents.
         (MACARENA_BEAT_MS, full_pose({0: 150.0, 5: 135.0})),
@@ -685,9 +730,11 @@ def _owner_motion_assets() -> list[dict[str, object]]:
         (SALSA_BEAT_MS, salsa_center),
     ]
 
+    # Keep the front legs in their established stand geometry and fold the
+    # mirrored rear pair by the same 60-degree excursion toward neutral.
     sit_targets = [
         [0, 135.0], [1, 45.0], [2, 45.0], [3, 135.0],
-        [4, 60.0], [5, 180.0], [6, 180.0], [7, 60.0],
+        [4, 60.0], [5, 180.0], [6, 0.0], [7, 120.0],
     ]
     motions = [
         {
@@ -870,16 +917,85 @@ def _owner_motion_assets() -> list[dict[str, object]]:
         sequence(
             "walk_slow",
             "walk_slow",
-            repeated(slow_crawl_pattern, 3),
+            [
+                frame(360, forward_gait_setup),
+                *repeated(slow_walk_pattern, 3),
+            ],
             face_mode="loop",
             final_ms=500,
         ),
         sequence(
             "run",
             "run",
-            repeated(run_trot_pattern, 8),
+            [
+                frame(140, forward_gait_setup),
+                *repeated(run_pattern, 6),
+            ],
             face_mode="loop",
             final_ms=360,
+        ),
+        sequence(
+            "number_one",
+            "number_one",
+            [
+                *repeated(right_turn_15_pattern, 1),
+                # Enter the established bow through its upper-joint pose while
+                # beginning the right-rear support transfer.
+                frame(650, full_pose({
+                    0: 180.0, 1: 75.0, 2: 0.0, 4: 40.0,
+                })),
+                # Use the bow's exact front geometry and the point pose's
+                # established R2/R4 support targets.
+                frame(650, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 4: 80.0,
+                    5: 90.0, 6: 90.0,
+                })),
+                frame(500, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 4: 80.0,
+                    5: 90.0, 6: 90.0,
+                })),
+                frame(450, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 3: 110.0,
+                    4: 80.0, 5: 90.0, 6: 90.0, 7: 120.0,
+                })),
+                # Mirror point's 145-degree distal lift onto back-left L4;
+                # L2 follows point's established 90-degree joint target.
+                frame(700, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 3: 90.0,
+                    4: 80.0, 5: 90.0, 6: 90.0, 7: 35.0,
+                })),
+                frame(1000, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 3: 90.0,
+                    4: 80.0, 5: 90.0, 6: 90.0, 7: 35.0,
+                })),
+                frame(600, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 3: 110.0,
+                    4: 80.0, 5: 90.0, 6: 90.0, 7: 120.0,
+                })),
+                frame(420, full_pose({
+                    0: 180.0, 1: 100.0, 2: 0.0, 4: 80.0,
+                    5: 90.0, 6: 90.0,
+                })),
+            ],
+            face_mode="loop",
+            final_ms=600,
+        ),
+        sequence(
+            "number_two",
+            "number_two",
+            [
+                # Fold both rear pairs by equal mirrored excursions so the
+                # rump lowers without introducing a side-to-side lean.
+                frame(520, full_pose({1: 60.0, 3: 120.0, 4: 35.0, 7: 145.0})),
+                frame(650, full_pose({1: 75.0, 3: 105.0, 4: 60.0, 7: 120.0})),
+                frame(800, full_pose({1: 75.0, 3: 105.0, 4: 60.0, 7: 120.0})),
+                frame(420, full_pose({1: 80.0, 3: 100.0, 4: 65.0, 7: 115.0})),
+                frame(420, full_pose({1: 75.0, 3: 105.0, 4: 60.0, 7: 120.0})),
+                frame(600, full_pose({1: 75.0, 3: 105.0, 4: 60.0, 7: 120.0})),
+                frame(500, full_pose({1: 60.0, 3: 120.0, 4: 35.0, 7: 145.0})),
+            ],
+            face_mode="boomerang",
+            final_ms=600,
         ),
     ]
 
@@ -926,6 +1042,8 @@ def _owner_face_assets() -> list[dict[str, object]]:
         "turn_right_90": (3, "loop"),
         "walk_slow": (2, "boomerang"),
         "run": (5, "loop"),
+        "number_one": (4, "loop"),
+        "number_two": (3, "boomerang"),
     }
     assets = []
     for name in OWNER_FACE_NAMES:
@@ -1027,6 +1145,36 @@ def _draw_owner_face(name: str, variant: int) -> bytes:
         _bitmap_circle(canvas, 91, 28, 4, filled=True)
         line([(46, 45), (57, 50), (70, 50), (82, 44)], 2)
         _bitmap_line(canvas, 8 + (variant * 4), 31, 18 + (variant * 4), 31, width=2)
+    elif name == "number_one":
+        # Cheeky wink, tongue, and animated droplets for the pet-like hydrant
+        # gag without putting protocol text on the small display.
+        line([(25, 26), (35, 22), (45, 26)], 2)
+        _bitmap_circle(canvas, 92, 25, 9, width=2)
+        _bitmap_circle(canvas, 94 + (variant * 2), 26, 3, filled=True)
+        line([(44, 43), (53, 48), (64, 50), (76, 47), (83, 42)], 2)
+        _bitmap_circle(canvas, 64, 51 + variant, 5, width=2)
+        line([(61, 53), (67, 53)], 1)
+        droplet_y = 39 + (variant * 4)
+        for droplet_x, offset_y in ((108, 0), (116, 7), (122, 14)):
+            line([
+                (droplet_x, droplet_y + offset_y - 3),
+                (droplet_x - 2, droplet_y + offset_y + 1),
+                (droplet_x, droplet_y + offset_y + 3),
+                (droplet_x + 2, droplet_y + offset_y + 1),
+                (droplet_x, droplet_y + offset_y - 3),
+            ], 1)
+    elif name == "number_two":
+        # Pinched eyes, tense brows, clenched teeth, and a moving sweat drop.
+        line([(23, 17), (36, 22), (47, 17)], 3)
+        line([(81, 17), (92, 22), (105, 17)], 3)
+        line([(25, 29), (36, 25), (46, 29)], 2)
+        line([(82, 29), (92, 25), (103, 29)], 2)
+        line([(49, 43), (79, 43), (79, 55), (49, 55), (49, 43)], 2)
+        for tooth_x in (57, 64, 71):
+            _bitmap_line(canvas, tooth_x, 44, tooth_x, 54, width=1)
+        _bitmap_line(canvas, 50, 49, 78, 49, width=1)
+        sweat_y = 27 + (variant * 6)
+        line([(112, sweat_y - 5), (109, sweat_y), (112, sweat_y + 4), (115, sweat_y), (112, sweat_y - 5)], 1)
     else:
         raise RuntimeError(f"unknown owner face {name}")
 

@@ -100,7 +100,7 @@ class AssetTests(unittest.TestCase):
             "sit", "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
             "sad", "curious", "turn_left_45", "turn_right_45",
             "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
-            "walk_slow", "run",
+            "walk_slow", "run", "number_one", "number_two",
         }
         self.assertEqual(set(manifest["owner_motions"]), owner_names)
         self.assertEqual(
@@ -154,7 +154,9 @@ class AssetTests(unittest.TestCase):
             "turn_left_180": 25.0,
             "turn_right_180": 25.0,
             "walk_slow": 45.0,
-            "run": 55.0,
+            "run": 45.0,
+            "number_one": 145.0,
+            "number_two": 60.0,
         }
         for name, minimum_peak in minimum_peak_excursions.items():
             motion = store.motion(name)
@@ -170,6 +172,76 @@ class AssetTests(unittest.TestCase):
                 )
             self.assertGreaterEqual(peak_excursion, minimum_peak, name)
 
+    def test_numbered_pet_emotes_use_balanced_rear_leg_geometry(self) -> None:
+        store = AssetStore(ASSET_ROOT)
+        number_one = store.motion("number_one")
+        number_two = store.motion("number_two")
+        assert number_one is not None
+        assert number_two is not None
+
+        self.assertEqual(len(number_one.frames), 18)
+        self.assertEqual(number_one.frames[1].targets, ((4, 26.2), (6, 26.2)))
+        self.assertEqual(
+            number_one.frames[9].targets,
+            (
+                (0, 180.0), (1, 75.0), (2, 0.0), (3, 135.0),
+                (4, 40.0), (5, 180.0), (6, 0.0), (7, 180.0),
+            ),
+        )
+        self.assertEqual(
+            number_one.frames[10].targets,
+            (
+                (0, 180.0), (1, 100.0), (2, 0.0), (3, 135.0),
+                (4, 80.0), (5, 90.0), (6, 90.0), (7, 180.0),
+            ),
+        )
+        self.assertEqual(number_one.frames[11].targets, number_one.frames[10].targets)
+        self.assertEqual(number_one.frames[11].duration_ms, 500)
+        self.assertEqual(
+            number_one.frames[13].targets,
+            (
+                (0, 180.0), (1, 100.0), (2, 0.0), (3, 90.0),
+                (4, 80.0), (5, 90.0), (6, 90.0), (7, 35.0),
+            ),
+        )
+        self.assertEqual(number_one.face_cues[0].name, "number_one")
+        self.assertEqual(number_one.face_cues[-1].name, "stand")
+
+        self.assertEqual(len(number_two.frames), 9)
+        self.assertEqual(
+            number_two.frames[4].targets,
+            (
+                (0, 135.0), (1, 80.0), (2, 45.0), (3, 100.0),
+                (4, 65.0), (5, 180.0), (6, 0.0), (7, 115.0),
+            ),
+        )
+        self.assertEqual(number_two.face_cues[0].name, "number_two")
+        self.assertEqual(number_two.face_cues[-1].name, "stand")
+
+    def test_walk_cadence_variants_preserve_forward_gait_order(self) -> None:
+        store = AssetStore(ASSET_ROOT)
+        walk = store.motion("walk_forward")
+        slow = store.motion("walk_slow")
+        run = store.motion("run")
+        assert walk is not None
+        assert slow is not None
+        assert run is not None
+
+        expected_setup = walk.frames[0].targets
+        expected_cycle = [frame.targets for frame in walk.frames[1:7]]
+        self.assertEqual(slow.frames[1].targets, expected_setup)
+        self.assertEqual(run.frames[1].targets, expected_setup)
+
+        for motion, cycles, durations in (
+            (slow, 3, [280, 360, 280, 280, 360, 280]),
+            (run, 6, [110, 140, 110, 110, 140, 110]),
+        ):
+            for cycle in range(cycles):
+                start = 2 + cycle * len(expected_cycle)
+                frames = motion.frames[start : start + len(expected_cycle)]
+                self.assertEqual([frame.targets for frame in frames], expected_cycle)
+                self.assertEqual([frame.duration_ms for frame in frames], durations)
+
     def test_sit_holds_owner_pose_with_bored_face(self) -> None:
         store = AssetStore(ASSET_ROOT)
         motion = store.motion("sit")
@@ -177,7 +249,7 @@ class AssetTests(unittest.TestCase):
 
         expected_pose = (
             (0, 135.0), (1, 45.0), (2, 45.0), (3, 135.0),
-            (4, 60.0), (5, 180.0), (6, 180.0), (7, 60.0),
+            (4, 60.0), (5, 180.0), (6, 0.0), (7, 120.0),
         )
         self.assertEqual(len(motion.frames), 2)
         self.assertEqual(motion.frames[0].targets, expected_pose)

@@ -240,6 +240,7 @@ const expectedEmotes = [
   "macarena", "salsa", "surprised", "sad", "curious",
   "turn_left_45", "turn_right_45", "turn_left_90", "turn_right_90",
   "turn_left_180", "turn_right_180", "walk_slow", "run",
+  "number_one", "number_two",
 ];
 
 let chrome;
@@ -331,6 +332,10 @@ try {
   );
   await delay(50);
   assert(requests.filter((item) => item.path === "/api/intent").length === 1, "held pointer issued more than one walk");
+  const pointerIntent = requests.find((item) => item.path === "/api/intent");
+  assert(pointerIntent.payload.name === "walk", "held pointer did not issue semantic walk");
+  assert(pointerIntent.payload.params.dir === "fwd", "held pointer changed walk direction");
+  assert(pointerIntent.payload.params.steps === 10, "held pointer walk was not bounded to ten steps");
   assert(requests.some((item) => item.path === "/api/stop"), "pointer release did not signal stop");
   await waitFor(client, `document.querySelector(".motion-pad").getAttribute("aria-busy") !== "true"`);
 
@@ -415,7 +420,7 @@ try {
 
   for (const item of requests.filter((entry) => entry.path === "/api/intent")) {
     assert(item.payload.name === "walk", "manual control emitted a non-semantic intent");
-    assert(item.payload.params.steps === 1, "manual walk was not bounded to one step");
+    assert(item.payload.params.steps === 10, "manual walk was not bounded to ten steps");
   }
   assert(!requests.some((item) => item.path.includes("servo")), "normal controls reached a servo endpoint");
 

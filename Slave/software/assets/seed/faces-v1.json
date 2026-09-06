@@ -538,6 +538,30 @@
       "name": "run",
       "source": "ainekio_owner_authored_bitmap",
       "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/number_one/0.bin",
+        "faces/number_one/1.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "number_one",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/number_two/0.bin",
+        "faces/number_two/1.bin"
+      ],
+      "height": 64,
+      "mode": "boomerang",
+      "name": "number_two",
+      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
     }
   ],
   "owner_faces": [
@@ -553,7 +577,9 @@
     "turn_left_90",
     "turn_right_90",
     "walk_slow",
-    "run"
+    "run",
+    "number_one",
+    "number_two"
   ],
   "schema_version": 1,
   "source": {

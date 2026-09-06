@@ -111,8 +111,10 @@ class SesameBackendTests(unittest.TestCase):
             "turn_right_90": 11520,
             "turn_left_180": 22180,
             "turn_right_180": 22180,
-            "walk_slow": 10940,
-            "run": 4560,
+            "walk_slow": 6740,
+            "run": 5180,
+            "number_one": 7690,
+            "number_two": 4870,
         }
         assets = AssetStore()
         for asset, expected_duration in expected.items():
