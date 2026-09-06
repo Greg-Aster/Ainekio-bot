@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  const HELD_MOTION_STEPS = 10;
+
   let csrfToken = null;
   let selectedRobotId = null;
   let heldDirection = null;
@@ -194,7 +196,7 @@
     if (element) element.classList.add("is-active");
     const requestPromise = command(
       "/api/intent",
-      { name: "walk", params: { dir: direction, steps: 1 } },
+      { name: "walk", params: { dir: direction, steps: HELD_MOTION_STEPS } },
       "Movement sent",
     );
     heldRequest = requestPromise;

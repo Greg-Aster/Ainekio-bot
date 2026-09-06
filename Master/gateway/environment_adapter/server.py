@@ -26,6 +26,7 @@ from .speech_transport import (
     parse_speech_audio_message,
 )
 from .translation import (
+    ROBOT_COMMAND_DESCRIPTIONS,
     SUPPORTED_ROBOT_COMMANDS,
     BridgeAction,
     translate_environment_action,
@@ -1143,6 +1144,10 @@ class EnvironmentAdapter:
             "capabilities": {
                 "actions": actions,
                 "robotCommands": robot_commands,
+                "robotCommandDescriptions": {
+                    command: ROBOT_COMMAND_DESCRIPTIONS[command]
+                    for command in robot_commands
+                },
                 "text": True,
                 "movement": body_authenticated,
                 "visual": camera_ready,

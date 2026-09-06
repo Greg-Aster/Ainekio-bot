@@ -400,7 +400,7 @@ static void perform_stop(ainekio_motion_service_t *service)
 
     esp_err_t hold_result = ESP_OK;
     while (!detach) {
-        hold_result = run_fallback(service, AINEKIO_FALLBACK_NEUTRAL);
+        hold_result = run_fallback(service, AINEKIO_FALLBACK_STAND);
         taskENTER_CRITICAL(&service->state_lock);
         detach = service->detach_requested;
         taskEXIT_CRITICAL(&service->state_lock);
@@ -425,10 +425,10 @@ static void perform_stop(ainekio_motion_service_t *service)
         ESP_LOGW(
             TAG,
             "motion outputs detached%s",
-            hold_result == ESP_OK ? "" : " after neutral hold failed"
+            hold_result == ESP_OK ? "" : " after stand hold failed"
         );
     } else {
-        ESP_LOGI(TAG, "motion stopped at neutral; PWM hold remains enabled");
+        ESP_LOGI(TAG, "motion stopped at stand; PWM hold remains enabled");
     }
 }
 

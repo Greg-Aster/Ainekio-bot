@@ -358,6 +358,8 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             ({"type": "robotCommand", "command": "turn right half turn"}, "turn_right_90"),
             ({"type": "robotCommand", "command": "turn around"}, "turn_right_180"),
             ({"type": "robotCommand", "command": "look around"}, "curious"),
+            ({"type": "robotCommand", "command": "#1"}, "number_one"),
+            ({"type": "robotCommand", "command": "#2"}, "number_two"),
         ):
             with self.subTest(action=action):
                 turn = translate_environment_action(action)
@@ -386,7 +388,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
             "sad", "curious", "turn_left_45", "turn_right_45",
             "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
-            "walk_slow", "run",
+            "walk_slow", "run", "number_one", "number_two",
         ):
             with self.subTest(command=command):
                 translated = translate_environment_action(

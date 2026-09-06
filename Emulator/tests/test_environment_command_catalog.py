@@ -4,6 +4,7 @@ import unittest
 
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.translation import (
+    ROBOT_COMMAND_DESCRIPTIONS,
     SEED_EMOTES,
     SUPPORTED_ROBOT_COMMANDS,
     translate_environment_action,
@@ -57,9 +58,18 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
                 "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
                 "sad", "curious", "turn_left_45", "turn_right_45",
                 "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
-                "walk_slow", "run",
+                "walk_slow", "run", "number_one", "number_two",
             }.issubset(SEED_EMOTES)
         )
+        self.assertIn("#1", SUPPORTED_ROBOT_COMMANDS)
+        self.assertIn("#2", SUPPORTED_ROBOT_COMMANDS)
+        self.assertEqual(
+            set(ROBOT_COMMAND_DESCRIPTIONS),
+            set(SUPPORTED_ROBOT_COMMANDS),
+        )
+        self.assertTrue(all(ROBOT_COMMAND_DESCRIPTIONS.values()))
+        self.assertIn("45 degrees", ROBOT_COMMAND_DESCRIPTIONS["right"])
+        self.assertIn("rear-leg-lift", ROBOT_COMMAND_DESCRIPTIONS["#1"])
 
     def test_environment_observation_advertises_the_owned_command_catalog(self) -> None:
         adapter = EnvironmentAdapter(
@@ -70,6 +80,13 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
         self.assertEqual(
             capabilities["robotCommands"],  # type: ignore[index]
             list(SUPPORTED_ROBOT_COMMANDS),
+        )
+        self.assertEqual(
+            capabilities["robotCommandDescriptions"],  # type: ignore[index]
+            {
+                command: ROBOT_COMMAND_DESCRIPTIONS[command]
+                for command in SUPPORTED_ROBOT_COMMANDS
+            },
         )
         self.assertIn("captureImage", capabilities["actions"])  # type: ignore[index]
 
@@ -83,6 +100,7 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
         capabilities = observation["capabilities"]
         self.assertEqual(capabilities["actions"], ["sendText"])  # type: ignore[index]
         self.assertEqual(capabilities["robotCommands"], [])  # type: ignore[index]
+        self.assertEqual(capabilities["robotCommandDescriptions"], {})  # type: ignore[index]
         self.assertFalse(capabilities["movement"])  # type: ignore[index]
         self.assertFalse(capabilities["visual"])  # type: ignore[index]
         self.assertFalse(observation["state"]["body"]["authenticated"])  # type: ignore[index]
