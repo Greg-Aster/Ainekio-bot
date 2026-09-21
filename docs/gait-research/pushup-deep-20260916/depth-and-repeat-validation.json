@@ -1,0 +1,22 @@
+{
+  "repetitions": 5,
+  "cycle_joint_repeat_errors_rad": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "all_four_contacts_throughout": true,
+  "rear_hip_min_height_mm": [
+    27.545494388848468,
+    27.545494388848468
+  ],
+  "rear_hip_max_height_mm": [
+    34.910663700266724,
+    34.910663700266724
+  ],
+  "rear_carrier_peak_degrees": 67.29697581441044,
+  "minimum_body_clearance_mm": 1.3852467121430436,
+  "front_body_travel_mm": 34.93913596786079
+}

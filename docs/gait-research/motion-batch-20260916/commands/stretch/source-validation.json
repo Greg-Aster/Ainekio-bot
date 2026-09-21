@@ -1,0 +1,15 @@
+{
+  "command": "stretch",
+  "samples": 805,
+  "sample_hz": 120,
+  "uniform_timestamps": true,
+  "finite_angles": true,
+  "maximum_fourbar_coupler_closure_error_mm": 1.4210854715202004e-14,
+  "maximum_passive_branch_difference_rad": 0.0,
+  "maximum_forward_kinematic_foot_error_mm": 0.0,
+  "maximum_recomputed_sole_clearance_error_mm": 0.0,
+  "maximum_adjacent_passive_angle_step_degrees": 0.541780283366107,
+  "exact_standing_return": true,
+  "blender_geometry_evaluation": "Root integration step",
+  "hardware_qualified": false
+}

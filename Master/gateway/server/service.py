@@ -9,9 +9,11 @@ import struct
 import threading
 import time
 from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from time import monotonic
-from typing import Any
+from typing import Any, AsyncContextManager
+from uuid import uuid4
 
 from protocol.binary_helpers import (
     MAX_JPEG_BYTES,
@@ -20,6 +22,9 @@ from protocol.binary_helpers import (
     encode_binary_frame,
 )
 from protocol.control_v1 import (
+    BODY_CAPABILITIES_FEATURE,
+    COMMAND_DEADLINE_FEATURE,
+    OUTPUT_TEST_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
     MOTION_PLAN_JOINT_MAP,
@@ -29,6 +34,7 @@ from protocol.control_v1 import (
     validate_control_message,
 )
 from protocol.joints_v1 import joint_contract
+from gateway.body_capabilities import body_command_available, body_commands, movement_command
 from websockets.exceptions import ConnectionClosed
 
 
@@ -117,6 +123,8 @@ class GatewayConnection:
         epoch: int,
         features: tuple[str, ...] = (),
         transport: str = "lan",
+        model: str = "v1-8servo",
+        capabilities: Mapping[str, object] | None = None,
     ) -> None:
         self.service = service
         self.websocket = websocket
@@ -124,6 +132,10 @@ class GatewayConnection:
         self.epoch = epoch
         self.features = features
         self.transport = transport
+        self.model = model
+        self.capabilities = dict(capabilities) if capabilities is not None else None
+        self.body_clock_ms: int | None = None
+        self.body_clock_received_at = 0.0
         self.next_sequence = 1
         self.pending: dict[int, PendingCommand] = {}
         self.completed: dict[int, dict[str, object]] = {}
@@ -143,6 +155,26 @@ class GatewayConnection:
         self._speaker_lock = asyncio.Lock()
         self._cancel_code = "disconnect"
 
+    def observe_body_clock(self, message: Mapping[str, object]) -> None:
+        if COMMAND_DEADLINE_FEATURE not in self.features:
+            return
+        value = message.get("clock_ms")
+        if type(value) is int and (self.body_clock_ms is None or value >= self.body_clock_ms):
+            self.body_clock_ms = value
+            self.body_clock_received_at = self.service.clock()
+
+    def _deadline(self, age_ms: float) -> int:
+        now = self.service.clock()
+        if self.body_clock_ms is None or now - self.body_clock_received_at >= 1.0:
+            raise ActionExpiredError("fresh body clock required before dispatch")
+        remaining = min(1000, math.floor(self.service.config.max_action_age_ms - age_ms)) - 5
+        if remaining <= 0:
+            raise ActionExpiredError("action validity exhausted before dispatch")
+        # Anchor to an observed body monotonic time, never advance it by a
+        # guessed network latency/clock offset. This can expire early; it cannot
+        # restart the upstream lifetime on receipt. The body checks it again.
+        return self.body_clock_ms + remaining
+
     async def send_control(self, message: Mapping[str, object]) -> None:
         validate_control_message(message)
         encoded = json.dumps(message, separators=(",", ":"))
@@ -156,11 +188,11 @@ class GatewayConnection:
         command: Mapping[str, object],
         *,
         received_at: float,
-        on_sequence: Callable[[int], None] | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         async with self._send_lock:
             age_ms = (self.service.clock() - received_at) * 1000.0
-            if age_ms > self.service.config.max_action_age_ms:
+            if not math.isfinite(age_ms) or age_ms < 0 or age_ms > self.service.config.max_action_age_ms:
                 raise ActionExpiredError("action expired before sequence assignment")
             if self.websocket.closed:
                 raise RobotOfflineError(f"robot {self.robot_id} is offline")
@@ -168,9 +200,21 @@ class GatewayConnection:
                 await self.websocket.close(code=1002, reason="sequence exhausted")
                 raise GatewayError("session sequence space exhausted")
 
+            message = dict(command)
+            supported = body_commands(self.model, self.features, self.capabilities)
+            movement = movement_command(message)
+            if movement is not None and not body_command_available(movement, supported):
+                raise GatewayError(f"{movement} is unavailable on body {self.robot_id} ({self.model})")
+            if self.model != "v1-8servo" and message.get("t") in {"servo", "limits", "pose_save", "cal_save"}:
+                raise GatewayError("this body does not support the eight-servo calibration contract")
+            if message.get("t") == "output_test" and OUTPUT_TEST_FEATURE not in self.features:
+                raise GatewayError("body does not support output diagnostics")
+            if COMMAND_DEADLINE_FEATURE in self.features:
+                message["epoch"] = self.epoch
+                if message.get("t") != "stop":
+                    message["deadline_ms"] = self._deadline(age_ms)
             sequence = self.next_sequence
             self.next_sequence += 1
-            message = dict(command)
             message["seq"] = sequence
             validate_control_message(message)
             future: asyncio.Future[dict[str, object]] = (
@@ -186,9 +230,9 @@ class GatewayConnection:
                 acknowledgement=acknowledgement,
             )
             try:
-                if on_sequence is not None:
-                    on_sequence(sequence)
-                await self.websocket.send(json.dumps(message, separators=(",", ":")))
+                guard = on_sequence(sequence) if on_sequence is not None else None
+                async with guard if guard is not None else nullcontext():
+                    await asyncio.wait_for(self.websocket.send(json.dumps(message, separators=(",", ":"))), timeout=5.0)
             except Exception:
                 self.pending.pop(sequence, None)
                 raise
@@ -277,6 +321,8 @@ class GatewayConnection:
             self.last_control_at = self.service.clock()
             self.control_frames_received += 1
             self.last_control_type = str(message.get("t"))
+            if message.get("t") in {"ping", "pong"}:
+                self.observe_body_clock(message)
             await self._handle_control(message)
 
     async def _handle_binary(self, raw: bytes) -> None:
@@ -357,6 +403,13 @@ class GatewayConnection:
         while len(self.completed) > 256:
             del self.completed[next(iter(self.completed))]
         self.service._record_terminal(self, sequence, result)
+        if pending.command.get("t") == "stop" and result.get("t") in {"ack", "done"}:
+            # A confirmed stop ends earlier asynchronous commands even when
+            # their individual cancellation acknowledgements were lost. Keep
+            # commands admitted after the stop and ACK-only controls intact.
+            for earlier, command in tuple(self.pending.items()):
+                if earlier < sequence and command.needs_done:
+                    self._finish_pending(earlier, {"t": "cancelled", "seq": earlier, "code": "stop"})
 
     async def wait_acknowledged(
         self,
@@ -390,7 +443,7 @@ class GatewayConnection:
         self,
         sequence: int,
         *,
-        timeout: float,
+        timeout: float | None,
     ) -> dict[str, object]:
         completed = self.completed.get(sequence)
         if completed is not None:
@@ -432,6 +485,7 @@ class GatewayService:
             monotonic_clock=clock or monotonic
         )
         self.clock = self.clock_source.monotonic
+        self.instance_id = uuid4().hex
         self._tokens = dict(config.tokens)
         self._connections: dict[str, GatewayConnection] = {}
         self._epochs: dict[str, int] = {}
@@ -482,7 +536,10 @@ class GatewayService:
                 epoch,
                 features,
                 transport,
+                str(hello["model"]) if BODY_CAPABILITIES_FEATURE in features else "v1-8servo",
+                hello.get("capabilities") if BODY_CAPABILITIES_FEATURE in features else None,
             )
+            connection.observe_body_clock(hello)
             self._connections[robot_id] = connection
         if previous is not None:
             await previous.close(4000, "new authenticated connection", cancel_code="reconnect")
@@ -493,6 +550,7 @@ class GatewayService:
                 "ver": PROTOCOL_VERSION,
                 "epoch": epoch,
                 "profile": self.config.profile,
+                **({COMMAND_DEADLINE_FEATURE: True} if COMMAND_DEADLINE_FEATURE in features else {}),
             }
         )
         await self._publish_event(
@@ -544,7 +602,7 @@ class GatewayService:
         *,
         robot_id: str | None = None,
         received_at: float | None = None,
-        on_sequence: Callable[[int], None] | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         command: dict[str, object] = {"t": "intent", "name": name}
         if params:
@@ -577,7 +635,7 @@ class GatewayService:
         end: str,
         robot_id: str | None = None,
         received_at: float | None = None,
-        on_sequence: Callable[[int], None] | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         if MOTION_PLAN_FEATURE not in connection.features:
@@ -601,6 +659,7 @@ class GatewayService:
         robot_id: str | None = None,
         received_at: float | None = None,
         detach: bool = False,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         command: dict[str, object] = {"t": "stop"}
         if detach:
@@ -609,6 +668,7 @@ class GatewayService:
             command,
             robot_id=robot_id,
             received_at=received_at,
+            on_sequence=on_sequence,
         )
 
     async def set_profile(self, profile: str, *, robot_id: str | None = None) -> int:
@@ -633,7 +693,7 @@ class GatewayService:
         self,
         *,
         robot_id: str | None = None,
-        on_sequence: Callable[[int], None] | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         return await self._send(
             {"t": "snap"},
@@ -717,6 +777,16 @@ class GatewayService:
             robot_id=robot_id,
         )
 
+    async def test_outputs(
+        self, *, operation: str, channel: int = 0, pulse_us: int = 1500,
+        duration_ms: int = 100, fault: str = "none", robot_id: str | None = None,
+    ) -> int:
+        """Bench-only, feature-negotiated command; the body owns every output gate."""
+        command: dict[str, object] = {"t": "output_test", "op": operation}
+        if operation == "run":
+            command.update(channel=channel, pulse_us=pulse_us, ms=duration_ms, fault=fault)
+        return await self._send(command, robot_id=robot_id)
+
     async def set_servo_limits(
         self,
         servo_id: int,
@@ -772,9 +842,17 @@ class GatewayService:
         sequence: int,
         *,
         robot_id: str | None = None,
-        timeout: float = 5.0,
+        epoch: int | None = None,
+        timeout: float | None = 5.0,
     ) -> dict[str, object]:
-        return await self._connection(robot_id).wait_terminal(sequence, timeout=timeout)
+        if epoch is not None:
+            for receipt in reversed(self.terminals):
+                if receipt["robot_id"] == robot_id and receipt["epoch"] == epoch and receipt["seq"] == sequence:
+                    return dict(receipt["result"])
+        connection = self._connection(robot_id)
+        if epoch is not None and connection.epoch != epoch:
+            raise GatewayError(f"command belongs to ended robot session {epoch}, not {connection.epoch}")
+        return await connection.wait_terminal(sequence, timeout=timeout)
 
     async def revoke_token(self, robot_id: str) -> None:
         self._tokens.pop(robot_id, None)
@@ -822,6 +900,9 @@ class GatewayService:
                     "profile": connection.profile,
                     "transport": connection.transport,
                     "features": list(connection.features),
+                    "model": connection.model,
+                    "capabilities": connection.capabilities,
+                    "robot_commands": body_commands(connection.model, connection.features, connection.capabilities),
                     "effective_caps": _profile_caps(connection.profile),
                     "pending": sum(
                         not command.future.done() for command in connection.pending.values()
@@ -862,7 +943,7 @@ class GatewayService:
         *,
         robot_id: str | None,
         received_at: float | None = None,
-        on_sequence: Callable[[int], None] | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         return await connection.send_command(
@@ -931,6 +1012,7 @@ def _command_needs_done(command: Mapping[str, object]) -> bool:
     message_type = command.get("t")
     return (
         message_type in {"intent", "motion_plan", "snap"}
+        or (message_type == "output_test" and command.get("op") == "run")
         or (message_type == "tts" and command.get("op") == "start")
         or (message_type == "state" and command.get("name") == "sleep")
     )

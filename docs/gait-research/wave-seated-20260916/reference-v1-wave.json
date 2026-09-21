@@ -1,0 +1,219 @@
+{
+  "face_cues": [
+    {
+      "frame": 0,
+      "mode": "once",
+      "name": "wave"
+    },
+    {
+      "frame": 13,
+      "mode": "once",
+      "name": "stand"
+    }
+  ],
+  "frames": [
+    {
+      "duration_ms": 360,
+      "targets": [
+        [
+          0,
+          135.0
+        ],
+        [
+          1,
+          45.0
+        ],
+        [
+          2,
+          45.0
+        ],
+        [
+          3,
+          135.0
+        ],
+        [
+          4,
+          0.0
+        ],
+        [
+          5,
+          180.0
+        ],
+        [
+          6,
+          0.0
+        ],
+        [
+          7,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 120,
+      "targets": [
+        [
+          4,
+          80.0
+        ],
+        [
+          3,
+          90.0
+        ],
+        [
+          0,
+          100.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 500,
+      "targets": [
+        [
+          4,
+          80.0
+        ],
+        [
+          3,
+          90.0
+        ],
+        [
+          0,
+          100.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 220,
+      "targets": [
+        [
+          6,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          100.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          100.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          100.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          180.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 320,
+      "targets": [
+        [
+          6,
+          100.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 160,
+      "targets": [
+        [
+          0,
+          135.0
+        ],
+        [
+          1,
+          45.0
+        ],
+        [
+          2,
+          45.0
+        ],
+        [
+          3,
+          135.0
+        ],
+        [
+          4,
+          0.0
+        ],
+        [
+          5,
+          180.0
+        ],
+        [
+          6,
+          0.0
+        ],
+        [
+          7,
+          180.0
+        ]
+      ]
+    }
+  ],
+  "joint_map_version": 1,
+  "name": "wave",
+  "repeat_count": 1,
+  "return_pose": null,
+  "sequential_servo_timing": true
+}

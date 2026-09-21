@@ -1,0 +1,95 @@
+{
+  "face_cues": [
+    {
+      "frame": 0,
+      "mode": "boomerang",
+      "name": "point"
+    },
+    {
+      "frame": 1,
+      "mode": "once",
+      "name": "stand"
+    }
+  ],
+  "frames": [
+    {
+      "duration_ms": 2160,
+      "targets": [
+        [
+          3,
+          90.0
+        ],
+        [
+          0,
+          135.0
+        ],
+        [
+          1,
+          100.0
+        ],
+        [
+          7,
+          180.0
+        ],
+        [
+          2,
+          25.0
+        ],
+        [
+          6,
+          145.0
+        ],
+        [
+          4,
+          80.0
+        ],
+        [
+          5,
+          170.0
+        ]
+      ]
+    },
+    {
+      "duration_ms": 160,
+      "targets": [
+        [
+          0,
+          135.0
+        ],
+        [
+          1,
+          45.0
+        ],
+        [
+          2,
+          45.0
+        ],
+        [
+          3,
+          135.0
+        ],
+        [
+          4,
+          0.0
+        ],
+        [
+          5,
+          180.0
+        ],
+        [
+          6,
+          0.0
+        ],
+        [
+          7,
+          180.0
+        ]
+      ]
+    }
+  ],
+  "joint_map_version": 1,
+  "name": "point",
+  "repeat_count": 1,
+  "return_pose": null,
+  "sequential_servo_timing": true
+}

@@ -1,0 +1,6 @@
+# ESP-Hosted 2.12.8 on the onboard ESP32-C6-MINI-1-N4.
+# Match the P4 packet transport. Retain upstream's Bluetooth build dependency;
+# the P4 does not initialize or advertise a Bluetooth service.
+CONFIG_ESP_SDIO_HOST_INTERFACE=y
+CONFIG_ESP_SDIO_STREAMING_MODE=n
+CONFIG_BT_ENABLED=y

@@ -1,0 +1,205 @@
+{
+  "created": "2026-09-16",
+  "source_backup": "Before-Motion-Batch.blend",
+  "saved_blend": "Ainekio-Motion-Library.blend",
+  "prior_animation_end_frame": 3085,
+  "render_fps": 24,
+  "source_sample_hz": 120,
+  "aliases": {
+    "strech": "stretch"
+  },
+  "commands": [
+    {
+      "command": "cute",
+      "label": "CUTE",
+      "start_frame": 3109,
+      "end_frame": 3433,
+      "semantic_end_frame": 3433,
+      "next_start_frame": 3457,
+      "duration_s": 13.5,
+      "review_frames": [
+        3133,
+        3262,
+        3359
+      ],
+      "source": "commands/cute/source.json",
+      "contact_model": "Grounded measured convex soles during pitched lowering and recovery. Current full-body resting plane uses the rear cover edge and forward visor contacts, with no floor penetration. All feet wave airborne after the body rests at the measured pitch. Visor contact load capacity and dynamics are unverified."
+    },
+    {
+      "command": "freaky",
+      "label": "FREAKY",
+      "start_frame": 3457,
+      "end_frame": 3690,
+      "semantic_end_frame": 3678,
+      "next_start_frame": 3714,
+      "duration_s": 9.7,
+      "review_frames": [
+        3475,
+        3561,
+        3632
+      ],
+      "source": "commands/freaky/source.json",
+      "contact_model": "Measured convex sole rolling: fixed material vertex between feature transfers. Belly support is explicit when selected; no friction or dynamics simulation."
+    },
+    {
+      "command": "worm",
+      "label": "WORM",
+      "start_frame": 3714,
+      "end_frame": 4014,
+      "semantic_end_frame": 4002,
+      "next_start_frame": 4038,
+      "duration_s": 12.5,
+      "review_frames": [
+        3732,
+        3732,
+        3858
+      ],
+      "source": "commands/worm/source.json",
+      "contact_model": "Measured convex sole rolling: fixed material vertex between feature transfers. Belly support is explicit when selected; no friction or dynamics simulation."
+    },
+    {
+      "command": "shake",
+      "label": "SHAKE",
+      "start_frame": 4038,
+      "end_frame": 4206,
+      "semantic_end_frame": 4206,
+      "next_start_frame": 4230,
+      "duration_s": 7.0,
+      "review_frames": [
+        4053,
+        4092,
+        4150
+      ],
+      "source": "commands/shake/source.json",
+      "contact_model": "Four grounded measured convex soles. Ground-fixed material vertices between discrete rolling transfers; solved outbound paths are reversed exactly. Foot yaw scrub and friction unverified."
+    },
+    {
+      "command": "shrug",
+      "label": "SHRUG",
+      "start_frame": 4230,
+      "end_frame": 4475,
+      "semantic_end_frame": 4475,
+      "next_start_frame": 4499,
+      "duration_s": 10.2,
+      "review_frames": [
+        4248,
+        4352,
+        4415
+      ],
+      "source": "commands/shrug/source.json",
+      "contact_model": "Grounded rolling soles lower body onto the current rear cover plus front visor support plane at -5.714 degrees pitch. The fixed body then carries airborne limbs. Geometric floor clearance is enforced; visor load capacity and contact friction are unverified."
+    },
+    {
+      "command": "dead",
+      "label": "DEAD",
+      "start_frame": 4499,
+      "end_frame": 4794,
+      "semantic_end_frame": 4677,
+      "next_start_frame": 4818,
+      "duration_s": 12.3,
+      "review_frames": [
+        4523,
+        4593,
+        4641
+      ],
+      "source": "commands/dead/source.json",
+      "contact_model": "Measured sole rolling during approach/recovery. During flattening and hold, the measured rear-cover edge and front visor support the body; visor contact load capacity is unverified."
+    },
+    {
+      "command": "crab",
+      "label": "CRAB",
+      "start_frame": 4818,
+      "end_frame": 5552,
+      "semantic_end_frame": 5540,
+      "next_start_frame": 5576,
+      "duration_s": 30.6,
+      "review_frames": [
+        4830,
+        5162,
+        5507
+      ],
+      "source": "commands/crab/source.json",
+      "contact_model": "Measured rolling stance soles and 5 mm airborne shuffles. Final 0.8 second settle intentionally slides four grounded contacts to restore exact standing; sliding friction unverified."
+    },
+    {
+      "command": "celebrate",
+      "label": "CELEBRATE",
+      "start_frame": 5576,
+      "end_frame": 5876,
+      "semantic_end_frame": 5876,
+      "next_start_frame": 5900,
+      "duration_s": 12.5,
+      "review_frames": [
+        5600,
+        5724,
+        5802
+      ],
+      "source": "commands/celebrate/source.json",
+      "contact_model": "Grounded measured convex soles during pitched lowering and recovery. Current full-body resting plane uses the rear cover edge and forward visor contacts, with no floor penetration. All feet wave airborne after the body rests at the measured pitch. Visor contact load capacity and dynamics are unverified."
+    },
+    {
+      "command": "stretch",
+      "label": "STRETCH",
+      "start_frame": 5900,
+      "end_frame": 6061,
+      "semantic_end_frame": 6061,
+      "next_start_frame": 6085,
+      "duration_s": 6.7,
+      "review_frames": [
+        5931,
+        5971,
+        6018
+      ],
+      "source": "commands/stretch/source.json",
+      "contact_model": "Four measured convex soles roll at fixed material vertices between feature transfers. Prescribed front slides are explicitly labelled; physical friction is unverified."
+    },
+    {
+      "command": "surprised",
+      "label": "SURPRISED",
+      "start_frame": 6085,
+      "end_frame": 6372,
+      "semantic_end_frame": 6372,
+      "next_start_frame": 6396,
+      "duration_s": 11.95,
+      "review_frames": [
+        6103,
+        6221,
+        6312
+      ],
+      "source": "commands/surprised/source.json",
+      "contact_model": "Grounded rolling soles lower body onto the current rear cover plus front visor support plane at -5.714 degrees pitch. The fixed body then carries airborne limbs. Geometric floor clearance is enforced; visor load capacity and contact friction are unverified."
+    },
+    {
+      "command": "sad",
+      "label": "SAD",
+      "start_frame": 6396,
+      "end_frame": 6607,
+      "semantic_end_frame": 6607,
+      "next_start_frame": 6631,
+      "duration_s": 8.8,
+      "review_frames": [
+        6406,
+        6484,
+        6564
+      ],
+      "source": "commands/sad/source.json",
+      "contact_model": "Four measured convex soles roll at fixed material vertices between feature transfers. Prescribed front slides are explicitly labelled; physical friction is unverified."
+    },
+    {
+      "command": "curious",
+      "label": "CURIOUS",
+      "start_frame": 6631,
+      "end_frame": 6865,
+      "semantic_end_frame": 6865,
+      "next_start_frame": 6889,
+      "duration_s": 9.75,
+      "review_frames": [
+        6643,
+        6727,
+        6802
+      ],
+      "source": "commands/curious/source.json",
+      "contact_model": "Four grounded measured convex soles. Ground-fixed material vertices between rolling transfers while body scans in yaw. Point contact permits yaw rotation; physical torsional friction is unverified."
+    }
+  ]
+}

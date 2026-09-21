@@ -1,0 +1,911 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "swim",
+  "gait_id": "swim_fourbar_20260916",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "swim"
+  },
+  "shared_policy": "execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/swim-20260916/source.json",
+      "sha256": "609d3965e5e67a8acd40119619e852d932dfff13677fafd0999f5f2cf5494913"
+    },
+    {
+      "path": "docs/gait-research/swim-20260916/manifest.json",
+      "sha256": "ee120bbea8b24d5fc651bad6b0d84cb2d789c2a9acd8cc4324b581df676f96c8"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_lower_onto_belly",
+      "name": "lower_onto_belly",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        2.5
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        300
+      ],
+      "demonstration_duration_s": 2.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "belly_and_feet",
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6140004044471193,
+        0.46982699017988727,
+        0.0,
+        0.614000404447118,
+        0.469827034814886,
+        0.0,
+        0.6140003947837507,
+        0.4698274461120911,
+        0.0,
+        0.6140003947837507,
+        0.4698274461120911
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.9476040962893945,
+        0.862437697828544,
+        0.0,
+        0.9476040963865605,
+        0.8624377893885007,
+        0.0,
+        0.9476038045832533,
+        0.8624381095018632,
+        0.0,
+        0.9476038045832533,
+        0.8624381095018632
+      ]
+    },
+    {
+      "id": "p001_raise_shoulders_to_90",
+      "name": "raise_shoulders_to_90",
+      "section": "clip",
+      "source_interval_s": [
+        2.5,
+        4.0
+      ],
+      "source_sample_indices_inclusive": [
+        300,
+        480
+      ],
+      "demonstration_duration_s": 1.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "belly",
+        "belly_and_feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "reference_peak_speed_rad_s": [
+        1.9634954244529184,
+        0.0,
+        0.0,
+        1.9634954244529184,
+        0.0,
+        0.0,
+        1.9634954244529184,
+        0.0,
+        0.0,
+        1.9634954244529184,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.264461148510228,
+        0.0,
+        0.0,
+        4.264461148510228,
+        0.0,
+        0.0,
+        4.264461148510228,
+        0.0,
+        0.0,
+        4.264461148510228,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p002_set_paddle_pose",
+      "name": "set_paddle_pose",
+      "section": "clip",
+      "source_interval_s": [
+        4.0,
+        5.0
+      ],
+      "source_sample_indices_inclusive": [
+        480,
+        600
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "belly"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        1.587591580107311,
+        2.5627130435932126,
+        0.0,
+        1.5875915801073024,
+        2.5627131478348257,
+        0.0,
+        2.323902268964923,
+        1.5809665617428763,
+        0.0,
+        2.323902268964923,
+        1.5809665617428763
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        5.31402214916884,
+        8.577970585293357,
+        0.0,
+        5.3140221491807065,
+        8.577970934219092,
+        0.0,
+        7.7786178035601,
+        5.291846739092972,
+        0.0,
+        7.7786178035601,
+        5.291846739092972
+      ]
+    },
+    {
+      "id": "p003_ease_into_continuous_strokes",
+      "name": "ease_into_continuous_strokes",
+      "section": "clip",
+      "source_interval_s": [
+        5.0,
+        5.8
+      ],
+      "source_sample_indices_inclusive": [
+        600,
+        696
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "belly"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6772113200119705,
+        0.8148566673446771,
+        0.0,
+        0.6772113200119705,
+        0.8148566673446771,
+        0.0,
+        0.6111425005085113,
+        0.9029484266826232,
+        0.0,
+        0.6111425005085113,
+        0.9029484266826232
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.9841889896022977,
+        2.446704326826548,
+        0.0,
+        1.9841889896022977,
+        2.446704326826548,
+        0.0,
+        1.8350282451205542,
+        2.6455853194778007,
+        0.0,
+        1.8350282451205542,
+        2.6455853194778007
+      ]
+    },
+    {
+      "id": "p004_continuous_breaststroke",
+      "name": "continuous_breaststroke",
+      "section": "clip",
+      "source_interval_s": [
+        5.8,
+        17.0
+      ],
+      "source_sample_indices_inclusive": [
+        696,
+        2040
+      ],
+      "demonstration_duration_s": 11.2,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "belly"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.8224670372406099,
+        1.0966227163208078,
+        0.0,
+        0.8224670372406099,
+        1.0966227163208078,
+        0.0,
+        0.8224670372406102,
+        1.0966227163206492,
+        0.0,
+        0.8224670372406102,
+        1.0966227163206492
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        3.875391084671612,
+        5.1671881128830535,
+        0.0,
+        3.875391084671612,
+        5.1671881128830535,
+        0.0,
+        3.875391084671612,
+        5.1671881128849835,
+        0.0,
+        3.875391084671612,
+        5.1671881128849835
+      ]
+    },
+    {
+      "id": "p005_ease_out_of_continuous_strokes",
+      "name": "ease_out_of_continuous_strokes",
+      "section": "clip",
+      "source_interval_s": [
+        17.0,
+        17.8
+      ],
+      "source_sample_indices_inclusive": [
+        2040,
+        2136
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "belly"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6772113200121019,
+        0.8148566673447233,
+        0.0,
+        0.6772113200121019,
+        0.8148566673447233,
+        0.0,
+        0.6111425005084755,
+        0.9029484266825537,
+        0.0,
+        0.6111425005084755,
+        0.9029484266825537
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.984188989651043,
+        2.446704326751783,
+        0.0,
+        1.984188989651043,
+        2.446704326751783,
+        0.0,
+        1.8350282451254685,
+        2.645585319562433,
+        0.0,
+        1.8350282451254685,
+        2.645585319562433
+      ]
+    },
+    {
+      "id": "p006_fold_for_touchdown",
+      "name": "fold_for_touchdown",
+      "section": "clip",
+      "source_interval_s": [
+        17.8,
+        18.8
+      ],
+      "source_sample_indices_inclusive": [
+        2136,
+        2256
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "belly"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        1.5875915801072986,
+        2.5627130435932086,
+        0.0,
+        1.587591580107313,
+        2.562713147834827,
+        0.0,
+        2.323902268964929,
+        1.580966561742876,
+        0.0,
+        2.323902268964929,
+        1.580966561742876
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        5.314022149170783,
+        8.577970585298006,
+        0.0,
+        5.314022149172307,
+        8.577970934211358,
+        0.0,
+        7.778617803549318,
+        5.291846739093811,
+        0.0,
+        7.778617803549318,
+        5.291846739093811
+      ]
+    },
+    {
+      "id": "p007_replace_all_feet",
+      "name": "replace_all_feet",
+      "section": "clip",
+      "source_interval_s": [
+        18.8,
+        20.3
+      ],
+      "source_sample_indices_inclusive": [
+        2256,
+        2436
+      ],
+      "demonstration_duration_s": 1.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "belly",
+        "belly_and_feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "reference_peak_speed_rad_s": [
+        1.9634954244529184,
+        0.0,
+        0.0,
+        1.9634954244529184,
+        0.0,
+        0.0,
+        1.9634954244529184,
+        0.0,
+        0.0,
+        1.9634954244529184,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.264461148510876,
+        0.0,
+        0.0,
+        4.264461148510876,
+        0.0,
+        0.0,
+        4.264461148510876,
+        0.0,
+        0.0,
+        4.264461148510876,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p008_return_to_standing",
+      "name": "return_to_standing",
+      "section": "clip",
+      "source_interval_s": [
+        20.3,
+        22.8
+      ],
+      "source_sample_indices_inclusive": [
+        2436,
+        2736
+      ],
+      "demonstration_duration_s": 2.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "belly_and_feet",
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6140004044471193,
+        0.46982699017988727,
+        0.0,
+        0.6140004044471179,
+        0.469827034814886,
+        0.0,
+        0.6140003947837507,
+        0.4698274461120911,
+        0.0,
+        0.6140003947837507,
+        0.4698274461120911
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.9476040962893564,
+        0.8624376978285534,
+        0.0,
+        0.9476040963865129,
+        0.8624377893884816,
+        0.0,
+        0.9476038045832438,
+        0.8624381095019108,
+        0.0,
+        0.9476038045832438,
+        0.8624381095019108
+      ]
+    },
+    {
+      "id": "p009_hold_standing",
+      "name": "hold_standing",
+      "section": "clip",
+      "source_interval_s": [
+        22.8,
+        23.5
+      ],
+      "source_sample_indices_inclusive": [
+        2736,
+        2820
+      ],
+      "demonstration_duration_s": 0.7,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 2.5,
+      "sample_index": 300,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "belly_and_feet"
+    },
+    {
+      "source_time_s": 2.5083333333333333,
+      "sample_index": 301,
+      "active": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "body_contact_active": true,
+      "support_source": "belly"
+    },
+    {
+      "source_time_s": 20.3,
+      "sample_index": 2436,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "belly_and_feet"
+    },
+    {
+      "source_time_s": 20.308333333333334,
+      "sample_index": 2437,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_lower_onto_belly": 2.5,
+        "p001_raise_shoulders_to_90": 1.5,
+        "p002_set_paddle_pose": 1.0,
+        "p003_ease_into_continuous_strokes": 0.8,
+        "p004_continuous_breaststroke": 11.2,
+        "p005_ease_out_of_continuous_strokes": 0.8,
+        "p006_fold_for_touchdown": 1.0,
+        "p007_replace_all_feet": 1.5,
+        "p008_return_to_standing": 2.5,
+        "p009_hold_standing": 0.7
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_lower_onto_belly": 2.5,
+        "p001_raise_shoulders_to_90": 1.5,
+        "p002_set_paddle_pose": 1.0,
+        "p003_ease_into_continuous_strokes": 0.8,
+        "p004_continuous_breaststroke": 11.2,
+        "p005_ease_out_of_continuous_strokes": 0.8,
+        "p006_fold_for_touchdown": 1.0,
+        "p007_replace_all_feet": 1.5,
+        "p008_return_to_standing": 2.5,
+        "p009_hold_standing": 0.7
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_lower_onto_belly": null,
+        "p001_raise_shoulders_to_90": null,
+        "p002_set_paddle_pose": null,
+        "p003_ease_into_continuous_strokes": null,
+        "p004_continuous_breaststroke": null,
+        "p005_ease_out_of_continuous_strokes": null,
+        "p006_fold_for_touchdown": null,
+        "p007_replace_all_feet": null,
+        "p008_return_to_standing": null,
+        "p009_hold_standing": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "swim",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 22.8,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Replace all four soles while the belly remains supported, reverse the lowering motion to exact standing, and hold; restore the stand face.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "minimum_assumed_support_margin_mm": 39.11558723449706
+  },
+  "body_support_required_during_paddling": true,
+  "interruption_note": "While feet are airborne, retain belly support, stop the coordinated paddle, fold and replace feet before any stand transition; never seek to the last row.",
+  "hardware_ready": false
+}

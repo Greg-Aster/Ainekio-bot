@@ -1,0 +1,120 @@
+{
+  "command": "wave",
+  "columns": [
+    "time_s",
+    "time_us",
+    "phase",
+    "body_x_mm",
+    "body_y_mm",
+    "body_z_mm",
+    "body_qw",
+    "body_qx",
+    "body_qy",
+    "body_qz",
+    "assumed_com_x_mm",
+    "assumed_com_y_mm",
+    "assumed_com_z_mm",
+    "support_margin_mm",
+    "body_ground_clearance_mm",
+    "FL_h002_rad",
+    "FL_alpha006_rad",
+    "FL_theta005_rad",
+    "FL_foot_bolt_x_mm",
+    "FL_foot_bolt_y_mm",
+    "FL_foot_bolt_z_mm",
+    "FL_sole_contact_x_mm",
+    "FL_sole_contact_y_mm",
+    "FL_sole_contact_z_mm",
+    "FL_contact_active",
+    "FL_sole_clearance_mm",
+    "FR_h002_rad",
+    "FR_alpha006_rad",
+    "FR_theta005_rad",
+    "FR_foot_bolt_x_mm",
+    "FR_foot_bolt_y_mm",
+    "FR_foot_bolt_z_mm",
+    "FR_sole_contact_x_mm",
+    "FR_sole_contact_y_mm",
+    "FR_sole_contact_z_mm",
+    "FR_contact_active",
+    "FR_sole_clearance_mm",
+    "RL_h002_rad",
+    "RL_alpha006_rad",
+    "RL_theta005_rad",
+    "RL_foot_bolt_x_mm",
+    "RL_foot_bolt_y_mm",
+    "RL_foot_bolt_z_mm",
+    "RL_sole_contact_x_mm",
+    "RL_sole_contact_y_mm",
+    "RL_sole_contact_z_mm",
+    "RL_contact_active",
+    "RL_sole_clearance_mm",
+    "RR_h002_rad",
+    "RR_alpha006_rad",
+    "RR_theta005_rad",
+    "RR_foot_bolt_x_mm",
+    "RR_foot_bolt_y_mm",
+    "RR_foot_bolt_z_mm",
+    "RR_sole_contact_x_mm",
+    "RR_sole_contact_y_mm",
+    "RR_sole_contact_z_mm",
+    "RR_contact_active",
+    "RR_sole_clearance_mm"
+  ],
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_mapping": {
+    "FL": "rear_left",
+    "FR": "rear_right",
+    "RL": "front_left",
+    "RR": "front_right"
+  },
+  "sample_hz": 120,
+  "units": {
+    "positions": "mm",
+    "actuator_angles": "radians",
+    "time": "seconds; time_us rounded integer microseconds"
+  },
+  "coordinates": "World X physical forward, Y left, Z up. Quaternion wxyz. Negative pitch about body Y raises the front.",
+  "joint_zero": "Corrected CAD neutral; Part005 re-clocking already included.",
+  "positive_axes": {
+    "h002": "CAD +X / body +X",
+    "alpha006": "CAD +Z / body +Y",
+    "theta005": "CAD +Z / body +Y"
+  },
+  "interpolation": "Monotone cubic Hermite; harmonic same-sign secant tangents, zero endpoint tangents. Hold final position after duration.",
+  "contact_model": "Reuse the measured Sit contact path. While seated, three soles remain fixed; the extended front-left foot is airborne. Retrace the same arm and Sit paths to return.",
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "servo_calibration": null,
+  "shoulder_behavior": "Seated front-left h002 waves between +65 and +95 degrees while alpha006 and theta005 hold their configured wave pose."
+}

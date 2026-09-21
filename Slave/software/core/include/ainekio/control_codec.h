@@ -37,6 +37,7 @@ typedef enum {
     AINEKIO_MESSAGE_EVENT,
     AINEKIO_MESSAGE_CAMERA_META,
     AINEKIO_MESSAGE_PONG,
+    AINEKIO_MESSAGE_OUTPUT_TEST,
 } ainekio_message_kind_t;
 
 typedef enum {
@@ -61,11 +62,16 @@ typedef struct {
     bool has_sequence;
     bool has_command;
     uint32_t sequence;
+    bool has_epoch;
+    uint32_t epoch;
+    bool has_deadline;
+    uint64_t deadline_ms;
     ainekio_command_t command;
     union {
         struct {
             uint32_t epoch;
             ainekio_profile_t profile;
+            bool deadline_supported;
         } welcome;
         ainekio_session_error_t session_error;
     } data;
@@ -76,6 +82,9 @@ ainekio_decode_result_t ainekio_control_decode(
     size_t length,
     ainekio_control_message_t *message
 );
+/* The board diagnostic extension is opt-in; V1 never decodes output tests. */
+ainekio_decode_result_t ainekio_control_decode_with_output_tests(
+    const char *json, size_t length, ainekio_control_message_t *message);
 const char *ainekio_decode_result_name(ainekio_decode_result_t result);
 
 #endif

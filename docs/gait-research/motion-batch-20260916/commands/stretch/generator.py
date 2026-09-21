@@ -1,0 +1,8 @@
+"""V1 Stretch adaptation: rear brace, front reach, deeper pulse, release."""
+import json
+from motion_core import *
+def generate(settings=None):
+ cfg=configuration('stretch','V1 Stretch: brace the rear, reach both front legs forward, hold, deepen the front stretch, soften and return. V1 stages R1/L1 at 180/0, R3/L3 at 90/90 then 72/108; these electrical targets become geometric body and measured-sole targets.')
+ cfg.update(dict(ready_body_mm=[0,0,76],reach_body_mm=[-10,0,71],reach_euler_degrees=[0,11,0],reach_slide_mm=17.,deepen_body_mm=[-10,0,70],deepen_euler_degrees=[0,12,0],deepen_slide_mm=2.,brace_seconds=.8,reach_seconds=1.,deepen_seconds=.5,first_hold_seconds=.9,second_hold_seconds=.7,stand_hold_seconds=.5))
+ cfg.update(settings or {});m=Motion(cfg);a=m.pose(cfg['ready_body_mm'],[0,0,0],cfg['brace_seconds'],'brace_rear');b=m.pose(cfg['reach_body_mm'],cfg['reach_euler_degrees'],cfg['reach_seconds'],'front_legs_reach',cfg['reach_slide_mm']);m.hold(cfg['first_hold_seconds'],'hold_front_stretch');c=m.pose(cfg['deepen_body_mm'],cfg['deepen_euler_degrees'],cfg['deepen_seconds'],'deepen_front_stretch',cfg['deepen_slide_mm']);m.hold(cfg['second_hold_seconds'],'hold_deeper_stretch');m.reverse(c,'soften_front_stretch');m.reverse(b,'withdraw_front_reach');m.reverse(a,'return_to_standing');cfg['face_cues']=[dict(time_s=0,name='stretch',mode='once',fps=1),dict(time_s=m.now,name='stand',mode='once',fps=1)];m.hold(cfg['stand_hold_seconds'],'hold_standing');return m.output()
+if __name__=='__main__':save(generate(json.loads((P/'config.json').read_text()) if (P/'config.json').exists() else None))

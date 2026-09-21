@@ -21,6 +21,7 @@ from websockets.exceptions import ConnectionClosedError
 
 class FakeGateway:
     def __init__(self) -> None:
+        self.instance_id = "fixture-gateway"
         self.calls: list[tuple[str, object]] = []
         self.transcripts: list[dict[str, object]] = []
         self.event_callbacks = []
@@ -173,7 +174,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
 
         async with websockets.serve(
@@ -223,7 +224,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         handler_errors: list[Exception] = []
 
@@ -274,7 +275,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
 
         async with websockets.serve(
@@ -304,6 +305,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                             "type": "environment.action",
                             "action": {
                                 "id": "action-1",
+                                "bodyLease": {"bodyId": "ainekio-01", "executionId": "test-execution", "generation": 1},
                                 "type": "move",
                                 "direction": "forward",
                                 "createdAt": datetime.now(timezone.utc).isoformat(),
@@ -334,7 +336,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(feedback["feedback"]["type"], "completed")
         self.assertNotEqual(accepted["feedback"]["id"], feedback["feedback"]["id"])
         self.assertEqual(observation["type"], "environment.observation")
-        self.assertEqual(adapter._pending_feedback, {})
+        self.assertFalse(any(item["type"] == "environment.feedback" for item in adapter.receipts.pending()))
 
     def test_translation_emits_only_bounded_semantic_commands(self) -> None:
         snapshot = translate_environment_action({"type": "captureImage"})
@@ -411,7 +413,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = SnapshotGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -475,7 +477,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = SnapshotGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(
+            EnvironmentAdapterConfig(receipt_path=":memory:",
                 token="adapter-secret",
             ),
         )
@@ -526,7 +528,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(
+            EnvironmentAdapterConfig(receipt_path=":memory:",
                 token="adapter-secret",
                 robot_id="test-body",
                 freestyle_enabled=True,
@@ -579,7 +581,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(
+            EnvironmentAdapterConfig(receipt_path=":memory:",
                 token="adapter-secret",
                 robot_id="test-body",
                 freestyle_enabled=True,
@@ -617,7 +619,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret", freestyle_enabled=False),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret", freestyle_enabled=False),
             utcnow=lambda: now,
         )
         targets = [
@@ -638,39 +640,41 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.calls, [])
         self.assertNotIn("robotMotionPlan", adapter._observation()["capabilities"]["actions"])
 
-    async def test_adapter_rejects_stale_control_before_sequence_assignment(self) -> None:
+    async def test_coordinator_admitted_control_uses_local_dispatch_time_not_creation_age(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             clock=lambda: 50.0,
             utcnow=lambda: datetime(2026, 7, 14, tzinfo=timezone.utc),
         )
         result = await adapter.handle_action(
             {
                 "id": "action-1",
+                                "bodyLease": {"bodyId": "ainekio-01", "executionId": "test-execution", "generation": 1},
                 "type": "move",
                 "direction": "forward",
                 "createdAt": "2000-01-01T00:00:00Z",
             },
-            received_at=41.25,
         )
 
-        self.assertEqual(result["type"], "expired")
-        self.assertEqual(gateway.calls, [])
+        self.assertEqual(result["type"], "completed")
+        self.assertEqual([call[0] for call in gateway.calls], ["intent", "wait"])
+        self.assertEqual(gateway.calls[0][1][2]["received_at"], 50.0)
 
     async def test_fresh_control_uses_local_monotonic_receipt(self) -> None:
         gateway = FakeGateway()
         now = datetime(2026, 7, 14, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             clock=lambda: 50.0,
             utcnow=lambda: now,
         )
         result = await adapter.handle_action(
             {
                 "id": "action-1",
+                                "bodyLease": {"bodyId": "ainekio-01", "executionId": "test-execution", "generation": 1},
                 "type": "move",
                 "direction": "forward",
                 "createdAt": now.isoformat(),
@@ -686,7 +690,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
 
         result = await adapter.handle_action(
@@ -703,7 +707,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = datetime.now(timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             utcnow=lambda: now,
         )
 
@@ -736,7 +740,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = datetime.now(timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             utcnow=lambda: now,
         )
 
@@ -756,7 +760,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -785,7 +789,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -805,7 +809,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -846,7 +850,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         adapter._robot_action_contexts[("test-body", 1, 7)] = {
             "actionId": "old-action",
@@ -896,7 +900,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         loop = asyncio.get_running_loop()
         for index in range(40):
@@ -927,7 +931,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             utcnow=lambda: now,
         )
         websocket = FakeWebSocket()
@@ -988,7 +992,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1063,7 +1067,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1082,7 +1086,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1113,7 +1117,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1131,7 +1135,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1167,7 +1171,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = 0.0
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             clock=lambda: now,
         )
         websocket = FakeWebSocket()
@@ -1202,7 +1206,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         now = 0.0
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
             clock=lambda: now,
         )
         websocket = BlockingWebSocket()
@@ -1233,7 +1237,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(
+            EnvironmentAdapterConfig(receipt_path=":memory:",
                 token="adapter-secret",
                 max_utterance_ms=40,
             ),
@@ -1267,7 +1271,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1282,7 +1286,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -1296,7 +1300,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
 
     def test_adapter_requires_a_bounded_secret(self) -> None:
         with self.assertRaisesRegex(ValueError, "token"):
-            EnvironmentAdapterConfig(token="")
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="")
 
 
 if __name__ == "__main__":

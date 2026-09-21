@@ -1,0 +1,19 @@
+{
+  "previous_reference": "wave_seated_fourbar_20260915",
+  "current_reference": "wave_seated_fourbar_20260916",
+  "change": {
+    "physical_leg": "front_left",
+    "cad_leg": "RL",
+    "joint": "theta_Part005",
+    "old_wave_degrees": 80.0,
+    "new_wave_degrees": 45.0,
+    "delta_degrees": -35.0
+  },
+  "other_actuator_tracks_unchanged": true,
+  "body_track_unchanged": true,
+  "forward_foot_change_mm": [
+    5.897504261015101,
+    6.612985013721769
+  ],
+  "passive_lower_link_change_degrees": -7.572002922976478
+}

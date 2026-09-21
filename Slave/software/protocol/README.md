@@ -23,6 +23,31 @@ data. Authentication values in fixtures use the literal `REDACTED-TOKEN`.
 Contract tests verify that all fixture message types remain represented by both
 the language-neutral schema and the Python validator.
 
+## Body command subsets
+
+`body_commands_v1` extends `body_capabilities_v1`: hello must include a bounded,
+unique `capabilities.commands` array of registered semantic names. It does not
+change movement envelopes, calibration formats or protocol version. For example,
+the current V2 declares `walk`, `stop`, eight `turn_left_*`/`turn_right_*` names
+(15/45/90/180), and `sit`, `rest`, `wave`, `dance`, `swim`, `point`, `nod`,
+`pushup`, `bow`, `cute`, `freaky`, `worm`, `shake`, `shrug`, `dead`, `crab`,
+`celebrate`, `stretch`, `surprised`, `sad`, `curious` with `motion=false`:
+the geometric assets are installed, but powered
+motion is unavailable. The gateway advertises
+commands to MetaHuman only when the body's motion capability is ready; emergency
+stop remains independently available to the operator.
+
+The gateway-owned semantic catalog supplies names and descriptions. A negotiated
+body selects its subset; it cannot grant itself unknown catalog entries. Legacy
+V1 without the feature retains its existing catalog, excluding the new 15° turns.
+A different model without
+an explicit command list gets no inferred V1 motion capability. Unsupported or
+unready movement is rejected before gateway dispatch, and firmware admission
+independently applies model support after session, expiry and sequence checks.
+No raw twelve-joint motion/calibration payload is introduced by this feature.
+
+## Existing lifecycle and media contracts
+
 The current protocol-v1 liveness contract sends an application control ping
 after one second without a control transmission. User-message timing is
 irrelevant: the lightweight heartbeat continues while conversation is idle.

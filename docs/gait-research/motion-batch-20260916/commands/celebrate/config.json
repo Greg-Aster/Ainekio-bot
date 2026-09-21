@@ -1,0 +1,310 @@
+{
+  "command": "celebrate",
+  "display_label": "CELEBRATE",
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 5576,
+  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Motion-Batch.blend",
+  "output_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "scene_name": "AINEKIO - Motion Library",
+  "standing_hold_seconds": 0.5,
+  "minimum_support_margin_mm": 5.0,
+  "part023_forward_limit_degrees": null,
+  "hardware_qualified": false,
+  "face_mode": "loop",
+  "face_fps": 5,
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "celebrate",
+      "mode": "loop",
+      "fps": 5
+    },
+    {
+      "time_s": 12.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "completion": "Return along solved entry paths to exact geometric standing and hold. Restore stand face.",
+  "adaptation": "V1 owner-authored cute lying pose with all four distal joints lifted, three alternating rear/front pair waves, settle, then stand. Exact mirrored lower-joint targets show rear R4/L4 together alternating with front R3/L3; the converter comment calling them diagonals is inconsistent with its numeric targets. V2 preserves the numeric rear/front-pair signature using measured rear-cover/visor body support and four-bar crank motion.",
+  "contact_model": "Grounded measured convex soles during pitched lowering and recovery. Current full-body resting plane uses the rear cover edge and forward visor contacts, with no floor penetration. All feet wave airborne after the body rests at the measured pitch. Visor contact load capacity and dynamics are unverified.",
+  "motion_kind": "belly",
+  "lower_seconds": 2.0,
+  "lift_seconds": 1.2,
+  "reach_seconds": 0.7,
+  "lying_actuator_degrees": [
+    [
+      90.0,
+      10.0,
+      -10.0
+    ],
+    [
+      -90.0,
+      10.0,
+      -10.0
+    ],
+    [
+      90.0,
+      10.0,
+      -10.0
+    ],
+    [
+      -90.0,
+      10.0,
+      -10.0
+    ]
+  ],
+  "airborne_beats": [
+    {
+      "name": "lift_all_four_distal_legs",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          10.0,
+          25.0
+        ],
+        [
+          -90.0,
+          10.0,
+          25.0
+        ],
+        [
+          90.0,
+          10.0,
+          25.0
+        ],
+        [
+          -90.0,
+          10.0,
+          25.0
+        ]
+      ]
+    },
+    {
+      "name": "cheer_rear_pair_1",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          2.0,
+          35.0
+        ],
+        [
+          -90.0,
+          2.0,
+          35.0
+        ],
+        [
+          90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          -90.0,
+          16.0,
+          -10.0
+        ]
+      ]
+    },
+    {
+      "name": "cheer_front_pair_1",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          -90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          90.0,
+          2.0,
+          35.0
+        ],
+        [
+          -90.0,
+          2.0,
+          35.0
+        ]
+      ]
+    },
+    {
+      "name": "cheer_rear_pair_2",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          2.0,
+          35.0
+        ],
+        [
+          -90.0,
+          2.0,
+          35.0
+        ],
+        [
+          90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          -90.0,
+          16.0,
+          -10.0
+        ]
+      ]
+    },
+    {
+      "name": "cheer_front_pair_2",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          -90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          90.0,
+          2.0,
+          35.0
+        ],
+        [
+          -90.0,
+          2.0,
+          35.0
+        ]
+      ]
+    },
+    {
+      "name": "cheer_rear_pair_3",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          2.0,
+          35.0
+        ],
+        [
+          -90.0,
+          2.0,
+          35.0
+        ],
+        [
+          90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          -90.0,
+          16.0,
+          -10.0
+        ]
+      ]
+    },
+    {
+      "name": "cheer_front_pair_3",
+      "seconds": 0.5,
+      "actuator_degrees": [
+        [
+          90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          -90.0,
+          16.0,
+          -10.0
+        ],
+        [
+          90.0,
+          2.0,
+          35.0
+        ],
+        [
+          -90.0,
+          2.0,
+          35.0
+        ]
+      ]
+    }
+  ],
+  "bottom_contact_geometry": "Current rear Bottom Cover edge and forward 2.25-inch visor low points",
+  "bottom_contact_provenance": "belly-cover-provenance.json",
+  "current_body_sample_provenance": "current-body-provenance.json",
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -95.0,
+      95.0
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "shoulder_bounds_basis": "Research envelope for mirrored 90-degree splay, inherited from Swim; not calibrated electrical stops or collision clearance.",
+  "target_body_height_mm": 33.537235408876796,
+  "body_rest_plane": "body-rest-plane.json",
+  "body_rest_load_caveat": "The measured nonpenetrating nose-up resting pose contacts the rear cover and forward visor. Contact load capacity, friction and physical stability remain unverified; this is a provisional kinematic body-support model.",
+  "target_body_pitch_degrees": -5.713782395383932,
+  "body_rest_contact_world_mm": [
+    [
+      -81.5663275552591,
+      -46.49998474121553,
+      0.0
+    ],
+    [
+      -81.56632807746806,
+      23.250012397761527,
+      5.219148640378535e-06
+    ],
+    [
+      -81.5663282673622,
+      46.50001239776152,
+      7.117020871305613e-06
+    ],
+    [
+      104.14252161486496,
+      5.563910467022631,
+      0.0
+    ]
+  ],
+  "existing_animation_end_frame": 5552
+}

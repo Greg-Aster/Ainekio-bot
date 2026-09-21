@@ -1,0 +1,32 @@
+{
+  "source_live_file": "/home/greggles/blender-5.0.0-linux-x64/robot-point-20260916/Ainekio-Point.blend",
+  "preserved_source": "Before-Pushup.blend",
+  "frame": 2113,
+  "body_meshes": [
+    "CRAWL | Part_003.001",
+    "CRAWL | Part_002_SG90",
+    "CRAWL | Part_004",
+    "CRAWL | Body - Right Center Mount.001",
+    "CRAWL | Body - Left Center Mount.001",
+    "CRAWL | RL - Part_002_SG90",
+    "CRAWL | RL - Part_004",
+    "CRAWL | FR - Part_002_SG90",
+    "CRAWL | FR - Part_004",
+    "CRAWL | RR - Part_002_SG90",
+    "CRAWL | RR - Part_004",
+    "CRAWL | Body - Rear End Panel - Q6A Ports",
+    "CRAWL | Body - Front End Panel - Compact",
+    "CRAWL | Radxa_Dragon_Q6A_Bottom_Slot",
+    "CRAWL | Body - Top Cover - Compact",
+    "CRAWL | Body - Bottom Cover - Compact",
+    "CRAWL | Face - 2.4 inch LCD - Waveshare reference",
+    "CRAWL | Board - Radxa Q6A",
+    "CRAWL | Board - Adafruit PCA9685",
+    "CRAWL | Board - ESP32-P4-WIFI6",
+    "CRAWL | Face - Front Carapace - 2.4 inch",
+    "CRAWL | Face - M2.5 mounting screws - reference",
+    "CRAWL | Face - OV5647 Camera - 25x24 reference"
+  ],
+  "method": "Evaluated render-visible body descendants, excluding leg controls and command face overlays; body-local coordinates.",
+  "vertices": 1350497
+}

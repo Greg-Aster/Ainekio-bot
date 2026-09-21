@@ -7,17 +7,31 @@
 - MetaHuman OS development repo: [Greg-Aster/metahuman-os](https://github.com/Greg-Aster/metahuman-os)
 - Current test body: based on the Sesame robot: [dorianborian/sesame-robot](https://github.com/dorianborian/sesame-robot)
 
+## Robot Models
+
+- **V1 / eight servos:** the existing Freenove ESP32-S3 robot, with direct
+  MCPWM servo outputs. [Wiring and hardware records](docs/v1-8servo/PINOUT_DIAGNOSTICS.md).
+- **V2 / twelve servos:** native ESP32-P4-WIFI6 bring-up with a PCA9685 driver;
+  electrical acceptance and body motion remain pending. [V2 status](docs/v2-12servo/README.md).
+
+Both models are intended to use the same gateway and Body Control interface.
+V1 remains supported alongside V2. The complete motion runtime currently implements V1;
+[Robot Models](docs/ROBOT_MODELS.md) records the separation boundaries and the
+remaining code work for V2.
+
 ## Repository Layout
 
 - `Master/` - remote brain and gateway code.
-- `Slave/hardware/` - CAD and physical-body assets.
+- `Slave/hardware/v1-8servo/` - V1 CAD and physical-body assets.
+- `Slave/hardware/v2-12servo/` - V2 CAD, source assemblies, and printable parts.
 - `Slave/software/` - portable slave-brain core, protocol, and tests.
-- `Slave/firmware/` - ESP32-S3 firmware that runs on the robot.
+- `Slave/firmware/esp32s3/` - current V1 firmware that runs on the robot.
+- `Slave/firmware/esp32p4-wifi6/` - native V2 board/network/output-disable bring-up.
 - `Emulator/` - host body emulator, Sesame visual simulator, and tests.
 - `docs/` - specifications, progress records, repository map, and the ignored
   Sesame reference clone.
 
-The physical robot entry point is
+The V1 physical robot entry point is
 `Slave/firmware/esp32s3/main/app_main.c`. See `docs/REPOSITORY_MAP.md` for the
 complete ownership map.
 

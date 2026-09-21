@@ -1,0 +1,1262 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "celebrate",
+  "gait_id": "celebrate_fourbar_20260916",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "celebrate"
+  },
+  "shared_policy": "execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/motion-batch-20260916/commands/celebrate/source.json",
+      "sha256": "13ec137da243240b9fa491e4d5dbc0e6e396ca970c6dad5a911365239e55aa44"
+    },
+    {
+      "path": "docs/gait-research/motion-batch-20260916/commands/celebrate/manifest.json",
+      "sha256": "7867c11636c55247c1e2dfa110a7a0381d14fea73012fc6fe6017aa2fe7d5e5c"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_lower_onto_belly",
+      "name": "lower_onto_belly",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        0.0,
+        2.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        240
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet",
+        "rear_cover_visor_and_feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.8412632220680195,
+        0.4757281011578639,
+        0.0,
+        0.8412632220679199,
+        0.47572814815574277,
+        0.0,
+        0.6851760382330134,
+        0.38771078738407017,
+        0.0,
+        0.6851760382331582,
+        0.38771078738407017
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.549832383659089,
+        1.0840462953023828,
+        0.0,
+        1.5498323836576604,
+        1.0840464121244584,
+        0.0,
+        1.2720609220469168,
+        0.8443434764795772,
+        0.0,
+        1.2720609220469168,
+        0.8443434764795772
+      ]
+    },
+    {
+      "id": "p001_splay_shoulders_for_lying_pose",
+      "name": "splay_shoulders_for_lying_pose",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        2.0,
+        3.2
+      ],
+      "source_sample_indices_inclusive": [
+        240,
+        384
+      ],
+      "demonstration_duration_s": 1.2000000000000002,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor",
+        "rear_cover_visor_and_feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "reference_peak_speed_rad_s": [
+        2.4543693093181043,
+        0.0,
+        0.0,
+        2.4543693093181043,
+        0.0,
+        0.0,
+        2.4543693093181043,
+        0.0,
+        0.0,
+        2.4543693093181043,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        6.754064461258952,
+        0.0,
+        0.0,
+        6.754064461258952,
+        0.0,
+        0.0,
+        6.754064461258952,
+        0.0,
+        0.0,
+        6.754064461258952,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p002_set_lying_pose",
+      "name": "set_lying_pose",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        3.2,
+        3.9000000000000004
+      ],
+      "source_sample_indices_inclusive": [
+        384,
+        468
+      ],
+      "demonstration_duration_s": 0.7000000000000002,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        2.1135209818596272,
+        0.7606506454652915,
+        0.0,
+        2.1135209818596272,
+        0.7606507668433569,
+        0.0,
+        1.545151490340671,
+        0.6104210880034028,
+        0.0,
+        1.545151490340671,
+        0.6104210880034028
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        10.456824010684217,
+        3.7633834731250078,
+        0.0,
+        10.456824010675074,
+        3.763384073659718,
+        0.0,
+        7.644767827250869,
+        3.020110017568202,
+        0.0,
+        7.644767827250869,
+        3.020110017568202
+      ]
+    },
+    {
+      "id": "p003_lift_all_four_distal_legs",
+      "name": "lift_all_four_distal_legs",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        3.9,
+        4.4
+      ],
+      "source_sample_indices_inclusive": [
+        468,
+        528
+      ],
+      "demonstration_duration_s": 0.5000000000000004,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        2,
+        5,
+        8,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        7.143154683921678e-15,
+        2.2907461501466315,
+        0.0,
+        7.143154683921678e-15,
+        2.2907461501466315,
+        0.0,
+        7.143154683921678e-15,
+        2.290746150146635,
+        0.0,
+        7.143154683921678e-15,
+        2.290746150146635
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        3.4287142482824054e-12,
+        16.57501530606974,
+        0.0,
+        3.4287142482824054e-12,
+        16.57501530606974,
+        0.0,
+        3.4287142482824054e-12,
+        16.57501530606974,
+        0.0,
+        3.4287142482824054e-12,
+        16.57501530606974
+      ]
+    },
+    {
+      "id": "p004_cheer_rear_pair_1",
+      "name": "cheer_rear_pair_1",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        4.4,
+        4.9
+      ],
+      "source_sample_indices_inclusive": [
+        528,
+        588
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.5235991200335168,
+        0.654498900041891,
+        0.0,
+        0.5235991200335168,
+        0.654498900041891,
+        0.0,
+        0.3926993400251322,
+        2.2907461501466315,
+        0.0,
+        0.3926993400251322,
+        2.2907461501466315
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        3.7885749271019535,
+        4.735718658875566,
+        0.0,
+        3.7885749271019535,
+        4.735718658875566,
+        0.0,
+        2.8414311953279032,
+        16.57501530607294,
+        0.0,
+        2.8414311953279032,
+        16.57501530607294
+      ]
+    },
+    {
+      "id": "p005_cheer_front_pair_1",
+      "name": "cheer_front_pair_1",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        4.9,
+        5.4
+      ],
+      "source_sample_indices_inclusive": [
+        588,
+        648
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497
+      ]
+    },
+    {
+      "id": "p006_cheer_rear_pair_2",
+      "name": "cheer_rear_pair_2",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        5.4,
+        5.9
+      ],
+      "source_sample_indices_inclusive": [
+        648,
+        708
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.630006122434019,
+        21.310733964952462
+      ]
+    },
+    {
+      "id": "p007_cheer_front_pair_2",
+      "name": "cheer_front_pair_2",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        5.9,
+        6.4
+      ],
+      "source_sample_indices_inclusive": [
+        708,
+        768
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497
+      ]
+    },
+    {
+      "id": "p008_cheer_rear_pair_3",
+      "name": "cheer_rear_pair_3",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        6.4,
+        6.9
+      ],
+      "source_sample_indices_inclusive": [
+        768,
+        828
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.630006122434019,
+        21.310733964952462
+      ]
+    },
+    {
+      "id": "p009_cheer_front_pair_3",
+      "name": "cheer_front_pair_3",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        6.9,
+        7.4
+      ],
+      "source_sample_indices_inclusive": [
+        828,
+        888
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586497,
+        2.9452450501885195,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521,
+        0.0,
+        0.9162984600586559,
+        2.945245050188521
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.630006122434019,
+        21.310733964952462,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497,
+        0.0,
+        6.6300061224310864,
+        21.310733964952497
+      ]
+    },
+    {
+      "id": "p010_settle_lying_pose",
+      "name": "settle_lying_pose",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        7.4,
+        8.1
+      ],
+      "source_sample_indices_inclusive": [
+        888,
+        972
+      ],
+      "demonstration_duration_s": 0.6999999999999993,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        4,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.2804993921242954,
+        7.143154683921678e-15,
+        0.0,
+        0.2804993921242954,
+        7.143154683921678e-15,
+        0.0,
+        0.3739991894990649,
+        2.103745440932236,
+        0.0,
+        0.3739991894990649,
+        2.103745440932236
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.3877944925650012,
+        3.4287142482824054e-12,
+        0.0,
+        1.3877944925650012,
+        3.4287142482824054e-12,
+        0.0,
+        1.8503926567541698,
+        10.408458694246312,
+        0.0,
+        1.8503926567541698,
+        10.408458694246312
+      ]
+    },
+    {
+      "id": "p011_fold_legs_for_touchdown",
+      "name": "fold_legs_for_touchdown",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        8.1,
+        8.799999999999999
+      ],
+      "source_sample_indices_inclusive": [
+        972,
+        1056
+      ],
+      "demonstration_duration_s": 0.6999999999999993,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        2.113520981859627,
+        0.7606506454652914,
+        0.0,
+        2.113520981859627,
+        0.7606507668433566,
+        0.0,
+        1.545151490340671,
+        0.6104210880034028,
+        0.0,
+        1.545151490340671,
+        0.6104210880034028
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        10.456824010684217,
+        3.7633834731250366,
+        0.0,
+        10.45682401067496,
+        3.763384073659746,
+        0.0,
+        7.644767827250811,
+        3.020110017568202,
+        0.0,
+        7.644767827250811,
+        3.020110017568202
+      ]
+    },
+    {
+      "id": "p012_replace_all_feet",
+      "name": "replace_all_feet",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        8.8,
+        10.0
+      ],
+      "source_sample_indices_inclusive": [
+        1056,
+        1200
+      ],
+      "demonstration_duration_s": 1.1999999999999993,
+      "supporting_legs_throughout": [],
+      "contact_states": [
+        [
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "rear_cover_and_visor",
+        "rear_cover_visor_and_feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "reference_peak_speed_rad_s": [
+        2.4543693093181043,
+        0.0,
+        0.0,
+        2.4543693093181043,
+        0.0,
+        0.0,
+        2.4543693093181043,
+        0.0,
+        0.0,
+        2.4543693093181043,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        6.754064461259103,
+        0.0,
+        0.0,
+        6.754064461259103,
+        0.0,
+        0.0,
+        6.754064461259103,
+        0.0,
+        0.0,
+        6.754064461259103,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p013_return_to_standing",
+      "name": "return_to_standing",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        10.0,
+        12.0
+      ],
+      "source_sample_indices_inclusive": [
+        1200,
+        1440
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet",
+        "rear_cover_visor_and_feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.8412632220680194,
+        0.475728101157864,
+        0.0,
+        0.8412632220679198,
+        0.47572814815574277,
+        0.0,
+        0.6851760382330134,
+        0.38771078738407017,
+        0.0,
+        0.6851760382331585,
+        0.38771078738407017
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.5498323836590797,
+        1.0840462953023733,
+        0.0,
+        1.549832383657632,
+        1.0840464121244489,
+        0.0,
+        1.2720609220469457,
+        0.8443434764795963,
+        0.0,
+        1.2720609220469457,
+        0.8443434764795963
+      ]
+    },
+    {
+      "id": "p014_hold_standing",
+      "name": "hold_standing",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        12.0,
+        12.5
+      ],
+      "source_sample_indices_inclusive": [
+        1440,
+        1500
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_model": "Grounded measured convex soles during pitched lowering and recovery. Current full-body resting plane uses the rear cover edge and forward visor contacts, with no floor penetration. All feet wave airborne after the body rests at the measured pitch. Visor contact load capacity and dynamics are unverified.",
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 2.0,
+      "sample_index": 240,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "rear_cover_visor_and_feet"
+    },
+    {
+      "source_time_s": 2.0083333333333333,
+      "sample_index": 241,
+      "active": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "body_contact_active": true,
+      "support_source": "rear_cover_and_visor"
+    },
+    {
+      "source_time_s": 10.0,
+      "sample_index": 1200,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "rear_cover_visor_and_feet"
+    },
+    {
+      "source_time_s": 10.008333333333333,
+      "sample_index": 1201,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_lower_onto_belly": 2.0,
+        "p001_splay_shoulders_for_lying_pose": 1.2000000000000002,
+        "p002_set_lying_pose": 0.7000000000000002,
+        "p003_lift_all_four_distal_legs": 0.5000000000000004,
+        "p004_cheer_rear_pair_1": 0.5,
+        "p005_cheer_front_pair_1": 0.5,
+        "p006_cheer_rear_pair_2": 0.5,
+        "p007_cheer_front_pair_2": 0.5,
+        "p008_cheer_rear_pair_3": 0.5,
+        "p009_cheer_front_pair_3": 0.5,
+        "p010_settle_lying_pose": 0.6999999999999993,
+        "p011_fold_legs_for_touchdown": 0.6999999999999993,
+        "p012_replace_all_feet": 1.1999999999999993,
+        "p013_return_to_standing": 2.0,
+        "p014_hold_standing": 0.5
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_lower_onto_belly": 2.0,
+        "p001_splay_shoulders_for_lying_pose": 1.2000000000000002,
+        "p002_set_lying_pose": 0.7000000000000002,
+        "p003_lift_all_four_distal_legs": 0.5000000000000004,
+        "p004_cheer_rear_pair_1": 0.5,
+        "p005_cheer_front_pair_1": 0.5,
+        "p006_cheer_rear_pair_2": 0.5,
+        "p007_cheer_front_pair_2": 0.5,
+        "p008_cheer_rear_pair_3": 0.5,
+        "p009_cheer_front_pair_3": 0.5,
+        "p010_settle_lying_pose": 0.6999999999999993,
+        "p011_fold_legs_for_touchdown": 0.6999999999999993,
+        "p012_replace_all_feet": 1.1999999999999993,
+        "p013_return_to_standing": 2.0,
+        "p014_hold_standing": 0.5
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_lower_onto_belly": null,
+        "p001_splay_shoulders_for_lying_pose": null,
+        "p002_set_lying_pose": null,
+        "p003_lift_all_four_distal_legs": null,
+        "p004_cheer_rear_pair_1": null,
+        "p005_cheer_front_pair_1": null,
+        "p006_cheer_rear_pair_2": null,
+        "p007_cheer_front_pair_2": null,
+        "p008_cheer_rear_pair_3": null,
+        "p009_cheer_front_pair_3": null,
+        "p010_settle_lying_pose": null,
+        "p011_fold_legs_for_touchdown": null,
+        "p012_replace_all_feet": null,
+        "p013_return_to_standing": null,
+        "p014_hold_standing": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "celebrate",
+      "mode": "loop",
+      "fps": 5
+    },
+    {
+      "time_s": 12.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Return along solved entry paths to exact geometric standing and hold. Restore stand face.",
+    "semantic_end_s": 12.5,
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "optional_demo_recovery_end_s": null
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false
+  },
+  "body_support_required": true,
+  "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
+  "hardware_ready": false
+}

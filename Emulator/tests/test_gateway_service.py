@@ -99,12 +99,17 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             client_task = asyncio.create_task(client.run_once())
             await service.wait_connected("ainekio-test-01")
 
-            sequence = await service.queue_intent("stand")
-            terminal = await service.wait_terminal(sequence)
+            for expected_sequence, (intent, params) in enumerate(
+                (("stand", None), ("emote", {"asset": "curious"})), start=1
+            ):
+                sequence = await service.queue_intent(intent, params)
+                terminal = await service.wait_terminal(
+                    sequence, robot_id="ainekio-test-01", epoch=1, timeout=None
+                )
 
-            self.assertEqual(sequence, 1)
-            self.assertEqual(terminal, {"t": "done", "seq": 1})
-            self.assertEqual(service.terminals[-1]["epoch"], 1)
+                self.assertEqual(sequence, expected_sequence)
+                self.assertEqual(terminal, {"t": "done", "seq": sequence})
+                self.assertEqual(service.terminals[-1]["epoch"], 1)
 
             await service.revoke_token("ainekio-test-01")
             await client_task

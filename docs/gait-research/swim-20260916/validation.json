@@ -1,0 +1,137 @@
+{
+  "duration_s": 23.5,
+  "motion_end_s": 22.8,
+  "sample_hz": 120,
+  "samples": 2821,
+  "cycles": 4,
+  "paddle_start_s": 5.0,
+  "paddle_end_s": 17.8,
+  "actuator_min_degrees": [
+    [
+      0.0,
+      -20.0,
+      -33.31073891195818
+    ],
+    [
+      -90.0,
+      -20.0,
+      -33.310742097347415
+    ],
+    [
+      0.0,
+      -20.000000000000004,
+      -33.31077749992338
+    ],
+    [
+      -90.0,
+      -20.000000000000004,
+      -33.31077749992338
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      90.0,
+      51.01322314038274,
+      45.0
+    ],
+    [
+      0.0,
+      51.01322314038264,
+      45.0
+    ],
+    [
+      90.0,
+      51.013219485024784,
+      45.0
+    ],
+    [
+      0.0,
+      51.013219485024784,
+      45.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      112.4907410836758,
+      90.94544992281072,
+      146.8054464970687
+    ],
+    [
+      112.4907410836758,
+      90.94544992281094,
+      146.80545246856724
+    ],
+    [
+      112.4907410836758,
+      133.12513122132543,
+      90.56593463471683
+    ],
+    [
+      112.4907410836758,
+      133.12513122132543,
+      90.56593463471683
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      230.85432098789624,
+      279.81012138384415,
+      451.6735014123526
+    ],
+    [
+      230.85432098789624,
+      279.81012138384716,
+      451.67351978470265
+    ],
+    [
+      230.85432098789624,
+      409.583537800944,
+      278.6424739763227
+    ],
+    [
+      230.85432098789624,
+      409.583537800944,
+      278.6424739763227
+    ]
+  ],
+  "maximum_adjacent_joint_step_degrees": 1.2233787705713972,
+  "final_actuator_degrees": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "final_joint_return_error_degrees": 0.0,
+  "minimum_support_margin_mm": 39.11558723449706,
+  "belly_support_margin_mm": 51.500001,
+  "minimum_stance_contacts": 0,
+  "belly_support_required": true,
+  "belly_contact_plane_body_z_mm": -25.250007001794895,
+  "minimum_body_ground_clearance_mm": 3.552713678800501e-15,
+  "min_sole_height_mm": -1.6652261791705314e-09,
+  "minimum_paddling_sole_height_mm": 41.95001903008189,
+  "max_stance_material_vertex_constraint_error_mm": 1.0100271890557266e-13,
+  "maximum_rolling_normal_correction_mm": 0.00036236719034477005,
+  "research_angle_bounds_satisfied": true,
+  "collision_checked": false,
+  "body_contact_strength_verified": false,
+  "hardware_servo_limits_verified": false,
+  "measured_mass_balance_verified": false,
+  "hardware_qualified": false
+}

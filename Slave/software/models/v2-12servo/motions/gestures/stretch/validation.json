@@ -1,0 +1,110 @@
+{
+  "duration_s": 6.7,
+  "motion_end_s": 6.2,
+  "sample_hz": 120,
+  "samples": 805,
+  "actuator_min_degrees": [
+    [
+      0.0,
+      -23.209869156071367,
+      -18.247103322855413
+    ],
+    [
+      0.0,
+      -23.209869156071367,
+      -18.247105213116132
+    ],
+    [
+      0.0,
+      -31.46828323476868,
+      -45.71485822815794
+    ],
+    [
+      0.0,
+      -31.46828323476868,
+      -45.71485822815794
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      0.0,
+      5.0557089087420195,
+      0.0
+    ],
+    [
+      0.0,
+      5.0557089087420195,
+      0.0
+    ],
+    [
+      0.0,
+      5.055710167542155,
+      0.0
+    ],
+    [
+      0.0,
+      5.055710167542155,
+      0.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      0.0,
+      51.368068701389795,
+      23.614669832816624
+    ],
+    [
+      0.0,
+      51.3680687013882,
+      23.614672210843572
+    ],
+    [
+      0.0,
+      64.83636752449141,
+      72.57808898216325
+    ],
+    [
+      0.0,
+      64.83636752449141,
+      72.57808898216325
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      0.0,
+      161.19844797401797,
+      84.59167221016415
+    ],
+    [
+      0.0,
+      161.19844797420023,
+      84.59168119804659
+    ],
+    [
+      0.0,
+      226.6571265439154,
+      257.7890747319344
+    ],
+    [
+      0.0,
+      226.6571265439154,
+      257.7890747319344
+    ]
+  ],
+  "minimum_support_margin_mm": 29.477051932879846,
+  "minimum_stance_contacts": 4,
+  "maximum_rolling_normal_correction_mm": 0.0006934089136958477,
+  "solved_rolling_transfers": 188,
+  "max_stance_material_vertex_constraint_error_mm": 1.2977134739478573e-13,
+  "minimum_body_ground_clearance_mm": 6.343942200836729,
+  "min_sole_height_mm": -7.349621355956515e-09,
+  "maximum_adjacent_joint_step_degrees": 0.6049828790760223,
+  "final_joint_return_error_degrees": 0.0,
+  "research_angle_bounds_satisfied": true,
+  "fourbar_branch_preserved": true,
+  "belly_support_required": false,
+  "collision_checked": false,
+  "hardware_servo_limits_verified": false,
+  "measured_mass_balance_verified": false,
+  "hardware_qualified": false
+}

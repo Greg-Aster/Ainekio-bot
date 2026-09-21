@@ -1,0 +1,25 @@
+[
+  {
+    "fps": 1,
+    "frames": [
+      "faces/stand/0.bin"
+    ],
+    "height": 64,
+    "mode": "once",
+    "name": "stand",
+    "source_alias": "idle",
+    "width": 128
+  },
+  {
+    "fps": 4,
+    "frames": [
+      "faces/surprised_motion/0.bin",
+      "faces/surprised_motion/1.bin"
+    ],
+    "height": 64,
+    "mode": "boomerang",
+    "name": "surprised_motion",
+    "source": "ainekio_owner_authored_bitmap",
+    "width": 128
+  }
+]

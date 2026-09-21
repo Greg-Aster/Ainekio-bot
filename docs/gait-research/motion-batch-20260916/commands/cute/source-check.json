@@ -1,0 +1,13 @@
+{
+  "samples_checked": 1621,
+  "linear_midpoints_checked": 1620,
+  "max_fourbar_coupler_length_error_mm": 2.1316282072803006e-14,
+  "max_passive_beta_error_rad": 0.0,
+  "max_passive_beta_adjacent_step_degrees": 0.9717198110378245,
+  "timestamps_uniform": true,
+  "exact_geometric_standing_return": true,
+  "finite_actuator_angles": true,
+  "blender_evaluation_checked": false,
+  "collisions_checked": false,
+  "hardware_qualified": false
+}

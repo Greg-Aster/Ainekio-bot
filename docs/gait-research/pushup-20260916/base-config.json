@@ -1,0 +1,121 @@
+{
+  "name": "Part023 vertical forward limit with extended rear stance",
+  "geometry": "robot-gait-parameters.json",
+  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-extended-crawl-20260915/Before-Part023-Vertical-Limit.blend",
+  "forward_axis": "physical front = CAD +X = research world +X",
+  "provisional": true,
+  "cycles": 5,
+  "steady_cycles": 3,
+  "stride_mm": 99.2,
+  "swing_clearance_mm": 5.0,
+  "standing_transition_seconds": 1.0,
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "existing_animation_end_frame": 505,
+  "gait_start_frame": 529,
+  "body_height_offset_mm": -6.961826976524463,
+  "cad_leg_order": [
+    "FL",
+    "RL",
+    "FR",
+    "RR"
+  ],
+  "contact_model": "Discrete rolling on evaluated convex sole: retain a material vertex during contact; transfer at supporting-feature changes. Ground is research world Z=0.",
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -35,
+      35
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "angle_bounds_note": "Part023 O-D must stay at or behind vertical in side view. Alpha lower bound -34.24 degrees is derived from measured neutral O-D angle 124.249 degrees. Other combined-pose bounds remain provisional and are not calibrated hardware limits.",
+  "collision_added_volume_threshold_mm3": 0.03,
+  "rendering": {
+    "width": 960,
+    "height": 720,
+    "fps": 24,
+    "engine": "BLENDER_WORKBENCH"
+  },
+  "acceptance_status": "USER_ACCEPTED_BLENDER_RESEARCH_HARDWARE_UNQUALIFIED",
+  "blocking_geometry": "Previously identified mount interference retained in the current model; this gait edit does not modify geometry or establish physical efficiency.",
+  "gait_family": "whole_body_wave",
+  "cycle_seconds": 4.0,
+  "duty_factor": 0.78,
+  "support_margin_enforced": false,
+  "display_label": "PART023 VERTICAL LIMIT | REARWARD STRIDE",
+  "output_blend": "Ainekio-Part023-Vertical-Limit-Stride.blend",
+  "body_height_mm": 74,
+  "body_bob_mm": 6,
+  "body_sway_mm": 16,
+  "body_foreaft_sway_mm": 4,
+  "body_sway_phase": 0.22,
+  "body_foreaft_phase": 0.125,
+  "nominal_foot_x_bias_mm": 1,
+  "stance_half_width_mm": 67,
+  "shoulder_strategy": "Whole-body lateral sway and wider stance solved through the shoulder axis with world-fixed rolling stance contacts.",
+  "maximum_claim_scope": "Whole-body research candidate; no global stride or energy optimum claimed.",
+  "body_bob_phase": 0.15,
+  "foot_foreaft_offset_mm_by_CAD_leg": {
+    "FL": -11.8,
+    "FR": -11.8,
+    "RL": -8.7,
+    "RR": -8.7
+  },
+  "single_axis_reference_bounds_degrees": {
+    "h": [
+      -35,
+      35
+    ],
+    "alpha": [
+      -53.4,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      51.63033976291183
+    ]
+  },
+  "combined_pose_limits_verified": false,
+  "setup_foot_move_seconds": 0.8,
+  "body_motion_model": "Periodic smooth lateral and fore-aft translation and body height; fixed orientation. All 12 angles solved together with passive four-bar closure.",
+  "body_foreaft_oscillations_per_cycle": 4,
+  "settling_cycles": 1,
+  "timing_model": "One-second posture transition, four 0.8-second setup steps, 4-second velocity ramp, 1 settling cycle(s), three repeated 4-second cycles, 4-second deceleration, four return steps, one-second stand transition.",
+  "configuration_file": "vertical-limit-config.json",
+  "reference_report": "VERTICAL_LIMIT_STRIDE.md",
+  "scene_name": "AINEKIO - Part023 Vertical Limit",
+  "initialize_from_rolling_stance": true,
+  "gait_id": "vertical_limit_099p2mm_4s",
+  "part023_forward_limit_degrees": 90.0,
+  "vertical_reference_joint": "Part023_O",
+  "user_visual_review": "Accepted as close enough on 2026-09-15. This records visual gait acceptance only, not physical walking validation."
+}

@@ -1,0 +1,2728 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "walk",
+  "gait_id": "vertical_limit_099p2mm_4s_loop",
+  "wire": {
+    "t": "intent",
+    "name": "walk",
+    "dir": "fwd"
+  },
+  "shared_policy": "../execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "Slave/software/models/v2-12servo/motions/walk/source.json",
+      "sha256": "91dd8aa1dcc85cabf179e71f743e8e6dd4dd52c492fbff9af78c7a55b569e0f5"
+    },
+    {
+      "path": "Slave/software/models/v2-12servo/motions/walk/manifest.json",
+      "sha256": "b5458feb286a4b4a141846099ac3e6ba767ac77e79bf0792b2a2b75d76425e33"
+    },
+    {
+      "path": "Slave/software/models/v2-12servo/motions/walk/loop-contract.json",
+      "sha256": "8331a2b896ab689d52b55a1f03beef05cafcb3f3443c0d5d64aa6b973739023a"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_standing_height_transition",
+      "name": "standing_height_transition",
+      "section": "entry",
+      "source_interval_s": [
+        0.0,
+        1.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        120
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.08117592899972186,
+        0.35148636888068946,
+        0.32597429411027395,
+        0.08232176335368074,
+        0.40907284402373034,
+        0.3762808540598856,
+        0.08117592900665105,
+        0.3514864446359297,
+        0.3259746343010209,
+        0.0823217633538966,
+        0.40907292849383103,
+        0.3762812004205363
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.3005738025519683,
+        1.3443735936828416,
+        1.2621125895288343,
+        0.3080131061677671,
+        1.5789720405717134,
+        1.486344494726568,
+        0.30057380253225074,
+        1.3443730397757414,
+        1.2621130819091242,
+        0.3080131061475849,
+        1.5789716711653812,
+        1.4863451840678321
+      ]
+    },
+    {
+      "id": "p001_place_FL",
+      "name": "place_FL",
+      "section": "entry",
+      "source_interval_s": [
+        1.0,
+        1.8
+      ],
+      "source_sample_indices_inclusive": [
+        120,
+        216
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.22671862175235177,
+        2.0031180651283127,
+        3.558078988024768,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.903944573869838,
+        19.153730622688418,
+        35.28942188335482,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p002_place_RL",
+      "name": "place_RL",
+      "section": "entry",
+      "source_interval_s": [
+        1.8,
+        2.6
+      ],
+      "source_sample_indices_inclusive": [
+        216,
+        312
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.14366985763320714,
+        0.9617521447011009,
+        1.013474657126717,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.6848086646899321,
+        7.955198894739143,
+        5.954496455145297,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p003_place_FR",
+      "name": "place_FR",
+      "section": "entry",
+      "source_interval_s": [
+        2.6,
+        3.4
+      ],
+      "source_sample_indices_inclusive": [
+        312,
+        408
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.2270940513322577,
+        0.3628231066543625,
+        0.32248720884535875,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.9622966208349082,
+        6.9610937006027225,
+        6.719186508974171,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p004_place_RR",
+      "name": "place_RR",
+      "section": "entry",
+      "source_interval_s": [
+        3.4,
+        4.2
+      ],
+      "source_sample_indices_inclusive": [
+        408,
+        504
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.1418027349963603,
+        1.6685968072789896,
+        0.9755847566451505
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.6009424054967072,
+        7.894849095757701,
+        12.889799828473782
+      ]
+    },
+    {
+      "id": "p005_whole_body_FL",
+      "name": "whole_body_FL",
+      "section": "entry",
+      "source_interval_s": [
+        4.2,
+        5.2
+      ],
+      "source_sample_indices_inclusive": [
+        504,
+        624
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.044489518256521546,
+        0.011976176825888725,
+        0.05076914142552717,
+        0.03563982589162287,
+        0.0377328358302878,
+        0.033422251510324186,
+        0.03804569511265366,
+        0.014932348452685514,
+        0.008257706218766283,
+        0.03684501484371531,
+        0.029278805036079963,
+        0.04293820714129766
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.11040480945382569,
+        0.03183756168488844,
+        0.3302309461044972,
+        0.09353121451529889,
+        0.07282113131399343,
+        0.063914929188163,
+        0.09450888269048774,
+        0.029903982025086123,
+        0.017488534912281778,
+        0.0956101131857573,
+        0.06450625857127579,
+        0.08779956075931683
+      ]
+    },
+    {
+      "id": "p006_whole_body_FL",
+      "name": "whole_body_FL",
+      "section": "entry",
+      "source_interval_s": [
+        5.2,
+        6.2
+      ],
+      "source_sample_indices_inclusive": [
+        624,
+        744
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.11614700916640407,
+        1.25080190826119,
+        1.7742015252503514,
+        0.12509234446978193,
+        0.055754942247891535,
+        0.4726134030974098,
+        0.09524674327929053,
+        0.2139461322919239,
+        0.6910257472037612,
+        0.1193968889061277,
+        0.18102551848455864,
+        0.35827492578567227
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.3027036927334634,
+        7.182997865944376,
+        6.147823497690634,
+        0.13794046778235924,
+        0.9619667330151155,
+        1.408576413824476,
+        0.10767783468622671,
+        0.5603137561315807,
+        2.077053917494327,
+        0.12782254684051253,
+        0.6486799400387477,
+        1.296188864174712
+      ]
+    },
+    {
+      "id": "p007_whole_body_FL",
+      "name": "whole_body_FL",
+      "section": "entry",
+      "source_interval_s": [
+        6.2,
+        7.2
+      ],
+      "source_sample_indices_inclusive": [
+        744,
+        864
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.12835246024479618,
+        2.1404235320188043,
+        1.7607695793648315,
+        0.12291698961151586,
+        0.8389196356930019,
+        0.7645420928318496,
+        0.11655210786702169,
+        0.7403205596555548,
+        1.3877972255464543,
+        0.11523724840607358,
+        0.7968596745909391,
+        0.4873060604881138
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        3.8364971510714474,
+        30.377043790070815,
+        5.731171855390693,
+        1.6449361531498756,
+        7.324904735899098,
+        5.125575808181202,
+        2.413918875387401,
+        11.08630254747753,
+        15.103439140097132,
+        2.076582774251522,
+        2.6796286252674317,
+        6.272588621149435
+      ]
+    },
+    {
+      "id": "p008_whole_body_RL",
+      "name": "whole_body_RL",
+      "section": "entry",
+      "source_interval_s": [
+        7.2,
+        8.2
+      ],
+      "source_sample_indices_inclusive": [
+        864,
+        984
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.33780395706169297,
+        1.148534195056127,
+        0.7514285198917975,
+        0.45165360837816726,
+        0.7987218467266346,
+        2.1920833647667717,
+        0.3677355096933774,
+        3.1879914353591436,
+        3.3022296806757843,
+        0.37872942588795994,
+        0.8619639271926618,
+        1.2504644404672018
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.276456968984179,
+        3.678975597376546,
+        11.369572394517474,
+        15.394390850946245,
+        17.69496546340558,
+        21.284619499951557,
+        11.65041115998957,
+        38.55303554377259,
+        19.711854918340155,
+        1.2150027895216313,
+        5.64076961542157,
+        9.223211004276983
+      ]
+    },
+    {
+      "id": "p009_whole_body_FR",
+      "name": "whole_body_FR",
+      "section": "entry",
+      "source_interval_s": [
+        8.2,
+        9.2
+      ],
+      "source_sample_indices_inclusive": [
+        984,
+        1104
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.3484479772050294,
+        1.037296991665745,
+        1.2145918906358557,
+        0.43989354796885627,
+        3.372243784879874,
+        3.9299967951144557,
+        0.3569061463720782,
+        1.030597895689237,
+        0.8241262008573079,
+        0.37504872268224476,
+        0.8950570522419977,
+        2.107621665698195
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.2816798461107295,
+        12.798040160247224,
+        11.967739281355094,
+        4.715665563373381,
+        34.70887969381836,
+        38.84195622163192,
+        2.6975749517746785,
+        4.7758138412544815,
+        13.69921656822401,
+        2.6164239557248905,
+        18.81298467384206,
+        27.858524242340835
+      ]
+    },
+    {
+      "id": "p010_whole_body_RR",
+      "name": "whole_body_RR",
+      "section": "entry",
+      "source_interval_s": [
+        9.2,
+        10.2
+      ],
+      "source_sample_indices_inclusive": [
+        1104,
+        1224
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.4516585114150548,
+        0.7995824883689402,
+        2.2132862988468722,
+        0.33779974258259926,
+        1.152430804005995,
+        0.7728422556791826,
+        0.3786900470369496,
+        0.8638935301636003,
+        1.2780112680250102,
+        0.3678305035761733,
+        3.25352831841997,
+        3.472481853298996
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        15.394067882094301,
+        17.69671981076868,
+        21.146666055603628,
+        4.038134126448343,
+        3.6795233373549596,
+        12.078943167007473,
+        2.2181206004488,
+        5.519890438418051,
+        10.646411667372908,
+        11.655029977076076,
+        38.55560317057907,
+        23.298816273909218
+      ]
+    },
+    {
+      "id": "p011_whole_body_FL",
+      "name": "whole_body_FL",
+      "section": "entry",
+      "source_interval_s": [
+        10.2,
+        11.2
+      ],
+      "source_sample_indices_inclusive": [
+        1224,
+        1344
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.4398981213579017,
+        3.3717433261867855,
+        3.926630361291966,
+        0.3484459437636375,
+        1.0372914066307422,
+        1.21453988630507,
+        0.3750247300434713,
+        0.8951145147452275,
+        2.105017711743981,
+        0.35690603495430107,
+        1.0305977838471656,
+        0.8241267558686286
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.7156793894201225,
+        34.70885695976871,
+        38.69250000656674,
+        2.2809153212680005,
+        12.725823412986212,
+        11.966174332932134,
+        2.61713701705314,
+        20.104644002381665,
+        27.633731799508997,
+        2.6976327829000444,
+        4.7762408785942245,
+        13.699221171404208
+      ]
+    },
+    {
+      "id": "p012_whole_body_RL",
+      "name": "whole_body_RL",
+      "section": "entry",
+      "source_interval_s": [
+        11.2,
+        12.2
+      ],
+      "source_sample_indices_inclusive": [
+        1344,
+        1464
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.33779974258257284,
+        1.1524308040060212,
+        0.7728421759551977,
+        0.4516595872139887,
+        0.7995809306265206,
+        2.2129358930440266,
+        0.36783047754437886,
+        3.25304182221622,
+        3.4689885928500495,
+        0.37869013394042395,
+        0.863893270586367,
+        1.2780121698605158
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.038134126403702,
+        3.6795233374464065,
+        12.078941771287068,
+        15.394012914560498,
+        17.697094220640373,
+        21.122448054943955,
+        11.65509188240967,
+        38.555572359088984,
+        23.259655931490286,
+        2.218106330497806,
+        5.519481843071481,
+        10.646432514123497
+      ]
+    },
+    {
+      "id": "p013_whole_body_FR",
+      "name": "whole_body_FR",
+      "section": "cycle",
+      "source_interval_s": [
+        12.2,
+        13.2
+      ],
+      "source_sample_indices_inclusive": [
+        1464,
+        1584
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.34844594376356713,
+        1.0372914066307384,
+        1.2145397359435612,
+        0.4398991182874437,
+        3.3716535526707383,
+        3.926046990683362,
+        0.35690603495430107,
+        1.0305977838471387,
+        0.8241267558683374,
+        0.375024779237355,
+        0.8951143968398487,
+        2.105023059573676
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.280915321295974,
+        12.725823412995073,
+        11.966173159019368,
+        4.715682329451008,
+        34.70885294819987,
+        38.666736388341256,
+        2.6976327829000444,
+        4.776240878548235,
+        13.699221171398063,
+        2.617135548194262,
+        20.10195428217323,
+        27.634196267437357
+      ]
+    },
+    {
+      "id": "p014_whole_body_RR",
+      "name": "whole_body_RR",
+      "section": "cycle",
+      "source_interval_s": [
+        13.2,
+        14.2
+      ],
+      "source_sample_indices_inclusive": [
+        1584,
+        1704
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.4516595872139042,
+        0.7995809306263032,
+        2.2129347519602747,
+        0.33779974258257284,
+        1.1524308040058797,
+        0.7728422556792451,
+        0.3786901339404168,
+        0.8638932705861548,
+        1.2780121698605913,
+        0.3678304775977034,
+        3.2530428332178323,
+        3.4689958077545398
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        15.394012914510151,
+        17.697094220700258,
+        21.12234340950347,
+        4.038134126400827,
+        3.6795233373865877,
+        12.078943167007473,
+        2.218106330547155,
+        5.519481843053535,
+        10.646432513910396,
+        11.655091755592313,
+        38.55557242303594,
+        23.259736812357357
+      ]
+    },
+    {
+      "id": "p015_whole_body_FL",
+      "name": "whole_body_FL",
+      "section": "cycle",
+      "source_interval_s": [
+        14.2,
+        15.2
+      ],
+      "source_sample_indices_inclusive": [
+        1704,
+        1824
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.43989911828741723,
+        3.371653552670965,
+        3.9260456672890913,
+        0.34844594376356713,
+        1.0372914066308003,
+        1.2145398863049899,
+        0.375024779237355,
+        0.8951143968398522,
+        2.1050230595735973,
+        0.35690603495429835,
+        1.0305977838470042,
+        0.824126755868417
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.715682329465835,
+        34.70885294804874,
+        38.66666604897007,
+        2.2809153212645965,
+        12.725823412974382,
+        11.96617433286342,
+        2.617135548234106,
+        20.10195428208831,
+        27.63419626749577,
+        2.69763278290336,
+        4.776240878554163,
+        13.699221171404208
+      ]
+    },
+    {
+      "id": "p016_whole_body_RL",
+      "name": "whole_body_RL",
+      "section": "cycle",
+      "source_interval_s": [
+        15.2,
+        16.2
+      ],
+      "source_sample_indices_inclusive": [
+        1824,
+        1944
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.33779974258257284,
+        1.1524308040058,
+        0.7728421759551215,
+        0.4516595872139145,
+        0.7995809306263019,
+        2.212935893043427,
+        0.367830477597702,
+        3.253042833217969,
+        3.4689958077549257,
+        0.3786901339403442,
+        0.8638932705861107,
+        1.278012169860536
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.038134126403702,
+        3.6795233372893055,
+        12.078941771313616,
+        15.394012914524806,
+        17.697094220585562,
+        21.122448055721488,
+        11.655091755585811,
+        38.555572423224646,
+        23.259736812214697,
+        2.218106330493986,
+        5.519481843085576,
+        10.646432514057274
+      ]
+    },
+    {
+      "id": "p017_whole_body_FR",
+      "name": "whole_body_FR",
+      "section": "exit",
+      "source_interval_s": [
+        24.2,
+        25.2
+      ],
+      "source_sample_indices_inclusive": [
+        2904,
+        3024
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.3484267901876593,
+        0.9806225412768036,
+        1.200255431623137,
+        0.43989911332897486,
+        3.3296803939296553,
+        3.918696568792346,
+        0.35690049865404744,
+        0.9890457378691966,
+        0.8168674208654784,
+        0.3750247750105146,
+        0.8374123333155756,
+        2.0786828029632543
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.285022762533793,
+        9.645017319736482,
+        11.96329508885239,
+        4.349364329400689,
+        37.51931066226811,
+        38.662688432954425,
+        1.2654182805839707,
+        4.776504150289282,
+        13.705209380243739,
+        1.038106332078876,
+        31.891100808407245,
+        17.40827974111184
+      ]
+    },
+    {
+      "id": "p018_whole_body_RR",
+      "name": "whole_body_RR",
+      "section": "exit",
+      "source_interval_s": [
+        25.2,
+        26.2
+      ],
+      "source_sample_indices_inclusive": [
+        3024,
+        3144
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.20430777211383067,
+        0.5236141299556137,
+        1.3879044945745838,
+        0.2329098305209131,
+        0.5985702631752661,
+        0.5588602541865314,
+        0.21867719329412658,
+        0.38857443359249005,
+        0.8939160464250065,
+        0.2116101434664306,
+        2.241408580775542,
+        2.750212984771534
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.3163969374779962,
+        9.303939143531117,
+        5.928771382709343,
+        2.942206282076771,
+        2.7732278712174896,
+        6.9975843670419895,
+        2.63925089057078,
+        2.899961235821107,
+        7.833277107818715,
+        2.310782185790454,
+        16.112556225418867,
+        16.299255041508083
+      ]
+    },
+    {
+      "id": "p019_whole_body_support",
+      "name": "whole_body_support",
+      "section": "exit",
+      "source_interval_s": [
+        26.2,
+        27.2
+      ],
+      "source_sample_indices_inclusive": [
+        3144,
+        3264
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.1531458506449995,
+        0.3286873217243892,
+        0.9322442499595572,
+        0.12836626988829522,
+        0.573563830197385,
+        0.20551748592848637,
+        0.150638750792053,
+        0.3942368158626584,
+        0.2231289238848508,
+        0.15318700753965805,
+        0.6160010380148905,
+        0.3362424870602072
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.1411620685846271,
+        0.5170760847090428,
+        2.410528569879826,
+        0.12950095413278184,
+        0.7892920071913068,
+        1.0938765073919399,
+        0.13477344290945048,
+        2.020546849307161,
+        3.093396489430693,
+        3.452815950082959,
+        11.442104962692563,
+        4.147236022602252
+      ]
+    },
+    {
+      "id": "p020_whole_body_support",
+      "name": "whole_body_support",
+      "section": "exit",
+      "source_interval_s": [
+        27.2,
+        28.2
+      ],
+      "source_sample_indices_inclusive": [
+        3264,
+        3384
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.03986719795160297,
+        0.04290896647460237,
+        0.03356506008417803,
+        0.034069656793190864,
+        0.05640215048353305,
+        0.05082895935071962,
+        0.03917320306061949,
+        0.03798650040283616,
+        0.02118774284492761,
+        0.03578051943048906,
+        0.04603591800854105,
+        0.06563881834766878
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.10388742969008657,
+        0.1544268470423915,
+        0.10108200347032303,
+        0.0842544324429867,
+        0.1792184191887558,
+        0.15497991173073822,
+        0.1007109338935408,
+        0.13802456050771406,
+        0.07049378690511698,
+        0.08932636872906907,
+        0.15331449947176,
+        0.20526953107950607
+      ]
+    },
+    {
+      "id": "p021_place_FL",
+      "name": "place_FL",
+      "section": "exit",
+      "source_interval_s": [
+        28.2,
+        29.0
+      ],
+      "source_sample_indices_inclusive": [
+        3384,
+        3480
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.21014349021074555,
+        2.0735984259100606,
+        3.6146416046638223,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.6401763912880585,
+        16.91180856706398,
+        35.85241242918485,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p022_place_RL",
+      "name": "place_RL",
+      "section": "exit",
+      "source_interval_s": [
+        29.0,
+        29.8
+      ],
+      "source_sample_indices_inclusive": [
+        3480,
+        3576
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.12718153367360197,
+        1.0226763152173786,
+        1.0589819885591198,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.6232297618146071,
+        5.875709972828485,
+        6.2028503273369,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p023_place_FR",
+      "name": "place_FR",
+      "section": "exit",
+      "source_interval_s": [
+        29.8,
+        30.6
+      ],
+      "source_sample_indices_inclusive": [
+        3576,
+        3672
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.2457507327423308,
+        0.3154894148397212,
+        0.36281227437989777,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        1.0402547754739166,
+        5.337564091946267,
+        6.96432777538441,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p024_place_RR",
+      "name": "place_RR",
+      "section": "exit",
+      "source_interval_s": [
+        30.6,
+        31.4
+      ],
+      "source_sample_indices_inclusive": [
+        3672,
+        3768
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.16052361900997886,
+        1.592616287777796,
+        0.9119474878814909
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.6828705758039844,
+        7.579197874163226,
+        14.01728510771175
+      ]
+    },
+    {
+      "id": "p025_standing_height_transition",
+      "name": "standing_height_transition",
+      "section": "exit",
+      "source_interval_s": [
+        31.4,
+        32.4
+      ],
+      "source_sample_indices_inclusive": [
+        3768,
+        3888
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.08291311410001458,
+        0.34650436228490517,
+        0.329234783774509,
+        0.0844845203964496,
+        0.4018065933708986,
+        0.3794096349899249,
+        0.08291311409451707,
+        0.34650443910101913,
+        0.3292351257646221,
+        0.08448452039118243,
+        0.4018066783985782,
+        0.37940998356200295
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.30687220217262223,
+        1.323990525947638,
+        1.3040165839875595,
+        0.31615407222559455,
+        1.4157722284157837,
+        1.3930016774682508,
+        0.3068722021650483,
+        1.3239908088911,
+        1.304017934817121,
+        0.3161540722133094,
+        1.415772603099954,
+        1.393003032779494
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 1.008333333,
+      "sample_index": 121,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 1.8,
+      "sample_index": 216,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 1.808333333,
+      "sample_index": 217,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 2.6,
+      "sample_index": 312,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 2.608333333,
+      "sample_index": 313,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 3.4,
+      "sample_index": 408,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 3.408333333,
+      "sample_index": 409,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 4.2,
+      "sample_index": 504,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 4.216666667,
+      "sample_index": 506,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 7.033333333,
+      "sample_index": 844,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 7.175,
+      "sample_index": 861,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 8.083333333,
+      "sample_index": 970,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 8.208333333,
+      "sample_index": 985,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 9.083333333,
+      "sample_index": 1090,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 9.208333333,
+      "sample_index": 1105,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 10.083333333,
+      "sample_index": 1210,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 10.208333333,
+      "sample_index": 1225,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 11.083333333,
+      "sample_index": 1330,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 11.208333333,
+      "sample_index": 1345,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 12.083333333,
+      "sample_index": 1450,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 12.208333333,
+      "sample_index": 1465,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 13.083333333,
+      "sample_index": 1570,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 13.208333333,
+      "sample_index": 1585,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 14.083333333,
+      "sample_index": 1690,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 14.208333333,
+      "sample_index": 1705,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 15.083333333,
+      "sample_index": 1810,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 15.208333333,
+      "sample_index": 1825,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 16.083333333,
+      "sample_index": 1930,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 16.208333333,
+      "sample_index": 1945,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 17.083333333,
+      "sample_index": 2050,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 17.208333333,
+      "sample_index": 2065,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 18.083333333,
+      "sample_index": 2170,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 18.208333333,
+      "sample_index": 2185,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 19.083333333,
+      "sample_index": 2290,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 19.208333333,
+      "sample_index": 2305,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 20.083333333,
+      "sample_index": 2410,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 20.208333333,
+      "sample_index": 2425,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 21.083333333,
+      "sample_index": 2530,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 21.208333333,
+      "sample_index": 2545,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 22.083333333,
+      "sample_index": 2650,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 22.208333333,
+      "sample_index": 2665,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 23.083333333,
+      "sample_index": 2770,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 23.208333333,
+      "sample_index": 2785,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 24.083333333,
+      "sample_index": 2890,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 24.208333333,
+      "sample_index": 2905,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 25.1,
+      "sample_index": 3012,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 25.233333333,
+      "sample_index": 3028,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 26.7,
+      "sample_index": 3204,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 28.208333333,
+      "sample_index": 3385,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 29.0,
+      "sample_index": 3480,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 29.008333333,
+      "sample_index": 3481,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 29.8,
+      "sample_index": 3576,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 29.808333333,
+      "sample_index": 3577,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 30.6,
+      "sample_index": 3672,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 30.608333333,
+      "sample_index": 3673,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 31.4,
+      "sample_index": 3768,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_standing_height_transition": 1.0,
+        "p001_place_FL": 0.8,
+        "p002_place_RL": 0.8,
+        "p003_place_FR": 0.8,
+        "p004_place_RR": 0.8,
+        "p005_whole_body_FL": 1.0,
+        "p006_whole_body_FL": 1.0,
+        "p007_whole_body_FL": 1.0,
+        "p008_whole_body_RL": 1.0,
+        "p009_whole_body_FR": 1.0,
+        "p010_whole_body_RR": 1.0,
+        "p011_whole_body_FL": 1.0,
+        "p012_whole_body_RL": 1.0,
+        "p013_whole_body_FR": 1.0,
+        "p014_whole_body_RR": 1.0,
+        "p015_whole_body_FL": 1.0,
+        "p016_whole_body_RL": 1.0,
+        "p017_whole_body_FR": 1.0,
+        "p018_whole_body_RR": 1.0,
+        "p019_whole_body_support": 1.0,
+        "p020_whole_body_support": 1.0,
+        "p021_place_FL": 0.8,
+        "p022_place_RL": 0.8,
+        "p023_place_FR": 0.8,
+        "p024_place_RR": 0.8,
+        "p025_standing_height_transition": 1.0
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_standing_height_transition": 1.0,
+        "p001_place_FL": 0.8,
+        "p002_place_RL": 0.8,
+        "p003_place_FR": 0.8,
+        "p004_place_RR": 0.8,
+        "p005_whole_body_FL": 1.0,
+        "p006_whole_body_FL": 1.0,
+        "p007_whole_body_FL": 1.0,
+        "p008_whole_body_RL": 1.0,
+        "p009_whole_body_FR": 1.0,
+        "p010_whole_body_RR": 1.0,
+        "p011_whole_body_FL": 1.0,
+        "p012_whole_body_RL": 1.0,
+        "p013_whole_body_FR": 1.0,
+        "p014_whole_body_RR": 1.0,
+        "p015_whole_body_FL": 1.0,
+        "p016_whole_body_RL": 1.0,
+        "p017_whole_body_FR": 1.0,
+        "p018_whole_body_RR": 1.0,
+        "p019_whole_body_support": 1.0,
+        "p020_whole_body_support": 1.0,
+        "p021_place_FL": 0.8,
+        "p022_place_RL": 0.8,
+        "p023_place_FR": 0.8,
+        "p024_place_RR": 0.8,
+        "p025_standing_height_transition": 1.0
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_standing_height_transition": null,
+        "p001_place_FL": null,
+        "p002_place_RL": null,
+        "p003_place_FR": null,
+        "p004_place_RR": null,
+        "p005_whole_body_FL": null,
+        "p006_whole_body_FL": null,
+        "p007_whole_body_FL": null,
+        "p008_whole_body_RL": null,
+        "p009_whole_body_FR": null,
+        "p010_whole_body_RR": null,
+        "p011_whole_body_FL": null,
+        "p012_whole_body_RL": null,
+        "p013_whole_body_FR": null,
+        "p014_whole_body_RR": null,
+        "p015_whole_body_FL": null,
+        "p016_whole_body_RL": null,
+        "p017_whole_body_FR": null,
+        "p018_whole_body_RR": null,
+        "p019_whole_body_support": null,
+        "p020_whole_body_support": null,
+        "p021_place_FL": null,
+        "p022_place_RL": null,
+        "p023_place_FR": null,
+        "p024_place_RR": null,
+        "p025_standing_height_transition": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": "cycle",
+    "minimum": 1,
+    "maximum": 10
+  },
+  "loop_contract": {
+    "period_seconds": 4.0,
+    "sample_hz": 120,
+    "intervals_per_cycle": 480,
+    "rows_including_closing_endpoint": 481,
+    "repeated_row_indices_inclusive": [
+      0,
+      479
+    ],
+    "closing_endpoint_row": 480,
+    "translation_per_cycle_world_mm": [
+      99.2,
+      0.0,
+      0.0
+    ],
+    "angle_offset_per_cycle_rad": 0.0,
+    "world_position_fields": [
+      "body_position_world_mm",
+      "assumed_com_world_mm",
+      "foot_bolt_world_mm",
+      "contact_world_mm"
+    ],
+    "indexing": "At cycle n, use rows 0 through 479 and add n*99.2 mm to every world X field; add n*4 seconds to timestamps. Row 480 is a closing endpoint for interpolation/validation, not an extra held sample.",
+    "absolute_pose_periodic": false,
+    "body_relative_pose_periodic": true,
+    "interpolation": "Monotone cubic with the same endpoint tangent on both sides of the seam. C1 continuity; acceleration continuity not guaranteed at every key.",
+    "start_stop_policy": "The original full clip retains standing transitions. This loop must be entered/exited through a phase-matched transition, not an instantaneous command from stand."
+  },
+  "face_cues": [],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "body_position_world_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "body_orientation_world_quaternion_wxyz": [
+      1,
+      0,
+      0,
+      0
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Finish the selected phase-matched exit and hold its terminal pose.",
+    "joint_angles_rad": [
+      [
+        0.005953503333607557,
+        -0.02596054873532916,
+        -0.014325279728251594
+      ],
+      [
+        0.0061042988802775255,
+        -0.02603547202408496,
+        -0.022077756637004065
+      ],
+      [
+        0.005953503314448216,
+        -0.025960561536812587,
+        -0.014325288134178216
+      ],
+      [
+        0.006104298871624891,
+        -0.026035485971154237,
+        -0.022077769601620112
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "minimum_assumed_support_margin_mm": -21.574270282764815,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false
+  },
+  "hardware_ready": false,
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands.",
+  "loop_retiming": {
+    "rule": "Retiming must preserve the existing compiler matched entry/loop/exit joint positions and tangents; retain one closing knot without an extra dwell.",
+    "world_coordinates": "Use the existing loop translation rule for repeated body/foot/contact positions and phase-match exit translation to the selected cycle count. timing.py only maps source time.",
+    "reference_derivative_scope": "Phase demand arrays use full-source monotone cubic tangents; recompute exact extrema after compiler seam normalization and retiming."
+  }
+}

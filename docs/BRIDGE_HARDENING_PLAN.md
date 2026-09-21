@@ -172,7 +172,7 @@ controller.
 | B4 | Source complete; physical image pending | `captureImage` is accepted by the direct parser, Bridge Out options, node schema, and checked graph. A correlated fresh image is automatically selected for multimodal context even when the continuation has no typed user message. |
 | B5 | Source complete; activation pending | Offline observations advertise only `sendText`. Movement requires an authenticated body; `captureImage` and `visual=true` additionally require `camera_ready=true`. The full semantic command catalog is hidden while the body is offline. |
 | B6 | Source complete; controller flash pending | Physical status now encodes optional `camera_ready`, the protocol validator accepts it, gateway telemetry preserves it, and the adapter consumes it. This currently reports camera-service initialization; detecting a later camera-task failure remains future fault-health work. |
-| B7 | Source complete; activation pending | Gateway and adapter defaults, the physical launcher, and the local runtime environment now use `ainekio-01`. Existing stale MetaHuman session state is not replayable because body actions retain their two-second age limit. |
+| B7 | Source complete; activation pending | Gateway and adapter defaults, the physical launcher, and the local runtime environment now use `ainekio-01`. September 8 update: Coordinator approval, durable action receipts and body ownership fencing govern dispatch/replay. The independent two-second creation-age limits were removed; the gateway still checks the age of each local wire send. |
 | B8 | Source complete; physical display check pending | Incomplete WebSocket openings now close after a bounded ten-second handshake, with a regression test. Firmware OLED online state remains tied to authenticated `welcome`; disconnect/close moves it offline and signals failsafe. |
 | B9 | Documented hardware limitation | No software claim of positional proof was added. A commissioning gate for attached and powered three-wire servos remains an owner decision because the controller cannot detect their physical attachment. |
 
@@ -628,12 +628,47 @@ Bridge hardening is complete only when all of the following are true:
 - Emulator, gateway, MetaHuman, and physical acceptance evidence all pass within
   their own boundaries.
 
+## 2026-09-08 — Command completion tracking and recovery
+
+- Live baseline: a dispatched movement received no terminal result during the
+  adapter's fixed 30-second wait. The adapter persisted `outcome_unknown`, ended
+  its result monitor, and replayed that uncertainty during recovery. MetaHuman
+  retained the unresolved body job, so the following Full Auto movement waited.
+- Removed that fixed action-result deadline. The existing gateway pending-command
+  future now tracks completion, rejection, cancellation or disconnect. Recovery
+  follows the saved command rather than dispatching its payload again; normal and
+  recovered results share image correlation, publication and cleanup.
+- Saved host-instance identity plus robot/epoch/sequence prevents a later session's
+  reused sequence from completing an old command. Authenticated reconnection after
+  host restart ends the old control session as cancelled, preserving uncertainty
+  about its earlier physical effect. No recovery stop or movement is sent.
+- An actual acknowledged stop releases earlier asynchronous command waiters and
+  their capture lock; later commands and ACK-only controls are not cancelled.
+- Verification: 68 receipt/adapter/speech/gateway/catalog tests pass. Three
+  independently reproduced recovery defects were corrected and their unchanged
+  probes pass. The gateway lifecycle test exercises stand and emote through the
+  real protocol client and portable body core, with simulated physical execution.
+  Two older catalog fixtures now explicitly use temporary receipt storage; their
+  capability assertions are unchanged. Both repositories pass `git diff --check`.
+- An isolated MetaHuman test using the actual saved Environment/Action Result
+  workflows, result API, Coordinator and durable runtime verifies late completion
+  and cancellation settle the original execution and admit the queued next action
+  without repeating model calls. No Core production repair was needed here.
+- Evidence and commands: `/tmp/ainekio-completion-repair-5ZujFn/README.md`,
+  `/tmp/ainekio-terminal-recovery-review-nAo8Xl/README.md`, and
+  `/tmp/metahuman-stall-core-review-gpq3uc/README.md`.
+- Deployment/physical boundary: the installed host gateway was not restarted;
+  these changes require its restart, not a Site rebuild. No firmware, live queue
+  or robot commands were changed. Why the original body completion was missing
+  remains unverified: retained logs do not contain the full terminal exchange and
+  no serial device is available. Tests cannot establish physical Full Auto success.
+
 ## Related Authority
 
 - [AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md](AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md)
   describes the intended closed-loop architecture and previously validated
   software behavior.
-- [HARDWARE_BRINGUP_CHECKLIST.md](HARDWARE_BRINGUP_CHECKLIST.md) owns physical
+- [HARDWARE_BRINGUP_CHECKLIST.md](v1-8servo/HARDWARE_BRINGUP_CHECKLIST.md) owns physical
   camera, audio, motion, power, and assembled-system evidence.
 - [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) owns the current robot-body
   implementation record.

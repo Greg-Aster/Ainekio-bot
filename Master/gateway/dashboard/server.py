@@ -343,6 +343,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             )
             return {"ok": True, "seq": sequence}
+        if path == "/api/diagnostics/output":
+            operation = _required_string(payload, "op")
+            options: dict[str, object] = {}
+            if operation == "run":
+                options = {
+                    "channel": _required_int(payload, "channel"),
+                    "pulse_us": _required_int(payload, "pulse_us"),
+                    "duration_ms": _required_int(payload, "ms"),
+                    "fault": _optional_string(payload, "fault") or "none",
+                }
+            sequence = self.server.call_gateway(self.server.gateway.test_outputs(
+                operation=operation, robot_id=robot_id, **options,
+            ))
+            self.server.audit_log.record("output_test_issued", robot_id=robot_id, operation=operation)
+            return {"ok": True, "seq": sequence}
         if path == "/api/calibration/servo":
             sequence = self.server.call_gateway(
                 self.server.gateway.set_servo(

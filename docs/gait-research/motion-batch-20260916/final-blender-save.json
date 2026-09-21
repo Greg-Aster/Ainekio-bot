@@ -1,0 +1,19 @@
+{
+  "saved": true,
+  "filepath": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "dirty": true,
+  "before": {
+    "filepath": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+    "frame": 1,
+    "subframe": 0.0,
+    "objects": 1347,
+    "dirty": true
+  },
+  "frame": 1,
+  "objects": 1347,
+  "time_utc": "2026-09-17T16:37:25Z",
+  "backup": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Final-Documentation.blend",
+  "scope": "Embedded documentation and scene handoff metadata only; model and animation untouched.",
+  "dirty_after_save_completed": false,
+  "verified_saved_bytes": 274909733
+}

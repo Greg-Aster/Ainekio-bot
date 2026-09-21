@@ -1,0 +1,105 @@
+{
+  "model": "v2-12servo",
+  "joint_map": "v2-fourbar-20260915",
+  "position_units": "signed centidegrees from recorded CAD neutral",
+  "zero": "geometry.json source frame 1; Part005 re-clocking already included",
+  "joints": [
+    {
+      "id": 0,
+      "name": "rear_left_shoulder",
+      "cad_leg": "FL",
+      "actuator": "h_Part002",
+      "positive_body_axis": "+X",
+      "pca_channel": null
+    },
+    {
+      "id": 1,
+      "name": "rear_left_carrier",
+      "cad_leg": "FL",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 2,
+      "name": "rear_left_crank",
+      "cad_leg": "FL",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 3,
+      "name": "rear_right_shoulder",
+      "cad_leg": "FR",
+      "actuator": "h_Part002",
+      "positive_body_axis": "+X",
+      "pca_channel": null
+    },
+    {
+      "id": 4,
+      "name": "rear_right_carrier",
+      "cad_leg": "FR",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 5,
+      "name": "rear_right_crank",
+      "cad_leg": "FR",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 6,
+      "name": "front_left_shoulder",
+      "cad_leg": "RL",
+      "actuator": "h_Part002",
+      "positive_body_axis": "+X",
+      "pca_channel": null
+    },
+    {
+      "id": 7,
+      "name": "front_left_carrier",
+      "cad_leg": "RL",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 8,
+      "name": "front_left_crank",
+      "cad_leg": "RL",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 9,
+      "name": "front_right_shoulder",
+      "cad_leg": "RR",
+      "actuator": "h_Part002",
+      "positive_body_axis": "+X",
+      "pca_channel": null
+    },
+    {
+      "id": 10,
+      "name": "front_right_carrier",
+      "cad_leg": "RR",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    },
+    {
+      "id": 11,
+      "name": "front_right_crank",
+      "cad_leg": "RR",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "+Y",
+      "pca_channel": null
+    }
+  ],
+  "device_calibration": null
+}

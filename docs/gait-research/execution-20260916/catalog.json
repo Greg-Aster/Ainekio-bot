@@ -1,0 +1,260 @@
+{
+  "schema": "ainekio-execution-handoff-catalog-1",
+  "date": "2026-09-16",
+  "motions": [
+    {
+      "command": "walk",
+      "contract": "contracts/walk.json",
+      "sha256": "95047db0acee99ebf2abbba08483e036ccf80cab787f6c8c636d5e6dcc6da096",
+      "phase_count": 26,
+      "one_cycle_demonstration_duration_s": 24.4,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/walk/source.json",
+          "sha256": "91dd8aa1dcc85cabf179e71f743e8e6dd4dd52c492fbff9af78c7a55b569e0f5"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/walk/manifest.json",
+          "sha256": "b5458feb286a4b4a141846099ac3e6ba767ac77e79bf0792b2a2b75d76425e33"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/walk/loop-contract.json",
+          "sha256": "8331a2b896ab689d52b55a1f03beef05cafcb3f3443c0d5d64aa6b973739023a"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_left_15",
+      "contract": "contracts/turn_left_15.json",
+      "sha256": "5fcc4a14a3aa1e5dc1585e77b16336a442daae85bc42c3499a3ebadd3bc99079",
+      "phase_count": 27,
+      "one_cycle_demonstration_duration_s": 15.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_15/source.json",
+          "sha256": "3a2c96b230f8b2f8583fddf1773becf976e8edfbf774ebca66981907a6b83e25"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_15/manifest.json",
+          "sha256": "61532c4b54b84c2f2db2958b2ac6bb11df40b73b34a1f3fce54985e6230bdf4d"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_left_15/source.json",
+          "sha256": "3a2c96b230f8b2f8583fddf1773becf976e8edfbf774ebca66981907a6b83e25"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_left_45",
+      "contract": "contracts/turn_left_45.json",
+      "sha256": "cc3133d0259fe54aafe00ccb627af0e28659c42c8b610df2ad0fe0656cfb5b25",
+      "phase_count": 35,
+      "one_cycle_demonstration_duration_s": 19.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_45/source.json",
+          "sha256": "eeca247482e324753265c9a9310c61c4eaa6edadb75360843583f099909a8186"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_45/manifest.json",
+          "sha256": "c512db44d9366e91fe9a9b6d48ec22ef9d29c61b19bf487783cdf74ca59fca79"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_left_45/source.json",
+          "sha256": "eeca247482e324753265c9a9310c61c4eaa6edadb75360843583f099909a8186"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_left_90",
+      "contract": "contracts/turn_left_90.json",
+      "sha256": "fa4128bdfdfcb56bf8949fa9d95e6a01b5231e2f18528661a054dc0a28ed32b9",
+      "phase_count": 43,
+      "one_cycle_demonstration_duration_s": 23.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_90/source.json",
+          "sha256": "0331596deb09ccd684bbb6b87c6041000c84edc191a797b90f664cbf78f56f57"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_90/manifest.json",
+          "sha256": "77308277c5fa5ce47115e6041fea51f6ec86ba031084850c63c42ab42520fe21"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_left_90/source.json",
+          "sha256": "0331596deb09ccd684bbb6b87c6041000c84edc191a797b90f664cbf78f56f57"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_left_180",
+      "contract": "contracts/turn_left_180.json",
+      "sha256": "6dc394db954886732e01ab4360b6d64b87ef9b3e6be486bbeb7b2af2d5b31af4",
+      "phase_count": 67,
+      "one_cycle_demonstration_duration_s": 35.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_180/source.json",
+          "sha256": "fbc352c72a7b40f8b5b428ba57c665971b34ffb742c9c3567c553f5aebe9b7f2"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_left_180/manifest.json",
+          "sha256": "edf7ab9bb3b5793ffd57f333a87f6d81cfd6e72d7dd41c57525c257776eea981"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_left_180/source.json",
+          "sha256": "fbc352c72a7b40f8b5b428ba57c665971b34ffb742c9c3567c553f5aebe9b7f2"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_right_15",
+      "contract": "contracts/turn_right_15.json",
+      "sha256": "15ba7bc2ec61e153d9cd3c5aa45ec8bcf1606e0dd8dfce711dfc7864b49456c0",
+      "phase_count": 27,
+      "one_cycle_demonstration_duration_s": 15.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_15/source.json",
+          "sha256": "5edf0567994b1ccd8c591c80321e26f0c084e1b10508687c3444ef1c06a8f498"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_15/manifest.json",
+          "sha256": "aab2c173f7749c2620af4b500543ac7714df5ca6cf58dad8b0ebe9ea01c4855d"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_right_15/source.json",
+          "sha256": "5edf0567994b1ccd8c591c80321e26f0c084e1b10508687c3444ef1c06a8f498"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_right_45",
+      "contract": "contracts/turn_right_45.json",
+      "sha256": "066d144a4f58efa5a4de79a8d7b0ff4eca41f0fabb3fc72b67708b43415132c4",
+      "phase_count": 35,
+      "one_cycle_demonstration_duration_s": 19.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_45/source.json",
+          "sha256": "b4b94f635f745be4590fa6a6fb42722fc5d835f5ceea2125572b7d7ac8556c57"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_45/manifest.json",
+          "sha256": "dc2d805dd05d548a95c73c72929f36fcbb32f5c4345619f83ebadc839e2fbbe7"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_right_45/source.json",
+          "sha256": "b4b94f635f745be4590fa6a6fb42722fc5d835f5ceea2125572b7d7ac8556c57"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_right_90",
+      "contract": "contracts/turn_right_90.json",
+      "sha256": "2cabcb2240dec6f72b8cc4d7a4f179440a2fb8d1cab0b66f6df526eeb7ce913a",
+      "phase_count": 43,
+      "one_cycle_demonstration_duration_s": 23.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_90/source.json",
+          "sha256": "ea402d06bc2667cccee50eadf9ea895078f12740e15e3166f3f5f790405f8b19"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_90/manifest.json",
+          "sha256": "c1713e96c164b1ef1c90a29d1e003b51efb9d0dc148976d9be783ccf05121f4e"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_right_90/source.json",
+          "sha256": "ea402d06bc2667cccee50eadf9ea895078f12740e15e3166f3f5f790405f8b19"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "turn_right_180",
+      "contract": "contracts/turn_right_180.json",
+      "sha256": "e3a8a0a7077d864596c0358279dfe4ca9766b345e97e93a05f6a36a25521538f",
+      "phase_count": 67,
+      "one_cycle_demonstration_duration_s": 35.0,
+      "source_files": [
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_180/source.json",
+          "sha256": "506f7b1e8ac7dd09ade77996fffac4a55f58e2a9251227f2d0ed7555e49e948e"
+        },
+        {
+          "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_180/manifest.json",
+          "sha256": "33d45e6eee3c046ce8817ac8a69130bc25a09ba39a7f1c0c61f8db2b966ac45e"
+        },
+        {
+          "path": "docs/gait-research/turn-commands-20260915/commands/turn_right_180/source.json",
+          "sha256": "506f7b1e8ac7dd09ade77996fffac4a55f58e2a9251227f2d0ed7555e49e948e"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "sit",
+      "contract": "contracts/sit.json",
+      "sha256": "ae94d35322674dd77bdc19fe769facd5658795141d53baed0d0e3470a40b65f5",
+      "phase_count": 2,
+      "one_cycle_demonstration_duration_s": 5.0,
+      "source_files": [
+        {
+          "path": "docs/gait-research/sit-bored-20260915/source.json",
+          "sha256": "5ee287ba5bd27892212c32e6035cfe130cb34a3eed0ce8572d2b7d2982b104c0"
+        },
+        {
+          "path": "docs/gait-research/sit-bored-20260915/manifest.json",
+          "sha256": "8b02ddd431cd16a18d152ee78082e778ebed1fc0d713228a40945b2d72b5bb29"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "rest",
+      "contract": "contracts/rest.json",
+      "sha256": "ed3f29c36a615db6f3c326823452c98fa85409194ad5bffb71c087cd303e0ae4",
+      "phase_count": 2,
+      "one_cycle_demonstration_duration_s": 5.0,
+      "source_files": [
+        {
+          "path": "docs/gait-research/rest-20260915/source.json",
+          "sha256": "2aa5e7bfe5a7280fbf5042186bd21b1536fc5c786470cc552aa61d2674441c53"
+        },
+        {
+          "path": "docs/gait-research/rest-20260915/manifest.json",
+          "sha256": "94a05f74867da86b4959f60a1e09c761086e22cac36f760f8d985ecd68064e64"
+        }
+      ],
+      "hardware_ready": false
+    },
+    {
+      "command": "wave",
+      "contract": "contracts/wave.json",
+      "sha256": "07d41de87934e9962b54823dab1150dc764768eb6f02ec98f90870cd47477fd8",
+      "phase_count": 13,
+      "one_cycle_demonstration_duration_s": 16.0,
+      "source_files": [
+        {
+          "path": "docs/gait-research/wave-seated-20260916/source.json",
+          "sha256": "d00be551216d082d2f20b0f94d469affac54d8ffd5d164c0ba0d6d9757bdef6f"
+        },
+        {
+          "path": "docs/gait-research/wave-seated-20260916/manifest.json",
+          "sha256": "f3c4a5e535e4d636a400d1b4055ca8b69d3cdddeb047764d78e349d559328dff"
+        }
+      ],
+      "hardware_ready": false
+    }
+  ],
+  "scope": "Twelve currently selected commands; historical experiments remain archived.",
+  "hardware_ready": false
+}

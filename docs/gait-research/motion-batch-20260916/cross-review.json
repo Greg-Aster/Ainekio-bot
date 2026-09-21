@@ -1,0 +1,41 @@
+{
+  "reviewed_by": "Three command agents cross-reviewed another group; root reviewed numeric sources, exports and saved Blender geometry.",
+  "passed_commands": [
+    "cute",
+    "freaky",
+    "worm",
+    "shake",
+    "shrug",
+    "dead",
+    "crab",
+    "celebrate",
+    "stretch",
+    "surprised",
+    "sad",
+    "curious"
+  ],
+  "material_findings": [
+    {
+      "command": "celebrate",
+      "finding": "Converter diagonals comment contradicted mirrored original numeric targets.",
+      "resolution": "Corrected V2 to alternating rear pair CAD FL/FR and front pair RL/RR; regenerated, re-exported and updated Blender.",
+      "status": "resolved"
+    },
+    {
+      "command": "all",
+      "finding": "New phase section labels were not recognized by shared timing helper.",
+      "resolution": "Restored clip section; explicit execution_role excludes optional demonstration recovery by default. All schedules tested.",
+      "status": "resolved"
+    },
+    {
+      "command": "displays",
+      "finding": "Repeated inherited face visibility guards exceeded Blender expression length.",
+      "resolution": "Compacted equivalent Boolean expressions and verified earlier visibility; all live drivers valid.",
+      "status": "resolved"
+    }
+  ],
+  "deferred": [
+    "Visor and inter-part collisions per owner instruction",
+    "Physical mass balance, servo stops, contact strength/friction and electrical qualification"
+  ]
+}

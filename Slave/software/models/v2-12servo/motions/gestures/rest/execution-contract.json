@@ -1,0 +1,304 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "rest",
+  "gait_id": "rest_fourbar_20260915",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "rest"
+  },
+  "shared_policy": "../execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/rest-20260915/source.json",
+      "sha256": "2aa5e7bfe5a7280fbf5042186bd21b1536fc5c786470cc552aa61d2674441c53"
+    },
+    {
+      "path": "docs/gait-research/rest-20260915/manifest.json",
+      "sha256": "94a05f74867da86b4959f60a1e09c761086e22cac36f760f8d985ecd68064e64"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_lower_into_rest",
+      "name": "lower_into_rest",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        3.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        360
+      ],
+      "demonstration_duration_s": 3.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.45388385453768004,
+        0.3580815242328075,
+        0.0,
+        0.45388385453768004,
+        0.35808155875578684,
+        0.0,
+        0.4538838722975083,
+        0.35808186643180706,
+        0.0,
+        0.45388387229752764,
+        0.35808186643180706
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.589485302594126,
+        0.5364708794182782,
+        0.0,
+        0.5894853025873181,
+        0.5364709364710407,
+        0.0,
+        0.5894849395183033,
+        0.5364709621034036,
+        0.0,
+        0.5894849395183033,
+        0.5364709621034036
+      ]
+    },
+    {
+      "id": "p001_hold_rest",
+      "name": "hold_rest",
+      "section": "clip",
+      "source_interval_s": [
+        3.0,
+        5.0
+      ],
+      "source_sample_indices_inclusive": [
+        360,
+        600
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_lower_into_rest": 3.0,
+        "p001_hold_rest": 2.0
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_lower_into_rest": 3.0,
+        "p001_hold_rest": 2.0
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_lower_into_rest": null,
+        "p001_hold_rest": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "loop_contract": null,
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "rest",
+      "mode": "boomerang",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "body_position_world_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "body_orientation_world_quaternion_wxyz": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Hold the recorded resting pose until another command. No automatic stand or joint reset.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.7657353749919866,
+        -0.5494489238921858
+      ],
+      [
+        0.0,
+        0.7657353749919822,
+        -0.5494489768450519
+      ],
+      [
+        0.0,
+        0.7657353791611432,
+        -0.5494495113563387
+      ],
+      [
+        0.0,
+        0.7657353791611383,
+        -0.5494495113563418
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "minimum_assumed_support_margin_mm": 39.11558723449706,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false
+  },
+  "hardware_ready": false,
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands."
+}

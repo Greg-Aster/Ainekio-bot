@@ -1,0 +1,1034 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "wave",
+  "gait_id": "wave_seated_fourbar_20260916",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "wave"
+  },
+  "shared_policy": "../execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/wave-seated-20260916/source.json",
+      "sha256": "d00be551216d082d2f20b0f94d469affac54d8ffd5d164c0ba0d6d9757bdef6f"
+    },
+    {
+      "path": "docs/gait-research/wave-seated-20260916/manifest.json",
+      "sha256": "f3c4a5e535e4d636a400d1b4055ca8b69d3cdddeb047764d78e349d559328dff"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_sit_down",
+      "name": "sit_down",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        3.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        360
+      ],
+      "demonstration_duration_s": 3.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6964783562480208,
+        0.10216773565294748,
+        0.0,
+        0.696478356248033,
+        0.10216774758785123,
+        0.0,
+        0.0869278660894364,
+        0.5948554880155084,
+        0.0,
+        0.0869278660894364,
+        0.5948554880155084
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.8047840862891542,
+        0.6052501779291706,
+        0.0,
+        0.8047840862181443,
+        0.6052502456476153,
+        0.0,
+        0.12541099599473526,
+        0.8843462822546,
+        0.0,
+        0.12541099599473526,
+        0.8843462822546
+      ]
+    },
+    {
+      "id": "p001_lift_front_left",
+      "name": "lift_front_left",
+      "section": "clip",
+      "source_interval_s": [
+        3.0,
+        4.2
+      ],
+      "source_sample_indices_inclusive": [
+        360,
+        504
+      ],
+      "demonstration_duration_s": 1.2,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.1816616082827465,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        6.003612854453824,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p002_extend_carrier_and_crank",
+      "name": "extend_carrier_and_crank",
+      "section": "clip",
+      "source_interval_s": [
+        4.2,
+        5.8
+      ],
+      "source_sample_indices_inclusive": [
+        504,
+        696
+      ],
+      "demonstration_duration_s": 1.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8308649920799572,
+        0.22126454261030365,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6857854384687254,
+        0.4489352031185234,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p003_shoulder_wave_1",
+      "name": "shoulder_wave_1",
+      "section": "clip",
+      "source_interval_s": [
+        5.8,
+        6.4
+      ],
+      "source_sample_indices_inclusive": [
+        696,
+        768
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8181233464855827,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4.81067171054359,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p004_shoulder_wave_2",
+      "name": "shoulder_wave_2",
+      "section": "clip",
+      "source_interval_s": [
+        6.4,
+        7.0
+      ],
+      "source_sample_indices_inclusive": [
+        768,
+        840
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6362466929711654,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        9.621343421057285,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p005_shoulder_wave_3",
+      "name": "shoulder_wave_3",
+      "section": "clip",
+      "source_interval_s": [
+        7.0,
+        7.6
+      ],
+      "source_sample_indices_inclusive": [
+        840,
+        912
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6362466929711965,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        9.621343421050197,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p006_shoulder_wave_4",
+      "name": "shoulder_wave_4",
+      "section": "clip",
+      "source_interval_s": [
+        7.6,
+        8.2
+      ],
+      "source_sample_indices_inclusive": [
+        912,
+        984
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6362466929711654,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        9.621343421057285,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p007_shoulder_wave_5",
+      "name": "shoulder_wave_5",
+      "section": "clip",
+      "source_interval_s": [
+        8.2,
+        8.8
+      ],
+      "source_sample_indices_inclusive": [
+        984,
+        1056
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6362466929711965,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        9.621343421050197,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p008_shoulder_wave_6",
+      "name": "shoulder_wave_6",
+      "section": "clip",
+      "source_interval_s": [
+        8.8,
+        9.4
+      ],
+      "source_sample_indices_inclusive": [
+        1056,
+        1128
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8181233464855827,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4.81067171054359,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p009_retract_carrier_and_crank",
+      "name": "retract_carrier_and_crank",
+      "section": "clip",
+      "source_interval_s": [
+        9.4,
+        11.0
+      ],
+      "source_sample_indices_inclusive": [
+        1128,
+        1320
+      ],
+      "demonstration_duration_s": 1.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8308649920799572,
+        0.22126454261030365,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6857854384687254,
+        0.4489352031185234,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p010_replace_front_left",
+      "name": "replace_front_left",
+      "section": "clip",
+      "source_interval_s": [
+        11.0,
+        12.2
+      ],
+      "source_sample_indices_inclusive": [
+        1320,
+        1464
+      ],
+      "demonstration_duration_s": 1.2,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.1816616082827465,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        6.00361285445393,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p011_return_to_standing",
+      "name": "return_to_standing",
+      "section": "clip",
+      "source_interval_s": [
+        12.2,
+        15.2
+      ],
+      "source_sample_indices_inclusive": [
+        1464,
+        1824
+      ],
+      "demonstration_duration_s": 3.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6964783562480208,
+        0.10216773565294748,
+        0.0,
+        0.6964783562480331,
+        0.10216774758785123,
+        0.0,
+        0.0869278660894364,
+        0.5948554880155082,
+        0.0,
+        0.0869278660894364,
+        0.5948554880155082
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.8047840862891142,
+        0.6052501779291706,
+        0.0,
+        0.8047840862181044,
+        0.6052502456476153,
+        0.0,
+        0.12541099599473027,
+        0.88434628225458,
+        0.0,
+        0.12541099599473027,
+        0.88434628225458
+      ]
+    },
+    {
+      "id": "p012_hold_standing",
+      "name": "hold_standing",
+      "section": "clip",
+      "source_interval_s": [
+        15.2,
+        16.0
+      ],
+      "source_sample_indices_inclusive": [
+        1824,
+        1920
+      ],
+      "demonstration_duration_s": 0.8,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 3.008333333,
+      "sample_index": 361,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 12.2,
+      "sample_index": 1464,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_sit_down": 3.0,
+        "p001_lift_front_left": 1.2,
+        "p002_extend_carrier_and_crank": 1.6,
+        "p003_shoulder_wave_1": 0.6,
+        "p004_shoulder_wave_2": 0.6,
+        "p005_shoulder_wave_3": 0.6,
+        "p006_shoulder_wave_4": 0.6,
+        "p007_shoulder_wave_5": 0.6,
+        "p008_shoulder_wave_6": 0.6,
+        "p009_retract_carrier_and_crank": 1.6,
+        "p010_replace_front_left": 1.2,
+        "p011_return_to_standing": 3.0,
+        "p012_hold_standing": 0.8
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_sit_down": 3.0,
+        "p001_lift_front_left": 1.2,
+        "p002_extend_carrier_and_crank": 1.6,
+        "p003_shoulder_wave_1": 0.6,
+        "p004_shoulder_wave_2": 0.6,
+        "p005_shoulder_wave_3": 0.6,
+        "p006_shoulder_wave_4": 0.6,
+        "p007_shoulder_wave_5": 0.6,
+        "p008_shoulder_wave_6": 0.6,
+        "p009_retract_carrier_and_crank": 1.6,
+        "p010_replace_front_left": 1.2,
+        "p011_return_to_standing": 3.0,
+        "p012_hold_standing": 0.8
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_sit_down": null,
+        "p001_lift_front_left": null,
+        "p002_extend_carrier_and_crank": null,
+        "p003_shoulder_wave_1": null,
+        "p004_shoulder_wave_2": null,
+        "p005_shoulder_wave_3": null,
+        "p006_shoulder_wave_4": null,
+        "p007_shoulder_wave_5": null,
+        "p008_shoulder_wave_6": null,
+        "p009_retract_carrier_and_crank": null,
+        "p010_replace_front_left": null,
+        "p011_return_to_standing": null,
+        "p012_hold_standing": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "loop_contract": null,
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "wave",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 15.2,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "body_position_world_mm": [
+      -0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "body_orientation_world_quaternion_wxyz": [
+      1.0,
+      0.0,
+      -0.0,
+      0.0
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Lower the waving foot into Sit, then return to standing and hold; restore the stand face.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "minimum_assumed_support_margin_mm": 15.790382655754268,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false
+  },
+  "hardware_ready": false,
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands."
+}

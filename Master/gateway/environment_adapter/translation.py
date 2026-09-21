@@ -81,7 +81,7 @@ ROBOT_COMMAND_DESCRIPTIONS: dict[str, str] = {
     "shrug": "flatten then lift all distal legs in a shrug-like gesture, then return to stand",
     "dead": "lower all distal legs into a flat play-dead pose and hold it",
     "crab": "perform an alternating crab-like leg motion, then return to stand",
-    "nod": "dip the front leg pair twice in a nodding gesture, then return to stand",
+    "nod": "perform the preprogrammed shallow nodding gesture, then return to stand",
     "celebrate": "lower into a full-body pose and wave all four legs, then return to stand",
     "stretch": "extend diagonal and front leg pairs in a stretch, then return to stand",
     "macarena": "perform two cycles of Macarena-style front-leg choreography, then return to stand",
@@ -107,6 +107,14 @@ ROBOT_COMMAND_DESCRIPTIONS: dict[str, str] = {
     "#2": "alias for the mirrored rear-leg-squat number-two gesture",
 }
 
+# Preserve the actual V1 catalog when a legacy body cannot declare its assets.
+# New model-specific names require an explicit body_commands_v1 declaration.
+LEGACY_ROBOT_COMMANDS = tuple(sorted(ROBOT_COMMAND_DESCRIPTIONS))
+DECLARED_EMOTES = {
+    "turn_left_15": "turn left approximately 15 degrees",
+    "turn_right_15": "turn right approximately 15 degrees",
+}
+ROBOT_COMMAND_DESCRIPTIONS.update(DECLARED_EMOTES)
 SUPPORTED_ROBOT_COMMANDS = tuple(sorted(ROBOT_COMMAND_DESCRIPTIONS))
 
 @dataclass(frozen=True)
@@ -163,6 +171,8 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         "turnrighthalfturn": "turnright90",
         "turnleftonehalfturn": "turnleft90",
         "turnrightonehalfturn": "turnright90",
+        "turnleft15degrees": "turnleft15",
+        "turnright15degrees": "turnright15",
         "turnleft45degrees": "turnleft45",
         "turnright45degrees": "turnright45",
         "turnleft90degrees": "turnleft90",
@@ -201,7 +211,7 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
             {"dir": direction, "steps": _bounded_steps(action.get("units"))},
         )
     emote_asset = next(
-        (asset for asset in SEED_EMOTES if _normalized(asset) == command),
+        (asset for asset in SEED_EMOTES | DECLARED_EMOTES.keys() if _normalized(asset) == command),
         None,
     )
     if emote_asset is not None:

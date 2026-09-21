@@ -1,0 +1,9 @@
+{
+  "segments_checked": 804,
+  "bounded_quarter_samples": true,
+  "final_hold_verified": true,
+  "peak_interpolated_speed_degrees_s": 72.60974006351711,
+  "peak_interpolated_acceleration_degrees_s2": 286.9573774412867,
+  "continuity": "Position and velocity continuous; full acceleration continuity not established.",
+  "hardware_qualified": false
+}

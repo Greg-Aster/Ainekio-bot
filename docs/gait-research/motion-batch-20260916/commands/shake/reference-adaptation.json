@@ -1,0 +1,28 @@
+{
+  "v1_source": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "v1_command": "shake",
+  "v1_frame_count": 13,
+  "v1_nominal_frame_duration_sum_ms": 4240,
+  "v1_sequential_servo_timing": true,
+  "v1_gesture_signature": "Fold the front R3/L3 distal pair and reposition rear carriers; pulse rear R4/L4 together five times; stand.",
+  "v2_adaptation": "V1 front distal pair R3/L3 folds while rear R4/L4 pulses synchronously five times. V2 lowers the front, preserves four measured sole contacts, then rocks the rear pair up/down five times with coordinated carrier/crank closure.",
+  "physical_leg_mapping": {
+    "FL": "rear_left",
+    "FR": "rear_right",
+    "RL": "front_left",
+    "RR": "front_right"
+  },
+  "v1_front_distal_labels": [
+    "R3",
+    "L3"
+  ],
+  "v1_rear_distal_labels": [
+    "R4",
+    "L4"
+  ],
+  "angle_mapping": "No electrical degree values copied. Twelve geometric joint angles solved from measured mechanism or deliberately bounded airborne branch-valid paths.",
+  "timing": "V1 frame order/repetition retained semantically; V2 research timing independently defined in config.json, with synchronized smooth joint samples. Timing and electrical staggering are separate execution concerns.",
+  "reference_converter": "/home/greggles/Ainekio/Slave/software/tools/convert_sesame_assets.py",
+  "hardware_qualified": false,
+  "current_body_geometry_provenance": "body-sample-provenance.json"
+}

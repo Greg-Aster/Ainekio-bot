@@ -1,0 +1,71 @@
+{
+  "command": "freaky",
+  "display_label": "FREAKY",
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 3457,
+  "existing_animation_end_frame": 3433,
+  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Motion-Batch.blend",
+  "output_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "scene_name": "AINEKIO - Motion Library",
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -95,
+      95
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "part023_forward_limit_degrees": null,
+  "face_cues": [
+    {
+      "time_s": 0,
+      "name": "freaky",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 9.2,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "adaptation": "V1 spreads its upper joints, partly folds right rear R4, and repeats three short right-front R3 flicks. V2 lowers into a three-foot braced posture, raises the right-front shoulder, and flicks right-front Part005 with coupled Part006. Three supporting soles are retained; no invented belly contact.",
+  "completion": "Return to standing after the gesture; hold the final pose.",
+  "contact_model": "Measured convex sole rolling: fixed material vertex between feature transfers. Belly support is explicit when selected; no friction or dynamics simulation.",
+  "hardware_qualified": false,
+  "cycles": 3,
+  "right_front_CAD_leg": "RR",
+  "right_rear_CAD_leg": "FR",
+  "semantic_end_s": 9.2,
+  "shoulder_bounds_basis": "90 degree Swim research envelope; geometric only, uncalibrated electrical travel."
+}

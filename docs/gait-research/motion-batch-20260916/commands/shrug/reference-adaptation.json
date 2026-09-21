@@ -1,0 +1,35 @@
+{
+  "command": "shrug",
+  "source_authority": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "source_asset_name": "shrug",
+  "reference_file": "reference-v1-shrug.json",
+  "source_owner_adjustments_already_applied": true,
+  "reference_duration_ms_sum": 3180,
+  "reference_sequential_servo_timing": true,
+  "signature": "Flat four-limb preparation, all four limbs raised together into an upward shrug, hold, then standing.",
+  "phase_mapping": "V1 frame1 sends all four lower joints to90 degrees in established dead/flat pose; frame2 moves all four to opposite extrema; frame3 stands. V2 shoulder splay recreates the flat pose and synchronized shoulder elevation recreates the four-limb shrug.",
+  "generated_phases": [
+    "lower_onto_belly",
+    "splay_flat_dead_pose",
+    "open_flat_limbs",
+    "hold_flat_pose",
+    "raise_all_limbs_shrug",
+    "hold_upward_shrug",
+    "release_shrug",
+    "fold_limbs_for_ground",
+    "replace_all_feet",
+    "return_to_standing",
+    "hold_standing"
+  ],
+  "leg_mapping": {
+    "FL": "physical rear left",
+    "FR": "physical rear right",
+    "RL": "physical front left",
+    "RR": "physical front right"
+  },
+  "electrical_angle_conversion": "None. V1 electrical angles establish intent; V2 exports measured-geometry joint radians and original passive four-bar branch.",
+  "timing": "Preview transition timing differs from V1 electrical timing. All source timestamps and peak joint derivatives are explicit. Root integration owns the execution contract and staggering policy.",
+  "contact_limitations": "Uses the measured rear-cover plus front-visor ground support plane. All feet are airborne during flat/raised poses. Shoulder outward rotation reaches125 degrees. Physical visor load capacity and calibrated electrical endpoints are unverified.",
+  "semantic_completion": "Final exact standing and hold, matching explicit V1 final standing frame. No distinct held endpoint or optional recovery is needed.",
+  "hardware_qualified": false
+}

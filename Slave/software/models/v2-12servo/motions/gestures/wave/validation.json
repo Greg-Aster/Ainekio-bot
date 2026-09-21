@@ -1,0 +1,134 @@
+{
+  "duration_s": 16.0,
+  "motion_end_s": 15.2,
+  "sample_hz": 120,
+  "samples": 1921,
+  "extended_wave_start_s": 5.8,
+  "extended_wave_end_s": 9.4,
+  "actuator_min_degrees": [
+    [
+      0.0,
+      0.0,
+      -3.7411643623256277
+    ],
+    [
+      0.0,
+      0.0,
+      -3.7411647947990567
+    ],
+    [
+      0.0,
+      -34.24,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      0.0,
+      66.76722066200865,
+      1.1644182604469644
+    ],
+    [
+      0.0,
+      66.76722066200765,
+      1.1644184011292844
+    ],
+    [
+      95.0,
+      6.382982052224677,
+      55.818154127243886
+    ],
+    [
+      0.0,
+      6.382982052224677,
+      55.818154127243886
+    ]
+  ],
+  "final_actuator_degrees": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      0.0,
+      39.89977127858694,
+      5.853099611765145
+    ],
+    [
+      0.0,
+      39.899771278585234,
+      5.853100295740634
+    ],
+    [
+      124.98392582739001,
+      47.60161355169192,
+      34.08181027249071
+    ],
+    [
+      0.0,
+      4.980287747358032,
+      34.08181027249071
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      0.0,
+      44.40535554670362,
+      12.37922938029552
+    ],
+    [
+      0.0,
+      44.405355546345504,
+      12.379230771975891
+    ],
+    [
+      479.92219650223547,
+      91.57829798372212,
+      48.51752658410362
+    ],
+    [
+      0.0,
+      6.924723156936317,
+      48.51752658410362
+    ]
+  ],
+  "maximum_adjacent_joint_step_degrees": 1.04153271522825,
+  "minimum_support_margin_mm": 15.790382655754268,
+  "minimum_stance_contacts": 3,
+  "minimum_body_ground_clearance_mm": 2.0,
+  "min_sole_height_mm": -1.3104410001574252e-08,
+  "peak_waving_sole_height_mm": 117.4247093663757,
+  "peak_waving_foot_bolt_height_mm": 125.23853041356693,
+  "extended_planar_O_to_foot_bolt_mm": 97.47420261598904,
+  "max_stance_material_vertex_constraint_error_mm": 1.0658141036401503e-13,
+  "maximum_rolling_normal_correction_mm": 0.000217190796279354,
+  "final_joint_return_error_degrees": 0.0,
+  "research_angle_bounds_satisfied": true,
+  "collision_checked": false,
+  "hardware_servo_limits_verified": false,
+  "measured_mass_balance_verified": false,
+  "hardware_qualified": false
+}

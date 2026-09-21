@@ -1,0 +1,39 @@
+{
+  "physical_front_CAD_legs": [
+    "RL",
+    "RR"
+  ],
+  "physical_rear_CAD_legs": [
+    "FL",
+    "FR"
+  ],
+  "steady_cycle_seconds": 3.0,
+  "rear_phase_lag_cycles": 0.25,
+  "equivalent_rear_phase_lag_seconds": 0.75,
+  "steady_source_seconds": [
+    5.8,
+    17.0
+  ],
+  "all_four_legs_move_throughout_steady_segment": true,
+  "minimum_per_leg_joint_step_steady_degrees": [
+    0.39270572682373667,
+    0.39270572682373667,
+    0.39270572682379756,
+    0.39270572682379756
+  ],
+  "maximum_cycle_repeat_error_rad": 2.886579864025407e-15,
+  "Part005_stroke_range_degrees": [
+    59.99999999999999,
+    59.99999999999999,
+    59.99999999999999,
+    59.99999999999999
+  ],
+  "closed_foot_path_area_xy_mm2": [
+    863.4723948550227,
+    863.4722820405564,
+    863.4714149059396,
+    863.4714149059478
+  ],
+  "body_support_retained": true,
+  "physical_stability_verified": false
+}

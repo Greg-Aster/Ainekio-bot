@@ -1,0 +1,23 @@
+{
+  "model_meshes_checked": 296,
+  "changed_model_meshes": [],
+  "missing_previous_reference_objects": [
+    "CRAWL | Cylinder",
+    "CRAWL | Cylinder.001"
+  ],
+  "earlier_command_max_curve_error": 0.0,
+  "comparison_frames": [
+    529.0,
+    683.0,
+    913.0,
+    937.0,
+    1005.0,
+    1200.0,
+    1237.0
+  ],
+  "filepath": "/home/greggles/blender-5.0.0-linux-x64/robot-swim-20260916/Ainekio-Swim.blend",
+  "range": [
+    1261,
+    1825
+  ]
+}

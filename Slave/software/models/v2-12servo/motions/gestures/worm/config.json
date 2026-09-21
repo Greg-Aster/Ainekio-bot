@@ -1,0 +1,71 @@
+{
+  "command": "worm",
+  "display_label": "WORM",
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 3714,
+  "existing_animation_end_frame": 3690,
+  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Motion-Batch.blend",
+  "output_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "scene_name": "AINEKIO - Motion Library",
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -35,
+      35
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "part023_forward_limit_degrees": null,
+  "face_cues": [
+    {
+      "time_s": 0,
+      "name": "worm",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 12.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "adaptation": "V1 lowers into a flat posture, then alternates mirrored front/rear lower-joint targets for five cycles. V2 performs five continuous low-body undulations: front dips as rear rises, then rear dips as front rises, with four grounded measured soles.",
+  "completion": "Five front/rear undulations, then return to standing; rolling may accumulate a small sole contact displacement.",
+  "contact_model": "Measured convex sole rolling: fixed material vertex between feature transfers. Belly support is explicit when selected; no friction or dynamics simulation.",
+  "hardware_qualified": false,
+  "worm_body_height_mm": 58.0,
+  "worm_pitch_degrees": 4.0,
+  "cycles": 5,
+  "cycle_seconds": 1.8,
+  "semantic_end_s": 12.0
+}

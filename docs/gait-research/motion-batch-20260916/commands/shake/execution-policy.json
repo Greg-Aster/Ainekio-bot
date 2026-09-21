@@ -1,0 +1,271 @@
+{
+  "schema": "ainekio-motion-execution-policy-1",
+  "scope": "Firmware handoff and offline timing reference; no hardware executor implementation.",
+  "coordinates": {
+    "joint_positions": "signed geometric radians",
+    "speed": "radians/second",
+    "acceleration": "radians/second squared",
+    "time": "seconds",
+    "cartesian_positions": "millimeters"
+  },
+  "coordination": {
+    "clock": "One monotonic trajectory clock for all twelve joints, body pose, foot targets, contacts and face-cue events.",
+    "groups": [
+      {
+        "id": "FL",
+        "physical_leg": "rear_left",
+        "joint_indices": [
+          0,
+          1,
+          2
+        ],
+        "rule": "Shoulder, carrier and crank share source time; passive links satisfy four-bar closure."
+      },
+      {
+        "id": "FR",
+        "physical_leg": "rear_right",
+        "joint_indices": [
+          3,
+          4,
+          5
+        ],
+        "rule": "Shoulder, carrier and crank share source time; passive links satisfy four-bar closure."
+      },
+      {
+        "id": "RL",
+        "physical_leg": "front_left",
+        "joint_indices": [
+          6,
+          7,
+          8
+        ],
+        "rule": "Shoulder, carrier and crank share source time; passive links satisfy four-bar closure."
+      },
+      {
+        "id": "RR",
+        "physical_leg": "front_right",
+        "joint_indices": [
+          9,
+          10,
+          11
+        ],
+        "rule": "Shoulder, carrier and crank share source time; passive links satisfy four-bar closure."
+      }
+    ],
+    "whole_body": "All supporting legs and body motion share source time. Preserve contact order and phase boundaries.",
+    "intentional_joint_trajectory_delay_s": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "changed_motion_delays": "Any nonzero per-joint motion delay is a new trajectory: regenerate evaluated feet, closure, collisions and support checks before accepting it."
+  },
+  "hardware_limits": {
+    "status": "unmeasured",
+    "calibration_id": null,
+    "per_joint": [
+      {
+        "joint_index": 0,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 1,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 2,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 3,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 4,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 5,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 6,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 7,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 8,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 9,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 10,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      },
+      {
+        "joint_index": 11,
+        "position_min_rad": null,
+        "position_max_rad": null,
+        "max_speed_rad_s": null,
+        "max_acceleration_rad_s2": null,
+        "max_braking_acceleration_rad_s2": null,
+        "max_jerk_rad_s3": null
+      }
+    ],
+    "unknown_limit_behavior": "No calibrated hardware profile can be approved from unknown limits. Retiming output remains offline research.",
+    "limit_violation_behavior": "Increase coordinated phase durations or regenerate the path. Do not independently clamp joint positions, velocities or accelerations."
+  },
+  "timing": {
+    "rule": "Use one continuous monotone source-time map. Joint positions q(s); velocity q_s*s_dot; acceleration q_ss*s_dot^2 + q_s*s_ddot.",
+    "uniform_speedup": "A factor k multiplies speeds by k and accelerations by k squared.",
+    "unequal_phase_durations": "Use the timing.py C2 time map or an equivalently continuous validated map; do not change clock rate abruptly at nonzero-velocity boundaries.",
+    "reference_acceleration": "The source cubic curves are C1, with possible acceleration jumps. Smooth jerk/acceleration limits require source refinement and revalidation; timing alone does not prove C2 joint motion.",
+    "playback": "Blender inspection playback rate is separate from physical execution timing.",
+    "retimed_validation": [
+      "joint speed and acceleration including interpolation extrema",
+      "branch and angle continuity",
+      "actual command update cadence and latency",
+      "contact/sole errors with actual scheduling",
+      "measured balance and torque under load"
+    ]
+  },
+  "electrical_scheduling": {
+    "owner": "ESP32-P4 actuator/output scheduler",
+    "implementation_status": "required_not_implemented_by_this_handoff",
+    "observed_reference": {
+      "driver": "Slave/firmware/esp32p4-wifi6/components/ainekio_pca9685/pca9685.c",
+      "frequency_hz": 50,
+      "pulse_start_phase": "all enabled ON counters are zero"
+    },
+    "pwm_phase": {
+      "status": "uncalibrated",
+      "phase_offsets_us": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "requirement": "Provide configurable per-channel phase offsets, preserve pulse width across counter wrap, and calibrate actual pulse-edge/current behavior.",
+      "candidate_experiment": "At 50 Hz an evenly spaced twelve-channel schedule has 20000/12 microseconds between starts. This is an experiment, not a required interval or approved hardware setting."
+    },
+    "engagement": {
+      "status": "uncalibrated",
+      "enable_order": null,
+      "enable_group_interval_ms": null,
+      "requirement": "Controlled initial engagement from a known supported pose; stagger activation/groups according to measured power and support needs. Do not repeatedly detach stance servos during ordinary motion."
+    },
+    "power": {
+      "supply_voltage_min_v": null,
+      "peak_total_current_limit_a": null,
+      "voltage_sag_limit_v": null,
+      "measurements_required": [
+        "rail voltage and current during initial engagement",
+        "concurrent loaded starts/reversals/holds",
+        "wiring and regulator transient response"
+      ],
+      "caveat": "Pulse staggering is not motor-current scheduling and does not establish brownout protection, especially for internally controlled digital servos."
+    },
+    "timing_accuracy": {
+      "max_inter_joint_tracking_skew_us": null,
+      "max_update_latency_us": null,
+      "requirement": "Choose an explicit sample/hold or phase-compensated target policy and measure the realized tracking skew. Preserve coordinated source time; pulse offsets are not arbitrary trajectory delays."
+    }
+  },
+  "entry_and_interruption": {
+    "entry_pose_source": "Each contract records the exact first twelve angles and contacts.",
+    "actual_pose": "Distinguish commanded/estimated pose from measured pose. With unknown pose, use supported operator recovery rather than claiming the robot is at sample zero.",
+    "entry": "If current pose differs, generate a coordinated contact-aware transition with calibrated speed/acceleration limits; do not jump to the first row.",
+    "interruption": "Brake from the current execution phase with coordinated joints. If a foot is raised, select a supported placement/hold using the current contact state; do not seek directly to the last sample.",
+    "resume": "Resume only through a phase-matched transition from the resulting pose.",
+    "normal_completion": "Hold the recorded terminal pose. A source sampler completing is not physical pose confirmation.",
+    "emergency": "Keep the existing independent emergency-disable path; this handoff does not weaken or replace it."
+  },
+  "references": [
+    {
+      "title": "PCA9685 independent pulse timing",
+      "url": "https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf"
+    },
+    {
+      "title": "Servo control pulses and motor-current behavior",
+      "url": "https://www.pololu.com/blog/17/servo-control-interface-in-detail"
+    }
+  ]
+}

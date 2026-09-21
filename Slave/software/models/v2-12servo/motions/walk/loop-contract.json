@@ -1,0 +1,28 @@
+{
+  "period_seconds": 4.0,
+  "sample_hz": 120,
+  "intervals_per_cycle": 480,
+  "rows_including_closing_endpoint": 481,
+  "repeated_row_indices_inclusive": [
+    0,
+    479
+  ],
+  "closing_endpoint_row": 480,
+  "translation_per_cycle_world_mm": [
+    99.2,
+    0.0,
+    0.0
+  ],
+  "angle_offset_per_cycle_rad": 0.0,
+  "world_position_fields": [
+    "body_position_world_mm",
+    "assumed_com_world_mm",
+    "foot_bolt_world_mm",
+    "contact_world_mm"
+  ],
+  "indexing": "At cycle n, use rows 0 through 479 and add n*99.2 mm to every world X field; add n*4 seconds to timestamps. Row 480 is a closing endpoint for interpolation/validation, not an extra held sample.",
+  "absolute_pose_periodic": false,
+  "body_relative_pose_periodic": true,
+  "interpolation": "Monotone cubic with the same endpoint tangent on both sides of the seam. C1 continuity; acceleration continuity not guaranteed at every key.",
+  "start_stop_policy": "The original full clip retains standing transitions. This loop must be entered/exited through a phase-matched transition, not an instantaneous command from stand."
+}

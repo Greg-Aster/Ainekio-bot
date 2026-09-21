@@ -1,0 +1,159 @@
+{
+  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-rest-20260915/Ainekio-Rest.blend",
+  "poses": [
+    {
+      "frame": 529.0,
+      "legs": {
+        "FL": {
+          "foot_error_mm": 6.148142574395566e-06,
+          "maximum_joint_error_mm": 1.9451215795870913e-05,
+          "minimum_sole_z_mm": 7.91883394413162e-06,
+          "part023_angle_from_forward_degrees": 124.24937761869103
+        },
+        "FR": {
+          "foot_error_mm": 1.4853398272690011e-05,
+          "maximum_joint_error_mm": 2.191376741996013e-05,
+          "minimum_sole_z_mm": -4.53365554164975e-06,
+          "part023_angle_from_forward_degrees": 124.24937761869103
+        },
+        "RL": {
+          "foot_error_mm": 6.138222869635994e-06,
+          "maximum_joint_error_mm": 3.2368779656366614e-05,
+          "minimum_sole_z_mm": -3.6974650612364712e-06,
+          "part023_angle_from_forward_degrees": 124.24935955210378
+        },
+        "RR": {
+          "foot_error_mm": 2.245582128826439e-05,
+          "maximum_joint_error_mm": 2.191376741996013e-05,
+          "minimum_sole_z_mm": -1.592000654682124e-05,
+          "part023_angle_from_forward_degrees": 124.24935955210378
+        }
+      }
+    },
+    {
+      "frame": 553.1,
+      "legs": {
+        "FL": {
+          "foot_error_mm": 1.3872271701894062e-05,
+          "maximum_joint_error_mm": 1.7481138973067626e-05,
+          "minimum_sole_z_mm": 1.0210216032646713e-05,
+          "part023_angle_from_forward_degrees": 134.45994553160838
+        },
+        "FR": {
+          "foot_error_mm": 1.4982541744376828e-05,
+          "maximum_joint_error_mm": 2.8546580404464274e-05,
+          "minimum_sole_z_mm": -3.2485819048133635e-06,
+          "part023_angle_from_forward_degrees": 134.4599417044587
+        },
+        "RL": {
+          "foot_error_mm": 7.410899099120608e-06,
+          "maximum_joint_error_mm": 3.259278772475254e-05,
+          "minimum_sole_z_mm": -2.252300504324012e-06,
+          "part023_angle_from_forward_degrees": 134.4599318816543
+        },
+        "RR": {
+          "foot_error_mm": 2.0719987049444985e-05,
+          "maximum_joint_error_mm": 2.5872535641194413e-05,
+          "minimum_sole_z_mm": -1.5400401011333997e-05,
+          "part023_angle_from_forward_degrees": 134.45993000449855
+        }
+      }
+    },
+    {
+      "frame": 577.1,
+      "legs": {
+        "FL": {
+          "foot_error_mm": 2.6962354749433205e-06,
+          "maximum_joint_error_mm": 2.089395742436089e-05,
+          "minimum_sole_z_mm": -1.2412453429533343e-06,
+          "part023_angle_from_forward_degrees": 158.93021673080702
+        },
+        "FR": {
+          "foot_error_mm": 8.31515700086926e-06,
+          "maximum_joint_error_mm": 1.7892516173642844e-05,
+          "minimum_sole_z_mm": -1.7456714118679884e-06,
+          "part023_angle_from_forward_degrees": 158.93021673080702
+        },
+        "RL": {
+          "foot_error_mm": 1.3105872067477371e-05,
+          "maximum_joint_error_mm": 2.697398304697218e-05,
+          "minimum_sole_z_mm": 5.261776379938965e-06,
+          "part023_angle_from_forward_degrees": 158.93020770319106
+        },
+        "RR": {
+          "foot_error_mm": 1.1775417460685772e-05,
+          "maximum_joint_error_mm": 2.5589767198560217e-05,
+          "minimum_sole_z_mm": -7.867948710327255e-07,
+          "part023_angle_from_forward_degrees": 158.93020770319106
+        }
+      }
+    },
+    {
+      "frame": 601.1,
+      "legs": {
+        "FL": {
+          "foot_error_mm": 1.4571977335197774e-05,
+          "maximum_joint_error_mm": 2.191376741996013e-05,
+          "minimum_sole_z_mm": 8.016368781227357e-06,
+          "part023_angle_from_forward_degrees": 168.12278414097943
+        },
+        "FR": {
+          "foot_error_mm": 1.3003460363995569e-05,
+          "maximum_joint_error_mm": 1.9451215795870913e-05,
+          "minimum_sole_z_mm": -8.83898154313556e-06,
+          "part023_angle_from_forward_degrees": 168.12278414097943
+        },
+        "RL": {
+          "foot_error_mm": 9.502296340908093e-06,
+          "maximum_joint_error_mm": 2.622170845960144e-05,
+          "minimum_sole_z_mm": 1.9563428281799133e-06,
+          "part023_angle_from_forward_degrees": 168.12277007282268
+        },
+        "RR": {
+          "foot_error_mm": 9.349018148790855e-06,
+          "maximum_joint_error_mm": 3.122464283703785e-05,
+          "minimum_sole_z_mm": -4.275536880982145e-06,
+          "part023_angle_from_forward_degrees": 168.12277119742893
+        }
+      }
+    },
+    {
+      "frame": 649.0,
+      "legs": {
+        "FL": {
+          "foot_error_mm": 1.4571977335197774e-05,
+          "maximum_joint_error_mm": 2.191376741996013e-05,
+          "minimum_sole_z_mm": 8.016368781227357e-06,
+          "part023_angle_from_forward_degrees": 168.12278414097943
+        },
+        "FR": {
+          "foot_error_mm": 1.3003460363995569e-05,
+          "maximum_joint_error_mm": 1.9451215795870913e-05,
+          "minimum_sole_z_mm": -8.83898154313556e-06,
+          "part023_angle_from_forward_degrees": 168.12278414097943
+        },
+        "RL": {
+          "foot_error_mm": 9.502296340908093e-06,
+          "maximum_joint_error_mm": 2.622170845960144e-05,
+          "minimum_sole_z_mm": 1.9563428281799133e-06,
+          "part023_angle_from_forward_degrees": 168.12277007282268
+        },
+        "RR": {
+          "foot_error_mm": 9.349018148790855e-06,
+          "maximum_joint_error_mm": 3.122464283703785e-05,
+          "minimum_sole_z_mm": -4.275536880982145e-06,
+          "part023_angle_from_forward_degrees": 168.12277119742893
+        }
+      }
+    }
+  ],
+  "maximum_joint_disconnection_mm": 3.259278772475254e-05,
+  "maximum_foot_prediction_error_mm": 2.245582128826439e-05,
+  "minimum_evaluated_sole_z_mm": -1.592000654682124e-05,
+  "collision_checked": false,
+  "minimum_evaluated_part023_angle_degrees": 124.24935955210378,
+  "minimum_complete_model_z_mm": -1.592000654682124e-05,
+  "lowest_model_object": "CRAWL | RR - Part_020",
+  "minimum_body_z_mm": 6.749994905553737,
+  "sampled_poses": 5
+}

@@ -1,0 +1,12 @@
+{
+  "fps": 1,
+  "frames": [
+    "faces/rest/0.bin",
+    "faces/rest/1.bin",
+    "faces/rest/2.bin"
+  ],
+  "height": 64,
+  "mode": "boomerang",
+  "name": "rest",
+  "width": 128
+}

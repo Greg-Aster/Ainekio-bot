@@ -74,6 +74,18 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
     if "$ref" in schema:
         assert_matches_schema(instance, _resolve(root, schema["$ref"]), root)
 
+    for condition in schema.get("allOf", []):
+        assert_matches_schema(instance, condition, root)
+    if "if" in schema:
+        try:
+            assert_matches_schema(instance, schema["if"], root)
+        except SchemaMismatch:
+            branch = "else"
+        else:
+            branch = "then"
+        if branch in schema:
+            assert_matches_schema(instance, schema[branch], root)
+
     if "oneOf" in schema:
         matches = 0
         for option in schema["oneOf"]:
@@ -128,6 +140,17 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
                 assert_matches_schema(instance[name], property_schema, root)
 
     if isinstance(instance, list):
+        if schema.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in instance}) != len(instance):
+            raise SchemaMismatch("duplicate array item")
+        if "contains" in schema:
+            for item in instance:
+                try:
+                    assert_matches_schema(item, schema["contains"], root)
+                except SchemaMismatch:
+                    continue
+                break
+            else:
+                raise SchemaMismatch("required array member absent")
         if "minItems" in schema and len(instance) < schema["minItems"]:
             raise SchemaMismatch("array too short")
         if "maxItems" in schema and len(instance) > schema["maxItems"]:
@@ -244,6 +267,28 @@ class ControlSchemaTests(unittest.TestCase):
         validate_control_message(message)
         encoded = json.dumps(message, separators=(",", ":")).encode("utf-8")
         self.assertLessEqual(len(encoded), 4096)
+
+    def test_body_command_negotiation_matches_runtime_validation(self) -> None:
+        from protocol.control_v1 import ProtocolValidationError
+
+        caps = {"motion": False, "camera": False, "microphone": False, "speaker": False, "commands": ["walk", "stop"]}
+        hello = {"t": "hello", "ver": 1, "fw": "test", "id": "p4", "auth": "REDACTED-TOKEN",
+                 "features": ["body_capabilities_v1", "body_commands_v1"], "model": "v2-12servo", "capabilities": caps}
+        assert_matches_schema(hello, self.schema, self.schema)
+        validate_control_message(hello)
+        invalid = [
+            {**hello, "features": ["body_commands_v1"]},
+            {key:value for key,value in hello.items() if key != "capabilities"},
+            {**hello, "capabilities": {key:value for key,value in caps.items() if key != "commands"}},
+        ]
+        invalid.extend({**hello,"capabilities":{**caps,"commands":names}}
+                       for names in (None,["walk","walk"],[""],[True],["x"*33],[str(i) for i in range(65)]))
+        for message in invalid:
+            with self.subTest(message=message):
+                with self.assertRaises(SchemaMismatch):
+                    assert_matches_schema(message, self.schema, self.schema)
+                with self.assertRaises(ProtocolValidationError):
+                    validate_control_message(message)
 
 
 class BinaryContractTests(unittest.TestCase):

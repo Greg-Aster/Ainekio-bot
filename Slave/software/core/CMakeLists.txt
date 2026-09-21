@@ -1,4 +1,5 @@
 set(AINEKIO_CORE_SOURCES
+    "src/admission.c"
     "src/audio_endpoint.c"
     "src/assets.c"
     "src/core.c"
@@ -13,6 +14,7 @@ set(AINEKIO_CORE_SOURCES
     "src/sd_record.c"
     "src/servo.c"
     "src/settings.c"
+    "src/trajectory.c"
 )
 
 if(ESP_PLATFORM)
@@ -162,6 +164,10 @@ else()
     )
 
     enable_testing()
+    add_executable(ainekio_admission_tests "tests/test_admission.c")
+    target_link_libraries(ainekio_admission_tests PRIVATE ainekio_core)
+    target_compile_options(ainekio_admission_tests PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    add_test(NAME ainekio_admission_tests COMMAND ainekio_admission_tests)
     add_test(NAME ainekio_core_tests COMMAND ainekio_core_tests)
     add_test(NAME ainekio_audio_endpoint_tests COMMAND ainekio_audio_endpoint_tests)
     add_test(NAME ainekio_provisioning_tests COMMAND ainekio_provisioning_tests)

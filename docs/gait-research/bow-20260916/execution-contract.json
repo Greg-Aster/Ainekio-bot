@@ -1,0 +1,652 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "bow",
+  "gait_id": "bow_front_stretch_fourbar_20260916",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "bow"
+  },
+  "shared_policy": "execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/bow-20260916/source.json",
+      "sha256": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b"
+    },
+    {
+      "path": "docs/gait-research/bow-20260916/manifest.json",
+      "sha256": "8e39affae9861237d57f5c7893851b80ecd8ae90607e0f703a6f75715683a5c0"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_brace_stance",
+      "name": "brace_stance",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        1.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        120
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "contact_motion_models": [
+        [
+          "rolling",
+          "rolling",
+          "rolling",
+          "rolling"
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.16538524109296743,
+        0.15787518808884035,
+        0.0,
+        0.16538524109296743,
+        0.1578752061486669,
+        0.0,
+        0.1653852845592495,
+        0.15787536066534924,
+        0.0,
+        0.1653852845592495,
+        0.15787536066534924
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.573304630396342,
+        0.5562817716950013,
+        0.0,
+        0.5733046303828748,
+        0.5562818368662541,
+        0.0,
+        0.5733047410413413,
+        0.5562823446066202,
+        0.0,
+        0.5733047410413413,
+        0.5562823446066202
+      ]
+    },
+    {
+      "id": "p001_stretch_front_into_bow",
+      "name": "stretch_front_into_bow",
+      "section": "clip",
+      "source_interval_s": [
+        1.0,
+        2.5
+      ],
+      "source_sample_indices_inclusive": [
+        120,
+        300
+      ],
+      "demonstration_duration_s": 1.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "contact_motion_models": [
+        [
+          "rolling",
+          "rolling",
+          "intentional_slide",
+          "intentional_slide"
+        ],
+        [
+          "rolling",
+          "rolling",
+          "rolling",
+          "rolling"
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6163111979710213,
+        0.29669444422282126,
+        0.0,
+        0.6163111979709578,
+        0.2966944739102259,
+        0.0,
+        0.8563034183594884,
+        0.9192740596164404,
+        0.0,
+        0.8563034183594884,
+        0.9192740596164404
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.3739730077353418,
+        0.7567865683353983,
+        0.0,
+        1.373973007729313,
+        0.7567866489524516,
+        0.0,
+        2.154176705582088,
+        2.429476567804091,
+        0.0,
+        2.154176705582088,
+        2.429476567804091
+      ]
+    },
+    {
+      "id": "p002_hold_bow",
+      "name": "hold_bow",
+      "section": "clip",
+      "source_interval_s": [
+        2.5,
+        5.5
+      ],
+      "source_sample_indices_inclusive": [
+        300,
+        660
+      ],
+      "demonstration_duration_s": 3.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "contact_motion_models": [
+        [
+          "rolling",
+          "rolling",
+          "rolling",
+          "rolling"
+        ]
+      ],
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p003_raise_front",
+      "name": "raise_front",
+      "section": "clip",
+      "source_interval_s": [
+        5.5,
+        7.0
+      ],
+      "source_sample_indices_inclusive": [
+        660,
+        840
+      ],
+      "demonstration_duration_s": 1.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "contact_motion_models": [
+        [
+          "rolling",
+          "rolling",
+          "intentional_slide",
+          "intentional_slide"
+        ],
+        [
+          "rolling",
+          "rolling",
+          "rolling",
+          "rolling"
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6163111979710213,
+        0.2966944442228212,
+        0.0,
+        0.6163111979709578,
+        0.29669447391022585,
+        0.0,
+        0.8563034183594884,
+        0.9192740596164404,
+        0.0,
+        0.8563034183594884,
+        0.9192740596164404
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        1.37397300773538,
+        0.7567865683353983,
+        0.0,
+        1.3739730077293797,
+        0.7567866489524372,
+        0.0,
+        2.154176705582145,
+        2.429476567804149,
+        0.0,
+        2.154176705582145,
+        2.429476567804149
+      ]
+    },
+    {
+      "id": "p004_return_to_standing",
+      "name": "return_to_standing",
+      "section": "clip",
+      "source_interval_s": [
+        7.0,
+        8.0
+      ],
+      "source_sample_indices_inclusive": [
+        840,
+        960
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "contact_motion_models": [
+        [
+          "rolling",
+          "rolling",
+          "rolling",
+          "rolling"
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.16538524109296743,
+        0.15787518808884035,
+        0.0,
+        0.16538524109296743,
+        0.15787520614866685,
+        0.0,
+        0.1653852845592495,
+        0.15787536066534924,
+        0.0,
+        0.1653852845592495,
+        0.15787536066534924
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.5733046303963516,
+        0.5562817716949966,
+        0.0,
+        0.5733046303828843,
+        0.5562818368662422,
+        0.0,
+        0.5733047410413366,
+        0.5562823446066154,
+        0.0,
+        0.5733047410413366,
+        0.5562823446066154
+      ]
+    },
+    {
+      "id": "p005_hold_standing",
+      "name": "hold_standing",
+      "section": "clip",
+      "source_interval_s": [
+        8.0,
+        8.5
+      ],
+      "source_sample_indices_inclusive": [
+        960,
+        1020
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "contact_motion_models": [
+        [
+          "rolling",
+          "rolling",
+          "rolling",
+          "rolling"
+        ]
+      ],
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_brace_stance": 1.0,
+        "p001_stretch_front_into_bow": 1.5,
+        "p002_hold_bow": 3.0,
+        "p003_raise_front": 1.5,
+        "p004_return_to_standing": 1.0,
+        "p005_hold_standing": 0.5
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_brace_stance": 1.0,
+        "p001_stretch_front_into_bow": 1.5,
+        "p002_hold_bow": 3.0,
+        "p003_raise_front": 1.5,
+        "p004_return_to_standing": 1.0,
+        "p005_hold_standing": 0.5
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_brace_stance": null,
+        "p001_stretch_front_into_bow": null,
+        "p002_hold_bow": null,
+        "p003_raise_front": null,
+        "p004_return_to_standing": null,
+        "p005_hold_standing": null
+      },
+      "calibration_id": null
+    }
+  },
+  "contact_model": "Measured convex sole rolling with an intentional synchronized 20 mm forward slide of both front ground contacts during stretch, reversed on return. Rear contacts retain fixed material vertices between rolling transfers. Sliding friction and physical load distribution are unverified.",
+  "intentional_front_contact_slide_mm": 20.0,
+  "sliding_friction_verified": false,
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "bow",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 8.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Hold the front-leg stretch bow, reverse the reach and body shift, then return to exact standing and hold.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "minimum_assumed_support_margin_mm": 29.47705196306707
+  },
+  "body_support_required": false,
+  "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded path and raise the front through the braced stance before standing; never seek directly to the last row.",
+  "hardware_ready": false
+}

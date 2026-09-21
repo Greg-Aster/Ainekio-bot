@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import struct
 import unittest
 
@@ -97,7 +98,7 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(  # type: ignore[arg-type]
             gateway,
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
         websocket = FakeWebSocket()
         adapter._websocket = websocket
@@ -109,6 +110,9 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
             duration_ms=20,
             pcm=bytes(640),
         )
+        adapter.receipts.receive({"id": speech.action_id, "type": "speechAudio", "sessionId": speech.session_id,
+            "speechId": speech.speech_id, "durationMs": speech.duration_ms, "pcm": base64.b64encode(speech.pcm).decode("ascii")},
+            adapter._feedback(speech.action_id, "accepted", "accepted"))
         await adapter._process_speech_audio(speech)
         self.assertEqual(gateway.frames, [bytes(640)])
         feedback = json.loads(websocket.sent[0])["feedback"]

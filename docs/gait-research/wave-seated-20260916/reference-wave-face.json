@@ -1,0 +1,10 @@
+{
+  "fps": 1,
+  "frames": [
+    "faces/wave/0.bin"
+  ],
+  "height": 64,
+  "mode": "once",
+  "name": "wave",
+  "width": 128
+}

@@ -1,0 +1,34 @@
+{
+  "command": "stretch",
+  "source_authority": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "source_asset_name": "stretch",
+  "reference_file": "reference-v1-stretch.json",
+  "source_owner_adjustments_already_applied": true,
+  "reference_duration_ms_sum": 4330,
+  "reference_sequential_servo_timing": false,
+  "signature": "Rear brace, both front legs reach forward, held stretch, deeper pulse, then standing.",
+  "phase_mapping": "V1 frames1 rear brace; frames2-3 front R1/L1 extend and R3/L3 reach90/90; frames4-5 front lower pair72/108 deepens stretch; frames6-7 soften and stand.",
+  "generated_phases": [
+    "brace_rear",
+    "front_legs_reach",
+    "hold_front_stretch",
+    "deepen_front_stretch",
+    "hold_deeper_stretch",
+    "soften_front_stretch",
+    "withdraw_front_reach",
+    "return_to_standing",
+    "hold_standing"
+  ],
+  "leg_mapping": {
+    "FL": "physical rear left",
+    "FR": "physical rear right",
+    "RL": "physical front left",
+    "RR": "physical front right"
+  },
+  "electrical_angle_conversion": "None. V1 electrical angles establish intent; V2 exports measured-geometry joint radians and original passive four-bar branch.",
+  "timing": "Preview transition timing differs from V1 electrical timing. All source timestamps and peak joint derivatives are explicit. Root integration owns the execution contract and staggering policy.",
+  "contact_limitations": "Front soles deliberately slide17mm on entry plus2mm during the deeper pulse, then reverse exactly. Friction and traction are unverified.",
+  "semantic_completion": "Final exact standing and hold, matching explicit V1 final standing frame. No distinct held endpoint or optional recovery is needed.",
+  "hardware_qualified": false,
+  "accepted_input_alias": "strech"
+}

@@ -1,0 +1,13 @@
+{
+  "gait_id": "turn_left_15_fourbar_20260915",
+  "blend_file": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_15/Ainekio-Turn-Left-15.blend",
+  "scene": "AINEKIO - Turn Left 15",
+  "stride_mm": 0.0,
+  "cycle_seconds": 4.0,
+  "trajectory_file": "commands/turn_left_15/source.json",
+  "versioned_data_directory": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_15",
+  "command": "turn_left_15",
+  "heading_change_degrees": 15,
+  "shoulder_strategy": null,
+  "hardware_ready": false
+}

@@ -1,0 +1,6 @@
+{
+  "source_file": "/home/greggles/blender-5.0.0-linux-x64/robot-swim-20260916/Before-Swim.blend",
+  "evaluated_frame": 1237,
+  "method": "Evaluated body meshes transformed by inverse evaluated body root at the prior Dance standing endpoint; avoid original range-test frame 1.",
+  "minimum_body_z_mm": -25.250007001794895
+}
