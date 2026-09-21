@@ -1,5 +1,9 @@
 # Ainekio Slave Brain Progress
 
+This record describes the existing V1 implementation. The
+[V2 hardware record](v2-12servo/README.md) and [Robot Models](ROBOT_MODELS.md)
+describe the second body's current status and the approved separation.
+
 This document tracks plans, architecture decisions, and implementation progress
 for the Ainekio robot-side controller, also called the slave brain. The slave
 brain is the WiFi-connected robot control layer that receives semantic commands
@@ -35,9 +39,9 @@ and the external 5 V rail remain H2/H3 evidence.
 - `docs/Ainekio - System Specification v1.0.docx` - current local system specification document.
 - `docs/README.md` - normative-document authority and the external Parts Overview
   link, with planning facts separated from installed-hardware evidence.
-- `docs/PINOUT_DIAGNOSTICS.md` - current flashed board map, physical header
+- `docs/v1-8servo/PINOUT_DIAGNOSTICS.md` - current flashed board map, physical header
   numbering, and expected diagnostic values.
-- `docs/HARDWARE_BRINGUP_CHECKLIST.md` - physical assembly gates and evidence.
+- `docs/v1-8servo/HARDWARE_BRINGUP_CHECKLIST.md` - physical assembly gates and evidence.
 - `docs/archive/specifications/` - superseded v0.6 specification lineage; not
   current authority.
 - `docs/archive/simulator-bridge-progress-scratchpad.md` - historical MetaHuman
@@ -92,7 +96,10 @@ Master/
 
 Slave/
   hardware/
-    3d-print/
+    v1-8servo/
+      3d-print/
+      Parts/
+    v2-12servo/
   software/
     assets/
     core/
@@ -112,6 +119,8 @@ Emulator/
   sesame-robot-sim/
 
 docs/
+  v1-8servo/
+  v2-12servo/
   archive/
   Freenove_ESP32_S3_WROOM_Board-main/
   sesame-robot/

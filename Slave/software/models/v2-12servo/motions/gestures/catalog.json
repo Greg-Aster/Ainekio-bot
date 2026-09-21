@@ -1,0 +1,381 @@
+{
+  "schema": "ainekio-v2-gesture-catalog-1",
+  "hardware_qualified": false,
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "commands": [
+    {
+      "command": "sit",
+      "path": "sit",
+      "handoff": "docs/gait-research/sit-bored-20260915",
+      "execution_handoff": "docs/gait-research/execution-20260916/contracts/sit.json",
+      "sha256": {
+        "source.json": "5ee287ba5bd27892212c32e6035cfe130cb34a3eed0ce8572d2b7d2982b104c0",
+        "manifest.json": "8b02ddd431cd16a18d152ee78082e778ebed1fc0d713228a40945b2d72b5bb29",
+        "schema.json": "b7486c19c29efe6e6fb21ecb45a138cf0667e9d63abf5251796b7d06ba0213d2",
+        "config.json": "dc3c2c692ac59565618d1dd758589c7dc61c5aced8dfc290b680156d1ac85683",
+        "sample_reference.py": "165f4b7b43918d286b2391a6c96dc75c6104c7636fd93b2ee7b4232eb2b5fe15",
+        "validation.json": "520c32d9f7848d139126a47f03cb1d5bdc592c09935b1aeb8697d00135387483",
+        "interpolation-validation.json": "96c94392e6ce937ddefb3d569726a5cd3259367fe0ef0330a6e2136f17e79680",
+        "blender-validation.json": "b7a11ce6542e85211b9d4783e3b5839b78099981f554be8f2b93ac0d5d0d12c0",
+        "execution-contract.json": "ae94d35322674dd77bdc19fe769facd5658795141d53baed0d0e3470a40b65f5"
+      }
+    },
+    {
+      "command": "rest",
+      "path": "rest",
+      "handoff": "docs/gait-research/rest-20260915",
+      "execution_handoff": "docs/gait-research/execution-20260916/contracts/rest.json",
+      "sha256": {
+        "source.json": "2aa5e7bfe5a7280fbf5042186bd21b1536fc5c786470cc552aa61d2674441c53",
+        "manifest.json": "94a05f74867da86b4959f60a1e09c761086e22cac36f760f8d985ecd68064e64",
+        "schema.json": "992432845c149af2a0f5e7763a7693b9b9e57f2eaae4b817e74760bfb48b98ee",
+        "config.json": "e2d8cc083dae5e071a403fbf1fb4c11afc6b36deeea07ef1cd28029a4ed92770",
+        "sample_reference.py": "f3dd647498b8f606db24718269484605c0a5eec731cb2e71026a581d1e344bcf",
+        "validation.json": "3e571c3e81ff320f4a4de292ba9dcab2d6c84230e380d39db3709c107a5b464a",
+        "interpolation-validation.json": "e1ae4d2f33fa8dfd8202ee9f88ca1b405f9bd25d2290f8b3a8d01dc80f616e28",
+        "blender-validation.json": "536d97f3be4632a2385385af730a3264ca65728c8b17067dd31d180544004bd3",
+        "execution-contract.json": "ed3f29c36a615db6f3c326823452c98fa85409194ad5bffb71c087cd303e0ae4"
+      }
+    },
+    {
+      "command": "wave",
+      "path": "wave",
+      "handoff": "docs/gait-research/wave-seated-20260916",
+      "execution_handoff": "docs/gait-research/execution-20260916/contracts/wave.json",
+      "sha256": {
+        "source.json": "d00be551216d082d2f20b0f94d469affac54d8ffd5d164c0ba0d6d9757bdef6f",
+        "manifest.json": "f3c4a5e535e4d636a400d1b4055ca8b69d3cdddeb047764d78e349d559328dff",
+        "schema.json": "1a75408b18e96f671aeddfbfdba0920e483347cc1fdd301e96069a19a6bc0f71",
+        "config.json": "3bb2607611c76cc292eec7931dda80c25de5c8fc77a3aec03631a1639e0494ad",
+        "sample_reference.py": "ca54cf209e481e706899b85355db682d06848fa0c22c0ec7a53d48cd4f587760",
+        "validation.json": "4e6dc64799dc505e6809434242667dcdc6625672cef69804ba38e3609533171a",
+        "interpolation-validation.json": "f29924ee306d616256f712748ad87ccbbbc35ef9a5fe1d4bb548a0dea61185b0",
+        "blender-validation.json": "8ad9149472689b273f83a3cafc0de91310d31810900f51c6d94489f9b082f45e",
+        "execution-contract.json": "07d41de87934e9962b54823dab1150dc764768eb6f02ec98f90870cd47477fd8"
+      }
+    },
+    {
+      "command": "dance",
+      "path": "dance",
+      "handoff": "docs/gait-research/dance-20260916",
+      "execution_handoff": "docs/gait-research/dance-20260916/execution-contract.json",
+      "sha256": {
+        "source.json": "570913be37706a2629e734f3a99d1e9c7376dd34c4fc4759e4559984f32ccdf9",
+        "manifest.json": "eda32a236bfbee0ef9dea30a475c922bef4af99be16d4c83ddd766354f19e006",
+        "schema.json": "227d552e1e7b5258d6c3cc6d3e7f250ef72c52f23e415e04b87975b4d3dec5d9",
+        "config.json": "067b801faacb690df519062652e1f470f9c1e5f09e5d79f740ae2d5fb672b1ec",
+        "sample_reference.py": "29ca59707b74f18b7bc6a08803deb5c898a947eba739025bd675a9eb7159f29a",
+        "validation.json": "6a99fe99263b30ed1fcf24f5d43d210671184b2c92afe9f35dad0c5c67c7bf26",
+        "interpolation-validation.json": "f29120bd4e09702595a7af495896372b8a54340f6dd6575742d50f52c9a6dc8b",
+        "blender-validation.json": "daa771baaa6d695e65bee04d8d29ba728291bea50d78689296bb7a303f05b065",
+        "execution-contract.json": "f85edc68c0dd9b8276abb56fe95cc7869ee58126bdd1dca4ab176e4bdbfd9a7c"
+      }
+    },
+    {
+      "command": "swim",
+      "path": "swim",
+      "handoff": "docs/gait-research/swim-20260916",
+      "execution_handoff": "docs/gait-research/swim-20260916/execution-contract.json",
+      "sha256": {
+        "source.json": "609d3965e5e67a8acd40119619e852d932dfff13677fafd0999f5f2cf5494913",
+        "manifest.json": "ee120bbea8b24d5fc651bad6b0d84cb2d789c2a9acd8cc4324b581df676f96c8",
+        "schema.json": "054e68139e2791f8714557a711b4977506da8cf8118fa0788ad1b048a3261a93",
+        "config.json": "719b98669e203dccb739fa2a14d7849fb71c67542613c8fd71f4d9a52dda4ca5",
+        "sample_reference.py": "90a0eddff8459b9e74d1669be61637194fd855b0d3ba9625e2754a8f11027444",
+        "validation.json": "5ad810d273af414dde98d407b651362a7fb854d8a19c9977dc3bccd2b49fe68c",
+        "interpolation-validation.json": "ac6e8abab1fe5c7f10ca3b255179acaa5360c5ff40f5d9d91be4f293b5799eff",
+        "blender-validation.json": "17605c4c9c5c736f0b5929d6c9950af953f8e3626bc56075d12864dc0c7ceb11",
+        "execution-contract.json": "8f8d2e782cccf96a174f25ab5fcd497d3c6f2e7da6171b48339ccd68d5ac519c"
+      }
+    },
+    {
+      "command": "point",
+      "path": "point",
+      "handoff": "docs/gait-research/point-20260916",
+      "execution_handoff": "docs/gait-research/point-20260916/execution-contract.json",
+      "sha256": {
+        "source.json": "5e1ea7fb19b17c5588053538ff08c563767487bc5a7ade0df20a7b89cee737c2",
+        "manifest.json": "31665efd95ef5eeffc9674b9f883a4d916740b0a352611d53f06779cff6ddd1e",
+        "schema.json": "320b2ccd8067c9e2f117167adf1d92d9e546b839070b49fc64de81e8b26e37ff",
+        "config.json": "9cdab807790516d9a531ed9320f1eea416f557a5dd1135930112ffd5f533c4bb",
+        "sample_reference.py": "808aa5fef01363bfa7e554a78adb7c45cd4c9a02150b49851ecb9730e22bcacd",
+        "validation.json": "66ca581ca337271903993fc7858e0c4f214fbe178824f739ef0bc87d52b903fd",
+        "interpolation-validation.json": "1054741fbd094098e8db12265fb0f5dd96245334beddb0eda022eeb1a29af14b",
+        "blender-validation.json": "d7857dbdd6ec09d2d95af4cb0531882012ed2a510e02ff97134dae3d2860b51c",
+        "execution-contract.json": "3d2cb02e8ecdd791b5e0d827fc67627bdfe1f2d7e8e7f81c5c628db4ce343151"
+      }
+    },
+    {
+      "command": "nod",
+      "path": "nod",
+      "handoff": "docs/gait-research/nod-20260916",
+      "execution_handoff": "docs/gait-research/nod-20260916/execution-contract.json",
+      "sha256": {
+        "source.json": "57e63ba7b5e0b842a4295093811d98908659606a693c1d31c28aa51bc05b07e8",
+        "manifest.json": "720775873867d7d2da4e12c52878f54023f2ca3dec6bb6885fd987d1616a769f",
+        "schema.json": "65043689408461da2cfabecf568d58c8b30e709690b7b0054043ea8e8cf206f4",
+        "config.json": "8e625cd7efc79d402c073fdcc039283998d9d7aa4d2ac9783e2461014266b689",
+        "sample_reference.py": "474398a428952aece9a9f9ae2849fca6f6363f5b502977a890025c10ea2d229b",
+        "validation.json": "165f4382ef5682836fa75b5aca82a4cc5a61e561d3318a0699a1599a6be80f6a",
+        "interpolation-validation.json": "cdac8e0dfcaea4bd5a0c806fdf176f8266c345ae8e3472f289e8f2c0d9e032a5",
+        "blender-validation.json": "02d5b14dd9d25b792a0e45198893e7d8536ed327eb92b8338eea9d4be9a2350a",
+        "execution-contract.json": "2314e0512e7a4b64d46069de40f372ca03be0e9361d55f62e7dc833904c6c2ba"
+      }
+    },
+    {
+      "command": "pushup",
+      "path": "pushup",
+      "handoff": "docs/gait-research/pushup-deep-20260916",
+      "execution_handoff": "docs/gait-research/pushup-deep-20260916/execution-contract.json",
+      "sha256": {
+        "source.json": "e581eb7a4bbf772510bed2da11a535caf2948b2d4b74b39967a3b239a8b43f01",
+        "manifest.json": "ae6600f27203cabe822cb30ccc6c6b2edf8cdc88799d95b2190c68ee548867bf",
+        "schema.json": "d95b38bcdc422fc8d4679c41ab86be35a9445363c7112dedd8b7859ea3fb7d80",
+        "config.json": "3bd04bd3b3d8f8677bf88342b49a6432f704aaa6a2d2656ffa83ecfdaf417020",
+        "sample_reference.py": "da23d419d21196dbca6917dc05110189ff8bf01826a90d54fe2e859da8c43f25",
+        "validation.json": "e995e7627512bf3201a30cb749ed339c8ea7cc0ac84ece69689aedc2ca0def79",
+        "interpolation-validation.json": "468dcc5702b6d61da1381d75798d60d9c1f59fca23f5df416685b685f69b3576",
+        "blender-validation.json": "95a4e8ff05feb6a8a637e826f70251dadf31dacfcb98f02c9bfba851cf7f4327",
+        "execution-contract.json": "b1540c1134656524e44f03094d3602fcc65c65483f80fa620076ea8bae36cc26"
+      }
+    },
+    {
+      "command": "bow",
+      "path": "bow",
+      "handoff": "docs/gait-research/bow-20260916",
+      "execution_handoff": "docs/gait-research/bow-20260916/execution-contract.json",
+      "sha256": {
+        "source.json": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b",
+        "manifest.json": "8e39affae9861237d57f5c7893851b80ecd8ae90607e0f703a6f75715683a5c0",
+        "schema.json": "8deb4f320ea5d615aa1a7690926f3517a4438fca80a498953322b58143091972",
+        "config.json": "bed6d3e8e9cb977c8b0d7e759e855882b602eef9884c5a05e52100cc58115557",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "8d7b9f31a608f670aa37ac2c81f74ae39084635adbfee105732c8331383fa94e",
+        "interpolation-validation.json": "42ddacf61778c13abf77299da0c469f2f67aa5df7ce7bfa7091fb3f0b2092dbb",
+        "blender-validation.json": "9685cb883efe1b97a1d15a7bbd9158b86ae5b2f7a127d4e162c2ad223722d054",
+        "execution-contract.json": "482ac7f0ec7a8a0c4dbbbc713e1a325d87e9b46ee052a16a730f9bb8f30c1516"
+      }
+    },
+    {
+      "command": "cute",
+      "path": "cute",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/cute",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/cute/execution-contract.json",
+      "sha256": {
+        "source.json": "97349072ef595173eb1e3c0482e979675b113ae3df8bea3eb54f7ab4e5fac47f",
+        "manifest.json": "d67d56894f6e6c30614156e5f1f2831719d2baabff29d992e403f158c7f736c2",
+        "schema.json": "b7a3bb568729538bd2dbf8e2b1eb1c93299f6ee9da4f4e0314db9cdfb2188e7d",
+        "config.json": "b4a372551fbbf1292c83d9ab055e67fa41831bde331129a62728cbb1e000ef5a",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "f32dd4fd7d46708b6bc86721df9007036fce960d7fb16c0e85c0c96d46a7dac9",
+        "interpolation-validation.json": "392817a61cc63a16124d11cfbfd8e60a6ab8e7e7bddf050aa882880d1fe7702d",
+        "blender-validation.json": "7324760bdb1642b32176147cce53b2f2267f8c163e7c37503bf95ef8a80fe23f",
+        "execution-contract.json": "dde4ff80b5c1c6a67055c770154123ccd6a2d1482d7369c6a238166bee8cc299",
+        "source-review.json": "c664ddf1a20bd3d352d18c490158a7975e6d0db2084e9e6e46f87a998081fc7b"
+      }
+    },
+    {
+      "command": "freaky",
+      "path": "freaky",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/freaky",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/freaky/execution-contract.json",
+      "sha256": {
+        "source.json": "4cec5793692a3fb21a67cc873af6140f3a41b0c7f875e5b8fe37393689b17fb1",
+        "manifest.json": "e9ddfc87a42b89cff0920c76d345bf0689cec22bc636f1c6916c5169bbccbb92",
+        "schema.json": "601fa1e9322210699b21760c90864692ae73b2c42ea3d59795bece96e256656a",
+        "config.json": "dd094fd9397fe34740303af5d34ea19bcbd302cff023462180692b408524d92b",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "b47966945c694cd0348cb3bf54ec3c96bc742d6b924a271cba30ba23046369d2",
+        "interpolation-validation.json": "d1b934e705c9fc5b836c177c9554f25d10539661169afc970e6f9af3362f5c16",
+        "blender-validation.json": "44d60edfc8422678ff6414f716b34268c115fd2fdf7a6f58011207ed77415447",
+        "execution-contract.json": "ab81a008a009798d1a20fa7705622cba72e7b8402c9766160aa9c3dfb27cb80e",
+        "source-review.json": "e93b09d9e35c390fbc98f4467b750b9a329dac25e585293ac854a3acc0cce5bc"
+      }
+    },
+    {
+      "command": "worm",
+      "path": "worm",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/worm",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/worm/execution-contract.json",
+      "sha256": {
+        "source.json": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca",
+        "manifest.json": "104007a2c388d10eed67a4783054e80d67025a5a3d5e2d15a0335baf33facc04",
+        "schema.json": "2deb924699830677d7ecee688d9817037aaf370eb89af89405cd7560aa82c4dc",
+        "config.json": "124b136db5c57c31cd22e70a354f9c95f0877130e0e4ede6a1b0d91ac17a5730",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "cfbb5dc682011672443363ec7f2c3991d02cb105e62dab610c0bc567ab46c3eb",
+        "interpolation-validation.json": "3a5ea44b078dc136ca6d81128681715796569d61d8f78d1fbb89d8a343c82e7d",
+        "blender-validation.json": "d6374837adabb23b16da250679c2be494ded8bafa9f17fc711f4e76c2a3087fb",
+        "execution-contract.json": "c337539b6e426eb657a04e0c9ce1112967aae28814525e80dc2b03df36c176ff",
+        "source-review.json": "6dac8c905f69c33947a2e5a4020ba376d6ceb3a23a5b11296c68f7502c0df379"
+      }
+    },
+    {
+      "command": "shake",
+      "path": "shake",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/shake",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/shake/execution-contract.json",
+      "sha256": {
+        "source.json": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8",
+        "manifest.json": "83e6e7487b78a082528d40e38829bcc8054b18b87780437aecf2b055d0c023a7",
+        "schema.json": "d9b0fc84ed5e62be22de6d8215fb524f0c06856568fd5014f2ffbbff3bfae27c",
+        "config.json": "b1c52f51d976b0bc4390fae84a20fb7be32d8924297c64b2055252794b69c0d4",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "25a6fc5ebd1958def21fab5acc39bfeaddcbc6c5b848dc932066290a3aa2d7aa",
+        "interpolation-validation.json": "d1e05361a1acfa021cff53c5f1217ddd4cf4562cb903d36b1b4f0287a9864f7d",
+        "blender-validation.json": "a5d0a61b3806cd8bd2376c56222164597ccc29c3d5a83b7bd706aec23537caec",
+        "execution-contract.json": "faea06997329d4d5a4e8a9497ca45276433a5866ddfa4a5ccaba9b8ab68aaa8c",
+        "source-review.json": "ad54aa84dc239beeb336dd12db5d8b420e18f80e673af256868bbbc4a2a41737"
+      }
+    },
+    {
+      "command": "shrug",
+      "path": "shrug",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/shrug",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/shrug/execution-contract.json",
+      "sha256": {
+        "source.json": "4a332dbd2a1cc2d1918bde3d0f1e73d17c43ce935298dde3edd8e242c56ebf78",
+        "manifest.json": "5f5d6617649f0471e77570ebcdf308208778cb189c8c9ac0777fc8cf1f25dfc6",
+        "schema.json": "7cfb9c81b93a7fe2f18630eb2ca0104f9c4abeda5a2bd538f5de41aa779f5859",
+        "config.json": "4478c32a5d254d63a80721a47eef9fae5e4a073c2c0cdcfc2d72012713f04858",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "6bd82947a0811c071a70ff0c00fa49838365110371adeb1fbeab6375c7498a86",
+        "interpolation-validation.json": "7c03c9a1927b27367172417264666f6ecc4d758ab66d92a5a1f2514b6330f32a",
+        "blender-validation.json": "2e5fac44b48c3c2d8727ab64b77a5f01e8a02bc2bce1899198efe04b43f994fa",
+        "execution-contract.json": "7f5b8caf09ef095ddfe6e9ac841f86152ef51479fb452c983d04e8cd2031d68f",
+        "source-review.json": "2deae689b34d9fb8830450a3a5d51bfb31a55cdec8859ad93f912c3e9c0ed25a"
+      }
+    },
+    {
+      "command": "dead",
+      "path": "dead",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/dead",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/dead/execution-contract.json",
+      "sha256": {
+        "source.json": "6f9dd1d7b3b6fe394eb111bb2e646346feaba84c2f7f82aa322a94432515b29f",
+        "manifest.json": "d791a655f29177a059da648179bc03029da12d252ae8778b13bce0ecf0aa062e",
+        "schema.json": "0873457d4f88ade79cfadfae5bdf31570db325897faa1267a97d70f2a4acf07d",
+        "config.json": "eab1c9c0823dd6c66ed76d0f047d79f72057e480559c552037d36bb49a3013e7",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "a46168aaad71af8b1cc1967fb606f0584677bb604cb0bc1cc429c1ac196e13ed",
+        "interpolation-validation.json": "d87252c503437c26d69f54fbaf35eb40e197bb0461d0c71081fd6983cc99923a",
+        "blender-validation.json": "b033a540f40f1113b155a71d0e9d6ce4e5ae8acbf5ef33b7b7cc9672e2bc99e2",
+        "execution-contract.json": "fd133f88bddc5c01da59ea5f80b434e896b95bc3e038210ab162d3aa5cf7052e",
+        "source-review.json": "7fa36458c674e3d46b3ec3fa9aa353e383dfbcd10348dd3d4a41bebaaf26ccef"
+      }
+    },
+    {
+      "command": "crab",
+      "path": "crab",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/crab",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/crab/execution-contract.json",
+      "sha256": {
+        "source.json": "3fff90c90f4547219bd833e112f99488f35f991366a5f596e6cb7e3e99c3beb1",
+        "manifest.json": "b3f690e5b3490ae8b97e508459849fa9e35538c233e188d39d98fc8c4e001bac",
+        "schema.json": "f7c09aeab6864e53294844a6912a7310a1f826c300233f6cd3c69000a779006e",
+        "config.json": "8216cb48905668f976f2abd5ec0b6e188852995217f081d06682a9faa216bbab",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "cefeadbe1f5c446a88913459bd07d57b896da01502bb774044099d6b312d6b0b",
+        "interpolation-validation.json": "f571b170f6fc0399a431cf46fd5b4a4bd6c701534c0489fa21a9222fd73c798c",
+        "blender-validation.json": "67ec8d57bcde8b6fd5c1453f54fdfc34d74a1cdd9f904676a4880e68ff8c6856",
+        "execution-contract.json": "6ac9712bd5be2f8f66dc29ba0223ab97358fa2ec4b95516ce728ec614fb76f03",
+        "source-review.json": "9350303fa95a24f2c1a3b7e15084e46e21c4186aed1bfc5245b4a35e1661dd9e"
+      }
+    },
+    {
+      "command": "celebrate",
+      "path": "celebrate",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/celebrate",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/celebrate/execution-contract.json",
+      "sha256": {
+        "source.json": "13ec137da243240b9fa491e4d5dbc0e6e396ca970c6dad5a911365239e55aa44",
+        "manifest.json": "7867c11636c55247c1e2dfa110a7a0381d14fea73012fc6fe6017aa2fe7d5e5c",
+        "schema.json": "999cc9379c92ecc4f1f4a1bd68215eb1a6884d2c5a5f0207d133e349650e1f33",
+        "config.json": "db70a7b3f61e34252451873edc4f668963482c6dcfb10391c9e22aa4c41fbf00",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "7c8e41e602cb2601810ad35356d43c0da012430580e2265c959175fe5feed2e2",
+        "interpolation-validation.json": "d911783ae6cf465154ff0839b0a2a180c385822fd53f4754d335be6f0d45a4d2",
+        "blender-validation.json": "0b123348ca694c4b18ffef4fa743d8ad2b62156bcc4b57589d71a672d3b3d281",
+        "execution-contract.json": "6924deca622bdd119ba96754e6c397acbfc2cb25c04547d521dd74efb2ca08b0",
+        "source-review.json": "e9e1f51d48049f74f80dee30c1e0720bae093be7f1e0d0bf3c901573532bba3e"
+      }
+    },
+    {
+      "command": "stretch",
+      "path": "stretch",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/stretch",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/stretch/execution-contract.json",
+      "sha256": {
+        "source.json": "90980240a5fa199f6284521b5c6992d12b0f6caff31866e9dc9c643972a18918",
+        "manifest.json": "3a4686caaf8e28ca95bd546e3f72c6499f89547aedd562024add4e760f933216",
+        "schema.json": "47fdf23f635540a137d9cb57b4ac722856e609b1b67bec1b7c7346f65f1f89ea",
+        "config.json": "f8e80a3121a5e0ee4967b26751d95c1fb3e770ec0d5f4948a19a3ef735b52edd",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "0c0b3bc4904a3dd0c1544a0d0c7678261b1f7636ad7c9d46a274cfbf3827527d",
+        "interpolation-validation.json": "98c86c7ba967c138441b83cbd546d20575dca73018ad8b1f3f8f37f73af81f3b",
+        "blender-validation.json": "c6396bef2f6ddc59948eb04f15f307224e7ab80abf458f218d50c5ff531a63dc",
+        "execution-contract.json": "f168fcd19df4a5a112f15a4578907e81fc1bbd37beb93f0669832dbcd06a676f",
+        "source-review.json": "1bba78a28a4e6cb1ea99557b56f1fca8ec616f8ee8b251dfd2209640c2d053d9"
+      }
+    },
+    {
+      "command": "surprised",
+      "path": "surprised",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/surprised",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/surprised/execution-contract.json",
+      "sha256": {
+        "source.json": "5230421770d7c16f736b797e60b2417117a54d440947c0bbdc819fd9c6d88fda",
+        "manifest.json": "2caacb5c87dd3ca28763d4490907975d630fe412712439d3e79ab2e089fc396e",
+        "schema.json": "22481f9008b982af2a2e19c173482194696e25d580f003e1dd51fa42cd7eea3e",
+        "config.json": "101d518d62b69901734c0dbf9c2e9f5d8098276abbc07e9e8889ef8986fe4c29",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "a92bd759a09e5791e0eb99728d186d5386994db99886786299ad9b9ce17109a3",
+        "interpolation-validation.json": "641bb3eaf5cb3110517894a8adc2deb9d561485f5f5e303b8082d752fa8e973c",
+        "blender-validation.json": "b42b138234386c1e0f041a73b1dcc05bc422769b964550ad1d83d589980da400",
+        "execution-contract.json": "51e53bc9f0b8f57041a9a666ec8202fe746e203aa587106a76c27fe6b88efcd8",
+        "source-review.json": "c2386aedc780711578c5e1c97fea274ded6fd0a5ff691c8432b7b2971db85470"
+      }
+    },
+    {
+      "command": "sad",
+      "path": "sad",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/sad",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/sad/execution-contract.json",
+      "sha256": {
+        "source.json": "6d89680428bcf6df29cdd1025c69582367e4decc89338fcc51aad0e8fc62198f",
+        "manifest.json": "6c5f14d183ddb5634c12e34a61d46333d9d78cf6c3f3278e24703db5ffc9f6a7",
+        "schema.json": "fc23f5f9c84ddcc1487759683ad661eb943c434b7aeeb49f0b955a592fb47ad2",
+        "config.json": "4d6f6387ccfe077ac8951723de294d5929f329a280bedf9ccf3b201f94c33bca",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "ab81960df8575d766e9278e07e428d1b55dea90e5728cfb38deb480627f9b97c",
+        "interpolation-validation.json": "cb515d936ba0b404bc9254e53abf7b5dda0dd1730435281f8e5c1308f72f838a",
+        "blender-validation.json": "e8116256d516cfd8ea988295fc5366ec4aad60bd8d9742da09640a040ad6aaac",
+        "execution-contract.json": "00313f07fe5bedac677f632b098afaaab894ed0800f27e9ea9a264ab464a47d3",
+        "source-review.json": "155f835cbde08526cff2f4a6a145ab7dac9c33a4d3617f9708b71d08ae947a64"
+      }
+    },
+    {
+      "command": "curious",
+      "path": "curious",
+      "handoff": "docs/gait-research/motion-batch-20260916/commands/curious",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/curious/execution-contract.json",
+      "sha256": {
+        "source.json": "43d119af1b46820e2962dafa68ab3997f9a8ceb3a7464fa1d4608dd62e820d78",
+        "manifest.json": "94dafb462d5cbe8089fa0adf3ea338ced7e1fca21c15ddb6902080418a9805b3",
+        "schema.json": "1c698b459d6ec0357e8d45422b4fc73c02e1f76660ebd70e269fd64d29b4d19a",
+        "config.json": "5ba04d4e4fe2fed2384e79a54696bf2785da0929287c736d8054ff36d55dbb71",
+        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
+        "validation.json": "8d112f37fdad3431131b0a600853d68af3a4f331d4d433e01dc39abc19baecd5",
+        "interpolation-validation.json": "a6927eebbc016937cdc3e311a762fafa781b3096d15be2a40c8851bfd65dcb80",
+        "blender-validation.json": "b9eb9e20fb3c1bddaf0bc3ee18fdc977bb5567ef0149e69dbc6d36752ffa5a4c",
+        "execution-contract.json": "0a48641087fe6f43520cb55ead1f3296b2c0c4f47a2d6212dae290fabd9d2c60",
+        "source-review.json": "8612cf7d38c5c18ccc2439be912e23c4cec411f495a2d547471aebf013c025d3"
+      }
+    }
+  ],
+  "timing_reference": {
+    "path": "timing_reference.py",
+    "handoff": "docs/gait-research/motion-batch-20260916/timing.py",
+    "sha256": "22da577c0d7f34233a9e4237f8ec6c10b05cb6a4f4ca1f672c36a218a51923fd"
+  }
+}

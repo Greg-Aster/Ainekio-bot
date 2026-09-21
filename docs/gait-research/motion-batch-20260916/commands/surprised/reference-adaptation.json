@@ -1,0 +1,41 @@
+{
+  "command": "surprised",
+  "source_authority": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "source_asset_name": "surprised",
+  "reference_file": "reference-v1-surprised.json",
+  "source_owner_adjustments_already_applied": true,
+  "reference_duration_ms_sum": 5000,
+  "reference_sequential_servo_timing": false,
+  "signature": "Flat preparation, raise both front limbs, three alternating front-arm cycles with rear limbs still flat, then standing.",
+  "phase_mapping": "V1 frames1-2 dead/flat pose; frame3 physical front R3/L3 raised; frames4-9 three alternating arm cycles; frames10-11 flatten the front pair and stand. V2 uses CAD RL/RR as physical front and CAD FL/FR as rear.",
+  "generated_phases": [
+    "lower_onto_belly",
+    "splay_flat_dead_pose",
+    "open_flat_limbs",
+    "hold_flat_surprised",
+    "raise_front_pair",
+    "front_surprise_alternation_1_1",
+    "front_surprise_alternation_1_2",
+    "front_surprise_alternation_2_1",
+    "front_surprise_alternation_2_2",
+    "front_surprise_alternation_3_1",
+    "front_surprise_alternation_3_2",
+    "center_front_pair",
+    "lower_front_pair",
+    "fold_limbs_for_ground",
+    "replace_all_feet",
+    "return_to_standing",
+    "hold_standing"
+  ],
+  "leg_mapping": {
+    "FL": "physical rear left",
+    "FR": "physical rear right",
+    "RL": "physical front left",
+    "RR": "physical front right"
+  },
+  "electrical_angle_conversion": "None. V1 electrical angles establish intent; V2 exports measured-geometry joint radians and original passive four-bar branch.",
+  "timing": "Preview transition timing differs from V1 electrical timing. All source timestamps and peak joint derivatives are explicit. Root integration owns the execution contract and staggering policy.",
+  "contact_limitations": "Uses the measured rear-cover plus front-visor ground support plane. Rear shoulders stay90 degrees through front alternation; front shoulders alternate115-140 degrees. Physical visor loads and calibrated electrical endpoints are unverified.",
+  "semantic_completion": "Final exact standing and hold, matching explicit V1 final standing frame. No distinct held endpoint or optional recovery is needed.",
+  "hardware_qualified": false
+}

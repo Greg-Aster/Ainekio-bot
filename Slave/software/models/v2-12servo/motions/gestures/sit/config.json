@@ -1,0 +1,65 @@
+{
+  "command": "sit",
+  "display_label": "SIT | BORED",
+  "name": "Sit - bored held posture",
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 529,
+  "existing_animation_end_frame": 505,
+  "target_body_height_mm": 63.41475328785695,
+  "target_body_x_mm": -8.0,
+  "target_body_pitch_degrees": -27.5,
+  "lower_seconds": 3.0,
+  "hold_seconds": 2.0,
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -35,
+      35
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "source_blend": "Before-Sit-Bored.blend",
+  "output_blend": "Ainekio-Sit-Bored.blend",
+  "scene_name": "AINEKIO - Sit Bored",
+  "part023_forward_limit_degrees": 90.0,
+  "contact_model": "Four grounded feet. A sole material vertex is fixed in world space until a supporting-feature transfer; finite-step rolling corrections are logged.",
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "bored",
+      "mode": "boomerang",
+      "fps": 2
+    }
+  ],
+  "completion": "Hold the recorded sitting pose until another command. No automatic stand or joint reset.",
+  "hardware_qualified": false
+}

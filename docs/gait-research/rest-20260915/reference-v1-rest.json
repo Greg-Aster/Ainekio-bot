@@ -1,0 +1,53 @@
+{
+  "face_cues": [
+    {
+      "frame": 0,
+      "mode": "boomerang",
+      "name": "rest"
+    }
+  ],
+  "frames": [
+    {
+      "duration_ms": 160,
+      "targets": [
+        [
+          0,
+          90.0
+        ],
+        [
+          1,
+          90.0
+        ],
+        [
+          2,
+          90.0
+        ],
+        [
+          3,
+          90.0
+        ],
+        [
+          4,
+          90.0
+        ],
+        [
+          5,
+          90.0
+        ],
+        [
+          6,
+          90.0
+        ],
+        [
+          7,
+          90.0
+        ]
+      ]
+    }
+  ],
+  "joint_map_version": 1,
+  "name": "rest",
+  "repeat_count": 1,
+  "return_pose": null,
+  "sequential_servo_timing": true
+}

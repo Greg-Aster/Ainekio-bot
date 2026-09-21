@@ -1,0 +1,213 @@
+{
+  "command": "crab",
+  "body_control_label": "CRAB",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "crab"
+  },
+  "gait_id": "crab_fourbar_20260916",
+  "generated_utc": "2026-09-16T20:38:35.288204+00:00",
+  "duration_seconds": 30.6,
+  "semantic_end_seconds": 30.1,
+  "source_sample_hz": 120,
+  "sample_count": 3673,
+  "entry_pose": "Corrected geometric standing neutral; arbitrary-pose entry not verified.",
+  "completion": "Five alternating side-pair cycles, narrow the stance, and return to standing. Not a calibrated translational crab-walk command.",
+  "semantic_final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "playlist_final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "crab",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 30.1,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "3fff90c90f4547219bd833e112f99488f35f991366a5f596e6cb7e3e99c3beb1",
+  "csv_sha256": "0748d59f3bcc55abd1982e5f1f02ff5aedf82f83c4ea7f959b1993a57ac2add5",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "967e0b376821b7d745fe4817534940dfab31b0c2d8a739ffda2cdb343a508d52",
+  "face_sha256": {
+    "faces/crab/0.bin": "e129900e42ae8e1c3d48b454e1a95b65b2c510c559ba6e07c76632a04182585f",
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "blender_frames": [
+    4818,
+    5552
+  ],
+  "design": "V1 rotates the upper joints to 90 degrees and alternates left/right lower pairs for five cycles. V2 widens a lowered stance, then alternates left and right side shuffles for five cycles. Each side pair is staggered into individual steps so three soles remain supporting; the body sways laterally with the steps.",
+  "contact_model": "Measured rolling stance soles and 5 mm airborne shuffles. Final 0.8 second settle intentionally slides four grounded contacts to restore exact standing; sliding friction unverified.",
+  "source_validation": {
+    "duration_s": 30.6,
+    "motion_end_s": 30.1,
+    "sample_hz": 120,
+    "samples": 3673,
+    "actuator_min_degrees": [
+      [
+        -4.304721529168681,
+        0.0,
+        -13.720214833353918
+      ],
+      [
+        -22.5617456143005,
+        0.0,
+        -13.720216299217832
+      ],
+      [
+        0.0,
+        0.0,
+        -13.720228889416619
+      ],
+      [
+        -24.21836573236912,
+        0.0,
+        -13.720228889416619
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        20.552200488743566,
+        45.708814566888755,
+        22.072120595497047
+      ],
+      [
+        9.93280541866256,
+        47.430263757702214,
+        25.075877640555138
+      ],
+      [
+        22.88610840444654,
+        37.10488853277446,
+        21.788781200327755
+      ],
+      [
+        9.932805417053633,
+        41.87117361176509,
+        20.89525730881832
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        69.01045291072671,
+        84.16028051365956,
+        81.83164861844308
+      ],
+      [
+        56.3123607278067,
+        88.52031416853706,
+        99.17682901412743
+      ],
+      [
+        60.02735191100992,
+        86.79275437584977,
+        81.83172455857321
+      ],
+      [
+        60.64294876489635,
+        88.52033108576542,
+        96.28294947294002
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        391.0293297779535,
+        711.215995967153,
+        714.6982116014215
+      ],
+      [
+        409.5582372237395,
+        740.2034291591058,
+        880.3259152829569
+      ],
+      [
+        391.02932694284215,
+        729.979919449682,
+        714.6989453306844
+      ],
+      [
+        409.5582372221792,
+        740.2035665325017,
+        853.035191379739
+      ]
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.8269341978068763,
+    "maximum_adjacent_passive_beta_step_degrees": 0.5000412765652887,
+    "fourbar_maximum_coupler_closure_error_mm": 1.4210854715202004e-14,
+    "final_joint_return_error_degrees": 0.0,
+    "minimum_support_margin_mm": 1.0102241591396752,
+    "minimum_stance_contacts": 3,
+    "minimum_body_ground_clearance_mm": 20.573751958399598,
+    "min_sole_height_mm": -1.811725880429549e-08,
+    "max_stance_material_vertex_constraint_error_mm": 1.8280500668765853e-08,
+    "maximum_rolling_normal_correction_mm": 0.0243316403246574,
+    "rolling_transfers": 756,
+    "research_angle_bounds_satisfied": true,
+    "collision_checked": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "body_contact_strength_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 3672,
+    "bounded_quarter_samples": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 99.35883129135101,
+    "peak_interpolated_acceleration_degrees_s2": 1317.915190105621,
+    "continuity": "Position and velocity continuous; full acceleration continuity not established.",
+    "hardware_qualified": false
+  }
+}

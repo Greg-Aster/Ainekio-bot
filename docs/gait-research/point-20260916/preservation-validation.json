@@ -1,0 +1,21 @@
+{
+  "revision": "extended_point",
+  "model_meshes_compared": 296,
+  "changed_meshes": [
+    "CRAWL | Body - Front End Panel - Compact"
+  ],
+  "missing_meshes": [
+    "CRAWL | Face - 2 inch LCD - Waveshare reference"
+  ],
+  "prior_animation_curves": 60,
+  "prior_sample_frames": [
+    529,
+    937,
+    1237,
+    1261,
+    1420,
+    1700,
+    1825
+  ],
+  "maximum_prior_animation_difference": 0.0
+}

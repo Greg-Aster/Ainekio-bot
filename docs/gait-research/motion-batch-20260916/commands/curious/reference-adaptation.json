@@ -1,0 +1,28 @@
+{
+  "v1_source": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "v1_command": "curious",
+  "v1_frame_count": 72,
+  "v1_nominal_frame_duration_sum_ms": 18490,
+  "v1_sequential_servo_timing": false,
+  "v1_gesture_signature": "Two right-turn patterns, two left patterns, two left patterns, two right patterns, then a small front lean and stand.",
+  "v2_adaptation": "V1 executes right-turn, left-turn, left-turn, right-turn groups then a small front lean. V2 preserves right scan, through center to left scan, recenter, and front lean; planted 12-degree body yaw replaces repeated V1 footsteps to make a compact stationary inspection gesture. This is an intentional choreography adaptation, not a literal replay of the V1 turn trajectories.",
+  "physical_leg_mapping": {
+    "FL": "rear_left",
+    "FR": "rear_right",
+    "RL": "front_left",
+    "RR": "front_right"
+  },
+  "v1_front_distal_labels": [
+    "R3",
+    "L3"
+  ],
+  "v1_rear_distal_labels": [
+    "R4",
+    "L4"
+  ],
+  "angle_mapping": "No electrical degree values copied. Twelve geometric joint angles solved from measured mechanism or deliberately bounded airborne branch-valid paths.",
+  "timing": "V1 frame order/repetition retained semantically; V2 research timing independently defined in config.json, with synchronized smooth joint samples. Timing and electrical staggering are separate execution concerns.",
+  "reference_converter": "/home/greggles/Ainekio/Slave/software/tools/convert_sesame_assets.py",
+  "hardware_qualified": false,
+  "current_body_geometry_provenance": "body-sample-provenance.json"
+}

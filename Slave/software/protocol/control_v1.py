@@ -20,6 +20,11 @@ MAX_AUTH_CHARS = 128
 MAX_FEATURES = 16
 MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
+COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
+OUTPUT_TEST_FEATURE = "output_test_v1"
+BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
+BODY_COMMANDS_FEATURE = "body_commands_v1"
+MAX_MONOTONIC_MS = (1 << 53) - 1
 MOTION_PLAN_JOINT_MAP = 1
 MOTION_PLAN_JOINTS = 8
 MOTION_PLAN_MAX_FRAMES = 32
@@ -187,6 +192,25 @@ def _validate_hello(message: Mapping[str, object]) -> None:
             if feature in seen:
                 _fail("value:features.duplicate")
             seen.add(feature)
+    if COMMAND_DEADLINE_FEATURE in message.get("features", []):
+        _integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
+    if BODY_CAPABILITIES_FEATURE in message.get("features", []):
+        _string(message, "model", max_length=32)
+        caps = _required(message, "capabilities")
+        if not isinstance(caps, Mapping):
+            _fail("type:capabilities")
+        for name in ("motion", "speaker", "microphone", "camera"):
+            _boolean(caps, name)
+    if BODY_COMMANDS_FEATURE in message.get("features", []):
+        if BODY_CAPABILITIES_FEATURE not in message.get("features", []):
+            _fail("missing:body_capabilities_v1")
+        commands = message["capabilities"].get("commands")
+        if not isinstance(commands, list) or len(commands) > 64:
+            _fail("type:capabilities.commands")
+        if any(not isinstance(name, str) or not name or len(name) > 32 for name in commands):
+            _fail("value:capabilities.commands")
+        if len(set(commands)) != len(commands):
+            _fail("value:capabilities.commands.duplicate")
 
 
 def _validate_err(message: Mapping[str, object]) -> None:
@@ -201,6 +225,8 @@ def _validate_welcome(message: Mapping[str, object]) -> None:
     _integer(message, "ver", minimum=PROTOCOL_VERSION, maximum=PROTOCOL_VERSION)
     _integer(message, "epoch", minimum=0, maximum=MAX_BINARY_COUNTER)
     _string(message, "profile", allowed=PROFILES)
+    if COMMAND_DEADLINE_FEATURE in message:
+        _boolean(message, COMMAND_DEADLINE_FEATURE)
 
 
 def _validate_intent(message: Mapping[str, object]) -> None:
@@ -305,6 +331,18 @@ def _validate_state(message: Mapping[str, object]) -> None:
 def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
     if "seq" in message:
         _fail("unexpected:seq")
+    _optional_integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
+
+
+def _validate_output_test(message: Mapping[str, object]) -> None:
+    _seq(message)
+    op = _string(message, "op", allowed=frozenset({"recover", "run"}))
+    if op == "run":
+        _integer(message, "channel", minimum=0, maximum=11)
+        _integer(message, "pulse_us", minimum=1000, maximum=2000)
+        _integer(message, "ms", minimum=100, maximum=2000)
+        if "fault" in message:
+            _string(message, "fault", allowed=frozenset({"none", "stall", "interrupt_arm", "reset"}))
 
 
 def _validate_mode(message: Mapping[str, object]) -> None:
@@ -440,6 +478,7 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "limits": _validate_limits,
     "pose_save": _validate_pose_save,
     "cal_save": _validate_cal_save,
+    "output_test": _validate_output_test,
     "ack": _validate_ack,
     "nak": _validate_nak,
     "done": _validate_done,
@@ -459,6 +498,9 @@ def validate_control_message(message: object) -> None:
     if validator is None:
         _fail("value:t")
     validator(message)
+    # Negotiated extensions are also typed when present on an older message.
+    _optional_integer(message, "epoch", minimum=0, maximum=MAX_BINARY_COUNTER)
+    _optional_integer(message, "deadline_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
 
 
 def validate_binary_frame(frame: bytes) -> BinaryFrame:

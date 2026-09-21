@@ -1,0 +1,260 @@
+{
+  "command": "nod",
+  "body_control_label": "Nod",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "nod"
+  },
+  "gait_id": "nod_rear_support_fourbar_20260916",
+  "generated_utc": "2026-09-16T17:42:06.039176+00:00",
+  "duration_seconds": 14.5,
+  "motion_end_seconds": 14.0,
+  "source_sample_hz": 120,
+  "sample_count": 1741,
+  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "completion": "Complete five nods, retrace the rear-right support crouch, and hold exact standing neutral.",
+  "final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "pitch_degrees": 0.0
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "nod",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 14.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "face_asset": {
+    "name": "nod",
+    "width": 128,
+    "height": 64,
+    "encoding": "row-major MSB-first 1-bit bitmap; 16 bytes per row",
+    "fps": 1,
+    "mode": "once",
+    "frames": [
+      "faces/nod/0.bin"
+    ],
+    "source": "Retained prior Pushup face bitmap for the user-preserved Nod sequence; not a replacement of the V1 Nod face"
+  },
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "57e63ba7b5e0b842a4295093811d98908659606a693c1d31c28aa51bc05b07e8",
+  "csv_sha256": "a2b239fdadf8b623b537bdc771763043b2e76f439e6b7997d640d347930855cd",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "967e0b376821b7d745fe4817534940dfab31b0c2d8a739ffda2cdb343a508d52",
+  "face_sha256": {
+    "faces/nod/0.bin": "e529d6291e8246d6880628d999e9b5102caed0dacf633bb610b610e47f203a6d",
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-nod-20260916/Ainekio-Nod.blend",
+  "blender_frames": [
+    2137,
+    2485
+  ],
+  "design": "User preserved the previous shallow Pushup sequence as Nod on 2026-09-16. All body, joint and contact tracks and timing remain exactly unchanged. Retain its face appearance; this is distinct from the V1 Nod motion reference.",
+  "body_contact_required": false,
+  "source_validation": {
+    "duration_s": 14.5,
+    "motion_end_s": 14.0,
+    "sample_hz": 120,
+    "samples": 1741,
+    "repetitions": 5,
+    "repetitions_start_s": 2.0,
+    "repetitions_end_s": 12.0,
+    "actuator_min_degrees": [
+      [
+        0.0,
+        0.0,
+        -11.088261843475026
+      ],
+      [
+        0.0,
+        0.0,
+        -19.72440883747218
+      ],
+      [
+        0.0,
+        -4.988715093839495,
+        -18.158560530794396
+      ],
+      [
+        0.0,
+        0.0,
+        -26.218878924914932
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        2.5457502288259053,
+        22.69707603396372,
+        7.413293102424283
+      ],
+      [
+        3.2231740140607323,
+        35.133793988641926,
+        0.6922500213113183
+      ],
+      [
+        3.560508061609793,
+        12.83373315122888,
+        39.005947317285234
+      ],
+      [
+        4.5953443349810374,
+        22.11164304025298,
+        22.99409489464543
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        2.346293903000065,
+        34.301417697942966,
+        34.672828282551954
+      ],
+      [
+        3.1392949062307363,
+        40.23726655113386,
+        38.298445190291304
+      ],
+      [
+        5.34665192178851,
+        35.861384544773735,
+        106.52712097944189
+      ],
+      [
+        6.881783225997227,
+        27.436275471638503,
+        90.54907912033354
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        4.385825067955906,
+        107.81960322664474,
+        115.14918040190558
+      ],
+      [
+        6.414697042119677,
+        126.26161491452592,
+        129.00432600236925
+      ],
+      [
+        22.11814031267849,
+        155.86614787640437,
+        473.2756438183628
+      ],
+      [
+        30.03553997074704,
+        111.64433883081699,
+        351.83773633362847
+      ]
+    ],
+    "crouched_actuator_degrees": [
+      [
+        2.4203816940888934,
+        22.69707603396372,
+        7.413293102424283
+      ],
+      [
+        3.1074472179976014,
+        35.133793988641926,
+        0.6922500213113183
+      ],
+      [
+        0.8502457738855168,
+        -4.988715093839495,
+        39.005947317285234
+      ],
+      [
+        1.1623812724586842,
+        8.808009431222098,
+        22.99409489464543
+      ]
+    ],
+    "lowered_actuator_degrees": [
+      [
+        2.5457502288259053,
+        4.415785832967938,
+        -11.088261843475026
+      ],
+      [
+        3.2231740140607323,
+        13.675324938487769,
+        -19.72440883747218
+      ],
+      [
+        3.560508061609793,
+        12.83373315122888,
+        -18.158560530794396
+      ],
+      [
+        4.5953443349810374,
+        22.11164304025298,
+        -26.218878924914932
+      ]
+    ],
+    "front_body_datum_mm": [
+      75.0,
+      0.0,
+      0.0
+    ],
+    "front_body_vertical_travel_mm": 36.833073120756914,
+    "minimum_support_margin_mm": 39.11498833020818,
+    "minimum_stance_contacts": 4,
+    "maximum_rolling_normal_correction_mm": 0.0010052845395236432,
+    "solved_rolling_transfers": 114,
+    "max_stance_material_vertex_constraint_error_mm": 1.3576062090895033e-13,
+    "minimum_body_ground_clearance_mm": 7.698658382342423,
+    "min_sole_height_mm": -1.3371796114824974e-08,
+    "maximum_adjacent_joint_step_degrees": 0.8879198389499336,
+    "final_joint_return_error_degrees": 0.0,
+    "research_angle_bounds_satisfied": true,
+    "collision_checked": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 1740,
+    "bounded_midpoints": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 106.56531563887091,
+    "peak_interpolated_acceleration_degrees_s2": 538.2621875038097,
+    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
+  }
+}

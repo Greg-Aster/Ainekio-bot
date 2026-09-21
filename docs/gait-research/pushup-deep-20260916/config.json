@@ -1,0 +1,107 @@
+{
+  "command": "pushup",
+  "name": "Pushup with near-bottom rear crouch",
+  "display_label": "PUSHUP",
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 2509,
+  "existing_animation_end_frame": 2485,
+  "source_blend": "Before-Deep-Pushup.blend",
+  "output_blend": "Ainekio-Pushup.blend",
+  "scene_name": "AINEKIO - Pushup",
+  "preloaded_cad_leg": null,
+  "preloaded_physical_leg": null,
+  "pushing_cad_legs": [
+    "RL",
+    "RR"
+  ],
+  "pushing_physical_legs": [
+    "front_left",
+    "front_right"
+  ],
+  "crouch_body_position_mm": [
+    -8.0,
+    0.0,
+    62.8
+  ],
+  "crouch_body_euler_degrees": [
+    0.0,
+    -27.5,
+    0.0
+  ],
+  "body_pitch_pivot_mm": [
+    -50.0,
+    0.0,
+    0.0
+  ],
+  "lowered_pitch_degrees": -10.5,
+  "repetitions": 5,
+  "crouch_seconds": 2.0,
+  "half_pushup_seconds": 1.0,
+  "stand_hold_seconds": 0.5,
+  "minimum_support_margin_mm": 8.0,
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -35,
+      35
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "part023_forward_limit_degrees": null,
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "pushup",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 14.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "completion": "Complete 5 front-leg presses, then return through the rear crouch to standing.",
+  "adaptation": "User retained the original shallow Pushup as Nod. This distinct Pushup lowers both rear legs close to the current research carrier-angle bound and rear-body floor clearance while retaining five 1-second down / 1-second up front-leg presses.",
+  "contact_model": "Measured convex-sole discrete rolling with fixed material vertices between feature transfers. Reverse the solved lowering path to rise; repeat the same path exactly without accumulated contact drift.",
+  "hardware_qualified": false,
+  "preloaded_cad_legs": [
+    "FL",
+    "FR"
+  ],
+  "preloaded_physical_legs": [
+    "rear_left",
+    "rear_right"
+  ],
+  "depth_scope": "Near-bottom geometry research pose. Full hardware travel and collision-free loaded motion remain unverified; not a calibrated physical maximum."
+}

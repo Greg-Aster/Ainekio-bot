@@ -1,0 +1,115 @@
+{
+  "file": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "commands": [
+    {
+      "command": "cute",
+      "samples": 1621,
+      "source_sha256": "97349072ef595173eb1e3c0482e979675b113ae3df8bea3eb54f7ab4e5fac47f",
+      "maximum_actuator_error_degrees": 3.4058240950541266e-06,
+      "maximum_body_position_error_mm": 3.7862064203864065e-06,
+      "maximum_body_euler_error_degrees": 2.1328213358638815e-07,
+      "passed": true
+    },
+    {
+      "command": "freaky",
+      "samples": 1165,
+      "source_sha256": "4cec5793692a3fb21a67cc873af6140f3a41b0c7f875e5b8fe37393689b17fb1",
+      "maximum_actuator_error_degrees": 3.3179011976618733e-06,
+      "maximum_body_position_error_mm": 3.807776010944508e-06,
+      "maximum_body_euler_error_degrees": 0.0,
+      "passed": true
+    },
+    {
+      "command": "worm",
+      "samples": 1501,
+      "source_sha256": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca",
+      "maximum_actuator_error_degrees": 8.536001151881732e-07,
+      "maximum_body_position_error_mm": 3.7901711635868196e-06,
+      "maximum_body_euler_error_degrees": 2.1078574086620623e-07,
+      "passed": true
+    },
+    {
+      "command": "shake",
+      "samples": 841,
+      "source_sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8",
+      "maximum_actuator_error_degrees": 1.6636629150081024e-06,
+      "maximum_body_position_error_mm": 3.8074284418598836e-06,
+      "maximum_body_euler_error_degrees": 7.675241913438835e-07,
+      "passed": true
+    },
+    {
+      "command": "shrug",
+      "samples": 1225,
+      "source_sha256": "4a332dbd2a1cc2d1918bde3d0f1e73d17c43ce935298dde3edd8e242c56ebf78",
+      "maximum_actuator_error_degrees": 6.747388644990526e-06,
+      "maximum_body_position_error_mm": 3.751689945374892e-06,
+      "maximum_body_euler_error_degrees": 2.1330335186180686e-07,
+      "passed": true
+    },
+    {
+      "command": "dead",
+      "samples": 1477,
+      "source_sha256": "6f9dd1d7b3b6fe394eb111bb2e646346feaba84c2f7f82aa322a94432515b29f",
+      "maximum_actuator_error_degrees": 3.4058240950541266e-06,
+      "maximum_body_position_error_mm": 3.7862064203864065e-06,
+      "maximum_body_euler_error_degrees": 2.1328213358638815e-07,
+      "passed": true
+    },
+    {
+      "command": "crab",
+      "samples": 3673,
+      "source_sha256": "3fff90c90f4547219bd833e112f99488f35f991366a5f596e6cb7e3e99c3beb1",
+      "maximum_actuator_error_degrees": 1.7068630406912364e-06,
+      "maximum_body_position_error_mm": 3.802144277642583e-06,
+      "maximum_body_euler_error_degrees": 0.0,
+      "passed": true
+    },
+    {
+      "command": "celebrate",
+      "samples": 1501,
+      "source_sha256": "13ec137da243240b9fa491e4d5dbc0e6e396ca970c6dad5a911365239e55aa44",
+      "maximum_actuator_error_degrees": 3.4058240950541266e-06,
+      "maximum_body_position_error_mm": 3.7862064203864065e-06,
+      "maximum_body_euler_error_degrees": 2.1328213358638815e-07,
+      "passed": true
+    },
+    {
+      "command": "stretch",
+      "samples": 805,
+      "source_sha256": "90980240a5fa199f6284521b5c6992d12b0f6caff31866e9dc9c643972a18918",
+      "maximum_actuator_error_degrees": 1.686522935503403e-06,
+      "maximum_body_position_error_mm": 3.805895545383464e-06,
+      "maximum_body_euler_error_degrees": 4.1832999239408413e-07,
+      "passed": true
+    },
+    {
+      "command": "surprised",
+      "samples": 1435,
+      "source_sha256": "5230421770d7c16f736b797e60b2417117a54d440947c0bbdc819fd9c6d88fda",
+      "maximum_actuator_error_degrees": 6.792369754073092e-06,
+      "maximum_body_position_error_mm": 3.751689945374892e-06,
+      "maximum_body_euler_error_degrees": 2.1330335186180686e-07,
+      "passed": true
+    },
+    {
+      "command": "sad",
+      "samples": 1057,
+      "source_sha256": "6d89680428bcf6df29cdd1025c69582367e4decc89338fcc51aad0e8fc62198f",
+      "maximum_actuator_error_degrees": 1.707281423576255e-06,
+      "maximum_body_position_error_mm": 3.805895545383464e-06,
+      "maximum_body_euler_error_degrees": 4.1831716680733113e-07,
+      "passed": true
+    },
+    {
+      "command": "curious",
+      "samples": 1171,
+      "source_sha256": "43d119af1b46820e2962dafa68ab3997f9a8ceb3a7464fa1d4608dd62e820d78",
+      "maximum_actuator_error_degrees": 8.503259249768874e-07,
+      "maximum_body_position_error_mm": 3.8074284418598836e-06,
+      "maximum_body_euler_error_degrees": 4.240919949841599e-07,
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "scope": "Every recorded actuator/body source sample compared to its Blender animation curve. No geometry or pose changed."
+}

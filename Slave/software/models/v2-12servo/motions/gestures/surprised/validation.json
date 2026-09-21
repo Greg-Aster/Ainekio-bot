@@ -1,0 +1,113 @@
+{
+  "duration_s": 11.95,
+  "motion_end_s": 11.45,
+  "sample_hz": 120,
+  "samples": 1435,
+  "actuator_min_degrees": [
+    [
+      0.0,
+      0.0,
+      -26.270649482617586
+    ],
+    [
+      -90.0,
+      0.0,
+      -26.270652078946483
+    ],
+    [
+      0.0,
+      0.0,
+      -23.057169875367823
+    ],
+    [
+      -140.0,
+      0.0,
+      -23.057169875367823
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      90.0,
+      55.2090864926682,
+      0.0
+    ],
+    [
+      0.0,
+      55.2090864926683,
+      0.0
+    ],
+    [
+      140.0,
+      43.05143229250936,
+      0.0
+    ],
+    [
+      0.0,
+      43.05143229250936,
+      0.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      168.71875260416672,
+      115.69489099610365,
+      70.34122160402579
+    ],
+    [
+      168.71875260416672,
+      115.69489099610408,
+      70.34122855585039
+    ],
+    [
+      168.71875260416672,
+      93.6415495695892,
+      61.736939425043644
+    ],
+    [
+      168.71875260416672,
+      93.6415495695892,
+      61.736939425043644
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      519.0937500004168,
+      508.1808827702368,
+      308.9683890283114
+    ],
+    [
+      519.0937500004168,
+      508.18088277024316,
+      308.96841956364455
+    ],
+    [
+      897.2167968751364,
+      717.7734375000938,
+      271.17474338262286
+    ],
+    [
+      897.2167968751364,
+      717.7734375000938,
+      271.17474338262286
+    ]
+  ],
+  "minimum_support_margin_mm": 22.755338679799294,
+  "minimum_stance_contacts": 0,
+  "maximum_rolling_normal_correction_mm": 0.0005382055878619951,
+  "solved_rolling_transfers": 268,
+  "max_stance_material_vertex_constraint_error_mm": 8.819392567223197e-14,
+  "minimum_body_ground_clearance_mm": 0.0,
+  "min_sole_height_mm": -1.3262591025409165e-08,
+  "maximum_adjacent_joint_step_degrees": 1.4059896050347263,
+  "final_joint_return_error_degrees": 0.0,
+  "research_angle_bounds_satisfied": true,
+  "fourbar_branch_preserved": true,
+  "belly_support_required": true,
+  "collision_checked": false,
+  "hardware_servo_limits_verified": false,
+  "measured_mass_balance_verified": false,
+  "hardware_qualified": false,
+  "complete_body_floor_check_passed": true,
+  "body_support_contacts": "Rear bottom-cover edge and front visor low point",
+  "body_contact_strength_verified": false
+}

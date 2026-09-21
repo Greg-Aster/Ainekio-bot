@@ -1,0 +1,21 @@
+{
+  "model_meshes_compared": 298,
+  "changed_meshes": [],
+  "missing_meshes": [],
+  "prior_animation_curves": 60,
+  "prior_sample_frames": [
+    529,
+    937,
+    1237,
+    1420,
+    1825,
+    1950,
+    2113,
+    2137,
+    2209,
+    2329,
+    2461,
+    2485
+  ],
+  "maximum_prior_animation_difference": 0.0
+}

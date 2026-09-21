@@ -1,0 +1,90 @@
+{
+  "name": "Turn Left 180 - twelve-servo four-bar",
+  "command": "turn_left_180",
+  "yaw_degrees": 180,
+  "turn_cycles": 6,
+  "body_height_mm": 78.0,
+  "stance_half_width_mm": 67.0,
+  "foot_x_offsets_mm": {
+    "FL": -12.0,
+    "FR": -12.0,
+    "RL": -10.0,
+    "RR": -10.0
+  },
+  "shift_seconds": 0.5,
+  "swing_seconds": 0.5,
+  "setup_swing_seconds": 0.6,
+  "setup_shift_seconds": 0.4,
+  "support_margin_mm": 2.0,
+  "swing_clearance_mm": 5.0,
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 529,
+  "existing_animation_end_frame": 505,
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -35,
+      35
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "cad_leg_order": [
+    "FR",
+    "RR",
+    "FL",
+    "RL"
+  ],
+  "part023_forward_limit_degrees": 90.0,
+  "contact_model": "Measured sole point contact: retain a world-fixed material vertex, transfer at supporting-feature changes, permit rotation about the contact. Yaw scrub, friction and torsional loads unverified.",
+  "acceptance_status": "GEOMETRIC_TURN_RESEARCH_UNQUALIFIED_HARDWARE",
+  "source_blend": "Before-Turn-Family.blend",
+  "geometry": "robot-gait-parameters.json",
+  "configuration_file": "commands/turn_left_180/config.json",
+  "output_blend": "commands/turn_left_180/Ainekio-Turn-Left-180.blend",
+  "scene_name": "AINEKIO - Turn Left 180",
+  "reference_report": "commands/turn_left_180/README.md",
+  "gait_id": "turn_left_180_fourbar_20260915",
+  "gait_family": "whole_body_wave",
+  "display_label": "TURN LEFT 180 | TWELVE SERVOS",
+  "vertical_reference_joint": "Part023_O",
+  "provisional": true,
+  "body_bob_mm": 0.0,
+  "body_sway_mm": 27.03805789954106,
+  "support_margin_enforced": false,
+  "stride_mm": 0.0,
+  "standing_transition_seconds": 1.0,
+  "blocking_geometry": "Previously identified mount interference retained in the current model; this gait edit does not modify geometry or establish physical efficiency.",
+  "angle_bounds_note": "Part023 O-D must stay at or behind vertical in side view. Alpha lower bound -34.24 degrees is derived from measured neutral O-D angle 124.249 degrees. Other combined-pose bounds remain provisional and are not calibrated hardware limits.",
+  "direction": "left",
+  "cycles": 6,
+  "cycle_seconds": 4.0
+}

@@ -1,0 +1,10 @@
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1-Backup.blend filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend1 filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend1 filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Angled-Compact-Reference.blend filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery-Backup.blend filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery.blend filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend filter=lfs diff=lfs merge=lfs -text
+Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Recovery.blend filter=lfs diff=lfs merge=lfs -text
+docs/gait-research/motion-batch-20260916/ainekio-motion-library-12servo-20260916.zip filter=lfs diff=lfs merge=lfs -text

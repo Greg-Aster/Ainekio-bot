@@ -1,0 +1,35 @@
+[
+  {
+    "fps": 1,
+    "frames": [
+      "faces/stand/0.bin"
+    ],
+    "height": 64,
+    "mode": "once",
+    "name": "stand",
+    "source_alias": "idle",
+    "width": 128
+  },
+  {
+    "fps": 1,
+    "frames": [
+      "faces/shrug/0.bin"
+    ],
+    "height": 64,
+    "mode": "once",
+    "name": "shrug",
+    "width": 128
+  },
+  {
+    "fps": 2,
+    "frames": [
+      "faces/dead/0.bin",
+      "faces/dead/1.bin",
+      "faces/dead/2.bin"
+    ],
+    "height": 64,
+    "mode": "boomerang",
+    "name": "dead",
+    "width": 128
+  }
+]

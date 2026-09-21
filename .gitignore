@@ -3,6 +3,9 @@ node_modules/
 dist/
 build/
 /Slave/firmware/esp32s3/managed_components/
+/Slave/firmware/esp32p4-wifi6/managed_components/
+/Slave/firmware/esp32p4-wifi6/sdkconfig
+/Slave/firmware/esp32p4-wifi6/sdkconfig.old
 .svelte-kit/
 .vite/
 .turbo/

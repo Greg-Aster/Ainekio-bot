@@ -1,0 +1,11 @@
+{
+  "fps": 1,
+  "frames": [
+    "faces/dance/0.bin",
+    "faces/dance/1.bin"
+  ],
+  "height": 64,
+  "mode": "loop",
+  "name": "dance",
+  "width": 128
+}

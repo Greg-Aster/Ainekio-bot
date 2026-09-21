@@ -1,0 +1,110 @@
+{
+  "duration_s": 8.8,
+  "motion_end_s": 8.3,
+  "sample_hz": 120,
+  "samples": 1057,
+  "actuator_min_degrees": [
+    [
+      -4.687872218588018,
+      -12.0052120004371,
+      -19.680960083530554
+    ],
+    [
+      -4.829148519078859,
+      -12.0052120004371,
+      -19.68096210379039
+    ],
+    [
+      -1.0695178125741742,
+      -8.27454439028833,
+      -41.209509672578996
+    ],
+    [
+      -0.8773872409548227,
+      -8.274544390288407,
+      -41.209509672578996
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      4.829148519078885,
+      5.0557089087420195,
+      0.0
+    ],
+    [
+      4.687872218588044,
+      5.0557089087420195,
+      0.0
+    ],
+    [
+      0.8773872409547973,
+      5.055710167542155,
+      0.0
+    ],
+    [
+      1.0695178125741742,
+      5.055710167542155,
+      0.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      12.92968211240181,
+      31.944063511061877,
+      21.104297943695016
+    ],
+    [
+      12.929682112400291,
+      31.944063511061877,
+      21.104300079023304
+    ],
+    [
+      2.8702071777878158,
+      23.861952602793902,
+      59.870653304553656
+    ],
+    [
+      2.8702071777862903,
+      23.861952602793902,
+      59.87065330455515
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      57.49680629993179,
+      101.79078249909371,
+      70.84225209564323
+    ],
+    [
+      57.49680629993179,
+      101.79078249909371,
+      70.84225964311948
+    ],
+    [
+      12.932796662416024,
+      90.60092588367894,
+      200.20196407973145
+    ],
+    [
+      12.932796662598278,
+      90.60092588367894,
+      200.20196407973145
+    ]
+  ],
+  "minimum_support_margin_mm": 35.4980907598287,
+  "minimum_stance_contacts": 4,
+  "maximum_rolling_normal_correction_mm": 0.00038979480077117046,
+  "solved_rolling_transfers": 202,
+  "max_stance_material_vertex_constraint_error_mm": 1.043222174248088e-13,
+  "minimum_body_ground_clearance_mm": 7.226677056926796,
+  "min_sole_height_mm": -7.349621355956515e-09,
+  "maximum_adjacent_joint_step_degrees": 0.4990304616179735,
+  "final_joint_return_error_degrees": 0.0,
+  "research_angle_bounds_satisfied": true,
+  "fourbar_branch_preserved": true,
+  "belly_support_required": false,
+  "collision_checked": false,
+  "hardware_servo_limits_verified": false,
+  "measured_mass_balance_verified": false,
+  "hardware_qualified": false
+}

@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1580" viewBox="0 0 2400 1580" role="img">
+<title>Ainekio P4 to PCA9685 disconnected-servo bench wiring</title>
+<style>text{font-family:"DejaVu Sans",Arial,sans-serif} .bold{font-weight:700}</style>
+<rect x="0" y="0" width="2400" height="1580" rx="0" fill="#f5f7fa"/>
+<text x="70" y="105" font-size="67" fill="#18232d" text-anchor="start" class="bold">AINEKIO · P4 → PCA9685</text>
+<text x="72" y="161" font-size="29" fill="#ef7949" text-anchor="start" class="bold">BENCH CONNECTION GUIDE · ALL SERVO PLUGS AND V+ DISCONNECTED</text>
+<rect x="70" y="201" width="2260" height="68" rx="10" fill="#fff0df"/>
+<text x="98" y="246" font-size="29" fill="#18232d" text-anchor="start" class="bold">Reference wiring: complete the unpowered checks and OE reset-bias check before signal tests.</text>
+<rect x="70" y="318" width="760" height="591" rx="18" fill="#ffffff" stroke="#d7e0e8" stroke-width="2"/>
+<rect x="70" y="318" width="760" height="88" rx="14" fill="#18232d"/>
+<text x="100" y="373" font-size="37" fill="#ffffff" text-anchor="start" class="bold">ESP32-P4-WIFI6</text>
+<text x="100" y="875" font-size="25" fill="#596879" text-anchor="start">USB-C at top · same row IDs as pinout</text>
+<rect x="1570" y="318" width="760" height="591" rx="18" fill="#ffffff" stroke="#d7e0e8" stroke-width="2"/>
+<rect x="1570" y="318" width="760" height="88" rx="14" fill="#18232d"/>
+<text x="1600" y="373" font-size="37" fill="#ffffff" text-anchor="start" class="bold">PCA9685 BREAKOUT</text>
+<text x="1600" y="875" font-size="25" fill="#596879" text-anchor="start">Match printed labels on your module</text>
+<rect x="100" y="438" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="125" y="476" font-size="32" fill="#18232d" text-anchor="start" class="bold">R5 · 3V3</text>
+<rect x="1600" y="438" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="1650" y="476" font-size="34" fill="#df3855" text-anchor="start" class="bold">VCC</text>
+<text x="1810" y="475" font-size="26" fill="#18232d" text-anchor="start">Logic power · 3.3 V</text>
+<line x1="665" y1="465" x2="1630" y2="465" stroke="#df3855" stroke-width="7"/>
+<circle cx="665" cy="465" r="10" fill="#df3855"/>
+<circle cx="1630" cy="465" r="10" fill="#df3855"/>
+<rect x="896" y="438" width="600" height="51" rx="7" fill="#f5f7fa"/>
+<text x="1196" y="474" font-size="28" fill="#df3855" text-anchor="middle" class="bold">Logic power · 3.3 V</text>
+<rect x="100" y="519" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="125" y="557" font-size="32" fill="#18232d" text-anchor="start" class="bold">L13 · GND</text>
+<rect x="1600" y="519" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="1650" y="557" font-size="34" fill="#526172" text-anchor="start" class="bold">GND</text>
+<text x="1810" y="556" font-size="26" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="665" y1="546" x2="1630" y2="546" stroke="#526172" stroke-width="7"/>
+<circle cx="665" cy="546" r="10" fill="#526172"/>
+<circle cx="1630" cy="546" r="10" fill="#526172"/>
+<rect x="896" y="519" width="600" height="51" rx="7" fill="#f5f7fa"/>
+<text x="1196" y="555" font-size="28" fill="#526172" text-anchor="middle" class="bold">Common ground</text>
+<rect x="100" y="600" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="125" y="638" font-size="32" fill="#18232d" text-anchor="start" class="bold">L15 · GPIO2</text>
+<rect x="1600" y="600" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="1650" y="638" font-size="34" fill="#079ec5" text-anchor="start" class="bold">SDA</text>
+<text x="1810" y="637" font-size="26" fill="#18232d" text-anchor="start">I²C data</text>
+<line x1="665" y1="627" x2="1630" y2="627" stroke="#079ec5" stroke-width="7"/>
+<circle cx="665" cy="627" r="10" fill="#079ec5"/>
+<circle cx="1630" cy="627" r="10" fill="#079ec5"/>
+<rect x="896" y="600" width="600" height="51" rx="7" fill="#f5f7fa"/>
+<text x="1196" y="636" font-size="28" fill="#079ec5" text-anchor="middle" class="bold">I²C data</text>
+<rect x="100" y="681" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="125" y="719" font-size="32" fill="#18232d" text-anchor="start" class="bold">L14 · GPIO3</text>
+<rect x="1600" y="681" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="1650" y="719" font-size="34" fill="#079ec5" text-anchor="start" class="bold">SCL</text>
+<text x="1810" y="718" font-size="26" fill="#18232d" text-anchor="start">I²C clock</text>
+<line x1="665" y1="708" x2="1630" y2="708" stroke="#079ec5" stroke-width="7"/>
+<circle cx="665" cy="708" r="10" fill="#079ec5"/>
+<circle cx="1630" cy="708" r="10" fill="#079ec5"/>
+<rect x="896" y="681" width="600" height="51" rx="7" fill="#f5f7fa"/>
+<text x="1196" y="717" font-size="28" fill="#079ec5" text-anchor="middle" class="bold">I²C clock</text>
+<rect x="100" y="762" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="125" y="800" font-size="32" fill="#18232d" text-anchor="start" class="bold">L12 · GPIO4</text>
+<rect x="1600" y="762" width="700" height="56" rx="7" fill="#f0f4f7"/>
+<text x="1650" y="800" font-size="34" fill="#ef7949" text-anchor="start" class="bold">OE</text>
+<text x="1810" y="799" font-size="26" fill="#18232d" text-anchor="start">Output disable</text>
+<line x1="665" y1="789" x2="1630" y2="789" stroke="#ef7949" stroke-width="7"/>
+<circle cx="665" cy="789" r="10" fill="#ef7949"/>
+<circle cx="1630" cy="789" r="10" fill="#ef7949"/>
+<rect x="896" y="762" width="600" height="51" rx="7" fill="#f5f7fa"/>
+<text x="1196" y="798" font-size="28" fill="#ef7949" text-anchor="middle" class="bold">Output disable</text>
+<text x="1200" y="945" font-size="24" fill="#596879" text-anchor="middle">Functional connection diagram: PCA9685 terminal order and board artwork are not reproduced.</text>
+<rect x="70" y="981" width="1100" height="255" rx="14" fill="#fff0df"/>
+<text x="98" y="1025" font-size="28" fill="#ef7949" text-anchor="start" class="bold">REQUIRED OE RESET BIAS · NOT YET VERIFIED</text>
+<text x="100" y="1090" font-size="28" fill="#18232d" text-anchor="start" class="bold">3.3 V</text>
+<line x1="210" y1="1080" x2="380" y2="1080" stroke="#ef7949" stroke-width="4" stroke-dasharray="10 7"/>
+<rect x="380" y="1058" width="205" height="44" rx="0" fill="#ffffff" stroke="#ef7949" stroke-width="3"/>
+<text x="482" y="1089" font-size="23" fill="#ef7949" text-anchor="middle" class="bold">R: to resolve</text>
+<line x1="585" y1="1080" x2="760" y2="1080" stroke="#ef7949" stroke-width="4" stroke-dasharray="10 7"/>
+<text x="780" y="1090" font-size="28" fill="#18232d" text-anchor="start" class="bold">OE</text>
+<text x="98" y="1144" font-size="24" fill="#18232d" text-anchor="start">Measure the module’s existing pull-up / pull-down first.</text>
+<text x="98" y="1178" font-size="24" fill="#18232d" text-anchor="start">Choose a compatible bias; verify OE HIGH while P4 is reset.</text>
+<text x="98" y="1212" font-size="24" fill="#18232d" text-anchor="start">The internal GPIO pull-up alone does not prove reset safety.</text>
+<rect x="1200" y="981" width="1130" height="255" rx="14" fill="#e6edf3"/>
+<text x="1230" y="1025" font-size="28" fill="#18232d" text-anchor="start" class="bold">SERVO POWER &amp; CHANNELS</text>
+<text x="1230" y="1075" font-size="25" fill="#18232d" text-anchor="start">VCC = chip logic. V+ = separate servo power rail.</text>
+<text x="1230" y="1109" font-size="25" fill="#18232d" text-anchor="start">Leave V+ / screw power terminal and ALL servo plugs empty.</text>
+<text x="1230" y="1143" font-size="25" fill="#18232d" text-anchor="start">Do not power twelve servos from P4 USB, 5 V or 3V3 pins.</text>
+<text x="1230" y="1177" font-size="25" fill="#18232d" text-anchor="start">Channels 0–11: bench diagnostics only; joint map pending.</text>
+<text x="1230" y="1211" font-size="25" fill="#18232d" text-anchor="start">Channels 12–15: unused. OE does not disconnect V+.</text>
+<rect x="70" y="1280" width="2260" height="218" rx="16" fill="#18232d"/>
+<text x="100" y="1328" font-size="30" fill="#ffac7b" text-anchor="start" class="bold">FIRST CHECK · EVERYTHING UNPOWERED</text>
+<text x="100" y="1372" font-size="27" fill="#f0f4f7" text-anchor="start">Unplug P4 USB. With the PCA9685 still separate, measure resistance:</text>
+<text x="100" y="1411" font-size="27" fill="#f0f4f7" text-anchor="start">OE↔GND   ·   OE↔VCC   ·   SDA↔VCC   ·   SCL↔VCC. Record settled readings or OL.</text>
+<text x="100" y="1450" font-size="27" fill="#f0f4f7" text-anchor="start">A meter checks static wiring / voltage. A scope or analyzer is needed for PWM / reset timing.</text>
+<text x="75" y="1547" font-size="24" fill="#596879" text-anchor="start">2026-09-15 · Address 0x40 expected · Nominal PWM 50 Hz · Follow PCA9685_WIRING.md before enabling diagnostics.</text>
+</svg>

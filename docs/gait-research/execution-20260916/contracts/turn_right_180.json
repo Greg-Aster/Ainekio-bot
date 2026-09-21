@@ -1,0 +1,5623 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "turn_right_180",
+  "gait_id": "turn_right_180_fourbar_20260915",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "turn_right_180"
+  },
+  "shared_policy": "../execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_180/source.json",
+      "sha256": "506f7b1e8ac7dd09ade77996fffac4a55f58e2a9251227f2d0ed7555e49e948e"
+    },
+    {
+      "path": "Slave/software/models/v2-12servo/motions/turns/commands/turn_right_180/manifest.json",
+      "sha256": "33d45e6eee3c046ce8817ac8a69130bc25a09ba39a7f1c0c61f8db2b966ac45e"
+    },
+    {
+      "path": "docs/gait-research/turn-commands-20260915/commands/turn_right_180/source.json",
+      "sha256": "506f7b1e8ac7dd09ade77996fffac4a55f58e2a9251227f2d0ed7555e49e948e"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_entry_height",
+      "name": "entry_height",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        1.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        120
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.10024446372239693,
+        0.096825453911966,
+        0.0,
+        0.10024446372240116,
+        0.09682546518540645,
+        0.0,
+        0.10024448989262333,
+        0.09682556016993131,
+        0.0,
+        0.10024448989262333,
+        0.09682556016993131
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.34087195951257476,
+        0.3331521044649366,
+        0.0,
+        0.34087195955178506,
+        0.33315214399401494,
+        0.0,
+        0.3408720533415127,
+        0.33315247637832335,
+        0.0,
+        0.3408720533415127,
+        0.33315247637832335
+      ]
+    },
+    {
+      "id": "p001_entry_shift_FL",
+      "name": "entry_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        1.0,
+        1.4
+      ],
+      "source_sample_indices_inclusive": [
+        120,
+        168
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.5768557580671977,
+        0.5992304510195824,
+        0.9520683318601559,
+        0.5971273373380339,
+        1.0706392404756753,
+        0.5761596254878442,
+        0.5768557580717801,
+        0.5992306212207774,
+        0.9520690019008935,
+        0.5971273373366838,
+        1.0706395049779995,
+        0.5761597938048342
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.492076770914234,
+        6.355590954993753,
+        9.951888350984245,
+        5.648795152843067,
+        10.522255438106374,
+        6.489914970103447,
+        5.492076770914234,
+        6.355592665563705,
+        9.951892280662719,
+        5.648795152866148,
+        10.522258088892137,
+        6.48991750369599
+      ]
+    },
+    {
+      "id": "p002_entry_place_FL",
+      "name": "entry_place_FL",
+      "section": "clip",
+      "source_interval_s": [
+        1.4,
+        2.0
+      ],
+      "source_sample_indices_inclusive": [
+        168,
+        240
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.2322838141133265,
+        0.9245169421576684,
+        1.3196019597745685,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.699235071090639,
+        14.67257456646909,
+        12.398923846694592,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p003_entry_shift_RL",
+      "name": "entry_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        2.0,
+        2.4
+      ],
+      "source_sample_indices_inclusive": [
+        240,
+        288
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.5620279628458678,
+        0.36774707450649025,
+        1.3177466165011764,
+        0.5971270815466629,
+        1.0706392622443546,
+        0.5761596254878529,
+        0.5768559686504294,
+        0.599223085582138,
+        0.9520831891368283,
+        0.5971270815456039,
+        1.0706395267466675,
+        0.5761597938048342
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.3787896728231654,
+        4.242349652597602,
+        13.915245198186401,
+        5.64879515286886,
+        10.522272605264389,
+        6.489914970118829,
+        5.492070507142753,
+        6.3555525273526765,
+        9.961063206174083,
+        5.648795152897437,
+        10.52227525607368,
+        6.489917503711378
+      ]
+    },
+    {
+      "id": "p004_entry_place_RL",
+      "name": "entry_place_RL",
+      "section": "clip",
+      "source_interval_s": [
+        2.4,
+        3.0
+      ],
+      "source_sample_indices_inclusive": [
+        288,
+        360
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.16266184160812444,
+        0.83993910687923,
+        0.8996999525159675,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9711725322603182,
+        15.430508990302599,
+        12.369519631537885,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p005_entry_shift_FR",
+      "name": "entry_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        3.0,
+        3.4
+      ],
+      "source_sample_indices_inclusive": [
+        360,
+        408
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.45903818864232987,
+        0.7000182185418776,
+        0.6174980862112234,
+        0.4547469739917105,
+        0.4409012546793225,
+        0.6757874295950727,
+        0.46102814002265574,
+        0.7491792999016151,
+        0.5412209589575022,
+        0.45474697376201767,
+        0.4409013790418535,
+        0.6757878066279992
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.3543901603274,
+        8.759085943708032,
+        7.655144412645898,
+        4.3142560128769425,
+        4.560936221290817,
+        6.861821028475883,
+        4.374937822078753,
+        7.053175728566208,
+        7.019651343956417,
+        4.314256012856146,
+        4.560937448534057,
+        6.861825191751421
+      ]
+    },
+    {
+      "id": "p006_entry_place_FR",
+      "name": "entry_place_FR",
+      "section": "clip",
+      "source_interval_s": [
+        3.4,
+        4.0
+      ],
+      "source_sample_indices_inclusive": [
+        408,
+        480
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.21748585584240457,
+        0.9327386239132011,
+        1.218486986783647,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        1.542885581736383,
+        14.406525286767232,
+        11.420804536698164,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p007_entry_shift_RR",
+      "name": "entry_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        4.0,
+        4.4
+      ],
+      "source_sample_indices_inclusive": [
+        480,
+        528
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.45903929382815356,
+        0.7000179674836894,
+        0.6174975265279373,
+        0.4443984701591145,
+        0.2729161592819124,
+        0.9215147954887923,
+        0.46102717256741976,
+        0.7491773283729589,
+        0.5412062346990242,
+        0.4547034832836968,
+        0.44089757988866446,
+        0.6757887059734632
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        4.3542449458595485,
+        8.768025580358998,
+        7.637151727504152,
+        4.232491643542944,
+        3.0560572447353183,
+        9.3935940825566,
+        4.374937822089504,
+        7.053181127174648,
+        6.940239736486324,
+        4.314254155172579,
+        4.560925661893174,
+        6.861825191751381
+      ]
+    },
+    {
+      "id": "p008_entry_place_RR",
+      "name": "entry_place_RR",
+      "section": "clip",
+      "source_interval_s": [
+        4.4,
+        5.0
+      ],
+      "source_sample_indices_inclusive": [
+        528,
+        600
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.16266668521575547,
+        0.839945000648382,
+        0.8997068591882118
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9711982748009806,
+        15.428370710756099,
+        12.370523037737604
+      ]
+    },
+    {
+      "id": "p009_turn_shift_FL",
+      "name": "turn_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        5.0,
+        5.5
+      ],
+      "source_sample_indices_inclusive": [
+        600,
+        660
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.17802861140343199,
+        0.7713820725026869,
+        1.0807886268593307,
+        0.11914676346418916,
+        0.2563626815030867,
+        0.18256814512630595,
+        0.5386382970769291,
+        0.4626708032346559,
+        1.349444503508972,
+        0.6084234967853835,
+        0.07223640055003504,
+        0.4130326695822709
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.7956211945397627,
+        5.805558454483157,
+        9.296668310100582,
+        1.0606246017476795,
+        1.872790798627958,
+        1.4419683677459882,
+        4.314283654836464,
+        4.028764652576486,
+        11.54094936786172,
+        4.395315766133656,
+        10.5378562606646,
+        17.714162003512186
+      ]
+    },
+    {
+      "id": "p010_turn_swing_FL",
+      "name": "turn_swing_FL",
+      "section": "clip",
+      "source_interval_s": [
+        5.5,
+        6.0
+      ],
+      "source_sample_indices_inclusive": [
+        660,
+        720
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.128028020463861,
+        3.4244335734097984,
+        2.80097180007738,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        8.658270627119773,
+        31.662790670713612,
+        42.75307235918023,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p011_turn_shift_RL",
+      "name": "turn_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        6.0,
+        6.5
+      ],
+      "source_sample_indices_inclusive": [
+        720,
+        780
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.3096699579302366,
+        0.6100820127706427,
+        0.1392148994544486,
+        0.40933683306217344,
+        1.2002523466966706,
+        0.5682458351403484,
+        0.1291041297673975,
+        0.08608522977310391,
+        0.5201547077548913,
+        0.2976303890907498,
+        0.8132213705300256,
+        0.7457190455004894
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.286994822984838,
+        4.93109179234307,
+        1.2815759662784731,
+        3.314677626417186,
+        9.275162090496728,
+        4.837431291129057,
+        0.9469426100554323,
+        0.7255225032425311,
+        3.997526682540986,
+        2.453768556541991,
+        6.1532865360555045,
+        6.028415583333282
+      ]
+    },
+    {
+      "id": "p012_turn_swing_RL",
+      "name": "turn_swing_RL",
+      "section": "clip",
+      "source_interval_s": [
+        6.5,
+        7.0
+      ],
+      "source_sample_indices_inclusive": [
+        780,
+        840
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.8669790090798337,
+        2.116716922148968,
+        3.499968656262665,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        13.714309197218011,
+        41.037683901892045,
+        40.65219491800043,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p013_turn_shift_FR",
+      "name": "turn_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        7.0,
+        7.5
+      ],
+      "source_sample_indices_inclusive": [
+        840,
+        900
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.1827074228299914,
+        2.3075619477210076,
+        1.3351396125698316,
+        0.9562709352271909,
+        0.7061585345733212,
+        1.509134888923623,
+        0.5091841669996388,
+        1.7190495837063986,
+        1.5521140318786473,
+        0.4759123216773537,
+        0.7260261246723819,
+        0.7303739778850229
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        9.515643940801027,
+        27.463556935752802,
+        12.565695193920998,
+        7.036083457607862,
+        8.050494679032237,
+        14.335839302132767,
+        7.524992499260361,
+        15.367031376263487,
+        12.84962769824709,
+        3.898482578821494,
+        6.372596824403329,
+        5.527659884734999
+      ]
+    },
+    {
+      "id": "p014_turn_swing_FR",
+      "name": "turn_swing_FR",
+      "section": "clip",
+      "source_interval_s": [
+        7.5,
+        8.0
+      ],
+      "source_sample_indices_inclusive": [
+        900,
+        960
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.970201726717082,
+        3.242173604470112,
+        4.256630629159325,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        8.247333255404211,
+        32.48518014133752,
+        74.47358786294183,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p015_turn_shift_RR",
+      "name": "turn_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        8.0,
+        8.5
+      ],
+      "source_sample_indices_inclusive": [
+        960,
+        1020
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.684706678757002,
+        0.8019093855025992,
+        0.45027495865738215,
+        0.5770229065002069,
+        0.7468979432338937,
+        3.581906721980109,
+        1.452456250833653,
+        0.9579417721154654,
+        0.6381788760230118,
+        1.5353882529818954,
+        1.5699841683214897,
+        1.321876854814302
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.199579805215939,
+        14.601154576625204,
+        8.017996665524434,
+        5.064287557125393,
+        9.923347860496907,
+        49.550634295475206,
+        10.697989949873463,
+        13.123509060061572,
+        9.798569967584402,
+        11.129554949463643,
+        12.63090801778012,
+        13.185864700363519
+      ]
+    },
+    {
+      "id": "p016_turn_swing_RR",
+      "name": "turn_swing_RR",
+      "section": "clip",
+      "source_interval_s": [
+        8.5,
+        9.0
+      ],
+      "source_sample_indices_inclusive": [
+        1020,
+        1080
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.177016277241444,
+        2.121736549671106,
+        2.2918070779129684
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        15.471293436270876,
+        22.658733983713226,
+        31.921764755168272
+      ]
+    },
+    {
+      "id": "p017_turn_shift_FL",
+      "name": "turn_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        9.0,
+        9.5
+      ],
+      "source_sample_indices_inclusive": [
+        1080,
+        1140
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.1443995338948127,
+        0.8094123662231102,
+        1.0799686067636836,
+        0.11203636353667878,
+        0.23408566499265576,
+        0.18478008252831157,
+        0.5776647792745777,
+        0.5009302827179334,
+        1.3059740783994074,
+        0.6320724286961076,
+        0.11174383881505698,
+        0.3927803402120354
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.3222023215214007,
+        6.3208197058712035,
+        8.916557938508625,
+        0.8475414947346915,
+        1.7041784670801596,
+        1.4749099303490265,
+        4.667870161439223,
+        4.139743336825457,
+        11.14988685849173,
+        4.572208687504213,
+        13.828486475461819,
+        11.022163182813287
+      ]
+    },
+    {
+      "id": "p018_turn_swing_FL",
+      "name": "turn_swing_FL",
+      "section": "clip",
+      "source_interval_s": [
+        9.5,
+        10.0
+      ],
+      "source_sample_indices_inclusive": [
+        1140,
+        1200
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.0432029248551642,
+        3.271691143563753,
+        2.5930195075027167,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        8.098518007762951,
+        30.365747429716006,
+        39.56153820194836,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p019_turn_shift_RL",
+      "name": "turn_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        10.0,
+        10.5
+      ],
+      "source_sample_indices_inclusive": [
+        1200,
+        1260
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.3294513615786375,
+        0.60182286429486,
+        0.1696242607268723,
+        0.44244772465251736,
+        1.2390199190878552,
+        0.6387784405296154,
+        0.1226876526897332,
+        0.07990766505736607,
+        0.4190737091100216,
+        0.27511592514589533,
+        0.8449480298363391,
+        0.7639623906184257
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.42465807223204,
+        4.9133728404074395,
+        1.522954202988992,
+        3.5667311645067,
+        9.595674066594011,
+        5.430153252850638,
+        0.9186418268331031,
+        0.6803131398087447,
+        3.170147027880621,
+        2.302448292556143,
+        6.405437919335908,
+        6.173138597267656
+      ]
+    },
+    {
+      "id": "p020_turn_swing_RL",
+      "name": "turn_swing_RL",
+      "section": "clip",
+      "source_interval_s": [
+        10.5,
+        11.0
+      ],
+      "source_sample_indices_inclusive": [
+        1260,
+        1320
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.7813628796239915,
+        2.0214882264963436,
+        3.1900566117182407,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        13.017553540613065,
+        32.40232121457532,
+        36.06346016705943,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p021_turn_shift_FR",
+      "name": "turn_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        11.0,
+        11.5
+      ],
+      "source_sample_indices_inclusive": [
+        1320,
+        1380
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.1828230689285268,
+        2.3076508439853947,
+        1.336367834243912,
+        0.9497652764840633,
+        0.8036219898163103,
+        1.6093204507663257,
+        0.5091094256146176,
+        1.7187066963503523,
+        1.551603474839455,
+        0.4758000021011944,
+        0.7257755697699333,
+        0.7298855455231388
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        9.517218251805279,
+        27.944589300251543,
+        13.128224785327625,
+        7.140625892304984,
+        9.049157480224551,
+        15.849785787489763,
+        7.491984796467648,
+        15.409420660021844,
+        12.84481777539276,
+        3.8974894283751382,
+        6.37095398815088,
+        5.523172058047767
+      ]
+    },
+    {
+      "id": "p022_turn_swing_FR",
+      "name": "turn_swing_FR",
+      "section": "clip",
+      "source_interval_s": [
+        11.5,
+        12.0
+      ],
+      "source_sample_indices_inclusive": [
+        1380,
+        1440
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        1.0419445784450503,
+        3.200795893513331,
+        4.0602983293797354,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        8.854146848345948,
+        32.72065582214269,
+        70.65099965193325,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p023_turn_shift_RR",
+      "name": "turn_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        12.0,
+        12.5
+      ],
+      "source_sample_indices_inclusive": [
+        1440,
+        1500
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.6838439367250748,
+        0.8017202672687922,
+        0.4513201722520547,
+        0.5769599230181494,
+        0.7467842824413331,
+        3.5800252513033435,
+        1.4523834655176706,
+        0.9575931429331859,
+        0.6377128903330559,
+        1.5353344744562551,
+        1.5697463921254358,
+        1.321217851020132
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.194833685870219,
+        11.132777983338151,
+        14.757326430364612,
+        5.063411174143608,
+        9.984601808333133,
+        49.47864052245329,
+        10.695863803359842,
+        13.127399098385247,
+        9.744809770740991,
+        11.128841443826802,
+        12.628562165139128,
+        13.179739116775444
+      ]
+    },
+    {
+      "id": "p024_turn_swing_RR",
+      "name": "turn_swing_RR",
+      "section": "clip",
+      "source_interval_s": [
+        12.5,
+        13.0
+      ],
+      "source_sample_indices_inclusive": [
+        1500,
+        1560
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.177222750525434,
+        2.122194844955173,
+        2.292066938521369
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        15.472885924971518,
+        22.60836478012332,
+        31.93952680026617
+      ]
+    },
+    {
+      "id": "p025_turn_shift_FL",
+      "name": "turn_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        13.0,
+        13.5
+      ],
+      "source_sample_indices_inclusive": [
+        1560,
+        1620
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.1447861922405472,
+        0.8090237781523084,
+        1.0822563349792858,
+        0.11202678020115836,
+        0.2340697212432683,
+        0.18476490036639664,
+        0.5776692072402972,
+        0.5009351887427059,
+        1.3059935837727046,
+        0.6320774781980956,
+        0.11175917996714022,
+        0.3927714279218337
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.3252195452099143,
+        6.181159386105786,
+        8.937474053518315,
+        0.847479435850933,
+        1.7040552052384728,
+        1.474798427448667,
+        4.667907507822795,
+        4.1397411623979785,
+        11.150090848834026,
+        4.572249344588526,
+        13.829493815911828,
+        11.022297141703522
+      ]
+    },
+    {
+      "id": "p026_turn_swing_FL",
+      "name": "turn_swing_FL",
+      "section": "clip",
+      "source_interval_s": [
+        13.5,
+        14.0
+      ],
+      "source_sample_indices_inclusive": [
+        1620,
+        1680
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.041394408896466,
+        3.2749591003123655,
+        2.6012707604719885,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        8.086208929017289,
+        30.391585114602453,
+        39.106042382108896,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p027_turn_shift_RL",
+      "name": "turn_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        14.0,
+        14.5
+      ],
+      "source_sample_indices_inclusive": [
+        1680,
+        1740
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.32945558904277944,
+        0.6018144172976561,
+        0.1696328897833714,
+        0.442449168522031,
+        1.2390313978129877,
+        0.6387731177073364,
+        0.12268300329871253,
+        0.07990292839819306,
+        0.4190569765222372,
+        0.27511128299188514,
+        0.8449604635651697,
+        0.7639721345309332
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.424685000113158,
+        4.913319523624637,
+        1.5230188756010676,
+        3.566745376674476,
+        9.595765934087703,
+        5.430117279360465,
+        0.9186141166445194,
+        0.6802796979304498,
+        3.170011855402617,
+        2.302419369508233,
+        6.405536212872791,
+        6.173220468199716
+      ]
+    },
+    {
+      "id": "p028_turn_swing_RL",
+      "name": "turn_swing_RL",
+      "section": "clip",
+      "source_interval_s": [
+        14.5,
+        15.0
+      ],
+      "source_sample_indices_inclusive": [
+        1740,
+        1800
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.7813653367192785,
+        2.0214883841755427,
+        3.190060440203555,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        13.017573497631156,
+        32.401587614461505,
+        36.063518490424826,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p029_turn_shift_FR",
+      "name": "turn_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        15.0,
+        15.5
+      ],
+      "source_sample_indices_inclusive": [
+        1800,
+        1860
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.1828230345627977,
+        2.30765072879585,
+        1.336368098597232,
+        0.9497664307655587,
+        0.8035902494641277,
+        1.6092815796419921,
+        0.5091093182741996,
+        1.718706476580119,
+        1.5516031470378273,
+        0.47579989020363456,
+        0.7257753605837023,
+        0.7298852815614539
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        9.517218046328937,
+        27.944663913047005,
+        13.128306778954872,
+        7.14028288192992,
+        9.048830887921909,
+        15.849262199082652,
+        7.491963327421827,
+        15.409447673742491,
+        12.844814719681716,
+        3.897488504587945,
+        6.370952152550768,
+        5.52316963087272
+      ]
+    },
+    {
+      "id": "p030_turn_swing_FR",
+      "name": "turn_swing_FR",
+      "section": "clip",
+      "source_interval_s": [
+        15.5,
+        16.0
+      ],
+      "source_sample_indices_inclusive": [
+        1860,
+        1920
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        1.0419222219900208,
+        3.2008025120441577,
+        4.06035515648113,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        8.853954438425312,
+        32.72342881414101,
+        70.65202513770976,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p031_turn_shift_RR",
+      "name": "turn_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        16.0,
+        16.5
+      ],
+      "source_sample_indices_inclusive": [
+        1920,
+        1980
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.6838436790323019,
+        0.8017199730704747,
+        0.45132006095584754,
+        0.576959828069205,
+        0.7467842577766912,
+        3.580023955159239,
+        1.4523833552570504,
+        0.9575929196473486,
+        0.6377125772018071,
+        1.5353343616484862,
+        1.569746178183893,
+        1.3212175527703554
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.194831736957202,
+        11.13288530227674,
+        14.757167747903761,
+        5.063410180340182,
+        9.984643892859237,
+        49.47859090117532,
+        10.695862056585863,
+        13.1274042390495,
+        9.744779833247968,
+        11.128840564596088,
+        12.628560219796814,
+        13.179736128999844
+      ]
+    },
+    {
+      "id": "p032_turn_swing_RR",
+      "name": "turn_swing_RR",
+      "section": "clip",
+      "source_interval_s": [
+        16.5,
+        17.0
+      ],
+      "source_sample_indices_inclusive": [
+        1980,
+        2040
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.1772227491372504,
+        2.1221948570860794,
+        2.292066945585103
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        15.472885914043246,
+        22.60836279519249,
+        31.939526776720278
+      ]
+    },
+    {
+      "id": "p033_turn_shift_FL",
+      "name": "turn_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        17.0,
+        17.5
+      ],
+      "source_sample_indices_inclusive": [
+        2040,
+        2100
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.14478631250120583,
+        0.809023602723849,
+        1.0822569613089201,
+        0.11202677542621937,
+        0.23406971281711195,
+        0.18476489199259796,
+        0.5776692087677815,
+        0.5009351904578971,
+        1.3059935913516951,
+        0.6320774800131662,
+        0.11175918558833171,
+        0.3927714246085373
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.3252204759966035,
+        6.181229074059433,
+        8.937479719663735,
+        0.8474794047849565,
+        1.7040551400093307,
+        1.474798364761165,
+        4.667907520702959,
+        4.139741150954173,
+        11.15009092799152,
+        4.5722493592409785,
+        13.829494174563346,
+        11.022297187986911
+      ]
+    },
+    {
+      "id": "p034_turn_swing_FL",
+      "name": "turn_swing_FL",
+      "section": "clip",
+      "source_interval_s": [
+        17.5,
+        18.0
+      ],
+      "source_sample_indices_inclusive": [
+        2100,
+        2160
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.0413942962108482,
+        3.2749602606333377,
+        2.601273169847615,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        8.086208069524758,
+        30.39159438597668,
+        39.1059388724179,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p035_turn_shift_RL",
+      "name": "turn_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        18.0,
+        18.5
+      ],
+      "source_sample_indices_inclusive": [
+        2160,
+        2220
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.329455590562484,
+        0.6018144141185221,
+        0.1696328929276804,
+        0.4424491686734902,
+        1.2390313992062458,
+        0.6387731124886461,
+        0.12268300158447604,
+        0.07990292664484579,
+        0.4190569706212865,
+        0.2751112813260441,
+        0.8449604681551178,
+        0.7639721381556268
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.4246850096994033,
+        4.913319503414537,
+        1.5230188991593663,
+        3.5667453780315372,
+        9.595765945160991,
+        5.430117234805798,
+        0.9186141063709458,
+        0.6802796855778875,
+        3.1700118078520667,
+        2.3024193592236397,
+        6.405536249078176,
+        6.173220498611496
+      ]
+    },
+    {
+      "id": "p036_turn_swing_RL",
+      "name": "turn_swing_RL",
+      "section": "clip",
+      "source_interval_s": [
+        18.5,
+        19.0
+      ],
+      "source_sample_indices_inclusive": [
+        2220,
+        2280
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.7813653383051138,
+        2.0214883842861853,
+        3.1900604426904833,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        13.017573510506617,
+        32.40158714243543,
+        36.063518528468265,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p037_turn_shift_FR",
+      "name": "turn_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        19.0,
+        19.5
+      ],
+      "source_sample_indices_inclusive": [
+        2280,
+        2340
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.1828230345499757,
+        2.3076507287510784,
+        1.336368098693035,
+        0.9497664333068869,
+        0.8035902220509541,
+        1.6092815468347883,
+        0.5091093182346256,
+        1.7187064764990707,
+        1.551603146916889,
+        0.4757998901623012,
+        0.7257753605064275,
+        0.7298852814641309
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        9.517218046212296,
+        27.944663939562382,
+        13.128306807928869,
+        7.140282642310423,
+        9.048830598267394,
+        15.849261744358367,
+        7.491963319495847,
+        15.409447683734818,
+        12.844814718334128,
+        3.897488504230444,
+        6.370952151822924,
+        5.523169630117124
+      ]
+    },
+    {
+      "id": "p038_turn_swing_FR",
+      "name": "turn_swing_FR",
+      "section": "clip",
+      "source_interval_s": [
+        19.5,
+        20.0
+      ],
+      "source_sample_indices_inclusive": [
+        2340,
+        2400
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        1.0419222012482159,
+        3.200802503093738,
+        4.060355193068213,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        8.8539542604952,
+        32.72343048957994,
+        70.65202577375942,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p039_turn_shift_RR",
+      "name": "turn_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        20.0,
+        20.5
+      ],
+      "source_sample_indices_inclusive": [
+        2400,
+        2460
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.6838436789382476,
+        0.8017199729610874,
+        0.4513200609157774,
+        0.576959828034242,
+        0.7467842577676387,
+        3.5800239546812325,
+        1.4523833552164764,
+        0.957592919565017,
+        0.6377125770863087,
+        1.5353343616068795,
+        1.5697461781047628,
+        1.3212175526600511
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.194831736248888,
+        11.132885339958944,
+        14.757167691335837,
+        5.063410180006662,
+        9.984643908350739,
+        49.47859088260665,
+        10.695862055922287,
+        13.127404241000459,
+        9.744779822311862,
+        11.128840564250817,
+        12.628560219046934,
+        13.179736127902535
+      ]
+    },
+    {
+      "id": "p040_turn_swing_RR",
+      "name": "turn_swing_RR",
+      "section": "clip",
+      "source_interval_s": [
+        20.5,
+        21.0
+      ],
+      "source_sample_indices_inclusive": [
+        2460,
+        2520
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.177222749136812,
+        2.1221948570907645,
+        2.292066945587833
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        15.472885914035786,
+        22.608362794603806,
+        31.939526776994413
+      ]
+    },
+    {
+      "id": "p041_turn_shift_FL",
+      "name": "turn_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        21.0,
+        21.5
+      ],
+      "source_sample_indices_inclusive": [
+        2520,
+        2580
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.14478631254498125,
+        0.8090236026598108,
+        1.082256961535828,
+        0.11202677542439317,
+        0.23406971281415073,
+        0.18476489198949722,
+        0.5776692087682859,
+        0.5009351904585866,
+        1.3059935913540408,
+        0.6320774800135863,
+        0.11175918559038668,
+        0.3927714246073201
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.32522047633673,
+        6.181229099379473,
+        8.937479721599559,
+        0.8474794047834877,
+        1.7040551400125714,
+        1.4747983648153218,
+        4.667907520710806,
+        4.139741151033403,
+        11.150090927927758,
+        4.572249359254448,
+        13.829494174690161,
+        11.02229718810339
+      ]
+    },
+    {
+      "id": "p042_turn_swing_FL",
+      "name": "turn_swing_FL",
+      "section": "clip",
+      "source_interval_s": [
+        21.5,
+        22.0
+      ],
+      "source_sample_indices_inclusive": [
+        2580,
+        2640
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.0413942961725973,
+        3.274960261055675,
+        2.6012731707219237,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        8.086208069236722,
+        30.391594389403647,
+        39.105938834882025,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p043_turn_shift_RL",
+      "name": "turn_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        22.0,
+        22.5
+      ],
+      "source_sample_indices_inclusive": [
+        2640,
+        2700
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.32945559056300877,
+        0.6018144141173621,
+        0.16963289292900083,
+        0.44244916867354533,
+        1.2390313992067121,
+        0.6387731124868606,
+        0.12268300158390699,
+        0.07990292664429313,
+        0.4190569706190512,
+        0.27511128132553914,
+        0.8449604681568238,
+        0.7639721381570298
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.4246850097389783,
+        4.913319503435787,
+        1.5230188992129068,
+        3.56674537804049,
+        9.595765945158288,
+        5.430117234699896,
+        0.9186141064174602,
+        0.6802796854975252,
+        3.170011807532316,
+        2.3024193591947597,
+        6.4055362491468015,
+        6.173220498621914
+      ]
+    },
+    {
+      "id": "p044_turn_swing_RL",
+      "name": "turn_swing_RL",
+      "section": "clip",
+      "source_interval_s": [
+        22.5,
+        23.0
+      ],
+      "source_sample_indices_inclusive": [
+        2700,
+        2760
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.7813653383057018,
+        2.021488384286322,
+        3.190060442691309,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        13.017573510522604,
+        32.401587142226084,
+        36.06351852838113,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p045_turn_shift_FR",
+      "name": "turn_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        23.0,
+        23.5
+      ],
+      "source_sample_indices_inclusive": [
+        2760,
+        2820
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.18282303454997,
+        2.307650728751105,
+        1.3363680986930166,
+        0.9497664333078433,
+        0.8035902220406131,
+        1.609281546822599,
+        0.5091093182345671,
+        1.718706476499054,
+        1.5516031469166853,
+        0.47579989016230534,
+        0.725775360506497,
+        0.7298852814642609
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        9.517218046221249,
+        27.9446639395416,
+        13.128306808035344,
+        7.140282642224451,
+        9.048830598181755,
+        15.849261744102625,
+        7.491963319495847,
+        15.409447683681687,
+        12.844814718327013,
+        3.8974885042214646,
+        6.3709521518635315,
+        5.523169629948765
+      ]
+    },
+    {
+      "id": "p046_turn_swing_FR",
+      "name": "turn_swing_FR",
+      "section": "clip",
+      "source_interval_s": [
+        23.5,
+        24.0
+      ],
+      "source_sample_indices_inclusive": [
+        2820,
+        2880
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        1.0419222012406122,
+        3.200802503090273,
+        4.0603551930818425,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        8.853954260473579,
+        32.7234304902554,
+        70.65202577376213,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p047_turn_shift_RR",
+      "name": "turn_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        24.0,
+        24.5
+      ],
+      "source_sample_indices_inclusive": [
+        2880,
+        2940
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.6838436789381948,
+        0.8017199729610982,
+        0.4513200609159519,
+        0.5769598280342361,
+        0.7467842577676213,
+        3.580023954680626,
+        1.4523833552164116,
+        0.9575929195648291,
+        0.6377125770862676,
+        1.5353343616068866,
+        1.5697461781047628,
+        1.321217552660179
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.1948317362344465,
+        11.132885339978928,
+        14.75716769143332,
+        5.063410180021584,
+        9.984643908397315,
+        49.478590882772124,
+        10.69586205594323,
+        13.127404240914435,
+        9.744779822286864,
+        11.128840564256572,
+        12.62856021908168,
+        13.179736127805599
+      ]
+    },
+    {
+      "id": "p048_turn_swing_RR",
+      "name": "turn_swing_RR",
+      "section": "clip",
+      "source_interval_s": [
+        24.5,
+        25.0
+      ],
+      "source_sample_indices_inclusive": [
+        2940,
+        3000
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.177222749136803,
+        2.1221948570908467,
+        2.2920669455876808
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        15.472885914010206,
+        22.60836279469783,
+        31.939526776913596
+      ]
+    },
+    {
+      "id": "p049_turn_shift_FL",
+      "name": "turn_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        25.0,
+        25.5
+      ],
+      "source_sample_indices_inclusive": [
+        3000,
+        3060
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.14478631254492388,
+        0.8090236026598923,
+        1.082256961535763,
+        0.11202677542446078,
+        0.23406971281410233,
+        0.18476489198961657,
+        0.5776692087682948,
+        0.5009351904586767,
+        1.30599359135435,
+        0.6320774800137979,
+        0.11175918559074766,
+        0.392771424607308
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.3252204763109803,
+        6.181229099403001,
+        8.937479721616,
+        0.8474794047577633,
+        1.7040551399868886,
+        1.4747983647985585,
+        4.667907520736585,
+        4.139741150933096,
+        11.150090927868552,
+        4.5722493592688895,
+        13.829494174833602,
+        11.022297188009054
+      ]
+    },
+    {
+      "id": "p050_turn_swing_FL",
+      "name": "turn_swing_FL",
+      "section": "clip",
+      "source_interval_s": [
+        25.5,
+        26.0
+      ],
+      "source_sample_indices_inclusive": [
+        3060,
+        3120
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.0413942961726017,
+        3.2749602610559263,
+        2.6012731707223415,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        8.086208069196514,
+        30.391594389377534,
+        39.10593883493864,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p051_turn_shift_RL",
+      "name": "turn_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        26.0,
+        26.5
+      ],
+      "source_sample_indices_inclusive": [
+        3120,
+        3180
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.32945559056300455,
+        0.6018144141173755,
+        0.16963289292892642,
+        0.44244916867355105,
+        1.2390313992066417,
+        0.6387731124868548,
+        0.1226830015838989,
+        0.07990292664429283,
+        0.4190569706189549,
+        0.27511128132553153,
+        0.8449604681568214,
+        0.7639721381570076
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.42468500975342,
+        4.913319503401095,
+        1.5230188991908111,
+        3.5667453780258884,
+        9.59576594517257,
+        5.430117234714751,
+        0.9186141063917375,
+        0.6802796855123799,
+        3.1700118077008144,
+        2.3024193591947597,
+        6.405536249143311,
+        6.173220498734984
+      ]
+    },
+    {
+      "id": "p052_turn_swing_RL",
+      "name": "turn_swing_RL",
+      "section": "clip",
+      "source_interval_s": [
+        26.5,
+        27.0
+      ],
+      "source_sample_indices_inclusive": [
+        3180,
+        3240
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.7813653383057,
+        2.0214883842861795,
+        3.1900604426913777,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        13.017573510514397,
+        32.4015871422215,
+        36.063518528350436,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p053_turn_shift_FR",
+      "name": "turn_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        27.0,
+        27.5
+      ],
+      "source_sample_indices_inclusive": [
+        3240,
+        3300
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        1.1828230345499726,
+        2.307650728751175,
+        1.3363680986930886,
+        0.9497664333079245,
+        0.803590222040604,
+        1.609281546822665,
+        0.5091093182345593,
+        1.718706476499054,
+        1.5516031469167588,
+        0.47579989016230534,
+        0.7257753605067842,
+        0.7298852814644277
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        9.517218046281574,
+        27.9446639395416,
+        13.128306807975125,
+        7.140282642264433,
+        9.048830598135073,
+        15.849261744153011,
+        7.491963319489505,
+        15.409447683733593,
+        12.844814718327013,
+        3.8974885041868057,
+        6.370952151858162,
+        5.523169630003908
+      ]
+    },
+    {
+      "id": "p054_turn_swing_FR",
+      "name": "turn_swing_FR",
+      "section": "clip",
+      "source_interval_s": [
+        27.5,
+        28.0
+      ],
+      "source_sample_indices_inclusive": [
+        3300,
+        3360
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        1.0419222012406082,
+        3.2008025030904017,
+        4.060355193081706,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        8.853954260438591,
+        32.72343049022935,
+        70.65202577360488,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p055_turn_shift_RR",
+      "name": "turn_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        28.0,
+        28.5
+      ],
+      "source_sample_indices_inclusive": [
+        3360,
+        3420
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.6838436789382616,
+        0.8017199729610874,
+        0.45132006091594623,
+        0.576959828034168,
+        0.7467842577676213,
+        3.5800239546809047,
+        1.4523833552164849,
+        0.9575929195649455,
+        0.6377125770862441,
+        1.5353343616069601,
+        1.5697461781048625,
+        1.3212175526603216
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        5.1948317362344465,
+        11.132885339958944,
+        14.757167691426512,
+        5.063410179986465,
+        9.984643908330675,
+        49.478590882876254,
+        10.695862055916106,
+        13.127404241030384,
+        9.744779822374507,
+        11.128840564250817,
+        12.628560219032492,
+        13.17973612799923
+      ]
+    },
+    {
+      "id": "p056_turn_swing_RR",
+      "name": "turn_swing_RR",
+      "section": "clip",
+      "source_interval_s": [
+        28.5,
+        29.0
+      ],
+      "source_sample_indices_inclusive": [
+        3420,
+        3480
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.177222749136743,
+        2.1221948570907436,
+        2.2920669455873766
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        15.472885914035786,
+        22.608362794587734,
+        31.939526776817846
+      ]
+    },
+    {
+      "id": "p057_exit_center_and_height",
+      "name": "exit_center_and_height",
+      "section": "clip",
+      "source_interval_s": [
+        29.0,
+        30.0
+      ],
+      "source_sample_indices_inclusive": [
+        3480,
+        3600
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.005572176863907143,
+        0.10885890750838621,
+        0.09223992275809488,
+        0.004937375905962542,
+        0.11216172388682091,
+        0.08993775324400222,
+        0.0012822126544206436,
+        0.10645854346395918,
+        0.09144788970858848,
+        0.00325206464007247,
+        0.10772694575409116,
+        0.09154842698301864
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.019115966090324545,
+        0.3689312347615925,
+        0.3201871230052056,
+        0.01693520806891842,
+        0.3792661512571832,
+        0.31315807306369237,
+        0.004401722639116893,
+        0.36087445831342047,
+        0.3164294395381234,
+        0.011160966535760097,
+        0.36510032542285076,
+        0.31726390275425287
+      ]
+    },
+    {
+      "id": "p058_exit_shift_FL",
+      "name": "exit_shift_FL",
+      "section": "clip",
+      "source_interval_s": [
+        30.0,
+        30.4
+      ],
+      "source_sample_indices_inclusive": [
+        3600,
+        3648
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.2851825537057554,
+        0.20807536495193463,
+        0.6163877097816419,
+        0.29269742172948066,
+        0.4776485719349762,
+        0.4346660914263063,
+        0.2918256629978821,
+        0.2631104566522448,
+        0.545431711671248,
+        0.2946796942545085,
+        0.49715913032289477,
+        0.3622333494279723
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.70275404812393,
+        2.1562588703929775,
+        6.151443138189226,
+        2.7657339992204353,
+        4.665489699526841,
+        4.444558669680081,
+        2.76016122497043,
+        2.729719191885338,
+        5.426603250593001,
+        2.783841699180237,
+        6.436259867959775,
+        5.850555982098308
+      ]
+    },
+    {
+      "id": "p059_exit_place_FL",
+      "name": "exit_place_FL",
+      "section": "clip",
+      "source_interval_s": [
+        30.4,
+        31.0
+      ],
+      "source_sample_indices_inclusive": [
+        3648,
+        3720
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          false,
+          true,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.245484368659342,
+        0.8356155626057189,
+        1.1038822658152077,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        1.633536679297879,
+        14.059737612331118,
+        15.631014819600347,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p060_exit_shift_RL",
+      "name": "exit_shift_RL",
+      "section": "clip",
+      "source_interval_s": [
+        31.0,
+        31.4
+      ],
+      "source_sample_indices_inclusive": [
+        3720,
+        3768
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.29265070287696476,
+        0.3132040875077887,
+        0.45899663969825777,
+        0.29269710823937967,
+        0.47764909052538573,
+        0.43466464875789174,
+        0.2918351030082928,
+        0.26310915949672936,
+        0.54543183603665,
+        0.29467963034620726,
+        0.49715926802725313,
+        0.3622328427936178
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        2.7650287619564784,
+        3.170313037842152,
+        4.573915231362067,
+        2.765725146538971,
+        4.665490091458162,
+        4.444558671879582,
+        2.757165149571541,
+        2.7289239677955335,
+        5.426603250593001,
+        2.7838416991802273,
+        6.429729882986335,
+        5.87782904429929
+      ]
+    },
+    {
+      "id": "p061_exit_place_RL",
+      "name": "exit_place_RL",
+      "section": "clip",
+      "source_interval_s": [
+        31.4,
+        32.0
+      ],
+      "source_sample_indices_inclusive": [
+        3768,
+        3840
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.061113047225173106,
+        0.7885779964336009,
+        0.8250843270665503,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.36355713282330226,
+        11.935909834889337,
+        14.805093109583998,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p062_exit_shift_FR",
+      "name": "exit_shift_FR",
+      "section": "clip",
+      "source_interval_s": [
+        32.0,
+        32.4
+      ],
+      "source_sample_indices_inclusive": [
+        3840,
+        3888
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.3823964759313001,
+        0.7755757655139053,
+        0.3957399650132289,
+        0.3657774376130963,
+        0.27457110245299887,
+        0.994866805096638,
+        0.38320562056470747,
+        0.7772452157760046,
+        0.38914973503430683,
+        0.36941830945097154,
+        0.3518614454888839,
+        0.8488591000306748
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        3.5963944110266888,
+        11.836009337727834,
+        5.604021548685639,
+        3.475038036254896,
+        3.0299711581442024,
+        10.24696780532591,
+        3.618978551720342,
+        7.583691759299613,
+        4.231659745012468,
+        3.5093704969883754,
+        3.890936850988951,
+        8.622679039991045
+      ]
+    },
+    {
+      "id": "p063_exit_place_FR",
+      "name": "exit_place_FR",
+      "section": "clip",
+      "source_interval_s": [
+        32.4,
+        33.0
+      ],
+      "source_sample_indices_inclusive": [
+        3888,
+        3960
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          false,
+          true,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        3,
+        4,
+        5
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.21044650810126186,
+        1.000795068256585,
+        1.421482355328218,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        1.475727633401832,
+        14.79357835058645,
+        13.62053325887902,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p064_exit_shift_RR",
+      "name": "exit_shift_RR",
+      "section": "clip",
+      "source_interval_s": [
+        33.0,
+        33.4
+      ],
+      "source_sample_indices_inclusive": [
+        3960,
+        4008
+      ],
+      "demonstration_duration_s": 0.4,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.3823966062240508,
+        0.7755757167891475,
+        0.395739270045346,
+        0.3739909452022203,
+        0.4572142369543618,
+        0.6779128345785799,
+        0.3832056205647075,
+        0.7772380044584285,
+        0.3891497350343068,
+        0.3694180316800523,
+        0.3518600233611516,
+        0.8487553138934775
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        3.64475721873057,
+        11.840252122602891,
+        5.60412075645687,
+        3.541895873626779,
+        4.670798047163938,
+        6.870390372463104,
+        3.618978551725831,
+        7.583694521778912,
+        4.231659745012468,
+        3.4954553213559802,
+        3.885907811818403,
+        8.623521758391828
+      ]
+    },
+    {
+      "id": "p065_exit_place_RR",
+      "name": "exit_place_RR",
+      "section": "clip",
+      "source_interval_s": [
+        33.4,
+        34.0
+      ],
+      "source_sample_indices_inclusive": [
+        4008,
+        4080
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        9,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.15624406777726352,
+        0.8429956894007207,
+        0.9276954834434323
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9318588682848428,
+        12.090581012639857,
+        15.076936866385955
+      ]
+    },
+    {
+      "id": "p066_standing_after_turn",
+      "name": "standing_after_turn",
+      "section": "clip",
+      "source_interval_s": [
+        34.0,
+        35.0
+      ],
+      "source_sample_indices_inclusive": [
+        4080,
+        4200
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.9984014443252818e-11,
+        1.9744206269933784e-11
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        9.592326932761353e-09,
+        9.477219009568216e-09
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 1.408333333,
+      "sample_index": 169,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 2.0,
+      "sample_index": 240,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 2.408333333,
+      "sample_index": 289,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 3.0,
+      "sample_index": 360,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 3.408333333,
+      "sample_index": 409,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 4.0,
+      "sample_index": 480,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 4.408333333,
+      "sample_index": 529,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 5.0,
+      "sample_index": 600,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 5.508333333,
+      "sample_index": 661,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 6.0,
+      "sample_index": 720,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 6.508333333,
+      "sample_index": 781,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 7.0,
+      "sample_index": 840,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 7.508333333,
+      "sample_index": 901,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 8.0,
+      "sample_index": 960,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 8.508333333,
+      "sample_index": 1021,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 9.0,
+      "sample_index": 1080,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 9.508333333,
+      "sample_index": 1141,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 10.0,
+      "sample_index": 1200,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 10.508333333,
+      "sample_index": 1261,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 11.0,
+      "sample_index": 1320,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 11.508333333,
+      "sample_index": 1381,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 12.0,
+      "sample_index": 1440,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 12.508333333,
+      "sample_index": 1501,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 13.0,
+      "sample_index": 1560,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 13.508333333,
+      "sample_index": 1621,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 14.0,
+      "sample_index": 1680,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 14.508333333,
+      "sample_index": 1741,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 15.0,
+      "sample_index": 1800,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 15.508333333,
+      "sample_index": 1861,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 16.0,
+      "sample_index": 1920,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 16.508333333,
+      "sample_index": 1981,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 17.0,
+      "sample_index": 2040,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 17.508333333,
+      "sample_index": 2101,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 18.0,
+      "sample_index": 2160,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 18.508333333,
+      "sample_index": 2221,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 19.0,
+      "sample_index": 2280,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 19.508333333,
+      "sample_index": 2341,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 20.0,
+      "sample_index": 2400,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 20.508333333,
+      "sample_index": 2461,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 21.0,
+      "sample_index": 2520,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 21.508333333,
+      "sample_index": 2581,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 22.0,
+      "sample_index": 2640,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 22.508333333,
+      "sample_index": 2701,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 23.0,
+      "sample_index": 2760,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 23.508333333,
+      "sample_index": 2821,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 24.0,
+      "sample_index": 2880,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 24.508333333,
+      "sample_index": 2941,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 25.0,
+      "sample_index": 3000,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 25.508333333,
+      "sample_index": 3061,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 26.0,
+      "sample_index": 3120,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 26.508333333,
+      "sample_index": 3181,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 27.0,
+      "sample_index": 3240,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 27.508333333,
+      "sample_index": 3301,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 28.0,
+      "sample_index": 3360,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 28.508333333,
+      "sample_index": 3421,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 29.0,
+      "sample_index": 3480,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 30.408333333,
+      "sample_index": 3649,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 31.0,
+      "sample_index": 3720,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 31.408333333,
+      "sample_index": 3769,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "source_time_s": 32.0,
+      "sample_index": 3840,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 32.408333333,
+      "sample_index": 3889,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 33.0,
+      "sample_index": 3960,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "source_time_s": 33.408333333,
+      "sample_index": 4009,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "source_time_s": 34.0,
+      "sample_index": 4080,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_entry_height": 1.0,
+        "p001_entry_shift_FL": 0.4,
+        "p002_entry_place_FL": 0.6,
+        "p003_entry_shift_RL": 0.4,
+        "p004_entry_place_RL": 0.6,
+        "p005_entry_shift_FR": 0.4,
+        "p006_entry_place_FR": 0.6,
+        "p007_entry_shift_RR": 0.4,
+        "p008_entry_place_RR": 0.6,
+        "p009_turn_shift_FL": 0.5,
+        "p010_turn_swing_FL": 0.5,
+        "p011_turn_shift_RL": 0.5,
+        "p012_turn_swing_RL": 0.5,
+        "p013_turn_shift_FR": 0.5,
+        "p014_turn_swing_FR": 0.5,
+        "p015_turn_shift_RR": 0.5,
+        "p016_turn_swing_RR": 0.5,
+        "p017_turn_shift_FL": 0.5,
+        "p018_turn_swing_FL": 0.5,
+        "p019_turn_shift_RL": 0.5,
+        "p020_turn_swing_RL": 0.5,
+        "p021_turn_shift_FR": 0.5,
+        "p022_turn_swing_FR": 0.5,
+        "p023_turn_shift_RR": 0.5,
+        "p024_turn_swing_RR": 0.5,
+        "p025_turn_shift_FL": 0.5,
+        "p026_turn_swing_FL": 0.5,
+        "p027_turn_shift_RL": 0.5,
+        "p028_turn_swing_RL": 0.5,
+        "p029_turn_shift_FR": 0.5,
+        "p030_turn_swing_FR": 0.5,
+        "p031_turn_shift_RR": 0.5,
+        "p032_turn_swing_RR": 0.5,
+        "p033_turn_shift_FL": 0.5,
+        "p034_turn_swing_FL": 0.5,
+        "p035_turn_shift_RL": 0.5,
+        "p036_turn_swing_RL": 0.5,
+        "p037_turn_shift_FR": 0.5,
+        "p038_turn_swing_FR": 0.5,
+        "p039_turn_shift_RR": 0.5,
+        "p040_turn_swing_RR": 0.5,
+        "p041_turn_shift_FL": 0.5,
+        "p042_turn_swing_FL": 0.5,
+        "p043_turn_shift_RL": 0.5,
+        "p044_turn_swing_RL": 0.5,
+        "p045_turn_shift_FR": 0.5,
+        "p046_turn_swing_FR": 0.5,
+        "p047_turn_shift_RR": 0.5,
+        "p048_turn_swing_RR": 0.5,
+        "p049_turn_shift_FL": 0.5,
+        "p050_turn_swing_FL": 0.5,
+        "p051_turn_shift_RL": 0.5,
+        "p052_turn_swing_RL": 0.5,
+        "p053_turn_shift_FR": 0.5,
+        "p054_turn_swing_FR": 0.5,
+        "p055_turn_shift_RR": 0.5,
+        "p056_turn_swing_RR": 0.5,
+        "p057_exit_center_and_height": 1.0,
+        "p058_exit_shift_FL": 0.4,
+        "p059_exit_place_FL": 0.6,
+        "p060_exit_shift_RL": 0.4,
+        "p061_exit_place_RL": 0.6,
+        "p062_exit_shift_FR": 0.4,
+        "p063_exit_place_FR": 0.6,
+        "p064_exit_shift_RR": 0.4,
+        "p065_exit_place_RR": 0.6,
+        "p066_standing_after_turn": 1.0
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_entry_height": 1.0,
+        "p001_entry_shift_FL": 0.4,
+        "p002_entry_place_FL": 0.6,
+        "p003_entry_shift_RL": 0.4,
+        "p004_entry_place_RL": 0.6,
+        "p005_entry_shift_FR": 0.4,
+        "p006_entry_place_FR": 0.6,
+        "p007_entry_shift_RR": 0.4,
+        "p008_entry_place_RR": 0.6,
+        "p009_turn_shift_FL": 0.5,
+        "p010_turn_swing_FL": 0.5,
+        "p011_turn_shift_RL": 0.5,
+        "p012_turn_swing_RL": 0.5,
+        "p013_turn_shift_FR": 0.5,
+        "p014_turn_swing_FR": 0.5,
+        "p015_turn_shift_RR": 0.5,
+        "p016_turn_swing_RR": 0.5,
+        "p017_turn_shift_FL": 0.5,
+        "p018_turn_swing_FL": 0.5,
+        "p019_turn_shift_RL": 0.5,
+        "p020_turn_swing_RL": 0.5,
+        "p021_turn_shift_FR": 0.5,
+        "p022_turn_swing_FR": 0.5,
+        "p023_turn_shift_RR": 0.5,
+        "p024_turn_swing_RR": 0.5,
+        "p025_turn_shift_FL": 0.5,
+        "p026_turn_swing_FL": 0.5,
+        "p027_turn_shift_RL": 0.5,
+        "p028_turn_swing_RL": 0.5,
+        "p029_turn_shift_FR": 0.5,
+        "p030_turn_swing_FR": 0.5,
+        "p031_turn_shift_RR": 0.5,
+        "p032_turn_swing_RR": 0.5,
+        "p033_turn_shift_FL": 0.5,
+        "p034_turn_swing_FL": 0.5,
+        "p035_turn_shift_RL": 0.5,
+        "p036_turn_swing_RL": 0.5,
+        "p037_turn_shift_FR": 0.5,
+        "p038_turn_swing_FR": 0.5,
+        "p039_turn_shift_RR": 0.5,
+        "p040_turn_swing_RR": 0.5,
+        "p041_turn_shift_FL": 0.5,
+        "p042_turn_swing_FL": 0.5,
+        "p043_turn_shift_RL": 0.5,
+        "p044_turn_swing_RL": 0.5,
+        "p045_turn_shift_FR": 0.5,
+        "p046_turn_swing_FR": 0.5,
+        "p047_turn_shift_RR": 0.5,
+        "p048_turn_swing_RR": 0.5,
+        "p049_turn_shift_FL": 0.5,
+        "p050_turn_swing_FL": 0.5,
+        "p051_turn_shift_RL": 0.5,
+        "p052_turn_swing_RL": 0.5,
+        "p053_turn_shift_FR": 0.5,
+        "p054_turn_swing_FR": 0.5,
+        "p055_turn_shift_RR": 0.5,
+        "p056_turn_swing_RR": 0.5,
+        "p057_exit_center_and_height": 1.0,
+        "p058_exit_shift_FL": 0.4,
+        "p059_exit_place_FL": 0.6,
+        "p060_exit_shift_RL": 0.4,
+        "p061_exit_place_RL": 0.6,
+        "p062_exit_shift_FR": 0.4,
+        "p063_exit_place_FR": 0.6,
+        "p064_exit_shift_RR": 0.4,
+        "p065_exit_place_RR": 0.6,
+        "p066_standing_after_turn": 1.0
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_entry_height": null,
+        "p001_entry_shift_FL": null,
+        "p002_entry_place_FL": null,
+        "p003_entry_shift_RL": null,
+        "p004_entry_place_RL": null,
+        "p005_entry_shift_FR": null,
+        "p006_entry_place_FR": null,
+        "p007_entry_shift_RR": null,
+        "p008_entry_place_RR": null,
+        "p009_turn_shift_FL": null,
+        "p010_turn_swing_FL": null,
+        "p011_turn_shift_RL": null,
+        "p012_turn_swing_RL": null,
+        "p013_turn_shift_FR": null,
+        "p014_turn_swing_FR": null,
+        "p015_turn_shift_RR": null,
+        "p016_turn_swing_RR": null,
+        "p017_turn_shift_FL": null,
+        "p018_turn_swing_FL": null,
+        "p019_turn_shift_RL": null,
+        "p020_turn_swing_RL": null,
+        "p021_turn_shift_FR": null,
+        "p022_turn_swing_FR": null,
+        "p023_turn_shift_RR": null,
+        "p024_turn_swing_RR": null,
+        "p025_turn_shift_FL": null,
+        "p026_turn_swing_FL": null,
+        "p027_turn_shift_RL": null,
+        "p028_turn_swing_RL": null,
+        "p029_turn_shift_FR": null,
+        "p030_turn_swing_FR": null,
+        "p031_turn_shift_RR": null,
+        "p032_turn_swing_RR": null,
+        "p033_turn_shift_FL": null,
+        "p034_turn_swing_FL": null,
+        "p035_turn_shift_RL": null,
+        "p036_turn_swing_RL": null,
+        "p037_turn_shift_FR": null,
+        "p038_turn_swing_FR": null,
+        "p039_turn_shift_RR": null,
+        "p040_turn_swing_RR": null,
+        "p041_turn_shift_FL": null,
+        "p042_turn_swing_FL": null,
+        "p043_turn_shift_RL": null,
+        "p044_turn_swing_RL": null,
+        "p045_turn_shift_FR": null,
+        "p046_turn_swing_FR": null,
+        "p047_turn_shift_RR": null,
+        "p048_turn_swing_RR": null,
+        "p049_turn_shift_FL": null,
+        "p050_turn_swing_FL": null,
+        "p051_turn_shift_RL": null,
+        "p052_turn_swing_RL": null,
+        "p053_turn_shift_FR": null,
+        "p054_turn_swing_FR": null,
+        "p055_turn_shift_RR": null,
+        "p056_turn_swing_RR": null,
+        "p057_exit_center_and_height": null,
+        "p058_exit_shift_FL": null,
+        "p059_exit_place_FL": null,
+        "p060_exit_shift_RL": null,
+        "p061_exit_place_RL": null,
+        "p062_exit_shift_FR": null,
+        "p063_exit_place_FR": null,
+        "p064_exit_shift_RR": null,
+        "p065_exit_place_RR": null,
+        "p066_standing_after_turn": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "loop_contract": null,
+  "face_cues": [],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "body_position_world_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "body_orientation_world_quaternion_wxyz": [
+      1.0,
+      0,
+      0,
+      0.0
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Hold final recorded pose. Finite command, not a periodic loop. No invented zero-angle reset.",
+    "joint_angles_rad": [
+      [
+        0.008509098273512983,
+        0.009572912379329335,
+        0.011681486848875267
+      ],
+      [
+        -0.01090892550486533,
+        0.01416702652888091,
+        0.01644103121701246
+      ],
+      [
+        2.6279759879344056e-07,
+        -5.708741963594832e-07,
+        -2.5298801809015004e-07
+      ],
+      [
+        0.0,
+        1.3322676295501878e-14,
+        9.769962616701378e-15
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "minimum_assumed_support_margin_mm": -1.820710614368437,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false
+  },
+  "hardware_ready": false,
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands."
+}

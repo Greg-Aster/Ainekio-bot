@@ -1,0 +1,393 @@
+{
+  "schema": "ainekio-crawl-geometry-2",
+  "date": "2026-09-15",
+  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-corrected-crawl-current-feet-20260915/Corrected-live-source-preserved.blend",
+  "live_dirty_at_inspection": true,
+  "live_frame_at_inspection": 1,
+  "live_mesh_and_nonanimated_transform_match": true,
+  "geometry_units": "millimeters",
+  "angle_units": "radians in equations and reference calculator",
+  "neutral": "frame 1 of source_blend; not an electrical servo center",
+  "controller_body_datum_CAD_xyz_mm": [
+    92.89999771118164,
+    -5.849999904632568,
+    -21.0
+  ],
+  "controller_from_CAD_rotation": [
+    [
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      -1,
+      0
+    ]
+  ],
+  "controller_axes": {
+    "x": "+CAD X; physical forward",
+    "y": "+CAD Z; physical left",
+    "z": "-CAD Y; up"
+  },
+  "leg_labels": "CAD FL/FR are physical rear left/right; CAD RL/RR are physical front left/right. Geometric signs are defined; electrical servo signs remain uncalibrated.",
+  "legs": {
+    "FL": {
+      "object_prefix": "",
+      "pivots_xy_mm": {
+        "O": [
+          30.31219214449264,
+          -6.100000165455614
+        ],
+        "C": [
+          42.812198862899386,
+          5.400009640613147
+        ],
+        "P": [
+          62.04290804438743,
+          13.836851355944708
+        ],
+        "Q": [
+          43.161473603444236,
+          -21.42630881789507
+        ],
+        "B": [
+          14.985871303169318,
+          -18.94928488339661
+        ],
+        "D": [
+          7.800360149180912,
+          26.963829039532655
+        ],
+        "E": [
+          -7.525960692142412,
+          14.114544321591648
+        ],
+        "F": [
+          53.779520988464355,
+          65.51182890470844
+        ]
+      },
+      "hip_axis_point_xyz_mm": [
+        16.549999713897705,
+        -5.85,
+        21.0
+      ],
+      "hip_axis_direction": [
+        1,
+        0,
+        0
+      ],
+      "foot_bolt_reference_xyz_mm": [
+        53.779520988464355,
+        65.51182890470844,
+        42.70001399999999
+      ],
+      "fourbar_assembly_branch_sign": -1,
+      "lengths_mm": {
+        "ground_OC": 16.98529933501001,
+        "input_CP": 21.00001127981905,
+        "coupler_PQ": 39.999987899917116,
+        "rocker_OQ": 19.999994273029124,
+        "rocker_OB": 20.000005707346528,
+        "primary_OD": 39.99999226852145,
+        "return_BE": 39.999992268521446,
+        "foot_DE": 20.000005707346535,
+        "distal_DF_bolt": 60.000262708510604
+      },
+      "sole_hull_vertex_count": 3560,
+      "physical_name": "rear_left",
+      "tested_single_axis_limits_degrees": {
+        "alpha_006": [
+          -53.4,
+          67.4
+        ],
+        "theta_005": [
+          -51.95331106142828,
+          51.63033976291183
+        ],
+        "h_002": null
+      },
+      "combined_motion_collision_checked": false,
+      "sole_neutral_bounds_CAD_mm": [
+        [
+          44.59157180786133,
+          52.36168483653143,
+          37.700011932919566
+        ],
+        [
+          63.37980079650879,
+          75.1118270718919,
+          47.70001526972862
+        ]
+      ],
+      "sole_neutral_width_mm": 10.000003336809051
+    },
+    "FR": {
+      "object_prefix": "FR - ",
+      "pivots_xy_mm": {
+        "O": [
+          30.31219214449264,
+          -6.100000165455614
+        ],
+        "C": [
+          42.812198862899386,
+          5.40000827244671
+        ],
+        "P": [
+          62.04290679258602,
+          13.836852970458231
+        ],
+        "Q": [
+          43.16147507661265,
+          -21.426306770400863
+        ],
+        "B": [
+          14.985871303169318,
+          -18.94928488339661
+        ],
+        "D": [
+          7.800360149180912,
+          26.963829039532655
+        ],
+        "E": [
+          -7.525960692142412,
+          14.114544321591648
+        ],
+        "F": [
+          53.779520988464355,
+          65.51182890470844
+        ]
+      },
+      "hip_axis_point_xyz_mm": [
+        16.549999713897705,
+        -5.85,
+        -63.0
+      ],
+      "hip_axis_direction": [
+        1,
+        0,
+        0
+      ],
+      "foot_bolt_reference_xyz_mm": [
+        53.779520988464355,
+        65.51182890470844,
+        -84.70001399999998
+      ],
+      "fourbar_assembly_branch_sign": -1,
+      "lengths_mm": {
+        "ground_OC": 16.98529840868386,
+        "input_CP": 21.00001133178926,
+        "coupler_PQ": 39.99998623192651,
+        "rocker_OQ": 19.999993650460468,
+        "rocker_OB": 20.000005707346528,
+        "primary_OD": 39.99999226852145,
+        "return_BE": 39.999992268521446,
+        "foot_DE": 20.000005707346535,
+        "distal_DF_bolt": 60.000262708510604
+      },
+      "sole_hull_vertex_count": 3560,
+      "physical_name": "rear_right",
+      "tested_single_axis_limits_degrees": null,
+      "combined_motion_collision_checked": false,
+      "sole_neutral_bounds_CAD_mm": [
+        [
+          44.59157180786133,
+          52.36168483653143,
+          -89.70001526972862
+        ],
+        [
+          63.37980079650879,
+          75.1118270718919,
+          -79.70001193291957
+        ]
+      ],
+      "sole_neutral_width_mm": 10.000003336809058
+    },
+    "RL": {
+      "object_prefix": "RL - ",
+      "pivots_xy_mm": {
+        "O": [
+          142.98777503023484,
+          -6.100000165455614
+        ],
+        "C": [
+          155.48779700743063,
+          5.40000827244671
+        ],
+        "P": [
+          174.71850493711725,
+          13.836852970458231
+        ],
+        "Q": [
+          155.8370732211439,
+          -21.426306770400863
+        ],
+        "B": [
+          127.66146944770057,
+          -18.94928488339661
+        ],
+        "D": [
+          120.47595829371217,
+          26.963829039532655
+        ],
+        "E": [
+          105.14963745238884,
+          14.114544321591648
+        ],
+        "F": [
+          166.4551191329956,
+          65.51182890470844
+        ]
+      },
+      "hip_axis_point_xyz_mm": [
+        169.24998807907104,
+        -5.85,
+        21.0
+      ],
+      "hip_axis_direction": [
+        1,
+        0,
+        0
+      ],
+      "foot_bolt_reference_xyz_mm": [
+        166.4551191329956,
+        65.51182890470844,
+        42.70001399999999
+      ],
+      "fourbar_assembly_branch_sign": -1,
+      "lengths_mm": {
+        "ground_OC": 16.98530963810205,
+        "input_CP": 21.00001133178925,
+        "coupler_PQ": 39.999986231926506,
+        "rocker_OQ": 20.00000345369188,
+        "rocker_OB": 19.999994014297435,
+        "primary_OD": 39.99998368093939,
+        "return_BE": 39.99999226852144,
+        "foot_DE": 20.000005707346535,
+        "distal_DF_bolt": 60.0002627085106
+      },
+      "sole_hull_vertex_count": 3560,
+      "physical_name": "front_left",
+      "tested_single_axis_limits_degrees": null,
+      "combined_motion_collision_checked": false,
+      "sole_neutral_bounds_CAD_mm": [
+        [
+          157.26716995239258,
+          52.36168483653143,
+          37.700011932919566
+        ],
+        [
+          176.05539894104004,
+          75.1118270718919,
+          47.70001526972862
+        ]
+      ],
+      "sole_neutral_width_mm": 10.000003336809051
+    },
+    "RR": {
+      "object_prefix": "RR - ",
+      "pivots_xy_mm": {
+        "O": [
+          142.98777503023484,
+          -6.100000165455614
+        ],
+        "C": [
+          155.48779700743063,
+          5.40000827244671
+        ],
+        "P": [
+          174.71850493711725,
+          13.836852970458231
+        ],
+        "Q": [
+          155.8370732211439,
+          -21.426306770400863
+        ],
+        "B": [
+          127.66146944770057,
+          -18.94928488339661
+        ],
+        "D": [
+          120.47595829371217,
+          26.963829039532655
+        ],
+        "E": [
+          105.14963745238884,
+          14.114544321591648
+        ],
+        "F": [
+          166.4551191329956,
+          65.51182890470844
+        ]
+      },
+      "hip_axis_point_xyz_mm": [
+        169.24998807907104,
+        -5.85,
+        -63.0
+      ],
+      "hip_axis_direction": [
+        1,
+        0,
+        0
+      ],
+      "foot_bolt_reference_xyz_mm": [
+        166.4551191329956,
+        65.51182890470844,
+        -84.70001399999998
+      ],
+      "fourbar_assembly_branch_sign": -1,
+      "lengths_mm": {
+        "ground_OC": 16.98530963810205,
+        "input_CP": 21.00001133178925,
+        "coupler_PQ": 39.999986231926506,
+        "rocker_OQ": 20.00000345369188,
+        "rocker_OB": 19.999994014297435,
+        "primary_OD": 39.99998368093939,
+        "return_BE": 39.99999226852144,
+        "foot_DE": 20.000005707346535,
+        "distal_DF_bolt": 60.0002627085106
+      },
+      "sole_hull_vertex_count": 3560,
+      "physical_name": "front_right",
+      "tested_single_axis_limits_degrees": null,
+      "combined_motion_collision_checked": false,
+      "sole_neutral_bounds_CAD_mm": [
+        [
+          157.26716995239258,
+          52.36168483653143,
+          -89.70001526972862
+        ],
+        [
+          176.05539894104004,
+          75.1118270718919,
+          -79.70001193291957
+        ]
+      ],
+      "sole_neutral_width_mm": 10.000003336809058
+    }
+  },
+  "FL_new_input_clocking_vs_previous_26_667mm_link_degrees": 46.46147376258193,
+  "FL_input_assembly_branch": "arg(P-O) minus acos; continue without branch changes",
+  "limits_scope": "FL one axis at a time with other planar axis and shoulder neutral; not a collision-free box",
+  "foot_reference": "Foot attachment bolt axis at pad split plane; not a fixed ground contact point",
+  "scene_units": {
+    "system": "METRIC",
+    "scale_length": 0.0010000000474974513,
+    "length_unit": "MILLIMETERS",
+    "coordinate_unit": "one CAD unit approximately one mm"
+  },
+  "physical_forward_CAD_axis": [
+    1,
+    0,
+    0
+  ],
+  "physical_orientation_evidence": "Face camera X=188.29; front panel X=174.89; rear Q6A panel X=13.40; Robot Layout says Face +X, up -Y",
+  "geometry_note": "Measured corrected live assembly. Couplers: FL 39.999988 mm, FR 39.999986 mm, RL 39.999986 mm, RR 39.999986 mm. Physical front assemblies are CAD RL/RR. The gait generator preserves their supplied orientation and geometry.",
+  "source_snapshot_sha256": "428cde39f05d7cd1194917d7eac778ba8130c3de49d3c5f0059b98496dd54317"
+}

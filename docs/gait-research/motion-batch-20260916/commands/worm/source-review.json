@@ -1,0 +1,22 @@
+{
+  "command": "worm",
+  "samples": 1501,
+  "duration_s": 12.5,
+  "maximum_fk_foot_source_error_mm": 0.0,
+  "maximum_sole_source_error_mm": 0.0,
+  "minimum_sole_z_mm": -4.6998707148304675e-09,
+  "maximum_active_sole_distance_from_ground_mm": 4.6998707148304675e-09,
+  "maximum_fourbar_closure_error_mm": 1.4210854715202004e-14,
+  "maximum_passive_beta_error_rad": 0.0,
+  "maximum_adjacent_angle_step_degrees": 0.21993515188495572,
+  "entry_q_error_degrees": 0.0,
+  "playlist_exit_q_error_degrees": 1.5681099941572056e-06,
+  "playlist_body_return_error_mm": 0.0,
+  "minimum_reported_support_margin_mm": 39.1155872,
+  "body_support_used": false,
+  "semantic_end_s": 12.0,
+  "errors": [],
+  "passed": true,
+  "collision_checked": false,
+  "physical_balance_verified": false
+}

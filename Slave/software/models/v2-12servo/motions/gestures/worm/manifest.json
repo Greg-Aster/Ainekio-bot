@@ -1,0 +1,213 @@
+{
+  "command": "worm",
+  "body_control_label": "WORM",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "worm"
+  },
+  "gait_id": "worm_fourbar_20260916",
+  "generated_utc": "2026-09-16T20:38:33.678870+00:00",
+  "duration_seconds": 12.5,
+  "semantic_end_seconds": 12.0,
+  "source_sample_hz": 120,
+  "sample_count": 1501,
+  "entry_pose": "Corrected geometric standing neutral; arbitrary-pose entry not verified.",
+  "completion": "Five front/rear undulations, then return to standing; rolling may accumulate a small sole contact displacement.",
+  "semantic_final_actuator_angles_rad": [
+    [
+      0.0,
+      2.736868243147228e-08,
+      1.9232518244649555e-08
+    ],
+    [
+      0.0,
+      2.736868021102623e-08,
+      1.9232519576917184e-08
+    ],
+    [
+      0.0,
+      -2.4116486585512575e-09,
+      -1.6371273225956884e-09
+    ],
+    [
+      0.0,
+      -2.411635779964172e-09,
+      -1.6371179967222815e-09
+    ]
+  ],
+  "playlist_final_actuator_angles_rad": [
+    [
+      0.0,
+      2.736868243147228e-08,
+      1.9232518244649555e-08
+    ],
+    [
+      0.0,
+      2.736868021102623e-08,
+      1.9232519576917184e-08
+    ],
+    [
+      0.0,
+      -2.4116486585512575e-09,
+      -1.6371273225956884e-09
+    ],
+    [
+      0.0,
+      -2.411635779964172e-09,
+      -1.6371179967222815e-09
+    ]
+  ],
+  "face_cues": [
+    {
+      "time_s": 0,
+      "name": "worm",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 12.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca",
+  "csv_sha256": "e78488b1448a2d259f46cc4a4ca69c2fd50ba9a59f0b74a6672425ff72ddeadd",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "967e0b376821b7d745fe4817534940dfab31b0c2d8a739ffda2cdb343a508d52",
+  "face_sha256": {
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e",
+    "faces/worm/0.bin": "1c0be07609c7951aa12819941100055c0b7e85816998712d50946e98ea3a14ac"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "blender_frames": [
+    3714,
+    4014
+  ],
+  "design": "V1 lowers into a flat posture, then alternates mirrored front/rear lower-joint targets for five cycles. V2 performs five continuous low-body undulations: front dips as rear rises, then rear dips as front rises, with four grounded measured soles.",
+  "contact_model": "Measured convex sole rolling: fixed material vertex between feature transfers. Belly support is explicit when selected; no friction or dynamics simulation.",
+  "source_validation": {
+    "duration_s": 12.5,
+    "motion_end_s": 12.0,
+    "sample_hz": 120,
+    "samples": 1501,
+    "actuator_min_degrees": [
+      [
+        0.0,
+        0.0,
+        -18.539054435052392
+      ],
+      [
+        0.0,
+        0.0,
+        -18.539056351940182
+      ],
+      [
+        0.0,
+        -1.381772898033736e-07,
+        -22.078917299449802
+      ],
+      [
+        0.0,
+        -1.381765519146875e-07,
+        -22.0789172994497
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        0.0,
+        24.680655313135976,
+        1.101942124826774e-06
+      ],
+      [
+        0.0,
+        24.680655313136054,
+        1.1019422011600863e-06
+      ],
+      [
+        0.0,
+        22.55667247034042,
+        0.0
+      ],
+      [
+        0.0,
+        22.55667247034042,
+        0.0
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        0.0,
+        26.39062392578854,
+        23.191501209895264
+      ],
+      [
+        0.0,
+        26.390623925788645,
+        23.19150362317135
+      ],
+      [
+        0.0,
+        26.390627542911247,
+        23.191524398099155
+      ],
+      [
+        0.0,
+        26.390627542909755,
+        23.191524398099048
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        0.0,
+        67.49365733704451,
+        56.17182166257951
+      ],
+      [
+        0.0,
+        67.49365733704451,
+        56.17182807439416
+      ],
+      [
+        0.0,
+        58.87061738237115,
+        73.69290283124172
+      ],
+      [
+        0.0,
+        58.87061738273726,
+        73.69290283124172
+      ]
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.21993515188495572,
+    "maximum_adjacent_passive_beta_step_degrees": 0.14859931791129796,
+    "fourbar_maximum_coupler_closure_error_mm": 1.4210854715202004e-14,
+    "final_joint_return_error_degrees": 1.5681099941572056e-06,
+    "minimum_support_margin_mm": 39.1155872,
+    "minimum_stance_contacts": 4,
+    "minimum_body_ground_clearance_mm": 7.171442276024955,
+    "min_sole_height_mm": -4.6998707148304675e-09,
+    "max_stance_material_vertex_constraint_error_mm": 1.218456492299148e-13,
+    "maximum_rolling_normal_correction_mm": 0.0002633031492855764,
+    "rolling_transfers": 968,
+    "research_angle_bounds_satisfied": true,
+    "collision_checked": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "body_contact_strength_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 1500,
+    "bounded_quarter_samples": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 26.394686355854546,
+    "peak_interpolated_acceleration_degrees_s2": 210.51843433722598,
+    "continuity": "Position and velocity continuous; full acceleration continuity not established.",
+    "hardware_qualified": false
+  }
+}

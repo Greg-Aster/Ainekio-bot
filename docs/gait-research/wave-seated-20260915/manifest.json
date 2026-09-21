@@ -1,0 +1,232 @@
+{
+  "command": "wave",
+  "body_control_label": "Wave",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "wave"
+  },
+  "gait_id": "wave_seated_fourbar_20260915",
+  "generated_utc": "2026-09-16T04:14:34.285913+00:00",
+  "duration_seconds": 16.0,
+  "motion_end_seconds": 15.2,
+  "source_sample_hz": 120,
+  "sample_count": 1921,
+  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "completion": "Lower the waving foot into Sit, then return to standing and hold; restore the stand face.",
+  "final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "body_target": {
+    "position_mm": [
+      -0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "pitch_degrees": 0.0
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "wave",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 15.2,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "face_asset": {
+    "name": "wave",
+    "width": 128,
+    "height": 64,
+    "encoding": "row-major MSB-first 1-bit bitmap; 16 bytes per row",
+    "fps": 1,
+    "mode": "once",
+    "frames": [
+      "faces/wave/0.bin"
+    ],
+    "source": "Unchanged existing Ainekio owner-authored wave face bitmaps"
+  },
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "e3406d3766c63bf0d4c1f06b568880f9565d73fb10e4cfa1bbedd3de4319c37e",
+  "csv_sha256": "5a72ee6cf1f32c81832145e18e6594f70091aab73c7d3b30bd20432e62037878",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "edb84188ad1240c5fa49a7c5b4d13935d790c115758a7d7b14a25bc3e7c269c5",
+  "face_sha256": {
+    "wave": "670ca1479f4bff8c38b90077774c32ca3aa78a3c65013defa00f86f605fc36c1",
+    "stand": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260915/Ainekio-Wave-Seated.blend",
+  "blender_frames": [
+    529,
+    913
+  ],
+  "design": "Sit, lift front-left foot, reach to configured carrier/crank endpoints, wave shoulder 65-95 degrees, then return to standing.",
+  "source_validation": {
+    "duration_s": 16.0,
+    "motion_end_s": 15.2,
+    "sample_hz": 120,
+    "samples": 1921,
+    "extended_wave_start_s": 5.8,
+    "extended_wave_end_s": 9.4,
+    "actuator_min_degrees": [
+      [
+        0.0,
+        0.0,
+        -3.7411643623256277
+      ],
+      [
+        0.0,
+        0.0,
+        -3.7411647947990567
+      ],
+      [
+        0.0,
+        -34.24,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        0.0,
+        66.76722066200865,
+        1.1644182604469644
+      ],
+      [
+        0.0,
+        66.76722066200765,
+        1.1644184011292844
+      ],
+      [
+        95.0,
+        6.382982052224677,
+        80.0
+      ],
+      [
+        0.0,
+        6.382982052224677,
+        55.818154127243886
+      ]
+    ],
+    "final_actuator_degrees": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        0.0,
+        39.89977127858694,
+        5.853099611765145
+      ],
+      [
+        0.0,
+        39.899771278585234,
+        5.853100295740634
+      ],
+      [
+        124.98392582739001,
+        47.60161355169192,
+        34.08181027249071
+      ],
+      [
+        0.0,
+        4.980287747358032,
+        34.08181027249071
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        0.0,
+        44.40535554670362,
+        12.37922938029552
+      ],
+      [
+        0.0,
+        44.405355546345504,
+        12.379230771975891
+      ],
+      [
+        479.92219650223547,
+        91.57829798372212,
+        54.514271854441176
+      ],
+      [
+        0.0,
+        6.924723156936317,
+        48.51752658410362
+      ]
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.04153271522825,
+    "minimum_support_margin_mm": 15.790382655754268,
+    "minimum_stance_contacts": 3,
+    "minimum_body_ground_clearance_mm": 2.0,
+    "min_sole_height_mm": -1.3104410001574252e-08,
+    "peak_waving_sole_height_mm": 114.2717507244764,
+    "peak_waving_foot_bolt_height_mm": 122.09469153753736,
+    "extended_planar_O_to_foot_bolt_mm": 98.7141463192743,
+    "max_stance_material_vertex_constraint_error_mm": 1.0658141036401503e-13,
+    "maximum_rolling_normal_correction_mm": 0.000217190796279354,
+    "final_joint_return_error_degrees": 0.0,
+    "research_angle_bounds_satisfied": true,
+    "collision_checked": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 1920,
+    "bounded_midpoints": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 125.00000248032477,
+    "peak_interpolated_acceleration_degrees_s2": 551.2623712724417,
+    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
+  }
+}

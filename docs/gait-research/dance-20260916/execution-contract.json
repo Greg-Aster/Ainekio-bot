@@ -1,0 +1,1846 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "dance",
+  "gait_id": "dance_fourbar_20260916",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "dance"
+  },
+  "shared_policy": "execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/dance-20260916/source.json",
+      "sha256": "570913be37706a2629e734f3a99d1e9c7376dd34c4fc4759e4559984f32ccdf9"
+    },
+    {
+      "path": "docs/gait-research/dance-20260916/manifest.json",
+      "sha256": "eda32a236bfbee0ef9dea30a475c922bef4af99be16d4c83ddd766354f19e006"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_settle_into_dance",
+      "name": "settle_into_dance",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        1.5
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        180
+      ],
+      "demonstration_duration_s": 1.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.1944458526119363,
+        0.18199202846294354,
+        0.0,
+        0.19444585261193753,
+        0.1819920487527044,
+        0.0,
+        0.19444589627698988,
+        0.18199222022821557,
+        0.0,
+        0.19444589627698988,
+        0.18199222022821557
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.4482804451248068,
+        0.435304230866119,
+        0.0,
+        0.4482804450979629,
+        0.43530428192065046,
+        0.0,
+        0.44828063373679183,
+        0.4353047792727053,
+        0.0,
+        0.44828063373679183,
+        0.4353047792727053
+      ]
+    },
+    {
+      "id": "p001_rock_left",
+      "name": "rock_left",
+      "section": "clip",
+      "source_interval_s": [
+        1.5,
+        1.95
+      ],
+      "source_sample_indices_inclusive": [
+        180,
+        234
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534936,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084698,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056321,
+        1.1061968118732475,
+        12.025289549111488,
+        4.9126536652865065,
+        5.804980263038441,
+        6.917604005078995,
+        7.441425800724907,
+        1.2645572538053964,
+        7.7477527623225475,
+        7.215458952441356,
+        9.176776045994878
+      ]
+    },
+    {
+      "id": "p002_rebound_left",
+      "name": "rebound_left",
+      "section": "clip",
+      "source_interval_s": [
+        1.95,
+        2.4
+      ],
+      "source_sample_indices_inclusive": [
+        234,
+        288
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534934,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084699,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056292,
+        1.1061968118732437,
+        12.025289549111488,
+        4.9126536652865065,
+        5.8049802630384555,
+        6.917604005079022,
+        7.441425800724878,
+        1.2645572538054,
+        7.747752762322576,
+        7.215458952441342,
+        9.176776045994819
+      ]
+    },
+    {
+      "id": "p003_rock_right",
+      "name": "rock_right",
+      "section": "clip",
+      "source_interval_s": [
+        2.4,
+        2.85
+      ],
+      "source_sample_indices_inclusive": [
+        288,
+        342
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.4420945359682724,
+        0.2505327262342306,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992718,
+        0.11536985504586995,
+        0.7707508253699399,
+        0.20517994223287248,
+        0.5567288492702392,
+        0.7455983893024138,
+        0.42260131100303766,
+        0.3678703428997491
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716064043,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.3166792130279776,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948788,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p004_rebound_right",
+      "name": "rebound_right",
+      "section": "clip",
+      "source_interval_s": [
+        2.85,
+        3.3000000000000003
+      ],
+      "source_sample_indices_inclusive": [
+        342,
+        396
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.442094535968273,
+        0.2505327262342307,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992717,
+        0.11536985504586995,
+        0.7707508253699401,
+        0.2051799422328725,
+        0.5567288492702394,
+        0.7455983893024138,
+        0.4226013110030377,
+        0.3678703428997492
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716063986,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.316679213027981,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948761,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p005_rock_left",
+      "name": "rock_left",
+      "section": "clip",
+      "source_interval_s": [
+        3.3,
+        3.75
+      ],
+      "source_sample_indices_inclusive": [
+        396,
+        450
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534936,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084698,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056321,
+        1.1061968118732475,
+        12.025289549111488,
+        4.9126536652865065,
+        5.804980263038441,
+        6.917604005078995,
+        7.441425800724907,
+        1.2645572538053964,
+        7.7477527623225475,
+        7.215458952441356,
+        9.176776045994878
+      ]
+    },
+    {
+      "id": "p006_rebound_left",
+      "name": "rebound_left",
+      "section": "clip",
+      "source_interval_s": [
+        3.75,
+        4.2
+      ],
+      "source_sample_indices_inclusive": [
+        450,
+        504
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534934,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084699,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056292,
+        1.1061968118732437,
+        12.025289549111488,
+        4.9126536652865065,
+        5.8049802630384555,
+        6.917604005079022,
+        7.441425800724878,
+        1.2645572538054,
+        7.747752762322576,
+        7.215458952441342,
+        9.176776045994819
+      ]
+    },
+    {
+      "id": "p007_rock_right",
+      "name": "rock_right",
+      "section": "clip",
+      "source_interval_s": [
+        4.2,
+        4.65
+      ],
+      "source_sample_indices_inclusive": [
+        504,
+        558
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.4420945359682724,
+        0.2505327262342306,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992718,
+        0.11536985504586995,
+        0.7707508253699399,
+        0.20517994223287248,
+        0.5567288492702392,
+        0.7455983893024138,
+        0.42260131100303766,
+        0.3678703428997491
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716064043,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.3166792130279776,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948788,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p008_rebound_right",
+      "name": "rebound_right",
+      "section": "clip",
+      "source_interval_s": [
+        4.65,
+        5.1000000000000005
+      ],
+      "source_sample_indices_inclusive": [
+        558,
+        612
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.442094535968273,
+        0.2505327262342307,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992717,
+        0.11536985504586995,
+        0.7707508253699401,
+        0.2051799422328725,
+        0.5567288492702394,
+        0.7455983893024138,
+        0.4226013110030377,
+        0.3678703428997492
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716063986,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.316679213027981,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948761,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p009_rock_left",
+      "name": "rock_left",
+      "section": "clip",
+      "source_interval_s": [
+        5.1,
+        5.55
+      ],
+      "source_sample_indices_inclusive": [
+        612,
+        666
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534936,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084698,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056321,
+        1.1061968118732475,
+        12.025289549111488,
+        4.9126536652865065,
+        5.804980263038441,
+        6.917604005078995,
+        7.441425800724907,
+        1.2645572538053964,
+        7.7477527623225475,
+        7.215458952441356,
+        9.176776045994878
+      ]
+    },
+    {
+      "id": "p010_rebound_left",
+      "name": "rebound_left",
+      "section": "clip",
+      "source_interval_s": [
+        5.55,
+        6.0
+      ],
+      "source_sample_indices_inclusive": [
+        666,
+        720
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534934,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084699,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056292,
+        1.1061968118732437,
+        12.025289549111488,
+        4.9126536652865065,
+        5.8049802630384555,
+        6.917604005079022,
+        7.441425800724878,
+        1.2645572538054,
+        7.747752762322576,
+        7.215458952441342,
+        9.176776045994819
+      ]
+    },
+    {
+      "id": "p011_rock_right",
+      "name": "rock_right",
+      "section": "clip",
+      "source_interval_s": [
+        6.0,
+        6.45
+      ],
+      "source_sample_indices_inclusive": [
+        720,
+        774
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.4420945359682724,
+        0.2505327262342306,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992718,
+        0.11536985504586995,
+        0.7707508253699399,
+        0.20517994223287248,
+        0.5567288492702392,
+        0.7455983893024138,
+        0.42260131100303766,
+        0.3678703428997491
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716064043,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.3166792130279776,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948788,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p012_rebound_right",
+      "name": "rebound_right",
+      "section": "clip",
+      "source_interval_s": [
+        6.45,
+        6.9
+      ],
+      "source_sample_indices_inclusive": [
+        774,
+        828
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.442094535968273,
+        0.2505327262342307,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992717,
+        0.11536985504586995,
+        0.7707508253699401,
+        0.2051799422328725,
+        0.5567288492702394,
+        0.7455983893024138,
+        0.4226013110030377,
+        0.3678703428997492
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716063986,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.316679213027981,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948761,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p013_rock_left",
+      "name": "rock_left",
+      "section": "clip",
+      "source_interval_s": [
+        6.9,
+        7.3500000000000005
+      ],
+      "source_sample_indices_inclusive": [
+        828,
+        882
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534936,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084698,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056321,
+        1.1061968118732475,
+        12.025289549111488,
+        4.9126536652865065,
+        5.804980263038441,
+        6.917604005078995,
+        7.441425800724907,
+        1.2645572538053964,
+        7.7477527623225475,
+        7.215458952441356,
+        9.176776045994878
+      ]
+    },
+    {
+      "id": "p014_rebound_left",
+      "name": "rebound_left",
+      "section": "clip",
+      "source_interval_s": [
+        7.35,
+        7.8
+      ],
+      "source_sample_indices_inclusive": [
+        882,
+        936
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534934,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084699,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056292,
+        1.1061968118732437,
+        12.025289549111488,
+        4.9126536652865065,
+        5.8049802630384555,
+        6.917604005079022,
+        7.441425800724878,
+        1.2645572538054,
+        7.747752762322576,
+        7.215458952441342,
+        9.176776045994819
+      ]
+    },
+    {
+      "id": "p015_rock_right",
+      "name": "rock_right",
+      "section": "clip",
+      "source_interval_s": [
+        7.8,
+        8.25
+      ],
+      "source_sample_indices_inclusive": [
+        936,
+        990
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.4420945359682724,
+        0.2505327262342306,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992718,
+        0.11536985504586995,
+        0.7707508253699399,
+        0.20517994223287248,
+        0.5567288492702392,
+        0.7455983893024138,
+        0.42260131100303766,
+        0.3678703428997491
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716064043,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.3166792130279776,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948788,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p016_rebound_right",
+      "name": "rebound_right",
+      "section": "clip",
+      "source_interval_s": [
+        8.25,
+        8.7
+      ],
+      "source_sample_indices_inclusive": [
+        990,
+        1044
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.442094535968273,
+        0.2505327262342307,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992717,
+        0.11536985504586995,
+        0.7707508253699401,
+        0.2051799422328725,
+        0.5567288492702394,
+        0.7455983893024138,
+        0.4226013110030377,
+        0.3678703428997492
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716063986,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.316679213027981,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948761,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p017_rock_left",
+      "name": "rock_left",
+      "section": "clip",
+      "source_interval_s": [
+        8.7,
+        9.149999999999999
+      ],
+      "source_sample_indices_inclusive": [
+        1044,
+        1098
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534936,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084698,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056321,
+        1.1061968118732475,
+        12.025289549111488,
+        4.9126536652865065,
+        5.804980263038441,
+        6.917604005078995,
+        7.441425800724907,
+        1.2645572538053964,
+        7.7477527623225475,
+        7.215458952441356,
+        9.176776045994878
+      ]
+    },
+    {
+      "id": "p018_rebound_left",
+      "name": "rebound_left",
+      "section": "clip",
+      "source_interval_s": [
+        9.15,
+        9.6
+      ],
+      "source_sample_indices_inclusive": [
+        1098,
+        1152
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.3651029869534934,
+        0.5734863327079147,
+        0.09952093023635852,
+        1.4208544218619241,
+        0.4610880709705854,
+        0.5203675485753485,
+        0.8127590532457535,
+        0.8656753916756336,
+        0.1022818777213328,
+        0.8537057575084699,
+        0.25078603873304683,
+        1.0297744080226368
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        11.169927358833151,
+        5.755029506056292,
+        1.1061968118732437,
+        12.025289549111488,
+        4.9126536652865065,
+        5.8049802630384555,
+        6.917604005079022,
+        7.441425800724878,
+        1.2645572538054,
+        7.747752762322576,
+        7.215458952441342,
+        9.176776045994819
+      ]
+    },
+    {
+      "id": "p019_rock_right",
+      "name": "rock_right",
+      "section": "clip",
+      "source_interval_s": [
+        9.6,
+        10.049999999999999
+      ],
+      "source_sample_indices_inclusive": [
+        1152,
+        1206
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.4420945359682724,
+        0.2505327262342306,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992718,
+        0.11536985504586995,
+        0.7707508253699399,
+        0.20517994223287248,
+        0.5567288492702392,
+        0.7455983893024138,
+        0.42260131100303766,
+        0.3678703428997491
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716064043,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.3166792130279776,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948788,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p020_rebound_right",
+      "name": "rebound_right",
+      "section": "clip",
+      "source_interval_s": [
+        10.05,
+        10.5
+      ],
+      "source_sample_indices_inclusive": [
+        1206,
+        1260
+      ],
+      "demonstration_duration_s": 0.45,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        1.442094535968273,
+        0.2505327262342307,
+        0.6723089001926017,
+        1.3988425837534826,
+        0.9796203708992717,
+        0.11536985504586995,
+        0.7707508253699401,
+        0.2051799422328725,
+        0.5567288492702394,
+        0.7455983893024138,
+        0.4226013110030377,
+        0.3678703428997492
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        12.463221716063986,
+        8.275349655709606,
+        8.337758544851637,
+        11.698699277969604,
+        9.07170564503703,
+        1.316679213027981,
+        6.655268199473042,
+        3.9948779539003865,
+        6.793848473948761,
+        6.216321096430746,
+        4.159542531755707,
+        3.193499408682421
+      ]
+    },
+    {
+      "id": "p021_return_to_standing",
+      "name": "return_to_standing",
+      "section": "clip",
+      "source_interval_s": [
+        10.5,
+        12.0
+      ],
+      "source_sample_indices_inclusive": [
+        1260,
+        1440
+      ],
+      "demonstration_duration_s": 1.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.19444585261193637,
+        0.18199202846294354,
+        0.0,
+        0.1944458526119376,
+        0.1819920487527044,
+        0.0,
+        0.19444589627698988,
+        0.18199222022821557,
+        0.0,
+        0.19444589627698988,
+        0.18199222022821557
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.44828044512481874,
+        0.43530423086611436,
+        0.0,
+        0.4482804450979676,
+        0.43530428192066234,
+        0.0,
+        0.44828063373679183,
+        0.43530477927271005,
+        0.0,
+        0.44828063373679183,
+        0.43530477927271005
+      ]
+    },
+    {
+      "id": "p022_hold_standing",
+      "name": "hold_standing",
+      "section": "clip",
+      "source_interval_s": [
+        12.0,
+        12.5
+      ],
+      "source_sample_indices_inclusive": [
+        1440,
+        1500
+      ],
+      "demonstration_duration_s": 0.5,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_settle_into_dance": 1.5,
+        "p001_rock_left": 0.45,
+        "p002_rebound_left": 0.45,
+        "p003_rock_right": 0.45,
+        "p004_rebound_right": 0.45,
+        "p005_rock_left": 0.45,
+        "p006_rebound_left": 0.45,
+        "p007_rock_right": 0.45,
+        "p008_rebound_right": 0.45,
+        "p009_rock_left": 0.45,
+        "p010_rebound_left": 0.45,
+        "p011_rock_right": 0.45,
+        "p012_rebound_right": 0.45,
+        "p013_rock_left": 0.45,
+        "p014_rebound_left": 0.45,
+        "p015_rock_right": 0.45,
+        "p016_rebound_right": 0.45,
+        "p017_rock_left": 0.45,
+        "p018_rebound_left": 0.45,
+        "p019_rock_right": 0.45,
+        "p020_rebound_right": 0.45,
+        "p021_return_to_standing": 1.5,
+        "p022_hold_standing": 0.5
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_settle_into_dance": 1.5,
+        "p001_rock_left": 0.45,
+        "p002_rebound_left": 0.45,
+        "p003_rock_right": 0.45,
+        "p004_rebound_right": 0.45,
+        "p005_rock_left": 0.45,
+        "p006_rebound_left": 0.45,
+        "p007_rock_right": 0.45,
+        "p008_rebound_right": 0.45,
+        "p009_rock_left": 0.45,
+        "p010_rebound_left": 0.45,
+        "p011_rock_right": 0.45,
+        "p012_rebound_right": 0.45,
+        "p013_rock_left": 0.45,
+        "p014_rebound_left": 0.45,
+        "p015_rock_right": 0.45,
+        "p016_rebound_right": 0.45,
+        "p017_rock_left": 0.45,
+        "p018_rebound_left": 0.45,
+        "p019_rock_right": 0.45,
+        "p020_rebound_right": 0.45,
+        "p021_return_to_standing": 1.5,
+        "p022_hold_standing": 0.5
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_settle_into_dance": null,
+        "p001_rock_left": null,
+        "p002_rebound_left": null,
+        "p003_rock_right": null,
+        "p004_rebound_right": null,
+        "p005_rock_left": null,
+        "p006_rebound_left": null,
+        "p007_rock_right": null,
+        "p008_rebound_right": null,
+        "p009_rock_left": null,
+        "p010_rebound_left": null,
+        "p011_rock_right": null,
+        "p012_rebound_right": null,
+        "p013_rock_left": null,
+        "p014_rebound_left": null,
+        "p015_rock_right": null,
+        "p016_rebound_right": null,
+        "p017_rock_left": null,
+        "p018_rebound_left": null,
+        "p019_rock_right": null,
+        "p020_rebound_right": null,
+        "p021_return_to_standing": null,
+        "p022_hold_standing": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "dance",
+      "mode": "loop",
+      "fps": 1
+    },
+    {
+      "time_s": 12.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Return through the recorded exit to the exact standing joint pose, then hold; restore the stand face.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "minimum_assumed_support_margin_mm": 38.140140162879405
+  },
+  "hardware_ready": false
+}

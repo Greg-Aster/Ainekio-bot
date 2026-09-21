@@ -1,0 +1,456 @@
+{
+  "command": "swim",
+  "body_control_label": "Swim",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "swim"
+  },
+  "gait_id": "swim_fourbar_20260916",
+  "generated_utc": "2026-09-16T16:50:34.095396+00:00",
+  "duration_seconds": 23.5,
+  "motion_end_seconds": 22.8,
+  "source_sample_hz": 120,
+  "sample_count": 2821,
+  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "completion": "Replace all four soles while the belly remains supported, reverse the lowering motion to exact standing, and hold; restore the stand face.",
+  "final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "pitch_degrees": 0.0
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "swim",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 22.8,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "face_asset": {
+    "name": "swim",
+    "width": 128,
+    "height": 64,
+    "encoding": "row-major MSB-first 1-bit bitmap; 16 bytes per row",
+    "fps": 1,
+    "mode": "once",
+    "frames": [
+      "faces/swim/0.bin"
+    ],
+    "source": "Unchanged existing Ainekio owner-authored swim face bitmaps"
+  },
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "609d3965e5e67a8acd40119619e852d932dfff13677fafd0999f5f2cf5494913",
+  "csv_sha256": "755a6c375c22de5c4699896d23a10441c7644062d23c3cfba48fa766fc0c6f39",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "edb84188ad1240c5fa49a7c5b4d13935d790c115758a7d7b14a25bc3e7c269c5",
+  "face_sha256": {
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e",
+    "faces/swim/0.bin": "9657c685427ecfae1f35cc1a0494f9eea22dba7eae526f94c006f49f4750d0d2"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-swim-20260916/Ainekio-Swim.blend",
+  "blender_frames": [
+    1261,
+    1825
+  ],
+  "design": "Continuous breaststroke refinement: mirrored +/-90-degree shoulders, coordinated Part006 and Part005 loops, and a quarter-cycle rear phase lag. Both front arms and rear legs remain in motion during the steady swim, with no inter-stroke rests. Physical front pair is CAD RL/RR; rear pair FL/FR.",
+  "body_contact_required": true,
+  "body_support_geometry": "CRAWL | Body - Bottom Cover - Compact",
+  "body_support_polygon_body_xy_mm": [
+    [
+      -84.4999994,
+      -46.5
+    ],
+    [
+      -84.4544214,
+      -47.0209427
+    ],
+    [
+      -84.3190759,
+      -47.526062
+    ],
+    [
+      -84.0980676,
+      -48.0
+    ],
+    [
+      -83.7981256,
+      -48.42836
+    ],
+    [
+      -83.4283594,
+      -48.7981339
+    ],
+    [
+      -82.9999841,
+      -49.0980759
+    ],
+    [
+      -82.5260461,
+      -49.3190765
+    ],
+    [
+      -82.0209345,
+      -49.454422
+    ],
+    [
+      -81.4999994,
+      -49.5
+    ],
+    [
+      -38.3000024,
+      -51.5000076
+    ],
+    [
+      38.2999808,
+      -51.5000076
+    ],
+    [
+      82.2110907,
+      -49.5
+    ],
+    [
+      82.7010046,
+      -49.4597244
+    ],
+    [
+      83.1777808,
+      -49.3399887
+    ],
+    [
+      83.6285712,
+      -49.1439972
+    ],
+    [
+      84.0413214,
+      -48.8770294
+    ],
+    [
+      84.4049383,
+      -48.5462341
+    ],
+    [
+      84.7096411,
+      -48.1604996
+    ],
+    [
+      84.9472662,
+      -47.7301865
+    ],
+    [
+      85.1114355,
+      -47.2668457
+    ],
+    [
+      85.2712561,
+      -46.6564789
+    ],
+    [
+      87.2548224,
+      -37.7515335
+    ],
+    [
+      88.6902624,
+      -28.1040039
+    ],
+    [
+      89.0494086,
+      -23.25
+    ],
+    [
+      89.4099585,
+      -4.8768654
+    ],
+    [
+      89.4099585,
+      4.8768673
+    ],
+    [
+      89.0494086,
+      23.25
+    ],
+    [
+      88.6902624,
+      28.1040096
+    ],
+    [
+      87.2548224,
+      37.751537
+    ],
+    [
+      86.8629614,
+      39.7631357
+    ],
+    [
+      85.2712561,
+      46.6564827
+    ],
+    [
+      85.2459112,
+      46.7540703
+    ],
+    [
+      85.1114355,
+      47.2668495
+    ],
+    [
+      84.9472662,
+      47.7301922
+    ],
+    [
+      84.7096411,
+      48.1605053
+    ],
+    [
+      84.4049383,
+      48.5462379
+    ],
+    [
+      84.0413214,
+      48.8770332
+    ],
+    [
+      83.6285712,
+      49.1440029
+    ],
+    [
+      83.1777808,
+      49.3399925
+    ],
+    [
+      82.7010046,
+      49.4597301
+    ],
+    [
+      82.2110907,
+      49.5
+    ],
+    [
+      38.3000037,
+      51.500001
+    ],
+    [
+      -38.2999872,
+      51.500001
+    ],
+    [
+      -81.4999994,
+      49.5
+    ],
+    [
+      -82.0209345,
+      49.4544258
+    ],
+    [
+      -82.5260461,
+      49.3190804
+    ],
+    [
+      -82.9999841,
+      49.0980797
+    ],
+    [
+      -83.4283594,
+      48.7981377
+    ],
+    [
+      -83.7981256,
+      48.4283638
+    ],
+    [
+      -84.0980676,
+      48.0
+    ],
+    [
+      -84.3190759,
+      47.526062
+    ],
+    [
+      -84.4544214,
+      47.0209465
+    ],
+    [
+      -84.4999994,
+      46.5000038
+    ]
+  ],
+  "body_support_load_capacity_verified": false,
+  "source_validation": {
+    "duration_s": 23.5,
+    "motion_end_s": 22.8,
+    "sample_hz": 120,
+    "samples": 2821,
+    "cycles": 4,
+    "paddle_start_s": 5.0,
+    "paddle_end_s": 17.8,
+    "actuator_min_degrees": [
+      [
+        0.0,
+        -20.0,
+        -33.31073891195818
+      ],
+      [
+        -90.0,
+        -20.0,
+        -33.310742097347415
+      ],
+      [
+        0.0,
+        -20.000000000000004,
+        -33.31077749992338
+      ],
+      [
+        -90.0,
+        -20.000000000000004,
+        -33.31077749992338
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        90.0,
+        51.01322314038274,
+        45.0
+      ],
+      [
+        0.0,
+        51.01322314038264,
+        45.0
+      ],
+      [
+        90.0,
+        51.013219485024784,
+        45.0
+      ],
+      [
+        0.0,
+        51.013219485024784,
+        45.0
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        112.4907410836758,
+        90.94544992281072,
+        146.8054464970687
+      ],
+      [
+        112.4907410836758,
+        90.94544992281094,
+        146.80545246856724
+      ],
+      [
+        112.4907410836758,
+        133.12513122132543,
+        90.56593463471683
+      ],
+      [
+        112.4907410836758,
+        133.12513122132543,
+        90.56593463471683
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        230.85432098789624,
+        279.81012138384415,
+        451.6735014123526
+      ],
+      [
+        230.85432098789624,
+        279.81012138384716,
+        451.67351978470265
+      ],
+      [
+        230.85432098789624,
+        409.583537800944,
+        278.6424739763227
+      ],
+      [
+        230.85432098789624,
+        409.583537800944,
+        278.6424739763227
+      ]
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.2233787705713972,
+    "final_actuator_degrees": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "final_joint_return_error_degrees": 0.0,
+    "minimum_support_margin_mm": 39.11558723449706,
+    "belly_support_margin_mm": 51.500001,
+    "minimum_stance_contacts": 0,
+    "belly_support_required": true,
+    "belly_contact_plane_body_z_mm": -25.250007001794895,
+    "minimum_body_ground_clearance_mm": 3.552713678800501e-15,
+    "min_sole_height_mm": -1.6652261791705314e-09,
+    "minimum_paddling_sole_height_mm": 41.95001903008189,
+    "max_stance_material_vertex_constraint_error_mm": 1.0100271890557266e-13,
+    "maximum_rolling_normal_correction_mm": 0.00036236719034477005,
+    "research_angle_bounds_satisfied": true,
+    "collision_checked": false,
+    "body_contact_strength_verified": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 2820,
+    "bounded_midpoints": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 146.8326474736214,
+    "peak_interpolated_acceleration_degrees_s2": 491.4815313166458,
+    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
+  }
+}

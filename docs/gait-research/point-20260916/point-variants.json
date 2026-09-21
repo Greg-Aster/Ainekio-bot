@@ -1,0 +1,38 @@
+{
+  "command": "point",
+  "selected": "extended",
+  "variants": [
+    {
+      "id": "initial",
+      "joint_degrees": [
+        35,
+        -34.24,
+        -48
+      ],
+      "pivot_O_to_foot_bolt_mm": 70.05251300017859,
+      "foot_world_mm": [
+        90.44724007325074,
+        66.08268289367072,
+        92.12736722586594
+      ],
+      "source": "first-point/ainekio-point-initial-12servo-20260916.zip",
+      "blend": "Before-Point-Extended.blend"
+    },
+    {
+      "id": "extended",
+      "joint_degrees": [
+        35,
+        -100,
+        -48
+      ],
+      "pivot_O_to_foot_bolt_mm": 97.20362610127735,
+      "foot_world_mm": [
+        122.11153732181498,
+        50.006859537495814,
+        117.1303182468805
+      ],
+      "source": "source.json",
+      "blend": "Ainekio-Point.blend"
+    }
+  ]
+}

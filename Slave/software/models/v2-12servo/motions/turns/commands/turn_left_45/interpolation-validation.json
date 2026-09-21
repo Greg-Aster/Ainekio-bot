@@ -1,0 +1,10 @@
+{
+  "command": "turn_left_45",
+  "source_hash_verified": true,
+  "interpolation_midpoints_checked": 2280,
+  "peak_interpolated_speed_degrees_s": 159.71639178536736,
+  "peak_interpolated_acceleration_degrees_s2": 2143.935617529734,
+  "interpolation_continuity": "C1; acceleration may jump at keys and contact-feature transfers",
+  "continuous_bounded_angles": true,
+  "heading_change_degrees": 45.0
+}

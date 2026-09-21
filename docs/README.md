@@ -16,10 +16,20 @@ required before those values count as installed-hardware evidence.
 
 ## Maintained implementation documents
 
+Model-specific hardware records live under `v1-8servo/` and `v2-12servo/`.
+Shared system, protocol, and bridge documents remain here. The existing
+specification's V1 electrical assumptions do not define the V2 board or wiring;
+[Robot Models](ROBOT_MODELS.md) records the approved separation and current
+implementation boundary.
+
 | Document | Current purpose |
 | --- | --- |
-| [HARDWARE_BRINGUP_CHECKLIST.md](HARDWARE_BRINGUP_CHECKLIST.md) | Power topology, staged assembly procedure, open physical gates, and recorded board evidence |
-| [PINOUT_DIAGNOSTICS.md](PINOUT_DIAGNOSTICS.md) | Physical Freenove header numbering, the flashed GPIO map, peripheral wiring, and expected diagnostic values |
+| [ROBOT_MODELS.md](ROBOT_MODELS.md) | V1/V2 model, board, servo-output, and shared-code boundaries |
+| [V1 hardware bring-up](v1-8servo/HARDWARE_BRINGUP_CHECKLIST.md) | V1 power topology, staged assembly procedure, open physical gates, and recorded board evidence |
+| [V1 pinout diagnostics](v1-8servo/PINOUT_DIAGNOSTICS.md) | V1 Freenove header numbering, the flashed GPIO map, peripheral wiring, and expected diagnostic values |
+| [V2 hardware record](v2-12servo/README.md) | Selected ESP32-P4-WIFI6/PCA9685 hardware, design assets, and current implementation limits |
+| [V2 firmware design](v2-12servo/FIRMWARE_DESIGN.md) | V1 review, P4/PCA9685 requirements, controller/Q6A boundaries and staged acceptance |
+| [V2 Step 1 evidence](v2-12servo/STEP1_EVIDENCE.md) | Build/flash commands, tests, actual board/network results and outstanding electrical proof |
 | [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Current robot-body software status, implementation evidence, and deliberately pending work |
 | [AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md](AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md) | Current generic Environment Bridge ownership and closed-loop software status |
 | [BRIDGE_HARDENING_PLAN.md](BRIDGE_HARDENING_PLAN.md) | Live physical-bridge findings, remediation phases, ownership, and acceptance criteria |
@@ -42,7 +52,7 @@ new specification revision, readers must keep these boundaries explicit:
 - The delivered N16R8 board cannot use the provisional GPIO33/34 servo map in
   specification section 6.3. Hardware testing proved those pins corrupt octal
   PSRAM. The flashed board profile uses GPIO47/48 for R4/R3 and hands GPIO0/43
-  from BOOT/UART to the OLED. `PINOUT_DIAGNOSTICS.md` is the current physical
+  from BOOT/UART to the OLED. `v1-8servo/PINOUT_DIAGNOSTICS.md` is the V1 physical
   wiring reference; the old provisional map must not be wired.
 - Owner policy as of 2026-08-03 makes the GPIO3 battery sensor telemetry and
   warning-only. The firmware still classifies low, critical, recovered, and

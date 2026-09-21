@@ -1,0 +1,180 @@
+{
+  "completed_utc": "2026-09-17T16:38:30Z",
+  "command_count": 12,
+  "commands": [
+    {
+      "command": "cute",
+      "source_sha256": "97349072ef595173eb1e3c0482e979675b113ae3df8bea3eb54f7ab4e5fac47f",
+      "source_samples": 1621,
+      "preview_duration_seconds": 13.5,
+      "blender_frames": [
+        3109,
+        3433
+      ],
+      "passed": true
+    },
+    {
+      "command": "freaky",
+      "source_sha256": "4cec5793692a3fb21a67cc873af6140f3a41b0c7f875e5b8fe37393689b17fb1",
+      "source_samples": 1165,
+      "preview_duration_seconds": 9.666667,
+      "blender_frames": [
+        3457,
+        3690
+      ],
+      "passed": true
+    },
+    {
+      "command": "worm",
+      "source_sha256": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca",
+      "source_samples": 1501,
+      "preview_duration_seconds": 12.5,
+      "blender_frames": [
+        3714,
+        4014
+      ],
+      "passed": true
+    },
+    {
+      "command": "shake",
+      "source_sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8",
+      "source_samples": 841,
+      "preview_duration_seconds": 7.0,
+      "blender_frames": [
+        4038,
+        4206
+      ],
+      "passed": true
+    },
+    {
+      "command": "shrug",
+      "source_sha256": "4a332dbd2a1cc2d1918bde3d0f1e73d17c43ce935298dde3edd8e242c56ebf78",
+      "source_samples": 1225,
+      "preview_duration_seconds": 10.166667,
+      "blender_frames": [
+        4230,
+        4475
+      ],
+      "passed": true
+    },
+    {
+      "command": "dead",
+      "source_sha256": "6f9dd1d7b3b6fe394eb111bb2e646346feaba84c2f7f82aa322a94432515b29f",
+      "source_samples": 1477,
+      "preview_duration_seconds": 12.333333,
+      "blender_frames": [
+        4499,
+        4794
+      ],
+      "passed": true
+    },
+    {
+      "command": "crab",
+      "source_sha256": "3fff90c90f4547219bd833e112f99488f35f991366a5f596e6cb7e3e99c3beb1",
+      "source_samples": 3673,
+      "preview_duration_seconds": 30.625,
+      "blender_frames": [
+        4818,
+        5552
+      ],
+      "passed": true
+    },
+    {
+      "command": "celebrate",
+      "source_sha256": "13ec137da243240b9fa491e4d5dbc0e6e396ca970c6dad5a911365239e55aa44",
+      "source_samples": 1501,
+      "preview_duration_seconds": 12.5,
+      "blender_frames": [
+        5576,
+        5876
+      ],
+      "passed": true
+    },
+    {
+      "command": "stretch",
+      "source_sha256": "90980240a5fa199f6284521b5c6992d12b0f6caff31866e9dc9c643972a18918",
+      "source_samples": 805,
+      "preview_duration_seconds": 6.666667,
+      "blender_frames": [
+        5900,
+        6061
+      ],
+      "passed": true
+    },
+    {
+      "command": "surprised",
+      "source_sha256": "5230421770d7c16f736b797e60b2417117a54d440947c0bbdc819fd9c6d88fda",
+      "source_samples": 1435,
+      "preview_duration_seconds": 11.958333,
+      "blender_frames": [
+        6085,
+        6372
+      ],
+      "passed": true
+    },
+    {
+      "command": "sad",
+      "source_sha256": "6d89680428bcf6df29cdd1025c69582367e4decc89338fcc51aad0e8fc62198f",
+      "source_samples": 1057,
+      "preview_duration_seconds": 8.833333,
+      "blender_frames": [
+        6396,
+        6607
+      ],
+      "passed": true
+    },
+    {
+      "command": "curious",
+      "source_sha256": "43d119af1b46820e2962dafa68ab3997f9a8ceb3a7464fa1d4608dd62e820d78",
+      "source_samples": 1171,
+      "preview_duration_seconds": 9.75,
+      "blender_frames": [
+        6631,
+        6865
+      ],
+      "passed": true
+    }
+  ],
+  "source_samples_compared": 17472,
+  "evaluated_blender_poses": 336,
+  "visual_review": "Three still poses per command inspected; MP4 duration and complete frame counts checked. Full-rate dynamics are not simulated.",
+  "saved_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "blend_sha256": "b12cde151a309f4a00b677cc27d97ed9c91ff6391697ac65061bb6830fffd3fe",
+  "final_save": {
+    "saved": true,
+    "filepath": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+    "dirty": true,
+    "before": {
+      "filepath": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+      "frame": 1,
+      "subframe": 0.0,
+      "objects": 1347,
+      "dirty": true
+    },
+    "frame": 1,
+    "objects": 1347,
+    "time_utc": "2026-09-17T16:37:25Z",
+    "backup": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Final-Documentation.blend",
+    "scope": "Embedded documentation and scene handoff metadata only; model and animation untouched.",
+    "dirty_after_save_completed": false,
+    "verified_saved_bytes": 274909733
+  },
+  "resource_policy": {
+    "serial_workers": true,
+    "hard_memory_limit_GiB": 10,
+    "swap_limit_bytes": 0,
+    "peak_worker_RSS_GiB": 2.5977821350097656,
+    "render_service_inactive": true
+  },
+  "geometry_scope": "Later front/display revisions retained. Leg meshes are absent from baseline difference lists. Earlier body-contact/floor results are historical geometry snapshots; previews span saved model revisions.",
+  "unverified": [
+    "inter-part collisions including visor",
+    "current front/body contact support",
+    "actual COM/masses",
+    "servo electrical calibration and loaded limits",
+    "power/current and brownout behavior",
+    "friction and dynamics"
+  ],
+  "kinematic_research_artifacts_complete": true,
+  "firmware_modified": false
+}

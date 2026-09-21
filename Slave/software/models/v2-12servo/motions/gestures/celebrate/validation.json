@@ -1,0 +1,112 @@
+{
+  "duration_s": 12.5,
+  "motion_end_s": 12.0,
+  "sample_hz": 120,
+  "samples": 1501,
+  "actuator_min_degrees": [
+    [
+      0.0,
+      0.0,
+      -26.27063730237721
+    ],
+    [
+      -90.0,
+      0.0,
+      -26.270639898705216
+    ],
+    [
+      0.0,
+      0.0,
+      -23.057163868638384
+    ],
+    [
+      -90.0,
+      0.0,
+      -23.057163868638384
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      90.0,
+      55.20910293288044,
+      35.0
+    ],
+    [
+      0.0,
+      55.20910293288034,
+      35.0
+    ],
+    [
+      90.0,
+      43.05144040360648,
+      35.0
+    ],
+    [
+      0.0,
+      43.05144040360648,
+      35.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      140.60691655581408,
+      121.05005359784094,
+      168.6250416666667
+    ],
+    [
+      140.60691655581408,
+      121.05005359784094,
+      168.6250416666667
+    ],
+    [
+      140.60691655581408,
+      88.49719133516786,
+      168.6250416666667
+    ],
+    [
+      140.60691655581408,
+      88.49719133516786,
+      168.6250416666667
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      360.5746045526928,
+      531.7030213443679,
+      1035.2999999999954
+    ],
+    [
+      360.5746045526928,
+      531.7030213443616,
+      1035.2999999999954
+    ],
+    [
+      360.5746045526928,
+      388.717085328387,
+      1035.2999999999954
+    ],
+    [
+      360.5746045526928,
+      388.717085328387,
+      1035.2999999999954
+    ]
+  ],
+  "maximum_adjacent_joint_step_degrees": 1.4052086805555568,
+  "final_joint_return_error_degrees": 0.0,
+  "minimum_support_margin_mm": 22.75533863559165,
+  "min_sole_height_mm": -4.625531957458406e-09,
+  "minimum_body_ground_clearance_mm": 0.0,
+  "maximum_rolling_normal_correction_mm": 0.0004042129732635402,
+  "solved_rolling_transfers": 302,
+  "minimum_stance_contacts": 0,
+  "max_stance_material_vertex_constraint_error_mm": 1.1513478471484577e-13,
+  "complete_body_floor_check_passed": true,
+  "body_floor_interference_retained": false,
+  "research_angle_bounds_satisfied": true,
+  "fourbar_closure": "Recomputed from measured branch at every sample",
+  "collision_checked": false,
+  "measured_mass_balance_verified": false,
+  "hardware_servo_limits_verified": false,
+  "body_contact_strength_verified": false,
+  "hardware_qualified": false
+}

@@ -1,0 +1,233 @@
+{
+  "state": "complete",
+  "done": 913,
+  "total": 913,
+  "chunks": [
+    {
+      "chunk": 1,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2616880,
+      "stop_reason": null
+    },
+    {
+      "chunk": 2,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2680632,
+      "stop_reason": null
+    },
+    {
+      "chunk": 3,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2690352,
+      "stop_reason": null
+    },
+    {
+      "chunk": 4,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2522836,
+      "stop_reason": null
+    },
+    {
+      "chunk": 5,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2723972,
+      "stop_reason": null
+    },
+    {
+      "chunk": 6,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2547620,
+      "stop_reason": null
+    },
+    {
+      "chunk": 7,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2630280,
+      "stop_reason": null
+    },
+    {
+      "chunk": 8,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2521784,
+      "stop_reason": null
+    },
+    {
+      "chunk": 9,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2618464,
+      "stop_reason": null
+    },
+    {
+      "chunk": 10,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2671528,
+      "stop_reason": null
+    },
+    {
+      "chunk": 11,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2634316,
+      "stop_reason": null
+    },
+    {
+      "chunk": 12,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2695156,
+      "stop_reason": null
+    },
+    {
+      "chunk": 13,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2527812,
+      "stop_reason": null
+    },
+    {
+      "chunk": 14,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2606196,
+      "stop_reason": null
+    },
+    {
+      "chunk": 15,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2528400,
+      "stop_reason": null
+    },
+    {
+      "chunk": 16,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2609208,
+      "stop_reason": null
+    },
+    {
+      "chunk": 17,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2538484,
+      "stop_reason": null
+    },
+    {
+      "chunk": 18,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2514836,
+      "stop_reason": null
+    },
+    {
+      "chunk": 19,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2675272,
+      "stop_reason": null
+    },
+    {
+      "chunk": 20,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2600464,
+      "stop_reason": null
+    },
+    {
+      "chunk": 21,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2666568,
+      "stop_reason": null
+    },
+    {
+      "chunk": 22,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2656404,
+      "stop_reason": null
+    },
+    {
+      "chunk": 23,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2593888,
+      "stop_reason": null
+    },
+    {
+      "chunk": 24,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2603480,
+      "stop_reason": null
+    },
+    {
+      "chunk": 25,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2467128,
+      "stop_reason": null
+    },
+    {
+      "chunk": 26,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2581512,
+      "stop_reason": null
+    },
+    {
+      "chunk": 27,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2521080,
+      "stop_reason": null
+    },
+    {
+      "chunk": 28,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2543736,
+      "stop_reason": null
+    },
+    {
+      "chunk": 29,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2525508,
+      "stop_reason": null
+    },
+    {
+      "chunk": 30,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2621216,
+      "stop_reason": null
+    },
+    {
+      "chunk": 31,
+      "exit_code": 0,
+      "completed": 12,
+      "peak_rss_kib": 2535012,
+      "stop_reason": null
+    },
+    {
+      "chunk": 32,
+      "exit_code": 0,
+      "completed": 7,
+      "peak_rss_kib": 2686508,
+      "stop_reason": null
+    }
+  ],
+  "time_utc": "2026-09-17T16:32:54Z",
+  "memory_available_kib": 52278672
+}

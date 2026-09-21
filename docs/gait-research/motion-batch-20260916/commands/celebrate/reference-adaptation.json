@@ -1,0 +1,82 @@
+{
+  "v1_source": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "v1_command": "celebrate",
+  "v1_frame_count": 13,
+  "v1_nominal_frame_duration_sum_ms": 6130,
+  "v1_sequential_servo_timing": false,
+  "v1_gesture_signature": "Ease through midpoint into the Cute full-body lying pose; lift all four distal legs, then alternate rear R4/L4 and front R3/L3 pairs three times; settle and stand.",
+  "v2_adaptation": "V1 owner-authored cute lying pose with all four distal joints lifted, three alternating rear/front pair waves, settle, then stand. Exact mirrored lower-joint targets show rear R4/L4 together alternating with front R3/L3; the converter comment calling them diagonals is inconsistent with its numeric targets. V2 preserves the numeric rear/front-pair signature using measured rear-cover/visor body support and four-bar crank motion.",
+  "physical_leg_mapping": {
+    "FL": "rear_left",
+    "FR": "rear_right",
+    "RL": "front_left",
+    "RR": "front_right"
+  },
+  "v1_front_distal_labels": [
+    "R3",
+    "L3"
+  ],
+  "v1_rear_distal_labels": [
+    "R4",
+    "L4"
+  ],
+  "angle_mapping": "No electrical degree values copied. Twelve geometric joint angles solved from measured mechanism or deliberately bounded airborne branch-valid paths.",
+  "timing": "V1 frame order/repetition retained semantically; V2 research timing independently defined in config.json, with synchronized smooth joint samples. Timing and electrical staggering are separate execution concerns.",
+  "reference_converter": "/home/greggles/Ainekio/Slave/software/tools/convert_sesame_assets.py",
+  "hardware_qualified": false,
+  "current_body_geometry_provenance": "body-sample-provenance.json",
+  "cover_support_provenance": "belly-cover-provenance.json",
+  "body_rest_model": {
+    "source": "commands/cute/current-body-samples.npz",
+    "pitch_degrees": -5.713782395383932,
+    "height_mm": 33.537235408876796,
+    "contact_world_mm": [
+      [
+        -81.5663275552591,
+        -46.49998474121553,
+        0.0
+      ],
+      [
+        -81.56632807746806,
+        23.250012397761527,
+        5.219148640378535e-06
+      ],
+      [
+        -81.5663282673622,
+        46.50001239776152,
+        7.117020871305613e-06
+      ],
+      [
+        104.14252161486496,
+        5.563910467022631,
+        0.0
+      ]
+    ],
+    "contact_model": "Current complete body rests on its rear cover and forward visor low points; physical contact load capacity is unverified."
+  },
+  "body_rest_load_caveat": "The measured nonpenetrating nose-up resting pose contacts the rear cover and forward visor. Contact load capacity, friction and physical stability remain unverified; this is a provisional kinematic body-support model.",
+  "v1_numeric_pair_evidence": {
+    "frame_4": {
+      "rear_mirrored_normalized_degrees": [
+        175,
+        175
+      ],
+      "front_mirrored_normalized_degrees": [
+        135,
+        135
+      ]
+    },
+    "frame_5": {
+      "rear_mirrored_normalized_degrees": [
+        135,
+        135
+      ],
+      "front_mirrored_normalized_degrees": [
+        175,
+        175
+      ]
+    },
+    "normalization": "R4=id4; L4=180-id7; R3=180-id5; L3=id6. Electrical values retained for source interpretation only."
+  },
+  "converter_comment_discrepancy": "Converter comment says diagonals; actual target values move rear and front pairs together. Numeric source targets are authoritative."
+}

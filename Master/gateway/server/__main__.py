@@ -262,6 +262,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         service,
         EnvironmentAdapterConfig(
             token=adapter_token,
+            receipt_path=str(args.data_dir / "environment-actions.sqlite"),
             session_id=args.environment_session_id,
             robot_id=os.environ.get("AINEKIO_ROBOT_ID"),
             freestyle_enabled=os.environ.get("AINEKIO_FREESTYLE_ENABLED", "1") == "1",

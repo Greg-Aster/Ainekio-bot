@@ -1,0 +1,312 @@
+{
+  "command": "swim",
+  "display_label": "SWIM",
+  "cycles": 4,
+  "lower_seconds": 2.5,
+  "lift_seconds": 1.5,
+  "reach_seconds": 1.0,
+  "stroke_seconds": 3.0,
+  "stroke_ramp_seconds": 0.8,
+  "hold_seconds": 0.7,
+  "rear_phase_lag_cycles": 0.25,
+  "shoulder_outward_degrees": 90.0,
+  "shoulder_signs": [
+    1.0,
+    -1.0,
+    1.0,
+    -1.0
+  ],
+  "paddle_alpha_start_degrees": -20.0,
+  "paddle_alpha_end_degrees": 25.0,
+  "paddle_theta_center_degrees": 15.0,
+  "paddle_theta_amplitude_degrees": 30.0,
+  "target_body_height_mm": 25.250007001794895,
+  "bottom_contact_tolerance_mm": 0.01,
+  "bottom_contact_polygon_body_xy_mm": [
+    [
+      -84.4999994,
+      -46.5
+    ],
+    [
+      -84.4544214,
+      -47.0209427
+    ],
+    [
+      -84.3190759,
+      -47.526062
+    ],
+    [
+      -84.0980676,
+      -48.0
+    ],
+    [
+      -83.7981256,
+      -48.42836
+    ],
+    [
+      -83.4283594,
+      -48.7981339
+    ],
+    [
+      -82.9999841,
+      -49.0980759
+    ],
+    [
+      -82.5260461,
+      -49.3190765
+    ],
+    [
+      -82.0209345,
+      -49.454422
+    ],
+    [
+      -81.4999994,
+      -49.5
+    ],
+    [
+      -38.3000024,
+      -51.5000076
+    ],
+    [
+      38.2999808,
+      -51.5000076
+    ],
+    [
+      82.2110907,
+      -49.5
+    ],
+    [
+      82.7010046,
+      -49.4597244
+    ],
+    [
+      83.1777808,
+      -49.3399887
+    ],
+    [
+      83.6285712,
+      -49.1439972
+    ],
+    [
+      84.0413214,
+      -48.8770294
+    ],
+    [
+      84.4049383,
+      -48.5462341
+    ],
+    [
+      84.7096411,
+      -48.1604996
+    ],
+    [
+      84.9472662,
+      -47.7301865
+    ],
+    [
+      85.1114355,
+      -47.2668457
+    ],
+    [
+      85.2712561,
+      -46.6564789
+    ],
+    [
+      87.2548224,
+      -37.7515335
+    ],
+    [
+      88.6902624,
+      -28.1040039
+    ],
+    [
+      89.0494086,
+      -23.25
+    ],
+    [
+      89.4099585,
+      -4.8768654
+    ],
+    [
+      89.4099585,
+      4.8768673
+    ],
+    [
+      89.0494086,
+      23.25
+    ],
+    [
+      88.6902624,
+      28.1040096
+    ],
+    [
+      87.2548224,
+      37.751537
+    ],
+    [
+      86.8629614,
+      39.7631357
+    ],
+    [
+      85.2712561,
+      46.6564827
+    ],
+    [
+      85.2459112,
+      46.7540703
+    ],
+    [
+      85.1114355,
+      47.2668495
+    ],
+    [
+      84.9472662,
+      47.7301922
+    ],
+    [
+      84.7096411,
+      48.1605053
+    ],
+    [
+      84.4049383,
+      48.5462379
+    ],
+    [
+      84.0413214,
+      48.8770332
+    ],
+    [
+      83.6285712,
+      49.1440029
+    ],
+    [
+      83.1777808,
+      49.3399925
+    ],
+    [
+      82.7010046,
+      49.4597301
+    ],
+    [
+      82.2110907,
+      49.5
+    ],
+    [
+      38.3000037,
+      51.500001
+    ],
+    [
+      -38.2999872,
+      51.500001
+    ],
+    [
+      -81.4999994,
+      49.5
+    ],
+    [
+      -82.0209345,
+      49.4544258
+    ],
+    [
+      -82.5260461,
+      49.3190804
+    ],
+    [
+      -82.9999841,
+      49.0980797
+    ],
+    [
+      -83.4283594,
+      48.7981377
+    ],
+    [
+      -83.7981256,
+      48.4283638
+    ],
+    [
+      -84.0980676,
+      48.0
+    ],
+    [
+      -84.3190759,
+      47.526062
+    ],
+    [
+      -84.4544214,
+      47.0209465
+    ],
+    [
+      -84.4999994,
+      46.5000038
+    ]
+  ],
+  "bottom_contact_geometry": "CRAWL | Body - Bottom Cover - Compact",
+  "sample_hz": 120,
+  "preview_fps": 24,
+  "gait_start_frame": 1261,
+  "existing_animation_end_frame": 1237,
+  "source_blend": "Before-Swim.blend",
+  "output_blend": "Ainekio-Swim.blend",
+  "scene_name": "AINEKIO - Swim",
+  "part023_forward_limit_degrees": null,
+  "completion": "Replace all four soles while the belly remains supported, reverse the lowering motion to exact standing, and hold; restore the stand face.",
+  "adaptation": "Continuous breaststroke refinement: mirrored +/-90-degree shoulders, coordinated Part006 and Part005 loops, and a quarter-cycle rear phase lag. Both front arms and rear legs remain in motion during the steady swim, with no inter-stroke rests. Physical front pair is CAD RL/RR; rear pair FL/FR.",
+  "stroke_model": "Continuous coordinated alpha/theta ellipses. Front: alpha=center-amplitude*cos(phi), theta=center+amplitude*sin(phi). Rear uses phi-2*pi*rear_phase_lag_cycles, alpha=center+amplitude*cos(phi_rear), theta=center-amplitude*sin(phi_rear). A shared integrated quintic rate ramp eases only the whole swim start/end; the steady phase advances at constant speed across all cycle boundaries. Phase lag is choreography, separate from PWM staggering.",
+  "contact_model": "Grounded rolling soles during lowering/standing; measured flat bottom-cover contact polygon supports the fixed body during shoulder lift and airborne paddling. Foot contact flags are false while lifted; no water or buoyancy model.",
+  "hardware_qualified": false,
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "geometric_research_angle_bounds_degrees": {
+    "h": [
+      -95.0,
+      95.0
+    ],
+    "alpha": [
+      -34.24,
+      67.4
+    ],
+    "theta": [
+      -51.95331106142828,
+      80
+    ]
+  },
+  "shoulder_bounds_basis": "Research envelope for the requested +/-90-degree pose; not calibrated electrical travel or collision proof.",
+  "steady_stroke_source_seconds": [
+    5.8,
+    17.0
+  ],
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "swim",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 22.8,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ]
+}

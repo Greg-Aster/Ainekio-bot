@@ -1,0 +1,231 @@
+{
+  "command": "dance",
+  "body_control_label": "Dance",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "dance"
+  },
+  "gait_id": "dance_fourbar_20260916",
+  "generated_utc": "2026-09-16T16:06:31.468169+00:00",
+  "duration_seconds": 12.5,
+  "motion_end_seconds": 12.0,
+  "source_sample_hz": 120,
+  "sample_count": 1501,
+  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "completion": "Return through the recorded exit to the exact standing joint pose, then hold; restore the stand face.",
+  "final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "pitch_degrees": 0.0
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "dance",
+      "mode": "loop",
+      "fps": 1
+    },
+    {
+      "time_s": 12.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "face_asset": {
+    "name": "dance",
+    "width": 128,
+    "height": 64,
+    "encoding": "row-major MSB-first 1-bit bitmap; 16 bytes per row",
+    "fps": 1,
+    "mode": "loop",
+    "frames": [
+      "faces/dance/0.bin",
+      "faces/dance/1.bin"
+    ],
+    "source": "Unchanged existing Ainekio owner-authored dance face bitmaps"
+  },
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "570913be37706a2629e734f3a99d1e9c7376dd34c4fc4759e4559984f32ccdf9",
+  "csv_sha256": "0f691b43cce04028f05f09507624c7ee9666832561d4910212110c98d4bbdbc3",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "edb84188ad1240c5fa49a7c5b4d13935d790c115758a7d7b14a25bc3e7c269c5",
+  "face_sha256": {
+    "faces/dance/0.bin": "ba1093402b156084993dd5df2823d986ad18ab6c09a3c5178e9a081d314a0c9b",
+    "faces/dance/1.bin": "bd2bf2e22ec80548851a1d02c11aea9760ec9ba82f125a84f1e86db5aba628f1",
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-dance-20260916/Ainekio-Dance.blend",
+  "blender_frames": [
+    937,
+    1237
+  ],
+  "design": "V1 alternates right knee channels R4/R3 and left L3/L4 five times. V2 retains five left/right paired-leg beats, adding coordinated shoulder sway, body roll, yaw and bob with four grounded feet.",
+  "source_validation": {
+    "duration_s": 12.5,
+    "motion_end_s": 12.0,
+    "sample_hz": 120,
+    "samples": 1501,
+    "cycles": 5,
+    "cycle_seconds": 1.8,
+    "actuator_min_degrees": [
+      [
+        -18.69416974610671,
+        0.0,
+        -17.57202565109661
+      ],
+      [
+        -19.45664183972716,
+        0.0,
+        -15.310684241741871
+      ],
+      [
+        -11.155126720851277,
+        0.0,
+        -16.08070348707121
+      ],
+      [
+        -11.780130535967672,
+        0.0,
+        -22.584123410483368
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        19.821113154196333,
+        16.360596254372155,
+        0.0
+      ],
+      [
+        19.184652328999224,
+        22.138368834057317,
+        0.0
+      ],
+      [
+        10.657389156395741,
+        20.826874942546244,
+        0.0
+      ],
+      [
+        10.238230839655671,
+        14.607621385064427,
+        0.0
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        82.5180313033376,
+        32.817816633169876,
+        38.476001723045385
+      ],
+      [
+        81.2770574580604,
+        56.01869808781558,
+        29.760041175479053
+      ],
+      [
+        46.49650327521878,
+        49.50933663297796,
+        31.85408870614168
+      ],
+      [
+        48.818599364718835,
+        24.17733978086023,
+        58.92752378178976
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        591.8758489000553,
+        266.58335558656603,
+        285.6686236011989
+      ],
+      [
+        571.3857285942396,
+        425.06662294797053,
+        224.5784974816587
+      ],
+      [
+        328.16342425136685,
+        347.84130091272374,
+        226.7540513650637
+      ],
+      [
+        364.46420440209124,
+        187.86962133304357,
+        415.9220068578293
+      ]
+    ],
+    "final_actuator_degrees": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "maximum_return_error_degrees": 0.0,
+    "minimum_support_margin_mm": 38.140140162879405,
+    "minimum_body_ground_clearance_mm": 31.37787912103203,
+    "min_sole_height_mm": -1.8200381646238384e-08,
+    "max_stance_material_vertex_constraint_error_mm": 1.0634429903501374e-13,
+    "maximum_rolling_normal_correction_mm": 0.015584462765197316,
+    "minimum_stance_contacts": 4,
+    "maximum_adjacent_joint_step_degrees": 0.6880013473257733,
+    "research_angle_bounds_satisfied": true,
+    "part023_forward_limit_satisfied": true,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 1500,
+    "bounded_midpoints": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 82.62593056985894,
+    "peak_interpolated_acceleration_degrees_s2": 714.0900034662649,
+    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
+  }
+}

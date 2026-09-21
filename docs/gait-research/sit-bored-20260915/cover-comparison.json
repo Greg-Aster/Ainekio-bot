@@ -1,0 +1,138 @@
+{
+  "CRAWL | Body - Top Cover - Compact": {
+    "old_parent": "CRAWL - CAD to Research World",
+    "new_parent": "CRAWL - CAD to Research World",
+    "old_vertices": 2890,
+    "new_vertices": 2037,
+    "old_polygons": 5808,
+    "new_polygons": 4101,
+    "old_bounds": [
+      [
+        39.890045166015625,
+        -13.5,
+        -3.856403782265261e-05
+      ],
+      [
+        213.8000030517578,
+        85.5,
+        2.9999940395355225
+      ]
+    ],
+    "new_bounds": [
+      [
+        39.890045166015625,
+        -15.500000953674316,
+        -0.20003114640712738
+      ],
+      [
+        213.8000030517578,
+        87.50000762939453,
+        2.9999940395355225
+      ]
+    ],
+    "maximum_vertex_change_mm": null,
+    "maximum_matrix_change": 129.3000030517578
+  },
+  "CRAWL | Body - Bottom Cover - Compact": {
+    "old_parent": "CRAWL - CAD to Research World",
+    "new_parent": "CRAWL - CAD to Research World",
+    "old_vertices": 5466,
+    "new_vertices": 5365,
+    "old_polygons": 11008,
+    "new_polygons": 10789,
+    "old_bounds": [
+      [
+        39.890045166015625,
+        -13.5,
+        3.9999687671661377
+      ],
+      [
+        213.8000030517578,
+        85.5,
+        12.999990463256836
+      ]
+    ],
+    "new_bounds": [
+      [
+        39.890045166015625,
+        -15.500000953674316,
+        3.9999678134918213
+      ],
+      [
+        213.8000030517578,
+        87.50000762939453,
+        12.999990463256836
+      ]
+    ],
+    "maximum_vertex_change_mm": null,
+    "maximum_matrix_change": 129.3000030517578
+  },
+  "TESTS | Body - Top Cover - Compact": {
+    "old_parent": "TESTS | Body - Assembly",
+    "new_parent": "TESTS | Body - Assembly",
+    "old_vertices": 2890,
+    "new_vertices": 2055,
+    "old_polygons": 5808,
+    "new_polygons": 4135,
+    "old_bounds": [
+      [
+        39.890045166015625,
+        -13.5,
+        -3.856403782265261e-05
+      ],
+      [
+        213.8000030517578,
+        85.5,
+        2.9999940395355225
+      ]
+    ],
+    "new_bounds": [
+      [
+        39.890045166015625,
+        -15.500001907348633,
+        -0.20002542436122894
+      ],
+      [
+        213.8000030517578,
+        87.5,
+        2.9999940395355225
+      ]
+    ],
+    "maximum_vertex_change_mm": null,
+    "maximum_matrix_change": 109.39999389648438
+  },
+  "TESTS | Body - Bottom Cover - Compact": {
+    "old_parent": "TESTS | Body - Assembly",
+    "new_parent": "TESTS | Body - Assembly",
+    "old_vertices": 5466,
+    "new_vertices": 5358,
+    "old_polygons": 11008,
+    "new_polygons": 10771,
+    "old_bounds": [
+      [
+        39.890045166015625,
+        -13.5,
+        3.9999725818634033
+      ],
+      [
+        213.8000030517578,
+        85.5,
+        12.999990463256836
+      ]
+    ],
+    "new_bounds": [
+      [
+        39.890045166015625,
+        -15.500004768371582,
+        3.999971628189087
+      ],
+      [
+        213.8000030517578,
+        87.5,
+        12.999990463256836
+      ]
+    ],
+    "maximum_vertex_change_mm": null,
+    "maximum_matrix_change": 109.39999389648438
+  }
+}

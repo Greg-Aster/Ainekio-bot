@@ -4,6 +4,7 @@ import unittest
 
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.translation import (
+    LEGACY_ROBOT_COMMANDS,
     ROBOT_COMMAND_DESCRIPTIONS,
     SEED_EMOTES,
     SUPPORTED_ROBOT_COMMANDS,
@@ -74,18 +75,19 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
     def test_environment_observation_advertises_the_owned_command_catalog(self) -> None:
         adapter = EnvironmentAdapter(
             ConnectedGateway(),  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(token="adapter-secret", receipt_path=":memory:"),
         )
+        self.addCleanup(adapter.receipts.close)
         capabilities = adapter._observation()["capabilities"]
         self.assertEqual(
             capabilities["robotCommands"],  # type: ignore[index]
-            list(SUPPORTED_ROBOT_COMMANDS),
+            list(LEGACY_ROBOT_COMMANDS),
         )
         self.assertEqual(
             capabilities["robotCommandDescriptions"],  # type: ignore[index]
             {
                 command: ROBOT_COMMAND_DESCRIPTIONS[command]
-                for command in SUPPORTED_ROBOT_COMMANDS
+                for command in LEGACY_ROBOT_COMMANDS
             },
         )
         self.assertIn("captureImage", capabilities["actions"])  # type: ignore[index]
@@ -93,8 +95,9 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
     def test_offline_observation_advertises_no_body_capabilities(self) -> None:
         adapter = EnvironmentAdapter(
             FakeGateway(),  # type: ignore[arg-type]
-            EnvironmentAdapterConfig(token="adapter-secret"),
+            EnvironmentAdapterConfig(token="adapter-secret", receipt_path=":memory:"),
         )
+        self.addCleanup(adapter.receipts.close)
 
         observation = adapter._observation()
         capabilities = observation["capabilities"]

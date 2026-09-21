@@ -1,0 +1,110 @@
+{
+  "duration_s": 7.0,
+  "motion_end_s": 6.5,
+  "sample_hz": 120,
+  "samples": 841,
+  "actuator_min_degrees": [
+    [
+      0.0,
+      -22.922454709420897,
+      -16.191425565211254
+    ],
+    [
+      0.0,
+      -22.922454709420695,
+      -16.191427265547897
+    ],
+    [
+      0.0,
+      0.0,
+      -35.36759528352904
+    ],
+    [
+      0.0,
+      0.0,
+      -35.367595283528885
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      10.994426765466791,
+      0.0
+    ],
+    [
+      0.0,
+      10.994426765467095,
+      0.0
+    ]
+  ],
+  "actuator_peak_speed_degrees_s": [
+    [
+      0.0,
+      84.79837420457952,
+      28.028300459562914
+    ],
+    [
+      0.0,
+      84.79837420457802,
+      28.028303187985735
+    ],
+    [
+      0.0,
+      40.416709606186956,
+      45.805718840621026
+    ],
+    [
+      0.0,
+      40.416709606185464,
+      45.805718840621026
+    ]
+  ],
+  "actuator_peak_acceleration_degrees_s2": [
+    [
+      0.0,
+      685.5190139303119,
+      251.44008169470595
+    ],
+    [
+      0.0,
+      685.5190139301457,
+      251.44010669903736
+    ],
+    [
+      0.0,
+      316.08119173874655,
+      171.4428322628507
+    ],
+    [
+      0.0,
+      316.0811917389319,
+      171.44283226294021
+    ]
+  ],
+  "maximum_adjacent_joint_step_degrees": 0.7068032122920371,
+  "final_joint_return_error_degrees": 0.0,
+  "minimum_support_margin_mm": 37.82261585742711,
+  "min_sole_height_mm": -1.3709836821362842e-08,
+  "minimum_body_ground_clearance_mm": 4.278009794575638,
+  "maximum_rolling_normal_correction_mm": 0.0009025914015907688,
+  "solved_rolling_transfers": 420,
+  "minimum_stance_contacts": 4,
+  "max_stance_material_vertex_constraint_error_mm": 1.2809491335957507e-13,
+  "research_angle_bounds_satisfied": true,
+  "fourbar_closure": "Recomputed from measured branch at every sample",
+  "collision_checked": false,
+  "measured_mass_balance_verified": false,
+  "hardware_servo_limits_verified": false,
+  "body_contact_strength_verified": false,
+  "hardware_qualified": false
+}

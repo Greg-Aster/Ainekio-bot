@@ -3,6 +3,11 @@
   "$id": "https://ainekio.local/protocol/control-v1.schema.json",
   "title": "Ainekio control protocol v1",
   "description": "One JSON object carried by one WebSocket text frame. Unknown additional fields on known messages are ignored for forward compatibility.",
+  "properties": {
+    "epoch": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+    "deadline_ms": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "clock_ms": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
+  },
   "oneOf": [
     {"$ref": "#/$defs/hello"},
     {"$ref": "#/$defs/err"},
@@ -23,6 +28,7 @@
     {"$ref": "#/$defs/limits"},
     {"$ref": "#/$defs/pose_save"},
     {"$ref": "#/$defs/cal_save"},
+    {"$ref": "#/$defs/output_test"},
     {"$ref": "#/$defs/ack"},
     {"$ref": "#/$defs/nak"},
     {"$ref": "#/$defs/done"},
@@ -33,6 +39,25 @@
     {"$ref": "#/$defs/pong"}
   ],
   "$defs": {
+    "output_test": {
+      "x-ainekio-message-type": "output_test",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": ["t", "seq", "op"],
+      "properties": {
+        "t": {"const": "output_test"},
+        "seq": {"$ref": "#/$defs/sequence"},
+        "op": {"enum": ["recover", "run"]},
+        "channel": {"type": "integer", "minimum": 0, "maximum": 11},
+        "pulse_us": {"type": "integer", "minimum": 1000, "maximum": 2000},
+        "ms": {"type": "integer", "minimum": 100, "maximum": 2000},
+        "fault": {"enum": ["none", "stall", "interrupt_arm", "reset"]}
+      },
+      "oneOf": [
+        {"properties": {"op": {"const": "recover"}}},
+        {"properties": {"op": {"const": "run"}}, "required": ["channel", "pulse_us", "ms"]}
+      ]
+    },
     "sequence": {
       "type": "integer",
       "minimum": 1,
@@ -81,7 +106,42 @@
           "x-ainekio-rules": ["unique-items"]
         },
         "seq": false
-      }
+      },
+      "allOf": [
+        {
+          "if": {"required": ["features"], "properties": {"features": {"contains": {"const": "command_deadline_v1"}}}},
+          "then": {"required": ["clock_ms"]}
+        },
+        {
+          "if": {"required": ["features"], "properties": {"features": {"contains": {"const": "body_commands_v1"}}}},
+          "then": {
+            "properties": {
+              "features": {"contains": {"const": "body_capabilities_v1"}},
+              "capabilities": {
+                "required": ["commands"],
+                "properties": {"commands": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 32}}}
+              }
+            }
+          }
+        },
+        {
+          "if": {"required": ["features"], "properties": {"features": {"contains": {"const": "body_capabilities_v1"}}}},
+          "then": {
+            "required": ["model", "capabilities"],
+            "properties": {
+              "model": {"type": "string", "minLength": 1, "maxLength": 32},
+              "capabilities": {
+                "type": "object",
+                "required": ["motion", "camera", "microphone", "speaker"],
+                "properties": {
+                  "motion": {"type": "boolean"}, "camera": {"type": "boolean"},
+                  "microphone": {"type": "boolean"}, "speaker": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "err": {
       "x-ainekio-message-type": "err",
@@ -104,6 +164,7 @@
         "ver": {"const": 1},
         "epoch": {"$ref": "#/$defs/counter"},
         "profile": {"$ref": "#/$defs/profileName"},
+        "command_deadline_v1": {"type": "boolean"},
         "seq": false
       }
     },

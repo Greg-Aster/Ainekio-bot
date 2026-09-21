@@ -1,0 +1,16 @@
+{
+  "source": "../robot-pushup-20260916/source.json",
+  "samples": 1741,
+  "compared_fields": [
+    "time_s",
+    "body_position_world_mm",
+    "body_rotation_euler_xyz_rad",
+    "actuator_angles_rad",
+    "passive_beta_rad",
+    "contact_world_mm",
+    "contact_active"
+  ],
+  "identical": true,
+  "original_source_sha256": "a9014f6556bb98373f4baca9be58e872f9866179383a46fcabc2185e8e280a3e",
+  "original_workspace_source": "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-20260916/source.json"
+}

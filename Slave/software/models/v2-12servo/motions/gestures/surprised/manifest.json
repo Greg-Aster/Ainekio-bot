@@ -1,0 +1,216 @@
+{
+  "command": "surprised",
+  "body_control_label": "SURPRISED",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "surprised"
+  },
+  "gait_id": "surprised_fourbar_20260916",
+  "generated_utc": "2026-09-16T20:38:36.331702+00:00",
+  "duration_seconds": 11.95,
+  "semantic_end_seconds": 11.95,
+  "source_sample_hz": 120,
+  "sample_count": 1435,
+  "entry_pose": "Corrected geometric standing neutral; arbitrary-pose entry not verified.",
+  "completion": "Return to exact recorded standing and hold; this matches the V1 final stand frame.",
+  "semantic_final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "playlist_final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "face_cues": [
+    {
+      "time_s": 0,
+      "name": "surprised_motion",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 11.45,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "5230421770d7c16f736b797e60b2417117a54d440947c0bbdc819fd9c6d88fda",
+  "csv_sha256": "aed4e2a892b9a25d554de15ff6c157a61d9bc75ce62a0aad5173f00667d923f5",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "3fad46eceddd49e52ad9959cd846270b572ed1504d3aa92235046c260d7e00c7",
+  "face_sha256": {
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e",
+    "faces/surprised_motion/0.bin": "240a7eda394e64c4e8d1a28b6f6abdbdc94d0e7ff776aa1fe35745469b18a4e3",
+    "faces/surprised_motion/1.bin": "110aff57399d51f9d172efea70f3f05841b09a2c72ad0868c160a8104902224b"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+  "blender_frames": [
+    6085,
+    6372
+  ],
+  "design": "V1 Surprised: dead/flat pose, raise the physical front pair R3/L3, three alternating front-arm cycles, then fold and stand. V2 belly support and 90-degree outward shoulders recreate flat pose; CAD RL/RR shoulders raise and alternate while CAD FL/FR rear legs stay flat.",
+  "contact_model": "Grounded rolling soles lower body onto the current rear cover plus front visor support plane at -5.714 degrees pitch. The fixed body then carries airborne limbs. Geometric floor clearance is enforced; visor load capacity and contact friction are unverified.",
+  "source_validation": {
+    "duration_s": 11.95,
+    "motion_end_s": 11.45,
+    "sample_hz": 120,
+    "samples": 1435,
+    "actuator_min_degrees": [
+      [
+        0.0,
+        0.0,
+        -26.270649482617586
+      ],
+      [
+        -90.0,
+        0.0,
+        -26.270652078946483
+      ],
+      [
+        0.0,
+        0.0,
+        -23.057169875367823
+      ],
+      [
+        -140.0,
+        0.0,
+        -23.057169875367823
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        90.0,
+        55.2090864926682,
+        0.0
+      ],
+      [
+        0.0,
+        55.2090864926683,
+        0.0
+      ],
+      [
+        140.0,
+        43.05143229250936,
+        0.0
+      ],
+      [
+        0.0,
+        43.05143229250936,
+        0.0
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        168.71875260416672,
+        115.69489099610365,
+        70.34122160402579
+      ],
+      [
+        168.71875260416672,
+        115.69489099610408,
+        70.34122855585039
+      ],
+      [
+        168.71875260416672,
+        93.6415495695892,
+        61.736939425043644
+      ],
+      [
+        168.71875260416672,
+        93.6415495695892,
+        61.736939425043644
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        519.0937500004168,
+        508.1808827702368,
+        308.9683890283114
+      ],
+      [
+        519.0937500004168,
+        508.18088277024316,
+        308.96841956364455
+      ],
+      [
+        897.2167968751364,
+        717.7734375000938,
+        271.17474338262286
+      ],
+      [
+        897.2167968751364,
+        717.7734375000938,
+        271.17474338262286
+      ]
+    ],
+    "minimum_support_margin_mm": 22.755338679799294,
+    "minimum_stance_contacts": 0,
+    "maximum_rolling_normal_correction_mm": 0.0005382055878619951,
+    "solved_rolling_transfers": 268,
+    "max_stance_material_vertex_constraint_error_mm": 8.819392567223197e-14,
+    "minimum_body_ground_clearance_mm": 0.0,
+    "min_sole_height_mm": -1.3262591025409165e-08,
+    "maximum_adjacent_joint_step_degrees": 1.4059896050347263,
+    "final_joint_return_error_degrees": 0.0,
+    "research_angle_bounds_satisfied": true,
+    "fourbar_branch_preserved": true,
+    "belly_support_required": true,
+    "collision_checked": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "hardware_qualified": false,
+    "complete_body_floor_check_passed": true,
+    "body_support_contacts": "Rear bottom-cover edge and front visor low point",
+    "body_contact_strength_verified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 1434,
+    "bounded_quarter_samples": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 168.7500069428355,
+    "peak_interpolated_acceleration_degrees_s2": 1100.3117300515703,
+    "continuity": "Position and velocity continuous; full acceleration continuity not established.",
+    "hardware_qualified": false
+  }
+}

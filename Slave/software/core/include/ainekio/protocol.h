@@ -45,6 +45,7 @@ typedef enum {
     AINEKIO_COMMAND_LIMITS,
     AINEKIO_COMMAND_POSE_SAVE,
     AINEKIO_COMMAND_CALIBRATION_SAVE,
+    AINEKIO_COMMAND_OUTPUT_TEST,
 } ainekio_command_kind_t;
 
 typedef enum {
@@ -158,6 +159,13 @@ typedef struct {
     uint32_t sequence;
     ainekio_command_kind_t kind;
     union {
+        struct {
+            bool recover;
+            uint8_t channel;
+            uint16_t pulse_us;
+            uint16_t duration_ms;
+            uint8_t fault; /* 0: none, 1: progress stall, 2: interrupted arm, 3: reset */
+        } output_test;
         struct {
             bool detach;
         } stop;

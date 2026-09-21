@@ -1,0 +1,92 @@
+{
+  "commands": [
+    {
+      "command": "cute",
+      "archive": "ainekio-cute-12servo-20260916.zip",
+      "files": 47,
+      "bytes": 40536764,
+      "sha256": "cee7b35a74d325ffe189ea1a953fa00b99c6f185ae6fa1b7830fbe7b0c8f7bd5"
+    },
+    {
+      "command": "freaky",
+      "archive": "ainekio-freaky-12servo-20260916.zip",
+      "files": 38,
+      "bytes": 20809794,
+      "sha256": "c6823e6f5b4ece707ee31cb9a317b7c7f6baf852d099e91423099cc0c85e0aa8"
+    },
+    {
+      "command": "worm",
+      "archive": "ainekio-worm-12servo-20260916.zip",
+      "files": 38,
+      "bytes": 21402364,
+      "sha256": "1842058238bfeb323ea90dbee724342a20550bc1e78a5eab1f1d87d12b3647a3"
+    },
+    {
+      "command": "shake",
+      "archive": "ainekio-shake-12servo-20260916.zip",
+      "files": 41,
+      "bytes": 20859715,
+      "sha256": "574683a1fcb928d6941c34306a91b9ca863053e162c123c3c8b2f41b40f8ebf3"
+    },
+    {
+      "command": "shrug",
+      "archive": "ainekio-shrug-12servo-20260916.zip",
+      "files": 50,
+      "bytes": 21190641,
+      "sha256": "c7f524f8f1c2fee0bc6440e6615d28c1b74976a7265cfa3638f1735251fe6ac3"
+    },
+    {
+      "command": "dead",
+      "archive": "ainekio-dead-12servo-20260916.zip",
+      "files": 45,
+      "bytes": 40336502,
+      "sha256": "c1541b38c757582140c2d73d67cf2150e7127f9f11f565b05c5556f6b77d86e0"
+    },
+    {
+      "command": "crab",
+      "archive": "ainekio-crab-12servo-20260916.zip",
+      "files": 38,
+      "bytes": 22703203,
+      "sha256": "9a85338767582753fa6f9ead5763970ae75153c57327ea047a476bd0c3721014"
+    },
+    {
+      "command": "celebrate",
+      "archive": "ainekio-celebrate-12servo-20260916.zip",
+      "files": 47,
+      "bytes": 40680335,
+      "sha256": "2f2d4dce0c9b85897d0599d47ef6ad32fe9b0ca90ae7cb35656f301b940cbe36"
+    },
+    {
+      "command": "stretch",
+      "archive": "ainekio-stretch-12servo-20260916.zip",
+      "files": 43,
+      "bytes": 20720138,
+      "sha256": "29b73f87f6a25692edf0725275576f8b8c99de823c1d8c41a0376c210d4b28fe"
+    },
+    {
+      "command": "surprised",
+      "archive": "ainekio-surprised-12servo-20260916.zip",
+      "files": 48,
+      "bytes": 21304711,
+      "sha256": "94484179bb3bd4226d00ce1c5c4b29e4372c83f88af558c7a7c91f33a76bb188"
+    },
+    {
+      "command": "sad",
+      "archive": "ainekio-sad-12servo-20260916.zip",
+      "files": 43,
+      "bytes": 21014862,
+      "sha256": "5e4d120a7292faabea142b16a5bb05863b200d34d1b5c37f582ca8e6268e23b2"
+    },
+    {
+      "command": "curious",
+      "archive": "ainekio-curious-12servo-20260916.zip",
+      "files": 42,
+      "bytes": 21096086,
+      "sha256": "291de3177b7170bbf1e8b4f8f402bc98b47323da1fd9595e8804f4d933a524a9"
+    }
+  ],
+  "combined_archive": "ainekio-motion-library-12servo-20260916.zip",
+  "combined_bytes": 313746437,
+  "combined_sha256": "1de00f57b17a5e6f486f035235cbb2d6f708400d890183cfd02048fc1f0138ce",
+  "files": 557
+}

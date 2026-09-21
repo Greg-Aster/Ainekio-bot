@@ -1,6 +1,7 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "output_test_run", "requires_feature": "output_test_v1", "message": {"t": "output_test", "seq": 1, "op": "run", "channel": 11, "pulse_us": 1500, "ms": 100, "fault": "none", "epoch": 9, "deadline_ms": 12345}},
     {
       "name": "hello",
       "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN", "features": ["motion_plan_v1"]}

@@ -1,0 +1,303 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "sit",
+  "gait_id": "sit_bored_fourbar_20260915",
+  "wire": {
+    "t": "intent",
+    "name": "sit"
+  },
+  "shared_policy": "../execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/sit-bored-20260915/source.json",
+      "sha256": "5ee287ba5bd27892212c32e6035cfe130cb34a3eed0ce8572d2b7d2982b104c0"
+    },
+    {
+      "path": "docs/gait-research/sit-bored-20260915/manifest.json",
+      "sha256": "8b02ddd431cd16a18d152ee78082e778ebed1fc0d713228a40945b2d72b5bb29"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_lower_into_sit",
+      "name": "lower_into_sit",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        3.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        360
+      ],
+      "demonstration_duration_s": 3.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [
+        1,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10,
+        11
+      ],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.6964783562480208,
+        0.10216773565294748,
+        0.0,
+        0.696478356248033,
+        0.10216774758785123,
+        0.0,
+        0.0869278660894364,
+        0.5948554880155084,
+        0.0,
+        0.0869278660894364,
+        0.5948554880155084
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.8047840862891542,
+        0.6052501779291706,
+        0.0,
+        0.8047840862181443,
+        0.6052502456476153,
+        0.0,
+        0.12541099599473526,
+        0.8843462822546,
+        0.0,
+        0.12541099599473526,
+        0.8843462822546
+      ]
+    },
+    {
+      "id": "p001_hold_sit",
+      "name": "hold_sit",
+      "section": "clip",
+      "source_interval_s": [
+        3.0,
+        5.0
+      ],
+      "source_sample_indices_inclusive": [
+        360,
+        600
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "moving_joint_indices": [],
+      "coordination": "whole_body_shared_clock",
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_lower_into_sit": 3.0,
+        "p001_hold_sit": 2.0
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_lower_into_sit": 3.0,
+        "p001_hold_sit": 2.0
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_lower_into_sit": null,
+        "p001_hold_sit": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "loop_contract": null,
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "bored",
+      "mode": "boomerang",
+      "fps": 2
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "body_position_world_mm": [
+      -0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "body_orientation_world_quaternion_wxyz": [
+      1.0,
+      0.0,
+      -0.0,
+      0.0
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Hold the recorded sitting pose until another command. No automatic stand or joint reset.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        1.1653078329576392,
+        0.020322932515144387
+      ],
+      [
+        0.0,
+        1.1653078329576214,
+        0.020322934970514073
+      ],
+      [
+        0.0,
+        0.11140405290702526,
+        0.9742105719060676
+      ],
+      [
+        0.0,
+        0.11140405290702526,
+        0.9742105719060676
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "minimum_assumed_support_margin_mm": 35.58569876976196,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false
+  },
+  "hardware_ready": false,
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands."
+}

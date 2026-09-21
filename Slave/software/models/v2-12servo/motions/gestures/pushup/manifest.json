@@ -1,0 +1,260 @@
+{
+  "command": "pushup",
+  "body_control_label": "Pushup",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "pushup"
+  },
+  "gait_id": "pushup_deep_rear_fourbar_20260916",
+  "generated_utc": "2026-09-16T17:44:23.002250+00:00",
+  "duration_seconds": 14.5,
+  "motion_end_seconds": 14.0,
+  "source_sample_hz": 120,
+  "sample_count": 1741,
+  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "completion": "Complete 5 front-leg presses, then return through the rear crouch to standing.",
+  "final_actuator_angles_rad": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      80.96182697652446
+    ],
+    "pitch_degrees": 0.0
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "pushup",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 14.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "face_asset": {
+    "name": "pushup",
+    "width": 128,
+    "height": 64,
+    "encoding": "row-major MSB-first 1-bit bitmap; 16 bytes per row",
+    "fps": 1,
+    "mode": "once",
+    "frames": [
+      "faces/pushup/0.bin"
+    ],
+    "source": "Unchanged existing Ainekio owner-authored pushup face bitmaps"
+  },
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "e581eb7a4bbf772510bed2da11a535caf2948b2d4b74b39967a3b239a8b43f01",
+  "csv_sha256": "96dbb12a93a488d6d8ff8aad556c402277a4a30bcaff0207010fbb668ab5b6e5",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "body_samples_sha256": "967e0b376821b7d745fe4817534940dfab31b0c2d8a739ffda2cdb343a508d52",
+  "face_sha256": {
+    "faces/pushup/0.bin": "e529d6291e8246d6880628d999e9b5102caed0dacf633bb610b610e47f203a6d",
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-deep-20260916/Ainekio-Pushup.blend",
+  "blender_frames": [
+    2509,
+    2857
+  ],
+  "design": "User retained the original shallow Pushup as Nod. This distinct Pushup lowers both rear legs close to the current research carrier-angle bound and rear-body floor clearance while retaining five 1-second down / 1-second up front-leg presses.",
+  "body_contact_required": false,
+  "source_validation": {
+    "duration_s": 14.5,
+    "motion_end_s": 14.0,
+    "sample_hz": 120,
+    "samples": 1741,
+    "repetitions": 5,
+    "repetitions_start_s": 2.0,
+    "repetitions_end_s": 12.0,
+    "actuator_min_degrees": [
+      [
+        0.0,
+        0.0,
+        -20.917585221340335
+      ],
+      [
+        0.0,
+        0.0,
+        -20.917587352226125
+      ],
+      [
+        0.0,
+        0.0,
+        -9.36301035057834
+      ],
+      [
+        0.0,
+        0.0,
+        -9.36301035057834
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        0.0,
+        67.29697581441044,
+        0.7961692561789655
+      ],
+      [
+        0.0,
+        67.29697581441044,
+        0.7961693520405019
+      ],
+      [
+        0.0,
+        26.54438714285003,
+        53.651053112617426
+      ],
+      [
+        0.0,
+        26.54438714285003,
+        53.651053112617426
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        0.0,
+        60.23238123579901,
+        40.813652735531214
+      ],
+      [
+        0.0,
+        60.23238123579901,
+        40.81365691493119
+      ],
+      [
+        0.0,
+        37.12567117880589,
+        117.51590247421163
+      ],
+      [
+        0.0,
+        37.12567117880589,
+        117.51590247421163
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        0.0,
+        132.91486987149028,
+        140.21499582492547
+      ],
+      [
+        0.0,
+        132.91486987149028,
+        140.21501169535406
+      ],
+      [
+        0.0,
+        150.2420465612495,
+        563.3872698744426
+      ],
+      [
+        0.0,
+        150.2420465612495,
+        563.3872698744426
+      ]
+    ],
+    "crouched_actuator_degrees": [
+      [
+        0.0,
+        67.29697581441044,
+        0.7961692561789655
+      ],
+      [
+        0.0,
+        67.29697581441044,
+        0.7961693520405019
+      ],
+      [
+        0.0,
+        7.127462701823668,
+        53.651053112617426
+      ],
+      [
+        0.0,
+        7.127462701823694,
+        53.651053112617426
+      ]
+    ],
+    "lowered_actuator_degrees": [
+      [
+        0.0,
+        45.04341345264482,
+        -20.917585221340335
+      ],
+      [
+        0.0,
+        45.04341345264487,
+        -20.917587352226125
+      ],
+      [
+        0.0,
+        26.54438714285003,
+        -9.36301035057834
+      ],
+      [
+        0.0,
+        26.54438714285003,
+        -9.36301035057834
+      ]
+    ],
+    "front_body_datum_mm": [
+      75.0,
+      0.0,
+      0.0
+    ],
+    "front_body_vertical_travel_mm": 34.93913596786079,
+    "minimum_support_margin_mm": 35.58569235615449,
+    "minimum_stance_contacts": 4,
+    "maximum_rolling_normal_correction_mm": 0.0004039429123050553,
+    "solved_rolling_transfers": 260,
+    "max_stance_material_vertex_constraint_error_mm": 9.808642923501425e-14,
+    "minimum_body_ground_clearance_mm": 1.3852467121430436,
+    "min_sole_height_mm": -1.8590768036119698e-08,
+    "maximum_adjacent_joint_step_degrees": 0.9793346147600026,
+    "final_joint_return_error_degrees": 0.0,
+    "research_angle_bounds_satisfied": true,
+    "collision_checked": false,
+    "hardware_servo_limits_verified": false,
+    "measured_mass_balance_verified": false,
+    "hardware_qualified": false
+  },
+  "interpolation_validation": {
+    "segments_checked": 1740,
+    "bounded_midpoints": true,
+    "final_hold_verified": true,
+    "peak_interpolated_speed_degrees_s": 117.5448830813694,
+    "peak_interpolated_acceleration_degrees_s2": 648.9031753245115,
+    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
+  }
+}

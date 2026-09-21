@@ -1,0 +1,13 @@
+{
+  "gait_id": "turn_left_180_fourbar_20260915",
+  "blend_file": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_180/Ainekio-Turn-Left-180.blend",
+  "scene": "AINEKIO - Turn Left 180",
+  "stride_mm": 0.0,
+  "cycle_seconds": 4.0,
+  "trajectory_file": "commands/turn_left_180/source.json",
+  "versioned_data_directory": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_180",
+  "command": "turn_left_180",
+  "heading_change_degrees": 180,
+  "shoulder_strategy": null,
+  "hardware_ready": false
+}

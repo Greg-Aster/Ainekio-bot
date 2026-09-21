@@ -1,0 +1,425 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="1840" viewBox="0 0 3000 1840" role="img">
+<title>Ainekio V2: Waveshare ESP32-P4-WIFI6 firmware pinout</title>
+<style>text{font-family:"DejaVu Sans",Arial,sans-serif} .bold{font-weight:700}</style>
+<rect x="0" y="0" width="3000" height="1840" rx="0" fill="#f5f7fa"/>
+<text x="60" y="100" font-size="65" fill="#18232d" text-anchor="start" class="bold">AINEKIO · WAVESHARE ESP32-P4-WIFI6</text>
+<text x="65" y="154" font-size="32" fill="#ef7949" text-anchor="start" class="bold">V2 FIRMWARE PINOUT</text>
+<text x="490" y="154" font-size="28" fill="#596879" text-anchor="start">Component side · USB-C at TOP · C6 antenna at BOTTOM</text>
+<rect x="2420" y="50" width="520" height="125" rx="18" fill="#18232d"/>
+<text x="2680" y="102" font-size="30" fill="#ffffff" text-anchor="middle" class="bold">12 JOINTS · PCA9685</text>
+<text x="2680" y="143" font-size="23" fill="#d0d8e0" text-anchor="middle">3.3 V SIGNALS · DISARMED STARTUP</text>
+<rect x="60" y="245" width="1160" height="40" rx="8" fill="#18232d"/>
+<text x="80" y="273" font-size="24" fill="#ffffff" text-anchor="start" class="bold">LEFT HEADER · COUNT DOWN FROM USB-C</text>
+<rect x="1780" y="245" width="1160" height="40" rx="8" fill="#18232d"/>
+<text x="1800" y="273" font-size="24" fill="#ffffff" text-anchor="start" class="bold">RIGHT HEADER · COUNT DOWN FROM USB-C</text>
+<rect x="1310" y="225" width="380" height="1210" rx="24" fill="#26333b" stroke="#18232d" stroke-width="4"/>
+<circle cx="1336" cy="251" r="17" fill="#f5f7fa" stroke="#b5b2a1" stroke-width="5"/>
+<circle cx="1336" cy="1400" r="17" fill="#f5f7fa" stroke="#b5b2a1" stroke-width="5"/>
+<circle cx="1664" cy="251" r="17" fill="#f5f7fa" stroke="#b5b2a1" stroke-width="5"/>
+<circle cx="1664" cy="1400" r="17" fill="#f5f7fa" stroke="#b5b2a1" stroke-width="5"/>
+<rect x="1422" y="211" width="156" height="126" rx="12" fill="#bbc1c4" stroke="#e5e8eb" stroke-width="4"/>
+<rect x="1440" y="222" width="120" height="27" rx="8" fill="#39434b"/>
+<text x="1500" y="302" font-size="25" fill="#18232d" text-anchor="middle" class="bold">USB-C</text>
+<text x="1500" y="374" font-size="18" fill="#d8e2e8" text-anchor="middle" class="bold">POWER / FLASH / LOGS</text>
+<rect x="1439" y="396" width="122" height="63" rx="7" fill="#56636a"/>
+<text x="1500" y="437" font-size="27" fill="#cfd6da" text-anchor="middle" class="bold">4R7</text>
+<rect x="1398" y="493" width="70" height="48" rx="4" fill="#c9ced0"/>
+<circle cx="1433" cy="517" r="16" fill="#47515c"/>
+<text x="1433" y="574" font-size="18" fill="#e2e9ef" text-anchor="middle" class="bold">BOOT</text>
+<rect x="1548" y="493" width="70" height="48" rx="4" fill="#c9ced0"/>
+<circle cx="1583" cy="517" r="16" fill="#47515c"/>
+<text x="1583" y="574" font-size="18" fill="#e2e9ef" text-anchor="middle" class="bold">RST</text>
+<rect x="1371" y="617" width="258" height="38" rx="4" fill="#e9e2d1"/>
+<rect x="1380" y="623" width="240" height="11" rx="2" fill="#1a2027"/>
+<line x1="1384" y1="642" x2="1384" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1394" y1="642" x2="1394" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1404" y1="642" x2="1404" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1414" y1="642" x2="1414" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1424" y1="642" x2="1424" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1434" y1="642" x2="1434" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1444" y1="642" x2="1444" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1454" y1="642" x2="1454" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1464" y1="642" x2="1464" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1474" y1="642" x2="1474" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1484" y1="642" x2="1484" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1494" y1="642" x2="1494" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1504" y1="642" x2="1504" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1514" y1="642" x2="1514" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1524" y1="642" x2="1524" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1534" y1="642" x2="1534" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1544" y1="642" x2="1544" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1554" y1="642" x2="1554" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1564" y1="642" x2="1564" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1574" y1="642" x2="1574" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1584" y1="642" x2="1584" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1594" y1="642" x2="1594" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1604" y1="642" x2="1604" y2="651" stroke="#ad9853" stroke-width="3"/>
+<line x1="1614" y1="642" x2="1614" y2="651" stroke="#ad9853" stroke-width="3"/>
+<text x="1500" y="685" font-size="22" fill="#e2e9ef" text-anchor="middle" class="bold">DISPLAY</text>
+<rect x="1371" y="841" width="258" height="38" rx="4" fill="#e9e2d1"/>
+<rect x="1380" y="847" width="240" height="11" rx="2" fill="#1a2027"/>
+<line x1="1384" y1="866" x2="1384" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1394" y1="866" x2="1394" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1404" y1="866" x2="1404" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1414" y1="866" x2="1414" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1424" y1="866" x2="1424" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1434" y1="866" x2="1434" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1444" y1="866" x2="1444" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1454" y1="866" x2="1454" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1464" y1="866" x2="1464" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1474" y1="866" x2="1474" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1484" y1="866" x2="1484" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1494" y1="866" x2="1494" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1504" y1="866" x2="1504" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1514" y1="866" x2="1514" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1524" y1="866" x2="1524" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1534" y1="866" x2="1534" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1544" y1="866" x2="1544" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1554" y1="866" x2="1554" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1564" y1="866" x2="1564" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1574" y1="866" x2="1574" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1584" y1="866" x2="1584" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1594" y1="866" x2="1594" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1604" y1="866" x2="1604" y2="875" stroke="#ad9853" stroke-width="3"/>
+<line x1="1614" y1="866" x2="1614" y2="875" stroke="#ad9853" stroke-width="3"/>
+<text x="1500" y="909" font-size="22" fill="#e2e9ef" text-anchor="middle" class="bold">CAMERA</text>
+<rect x="1434" y="716" width="132" height="86" rx="4" fill="#151b20" stroke="#6a7279" stroke-width="2"/>
+<text x="1500" y="765" font-size="21" fill="#b5c3cb" text-anchor="middle" class="bold">FLASH</text>
+<rect x="1414" y="953" width="172" height="54" rx="4" fill="#18232d" stroke="#829498" stroke-width="2"/>
+<circle cx="1434" cy="978" r="9" fill="#d9bd6b"/>
+<circle cx="1478" cy="978" r="9" fill="#d9bd6b"/>
+<circle cx="1522" cy="978" r="9" fill="#d9bd6b"/>
+<circle cx="1566" cy="978" r="9" fill="#d9bd6b"/>
+<text x="1500" y="1038" font-size="19" fill="#b5c3cb" text-anchor="middle">C6 UART PADS</text>
+<rect x="1400" y="1080" width="200" height="64" rx="5" fill="#e2dccc"/>
+<rect x="1427" y="1097" width="9" height="24" rx="0" fill="#a79c75"/>
+<rect x="1465" y="1097" width="9" height="24" rx="0" fill="#a79c75"/>
+<rect x="1503" y="1097" width="9" height="24" rx="0" fill="#a79c75"/>
+<rect x="1541" y="1097" width="9" height="24" rx="0" fill="#a79c75"/>
+<text x="1500" y="1182" font-size="20" fill="#e2e9ef" text-anchor="middle" class="bold">P1 · NATIVE USB HS</text>
+<rect x="1398" y="1230" width="204" height="106" rx="6" fill="#aab4b9" stroke="#e3e7e9" stroke-width="2"/>
+<text x="1500" y="1275" font-size="24" fill="#18232d" text-anchor="middle" class="bold">ESP32-C6</text>
+<text x="1500" y="1310" font-size="18" fill="#18232d" text-anchor="middle">Wi-Fi coprocessor</text>
+<rect x="1398" y="1346" width="204" height="65" rx="0" fill="#192027"/>
+<line x1="1410" y1="1400" x2="1410" y2="1357" stroke="#5b666d" stroke-width="6"/>
+<line x1="1450" y1="1400" x2="1450" y2="1357" stroke="#5b666d" stroke-width="6"/>
+<line x1="1490" y1="1400" x2="1490" y2="1357" stroke="#5b666d" stroke-width="6"/>
+<line x1="1530" y1="1400" x2="1530" y2="1357" stroke="#5b666d" stroke-width="6"/>
+<line x1="1570" y1="1400" x2="1570" y2="1357" stroke="#5b666d" stroke-width="6"/>
+<line x1="1410" y1="1357" x2="1570" y2="1357" stroke="#5b666d" stroke-width="6"/>
+<rect x="60" y="297" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="300" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="324" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L1</text>
+<text x="154" y="325" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO52</text>
+<text x="390" y="324" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="316" x2="1321" y2="316" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="316" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="341" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="344" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="368" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L2</text>
+<text x="154" y="369" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO51</text>
+<text x="390" y="368" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="360" x2="1321" y2="360" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="360" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="385" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="388" width="71" height="33" rx="5" fill="#526172"/>
+<text x="100" y="412" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L3</text>
+<text x="154" y="413" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="390" y="412" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1220" y1="404" x2="1321" y2="404" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="404" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="429" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="432" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="456" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L4</text>
+<text x="154" y="457" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO31</text>
+<text x="390" y="456" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="448" x2="1321" y2="448" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="448" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="473" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="476" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="500" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L5</text>
+<text x="154" y="501" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO30</text>
+<text x="390" y="500" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="492" x2="1321" y2="492" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="492" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="517" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="520" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="544" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L6</text>
+<text x="154" y="545" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO29</text>
+<text x="390" y="544" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="536" x2="1321" y2="536" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="536" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="561" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="564" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="588" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L7</text>
+<text x="154" y="589" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO28</text>
+<text x="390" y="588" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="580" x2="1321" y2="580" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="580" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="605" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="608" width="71" height="33" rx="5" fill="#526172"/>
+<text x="100" y="632" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L8</text>
+<text x="154" y="633" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="390" y="632" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1220" y1="624" x2="1321" y2="624" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="624" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="649" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="652" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="676" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L9</text>
+<text x="154" y="677" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO50</text>
+<text x="390" y="676" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="668" x2="1321" y2="668" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="668" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="693" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="696" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="720" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L10</text>
+<text x="154" y="721" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO49</text>
+<text x="390" y="720" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="712" x2="1321" y2="712" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="712" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="737" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="740" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="100" y="764" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L11</text>
+<text x="154" y="765" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO5</text>
+<text x="390" y="764" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1220" y1="756" x2="1321" y2="756" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="756" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="781" width="1160" height="39" rx="6" fill="#fff4ec"/>
+<rect x="65" y="784" width="71" height="33" rx="5" fill="#ef7949"/>
+<text x="100" y="808" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L12</text>
+<text x="154" y="809" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO4</text>
+<text x="390" y="808" font-size="24" fill="#18232d" text-anchor="start" class="bold">PCA9685 OE · HIGH disables outputs</text>
+<line x1="1220" y1="800" x2="1321" y2="800" stroke="#ef7949" stroke-width="4"/>
+<circle cx="1334" cy="800" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<circle cx="1334" cy="800" r="5" fill="#ef7949"/>
+<rect x="60" y="825" width="1160" height="39" rx="6" fill="#fff4ec"/>
+<rect x="65" y="828" width="71" height="33" rx="5" fill="#526172"/>
+<text x="100" y="852" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L13</text>
+<text x="154" y="853" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="390" y="852" font-size="24" fill="#18232d" text-anchor="start" class="bold">PCA9685 GND · convenient adjacent ground</text>
+<line x1="1220" y1="844" x2="1321" y2="844" stroke="#526172" stroke-width="4"/>
+<circle cx="1334" cy="844" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<circle cx="1334" cy="844" r="5" fill="#526172"/>
+<rect x="60" y="869" width="1160" height="39" rx="6" fill="#fff4ec"/>
+<rect x="65" y="872" width="71" height="33" rx="5" fill="#079ec5"/>
+<text x="100" y="896" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L14</text>
+<text x="154" y="897" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO3</text>
+<text x="390" y="896" font-size="24" fill="#18232d" text-anchor="start" class="bold">PCA9685 SCL · dedicated servo I²C clock</text>
+<line x1="1220" y1="888" x2="1321" y2="888" stroke="#079ec5" stroke-width="4"/>
+<circle cx="1334" cy="888" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<circle cx="1334" cy="888" r="5" fill="#079ec5"/>
+<rect x="60" y="913" width="1160" height="39" rx="6" fill="#fff4ec"/>
+<rect x="65" y="916" width="71" height="33" rx="5" fill="#079ec5"/>
+<text x="100" y="940" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L15</text>
+<text x="154" y="941" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO2</text>
+<text x="390" y="940" font-size="24" fill="#18232d" text-anchor="start" class="bold">PCA9685 SDA · dedicated servo I²C data</text>
+<line x1="1220" y1="932" x2="1321" y2="932" stroke="#079ec5" stroke-width="4"/>
+<circle cx="1334" cy="932" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<circle cx="1334" cy="932" r="5" fill="#079ec5"/>
+<rect x="60" y="957" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="960" width="71" height="33" rx="5" fill="#7863b7"/>
+<text x="100" y="984" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L16</text>
+<text x="154" y="985" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO8 / SCL</text>
+<text x="390" y="984" font-size="24" fill="#18232d" text-anchor="start">Onboard codec / camera I²C · reserved</text>
+<line x1="1220" y1="976" x2="1321" y2="976" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="976" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="1001" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="1004" width="71" height="33" rx="5" fill="#7863b7"/>
+<text x="100" y="1028" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L17</text>
+<text x="154" y="1029" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO7 / SDA</text>
+<text x="390" y="1028" font-size="24" fill="#18232d" text-anchor="start">Onboard codec / camera I²C · reserved</text>
+<line x1="1220" y1="1020" x2="1321" y2="1020" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="1020" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="1045" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="1048" width="71" height="33" rx="5" fill="#526172"/>
+<text x="100" y="1072" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L18</text>
+<text x="154" y="1073" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="390" y="1072" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1220" y1="1064" x2="1321" y2="1064" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="1064" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="1089" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="65" y="1092" width="71" height="33" rx="5" fill="#7863b7"/>
+<text x="100" y="1116" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L19</text>
+<text x="154" y="1117" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO24 / DM</text>
+<text x="390" y="1116" font-size="24" fill="#18232d" text-anchor="start">Native USB Full Speed D− · reserved</text>
+<line x1="1220" y1="1108" x2="1321" y2="1108" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="1108" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="1133" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="65" y="1136" width="71" height="33" rx="5" fill="#7863b7"/>
+<text x="100" y="1160" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">L20</text>
+<text x="154" y="1161" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO25 / DP</text>
+<text x="390" y="1160" font-size="24" fill="#18232d" text-anchor="start">Native USB Full Speed D+ · reserved</text>
+<line x1="1220" y1="1152" x2="1321" y2="1152" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1334" cy="1152" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="297" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="300" width="71" height="33" rx="5" fill="#df3855"/>
+<text x="1820" y="324" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R1</text>
+<text x="1874" y="325" font-size="25" fill="#18232d" text-anchor="start" class="bold">VBUS</text>
+<text x="2110" y="324" font-size="24" fill="#18232d" text-anchor="start">USB-C 5 V · leave unused for this test</text>
+<line x1="1679" y1="316" x2="1780" y2="316" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="316" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="341" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="344" width="71" height="33" rx="5" fill="#df3855"/>
+<text x="1820" y="368" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R2</text>
+<text x="1874" y="369" font-size="25" fill="#18232d" text-anchor="start" class="bold">VSYS</text>
+<text x="2110" y="368" font-size="24" fill="#18232d" text-anchor="start">Board supply rail · leave unused for this test</text>
+<line x1="1679" y1="360" x2="1780" y2="360" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="360" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="385" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="388" width="71" height="33" rx="5" fill="#526172"/>
+<text x="1820" y="412" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R3</text>
+<text x="1874" y="413" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="2110" y="412" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1679" y1="404" x2="1780" y2="404" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="404" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="429" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="432" width="71" height="33" rx="5" fill="#b98320"/>
+<text x="1820" y="456" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R4</text>
+<text x="1874" y="457" font-size="25" fill="#18232d" text-anchor="start" class="bold">EN</text>
+<text x="2110" y="456" font-size="24" fill="#18232d" text-anchor="start">3.3 V supply enable · leave unconnected</text>
+<line x1="1679" y1="448" x2="1780" y2="448" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="448" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="473" width="1160" height="39" rx="6" fill="#fff4ec"/>
+<rect x="1785" y="476" width="71" height="33" rx="5" fill="#df3855"/>
+<text x="1820" y="500" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R5</text>
+<text x="1874" y="501" font-size="25" fill="#18232d" text-anchor="start" class="bold">3V3</text>
+<text x="2110" y="500" font-size="24" fill="#18232d" text-anchor="start" class="bold">PCA9685 VCC · 3.3 V logic supply only</text>
+<line x1="1679" y1="492" x2="1780" y2="492" stroke="#df3855" stroke-width="4"/>
+<circle cx="1666" cy="492" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<circle cx="1666" cy="492" r="5" fill="#df3855"/>
+<rect x="1780" y="517" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="520" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="544" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R6</text>
+<text x="1874" y="545" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO20</text>
+<text x="2110" y="544" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="536" x2="1780" y2="536" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="536" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="561" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="564" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="588" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R7</text>
+<text x="1874" y="589" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO21</text>
+<text x="2110" y="588" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="580" x2="1780" y2="580" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="580" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="605" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="608" width="71" height="33" rx="5" fill="#526172"/>
+<text x="1820" y="632" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R8</text>
+<text x="1874" y="633" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="2110" y="632" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1679" y1="624" x2="1780" y2="624" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="624" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="649" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="652" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="676" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R9</text>
+<text x="1874" y="677" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO22</text>
+<text x="2110" y="676" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="668" x2="1780" y2="668" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="668" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="693" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="696" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="720" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R10</text>
+<text x="1874" y="721" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO23</text>
+<text x="2110" y="720" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="712" x2="1780" y2="712" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="712" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="737" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="740" width="71" height="33" rx="5" fill="#b98320"/>
+<text x="1820" y="764" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R11</text>
+<text x="1874" y="765" font-size="25" fill="#18232d" text-anchor="start" class="bold">RUN</text>
+<text x="2110" y="764" font-size="24" fill="#18232d" text-anchor="start">P4 reset / ESP_EN · LOW resets processor</text>
+<line x1="1679" y1="756" x2="1780" y2="756" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="756" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="781" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="784" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="808" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R12</text>
+<text x="1874" y="809" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO26</text>
+<text x="2110" y="808" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="800" x2="1780" y2="800" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="800" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="825" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="828" width="71" height="33" rx="5" fill="#526172"/>
+<text x="1820" y="852" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R13</text>
+<text x="1874" y="853" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="2110" y="852" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1679" y1="844" x2="1780" y2="844" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="844" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="869" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="872" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="896" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R14</text>
+<text x="1874" y="897" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO27</text>
+<text x="2110" y="896" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="888" x2="1780" y2="888" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="888" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="913" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="916" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="940" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R15</text>
+<text x="1874" y="941" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO32</text>
+<text x="2110" y="940" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="932" x2="1780" y2="932" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="932" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="957" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="960" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="984" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R16</text>
+<text x="1874" y="985" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO33</text>
+<text x="2110" y="984" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="976" x2="1780" y2="976" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="976" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="1001" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="1004" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="1028" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R17</text>
+<text x="1874" y="1029" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO46</text>
+<text x="2110" y="1028" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="1020" x2="1780" y2="1020" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="1020" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="1045" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="1048" width="71" height="33" rx="5" fill="#526172"/>
+<text x="1820" y="1072" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R18</text>
+<text x="1874" y="1073" font-size="25" fill="#18232d" text-anchor="start" class="bold">GND</text>
+<text x="2110" y="1072" font-size="24" fill="#18232d" text-anchor="start">Common ground</text>
+<line x1="1679" y1="1064" x2="1780" y2="1064" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="1064" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="1089" width="1160" height="39" rx="6" fill="#ffffff"/>
+<rect x="1785" y="1092" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="1116" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R19</text>
+<text x="1874" y="1117" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO47</text>
+<text x="2110" y="1116" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="1108" x2="1780" y2="1108" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="1108" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="1780" y="1133" width="1160" height="39" rx="6" fill="#eaf0f5"/>
+<rect x="1785" y="1136" width="71" height="33" rx="5" fill="#7e8b99"/>
+<text x="1820" y="1160" font-size="22" fill="#ffffff" text-anchor="middle" class="bold">R20</text>
+<text x="1874" y="1161" font-size="25" fill="#18232d" text-anchor="start" class="bold">GPIO48</text>
+<text x="2110" y="1160" font-size="24" fill="#18232d" text-anchor="start">No external role assigned in this firmware</text>
+<line x1="1679" y1="1152" x2="1780" y2="1152" stroke="#b2bfc9" stroke-width="2"/>
+<circle cx="1666" cy="1152" r="11" fill="#151b20" stroke="#d6b567" stroke-width="5"/>
+<rect x="60" y="1255" width="1160" height="173" rx="12" fill="#e6edf3"/>
+<text x="85" y="1298" font-size="27" fill="#18232d" text-anchor="start" class="bold">READING THIS GUIDE</text>
+<text x="85" y="1340" font-size="25" fill="#596879" text-anchor="start">L1–L20 / R1–R20 are guide row IDs, not GPIO numbers.</text>
+<text x="85" y="1375" font-size="25" fill="#596879" text-anchor="start">Match the board’s printed labels. Do not mirror this front view.</text>
+<text x="85" y="1410" font-size="25" fill="#596879" text-anchor="start">GPIO7/8 labels “SDA / SCL” belong to the onboard bus.</text>
+<rect x="1780" y="1255" width="1160" height="173" rx="12" fill="#e6edf3"/>
+<text x="1805" y="1298" font-size="27" fill="#18232d" text-anchor="start" class="bold">RESERVED BOARD RESOURCES</text>
+<text x="1805" y="1340" font-size="25" fill="#596879" text-anchor="start">C6 SDIO 14–19 · C6 control 6/54 · UART console 37/38</text>
+<text x="1805" y="1375" font-size="25" fill="#596879" text-anchor="start">Audio 9–13/53 · microSD 39–45 · boot 35 · MIPI lanes</text>
+<text x="1805" y="1410" font-size="25" fill="#596879" text-anchor="start">“No external role” describes allocation, not electrical approval.</text>
+<text x="1500" y="1466" font-size="21" fill="#596879" text-anchor="middle">Front illustration · not to scale</text>
+<rect x="60" y="1510" width="2880" height="254" rx="18" fill="#18232d"/>
+<text x="90" y="1557" font-size="29" fill="#ffac7b" text-anchor="start" class="bold">PCA9685 · FIVE LOGIC CONNECTIONS</text>
+<text x="90" y="1600" font-size="25" fill="#f0f4f7" text-anchor="start">R5  3V3 → VCC  ·  L13  GND → GND</text>
+<text x="90" y="1639" font-size="25" fill="#f0f4f7" text-anchor="start">L15  GPIO2 → SDA  ·  L14  GPIO3 → SCL</text>
+<text x="90" y="1678" font-size="25" fill="#f0f4f7" text-anchor="start">L12  GPIO4 → OE  ·  I²C address 0x40</text>
+<text x="90" y="1717" font-size="25" fill="#f0f4f7" text-anchor="start">V+ and every servo plug stay disconnected.</text>
+<line x1="1040" y1="1540" x2="1040" y2="1736" stroke="#4b5a65" stroke-width="2"/>
+<text x="1070" y="1557" font-size="29" fill="#ffac7b" text-anchor="start" class="bold">OUTPUT DISABLE</text>
+<text x="1070" y="1600" font-size="25" fill="#f0f4f7" text-anchor="start">OE HIGH = disabled · LOW permits PWM.</text>
+<text x="1070" y="1639" font-size="25" fill="#f0f4f7" text-anchor="start">External reset pull-up must be verified.</text>
+<text x="1070" y="1678" font-size="25" fill="#f0f4f7" text-anchor="start">Breakout resistor values remain unknown.</text>
+<text x="1070" y="1717" font-size="25" fill="#f0f4f7" text-anchor="start">OE disables signals; it does not cut servo power.</text>
+<line x1="2010" y1="1540" x2="2010" y2="1736" stroke="#4b5a65" stroke-width="2"/>
+<text x="2040" y="1557" font-size="29" fill="#ffac7b" text-anchor="start" class="bold">USB &amp; NEXT CHECKS</text>
+<text x="2040" y="1600" font-size="25" fill="#f0f4f7" text-anchor="start">Use USB-C for the current PC connection.</text>
+<text x="2040" y="1639" font-size="25" fill="#f0f4f7" text-anchor="start">Keep native USB P1 / FS reserved.</text>
+<text x="2040" y="1678" font-size="25" fill="#f0f4f7" text-anchor="start">Meter: wiring and static voltage checks.</text>
+<text x="2040" y="1717" font-size="25" fill="#f0f4f7" text-anchor="start">Scope / analyzer: PWM and reset timing proof.</text>
+<text x="65" y="1809" font-size="22" fill="#596879" text-anchor="start">2026-09-15 · Firmware 0.3.0-p4-turns · Board GPIO2/3/4 · Sources and bench sequence: PCA9685_WIRING.md</text>
+</svg>

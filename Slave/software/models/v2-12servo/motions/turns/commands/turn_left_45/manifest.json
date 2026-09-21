@@ -1,0 +1,192 @@
+{
+  "command": "turn_left_45",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "turn_left_45"
+  },
+  "new_body_control_command": false,
+  "gait_id": "turn_left_45_fourbar_20260915",
+  "duration_seconds": 19.0,
+  "source_sample_hz": 120,
+  "sample_count": 2281,
+  "heading_change_degrees": 45,
+  "turn_source_seconds": [
+    5.0,
+    13.0
+  ],
+  "turn_cycles": 2,
+  "cycle_seconds": 4.0,
+  "entry_pose": "CAD neutral with all feet supported; arbitrary current-pose entry has not been qualified.",
+  "final_actuator_angles_rad": [
+    [
+      0.010908384442166241,
+      0.01416606769046469,
+      0.016440004668953456
+    ],
+    [
+      -0.008325514219607033,
+      0.009443439138056675,
+      0.011480146980555883
+    ],
+    [
+      0.0,
+      1.3322676295501878e-14,
+      9.769962616701378e-15
+    ],
+    [
+      -2.627700768087493e-07,
+      -5.708085741851221e-07,
+      -2.529574345544461e-07
+    ]
+  ],
+  "completion": "Hold final recorded pose. Finite command, not a periodic loop. No invented zero-angle reset.",
+  "hardware_qualified": false,
+  "calibration": null,
+  "source_sha256": "eeca247482e324753265c9a9310c61c4eaa6edadb75360843583f099909a8186",
+  "csv_sha256": "b5f31e1ced4588afcee7cd26e5003760f27301e98e26c050ac09dee58f2efef4",
+  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
+  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
+  "blender_file": "Ainekio-Turn-Left-45.blend",
+  "mirror_partner": "turn_right_45",
+  "source_validation": {
+    "duration_s": 19.0,
+    "samples": 2281,
+    "sample_hz": 120,
+    "heading_change_degrees": 45.0,
+    "turn_time_range_s": [
+      5.0,
+      13.0
+    ],
+    "endpoint_body_translation_mm": [
+      0.0,
+      0.0
+    ],
+    "maximum_body_radius_mm": 21.497538572715833,
+    "actuator_min_degrees": [
+      [
+        -7.28620066945968,
+        -4.429869249533415,
+        -2.9577395447516253
+      ],
+      [
+        -15.428818893433855,
+        -9.307445671770862,
+        -2.957656246856271
+      ],
+      [
+        -18.889681131054278,
+        -5.358084275393013,
+        -15.158213734981258
+      ],
+      [
+        -10.74662623600559,
+        -3.270492221068765e-05,
+        -7.892277659694992
+      ]
+    ],
+    "actuator_max_degrees": [
+      [
+        22.419767016602293,
+        27.312215404246654,
+        49.30332748844866
+      ],
+      [
+        4.19390838804042,
+        25.22731678547381,
+        27.48436783370629
+      ],
+      [
+        7.160070940474279,
+        16.061001197543927,
+        20.19882813522745
+      ],
+      [
+        15.062370260267372,
+        24.62166752223433,
+        26.471778149278993
+      ]
+    ],
+    "actuator_peak_speed_degrees_s": [
+      [
+        48.94186516557262,
+        141.12092432365486,
+        159.48889522906626
+      ],
+      [
+        52.53842365197961,
+        148.9982272828356,
+        125.22832537690412
+      ],
+      [
+        89.34622147029776,
+        93.3760531573636,
+        112.87910369513982
+      ],
+      [
+        79.72658272021432,
+        92.08703219844946,
+        149.84962239921973
+      ]
+    ],
+    "actuator_peak_acceleration_degrees_s2": [
+      [
+        341.5880352133023,
+        1116.9341990274884,
+        1502.9698402196261
+      ],
+      [
+        346.36700612799496,
+        1127.4119135090907,
+        1118.4524419070074
+      ],
+      [
+        549.3844252570924,
+        786.6199601891004,
+        925.9596342058055
+      ],
+      [
+        505.16414269705564,
+        880.3631153864728,
+        1299.4733424694716
+      ]
+    ],
+    "endpoint_actuator_degrees": [
+      [
+        0.6250043898422944,
+        0.8116558909602641,
+        0.9419428827064011
+      ],
+      [
+        -0.4770168270596362,
+        0.5410692066993075,
+        0.6577639701757076
+      ],
+      [
+        0.0,
+        7.63333123551244e-13,
+        5.597776239375789e-13
+      ],
+      [
+        -1.5055616383469807e-05,
+        -3.270492221068765e-05,
+        -1.4493393396426495e-05
+      ]
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.3293265731497996,
+    "minimum_support_margin_mm": -2.591484893085262,
+    "min_sole_height_mm": -1.0744418688091173e-09,
+    "max_stance_material_vertex_constraint_error_mm": 1.7851181866035404e-08,
+    "maximum_rolling_normal_correction_mm": 0.0162147628087137,
+    "rolling_transfers": 625,
+    "minimum_stance_contacts": 3,
+    "minimum_part023_angle_degrees": 115.7297329967889,
+    "research_angle_bounds_satisfied": true,
+    "part023_forward_limit_satisfied": true,
+    "balance_qualified": false,
+    "hardware_servo_limits_verified": false,
+    "collision_checked": false
+  },
+  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_45/Ainekio-Turn-Left-45.blend",
+  "blender_in_source_archive": false
+}

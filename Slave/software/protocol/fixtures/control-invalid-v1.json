@@ -1,6 +1,7 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "output_test_invalid_channel", "message": {"t": "output_test", "seq": 1, "op": "run", "channel": 12, "pulse_us": 1500, "ms": 100}, "reason": "range:channel"},
     {
       "name": "hello_unsupported_version",
       "message": {"t": "hello", "ver": 2, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN"},

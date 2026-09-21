@@ -1,0 +1,13 @@
+{
+  "repetitions": 5,
+  "cycle_joint_repeat_errors_rad": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "all_four_contacts_throughout": true,
+  "final_joint_return_error_rad": 0.0,
+  "minimum_support_margin_mm": 39.11498833020818
+}

@@ -1,0 +1,386 @@
+[
+  {
+    "object": "BOW - bitmap bow 0",
+    "path": "hide_render",
+    "expression": "frame < 2881 or frame >= 3073.0",
+    "valid": true
+  },
+  {
+    "object": "BOW - bitmap bow 0",
+    "path": "hide_viewport",
+    "expression": "frame < 2881 or frame >= 3073.0",
+    "valid": true
+  },
+  {
+    "object": "BOW - bitmap stand 0",
+    "path": "hide_render",
+    "expression": "frame < 3073.0",
+    "valid": true
+  },
+  {
+    "object": "BOW - bitmap stand 0",
+    "path": "hide_viewport",
+    "expression": "frame < 3073.0",
+    "valid": true
+  },
+  {
+    "object": "BOW - bow screen",
+    "path": "hide_render",
+    "expression": "frame < 2881",
+    "valid": true
+  },
+  {
+    "object": "BOW - bow screen",
+    "path": "hide_viewport",
+    "expression": "frame < 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - dance bitmap 0",
+    "path": "hide_render",
+    "expression": "((((((((((frame < 937 or frame >= 1225 or int((frame-937)/24)%2 != 0) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - dance bitmap 0",
+    "path": "hide_viewport",
+    "expression": "((((((((((frame < 937 or frame >= 1225 or int((frame-937)/24)%2 != 0) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - dance bitmap 1",
+    "path": "hide_render",
+    "expression": "((((((((((frame < 937 or frame >= 1225 or int((frame-937)/24)%2 != 1) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - dance bitmap 1",
+    "path": "hide_viewport",
+    "expression": "((((((((((frame < 937 or frame >= 1225 or int((frame-937)/24)%2 != 1) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - dance screen",
+    "path": "hide_render",
+    "expression": "((((((((((frame < 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - dance screen",
+    "path": "hide_viewport",
+    "expression": "((((((((((frame < 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - stand bitmap 0",
+    "path": "hide_render",
+    "expression": "((((((((((frame < 1225) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "DANCE - stand bitmap 0",
+    "path": "hide_viewport",
+    "expression": "((((((((((frame < 1225) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "NOD - bitmap pushup 0",
+    "path": "hide_render",
+    "expression": "(((frame < 2137 or frame >= 2473.0) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "NOD - bitmap pushup 0",
+    "path": "hide_viewport",
+    "expression": "(((frame < 2137 or frame >= 2473.0) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "NOD - bitmap stand 0",
+    "path": "hide_render",
+    "expression": "(((frame < 2473.0) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "NOD - bitmap stand 0",
+    "path": "hide_viewport",
+    "expression": "(((frame < 2473.0) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "NOD - pushup screen",
+    "path": "hide_render",
+    "expression": "(((frame < 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "NOD - pushup screen",
+    "path": "hide_viewport",
+    "expression": "(((frame < 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap point 0",
+    "path": "hide_render",
+    "expression": "((((frame < 1849 or frame >= 2098.6 or (2-abs((int((frame-1849)/12.0)%4)-2)) != 0) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap point 0",
+    "path": "hide_viewport",
+    "expression": "((((frame < 1849 or frame >= 2098.6 or (2-abs((int((frame-1849)/12.0)%4)-2)) != 0) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap point 1",
+    "path": "hide_render",
+    "expression": "((((frame < 1849 or frame >= 2098.6 or (2-abs((int((frame-1849)/12.0)%4)-2)) != 1) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap point 1",
+    "path": "hide_viewport",
+    "expression": "((((frame < 1849 or frame >= 2098.6 or (2-abs((int((frame-1849)/12.0)%4)-2)) != 1) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap point 2",
+    "path": "hide_render",
+    "expression": "((((frame < 1849 or frame >= 2098.6 or (2-abs((int((frame-1849)/12.0)%4)-2)) != 2) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap point 2",
+    "path": "hide_viewport",
+    "expression": "((((frame < 1849 or frame >= 2098.6 or (2-abs((int((frame-1849)/12.0)%4)-2)) != 2) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap stand 0",
+    "path": "hide_render",
+    "expression": "((((frame < 2098.6) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - bitmap stand 0",
+    "path": "hide_viewport",
+    "expression": "((((frame < 2098.6) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - point screen",
+    "path": "hide_render",
+    "expression": "((((frame < 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "POINT - point screen",
+    "path": "hide_viewport",
+    "expression": "((((frame < 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "PUSHUP - bitmap pushup 0",
+    "path": "hide_render",
+    "expression": "((frame < 2509 or frame >= 2845.0) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "PUSHUP - bitmap pushup 0",
+    "path": "hide_viewport",
+    "expression": "((frame < 2509 or frame >= 2845.0) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "PUSHUP - bitmap stand 0",
+    "path": "hide_render",
+    "expression": "((frame < 2845.0) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "PUSHUP - bitmap stand 0",
+    "path": "hide_viewport",
+    "expression": "((frame < 2845.0) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "PUSHUP - pushup screen",
+    "path": "hide_render",
+    "expression": "((frame < 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "PUSHUP - pushup screen",
+    "path": "hide_viewport",
+    "expression": "((frame < 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "REST - rest bitmap 0",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/24)%4 not in [0]) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "REST - rest bitmap 0",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/24)%4 not in [0]) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "REST - rest bitmap 1",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/24)%4 not in [1, 3]) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2",
+    "valid": true
+  },
+  {
+    "object": "REST - rest bitmap 1",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/24)%4 not in [1, 3]) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2",
+    "valid": true
+  },
+  {
+    "object": "REST - rest bitmap 2",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/24)%4 not in [2]) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "REST - rest bitmap 2",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/24)%4 not in [2]) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "REST - rest screen",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "REST - rest screen",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SIT - bored bitmap 0",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/12.0)%2 != 0) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SIT - bored bitmap 0",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/12.0)%2 != 0) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SIT - bored bitmap 1",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/12.0)%2 != 1) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SIT - bored bitmap 1",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529 or int((frame-529)/12.0)%2 != 1) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SIT - bored screen",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SIT - bored screen",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - bottom cover support polygon",
+    "path": "hide_render",
+    "expression": "((((((frame < 1321.0 or frame > 1748.2) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - bottom cover support polygon",
+    "path": "hide_viewport",
+    "expression": "((((((frame < 1321.0 or frame > 1748.2) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - stand bitmap 0",
+    "path": "hide_render",
+    "expression": "((((((frame < 1808) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - stand bitmap 0",
+    "path": "hide_viewport",
+    "expression": "((((((frame < 1808) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - swim bitmap 0",
+    "path": "hide_render",
+    "expression": "((((((frame < 1261 or frame >= 1808) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - swim bitmap 0",
+    "path": "hide_viewport",
+    "expression": "((((((frame < 1261 or frame >= 1808) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - swim screen",
+    "path": "hide_render",
+    "expression": "((((((frame < 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "SWIM - swim screen",
+    "path": "hide_viewport",
+    "expression": "((((((frame < 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "WAVE - wave bitmap stand",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 893.8) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "WAVE - wave bitmap stand",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 893.8) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "WAVE - wave bitmap wave",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529 or frame >= 893.8) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "WAVE - wave bitmap wave",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529 or frame >= 893.8) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "WAVE - wave screen",
+    "path": "hide_render",
+    "expression": "(((((((((((frame < 529) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  },
+  {
+    "object": "WAVE - wave screen",
+    "path": "hide_viewport",
+    "expression": "(((((((((((frame < 529) or frame >= 937) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1261) or frame >= 1849) or frame >= 1849) or frame >= 2137) or frame >= 2509) or frame >= 2881) or frame >= 2881",
+    "valid": true
+  }
+]

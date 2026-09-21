@@ -1,0 +1,756 @@
+{
+  "schema": "ainekio-motion-execution-contract-1",
+  "command": "point",
+  "gait_id": "point_rear_support_fourbar_20260916",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "point"
+  },
+  "shared_policy": "execution-policy.json",
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "docs/gait-research/point-20260916/source.json",
+      "sha256": "5e1ea7fb19b17c5588053538ff08c563767487bc5a7ade0df20a7b89cee737c2"
+    },
+    {
+      "path": "docs/gait-research/point-20260916/manifest.json",
+      "sha256": "31665efd95ef5eeffc9674b9f883a4d916740b0a352611d53f06779cff6ddd1e"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_order": [
+    "rear_left",
+    "rear_right",
+    "front_left",
+    "front_right"
+  ],
+  "phases": [
+    {
+      "id": "p000_preload_rear_right",
+      "name": "preload_rear_right",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        2.0
+      ],
+      "source_sample_indices_inclusive": [
+        0,
+        240
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.07692554439127551,
+        0.06818499625672304,
+        0.08641962235429866,
+        0.13634468957473117,
+        0.3602729537844287,
+        0.36380788997800917,
+        0.032381114767319,
+        0.5270674070038133,
+        0.7233744442002586,
+        0.0459946301245432,
+        0.036329274619477867,
+        0.05823905688283155
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.38810910946098764,
+        1.0451116984190558,
+        1.6401472737090108,
+        0.29138198796456194,
+        1.272266867509553,
+        1.254681120963736,
+        0.10214670443318677,
+        1.5253860893948936,
+        2.4815571291557847,
+        0.09015097245028507,
+        0.7406229670367578,
+        0.742408287570133
+      ]
+    },
+    {
+      "id": "p001_lift_front_left",
+      "name": "lift_front_left",
+      "section": "clip",
+      "source_interval_s": [
+        2.0,
+        3.0
+      ],
+      "source_sample_indices_inclusive": [
+        240,
+        360
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        6
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.263363628150013,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4.22875907542398,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p002_extend_to_point",
+      "name": "extend_to_point",
+      "section": "clip",
+      "source_interval_s": [
+        3.0,
+        4.2
+      ],
+      "source_sample_indices_inclusive": [
+        360,
+        504
+      ],
+      "demonstration_duration_s": 1.2,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.1363538505176809,
+        1.850236091684019,
+        2.4391748170065224,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3752258033996207,
+        5.091578428855668,
+        6.712251446345142,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p003_hold_point",
+      "name": "hold_point",
+      "section": "clip",
+      "source_interval_s": [
+        4.2,
+        6.2
+      ],
+      "source_sample_indices_inclusive": [
+        504,
+        744
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p004_retract_front_left",
+      "name": "retract_front_left",
+      "section": "clip",
+      "source_interval_s": [
+        6.2,
+        7.4
+      ],
+      "source_sample_indices_inclusive": [
+        744,
+        888
+      ],
+      "demonstration_duration_s": 1.2,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        6,
+        7,
+        8
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.1363538505176809,
+        1.8502360916840164,
+        2.4391748170065233,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3752258034017946,
+        5.091578428869155,
+        6.712251446341675,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p005_replace_front_left",
+      "name": "replace_front_left",
+      "section": "clip",
+      "source_interval_s": [
+        7.4,
+        8.4
+      ],
+      "source_sample_indices_inclusive": [
+        888,
+        1008
+      ],
+      "demonstration_duration_s": 1.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          false,
+          true
+        ],
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        6
+      ],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.263363628150013,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4.2287590754205695,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "p006_return_to_standing",
+      "name": "return_to_standing",
+      "section": "clip",
+      "source_interval_s": [
+        8.4,
+        10.4
+      ],
+      "source_sample_indices_inclusive": [
+        1008,
+        1248
+      ],
+      "demonstration_duration_s": 2.0,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "reference_peak_speed_rad_s": [
+        0.07692554439127551,
+        0.06818499625672303,
+        0.08641962235429866,
+        0.13634468957473117,
+        0.3602729537844287,
+        0.36380788997800917,
+        0.032381114767318996,
+        0.5270674070038133,
+        0.7233744442002586,
+        0.0459946301245432,
+        0.03632927461947786,
+        0.05823905688283155
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.38810910946098764,
+        1.0451116984190558,
+        1.6401472737090108,
+        0.29138198796456194,
+        1.2722668675095912,
+        1.254681120963803,
+        0.10214670443318677,
+        1.5253860893948936,
+        2.4815571291557847,
+        0.09015097245028507,
+        0.7406229670367552,
+        0.7424082875701339
+      ]
+    },
+    {
+      "id": "p007_hold_standing",
+      "name": "hold_standing",
+      "section": "clip",
+      "source_interval_s": [
+        10.4,
+        11.0
+      ],
+      "source_sample_indices_inclusive": [
+        1248,
+        1320
+      ],
+      "demonstration_duration_s": 0.6,
+      "supporting_legs_throughout": [
+        "FL",
+        "FR",
+        "RL",
+        "RR"
+      ],
+      "contact_states": [
+        [
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "support_sources": [
+        "feet"
+      ],
+      "coordination": "whole_body_shared_clock",
+      "moving_joint_indices": [],
+      "reference_peak_speed_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_peak_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "contact_events": [
+    {
+      "source_time_s": 0.0,
+      "sample_index": 0,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 2.0083333333333333,
+      "sample_index": 241,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 8.4,
+      "sample_index": 1008,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "status": "recorded_kinematic_timing",
+      "duration_s": {
+        "p000_preload_rear_right": 2.0,
+        "p001_lift_front_left": 1.0,
+        "p002_extend_to_point": 1.2,
+        "p003_hold_point": 2.0,
+        "p004_retract_front_left": 1.2,
+        "p005_replace_front_left": 1.0,
+        "p006_return_to_standing": 2.0,
+        "p007_hold_standing": 0.6
+      }
+    },
+    "research_candidate": {
+      "status": "offline_unvalidated",
+      "duration_s": {
+        "p000_preload_rear_right": 2.0,
+        "p001_lift_front_left": 1.0,
+        "p002_extend_to_point": 1.2,
+        "p003_hold_point": 2.0,
+        "p004_retract_front_left": 1.2,
+        "p005_replace_front_left": 1.0,
+        "p006_return_to_standing": 2.0,
+        "p007_hold_standing": 0.6
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "p000_preload_rear_right": null,
+        "p001_lift_front_left": null,
+        "p002_extend_to_point": null,
+        "p003_hold_point": null,
+        "p004_retract_front_left": null,
+        "p005_replace_front_left": null,
+        "p006_return_to_standing": null,
+        "p007_hold_standing": null
+      },
+      "calibration_id": null
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "point",
+      "mode": "boomerang",
+      "fps": 2
+    },
+    {
+      "time_s": 10.4,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 10.4,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contact_active": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "behavior": "Retract front-left arm, replace its sole, undo the support crouch, and hold exact standing neutral.",
+    "joint_angles_rad": [
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "source_qualification": {
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "measured_mass_balance_verified": false,
+    "minimum_assumed_support_margin_mm": 24.8580836486214
+  },
+  "body_support_required": false,
+  "interruption_note": "Keep the three supporting legs and crouched body coordinated; retract and replace the pointing foot before standing. Never seek directly to the last row.",
+  "hardware_ready": false
+}

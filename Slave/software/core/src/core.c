@@ -3,7 +3,8 @@
 static bool command_is_calibration_only(ainekio_command_kind_t kind)
 {
     return kind == AINEKIO_COMMAND_SERVO || kind == AINEKIO_COMMAND_LIMITS ||
-           kind == AINEKIO_COMMAND_POSE_SAVE || kind == AINEKIO_COMMAND_CALIBRATION_SAVE;
+           kind == AINEKIO_COMMAND_POSE_SAVE || kind == AINEKIO_COMMAND_CALIBRATION_SAVE ||
+           kind == AINEKIO_COMMAND_OUTPUT_TEST;
 }
 
 static bool command_is_movement(const ainekio_command_t *command)
@@ -102,7 +103,8 @@ ainekio_lifecycle_t ainekio_command_lifecycle(const ainekio_command_t *command)
 {
     if (command->kind == AINEKIO_COMMAND_INTENT ||
         command->kind == AINEKIO_COMMAND_MOTION_PLAN ||
-        command->kind == AINEKIO_COMMAND_SNAPSHOT) {
+        command->kind == AINEKIO_COMMAND_SNAPSHOT ||
+        (command->kind == AINEKIO_COMMAND_OUTPUT_TEST && !command->data.output_test.recover)) {
         return AINEKIO_LIFECYCLE_ACK_THEN_DONE;
     }
     if (command->kind == AINEKIO_COMMAND_TTS && command->data.tts_operation == AINEKIO_TTS_START) {

@@ -1,0 +1,12 @@
+{
+  "fps": 2,
+  "frames": [
+    "faces/bored/0.bin",
+    "faces/bored/1.bin"
+  ],
+  "height": 64,
+  "mode": "boomerang",
+  "name": "bored",
+  "source": "ainekio_owner_authored_bitmap",
+  "width": 128
+}

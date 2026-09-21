@@ -5,6 +5,12 @@
 
   let csrfToken = null;
   let selectedRobotId = null;
+  let availableBodyCommands = [];
+  const directionCommands = { fwd: "walk", back: "backward", turn_l: "left", turn_r: "right" };
+
+  function bodyCommandAvailable(name) {
+    return availableBodyCommands === null || availableBodyCommands.includes(name);
+  }
   let heldDirection = null;
   let heldRequestPending = false;
   let heldRequest = null;
@@ -188,6 +194,7 @@
   }
 
   async function beginHeldMotion(direction, element = null) {
+    if (!bodyCommandAvailable(directionCommands[direction])) return;
     if (heldDirection === direction || heldRequestPending) return;
     if (heldDirection !== null) await stopMotion("Direction changed");
     heldDirection = direction;
@@ -430,12 +437,30 @@
     updateRobotSelect(robotIds);
     const entry = selectedRobotId ? robots[selectedRobotId] : null;
     const status = entry && entry.status;
+    const legacyBody = entry && (!entry.model || entry.model === "v1-8servo");
+    availableBodyCommands = !entry || entry.connection_state === "stale" ? [] :
+      Array.isArray(entry.robot_commands) ? entry.robot_commands :
+        legacyBody && (!entry.capabilities || entry.capabilities.motion === true) ? null : [];
+    document.querySelectorAll("[data-intent], [data-emote], [data-held-direction]").forEach((button) => {
+      const name = button.dataset.intent || button.dataset.emote || directionCommands[button.dataset.heldDirection];
+      button.disabled = !bodyCommandAvailable(name) ||
+        (availableBodyCommands === null && button.hasAttribute("data-requires-declaration"));
+    });
+    const installedMotions = (entry && entry.capabilities && entry.capabilities.commands || []).filter((name) => name !== "stop");
+    text("motion-availability", !entry ? "Connect a robot to use its motions." :
+      `${entry.model || "v1-8servo"}: ${availableBodyCommands === null ? "body motions available" :
+        availableBodyCommands.length ? availableBodyCommands.join(", ") :
+          installedMotions.length ? `${installedMotions.join(", ")} installed; motion unavailable` : "motion unavailable"}`);
     document.querySelectorAll("[data-joint-select]").forEach((select) => {
+      select.disabled = !legacyBody;
+      if (!legacyBody) { select.replaceChildren(); return; }
       if (select.options.length !== 0) return;
       (payload.joint_contract && payload.joint_contract.joints || []).forEach((joint) => {
         select.add(new Option(`${joint.id}: ${joint.label}`, joint.id));
       });
     });
+    document.querySelectorAll("#servo-form input, #servo-form button, #limits-form input, #limits-form button, #calibration-neutral-button, #calibration-save-button")
+      .forEach((control) => { control.disabled = !legacyBody; });
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
     connection.textContent = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
@@ -532,6 +557,7 @@
     csrfToken = session.csrf;
     setupPrimaryView();
     byId("robot-select").addEventListener("change", (event) => {
+      availableBodyCommands = [];
       selectedRobotId = event.target.value || null;
       resetCameraView();
       refreshStatus();

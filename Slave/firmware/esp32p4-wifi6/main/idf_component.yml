@@ -1,0 +1,5 @@
+dependencies:
+  idf: "==5.5.4"
+  espressif/esp_wifi_remote: "==1.6.4"
+  espressif/esp_hosted: "==2.12.8"
+  espressif/esp_websocket_client: "==1.7.0"

@@ -1,0 +1,36 @@
+{
+  "command": "sad",
+  "source_authority": "/home/greggles/Ainekio/Slave/software/assets/seed/motions-v1.json",
+  "source_asset_name": "sad",
+  "reference_file": "reference-v1-sad.json",
+  "source_owner_adjustments_already_applied": true,
+  "reference_duration_ms_sum": 4660,
+  "reference_sequential_servo_timing": false,
+  "signature": "Front droop, held left-front slump, held opposite slump, then standing.",
+  "phase_mapping": "V1 frames1-2 low forward-biased droop; frames3-4 unequal front pose; frames5-6 opposite unequal front pose; frame7 standing. V2 uses body roll/yaw plus all twelve joints to recreate these two asymmetries.",
+  "generated_phases": [
+    "soften_stance",
+    "droop_front",
+    "hold_sad_droop",
+    "left_front_slump",
+    "hold_left_slump",
+    "center_after_left_slump",
+    "right_front_slump",
+    "hold_right_slump",
+    "center_after_right_slump",
+    "lift_sad_droop",
+    "return_to_standing",
+    "hold_standing"
+  ],
+  "leg_mapping": {
+    "FL": "physical rear left",
+    "FR": "physical rear right",
+    "RL": "physical front left",
+    "RR": "physical front right"
+  },
+  "electrical_angle_conversion": "None. V1 electrical angles establish intent; V2 exports measured-geometry joint radians and original passive four-bar branch.",
+  "timing": "Preview transition timing differs from V1 electrical timing. All source timestamps and peak joint derivatives are explicit. Root integration owns the execution contract and staggering policy.",
+  "contact_limitations": "Front soles deliberately slide8mm during droop entry and reverse on exit. Side slumps retain rolling contacts. Physical friction is unverified.",
+  "semantic_completion": "Final exact standing and hold, matching explicit V1 final standing frame. No distinct held endpoint or optional recovery is needed.",
+  "hardware_qualified": false
+}

@@ -673,6 +673,20 @@ static ainekio_decode_result_t sequence(
         message->has_sequence = true;
         message->sequence = (uint32_t)value;
         message->command.sequence = (uint32_t)value;
+        if (object_get(parser, root, "epoch") >= 0) {
+            int64_t epoch = 0;
+            const ainekio_decode_result_t r = required_integer(parser, root, "epoch", 0, UINT32_MAX, &epoch);
+            if (r != AINEKIO_DECODE_OK) return r;
+            message->has_epoch = true;
+            message->epoch = (uint32_t)epoch;
+        }
+        if (object_get(parser, root, "deadline_ms") >= 0) {
+            int64_t deadline = 0;
+            const ainekio_decode_result_t r = required_integer(parser, root, "deadline_ms", 0, INT64_C(9007199254740991), &deadline);
+            if (r != AINEKIO_DECODE_OK) return r;
+            message->has_deadline = true;
+            message->deadline_ms = (uint64_t)deadline;
+        }
     }
     return result;
 }
@@ -1359,10 +1373,11 @@ static ainekio_decode_result_t validate_outbound(
     return result;
 }
 
-ainekio_decode_result_t ainekio_control_decode(
+static ainekio_decode_result_t decode_control(
     const char *json,
     size_t length,
-    ainekio_control_message_t *message
+    ainekio_control_message_t *message,
+    bool output_tests
 )
 {
     if (json == NULL || message == NULL) {
@@ -1395,7 +1410,7 @@ ainekio_decode_result_t ainekio_control_decode(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong",
+        "event", "cam_meta", "pong", "output_test",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1408,7 +1423,35 @@ ainekio_decode_result_t ainekio_control_decode(
         return AINEKIO_DECODE_VALUE;
     }
     message->kind = (ainekio_message_kind_t)kind;
+    if (message->kind == AINEKIO_MESSAGE_OUTPUT_TEST && !output_tests) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
+    case AINEKIO_MESSAGE_OUTPUT_TEST: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_OUTPUT_TEST);
+        char op[12], fault[24] = "none";
+        if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3, 7);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (strcmp(op, "recover") == 0) {
+            message->command.data.output_test.recover = true;
+            return AINEKIO_DECODE_OK;
+        }
+        if (strcmp(op, "run") != 0) return AINEKIO_DECODE_VALUE;
+        int64_t channel = 0, pulse = 0, duration = 0;
+        result = required_integer(&parser, root, "channel", 0, 11, &channel);
+        if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "pulse_us", 1000, 2000, &pulse);
+        if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "ms", 100, 2000, &duration);
+        if (result == AINEKIO_DECODE_OK && object_get(&parser, root, "fault") >= 0)
+            result = required_string(&parser, root, "fault", fault, sizeof(fault), 4, 15);
+        if (result != AINEKIO_DECODE_OK) return result;
+        static const char *const faults[] = {"none", "stall", "interrupt_arm", "reset"};
+        unsigned selected = 0;
+        while (selected < 4 && strcmp(fault, faults[selected]) != 0) ++selected;
+        if (selected == 4) return AINEKIO_DECODE_VALUE;
+        message->command.data.output_test.channel = (uint8_t)channel;
+        message->command.data.output_test.pulse_us = (uint16_t)pulse;
+        message->command.data.output_test.duration_ms = (uint16_t)duration;
+        message->command.data.output_test.fault = (uint8_t)selected;
+        return AINEKIO_DECODE_OK;
+    }
     case AINEKIO_MESSAGE_ERROR: {
         static const char *const codes[] = {"auth", "ver"};
         result = no_sequence(&parser, root);
@@ -1431,6 +1474,7 @@ ainekio_decode_result_t ainekio_control_decode(
         if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "ver", 1, 1, &version);
         if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "epoch", 0, UINT32_MAX, &epoch);
         if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "profile", profile, sizeof(profile), 4U, 6U);
+        if (result == AINEKIO_DECODE_OK) result = optional_boolean(&parser, root, "command_deadline_v1", false, &message->data.welcome.deadline_supported);
         if (result == AINEKIO_DECODE_OK && strcmp(profile, "home") != 0 && strcmp(profile, "tether") != 0) result = AINEKIO_DECODE_VALUE;
         if (result == AINEKIO_DECODE_OK) {
             message->data.welcome.epoch = (uint32_t)epoch;
@@ -1474,6 +1518,18 @@ ainekio_decode_result_t ainekio_control_decode(
     default:
         return validate_outbound(&parser, root, message);
     }
+}
+
+ainekio_decode_result_t ainekio_control_decode(const char *json, size_t length,
+    ainekio_control_message_t *message)
+{
+    return decode_control(json, length, message, false);
+}
+
+ainekio_decode_result_t ainekio_control_decode_with_output_tests(const char *json, size_t length,
+    ainekio_control_message_t *message)
+{
+    return decode_control(json, length, message, true);
 }
 
 const char *ainekio_decode_result_name(ainekio_decode_result_t result)

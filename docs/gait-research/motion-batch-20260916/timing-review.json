@@ -1,0 +1,98 @@
+[
+  {
+    "command": "cute",
+    "command_duration_s": 13.5,
+    "with_optional_recovery_s": 13.5,
+    "completion_source_time_s": 13.5,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "freaky",
+    "command_duration_s": 9.2,
+    "with_optional_recovery_s": 9.7,
+    "completion_source_time_s": 9.2,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "worm",
+    "command_duration_s": 12.0,
+    "with_optional_recovery_s": 12.5,
+    "completion_source_time_s": 12.0,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "shake",
+    "command_duration_s": 7.0,
+    "with_optional_recovery_s": 7.0,
+    "completion_source_time_s": 7.0,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "shrug",
+    "command_duration_s": 10.2,
+    "with_optional_recovery_s": 10.2,
+    "completion_source_time_s": 10.2,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "dead",
+    "command_duration_s": 7.4,
+    "with_optional_recovery_s": 12.3,
+    "completion_source_time_s": 7.4,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "crab",
+    "command_duration_s": 30.100000000000016,
+    "with_optional_recovery_s": 30.600000000000016,
+    "completion_source_time_s": 30.1,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "celebrate",
+    "command_duration_s": 12.499999999999998,
+    "with_optional_recovery_s": 12.499999999999998,
+    "completion_source_time_s": 12.5,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "stretch",
+    "command_duration_s": 6.7,
+    "with_optional_recovery_s": 6.7,
+    "completion_source_time_s": 6.7,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "surprised",
+    "command_duration_s": 11.950000000000003,
+    "with_optional_recovery_s": 11.950000000000003,
+    "completion_source_time_s": 11.95,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "sad",
+    "command_duration_s": 8.8,
+    "with_optional_recovery_s": 8.8,
+    "completion_source_time_s": 8.8,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  },
+  {
+    "command": "curious",
+    "command_duration_s": 9.75,
+    "with_optional_recovery_s": 9.75,
+    "completion_source_time_s": 9.75,
+    "final_rate_zero": true,
+    "scale_two_checked": true
+  }
+]

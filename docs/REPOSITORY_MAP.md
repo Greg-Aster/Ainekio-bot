@@ -4,6 +4,11 @@ All project code belongs to one of three runtime owners: `Master/`, `Slave/`, or
 `Emulator/`. Project documentation and external reference material belong in
 `docs/`.
 
+The repository supports ongoing V1 development alongside the new V2 frame.
+[Robot Models](ROBOT_MODELS.md) records the approved model/board/output boundaries
+and identifies the code extraction still needed for V2. The trees below show
+existing directories, not future firmware scaffolding.
+
 ## Robot Code
 
 The physical robot's code is under `Slave/`.
@@ -11,22 +16,36 @@ The physical robot's code is under `Slave/`.
 ```text
 Slave/
   hardware/
-    3d-print/                 CAD, Blender, and STL body assets
+    README.md                 Model-specific asset guide
+    v1-8servo/
+      3d-print/               Existing V1 Blender and STL assets
+      Parts/                  Existing V1 OBJ and material assets
+    v2-12servo/               V2 STEP, Blender, GLB, STL, and source archive
   software/
-    assets/                   Versioned LittleFS motion, face, and PCM assets
-    core/                     Portable C commands, state, lifecycle, and safety
+    assets/                   Current V1 motion, face, and PCM assets
+    core/                     Portable C lifecycle/safety with V1 body assumptions
+    models/v2-12servo/        Twelve-joint geometry, first walk source, compiler and sampler
     protocol/                 Protocol-v1 schemas, validator, helpers, fixtures
     tests/                    Portable slave-software protocol tests
     tools/                    Deterministic asset conversion and validation
   firmware/
-    esp32s3/                  ESP-IDF project for the physical robot
+    esp32s3/                  Existing V1 ESP-IDF project
       components/             ESP32-S3 platform services and hardware ports
       main/app_main.c         Physical robot firmware entry point
+    esp32p4-wifi6/            Native V2 board/network/output-disable bring-up
+      components/ainekio_pca9685/  Real register driver, output gate and tests
+      main/                   P4 startup, resources, configuration, network and admission adapter
 ```
 
 `Slave/firmware/esp32s3/main/app_main.c` is where the ESP32-S3 robot starts.
 `Slave/software/core/` is linked into that firmware. Neither `Master/` nor
 `Emulator/` is flashed to the robot.
+
+The firmware, protocol, core, and runtime asset paths retain their existing
+build/import behavior. `Slave/software/models/v2-12servo/` owns the first V2 gait;
+V1 model extraction remains pending.
+The native P4 target exists; its [Step 1 record](v2-12servo/STEP1_EVIDENCE.md)
+separates software/network checks from outstanding electrical acceptance.
 
 ## Master
 
@@ -40,6 +59,12 @@ Master/
 
 The production gateway, dashboard, plugins, security stores, and generic
 environment adapter stay under `Master/`.
+
+Both robot models use this owner. Legacy V1 retains its motion catalog; negotiated
+P4 readiness suppresses unimplemented motion/media. The first V2 walk sampler
+has twelve geometric joints; measured calibration, its operator controls and
+powered execution remain subsequent work. `body_capabilities.py` selects the
+connected body's subset of the existing gateway semantic catalog.
 
 ## Emulator
 
@@ -58,15 +83,22 @@ Emulator/
 
 The host emulator uses the portable core from `Slave/software/core/`. The Sesame
 browser renders accepted commands but does not own protocol or safety decisions.
+The current body and Sesame backend implement V1; a V2 visual backend is pending.
 
 ## Documentation
 
 ```text
 docs/
   README.md                   Normative-document authority
+  ROBOT_MODELS.md             Approved model/board/output separation
   Ainekio - System Specification v1.0.docx
-  HARDWARE_BRINGUP_CHECKLIST.md
-  PINOUT_DIAGNOSTICS.md
+  v1-8servo/
+    HARDWARE_BRINGUP_CHECKLIST.md
+    PINOUT_DIAGNOSTICS.md
+  v2-12servo/
+    README.md                 Selected hardware and current design status
+    FIRMWARE_DESIGN.md         V1 review, P4 design and optional Q6A boundaries
+    STEP1_EVIDENCE.md          Board bring-up evidence and open electrical checks
   AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md
   BRIDGE_HARDENING_PLAN.md
   LOCAL_WAKE_WORD.md
@@ -86,7 +118,7 @@ buses; neither reference directory owns Ainekio behavior or safety decisions.
 
 ## Runtime Paths
 
-Physical robot:
+Current V1 physical robot:
 
 ```text
 Slave/software/protocol

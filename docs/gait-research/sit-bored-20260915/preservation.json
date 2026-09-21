@@ -1,0 +1,11 @@
+{
+  "compared_objects": 700,
+  "unexpected_changes": [],
+  "cover_differences_since_initial_backup": [
+    "CRAWL | Body - Top Cover - Compact",
+    "CRAWL | Body - Bottom Cover - Compact",
+    "TESTS | Body - Top Cover - Compact",
+    "TESTS | Body - Bottom Cover - Compact"
+  ],
+  "scope": "Current cover edits retained. Other mapped model meshes/parents and original test keys/handles compared with initial backup; three independent screen overlays added."
+}

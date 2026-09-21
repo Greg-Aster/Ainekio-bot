@@ -1,0 +1,127 @@
+{
+  "command": "turn_right_180",
+  "columns": [
+    "time_s",
+    "time_us",
+    "phase",
+    "phase_fraction",
+    "cycle",
+    "swing_leg",
+    "body_x_mm",
+    "body_y_mm",
+    "body_z_mm",
+    "body_qw",
+    "body_qx",
+    "body_qy",
+    "body_qz",
+    "body_yaw_rad",
+    "assumed_com_x_mm",
+    "assumed_com_y_mm",
+    "assumed_com_z_mm",
+    "support_margin_mm",
+    "FL_h002_rad",
+    "FL_alpha006_rad",
+    "FL_theta005_rad",
+    "FL_foot_bolt_x_mm",
+    "FL_foot_bolt_y_mm",
+    "FL_foot_bolt_z_mm",
+    "FL_sole_contact_x_mm",
+    "FL_sole_contact_y_mm",
+    "FL_sole_contact_z_mm",
+    "FL_contact_active",
+    "FL_sole_clearance_mm",
+    "FL_part023_angle_deg",
+    "FR_h002_rad",
+    "FR_alpha006_rad",
+    "FR_theta005_rad",
+    "FR_foot_bolt_x_mm",
+    "FR_foot_bolt_y_mm",
+    "FR_foot_bolt_z_mm",
+    "FR_sole_contact_x_mm",
+    "FR_sole_contact_y_mm",
+    "FR_sole_contact_z_mm",
+    "FR_contact_active",
+    "FR_sole_clearance_mm",
+    "FR_part023_angle_deg",
+    "RL_h002_rad",
+    "RL_alpha006_rad",
+    "RL_theta005_rad",
+    "RL_foot_bolt_x_mm",
+    "RL_foot_bolt_y_mm",
+    "RL_foot_bolt_z_mm",
+    "RL_sole_contact_x_mm",
+    "RL_sole_contact_y_mm",
+    "RL_sole_contact_z_mm",
+    "RL_contact_active",
+    "RL_sole_clearance_mm",
+    "RL_part023_angle_deg",
+    "RR_h002_rad",
+    "RR_alpha006_rad",
+    "RR_theta005_rad",
+    "RR_foot_bolt_x_mm",
+    "RR_foot_bolt_y_mm",
+    "RR_foot_bolt_z_mm",
+    "RR_sole_contact_x_mm",
+    "RR_sole_contact_y_mm",
+    "RR_sole_contact_z_mm",
+    "RR_contact_active",
+    "RR_sole_clearance_mm",
+    "RR_part023_angle_deg"
+  ],
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "physical_leg_mapping": {
+    "FL": "rear_left",
+    "FR": "rear_right",
+    "RL": "front_left",
+    "RR": "front_right"
+  },
+  "units": {
+    "length": "mm",
+    "angles": "radians except *_angle_deg diagnostic",
+    "time": "seconds; time_us rounded integer microseconds"
+  },
+  "coordinates": "World X initial forward, Y initial left, Z up. Right yaw negative; left yaw positive. Quaternion wxyz.",
+  "source_sample_hz": 120,
+  "contact_model": "Measured sole point contact: retain a world-fixed material vertex, transfer at supporting-feature changes, permit rotation about the contact. Yaw scrub, friction and torsional loads unverified.",
+  "com": {
+    "mode": "assumed",
+    "assumed_body_com_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "base_mass_kg": null,
+    "battery": {
+      "mass_kg": null,
+      "position_body_mm": null
+    },
+    "optional_q6a": {
+      "present": true,
+      "mass_kg": null,
+      "position_body_mm": [
+        -41.59850883483887,
+        0.5545158386230469,
+        -8.775001645088196
+      ]
+    }
+  },
+  "servo_calibration": null,
+  "sample_timing": "Use rational index elapsed_us*120/1000000; rounded CSV timestamps do not redefine the sample interval.",
+  "interpolation": "Monotone cubic Hermite with harmonic secant tangents; first and last tangents zero. C1, not guaranteed C2.",
+  "actuator_zero": "Corrected CAD neutral. Part005 re-clocking is already included.",
+  "positive_axes": {
+    "h002": "CAD +X / body +X",
+    "alpha006": "CAD +Z / body +Y",
+    "theta005": "CAD +Z / body +Y"
+  }
+}
