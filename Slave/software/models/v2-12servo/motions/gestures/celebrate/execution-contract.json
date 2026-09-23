@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "celebrate",
-  "gait_id": "celebrate_fourbar_20260916",
+  "gait_id": "celebrate_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/celebrate/source.json",
-      "sha256": "13ec137da243240b9fa491e4d5dbc0e6e396ca970c6dad5a911365239e55aa44"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/celebrate/source.json",
+      "sha256": "2ecbf52a62bfb7846449f49bbe919e521a69910038680f0bf3e705f5295e89fa"
     },
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/celebrate/manifest.json",
-      "sha256": "7867c11636c55247c1e2dfa110a7a0381d14fea73012fc6fe6017aa2fe7d5e5c"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/celebrate/manifest.json",
+      "sha256": "5fc1c293e1ad6d56ccb96eec9d1f4add1f4735fd7c222f89f131819ddf8e417a"
     }
   ],
   "source_units": {
@@ -113,7 +113,8 @@
         0.0,
         1.2720609220469168,
         0.8443434764795772
-      ]
+      ],
+      "current_geometry_note": "Includes sequential wide-stance preparation before lowering."
     },
     {
       "id": "p001_splay_shoulders_for_lying_pose",
@@ -1057,8 +1058,104 @@
       "support_source": "feet"
     },
     {
-      "source_time_s": 2.0,
-      "sample_index": 240,
+      "source_time_s": 0.008333333333333333,
+      "sample_index": 1,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.25,
+      "sample_index": 30,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.25833333333333336,
+      "sample_index": 31,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.5,
+      "sample_index": 60,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.5083333333333333,
+      "sample_index": 61,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.75,
+      "sample_index": 90,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.7583333333333333,
+      "sample_index": 91,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.0,
+      "sample_index": 120,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.9916666666666667,
+      "sample_index": 239,
       "active": [
         true,
         true,
@@ -1066,7 +1163,7 @@
         true
       ],
       "body_contact_active": true,
-      "support_source": "rear_cover_visor_and_feet"
+      "support_source": "body_and_feet"
     },
     {
       "source_time_s": 2.0083333333333333,
@@ -1078,7 +1175,7 @@
         false
       ],
       "body_contact_active": true,
-      "support_source": "rear_cover_and_visor"
+      "support_source": "body"
     },
     {
       "source_time_s": 10.0,
@@ -1090,11 +1187,107 @@
         true
       ],
       "body_contact_active": true,
-      "support_source": "rear_cover_visor_and_feet"
+      "support_source": "body_and_feet"
     },
     {
-      "source_time_s": 10.008333333333333,
-      "sample_index": 1201,
+      "source_time_s": 10.016666666666667,
+      "sample_index": 1202,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.008333333333333,
+      "sample_index": 1321,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.25,
+      "sample_index": 1350,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.258333333333333,
+      "sample_index": 1351,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.5,
+      "sample_index": 1380,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.508333333333333,
+      "sample_index": 1381,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.75,
+      "sample_index": 1410,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.758333333333333,
+      "sample_index": 1411,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 12.0,
+      "sample_index": 1440,
       "active": [
         true,
         true,
@@ -1190,24 +1383,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -1223,24 +1416,24 @@
     "semantic_end_s": 12.5,
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -5.465913152920645e-08,
+        0.03352277256557743,
+        0.007738246880863404
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        6.753575079195386e-09,
+        0.03352270423157892,
+        0.007738439548786157
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.0891074736952156e-07,
+        0.0335229521724298,
+        0.007738279019862261
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.7853802009205758e-08,
+        0.033522883788352525,
+        0.007738297185990294
       ]
     ],
     "contacts": [
@@ -1254,9 +1447,12 @@
   "source_qualification": {
     "hardware_qualified": false,
     "collision_checked": false,
-    "measured_mass_balance_verified": false
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": -23.069416537698874
   },
   "body_support_required": true,
   "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

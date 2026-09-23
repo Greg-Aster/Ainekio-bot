@@ -393,17 +393,6 @@ class BodySession:
             return
         if (
             message.get("t") == "mic"
-            and self.profile == "tether"
-            and message.get("gate") == "open"
-        ):
-            rejection = self._core.claim_sequence(sequence)
-            if rejection == CoreRejection.NONE:
-                await emit({"t": "nak", "seq": sequence, "code": "profile"})
-            else:
-                await emit(_decision_nak(sequence, rejection))
-            return
-        if (
-            message.get("t") == "mic"
             and message.get("on") is True
             and message.get("gate") == "wake"
             and (
@@ -445,22 +434,6 @@ class BodySession:
             else:
                 await emit(_decision_nak(sequence, rejection))
             return
-        if message.get("t") == "cam":
-            fps = int(message["fps"])
-            resolution = str(message["res"])
-            profile_violation = (
-                self.profile == "home" and fps > 10
-            ) or (
-                self.profile == "tether" and fps != 0
-            )
-            if profile_violation:
-                rejection = self._core.claim_sequence(sequence)
-                if rejection == CoreRejection.NONE:
-                    await emit({"t": "nak", "seq": sequence, "code": "profile"})
-                else:
-                    await emit(_decision_nak(sequence, rejection))
-                return
-
         if message.get("t") == "mode" and message.get("name") == "normal":
             self._flush_calibration_pending(force=True)
         decision = self._core.accept(message)
@@ -518,9 +491,6 @@ class BodySession:
                 "model": str(message["model"]),
                 "ready": bool(self._wake_settings["ready"]),
             }
-        elif message_type == "profile" and message.get("name") == "tether":
-            if self._microphone_settings["gate"] == "open":
-                self._microphone_settings["gate"] = "vad"
         elif message_type == "mode":
             self._calibration_last_activity = (
                 self._clock() if message.get("name") == "calibrate" else None

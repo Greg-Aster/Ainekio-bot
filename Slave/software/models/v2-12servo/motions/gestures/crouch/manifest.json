@@ -1,0 +1,77 @@
+{
+  "command": "crouch",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "crouch"
+  },
+  "gait_id": "crouch_current_geometry",
+  "duration_seconds": 4.0,
+  "motion_end_seconds": 2.0,
+  "source_sample_hz": 120,
+  "sample_count": 481,
+  "entry_actuator_angles_rad": [
+    [
+      -3.42796330722e-09,
+      0.0335251959917,
+      0.00773881810065
+    ],
+    [
+      -6.85589133915e-09,
+      0.0335250249653,
+      0.00773878412533
+    ],
+    [
+      1.98472066748e-09,
+      0.0335254512298,
+      0.00773886720421
+    ],
+    [
+      -3.42797678367e-09,
+      0.033525323482,
+      0.00773884018717
+    ]
+  ],
+  "final_actuator_angles_rad": [
+    [
+      1.02856202131e-07,
+      -0.655705415271,
+      -0.357353392352
+    ],
+    [
+      2.05712497805e-07,
+      -0.655705920647,
+      -0.357353920858
+    ],
+    [
+      -5.95511146234e-08,
+      -0.655704597624,
+      -0.357352520291
+    ],
+    [
+      1.02856182834e-07,
+      -0.655705050942,
+      -0.357352947821
+    ]
+  ],
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
+  "source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
+  "posture_sha256": "65c170b27e9fd8d5e9f04e69a60b3fe4496fcf8b9f099a2ea17dfd87c5cbc07e",
+  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "completion": "Hold the four-foot crouch until another command.",
+  "source_validation": {
+    "command": "crouch",
+    "samples": 481,
+    "max_target_error_mm": 8.382624727687471e-06,
+    "min_sole_z_mm": -6.521770927747639e-07,
+    "min_body_z_mm": 12.776263738559258,
+    "min_closure_height_mm": 18.690558296944562,
+    "maximum_adjacent_joint_step_degrees": 0.2957260193801399,
+    "hardware_qualified": false,
+    "collision_checked": false
+  }
+}

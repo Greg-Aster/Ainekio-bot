@@ -1,6 +1,7 @@
 #include "ainekio/v2_motion.h"
 #include "ainekio/trajectory.h"
 #include "clip_data.h"
+#include <math.h>
 #include <string.h>
 
 bool ainekio_v2_clip_find(const char *name, size_t *index)
@@ -34,19 +35,27 @@ bool ainekio_v2_clip_request(const ainekio_command_t *command, size_t *index)
     return false;
 }
 
-static float tangent(const ainekio_v2_clip_track_t *track, size_t knot, size_t joint)
+bool ainekio_v2_clip_bounds(size_t index, ainekio_v2_frame_t *minimum,
+                           ainekio_v2_frame_t *maximum)
 {
-    if (!knot || knot == track->count - 1) return 0;
-    const float a = (track->positions[knot][joint] - track->positions[knot-1][joint]) * V2_CLIP_SAMPLE_HZ;
-    const float b = (track->positions[knot+1][joint] - track->positions[knot][joint]) * V2_CLIP_SAMPLE_HZ;
-    return a * b > 0 ? 2 * a * b / (a + b) : 0;
+    if (index >= ainekio_v2_clip_count || !minimum || !maximum || minimum == maximum)
+        return false;
+    const ainekio_v2_clip_track_t *track = &v2_clip_tracks[index];
+    if (!track->count) return false;
+    *minimum = (ainekio_v2_frame_t){.geometry_id=V2_CLIP_GEOMETRY_ID};
+    *maximum = *minimum;
+    /* Compiler retains extrema and proves every segment stays within its
+     * endpoint range. Startup reads twelve extrema, not the entire recording. */
+    memcpy(minimum->position, track->minimum, sizeof(minimum->position));
+    memcpy(maximum->position, track->maximum, sizeof(maximum->position));
+    return true;
 }
 
 bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_t *frame)
 {
     if (index >= ainekio_v2_clip_count || !frame) return false;
     const ainekio_v2_clip_track_t *track = &v2_clip_tracks[index];
-    *frame = (ainekio_v2_frame_t){0};
+    *frame = (ainekio_v2_frame_t){.geometry_id=V2_CLIP_GEOMETRY_ID};
     /* Check completion before scaling to keep arbitrary late times bounded.
      * Each clip is finite: hold its recorded terminal pose, never wrap/reset. */
     if (elapsed_us >= ainekio_v2_clips[index].duration_us) {
@@ -57,11 +66,18 @@ bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_
     frame->phase = elapsed_us < track->active_start_us ? AINEKIO_V2_ENTRY :
                    elapsed_us < track->active_end_us ? track->active_phase : AINEKIO_V2_EXIT;
     const uint64_t scaled = elapsed_us * V2_CLIP_SAMPLE_HZ;
-    const size_t knot = scaled / UINT64_C(1000000);
-    const float fraction = (float)(scaled % UINT64_C(1000000)) / 1000000.0F;
+    const uint64_t source_knot = scaled / UINT64_C(1000000);
+    size_t low=0, high=track->count-1;
+    while(high-low>1) {
+        size_t middle=low+(high-low)/2;
+        if(track->knots[middle]<=source_knot)low=middle;else high=middle;
+    }
+    const size_t knot=low;
+    const unsigned width=track->knots[high]-track->knots[low];
+    const float fraction=(float)(scaled-(uint64_t)track->knots[low]*UINT64_C(1000000))/(width*1000000.0F);
     for (size_t joint = 0; joint < AINEKIO_V2_JOINT_COUNT; ++joint) {
         if (!ainekio_trajectory_sample(track->positions[knot][joint], track->positions[knot+1][joint],
-            tangent(track, knot, joint), tangent(track, knot+1, joint), 1.0F / V2_CLIP_SAMPLE_HZ,
+            track->velocities[knot][joint], track->velocities[knot+1][joint], (float)width / V2_CLIP_SAMPLE_HZ,
             fraction, &frame->position[joint], &frame->velocity[joint], &frame->acceleration[joint])) return false;
     }
     return true;

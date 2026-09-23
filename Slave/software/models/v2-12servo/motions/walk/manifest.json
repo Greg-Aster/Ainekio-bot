@@ -1,46 +1,30 @@
 {
-  "command": "walk",
-  "wire": {
-    "t": "intent",
-    "name": "walk",
-    "dir": "fwd"
-  },
-  "gait_id": "vertical_limit_099p2mm_4s_loop",
-  "source_blend": "robot-extended-crawl-20260915/Ainekio-Part023-Continuous-Walking.blend",
-  "source_package": "robot-extended-crawl-20260915",
-  "source_sha256": "91dd8aa1dcc85cabf179e71f743e8e6dd4dd52c492fbff9af78c7a55b569e0f5",
-  "loop_source_sha256": "be08b17e1c79899b0f162b4b37b49e49d70dd31c62503d266971509a4283a3f6",
-  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
-  "source_sample_hz": 120,
-  "entry_source_seconds": [
-    0,
-    12.2
-  ],
-  "loop_source_seconds": [
-    12.2,
-    16.2
-  ],
-  "exit_source_seconds": [
-    24.2,
-    32.4
-  ],
-  "steps": {
-    "minimum": 1,
-    "maximum": 10,
-    "meaning": "requested complete steady gait cycles, with one entry and one exit per command"
-  },
+  "gait_id": "stride-and-rate-current-geometry",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "hardware_qualified": false,
-  "blockers": [
-    "servo_channel_mapping_and_calibration",
-    "electrical_disable_verification",
-    "measured_speed_acceleration_and_braking_limits",
-    "supported_leg_and_full_body_validation",
-    "entry_from_current_pose_and_stop_hold_validation",
-    "balance_and_clearance_validation"
+  "sha256": {
+    "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
+    "../../geometry.json": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+    "source.json": "4322b699df36d7db37fd0044cb71c1faa7f531a38fb81f4fe7ffb803ca2d7453"
+  },
+  "source_leg_order": [
+    "RL",
+    "RR",
+    "FL",
+    "FR"
   ],
-  "source_validation": {
-    "minimum_steady_support_margin_mm": -5.885372604482086,
-    "balance_qualified": false,
-    "collision_checked": false
-  }
+  "model_leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "model_from_source_legs": [
+    2,
+    3,
+    0,
+    1
+  ],
+  "electrical_zero_and_signs": "Recommended references in servo_profile.json; per-joint measured calibration and direction remain operator settings.",
+  "source_blend": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend"
 }

@@ -1,0 +1,79 @@
+{
+  "schema": "ainekio.rest.grounded-lower-legs.v1",
+  "body_lift_mm": -11.35143256459893,
+  "lowering_seconds": 3.0,
+  "knee_to_ankle_local_unit": {
+    "RL": [
+      0.766343945374035,
+      0.0,
+      -0.6424305078283239
+    ],
+    "RR": [
+      0.766343945374035,
+      0.0,
+      -0.6424305078283239
+    ],
+    "FL": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ],
+    "FR": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ]
+  },
+  "terminal_solver_seed_rad": {
+    "FL": [
+      -2.932825912978365e-06,
+      -0.3982926997359503,
+      0.35265683838902456
+    ],
+    "FR": [
+      -3.0838132875423235e-06,
+      -0.398292588897925,
+      0.3526570221188865
+    ],
+    "RL": [
+      -2.6944225895813455e-06,
+      -0.3982925226653591,
+      0.3526569688689756
+    ],
+    "RR": [
+      -1.5099626893692858e-07,
+      -0.3982951715372734,
+      0.3526541489360165
+    ]
+  },
+  "contact_hulls_file": "posture-hulls.npz",
+  "contact_hulls_sha256": "63d35c59739dc97f73f63630b36a216c7a28412a9b7d16921a0bd052f965ede3",
+  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "measured_date": "2026-09-22",
+  "scope": "Current boot contact hulls, Part027 knee-to-ankle axes, and chassis base plate hull. Root geometry.json owns linkage frames and lengths.",
+  "lower_leg_angle_above_floor_deg": 1.8000000000000005,
+  "contact_fit": {
+    "method": "Rigid boot vertices within 0.5 mm of supporting plane, angle sampled from -15 to +15 degrees at 0.05 degree spacing",
+    "near_plane_tolerance_mm": 0.5,
+    "rear_longitudinal_span_mm": 81.8537263264,
+    "scope": "Geometric near-plane footprint; not measured physical contact pressure or area."
+  },
+  "grounded_legs": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "step_start_seconds": [
+    0,
+    0.35,
+    0.7,
+    1.05
+  ],
+  "step_duration_seconds": 0.35,
+  "step_lift_mm": 6.0,
+  "description": "All four lower legs lie along the floor and the chassis base plate rests on the floor.",
+  "body_support_scope": "Chassis base plate only. Carapace and mask clearance excluded at user request.",
+  "body_grounding_object": "ML | TESTS | Body - Bottom Cover - Compact"
+}

@@ -1,92 +1,23 @@
 {
   "command": "wave",
-  "display_label": "WAVE | SEATED",
-  "name": "Seated extended-leg wave",
   "sample_hz": 120,
-  "preview_fps": 24,
-  "gait_start_frame": 529,
-  "existing_animation_end_frame": 505,
-  "target_body_height_mm": 63.41475328785695,
-  "target_body_x_mm": -8.0,
-  "target_body_pitch_degrees": -27.5,
-  "lower_seconds": 3.0,
-  "hold_seconds": 0.8,
-  "com": {
-    "mode": "assumed",
-    "assumed_body_com_mm": [
-      0.0,
-      0.0,
-      0.0
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "retargeting": "../../retargeting.json",
+  "preview_fps": 30,
+  "geometric_solver_search_bounds_degrees": [
+    [
+      -150.0,
+      150.0
     ],
-    "base_mass_kg": null,
-    "battery": {
-      "mass_kg": null,
-      "position_body_mm": null
-    },
-    "optional_q6a": {
-      "present": true,
-      "mass_kg": null,
-      "position_body_mm": [
-        -41.59850883483887,
-        0.5545158386230469,
-        -8.775001645088196
-      ]
-    }
-  },
-  "geometric_research_angle_bounds_degrees": {
-    "h": [
-      -35,
-      35
+    [
+      -145.0,
+      145.0
     ],
-    "alpha": [
-      -34.24,
-      67.4
-    ],
-    "theta": [
-      -51.95331106142828,
-      80
+    [
+      -180.0,
+      180.0
     ]
-  },
-  "source_blend": "Before-Wave-Refinement.blend",
-  "output_blend": "Ainekio-Wave-Seated.blend",
-  "scene_name": "AINEKIO - Wave Seated",
-  "part023_forward_limit_degrees": null,
-  "contact_model": "Reuse the measured Sit contact path. While seated, three soles remain fixed; the extended front-left foot is airborne. Retrace the same arm and Sit paths to return.",
-  "face_cues": [
-    {
-      "time_s": 0.0,
-      "name": "wave",
-      "mode": "once",
-      "fps": 1
-    },
-    {
-      "time_s": 15.2,
-      "name": "stand",
-      "mode": "once",
-      "fps": 1
-    }
   ],
-  "completion": "Lower the waving foot into Sit, then return to standing and hold; restore the stand face.",
   "hardware_qualified": false,
-  "waving_cad_leg": "RL",
-  "waving_physical_leg": "front_left",
-  "lift_seconds": 1.2,
-  "extend_seconds": 1.6,
-  "half_wave_seconds": 0.6,
-  "shoulder_waypoints_degrees": [
-    80.0,
-    95.0,
-    65.0,
-    95.0,
-    65.0,
-    95.0,
-    80.0
-  ],
-  "reach_alpha_degrees": -34.24,
-  "reach_theta_degrees": 45.0,
-  "waving_shoulder_research_bounds_degrees": [
-    -5.0,
-    100.0
-  ],
-  "reach_basis": "Part005 wave setpoint reduced by 35 degrees, from +80 to +45, to point the foot farther forward. Part006 remains -34.24 degrees. Signed geometric coordinates; hardware limits uncalibrated."
+  "posture_file": "posture.json"
 }

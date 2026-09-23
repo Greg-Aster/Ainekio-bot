@@ -1,0 +1,60 @@
+{
+  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "measured_date": "2026-09-22",
+  "grounded_legs": [
+    "FL",
+    "FR"
+  ],
+  "knee_to_ankle_local_unit": {
+    "FL": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ],
+    "FR": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ]
+  },
+  "body_support_scope": "Current complete body hull.",
+  "schema": "ainekio.wave.seated-extended.v1",
+  "description": "Reuse the corrected Sit exactly, lift and extend the front-left leg for three smooth waves, replace the foot, and reverse Sit into standing.",
+  "contact_hulls_file": "../sit/posture-hulls.npz",
+  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "base_motion": {
+    "command": "sit",
+    "source_file": "../sit/source.json",
+    "source_sha256": "07e253c0c9ce6beddf64355bff7ace4fae9aa2d621bcbfb13f5282cf2cd90960",
+    "posture_file": "../sit/posture.json",
+    "posture_sha256": "65c62ea75a07e1f0816e2fdd48018ba3821c62582cc6b303ccdf0b4f0688223b"
+  },
+  "posture_sample_time_s": 3.0,
+  "waving_leg": "RL",
+  "physical_waving_leg": "front_left",
+  "lift_joint_offsets_deg": [
+    -55.0,
+    -15.0,
+    -25.0
+  ],
+  "extended_joint_offsets_deg": [
+    -65.0,
+    51.0,
+    40.0
+  ],
+  "shoulder_wave_amplitude_deg": 18.0,
+  "wave_cycles": 3,
+  "wave_envelope_seconds": 0.25,
+  "timing_s": {
+    "sit_end": 3.0,
+    "lift_end": 4.2,
+    "extension_end": 5.8,
+    "wave_end": 9.4,
+    "retraction_end": 11.0,
+    "foot_replacement_end": 12.2,
+    "stand_end": 15.2,
+    "clip_end": 16.0
+  },
+  "angle_scope": "Geometric offsets on measured linkage frames, not calibrated electrical commands."
+}

@@ -1,4 +1,5 @@
 #include "ainekio/platform/wake_word_service.h"
+#include "ainekio/protocol.h"
 
 #include <algorithm>
 #include <cmath>
@@ -561,13 +562,13 @@ ainekio_wake_word_result_t infer_feature(
 }  // namespace
 
 extern "C" esp_err_t ainekio_wake_word_service_start(
-    const ainekio_asset_store_t *assets,
+    const char *asset_root,
     const char *model_id,
     ainekio_wake_word_service_t **service_output
 )
 {
-    if (assets == nullptr || model_id == nullptr || service_output == nullptr ||
-        !assets->mounted || !safe_model_id(model_id)) {
+    if (asset_root == nullptr || asset_root[0] != '/' || model_id == nullptr ||
+        service_output == nullptr || !safe_model_id(model_id)) {
         return ESP_ERR_INVALID_ARG;
     }
     ainekio_wake_word_service_t *service = &singleton;
@@ -581,7 +582,7 @@ extern "C" esp_err_t ainekio_wake_word_service_start(
             manifest_path,
             sizeof(manifest_path),
             "%s/wake/%s/manifest.json",
-            AINEKIO_ASSET_MOUNT_PATH,
+            asset_root,
             model_id
         ) >= static_cast<int>(sizeof(manifest_path))) {
         return ESP_ERR_INVALID_SIZE;
@@ -596,7 +597,7 @@ extern "C" esp_err_t ainekio_wake_word_service_start(
             model_path,
             sizeof(model_path),
             "%s/wake/%s/%s",
-            AINEKIO_ASSET_MOUNT_PATH,
+            asset_root,
             model_id,
             service->manifest.model_file
         ) >= static_cast<int>(sizeof(model_path))) {

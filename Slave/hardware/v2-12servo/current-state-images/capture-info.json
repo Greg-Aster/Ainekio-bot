@@ -1,0 +1,343 @@
+{
+  "source": {
+    "filepath": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+    "scene": "Scene",
+    "frame": 1,
+    "mode": "OBJECT",
+    "active": "CARAPACE | Central shell - extracted 014.001",
+    "selection": [
+      "REFINED | RL | Part_020 - full-length inner boot"
+    ],
+    "objects": 892,
+    "meshes": 320,
+    "scenes": 3
+  },
+  "captured_utc": "2026-09-22T16:24:09.611480+00:00",
+  "objects_in_capture": [
+    "temp_mesh.ply.012",
+    "Carapace - Right Side Protector",
+    "Carapace - Left Side Protector",
+    "Carapace - Left Side Protector.001",
+    "Carapace - Right Side Protector.001",
+    "TESTS | Body - Right Center Mount.001",
+    "TESTS | Body - Left Center Mount.001",
+    "TESTS | Body - Rear End Panel - Q6A Ports",
+    "TESTS | Body - Front End Panel - Compact",
+    "TESTS | Body - Bottom Cover - Compact",
+    "TESTS | Face - 1.9 inch LCD - Waveshare",
+    "TESTS | Face - Black LCD Carrier",
+    "TESTS | Face - Arducam B0066 - camera mock-up",
+    "TESTS | B0066 - adjacent circuit reference",
+    "TESTS | B0066 - shortened 60mm cable - local route preview",
+    "TESTS | Board - Adafruit PCA9685",
+    "TESTS | Board - ESP32-P4-WIFI6",
+    "REFINED | FL | Part_009 - 24mm recessed horn crank - plain joint bore",
+    "REFINED | FL | Part_023 - 4.9mm outside-horn carrier - plain joint bore",
+    "REFINED | FL | Part_027 - 24mm pickup short collar - plain joint bore",
+    "REFINED | FL | Part_026 - 41mm direct styled rod",
+    "REFINED | FL | Part_005 - servo reference",
+    "REFINED | FL | Part_006 - servo reference",
+    "REFINED | FL | Part_003 - original mount - separate rectangular shims",
+    "REFINED | FL | Part_020 - full-length inner boot",
+    "REFINED | FL | Part_022 - full-length outer boot",
+    "REFINED | FL | Part_021_M3-6 - unchanged foot reference",
+    "REFINED | FL | Horn_009 - stock with prepared pilot",
+    "REFINED | FL | Horn_023 - stock with prepared pilot",
+    "REFINED | FL | Part009 reversed horn screw 1 - clearance reference",
+    "REFINED | FL | Part023 reversed horn screw 1 - clearance reference",
+    "REFINED | FL | Part009 reversed horn screw 2 - clearance reference",
+    "REFINED | FL | Part023 reversed horn screw 2 - clearance reference",
+    "REFINED | FL | Bearing - rod input",
+    "REFINED | FL | Bearing - rod output",
+    "REFINED | FL | Bearing - main leg pivot",
+    "REFINED | FL | Shim - input bearing inner race - 0.1mm",
+    "REFINED | FL | Washer - input screw inner race - 0.2mm",
+    "REFINED | FL | Shim - knee bearing inner race - 0.1mm",
+    "REFINED | FL | Washer - knee screw inner race - 0.2mm",
+    "REFINED | FL | Washer - output bearing inner race - 0.2mm",
+    "REFINED | FL | Shim - output bearing outer-side inner race - 0.1mm",
+    "REFINED | FL | Servo006 mounting screw 1 - reference",
+    "REFINED | FL | Servo006 mounting screw 2 - reference",
+    "REFINED | FL | Part_003 shim 1 - rectangular 5.25mm",
+    "REFINED | FL | Part_003 shim 2 - rectangular 5.25mm",
+    "REFINED | FL | M3x6 screw - input directly into Part_009",
+    "REFINED | FL | M3x6 screw - knee directly into Part_023",
+    "REFINED | FL | M3x6 screw - output directly into Part_027",
+    "TESTS | Part_001_9g",
+    "TESTS | Part_002_SG90",
+    "TESTS | Part_004",
+    "REFINED | FR | Part_009 - 24mm recessed horn crank - plain joint bore",
+    "REFINED | FR | Part_023 - 4.9mm outside-horn carrier - plain joint bore",
+    "REFINED | FR | Part_027 - 24mm pickup short collar - plain joint bore",
+    "REFINED | FR | Part_026 - 41mm direct styled rod",
+    "REFINED | FR | Part_005 - servo reference",
+    "REFINED | FR | Part_006 - servo reference",
+    "REFINED | FR | Part_003 - original mount - separate rectangular shims",
+    "REFINED | FR | Part_020 - full-length inner boot",
+    "REFINED | FR | Part_022 - full-length outer boot",
+    "REFINED | FR | Part_021_M3-6 - unchanged foot reference",
+    "REFINED | FR | Horn_009 - stock with prepared pilot",
+    "REFINED | FR | Horn_023 - stock with prepared pilot",
+    "REFINED | FR | Part009 reversed horn screw 1 - clearance reference",
+    "REFINED | FR | Part023 reversed horn screw 1 - clearance reference",
+    "REFINED | FR | Part009 reversed horn screw 2 - clearance reference",
+    "REFINED | FR | Part023 reversed horn screw 2 - clearance reference",
+    "REFINED | FR | Bearing - rod input",
+    "REFINED | FR | Bearing - rod output",
+    "REFINED | FR | Bearing - main leg pivot",
+    "REFINED | FR | Shim - input bearing inner race - 0.1mm",
+    "REFINED | FR | Washer - input screw inner race - 0.2mm",
+    "REFINED | FR | Shim - knee bearing inner race - 0.1mm",
+    "REFINED | FR | Washer - knee screw inner race - 0.2mm",
+    "REFINED | FR | Washer - output bearing inner race - 0.2mm",
+    "REFINED | FR | Shim - output bearing outer-side inner race - 0.1mm",
+    "REFINED | FR | Servo006 mounting screw 1 - reference",
+    "REFINED | FR | Servo006 mounting screw 2 - reference",
+    "REFINED | FR | Part_003 shim 1 - rectangular 5.25mm",
+    "REFINED | FR | Part_003 shim 2 - rectangular 5.25mm",
+    "REFINED | FR | M3x6 screw - input directly into Part_009",
+    "REFINED | FR | M3x6 screw - knee directly into Part_023",
+    "REFINED | FR | M3x6 screw - output directly into Part_027",
+    "TESTS | FR - Part_001_9g",
+    "TESTS | FR - Part_002_SG90",
+    "TESTS | FR - Part_004",
+    "REFINED | RL | Part_009 - 24mm recessed horn crank - plain joint bore",
+    "REFINED | RL | Part_023 - 4.9mm outside-horn carrier - plain joint bore",
+    "REFINED | RL | Part_027 - 24mm pickup short collar - plain joint bore",
+    "REFINED | RL | Part_026 - 41mm direct styled rod",
+    "REFINED | RL | Part_005 - servo reference",
+    "REFINED | RL | Part_006 - servo reference",
+    "REFINED | RL | Part_003 - original mount - separate rectangular shims",
+    "REFINED | RL | Part_020 - full-length inner boot",
+    "REFINED | RL | Part_022 - full-length outer boot",
+    "REFINED | RL | Part_021_M3-6 - unchanged foot reference",
+    "REFINED | RL | Horn_009 - stock with prepared pilot",
+    "REFINED | RL | Horn_023 - stock with prepared pilot",
+    "REFINED | RL | Part009 reversed horn screw 1 - clearance reference",
+    "REFINED | RL | Part023 reversed horn screw 1 - clearance reference",
+    "REFINED | RL | Part009 reversed horn screw 2 - clearance reference",
+    "REFINED | RL | Part023 reversed horn screw 2 - clearance reference",
+    "REFINED | RL | Bearing - rod input",
+    "REFINED | RL | Bearing - rod output",
+    "REFINED | RL | Bearing - main leg pivot",
+    "REFINED | RL | Shim - input bearing inner race - 0.1mm",
+    "REFINED | RL | Washer - input screw inner race - 0.2mm",
+    "REFINED | RL | Shim - knee bearing inner race - 0.1mm",
+    "REFINED | RL | Washer - knee screw inner race - 0.2mm",
+    "REFINED | RL | Washer - output bearing inner race - 0.2mm",
+    "REFINED | RL | Shim - output bearing outer-side inner race - 0.1mm",
+    "REFINED | RL | Servo006 mounting screw 1 - reference",
+    "REFINED | RL | Servo006 mounting screw 2 - reference",
+    "REFINED | RL | Part_003 shim 1 - rectangular 5.25mm",
+    "REFINED | RL | Part_003 shim 2 - rectangular 5.25mm",
+    "REFINED | RL | M3x6 screw - input directly into Part_009",
+    "REFINED | RL | M3x6 screw - knee directly into Part_023",
+    "REFINED | RL | M3x6 screw - output directly into Part_027",
+    "TESTS | RL - Part_001_9g",
+    "TESTS | RL - Part_002_SG90",
+    "TESTS | RL - Part_004",
+    "REFINED | RR | Part_009 - 24mm recessed horn crank - plain joint bore",
+    "REFINED | RR | Part_023 - 4.9mm outside-horn carrier - plain joint bore",
+    "REFINED | RR | Part_027 - 24mm pickup short collar - plain joint bore",
+    "REFINED | RR | Part_026 - 41mm direct styled rod",
+    "REFINED | RR | Part_005 - servo reference",
+    "REFINED | RR | Part_006 - servo reference",
+    "REFINED | RR | Part_003 - original mount - separate rectangular shims",
+    "REFINED | RR | Part_020 - full-length inner boot",
+    "REFINED | RR | Part_022 - full-length outer boot",
+    "REFINED | RR | Part_021_M3-6 - unchanged foot reference",
+    "REFINED | RR | Horn_009 - stock with prepared pilot",
+    "REFINED | RR | Horn_023 - stock with prepared pilot",
+    "REFINED | RR | Part009 reversed horn screw 1 - clearance reference",
+    "REFINED | RR | Part023 reversed horn screw 1 - clearance reference",
+    "REFINED | RR | Part009 reversed horn screw 2 - clearance reference",
+    "REFINED | RR | Part023 reversed horn screw 2 - clearance reference",
+    "REFINED | RR | Bearing - rod input",
+    "REFINED | RR | Bearing - rod output",
+    "REFINED | RR | Bearing - main leg pivot",
+    "REFINED | RR | Shim - input bearing inner race - 0.1mm",
+    "REFINED | RR | Washer - input screw inner race - 0.2mm",
+    "REFINED | RR | Shim - knee bearing inner race - 0.1mm",
+    "REFINED | RR | Washer - knee screw inner race - 0.2mm",
+    "REFINED | RR | Washer - output bearing inner race - 0.2mm",
+    "REFINED | RR | Shim - output bearing outer-side inner race - 0.1mm",
+    "REFINED | RR | Servo006 mounting screw 1 - reference",
+    "REFINED | RR | Servo006 mounting screw 2 - reference",
+    "REFINED | RR | Part_003 shim 1 - rectangular 5.25mm",
+    "REFINED | RR | Part_003 shim 2 - rectangular 5.25mm",
+    "REFINED | RR | M3x6 screw - input directly into Part_009",
+    "REFINED | RR | M3x6 screw - knee directly into Part_023",
+    "REFINED | RR | M3x6 screw - output directly into Part_027",
+    "TESTS | RR - Part_001_9g",
+    "TESTS | RR - Part_002_SG90",
+    "TESTS | RR - Part_004",
+    "CARAPACE | Rear helmet - extracted 014.002",
+    "CARAPACE | Central shell - extracted 014.001",
+    "CARAPACE | Front helmet - extracted 014.001"
+  ],
+  "bounds": [
+    [
+      -115.18295288085938,
+      -63.55430221557617,
+      3.7994704246520996
+    ],
+    [
+      108.9061508178711,
+      63.5543098449707,
+      116.19271850585938
+    ]
+  ],
+  "output_dir": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images",
+  "views": [
+    {
+      "name": "front-quarter",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/front-quarter.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        1.1,
+        1.4,
+        0.78
+      ]
+    },
+    {
+      "name": "rear-quarter",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/rear-quarter.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        -1.1,
+        -1.4,
+        0.78
+      ]
+    },
+    {
+      "name": "front",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/front.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "rear",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/rear.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        -1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "left-side",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/left-side.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "right-side",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/right-side.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "name": "top",
+      "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/current-state-images/top.png",
+      "size": [
+        1920,
+        1440
+      ],
+      "projection": "orthographic",
+      "direction": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "render_note": "Orthographic Workbench images with current viewport textures and studio lighting; exposure raised 0.7 stops for readability. No geometry, pose or material edits.",
+  "files": [
+    {
+      "file": "index.html",
+      "bytes": 2428,
+      "sha256": "23459b5d14dbc5b337f0b2c34d19085b19b42211f7ec77db46973e86ecfb8804"
+    },
+    {
+      "file": "rear.png",
+      "bytes": 2958741,
+      "sha256": "c9a60af90e0c42e8616989b721825a11445763760f97269f81f905050756a5a0"
+    },
+    {
+      "file": "front.png",
+      "bytes": 3094499,
+      "sha256": "912b1849375aca1218d3f7bf26e7231f1b8c59b2740612ab4a72f8ff1a510486"
+    },
+    {
+      "file": "overview.png",
+      "bytes": 2041084,
+      "sha256": "4a1eaf454134a050db712ddb879c6c9310359b8009cd7c59c489f89f3bf74f06"
+    },
+    {
+      "file": "right-side.png",
+      "bytes": 3079833,
+      "sha256": "7eaaa5219f7691541773e1c1812d4ac5fce57526b0d9dba7f0195eb435dabef9"
+    },
+    {
+      "file": "top.png",
+      "bytes": 3026145,
+      "sha256": "89699e1856bfef61af78f50e81607ed15d21afb38e2864c638079984abd6a057"
+    },
+    {
+      "file": "front-quarter.png",
+      "bytes": 3327416,
+      "sha256": "d9c47753331aadafa538ed23a6ae5e565e0a176cc6dd88054eaa6662b7392db1"
+    },
+    {
+      "file": "left-side.png",
+      "bytes": 3104004,
+      "sha256": "327f54d6bcf168a5be8fbd294a9e3c31516e527794def3914497e7d971af7c84"
+    },
+    {
+      "file": "rear-quarter.png",
+      "bytes": 3223948,
+      "sha256": "ccbc939c16c14445c6b5fbc70712ed58feb867b4388f81e41aa1a1e6951d14b9"
+    }
+  ],
+  "cleanup": {
+    "temporary_objects_remaining": 0,
+    "temporary_meshes_remaining": 0
+  }
+}

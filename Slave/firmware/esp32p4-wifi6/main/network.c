@@ -2,6 +2,9 @@
 #include "board.h"
 #include "config.h"
 #include "controller.h"
+#include "portal.h"
+#include "storage.h"
+#include "system.h"
 #include "ainekio/provisioning.h"
 
 #include <inttypes.h>
@@ -20,6 +23,7 @@
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs.h"
 
 static atomic_bool online, manual_ap, retry, lost, initialized, ap_running;
 static atomic_bool maintenance;
@@ -65,15 +69,17 @@ static char ap_name[33], ap_key[17];
 static esp_netif_t *station;
 
 bool ainekio_p4_network_online(void) { return atomic_load(&online) && !atomic_load(&maintenance); }
+bool ainekio_p4_network_setup_active(void) { return atomic_load(&ap_running) && !atomic_load(&maintenance); }
+bool ainekio_p4_network_initialized(void) { return atomic_load(&initialized); }
 
 static void event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg;
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
-        atomic_store(&online, false);
+        const bool was_online = atomic_exchange(&online, false);
         atomic_store(&lost, true);
         /* No motion queue, RPC or I2C is involved in loss handling. */
-        ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
+        if (was_online) ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
         ESP_LOGI("network", "Station disconnected reason=%u", ((wifi_event_sta_disconnected_t *)data)->reason);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         atomic_store(&online, true);
@@ -90,7 +96,11 @@ static esp_err_t setup_ap(bool enable)
 {
     ESP_LOGI("network", "Setup AP %s", enable ? "starting" : "stopping");
     esp_err_t result = esp_wifi_set_mode(enable ? WIFI_MODE_APSTA : WIFI_MODE_STA);
-    if (result == ESP_OK) atomic_store(&ap_running, enable);
+    if (result == ESP_OK) {
+        atomic_store(&ap_running, enable);
+        result = enable ? ainekio_p4_portal_start() : ainekio_p4_portal_stop();
+        if (result != ESP_OK) ESP_LOGE("network", "Setup portal: %s", esp_err_to_name(result));
+    }
     return result;
 }
 
@@ -98,6 +108,7 @@ static void network_task(void *arg)
 {
     (void)arg;
     const ainekio_config_record_t *config = ainekio_p4_config();
+    const bool has_wifi = config && config->wifi_ssid[0];
     /* Network initialization can block or fail without blocking board startup,
      * the console, or the independent output supervisor. */
     esp_err_t result = esp_netif_init();
@@ -124,20 +135,25 @@ static void network_task(void *arg)
     memcpy(ap.ap.password, ap_key, strlen(ap_key));
     result = esp_wifi_set_mode(WIFI_MODE_APSTA);
     if (result == ESP_OK) result = esp_wifi_set_config(WIFI_IF_AP, &ap);
-    if (config && config->wifi_ssid[0]) {
+    if (has_wifi) {
         wifi_config_t sta = {0};
         memcpy(sta.sta.ssid, config->wifi_ssid, strlen(config->wifi_ssid));
         memcpy(sta.sta.password, config->wifi_psk, strlen(config->wifi_psk));
         sta.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
         if (result == ESP_OK) result = esp_wifi_set_config(WIFI_IF_STA, &sta);
     }
-    if (result == ESP_OK) result = esp_wifi_set_mode(config ? WIFI_MODE_STA : WIFI_MODE_APSTA);
+    if (result == ESP_OK) result = esp_wifi_set_mode(has_wifi ? WIFI_MODE_STA : WIFI_MODE_APSTA);
     if (result == ESP_OK) result = esp_wifi_start();
     if (result != ESP_OK) goto failed;
     atomic_store(&initialized, true);
-    atomic_store(&ap_running, !config);
+    atomic_store(&ap_running, !has_wifi);
+    if (!has_wifi && ainekio_p4_portal_start() != ESP_OK)
+        ESP_LOGE("network", "Setup portal unavailable; serial configuration remains available");
+    /* SDMMC initialization is not thread-safe. Hosted has finished claiming
+     * slot 1 before the independent removable-card task may claim slot 0. */
+    if (ainekio_p4_storage_start() != ESP_OK) ESP_LOGE("network", "Storage task could not start");
     ainekio_provisioning_t provision;
-    ainekio_provisioning_init(&provision, config ? AINEKIO_CONFIG_STATUS_VALID : AINEKIO_CONFIG_STATUS_MISSING,
+    ainekio_provisioning_init(&provision, has_wifi ? AINEKIO_CONFIG_STATUS_VALID : AINEKIO_CONFIG_STATUS_MISSING,
                               esp_timer_get_time() / 1000U);
     uint64_t last_connect_ms = 0;
     bool time_service_started = false;
@@ -163,8 +179,8 @@ static void network_task(void *arg)
             ainekio_provisioning_request_manual(&provision, AINEKIO_PROVISION_REASON_DASHBOARD_REQUEST, now_ms);
         }
         if (atomic_exchange(&retry, false)) {
-            ainekio_provisioning_init(&provision, config ? AINEKIO_CONFIG_STATUS_VALID : AINEKIO_CONFIG_STATUS_MISSING, now_ms);
-            if (config) setup_ap(false);
+            ainekio_provisioning_init(&provision, has_wifi ? AINEKIO_CONFIG_STATUS_VALID : AINEKIO_CONFIG_STATUS_MISSING, now_ms);
+            if (has_wifi) setup_ap(false);
         }
         ainekio_provisioning_tick(&provision, now_ms);
         /* AP+STA can retain its address throughout manual setup. Returning to
@@ -174,7 +190,7 @@ static void network_task(void *arg)
         const ainekio_provision_actions_t actions = ainekio_provisioning_take_actions(&provision);
         if (actions & AINEKIO_PROVISION_ACTION_START_SETUP_AP) setup_ap(true);
         if (actions & AINEKIO_PROVISION_ACTION_STOP_SETUP_AP) setup_ap(false);
-        if (config && !atomic_load(&online) &&
+        if (has_wifi && !atomic_load(&online) &&
             ((actions & AINEKIO_PROVISION_ACTION_CONNECT_ACTIVE_WIFI) || now_ms - last_connect_ms >= 5000U)) {
             result = esp_wifi_connect();
             last_connect_ms = now_ms;
@@ -187,13 +203,62 @@ failed:
     vTaskDelete(NULL);
 }
 
-esp_err_t ainekio_p4_network_start(void)
+esp_err_t ainekio_p4_network_prepare(void)
 {
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_BASE);
     snprintf(ap_name, sizeof(ap_name), "Ainekio-P4-%02X%02X%02X", mac[3], mac[4], mac[5]);
-    snprintf(ap_key, sizeof(ap_key), "%08" PRIx32 "%08" PRIx32, esp_random(), esp_random());
+    nvs_handle_t nvs;
+    esp_err_t result = nvs_open("p4_network", NVS_READWRITE, &nvs);
+    if (result != ESP_OK) return result;
+    size_t key_size = sizeof(ap_key);
+    result = nvs_get_str(nvs, "setup_key", ap_key, &key_size);
+    if (result == ESP_ERR_NVS_NOT_FOUND) {
+        ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
+        snprintf(ap_key, sizeof(ap_key), "%08" PRIx32 "%08" PRIx32, esp_random(), esp_random());
+        result = nvs_set_str(nvs, "setup_key", ap_key);
+        if (result == ESP_OK) result = nvs_commit(nvs);
+    }
+    nvs_close(nvs);
+    if (result != ESP_OK || strlen(ap_key) != 16) return result == ESP_OK ? ESP_ERR_INVALID_STATE : result;
+    return ESP_OK;
+}
+
+esp_err_t ainekio_p4_network_start(void)
+{
+    if (strlen(ap_key) != 16) return ESP_ERR_INVALID_STATE;
     return xTaskCreate(network_task, "network", 8192, NULL, 4, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
+}
+
+esp_err_t ainekio_p4_network_setup(void)
+{
+    if (!atomic_load(&initialized) || atomic_load(&maintenance)) return ESP_ERR_INVALID_STATE;
+    atomic_store(&manual_ap, true);
+    return ESP_OK;
+}
+
+esp_err_t ainekio_p4_network_retry(void)
+{
+    if (!atomic_load(&initialized) || atomic_load(&maintenance)) return ESP_ERR_INVALID_STATE;
+    atomic_store(&retry, true);
+    return ESP_OK;
+}
+
+esp_err_t ainekio_p4_network_reset(void)
+{
+    if (ainekio_p4_system_status().restart_pending) return ESP_ERR_INVALID_STATE;
+    ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
+    esp_err_t result = ainekio_p4_config_reset_network();
+    return result == ESP_OK ? ainekio_p4_system_restart() : result;
+}
+
+void ainekio_p4_network_suspend(void)
+{
+    atomic_store(&maintenance, true);
+    (void)ainekio_p4_portal_stop();
+    (void)esp_wifi_stop();
+    atomic_store(&online, false);
+    atomic_store(&ap_running, false);
 }
 
 int ainekio_p4_network_command(int argc, char **argv)
@@ -207,8 +272,9 @@ int ainekio_p4_network_command(int argc, char **argv)
         return 0;
     }
 #endif
-    if (argc == 2 && strcmp(argv[1], "ap") == 0) atomic_store(&manual_ap, true);
-    else if (argc == 2 && strcmp(argv[1], "retry") == 0) atomic_store(&retry, true);
+    if (argc == 2 && strcmp(argv[1], "ap") == 0) return ainekio_p4_network_setup() == ESP_OK ? 0 : 1;
+    else if (argc == 2 && strcmp(argv[1], "retry") == 0) return ainekio_p4_network_retry() == ESP_OK ? 0 : 1;
+    else if (argc == 2 && strcmp(argv[1], "reset") == 0) return ainekio_p4_network_reset() == ESP_OK ? 0 : 1;
     else if (argc == 2 && strcmp(argv[1], "key") == 0) printf("Setup SSID=%s password=%s\n", ap_name, ap_key);
     else if (argc != 1) return 1;
     printf("network initialized=%d station=%d setup_ap=%d SSID=%s\n",

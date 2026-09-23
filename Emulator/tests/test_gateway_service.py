@@ -654,7 +654,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             await client_task
         core.close()
 
-    async def test_gateway_refuses_out_of_profile_media_before_assigning_sequence(self) -> None:
+    async def test_gateway_allows_explicit_media_in_tether(self) -> None:
         service = GatewayService(
             GatewayServiceConfig(
                 tokens={"ainekio-test-01": "test-token"},
@@ -681,14 +681,13 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             client_task = asyncio.create_task(client.run_once())
             await service.wait_connected("ainekio-test-01")
 
-            with self.assertRaises(GatewayError):
-                await service.set_camera(on=True, fps=1, resolution="QVGA")
-            with self.assertRaises(GatewayError):
-                await service.set_microphone(on=True, gate="open")
-            self.assertEqual(service.status()["robots"]["ainekio-test-01"]["next_sequence"], 1)
-
-            sequence = await service.set_camera(on=True, fps=0, resolution="QVGA")
+            sequence = await service.set_camera(on=True, fps=15, resolution="QVGA")
             self.assertEqual(await service.wait_terminal(sequence), {"t": "ack", "seq": 1})
+            sequence = await service.set_microphone(on=True, gate="open")
+            self.assertEqual(await service.wait_terminal(sequence), {"t": "ack", "seq": 2})
+            caps = service.status()["robots"]["ainekio-test-01"]["effective_caps"]
+            self.assertEqual(caps["camera_max_fps"], 15)
+            self.assertIn("open", caps["microphone_gates"])
             await service.revoke_token("ainekio-test-01")
             await client_task
         core.close()

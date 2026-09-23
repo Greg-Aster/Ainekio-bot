@@ -1,1 +1,66 @@
-{"duration_s": 14.5, "motion_end_s": 14.0, "sample_hz": 120, "samples": 1741, "repetitions": 5, "repetitions_start_s": 2.0, "repetitions_end_s": 12.0, "actuator_min_degrees": [[0.0, 0.0, -11.088261843475026], [0.0, 0.0, -19.72440883747218], [0.0, -4.988715093839495, -18.158560530794396], [0.0, 0.0, -26.218878924914932]], "actuator_max_degrees": [[2.5457502288259053, 22.69707603396372, 7.413293102424283], [3.2231740140607323, 35.133793988641926, 0.6922500213113183], [3.560508061609793, 12.83373315122888, 39.005947317285234], [4.5953443349810374, 22.11164304025298, 22.99409489464543]], "actuator_peak_speed_degrees_s": [[2.346293903000065, 34.301417697942966, 34.672828282551954], [3.1392949062307363, 40.23726655113386, 38.298445190291304], [5.34665192178851, 35.861384544773735, 106.52712097944189], [6.881783225997227, 27.436275471638503, 90.54907912033354]], "actuator_peak_acceleration_degrees_s2": [[4.385825067955906, 107.81960322664474, 115.14918040190558], [6.414697042119677, 126.26161491452592, 129.00432600236925], [22.11814031267849, 155.86614787640437, 473.2756438183628], [30.03553997074704, 111.64433883081699, 351.83773633362847]], "crouched_actuator_degrees": [[2.4203816940888934, 22.69707603396372, 7.413293102424283], [3.1074472179976014, 35.133793988641926, 0.6922500213113183], [0.8502457738855168, -4.988715093839495, 39.005947317285234], [1.1623812724586842, 8.808009431222098, 22.99409489464543]], "lowered_actuator_degrees": [[2.5457502288259053, 4.415785832967938, -11.088261843475026], [3.2231740140607323, 13.675324938487769, -19.72440883747218], [3.560508061609793, 12.83373315122888, -18.158560530794396], [4.5953443349810374, 22.11164304025298, -26.218878924914932]], "front_body_datum_mm": [75.0, 0.0, 0.0], "front_body_vertical_travel_mm": 36.833073120756914, "minimum_support_margin_mm": 39.11498833020818, "minimum_stance_contacts": 4, "maximum_rolling_normal_correction_mm": 0.0010052845395236432, "solved_rolling_transfers": 114, "max_stance_material_vertex_constraint_error_mm": 1.3576062090895033e-13, "minimum_body_ground_clearance_mm": 7.698658382342423, "min_sole_height_mm": -1.3371796114824974e-08, "maximum_adjacent_joint_step_degrees": 0.8879198389499336, "final_joint_return_error_degrees": 0.0, "research_angle_bounds_satisfied": true, "collision_checked": false, "hardware_servo_limits_verified": false, "measured_mass_balance_verified": false, "hardware_qualified": false}
+{
+  "command": "nod",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "samples": 1021,
+  "duration_s": 8.5,
+  "sample_hz": 120,
+  "max_target_error_mm": 9.770520293272966e-06,
+  "min_sole_height_mm": -6.083568784731597e-06,
+  "minimum_body_ground_clearance_mm": 10.15661254933881,
+  "minimum_closure_triangle_height_mm": 7.604770186356754,
+  "minimum_assumed_support_margin_mm": 41.78526286108655,
+  "actuator_min_degrees": [
+    [
+      -3.6405147726868314,
+      -17.97431724692987,
+      -20.40169588197093
+    ],
+    [
+      -3.927861822767105e-07,
+      -36.63668557676293,
+      -28.38928155699625
+    ],
+    [
+      -4.95930033742216,
+      -31.41558631112359,
+      -15.976284051710685
+    ],
+    [
+      -1.9639461733642719e-07,
+      -67.08813046662613,
+      -53.296318950695095
+    ]
+  ],
+  "actuator_max_degrees": [
+    [
+      -1.9639407408966488e-07,
+      5.803823035310972,
+      0.44337066262337493
+    ],
+    [
+      4.565225445244305,
+      1.9207032552083865,
+      0.4433684475969088
+    ],
+    [
+      6.516412857300446e-06,
+      21.103804396711396,
+      0.4433736321028514
+    ],
+    [
+      6.579369050002299,
+      14.21389990879198,
+      0.44337191530064396
+    ]
+  ],
+  "maximum_adjacent_joint_step_degrees": 1.9351962465546233,
+  "peak_joint_speed_deg_s": 229.76441129975194,
+  "peak_joint_acceleration_deg_s2": 10105.311546053534,
+  "native_solver_fallbacks": 0,
+  "seconds": 1.0752306989961653,
+  "hardware_qualified": false,
+  "collision_checked": false,
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "motion_end_s": 8.0,
+  "repetitions": 2
+}

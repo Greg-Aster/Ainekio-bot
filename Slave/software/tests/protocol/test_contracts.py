@@ -76,6 +76,15 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
 
     for condition in schema.get("allOf", []):
         assert_matches_schema(instance, condition, root)
+    if "anyOf" in schema:
+        for option in schema["anyOf"]:
+            try:
+                assert_matches_schema(instance, option, root)
+            except SchemaMismatch:
+                continue
+            break
+        else:
+            raise SchemaMismatch("anyOf matched no alternatives")
     if "if" in schema:
         try:
             assert_matches_schema(instance, schema["if"], root)
@@ -122,6 +131,8 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
             raise SchemaMismatch("below minimum")
         if "maximum" in schema and instance > schema["maximum"]:
             raise SchemaMismatch("above maximum")
+        if "exclusiveMinimum" in schema and instance <= schema["exclusiveMinimum"]:
+            raise SchemaMismatch("not above exclusive minimum")
 
     if isinstance(instance, str):
         if "minLength" in schema and len(instance) < schema["minLength"]:
@@ -132,6 +143,9 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
             raise SchemaMismatch("pattern mismatch")
 
     if isinstance(instance, dict):
+        for name, dependencies in schema.get("dependentRequired", {}).items():
+            if name in instance and any(dependency not in instance for dependency in dependencies):
+                raise SchemaMismatch(f"missing dependency for: {name}")
         for name in schema.get("required", []):
             if name not in instance:
                 raise SchemaMismatch(f"missing property: {name}")
@@ -173,6 +187,23 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
         if rule == "ordered-limits":
             if not isinstance(instance, dict) or not instance["min"] <= instance["center"] <= instance["max"]:
                 raise SchemaMismatch("unordered limits")
+        elif rule == "unique-calibration-joints-and-channels":
+            if not isinstance(instance, dict):
+                raise SchemaMismatch("calibration is not an object")
+            ids = [joint["id"] for joint in instance["joints"]]
+            channels = [joint["channel"] for joint in instance["joints"] if joint["channel"] >= 0]
+            if len(ids) != len(set(ids)) or len(channels) != len(set(channels)):
+                raise SchemaMismatch("duplicate calibration joint or channel")
+        elif rule == "saved-is-not-dirty":
+            if not isinstance(instance, dict) or (instance["saved"] and instance["dirty"]):
+                raise SchemaMismatch("saved calibration is dirty")
+        elif rule == "ordered-pwm-pulse-bounds":
+            if not isinstance(instance, dict) or ("pulse_min_us" in instance
+                    and instance["pulse_min_us"] > instance["pulse_max_us"]):
+                raise SchemaMismatch("unordered PWM pulse bounds")
+        elif rule == "storage-free-does-not-exceed-total":
+            if not isinstance(instance, dict) or instance["free_bytes"] > instance["total_bytes"]:
+                raise SchemaMismatch("storage free bytes exceed total")
         elif rule == "unique-servo-ids":
             if not isinstance(instance, dict):
                 raise SchemaMismatch("pose is not an object")

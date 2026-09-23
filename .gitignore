@@ -45,6 +45,9 @@ captures/
 recordings/
 snapshots/
 
+# Oversized local CAD working copies (excluded from Git publication).
+/Slave/hardware/v2-12servo/ainekio-variable-gait*.blend*
+
 # Personal MetaHuman data must stay outside this repo.
 profiles/
 memories/

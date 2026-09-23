@@ -6,56 +6,56 @@
     "name": "emote",
     "asset": "shake"
   },
-  "gait_id": "shake_fourbar_20260916",
-  "generated_utc": "2026-09-16T20:38:33.969233+00:00",
+  "gait_id": "shake_upright_24_38_20260921",
+  "generated_utc": "2026-09-21",
   "duration_seconds": 7.0,
   "semantic_end_seconds": 7.0,
   "source_sample_hz": 120,
   "sample_count": 841,
-  "entry_pose": "Corrected geometric standing neutral; arbitrary-pose entry not verified.",
+  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
   "completion": "Return along solved entry paths to exact geometric standing and hold. Restore stand face.",
   "semantic_final_actuator_angles_rad": [
     [
-      0.0,
-      0.0,
-      0.0
+      -3.4279035733079917e-09,
+      0.033522787650220834,
+      0.007738277863627052
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -6.855426282257194e-09,
+      0.03352259575012423,
+      0.00773823920354973
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      1.984694404027254e-09,
+      0.033523055037438326,
+      0.007738329695495198
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -3.4277092212291827e-09,
+      0.03352291414985117,
+      0.007738299731544906
     ]
   ],
   "playlist_final_actuator_angles_rad": [
     [
-      0.0,
-      0.0,
-      0.0
+      -3.4279035733079917e-09,
+      0.033522787650220834,
+      0.007738277863627052
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -6.855426282257194e-09,
+      0.03352259575012423,
+      0.00773823920354973
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      1.984694404027254e-09,
+      0.033523055037438326,
+      0.007738329695495198
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -3.4277092212291827e-09,
+      0.03352291414985117,
+      0.007738299731544906
     ]
   ],
   "face_cues": [
@@ -74,139 +74,120 @@
   ],
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8",
-  "csv_sha256": "01c9df7206c0ae232985dd5c5795a5885650aa89d30af87a999abe5e0250ab83",
-  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
-  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
-  "body_samples_sha256": "3fad46eceddd49e52ad9959cd846270b572ed1504d3aa92235046c260d7e00c7",
+  "source_sha256": "905aa48065d1110f669a0e3b7c6385e12f3b7a6e4f8463c55d62fc5ea52f621f",
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
   "face_sha256": {
     "faces/shake/0.bin": "9241884e2ca210c7ac6c1755e32083dbe212ca190e1478cce4c35fb64d5c9fbd",
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
-  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
-  "blender_frames": [
-    4038,
-    4206
+  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "entry_actuator_angles_rad": [
+    [
+      -3.4277232242703374e-09,
+      0.033522787652696055,
+      0.0077382778671378615
+    ],
+    [
+      -6.855412137067195e-09,
+      0.03352259575715927,
+      0.007738239210021999
+    ],
+    [
+      1.9846059755857533e-09,
+      0.0335230550346877,
+      0.007738329695574771
+    ],
+    [
+      -3.4277327057149906e-09,
+      0.03352291414500837,
+      0.007738299730361967
+    ]
   ],
-  "design": "V1 front distal pair R3/L3 folds while rear R4/L4 pulses synchronously five times. V2 lowers the front, preserves four measured sole contacts, then rocks the rear pair up/down five times with coordinated carrier/crank closure.",
-  "contact_model": "Four grounded measured convex soles. Ground-fixed material vertices between discrete rolling transfers; solved outbound paths are reversed exactly. Foot yaw scrub and friction unverified.",
   "source_validation": {
-    "duration_s": 7.0,
-    "motion_end_s": 6.5,
-    "sample_hz": 120,
+    "command": "shake",
+    "geometry_id": "upright-24-38-24-55-20260921",
     "samples": 841,
+    "duration_s": 7.0,
+    "sample_hz": 120,
+    "max_target_error_mm": 8.997751336892179e-06,
+    "min_sole_height_mm": -5.479264871155465e-06,
+    "minimum_body_ground_clearance_mm": 5.5396411506592855,
+    "minimum_closure_triangle_height_mm": 18.690595605685623,
+    "minimum_assumed_support_margin_mm": 40.5809927126487,
     "actuator_min_degrees": [
       [
-        0.0,
-        -22.922454709420897,
-        -16.191425565211254
+        -6.588411887291752e-06,
+        -7.25009827654573,
+        0.4433706622853413
       ],
       [
-        0.0,
-        -22.922454709420695,
-        -16.191427265547897
+        -1.0692862976207932e-06,
+        -7.250093677068105,
+        0.4433684472260751
       ],
       [
-        0.0,
-        0.0,
-        -35.36759528352904
+        1.1370954639750696e-07,
+        -36.340219822630566,
+        -15.235625682390722
       ],
       [
-        0.0,
-        0.0,
-        -35.367595283528885
+        -1.9639461733642719e-07,
+        -36.34024816401987,
+        -15.235659871347803
       ]
     ],
     "actuator_max_degrees": [
       [
-        0.0,
-        0.0,
-        0.0
+        -1.9639407408966488e-07,
+        11.214912240151001,
+        22.75828941234765
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        4.077942781473015e-06,
+        11.214915024025085,
+        22.75831242929772
       ],
       [
-        0.0,
-        10.994426765466791,
-        0.0
+        1.083837910773732e-05,
+        1.92072957002999,
+        0.7706066264950269
       ],
       [
-        0.0,
-        10.994426765467095,
-        0.0
+        1.0569028924477376e-05,
+        1.92072149776586,
+        0.7705960109141216
       ]
     ],
-    "actuator_peak_speed_degrees_s": [
-      [
-        0.0,
-        84.79837420457952,
-        28.028300459562914
-      ],
-      [
-        0.0,
-        84.79837420457802,
-        28.028303187985735
-      ],
-      [
-        0.0,
-        40.416709606186956,
-        45.805718840621026
-      ],
-      [
-        0.0,
-        40.416709606185464,
-        45.805718840621026
-      ]
-    ],
-    "actuator_peak_acceleration_degrees_s2": [
-      [
-        0.0,
-        685.5190139303119,
-        251.44008169470595
-      ],
-      [
-        0.0,
-        685.5190139301457,
-        251.44010669903736
-      ],
-      [
-        0.0,
-        316.08119173874655,
-        171.4428322628507
-      ],
-      [
-        0.0,
-        316.0811917389319,
-        171.44283226294021
-      ]
-    ],
-    "maximum_adjacent_joint_step_degrees": 0.7068032122920371,
-    "final_joint_return_error_degrees": 0.0,
-    "minimum_support_margin_mm": 37.82261585742711,
-    "min_sole_height_mm": -1.3709836821362842e-08,
-    "minimum_body_ground_clearance_mm": 4.278009794575638,
-    "maximum_rolling_normal_correction_mm": 0.0009025914015907688,
-    "solved_rolling_transfers": 420,
-    "minimum_stance_contacts": 4,
-    "max_stance_material_vertex_constraint_error_mm": 1.2809491335957507e-13,
-    "research_angle_bounds_satisfied": true,
-    "fourbar_closure": "Recomputed from measured branch at every sample",
+    "maximum_adjacent_joint_step_degrees": 0.7180480564318935,
+    "peak_joint_speed_deg_s": 86.10658024084852,
+    "peak_joint_acceleration_deg_s2": 669.0978518894809,
+    "native_solver_fallbacks": 0,
+    "seconds": 0.89373419599724,
+    "hardware_qualified": false,
     "collision_checked": false,
-    "measured_mass_balance_verified": false,
-    "hardware_servo_limits_verified": false,
-    "body_contact_strength_verified": false,
-    "hardware_qualified": false
+    "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+    "motion_end_s": 6.5
   },
-  "interpolation_validation": {
-    "segments_checked": 840,
-    "bounded_quarter_samples": true,
-    "final_hold_verified": true,
-    "peak_interpolated_speed_degrees_s": 84.88824958284935,
-    "peak_interpolated_acceleration_degrees_s2": 850.9231091538983,
-    "continuity": "Position and velocity continuous; full acceleration continuity not established.",
-    "hardware_qualified": false
-  }
+  "retargeted_from": {
+    "path": "docs/gait-research/motion-batch-20260916/commands/shake/source.json",
+    "sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8"
+  },
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+  "blender_scene": "Motions - Current Geometry",
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      63.0
+    ],
+    "euler_xyz_rad": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "choreography_source": "docs/gait-research/motion-batch-20260916/commands/shake/manifest.json",
+  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package."
 }

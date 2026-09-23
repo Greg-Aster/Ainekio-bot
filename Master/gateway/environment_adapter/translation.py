@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from typing import Mapping
 
 from protocol.control_v1 import (
+    validate_walk_controls,
+    ProtocolValidationError,
     MOTION_PLAN_JOINT_MAP,
     MOTION_PLAN_MAX_CENTIDEGREES,
     MOTION_PLAN_MAX_FRAMES,
@@ -65,7 +67,7 @@ ROBOT_COMMAND_DESCRIPTIONS: dict[str, str] = {
     },
     "stop": "stop the current body motion",
     "sit": "lower into the preprogrammed held sitting pose",
-    "stand": "move into the upright standing pose",
+    "stand": "stand normally on all four feet",
     "neutral": "move into the body-control neutral pose",
     "rest": "move into the preprogrammed rest pose",
     "wave": "raise and wave one leg, then return to stand",
@@ -111,10 +113,20 @@ ROBOT_COMMAND_DESCRIPTIONS: dict[str, str] = {
 # New model-specific names require an explicit body_commands_v1 declaration.
 LEGACY_ROBOT_COMMANDS = tuple(sorted(ROBOT_COMMAND_DESCRIPTIONS))
 DECLARED_EMOTES = {
+    "upright": "experimental motion: sit, brace the front legs backward, then rise onto the rear lower legs and hold upright",
+    "crouch": "squat on all four feet and hold the body above the floor",
     "turn_left_15": "turn left approximately 15 degrees",
     "turn_right_15": "turn right approximately 15 degrees",
 }
+DECLARED_GAITS = {"crawl": "walk continuously with the body low above the floor; supports direction, Speed, stride and cadence"}
 ROBOT_COMMAND_DESCRIPTIONS.update(DECLARED_EMOTES)
+ROBOT_COMMAND_DESCRIPTIONS.update(DECLARED_GAITS)
+ROBOT_COMMAND_DESCRIPTIONS.update({
+    "walk": "walk forward; continuous=true runs until stopped; optional speed or stride and rate controls",
+    "backward": "walk backward; continuous=true runs until stopped; optional speed or stride and rate controls",
+    "left": "turn left 45 degrees, or continuously with continuous=true; supports walking controls",
+    "right": "turn right 45 degrees, or continuously with continuous=true; supports walking controls",
+})
 SUPPORTED_ROBOT_COMMANDS = tuple(sorted(ROBOT_COMMAND_DESCRIPTIONS))
 
 @dataclass(frozen=True)
@@ -124,7 +136,16 @@ class BridgeAction:
     params: dict[str, object] = field(default_factory=dict)
 
 
-def translate_environment_action(action: Mapping[str, object]) -> BridgeAction | None:
+def translate_environment_action(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
+    try:
+        return _translate_environment_action(action, model=model)
+    except ProtocolValidationError:
+        return None
+
+
+def _translate_environment_action(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
+    if "continuous" in action and type(action["continuous"]) is not bool:
+        raise ProtocolValidationError("type:continuous")
     action_type = _normalized(action.get("type"))
     if action_type == "captureimage":
         return BridgeAction("snapshot", "captureImage")
@@ -194,6 +215,19 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         return BridgeAction("stop")
     if command in {"stand", "neutral", "sit"}:
         return BridgeAction("intent", command)
+    if command == "run" and model == "v2-12servo":
+        defaults = {} if "stride" in action or "rate" in action else {"speed":150}
+        # Use the automatic family so Speed can return to Walk in the same
+        # command. Explicit advanced Run remains available through gait=run.
+        params = _walk_params({**defaults, **action, "gait":"run" if "stride" in action or "rate" in action else "walk", "continuous":action.get("continuous", True)}, "fwd")
+        return BridgeAction("intent", "walk", params)
+    if command == "crawl":
+        direction = action.get("direction", "fwd")
+        direction = {"forward":"fwd", "backward":"back", "left":"turn_l", "right":"turn_r"}.get(direction, direction) if isinstance(direction, str) else None
+        if direction not in {"fwd", "back", "turn_l", "turn_r"}:return None
+        return BridgeAction("intent", "walk", _walk_params({**action, "gait":"crawl", "continuous":action.get("continuous", True)}, direction))
+    if command in {"left", "right"} and _locomotion_requested(action):
+        return BridgeAction("intent", "walk", _walk_params(action, "turn_l" if command == "left" else "turn_r"))
     if command in {"left", "right"}:
         return BridgeAction(
             "intent",
@@ -208,7 +242,7 @@ def translate_environment_action(action: Mapping[str, object]) -> BridgeAction |
         return BridgeAction(
             "intent",
             "walk",
-            {"dir": direction, "steps": _bounded_steps(action.get("units"))},
+            _walk_params(action, direction),
         )
     emote_asset = next(
         (asset for asset in SEED_EMOTES | DECLARED_EMOTES.keys() if _normalized(asset) == command),
@@ -287,6 +321,8 @@ def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:
     direction = _normalized(action.get("direction") or "forward")
     if direction in {"left", "turnleft", "right", "turnright"}:
         side = "left" if direction in {"left", "turnleft"} else "right"
+        if _locomotion_requested(action):
+            return BridgeAction("intent", "walk", _walk_params(action, "turn_l" if side == "left" else "turn_r"))
         return BridgeAction(
             "intent",
             "emote",
@@ -306,8 +342,23 @@ def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:
     return BridgeAction(
         "intent",
         "walk",
-        {"dir": wire_direction, "steps": _bounded_steps(action.get("units"))},
+        _walk_params(action, wire_direction),
     )
+
+
+def _locomotion_requested(action: Mapping[str, object]) -> bool:
+    return action.get("continuous") is True or any(k in action for k in ("speed", "stride", "rate", "gait", "update"))
+
+
+def _walk_params(action: Mapping[str, object], direction: str) -> dict[str, object]:
+    if "continuous" in action and type(action["continuous"]) is not bool:
+        raise ProtocolValidationError("type:continuous")
+    params = {"dir": direction, "steps": 0 if action.get("continuous") else _bounded_steps(action.get("units"))}
+    for key in ("speed", "stride", "rate", "update", "gait", "speed_percent", "stride_percent", "motion_rate"):
+        if key in action:
+            params[key] = action[key]
+    validate_walk_controls(params)
+    return params
 
 
 def _normalized(value: object) -> str:

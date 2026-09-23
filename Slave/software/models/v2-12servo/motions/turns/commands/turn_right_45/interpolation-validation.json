@@ -1,10 +1,31 @@
 {
   "command": "turn_right_45",
-  "source_hash_verified": true,
-  "interpolation_midpoints_checked": 2280,
-  "peak_interpolated_speed_degrees_s": 159.7164383161439,
-  "peak_interpolated_acceleration_degrees_s2": 2143.9356175298717,
-  "interpolation_continuity": "C1; acceleration may jump at keys and contact-feature transfers",
-  "continuous_bounded_angles": true,
-  "heading_change_degrees": -45.0
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "source_sha256": "0f15a1795b5afb999b950c9867a3976a9cb3a446c03e4a5f68e5504d705a8c6f",
+  "samples": 2281,
+  "hardware_qualified": false,
+  "collision_checked": false,
+  "interpolators": {
+    "source": {
+      "poses": 2281,
+      "minimum_sole_z_mm": -2.696026868420631e-07,
+      "minimum_body_z_mm": 45.63832952174951,
+      "minimum_closure_height_mm": 13.198674269226265,
+      "maximum_interpolated_target_error_mm": 9.735621866582277e-06
+    },
+    "native_monotone_cubic_midpoints": {
+      "poses": 2280,
+      "minimum_sole_z_mm": -0.003073107295271882,
+      "minimum_body_z_mm": 45.63832952174951,
+      "minimum_closure_height_mm": 13.198753246055738,
+      "maximum_interpolated_target_error_mm": 0.011791865614577013
+    },
+    "blender_linear_midpoints": {
+      "poses": 2280,
+      "minimum_sole_z_mm": -0.0013108372127916823,
+      "minimum_body_z_mm": 45.63832952174951,
+      "minimum_closure_height_mm": 13.198814269598094,
+      "maximum_interpolated_target_error_mm": 0.00994824660401239
+    }
+  }
 }

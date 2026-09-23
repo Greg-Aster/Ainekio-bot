@@ -1,7 +1,36 @@
 {
   "protocol": 1,
   "cases": [
-    {"name": "output_test_run", "requires_feature": "output_test_v1", "message": {"t": "output_test", "seq": 1, "op": "run", "channel": 11, "pulse_us": 1500, "ms": 100, "fault": "none", "epoch": 9, "deadline_ms": 12345}},
+    {"name": "body_calibration_move_1", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 1}},
+    {"name": "body_calibration_move_499", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 499}},
+    {"name": "body_calibration_move_2501", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 2501}},
+    {"name": "body_calibration_move_3000", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 3000}},
+    {"name": "body_calibration_move_65535", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 65535}},
+    {"name": "body_calibration_home_wire_range", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 3000, "invert": false}},
+    {"name": "body_calibration_status", "receiver": "gateway", "message": {"t": "calibration_status", "seq": 1, "dirty": false, "saved": true, "ready": true, "pulse_min_us": 3, "pulse_max_us": 19986, "joints": [
+      {"id": 0, "channel": 0, "home_us": 1500, "invert": false, "pulse_us": 3000, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 1, "channel": 1, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": -8352, "us_per_degree": 11.111111},
+      {"id": 2, "channel": 2, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 3, "channel": 3, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 4, "channel": 4, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 5, "channel": 5, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 6, "channel": 6, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 7, "channel": 7, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 8, "channel": 8, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 9, "channel": 9, "home_us": 1500, "invert": true, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
+      {"id": 10, "channel": 10, "home_us": 1495, "invert": false, "pulse_us": 1495, "home_cd": 0, "us_per_degree": 10},
+      {"id": 11, "channel": -1, "home_us": 1500, "invert": false, "pulse_us": 0, "home_cd": 0, "us_per_degree": 11.111111}
+    ]}},
+    {"name": "storage_status", "receiver": "gateway", "message": {"t": "storage_status", "seq": 1, "available": true, "mounted": true, "busy": false, "total_bytes": 1048576, "free_bytes": 524288, "dropped_records": 0, "error": ""}},
+    {"name": "body_calibration_mapping", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 1500, "invert": true, "home_cd": -8352, "us_per_degree": 11.111111, "epoch": 9, "deadline_ms": 12345}},
+    {"name": "storage_get", "requires_feature": "storage_control_v1", "message": {"t": "storage", "seq": 1, "op": "get", "epoch": 9, "deadline_ms": 12345}},
+    {"name": "storage_retry", "requires_feature": "storage_control_v1", "message": {"t": "storage", "seq": 1, "op": "retry", "epoch": 9, "deadline_ms": 12345}},
+    {"name": "storage_clear", "requires_feature": "storage_control_v1", "message": {"t": "storage", "seq": 1, "op": "clear", "epoch": 9, "deadline_ms": 12345}},
+    {"name": "body_calibration_get", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "get", "epoch": 9, "deadline_ms": 12345}},
+    {"name": "body_calibration_move", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 1505, "epoch": 9, "deadline_ms": 12345}},
+    {"name": "body_calibration_set", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 8, "channel": 8, "home_us": 1505, "invert": false, "epoch": 9, "deadline_ms": 12345}},
+    {"name": "body_calibration_home", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "home", "id": 6, "epoch": 9, "deadline_ms": 12345}},
+    {"name": "body_calibration_save", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "save", "epoch": 9, "deadline_ms": 12345}},
     {
       "name": "hello",
       "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN", "features": ["motion_plan_v1"]}

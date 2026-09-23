@@ -26,10 +26,6 @@ SESSION_COOKIE = "ainekio_dashboard_session"
 DEFAULT_TEST_TONE_VOLUME_PERCENT = 15
 PCM_S16_MAX = 32767
 TEST_TONE_FRAME_COUNT = 100
-TEST_TONE_FRAME_SECONDS = 0.020
-TEST_TONE_PREBUFFER_FRAMES = 20
-TEST_TONE_PACING_FRAMES = 5
-TEST_TONE_PACING_SECONDS = TEST_TONE_FRAME_SECONDS * TEST_TONE_PACING_FRAMES
 STATIC_ROOT = Path(__file__).with_name("static")
 STATIC_FILES = {
     "/": ("dashboard.html", "text/html; charset=utf-8", True),
@@ -343,21 +339,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             )
             return {"ok": True, "seq": sequence}
-        if path == "/api/diagnostics/output":
+        if path == "/api/storage":
             operation = _required_string(payload, "op")
-            options: dict[str, object] = {}
-            if operation == "run":
-                options = {
-                    "channel": _required_int(payload, "channel"),
-                    "pulse_us": _required_int(payload, "pulse_us"),
-                    "duration_ms": _required_int(payload, "ms"),
-                    "fault": _optional_string(payload, "fault") or "none",
-                }
-            sequence = self.server.call_gateway(self.server.gateway.test_outputs(
-                operation=operation, robot_id=robot_id, **options,
+            if operation == "clear" and payload.get("confirmed") is not True:
+                raise ValueError("confirm clearing the body's logs and captures")
+            result = self.server.call_gateway(self.server.gateway.body_storage(operation, robot_id=robot_id), timeout=12.0)
+            self.server.audit_log.record("storage_confirmed", robot_id=robot_id, operation=operation, sequence=result["seq"])
+            return {"ok": True, "seq": result["seq"], "storage": result}
+        if path == "/api/calibration/body":
+            operation = _required_string(payload, "op")
+            values = {key: value for key, value in payload.items() if key not in {"op", "robot_id"}}
+            result = self.server.call_gateway(self.server.gateway.body_calibration(
+                operation, values, robot_id=robot_id,
             ))
-            self.server.audit_log.record("output_test_issued", robot_id=robot_id, operation=operation)
-            return {"ok": True, "seq": sequence}
+            self.server.audit_log.record("body_calibration_confirmed", robot_id=robot_id,
+                                         operation=operation, sequence=result["seq"])
+            return {"ok": True, "seq": result["seq"], "calibration": result}
         if path == "/api/calibration/servo":
             sequence = self.server.call_gateway(
                 self.server.gateway.set_servo(
@@ -612,23 +609,8 @@ async def _test_tone_frames(
         raise ValueError("volume_percent must be between 1 and 100")
     amplitude = round(PCM_S16_MAX * volume_percent / 100)
     phase = 0
-    pacing_block_started_at = asyncio.get_running_loop().time()
-    for frame_index in range(TEST_TONE_FRAME_COUNT):
-        if (
-            frame_index >= TEST_TONE_PREBUFFER_FRAMES
-            and (frame_index - TEST_TONE_PREBUFFER_FRAMES)
-            % TEST_TONE_PACING_FRAMES
-            == 0
-        ):
-            # Refill in bounded 100 ms blocks. Account for the time spent
-            # transmitting the prior block so socket backpressure does not
-            # reduce the average below the required 50 frames/second.
-            remaining = TEST_TONE_PACING_SECONDS - (
-                asyncio.get_running_loop().time() - pacing_block_started_at
-            )
-            if remaining > 0:
-                await asyncio.sleep(remaining)
-            pacing_block_started_at = asyncio.get_running_loop().time()
+    # The canonical speaker sender owns pacing for every PCM source.
+    for _frame in range(TEST_TONE_FRAME_COUNT):
         samples = []
         for _sample in range(320):
             value = int(

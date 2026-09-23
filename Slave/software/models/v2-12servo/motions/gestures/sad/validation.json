@@ -1,110 +1,65 @@
 {
-  "duration_s": 8.8,
-  "motion_end_s": 8.3,
-  "sample_hz": 120,
+  "command": "sad",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "samples": 1057,
+  "duration_s": 8.8,
+  "sample_hz": 120,
+  "max_target_error_mm": 9.46456921724348e-06,
+  "min_sole_height_mm": -2.0590359639527378e-08,
+  "minimum_body_ground_clearance_mm": 9.357902279194796,
+  "minimum_closure_triangle_height_mm": 18.69059560564284,
+  "minimum_assumed_support_margin_mm": 39.1725382676651,
   "actuator_min_degrees": [
     [
-      -4.687872218588018,
-      -12.0052120004371,
-      -19.680960083530554
+      -3.9803407629604384,
+      -5.538735356412828,
+      -2.2380546256660967
     ],
     [
-      -4.829148519078859,
-      -12.0052120004371,
-      -19.68096210379039
+      -3.9806022531162744,
+      -5.538732688929276,
+      -2.238035574681422
     ],
     [
-      -1.0695178125741742,
-      -8.27454439028833,
-      -41.209509672578996
+      -0.1418889038520201,
+      -10.58235772371799,
+      -2.238051505050077
     ],
     [
-      -0.8773872409548227,
-      -8.274544390288407,
-      -41.209509672578996
+      -0.1406890134131674,
+      -10.563700069287801,
+      -2.2380622196400615
     ]
   ],
   "actuator_max_degrees": [
     [
-      4.829148519078885,
-      5.0557089087420195,
-      0.0
+      3.9584596521735613,
+      1.9371498344829292,
+      20.107646790025324
     ],
     [
-      4.687872218588044,
-      5.0557089087420195,
-      0.0
+      3.958211416200483,
+      1.9396264660673082,
+      20.102701741150675
     ],
     [
-      0.8773872409547973,
-      5.055710167542155,
-      0.0
+      0.5440469880153082,
+      1.920729570336444,
+      29.398532831286495
     ],
     [
-      1.0695178125741742,
-      5.055710167542155,
-      0.0
+      0.5456689263829916,
+      1.920721498066985,
+      29.390630885357712
     ]
   ],
-  "actuator_peak_speed_degrees_s": [
-    [
-      12.92968211240181,
-      31.944063511061877,
-      21.104297943695016
-    ],
-    [
-      12.929682112400291,
-      31.944063511061877,
-      21.104300079023304
-    ],
-    [
-      2.8702071777878158,
-      23.861952602793902,
-      59.870653304553656
-    ],
-    [
-      2.8702071777862903,
-      23.861952602793902,
-      59.87065330455515
-    ]
-  ],
-  "actuator_peak_acceleration_degrees_s2": [
-    [
-      57.49680629993179,
-      101.79078249909371,
-      70.84225209564323
-    ],
-    [
-      57.49680629993179,
-      101.79078249909371,
-      70.84225964311948
-    ],
-    [
-      12.932796662416024,
-      90.60092588367894,
-      200.20196407973145
-    ],
-    [
-      12.932796662598278,
-      90.60092588367894,
-      200.20196407973145
-    ]
-  ],
-  "minimum_support_margin_mm": 35.4980907598287,
-  "minimum_stance_contacts": 4,
-  "maximum_rolling_normal_correction_mm": 0.00038979480077117046,
-  "solved_rolling_transfers": 202,
-  "max_stance_material_vertex_constraint_error_mm": 1.043222174248088e-13,
-  "minimum_body_ground_clearance_mm": 7.226677056926796,
-  "min_sole_height_mm": -7.349621355956515e-09,
-  "maximum_adjacent_joint_step_degrees": 0.4990304616179735,
-  "final_joint_return_error_degrees": 0.0,
-  "research_angle_bounds_satisfied": true,
-  "fourbar_branch_preserved": true,
-  "belly_support_required": false,
+  "maximum_adjacent_joint_step_degrees": 0.41972237338037777,
+  "peak_joint_speed_deg_s": 50.36133707914821,
+  "peak_joint_acceleration_deg_s2": 185.32092917275526,
+  "native_solver_fallbacks": 0,
+  "seconds": 1.1569866849968093,
+  "hardware_qualified": false,
   "collision_checked": false,
-  "hardware_servo_limits_verified": false,
-  "measured_mass_balance_verified": false,
-  "hardware_qualified": false
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "motion_end_s": 8.3
 }

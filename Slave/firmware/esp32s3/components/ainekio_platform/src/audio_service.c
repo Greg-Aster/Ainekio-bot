@@ -602,7 +602,7 @@ esp_err_t ainekio_audio_service_start(
         service->callbacks = *callbacks;
     }
     const esp_err_t wake_result = ainekio_wake_word_service_start(
-        assets,
+        assets && assets->mounted ? AINEKIO_ASSET_MOUNT_PATH : NULL,
         wake_model,
         &service->wake_word
     );

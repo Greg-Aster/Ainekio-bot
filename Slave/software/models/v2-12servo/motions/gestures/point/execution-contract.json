@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "point",
-  "gait_id": "point_rear_support_fourbar_20260916",
+  "gait_id": "point_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/point-20260916/source.json",
-      "sha256": "5e1ea7fb19b17c5588053538ff08c563767487bc5a7ade0df20a7b89cee737c2"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/point/source.json",
+      "sha256": "27ababa8e086f6feb73081a8bc752ca0233ab35c5a7fd672ee9e51a4c6c60a9e"
     },
     {
-      "path": "docs/gait-research/point-20260916/manifest.json",
-      "sha256": "31665efd95ef5eeffc9674b9f883a4d916740b0a352611d53f06779cff6ddd1e"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/point/manifest.json",
+      "sha256": "59f0d214b1219b349d6d961e7e8388ce63570a5c20d5798aff02121c224a2504"
     }
   ],
   "source_units": {
@@ -115,7 +115,8 @@
         0.09015097245028507,
         0.7406229670367578,
         0.742408287570133
-      ]
+      ],
+      "current_geometry_note": "Preserves the support preload before full forward pointing."
     },
     {
       "id": "p001_lift_front_left",
@@ -685,24 +686,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -717,24 +718,24 @@
     "behavior": "Retract front-left arm, replace its sole, undo the support crouch, and hold exact standing neutral.",
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4279730946464096e-09,
+        0.033525195979799034,
+        0.007738818094317624
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.8558914362768375e-09,
+        0.033525024953376385,
+        0.007738784118952224
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9847208311538007e-09,
+        0.033525451218018115,
+        0.007738867197917231
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.427966535772385e-09,
+        0.0335253234700979,
+        0.007738840180842572
       ]
     ],
     "contacts": [
@@ -748,9 +749,11 @@
     "hardware_qualified": false,
     "collision_checked": false,
     "measured_mass_balance_verified": false,
-    "minimum_assumed_support_margin_mm": 24.8580836486214
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": 26.781923609798163
   },
   "body_support_required": false,
   "interruption_note": "Keep the three supporting legs and crouched body coordinated; retract and replace the pointing foot before standing. Never seek directly to the last row.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

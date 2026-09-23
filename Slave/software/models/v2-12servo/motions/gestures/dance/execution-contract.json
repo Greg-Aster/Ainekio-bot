@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "dance",
-  "gait_id": "dance_fourbar_20260916",
+  "gait_id": "dance_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/dance-20260916/source.json",
-      "sha256": "570913be37706a2629e734f3a99d1e9c7376dd34c4fc4759e4559984f32ccdf9"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/dance/source.json",
+      "sha256": "059cb599dc8fd29d9d44cd157d0e6929ff03f4a3751be4e41a6ac4724d1bafde"
     },
     {
-      "path": "docs/gait-research/dance-20260916/manifest.json",
-      "sha256": "eda32a236bfbee0ef9dea30a475c922bef4af99be16d4c83ddd766354f19e006"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/dance/manifest.json",
+      "sha256": "6a62cdfd4a2252d36cd703b728900f7fae96db7f12c8525360f7a4dc6a76c770"
     }
   ],
   "source_units": {
@@ -1665,7 +1665,9 @@
         true,
         true,
         true
-      ]
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
     }
   ],
   "timing_profiles": {
@@ -1777,24 +1779,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -1809,24 +1811,24 @@
     "behavior": "Return through the recorded exit to the exact standing joint pose, then hold; restore the stand face.",
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4279569390862597e-09,
+        0.03352278765559921,
+        0.007738277868490044
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855431945693936e-09,
+        0.033522595755755634,
+        0.007738239208645959
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.984853209739278e-09,
+        0.03352305503620201,
+        0.0077383296967665546
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4276705823268166e-09,
+        0.033522914148483726,
+        0.0077382997326223895
       ]
     ],
     "contacts": [
@@ -1840,7 +1842,9 @@
     "hardware_qualified": false,
     "collision_checked": false,
     "measured_mass_balance_verified": false,
-    "minimum_assumed_support_margin_mm": 38.140140162879405
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": 41.800492679981524
   },
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

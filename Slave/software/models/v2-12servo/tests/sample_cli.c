@@ -1,17 +1,12 @@
-#include "ainekio/v2_motion.h"
-#include <inttypes.h>
+#include "ainekio/v2_walk.h"
 #include <stdio.h>
-
 int main(void)
 {
-    uint64_t time;
-    unsigned cycles;
-    while (scanf("%u %" SCNu64, &cycles, &time)==2) {
-        ainekio_v2_frame_t frame;
-        if (cycles > 10 || !ainekio_v2_walk_sample(cycles,time,&frame)) return 1;
-        printf("[");
-        for (unsigned joint=0; joint<12; ++joint) printf("%s%.9g",joint ? "," : "",frame.position[joint]);
-        puts("]");
+    double phase,stride,rate;
+    while(scanf("%lf %lf %lf",&phase,&stride,&rate)==3){
+        ainekio_v2_walk_pose_t pose;
+        if(!ainekio_v2_walk_pose(phase,(ainekio_v2_walk_controls_t){stride,rate},&pose))return 1;
+        printf("[");for(unsigned j=0;j<12;j++)printf("%s%.12g",j?",":"",pose.frame.position[j]);puts("]");
     }
     return 0;
 }

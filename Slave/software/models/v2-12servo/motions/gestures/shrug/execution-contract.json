@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "shrug",
-  "gait_id": "shrug_fourbar_20260916",
+  "gait_id": "shrug_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/shrug/source.json",
-      "sha256": "4a332dbd2a1cc2d1918bde3d0f1e73d17c43ce935298dde3edd8e242c56ebf78"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/shrug/source.json",
+      "sha256": "654ea6921687df20678ba92044e3749640907d38d947caf135fe6c2d05d71a0b"
     },
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/shrug/manifest.json",
-      "sha256": "5f5d6617649f0471e77570ebcdf308208778cb189c8c9ac0777fc8cf1f25dfc6"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/shrug/manifest.json",
+      "sha256": "c0f6e09ce43623eb2adbfd3f7023242c8164262af94a8f34551de5c138f78157"
     }
   ],
   "source_units": {
@@ -112,7 +112,8 @@
         0.0,
         2.270632875171605,
         1.5256916585629332
-      ]
+      ],
+      "current_geometry_note": "Includes sequential wide-stance preparation before lowering."
     },
     {
       "id": "p001_splay_flat_dead_pose",
@@ -771,6 +772,78 @@
       "support_source": "feet"
     },
     {
+      "source_time_s": 0.008333333333333333,
+      "sample_index": 1,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.225,
+      "sample_index": 27,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.45,
+      "sample_index": 54,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.675,
+      "sample_index": 81,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.9,
+      "sample_index": 108,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.5,
+      "sample_index": 180,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "body_and_feet"
+    },
+    {
       "source_time_s": 1.5083333333333333,
       "sample_index": 181,
       "active": [
@@ -780,11 +853,71 @@
         false
       ],
       "body_contact_active": true,
-      "support_source": "rear_cover_and_visor"
+      "support_source": "body"
     },
     {
-      "source_time_s": 8.2,
-      "sample_index": 984,
+      "source_time_s": 8.208333333333334,
+      "sample_index": 985,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 8.8,
+      "sample_index": 1056,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 9.025,
+      "sample_index": 1083,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 9.25,
+      "sample_index": 1110,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 9.475,
+      "sample_index": 1137,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 9.7,
+      "sample_index": 1164,
       "active": [
         true,
         true,
@@ -874,24 +1007,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -907,24 +1040,24 @@
     "semantic_end_s": 10.2,
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.6445006190884144e-08,
+        0.033522745614788456,
+        0.007738244279448138
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        2.4967699763472732e-08,
+        0.03352267728080297,
+        0.007738436947374789
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.984857225054654e-09,
+        0.033523055034447705,
+        0.007738329695766223
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        3.606711596436797e-08,
+        0.03352285684310278,
+        0.007738294591122715
       ]
     ],
     "contacts": [
@@ -938,9 +1071,12 @@
   "source_qualification": {
     "hardware_qualified": false,
     "collision_checked": false,
-    "measured_mass_balance_verified": false
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": -23.06941653778734
   },
   "body_support_required": true,
   "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

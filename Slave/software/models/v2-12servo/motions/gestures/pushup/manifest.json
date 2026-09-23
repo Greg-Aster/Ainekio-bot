@@ -6,43 +6,47 @@
     "name": "emote",
     "asset": "pushup"
   },
-  "gait_id": "pushup_deep_rear_fourbar_20260916",
-  "generated_utc": "2026-09-16T17:44:23.002250+00:00",
+  "gait_id": "pushup_upright_24_38_20260921",
+  "generated_utc": "2026-09-21",
   "duration_seconds": 14.5,
   "motion_end_seconds": 14.0,
   "source_sample_hz": 120,
   "sample_count": 1741,
-  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
   "completion": "Complete 5 front-leg presses, then return through the rear crouch to standing.",
   "final_actuator_angles_rad": [
     [
-      0.0,
-      0.0,
-      0.0
+      -3.4279550412006006e-09,
+      0.033522787660496024,
+      0.007738277872013349
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -6.855431722508669e-09,
+      0.033522595760728593,
+      0.007738239212176463
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      1.984915657481357e-09,
+      0.03352305503614718,
+      0.007738329697671235
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -3.4276554823397174e-09,
+      0.03352291414836894,
+      0.00773829973344559
     ]
   ],
   "body_target": {
     "position_mm": [
       0.0,
       0.0,
-      80.96182697652446
+      63.0
     ],
-    "pitch_degrees": 0.0
+    "euler_xyz_rad": [
+      0.0,
+      0.0,
+      0.0
+    ]
   },
   "face_cues": [
     {
@@ -72,189 +76,109 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "e581eb7a4bbf772510bed2da11a535caf2948b2d4b74b39967a3b239a8b43f01",
-  "csv_sha256": "96dbb12a93a488d6d8ff8aad556c402277a4a30bcaff0207010fbb668ab5b6e5",
-  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
-  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
-  "body_samples_sha256": "967e0b376821b7d745fe4817534940dfab31b0c2d8a739ffda2cdb343a508d52",
+  "source_sha256": "58aa76bdf77a212570bd3f0f232ab41cbc471beff74f16da6b3e6281372b1b61",
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
   "face_sha256": {
     "faces/pushup/0.bin": "e529d6291e8246d6880628d999e9b5102caed0dacf633bb610b610e47f203a6d",
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
-  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-deep-20260916/Ainekio-Pushup.blend",
-  "blender_frames": [
-    2509,
-    2857
-  ],
-  "design": "User retained the original shallow Pushup as Nod. This distinct Pushup lowers both rear legs close to the current research carrier-angle bound and rear-body floor clearance while retaining five 1-second down / 1-second up front-leg presses.",
   "body_contact_required": false,
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "entry_actuator_angles_rad": [
+    [
+      -3.4277232242703374e-09,
+      0.033522787652696055,
+      0.0077382778671378615
+    ],
+    [
+      -6.855412137067195e-09,
+      0.03352259575715927,
+      0.007738239210021999
+    ],
+    [
+      1.9846059755857533e-09,
+      0.0335230550346877,
+      0.007738329695574771
+    ],
+    [
+      -3.4277327057149906e-09,
+      0.03352291414500837,
+      0.007738299730361967
+    ]
+  ],
   "source_validation": {
-    "duration_s": 14.5,
-    "motion_end_s": 14.0,
-    "sample_hz": 120,
+    "command": "pushup",
+    "geometry_id": "upright-24-38-24-55-20260921",
     "samples": 1741,
-    "repetitions": 5,
-    "repetitions_start_s": 2.0,
-    "repetitions_end_s": 12.0,
+    "duration_s": 14.5,
+    "sample_hz": 120,
+    "max_target_error_mm": 9.441810064458878e-06,
+    "min_sole_height_mm": -9.441810064458878e-06,
+    "minimum_body_ground_clearance_mm": 1.827515060643794,
+    "minimum_closure_triangle_height_mm": 12.537005590302229,
+    "minimum_assumed_support_margin_mm": 38.971077254479674,
     "actuator_min_degrees": [
       [
-        0.0,
-        0.0,
-        -20.917585221340335
+        -7.140110115398807e-06,
+        -79.02298298745653,
+        -72.79212689899373
       ],
       [
-        0.0,
-        0.0,
-        -20.917587352226125
+        -2.370470359312252e-06,
+        -79.02302465804384,
+        -72.79215942780868
       ],
       [
-        0.0,
-        0.0,
-        -9.36301035057834
+        1.1370954639750696e-07,
+        -26.127401965336734,
+        -21.76556449839557
       ],
       [
-        0.0,
-        0.0,
-        -9.36301035057834
+        -1.9639461733642719e-07,
+        -26.127413128666817,
+        -21.76557322208241
       ]
     ],
     "actuator_max_degrees": [
       [
-        0.0,
-        67.29697581441044,
-        0.7961692561789655
+        -1.9639407408966488e-07,
+        1.920714250459657,
+        0.4433706627658407
       ],
       [
-        0.0,
-        67.29697581441044,
-        0.7961693520405019
+        1.3908466002910892e-05,
+        1.9207032554128938,
+        0.4433684477203505
       ],
       [
-        0.0,
-        26.54438714285003,
-        53.651053112617426
+        7.889767095704354e-06,
+        15.667172627024495,
+        0.4433736321573081
       ],
       [
-        0.0,
-        26.54438714285003,
-        53.651053112617426
+        4.6824850832734365e-06,
+        15.667163000067747,
+        0.4433719153336423
       ]
     ],
-    "actuator_peak_speed_degrees_s": [
-      [
-        0.0,
-        60.23238123579901,
-        40.813652735531214
-      ],
-      [
-        0.0,
-        60.23238123579901,
-        40.81365691493119
-      ],
-      [
-        0.0,
-        37.12567117880589,
-        117.51590247421163
-      ],
-      [
-        0.0,
-        37.12567117880589,
-        117.51590247421163
-      ]
-    ],
-    "actuator_peak_acceleration_degrees_s2": [
-      [
-        0.0,
-        132.91486987149028,
-        140.21499582492547
-      ],
-      [
-        0.0,
-        132.91486987149028,
-        140.21501169535406
-      ],
-      [
-        0.0,
-        150.2420465612495,
-        563.3872698744426
-      ],
-      [
-        0.0,
-        150.2420465612495,
-        563.3872698744426
-      ]
-    ],
-    "crouched_actuator_degrees": [
-      [
-        0.0,
-        67.29697581441044,
-        0.7961692561789655
-      ],
-      [
-        0.0,
-        67.29697581441044,
-        0.7961693520405019
-      ],
-      [
-        0.0,
-        7.127462701823668,
-        53.651053112617426
-      ],
-      [
-        0.0,
-        7.127462701823694,
-        53.651053112617426
-      ]
-    ],
-    "lowered_actuator_degrees": [
-      [
-        0.0,
-        45.04341345264482,
-        -20.917585221340335
-      ],
-      [
-        0.0,
-        45.04341345264487,
-        -20.917587352226125
-      ],
-      [
-        0.0,
-        26.54438714285003,
-        -9.36301035057834
-      ],
-      [
-        0.0,
-        26.54438714285003,
-        -9.36301035057834
-      ]
-    ],
-    "front_body_datum_mm": [
-      75.0,
-      0.0,
-      0.0
-    ],
-    "front_body_vertical_travel_mm": 34.93913596786079,
-    "minimum_support_margin_mm": 35.58569235615449,
-    "minimum_stance_contacts": 4,
-    "maximum_rolling_normal_correction_mm": 0.0004039429123050553,
-    "solved_rolling_transfers": 260,
-    "max_stance_material_vertex_constraint_error_mm": 9.808642923501425e-14,
-    "minimum_body_ground_clearance_mm": 1.3852467121430436,
-    "min_sole_height_mm": -1.8590768036119698e-08,
-    "maximum_adjacent_joint_step_degrees": 0.9793346147600026,
-    "final_joint_return_error_degrees": 0.0,
-    "research_angle_bounds_satisfied": true,
+    "maximum_adjacent_joint_step_degrees": 0.7532626218375629,
+    "peak_joint_speed_deg_s": 89.31899303707802,
+    "peak_joint_acceleration_deg_s2": 6382.897734514472,
+    "native_solver_fallbacks": 0,
+    "seconds": 1.8564554680051515,
+    "hardware_qualified": false,
     "collision_checked": false,
-    "hardware_servo_limits_verified": false,
-    "measured_mass_balance_verified": false,
-    "hardware_qualified": false
+    "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+    "motion_end_s": 14.0
   },
-  "interpolation_validation": {
-    "segments_checked": 1740,
-    "bounded_midpoints": true,
-    "final_hold_verified": true,
-    "peak_interpolated_speed_degrees_s": 117.5448830813694,
-    "peak_interpolated_acceleration_degrees_s2": 648.9031753245115,
-    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
-  }
+  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "retargeted_from": {
+    "path": "docs/gait-research/pushup-deep-20260916/source.json",
+    "sha256": "e581eb7a4bbf772510bed2da11a535caf2948b2d4b74b39967a3b239a8b43f01"
+  },
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+  "blender_scene": "Motions - Current Geometry",
+  "choreography_source": "docs/gait-research/pushup-deep-20260916/manifest.json",
+  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package."
 }

@@ -1,0 +1,23 @@
+{
+  "command": "upright",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "sample_hz": 120,
+  "units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "contact_model": "Rear lower legs and boot patches remain anchored from Sit; front feet release after rearward weight shift.",
+  "body_position_datum": "Root geometry rotation pivot plus translation."
+}

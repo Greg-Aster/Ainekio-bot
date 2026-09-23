@@ -356,7 +356,7 @@ class EnvironmentAdapter:
     async def _process_environment_action(self, action: dict[str, Any], *, resume: dict[str, Any] | None = None) -> None:
         action_id = action.get("id")
         visual_future: asyncio.Future[dict[str, object] | None] | None = None
-        translated = translate_environment_action(action)
+        translated = translate_environment_action(action, model=(self._selected_robot()[1] or {}).get("model"))
         if (
             isinstance(action_id, str)
             and translated is not None
@@ -435,7 +435,7 @@ class EnvironmentAdapter:
         received_at: float | None = None,
     ) -> dict[str, object]:
         action_id = str(action["id"]) if action.get("id") else None
-        translated = translate_environment_action(action)
+        translated = translate_environment_action(action, model=(self._selected_robot()[1] or {}).get("model"))
         if translated is None:
             if _normalized_action_type(action) == "robotmotionplan":
                 await self._send_motion_plan_status(
@@ -1178,7 +1178,7 @@ class EnvironmentAdapter:
                 "actions": actions,
                 "robotCommands": robot_commands,
                 "robotCommandDescriptions": {
-                    command: ROBOT_COMMAND_DESCRIPTIONS[command]
+                    command: ("bound forward with front and rear leg pairs; automatic Speed above 100 to 200 selects Run, 0 finishes" if command == "run" and robot and robot.get("model") == "v2-12servo" else ROBOT_COMMAND_DESCRIPTIONS[command])
                     for command in robot_commands
                 },
                 "text": True,

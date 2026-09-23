@@ -1,0 +1,23 @@
+{
+  "command": "crouch",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "sample_hz": 120,
+  "units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "contact_model": "Current measured sole hull minimum Z; all four feet planted.",
+  "body_position_datum": "Root geometry rotation pivot plus translation."
+}

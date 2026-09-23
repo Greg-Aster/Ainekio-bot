@@ -1,0 +1,282 @@
+{
+  "schema": "ainekio.current-geometry-retarget.v1",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "coordinate_policy": "Preserve world contact choreography, phase timing, headings and semantic completion; solve all twelve joints on current geometry.",
+  "finite_motion_solver_search_bounds_deg": [
+    [
+      -150.0,
+      150.0
+    ],
+    [
+      -145.0,
+      145.0
+    ],
+    [
+      -180.0,
+      180.0
+    ]
+  ],
+  "bounds_scope": "Numerical branch-search envelope only. Not mechanical or electrical travel limits.",
+  "shorter_reach_commands": [
+    "bow",
+    "celebrate",
+    "cute",
+    "dead",
+    "point",
+    "shrug",
+    "stretch",
+    "surprised",
+    "swim",
+    "wave"
+  ],
+  "reach_displacement_scale": 0.65,
+  "body_support": {
+    "commands": [
+      "celebrate",
+      "cute",
+      "dead",
+      "shrug",
+      "surprised",
+      "swim"
+    ],
+    "lateral_preparation_mm": 35,
+    "preparation_lift_mm": 6,
+    "policy": "Sequential foot placements inside lowering and standing phases; measured stable shell support plane while feet are airborne."
+  },
+  "hardware_qualified": false,
+  "commands": [
+    {
+      "command": "turn_right_180",
+      "family": "turns",
+      "path": "commands/turn_right_180",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_right_180",
+      "legacy_source_sha256": "506f7b1e8ac7dd09ade77996fffac4a55f58e2a9251227f2d0ed7555e49e948e",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_left_180",
+      "family": "turns",
+      "path": "commands/turn_left_180",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_left_180",
+      "legacy_source_sha256": "fbc352c72a7b40f8b5b428ba57c665971b34ffb742c9c3567c553f5aebe9b7f2",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_right_90",
+      "family": "turns",
+      "path": "commands/turn_right_90",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_right_90",
+      "legacy_source_sha256": "ea402d06bc2667cccee50eadf9ea895078f12740e15e3166f3f5f790405f8b19",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_left_90",
+      "family": "turns",
+      "path": "commands/turn_left_90",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_left_90",
+      "legacy_source_sha256": "0331596deb09ccd684bbb6b87c6041000c84edc191a797b90f664cbf78f56f57",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_right_45",
+      "family": "turns",
+      "path": "commands/turn_right_45",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_right_45",
+      "legacy_source_sha256": "b4b94f635f745be4590fa6a6fb42722fc5d835f5ceea2125572b7d7ac8556c57",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_left_45",
+      "family": "turns",
+      "path": "commands/turn_left_45",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_left_45",
+      "legacy_source_sha256": "eeca247482e324753265c9a9310c61c4eaa6edadb75360843583f099909a8186",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_right_15",
+      "family": "turns",
+      "path": "commands/turn_right_15",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_right_15",
+      "legacy_source_sha256": "5edf0567994b1ccd8c591c80321e26f0c084e1b10508687c3444ef1c06a8f498",
+      "execution_handoff": null
+    },
+    {
+      "command": "turn_left_15",
+      "family": "turns",
+      "path": "commands/turn_left_15",
+      "legacy_handoff": "docs/gait-research/turn-commands-20260915/commands/turn_left_15",
+      "legacy_source_sha256": "3a2c96b230f8b2f8583fddf1773becf976e8edfbf774ebca66981907a6b83e25",
+      "execution_handoff": null
+    },
+    {
+      "command": "sit",
+      "family": "gestures",
+      "path": "sit",
+      "legacy_handoff": "docs/gait-research/sit-bored-20260915",
+      "legacy_source_sha256": "5ee287ba5bd27892212c32e6035cfe130cb34a3eed0ce8572d2b7d2982b104c0",
+      "execution_handoff": "docs/gait-research/execution-20260916/contracts/sit.json"
+    },
+    {
+      "command": "rest",
+      "family": "gestures",
+      "path": "rest",
+      "legacy_handoff": "docs/gait-research/rest-20260915",
+      "legacy_source_sha256": "2aa5e7bfe5a7280fbf5042186bd21b1536fc5c786470cc552aa61d2674441c53",
+      "execution_handoff": "docs/gait-research/execution-20260916/contracts/rest.json"
+    },
+    {
+      "command": "wave",
+      "family": "gestures",
+      "path": "wave",
+      "legacy_handoff": "docs/gait-research/wave-seated-20260916",
+      "legacy_source_sha256": "d00be551216d082d2f20b0f94d469affac54d8ffd5d164c0ba0d6d9757bdef6f",
+      "execution_handoff": "docs/gait-research/execution-20260916/contracts/wave.json"
+    },
+    {
+      "command": "dance",
+      "family": "gestures",
+      "path": "dance",
+      "legacy_handoff": "docs/gait-research/dance-20260916",
+      "legacy_source_sha256": "570913be37706a2629e734f3a99d1e9c7376dd34c4fc4759e4559984f32ccdf9",
+      "execution_handoff": "docs/gait-research/dance-20260916/execution-contract.json"
+    },
+    {
+      "command": "swim",
+      "family": "gestures",
+      "path": "swim",
+      "legacy_handoff": "docs/gait-research/swim-20260916",
+      "legacy_source_sha256": "609d3965e5e67a8acd40119619e852d932dfff13677fafd0999f5f2cf5494913",
+      "execution_handoff": "docs/gait-research/swim-20260916/execution-contract.json"
+    },
+    {
+      "command": "point",
+      "family": "gestures",
+      "path": "point",
+      "legacy_handoff": "docs/gait-research/point-20260916",
+      "legacy_source_sha256": "5e1ea7fb19b17c5588053538ff08c563767487bc5a7ade0df20a7b89cee737c2",
+      "execution_handoff": "docs/gait-research/point-20260916/execution-contract.json"
+    },
+    {
+      "command": "nod",
+      "family": "gestures",
+      "path": "nod",
+      "legacy_handoff": "docs/gait-research/nod-20260916",
+      "legacy_source_sha256": "57e63ba7b5e0b842a4295093811d98908659606a693c1d31c28aa51bc05b07e8",
+      "execution_handoff": "docs/gait-research/nod-20260916/execution-contract.json",
+      "repetitions": 2
+    },
+    {
+      "command": "pushup",
+      "family": "gestures",
+      "path": "pushup",
+      "legacy_handoff": "docs/gait-research/pushup-deep-20260916",
+      "legacy_source_sha256": "e581eb7a4bbf772510bed2da11a535caf2948b2d4b74b39967a3b239a8b43f01",
+      "execution_handoff": "docs/gait-research/pushup-deep-20260916/execution-contract.json"
+    },
+    {
+      "command": "bow",
+      "family": "gestures",
+      "path": "bow",
+      "legacy_handoff": "docs/gait-research/bow-20260916",
+      "legacy_source_sha256": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b",
+      "execution_handoff": "docs/gait-research/bow-20260916/execution-contract.json"
+    },
+    {
+      "command": "cute",
+      "family": "gestures",
+      "path": "cute",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/cute",
+      "legacy_source_sha256": "97349072ef595173eb1e3c0482e979675b113ae3df8bea3eb54f7ab4e5fac47f",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/cute/execution-contract.json"
+    },
+    {
+      "command": "freaky",
+      "family": "gestures",
+      "path": "freaky",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/freaky",
+      "legacy_source_sha256": "4cec5793692a3fb21a67cc873af6140f3a41b0c7f875e5b8fe37393689b17fb1",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/freaky/execution-contract.json"
+    },
+    {
+      "command": "worm",
+      "family": "gestures",
+      "path": "worm",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/worm",
+      "legacy_source_sha256": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/worm/execution-contract.json"
+    },
+    {
+      "command": "shake",
+      "family": "gestures",
+      "path": "shake",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/shake",
+      "legacy_source_sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/shake/execution-contract.json"
+    },
+    {
+      "command": "shrug",
+      "family": "gestures",
+      "path": "shrug",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/shrug",
+      "legacy_source_sha256": "4a332dbd2a1cc2d1918bde3d0f1e73d17c43ce935298dde3edd8e242c56ebf78",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/shrug/execution-contract.json"
+    },
+    {
+      "command": "dead",
+      "family": "gestures",
+      "path": "dead",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/dead",
+      "legacy_source_sha256": "6f9dd1d7b3b6fe394eb111bb2e646346feaba84c2f7f82aa322a94432515b29f",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/dead/execution-contract.json"
+    },
+    {
+      "command": "crab",
+      "family": "gestures",
+      "path": "crab",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/crab",
+      "legacy_source_sha256": "3fff90c90f4547219bd833e112f99488f35f991366a5f596e6cb7e3e99c3beb1",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/crab/execution-contract.json"
+    },
+    {
+      "command": "celebrate",
+      "family": "gestures",
+      "path": "celebrate",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/celebrate",
+      "legacy_source_sha256": "13ec137da243240b9fa491e4d5dbc0e6e396ca970c6dad5a911365239e55aa44",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/celebrate/execution-contract.json"
+    },
+    {
+      "command": "stretch",
+      "family": "gestures",
+      "path": "stretch",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/stretch",
+      "legacy_source_sha256": "90980240a5fa199f6284521b5c6992d12b0f6caff31866e9dc9c643972a18918",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/stretch/execution-contract.json"
+    },
+    {
+      "command": "surprised",
+      "family": "gestures",
+      "path": "surprised",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/surprised",
+      "legacy_source_sha256": "5230421770d7c16f736b797e60b2417117a54d440947c0bbdc819fd9c6d88fda",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/surprised/execution-contract.json"
+    },
+    {
+      "command": "sad",
+      "family": "gestures",
+      "path": "sad",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/sad",
+      "legacy_source_sha256": "6d89680428bcf6df29cdd1025c69582367e4decc89338fcc51aad0e8fc62198f",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/sad/execution-contract.json"
+    },
+    {
+      "command": "curious",
+      "family": "gestures",
+      "path": "curious",
+      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/curious",
+      "legacy_source_sha256": "43d119af1b46820e2962dafa68ab3997f9a8ceb3a7464fa1d4608dd62e820d78",
+      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/curious/execution-contract.json"
+    }
+  ]
+}

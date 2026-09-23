@@ -118,3 +118,55 @@ firmware-originated correlated still when the camera is ready. Future typed
 safety or sensor events should opt into the same controller-owned trigger and
 correlation fields. Routine status, heartbeat, individual PCM frames, and
 dashboard preview traffic do not produce Environment snapshots.
+
+## P4 assembly calibration
+
+Body Control uses the connected body's advertised capabilities. The P4 joint
+panel reads twelve saved/staged device records through `body_calibration_v2`;
+it does not reuse the eight-servo angle contract. Select the joint, enable
+calibration, then use a pulse target or ±5 µs adjustment. **Use commanded pulse
+as home** stages the trim; **Save calibration** applies edited joint settings,
+commits them and displays the controller's readback. A pulse entered for **Move
+joint** is not automatically a Home setting. Saving disables outputs without rebooting; **Home
+selected joint** or an explicit move resumes that joint. **Read from body** is
+available without enabling calibration. Home and pulse targets use µs, and
+the displayed pulse is a command, not a shaft-position sensor reading.
+
+The pulse slider previews a calculated model angle from the controller's Home,
+direction and µs/degree mapping, and sends one movement request after release.
+Its view includes the owner's observed 300–2900 µs span and expands for Home,
+the last commanded pulse or typed targets; this does not change saved calibration. Numeric
+entry remains available across the reported PWM capacity.
+The selected robot/joint, pulse target and joint-setting drafts are retained in
+this browser across reconnects and reloads. **Resume calibration** requests mode
+entry explicitly; restoration never replays a movement or saves settings.
+Controller readback is shown separately. **Use controller values** discards the
+selected joint's local draft without moving it.
+
+Channel -1 disables a joint. Staging Home, direction or channel does not move
+outputs. P4 motion uses the model angle at Home, pulse direction and µs per degree
+from the same records. The P4 mapping form has no minimum or maximum pulse fields.
+Manual and generated motion use the body's actual PWM timer capacity.
+The owner sets Home, direction and angle scale from actual positioning behavior.
+Named poses
+come from the body's installed catalog; walk/crawl exposes direction, continuous
+or finite cycles, speed/stride/rate and Finish when `walk_controls_v2` is present.
+Calibration mode does not block semantic motion. A pulse outside the PWM timer's
+capacity is rejected by the body rather than silently rescaled.
+Unsupported or disconnected media controls show the body's reason;
+V1 controls retain their existing wire protocol. `/api/calibration/body` requires
+the dashboard session and CSRF token; Environment Bridge exposes no raw joint
+calibration action. The former `/api/diagnostics/output` bench route is removed.
+
+The P4 SD panel reads controller capacity, mount/busy state and dropped records.
+**Retry mount** works with an unmounted card. **Clear logs and captures** requires
+an explicit confirmation and controller readback; it does not reformat the card.
+Media controls follow current capabilities reported in regular body status, so
+a camera that finishes initializing after the handshake becomes available
+without reconnecting. Speaker PCM is paced at 20 ms per frame with at most
+100 ms of prebuffer/catch-up lead; cached utterances cannot be sent as an
+unbounded burst into the controller's playback queue.
+
+### V2 mounting references
+
+Current P4 calibration readback separates saved per-joint mappings from recommended mounting offsets, reports `servo_profile_id` and `profile_confirmed`, and labels shaft travel unmeasured. The observed 300–2900 µs span has arithmetic midpoint 1600 µs; the selected mounting reference is 1300 µs. The panel shows the recommended model offset without overwriting restored drafts or transmitting settings automatically. Review the mapping and Save before semantic motion; after outputs are disabled, establish a known reference with Calibration Home/Move. See the [assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).

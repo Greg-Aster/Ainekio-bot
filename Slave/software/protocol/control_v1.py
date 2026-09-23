@@ -21,9 +21,14 @@ MAX_FEATURES = 16
 MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
-OUTPUT_TEST_FEATURE = "output_test_v1"
+BODY_CALIBRATION_FEATURE = "body_calibration_v2"
+MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
+STORAGE_CONTROL_FEATURE = "storage_control_v1"
 BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
 BODY_COMMANDS_FEATURE = "body_commands_v1"
+WALK_CONTROLS_FEATURE = "walk_controls_v1"
+LOCOMOTION_FEATURE = "walk_controls_v2"
+RUN_GAIT_FEATURE = "run_gait_v1"
 MAX_MONOTONIC_MS = (1 << 53) - 1
 MOTION_PLAN_JOINT_MAP = 1
 MOTION_PLAN_JOINTS = 8
@@ -169,6 +174,34 @@ def _asset(message: Mapping[str, object], name: str) -> str:
     return value
 
 
+def _validate_capabilities(caps: object) -> None:
+    if not isinstance(caps, Mapping):
+        _fail("type:capabilities")
+    for name in ("motion", "speaker", "microphone", "camera"):
+        _boolean(caps, name)
+    for name in ("profile", "power", "storage", "display", "wake", "calibration"):
+        if name in caps:
+            _boolean(caps, name)
+    if "reasons" in caps:
+        reasons = caps["reasons"]
+        if not isinstance(reasons, Mapping) or len(reasons) > 16:
+            _fail("type:capabilities.reasons")
+        for name, reason in reasons.items():
+            if not isinstance(name, str) or len(name) > 32 or not isinstance(reason, str) or len(reason) > 160:
+                _fail("value:capabilities.reasons")
+    if "commands" in caps:
+        _validate_body_commands(caps["commands"])
+
+
+def _validate_body_commands(commands: object) -> None:
+    if not isinstance(commands, list) or len(commands) > 64:
+        _fail("type:capabilities.commands")
+    if any(not isinstance(name, str) or not name or len(name) > 32 for name in commands):
+        _fail("value:capabilities.commands")
+    if len(set(commands)) != len(commands):
+        _fail("value:capabilities.commands.duplicate")
+
+
 def _validate_hello(message: Mapping[str, object]) -> None:
     if "seq" in message:
         _fail("unexpected:seq")
@@ -196,21 +229,11 @@ def _validate_hello(message: Mapping[str, object]) -> None:
         _integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
     if BODY_CAPABILITIES_FEATURE in message.get("features", []):
         _string(message, "model", max_length=32)
-        caps = _required(message, "capabilities")
-        if not isinstance(caps, Mapping):
-            _fail("type:capabilities")
-        for name in ("motion", "speaker", "microphone", "camera"):
-            _boolean(caps, name)
+        _validate_capabilities(_required(message, "capabilities"))
     if BODY_COMMANDS_FEATURE in message.get("features", []):
         if BODY_CAPABILITIES_FEATURE not in message.get("features", []):
             _fail("missing:body_capabilities_v1")
-        commands = message["capabilities"].get("commands")
-        if not isinstance(commands, list) or len(commands) > 64:
-            _fail("type:capabilities.commands")
-        if any(not isinstance(name, str) or not name or len(name) > 32 for name in commands):
-            _fail("value:capabilities.commands")
-        if len(set(commands)) != len(commands):
-            _fail("value:capabilities.commands.duplicate")
+        _validate_body_commands(message["capabilities"].get("commands"))
 
 
 def _validate_err(message: Mapping[str, object]) -> None:
@@ -229,6 +252,31 @@ def _validate_welcome(message: Mapping[str, object]) -> None:
         _boolean(message, COMMAND_DEADLINE_FEATURE)
 
 
+def validate_walk_controls(message: Mapping[str, object]) -> None:
+    """A negotiated extension: speed percent OR stride percent and rate multiplier."""
+    auto = "speed" in message
+    manual = "stride" in message or "rate" in message
+    if auto and manual:
+        _fail("value:walk.controls.mixed")
+    if manual and not ("stride" in message and "rate" in message):
+        _fail("value:walk.controls.incomplete")
+    if any(k in message for k in ("speed_percent", "stride_percent", "motion_rate")):
+        _fail("value:walk.controls.use_speed_stride_rate")
+    for name, lo, hi in (("speed", 0, 100 if message.get("gait") == "crawl" else 200), ("stride", 1, 100), ("rate", .25, 3)):
+        if name in message:
+            value = message[name]
+            if type(value) not in (int, float) or not math.isfinite(value):
+                _fail("type:walk." + name)
+            if not lo <= value <= hi:
+                _fail("range:walk." + name)
+    if "gait" in message:
+        _string(message, "gait", allowed=frozenset({"walk", "crawl", "run"}))
+    if "update" in message:
+        _integer(message, "update", minimum=1, maximum=MAX_SEQUENCE)
+        if not (auto or manual):
+            _fail("value:walk.update.controls_required")
+
+
 def _validate_intent(message: Mapping[str, object]) -> None:
     _seq(message)
     name = _string(message, "name", allowed=INTENT_NAMES)
@@ -238,7 +286,8 @@ def _validate_intent(message: Mapping[str, object]) -> None:
         _optional_integer(message, "ms", minimum=100, maximum=5000, default=400)
     elif name == "walk":
         _string(message, "dir", allowed=WALK_DIRECTIONS)
-        _integer(message, "steps", minimum=1, maximum=10)
+        _integer(message, "steps", minimum=0, maximum=10)
+        validate_walk_controls(message)
     elif name == "emote":
         _asset(message, "asset")
     elif name == "face":
@@ -334,15 +383,91 @@ def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
     _optional_integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
 
 
-def _validate_output_test(message: Mapping[str, object]) -> None:
+def _calibration_joint(message: Mapping[str, object]) -> None:
+    _integer(message, "id", minimum=0, maximum=11)
+    _integer(message, "channel", minimum=-1, maximum=11)
+    _integer(message, "home_us", minimum=1, maximum=MAX_CALIBRATION_PULSE_US)
+    _boolean(message, "invert")
+    if ("home_cd" in message) != ("us_per_degree" in message):
+        _fail("missing:us_per_degree" if "home_cd" in message else "missing:home_cd")
+    if "home_cd" in message:
+        _integer(message, "home_cd", minimum=-36000, maximum=36000)
+        scale = _number(message, "us_per_degree")
+        if not 0 < scale <= 100:
+            _fail("range:us_per_degree")
+
+
+def _validate_calibration(message: Mapping[str, object]) -> None:
     _seq(message)
-    op = _string(message, "op", allowed=frozenset({"recover", "run"}))
-    if op == "run":
-        _integer(message, "channel", minimum=0, maximum=11)
-        _integer(message, "pulse_us", minimum=1000, maximum=2000)
-        _integer(message, "ms", minimum=100, maximum=2000)
-        if "fault" in message:
-            _string(message, "fault", allowed=frozenset({"none", "stall", "interrupt_arm", "reset"}))
+    operation = _string(message, "op", allowed=frozenset({"get", "set", "move", "home", "save"}))
+    if operation != "set" and ("home_cd" in message or "us_per_degree" in message):
+        _fail("unexpected:calibration.mapping")
+    if operation == "set":
+        _calibration_joint(message)
+    elif operation == "move":
+        _integer(message, "id", minimum=0, maximum=11)
+        _integer(message, "pulse_us", minimum=1, maximum=MAX_CALIBRATION_PULSE_US)
+    elif operation == "home":
+        _optional_integer(message, "id", minimum=0, maximum=11)
+    elif "id" in message:
+        _fail("unexpected:id")
+
+
+def _validate_calibration_status(message: Mapping[str, object]) -> None:
+    _seq(message)
+    dirty, saved = _boolean(message, "dirty"), _boolean(message, "saved")
+    if dirty and saved:
+        _fail("value:calibration.saved")
+    _boolean(message, "ready")
+    _optional_string(message, "reason", max_length=160)
+    if ("pulse_min_us" in message) != ("pulse_max_us" in message):
+        _fail("missing:pulse_max_us" if "pulse_min_us" in message else "missing:pulse_min_us")
+    if "pulse_min_us" in message:
+        minimum = _integer(message, "pulse_min_us", minimum=1, maximum=MAX_CALIBRATION_PULSE_US)
+        maximum = _integer(message, "pulse_max_us", minimum=1, maximum=MAX_CALIBRATION_PULSE_US)
+        if minimum > maximum:
+            _fail("range:calibration.pulse_bounds")
+    for flag in ("profile_confirmed", "shaft_travel_measured"):
+        if flag in message:
+            _boolean(message, flag)
+    _optional_string(message, "servo_profile_id", max_length=96)
+    _optional_integer(message, "recommended_reference_us", minimum=1, maximum=MAX_CALIBRATION_PULSE_US)
+    if "provisional_us_per_degree" in message:
+        value = _number(message, "provisional_us_per_degree")
+        if not 0 < value <= 100:
+            _fail("range:provisional_us_per_degree")
+    joints = _required(message, "joints")
+    if not isinstance(joints, list) or len(joints) != 12:
+        _fail("range:calibration.joints")
+    seen_ids: set[int] = set()
+    channels: set[int] = set()
+    for joint in joints:
+        if not isinstance(joint, Mapping):
+            _fail("type:calibration.joint")
+        _calibration_joint(joint)
+        if "recommended_home_cd" in joint:
+            _integer(joint, "recommended_home_cd", minimum=-36000, maximum=36000)
+        _integer(joint, "pulse_us", minimum=0, maximum=MAX_CALIBRATION_PULSE_US)
+        if joint["id"] in seen_ids or (joint["channel"] >= 0 and joint["channel"] in channels):
+            _fail("value:calibration.duplicate")
+        seen_ids.add(joint["id"])
+        channels.add(joint["channel"])
+
+
+def _validate_storage(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _string(message, "op", allowed=frozenset({"get", "retry", "clear"}))
+
+
+def _validate_storage_status(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _boolean(message, "available")
+    _boolean(message, "mounted")
+    _boolean(message, "busy")
+    total = _integer(message, "total_bytes", minimum=0, maximum=MAX_MONOTONIC_MS)
+    _integer(message, "free_bytes", minimum=0, maximum=total)
+    _integer(message, "dropped_records", minimum=0, maximum=MAX_MONOTONIC_MS)
+    _string(message, "error", min_length=0, max_length=160)
 
 
 def _validate_mode(message: Mapping[str, object]) -> None:
@@ -416,6 +541,8 @@ def _validate_cancelled(message: Mapping[str, object]) -> None:
 
 
 def _validate_status(message: Mapping[str, object]) -> None:
+    if "capabilities" in message:
+        _validate_capabilities(message["capabilities"])
     _number(message, "vbat")
     _integer(message, "rssi", minimum=-127, maximum=0)
     _string(message, "state", allowed=BODY_STATES)
@@ -433,6 +560,13 @@ def _validate_status(message: Mapping[str, object]) -> None:
         _asset(message, "wake_model")
     if "wake_ready" in message:
         _boolean(message, "wake_ready")
+    if "mode" in message:
+        _string(message, "mode", allowed=frozenset({"normal", "calibrate"}))
+    for field in ("output_ready", "output_armed", "calibration_dirty", "calibration_saved",
+                  "power_monitor_ready", "microphone_ready", "speaker_ready", "display_ready"):
+        if field in message:
+            _boolean(message, field)
+    _optional_integer(message, "output_fault", minimum=0, maximum=255)
 
 
 def _validate_event(message: Mapping[str, object]) -> None:
@@ -478,7 +612,10 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "limits": _validate_limits,
     "pose_save": _validate_pose_save,
     "cal_save": _validate_cal_save,
-    "output_test": _validate_output_test,
+    "calibration": _validate_calibration,
+    "calibration_status": _validate_calibration_status,
+    "storage": _validate_storage,
+    "storage_status": _validate_storage_status,
     "ack": _validate_ack,
     "nak": _validate_nak,
     "done": _validate_done,

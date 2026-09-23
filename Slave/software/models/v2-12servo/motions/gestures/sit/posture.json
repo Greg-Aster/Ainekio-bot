@@ -1,0 +1,54 @@
+{
+  "schema": "ainekio.sit.grounded-lower-legs.v1",
+  "body_lift_mm": 1.65163302457238,
+  "lowering_seconds": 3.0,
+  "knee_to_ankle_local_unit": {
+    "FL": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ],
+    "FR": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ]
+  },
+  "terminal_solver_seed_rad": {
+    "FL": [
+      0.0,
+      -0.4799655442984406,
+      -0.11653365270227001
+    ],
+    "FR": [
+      0.0,
+      -0.4799655442984406,
+      -0.11653365270227001
+    ]
+  },
+  "contact_hulls_file": "posture-hulls.npz",
+  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "measured_date": "2026-09-22",
+  "scope": "Part027 knee-to-ankle axes and current visible sole/body hulls. Canonical linkage frames and lengths remain in root geometry.json.",
+  "lower_leg_angle_above_floor_deg": 1.8000000000000005,
+  "contact_fit": {
+    "method": "Rigid boot vertices within 0.5 mm of supporting plane, angle sampled from -15 to +15 degrees at 0.05 degree spacing",
+    "near_plane_tolerance_mm": 0.5,
+    "rear_longitudinal_span_mm": 81.8537263264,
+    "scope": "Geometric near-plane footprint; not measured physical contact pressure or area."
+  },
+  "grounded_legs": [
+    "FL",
+    "FR"
+  ],
+  "step_start_seconds": [
+    0.1,
+    1.05
+  ],
+  "step_duration_seconds": 0.95,
+  "step_lift_mm": 8.0,
+  "description": "Rear lower legs finish nearly horizontal with broad boot support; current shell clearance retained.",
+  "body_support_scope": "Current complete body hull."
+}

@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "rest",
-  "gait_id": "rest_fourbar_20260915",
+  "gait_id": "rest_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/rest-20260915/source.json",
-      "sha256": "2aa5e7bfe5a7280fbf5042186bd21b1536fc5c786470cc552aa61d2674441c53"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/rest/source.json",
+      "sha256": "820cfae899bc33f2d8263068534b83751357cbd59624a60e9aecdceb0648d7ad"
     },
     {
-      "path": "docs/gait-research/rest-20260915/manifest.json",
-      "sha256": "94a05f74867da86b4959f60a1e09c761086e22cac36f760f8d985ecd68064e64"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/rest/manifest.json",
+      "sha256": "c081d67deb3a819fc6811f9c9ba0bbd48fa62bbd7120fed50bfa62d5d544d57c"
     }
   ],
   "source_units": {
@@ -108,7 +108,8 @@
         0.0,
         0.5894849395183033,
         0.5364709621034036
-      ]
+      ],
+      "current_geometry_note": "Includes sequential foot placements before the grounded lower-leg hold."
     },
     {
       "id": "p001_hold_rest",
@@ -178,7 +179,117 @@
         true,
         true,
         true
-      ]
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.008333333333333333,
+      "sample_index": 1,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.35,
+      "sample_index": 42,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.35833333333333334,
+      "sample_index": 43,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.7,
+      "sample_index": 84,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.7083333333333334,
+      "sample_index": 85,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.05,
+      "sample_index": 126,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.0583333333333333,
+      "sample_index": 127,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.4083333333333334,
+      "sample_index": 169,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 2.966666666666667,
+      "sample_index": 356,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "body_and_feet"
     }
   ],
   "timing_profiles": {
@@ -222,24 +333,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -265,24 +376,24 @@
     "behavior": "Hold the recorded resting pose until another command. No automatic stand or joint reset.",
     "joint_angles_rad": [
       [
-        0.0,
-        0.7657353749919866,
-        -0.5494489238921858
+        -2.932825912799326e-06,
+        -0.3982926997359503,
+        0.3526568383890241
       ],
       [
-        0.0,
-        0.7657353749919822,
-        -0.5494489768450519
+        -3.0838132875897823e-06,
+        -0.3982925888979263,
+        0.35265702211888383
       ],
       [
-        0.0,
-        0.7657353791611432,
-        -0.5494495113563387
+        -2.694422589737271e-06,
+        -0.3982925226653594,
+        0.35265696886897485
       ],
       [
-        0.0,
-        0.7657353791611383,
-        -0.5494495113563418
+        -1.5099626874382522e-07,
+        -0.39829517153727373,
+        0.3526541489360166
       ]
     ],
     "contacts": [
@@ -294,11 +405,12 @@
   },
   "source_qualification": {
     "hardware_qualified": false,
-    "minimum_assumed_support_margin_mm": 39.11558723449706,
     "collision_checked": false,
     "measured_mass_balance_verified": false,
-    "source_acceleration_continuous": false
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": -17.559800920402626
   },
   "hardware_ready": false,
-  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands."
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands.",
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

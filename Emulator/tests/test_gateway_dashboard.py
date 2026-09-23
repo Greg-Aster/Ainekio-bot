@@ -10,7 +10,6 @@ import unittest
 from collections.abc import AsyncIterable
 from pathlib import Path
 from typing import Callable
-from unittest.mock import AsyncMock, patch
 
 from gateway.dashboard.server import start_dashboard_server
 from gateway.security import DashboardPasswordStore, RobotTokenStore
@@ -103,6 +102,15 @@ class FakeGateway:
 
     async def save_calibration(self, **kwargs: object) -> int:
         return self._record("cal_save", kwargs)
+
+    async def body_calibration(self, operation, values=None, **kwargs):
+        from Emulator.tests.test_body_calibration import calibration_status
+        sequence = self._record("body_calibration", (operation, values, kwargs))
+        return calibration_status(sequence)
+
+    async def body_storage(self, operation, **kwargs):
+        from Emulator.tests.test_body_storage import storage_status
+        return storage_status(self._record("storage", (operation, kwargs)))
 
     async def revoke_token(self, robot_id: str) -> None:
         self.tokens.pop(robot_id, None)
@@ -265,6 +273,41 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
 
+    async def test_body_calibration_requires_operator_session_and_returns_readback(self) -> None:
+        payload = {"op": "move", "id": 11, "pulse_us": 1505, "robot_id": "p4"}
+        status, _, _ = await self._request("POST", "/api/calibration/body", payload)
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/calibration/body", payload, cookie=cookie)
+        self.assertEqual(status, 403)
+        self.assertEqual(self.gateway.calls, [])
+        status, response, _ = await self._request("POST", "/api/calibration/body", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertEqual(len(response["calibration"]["joints"]), 12)
+        self.assertEqual(self.gateway.calls[0], ("body_calibration", ("move", {"id": 11, "pulse_us": 1505}, {"robot_id": "p4"})))
+        mapping = {"id": 7, "channel": 7, "home_us": 1505,
+                   "invert": True, "home_cd": -1245, "us_per_degree": 11.111111}
+        status, response, _ = await self._request("POST", "/api/calibration/body",
+            {"op": "set", "robot_id": "p4", **mapping}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertEqual(self.gateway.calls[-1], ("body_calibration", ("set", mapping, {"robot_id": "p4"})))
+        status, _, _ = await self._request("POST", "/api/diagnostics/output", {"op": "run"}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 400)
+
+    async def test_storage_clear_requires_session_csrf_and_explicit_confirmation(self) -> None:
+        status, _, _ = await self._request("POST", "/api/storage", {"op": "clear", "confirmed": True})
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/storage", {"op": "clear", "confirmed": True}, cookie=cookie)
+        self.assertEqual(status, 403)
+        status, _, _ = await self._request("POST", "/api/storage", {"op": "clear"}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 400)
+        self.assertEqual(self.gateway.calls, [])
+        status, response, _ = await self._request("POST", "/api/storage", {"op": "clear", "confirmed": True, "robot_id": "p4"}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertTrue(response["storage"]["mounted"])
+        self.assertEqual(self.gateway.calls[0], ("storage", ("clear", {"robot_id": "p4"})))
+
     async def test_login_is_rate_limited_after_five_failures(self) -> None:
         for _ in range(5):
             status, _payload, _headers = await self._request(
@@ -380,30 +423,18 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_speaker_test_accepts_bounded_variable_volume(self) -> None:
         cookie, csrf = await self._login()
-        with patch(
-            "gateway.dashboard.server.asyncio.sleep",
-            new_callable=AsyncMock,
-        ) as paced_sleep:
-            status, payload, _headers = await self._request(
-                "POST",
-                "/api/speaker-test",
-                {
-                    "robot_id": "ainekio-test-01",
-                    "volume_percent": 25,
-                },
-                cookie=cookie,
-                csrf=csrf,
-            )
-
+        status, payload, _headers = await self._request(
+            "POST",
+            "/api/speaker-test",
+            {
+                "robot_id": "ainekio-test-01",
+                "volume_percent": 25,
+            },
+            cookie=cookie,
+            csrf=csrf,
+        )
         self.assertEqual(status, 200)
         self.assertEqual(payload["seq"], 1)
-        self.assertEqual(paced_sleep.await_count, 16)
-        self.assertTrue(
-            all(
-                0 < call.args[0] <= 0.100
-                for call in paced_sleep.await_args_list
-            )
-        )
         call_name, call_value = self.gateway.calls[-1]
         self.assertEqual(call_name, "tts")
         frames, kwargs = call_value

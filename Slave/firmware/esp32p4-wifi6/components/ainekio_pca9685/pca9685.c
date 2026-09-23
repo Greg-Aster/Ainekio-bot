@@ -19,7 +19,10 @@ static void disable_locked(ainekio_pca9685_t *d, ainekio_pca_fault_t fault)
     d->state.armed = false;
     ++d->state.generation;
     if (fault != AINEKIO_PCA_FAULT_NONE) {
-        d->state.fault = fault;
+        /* A caller's generic shutdown must not erase the bus/timing failure
+         * that triggered it. A new recovery failure can replace that cause. */
+        if (fault != AINEKIO_PCA_FAULT_EMERGENCY || d->state.fault == AINEKIO_PCA_FAULT_NONE)
+            d->state.fault = fault;
         d->state.ready = false;
     }
     /* in_flight belongs to its original writer until that writer returns. */
@@ -47,14 +50,6 @@ ainekio_pca_status_t ainekio_pca_status(ainekio_pca9685_t *d)
     return result;
 }
 
-void ainekio_pca_verify_wiring(ainekio_pca9685_t *d, bool verified)
-{
-    lock(d);
-    if (!verified) disable_locked(d, AINEKIO_PCA_FAULT_WIRING);
-    d->state.wiring_verified = verified;
-    unlock(d);
-}
-
 /* Only one transaction owner; the safety gate never waits for that owner. */
 static ainekio_pca_result_t begin(ainekio_pca9685_t *d, uint64_t expected, bool recovery,
                                 bool arm, uint64_t *generation)
@@ -64,7 +59,6 @@ static ainekio_pca_result_t begin(ainekio_pca9685_t *d, uint64_t expected, bool 
     if (d->state.generation != expected) result = AINEKIO_PCA_STALE;
     else if (d->state.in_flight) result = AINEKIO_PCA_BUSY;
     else if (recovery && d->state.armed) result = AINEKIO_PCA_BUSY;
-    else if (!recovery && !d->state.wiring_verified) result = AINEKIO_PCA_WIRING;
     else if (!recovery && (!d->state.ready || d->state.fault != AINEKIO_PCA_FAULT_NONE))
         result = AINEKIO_PCA_DISARMED;
     else if (!recovery && d->state.armed == arm) result = AINEKIO_PCA_DISARMED;
@@ -204,6 +198,34 @@ ainekio_pca_result_t ainekio_pca_init(ainekio_pca9685_t *d,
     return ainekio_pca_recover(d, 0);
 }
 
+static uint64_t pulse_ticks(const ainekio_pca9685_t *d, uint16_t pulse_us)
+{
+    const uint64_t denominator = UINT64_C(1000000) * (d->prescale + 1U);
+    return ((uint64_t)pulse_us * d->config.oscillator_hz + denominator / 2U) / denominator;
+}
+
+bool ainekio_pca_pulse_bounds(const ainekio_pca9685_t *d,
+    uint16_t *minimum_us, uint16_t *maximum_us)
+{
+    if (!d || !minimum_us || !maximum_us || !d->config.oscillator_hz) return false;
+    const uint64_t denominator = UINT64_C(1000000) * (d->prescale + 1U);
+    const uint64_t oscillator = d->config.oscillator_hz;
+    const uint64_t minimum = (denominator - denominator / 2U + oscillator - 1U) / oscillator;
+    uint64_t maximum = (UINT64_C(4096) * denominator - denominator / 2U - 1U) / oscillator;
+    if (maximum > UINT16_MAX) maximum = UINT16_MAX;
+    if (minimum > maximum) return false;
+    *minimum_us = (uint16_t)minimum;
+    *maximum_us = (uint16_t)maximum;
+    return true;
+}
+
+bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *d, uint16_t pulse_us)
+{
+    if (!d || !pulse_us || !d->config.oscillator_hz) return false;
+    const uint64_t ticks = pulse_ticks(d, pulse_us);
+    return ticks > 0 && ticks < 4096U;
+}
+
 static ainekio_pca_result_t frame(ainekio_pca9685_t *d, uint64_t expected,
     const uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS], bool arm)
 {
@@ -214,8 +236,7 @@ static ainekio_pca_result_t frame(ainekio_pca9685_t *d, uint64_t expected,
             bytes[4U * i + 3U] = 0x10U;
             continue;
         }
-        const uint64_t denominator = UINT64_C(1000000) * (d->prescale + 1U);
-        const uint64_t ticks = ((uint64_t)pulses[i] * d->config.oscillator_hz + denominator / 2U) / denominator;
+        const uint64_t ticks = pulse_ticks(d, pulses[i]);
         if (ticks == 0 || ticks >= 4096U) return AINEKIO_PCA_INVALID;
         bytes[4U * i + 2U] = (uint8_t)ticks;
         bytes[4U * i + 3U] = (uint8_t)(ticks >> 8U);

@@ -1,25 +1,241 @@
 # V2 Firmware Review and Implementation Design
 
-Updated: 2026-09-17. Status: Step 1 implementation and board/network bring-up;
-**Step 1 is not accepted**. The native P4 target and PCA9685 driver exist, P4 and
-matched C6 firmware have been flashed, and station networking works. Electrical
-output-disable evidence is still incomplete. See [Step 1 evidence](STEP1_EVIDENCE.md)
-for measured results, commands and blockers; software results do not establish
-PWM/OE behavior.
+Current source: `0.6.3-p4-calibration` removes the P4 pulse-endpoint subsystem:
+Min/Max fields, ordering/Home checks, stored endpoints, old NVS import code,
+protocol/schema fields, endpoint UI and draft handling, and unused model endpoint
+accessors. Home/channel/inversion/angle/scale are the complete joint mapping.
+`body_calibration_v2` and the single compact `joint_mapping` record replace the
+old formats. V1 eight-servo calibration remains separate and unchanged.
 
-The subsequent owner-requested gait work adds a [V2 geometric model with walk,
-eight turns and twenty-one gestures](../../Slave/software/models/v2-12servo/README.md), compiled into
-the P4 target with per-body command selection in the gateway. It does not enable
-powered motion, supply measured calibration, or accept Step 1. The sources'
-entry/exit transitions remain research data pending hardware qualification.
+Manual and generated pulses use actual PCA9685 timer capacity. The motion
+model's coupled mechanism geometry remains unchanged. See the
+[assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).
 
-V2 should have its own ESP32-P4-WIFI6 firmware composition, twelve-joint model,
-and PCA9685 output implementation. Reuse Ainekio's command lifecycle and wire
-contracts through explicit shared owners. The existing ESP32-S3 target remains
-the supported V1 implementation. This develops the approved boundaries in
-[Robot Models](../ROBOT_MODELS.md); the implementation details below are
-the owner-approved implementation direction. Later-stage motion/media work
-remains pending; this milestone does not replace the system specification.
+This source update has not been flashed. The P4 was disconnected when a fresh
+calibration export was attempted; its existing NVS remains untouched. Export
+and restore the retained mapping fields before relying on automatic Home with
+this format. Without saved mapping, startup leaves outputs disabled.
+
+Validation: 25 native checks passed, including the prior motion variant's 30 finite clips, eight
+continuous gait/direction combinations, compact calibration save/reload and
+failure handling. Protocol/calibration and dashboard tests passed; the ESP-IDF
+application rebuilt successfully. These are software checks, not hardware proof.
+
+Restoration/review update: the selected reference is **1300 µs**, with non-inverted CAD offsets shoulder 0°, carrier +1.17° and crank −40.41°. The original motion choreography is restored. Mode handoff preserves a known Home pose; integer-pulse inverse mapping accounts for rounding; delayed dashboard replies are fenced by robot and request identity. The updated mounting references fit the recorded carrier/crank ranges within the observed pulse span at the provisional scale. Shrug and Surprised retain shoulder pulse-span conflicts; existing modeled-collision conflicts remain flagged without reducing movements. Saved device mapping is retained until physical re-indexing and explicit recalibration. See the [range findings](../../Slave/software/models/v2-12servo/mechanics/original-motion-range-audit.md) and current `servo-validation.json`. This work did not flash or move the robot.
+
+## Previous deployed application and evidence
+
+Updated: 2026-09-22. The owner authorized completing P4 firmware and Body Control,
+including **all currently implemented motion controls**. Display/touch selection
+and implementation remain deferred. Source `0.6.1-p4-motion` connects the model
+executors to calibrated PCA output and advertises the installed motion catalog.
+The P4 now runs this application and advertises its motion catalog. Physical pose
+and peripheral acceptance remain separate from source and transport checks.
+The no-output gait calculation completes, but some updates exceed the nominal
+20 ms interval. Actual PWM timing and physical pose fit remain unqualified.
+
+This is the current work tracker. The numbered implementation order later in
+this document is the original plan, not a claim that every physical acceptance
+step has passed. Earlier electrical evidence remains in
+[STEP1_EVIDENCE.md](STEP1_EVIDENCE.md); software tests do not establish physical
+PWM, pose, camera or audio behavior.
+
+| Area | Current implementation | Remaining acceptance |
+| --- | --- | --- |
+| Twelve-joint calibration | Live read/stage/move/home/save; versioned NVS migration preserves saved pulses; model Home angle and µs/degree; manual pulses use actual PWM capacity, motion endpoints are owner-controlled | Establish actual electrical positioning range, horn trim, direction and scale; 180° and 270° assumptions are not hardware measurements |
+| Gateway and operator panel | Model/feature isolation, V1 controls preserved, actual capability updates, storage actions, paced PCM, obsolete output-test subsystem removed; flashed P4 authenticated with the running updated gateway | Exercise the panel with the physical joints |
+| Provisioning | AP-only browser form, CSRF and bounded input, durable AP key, network/controller changes preserve identity | Real AP browser provisioning with the new image |
+| Profiles and power | Persistent profiles, idle/doze, preflight-controlled sleep/restart, actual status; no invented voltage/current sensor | Device sleep/wake acceptance; software failure paths reviewed and tested |
+| Camera and audio | OV5647 CSI/JPEG; ES8311 16 kHz mono capture/TTS/SAY; VAD and canonical shared wake engine; bounded queues and session cancellation | Physical capture/playback and combined-load acceptance |
+| Storage and assets | Bounded SD logs/captures, CRC recovery, actual retry/clear results, read-only voice/wake LittleFS; full layout and asset image deployed | Real card recovery tests; no card detected on deployment |
+| Display/touch | Explicitly deferred; no display backend/configuration retained | Owner hardware selection before implementation |
+| Body gait/gesture execution | Stand/Neutral, algorithmic walk/crawl and compiled clip catalog connected through the single body task; async completion/cancellation and range checks; catalog visible on the flashed P4 | Nominal 20 ms calculation budget is not consistently met; qualify actual PWM cadence under load, calibrate the mechanism and reconcile motion ranges |
+| V1 compatibility | Shared wire remains eight-joint; wake engine extracted once without changing the S3 behavior | Current S3 build and focused regressions passed; physical V1 behavior not exercised |
+
+Three implementation agents worked concurrently, followed by an independent
+reviewer and parent integration review. The portable core/gateway/browser tests
+exercise software behavior; none count as physical robot proof. See the
+[P4 target README](../../Slave/firmware/esp32p4-wifi6/README.md) for current build,
+resource, calibration, storage and asset procedures.
+
+## Motion integration verification, 2026-09-22
+
+- `0.6.1-p4-motion` removes the generic 500–2500 µs hard cap from calibration
+  across the C/Python protocol, schema, gateway, interface and firmware. Manual
+  Move/trim bypass saved motion bounds; normal motion targets retain them. The
+  body validates PWM representability before queuing Move or any Home channel.
+  Settings remain positive uint16 values with ordered endpoints, and the device
+  validates endpoints against its configured timer. Existing saved values and
+  the NVS record format are preserved.
+- Application `0.6.1-p4-motion` was flashed at `0x20000` with hash verification;
+  the image is 4,584,416 bytes, SHA-256
+  `1ec19674200fe996b55cfaa4547184b498e2243109474731cef6b44ebdab1f26`.
+  Startup reported the matching version, Home ESP_OK and ready/armed with no
+  output fault. Gateway readback preserved all twelve saved calibration records
+  and reported timer capacity of 3–19986 µs. During the owner's subsequent
+  testing, joint 1 read back a commanded 2800 µs despite its saved maximum of
+  2500 µs. This confirms command acceptance, not measured shaft travel.
+- Range-change checks passed the PCA driver, joint-calibration and body-executor
+  native suites, 13 shared-core tests, 14 protocol/schema tests and 12 gateway
+  calibration tests. The driver check covers every positive uint16 pulse at nine
+  timer configurations, and invalid Move/Home requests cause no output write.
+  Browser fixtures passed manual Move/trim beyond the saved maximum, explicit
+  endpoint edits, Save acknowledgement handling and unchanged V1 behavior.
+- The owner's linked Miuzei MG90S listing advertises 180°, and the owner reports
+  unrestricted manual shaft rotation when unpowered. That does not establish
+  controlled travel. The motion geometry's 270° entry and firmware's provisional
+  180° pulse conversion remain conflicting assumptions; neither is a measurement.
+  No angle scale, saved endpoint, or motion source was changed to hide that gap.
+  After the cap removal, the owner reported an observed working pulse range of
+  300–2900 µs for one servo. Its joint identity and angular travel were not stated;
+  this observation does not establish calibration for all twelve servos.
+- Shared-core tests: 13 passed. Protocol/schema tests: 14 passed. Focused gateway,
+  calibration, storage, dashboard and V2 tests: 77 passed, including the native
+  walk integration cases. P4 executor tests include injected calculation/write
+  delays, Stop during motion, generation changes and exact clip range preflight.
+- Isolated browser checks passed dynamic catalog rendering, crawl/turn/Finish,
+  calibration mapping, V1 compatibility and visible firmware rejection details.
+- Earlier application `0.6.0-p4-motion` built and flashed with hash verification. The
+  image with full-cycle timing diagnostics is 4,583,792 bytes, SHA-256
+  `af918b273d52e3610aa5ba3829a3ec6aa6c903980123e8c01c27ad5898ec90e5`.
+  Startup Home returned ESP_OK, output ready/armed were true with no fault, and
+  the gateway authenticated. Live readback preserved twelve 1500 µs Home values
+  and exposed 500–2500 µs bounds plus model mapping fields. The owner has since
+  saved calibration; no shaft positions are inferred from pulse readbacks.
+- A browser connected to the real gateway displayed enabled poses and
+  walk/crawl controls with no JavaScript exceptions. No pose or walking command
+  was sent by that browser check.
+- The existing no-output gait diagnostic initially measured 71,874 µs for
+  begin and 90,563 µs for the first 20 ms tick. Exact support-point bounds now
+  avoid exhaustive hull scans; the planner still integrates at its original
+  cadence but solves joint angles once per output frame. Native checks compared
+  80,000 support searches against exhaustive results and 24,818 before/after
+  poses across 96 scenarios; maximum angle change was 0.000039 degrees. These
+  checks do not establish physical output timing.
+- A complete no-output walk entry/loop/finish on the P4 passed all 383 samples:
+  begin 10,371 µs, maximum tick 25,582 µs, 215 ticks above the nominal 20 ms
+  interval, completed at 7,660 ms of simulated motion. Maximum ideal completion
+  spacing was 25,696 µs. This estimate excludes the output task's polling, I²C
+  writes and scheduling, and is not measured PWM timing or proof of 50 Hz
+  command updates. The existing 40 ms output-progress guard remains unchanged.
+- The P4 sends its monotonic-clock sample every 250 ms. The former 1-second
+  interval met the gateway's 1-second freshness limit with no network margin.
+  Twenty consecutive live calibration readbacks passed after this change; the
+  gateway's expiry check remains in force.
+- Body Control Save now stages the displayed edited settings, verifies the
+  returned settings, and then persists them. Polling no longer overwrites an
+  edited Home when focus leaves the form. A Move target remains separate from
+  Home; **Use commanded pulse as home** explicitly copies it.
+- Calibration now retains the selected robot/joint, target pulse and per-joint
+  drafts in browser storage across reloads and controller epochs. Resume mode
+  remains explicit, and restored drafts never replay Move/Set/Save. The slider
+  displays a calculated model angle from confirmed calibration and dispatches
+  once after release; Stop, later commands, selection changes and page loss
+  cancel an unsent slider request. Independent source review found no blocker.
+  The live gateway page displayed the slider and hardware bounds with zero
+  JavaScript exceptions; visual inspection confirmed full joint names after
+  widening the panel. These checks sent no physical movement commands.
+  The isolated browser regression passed reload/reconnect recovery with
+  300–2900 µs drafts, rejected-target retention, explicit Resume, inverted angle
+  mapping, one Move per release, cancellation after Detach, stale replies during
+  joint/robot switching and serialized status polling. One concurrent browser
+  run exceeded its 3-second wait for a delayed Move response; a sequential run
+  passed without source changes, so that timing failure remains undetermined.
+  Final evidence: `/tmp/ainekio-calibration-ux-check.log` and
+  `/tmp/ainekio-calibration-ui.png`.
+- Nominal Rest-at-midpoint calibration does not fit Point, Bow, Pushup, Shrug
+  or Surprised; these are rejected before PWM. Forward/backward walking can also
+  exceed the current mapping. Some catalog joint spans exceed nominal 180°;
+  moving Home alone cannot make every source motion fit. Geometry is not silently
+  compressed to hide this incompatibility.
+  For example, Bow requests about 3,087 µs from each front carrier under the
+  default mapping, exceeding 2,500 µs; a rear-left carrier trim cannot resolve
+  that rejection. Disabled channels are excluded from pulse mapping, but merely
+  unplugging a servo does not change its configured assignment.
+
+Evidence: `/tmp/ainekio-p4-final-motion-build.log`,
+`/tmp/ainekio-p4-final-motion-flash.log`, `/tmp/ainekio-p4-motion-boot.log`,
+`/tmp/ainekio-p4-after-motion-calibration.json`, and
+`/tmp/ainekio-live-motion-ui.mjs`. The no-output timing recheck is complete;
+this section does not claim physical motion acceptance or measured PWM cadence.
+The range-change build/flash logs are `/tmp/ainekio-p4-calibration-range-build.log`
+and `/tmp/ainekio-p4-calibration-range-flash.log`; before/after settings snapshots
+are `/tmp/ainekio-p4-before-range-calibration.json` and
+`/tmp/ainekio-p4-after-range-calibration.json`.
+
+## Pre-deployment system-port validation, 2026-09-22
+
+Independent review and parent integration review found no remaining blocking
+source issues after corrections to stop/cancellation ordering, power-preflight
+failure recovery, driver reinitialization, complete home readback, media readiness,
+SD operation completion and wake-engine recovery.
+
+- At source-review time, P4 default and optional full-layout builds passed. The application was
+  4,418,640 bytes, leaving 47% of the 8 MiB app partition free.
+- Default-layout application SHA-256:
+  `13e13d7944833c23138781a079e5851323a92a77c77651b930ca1ff290c62a40`.
+- Full-layout application SHA-256:
+  `cb4c066a9cafd8974ac38ffc7220e934cd1911c64d08eb8da5c0525449cb11b4`.
+- The separate LittleFS image built and was listed: three PCM voice files,
+  their audio index, and the validated local wake model/manifest only. No V1
+  motions or display assets are included. Local model data remains ignored.
+- Fresh S3 build passed after the shared wake extraction and final protocol
+  changes: 1,511,456 bytes, 52% app-partition free.
+- Shared native tests: 13/13 passed; PCA driver suite: 1/1 passed.
+- Focused gateway/protocol/operator/storage/audio/V1 Python suite: 90 tests ran,
+  one pre-existing skip, no failures. Asset-policy suite: 7/7 passed.
+- Real headless-browser checks against an isolated simulated body passed:
+  twelve-joint readback/trim/stage/save/home, upper joint 11, V1 switching,
+  storage retry/confirmed clear and dynamic camera readiness; no JS exceptions.
+- A disposable harness using the actual power-preflight functions passed seven
+  injected failure stages, successful transitions and simultaneous-admission
+  rejection. The firmware calibration validator separately passed disabled
+  channels, duplicate mapping, bounds and malformed inversion checks.
+
+Build/test logs are workstation artifacts under `/tmp/ainekio-p4-final-build.log`,
+`/tmp/ainekio-p4-full-final-build.log`, `/tmp/s3-wake-final-build.log`, and
+`/tmp/ainekio-body-control-python-tests.log`. Browser reproduction is
+`/tmp/ainekio-body-control-ui-check.mjs`; these temporary paths are evidence for
+this run, not versioned project dependencies.
+
+Those checks preceded device deployment. Actual saved horn trim, camera/audio
+operation, SD behavior and electrical/mechanical acceptance remain separate work.
+At that earlier deployment, display/touch and gait execution were deferred. The
+owner subsequently authorized motion integration, reflected in the current
+tracker above; display/touch remains deferred.
+
+## Device deployment, 2026-09-22
+
+- Backed up the complete 32 MiB flash outside the repository before migration.
+  Installed the full partition layout and voice/wake image with esptool hash
+  verification. A readback before first boot confirmed NVS and PHY data were
+  byte-for-byte unchanged.
+- The first boot exposed a pre-main allocation failure on P4 revision 1.3.
+  ESP-Hosted allocates transport pools before IDF makes most internal RAM
+  available. Setting the SDIO TX/RX queue depths to eight in `sdkconfig.defaults`
+  recovers approximately 38.44 KiB during startup, preserving task stacks and
+  driver code. This configuration fix was independently reviewed and rebuilt.
+  Peak media throughput with the smaller queues remains unmeasured.
+- Corrected full-layout application: 4,513,136 bytes, SHA-256
+  `69a6674decc36803b3bd8fbacba98d4ced6d150e3a748a6fbde1c0fb0bbde85b`.
+  Application flash hash verification passed.
+- Normal boot reported `0.5.0-p4-body`, `home: ESP_OK`, and PCA
+  `ready=1 armed=1 fault=0 outstanding=0`. Readback showed twelve valid 1500 µs
+  home channels, `saved=0 dirty=0`; joint calibration has not yet been saved in
+  the new record format. These are controller reports, not observed pose proof.
+- Wi-Fi connected and the selected gateway authenticated. The first connection
+  attempt timed out and its retry succeeded. No further reset or panic occurred
+  during the 40-second boot/status observation.
+- Three voice assets and the wake model loaded. Microphone, speaker and wake
+  report ready; audio capture/playback was not physically tested. OV5647 was not
+  connected and SD initialization reported no available card. Gait execution and
+  display remain deferred.
+
+Workstation evidence: `/tmp/ainekio-p4-boot-fix-build.log`,
+`/tmp/ainekio-p4-body-flash.log`, `/tmp/ainekio-p4-boot-fix-flash.log`, and
+`/tmp/ainekio-p4-body-boot.log`. The full recovery image is private local state at
+`~/.local/state/ainekio/firmware-backups/p4-before-body-0.5.0-20260922.bin`;
+it contains device settings and must not be committed.
 
 ## Hardware Baseline
 

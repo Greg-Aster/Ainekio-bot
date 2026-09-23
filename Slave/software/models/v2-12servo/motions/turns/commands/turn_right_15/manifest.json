@@ -6,7 +6,7 @@
     "asset": "turn_right_15"
   },
   "new_body_control_command": true,
-  "gait_id": "turn_right_15_fourbar_20260915",
+  "gait_id": "turn_right_15_upright_24_38_20260921",
   "duration_seconds": 15.0,
   "source_sample_hz": 120,
   "sample_count": 1801,
@@ -17,176 +17,144 @@
   ],
   "turn_cycles": 1,
   "cycle_seconds": 4.0,
-  "entry_pose": "CAD neutral with all feet supported; arbitrary current-pose entry has not been qualified.",
+  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
   "final_actuator_angles_rad": [
     [
-      0.007945917348631149,
-      0.009069734549574715,
-      0.01098802076494998
+      -0.0019722353179518707,
+      0.04578673350201895,
+      0.024651968275599047
     ],
     [
-      -0.010909629098988738,
-      0.014168279199879397,
-      0.016442367801447588
+      -0.021260859194141175,
+      0.015477194597386838,
+      -0.035398311192207585
     ],
     [
-      2.628337001375769e-07,
-      -5.709600623404754e-07,
-      -2.5302798656312575e-07
+      -0.0190687358342239,
+      0.056857301027464224,
+      0.028736424174503745
     ],
     [
-      0.0,
-      1.4210854715202004e-14,
-      1.021405182655144e-14
+      0.011955637339745077,
+      0.0021346446878999863,
+      -0.02986326184229707
     ]
   ],
   "completion": "Hold final recorded pose. Finite command, not a periodic loop. No invented zero-angle reset.",
   "hardware_qualified": false,
   "calibration": null,
-  "source_sha256": "5edf0567994b1ccd8c591c80321e26f0c084e1b10508687c3444ef1c06a8f498",
-  "csv_sha256": "93afd1f090bc9b285a746596965810e4a8fedb55edbeb6f4b6f88366d56147e7",
-  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
-  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
-  "blender_file": "Ainekio-Turn-Right-15.blend",
+  "source_sha256": "187626fc1288a0611f399eb64d93a4da56a874f4c726801856596f54a326b183",
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
   "mirror_partner": "turn_left_15",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "generated_utc": "2026-09-21",
+  "entry_actuator_angles_rad": [
+    [
+      -3.4277232242703374e-09,
+      0.033522787652696055,
+      0.0077382778671378615
+    ],
+    [
+      -6.855412137067195e-09,
+      0.03352259575715927,
+      0.007738239210021999
+    ],
+    [
+      1.9846059755857533e-09,
+      0.0335230550346877,
+      0.007738329695574771
+    ],
+    [
+      -3.4277327057149906e-09,
+      0.03352291414500837,
+      0.007738299730361967
+    ]
+  ],
   "source_validation": {
-    "duration_s": 15.0,
+    "command": "turn_right_15",
+    "geometry_id": "upright-24-38-24-55-20260921",
     "samples": 1801,
+    "duration_s": 15.0,
     "sample_hz": 120,
-    "heading_change_degrees": -14.999999999999998,
-    "turn_time_range_s": [
-      5.0,
-      9.0
-    ],
-    "endpoint_body_translation_mm": [
-      0.0,
-      0.0
-    ],
-    "maximum_body_radius_mm": 15.551817494440527,
+    "max_target_error_mm": 9.735621866582277e-06,
+    "min_sole_height_mm": -9.28098842223335e-09,
+    "minimum_body_ground_clearance_mm": 45.63832952174951,
+    "minimum_closure_triangle_height_mm": 16.238365495409237,
+    "minimum_assumed_support_margin_mm": -3.72355195420083,
     "actuator_min_degrees": [
       [
-        -4.2166146203946075,
-        0.0,
-        -2.957655902618528
+        -10.718924494897808,
+        -19.79798576719356,
+        -31.565832775635588
       ],
       [
-        -16.925097940744024,
-        0.0,
-        -2.957739888998834
+        -14.871516675609424,
+        -17.25511615407263,
+        -38.14687697949753
       ],
       [
-        -9.375599558536244,
-        -3.2713601842635614e-05,
-        -4.596774885379923
+        -7.4262553092330466,
+        -19.760111343325107,
+        -26.878279778592045
       ],
       [
-        -7.160580753253936,
-        -5.648665114279206e-12,
-        -10.53403567844601
+        -5.646866435923115,
+        -14.582870265375584,
+        -23.872902600560273
       ]
     ],
     "actuator_max_degrees": [
       [
-        12.8926704933432,
-        24.439221678686813,
-        27.484363326386813
+        3.9651924229013873,
+        4.162200442334773,
+        1.4124537388822231
       ],
       [
-        7.2862006694597055,
-        25.370258029325964,
-        34.94113929881229
+        6.138527191457232,
+        1.9207032552083865,
+        0.44337978971875525
       ],
       [
-        8.543838291263075,
-        22.41791767948776,
-        19.850672351938094
+        7.237669100185499,
+        3.2576833833785392,
+        1.6464758234967753
       ],
       [
-        11.043591677883198,
-        16.061001197543952,
-        20.200445103503235
+        10.153263988258804,
+        1.920721497488388,
+        2.55338439920765
       ]
     ],
-    "actuator_peak_speed_degrees_s": [
-      [
-        36.95753435624084,
-        105.06235228896593,
-        91.68372730138842
-      ],
-      [
-        35.03538947954123,
-        100.11491566638007,
-        98.96320197006645
-      ],
-      [
-        52.946846192460306,
-        67.52286028675596,
-        104.23163183037181
-      ],
-      [
-        56.21571075762477,
-        67.05204856459166,
-        87.50691525241864
-      ]
-    ],
-    "actuator_peak_acceleration_degrees_s2": [
-      [
-        256.05632753707533,
-        845.3350652296343,
-        826.4223251318911
-      ],
-      [
-        263.67334918233144,
-        829.1118401334857,
-        912.8794631192022
-      ],
-      [
-        332.3349716661081,
-        658.5008689693211,
-        911.1827376428465
-      ],
-      [
-        345.9184132260326,
-        607.2792970958915,
-        750.5024829463995
-      ]
-    ],
-    "endpoint_actuator_degrees": [
-      [
-        0.455267528436346,
-        0.5196575109946179,
-        0.6295672150337442
-      ],
-      [
-        -0.6250757034251657,
-        0.8117826011160804,
-        0.9420782802247452
-      ],
-      [
-        1.50592617316902e-05,
-        -3.2713601842635614e-05,
-        -1.4497435728760009e-05
-      ],
-      [
-        0.0,
-        8.142219984546603e-13,
-        5.852220613892871e-13
-      ]
-    ],
-    "maximum_adjacent_joint_step_degrees": 0.8763142849765568,
-    "minimum_support_margin_mm": -4.442132803568423,
-    "min_sole_height_mm": -1.0744418688091173e-09,
-    "max_stance_material_vertex_constraint_error_mm": 1.2031902585363241e-08,
-    "maximum_rolling_normal_correction_mm": 0.014587002327367316,
-    "rolling_transfers": 433,
-    "minimum_stance_contacts": 3,
-    "minimum_part023_angle_degrees": 124.2493240602303,
-    "research_angle_bounds_satisfied": true,
-    "part023_forward_limit_satisfied": true,
-    "balance_qualified": false,
-    "hardware_servo_limits_verified": false,
-    "collision_checked": false
+    "maximum_adjacent_joint_step_degrees": 0.9816725182908708,
+    "peak_joint_speed_deg_s": 117.67424369171432,
+    "peak_joint_acceleration_deg_s2": 828.051717105858,
+    "native_solver_fallbacks": 0,
+    "seconds": 1.9468408309985534,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+    "motion_end_s": 15.0
   },
-  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_15/Ainekio-Turn-Right-15.blend",
-  "blender_in_source_archive": false
+  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "retargeted_from": {
+    "path": "docs/gait-research/turn-commands-20260915/commands/turn_right_15/source.json",
+    "sha256": "5edf0567994b1ccd8c591c80321e26f0c084e1b10508687c3444ef1c06a8f498"
+  },
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+  "blender_scene": "Motions - Current Geometry",
+  "body_target": {
+    "position_mm": [
+      -0.1174782486960888,
+      -0.8923183041752243,
+      63.0
+    ],
+    "euler_xyz_rad": [
+      0.0,
+      0.0,
+      -0.2617993877991494
+    ]
+  },
+  "choreography_source": "docs/gait-research/turn-commands-20260915/commands/turn_right_15/manifest.json",
+  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package."
 }

@@ -3,7 +3,6 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-#include <stdatomic.h>
 #include <string.h>
 
 #include "driver/gpio.h"
@@ -23,9 +22,6 @@ static portMUX_TYPE gate_lock = portMUX_INITIALIZER_UNLOCKED;
 static i2c_master_bus_handle_t bus;
 static i2c_master_dev_handle_t device;
 static ainekio_pca9685_t output;
-static atomic_bool interrupt_arm;
-
-void ainekio_p4_interrupt_arm(bool enable) { atomic_store(&interrupt_arm, enable); }
 
 static void enter(void *context) { (void)context; portENTER_CRITICAL(&gate_lock); }
 static void leave(void *context) { (void)context; portEXIT_CRITICAL(&gate_lock); }
@@ -45,10 +41,7 @@ static bool write_registers(void *context, uint8_t reg, const uint8_t *data,
     uint8_t bytes[65];
     bytes[0] = reg;
     memcpy(bytes + 1, data, length);
-    const bool ok = i2c_master_transmit(device, bytes, length + 1U, (int)timeout_ms) == ESP_OK;
-    if (reg == 0x06 && length == 64 && atomic_exchange(&interrupt_arm, false))
-        ainekio_pca_emergency_disable(&output, AINEKIO_PCA_FAULT_EMERGENCY);
-    return ok;
+    return i2c_master_transmit(device, bytes, length + 1U, (int)timeout_ms) == ESP_OK;
 }
 static bool read_registers(void *context, uint8_t reg, uint8_t *data,
                            size_t length, uint32_t timeout_ms)
@@ -76,8 +69,7 @@ static void shutdown_outputs(void)
 
 esp_err_t ainekio_p4_board_init(void)
 {
-    /* Preload the output latch before enabling the pad driver. The external
-     * pull-up is still required during reset and cannot be proven in firmware. */
+    /* Preload OE high before enabling its pad driver. */
     gpio_set_level(AINEKIO_P4_PCA_OE, 1);
     const gpio_config_t oe = {
         .pin_bit_mask = UINT64_C(1) << AINEKIO_P4_PCA_OE,
@@ -85,6 +77,9 @@ esp_err_t ainekio_p4_board_init(void)
         .pull_up_en = GPIO_PULLUP_ENABLE,
     };
     ESP_RETURN_ON_ERROR(gpio_config(&oe), "board", "OE configuration");
+    /* Release any retained OE state only after preloading/configuring high.
+     * Rev 1.3 loses retention on wake, so sleep also clears the PCA registers. */
+    ESP_RETURN_ON_ERROR(gpio_hold_dis(AINEKIO_P4_PCA_OE), "board", "OE wake hold release");
     const i2c_master_bus_config_t bus_config = {
         .i2c_port = I2C_NUM_1,
         .sda_io_num = AINEKIO_P4_PCA_SDA,
@@ -108,7 +103,7 @@ esp_err_t ainekio_p4_board_init(void)
     };
     const ainekio_pca_config_t config = {.oscillator_hz = 25000000U, .frequency_hz = 50U};
     const ainekio_pca_result_t result = ainekio_pca_init(&output, &port, &config);
-    ESP_LOGI("board", "PCA initialization=%d; wiring unverified; OE disabled", result);
+    ESP_LOGI("board", "PCA initialization=%d; OE disabled until startup home", result);
     ESP_RETURN_ON_ERROR(esp_register_shutdown_handler(shutdown_outputs), "board", "shutdown gate");
     if (xTaskCreatePinnedToCore(supervisor, "output_guard", 3072, NULL,
                                 configMAX_PRIORITIES - 1, NULL, 0) != pdPASS)

@@ -1,5 +1,7 @@
 """Reject stale or incompatible motion handoffs before generating firmware data."""
 import importlib.util
+import sys
+import math
 import json
 from pathlib import Path
 import shutil
@@ -7,6 +9,7 @@ import tempfile
 import unittest
 
 MODEL = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(MODEL / "tools"))
 spec = importlib.util.spec_from_file_location("compiler", MODEL / "tools/compile_clips.py")
 compiler = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(compiler)
@@ -21,6 +24,7 @@ class HandoffValidation(unittest.TestCase):
         self.family = self.root / "motions/gestures"
         self.family.mkdir(parents=True)
         shutil.copy2(MODEL / "geometry.json", self.root / "geometry.json")
+        shutil.copy2(MODEL / "servo_profile.json", self.root / "servo_profile.json")
         (self.root / "motions/turns").mkdir()
         shutil.copy2(MODEL / "motions/turns/sole-hulls.npz", self.root / "motions/turns/sole-hulls.npz")
         original = MODEL / "motions/gestures"
@@ -60,6 +64,46 @@ class HandoffValidation(unittest.TestCase):
         self.catalog = json.loads((original / "catalog.json").read_text())
         self.catalog["commands"] = [e for e in self.catalog["commands"] if e["command"] == "dead"]
         self.write_catalog()
+
+    def use_wave(self):
+        self.command = "wave"
+        original = MODEL / "motions/gestures"
+        for name in ["sit", "wave"]:
+            shutil.copytree(original / name, self.family / name)
+        self.catalog = json.loads((original / "catalog.json").read_text())
+        self.catalog["commands"] = [e for e in self.catalog["commands"] if e["command"] == "wave"]
+        self.write_catalog()
+
+    def test_wave_reuses_corrected_sit_and_keeps_supporting_legs_planted(self):
+        self.use_wave()
+        self.assertEqual(len(self.load()), 1)
+        sit = json.loads((self.family / "sit/source.json").read_text())["samples"]
+        wave = json.loads((self.family / "wave/source.json").read_text())["samples"]
+        keys = ["actuator_angles_rad", "body_translation_world_mm", "body_rotation_euler_xyz_rad", "contact_active"]
+        for i in range(361):
+            for key in keys:
+                self.assertEqual(wave[i][key], sit[i][key])
+                self.assertEqual(wave[1824-i][key], sit[i][key])
+        for row in wave[360:1465]:
+            for leg in [0, 1, 3]:
+                self.assertEqual(row["actuator_angles_rad"][leg], sit[360]["actuator_angles_rad"][leg])
+                self.assertTrue(row["contact_active"][leg])
+            for key in keys[1:3]:
+                self.assertEqual(row[key], sit[360][key])
+
+    def test_wave_rejects_changed_sit_source(self):
+        self.use_wave()
+        with (self.family / "sit/source.json").open("a") as handle:
+            handle.write(" ")
+        with self.assertRaisesRegex(ValueError, "seated motion dependency changed"):
+            self.load()
+
+    def test_wave_rejects_changed_sit_posture(self):
+        self.use_wave()
+        with (self.family / "sit/posture.json").open("a") as handle:
+            handle.write(" ")
+        with self.assertRaisesRegex(ValueError, "seated motion dependency changed"):
+            self.load()
 
     def test_unchanged_source_and_unknown_limits_remain_research(self):
         clips = self.load()
@@ -130,8 +174,10 @@ class HandoffValidation(unittest.TestCase):
         clip = self.load()[0]
         self.assertEqual(clip["duration_s"], 7.4)
         self.assertEqual(len(clip["positions"]), 889)
-        self.assertAlmostEqual(clip["positions"][-1][0], 9000)
-        self.assertAlmostEqual(clip["positions"][-1][3], -9000)
+        source = json.loads((self.family / self.command / "source.json").read_text())
+        expected = [math.degrees(q)*100 for leg in source["samples"][888]["actuator_angles_rad"] for q in leg]
+        self.assertEqual(clip["positions"][-1], expected)
+        self.assertNotEqual(clip["positions"][-1], clip["positions"][0])
         self.assertEqual(clip["manifest"]["sample_count"], 1477)  # complete source retained
 
     def test_semantic_end_must_be_a_source_knot(self):

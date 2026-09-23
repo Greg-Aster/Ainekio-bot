@@ -73,6 +73,23 @@ class FirmwareAssetPolicyTests(unittest.TestCase):
         stage_assets(seed_dir=self.seed, local_dir=self.local, output_dir=self.output)
         self.assertTrue((self.output / "faces-v1.json").is_file())
 
+    def test_p4_stages_voice_and_verified_wake_without_v1_motion_or_display(self) -> None:
+        model = self.add_wake_package()
+        (self.seed / "audio").mkdir()
+        (self.seed / "audio" / "greeting_1.pcm").write_bytes(b"\x00\x00")
+        (self.seed / "audio-v1.json").write_text("{}\n", encoding="utf-8")
+        (self.local / "faces-v1.json").write_text("{}\n", encoding="utf-8")
+        stage_assets(seed_dir=self.seed, local_dir=self.local, output_dir=self.output, profile="p4")
+        self.assertEqual({path.name for path in self.output.iterdir()}, {"audio", "audio-v1.json", "wake"})
+        self.assertEqual((self.output / "audio" / "greeting_1.pcm").read_bytes(), b"\x00\x00")
+        self.assertEqual((self.output / "wake" / "ainekio" / "ainekio.tflite").read_bytes(), model)
+
+    def test_output_cannot_delete_a_source_ancestor_or_nest_within_source(self) -> None:
+        for output in (self.root, self.seed / "build"):
+            with self.subTest(output=output), self.assertRaisesRegex(ValueError, "separate"):
+                stage_assets(seed_dir=self.seed, local_dir=self.local, output_dir=output)
+        self.assertTrue((self.seed / "faces-v1.json").is_file())
+
     def test_corrupt_local_wake_package_is_rejected(self) -> None:
         self.add_wake_package(digest="0" * 64)
         with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):

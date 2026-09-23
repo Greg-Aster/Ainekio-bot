@@ -28,7 +28,10 @@
     {"$ref": "#/$defs/limits"},
     {"$ref": "#/$defs/pose_save"},
     {"$ref": "#/$defs/cal_save"},
-    {"$ref": "#/$defs/output_test"},
+    {"$ref": "#/$defs/calibration"},
+    {"$ref": "#/$defs/calibration_status"},
+    {"$ref": "#/$defs/storage"},
+    {"$ref": "#/$defs/storage_status"},
     {"$ref": "#/$defs/ack"},
     {"$ref": "#/$defs/nak"},
     {"$ref": "#/$defs/done"},
@@ -39,23 +42,399 @@
     {"$ref": "#/$defs/pong"}
   ],
   "$defs": {
-    "output_test": {
-      "x-ainekio-message-type": "output_test",
+    "bodyCapabilities": {
+      "type": "object",
+      "required": [
+        "motion",
+        "camera",
+        "microphone",
+        "speaker"
+      ],
+      "properties": {
+        "motion": {
+          "type": "boolean"
+        },
+        "camera": {
+          "type": "boolean"
+        },
+        "microphone": {
+          "type": "boolean"
+        },
+        "speaker": {
+          "type": "boolean"
+        },
+        "wake": {
+          "type": "boolean"
+        },
+        "profile": {
+          "type": "boolean"
+        },
+        "power": {
+          "type": "boolean"
+        },
+        "storage": {
+          "type": "boolean"
+        },
+        "display": {
+          "type": "boolean"
+        },
+        "calibration": {
+          "type": "boolean"
+        },
+        "commands": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        },
+        "reasons": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": {
+            "maxLength": 32
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 160
+          }
+        }
+      }
+    },
+    "storage": {
+      "x-ainekio-message-type": "storage",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "op"],
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
       "properties": {
-        "t": {"const": "output_test"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "op": {"enum": ["recover", "run"]},
-        "channel": {"type": "integer", "minimum": 0, "maximum": 11},
-        "pulse_us": {"type": "integer", "minimum": 1000, "maximum": 2000},
-        "ms": {"type": "integer", "minimum": 100, "maximum": 2000},
-        "fault": {"enum": ["none", "stall", "interrupt_arm", "reset"]}
+        "t": {
+          "const": "storage"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "op": {
+          "enum": [
+            "get",
+            "retry",
+            "clear"
+          ]
+        }
+      }
+    },
+    "storage_status": {
+      "x-ainekio-message-type": "storage_status",
+      "x-ainekio-direction": "body-to-brain",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "available",
+        "mounted",
+        "busy",
+        "total_bytes",
+        "free_bytes",
+        "dropped_records",
+        "error"
+      ],
+      "properties": {
+        "t": {
+          "const": "storage_status"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "mounted": {
+          "type": "boolean"
+        },
+        "busy": {
+          "type": "boolean"
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "free_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "dropped_records": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 160
+        }
       },
+      "x-ainekio-rules": [
+        "storage-free-does-not-exceed-total"
+      ]
+    },
+    "calibration": {
+      "x-ainekio-message-type": "calibration",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
+      "properties": {
+        "t": {
+          "const": "calibration"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "op": {
+          "enum": [
+            "get",
+            "set",
+            "move",
+            "home",
+            "save"
+          ]
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 11
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 11
+        },
+        "home_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "invert": {
+          "type": "boolean"
+        },
+        "home_cd": {
+          "type": "integer",
+          "minimum": -36000,
+          "maximum": 36000
+        },
+        "us_per_degree": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "pulse_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      },
+      "dependentRequired": {"home_cd": ["us_per_degree"], "us_per_degree": ["home_cd"]},
+      "allOf": [{
+        "if": {"anyOf": [{"required": ["home_cd"]}, {"required": ["us_per_degree"]}]},
+        "then": {"properties": {"op": {"const": "set"}}}
+      }],
       "oneOf": [
-        {"properties": {"op": {"const": "recover"}}},
-        {"properties": {"op": {"const": "run"}}, "required": ["channel", "pulse_us", "ms"]}
+        {
+          "properties": {
+            "op": {
+              "enum": [
+                "get",
+                "save"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "home"
+            }
+          }
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "move"
+            }
+          },
+          "required": [
+            "id",
+            "pulse_us"
+          ]
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "set"
+            }
+          },
+          "required": [
+            "id",
+            "channel",
+            "home_us",
+            "invert"
+          ]
+        }
+      ]
+    },
+    "calibration_status": {
+      "x-ainekio-message-type": "calibration_status",
+      "x-ainekio-direction": "body-to-brain",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "dirty",
+        "saved",
+        "ready",
+        "joints"
+      ],
+      "dependentRequired": {
+        "pulse_min_us": [
+          "pulse_max_us"
+        ],
+        "pulse_max_us": [
+          "pulse_min_us"
+        ]
+      },
+      "properties": {
+        "t": {
+          "const": "calibration_status"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "saved": {
+          "type": "boolean"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "pulse_min_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "pulse_max_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "joints": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "channel",
+              "home_us",
+              "invert",
+              "pulse_us"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 11
+              },
+              "channel": {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 11
+              },
+              "home_us": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "invert": {
+                "type": "boolean"
+              },
+              "home_cd": {
+                "type": "integer",
+                "minimum": -36000,
+                "maximum": 36000
+              },
+              "us_per_degree": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "pulse_us": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "recommended_home_cd": {
+                "type": "integer",
+                "minimum": -36000,
+                "maximum": 36000
+              }
+            },
+            "dependentRequired": {
+              "home_cd": [
+                "us_per_degree"
+              ],
+              "us_per_degree": [
+                "home_cd"
+              ]
+            }
+          }
+        },
+        "profile_confirmed": {
+          "type": "boolean"
+        },
+        "shaft_travel_measured": {
+          "type": "boolean"
+        },
+        "servo_profile_id": {
+          "type": "string",
+          "maxLength": 96
+        },
+        "provisional_us_per_degree": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        },
+        "recommended_reference_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      },
+      "x-ainekio-rules": [
+        "unique-calibration-joints-and-channels",
+        "ordered-pwm-pulse-bounds",
+        "saved-is-not-dirty"
       ]
     },
     "sequence": {
@@ -95,6 +474,7 @@
       "required": ["t", "ver", "fw", "id", "auth"],
       "properties": {
         "t": {"const": "hello"},
+        "capabilities": {"$ref": "#/$defs/bodyCapabilities"},
         "ver": {"const": 1},
         "fw": {"type": "string", "minLength": 1, "maxLength": 32},
         "id": {"type": "string", "minLength": 1, "maxLength": 64},
@@ -195,14 +575,143 @@
         },
         {
           "type": "object",
-          "required": ["t", "seq", "name", "dir", "steps"],
+          "required": [
+            "t",
+            "seq",
+            "name",
+            "dir",
+            "steps"
+          ],
           "properties": {
-            "t": {"const": "intent"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"const": "walk"},
-            "dir": {"type": "string", "enum": ["fwd", "back", "turn_l", "turn_r"]},
-            "steps": {"type": "integer", "minimum": 1, "maximum": 10}
-          }
+            "t": {
+              "const": "intent"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "const": "walk"
+            },
+            "dir": {
+              "type": "string",
+              "enum": [
+                "fwd",
+                "back",
+                "turn_l",
+                "turn_r"
+              ]
+            },
+            "steps": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "gait": {"enum": ["walk", "crawl", "run"]},
+            "speed": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 200
+            },
+            "stride": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "rate": {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 3
+            },
+            "update": {
+              "$ref": "#/$defs/sequence"
+            }
+          },
+          "allOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "speed",
+                      "stride"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "speed",
+                      "rate"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "speed_percent"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "stride_percent"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "motion_rate"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "stride"
+                ]
+              },
+              "then": {
+                "required": [
+                  "rate"
+                ]
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "rate"
+                ]
+              },
+              "then": {
+                "required": [
+                  "stride"
+                ]
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "update"
+                ]
+              },
+              "then": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "speed"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "stride",
+                      "rate"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "if": {"required": ["gait"], "properties": {"gait": {"const": "crawl"}}},
+              "then": {"properties": {"speed": {"maximum": 100}}}
+            }
+          ],
+          "description": "Extended fields require negotiated walk_controls_v1/v2; Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Feature admission is checked against the connected body."
         },
         {
           "type": "object",
@@ -531,6 +1040,17 @@
       "required": ["t", "vbat", "rssi", "state", "uptime", "heap", "sd", "cam_drops", "spk_underruns", "mic_drops"],
       "properties": {
         "t": {"const": "status"},
+        "capabilities": {"$ref": "#/$defs/bodyCapabilities"},
+        "mode": {"enum": ["normal", "calibrate"]},
+        "output_fault": {"type": "integer", "minimum": 0, "maximum": 255},
+        "output_ready": {"type": "boolean"},
+        "output_armed": {"type": "boolean"},
+        "calibration_dirty": {"type": "boolean"},
+        "calibration_saved": {"type": "boolean"},
+        "power_monitor_ready": {"type": "boolean"},
+        "microphone_ready": {"type": "boolean"},
+        "speaker_ready": {"type": "boolean"},
+        "display_ready": {"type": "boolean"},
         "vbat": {"type": "number"},
         "rssi": {"type": "integer", "minimum": -127, "maximum": 0},
         "state": {"type": "string", "enum": ["active", "idle", "dozing", "deep-sleep", "failsafe"]},

@@ -28,9 +28,9 @@ def body_command_available(name: str, supported: tuple[str, ...] | None) -> bool
         return name in supported
     # Resolve after gateway/adapter initialization; the adapter package imports
     # the gateway service. Reuse its semantic catalog without a second name list.
-    from .environment_adapter.translation import DECLARED_EMOTES
+    from .environment_adapter.translation import DECLARED_EMOTES, DECLARED_GAITS
 
-    return name not in DECLARED_EMOTES
+    return name not in DECLARED_EMOTES and name not in DECLARED_GAITS
 
 
 def movement_command(message: Mapping[str, object]) -> str | None:

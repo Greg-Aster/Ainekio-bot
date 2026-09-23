@@ -1,115 +1,65 @@
 {
-  "duration_s": 12.3,
-  "motion_end_s": 11.8,
-  "sample_hz": 120,
+  "command": "dead",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "samples": 1477,
+  "duration_s": 12.3,
+  "sample_hz": 120,
+  "max_target_error_mm": 8.797519369441176e-06,
+  "min_sole_height_mm": -1.8700866064591537e-06,
+  "minimum_body_ground_clearance_mm": 0.0,
+  "minimum_closure_triangle_height_mm": 7.556277240454205,
+  "minimum_assumed_support_margin_mm": -23.069416537698874,
   "actuator_min_degrees": [
     [
-      0.0,
-      -10.000000000000002,
-      -26.27063730237721
+      -76.894901290116,
+      -23.960149769721045,
+      -15.57504040818492
     ],
     [
-      -90.0,
-      -10.000000000000002,
-      -26.270639898705216
+      -76.89491138766523,
+      -23.960171515826094,
+      -15.575051608392592
     ],
     [
-      0.0,
-      -10.000000000000002,
-      -23.057163868638384
+      -78.02304227298242,
+      -15.394849027781408,
+      -10.690327488444531
     ],
     [
-      -90.0,
-      -10.000000000000002,
-      -23.057163868638384
+      -78.02305382033238,
+      -15.394877156780822,
+      -10.69035050117166
     ]
   ],
   "actuator_max_degrees": [
     [
-      90.0,
-      55.20910293288044,
-      14.999999999999996
+      -1.9639407408966488e-07,
+      29.495196655033222,
+      8.47166292184195
     ],
     [
-      0.0,
-      55.20910293288034,
-      14.999999999999996
+      3.869514247676469e-07,
+      29.49517533076173,
+      8.471651643215415
     ],
     [
-      90.0,
-      43.05144040360648,
-      14.999999999999996
+      6.240126261488742e-06,
+      29.79279771462764,
+      8.572891813659718
     ],
     [
-      0.0,
-      43.05144040360648,
-      14.999999999999996
+      1.0229474274244291e-06,
+      29.792763822653217,
+      8.572865129002869
     ]
   ],
-  "actuator_peak_speed_degrees_s": [
-    [
-      120.52432628595241,
-      122.24442783635887,
-      77.36811605373416
-    ],
-    [
-      120.52432628595241,
-      122.24442783635844,
-      77.36812092094766
-    ],
-    [
-      120.52432628595241,
-      99.45303165278645,
-      71.34396906187801
-    ],
-    [
-      120.52432628595241,
-      99.45303165278645,
-      71.34396906187801
-    ]
-  ],
-  "actuator_peak_acceleration_degrees_s2": [
-    [
-      264.9565657167898,
-      376.1070863954358,
-      238.0369986910793
-    ],
-    [
-      264.9565657167898,
-      376.1070863954358,
-      238.03701366594865
-    ],
-    [
-      264.9565657167898,
-      305.98523491144647,
-      219.50262118831034
-    ],
-    [
-      264.9565657167898,
-      305.98523491144647,
-      219.50262118831034
-    ]
-  ],
-  "maximum_adjacent_joint_step_degrees": 1.0187035653029923,
-  "maximum_adjacent_passive_beta_step_degrees": 0.4893743317526038,
-  "fourbar_maximum_coupler_closure_error_mm": 1.4210854715202004e-14,
-  "final_joint_return_error_degrees": 0.0,
-  "minimum_support_margin_mm": 22.75533863559165,
-  "minimum_stance_contacts": 0,
-  "minimum_body_ground_clearance_mm": 0.0,
-  "min_sole_height_mm": -4.625531957458406e-09,
-  "max_stance_material_vertex_constraint_error_mm": 1.1513478471484577e-13,
-  "maximum_rolling_normal_correction_mm": 0.0004042129732635402,
-  "rolling_transfers": 302,
-  "research_angle_bounds_satisfied": true,
-  "collision_checked": false,
-  "hardware_servo_limits_verified": false,
-  "measured_mass_balance_verified": false,
-  "body_contact_strength_verified": false,
+  "maximum_adjacent_joint_step_degrees": 1.9361401255264328,
+  "peak_joint_speed_deg_s": 230.8336694924594,
+  "peak_joint_acceleration_deg_s2": 4158.5840242824315,
+  "native_solver_fallbacks": 0,
+  "seconds": 1.7374448369955644,
   "hardware_qualified": false,
-  "whole_model_floor_check_passed": true,
-  "minimum_whole_body_ground_clearance_mm": 0.0,
-  "body_support_required": true,
-  "body_contact_load_capacity_verified": false
+  "collision_checked": false,
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "motion_end_s": 11.8
 }

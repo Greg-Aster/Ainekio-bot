@@ -18,7 +18,6 @@ typedef enum {
     AINEKIO_PCA_DISARMED,
     AINEKIO_PCA_STALE,
     AINEKIO_PCA_DEADLINE,
-    AINEKIO_PCA_WIRING,
 } ainekio_pca_result_t;
 
 typedef enum {
@@ -27,7 +26,6 @@ typedef enum {
     AINEKIO_PCA_FAULT_IO,
     AINEKIO_PCA_FAULT_DEADLINE,
     AINEKIO_PCA_FAULT_PROGRESS,
-    AINEKIO_PCA_FAULT_WIRING,
 } ainekio_pca_fault_t;
 
 /* The gate lock and OE callback MUST be bounded and independent of the bus.
@@ -61,7 +59,6 @@ typedef struct {
     bool armed;
     bool in_flight;
     bool io_pending;
-    bool wiring_verified;
 } ainekio_pca_status_t;
 
 typedef struct {
@@ -73,10 +70,14 @@ typedef struct {
 
 ainekio_pca_result_t ainekio_pca_init(ainekio_pca9685_t *driver,
     const ainekio_pca_port_t *port, const ainekio_pca_config_t *config);
+/* Integer pulse requests that round to 1..4095 counter ticks. These are timer
+ * capabilities, not servo travel limits; zero is reserved for disabled output. */
+bool ainekio_pca_pulse_bounds(const ainekio_pca9685_t *driver,
+    uint16_t *minimum_us, uint16_t *maximum_us);
+bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *driver, uint16_t pulse_us);
 /* Capture generation when authorizing work. A later disable invalidates even
  * work which has not entered the driver yet, including queued recovery. */
 ainekio_pca_result_t ainekio_pca_recover(ainekio_pca9685_t *driver, uint64_t generation);
-void ainekio_pca_verify_wiring(ainekio_pca9685_t *driver, bool verified);
 ainekio_pca_result_t ainekio_pca_arm(ainekio_pca9685_t *driver, uint64_t generation,
     const uint16_t pulses_us[AINEKIO_PCA_BODY_CHANNELS]);
 ainekio_pca_result_t ainekio_pca_write_frame(ainekio_pca9685_t *driver, uint64_t generation,

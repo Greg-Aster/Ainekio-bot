@@ -1,0 +1,71 @@
+{
+  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "measured_date": "2026-09-22",
+  "body_support_scope": "Current complete body hull.",
+  "schema": "ainekio.point.full-forward-extension.v1",
+  "description": "Extend the physical front-left upper and lower leg into one forward horizontal line for the full 40 + 55 mm modeled reach.",
+  "contact_hulls_file": "../sit/posture-hulls.npz",
+  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "grounded_legs": [],
+  "knee_to_ankle_local_unit": {},
+  "pointing_leg": "RL",
+  "physical_pointing_leg": "front_left",
+  "ankle_local_mm": [
+    42.16432189941406,
+    -51.660057067871094,
+    -35.346595764160156
+  ],
+  "extended_joint_offsets_rad": [
+    0.13962674986597626,
+    2.3626704290310827,
+    -1.5048208805328622
+  ],
+  "extension_waypoints_rad": [
+    [
+      -0.46671139706103615,
+      0.3614280083053928,
+      0.20712483278086327
+    ],
+    [
+      -0.9599310885968813,
+      -0.13962634015954636,
+      -1.6057029118347832
+    ],
+    [
+      -0.9599310885968813,
+      0.06981317007977318,
+      -2.059488517353309
+    ],
+    [
+      -0.9599310885968813,
+      0.6981317007977318,
+      -2.234021442552742
+    ],
+    [
+      0.13962674986597626,
+      2.3626704290310827,
+      -1.5048208805328622
+    ]
+  ],
+  "extension_waypoint_fractions": [
+    0.0,
+    0.37246732563214124,
+    0.4682062059702892,
+    0.5931239484608514,
+    1.0
+  ],
+  "timing_s": {
+    "lift_end": 3.0,
+    "extension_end": 4.2,
+    "hold_end": 6.2,
+    "retraction_end": 7.4
+  },
+  "full_modeled_extension_mm": 95.02010426518976,
+  "posture_sample_time_s": 5.0,
+  "angle_scope": "Measured linkage offsets within the research envelope; electrical stops and loaded motion are not calibrated.",
+  "nominal_link_lengths_mm": [
+    40,
+    55
+  ]
+}

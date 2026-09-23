@@ -1,8 +1,31 @@
 {
-  "segments_checked": 600,
-  "bounded_midpoints": true,
-  "final_hold_verified": true,
-  "peak_interpolated_speed_degrees_s": 26.00563027170365,
-  "peak_interpolated_acceleration_degrees_s2": 33.77501992364323,
-  "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
+  "command": "rest",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "source_sha256": "820cfae899bc33f2d8263068534b83751357cbd59624a60e9aecdceb0648d7ad",
+  "samples": 601,
+  "hardware_qualified": false,
+  "collision_checked": false,
+  "interpolators": {
+    "source": {
+      "poses": 601,
+      "minimum_sole_z_mm": -1.717381792332162e-11,
+      "minimum_body_z_mm": 0.0,
+      "minimum_closure_height_mm": 18.268931197348884,
+      "maximum_interpolated_target_error_mm": 0.00013011662907302934
+    },
+    "native_monotone_cubic_midpoints": {
+      "poses": 600,
+      "minimum_sole_z_mm": -0.0021694016391577975,
+      "minimum_body_z_mm": 0.0,
+      "minimum_closure_height_mm": 18.270935067944034,
+      "maximum_interpolated_target_error_mm": 0.012149726580449938
+    },
+    "blender_linear_midpoints": {
+      "poses": 600,
+      "minimum_sole_z_mm": -0.00013807961917677858,
+      "minimum_body_z_mm": 0.0,
+      "minimum_closure_height_mm": 18.270634707781984,
+      "maximum_interpolated_target_error_mm": 0.0013409093863430144
+    }
+  }
 }

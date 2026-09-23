@@ -1,137 +1,65 @@
 {
-  "duration_s": 23.5,
-  "motion_end_s": 22.8,
-  "sample_hz": 120,
+  "command": "swim",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "samples": 2821,
-  "cycles": 4,
-  "paddle_start_s": 5.0,
-  "paddle_end_s": 17.8,
+  "duration_s": 23.5,
+  "sample_hz": 120,
+  "max_target_error_mm": 8.993846577709519e-06,
+  "min_sole_height_mm": -1.515746152591646e-06,
+  "minimum_body_ground_clearance_mm": 0.0,
+  "minimum_closure_triangle_height_mm": 3.5095279912822526,
+  "minimum_assumed_support_margin_mm": -23.069416537698874,
   "actuator_min_degrees": [
     [
-      0.0,
-      -20.0,
-      -33.31073891195818
+      -76.33324589265784,
+      -24.598797366977195,
+      -12.840005807936896
     ],
     [
-      -90.0,
-      -20.0,
-      -33.310742097347415
+      -76.33325577105015,
+      -24.59882018552483,
+      -12.84001815169524
     ],
     [
-      0.0,
-      -20.000000000000004,
-      -33.31077749992338
+      -73.43942529914537,
+      -25.51141293736878,
+      -13.614222509540372
     ],
     [
-      -90.0,
-      -20.000000000000004,
-      -33.31077749992338
+      -73.43943660779028,
+      -25.51144993409097,
+      -13.614255800221406
     ]
   ],
   "actuator_max_degrees": [
     [
-      90.0,
-      51.01322314038274,
-      45.0
+      -1.9639407408966488e-07,
+      36.677169718543745,
+      15.754719128428386
     ],
     [
-      0.0,
-      51.01322314038264,
-      45.0
+      3.869513462849753e-07,
+      36.67714467875082,
+      15.754708442178064
     ],
     [
-      90.0,
-      51.013219485024784,
-      45.0
+      6.240126088690511e-06,
+      35.97128268714245,
+      15.342565280631172
     ],
     [
-      0.0,
-      51.013219485024784,
-      45.0
+      1.0229474088380627e-06,
+      35.971245218738666,
+      15.342542104274413
     ]
   ],
-  "actuator_peak_speed_degrees_s": [
-    [
-      112.4907410836758,
-      90.94544992281072,
-      146.8054464970687
-    ],
-    [
-      112.4907410836758,
-      90.94544992281094,
-      146.80545246856724
-    ],
-    [
-      112.4907410836758,
-      133.12513122132543,
-      90.56593463471683
-    ],
-    [
-      112.4907410836758,
-      133.12513122132543,
-      90.56593463471683
-    ]
-  ],
-  "actuator_peak_acceleration_degrees_s2": [
-    [
-      230.85432098789624,
-      279.81012138384415,
-      451.6735014123526
-    ],
-    [
-      230.85432098789624,
-      279.81012138384716,
-      451.67351978470265
-    ],
-    [
-      230.85432098789624,
-      409.583537800944,
-      278.6424739763227
-    ],
-    [
-      230.85432098789624,
-      409.583537800944,
-      278.6424739763227
-    ]
-  ],
-  "maximum_adjacent_joint_step_degrees": 1.2233787705713972,
-  "final_actuator_degrees": [
-    [
-      0.0,
-      0.0,
-      0.0
-    ],
-    [
-      0.0,
-      0.0,
-      0.0
-    ],
-    [
-      0.0,
-      0.0,
-      0.0
-    ],
-    [
-      0.0,
-      0.0,
-      0.0
-    ]
-  ],
-  "final_joint_return_error_degrees": 0.0,
-  "minimum_support_margin_mm": 39.11558723449706,
-  "belly_support_margin_mm": 51.500001,
-  "minimum_stance_contacts": 0,
-  "belly_support_required": true,
-  "belly_contact_plane_body_z_mm": -25.250007001794895,
-  "minimum_body_ground_clearance_mm": 3.552713678800501e-15,
-  "min_sole_height_mm": -1.6652261791705314e-09,
-  "minimum_paddling_sole_height_mm": 41.95001903008189,
-  "max_stance_material_vertex_constraint_error_mm": 1.0100271890557266e-13,
-  "maximum_rolling_normal_correction_mm": 0.00036236719034477005,
-  "research_angle_bounds_satisfied": true,
+  "maximum_adjacent_joint_step_degrees": 1.9361401255264328,
+  "peak_joint_speed_deg_s": 230.8336694924594,
+  "peak_joint_acceleration_deg_s2": 4158.584024288833,
+  "native_solver_fallbacks": 0,
+  "seconds": 3.445748704005382,
+  "hardware_qualified": false,
   "collision_checked": false,
-  "body_contact_strength_verified": false,
-  "hardware_servo_limits_verified": false,
-  "measured_mass_balance_verified": false,
-  "hardware_qualified": false
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "motion_end_s": 22.8
 }

@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "ainekio/platform/asset_store.h"
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -21,7 +20,7 @@ typedef enum {
 } ainekio_wake_word_result_t;
 
 esp_err_t ainekio_wake_word_service_start(
-    const ainekio_asset_store_t *assets,
+    const char *asset_root,
     const char *model_id,
     ainekio_wake_word_service_t **service
 );

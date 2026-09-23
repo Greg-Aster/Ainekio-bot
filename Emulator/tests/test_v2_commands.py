@@ -75,6 +75,18 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         await connection.send_command({"t":"stop","detach":True},received_at=100.0)
         self.assertEqual(socket.messages,[{"t":"stop","detach":True,"seq":1}])
 
+    async def test_newly_advertised_clip_uses_existing_semantic_motion_lifecycle(self) -> None:
+        connection, socket = self.connection("v2-12servo")
+        connection.capabilities["commands"].append("new_pose")
+        seq = await connection.service.emote("new_pose", robot_id="test-body", received_at=100.0)
+        self.assertEqual(socket.messages[-1], {"t": "intent", "name": "emote", "asset": "new_pose", "seq": seq})
+        await connection._handle_control({"t": "ack", "seq": seq})
+        self.assertIn(seq, connection.pending)
+        await connection._handle_control({"t": "done", "seq": seq})
+        self.assertEqual((await connection.wait_terminal(seq, timeout=1))["t"], "done")
+        with self.assertRaises(GatewayError):
+            await connection.service.emote("uninstalled_pose", robot_id="test-body", received_at=100.0)
+
     async def test_turns_use_same_wire_and_correlated_completion(self) -> None:
         for name in TURNS:
             models = ("v2-12servo",) if name.endswith("_15") else ("v1-8servo", "v2-12servo")

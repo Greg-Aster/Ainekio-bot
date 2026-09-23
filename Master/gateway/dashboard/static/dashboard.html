@@ -58,7 +58,7 @@
                 </select>
               </label>
               <label>Frame rate
-                <input name="fps" type="number" min="0" max="15" value="1">
+                <input name="fps" type="number" min="0" max="10" value="1">
               </label>
               <button type="submit">Apply camera</button>
             </form>
@@ -94,6 +94,27 @@
           </div>
         </div>
         <p id="motion-availability" role="status">Connect a robot to use its motions.</p>
+        <form id="walk-controls" class="walk-controls" hidden>
+          <fieldset id="walk-fields">
+            <legend>Walk, Run and Crawl</legend>
+            <div id="locomotion-options" hidden>
+              <label>Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="run">Run (advanced tuning)</option></select></label>
+              <label>Direction <select id="walk-direction"><option value="fwd">Forward</option><option value="back">Backward</option><option value="turn_l">Turn left</option><option value="turn_r">Turn right</option></select></label>
+              <label><input id="walk-continuous" type="checkbox" checked> Continue until Finish</label>
+            </div>
+            <label>Control mode <select id="walk-mode"><option value="auto">Automatic Speed</option><option value="manual">Advanced</option></select></label>
+            <label id="walk-speed-field">Speed <input id="walk-speed" type="range" min="0" max="100" step="1" value="50"><output id="walk-speed-value">50%</output></label>
+            <div id="walk-advanced" hidden>
+              <label>Stride % <input id="walk-stride" disabled type="number" min="1" max="100" step="1" value="100" required></label>
+              <label>Motion rate <input id="walk-rate" disabled type="number" min="0.25" max="3" step="0.05" value="1" required></label>
+            </div>
+            <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
+            <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
+            <p>Speed adjusts stride and cadence together. Changes apply smoothly while moving. Finish settles the feet; Crawl remains crouched. Speed can cross between Walk and Run while moving. Finish before changing the selected gait or direction.</p>
+            <button id="walk-apply" type="submit">Walk</button>
+            <button id="walk-finish" type="button">Finish</button>
+          </fieldset>
+        </form>
         <div class="motion-pad" aria-label="Held movement controls">
           <button class="motion-key forward" type="button" data-held-direction="fwd" aria-label="Walk forward">&#x25b2;</button>
           <button class="motion-key left" type="button" data-held-direction="turn_l" aria-label="Turn left">&#x25c0;</button>
@@ -137,7 +158,7 @@
           </div>
         </div>
         <div class="field-group">
-          <span class="field-label">Profile</span>
+          <span class="field-label">Connection and power profile</span>
           <div class="segmented-control" role="group" aria-label="Profile">
             <button type="button" data-profile="home">Home</button>
             <button type="button" data-profile="tether">Tether</button>
@@ -161,10 +182,10 @@
         </form>
         <div class="emote-group">
           <span class="field-label">Named poses and emotes</span>
-          <div class="emote-grid">
+          <div id="motion-catalog" class="emote-grid">
             <button type="button" data-intent="sit">Sit · bored</button>
             <button type="button" data-emote="rest">Rest</button>
-            <button type="button" data-emote="stand">Stand</button>
+            <button type="button" data-emote="crouch" data-requires-declaration>Crouch</button>
             <button type="button" data-emote="wave">Wave</button>
             <button type="button" data-emote="dance">Dance</button>
             <button type="button" data-emote="swim">Swim</button>
@@ -188,12 +209,12 @@
             <button type="button" data-emote="curious">Curious / look around</button>
             <button type="button" data-emote="turn_left_15" data-requires-declaration>Turn left 15°</button>
             <button type="button" data-emote="turn_right_15" data-requires-declaration>Turn right 15°</button>
-            <button type="button" data-emote="turn_left_45">Turn left 45 / quarter</button>
-            <button type="button" data-emote="turn_right_45">Turn right 45 / quarter</button>
-            <button type="button" data-emote="turn_left_90">Turn left 90 / half</button>
-            <button type="button" data-emote="turn_right_90">Turn right 90 / half</button>
-            <button type="button" data-emote="turn_left_180">Turn left 180 / around</button>
-            <button type="button" data-emote="turn_right_180">Turn right 180 / around</button>
+            <button type="button" data-emote="turn_left_45">Turn left 45°</button>
+            <button type="button" data-emote="turn_right_45">Turn right 45°</button>
+            <button type="button" data-emote="turn_left_90">Turn left 90° / quarter</button>
+            <button type="button" data-emote="turn_right_90">Turn right 90° / quarter</button>
+            <button type="button" data-emote="turn_left_180">Turn left 180° / half</button>
+            <button type="button" data-emote="turn_right_180">Turn right 180° / half</button>
             <button type="button" data-emote="walk_slow">Walk slow</button>
             <button type="button" data-emote="run">Run</button>
             <button type="button" data-emote="number_one">#1 · hydrant</button>
@@ -273,20 +294,47 @@
             <button type="button" data-calibration-mode="normal">Exit</button>
           </div>
         </div>
+        <p id="calibration-availability" class="muted" role="status">Connect a robot to calibrate its joints.</p>
         <form id="servo-form" class="calibration-grid">
-          <label>Joint<select name="id" data-joint-select required></select></label>
-          <label>Angle<input name="deg" type="number" min="0" max="180" step="0.1" value="90" required></label>
-          <label>Duration ms<input name="ms" type="number" min="0" max="5000" value="400" required></label>
+          <label class="calibration-joint-field">Joint<select name="id" data-joint-select required></select></label>
+          <label><span id="servo-target-label">Angle</span><input name="deg" type="number" min="0" max="180" step="0.1" value="90" required></label>
+          <label id="servo-duration-label">Duration ms<input name="ms" type="number" min="0" max="5000" value="400" required></label>
           <button type="submit">Move joint</button>
         </form>
-        <form id="limits-form" class="calibration-grid limits-grid">
-          <label>Joint<select name="id" data-joint-select required></select></label>
-          <label>Minimum<input name="min" type="number" step="0.1" value="0" required></label>
-          <label>Center<input name="center" type="number" step="0.1" value="90" required></label>
-          <label>Maximum<input name="max" type="number" step="0.1" value="180" required></label>
+        <div id="calibration-slider-panel" class="calibration-slider-panel" hidden>
+          <label for="calibration-pulse-slider">Pulse target <output id="calibration-slider-value" for="calibration-pulse-slider">—</output></label>
+          <input id="calibration-pulse-slider" type="range" min="1" max="65535" step="1" value="1300" disabled>
+          <p id="calibration-calculated-angle" class="muted">Calculated angle unavailable.</p>
+          <p class="muted">Drag to choose a pulse; release to move. The slider starts at 300–2900 µs and expands to include Home and pulse targets. Numeric entry uses the full controller range.</p>
+          <p id="calibration-draft-status" class="muted"></p>
+          <button id="calibration-use-body-values" type="button">Use controller values</button>
+        </div>
+        <div id="body-calibration-trim" class="command-row" hidden>
+          <button type="button" data-calibration-trim="-5">−5 µs</button>
+          <button type="button" data-calibration-trim="5">+5 µs</button>
+          <button id="calibration-joint-home-button" type="button">Home selected joint</button>
+          <button id="calibration-use-position-button" type="button">Use commanded pulse as home</button>
+          <button id="calibration-read-button" type="button">Read from body</button>
+        </div>
+        <p id="calibration-pulse-help" class="muted" hidden>Pulse inputs use the body's reported PWM capacity; this does not measure servo travel.</p>
+        <form id="limits-form" class="calibration-grid limits-grid" hidden>
+          <label class="calibration-joint-field">Joint<select name="id" data-joint-select required></select></label>
+          <label>Minimum<input name="min" type="number" min="0" max="180" step="0.1" value="0" required></label>
+          <label>Center<input name="center" type="number" min="0" max="180" step="0.1" value="90" required></label>
+          <label>Maximum<input name="max" type="number" min="0" max="180" step="0.1" value="180" required></label>
           <label class="switch-row invert-row"><span>Invert</span><input name="invert" type="checkbox"></label>
           <button type="submit">Stage limits</button>
         </form>
+        <form id="body-calibration-form" class="calibration-grid" hidden>
+          <label class="calibration-joint-field">Joint<select name="id" data-joint-select required></select></label>
+          <label>PCA channel (−1 disables)<input name="channel" type="number" min="-1" max="11" step="1" value="0" required></label>
+          <label>Home µs<input name="center" type="number" min="1" max="65535" step="1" value="1600" required></label>
+          <label id="calibration-angle-label" hidden>Model angle at Home °<input name="home_deg" type="number" min="-360" max="360" step="0.01" value="0" disabled required></label>
+          <label id="calibration-scale-label" hidden>Servo scale µs/degree<input name="us_per_degree" type="number" min="0.001" max="100" step="any" value="11.111111" disabled required></label>
+          <label class="switch-row invert-row"><span>Invert</span><input name="invert" type="checkbox"></label>
+          <button id="calibration-stage-button" type="submit">Stage calibration</button>
+        </form>
+        <p id="calibration-mapping-help" class="muted" hidden>Home is the selected 1300 µs mounting reference. The arithmetic midpoint of 300–2900 µs is 1600 µs. The controller supplies the recommended model angle for each joint. Save calibration applies the displayed joint settings and saves them on the body. Moving a joint does not change Home; use “Use commanded pulse as home” to keep that position. Measure the actual shaft travel to set µs/degree, and check the installed direction. Review the mapping before saving it for this profile. Staging does not move a joint.</p>
         <div class="command-row">
           <button id="calibration-neutral-button" type="button">All neutral</button>
           <button id="calibration-detach-button" class="danger-command" type="button">Detach outputs</button>
@@ -318,10 +366,11 @@
           </div>
           <span id="sd-state" class="state-chip">Unavailable</span>
         </div>
+        <p id="storage-details" role="status">Connect a robot to read storage status.</p>
         <div class="command-row">
-          <button type="button" disabled>Retry mount</button>
-          <button type="button" disabled>Clear recordings</button>
-          <button type="button" class="danger-command" disabled>Reformat</button>
+          <button id="storage-read-button" type="button" disabled>Read storage status</button>
+          <button id="storage-retry-button" type="button" disabled>Retry mount</button>
+          <button id="storage-clear-button" type="button" class="danger-command" disabled>Clear logs and captures</button>
         </div>
       </section>
 

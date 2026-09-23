@@ -1,129 +1,73 @@
 {
-  "duration_s": 5.0,
-  "motion_end_s": 3.0,
-  "sample_hz": 120,
+  "command": "rest",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "samples": 601,
+  "duration_s": 5.0,
+  "sample_hz": 120,
+  "max_target_error_mm": 0.00013011662907302934,
+  "min_sole_height_mm": -1.717381792332162e-11,
+  "minimum_body_ground_clearance_mm": 0.0,
+  "minimum_closure_triangle_height_mm": 18.268931197348884,
+  "minimum_assumed_support_margin_mm": -17.559800920402626,
   "actuator_min_degrees": [
     [
-      0.0,
-      0.0,
-      -31.48110439702703
+      -0.0001680385468500046,
+      -22.82049070574131,
+      0.44337066248649587
     ],
     [
-      0.0,
-      0.0,
-      -31.48110743100277
+      -0.0001766894861852577,
+      -22.820484355190324,
+      0.2587658323561434
     ],
     [
-      0.0,
-      0.0,
-      -31.4811380562436
+      -0.00015437904261665495,
+      -22.82048056034378,
+      -0.852039568464924
     ],
     [
-      0.0,
-      0.0,
-      -31.481138056243783
+      -8.651454248658156e-06,
+      -22.820632329524937,
+      -3.8978199459608844
     ]
   ],
   "actuator_max_degrees": [
     [
-      0.0,
-      43.87340521090828,
-      0.0
+      -1.9639407408966488e-07,
+      15.861707188043244,
+      22.604500437784864
     ],
     [
-      0.0,
-      43.873405210908025,
-      0.0
+      -2.3672861516171988e-07,
+      12.603566061909545,
+      22.604514219409282
     ],
     [
-      0.0,
-      43.873405449783355,
-      0.0
+      1.1371537559678367e-07,
+      6.26395849638008,
+      22.604488991658773
     ],
     [
-      0.0,
-      43.87340544978307,
-      0.0
+      1.5221697698573946e-06,
+      1.920847278454469,
+      22.604448441986516
     ]
   ],
-  "actuator_peak_speed_degrees_s": [
-    [
-      0.0,
-      26.0026101244965,
-      20.51220176117404
-    ],
-    [
-      0.0,
-      26.002610124496286,
-      20.51220374089528
-    ],
-    [
-      0.0,
-      26.002611711037105,
-      20.512221488694244
-    ],
-    [
-      0.0,
-      26.002611711033907,
-      20.512221488694244
-    ]
-  ],
-  "actuator_peak_acceleration_degrees_s2": [
-    [
-      0.0,
-      30.357177084267484,
-      27.519083409170797
-    ],
-    [
-      0.0,
-      30.357177083901377,
-      27.519086440215013
-    ],
-    [
-      0.0,
-      30.357179559848824,
-      27.519112305207614
-    ],
-    [
-      0.0,
-      30.357179559848824,
-      27.519112305207614
-    ]
-  ],
-  "final_actuator_degrees": [
-    [
-      0.0,
-      43.87340521090828,
-      -31.48110439702703
-    ],
-    [
-      0.0,
-      43.873405210908025,
-      -31.48110743100277
-    ],
-    [
-      0.0,
-      43.873405449783355,
-      -31.4811380562436
-    ],
-    [
-      0.0,
-      43.87340544978307,
-      -31.481138056243783
-    ]
-  ],
-  "minimum_support_margin_mm": 39.11558723449706,
-  "minimum_body_ground_clearance_mm": 6.749992998205105,
-  "min_sole_height_mm": -1.1946669431495138e-08,
-  "max_stance_material_vertex_constraint_error_mm": 1.25519440721643e-13,
-  "maximum_adjacent_joint_step_degrees": 0.21670422279325763,
-  "maximum_rolling_normal_correction_mm": 0.0002628621206444137,
-  "rolling_transfers": 364,
-  "minimum_stance_contacts": 4,
-  "research_angle_bounds_satisfied": true,
-  "part023_forward_limit_satisfied": true,
+  "maximum_adjacent_joint_step_degrees": 1.4199738658789127,
+  "peak_joint_speed_deg_s": 170.17476559926612,
+  "peak_joint_acceleration_deg_s2": 1739.0854873163573,
+  "native_solver_fallbacks": 0,
+  "seconds": 4.504839670997171,
+  "hardware_qualified": false,
   "collision_checked": false,
-  "measured_mass_balance_verified": false,
-  "hardware_qualified": false
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "lower_leg_angle_above_floor_deg": {
+    "FL": 1.7999999999999643,
+    "FR": 1.7999999999998733,
+    "RL": 1.7999999999999752,
+    "RR": 1.800000000000088
+  },
+  "posture_hulls_sha256": "63d35c59739dc97f73f63630b36a216c7a28412a9b7d16921a0bd052f965ede3",
+  "body_support_scope": "Chassis base plate only. Carapace and mask clearance excluded at user request.",
+  "motion_end_s": 3.0
 }

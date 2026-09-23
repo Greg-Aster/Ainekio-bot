@@ -1,0 +1,31 @@
+{
+  "command": "run",
+  "samples": 3552,
+  "max_target_error_mm": 9.984965231524257e-06,
+  "min_sole_z_mm": -5.898559443551221e-06,
+  "min_body_z_mm": 32.31699500515963,
+  "min_closure_height_mm": 5.881225553748754,
+  "maximum_adjacent_joint_step_degrees": 24.83555052061938,
+  "hardware_qualified": false,
+  "collision_checked": false,
+  "flight_samples": 233,
+  "paired_samples": 1364,
+  "dynamics_scope": "Kinematic target only; no force or attitude control and no physical running qualification.",
+  "peak_sampled_joint_speed_deg_s": 2980.2660624743253,
+  "reference_pulse_span_us": [
+    375.4029160212509,
+    2458.907531077137
+  ],
+  "modeled_envelope_conflict": true,
+  "first_bound_envelope_conflict": {
+    "sample": 1041,
+    "time_s": 8.675,
+    "cad_leg": "RL",
+    "q_deg": [
+      5.57882181157165,
+      -31.869172767569424,
+      -53.738428157854955
+    ]
+  },
+  "mounting_profile_sha256": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3"
+}

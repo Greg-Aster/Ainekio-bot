@@ -1,100 +1,22 @@
 {
   "command": "stretch",
-  "name": "V1 Stretch: brace the rear, reach both front legs forward, hold, deepen the front stretch, soften and return. V1 stages R1/L1 at 180/0, R3/L3 at 90/90 then 72/108; these electrical targets become geometric body and measured-sole targets.",
-  "display_label": "STRETCH",
   "sample_hz": 120,
-  "preview_fps": 24,
-  "gait_start_frame": 5900,
-  "existing_animation_end_frame": 5876,
-  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Motion-Batch.blend",
-  "output_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
-  "scene_name": "AINEKIO - Motion Library",
-  "com": {
-    "mode": "assumed",
-    "assumed_body_com_mm": [
-      0.0,
-      0.0,
-      0.0
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "retargeting": "../../retargeting.json",
+  "preview_fps": 30,
+  "geometric_solver_search_bounds_degrees": [
+    [
+      -150.0,
+      150.0
     ],
-    "base_mass_kg": null,
-    "battery": {
-      "mass_kg": null,
-      "position_body_mm": null
-    },
-    "optional_q6a": {
-      "present": true,
-      "mass_kg": null,
-      "position_body_mm": [
-        -41.59850883483887,
-        0.5545158386230469,
-        -8.775001645088196
-      ]
-    }
-  },
-  "geometric_research_angle_bounds_degrees": {
-    "h": [
-      -35,
-      35
+    [
+      -145.0,
+      145.0
     ],
-    "alpha": [
-      -34.24,
-      67.4
-    ],
-    "theta": [
-      -51.95331106142828,
-      80
+    [
+      -180.0,
+      180.0
     ]
-  },
-  "part023_forward_limit_degrees": null,
-  "face_cues": [
-    {
-      "time_s": 0,
-      "name": "stretch",
-      "mode": "once",
-      "fps": 1
-    },
-    {
-      "time_s": 6.2,
-      "name": "stand",
-      "mode": "once",
-      "fps": 1
-    }
   ],
-  "completion": "Return to exact recorded standing and hold; this matches the V1 final stand frame.",
-  "adaptation": "V1 Stretch: brace the rear, reach both front legs forward, hold, deepen the front stretch, soften and return. V1 stages R1/L1 at 180/0, R3/L3 at 90/90 then 72/108; these electrical targets become geometric body and measured-sole targets.",
-  "contact_model": "Four measured convex soles roll at fixed material vertices between feature transfers. Prescribed front slides are explicitly labelled; physical friction is unverified.",
-  "hardware_qualified": false,
-  "ready_body_mm": [
-    0,
-    0,
-    76
-  ],
-  "reach_body_mm": [
-    -10,
-    0,
-    71
-  ],
-  "reach_euler_degrees": [
-    0,
-    11,
-    0
-  ],
-  "reach_slide_mm": 17.0,
-  "deepen_body_mm": [
-    -10,
-    0,
-    70
-  ],
-  "deepen_euler_degrees": [
-    0,
-    12,
-    0
-  ],
-  "deepen_slide_mm": 2.0,
-  "brace_seconds": 0.8,
-  "reach_seconds": 1.0,
-  "deepen_seconds": 0.5,
-  "first_hold_seconds": 0.9,
-  "second_hold_seconds": 0.7,
-  "stand_hold_seconds": 0.5
+  "hardware_qualified": false
 }

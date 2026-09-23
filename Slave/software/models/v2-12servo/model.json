@@ -1,8 +1,8 @@
 {
   "model": "v2-12servo",
-  "joint_map": "v2-fourbar-20260915",
+  "joint_map": "upright-24-38-24-55-20260921",
   "position_units": "signed centidegrees from recorded CAD neutral",
-  "zero": "geometry.json source frame 1; Part005 re-clocking already included",
+  "zero": "Root geometry.json measured current CAD neutral; standing is a solved pose, not zero offsets.",
   "joints": [
     {
       "id": 0,
@@ -58,7 +58,7 @@
       "cad_leg": "RL",
       "actuator": "h_Part002",
       "positive_body_axis": "+X",
-      "pca_channel": null
+      "pca_channel": 6
     },
     {
       "id": 7,
@@ -66,7 +66,7 @@
       "cad_leg": "RL",
       "actuator": "alpha_Part006",
       "positive_body_axis": "+Y",
-      "pca_channel": null
+      "pca_channel": 7
     },
     {
       "id": 8,
@@ -74,7 +74,7 @@
       "cad_leg": "RL",
       "actuator": "theta_Part005",
       "positive_body_axis": "+Y",
-      "pca_channel": null
+      "pca_channel": 8
     },
     {
       "id": 9,
@@ -101,5 +101,7 @@
       "pca_channel": null
     }
   ],
-  "device_calibration": null
+  "device_calibration": null,
+  "servo_profile": "servo_profile.json",
+  "mounting_reference": "SERVO_ASSEMBLY.md"
 }

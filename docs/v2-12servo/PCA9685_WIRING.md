@@ -1,6 +1,6 @@
-# P4 pinout and PCA9685 bench wiring
+# P4 pinout and PCA9685 wiring
 
-Updated 2026-09-15 for firmware `0.3.0-p4-turns`. Applies to the selected
+Updated 2026-09-22 for firmware `0.4.2-p4-home`. Applies to the selected
 **Waveshare ESP32-P4-WIFI6**, with the USB-C socket at the top and C6 antenna
 at the bottom when viewing the camera/display connectors. Other P4 boards may
 have different layouts.
@@ -22,8 +22,7 @@ the official front view; viewing the underside reverses left and right.
 
 ## Five logic connections
 
-**Remove power before adding or moving wires. Keep every servo plug and the
-PCA9685 V+ supply disconnected throughout initial testing.**
+**Remove power before adding or moving wires or servo plugs.**
 
 | P4 guide location | P4 printed label / signal | PCA9685 label | Purpose |
 | --- | --- | --- | --- |
@@ -40,92 +39,39 @@ nominal 50 Hz PWM. The oscillator and actual waveforms have not been measured.
 Do not use the header pins printed **SDA / SCL** (GPIO7/8): those belong to the
 onboard codec/camera bus. Use the pins printed **2 / 3** for this driver.
 
-`VCC` powers the PCA9685 logic; `V+` powers servos. Do not bridge them. The P4's
-3V3, VBUS, VSYS and USB cable are not the twelve-servo power source. A separately
-qualified servo supply/distribution system with common ground is later work.
-Leave the breakout's screw power terminal empty for these checks.
+## Servo power and startup
 
-### OE and reset bias
+`VCC` powers the PCA9685 logic; `V+` powers servos. Keep VCC on P4 **3V3**.
+Do not bridge VCC and V+. Use common ground between the P4, PCA board and servo
+supply. The standard breakout's servo ground is the outer row, red/V+ the
+middle row, and signal the inner row. With the screw terminal above the servo
+rows, channels run from 0 at the left to 15 at the right.
 
-OE is active low: **HIGH disables PWM; LOW permits outputs**. This firmware
-sets MODE2 so disabled outputs are LOW. OE does not cut servo power or prove a
-servo has released torque. See [NXP sections 7.3.2, 7.4 and Table 14](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf).
+The owner confirmed a servo moving on channel 0 with PC USB feeding P4 and a
+P4 5 V-to-PCA V+ jumper. This establishes one-servo operation, not the current
+capacity of the P4 header. For multiple servos, remove that jumper and feed
+PCA V+ directly from the 5 V servo supply; retain the common ground and all five
+logic connections. Do not connect independent +5 V sources together.
+See the [PCA9685 power-pin reference](https://learn.adafruit.com/16-channel-pwm-servo-driver/pinouts).
 
-The firmware drives GPIO4 high before enabling its output, but this does not
-establish its electrical state throughout reset. A real external pull-up to
-3.3 V must hold OE high when the P4 cannot drive it. The delivered breakout's
-existing OE pull-up/pull-down is unknown. **No resistor value is approved yet.**
-A guessed pull-up can form a divider with an onboard pull-down and leave OE
-below a valid HIGH. The chip requires at least `0.7 × VCC` at OE for HIGH
-(2.31 V at exactly 3.3 V), with practical margin above that threshold.
+Normal firmware starts channels 0–11 at their saved home pulses, 200 ms apart,
+and leaves 12–15 off. Defaults are 1500 µs assembly midpoints; they are not yet
+a calibrated laying pose. See [startup and assembly](../../Slave/firmware/esp32p4-wifi6/README.md#startup-and-assembly).
+There is no wiring acknowledgement or separate bench firmware to enable first.
 
-The [selected HUAREW listing](https://www.amazon.com/dp/B0CRV3MK14) does not
-establish this delivered unit's resistor values or reset behavior. The drawings
-do not assume another manufacturer's PCA9685 schematic applies to it.
+## Output enable
 
-## First hands-on check: unpowered module
+OE is active low: HIGH disables PWM and LOW permits it. GPIO4 drives OE high
+at initialization and on a stop/fault. OE disables the signal; it does not cut
+servo power or establish a safe load current. The generic breakout's default
+OE pull-down is accepted for this supervised assembly; firmware cannot guarantee
+OE remains high while the P4 is held in reset. No added resistor is required by
+the startup procedure. Do not hold reset as a substitute for removing power
+while changing wiring. Reset waveform behavior has not been measured.
 
-1. Disconnect P4 USB and any other supplies. Keep the PCA9685 separate from the
-   P4, with no servos attached and no V+ wiring.
-2. Confirm the actual module labels: `VCC`, `GND`, `SDA`, `SCL`, `OE` and `V+`.
-3. Put the meter's black lead in **COM** and red lead in **V/Ω**, not the current
-   socket. Select resistance (Ω); never measure resistance on a powered board.
-4. Measure the following pairs. Wait for each reading to settle and record its
-   value and units (Ω or kΩ), or `OL`. Record changing readings too. In-circuit
-   readings can include semiconductor paths; they help identify the bias and
-   are not by themselves a complete schematic.
-
-| Red probe | Black probe | Delivered-module reading |
-| --- | --- | --- |
-| OE | GND | Not measured |
-| OE | VCC | Not measured |
-| SDA | VCC | Not measured |
-| SCL | VCC | Not measured |
-
-Also check for an unexpected sustained near-zero resistance between VCC and
-GND, and between VCC and V+. Stop for an unexplained short or missing label.
-Do not remove or bridge resistors based on a guessed clone layout.
-
-## After the bias has been resolved
-
-1. With power removed, fit the verified OE bias and the five logic wires above.
-   Keep wires short. Confirm VCC is on **3V3**, not VBUS/VSYS or V+.
-2. Return the meter to **DC volts**, keeping the leads in COM and V/Ω. Power the
-   P4 through its current USB-C connection, keeping V+ and servos disconnected.
-   Against PCA GND, record VCC, OE, SDA and SCL. VCC should be near 3.3 V; OE
-   should be high. Check SDA/SCL idle HIGH when no transfer is active. A meter
-   can average bus activity, so a low/unstable reading needs investigation.
-3. Hold the board's **RST button** and measure OE again. It must remain a valid
-   HIGH while reset is held. Release RST and check the disarmed static state.
-   Use RST, not the header's `EN` supply-control pin.
-4. Capture boot, reset and fault transitions with the equipment below before
-   acknowledging wiring or enabling PWM diagnostics. Static readings do not
-   prove the absence of brief enable pulses.
-
-Independent PCA-power/P4-power-loss and brownout tests require a controlled
-bench arrangement that avoids backfeeding the P4 through GPIO or 3V3. Do not
-add a second supply directly to the P4's 3V3 header to attempt those tests.
-
-## Equipment and remaining acceptance
-
-The available multimeter can establish resistance and static voltage evidence.
-It cannot prove PWM pulse widths, reset glitches or the fault-response limits.
-Step 1 still needs:
-
-- An oscilloscope for voltage/transient evidence, and simultaneous capture of
-  OE/PWM/SDA/SCL using a scope or logic analyzer at **10 MS/s or better**.
-- A correlated timing marker/trigger for the ≤1 ms disable-entry measurement.
-- A current-limited adjustable supply for controlled power sequencing/brownout.
-
-The [Step 1 evidence record](STEP1_EVIDENCE.md#electrical-acceptance-all-still-pending)
-contains the unchanged transfer, disable, stall and reset acceptance limits.
-The [target's diagnostic instructions](../../Slave/firmware/esp32p4-wifi6/README.md#output-bench-diagnostics)
-apply only after those wiring prerequisites. No `wiring verified-no-servos`,
-arming or PWM command was run while producing these guides.
-
-The driver exposes channels 0–11 for disconnected-servo bench tests and keeps
-12–15 unused. **Joint-to-channel assignment and MG90 calibration are still
-pending.** The installed walk/turn samplers do not make servo motion ready.
+The earlier owner-reported unpowered readings were OE–GND **9.94 kΩ** and
+OE–VCC **43.69 kΩ**. These in-circuit readings are recorded observations, not
+acceptance thresholds or a request for further resistance measurements.
 
 ## Other connectors to keep clear
 

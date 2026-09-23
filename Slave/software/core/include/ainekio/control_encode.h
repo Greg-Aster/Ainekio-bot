@@ -42,6 +42,32 @@ typedef enum {
     AINEKIO_EVENT_TTS_OVERFLOW,
 } ainekio_event_t;
 
+/* Optional body declarations share the same wire encoder as the base messages. */
+typedef struct {
+    const char *const *commands;
+    size_t command_count;
+    bool motion, camera, microphone, speaker, wake, profile, power, storage, display;
+    const char *motion_reason, *camera_reason, *microphone_reason, *speaker_reason, *display_reason;
+} ainekio_capabilities_t;
+
+typedef struct {
+    const char *firmware, *robot_id, *auth_token;
+    const char *const *features;
+    size_t feature_count;
+    const char *model;
+    uint64_t clock_ms;
+    const ainekio_capabilities_t *capabilities;
+} ainekio_hello_t;
+
+typedef struct {
+    ainekio_mode_t mode;
+    bool output_ready, output_armed;
+    unsigned output_fault;
+    bool calibration_dirty, calibration_saved, power_monitor_ready;
+    bool microphone_ready, speaker_ready, display_ready;
+    const ainekio_capabilities_t *capabilities;
+} ainekio_body_status_fields_t;
+
 typedef struct {
     float battery_voltage;
     int8_t rssi;
@@ -56,13 +82,11 @@ typedef struct {
     bool wake_enabled;
     bool wake_ready;
     char wake_model[AINEKIO_WAKE_MODEL_MAX + 1U];
+    const ainekio_body_status_fields_t *body;
 } ainekio_status_t;
 
 size_t ainekio_encode_hello(
-    const char *firmware,
-    const char *robot_id,
-    const char *auth_token,
-    bool motion_plan_v1,
+    const ainekio_hello_t *hello,
     char *output,
     size_t capacity
 );

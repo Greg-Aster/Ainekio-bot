@@ -1,0 +1,158 @@
+{
+  "original_eight_profiles_exact": [
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "samples": 2214,
+      "exact": true
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "samples": 2208,
+      "exact": true
+    }
+  ],
+  "original_motion_sources_unchanged": true,
+  "native_tests_passed": 27,
+  "host_tests_passed": 79,
+  "dashboard_regression_passed": true,
+  "physical_robot_tested": false,
+  "flashed": false,
+  "firmware_binary_sha256": "df8133fd82ce1d551b74ca7194961060d62e44ed821988b610b821e8bdbc0d8d",
+  "schema_contract_tests_passed": 11,
+  "firmware_version": "0.6.4-p4-motion-start",
+  "concurrent_motion_start_changes_preserved": true,
+  "forward_sweep_mm": [
+    80,
+    104
+  ],
+  "forward_sweep_increase_percent": 30,
+  "reach_native_tests_passed": 27,
+  "reach_firmware_build_passed": true,
+  "concurrent_dashboard_and_output_fault_fixes_preserved": true,
+  "reach_original_profile_parity": [
+    {
+      "command": "crawl_backward",
+      "samples": 2214,
+      "exact": true
+    },
+    {
+      "command": "crawl_forward",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "command": "crawl_turn_left",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "command": "crawl_turn_right",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "command": "walk_backward",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "command": "walk_forward",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "command": "walk_turn_left",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "command": "walk_turn_right",
+      "samples": 2184,
+      "exact": true
+    }
+  ],
+  "plane_native_tests_passed": 27,
+  "plane_firmware_build_passed": true,
+  "forward_lane_offset_mm": 8,
+  "forward_pitch_bias_deg": -6,
+  "plane_original_profile_parity": [
+    {
+      "command": "crawl_backward",
+      "samples": 2214,
+      "exact": true
+    },
+    {
+      "command": "crawl_forward",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "command": "crawl_turn_left",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "command": "crawl_turn_right",
+      "samples": 2208,
+      "exact": true
+    },
+    {
+      "command": "walk_backward",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "command": "walk_forward",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "command": "walk_turn_left",
+      "samples": 2184,
+      "exact": true
+    },
+    {
+      "command": "walk_turn_right",
+      "samples": 2184,
+      "exact": true
+    }
+  ]
+}

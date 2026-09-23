@@ -1,0 +1,202 @@
+{
+  "command": "upright",
+  "gait_id": "upright_experimental_current_geometry",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "upright"
+  },
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "shared_policy": "../execution-policy.json",
+  "source_files": [
+    {
+      "path": "Slave/software/models/v2-12servo/motions/gestures/upright/source.json",
+      "sha256": "7622fbd68590a1ff60601d7abeca2660d5c209407e1ef56199629711da7d4835"
+    },
+    {
+      "path": "Slave/software/models/v2-12servo/motions/gestures/upright/manifest.json",
+      "sha256": "813ab29877b395e88df24bff626e865b94a1fd162e407b2682bf65fd3f53617e"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "phases": [
+    {
+      "id": "sit",
+      "name": "sit",
+      "section": "clip",
+      "source_interval_s": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "front_left_back",
+      "name": "front_left_back",
+      "section": "clip",
+      "source_interval_s": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "brace_shift",
+      "name": "brace_shift",
+      "section": "clip",
+      "source_interval_s": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": "front_right_back",
+      "name": "front_right_back",
+      "section": "clip",
+      "source_interval_s": [
+        6,
+        8
+      ]
+    },
+    {
+      "id": "supported_push",
+      "name": "supported_push",
+      "section": "clip",
+      "source_interval_s": [
+        8,
+        12
+      ]
+    },
+    {
+      "id": "rise",
+      "name": "rise",
+      "section": "clip",
+      "source_interval_s": [
+        12,
+        20
+      ]
+    },
+    {
+      "id": "hold",
+      "name": "hold",
+      "section": "clip",
+      "source_interval_s": [
+        20,
+        22
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "duration_s": {
+        "sit": 3,
+        "front_left_back": 2,
+        "brace_shift": 1,
+        "front_right_back": 2,
+        "supported_push": 4,
+        "rise": 8,
+        "hold": 2
+      }
+    },
+    "research_candidate": {
+      "duration_s": {
+        "sit": 3,
+        "front_left_back": 2,
+        "brace_shift": 1,
+        "front_right_back": 2,
+        "supported_push": 4,
+        "rise": 8,
+        "hold": 2
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "sit": null,
+        "front_left_back": null,
+        "brace_shift": null,
+        "front_right_back": null,
+        "supported_push": null,
+        "rise": null,
+        "hold": null
+      }
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
+      ],
+      [
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
+      ],
+      [
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
+      ],
+      [
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
+      ]
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "joint_angles_rad": [
+      [
+        0.0,
+        -0.8578305472370544,
+        -1.4113356246219506
+      ],
+      [
+        -3.926145585024678e-07,
+        -0.8578306213125448,
+        -1.4113355588542578
+      ],
+      [
+        0.13962634015954636,
+        -0.03490658503988659,
+        -1.8151424220741028
+      ],
+      [
+        0.13962634015954636,
+        -0.03490658503988659,
+        -1.8151424220741028
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      false,
+      false
+    ],
+    "behavior": "Hold Upright, no automatic four-foot Stand."
+  },
+  "hardware_ready": false
+}

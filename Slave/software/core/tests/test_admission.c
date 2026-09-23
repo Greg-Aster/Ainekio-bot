@@ -6,7 +6,7 @@
 static ainekio_control_message_t decode(const char *text)
 {
     ainekio_control_message_t message;
-    assert(ainekio_control_decode_with_output_tests(text, strlen(text), &message) == AINEKIO_DECODE_OK);
+    assert(ainekio_control_decode_for_body(text, strlen(text), &message) == AINEKIO_DECODE_OK);
     return message;
 }
 
@@ -65,10 +65,10 @@ static void test_deadline_queue_sequence_and_stop(void)
 static void test_target_policy_and_fault_liveness(void)
 {
     ainekio_admission_t a;
-    ainekio_admission_init(&a, AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_OUTPUT_TEST) |
+    ainekio_admission_init(&a, AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_BODY_CALIBRATION) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MODE), true);
     const uint64_t g = connect(&a, 1, 0);
-    ainekio_control_message_t m = decode("{\"t\":\"output_test\",\"seq\":1,\"op\":\"run\",\"channel\":11,\"pulse_us\":1500,\"ms\":100,\"epoch\":1,\"deadline_ms\":1000}");
+    ainekio_control_message_t m = decode("{\"t\":\"calibration\",\"seq\":1,\"op\":\"move\",\"id\":11,\"pulse_us\":1500,\"epoch\":1,\"deadline_ms\":1000}");
     assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).rejection == AINEKIO_REJECT_MODE);
     m = decode("{\"t\":\"mode\",\"seq\":2,\"name\":\"calibrate\",\"epoch\":1,\"deadline_ms\":1000}");
     assert(ainekio_admission_accept(&a, g, &m, 2, 3, true).accepted);
@@ -87,21 +87,80 @@ static void test_target_policy_and_fault_liveness(void)
 
 static void test_decoder_negotiation_and_bounds(void)
 {
-    const char *valid = "{\"t\":\"output_test\",\"seq\":1,\"op\":\"run\",\"channel\":11,\"pulse_us\":2000,\"ms\":2000,\"fault\":\"interrupt_arm\"}";
+    const char *valid = "{\"t\":\"calibration\",\"seq\":1,\"op\":\"set\",\"id\":11,\"channel\":11,\"home_us\":1505,\"invert\":true}";
     ainekio_control_message_t m;
     assert(ainekio_control_decode(valid, strlen(valid), &m) != AINEKIO_DECODE_OK); /* V1 opt-out. */
     m = decode(valid);
-    assert(m.command.data.output_test.channel == 11 && m.command.data.output_test.fault == 2);
+    assert(m.command.data.calibration.id == 11 && m.command.data.calibration.invert);
+    assert(m.command.data.calibration.home_us == 1505);
+    assert(!m.command.data.calibration.has_mapping);
+    m = decode("{\"t\":\"calibration\",\"seq\":1,\"op\":\"set\",\"id\":11,\"channel\":11,\"home_us\":1505,\"invert\":true,\"home_cd\":-8352,\"us_per_degree\":11.111111}");
+    assert(m.command.data.calibration.has_mapping);
+    assert(m.command.data.calibration.home_cd == -8352);
+    assert(m.command.data.calibration.us_per_degree > 11.11f && m.command.data.calibration.us_per_degree < 11.12f);
+    /* Transport widths do not prescribe servo travel. The body owns hardware validation. */
+    const unsigned pulses[] = {1, 499, 2501, 3000, UINT16_MAX};
+    for (size_t i = 0; i < sizeof(pulses) / sizeof(pulses[0]); ++i) {
+        char json[128];
+        snprintf(json, sizeof(json), "{\"t\":\"calibration\",\"seq\":1,\"op\":\"move\",\"id\":11,\"pulse_us\":%u}", pulses[i]);
+        m = decode(json);
+        assert(m.command.data.calibration.pulse_us == pulses[i]);
+        assert(ainekio_control_decode(json, strlen(json), &m) != AINEKIO_DECODE_OK); /* V1 remains opt-out. */
+    }
+    m = decode("{\"t\":\"calibration\",\"seq\":1,\"op\":\"set\",\"id\":11,\"channel\":11,\"home_us\":3000,\"invert\":false}");
+    assert(m.command.data.calibration.home_us == 3000);
     const char *invalid[] = {
-        "{\"t\":\"output_test\",\"seq\":1,\"op\":\"run\",\"channel\":12,\"pulse_us\":1500,\"ms\":100}",
-        "{\"t\":\"output_test\",\"seq\":1,\"op\":\"run\",\"channel\":0,\"pulse_us\":999,\"ms\":100}",
-        "{\"t\":\"output_test\",\"seq\":1,\"op\":\"run\",\"channel\":0,\"pulse_us\":1500,\"ms\":2001}",
+        "{\"t\":\"calibration\",\"seq\":1,\"op\":\"move\",\"id\":12,\"pulse_us\":1500}",
+        "{\"t\":\"calibration\",\"seq\":1,\"op\":\"move\",\"id\":0,\"pulse_us\":0}",
+        "{\"t\":\"calibration\",\"seq\":1,\"op\":\"move\",\"id\":0,\"pulse_us\":65536}",
+        "{\"t\":\"calibration\",\"seq\":1,\"op\":\"get\",\"id\":1}",
+        "{\"t\":\"calibration\",\"seq\":1,\"op\":\"set\",\"id\":11,\"channel\":11,\"home_us\":0,\"invert\":true}",
+        "{\"t\":\"calibration\",\"seq\":1,\"op\":\"set\",\"id\":11,\"channel\":11,\"home_us\":65536,\"invert\":true}",
         "{\"t\":\"mode\",\"seq\":1,\"name\":\"calibrate\",\"epoch\":-1}",
         "{\"t\":\"mode\",\"seq\":1,\"name\":\"calibrate\",\"deadline_ms\":true}",
         "{\"t\":\"mode\",\"seq\":1,\"seq\":2,\"name\":\"calibrate\"}",
     };
     for (size_t i=0; i<sizeof(invalid)/sizeof(invalid[0]); ++i)
-        assert(ainekio_control_decode_with_output_tests(invalid[i], strlen(invalid[i]), &m) != AINEKIO_DECODE_OK);
+        assert(ainekio_control_decode_for_body(invalid[i], strlen(invalid[i]), &m) != AINEKIO_DECODE_OK);
+}
+
+static void test_calibration_read_and_power_gates(void)
+{
+    ainekio_admission_t a;
+    ainekio_admission_init(&a, UINT32_MAX, true);
+    const uint64_t g = connect(&a, 1, 0);
+    ainekio_control_message_t m = decode("{\"t\":\"calibration\",\"seq\":1,\"op\":\"get\",\"epoch\":1,\"deadline_ms\":1000}");
+    assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).accepted);
+    m = decode("{\"t\":\"calibration\",\"seq\":2,\"op\":\"move\",\"id\":11,\"pulse_us\":1505,\"epoch\":1,\"deadline_ms\":1000}");
+    assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).rejection == AINEKIO_REJECT_MODE);
+    ainekio_core_set_mode(&a.core, AINEKIO_MODE_CALIBRATE);
+    m.sequence = m.command.sequence = 3;
+    assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).rejection == AINEKIO_REJECT_BUSY);
+    ainekio_core_set_boot_ready(&a.core, true);
+    m.sequence = m.command.sequence = 4;
+    assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).accepted);
+    ainekio_core_set_power_guard(&a.core, AINEKIO_POWER_MOVE_LOCKED);
+    m.sequence = m.command.sequence = 5;
+    assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).rejection == AINEKIO_REJECT_UNSAFE);
+    m = decode("{\"t\":\"calibration\",\"seq\":6,\"op\":\"home\",\"epoch\":1,\"deadline_ms\":1000}");
+    assert(m.command.data.calibration.id == -1);
+    assert(ainekio_admission_accept(&a, g, &m, 1, 2, true).rejection == AINEKIO_REJECT_UNSAFE);
+}
+
+static void test_storage_extension(void)
+{
+    const char *json = "{\"t\":\"storage\",\"op\":\"retry\",\"seq\":1,\"epoch\":1,\"deadline_ms\":1000}";
+    ainekio_control_message_t m;
+    assert(ainekio_control_decode(json, strlen(json), &m) == AINEKIO_DECODE_VALUE);
+    m = decode(json);
+    assert(m.command.kind == AINEKIO_COMMAND_STORAGE);
+    assert(m.command.data.storage_operation == AINEKIO_STORAGE_RETRY);
+    ainekio_admission_t a;
+    ainekio_admission_init(&a, AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE), true);
+    const uint64_t generation = connect(&a, 1, 0);
+    assert(ainekio_admission_accept(&a, generation, &m, 1, 2, true).accepted);
+    const char *invalid = "{\"t\":\"storage\",\"op\":\"format\",\"seq\":1}";
+    assert(ainekio_control_decode_for_body(invalid, strlen(invalid), &m) != AINEKIO_DECODE_OK);
 }
 
 static void test_model_policy_preserves_session_and_sequence(void)
@@ -129,6 +188,8 @@ int main(void)
     test_target_policy_and_fault_liveness();
     test_decoder_negotiation_and_bounds();
     test_model_policy_preserves_session_and_sequence();
+    test_calibration_read_and_power_gates();
+    test_storage_extension();
     puts("Admission: authentication, replacement, deadlines, sequencing, policy and decoder tests passed");
     return 0;
 }

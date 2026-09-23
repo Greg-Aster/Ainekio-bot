@@ -93,10 +93,10 @@ CASES = {
         ),
     ),
     "A9": AcceptanceCase(
-        "Tether profile enforces media caps.",
+        "Tether profile preserves explicit media choices.",
         (
-            PY + "test_media.BodyMediaTests.test_tether_rejects_streaming_and_open_mic_but_allows_xga_snap",
-            PY + "test_gateway_service.GatewayServiceTests.test_gateway_refuses_out_of_profile_media_before_assigning_sequence",
+            PY + "test_media.BodyMediaTests.test_tether_allows_streaming_open_mic_and_xga_snap",
+            PY + "test_gateway_service.GatewayServiceTests.test_gateway_allows_explicit_media_in_tether",
         ),
     ),
     "A10": AcceptanceCase(
@@ -121,9 +121,9 @@ CASES = {
         ),
     ),
     "A13": AcceptanceCase(
-        "Open microphone gate is rejected under tether.",
+        "Open microphone gate is available under tether.",
         (
-            PY + "test_media.BodyMediaTests.test_tether_rejects_streaming_and_open_mic_but_allows_xga_snap",
+            PY + "test_media.BodyMediaTests.test_tether_allows_streaming_open_mic_and_xga_snap",
         ),
     ),
     "A14": AcceptanceCase(

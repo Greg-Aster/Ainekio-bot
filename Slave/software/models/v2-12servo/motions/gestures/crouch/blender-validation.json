@@ -1,0 +1,12 @@
+{
+  "command": "crouch",
+  "samples": 481,
+  "old_samples": 481,
+  "joint_max_error_deg": 2.612256581713268e-05,
+  "rotation_max_error_rad": 0.0,
+  "body_max_error_mm": 2.7508726532232686e-06,
+  "status": "original_actions_restored_and_source_parity_verified",
+  "source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
+  "original_action_bindings_exact": true,
+  "hardware_qualified": false
+}

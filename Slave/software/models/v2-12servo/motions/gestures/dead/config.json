@@ -1,102 +1,22 @@
 {
   "command": "dead",
-  "display_label": "DEAD",
   "sample_hz": 120,
-  "preview_fps": 24,
-  "gait_start_frame": 4499,
-  "existing_animation_end_frame": 4475,
-  "source_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Before-Motion-Batch.blend",
-  "output_blend": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
-  "scene_name": "AINEKIO - Motion Library",
-  "com": {
-    "mode": "assumed",
-    "assumed_body_com_mm": [
-      0.0,
-      0.0,
-      0.0
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "retargeting": "../../retargeting.json",
+  "preview_fps": 30,
+  "geometric_solver_search_bounds_degrees": [
+    [
+      -150.0,
+      150.0
     ],
-    "base_mass_kg": null,
-    "battery": {
-      "mass_kg": null,
-      "position_body_mm": null
-    },
-    "optional_q6a": {
-      "present": true,
-      "mass_kg": null,
-      "position_body_mm": [
-        -41.59850883483887,
-        0.5545158386230469,
-        -8.775001645088196
-      ]
-    }
-  },
-  "geometric_research_angle_bounds_degrees": {
-    "h": [
-      -95,
-      95
+    [
+      -145.0,
+      145.0
     ],
-    "alpha": [
-      -34.24,
-      67.4
-    ],
-    "theta": [
-      -51.95331106142828,
-      80
+    [
+      -180.0,
+      180.0
     ]
-  },
-  "part023_forward_limit_degrees": null,
-  "face_cues": [
-    {
-      "time_s": 0.0,
-      "name": "dead",
-      "mode": "boomerang",
-      "fps": 1
-    },
-    {
-      "time_s": 11.8,
-      "name": "stand",
-      "mode": "once",
-      "fps": 1
-    }
   ],
-  "adaptation": "V1 moves all four lower joints to 90 degrees and holds with the boomerang dead face. V2 lowers onto the measured complete-body rear-cover/visor support plane, flattens four legs outward using mirrored shoulders and coordinated lower joints, and remains still. Appended stand recovery is demonstration-only.",
-  "completion": "V1 holds dead. The source includes a separately labelled optional demonstration recovery after semantic_end_s for a continuous Blender playlist.",
-  "contact_model": "Measured sole rolling during approach/recovery. During flattening and hold, the measured rear-cover edge and front visor support the body; visor contact load capacity is unverified.",
-  "hardware_qualified": false,
-  "semantic_pose_reached_s": 4.4,
-  "semantic_end_s": 7.4,
-  "semantic_completion": "Remain in dead pose until an explicit later command. Stop at semantic_end_s in hardware command execution.",
-  "demonstration_recovery_start_s": 7.4,
-  "body_clearance_geometry": "Current complete rigid body samples, including intended visor and camera reference.",
-  "whole_model_floor_check_passed": true,
-  "belly_cover_provenance": "belly-cover-provenance.json",
-  "bottom_contact_geometry": "CRAWL | Body - Bottom Cover - Compact",
-  "target_body_height_mm": 33.537235408876796,
-  "shoulder_bounds_basis": "90 degree Swim research envelope; geometric only, uncalibrated electrical travel.",
-  "body_support_geometry": "Measured rear bottom-cover edge plus intended front visor low point",
-  "body_rest_plane": "body-rest-plane.json",
-  "target_body_pitch_degrees": -5.713782395383932,
-  "body_contact_load_capacity_verified": false,
-  "body_contact_polygon_world_mm": [
-    [
-      -81.5663275552591,
-      -46.49998474121553,
-      0.0
-    ],
-    [
-      -81.56632807746806,
-      23.250012397761527,
-      5.219148640378535e-06
-    ],
-    [
-      -81.5663282673622,
-      46.50001239776152,
-      7.117020871305613e-06
-    ],
-    [
-      104.14252161486496,
-      5.563910467022631,
-      0.0
-    ]
-  ]
+  "hardware_qualified": false
 }
