@@ -1,0 +1,12 @@
+{
+  "command": "crawl_backward",
+  "samples": 2214,
+  "old_samples": 2214,
+  "joint_max_error_deg": 3.541767343406832e-05,
+  "rotation_max_error_rad": 4.628353950097974e-10,
+  "body_max_error_mm": 2.9268597586451506e-05,
+  "status": "original_actions_restored_and_source_parity_verified",
+  "source_sha256": "234c180c9f77326dd894baf7aa555a41bcad2beb1336ae793c638827c1261aae",
+  "original_action_bindings_exact": true,
+  "hardware_qualified": false
+}

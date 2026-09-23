@@ -774,7 +774,7 @@ static ainekio_decode_result_t decode_intent(
             result = AINEKIO_DECODE_VALUE;
         }
         if (result == AINEKIO_DECODE_OK) {
-            result = required_integer(parser, root, "steps", 1, 10, &steps);
+            result = required_integer(parser, root, "steps", 0, 10, &steps);
         }
         for (uint8_t index = 0U; index < 4U; ++index) {
             if (strcmp(direction, directions[index]) == 0) {
@@ -782,6 +782,39 @@ static ainekio_decode_result_t decode_intent(
             }
         }
         intent->data.walk.steps = (uint8_t)steps;
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (object_get(parser, root, "gait") >= 0) {
+            char gait[8];
+            result = required_string(parser, root, "gait", gait, sizeof(gait), 1U, 7U);
+            if (result != AINEKIO_DECODE_OK) return result;
+            if (strcmp(gait, "walk") != 0 && strcmp(gait, "crawl") != 0 && strcmp(gait, "run") != 0) return AINEKIO_DECODE_VALUE;
+            intent->data.walk.gait = strcmp(gait, "run") == 0 ? AINEKIO_GAIT_RUN :
+                strcmp(gait, "crawl") == 0 ? AINEKIO_GAIT_CRAWL : AINEKIO_GAIT_WALK;
+        }
+        const bool auto_speed = object_get(parser, root, "speed") >= 0;
+        const bool stride = object_get(parser, root, "stride") >= 0;
+        const bool rate = object_get(parser, root, "rate") >= 0;
+        const bool update = object_get(parser, root, "update") >= 0;
+        if (object_get(parser, root, "speed_percent") >= 0 || object_get(parser, root, "stride_percent") >= 0 ||
+            object_get(parser, root, "motion_rate") >= 0) return AINEKIO_DECODE_VALUE;
+        if ((auto_speed && (stride || rate)) || stride != rate ||
+            (update && !auto_speed && !stride)) return AINEKIO_DECODE_VALUE;
+        if (auto_speed) {
+            intent->data.walk.controls = 1;
+            result = required_number(parser, root, "speed", &intent->data.walk.speed_percent);
+            if (result == AINEKIO_DECODE_OK && (intent->data.walk.speed_percent < 0 || intent->data.walk.speed_percent > (intent->data.walk.gait == AINEKIO_GAIT_CRAWL ? 100 : 200))) result = AINEKIO_DECODE_RANGE;
+        } else if (stride) {
+            intent->data.walk.controls = 2;
+            result = required_number(parser, root, "stride", &intent->data.walk.stride_percent);
+            if (result == AINEKIO_DECODE_OK) result = required_number(parser, root, "rate", &intent->data.walk.motion_rate);
+            if (result == AINEKIO_DECODE_OK && (intent->data.walk.stride_percent < 1 || intent->data.walk.stride_percent > 100 ||
+                intent->data.walk.motion_rate < .25F || intent->data.walk.motion_rate > 3)) result = AINEKIO_DECODE_RANGE;
+        }
+        if (result == AINEKIO_DECODE_OK && update) {
+            int64_t seq = 0;
+            result = required_integer(parser, root, "update", 1, AINEKIO_MAX_SEQUENCE, &seq);
+            intent->data.walk.update_sequence = (uint32_t)seq;
+        }
         return result;
     } else if (strcmp(name, "emote") == 0) {
         intent->kind = AINEKIO_INTENT_EMOTE;
@@ -1377,7 +1410,8 @@ static ainekio_decode_result_t decode_control(
     const char *json,
     size_t length,
     ainekio_control_message_t *message,
-    bool output_tests
+    bool body_extensions,
+    bool walk_controls
 )
 {
     if (json == NULL || message == NULL) {
@@ -1410,7 +1444,7 @@ static ainekio_decode_result_t decode_control(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong", "output_test",
+        "event", "cam_meta", "pong", "calibration", "storage",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1423,34 +1457,67 @@ static ainekio_decode_result_t decode_control(
         return AINEKIO_DECODE_VALUE;
     }
     message->kind = (ainekio_message_kind_t)kind;
-    if (message->kind == AINEKIO_MESSAGE_OUTPUT_TEST && !output_tests) return AINEKIO_DECODE_VALUE;
+    if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE) &&
+        !body_extensions) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
-    case AINEKIO_MESSAGE_OUTPUT_TEST: {
-        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_OUTPUT_TEST);
-        char op[12], fault[24] = "none";
-        if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3, 7);
+    case AINEKIO_MESSAGE_STORAGE: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_STORAGE);
+        char operation[8];
+        if (result == AINEKIO_DECODE_OK)
+            result = required_string(&parser, root, "op", operation, sizeof(operation), 3U, 5U);
         if (result != AINEKIO_DECODE_OK) return result;
-        if (strcmp(op, "recover") == 0) {
-            message->command.data.output_test.recover = true;
-            return AINEKIO_DECODE_OK;
-        }
-        if (strcmp(op, "run") != 0) return AINEKIO_DECODE_VALUE;
-        int64_t channel = 0, pulse = 0, duration = 0;
-        result = required_integer(&parser, root, "channel", 0, 11, &channel);
-        if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "pulse_us", 1000, 2000, &pulse);
-        if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "ms", 100, 2000, &duration);
-        if (result == AINEKIO_DECODE_OK && object_get(&parser, root, "fault") >= 0)
-            result = required_string(&parser, root, "fault", fault, sizeof(fault), 4, 15);
-        if (result != AINEKIO_DECODE_OK) return result;
-        static const char *const faults[] = {"none", "stall", "interrupt_arm", "reset"};
-        unsigned selected = 0;
-        while (selected < 4 && strcmp(fault, faults[selected]) != 0) ++selected;
-        if (selected == 4) return AINEKIO_DECODE_VALUE;
-        message->command.data.output_test.channel = (uint8_t)channel;
-        message->command.data.output_test.pulse_us = (uint16_t)pulse;
-        message->command.data.output_test.duration_ms = (uint16_t)duration;
-        message->command.data.output_test.fault = (uint8_t)selected;
+        if (strcmp(operation, "get") == 0) message->command.data.storage_operation = AINEKIO_STORAGE_GET;
+        else if (strcmp(operation, "retry") == 0) message->command.data.storage_operation = AINEKIO_STORAGE_RETRY;
+        else if (strcmp(operation, "clear") == 0) message->command.data.storage_operation = AINEKIO_STORAGE_CLEAR;
+        else return AINEKIO_DECODE_VALUE;
         return AINEKIO_DECODE_OK;
+    }
+    case AINEKIO_MESSAGE_BODY_CALIBRATION: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_BODY_CALIBRATION);
+        char op[8];
+        if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3U, 4U);
+        if (result != AINEKIO_DECODE_OK) return result;
+        static const char *const operations[] = {"get", "set", "move", "home", "save"};
+        unsigned selected = 0;
+        while (selected < 5 && strcmp(op, operations[selected]) != 0) ++selected;
+        if (selected == 5) return AINEKIO_DECODE_VALUE;
+        message->command.data.calibration.operation = (ainekio_calibration_operation_t)selected;
+        message->command.data.calibration.id = -1;
+        const bool has_home_cd = object_get(&parser, root, "home_cd") >= 0;
+        const bool has_scale = object_get(&parser, root, "us_per_degree") >= 0;
+        if (has_home_cd != has_scale) return AINEKIO_DECODE_MISSING;
+        if (has_home_cd && selected != AINEKIO_CALIBRATION_SET) return AINEKIO_DECODE_VALUE;
+        int64_t id = -1, channel = -1, home = 0, pulse = 0;
+        const bool needs_id = selected == AINEKIO_CALIBRATION_SET || selected == AINEKIO_CALIBRATION_MOVE;
+        if (needs_id || object_get(&parser, root, "id") >= 0) {
+            if (!needs_id && selected != AINEKIO_CALIBRATION_HOME) return AINEKIO_DECODE_VALUE;
+            result = required_integer(&parser, root, "id", 0, AINEKIO_BODY_JOINT_COUNT - 1, &id);
+            if (result != AINEKIO_DECODE_OK) return result;
+            message->command.data.calibration.id = (int8_t)id;
+        }
+        if (selected == AINEKIO_CALIBRATION_MOVE) {
+            result = required_integer(&parser, root, "pulse_us", 1, UINT16_MAX, &pulse);
+            message->command.data.calibration.pulse_us = (uint16_t)pulse;
+        } else if (selected == AINEKIO_CALIBRATION_SET) {
+            result = required_integer(&parser, root, "channel", -1, AINEKIO_BODY_JOINT_COUNT - 1, &channel);
+            if (result == AINEKIO_DECODE_OK) result = required_integer(&parser, root, "home_us", 1, UINT16_MAX, &home);
+            if (result == AINEKIO_DECODE_OK) result = required_boolean(&parser, root, "invert", &message->command.data.calibration.invert);
+            if (result != AINEKIO_DECODE_OK) return result;
+            message->command.data.calibration.channel = (int8_t)channel;
+            message->command.data.calibration.home_us = (uint16_t)home;
+            if (has_home_cd) {
+                int64_t home_cd;
+                float scale;
+                result = required_integer(&parser, root, "home_cd", -36000, 36000, &home_cd);
+                if (result == AINEKIO_DECODE_OK) result = required_number(&parser, root, "us_per_degree", &scale);
+                if (result != AINEKIO_DECODE_OK) return result;
+                if (scale <= 0 || scale > 100) return AINEKIO_DECODE_RANGE;
+                message->command.data.calibration.has_mapping = true;
+                message->command.data.calibration.home_cd = (int32_t)home_cd;
+                message->command.data.calibration.us_per_degree = scale;
+            }
+        }
+        return result;
     }
     case AINEKIO_MESSAGE_ERROR: {
         static const char *const codes[] = {"auth", "ver"};
@@ -1483,7 +1550,11 @@ static ainekio_decode_result_t decode_control(
         return result;
     }
     case AINEKIO_MESSAGE_INTENT:
-        return decode_intent(&parser, root, message);
+        result = decode_intent(&parser, root, message);
+        if (result == AINEKIO_DECODE_OK && !walk_controls && message->command.data.intent.kind == AINEKIO_INTENT_WALK &&
+            (message->command.data.intent.data.walk.controls || message->command.data.intent.data.walk.update_sequence ||
+             message->command.data.intent.data.walk.steps == 0 || object_get(&parser, root, "gait") >= 0)) return AINEKIO_DECODE_VALUE;
+        return result;
     case AINEKIO_MESSAGE_STOP:
         return decode_stop(&parser, root, message);
     case AINEKIO_MESSAGE_MOTION_PLAN:
@@ -1523,13 +1594,13 @@ static ainekio_decode_result_t decode_control(
 ainekio_decode_result_t ainekio_control_decode(const char *json, size_t length,
     ainekio_control_message_t *message)
 {
-    return decode_control(json, length, message, false);
+    return decode_control(json, length, message, false, false);
 }
 
-ainekio_decode_result_t ainekio_control_decode_with_output_tests(const char *json, size_t length,
+ainekio_decode_result_t ainekio_control_decode_for_body(const char *json, size_t length,
     ainekio_control_message_t *message)
 {
-    return decode_control(json, length, message, true);
+    return decode_control(json, length, message, true, true);
 }
 
 const char *ainekio_decode_result_name(ainekio_decode_result_t result)
@@ -1540,4 +1611,10 @@ const char *ainekio_decode_result_name(ainekio_decode_result_t result)
     };
     return (unsigned int)result < sizeof(names) / sizeof(names[0]) ? names[result]
                                                                    : "unknown";
+}
+
+ainekio_decode_result_t ainekio_control_decode_with_walk_controls(const char *json, size_t length,
+                                                                ainekio_control_message_t *message)
+{
+    return decode_control(json, length, message, true, true);
 }

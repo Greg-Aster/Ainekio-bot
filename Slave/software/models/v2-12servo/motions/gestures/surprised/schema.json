@@ -1,68 +1,5 @@
 {
   "command": "surprised",
-  "columns": [
-    "time_s",
-    "time_us",
-    "phase",
-    "body_x_mm",
-    "body_y_mm",
-    "body_z_mm",
-    "body_qw",
-    "body_qx",
-    "body_qy",
-    "body_qz",
-    "assumed_com_x_mm",
-    "assumed_com_y_mm",
-    "assumed_com_z_mm",
-    "support_margin_mm",
-    "body_ground_clearance_mm",
-    "body_contact_active",
-    "support_source",
-    "FL_h002_rad",
-    "FL_alpha006_rad",
-    "FL_theta005_rad",
-    "FL_foot_bolt_x_mm",
-    "FL_foot_bolt_y_mm",
-    "FL_foot_bolt_z_mm",
-    "FL_sole_contact_x_mm",
-    "FL_sole_contact_y_mm",
-    "FL_sole_contact_z_mm",
-    "FL_contact_active",
-    "FL_sole_clearance_mm",
-    "FR_h002_rad",
-    "FR_alpha006_rad",
-    "FR_theta005_rad",
-    "FR_foot_bolt_x_mm",
-    "FR_foot_bolt_y_mm",
-    "FR_foot_bolt_z_mm",
-    "FR_sole_contact_x_mm",
-    "FR_sole_contact_y_mm",
-    "FR_sole_contact_z_mm",
-    "FR_contact_active",
-    "FR_sole_clearance_mm",
-    "RL_h002_rad",
-    "RL_alpha006_rad",
-    "RL_theta005_rad",
-    "RL_foot_bolt_x_mm",
-    "RL_foot_bolt_y_mm",
-    "RL_foot_bolt_z_mm",
-    "RL_sole_contact_x_mm",
-    "RL_sole_contact_y_mm",
-    "RL_sole_contact_z_mm",
-    "RL_contact_active",
-    "RL_sole_clearance_mm",
-    "RR_h002_rad",
-    "RR_alpha006_rad",
-    "RR_theta005_rad",
-    "RR_foot_bolt_x_mm",
-    "RR_foot_bolt_y_mm",
-    "RR_foot_bolt_z_mm",
-    "RR_sole_contact_x_mm",
-    "RR_sole_contact_y_mm",
-    "RR_sole_contact_z_mm",
-    "RR_contact_active",
-    "RR_sole_clearance_mm"
-  ],
   "leg_order": [
     "FL",
     "FR",
@@ -87,32 +24,77 @@
     "time": "seconds and rounded integer microseconds"
   },
   "coordinates": "World X physical forward, Y left, Z up. Quaternion wxyz; geometric q about positive CAD axes: h X, alpha/theta Z.",
-  "joint_zero": "Corrected CAD neutral; Part005 re-clocking included.",
+  "joint_zero": "Current root geometry CAD offsets; standing is the solved entry pose.",
   "interpolation": "Monotone cubic Hermite, harmonic same-sign secant tangents and zero endpoint tangents. Hold final position after duration.",
-  "contact_model": "Grounded rolling soles lower body onto the current rear cover plus front visor support plane at -5.714 degrees pitch. The fixed body then carries airborne limbs. Geometric floor clearance is enforced; visor load capacity and contact friction are unverified.",
+  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
   "com": {
     "mode": "assumed",
-    "assumed_body_com_mm": [
-      0.0,
-      0.0,
-      0.0
+    "body_reference_mm": [
+      0,
+      0,
+      65
     ],
-    "base_mass_kg": null,
-    "battery": {
-      "mass_kg": null,
-      "position_body_mm": null
-    },
-    "optional_q6a": {
-      "present": true,
-      "mass_kg": null,
-      "position_body_mm": [
-        -41.59850883483887,
-        0.5545158386230469,
-        -8.775001645088196
-      ]
-    }
+    "measured_mass_kg": null
   },
   "servo_calibration": null,
   "semantic_end_s": 11.95,
-  "optional_demonstration_recovery": false
+  "optional_demonstration_recovery": false,
+  "joint_conventions": {
+    "h_Part002": {
+      "pivot": "Each leg shoulder_world translation",
+      "axis": "Positive local X of shoulder_world",
+      "zero": "CAD shoulder neutral",
+      "sign": "positive right-hand rotation about local X"
+    },
+    "alpha_Part006": {
+      "pivot_mechanism_xz_mm": [
+        62.58781342006688,
+        69.71182170125783
+      ],
+      "axis": "Negative local Y of mechanism frame for increasing alpha",
+      "zero_radians": -2.589563330529253,
+      "mapping": "primary.rotation_y = -alpha_offset"
+    },
+    "theta_Part005": {
+      "pivot_mechanism_xz_mm": [
+        50.08774121717073,
+        81.2118481681196
+      ],
+      "axis": "Negative local Y of mechanism frame for increasing theta",
+      "zero_radians": 2.484925850946935,
+      "mapping": "input.rotation_y = -(theta_neutral+theta_offset)+old_theta_neutral"
+    },
+    "passive_lower_leg": {
+      "equation": "foot.rotation_y = -(beta-beta_neutral); beta from circle closure",
+      "independent_actuator": false
+    },
+    "provenance": "Measured rig transforms and driver expressions, verified against evaluated Blender poses; electrical horn index not calibrated"
+  },
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "sample_fields": [
+    "time_s",
+    "phase",
+    "phase_fraction",
+    "body_translation_world_mm",
+    "body_position_world_mm",
+    "body_rotation_euler_xyz_rad",
+    "body_orientation_world_quaternion_wxyz",
+    "body_yaw_world_rad",
+    "actuator_angles_rad",
+    "passive_beta_rad",
+    "foot_bolt_world_mm",
+    "contact_world_mm",
+    "contact_vertex_index",
+    "contact_active",
+    "sole_clearance_mm",
+    "body_ground_clearance_mm",
+    "body_contact_active",
+    "body_contact_polygon_world_mm",
+    "support_source",
+    "assumed_com_world_mm",
+    "support_margin_mm",
+    "target_foot_reference_xy_mm",
+    "target_sole_clearance_mm"
+  ],
+  "body_position_datum": "Current geometry rotation pivot; body_translation_world_mm is the model translation offset."
 }

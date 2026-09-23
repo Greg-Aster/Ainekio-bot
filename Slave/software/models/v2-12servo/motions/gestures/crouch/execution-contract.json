@@ -1,0 +1,142 @@
+{
+  "command": "crouch",
+  "gait_id": "crouch_current_geometry",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "crouch"
+  },
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "shared_policy": "../execution-policy.json",
+  "source_files": [
+    {
+      "path": "Slave/software/models/v2-12servo/motions/gestures/crouch/source.json",
+      "sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e"
+    },
+    {
+      "path": "Slave/software/models/v2-12servo/motions/gestures/crouch/manifest.json",
+      "sha256": "584cc137e489beee571326e21ba33db26eff89b3375341cc5959e895238062d2"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "phases": [
+    {
+      "id": "lower",
+      "name": "lower_to_crouch",
+      "section": "clip",
+      "source_interval_s": [
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "id": "hold",
+      "name": "hold_crouch",
+      "section": "clip",
+      "source_interval_s": [
+        2.0,
+        4.0
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "duration_s": {
+        "lower": 2.0,
+        "hold": 2.0
+      }
+    },
+    "research_candidate": {
+      "duration_s": {
+        "lower": 2.0,
+        "hold": 2.0
+      }
+    },
+    "operating": {
+      "status": "unconfigured_pending_loaded_calibration",
+      "duration_s": {
+        "lower": null,
+        "hold": null
+      }
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        -3.42796330722e-09,
+        0.0335251959917,
+        0.00773881810065
+      ],
+      [
+        -6.85589133915e-09,
+        0.0335250249653,
+        0.00773878412533
+      ],
+      [
+        1.98472066748e-09,
+        0.0335254512298,
+        0.00773886720421
+      ],
+      [
+        -3.42797678367e-09,
+        0.033525323482,
+        0.00773884018717
+      ]
+    ],
+    "arbitrary_pose_entry_verified": false
+  },
+  "completion": {
+    "joint_angles_rad": [
+      [
+        1.02856202131e-07,
+        -0.655705415271,
+        -0.357353392352
+      ],
+      [
+        2.05712497805e-07,
+        -0.655705920647,
+        -0.357353920858
+      ],
+      [
+        -5.95511146234e-08,
+        -0.655704597624,
+        -0.357352520291
+      ],
+      [
+        1.02856182834e-07,
+        -0.655705050942,
+        -0.357352947821
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "behavior": "Hold crouched, no automatic stand."
+  },
+  "hardware_ready": false
+}

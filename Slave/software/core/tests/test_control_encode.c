@@ -28,14 +28,10 @@ int main(void)
     assert(detach_message.command.kind == AINEKIO_COMMAND_STOP);
     assert(detach_message.command.data.stop.detach);
 
-    size_t length = ainekio_encode_hello(
-        "0.1.0\"test",
-        "ainekio-01",
-        "token\\value",
-        true,
-        output,
-        sizeof(output)
-    );
+    const char *features[] = {"motion_plan_v1"};
+    ainekio_hello_t hello = {.firmware="0.1.0\"test", .robot_id="ainekio-01", .auth_token="token\\value",
+        .features=features, .feature_count=1};
+    size_t length = ainekio_encode_hello(&hello, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_HELLO);
     assert(strstr(output, "\"features\":[\"motion_plan_v1\"]") != NULL);
     length = ainekio_encode_ack(1U, 0U, output, sizeof(output));
@@ -115,7 +111,31 @@ int main(void)
     length = ainekio_encode_ping(true, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_PONG);
     assert(ainekio_encode_ack(0U, 0U, output, sizeof(output)) == 0U);
-    assert(ainekio_encode_hello("0.1.0", "id", "token", false, output, 8U) == 0U);
+    assert(ainekio_encode_hello(&hello, output, 8U) == 0U);
+    char body_output[4096];
+    const char *commands[] = {"stop", "say", "walk", "bow"};
+    const ainekio_capabilities_t caps = {.commands=commands, .command_count=4,
+        .motion=true, .camera=true, .microphone=true, .speaker=true, .profile=true,
+        .display_reason="Display \"pending\"."};
+    hello.model = "v2-12servo";
+    hello.clock_ms = UINT64_C(4294967296);
+    hello.capabilities = &caps;
+    length = ainekio_encode_hello(&hello, body_output, sizeof(body_output));
+    valid(body_output, length, AINEKIO_MESSAGE_HELLO);
+    assert(strstr(body_output, "\"clock_ms\":4294967296") != NULL);
+    assert(strstr(body_output, "\"commands\":[\"stop\",\"say\",\"walk\",\"bow\"]") != NULL);
+    assert(strstr(body_output, "Display \\\"pending\\\".") != NULL);
+    const ainekio_body_status_fields_t body = {.mode=AINEKIO_MODE_CALIBRATE,
+        .output_ready=true, .output_fault=3, .calibration_saved=true, .capabilities=&caps};
+    ainekio_status_t body_status = status;
+    body_status.body = &body;
+    length = ainekio_encode_status(&body_status, body_output, sizeof(body_output));
+    valid(body_output, length, AINEKIO_MESSAGE_STATUS);
+    assert(strstr(body_output, "\"mode\":\"calibrate\"") != NULL);
+    assert(strstr(body_output, "\"output_fault\":3") != NULL);
+    assert(strstr(body_output, "\"motion\":true") != NULL);
+    assert(ainekio_encode_status(&body_status, body_output, length) == 0);
+    assert(ainekio_encode_hello(&hello, body_output, 0) == 0);
     puts("control encoder tests passed");
     return 0;
 }

@@ -1,119 +1,79 @@
-"""Compile the retained geometric source into the P4's local timed trajectory.
+"""Compile the measured current walk geometry; standard Python, no runtime IK here.
 
-Standard Python only. No Blender, IK, networking or servo defaults at build time.
-The closing loop row is a boundary knot, never an additional timed interval.
+The firmware uses direct circle intersections and a compact sole profile.
+Reference Python and Blender evidence retain their own source identities.
 """
-from __future__ import annotations
-
-import argparse
-import hashlib
-import json
-import math
+import argparse,hashlib,json,math
 from pathlib import Path
 
 
-def harmonic(a: float, b: float) -> float:
-    return 2 * a * b / (a + b) if a * b > 0 else 0.0
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def load_motion(root: Path) -> tuple[dict, dict, dict, dict]:
-    manifest = json.loads((root / "motions/walk/manifest.json").read_text())
-    source_path = root / "motions/walk/source.json"
-    if hashlib.sha256(source_path.read_bytes()).hexdigest() != manifest["source_sha256"]:
-        raise ValueError("walk source changed without updating its provenance")
-    if hashlib.sha256((root / "geometry.json").read_bytes()).hexdigest() != manifest["geometry_sha256"]:
-        raise ValueError("walk geometry does not match its manifest")
-    source = json.loads(source_path.read_text())
-    model = json.loads((root / "model.json").read_text())
-    contract = json.loads((root / "motions/walk/loop-contract.json").read_text())
-    expected_legs = ["FL", "FR", "RL", "RR"]
-    expected_axes = ["h_Part002", "alpha_Part006", "theta_Part005"]
-    if (model["model"] != "v2-12servo" or len(model["joints"]) != 12
-        or source["metadata"]["leg_order"] != expected_legs
-        or source["metadata"]["joint_order"] != expected_axes
-        or source["metadata"]["angle_units"] != "radian"
-        or source["metadata"]["position_units"] != "mm"
-        or source["metadata"]["time_units"] != "second"):
-        raise ValueError("incompatible model, joint order or units")
-    for i, joint in enumerate(model["joints"]):
-        if joint["id"] != i or joint["cad_leg"] != expected_legs[i // 3] or joint["actuator"] != expected_axes[i % 3]:
-            raise ValueError("joint definition disagrees with the source order")
-    hz = manifest["source_sample_hz"]
-    if hz != 120 or contract["intervals_per_cycle"] != 480 or contract["period_seconds"] != 4:
-        raise ValueError("unexpected loop timing")
-    if contract["angle_offset_per_cycle_rad"] != 0 or contract["closing_endpoint_row"] != 480:
-        raise ValueError("unsupported repetition contract")
-    positions = []
-    for i, sample in enumerate(source["samples"]):
-        if abs(sample["time_s"] - i / hz) > 1e-8:
-            raise ValueError("nonuniform or reordered source samples")
-        angles = sample["actuator_angles_rad"]
-        if len(angles) != 4 or any(len(leg) != 3 for leg in angles):
-            raise ValueError("walk must supply every joint in every sample")
-        row = [math.degrees(v) * 100 for leg in angles for v in leg]
-        if not all(math.isfinite(v) for v in row):
-            raise ValueError("nonfinite actuator angle")
-        positions.append(row)
-    slopes = [[(b-a)*hz for a,b in zip(left,right)] for left,right in zip(positions, positions[1:])]
-    velocities = [[0.0]*12] + [[harmonic(a,b) for a,b in zip(left,right)]
-                              for left,right in zip(slopes,slopes[1:])] + [[0.0]*12]
-    sections = {}
-    for name in ("entry", "loop", "exit"):
-        start, end = manifest[f"{name}_source_seconds"]
-        lo, hi = round(start*hz), round(end*hz)
-        if lo < 0 or hi <= lo or hi >= len(positions) or abs(lo/hz-start) > 1e-8 or abs(hi/hz-end) > 1e-8:
-            raise ValueError("invalid section boundaries")
-        sections[name] = {"positions": [p[:] for p in positions[lo:hi+1]],
-                          "velocities": [v[:] for v in velocities[lo:hi+1]],
-                          "duration_us": round((end-start)*1e6)}
-    loop = sections["loop"]
-    if len(loop["positions"]) != 481:
-        raise ValueError("loop must contain 480 intervals plus its closing knot")
-    seam = loop["positions"][0]
-    for boundary in (loop["positions"][-1], sections["entry"]["positions"][-1], sections["exit"]["positions"][0]):
-        if max(abs(a-b) for a,b in zip(seam,boundary)) > 1e-6:
-            raise ValueError("entry, loop and exit are not phase matched")
-    tangents = [harmonic((b-a)*hz, (d-c)*hz) for a,b,c,d in zip(
-        loop["positions"][0], loop["positions"][1], loop["positions"][-2], loop["positions"][-1])]
-    # Snap only the source's floating-point closure residue (below 1e-8 deg).
-    # Common seam tangents implement the exported loop's C1 contract.
-    for section, index in ((loop,0), (loop,-1), (sections["entry"],-1), (sections["exit"],0)):
-        section["positions"][index] = seam[:]
-        section["velocities"][index] = tangents[:]
-    return model, manifest, sections, source
+def compile_walk(root,out):
+    folder=root/'motions/walk'
+    manifest=json.loads((folder/'manifest.json').read_text())
+    if set(manifest['sha256'])!={'reference.py','../../geometry.json','source.json'}:raise ValueError('incomplete walk provenance')
+    if manifest['source_leg_order']!=['RL','RR','FL','FR'] or manifest['model_leg_order']!=['FL','FR','RL','RR'] or manifest['model_from_source_legs']!=[2,3,0,1]:raise ValueError('manifest joint mapping mismatch')
+    for name,expected in manifest['sha256'].items():
+        if digest(folder/name)!=expected:raise ValueError(f'walk provenance mismatch: {name}')
+    cfg=json.loads((root/'geometry.json').read_text());p=cfg['parameters']
+    low=json.loads((root/'motions/locomotion/config.json').read_text())
+    contacts=json.loads((root/'motions/locomotion/contact-hulls.json').read_text())
+    sole=json.loads((root/'motions/locomotion/sole-profile.json').read_text())
+    if sole['geometry_sha256']!=digest(root/'geometry.json') or sole['contact_source_sha256']!=digest(root/'motions/locomotion/contact-hulls.json'):raise ValueError('compact sole provenance')
+    if low['geometry_sha256']!=digest(root/'geometry.json') or low['hardware_qualified'] is not False:raise ValueError('locomotion geometry provenance')
+    if contacts['source_sha256']!=digest(root/'motions/gestures/sit/posture-hulls.npz'):raise ValueError('locomotion hull provenance')
+    if cfg['leg_order']!=['RL','RR','FL','FR'] or cfg['joint_order']!=['h_Part002','alpha_Part006','theta_Part005']:
+        raise ValueError('walk joint mapping mismatch')
+    if manifest['hardware_qualified'] is not False:raise ValueError('unqualified source cannot arm hardware')
+    model=json.loads((root/'model.json').read_text())
+    if model['model']!='v2-12servo' or [j['cad_leg'] for j in model['joints']]!=[l for l in ['FL','FR','RL','RR'] for _ in range(3)]:raise ValueError('model order changed')
+    def array(values, single=True):
+        if isinstance(values,list):return '{'+','.join(array(v, single) for v in values)+'}'
+        if not math.isfinite(values):raise ValueError('nonfinite geometry')
+        return format(values,'.9e')+'f' if single else format(values,'.17e')
+    header=['/* Generated measured walk geometry. No electrical assignments. */','#ifndef V2_WALK_DATA_H','#define V2_WALK_DATA_H','#include "ainekio/v2_walk.h"',
+      'typedef struct { const float (*points)[3]; unsigned count; float allowance; } v2_sole_profile_t;',
+      'typedef struct { float shoulder_sign[3],shoulder_translation[3],mechanism_translation[3],reference[3],mirror; } v2_walk_leg_t;',
+      'extern const v2_walk_leg_t v2_walk_legs[4];','extern const v2_sole_profile_t v2_walk_sole,v2_crawl_sole;',
+      'extern const float v2_walk_pivot[3];','extern const double v2_walk_stance[4][2],v2_walk_offsets[4];']
+    for key,value in {'O_X':p['O'][0],'O_Z':p['O'][1],'C_X':p['C_new'][0],'C_Z':p['C_new'][1],'PRIMARY':p['primary_length'],'INPUT':p['input_length'],'ROD':p['rod_length'],'PICKUP':p['pickup_length'],'ALPHA_ZERO':p['alpha_neutral'],'THETA_ZERO':p['new_theta_neutral'],'BETA_ZERO':p['beta_neutral'],'BRANCH':p['assembly_branch'],'BETA_C':math.cos(p['beta_neutral']),'BETA_S':math.sin(p['beta_neutral'])}.items():header.append(f'#define V2_{key} ({value:.9e}f)')
+    for key,value in {'PERIOD':cfg['gait_controls']['base_cycle_seconds'],'DUTY':cfg['ground_contact_fraction'],'SWEEP':cfg['continuous_walk']['stance_sweep_100_mm'],'BIAS':cfg['continuous_walk']['rearward_bias_100_mm'],'SWAY':cfg['continuous_walk']['lateral_sway_mm'],'BOB':cfg['continuous_walk']['body_bob_mm'],'ROLL':math.radians(cfg['continuous_walk']['roll_deg']),'PITCH':math.radians(cfg['continuous_walk']['pitch_deg']),'BODY_Z':cfg['body_translation_z_mm'],'MIN_LIFT':cfg['continuous_walk']['minimum_lift_mm'],'LIFT':cfg['sole_clearance_mm']}.items():header.append(f'#define V2_{key} ({value:.17e})')
+    run=json.loads((root/'motions/run/config.json').read_text())
+    if run['geometry_sha256']!=digest(root/'geometry.json') or run['hardware_qualified'] is not False:raise ValueError('run geometry provenance')
+    if run['mounting_profile_sha256']!=digest(root/'servo_profile.json'):raise ValueError('Run mounting profile changed; revalidate reach')
+    if run['forward']['lane_assignment']!='physical_front_inside_rear_outside' or not 0<=run['forward']['lane_offset_mm']<=20:raise ValueError('unsupported Run lane assignment')
+    if not 0<run['ground_contact_fraction']<.5 or [run['phase_offsets'][l] for l in cfg['leg_order']]!=[0,0,.5,.5]:raise ValueError('run must alternate front/rear pairs with flight')
+    for key,value in {'RUN_FORWARD_PITCH_BIAS':math.radians(run['forward']['pitch_bias_deg']),'RUN_FORWARD_LANE':run['forward']['lane_offset_mm'],'RUN_FORWARD_SWEEP':run['forward']['sweep_mm'],'RUN_FORWARD_BIAS':run['forward']['rearward_bias_mm'],'RUN_FORWARD_BODY_Z':run['forward']['body_z_mm'],'RUN_TRANSITION':run['transition_cycles'],'RUN_PERIOD':run['base_cycle_seconds'],'RUN_DUTY':run['ground_contact_fraction'],'RUN_SWEEP':run['sweep_mm'],'RUN_BIAS':run['rearward_bias_mm'],'RUN_LIFT':run['lift_mm'],'RUN_MIN_LIFT':run['minimum_lift_mm'],'RUN_BODY_Z':run['body_z_mm'],'RUN_BOB':run['bob_mm'],'RUN_PITCH':math.radians(run['pitch_deg']),'RUN_TURN':math.radians(run['turn_degrees_per_cycle'])}.items():header.append(f'#define V2_{key} ({value:.17e})')
+    crawl=low['crawl']
+    for key,value in {'WALK_TURN':math.radians(low['walk_turn_degrees_per_cycle']),'CRAWL_TURN':math.radians(crawl['turn_degrees_per_cycle']),'CRAWL_BODY_Z':crawl['body_z_mm'],'CRAWL_ENTRY':crawl['entry_seconds'],'CRAWL_SWEEP':crawl['sweep_mm'],'CRAWL_BIAS':crawl['rearward_bias_mm'],'CRAWL_LIFT':crawl['lift_mm'],'CRAWL_MIN_LIFT':crawl['minimum_lift_mm'],'CRAWL_SWAY':crawl['sway_mm'],'CRAWL_BOB':crawl['bob_mm'],'CRAWL_ROLL':math.radians(crawl['roll_deg']),'CRAWL_PITCH':math.radians(crawl['pitch_deg'])}.items():header.append(f'#define V2_{key} ({value:.17e})')
+    code=['#include "walk_data.h"',f'const char ainekio_v2_walk_id[] = {json.dumps(manifest["gait_id"])};',
+          'const bool ainekio_v2_walk_hardware_qualified = false;',f'const char ainekio_v2_walk_geometry_id[] = {json.dumps(manifest["geometry_id"])};',
+          'const ainekio_v2_joint_t ainekio_v2_joints[AINEKIO_V2_JOINT_COUNT] = {']
+    code += ['{'+','.join(json.dumps(j[k]) for k in ('name','cad_leg','actuator','positive_body_axis'))+'},' for j in model['joints']]
+    code+=['};']
+    for name,values in [('pivot',cfg['continuous_walk']['body_rotation_pivot_mm']),('stance',cfg['reference_stance_xy_mm']),('offsets',[cfg['continuous_walk']['phase_offsets'][l] for l in cfg['leg_order']])]:
+        dimensions={'pivot':'[3]','stance':'[4][2]','offsets':'[4]'}
+        code.append(f'const {"float" if name=="pivot" else "double"} v2_walk_{name}{dimensions[name]} = {array(values, name=="pivot")};')
+    for kind in ['walk','crawl']:
+        points=sole['profiles'][kind]
+        if not 4<=len(points)<=128:raise ValueError('compact sole budget')
+        code.append(f'static const float {kind}_sole_points[][3] = {array(points)};')
+        code.append(f'const v2_sole_profile_t v2_{kind}_sole = '+'{'+f'{kind}_sole_points,{len(points)},{array(sole["support_allowance_mm"])}'+'};')
+    code.append('const v2_walk_leg_t v2_walk_legs[4] = {')
+    for leg in cfg['leg_order']:
+        g=cfg['legs'][leg];S=g['shoulder_world'];M=g['mechanism_local']
+        signs=[round(S[i][i]) for i in range(3)];mirror=round(M[0][0])
+        for i in range(3):
+            for j in range(3):
+                if abs(S[i][j]-(signs[i] if i==j else 0))>1e-5 or abs(M[i][j]-((mirror if i==0 else 1) if i==j else 0))>1e-5:raise ValueError('unsupported robot axes')
+        values=[array(signs),array([r[3] for r in S[:3]]),array([r[3] for r in M[:3]]),array(g['foot_reference_local_mm']),array(mirror)]
+        code.append('{'+','.join(values)+'},')
+    code.append('};');header.append('#endif');out.mkdir(parents=True,exist_ok=True)
+    (out/'walk_data.h').write_text('\n'.join(header)+'\n');(out/'walk_data.c').write_text('\n'.join(code)+'\n')
 
-
-def compile_walk(root: Path, out: Path) -> None:
-    model, manifest, sections, _ = load_motion(root)
-    out.mkdir(parents=True, exist_ok=True)
-    header = ['/* Generated from the versioned V2 walk source; do not edit. */',
-              '#ifndef AINEKIO_V2_WALK_DATA_H', '#define AINEKIO_V2_WALK_DATA_H',
-              '#include "ainekio/v2_motion.h"', '#define V2_SAMPLE_HZ 120U']
-    code = ['/* Generated by tools/compile_walk.py. Positions: CAD centidegrees. */', '#include "walk_data.h"',
-            f'const char ainekio_v2_walk_id[] = {json.dumps(manifest["gait_id"])};',
-            f'const bool ainekio_v2_walk_hardware_qualified = {str(manifest["hardware_qualified"]).lower()};',
-            'const ainekio_v2_joint_t ainekio_v2_joints[AINEKIO_V2_JOINT_COUNT] = {']
-    for joint in model["joints"]:
-        code.append('    {' + ', '.join(json.dumps(joint[k]) for k in ("name", "cad_leg", "actuator", "positive_body_axis")) + '},')
-    code.append('};')
-    def floats(row: list[float]) -> str:
-        return '{' + ','.join(f'{value:.9e}F' for value in row) + '}'
-    for name, section in sections.items():
-        count = len(section["positions"])
-        header.extend([f'#define V2_{name.upper()}_COUNT {count}U',
-                       f'#define V2_{name.upper()}_US UINT64_C({section["duration_us"]})',
-                       f'extern const ainekio_v2_knot_t v2_walk_{name}[V2_{name.upper()}_COUNT];'])
-        code.append(f'const ainekio_v2_knot_t v2_walk_{name}[V2_{name.upper()}_COUNT] = {{')
-        code.extend('    {' + floats(p) + ',' + floats(v) + '},' for p,v in zip(section["positions"],section["velocities"]))
-        code.append('};')
-    header.append('#endif')
-    (out / 'walk_data.h').write_text('\n'.join(header)+'\n')
-    (out / 'walk_data.c').write_text('\n'.join(code)+'\n')
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument('--out', type=Path, required=True)
-    args = parser.parse_args()
-    compile_walk(args.root, args.out)
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);parser.add_argument('--out',type=Path,required=True)
+    a=parser.parse_args();compile_walk(a.root,a.out)

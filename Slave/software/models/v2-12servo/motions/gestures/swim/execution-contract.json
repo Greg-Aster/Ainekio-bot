@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "swim",
-  "gait_id": "swim_fourbar_20260916",
+  "gait_id": "swim_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/swim-20260916/source.json",
-      "sha256": "609d3965e5e67a8acd40119619e852d932dfff13677fafd0999f5f2cf5494913"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/swim/source.json",
+      "sha256": "5c65ee82bf6a18f05085b0b9c4a5fec08206050957092469ed86d664591acc3b"
     },
     {
-      "path": "docs/gait-research/swim-20260916/manifest.json",
-      "sha256": "ee120bbea8b24d5fc651bad6b0d84cb2d789c2a9acd8cc4324b581df676f96c8"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/swim/manifest.json",
+      "sha256": "dc5e4a448f284a904d2ebb4ab819fecfa74affc151ff33ceb98c5b1683816bca"
     }
   ],
   "source_units": {
@@ -112,7 +112,8 @@
         0.0,
         0.9476038045832533,
         0.8624381095018632
-      ]
+      ],
+      "current_geometry_note": "Includes sequential wide-stance preparation before lowering."
     },
     {
       "id": "p001_raise_shoulders_to_90",
@@ -722,8 +723,104 @@
       "support_source": "feet"
     },
     {
-      "source_time_s": 2.5,
-      "sample_index": 300,
+      "source_time_s": 0.008333333333333333,
+      "sample_index": 1,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.25,
+      "sample_index": 30,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.25833333333333336,
+      "sample_index": 31,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.5,
+      "sample_index": 60,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.5083333333333333,
+      "sample_index": 61,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.75,
+      "sample_index": 90,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.7583333333333333,
+      "sample_index": 91,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.0,
+      "sample_index": 120,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 2.4833333333333334,
+      "sample_index": 298,
       "active": [
         true,
         true,
@@ -731,7 +828,7 @@
         true
       ],
       "body_contact_active": true,
-      "support_source": "belly_and_feet"
+      "support_source": "body_and_feet"
     },
     {
       "source_time_s": 2.5083333333333333,
@@ -743,7 +840,7 @@
         false
       ],
       "body_contact_active": true,
-      "support_source": "belly"
+      "support_source": "body"
     },
     {
       "source_time_s": 20.3,
@@ -755,11 +852,107 @@
         true
       ],
       "body_contact_active": true,
-      "support_source": "belly_and_feet"
+      "support_source": "body_and_feet"
     },
     {
-      "source_time_s": 20.308333333333334,
-      "sample_index": 2437,
+      "source_time_s": 20.325,
+      "sample_index": 2439,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 21.808333333333334,
+      "sample_index": 2617,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.05,
+      "sample_index": 2646,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.058333333333334,
+      "sample_index": 2647,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.3,
+      "sample_index": 2676,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.308333333333334,
+      "sample_index": 2677,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.55,
+      "sample_index": 2706,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.558333333333334,
+      "sample_index": 2707,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 22.8,
+      "sample_index": 2736,
       "active": [
         true,
         true,
@@ -840,24 +1033,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -872,24 +1065,24 @@
     "behavior": "Replace all four soles while the belly remains supported, reverse the lowering motion to exact standing, and hold; restore the stand face.",
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -5.465912879902275e-08,
+        0.03352277256557543,
+        0.007738246880872794
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        6.753575037697548e-09,
+        0.033522704231580824,
+        0.007738439548787696
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.0891074598724511e-07,
+        0.03352295217243508,
+        0.007738279019859104
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.7853800358968736e-08,
+        0.03352288378835734,
+        0.007738297185983249
       ]
     ],
     "contacts": [
@@ -903,9 +1096,11 @@
     "hardware_qualified": false,
     "collision_checked": false,
     "measured_mass_balance_verified": false,
-    "minimum_assumed_support_margin_mm": 39.11558723449706
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": -23.069416537698874
   },
   "body_support_required_during_paddling": true,
   "interruption_note": "While feet are airborne, retain belly support, stop the coordinated paddle, fold and replace feet before any stand transition; never seek to the last row.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

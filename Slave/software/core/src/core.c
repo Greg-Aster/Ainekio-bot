@@ -3,8 +3,7 @@
 static bool command_is_calibration_only(ainekio_command_kind_t kind)
 {
     return kind == AINEKIO_COMMAND_SERVO || kind == AINEKIO_COMMAND_LIMITS ||
-           kind == AINEKIO_COMMAND_POSE_SAVE || kind == AINEKIO_COMMAND_CALIBRATION_SAVE ||
-           kind == AINEKIO_COMMAND_OUTPUT_TEST;
+           kind == AINEKIO_COMMAND_POSE_SAVE || kind == AINEKIO_COMMAND_CALIBRATION_SAVE;
 }
 
 static bool command_is_movement(const ainekio_command_t *command)
@@ -101,10 +100,16 @@ ainekio_reject_reason_t ainekio_core_claim_sequence(ainekio_core_t *core, uint32
 
 ainekio_lifecycle_t ainekio_command_lifecycle(const ainekio_command_t *command)
 {
+    /* A walk update changes the active request; that original sequence owns
+     * the completion event. The update itself only acknowledges its settings. */
+    if (command->kind == AINEKIO_COMMAND_INTENT &&
+        command->data.intent.kind == AINEKIO_INTENT_WALK &&
+        command->data.intent.data.walk.update_sequence != 0U) {
+        return AINEKIO_LIFECYCLE_ACK_ONLY;
+    }
     if (command->kind == AINEKIO_COMMAND_INTENT ||
         command->kind == AINEKIO_COMMAND_MOTION_PLAN ||
-        command->kind == AINEKIO_COMMAND_SNAPSHOT ||
-        (command->kind == AINEKIO_COMMAND_OUTPUT_TEST && !command->data.output_test.recover)) {
+        command->kind == AINEKIO_COMMAND_SNAPSHOT) {
         return AINEKIO_LIFECYCLE_ACK_THEN_DONE;
     }
     if (command->kind == AINEKIO_COMMAND_TTS && command->data.tts_operation == AINEKIO_TTS_START) {
@@ -121,8 +126,12 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
 {
     const bool is_stop = command->kind == AINEKIO_COMMAND_STOP;
     const bool is_movement = command_is_movement(command);
+    const bool body_calibration = command->kind == AINEKIO_COMMAND_BODY_CALIBRATION;
+    const bool calibration_motion = body_calibration &&
+        (command->data.calibration.operation == AINEKIO_CALIBRATION_MOVE ||
+         command->data.calibration.operation == AINEKIO_CALIBRATION_HOME);
     const bool is_powered_motion =
-        is_movement || command->kind == AINEKIO_COMMAND_SERVO;
+        is_movement || command->kind == AINEKIO_COMMAND_SERVO || calibration_motion;
 
     if (is_stop) {
         core->servos_attached =
@@ -143,11 +152,16 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
     if (is_stop) {
         return (ainekio_decision_t){true, AINEKIO_REJECT_NONE, AINEKIO_LIFECYCLE_ACK_ONLY};
     }
-    if (command_is_calibration_only(command->kind) && core->mode != AINEKIO_MODE_CALIBRATE) {
+    if ((command_is_calibration_only(command->kind) ||
+         (body_calibration && command->data.calibration.operation != AINEKIO_CALIBRATION_GET)) &&
+        core->mode != AINEKIO_MODE_CALIBRATE) {
         return rejected(AINEKIO_REJECT_MODE);
     }
     if (is_powered_motion && !core->boot_ready) {
         return rejected(AINEKIO_REJECT_BUSY);
+    }
+    if (calibration_motion && core->power_guard != AINEKIO_POWER_NORMAL) {
+        return rejected(AINEKIO_REJECT_UNSAFE);
     }
     const bool is_neutral_intent =
         command->kind == AINEKIO_COMMAND_INTENT &&
@@ -156,17 +170,6 @@ ainekio_decision_t ainekio_core_accept(ainekio_core_t *core, const ainekio_comma
         !is_neutral_intent) {
         return rejected(AINEKIO_REJECT_UNSAFE);
     }
-    if (core->profile == AINEKIO_PROFILE_TETHER &&
-        command->kind == AINEKIO_COMMAND_CAMERA && command->data.camera.enabled) {
-        return rejected(AINEKIO_REJECT_PROFILE);
-    }
-    if (core->profile == AINEKIO_PROFILE_TETHER &&
-        command->kind == AINEKIO_COMMAND_MICROPHONE &&
-        command->data.microphone.enabled &&
-        command->data.microphone.gate == AINEKIO_MIC_GATE_OPEN) {
-        return rejected(AINEKIO_REJECT_PROFILE);
-    }
-
     if (is_movement) {
         core->servos_attached = true;
         core->stop_latched = false;

@@ -1,6 +1,7 @@
 #include "ainekio/control_encode.h"
 
 #include <math.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -114,27 +115,77 @@ static json_writer_t begin(char *output, size_t capacity)
     return writer;
 }
 
-size_t ainekio_encode_hello(
-    const char *firmware,
-    const char *robot_id,
-    const char *auth_token,
-    bool motion_plan_v1,
-    char *output,
-    size_t capacity
-)
+static void bool_field(json_writer_t *writer, const char *name, bool value)
 {
+    append_literal(writer, ",");
+    append_string(writer, name, SIZE_MAX);
+    append_literal(writer, value ? ":true" : ":false");
+}
+
+static void string_array(json_writer_t *writer, const char *const *values, size_t count)
+{
+    if (count && !values) { writer->failed = true; return; }
+    append_literal(writer, "[");
+    for (size_t i = 0; i < count; ++i) {
+        if (i) append_literal(writer, ",");
+        append_string(writer, values[i], SIZE_MAX);
+    }
+    append_literal(writer, "]");
+}
+
+static void capabilities(json_writer_t *writer, const ainekio_capabilities_t *caps)
+{
+    if (!caps) return;
+    append_literal(writer, ",\"capabilities\":{\"commands\":");
+    string_array(writer, caps->commands, caps->command_count);
+    bool_field(writer, "motion", caps->motion);
+    bool_field(writer, "camera", caps->camera);
+    bool_field(writer, "microphone", caps->microphone);
+    bool_field(writer, "speaker", caps->speaker);
+    bool_field(writer, "wake", caps->wake);
+    bool_field(writer, "profile", caps->profile);
+    bool_field(writer, "power", caps->power);
+    bool_field(writer, "storage", caps->storage);
+    bool_field(writer, "display", caps->display);
+    const char *names[] = {"motion", "camera", "microphone", "speaker", "display"};
+    const char *reasons[] = {caps->motion_reason, caps->camera_reason, caps->microphone_reason,
+                             caps->speaker_reason, caps->display_reason};
+    append_literal(writer, ",\"reasons\":{");
+    bool comma = false;
+    for (size_t i = 0; i < sizeof(names)/sizeof(names[0]); ++i) {
+        if (!reasons[i]) continue;
+        if (comma) append_literal(writer, ",");
+        append_string(writer, names[i], SIZE_MAX);
+        append_literal(writer, ":");
+        append_string(writer, reasons[i], SIZE_MAX);
+        comma = true;
+    }
+    append_literal(writer, "}}");
+}
+
+size_t ainekio_encode_hello(const ainekio_hello_t *hello, char *output, size_t capacity)
+{
+    if (!hello || (hello->feature_count && !hello->features)) return 0;
     json_writer_t writer = begin(output, capacity);
     append_literal(&writer, "{\"t\":\"hello\",\"ver\":1,\"fw\":");
-    append_string(&writer, firmware, 32U);
+    append_string(&writer, hello->firmware, 32U);
     append_literal(&writer, ",\"id\":");
-    append_string(&writer, robot_id, 64U);
+    append_string(&writer, hello->robot_id, 64U);
     append_literal(&writer, ",\"auth\":");
-    append_string(&writer, auth_token, 128U);
-    if (motion_plan_v1) {
-        append_literal(&writer, ",\"features\":[");
-        append_literal(&writer, "\"motion_plan_v1\"");
-        append_literal(&writer, "]");
+    append_string(&writer, hello->auth_token, 128U);
+    if (hello->feature_count) {
+        append_literal(&writer, ",\"features\":");
+        string_array(&writer, hello->features, hello->feature_count);
     }
+    if (hello->model) {
+        append_literal(&writer, ",\"model\":");
+        append_string(&writer, hello->model, SIZE_MAX);
+        char clock[32];
+        snprintf(clock, sizeof(clock), "%" PRIu64, hello->clock_ms);
+        append_literal(&writer, ",\"clock_ms\":");
+        append_literal(&writer, clock);
+    }
+    capabilities(&writer, hello->capabilities);
     append_literal(&writer, "}");
     return finish(&writer);
 }
@@ -270,6 +321,22 @@ size_t ainekio_encode_status(
     append_literal(&writer, status->wake_model);
     append_literal(&writer, "\",\"wake_ready\":");
     append_literal(&writer, status->wake_ready ? "true" : "false");
+    if (status->body) {
+        const ainekio_body_status_fields_t *body = status->body;
+        append_literal(&writer, ",\"mode\":");
+        append_string(&writer, body->mode == AINEKIO_MODE_CALIBRATE ? "calibrate" : "normal", SIZE_MAX);
+        bool_field(&writer, "output_ready", body->output_ready);
+        bool_field(&writer, "output_armed", body->output_armed);
+        append_literal(&writer, ",\"output_fault\":");
+        append_u32(&writer, body->output_fault);
+        bool_field(&writer, "calibration_dirty", body->calibration_dirty);
+        bool_field(&writer, "calibration_saved", body->calibration_saved);
+        bool_field(&writer, "power_monitor_ready", body->power_monitor_ready);
+        bool_field(&writer, "microphone_ready", body->microphone_ready);
+        bool_field(&writer, "speaker_ready", body->speaker_ready);
+        bool_field(&writer, "display_ready", body->display_ready);
+        capabilities(&writer, body->capabilities);
+    }
     append_literal(&writer, "}");
     return finish(&writer);
 }

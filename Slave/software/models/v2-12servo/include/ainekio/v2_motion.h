@@ -4,7 +4,6 @@
 #include "ainekio/protocol.h"
 
 #define AINEKIO_V2_JOINT_COUNT 12U
-#define AINEKIO_V2_WALK_PERIOD_US UINT64_C(4000000)
 
 typedef struct {
     const char *name;
@@ -12,11 +11,6 @@ typedef struct {
     const char *actuator;
     const char *positive_body_axis;
 } ainekio_v2_joint_t;
-
-typedef struct {
-    float position[AINEKIO_V2_JOINT_COUNT]; /* signed CAD centidegrees */
-    float velocity[AINEKIO_V2_JOINT_COUNT]; /* centidegrees/second */
-} ainekio_v2_knot_t;
 
 typedef enum {
     AINEKIO_V2_ENTRY, AINEKIO_V2_LOOP, AINEKIO_V2_EXIT, AINEKIO_V2_COMPLETE,
@@ -29,6 +23,7 @@ typedef struct {
     float acceleration[AINEKIO_V2_JOINT_COUNT]; /* centidegrees/second squared */
     ainekio_v2_phase_t phase;
     uint8_t cycle;
+    const char *geometry_id; /* identifies the geometry shared by current walk and finite clips */
 } ainekio_v2_frame_t;
 
 extern const ainekio_v2_joint_t ainekio_v2_joints[AINEKIO_V2_JOINT_COUNT];
@@ -38,11 +33,6 @@ extern const bool ainekio_v2_walk_hardware_qualified;
 /* Existing wire command, independently of WebSocket, controller location or
  * pulse backend. Other semantic motions are not mapped to walking. */
 bool ainekio_v2_walk_request(const ainekio_command_t *command, uint8_t *cycles);
-uint64_t ainekio_v2_walk_duration_us(uint8_t cycles);
-/* Stateless monotonic-time sampling: there is no network-driven step queue,
- * accumulated frame rounding, duplicate closing hold, or overdue replay. */
-bool ainekio_v2_walk_sample(uint8_t cycles, uint64_t elapsed_us, ainekio_v2_frame_t *frame);
-bool ainekio_v2_walk_loop_sample(uint64_t elapsed_us, ainekio_v2_frame_t *frame);
 
 typedef struct {
     const char *command;
@@ -60,5 +50,9 @@ extern const size_t ainekio_v2_clip_count;
 bool ainekio_v2_clip_find(const char *name, size_t *index);
 bool ainekio_v2_clip_request(const ainekio_command_t *command, size_t *index);
 bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_t *frame);
+/* Position envelopes include every knot and every interpolated segment. The
+ * extrema for different joints need not occur in the same sampled frame. */
+bool ainekio_v2_clip_bounds(size_t index, ainekio_v2_frame_t *minimum,
+                           ainekio_v2_frame_t *maximum);
 
 #endif

@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "dead",
-  "gait_id": "dead_fourbar_20260916",
+  "gait_id": "dead_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/dead/source.json",
-      "sha256": "6f9dd1d7b3b6fe394eb111bb2e646346feaba84c2f7f82aa322a94432515b29f"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/dead/source.json",
+      "sha256": "9481691642903d1f8b2fd0246bf3a3131544e46f2bbb143690744f979418c88a"
     },
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/dead/manifest.json",
-      "sha256": "d791a655f29177a059da648179bc03029da12d252ae8778b13bce0ecf0aa062e"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/dead/manifest.json",
+      "sha256": "fdbae764df6136c64c29019cc74db1b83b8d41efb2a5a7376ca1d1d744755a07"
     }
   ],
   "source_units": {
@@ -112,7 +112,8 @@
         0.0,
         1.2720609220469168,
         0.8443434764795772
-      ]
+      ],
+      "current_geometry_note": "Includes sequential wide-stance preparation before lowering."
     },
     {
       "id": "p001_flatten_shoulders",
@@ -585,6 +586,114 @@
       "support_source": "feet"
     },
     {
+      "source_time_s": 0.008333333333333333,
+      "sample_index": 1,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.25,
+      "sample_index": 30,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.25833333333333336,
+      "sample_index": 31,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.5,
+      "sample_index": 60,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.5083333333333333,
+      "sample_index": 61,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.75,
+      "sample_index": 90,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 0.7583333333333333,
+      "sample_index": 91,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.0,
+      "sample_index": 120,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.9916666666666667,
+      "sample_index": 239,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "body_and_feet"
+    },
+    {
       "source_time_s": 2.0083333333333333,
       "sample_index": 241,
       "active": [
@@ -594,11 +703,119 @@
         false
       ],
       "body_contact_active": true,
-      "support_source": "rear_cover_and_front_visor"
+      "support_source": "body"
     },
     {
       "source_time_s": 9.808333333333334,
       "sample_index": 1177,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": true,
+      "support_source": "body_and_feet"
+    },
+    {
+      "source_time_s": 9.816666666666666,
+      "sample_index": 1178,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 10.808333333333334,
+      "sample_index": 1297,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.05,
+      "sample_index": 1326,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.058333333333334,
+      "sample_index": 1327,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.3,
+      "sample_index": 1356,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.308333333333334,
+      "sample_index": 1357,
+      "active": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.55,
+      "sample_index": 1386,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.558333333333334,
+      "sample_index": 1387,
+      "active": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 11.8,
+      "sample_index": 1416,
       "active": [
         true,
         true,
@@ -673,24 +890,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -706,24 +923,24 @@
     "semantic_end_s": 7.4,
     "joint_angles_rad": [
       [
-        1.5707963267948966,
-        -0.17453292519943298,
-        0.26179938779914935
+        -1.3420692055085595,
+        0.5147882951535478,
+        0.14785841110526507
       ],
       [
-        -1.5707963267948966,
-        -0.17453292519943298,
-        0.26179938779914935
+        -1.3420693817440401,
+        0.5147879229747997,
+        0.14785821425609694
       ],
       [
-        1.5707963267948966,
-        -0.17453292519943298,
-        0.26179938779914935
+        -1.3617589800862637,
+        0.5199824135008942,
+        0.14962518856563026
       ],
       [
-        -1.5707963267948966,
-        -0.17453292519943298,
-        0.26179938779914935
+        -1.3617591816255403,
+        0.5199818219743506,
+        0.14962472283050848
       ]
     ],
     "contacts": [
@@ -737,9 +954,12 @@
   "source_qualification": {
     "hardware_qualified": false,
     "collision_checked": false,
-    "measured_mass_balance_verified": false
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": -23.069416537698874
   },
   "body_support_required": true,
   "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

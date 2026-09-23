@@ -15,6 +15,5 @@
 esp_err_t ainekio_p4_board_init(void);
 ainekio_pca9685_t *ainekio_p4_output(void);
 void ainekio_p4_board_identify(void);
-void ainekio_p4_interrupt_arm(bool enable);
 
 #endif

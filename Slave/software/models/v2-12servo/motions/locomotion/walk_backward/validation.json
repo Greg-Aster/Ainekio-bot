@@ -1,0 +1,11 @@
+{
+  "command": "walk_backward",
+  "samples": 2184,
+  "max_target_error_mm": 9.730607573033012e-06,
+  "min_sole_z_mm": -7.787528275571276e-06,
+  "min_body_z_mm": 42.39639225730216,
+  "min_closure_height_mm": 11.095693708282242,
+  "maximum_adjacent_joint_step_degrees": 12.972629937949131,
+  "hardware_qualified": false,
+  "collision_checked": false
+}

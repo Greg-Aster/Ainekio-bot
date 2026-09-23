@@ -17,6 +17,10 @@ def main() -> int:
     ):
         fixture = json.loads((fixture_root / filename).read_text(encoding="utf-8"))
         for case in fixture["cases"]:
+            # Outbound extension replies are consumed and validated by the
+            # Python gateway. The firmware receive codec does not parse them.
+            if case.get("receiver") == "gateway":
+                continue
             encoded = json.dumps(case["message"], separators=(",", ":")).encode("utf-8")
             result = subprocess.run(
                 [str(decoder)],
@@ -34,7 +38,7 @@ def main() -> int:
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1
-    print("portable C decoder consumed all control-v1 golden fixtures")
+    print("portable C decoder consumed all applicable control-v1 golden fixtures")
     return 0
 
 

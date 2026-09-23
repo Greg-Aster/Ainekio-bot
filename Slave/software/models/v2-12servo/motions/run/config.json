@@ -1,0 +1,52 @@
+{
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "gait": "bound",
+  "base_cycle_seconds": 1.2,
+  "ground_contact_fraction": 0.42,
+  "phase_offsets": {
+    "RL": 0,
+    "RR": 0,
+    "FL": 0.5,
+    "FR": 0.5
+  },
+  "sweep_mm": 80,
+  "rearward_bias_mm": 20,
+  "lift_mm": 22,
+  "minimum_lift_mm": 4,
+  "bob_mm": 3,
+  "pitch_deg": 4,
+  "turn_degrees_per_cycle": 20,
+  "hardware_qualified": false,
+  "dynamics_scope": "Kinematic paired-leg bounding reference. No measured force, contact or attitude feedback; airborne physical operation unqualified.",
+  "research_sources": [
+    "https://journals.sagepub.com/doi/10.1177/0278364917694244"
+  ],
+  "automatic_speed_threshold_percent": 100,
+  "maximum_speed_percent": 200,
+  "transition_cycles": 4,
+  "body_z_mm": -2,
+  "research_angle_bounds_deg": [
+    [
+      -35,
+      35
+    ],
+    [
+      -88.83,
+      145.17
+    ],
+    [
+      -130.41,
+      103.59
+    ]
+  ],
+  "forward": {
+    "sweep_mm": 104,
+    "rearward_bias_mm": 10,
+    "body_z_mm": -6,
+    "lane_offset_mm": 8,
+    "lane_assignment": "physical_front_inside_rear_outside",
+    "pitch_bias_deg": -6
+  },
+  "mounting_profile_sha256": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3",
+  "search_bounds_basis": "Selected 1300 us reference with carrier +1.17 and crank -40.41 degrees; provisional 234 degree conversion. Run IK branch-search bounds only; no firmware pulse caps."
+}

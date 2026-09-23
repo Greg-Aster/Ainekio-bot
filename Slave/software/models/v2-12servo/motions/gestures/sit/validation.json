@@ -1,129 +1,71 @@
 {
-  "duration_s": 5.0,
-  "motion_end_s": 3.0,
-  "sample_hz": 120,
+  "command": "sit",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "samples": 601,
+  "duration_s": 5.0,
+  "sample_hz": 120,
+  "max_target_error_mm": 0.00013011662907302934,
+  "min_sole_height_mm": -2.4443025381515326e-10,
+  "minimum_body_ground_clearance_mm": 0.54353543730317,
+  "minimum_closure_triangle_height_mm": 11.954284840588493,
+  "minimum_assumed_support_margin_mm": -20.169068295418622,
   "actuator_min_degrees": [
     [
-      0.0,
-      0.0,
-      -3.7411643623256277
+      -5.423360867848567e-07,
+      -27.49999361624477,
+      -6.676876805900039
     ],
     [
-      0.0,
-      0.0,
-      -3.7411647947990567
+      -7.763523114492182e-06,
+      -30.529358626601628,
+      -16.774610619801543
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      1.1370954639750696e-07,
+      -6.546653350170308,
+      -21.36049875858154
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -1.9639461733642719e-07,
+      -6.546663704546301,
+      -21.360506996895143
     ]
   ],
   "actuator_max_degrees": [
     [
-      0.0,
-      66.76722066200865,
-      1.1644182604469644
+      1.7564222037815569e-06,
+      1.9208256001119373,
+      17.127262856626682
     ],
     [
-      0.0,
-      66.76722066200765,
-      1.1644184011292844
+      4.448567284274776e-06,
+      1.920815801013028,
+      1.545804808111805
     ],
     [
-      0.0,
-      6.382982052224677,
-      55.818154127243886
+      7.761153876378962e-06,
+      5.963328385458309,
+      0.44339110262155607
     ],
     [
-      0.0,
-      6.382982052224677,
-      55.818154127243886
+      2.5027429950102923e-06,
+      5.96332353796838,
+      0.4433823720338099
     ]
   ],
-  "actuator_peak_speed_degrees_s": [
-    [
-      0.0,
-      39.89977127858694,
-      5.853099611765145
-    ],
-    [
-      0.0,
-      39.899771278585234,
-      5.853100295740634
-    ],
-    [
-      0.0,
-      4.980287747358032,
-      34.08181027249071
-    ],
-    [
-      0.0,
-      4.980287747358032,
-      34.08181027249071
-    ]
-  ],
-  "actuator_peak_acceleration_degrees_s2": [
-    [
-      0.0,
-      44.40535554670362,
-      12.37922938029552
-    ],
-    [
-      0.0,
-      44.405355546345504,
-      12.379230771975891
-    ],
-    [
-      0.0,
-      6.924723156936317,
-      48.51752658410362
-    ],
-    [
-      0.0,
-      6.924723156936317,
-      48.51752658410362
-    ]
-  ],
-  "final_actuator_degrees": [
-    [
-      0.0,
-      66.76722066200865,
-      1.1644182604469644
-    ],
-    [
-      0.0,
-      66.76722066200765,
-      1.1644184011292844
-    ],
-    [
-      0.0,
-      6.382982052224677,
-      55.818154127243886
-    ],
-    [
-      0.0,
-      6.382982052224677,
-      55.818154127243886
-    ]
-  ],
-  "minimum_support_margin_mm": 35.58569876976196,
-  "minimum_body_ground_clearance_mm": 2.0,
-  "min_sole_height_mm": -1.3104410001574252e-08,
-  "max_stance_material_vertex_constraint_error_mm": 1.0658141036401503e-13,
-  "maximum_adjacent_joint_step_degrees": 0.3325204605620442,
-  "maximum_rolling_normal_correction_mm": 0.000217190796279354,
-  "rolling_transfers": 194,
-  "minimum_stance_contacts": 4,
-  "research_angle_bounds_satisfied": true,
-  "part023_forward_limit_satisfied": true,
+  "maximum_adjacent_joint_step_degrees": 0.5122270347183134,
+  "peak_joint_speed_deg_s": 61.45487848401844,
+  "peak_joint_acceleration_deg_s2": 1447.2011222797576,
+  "native_solver_fallbacks": 0,
+  "seconds": 4.629566973999317,
+  "hardware_qualified": false,
   "collision_checked": false,
-  "measured_mass_balance_verified": false,
-  "hardware_qualified": false
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "lower_leg_angle_above_floor_deg": {
+    "FL": 1.800000000000024,
+    "FR": 1.7999999999999934
+  },
+  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "body_support_scope": "Current complete body hull.",
+  "motion_end_s": 3.0
 }

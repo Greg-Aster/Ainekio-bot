@@ -1,140 +1,75 @@
 {
-  "duration_s": 8.5,
-  "motion_end_s": 8.0,
-  "sample_hz": 120,
+  "command": "bow",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "samples": 1021,
-  "bow_hold_start_s": 2.5,
-  "bow_hold_end_s": 5.5,
+  "duration_s": 8.5,
+  "sample_hz": 120,
+  "max_target_error_mm": 0.00013011662907302934,
+  "min_sole_height_mm": -4.8338222313759616e-11,
+  "minimum_body_ground_clearance_mm": 6.823793977182007,
+  "minimum_closure_triangle_height_mm": 6.783099631111989,
+  "minimum_assumed_support_margin_mm": 33.143664149088586,
   "actuator_min_degrees": [
     [
-      0.0,
-      -23.209869122916324,
-      -18.247103309916334
+      -4.676204642739498e-06,
+      -5.451770993640807,
+      -1.9441600755110975
+    ],
+    [
+      -3.717011312507524e-06,
+      -5.451775337415742,
+      -1.9441497281309996
     ],
     [
       0.0,
-      -23.209869122916476,
-      -18.247105200177103
+      -5.451759786516668,
+      -1.9441555962332235
     ],
     [
-      0.0,
-      -32.823587901844604,
-      -45.915065332907254
-    ],
-    [
-      0.0,
-      -32.823587901844604,
-      -45.915065332907254
+      -1.964083245460243e-07,
+      -5.451769802159345,
+      -1.9441634208145062
     ]
   ],
   "actuator_max_degrees": [
     [
-      0.0,
-      5.055708940292995,
-      0.0
+      -1.9639407408966488e-07,
+      42.62127128895121,
+      31.038660337598344
     ],
     [
-      0.0,
-      5.055708940292969,
-      0.0
+      4.511896690258031e-06,
+      42.62126416648382,
+      31.038677295543998
     ],
     [
-      0.0,
-      5.0557101990931805,
-      0.0
+      5.020655749994167e-06,
+      119.99999999999999,
+      101.29499761671912
     ],
     [
-      0.0,
-      5.0557101990931805,
-      0.0
+      1.8657343497483061e-06,
+      119.99999999999999,
+      101.29499761671912
     ]
   ],
-  "actuator_peak_speed_degrees_s": [
-    [
-      0.0,
-      35.30621293321566,
-      16.996440541581848
-    ],
-    [
-      0.0,
-      35.30621293321566,
-      16.996442240697256
-    ],
-    [
-      0.0,
-      49.05735297247425,
-      52.65130491646829
-    ],
-    [
-      0.0,
-      49.05735297247425,
-      52.65130491646829
-    ]
-  ],
-  "actuator_peak_acceleration_degrees_s2": [
-    [
-      0.0,
-      74.25805492192919,
-      40.5827206345581
-    ],
-    [
-      0.0,
-      74.25805492183646,
-      40.582724935361014
-    ],
-    [
-      0.0,
-      115.3388172574779,
-      126.7181021337123
-    ],
-    [
-      0.0,
-      115.3388172574779,
-      126.7181021337123
-    ]
-  ],
-  "bow_actuator_degrees": [
-    [
-      0.0,
-      -23.209869122916324,
-      -18.247103309916334
-    ],
-    [
-      0.0,
-      -23.209869122916476,
-      -18.247105200177103
-    ],
-    [
-      0.0,
-      -32.823587901844604,
-      -45.915065332907254
-    ],
-    [
-      0.0,
-      -32.823587901844604,
-      -45.915065332907254
-    ]
-  ],
-  "front_body_datum_mm": [
-    75.0,
-    0.0,
-    0.0
-  ],
-  "front_body_drop_mm": 26.555203787856414,
-  "minimum_support_margin_mm": 29.47705196306707,
-  "minimum_stance_contacts": 4,
-  "maximum_rolling_normal_correction_mm": 0.0006065474177621155,
-  "solved_rolling_transfers": 204,
-  "max_stance_material_vertex_constraint_error_mm": 1.3398253154500904e-13,
-  "minimum_body_ground_clearance_mm": 3.0941867063545203,
-  "min_sole_height_mm": -2.947963650967722e-09,
-  "maximum_adjacent_joint_step_degrees": 0.4388135308902079,
-  "final_joint_return_error_degrees": 0.0,
-  "research_angle_bounds_satisfied": true,
-  "intentional_front_contact_slide_mm": 20.0,
-  "sliding_friction_verified": false,
+  "maximum_adjacent_joint_step_degrees": 1.3066817180837418,
+  "peak_joint_speed_deg_s": 156.80180617004712,
+  "peak_joint_acceleration_deg_s2": 702.9859053451459,
+  "native_solver_fallbacks": 0,
+  "seconds": 5.833472236998205,
+  "hardware_qualified": false,
   "collision_checked": false,
-  "hardware_servo_limits_verified": false,
-  "measured_mass_balance_verified": false,
-  "hardware_qualified": false
+  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+  "lower_leg_angle_above_floor_deg": {
+    "RL": 1.8000000000000638,
+    "RR": 1.799999999999259
+  },
+  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "body_support_scope": "Current complete body hull.",
+  "front_hand_forward_travel_mm": {
+    "RL": 73.42286010442896,
+    "RR": 73.42286263304038
+  },
+  "motion_end_s": 8.0
 }

@@ -1,0 +1,13 @@
+{
+  "rate_changes_only_time": true,
+  "2x_halves_time": true,
+  "stride_and_rate_independent": true,
+  "ramp_control_boundary_derivatives_continuous": true,
+  "maximum_planted_reference_step_mm": 2.1767004420687363e-11,
+  "fore_aft_reference_range_mm": [
+    -78.9675401936872,
+    19.317350602060415
+  ],
+  "cycle_pose_seam_deg": 9.757305651793777e-11,
+  "full_stride_matches_previous_corrected_joint_curve_deg": 1.0448758239543945e-10
+}

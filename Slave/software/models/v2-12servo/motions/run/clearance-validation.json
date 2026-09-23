@@ -1,0 +1,141 @@
+{
+  "source": "motions/run/source.json",
+  "sampled_poses": 7103,
+  "intersections": [],
+  "pair_stats": {
+    "FL-RL": {
+      "projected_crossings": 410,
+      "minimum_lateral_gap_mm": -9.753757474717546,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 2.1379687890890153
+    },
+    "FR-RR": {
+      "projected_crossings": 387,
+      "minimum_lateral_gap_mm": -9.836015158619901,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 2.160998847578938
+    },
+    "FL-FR": {
+      "projected_crossings": 7103,
+      "minimum_lateral_gap_mm": 93.7698832978748,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 93.7698832978748
+    },
+    "RL-RR": {
+      "projected_crossings": 7103,
+      "minimum_lateral_gap_mm": 88.31794781383078,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 88.31794781383078
+    },
+    "FL-RR": {
+      "projected_crossings": 396,
+      "minimum_lateral_gap_mm": 99.8241895272075,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 91.97026329514475
+    },
+    "FR-RL": {
+      "projected_crossings": 414,
+      "minimum_lateral_gap_mm": 99.80897369198024,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 91.97029805151712
+    }
+  },
+  "scope": "All six pairs of lower-leg assemblies (Part027 plus inner/outer boots); native source knots and optional linear-joint midpoints. Exact triangle intersection after broadphase; separating-plane gaps conservatively bound mesh distance. Common chassis pose removed. No whole-robot or continuous-time collision proof.",
+  "intersecting_poses": 0,
+  "elapsed_s": 76.3629974200012,
+  "source_sha256": "5e11071844e6c7dc8d64c38b40835e05e67af5b744ebf9a5fe3b1b0410649b61",
+  "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "mesh_provenance": {
+    "027": {
+      "RL": {
+        "object": "ML | REFINED | RL | Part_027 - 24mm pickup short collar - plain joint bore",
+        "mesh": "UPRIGHT COMPACT | RL | 2",
+        "vertices": 6627,
+        "triangles": 13274,
+        "sha256": "7c6a72533fad6d361f79b75e8e18c0cd91d18484e5300caae291d1a013d56387"
+      },
+      "RR": {
+        "object": "ML | REFINED | RR | Part_027 - 24mm pickup short collar - plain joint bore",
+        "mesh": "UPRIGHT COMPACT | RR | 2",
+        "vertices": 6627,
+        "triangles": 13274,
+        "sha256": "e47562cd5bffc7a235a6d6c9f6485b5ea9648083e13dd381dfc53c42aefe22a6"
+      },
+      "FL": {
+        "object": "ML | REFINED | FL | Part_027 - 24mm pickup short collar - plain joint bore",
+        "mesh": "UPRIGHT COMPACT | FL | 2",
+        "vertices": 6627,
+        "triangles": 13274,
+        "sha256": "53e1251a5330e370fbbf19dcd25f028ca4fdd09ac9643ec78531bef83cab0c39"
+      },
+      "FR": {
+        "object": "ML | REFINED | FR | Part_027 - 24mm pickup short collar - plain joint bore",
+        "mesh": "UPRIGHT COMPACT | FR | 2",
+        "vertices": 6627,
+        "triangles": 13274,
+        "sha256": "e802c44abb2b139d827f0aab1a400c99aad94100545df4ac8081d0f2b0dea636"
+      }
+    },
+    "020": {
+      "RL": {
+        "object": "ML | REFINED | RL | Part_020 - full-length inner boot",
+        "mesh": "020 - rebuilt tooth rim - RL",
+        "vertices": 5361,
+        "triangles": 10738,
+        "sha256": "b48479f835d64c822fe97f365597fa38008b4d2d17c5fdf64374e0079b169c73"
+      },
+      "RR": {
+        "object": "ML | REFINED | RR | Part_020 - full-length inner boot",
+        "mesh": "020 - rebuilt tooth rim - RR",
+        "vertices": 5361,
+        "triangles": 10738,
+        "sha256": "065c023ee25f54decd64a0b562ae01e6a0980d3e7e06f7a43b2da8b89bee52a6"
+      },
+      "FL": {
+        "object": "ML | REFINED | FL | Part_020 - full-length inner boot",
+        "mesh": "020 - rebuilt tooth rim - FL",
+        "vertices": 5361,
+        "triangles": 10738,
+        "sha256": "b69b806e027cfe35bce007e7fa80fb31e4d6e7e62ffb886a1ece262d26ce21bb"
+      },
+      "FR": {
+        "object": "ML | REFINED | FR | Part_020 - full-length inner boot",
+        "mesh": "020 - rebuilt tooth rim - FR",
+        "vertices": 5361,
+        "triangles": 10738,
+        "sha256": "b8694b75207c9ba4e223659dcbf92f0f86aa0ce51bb5f7d01f35ef519166ec3d"
+      }
+    },
+    "022": {
+      "RL": {
+        "object": "ML | REFINED | RL | Part_022 - full-length outer boot",
+        "mesh": "Part022 - clean inner joint transition - RL",
+        "vertices": 6712,
+        "triangles": 13440,
+        "sha256": "0bface2fee05a740921ea5298fdabcdae5d5593791f76f52a579d92b32771916"
+      },
+      "RR": {
+        "object": "ML | REFINED | RR | Part_022 - full-length outer boot",
+        "mesh": "Part022 - clean inner joint transition - RR",
+        "vertices": 6712,
+        "triangles": 13440,
+        "sha256": "3d7c540b4f258a079aa9b54b69508e68d0a6b8ff368372d0d95680057bbb689b"
+      },
+      "FL": {
+        "object": "ML | REFINED | FL | Part_022 - full-length outer boot",
+        "mesh": "Part022 - clean inner joint transition - FL",
+        "vertices": 6712,
+        "triangles": 13440,
+        "sha256": "552b0357bcea8e1343f3f79f31122714c8c6a84219d0bc4b916e7f0cefcfdd42"
+      },
+      "FR": {
+        "object": "ML | REFINED | FR | Part_022 - full-length outer boot",
+        "mesh": "Part022 - clean inner joint transition - FR",
+        "vertices": 6712,
+        "triangles": 13440,
+        "sha256": "872afaaf5db8d12a61ee3581b7245c77aa1e517888669548a6d6bf5755428335"
+      }
+    }
+  },
+  "passed": true
+}

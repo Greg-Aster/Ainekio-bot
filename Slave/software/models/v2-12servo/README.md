@@ -1,160 +1,213 @@
 # Twelve-servo motion model
 
-The first registered V2 motion is the owner's
-`vertical_limit_099p2mm_4s_loop`, from
-`robot-extended-crawl-20260915/Ainekio-Part023-Continuous-Walking.blend`.
-The original Blender package remains unchanged. This directory owns the retained
-geometric source, twelve-joint identity, command mapping and compiled sampler.
-It does not reuse V1 servo angles or change V1's eight-joint protocol/assets.
+V2 uses a shared measured linkage, direct closure checks, finite gestures
+and continuous Walk/Run/Crawl. The eight-servo V1 assets and default decoder retain
+their existing behavior. Assembly references and calibration are documented in
+[SERVO_ASSEMBLY.md](SERVO_ASSEMBLY.md).
 
-The current model contains **30 motions**: bounded forward walking, eight turns,
-and twenty-one [postures and gestures](motions/gestures/README.md). Together with the
-independent `stop` command, the P4 declares 31 installed names. See the
-[2026-09-17 integration and pending flash record](../../../../docs/v2-12servo/MOTION_INTEGRATION_20260917.md).
+## Servo profile and geometry
 
-## Same command, body-specific motion
+`servo_profile.json` owns the observed 300–2900 µs pulse span, 1300 µs selected reference,
+provisional 234° conversion and mounting offsets. Its historical angle-envelope
+data remains a desktop research reference and is not compiled into the firmware.
+234° is not measured shaft travel. The recommended model offsets at 1300 µs are
+shoulder 0°, Part 006 carrier +1.17°, and Part 005 crank −40.41°. These non-inverted
+references balance the original library's combined leg-joint ranges; the motion
+and gait trajectories are unchanged. Existing saved mappings require deliberate
+re-indexing and calibration rather than automatic replacement. Startup and transitions use the same actual four-bar closure as locomotion.
+Carrier/crank entry follows normalized coordinates inside the exact closure
+annulus, with bounded interval arithmetic for path extrema and rates. Shoulder/body and full-robot collision sweeps remain
+unqualified. The reproducible mesh sweep is in `tools/build_mechanical_envelope.py`.
 
-MetaHuman's existing `robotCommand: walk` (and `move: forward`) still translates
-to the same protocol-v1 request for either body:
+`geometry.json` owns the 40/24/38/24 mm four-bar, 55 mm distal link, recorded CAD
+frames and current complete sole hulls. Model coordinates remain signed CAD
+centidegrees. Geometric zero, solved Stand, calibration Home, Sit and Rest are
+separate poses. Electrical conversion belongs to the device's measured per-joint
+mapping; changing calibration never stretches or clamps a motion to fit.
+
+Model IDs 0–2/3–5 are physical rear-left/rear-right (CAD FL/FR), and 6–8/9–11
+are front-left/front-right (CAD RL/RR). Each triple is shoulder, carrier, crank.
+`model.json` preserves recorded channel assignments; assembly must verify them.
+
+## Walking controls
+
+Normal Speed coordinates stride and cadence. Advanced controls remain independent.
+For Walk/Crawl Speed 0<s<=100, stride=min(100,2*s)% and cadence=max(1,s/50). Speed zero requests
+Finish. The base period is 1.8 seconds; advanced cadence supports 0.25–3×.
+
+| Speed | Stride | Cadence | Steady cycle |
+| --- | --- | --- | --- |
+| 25% | 50% | 1× | 1.8 s |
+| 50% | 100% | 1× | 1.8 s |
+| 75% | 100% | 1.5× | 1.2 s |
+| 100% | 100% | 2× | 0.9 s |
+
+Walk's full planted sweep is 92 mm, with 30 mm rearward bias and up to 14 mm lift.
+Sweep and bias scale with stride. Nominal advance is `92*stride/100/0.70` mm per
+cycle; this is geometric translation, not measured ground distance. The original choreography is preserved; modeled collision conflicts are reported separately. Sway, bob, roll and
+pitch remain continuous and scale with stride. Cadence changes the common clock.
+
+Crouch/Crawl use body translation -35 mm, leaving about 12 mm of complete-body
+floor clearance. Crawl's full sweep is 18 mm, 4 mm rear bias and
+4 mm maximum lift. Lower legs remain inclined; Rest is the separate grounded
+chassis pose. Turns advance 18° per full-stride Walk cycle or 10° per Crawl cycle.
+`motions/locomotion/config.json` owns these low-height and turning settings.
+
+`walk_controls_v2` negotiates directions `fwd`, `back`, `turn_l`, `turn_r`,
+`gait: "walk"|"crawl"` and `steps: 0` for ongoing operation. Finite steps 1–10
+remain supported. Existing `walk_controls_v1` clients retain forward finite Walk.
+The gateway requires the appropriate model, feature and declared command.
 
 ```json
-{"t":"intent","name":"walk","dir":"fwd","steps":3}
+{"t":"intent","name":"walk","dir":"back","gait":"walk","steps":0,"speed":25,"seq":41}
+{"t":"intent","name":"walk","dir":"back","gait":"walk","steps":0,"stride":100,"rate":2,"update":41,"seq":42}
+{"t":"intent","name":"walk","dir":"back","gait":"walk","steps":0,"speed":0,"update":41,"seq":43}
 ```
 
-The gateway adds sequence, session epoch and expiry where negotiated. The body's
-common admission path owns authentication/session/sequence/expiry; the model
-selects its own trajectory. No controller hostname or transport is used by the
-sampler. Changing the P4's `config controller <URL>` between a remote gateway
-and a Q6A gateway requires no motion changes.
+Updates name the original command and preserve direction, gait, phase and cycle
+count. Their ACK completes the settings request; the original command owns motion
+completion. Updates coalesce while a transition is active. Finish reduces stride
+and completes active swings with all feet down. Emergency detach remains separate.
+A planted foot's world XY stays fixed until lift-off. Swing endpoints are fixed at
+lift-off. A reversed clock or output gap over 40 ms faults instead of replaying work.
 
-`walk` keeps its existing meaning: bounded forward walking with an optional
-step count. V2 defines a step as one complete four-leg steady gait cycle. It
-accepts the existing range of 1–10. A step is not a promise of measured distance.
-Backward walking and held directional steering still need their own V2 mappings
-and validation; they are not aliased to this forward gait.
-Eight [finite turn assets](motions/turns/README.md) now have independent mappings:
-left/right 15°, 45°, 90° and 180°. The six existing 45°/90°/180° names use the
-same `intent/emote/asset` envelope as V1. The two new 15° names are offered only
-by bodies explicitly declaring them. V1's existing seed assets remain unchanged.
-`sit` uses V1's existing native sit intent; the other twenty postures and gestures
-use the existing emote envelope, with their own twelve-joint sources. Turns and
-gestures share one finite-clip
-compiler and sampler; no turn-specific compatibility implementation remains.
+The dashboard supplies Speed, advanced stride/cadence, direction and ongoing mode.
+Environment actions accept continuous walk/backward/left/right and crawl with an
+explicit direction. Legacy bare left/right still select finite 45° turns.
 
-The gateway retains one semantic catalog and its descriptions. Negotiated
-`body_commands_v1` selects the body's registered subset, gated by motion readiness.
-Body Control uses that subset for buttons, keyboard and gamepad movement.
-Legacy V1 bodies retain their existing catalog. Raw V1 calibration controls are
-unavailable on V2; they must not be relabeled as twelve-joint controls.
+## Automatic Run above 100%
 
-## Source and timing
+With `run_gait_v1` and the declared `run` command, the normal Walk Speed range
+extends to 200%. **0 finishes, 1–100 walks, above 100 transitions to Run.**
+Returning to 100 or below transitions back to Walk within the same command.
+Crawl stays 0–100. Existing Walk/Crawl formulas, geometry and recordings are unchanged.
 
-- [manifest](motions/walk/manifest.json): source hashes, command mapping, sections
-  and explicit qualification blockers.
-- [source](motions/walk/source.json): unchanged 3,889-sample full demonstration,
-  including timestamped body/foot/contact geometry and all actuator angles.
-- [loop contract](motions/walk/loop-contract.json): original repetition rules.
-- [geometry](geometry.json) and [joint definition](model.json): CAD zero, signs,
-  physical leg identity and unassigned electrical channels.
+Run is a front-pair/rear-pair bound: 42% stance per pair, half a cycle apart,
+with two brief flight intervals. Body pitch replaces the walking side sway.
+Forward Run opens its planted sweep from 80 mm just above 100% Speed to 104 mm
+at 200%, with 10 mm rear bias at full stride and up to 22 mm lift. At full stride
+the shorter stance fraction advances 247.62 mm per cycle, versus Walk's
+131.43 mm; this is modeled translation, not measured speed. Backward Run and
+turns retain an 80 mm sweep with 20 mm bias. Run's 1.2 s base period uses
+automatic rate `2+(Speed-100)/150`, giving about 0.6 s just above 100%, 0.514 s
+at 150%, and 0.45 s at 200%. Forward Run uses direct linkage geometry and the existing
+horn indexing without changing servo references or imposing new pulse caps.
+At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward;
+a 6° nose-up bias preserves reach. Lanes blend through swing while stance feet
+remain planted. This separates the crossing lower legs without retiming pairs.
 
-The imported full source's 12.2–16.2 second section matches all actuator angles
-in the owner's separately saved loop exactly. Retaining the full source also
-preserves its entry/exit data without maintaining duplicate trajectory files.
+The transition takes four gait cycles with smooth body/contact changes. Feet
+already in stance keep their world anchors. Cyclic offsets advance the next
+step to form or separate pairs; active swings keep their landing targets.
+The common clock, command sequence, controlled Finish and emergency stop remain shared.
 
-| Section | Source time | Command behavior |
-| --- | --- | --- |
-| Entry | 0–12.2 s | Posture change, placement, acceleration and settling, once |
-| Steady walk | 12.2–16.2 s | Repeat for `steps` cycles; 4 s and nominal 99.2 mm/cycle |
-| Exit | 24.2–32.4 s | Deceleration and standing transition, once |
+Advanced `gait:"run"` accepts stride 1–100 and rate 0.25–3 independently;
+its optional explicit-gait Speed uses rate `max(2/3,Speed/75)` (0 still finishes).
+The usual dashboard choice is Walk / automatic Run. Only capable V2 bodies
+receive the extended slider; V1 retains its original `run` asset.
 
-Total geometric command duration is **20.4 + 4 × steps seconds**: 24.4 seconds
-for one step, 32.4 seconds for three, 60.4 seconds for ten. There is no standing
-between steady cycles. Entry/exit also advance the model, so total command
-distance is not simply `steps × 99.2 mm`. These entry/exit sections are retained research
-trajectories, not qualified hardware transitions. The final standing angles
-are slightly different from CAD zero; the sampler preserves them. Entering a
-new command from an arbitrary/current pose is not yet implemented or qualified.
+[Run configuration, research and validation](motions/run/README.md) includes the
+native Walk 100 > Run 150 > Run 200 > Walk 75 > Finish demonstration. Bounding is
+currently a kinematic reference: no measured ground-force/contact or attitude
+feedback proves airborne stability or servo tracking. No servo reference or
+original motion has been changed to accommodate it.
 
-The build compiles 120 Hz knots into flash-resident tables: 1,465 entry, 481 loop
-and 985 exit knots. A rational time index keeps the loop exactly four seconds.
-Row 480 closes interpolation; it adds no held interval. Monotone cubic Hermite
-interpolation reproduces the source curve convention. Entry/loop/exit share a
-common position and tangent at their joins. Acceleration continuity is not
-claimed. The shared core evaluates each segment; the V2 model owns phases and
-repetition. No network message is needed for an individual frame.
+## Finite motions and entry
 
-The firmware sees signed CAD centidegrees, velocity in centidegrees/second and
-acceleration in centidegrees/second². The original source retains radians.
-Physical order is rear left, rear right, front left, front right; each leg is
-shoulder (Part002), carrier (Part006), crank (Part005). The historical CAD labels
-FL/FR correspond to the physical rear legs. The Part005 re-clocking is already
-included in geometric zero.
+The catalog contains eight finite turns and 23 gestures/postures, including
+Crouch and experimental Upright. [The gesture README](motions/gestures/README.md) records command durations.
+Nod has two cycles. Wave reproduces Sit before extending and waving. Bow reaches
+both hands forward about 73.42 mm. Point reaches about 95.02 mm. Sit lays the rear lower legs along the floor; Rest lays all lower legs horizontal and grounds the chassis base plate.
 
-## Current executable scope
+`retarget_clips.py` preserves task-space choreography without the rejected amplitude reductions. Sources and dependent hashes are
+regenerated together. The compiler checks provenance and preserves the original cubic tracks. Mechanical and reference-span conflicts are listed in `mechanics/original-motion-range-audit.json`; they are not corrected by changing the motion.
 
-Implemented: source compilation, twelve-joint sampling, bounded `walk` and finite-clip request
-recognition, common admission rejection while unready, per-body capability
-selection, and a read-only P4 console diagnostic:
+P4 entry uses a known commanded reference and a coordinated path through the
+carrier/crank closure region. Conservative continuous path bounds are checked against PWM timer capacity before replacing a motion; entry pulse change is bounded to 1000 µs/s.
+A new motion request with outputs off or only partly commanded first engages
+the saved Home pulses 200 ms apart, then enters the requested motion. Invalid
+model references are reported before enabling outputs. This is commanded state,
+not shaft feedback. Entry checks do
+not establish floor clearance or support stability for arbitrary physical poses.
 
-```text
-gait walk 3 16200
-gait turn_left_15 7000
-gait sit 3000
-gait bow 2500
+`joint_mapping` stores the current body_calibration_v2 mapping without Min/Max fields. Review and Save is required before normal motion. Hardware qualification is
+still false: shaft travel, direction, horn placement, tracking, dynamics and
+loaded operation require physical measurement. The compact controller has been
+application-flashed and tested with two unloaded servos; the current evidence is
+in [Controller validation](CONTROLLER_VALIDATION.md). Earlier deployment evidence
+in `docs/v2-12servo/FIRMWARE_DESIGN.md` belongs to previous applications.
+
+`upright` is a separate declared V2 emote: Sit → front feet backward → supported
+push → vertical chassis over the flat rear lower legs. It holds the terminal
+pose after 22 seconds; `stand` still means four feet. Physical balance, torque
+and a safe recovery transition remain unqualified. [Upright](motions/gestures/upright/README.md).
+
+## Runtime representation
+
+The P4 contains one motion implementation. Direct single-precision linkage
+geometry replaces the numerical search; a maximum of four endpoint evaluations
+per leg resolves the rocking sole. Unreachable circles and changes of linkage
+branch are rejected. The 101/90-vertex Walk/Crawl support profiles are certified
+against every original hull vertex with an all-orientation distance bound below
+0.15 mm. A 0.151 mm conservative allowance preserves floor clearance. Full CAD
+meshes and research fitting remain desktop inputs and are not linked into firmware.
+
+Finite gestures and turns retain their original workstation recordings. The
+compiler fits cubic segments with a continuous 0.005-degree error bound, keeps
+extrema/holds/endpoints and timing, and emits compact positions, tangents and
+extrema. No alternate dense runtime playback remains. The output owner retains
+the actual commanded joint pose; only manually requested PWM is interpreted back
+through the saved mapping, without polygon projection or invented shaft feedback.
+
+Run Finish waits for already committed airborne landings before decelerating.
+This corrects an existing explicit-Run failure after speed changes without
+reducing gait reach. [Controller validation and resource costs](CONTROLLER_VALIDATION.md)
+records source checks, P4 measurements and limitations. Native test assertions
+remain enabled in Release builds.
+
+## Owners and regeneration
+
+- `motion.c` and `walk_kinematics.c`: bounded native gait clock, circle-intersection controller and compact sole support.
+- `transition.c`: entry paths through the direct linkage's closure region.
+- `joint_limits.c` and `servo_profile.json`: calibration reference metadata; historical collision-envelope data remains desktop-only.
+- `clip.c` and `tools/compile_clips.py`: verified compact interpolation segments and one cubic sampler.
+- `motions/walk/reference.py`: independent Python geometry and stride/rate reference.
+- `motions/gestures/*/posture.json`: measured Sit/Rest/Wave/Point/Bow pose constraints.
+- `tools/generate_assembly_reference.py`: reproducible guide, twelve-joint CSV and mounting range audit.
+- `tools/audit_mounting_ranges.py`: sampled original motion ranges, pulse windows and remaining conflicts.
+- `tools/plot_mounting_reference.py`: reference SVG using NumPy/Matplotlib.
+- `tools/refresh_blender_motions.py`: refresh existing chapters in place.
+- `tools/validate_blender_scene.py`: reopen proof (`-- --report /tmp/report.json`).
+
+From the repository root, with NumPy/SciPy available for geometry tools:
+
+```sh
+python3 Slave/software/models/v2-12servo/tools/build_sole_profile.py
+python3 Slave/software/models/v2-12servo/tools/generate_walk.py
+python3 Slave/software/models/v2-12servo/tools/retarget_clips.py --source-repo .
+cmake -S Slave/firmware/esp32p4-wifi6/tests -B /tmp/ainekio-v2-tests
+cmake --build /tmp/ainekio-v2-tests -j4
+python3 Slave/software/models/v2-12servo/tools/generate_locomotion.py --cli /tmp/ainekio-v2-tests/v2_model/v2_walk_command
+cmake --build /tmp/ainekio-v2-tests -j4
+/usr/bin/ctest --test-dir /tmp/ainekio-v2-tests --output-on-failure
+python3 Slave/software/models/v2-12servo/tools/validate_motions.py
+python3 Slave/software/models/v2-12servo/tools/validate_locomotion.py
+python3 Slave/software/models/v2-12servo/tools/validate_walk.py /tmp/ainekio-v2-tests/v2_model/v2_walk_command
+python3 Slave/software/models/v2-12servo/tools/validate_compact_clips.py --binary /tmp/ainekio-v2-tests/v2_model/v2_clip_sample
 ```
 
-The first samples the start of the second steady walk cycle; the others sample
-their named finite clips at elapsed milliseconds. These print all twelve CAD
-angles/derivatives without driving PWM or emitting a movement `done` receipt.
+Changes to Crouch configuration require a bootstrap gait-only build before clip
+compilation if old Crouch assets no longer satisfy provenance or source provenance.
+Generated sources invalidate old Blender evidence. Refresh and reopen the exact
+active `ainekio-variable-gait-Recovery.blend` before claiming current preview proof.
+The motion scene has 39 chapters, including the stride/rate ramp and eight native
+locomotion demonstrations. Its presentation cuts are not actuator transitions.
+The cached face and editable fitting sources are retained separately.
 
-**Physical motion execution remains unavailable.** The P4 declares all 31 installed
-names with `motion=false`. The gateway does not offer these motions
-to MetaHuman or enable its movement controls. A direct authenticated walk request
-or finite-clip request is rejected by common admission with `busy` while boot/actuator readiness is
-false. Unsupported intents consume their sequence and return `unknown`.
-Emergency disable retains its independent path.
+Native tests cover source parity, interpolation, calibration mapping, transition
+bounds, output lifecycle, updates, Stop, and 48 locomotion profiles at four update
+intervals. Validation reports distinguish geometry, source/build and saved Blender
+checks from unmeasured physical behavior. Firmware console `gait` queries calculate
+poses without PWM, for example `gait walk 3 5000 25` and `gait bow 2500`.
 
-No electrical center, pulse conversion, measured travel/dynamic limits or channel
-assignment has been invented. A calibrated twelve-joint actuator executor,
-current-pose entry, ordinary braking/hold and operator calibration remain work
-before enabling these motions. The existing output task still runs only the
-bounded disconnected-servo diagnostics. Setting a manifest boolean cannot arm it.
-
-The source itself records an assumed-COM steady support margin of **−5.885 mm**,
-unqualified balance and incomplete collision evidence. Electrical OE/reset
-verification, power/load checks and supported physical motion tests also remain
-open. See [Step 1 evidence](../../../../docs/v2-12servo/STEP1_EVIDENCE.md).
-Importing this visually accepted gait does not accept Step 1 or ground walking.
-
-## Initial walk verification (2026-09-15)
-
-- Portable C tests pass, including the existing shared core: 15/15 CTest tests.
-- Compiled C matches all twelve source angles at 1,302 times; maximum error
-  **0.00000248 degrees**. Loop repetition and phase position/velocity continuity
-  also pass; no physical stability or timing measurement is implied.
-- P4 and S3 ESP-IDF 5.5.4 builds pass. Neither board was flashed for this change.
-  The P4 build is `0.2.0-p4-gait`, SHA-256
-  `26d84aa06690bc1fb51aaec30e69841c009b6730a5c1f5bdd4e1aa384d40eb94`.
-- Gateway/adapter/dashboard/action lifecycle regressions: 89/89 Python tests.
-  Protocol regressions: 14/14. New tests cover per-body subsets, identical `walk`
-  envelopes, unready/unsupported rejection, stop, and correlated terminal results.
-- Isolated headless-browser checks: 11/11 using the actual dashboard HTML/JS
-  with test body status. Covers V1/V2 switching, movement buttons, keyboard walk,
-  release-to-stop and suppression of V1 calibration on V2. This is not a live
-  robot/dashboard integration test.
-
-From the repository root:
-
-```bash
-cmake -S Slave/software/models/v2-12servo -B /tmp/ainekio-v2-motions-tests
-cmake --build /tmp/ainekio-v2-motions-tests -j4
-/usr/bin/ctest --test-dir /tmp/ainekio-v2-motions-tests --output-on-failure
-```
-
-The [native P4 target](../../../firmware/esp32p4-wifi6/README.md) has the exact
-build and flash commands. Generated C tables stay in the build directory; only
-the canonical source, model and generator belong in this directory.
-
-The subsequent [turn integration and flash record](motions/turns/README.md#verification-and-application-flash-2026-09-15)
-documents `0.3.0-p4-turns`, including the actual P4 application flash, all eight
-read-only turn checks and unchanged disarmed hardware status.
+Current verification counts and the offline firmware hash are in `servo-validation.json`.

@@ -1,28 +1,27 @@
 {
-  "period_seconds": 4.0,
-  "sample_hz": 120,
-  "intervals_per_cycle": 480,
-  "rows_including_closing_endpoint": 481,
-  "repeated_row_indices_inclusive": [
-    0,
-    479
+  "gait_id": "stride-and-rate-v2-24-38-servo-centers-20260923",
+  "base_cycle_seconds": 1.8,
+  "cadence_range": [
+    0.25,
+    3
   ],
-  "closing_endpoint_row": 480,
-  "translation_per_cycle_world_mm": [
-    99.2,
-    0.0,
-    0.0
+  "stride_percent_range": [
+    1,
+    100
   ],
-  "angle_offset_per_cycle_rad": 0.0,
-  "world_position_fields": [
-    "body_position_world_mm",
-    "assumed_com_world_mm",
-    "foot_bolt_world_mm",
-    "contact_world_mm"
-  ],
-  "indexing": "At cycle n, use rows 0 through 479 and add n*99.2 mm to every world X field; add n*4 seconds to timestamps. Row 480 is a closing endpoint for interpolation/validation, not an extra held sample.",
-  "absolute_pose_periodic": false,
-  "body_relative_pose_periodic": true,
-  "interpolation": "Monotone cubic with the same endpoint tangent on both sides of the seam. C1 continuity; acceleration continuity not guaranteed at every key.",
-  "start_stop_policy": "The original full clip retains standing transitions. This loop must be entered/exited through a phase-matched transition, not an instantaneous command from stand."
+  "ground_contact_fraction": 0.7,
+  "stance_sweep_100_mm": 52,
+  "rearward_bias_100_mm": 2,
+  "steady_advance_mm": "52 * stride_percent / 100 / 0.70",
+  "phase_clock": "monotonic; rate/base_cycle_seconds; no reset on updates",
+  "startup_phase_cycles": 2,
+  "steady_phase_cycles": "steps 1..10, or ongoing when steps is zero",
+  "parameter_transition_phase_cycles": 1,
+  "update_policy": "Latest target coalesced until current transition completes; original command retains cycle count",
+  "stance_policy": "Reference XY fixed in world until lift-off; sole minimum Z equals ground",
+  "swing_policy": "Quintic position; endpoint fixed at lift-off; cubic-product lift bump",
+  "stop_policy": "Speed zero; reduce stride then finish active swings; no new command resurrects a stopping state",
+  "maximum_tick_gap_ms": 40,
+  "hardware_qualified": false,
+  "servo_profile": "../../servo_profile.json"
 }

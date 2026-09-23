@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "wave",
-  "gait_id": "wave_seated_fourbar_20260916",
+  "gait_id": "wave_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/wave-seated-20260916/source.json",
-      "sha256": "d00be551216d082d2f20b0f94d469affac54d8ffd5d164c0ba0d6d9757bdef6f"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/wave/source.json",
+      "sha256": "e051a59136d8d75461c3595477932f49001b433f9df1fb8f040fe4b838ae07b9"
     },
     {
-      "path": "docs/gait-research/wave-seated-20260916/manifest.json",
-      "sha256": "f3c4a5e535e4d636a400d1b4055ca8b69d3cdddeb047764d78e349d559328dff"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/wave/manifest.json",
+      "sha256": "3e9f0abdd16cbaa0421c02490025d4e709e47be3312652737e89be5d2c268337"
     }
   ],
   "source_units": {
@@ -108,7 +108,8 @@
         0.0,
         0.12541099599473526,
         0.8843462822546
-      ]
+      ],
+      "current_geometry_note": "Replays the canonical corrected Sit lowering exactly."
     },
     {
       "id": "p001_lift_front_left",
@@ -849,17 +850,69 @@
         true,
         true,
         true
-      ]
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
     },
     {
-      "source_time_s": 3.008333333,
+      "source_time_s": 0.10833333333333334,
+      "sample_index": 13,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.05,
+      "sample_index": 126,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 1.0583333333333333,
+      "sample_index": 127,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 2.0,
+      "sample_index": 240,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 3.0083333333333333,
       "sample_index": 361,
       "active": [
         true,
         true,
         false,
         true
-      ]
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
     },
     {
       "source_time_s": 12.2,
@@ -869,7 +922,57 @@
         true,
         true,
         true
-      ]
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 13.208333333333334,
+      "sample_index": 1585,
+      "active": [
+        true,
+        false,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 14.15,
+      "sample_index": 1698,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 14.158333333333333,
+      "sample_index": 1699,
+      "active": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
+    },
+    {
+      "source_time_s": 15.1,
+      "sample_index": 1812,
+      "active": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "body_contact_active": false,
+      "support_source": "feet"
     }
   ],
   "timing_profiles": {
@@ -952,24 +1055,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -995,24 +1098,24 @@
     "behavior": "Lower the waving foot into Sit, then return to standing and hold; restore the stand face.",
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contacts": [
@@ -1024,11 +1127,12 @@
   },
   "source_qualification": {
     "hardware_qualified": false,
-    "minimum_assumed_support_margin_mm": 15.790382655754268,
     "collision_checked": false,
     "measured_mass_balance_verified": false,
-    "source_acceleration_continuous": false
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": -20.169068295418622
   },
   "hardware_ready": false,
-  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands."
+  "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands.",
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

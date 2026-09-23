@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "bow",
-  "gait_id": "bow_front_stretch_fourbar_20260916",
+  "gait_id": "bow_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/bow-20260916/source.json",
-      "sha256": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/bow/source.json",
+      "sha256": "1b313035a9ec4f92b88bece1b072ef3d28d64dcdb12ca42756d9f93c85ab6d95"
     },
     {
-      "path": "docs/gait-research/bow-20260916/manifest.json",
-      "sha256": "8e39affae9861237d57f5c7893851b80ecd8ae90607e0f703a6f75715683a5c0"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/bow/manifest.json",
+      "sha256": "3f4a8c1a56022e3fbcda2f64988e022f8e7de39726ba632c1d4d05d75a397893"
     }
   ],
   "source_units": {
@@ -119,7 +119,8 @@
         0.0,
         0.5733047410413413,
         0.5562823446066202
-      ]
+      ],
+      "current_geometry_note": "Braces before the two front hands extend forward into a held bow."
     },
     {
       "id": "p001_stretch_front_into_bow",
@@ -581,24 +582,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -613,24 +614,24 @@
     "behavior": "Hold the front-leg stretch bow, reverse the reach and body shift, then return to exact standing and hold.",
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.427963279100442e-09,
+        0.0335251959798646,
+        0.0077388180943315735
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855891607389937e-09,
+        0.03352502495338274,
+        0.007738784118953195
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.984718003258746e-09,
+        0.03352545121801717,
+        0.007738867197917383
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.427971941653721e-09,
+        0.03352532347011676,
+        0.007738840180846237
       ]
     ],
     "contacts": [
@@ -644,9 +645,11 @@
     "hardware_qualified": false,
     "collision_checked": false,
     "measured_mass_balance_verified": false,
-    "minimum_assumed_support_margin_mm": 29.47705196306707
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": 33.143664149088586
   },
   "body_support_required": false,
   "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded path and raise the front through the braced stance before standing; never seek directly to the last row.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

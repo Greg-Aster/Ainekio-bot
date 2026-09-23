@@ -673,14 +673,11 @@ static size_t encode_tx(
         taskENTER_CRITICAL(&runtime->state_lock);
         config = runtime->active_config;
         taskEXIT_CRITICAL(&runtime->state_lock);
-        return ainekio_encode_hello(
-            runtime->firmware_version,
-            config.robot_id,
-            config.robot_token,
-            CONFIG_AINEKIO_PHYSICAL_MOTION_ENABLED,
-            output,
-            capacity
-        );
+        const char *features[] = {"motion_plan_v1"};
+        const ainekio_hello_t hello = {.firmware=runtime->firmware_version,
+            .robot_id=config.robot_id, .auth_token=config.robot_token,
+            .features=features, .feature_count=CONFIG_AINEKIO_PHYSICAL_MOTION_ENABLED ? 1U : 0U};
+        return ainekio_encode_hello(&hello, output, capacity);
     }
     case TX_ACK:
         return ainekio_encode_ack(
@@ -1289,8 +1286,7 @@ static esp_err_t sync_camera_stream(ainekio_runtime_t *runtime)
         return ESP_OK;
     }
     const bool wanted = runtime->camera_enabled && runtime->camera_fps > 0U &&
-                        runtime->core->state == AINEKIO_STATE_ACTIVE &&
-                        runtime->core->profile == AINEKIO_PROFILE_HOME;
+                        runtime->core->state == AINEKIO_STATE_ACTIVE;
     if (runtime->camera_stream_applied == wanted &&
         (!wanted ||
          (runtime->camera_applied_fps == runtime->camera_fps &&
@@ -1618,18 +1614,6 @@ static void dispatch_command(
             command->sequence,
             AINEKIO_NAK_BUSY,
             TX_MESSAGE_WAKE_MODEL_UNAVAILABLE
-        );
-        return;
-    }
-    if (command->kind == AINEKIO_COMMAND_CAMERA &&
-        command->data.camera.enabled &&
-        runtime->core->profile == AINEKIO_PROFILE_HOME &&
-        command->data.camera.fps > 10U) {
-        claim_and_nak(
-            runtime,
-            command->sequence,
-            AINEKIO_NAK_PROFILE,
-            TX_MESSAGE_NONE
         );
         return;
     }

@@ -37,7 +37,8 @@ typedef enum {
     AINEKIO_MESSAGE_EVENT,
     AINEKIO_MESSAGE_CAMERA_META,
     AINEKIO_MESSAGE_PONG,
-    AINEKIO_MESSAGE_OUTPUT_TEST,
+    AINEKIO_MESSAGE_BODY_CALIBRATION,
+    AINEKIO_MESSAGE_STORAGE,
 } ainekio_message_kind_t;
 
 typedef enum {
@@ -82,9 +83,13 @@ ainekio_decode_result_t ainekio_control_decode(
     size_t length,
     ainekio_control_message_t *message
 );
-/* The board diagnostic extension is opt-in; V1 never decodes output tests. */
-ainekio_decode_result_t ainekio_control_decode_with_output_tests(
+/* P4 calibration, storage and walking extensions; V1 decoding is unchanged. */
+ainekio_decode_result_t ainekio_control_decode_for_body(
     const char *json, size_t length, ainekio_control_message_t *message);
 const char *ainekio_decode_result_name(ainekio_decode_result_t result);
+
+/* Explicit V2 extension. Default/V1 decoding rejects these fields. */
+ainekio_decode_result_t ainekio_control_decode_with_walk_controls(
+    const char *json, size_t length, ainekio_control_message_t *message);
 
 #endif

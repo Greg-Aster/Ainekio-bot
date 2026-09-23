@@ -45,7 +45,8 @@ typedef enum {
     AINEKIO_COMMAND_LIMITS,
     AINEKIO_COMMAND_POSE_SAVE,
     AINEKIO_COMMAND_CALIBRATION_SAVE,
-    AINEKIO_COMMAND_OUTPUT_TEST,
+    AINEKIO_COMMAND_BODY_CALIBRATION,
+    AINEKIO_COMMAND_STORAGE,
 } ainekio_command_kind_t;
 
 typedef enum {
@@ -67,10 +68,22 @@ typedef enum {
 } ainekio_walk_direction_t;
 
 typedef enum {
+    AINEKIO_GAIT_WALK = 0,
+    AINEKIO_GAIT_CRAWL,
+    AINEKIO_GAIT_RUN,
+} ainekio_gait_t;
+
+typedef enum {
     AINEKIO_TTS_START = 0,
     AINEKIO_TTS_END,
     AINEKIO_TTS_CANCEL,
 } ainekio_tts_operation_t;
+
+typedef enum {
+    AINEKIO_STORAGE_GET = 0,
+    AINEKIO_STORAGE_RETRY,
+    AINEKIO_STORAGE_CLEAR,
+} ainekio_storage_operation_t;
 
 typedef enum {
     AINEKIO_PROFILE_HOME = 0,
@@ -120,6 +133,15 @@ typedef struct {
     float degrees;
 } ainekio_servo_target_t;
 
+#define AINEKIO_BODY_JOINT_COUNT 12U
+typedef enum {
+    AINEKIO_CALIBRATION_GET = 0,
+    AINEKIO_CALIBRATION_SET,
+    AINEKIO_CALIBRATION_MOVE,
+    AINEKIO_CALIBRATION_HOME,
+    AINEKIO_CALIBRATION_SAVE,
+} ainekio_calibration_operation_t;
+
 typedef enum {
     AINEKIO_MOTION_PLAN_END_HOLD = 0,
     AINEKIO_MOTION_PLAN_END_STAND,
@@ -149,7 +171,13 @@ typedef struct {
         } look;
         struct {
             ainekio_walk_direction_t direction;
-            uint8_t steps;
+            uint8_t steps; /* zero means ongoing in the V2 decoder */
+            ainekio_gait_t gait;
+            uint8_t controls; /* 0 legacy/default, 1 automatic speed, 2 stride/rate */
+            float speed_percent;
+            float stride_percent;
+            float motion_rate;
+            uint32_t update_sequence; /* active walk sequence; zero starts a walk */
         } walk;
         char asset[AINEKIO_ASSET_NAME_MAX + 1U];
     } data;
@@ -160,18 +188,25 @@ typedef struct {
     ainekio_command_kind_t kind;
     union {
         struct {
-            bool recover;
-            uint8_t channel;
+            ainekio_calibration_operation_t operation;
+            int8_t id; /* -1 means all joints for home/get/save. */
+            int8_t channel; /* -1 disables a joint. */
+            /* Positive uint16 wire values; the body checks PWM representability.
+             * The protocol does not prescribe a servo's usable travel. */
+            uint16_t home_us;
             uint16_t pulse_us;
-            uint16_t duration_ms;
-            uint8_t fault; /* 0: none, 1: progress stall, 2: interrupted arm, 3: reset */
-        } output_test;
+            bool invert;
+            bool has_mapping; /* Absent optional fields preserve the saved mapping. */
+            int32_t home_cd;
+            float us_per_degree;
+        } calibration;
         struct {
             bool detach;
         } stop;
         ainekio_intent_t intent;
         ainekio_motion_plan_t motion_plan;
         ainekio_tts_operation_t tts_operation;
+        ainekio_storage_operation_t storage_operation;
         struct {
             bool enabled;
             uint8_t fps;

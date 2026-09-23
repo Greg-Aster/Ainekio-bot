@@ -18,13 +18,12 @@ the duration; sampling never loops or resets the joints to zero.
 
 ## Provenance and ownership
 
-These files were imported byte-for-byte from the owner's [2026-09-15 handoff
-archive](../../../../../../docs/TURN_COMMANDS_12SERVO.md). The archive and research
-directory remain the original handoff snapshot; this directory owns the source
-consumed by the firmware build. All 22,088 body/foot/contact/twelve-joint samples,
-manifests, configurations, schemas and validation reports are retained here.
-The original CSV exports, previews, generators and Blender files remain with
-the research package; they are not build inputs.
+The [2026-09-15 handoff archive](../../../../../../docs/TURN_COMMANDS_12SERVO.md)
+remains preserved as historical choreography. This directory owns the current
+firmware sources: all 22,088 body/foot/contact/twelve-joint samples were solved
+again against the present linkage and sole geometry. Updated manifests,
+configurations, schemas and reports bind the rebuilt sources. Original CSVs,
+previews and Blender files remain with the research package.
 
 The geometry hash matches the model's existing `geometry.json`. `catalog.json`
 and each manifest pin the full JSON source. The compiler checks source/geometry

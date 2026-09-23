@@ -1,0 +1,63 @@
+{
+  "command": "upright",
+  "samples": 2641,
+  "max_target_error_mm": 1.0726279783698607e-10,
+  "max_rear_anchor_error_mm": 7.025421286414399e-06,
+  "min_sole_z_mm": -3.696907402428451e-07,
+  "min_body_z_mm": 0.54353543730317,
+  "min_support_margin_after_sit_mm": 4.985728689848111,
+  "minimum_closure_height_mm": 2.382384321067961,
+  "maximum_adjacent_joint_step_degrees": 0.7654283882537867,
+  "joint_min_deg": [
+    [
+      -5.423360867848567e-07,
+      -49.15006989408102,
+      -80.8635747672976
+    ],
+    [
+      -2.2495157177583558e-05,
+      -49.15007413829399,
+      -80.86357099908638
+    ],
+    [
+      1.1370954639750696e-07,
+      -45.53163918301692,
+      -118.78499594348754
+    ],
+    [
+      -1.4087919993304928e-06,
+      -31.336900953621363,
+      -112.48360485259683
+    ]
+  ],
+  "joint_max_deg": [
+    [
+      1.7564222037815569e-06,
+      41.75377181399482,
+      41.37908028145791
+    ],
+    [
+      4.448567284274776e-06,
+      41.75377659753073,
+      41.379087536703686
+    ],
+    [
+      8.000000000000002,
+      5.963328385458309,
+      0.44339110262155607
+    ],
+    [
+      8.000000000000002,
+      23.99164093188393,
+      0.4433823720338099
+    ]
+  ],
+  "final_pitch_deg": -90,
+  "final_front_reach_mm": [
+    92.92685527443531,
+    92.92685527443531
+  ],
+  "hardware_qualified": false,
+  "collision_checked": false,
+  "support_scope": "Provisional COM at body pivot; broad soles within 0.5 mm of floor. No dynamics, mass distribution or traction qualification."
+}

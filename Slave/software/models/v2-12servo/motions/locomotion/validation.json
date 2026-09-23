@@ -1,0 +1,105 @@
+{
+  "commands": [
+    {
+      "command": "crouch",
+      "source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
+      "samples": 481,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -8.646589901672996e-05,
+      "minimum_body_z_mm": 12.776263738559258,
+      "minimum_closure_height_mm": 18.690561744496467,
+      "maximum_interpolated_target_error_mm": 0.0001663721352116454,
+      "hardware_qualified": false
+    },
+    {
+      "command": "crawl_backward",
+      "source_sha256": "234c180c9f77326dd894baf7aa555a41bcad2beb1336ae793c638827c1261aae",
+      "samples": 2214,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -0.00011560938156662814,
+      "minimum_body_z_mm": 12.320677198904292,
+      "minimum_closure_height_mm": 18.690561744496467,
+      "maximum_interpolated_target_error_mm": 0.010741672589631435,
+      "hardware_qualified": false
+    },
+    {
+      "command": "crawl_forward",
+      "source_sha256": "91d459614c94d9273d771f2a50572c977158196b60b0d93788c3fc0275873201",
+      "samples": 2208,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -0.00012551769464863582,
+      "minimum_body_z_mm": 12.320579059374843,
+      "minimum_closure_height_mm": 18.690561744496467,
+      "maximum_interpolated_target_error_mm": 0.010614614585335858,
+      "hardware_qualified": false
+    },
+    {
+      "command": "crawl_turn_left",
+      "source_sha256": "db8b665ed90dc4a4e1a7a05f6f5085a6e81de47d154ceee7255335ad4eb068ac",
+      "samples": 2208,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -9.600314137259147e-05,
+      "minimum_body_z_mm": 12.320579059374836,
+      "minimum_closure_height_mm": 18.690561744496467,
+      "maximum_interpolated_target_error_mm": 0.017172254569128853,
+      "hardware_qualified": false
+    },
+    {
+      "command": "crawl_turn_right",
+      "source_sha256": "6960ddcf505c6f3fe4fe3dd3a284defca192c149264ee753fa6a7e0e7bdb5de7",
+      "samples": 2208,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -9.212453487350558e-05,
+      "minimum_body_z_mm": 12.320579059374836,
+      "minimum_closure_height_mm": 18.690561744496467,
+      "maximum_interpolated_target_error_mm": 0.019916732305329532,
+      "hardware_qualified": false
+    },
+    {
+      "command": "walk_backward",
+      "source_sha256": "5dd2a014758959172ef2834441b1d354a7af823ef6003356e6abef7b406a809c",
+      "samples": 2184,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -0.00449264084556944,
+      "minimum_body_z_mm": 42.399158814293976,
+      "minimum_closure_height_mm": 11.123576803683676,
+      "maximum_interpolated_target_error_mm": 0.11572422288572781,
+      "hardware_qualified": false
+    },
+    {
+      "command": "walk_forward",
+      "source_sha256": "ff28418703aac467f394e421139a49a01ccb4ae9f02d77b493fd6f786084fa0b",
+      "samples": 2184,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -0.004513914081272219,
+      "minimum_body_z_mm": 42.399158814293976,
+      "minimum_closure_height_mm": 11.70056358429804,
+      "maximum_interpolated_target_error_mm": 0.12332915488141794,
+      "hardware_qualified": false
+    },
+    {
+      "command": "walk_turn_left",
+      "source_sha256": "02625de45a8ec950bcec17ae5ff3a6058fc36ce2d3fd28250b0b8f7cebc8bae6",
+      "samples": 2184,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -0.00029111473196508086,
+      "minimum_body_z_mm": 42.399158814293976,
+      "minimum_closure_height_mm": 17.33691340974978,
+      "maximum_interpolated_target_error_mm": 0.02096957611756345,
+      "hardware_qualified": false
+    },
+    {
+      "command": "walk_turn_right",
+      "source_sha256": "b80aa4e7000eca09e80b44dd314d264bb5fca6f8b7b303b40c409d321cb5f139",
+      "samples": 2184,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": -0.0003019851968346643,
+      "minimum_body_z_mm": 42.399158814293976,
+      "minimum_closure_height_mm": 17.33691679762618,
+      "maximum_interpolated_target_error_mm": 0.017581025619461954,
+      "hardware_qualified": false
+    }
+  ],
+  "hardware_qualified": false,
+  "scope": "Recorded native trajectories and linear Blender midpoints; not physical tracking, collision or load qualification."
+}

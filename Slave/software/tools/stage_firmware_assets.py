@@ -59,20 +59,36 @@ def _validate_wake_packages(root: Path) -> None:
             raise ValueError(f"wake package {package_dir.name!r} model SHA-256 mismatch")
 
 
-def stage_assets(*, seed_dir: Path, local_dir: Path, output_dir: Path) -> Path:
+def stage_assets(*, seed_dir: Path, local_dir: Path, output_dir: Path, profile: str = "full") -> Path:
     if not seed_dir.is_dir():
         raise ValueError(f"seed asset directory does not exist: {seed_dir}")
-    if output_dir.resolve() in {seed_dir.resolve(), local_dir.resolve()}:
+    output = output_dir.resolve()
+    sources = (seed_dir.resolve(), local_dir.resolve())
+    if any(output == source or output in source.parents or source in output.parents for source in sources):
         raise ValueError("output directory must be separate from asset sources")
+    if profile not in {"full", "p4"}:
+        raise ValueError("unknown firmware asset profile")
 
     shutil.rmtree(output_dir, ignore_errors=True)
-    shutil.copytree(seed_dir, output_dir)
-    (output_dir / "motions-v1.json").unlink(missing_ok=True)
-
-    if local_dir.exists():
-        if not local_dir.is_dir():
-            raise ValueError(f"local asset path is not a directory: {local_dir}")
-        shutil.copytree(local_dir, output_dir, dirs_exist_ok=True)
+    output_dir.mkdir(parents=True)
+    for source in (seed_dir, local_dir):
+        if not source.exists():
+            continue
+        if not source.is_dir():
+            raise ValueError(f"local asset path is not a directory: {source}")
+        if profile == "full":
+            shutil.copytree(source, output_dir, dirs_exist_ok=True)
+            if source == seed_dir:
+                (output_dir / "motions-v1.json").unlink(missing_ok=True)
+        else:
+            # The P4 currently consumes only voice and wake assets. Do not
+            # import V1 gait geometry or unselected display assets into flash.
+            for name in ("audio-v1.json", "audio", "wake"):
+                item = source / name
+                if item.is_dir():
+                    shutil.copytree(item, output_dir / name, dirs_exist_ok=True)
+                elif item.is_file():
+                    shutil.copy2(item, output_dir / name)
 
     _validate_wake_packages(output_dir)
     return output_dir
@@ -83,6 +99,7 @@ def main() -> int:
     parser.add_argument("--seed-dir", type=Path, required=True)
     parser.add_argument("--local-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--profile", choices=("full", "p4"), default="full")
     args = parser.parse_args()
     staged = stage_assets(**vars(args))
     print(staged)

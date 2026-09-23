@@ -46,6 +46,53 @@ unready movement is rejected before gateway dispatch, and firmware admission
 independently applies model support after session, expiry and sequence checks.
 No raw twelve-joint motion/calibration payload is introduced by this feature.
 
+## Variable forward walking
+
+`walk_controls_v1` is an optional V2 hello feature. The existing `intent: walk`
+envelope accepts `speed` (finite 0–100), or both `stride` (1–100 percent) and
+`rate` (0.25–3 multiplier). Mixing modes, incomplete advanced controls, and
+controls on directions other than `fwd` are rejected. A plain walk remains
+valid. V1 and bodies without this feature reject extended controls.
+
+```json
+{"t":"intent","name":"walk","dir":"fwd","steps":3,"speed":25,"seq":41}
+{"t":"intent","name":"walk","dir":"fwd","steps":3,"stride":100,"rate":2,"update":41,"seq":42}
+{"t":"intent","name":"walk","dir":"fwd","steps":1,"speed":0,"update":41,"seq":43}
+```
+
+An optional `update` names the original active walk sequence. It requires controls,
+preserves phase and cycle count, and uses the normal fresh sequence, epoch and
+expiry checks. The update's ACK settles its settings request; only the original
+walk emits movement completion. The gateway rejects missing/completed targets
+before dispatch and exposes `active_walk_sequence` to Body Control. Speed zero
+requests the model's controlled finish; independent emergency detach is unchanged.
+The native accept API runs after shared admission. P4 keeps `motion=false` and
+cannot physically execute this extension yet. See the
+[V2 model](../models/v2-12servo/README.md) for the speed mapping and transition rules.
+
+## Directional locomotion and automatic Run
+
+`walk_controls_v2` adds `dir: fwd|back|turn_l|turn_r`, `gait: walk|crawl`
+and `steps:0` for ongoing operation. `run_gait_v1` additionally permits Speed
+above 100 through 200 on the Walk family, and explicit `gait:run` for advanced
+stride/rate tuning. Crawl Speed remains 0–100. The gateway requires both the
+feature and declared `run` capability; older bodies cannot silently interpret it.
+
+```json
+{"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":100,"seq":51}
+{"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":150,"update":51,"seq":52}
+{"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":75,"update":51,"seq":53}
+{"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":0,"update":51,"seq":54}
+```
+
+This is one command transitioning Walk → Run → Walk → Finish. The wire gait
+family stays `walk`; changing Speed does not require a new sequence owner or a
+stop. Only the original sequence emits completion. Changing direction or the
+explicit gait family still requires finishing the active command. The schema
+expresses field ranges; negotiated-feature admission is an additional runtime rule.
+A bare semantic Run selects ongoing V2 Walk-family Speed 150; V1 keeps its
+preprogrammed Run asset. Firmware output supervision and calibration are unchanged.
+
 ## Existing lifecycle and media contracts
 
 The current protocol-v1 liveness contract sends an application control ping
@@ -94,3 +141,62 @@ Run the host fixture suite from the repository root:
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=Slave/software \
   python3 -m unittest discover -s Slave/software/tests/protocol -v
 ```
+
+## Twelve-joint operator calibration
+
+`body_calibration_v2` is negotiated only by the P4 body. V1's eight-joint
+`servo`, `limits`, and `cal_save` messages remain unchanged. It is an authenticated
+Body Control operator service, not a MetaHuman motion or raw-angle action.
+
+Requests use `t: "calibration"`, `seq`, the session `epoch` and `deadline_ms`.
+`op` is `get`, `set`, `move`, `home`, or `save`. `get` reads all twelve records in
+any mode; the other operations require `mode: calibrate`. `set` stages one
+record (`id`, `channel`, `home_us`, `invert`) without moving it. The optional
+`home_cd` and `us_per_degree` mapping fields must be supplied together; omitting
+them preserves the saved mapping.
+IDs are 0–11; channels are 0–11 or -1 to disable a joint. Assigned channels must
+be unique. Home and Move pulses are positive 16-bit integers (1–65535 µs).
+Those are wire-format bounds, not a declaration of servo travel; the body also
+checks whether its configured PWM hardware can represent the pulse. `move`
+takes `id` and `pulse_us`. There are no per-joint pulse endpoints in this
+contract. `home` optionally takes `id`, otherwise homes assigned
+joints. `save` commits the staged records without rebooting; outputs are disabled
+before the flash write, and an explicit subsequent home/move resumes them.
+
+Each successful operation emits ACK, then `calibration_status` carrying the same
+sequence, `dirty`, `saved`, `ready`, and exactly twelve `joints` records. Records
+include `pulse_us`, the last commanded pulse (0–65535, with zero when disabled),
+not measured shaft position. `ready` describes calibration/output readiness, never gait
+qualification. `saved` means the records match committed storage; defaults may
+be neither dirty nor saved. Failed operations produce NAK. The gateway requires
+correlated readback before reporting success and discards cached calibration on
+reconnect. An ACK alone does not confirm a save or position.
+
+When the PWM hardware range is available, `calibration_status` includes the
+paired optional `pulse_min_us` and `pulse_max_us` fields. Both are positive
+16-bit integers, with minimum <= maximum. They describe pulse widths the
+configured PWM hardware can represent, not the endpoints of an attached servo.
+Bodies omit both fields when hardware capacity is unavailable.
+
+Physical order is rear-left, rear-right, front-left, front-right, with shoulder,
+carrier and crank in each group. Front-left therefore uses joint IDs 6, 7, 8;
+its default PCA channels match those IDs. Channel assignments are calibration
+data and may be changed explicitly by the owner.
+
+## Storage service and current capabilities
+
+P4 advertises `storage_control_v1` and `capabilities.storage=true` when the
+storage service is implemented, including when no card is mounted. Operator
+requests `{t:"storage",op:"get"|"retry"|"clear",seq,epoch,deadline_ms}` receive
+ACK followed by a correlated `storage_status` with `available`, `mounted`,
+`busy`, `total_bytes`, `free_bytes`, `dropped_records` and a bounded `error`
+string. Clear deletes Ainekio logs and captures; it does not format the card.
+The dashboard requires explicit confirmation and a fresh mounted/idle readback
+before clearing, and the device independently rechecks its storage state.
+V1 does not decode this extension.
+
+For bodies negotiating `body_capabilities_v1`, regular `status` may include the
+same complete `capabilities` object used in hello. The gateway replaces its
+capability snapshot after validating that status. Camera or audio readiness
+can therefore change after asynchronous initialization without reconnecting.
+This never implies that a separately deferred movement executor is ready.

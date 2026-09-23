@@ -23,8 +23,12 @@ from protocol.binary_helpers import (
 )
 from protocol.control_v1 import (
     BODY_CAPABILITIES_FEATURE,
+    WALK_CONTROLS_FEATURE,
+    LOCOMOTION_FEATURE,
+    RUN_GAIT_FEATURE,
     COMMAND_DEADLINE_FEATURE,
-    OUTPUT_TEST_FEATURE,
+    BODY_CALIBRATION_FEATURE,
+    STORAGE_CONTROL_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
     MOTION_PLAN_JOINT_MAP,
@@ -42,6 +46,8 @@ MAX_WEBSOCKET_MESSAGE_BYTES = MAX_JPEG_BYTES + 5
 DEFAULT_PING_INTERVAL_SECONDS = 1.0
 CONTROL_STALE_SECONDS = 4.0
 TTS_START_ACK_TIMEOUT_SECONDS = 2.0
+SPEAKER_FRAME_SECONDS = 0.020
+SPEAKER_PREBUFFER_FRAMES = 5
 
 GatewayCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 
@@ -140,6 +146,9 @@ class GatewayConnection:
         self.pending: dict[int, PendingCommand] = {}
         self.completed: dict[int, dict[str, object]] = {}
         self.last_status: dict[str, object] | None = None
+        self.last_calibration: dict[str, object] | None = None
+        self.last_storage: dict[str, object] | None = None
+        self.mode = "normal"
         self.last_command: dict[str, object] | None = None
         self.profile = service.config.profile
         self.microphone_level = 0.0
@@ -201,14 +210,60 @@ class GatewayConnection:
                 raise GatewayError("session sequence space exhausted")
 
             message = dict(command)
+            # V1 keeps its preprogrammed Run asset. V2 Run is the same ongoing
+            # walking command with Speed above 100; feature admission follows.
+            if self.model == "v2-12servo" and message.get("t") == "intent" and message.get("name") == "emote" and message.get("asset") == "run":
+                message = {"t":"intent", "name":"walk", "dir":"fwd", "steps":0, "gait":"walk", "speed":150}
+            if message.get("t") == "intent" and message.get("name") == "walk" and (
+                message.get("steps") == 0 or any(key in message for key in
+                    ("speed", "stride", "rate", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
+            ):
+                if self.model != "v2-12servo" or not {WALK_CONTROLS_FEATURE, LOCOMOTION_FEATURE}.intersection(self.features):
+                    raise GatewayError("body does not support variable walking controls")
+                if (message.get("steps") == 0 or "gait" in message or message.get("dir") != "fwd") and LOCOMOTION_FEATURE not in self.features:
+                    raise GatewayError("body does not support ongoing directional locomotion")
+                # Validate before allocating a sequence or creating pending work.
+                validate_control_message({**message, "seq": 1})
+                if "update" in message:
+                    active = self.pending.get(message["update"])
+                    if active is None or active.future.done() or active.command.get("name") != "walk" or "update" in active.command:
+                        raise GatewayError("walk update does not identify an active walk")
+                    if message.get("dir") != active.command.get("dir") or message.get("gait", "walk") != active.command.get("gait", "walk"):
+                        raise GatewayError("finish the active walk before changing direction or gait")
             supported = body_commands(self.model, self.features, self.capabilities)
+            if message.get("name") == "walk" and message.get("gait") == "crawl" and not body_command_available("crawl", supported):
+                raise GatewayError("crawl is unavailable on this body")
+            if message.get("name") == "walk" and (message.get("gait") == "run" or message.get("speed", 0) > 100):
+                if RUN_GAIT_FEATURE not in self.features or not body_command_available("run", supported):
+                    raise GatewayError("body does not support the bounding Run gait")
             movement = movement_command(message)
             if movement is not None and not body_command_available(movement, supported):
                 raise GatewayError(f"{movement} is unavailable on body {self.robot_id} ({self.model})")
             if self.model != "v1-8servo" and message.get("t") in {"servo", "limits", "pose_save", "cal_save"}:
                 raise GatewayError("this body does not support the eight-servo calibration contract")
-            if message.get("t") == "output_test" and OUTPUT_TEST_FEATURE not in self.features:
-                raise GatewayError("body does not support output diagnostics")
+            if message.get("t") == "calibration" and (
+                self.model != "v2-12servo" or BODY_CALIBRATION_FEATURE not in self.features
+            ):
+                raise GatewayError("body does not support twelve-joint calibration")
+            if message.get("t") == "storage" and (
+                self.model != "v2-12servo" or STORAGE_CONTROL_FEATURE not in self.features
+            ):
+                raise GatewayError("body does not support storage control")
+            # Feature checks and validation precede sequence allocation: a
+            # rejected operator request never creates pending device work.
+            capability = {
+                "cam": "camera", "snap": "camera", "mic": "microphone",
+                "wake": "wake", "tts": "speaker", "profile": "profile", "state": "power", "storage": "storage",
+            }.get(message.get("t"))
+            if message.get("t") == "intent":
+                capability = {"face": "display", "say": "speaker"}.get(message.get("name"))
+            if self.model != "v1-8servo" and capability and (
+                self.capabilities is None or self.capabilities.get(capability) is not True
+            ):
+                reasons = (self.capabilities or {}).get("reasons", {})
+                reason = reasons.get(capability) if isinstance(reasons, dict) else None
+                raise GatewayError(str(reason or f"{capability} is unavailable on this body"))
+            validate_control_message({**message, "seq": 1})
             if COMMAND_DEADLINE_FEATURE in self.features:
                 message["epoch"] = self.epoch
                 if message.get("t") != "stop":
@@ -274,23 +329,56 @@ class GatewayConnection:
                     f"robot {self.robot_id} did not acknowledge TTS start"
                 ) from error
             counter = 0
-            if isinstance(pcm_stream, AsyncIterable):
-                async for payload in pcm_stream:
-                    await self._send_speaker_frame(counter, payload)
-                    counter = (counter + 1) & 0xFFFFFFFF
-            else:
-                for payload in pcm_stream:
-                    await self._send_speaker_frame(counter, payload)
-                    counter = (counter + 1) & 0xFFFFFFFF
-            await self.send_command(
-                {"t": "tts", "op": "end"},
-                received_at=self.service.clock(),
-            )
+            loop = asyncio.get_running_loop()
+            lead = (SPEAKER_PREBUFFER_FRAMES - 1) * SPEAKER_FRAME_SECONDS
+            next_frame_at = loop.time() - lead
+
+            async def send_frame(payload: bytes) -> None:
+                nonlocal counter, next_frame_at
+                # Bound both initial prebuffer and catch-up after a slow source.
+                # The scheduler clock is independent of host wall-clock tests.
+                next_frame_at = max(next_frame_at, loop.time() - lead)
+                await asyncio.sleep(max(0.0, next_frame_at - loop.time()))
+                await self._send_speaker_frame(counter, payload, start_sequence=start_sequence)
+                next_frame_at += SPEAKER_FRAME_SECONDS
+                counter = (counter + 1) & 0xFFFFFFFF
+
+            try:
+                if isinstance(pcm_stream, AsyncIterable):
+                    async for payload in pcm_stream:
+                        await send_frame(payload)
+                else:
+                    for payload in pcm_stream:
+                        await send_frame(payload)
+                self._check_speaker_session(start_sequence)
+                await self.send_command(
+                    {"t": "tts", "op": "end"},
+                    received_at=self.service.clock(),
+                )
+            except (Exception, asyncio.CancelledError):
+                # Producer failure or caller cancellation must not leave the
+                # device waiting forever for the remainder of this utterance.
+                if start_sequence in self.pending and not self.websocket.closed:
+                    try:
+                        await self.send_command({"t": "tts", "op": "cancel"}, received_at=self.service.clock())
+                    except Exception:
+                        pass
+                raise
             return start_sequence
 
-    async def _send_speaker_frame(self, counter: int, payload: bytes) -> None:
+    def _check_speaker_session(self, start_sequence: int) -> None:
+        pending = self.pending.get(start_sequence)
+        if (self.websocket.closed or self.service._connections.get(self.robot_id) is not self or
+                self.service.clock() - self.last_control_at >= CONTROL_STALE_SECONDS):
+            raise RobotOfflineError("speaker body connection is offline, replaced or stale")
+        if pending is None or pending.future.done() or not pending.acknowledged:
+            raise GatewayError("speaker stream was cancelled or completed")
+
+    async def _send_speaker_frame(self, counter: int, payload: bytes, *, start_sequence: int) -> None:
+        self._check_speaker_session(start_sequence)
         frame = encode_binary_frame(SPEAKER_PCM_FRAME_TYPE, counter, payload)
         async with self._send_lock:
+            self._check_speaker_session(start_sequence)
             await self.websocket.send(frame)
             self.last_sent_at = self.service.clock()
 
@@ -353,7 +441,12 @@ class GatewayConnection:
             await self.send_control({"t": "pong"})
             return
         if message_type == "status":
+            validate_control_message(message)
             self.last_status = dict(message)
+            if BODY_CAPABILITIES_FEATURE in self.features and "capabilities" in message:
+                self.capabilities = dict(message["capabilities"])
+            if message.get("mode") in {"normal", "calibrate"}:
+                self.mode = str(message["mode"])
             await self.service._publish_event(
                 {"robot_id": self.robot_id, "epoch": self.epoch, **message}
             )
@@ -371,6 +464,20 @@ class GatewayConnection:
             return
         pending = self.pending.get(sequence)
         if pending is None:
+            return
+        if message_type == "calibration_status":
+            if pending.command.get("t") != "calibration" or not pending.acknowledged:
+                return
+            validate_control_message(message)
+            self.last_calibration = dict(message)
+            self._finish_pending(sequence, message)
+            return
+        if message_type == "storage_status":
+            if pending.command.get("t") != "storage" or not pending.acknowledged:
+                return
+            validate_control_message(message)
+            self.last_storage = dict(message)
+            self._finish_pending(sequence, message)
             return
         if message_type == "ack":
             pending.acknowledged = True
@@ -398,6 +505,8 @@ class GatewayConnection:
             and pending.command.get("t") == "profile"
         ):
             self.profile = str(pending.command["name"])
+        if result.get("t") == "ack" and pending.command.get("t") == "mode":
+            self.mode = str(pending.command["name"])
         pending.future.set_result(dict(result))
         self.completed[sequence] = dict(result)
         while len(self.completed) > 256:
@@ -408,7 +517,7 @@ class GatewayConnection:
             # their individual cancellation acknowledgements were lost. Keep
             # commands admitted after the stop and ACK-only controls intact.
             for earlier, command in tuple(self.pending.items()):
-                if earlier < sequence and command.needs_done:
+                if earlier < sequence and command.needs_done and command.command.get("t") != "storage":
                     self._finish_pending(earlier, {"t": "cancelled", "seq": earlier, "code": "stop"})
 
     async def wait_acknowledged(
@@ -709,13 +818,6 @@ class GatewayService:
         resolution: str,
         robot_id: str | None = None,
     ) -> int:
-        connection = self._connection(robot_id)
-        if resolution not in {"QVGA", "VGA"}:
-            raise GatewayError("camera preview resolution must be QVGA or VGA")
-        if connection.profile == "home" and fps > 10:
-            raise GatewayError("home profile camera limit is 10 fps")
-        if connection.profile == "tether" and fps != 0:
-            raise GatewayError("tether profile permits snapshots only")
         return await self._send(
             {"t": "cam", "on": on, "fps": fps, "res": resolution},
             robot_id=robot_id,
@@ -728,9 +830,6 @@ class GatewayService:
         gate: str,
         robot_id: str | None = None,
     ) -> int:
-        connection = self._connection(robot_id)
-        if connection.profile == "tether" and gate == "open":
-            raise GatewayError("tether profile requires vad or wake microphone gate")
         return await self._send(
             {"t": "mic", "on": on, "gate": gate},
             robot_id=robot_id,
@@ -777,15 +876,51 @@ class GatewayService:
             robot_id=robot_id,
         )
 
-    async def test_outputs(
-        self, *, operation: str, channel: int = 0, pulse_us: int = 1500,
-        duration_ms: int = 100, fault: str = "none", robot_id: str | None = None,
-    ) -> int:
-        """Bench-only, feature-negotiated command; the body owns every output gate."""
-        command: dict[str, object] = {"t": "output_test", "op": operation}
-        if operation == "run":
-            command.update(channel=channel, pulse_us=pulse_us, ms=duration_ms, fault=fault)
-        return await self._send(command, robot_id=robot_id)
+    async def body_calibration(
+        self, operation: str, values: Mapping[str, object] | None = None,
+        *, robot_id: str | None = None,
+    ) -> dict[str, object]:
+        """Operator service only; return correlated device readback, never a host echo."""
+        connection = self._connection(robot_id)
+        fields = dict(values or {})
+        if set(fields) - {"id", "channel", "home_us", "invert", "pulse_us", "home_cd", "us_per_degree"}:
+            raise GatewayError("unknown calibration fields")
+        sequence = await connection.send_command(
+            {**fields, "t": "calibration", "op": operation}, received_at=self.clock(),
+        )
+        try:
+            result = await connection.wait_terminal(sequence, timeout=5.0)
+        except TimeoutError as error:
+            connection.last_calibration = None
+            connection._finish_pending(sequence, {"t": "cancelled", "seq": sequence, "code": "disconnect"})
+            raise GatewayError("calibration readback timed out; refresh from the body before continuing") from error
+        if result.get("t") != "calibration_status":
+            raise GatewayError(str(result.get("msg") or result.get("code") or "calibration did not complete"))
+        return result
+
+    async def body_storage(self, operation: str, *, robot_id: str | None = None) -> dict[str, object]:
+        """Storage operations are operator-owned and settle only on device readback."""
+        connection = self._connection(robot_id)
+        if operation == "clear":
+            # Read current readiness before starting a destructive operation;
+            # a stale dashboard snapshot cannot establish mount/busy state.
+            status = await self.body_storage("get", robot_id=connection.robot_id)
+            if self._connection(connection.robot_id) is not connection:
+                raise GatewayError("body session changed before storage clear; read its status again")
+            if not status["available"] or not status["mounted"] or status["busy"]:
+                raise GatewayError("storage must be mounted and idle before clearing logs and captures")
+        sequence = await connection.send_command(
+            {"t": "storage", "op": operation}, received_at=self.clock(),
+        )
+        try:
+            result = await connection.wait_terminal(sequence, timeout=5.0)
+        except TimeoutError as error:
+            connection.last_storage = None
+            connection._finish_pending(sequence, {"t": "cancelled", "seq": sequence, "code": "disconnect"})
+            raise GatewayError("storage result timed out; read status from the body before continuing") from error
+        if result.get("t") != "storage_status":
+            raise GatewayError(str(result.get("msg") or result.get("code") or "storage operation did not complete"))
+        return result
 
     async def set_servo_limits(
         self,
@@ -898,11 +1033,16 @@ class GatewayService:
                     "epoch": connection.epoch,
                     "next_sequence": connection.next_sequence,
                     "profile": connection.profile,
+                    "mode": connection.mode,
                     "transport": connection.transport,
                     "features": list(connection.features),
                     "model": connection.model,
                     "capabilities": connection.capabilities,
                     "robot_commands": body_commands(connection.model, connection.features, connection.capabilities),
+                    "active_walk_sequence": next((seq for seq, item in connection.pending.items()
+                        if not item.future.done() and item.command.get("name") == "walk" and "update" not in item.command), None),
+                    "active_walk": next((dict(item.command) for item in connection.pending.values()
+                        if not item.future.done() and item.command.get("name") == "walk" and "update" not in item.command), None),
                     "effective_caps": _profile_caps(connection.profile),
                     "pending": sum(
                         not command.future.done() for command in connection.pending.values()
@@ -925,6 +1065,8 @@ class GatewayService:
                     "last_command": connection.last_command,
                     "microphone_level": round(connection.microphone_level, 4),
                     "status": connection.last_status,
+                    "calibration": connection.last_calibration,
+                    "storage": connection.last_storage,
                 }
                 for robot_id, connection in self._connections.items()
             }
@@ -1010,9 +1152,10 @@ async def _send_control(websocket: Any, message: Mapping[str, object]) -> None:
 
 def _command_needs_done(command: Mapping[str, object]) -> bool:
     message_type = command.get("t")
+    if message_type == "intent" and command.get("name") == "walk" and "update" in command:
+        return False  # settings acknowledgement; original walk owns completion
     return (
-        message_type in {"intent", "motion_plan", "snap"}
-        or (message_type == "output_test" and command.get("op") == "run")
+        message_type in {"intent", "motion_plan", "snap", "calibration", "storage"}
         or (message_type == "tts" and command.get("op") == "start")
         or (message_type == "state" and command.get("name") == "sleep")
     )
@@ -1026,16 +1169,9 @@ async def _publish(callbacks: list[GatewayCallback], payload: dict[str, object])
 
 
 def _profile_caps(profile: str) -> dict[str, object]:
-    if profile == "tether":
-        return {
-            "camera_max_fps": 0,
-            "camera_default_resolution": "QVGA",
-            "microphone_gates": ["vad", "wake"],
-            "status_interval_s": 30,
-        }
     return {
-        "camera_max_fps": 10,
-        "camera_default_resolution": "VGA",
+        "camera_max_fps": 15,
+        "camera_default_resolution": "QVGA" if profile == "tether" else "VGA",
         "microphone_gates": ["open", "vad", "wake"],
-        "status_interval_s": 5,
+        "status_interval_s": 30 if profile == "tether" else 5,
     }

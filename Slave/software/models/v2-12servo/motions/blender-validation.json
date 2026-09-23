@@ -1,0 +1,324 @@
+{
+  "status": "original_actions_restored_and_source_parity_verified",
+  "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "recovery": "ainekio-variable-gait-Rolling-Recovery.blend",
+  "original_action_bindings_exact": 62,
+  "original_keys_exact": 1894581,
+  "chapters": 39,
+  "source_comparison": [
+    {
+      "command": "walk",
+      "samples": 3889,
+      "old_samples": 3889,
+      "joint_max_error_deg": 3.8113937819161947e-06,
+      "rotation_max_error_rad": 1.8605529200632631e-09,
+      "body_max_error_mm": 6.0739970763279416e-05
+    },
+    {
+      "command": "sit",
+      "samples": 601,
+      "old_samples": 601,
+      "joint_max_error_deg": 9.532762241803994e-07,
+      "rotation_max_error_rad": 1.488336587307515e-08,
+      "body_max_error_mm": 2.6456319730527866e-06
+    },
+    {
+      "command": "rest",
+      "samples": 601,
+      "old_samples": 601,
+      "joint_max_error_deg": 9.519538153313079e-07,
+      "rotation_max_error_rad": 0.0,
+      "body_max_error_mm": 1.8892219699750967e-06
+    },
+    {
+      "command": "wave",
+      "samples": 1921,
+      "old_samples": 1921,
+      "joint_max_error_deg": 3.814697265625e-06,
+      "rotation_max_error_rad": 1.488336587307515e-08,
+      "body_max_error_mm": 2.6456319730527866e-06
+    },
+    {
+      "command": "point",
+      "samples": 1321,
+      "old_samples": 1321,
+      "joint_max_error_deg": 7.591681224994318e-06,
+      "rotation_max_error_rad": 7.423480469226362e-09,
+      "body_max_error_mm": 2.316950954650565e-06
+    },
+    {
+      "command": "nod",
+      "samples": 1021,
+      "old_samples": 1021,
+      "joint_max_error_deg": 3.6013772870546745e-06,
+      "rotation_max_error_rad": 7.401801643824868e-09,
+      "body_max_error_mm": 7.849703322904134e-06
+    },
+    {
+      "command": "pushup",
+      "samples": 1741,
+      "old_samples": 1741,
+      "joint_max_error_deg": 3.808495350199337e-06,
+      "rotation_max_error_rad": 1.4780654589152675e-08,
+      "body_max_error_mm": 7.361696560792552e-06
+    },
+    {
+      "command": "bow",
+      "samples": 1021,
+      "old_samples": 1021,
+      "joint_max_error_deg": 3.806405572959193e-06,
+      "rotation_max_error_rad": 7.386134176501358e-09,
+      "body_max_error_mm": 7.665187482075453e-06
+    },
+    {
+      "command": "dance",
+      "samples": 1501,
+      "old_samples": 1501,
+      "joint_max_error_deg": 1.8256060201338187e-06,
+      "rotation_max_error_rad": 3.549656790724498e-09,
+      "body_max_error_mm": 6.456704554125281e-06
+    },
+    {
+      "command": "swim",
+      "samples": 2821,
+      "old_samples": 2821,
+      "joint_max_error_deg": 3.814639427446309e-06,
+      "rotation_max_error_rad": 1.8544693280997393e-09,
+      "body_max_error_mm": 6.541013753746938e-06
+    },
+    {
+      "command": "cute",
+      "samples": 1621,
+      "old_samples": 1621,
+      "joint_max_error_deg": 3.813961811260924e-06,
+      "rotation_max_error_rad": 1.8498546097700519e-09,
+      "body_max_error_mm": 7.120604998078761e-06
+    },
+    {
+      "command": "freaky",
+      "samples": 1165,
+      "old_samples": 1165,
+      "joint_max_error_deg": 3.803779620170644e-06,
+      "rotation_max_error_rad": 0.0,
+      "body_max_error_mm": 2.8548896153779424e-06
+    },
+    {
+      "command": "worm",
+      "samples": 1501,
+      "old_samples": 1501,
+      "joint_max_error_deg": 1.9065591132516602e-06,
+      "rotation_max_error_rad": 3.678905194370863e-09,
+      "body_max_error_mm": 6.907422360313831e-06
+    },
+    {
+      "command": "shake",
+      "samples": 841,
+      "old_samples": 841,
+      "joint_max_error_deg": 1.9042862575702202e-06,
+      "rotation_max_error_rad": 1.3395824227657727e-08,
+      "body_max_error_mm": 7.8659646121082e-06
+    },
+    {
+      "command": "shrug",
+      "samples": 1225,
+      "old_samples": 1225,
+      "joint_max_error_deg": 3.8090109626409685e-06,
+      "rotation_max_error_rad": 1.8498546097700519e-09,
+      "body_max_error_mm": 6.24719956476838e-06
+    },
+    {
+      "command": "dead",
+      "samples": 1477,
+      "old_samples": 1477,
+      "joint_max_error_deg": 3.8117928795600164e-06,
+      "rotation_max_error_rad": 1.7974751270743994e-09,
+      "body_max_error_mm": 6.855079966783251e-06
+    },
+    {
+      "command": "crab",
+      "samples": 3673,
+      "old_samples": 3673,
+      "joint_max_error_deg": 1.9062801612790281e-06,
+      "rotation_max_error_rad": 0.0,
+      "body_max_error_mm": 2.4906341025143774e-06
+    },
+    {
+      "command": "celebrate",
+      "samples": 1501,
+      "old_samples": 1501,
+      "joint_max_error_deg": 3.8106471720311674e-06,
+      "rotation_max_error_rad": 1.8498546097700519e-09,
+      "body_max_error_mm": 7.120604998078761e-06
+    },
+    {
+      "command": "stretch",
+      "samples": 805,
+      "old_samples": 805,
+      "joint_max_error_deg": 1.902015107191346e-06,
+      "rotation_max_error_rad": 7.301235727119604e-09,
+      "body_max_error_mm": 6.7871207534153655e-06
+    },
+    {
+      "command": "surprised",
+      "samples": 1435,
+      "old_samples": 1435,
+      "joint_max_error_deg": 3.8135250264303977e-06,
+      "rotation_max_error_rad": 1.8498546097700519e-09,
+      "body_max_error_mm": 6.24719956476838e-06
+    },
+    {
+      "command": "sad",
+      "samples": 1057,
+      "old_samples": 1057,
+      "joint_max_error_deg": 9.533899820723946e-07,
+      "rotation_max_error_rad": 7.301011878402264e-09,
+      "body_max_error_mm": 7.467483364109739e-06
+    },
+    {
+      "command": "curious",
+      "samples": 1171,
+      "old_samples": 1171,
+      "joint_max_error_deg": 9.494649901853336e-07,
+      "rotation_max_error_rad": 7.401801643824868e-09,
+      "body_max_error_mm": 6.749740634859336e-06
+    },
+    {
+      "command": "turn_left_15",
+      "samples": 1801,
+      "old_samples": 1801,
+      "joint_max_error_deg": 1.8268924648623397e-06,
+      "rotation_max_error_rad": 1.4900334743828125e-08,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_right_15",
+      "samples": 1801,
+      "old_samples": 1801,
+      "joint_max_error_deg": 1.8905687753090206e-06,
+      "rotation_max_error_rad": 1.4900334743828125e-08,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_left_45",
+      "samples": 2281,
+      "old_samples": 2281,
+      "joint_max_error_deg": 1.9045255754690515e-06,
+      "rotation_max_error_rad": 2.929492814995882e-08,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_right_45",
+      "samples": 2281,
+      "old_samples": 2281,
+      "joint_max_error_deg": 1.896806857359934e-06,
+      "rotation_max_error_rad": 2.929492814995882e-08,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_left_90",
+      "samples": 2761,
+      "old_samples": 2761,
+      "joint_max_error_deg": 1.881873622266994e-06,
+      "rotation_max_error_rad": 5.918679746308442e-08,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_right_90",
+      "samples": 2761,
+      "old_samples": 2761,
+      "joint_max_error_deg": 1.9043366563664677e-06,
+      "rotation_max_error_rad": 5.918679746308442e-08,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_left_180",
+      "samples": 4201,
+      "old_samples": 4201,
+      "joint_max_error_deg": 1.9070926171593783e-06,
+      "rotation_max_error_rad": 1.1888646911373257e-07,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "turn_right_180",
+      "samples": 4201,
+      "old_samples": 4201,
+      "joint_max_error_deg": 1.9063946581354685e-06,
+      "rotation_max_error_rad": 1.1888646911373257e-07,
+      "body_max_error_mm": 2.1254618189914254e-06
+    },
+    {
+      "command": "crouch",
+      "samples": 481,
+      "old_samples": 481,
+      "joint_max_error_deg": 2.612256581713268e-05,
+      "rotation_max_error_rad": 0.0,
+      "body_max_error_mm": 2.7508726532232686e-06
+    },
+    {
+      "command": "crawl_forward",
+      "samples": 2208,
+      "old_samples": 2208,
+      "joint_max_error_deg": 3.437115289983694e-05,
+      "rotation_max_error_rad": 4.5435469622767677e-10,
+      "body_max_error_mm": 2.8046426166383753e-05
+    },
+    {
+      "command": "crawl_backward",
+      "samples": 2214,
+      "old_samples": 2214,
+      "joint_max_error_deg": 3.541767343406832e-05,
+      "rotation_max_error_rad": 4.628353950097974e-10,
+      "body_max_error_mm": 2.9268597586451506e-05
+    },
+    {
+      "command": "crawl_turn_left",
+      "samples": 2208,
+      "old_samples": 2208,
+      "joint_max_error_deg": 3.743368259279123e-05,
+      "rotation_max_error_rad": 1.1838859848012362e-07,
+      "body_max_error_mm": 6.5675547418209135e-06
+    },
+    {
+      "command": "crawl_turn_right",
+      "samples": 2208,
+      "old_samples": 2208,
+      "joint_max_error_deg": 3.421832932204438e-05,
+      "rotation_max_error_rad": 1.1838859848012362e-07,
+      "body_max_error_mm": 6.5675547418209135e-06
+    },
+    {
+      "command": "walk_forward",
+      "samples": 2184,
+      "old_samples": 2184,
+      "joint_max_error_deg": 2.309661650201633e-05,
+      "rotation_max_error_rad": 1.8562316614345598e-09,
+      "body_max_error_mm": 0.00012091234816580254
+    },
+    {
+      "command": "walk_backward",
+      "samples": 2184,
+      "old_samples": 2184,
+      "joint_max_error_deg": 2.2672375180832205e-05,
+      "rotation_max_error_rad": 1.8562316614345598e-09,
+      "body_max_error_mm": 0.0001204354509809491
+    },
+    {
+      "command": "walk_turn_left",
+      "samples": 2184,
+      "old_samples": 2184,
+      "joint_max_error_deg": 1.5314537290311847e-05,
+      "rotation_max_error_rad": 2.3829755857462942e-07,
+      "body_max_error_mm": 8.52109373283838e-06
+    },
+    {
+      "command": "walk_turn_right",
+      "samples": 2184,
+      "old_samples": 2184,
+      "joint_max_error_deg": 1.33697164428348e-05,
+      "rotation_max_error_rad": 2.3829755857462942e-07,
+      "body_max_error_mm": 8.52109373283838e-06
+    }
+  ],
+  "verification_scope": "Original saved action keys, handles and interpolation exact against rolling recovery. Regenerated numerical sources match original keys within float storage/recording tolerance. Does not claim collision-free or physically qualified motion.",
+  "hardware_qualified": false
+}

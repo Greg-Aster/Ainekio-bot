@@ -1,98 +1,53 @@
 # Twelve-servo postures and gestures
 
-These twenty-one clips extend the existing walk and eight turns. They reuse
-the gateway-owned semantic names and V1 command envelopes; the P4 selects its
-own twelve-joint geometry. `sit` is a native intent. The other twenty use
-`{"t":"intent","name":"emote","asset":"<name>"}`.
+The 23 gestures include the new experimental Upright. The preceding 22 gestures and eight finite turns retain their choreography. V1 assets are preserved. Sit uses the native `sit` intent; other gestures use `emote` with the named asset.
 
-| Command | Command duration | Retained handoff under `docs/gait-research/` |
+| Command | Duration | Completion |
 | --- | --- | --- |
-| `sit` | 5 s | `sit-bored-20260915` |
-| `rest` | 5 s | `rest-20260915` |
-| `wave` | 16 s | `wave-seated-20260916` |
-| `dance` | 12.5 s | `dance-20260916` |
-| `swim` | 23.5 s | `swim-20260916` |
-| `point` | 11 s | `point-20260916` |
-| `nod` | 14.5 s | `nod-20260916` |
-| `pushup` | 14.5 s | `pushup-deep-20260916` |
-| `bow` | 8.5 s | `bow-20260916` |
-| `cute` | 13.5 s | `motion-batch-20260916/commands/cute` |
-| `freaky` | 9.2 s | `motion-batch-20260916/commands/freaky` |
-| `worm` | 12 s | `motion-batch-20260916/commands/worm` |
-| `shake` | 7 s | `motion-batch-20260916/commands/shake` |
-| `shrug` | 10.2 s | `motion-batch-20260916/commands/shrug` |
-| `dead` | 7.4 s | `motion-batch-20260916/commands/dead` |
-| `crab` | 30.1 s | `motion-batch-20260916/commands/crab` |
-| `celebrate` | 12.5 s | `motion-batch-20260916/commands/celebrate` |
-| `stretch` | 6.7 s | `motion-batch-20260916/commands/stretch` |
-| `surprised` | 11.95 s | `motion-batch-20260916/commands/surprised` |
-| `sad` | 8.8 s | `motion-batch-20260916/commands/sad` |
-| `curious` | 9.75 s | `motion-batch-20260916/commands/curious` |
+| `sit` | 5 s | Hold the recorded command endpoint |
+| `rest` | 5 s | Hold the recorded command endpoint |
+| `wave` | 16 s | Hold the recorded command endpoint |
+| `dance` | 12.5 s | Hold the recorded command endpoint |
+| `swim` | 23.5 s | Hold the recorded command endpoint |
+| `point` | 11 s | Hold the recorded command endpoint |
+| `nod` | 8.5 s | Hold the recorded command endpoint |
+| `pushup` | 14.5 s | Hold the recorded command endpoint |
+| `bow` | 8.5 s | Hold the recorded command endpoint |
+| `cute` | 13.5 s | Hold the recorded command endpoint |
+| `freaky` | 9.2 s | Hold the recorded command endpoint |
+| `worm` | 12 s | Hold the recorded command endpoint |
+| `shake` | 7 s | Hold the recorded command endpoint |
+| `shrug` | 10.2 s | Hold the recorded command endpoint |
+| `dead` | 7.4 s | Hold the recorded command endpoint |
+| `crab` | 30.1 s | Hold the recorded command endpoint |
+| `celebrate` | 12.5 s | Hold the recorded command endpoint |
+| `stretch` | 6.7 s | Hold the recorded command endpoint |
+| `surprised` | 11.95 s | Hold the recorded command endpoint |
+| `sad` | 8.8 s | Hold the recorded command endpoint |
+| `curious` | 9.75 s | Hold the recorded command endpoint |
+| `crouch` | 4 s | Hold the recorded command endpoint |
+| `upright` | 22 s | Hold the experimental hind-leg pose |
 
-Nod preserves the former shallow Pushup. Pushup uses the separate deep revision;
-Wave uses the current seated revision. Historical packages remain preserved in
-the research directory and are not competing firmware inputs.
+Sit places the rear lower legs along the floor at 1.8° above horizontal. Rest makes all four lower legs horizontal and puts the chassis base plate on the floor; its contact scope deliberately excludes carapace and mask. Wave replays the exact Sit entry, extends the front-left arm, makes three shoulder waves, replaces the foot and reverses Sit into standing.
 
-## Source ownership and timing
+Point retains its original95.02mm forward extension and original recorded path. Bow preserves the eight-servo gesture: brace, slide both hands forward about 73.42 mm with the front low and rear high, hold three seconds, then reverse. Sliding friction is unqualified.
 
-`catalog.json` records each original handoff, execution-contract path and retained
-file hashes. The 201 per-command files, shared execution policy and independent
-timing reference are byte-for-byte copies of their recorded handoffs. They include
-all **30,741** original 120 Hz
-samples, body/foot/contact data, configurations, schemas, independent reference
-samplers and validation reports. Original CSVs, generators, face assets, previews
-and Blender files remain in the handoff packages.
+Nod retains exactly two up/down cycles. Its original amplitude and timing are preserved, as are all other gestures. Crouch lowers four planted feet to a held squat at body translation -35 mm, with the chassis above ground. Ongoing Crawl and directional walking are native commands, not finite clips.
 
-The model's `tools/compile_clips.py` validates source/geometry hashes, joint order,
-units, native/emote envelope, source-bound contracts, uniform sampling, phase
-coverage and recorded endpoint poses. It compiles all twenty-nine finite turns
-and gestures into one set of flash-resident position tables. `clip.c` evaluates
-the supplied monotone cubic convention with harmonic-secant tangents and zero
-endpoint velocity. Each sample evaluates all twelve joints on one elapsed-time
-clock. The separate bounded walk sampler retains its repeatable steady section.
+Upright is distinct from four-foot Stand. It replays the accepted Sit, moves the front feet backward one at a time, shifts weight over the planted rear lower legs, then raises the chassis to vertical. [Upright geometry and limitations](upright/README.md).
 
-Recorded command timing is preserved, including command holds. Sit and
-Rest contain three seconds of lowering and two seconds of hold, then remain at
-their recorded final posture indefinitely. Other gestures likewise hold their
-recorded final pose after completion; they do not wrap or reset.
+## Source and execution
 
-The batch contracts mark optional preview recovery separately from command
-execution. Dead finishes at **7.4 s** and holds its flat pose indefinitely; its
-12.3 s preview's standing recovery is retained in the source but excluded from
-the compiled command. Freaky, Worm and Crab likewise exclude their contracts'
-optional final 0.5 s preview holds (full previews: 9.7, 12.5 and 30.6 s). Their
-command endpoints already hold the recorded standing poses. No firmware flag
-silently enables preview recovery. Compiler checks bind semantic endpoints to
-source knots, contract completion poses and phase execution roles.
+`catalog.json` binds canonical sources, measured posture dependencies, schemas and execution contracts. Historical choreography under `docs/gait-research/` supplies task-space intent and timing, not current servo angles. `../../tools/retarget_clips.py` regenerates the finite library; `generate_locomotion.py` records Crouch and native walking demonstrations.
 
-The named phase
-timing profiles, support events and face cues are retained source data. This
-update does not implement research retiming, face playback, pulse scheduling,
-current-pose entry or calibrated physical execution.
+The compiler checks units, joint order, hashes, exact endpoints, semantic duration and preserved cubic interpolation. `clip.c` uses harmonic-secant monotone cubic interpolation with zero endpoint velocity and a single clock for all twelve joints. The common P4 output task handles calibrated entry, execution, cancellation and electrical bounds.
 
-The P4 console accepts, for example, `gait sit 3000`, `gait nod 3500` and
-`gait pushup 3500`. These are read-only geometric queries, without arming PWM or
-emitting a physical movement receipt. Neither host location nor communication
-transport appears in the model sampler.
+Dead completes at 7.4 seconds and holds. Its optional preview recovery remains separate from the compiled command. Freaky, Worm and Crab omit their optional final preview holds in firmware. Face cues and research timing profiles remain source metadata; animated face execution is not implemented by this library.
 
-## Readiness and verification
+Each posture file records current constraints. Wave depends on Sit and must regenerate after Sit changes. Root geometry or motion geometry changes require all affected sources to regenerate, then native checks and saved-file Blender verification. The scene `Motions - Current Geometry` in `ainekio-variable-gait-Recovery.blend` shares meshes and keeps editable modeling work.
 
-Every asset retains `hardware_qualified=false` and unset actuator calibration.
-The P4 declares all thirty motions plus `stop`, with `motion=false`; common
-admission and gateway capability checks reject movement while unready. Emergency
-disable retains its separate path. Swim's required belly support, Bow's intentional
-front-foot slide and the other source qualification limits remain attached to
-their manifests and contracts. No electrical mapping or servo limits are inferred
-from CAD geometry.
+## Qualification
 
-The [batch's current-model review](../../../../../../docs/MOTION_LIBRARY_12SERVO.md#current-model-and-resource-policy)
-records later front-panel, camera and display changes. Its body-contact/floor
-results describe the earlier geometry snapshot and have not been requalified for
-those changes. Body/visor contact loading and inter-part collisions remain
-unverified. Crab's approximately 1.01 mm assumed support margin and 1.58 mm final
-contact slide remain provisional source findings, not physical acceptance.
+All assets retain `hardware_qualified=false`. The coupled internal-leg sweep and floor/closure checks do not qualify shoulder/body clearance, loaded motion, servo travel, traction or balance. Firmware motion availability comes from confirmed calibration and runtime readiness; it is separate from research qualification. Assembly references, pulse-center arithmetic, migration and measurement procedures are in [SERVO_ASSEMBLY.md](../../SERVO_ASSEMBLY.md).
 
-The [2026-09-17 integration record](../../../../../../docs/v2-12servo/MOTION_INTEGRATION_20260917.md)
-records independent C/source comparisons, command-lifecycle and dashboard checks,
-the P4 build, its partition upgrade and the pending hardware flash. Numerical
-agreement is not physical motion or electrical acceptance evidence.
+Original motions conflict with portions of the modeled clearance envelope and the300–2900µs reference span. See `../../mechanics/original-motion-range-audit.json`. These conflicts are reported without shrinking the movements.

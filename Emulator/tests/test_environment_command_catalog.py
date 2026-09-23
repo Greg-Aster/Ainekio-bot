@@ -72,6 +72,16 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
         self.assertIn("45 degrees", ROBOT_COMMAND_DESCRIPTIONS["right"])
         self.assertIn("rear-leg-lift", ROBOT_COMMAND_DESCRIPTIONS["#1"])
 
+    def test_upright_is_distinct_from_stand_and_requires_body_declaration(self) -> None:
+        self.assertNotIn("upright", LEGACY_ROBOT_COMMANDS)
+        self.assertNotIn("upright", SEED_EMOTES)
+        self.assertIn("four feet", ROBOT_COMMAND_DESCRIPTIONS["stand"])
+        for name in ("stand", "upright"):
+            translated = translate_environment_action({"type": "robotCommand", "command": name})
+            self.assertEqual((translated.kind, translated.name, translated.params),
+                             (("intent", "stand", {}) if name == "stand" else
+                              ("intent", "emote", {"asset": name})))
+
     def test_environment_observation_advertises_the_owned_command_catalog(self) -> None:
         adapter = EnvironmentAdapter(
             ConnectedGateway(),  # type: ignore[arg-type]

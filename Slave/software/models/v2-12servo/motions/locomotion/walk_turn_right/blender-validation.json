@@ -1,0 +1,12 @@
+{
+  "command": "walk_turn_right",
+  "samples": 2184,
+  "old_samples": 2184,
+  "joint_max_error_deg": 1.33697164428348e-05,
+  "rotation_max_error_rad": 2.3829755857462942e-07,
+  "body_max_error_mm": 8.52109373283838e-06,
+  "status": "original_actions_restored_and_source_parity_verified",
+  "source_sha256": "b80aa4e7000eca09e80b44dd314d264bb5fca6f8b7b303b40c409d321cb5f139",
+  "original_action_bindings_exact": true,
+  "hardware_qualified": false
+}

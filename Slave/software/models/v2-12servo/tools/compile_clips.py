@@ -1,7 +1,7 @@
 """Compile retained finite turns and gestures. Standard Python only.
 
-Store positions once; the model derives the supplied harmonic tangents from
-adjacent knots. All clips use one sampler and retain the recorded 120 Hz timing.
+Fit cubic segments to the retained 120 Hz reference, bounding continuous angle
+error. Preserve extrema, holds, duration and endpoints; one runtime sampler.
 """
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ def load_turns(root: Path) -> list[dict]:
     entries = catalog["commands"]
     if len(entries) != 8 or len({e["command"] for e in entries}) != 8:
         raise ValueError("turn family must contain eight independent commands")
+    geometry_id = json.loads((root / "geometry.json").read_text())["geometry_id"]
     geometry_hash, sole_hash = digest(root / "geometry.json"), digest(family / "sole-hulls.npz")
     turns = []
     for entry in entries:
@@ -45,6 +46,7 @@ def load_turns(root: Path) -> list[dict]:
         metadata = source["metadata"]
         if (digest(folder / "source.json") != manifest["source_sha256"]
             or manifest["source_sha256"] != entry["source_sha256"]
+            or manifest["geometry_id"] != geometry_id
             or manifest["geometry_sha256"] != geometry_hash or manifest["sole_hulls_sha256"] != sole_hash):
             raise ValueError(f"{command}: source or geometry provenance mismatch")
         if (manifest["command"] != command or metadata["configuration"]["command"] != command
@@ -83,7 +85,7 @@ def load_turns(root: Path) -> list[dict]:
         if not math.isfinite(yaw) or abs(math.degrees(yaw) - heading) > 1e-6:
             raise ValueError(f"{command}: recorded heading does not match the command")
         if (source["samples"][-1]["actuator_angles_rad"] != manifest["final_actuator_angles_rad"]
-            or any(abs(value) > 1e-6 for value in positions[0])):
+            or source["samples"][0]["actuator_angles_rad"] != manifest["entry_actuator_angles_rad"]):
             raise ValueError(f"{command}: recorded entry/final pose mismatch")
         if catalog["hardware_qualified"] is not False or manifest["hardware_qualified"] is not False:
             raise ValueError("research source import cannot grant hardware readiness")
@@ -96,6 +98,7 @@ def load_gestures(root: Path) -> list[dict]:
     family = root / "motions/gestures"
     catalog = json.loads((family / "catalog.json").read_text())
     policy_hash = digest(family / "execution-policy.json")
+    geometry_id = json.loads((root / "geometry.json").read_text())["geometry_id"]
     geometry_hash = digest(root / "geometry.json")
     sole_hash = digest(root / "motions/turns/sole-hulls.npz")
     if catalog["hardware_qualified"] is not False or catalog["policy_sha256"] != policy_hash:
@@ -113,6 +116,17 @@ def load_gestures(root: Path) -> list[dict]:
         source = json.loads((folder / "source.json").read_text())
         schema = json.loads((folder / "schema.json").read_text())
         contract = json.loads((folder / "execution-contract.json").read_text())
+        if "posture_sha256" in manifest:
+            posture = json.loads((folder / "posture.json").read_text())
+            if (digest(folder / "posture.json") != manifest["posture_sha256"]
+                or digest(folder / posture["contact_hulls_file"]) != manifest["posture_hulls_sha256"]
+                or posture["contact_hulls_sha256"] != manifest["posture_hulls_sha256"]
+                or posture["mechanism_geometry_sha256"] != geometry_hash):
+                raise ValueError(f"{command}: posture geometry provenance mismatch")
+            base = posture.get("base_motion")
+            if base and (digest(folder / base["source_file"]) != base["source_sha256"]
+                         or digest(folder / base["posture_file"]) != base["posture_sha256"]):
+                raise ValueError(f"{command}: seated motion dependency changed; regenerate this motion")
         metadata = source["metadata"]
         wire = {"t": "intent", "name": "sit"} if command == "sit" else {
             "t": "intent", "name": "emote", "asset": command}
@@ -122,6 +136,7 @@ def load_gestures(root: Path) -> list[dict]:
             or manifest["wire"] != wire or contract["wire"] != wire
             or manifest["gait_id"] != contract["gait_id"]
             or manifest["source_sha256"] != entry["sha256"]["source.json"]
+            or manifest["geometry_id"] != geometry_id
             or manifest["geometry_sha256"] != geometry_hash or manifest["sole_hulls_sha256"] != sole_hash
             or contract["policy_sha256"] != policy_hash):
             raise ValueError(f"{command}: command, source or geometry mismatch")
@@ -173,7 +188,7 @@ def load_gestures(root: Path) -> list[dict]:
             or source["samples"][terminal_knot]["actuator_angles_rad"] != contract["completion"]["joint_angles_rad"]
             or source["samples"][terminal_knot]["actuator_angles_rad"] != manifest[final_key]
             or source["samples"][-1]["actuator_angles_rad"] != manifest[playlist_key]
-            or any(abs(value) > 1e-6 for value in positions[0])):
+            or source["samples"][0]["actuator_angles_rad"] != manifest["entry_actuator_angles_rad"]):
             raise ValueError(f"{command}: recorded entry/final pose mismatch")
         phases, cursor = contract["phases"], 0.0
         demonstration = contract["timing_profiles"]["demonstration"]["duration_s"]
@@ -201,6 +216,69 @@ def load_gestures(root: Path) -> list[dict]:
     return gestures
 
 
+# Error budget is 0.005 degree = 0.056 us at the nominal saved scale.
+# The actual pulse error scales with each operator's us/degree calibration.
+COMPRESSION_ERROR_CD = .5
+
+
+def polynomial(p0, p1, m0, m1, duration):
+    v0, v1 = m0*duration, m1*duration
+    return (2*p0-2*p1+v0+v1, -3*p0+3*p1-2*v0-v1, v0, p0)
+
+
+def evaluate(c, u):
+    return ((c[0]*u+c[1])*u+c[2])*u+c[3]
+
+
+def extrema(c):
+    a,b,d = 3*c[0],2*c[1],c[2]
+    roots=[]
+    if abs(a)<1e-15:
+        if abs(b)>1e-15: roots=[-d/b]
+    else:
+        disc=b*b-4*a*d
+        if disc>=0:
+            v=math.sqrt(disc);roots=[(-b-v)/(2*a),(-b+v)/(2*a)]
+    return [u for u in roots if 0<u<1]
+
+
+def compact(positions):
+    count=len(positions);slopes=[[0.]*12 for _ in positions]
+    for i in range(1,count-1):
+        for j in range(12):
+            a=(positions[i][j]-positions[i-1][j])*120
+            b=(positions[i+1][j]-positions[i][j])*120
+            slopes[i][j]=2*a*b/(a+b) if a*b>0 else 0.
+    # Every extremum and every hold boundary stays exact.
+    keep={0,count-1}
+    for i in range(1,count-1):
+        if any((positions[i][j]-positions[i-1][j])*(positions[i+1][j]-positions[i][j])<=0
+               and (positions[i][j]!=positions[i-1][j] or positions[i+1][j]!=positions[i][j]) for j in range(12)):keep.add(i)
+    original=[[polynomial(positions[i][j],positions[i+1][j],slopes[i][j],slopes[i+1][j],1/120) for j in range(12)] for i in range(count-1)]
+    pending=list(zip(sorted(keep),sorted(keep)[1:]));bound=0.
+    while pending:
+        lo,hi=pending.pop()
+        if hi-lo<=1:continue
+        width=hi-lo;curves=[polynomial(positions[lo][j],positions[hi][j],slopes[lo][j],slopes[hi][j],width/120) for j in range(12)]
+        worst,split=0.,(lo+hi)//2
+        # Both cubics are compared over every original interval. Their difference
+        # is cubic; endpoints and derivative roots bound the ENTIRE interval.
+        for i in range(lo,hi):
+            offset=(i-lo)/width;scale=1/width
+            for j,c in enumerate(curves):
+                a,b,v,d=c
+                mapped=(a*scale**3,(3*a*offset+b)*scale**2,(3*a*offset**2+2*b*offset+v)*scale,evaluate(c,offset))
+                diff=tuple(x-y for x,y in zip(mapped,original[i][j]))
+                error=max(abs(evaluate(diff,u)) for u in [0.,1.]+extrema(diff))
+                if error>worst:worst,split=error,min(hi-1,max(lo+1,i))
+        overshoot=any(any(evaluate(c,u)<min(positions[lo][j],positions[hi][j])-1e-7 or evaluate(c,u)>max(positions[lo][j],positions[hi][j])+1e-7 for u in extrema(c)) for j,c in enumerate(curves))
+        if worst>COMPRESSION_ERROR_CD or overshoot:
+            keep.add(split);pending.extend([(lo,split),(split,hi)])
+        else:bound=max(bound,worst)
+    indices=sorted(keep)
+    return indices,slopes,bound
+
+
 def compile_clips(root: Path, out: Path) -> None:
     clips = load_turns(root) + load_gestures(root)
     if len(clips) > 62 or len({c['command'] for c in clips}) != len(clips):
@@ -213,6 +291,9 @@ def compile_clips(root: Path, out: Path) -> None:
 #define V2_CLIP_SAMPLE_HZ 120U
 typedef struct {
     const float (*positions)[AINEKIO_V2_JOINT_COUNT];
+    const float (*velocities)[AINEKIO_V2_JOINT_COUNT];
+    const uint16_t *knots;
+    const float *minimum, *maximum;
     size_t count;
     uint64_t active_start_us, active_end_us;
     ainekio_v2_phase_t active_phase;
@@ -220,11 +301,21 @@ typedef struct {
 extern const ainekio_v2_clip_track_t v2_clip_tracks[];
 #endif
 '''
+    geometry_id = json.loads((root / 'model.json').read_text())['joint_map']
+    header = header.replace('#define V2_CLIP_SAMPLE_HZ', '#define V2_CLIP_GEOMETRY_ID ' + json.dumps(geometry_id) + '\n#define V2_CLIP_SAMPLE_HZ')
     code = ['/* Generated by tools/compile_clips.py. Signed CAD centidegrees. */', '#include "clip_data.h"']
+    report=[]
     for i, clip in enumerate(clips):
-        code.append(f'static const float clip_{i}_positions[][AINEKIO_V2_JOINT_COUNT] = {{')
-        code.extend('    {' + ','.join(f'{value:.9e}F' for value in row) + '},' for row in clip['positions'])
-        code.append('};')
+        indices,velocities,error=compact(clip['positions']);clip['indices']=indices
+        for name,values in [('positions',clip['positions']),('velocities',velocities)]:
+            code.append(f'static const float clip_{i}_{name}[][AINEKIO_V2_JOINT_COUNT] = {{')
+            code.extend('    {' + ','.join(f'{value:.9e}F' for value in values[knot]) + '},' for knot in indices)
+            code.append('};')
+        code.append(f'static const uint16_t clip_{i}_knots[] = '+'{'+','.join(map(str,indices))+'};')
+        for name,operation in [('minimum',min),('maximum',max)]:
+            code.append(f'static const float clip_{i}_{name}[] = '+'{'+','.join(f'{operation(row[j] for row in clip["positions"]):.9e}F' for j in range(12))+'};')
+        report.append(dict(command=clip['command'],original_knots=len(clip['positions']),stored_knots=len(indices),continuous_error_cd=error))
+    (out/'compression.json').write_text(json.dumps(report,indent=2)+'\n')
     code.append('const ainekio_v2_clip_t ainekio_v2_clips[] = {')
     for clip in clips:
         manifest = clip['manifest']
@@ -235,7 +326,7 @@ extern const ainekio_v2_clip_track_t v2_clip_tracks[];
                  'const ainekio_v2_clip_track_t v2_clip_tracks[] = {'])
     for i, clip in enumerate(clips):
         start, end, phase = clip['start_s'], clip['end_s'], clip['phase']
-        code.append(f'    {{clip_{i}_positions, {len(clip["positions"])}U, UINT64_C({round(start * 1e6)}), UINT64_C({round(end * 1e6)}), {phase}}},')
+        code.append(f'    {{clip_{i}_positions, clip_{i}_velocities, clip_{i}_knots, clip_{i}_minimum, clip_{i}_maximum, {len(clip["indices"])}U, UINT64_C({round(start * 1e6)}), UINT64_C({round(end * 1e6)}), {phase}}},')
     code.append('};')
     (out / 'clip_data.h').write_text(header)
     (out / 'clip_data.c').write_text('\n'.join(code) + '\n')

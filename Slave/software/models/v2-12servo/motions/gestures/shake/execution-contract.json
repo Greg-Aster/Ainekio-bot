@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "shake",
-  "gait_id": "shake_fourbar_20260916",
+  "gait_id": "shake_upright_24_38_20260921",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -11,12 +11,12 @@
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/shake/source.json",
-      "sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/shake/source.json",
+      "sha256": "905aa48065d1110f669a0e3b7c6385e12f3b7a6e4f8463c55d62fc5ea52f621f"
     },
     {
-      "path": "docs/gait-research/motion-batch-20260916/commands/shake/manifest.json",
-      "sha256": "83e6e7487b78a082528d40e38829bcc8054b18b87780437aecf2b055d0c023a7"
+      "path": "Slave/software/models/v2-12servo/motions/gestures/shake/manifest.json",
+      "sha256": "12983b3f7486a88f4b359f5e5c0b5265816e01825099c8a0bca555e3c99b2cc6"
     }
   ],
   "source_units": {
@@ -1052,24 +1052,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277232242703374e-09,
+        0.033522787652696055,
+        0.0077382778671378615
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855412137067195e-09,
+        0.03352259575715927,
+        0.007738239210021999
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.9846059755857533e-09,
+        0.0335230550346877,
+        0.007738329695574771
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277327057149906e-09,
+        0.03352291414500837,
+        0.007738299730361967
       ]
     ],
     "contact_active": [
@@ -1085,24 +1085,24 @@
     "semantic_end_s": 7.0,
     "joint_angles_rad": [
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4279035733079917e-09,
+        0.033522787650220834,
+        0.007738277863627052
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -6.855426282257194e-09,
+        0.03352259575012423,
+        0.00773823920354973
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        1.984694404027254e-09,
+        0.033523055037438326,
+        0.007738329695495198
       ],
       [
-        0.0,
-        0.0,
-        0.0
+        -3.4277092212291827e-09,
+        0.03352291414985117,
+        0.007738299731544906
       ]
     ],
     "contacts": [
@@ -1116,9 +1116,12 @@
   "source_qualification": {
     "hardware_qualified": false,
     "collision_checked": false,
-    "measured_mass_balance_verified": false
+    "measured_mass_balance_verified": false,
+    "source_acceleration_continuous": false,
+    "minimum_assumed_support_margin_mm": 40.5809927126487
   },
   "body_support_required": false,
   "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "upright-24-38-24-55-20260921"
 }

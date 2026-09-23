@@ -1,0 +1,83 @@
+{
+  "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend",
+  "mesh_provenance": {
+    "RL": {
+      "objects": [
+        "ML | REFINED | RL | Part_027 - 24mm pickup short collar - plain joint bore",
+        "ML | REFINED | RL | Part_020 - full-length inner boot",
+        "ML | REFINED | RL | Part_022 - full-length outer boot"
+      ],
+      "sha256": "406cd7bfc924b28a587d3ee461490e3a2e57a2bdd1977dc4dfa5ffa377e6a1fe"
+    },
+    "RR": {
+      "objects": [
+        "ML | REFINED | RR | Part_027 - 24mm pickup short collar - plain joint bore",
+        "ML | REFINED | RR | Part_020 - full-length inner boot",
+        "ML | REFINED | RR | Part_022 - full-length outer boot"
+      ],
+      "sha256": "331964e57d0bc06c3b5c29db830b256a9fcfa324c61144f64db7d023e34eedf6"
+    },
+    "FL": {
+      "objects": [
+        "ML | REFINED | FL | Part_027 - 24mm pickup short collar - plain joint bore",
+        "ML | REFINED | FL | Part_020 - full-length inner boot",
+        "ML | REFINED | FL | Part_022 - full-length outer boot"
+      ],
+      "sha256": "e1eb072e7ff95d6dc4a29b2a72ee1cfa3badeb0b86a51c61a283ee8a6881acae"
+    },
+    "FR": {
+      "objects": [
+        "ML | REFINED | FR | Part_027 - 24mm pickup short collar - plain joint bore",
+        "ML | REFINED | FR | Part_020 - full-length inner boot",
+        "ML | REFINED | FR | Part_022 - full-length outer boot"
+      ],
+      "sha256": "b24d1dfdc8938c0768fb0cd2ef2a9d78bb61254dd9ceda8dd4dd9da1123f89b4"
+    }
+  },
+  "source": "/tmp/ainekio-run/repo/Slave/software/models/v2-12servo/motions/gestures/upright/source.json",
+  "source_sha256": "7622fbd68590a1ff60601d7abeca2660d5c209407e1ef56199629711da7d4835",
+  "sampled_poses": 5281,
+  "intersections": [],
+  "pair_stats": {
+    "FL-RL": {
+      "projected_crossings": 0,
+      "minimum_lateral_gap_mm": null,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 15.706007519015092
+    },
+    "FR-RR": {
+      "projected_crossings": 0,
+      "minimum_lateral_gap_mm": null,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 15.706008860402072
+    },
+    "FL-FR": {
+      "projected_crossings": 5281,
+      "minimum_lateral_gap_mm": 103.63245684681529,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 103.63245684681529
+    },
+    "RL-RR": {
+      "projected_crossings": 5281,
+      "minimum_lateral_gap_mm": 80.84741090593718,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 80.84741090593718
+    },
+    "FL-RR": {
+      "projected_crossings": 0,
+      "minimum_lateral_gap_mm": null,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 92.23992357929737
+    },
+    "FR-RL": {
+      "projected_crossings": 0,
+      "minimum_lateral_gap_mm": null,
+      "intersecting_poses": 0,
+      "minimum_separating_plane_gap_mm": 92.23995284244285
+    }
+  },
+  "scope": "All six pairs of lower-leg assemblies (Part027 plus inner/outer boots); native source knots and optional linear-joint midpoints. Exact triangle intersection after broadphase; separating-plane gaps conservatively bound mesh distance. Common chassis pose removed. No whole-robot or continuous-time collision proof.",
+  "intersecting_poses": 0,
+  "elapsed_s": 21.959183854000003,
+  "passed": true
+}

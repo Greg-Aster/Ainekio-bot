@@ -51,22 +51,6 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("deadline_ms", socket.messages[-1])
         self.assertEqual(socket.messages[-1]["epoch"], 7)
 
-    async def test_diagnostic_feature_gate_and_correlated_lifecycle(self) -> None:
-        connection, socket, _ = self.connection()
-        command = {"t": "output_test", "op": "run", "channel": 11, "pulse_us": 1500, "ms": 100}
-        with self.assertRaises(GatewayError):
-            await connection.send_command(command, received_at=100.0)
-        self.assertEqual(connection.next_sequence, 1)
-        connection.features = ("output_test_v1", "command_deadline_v1")
-        connection.observe_body_clock({"clock_ms": 10})
-        sequence = await connection.send_command(command, received_at=100.0)
-        await connection._handle_control({"t": "ack", "seq": sequence})
-        self.assertIn(sequence, connection.pending)
-        await connection._handle_control({"t": "cancelled", "seq": sequence, "code": "stop"})
-        self.assertEqual((await connection.wait_terminal(sequence, timeout=1))["t"], "cancelled")
-        self.assertEqual(connection.service.terminals[-1]["epoch"], 7)
-        self.assertEqual(socket.messages[-1]["channel"], 11)
-
     def test_bringup_body_does_not_advertise_motion_or_speech(self) -> None:
         class P4Gateway(FakeGateway):
             def status(self) -> dict[str, object]:
@@ -84,7 +68,7 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(observation["state"]["body"]["speakerReady"])
         self.assertNotIn("robotMotionPlan", observation["capabilities"]["actions"])
 
-    def test_diagnostic_and_handshake_validation(self) -> None:
+    def test_handshake_validation(self) -> None:
         hello = {"t": "hello", "ver": 1, "fw": "test", "id": "p4", "auth": "test", "features": ["command_deadline_v1"]}
         with self.assertRaises(ProtocolValidationError):
             validate_control_message(hello)
@@ -93,7 +77,3 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
         hello["features"].append("body_capabilities_v1")
         with self.assertRaises(ProtocolValidationError):
             validate_control_message(hello)
-        for field, value in (("channel", 12), ("pulse_us", 999), ("ms", 2001), ("fault", "arbitrary"), ("deadline_ms", True)):
-            command = {"t": "output_test", "seq": 1, "op": "run", "channel": 11, "pulse_us": 1500, "ms": 100, field: value}
-            with self.subTest(field=field), self.assertRaises(ProtocolValidationError):
-                validate_control_message(command)

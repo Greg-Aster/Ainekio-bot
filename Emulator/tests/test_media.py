@@ -324,7 +324,7 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.frames), 1)
         self.assertEqual(decode_binary_frame(self.frames[0]).frame_type, MIC_PCM_FRAME_TYPE)
 
-    async def test_tether_rejects_streaming_and_open_mic_but_allows_xga_snap(self) -> None:
+    async def test_tether_allows_streaming_open_mic_and_xga_snap(self) -> None:
         await self.session.begin(
             {"t": "welcome", "ver": 1, "epoch": 2, "profile": "tether"}
         )
@@ -346,10 +346,10 @@ class BodyMediaTests(unittest.IsolatedAsyncioTestCase):
             self.emit_binary,
         )
 
-        self.assertEqual(self.controls[0], {"t": "nak", "seq": 1, "code": "profile"})
-        self.assertEqual(self.controls[1], {"t": "ack", "seq": 2})
-        self.assertEqual(self.controls[3], {"t": "nak", "seq": 3, "code": "profile"})
-        self.assertEqual(self.controls[5]["res"], "XGA")
+        self.assertEqual(self.controls[0], {"t": "ack", "seq": 1})
+        self.assertEqual(self.controls[2], {"t": "ack", "seq": 2})
+        self.assertEqual(self.controls[4], {"t": "ack", "seq": 3})
+        self.assertEqual(self.controls[6]["res"], "XGA")
         self.assertEqual(self.camera.captures[-1], "XGA")
 
     async def test_camera_counter_wraps_without_affecting_lifecycle(self) -> None:

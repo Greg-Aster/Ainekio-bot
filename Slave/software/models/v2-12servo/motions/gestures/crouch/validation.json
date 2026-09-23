@@ -1,0 +1,11 @@
+{
+  "command": "crouch",
+  "samples": 481,
+  "max_target_error_mm": 8.382624727687471e-06,
+  "min_sole_z_mm": -6.521770927747639e-07,
+  "min_body_z_mm": 12.776263738559258,
+  "min_closure_height_mm": 18.690558296944562,
+  "maximum_adjacent_joint_step_degrees": 0.2957260193801399,
+  "hardware_qualified": false,
+  "collision_checked": false
+}

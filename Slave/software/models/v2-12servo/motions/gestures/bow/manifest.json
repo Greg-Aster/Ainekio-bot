@@ -6,43 +6,47 @@
     "name": "emote",
     "asset": "bow"
   },
-  "gait_id": "bow_front_stretch_fourbar_20260916",
-  "generated_utc": "2026-09-16T18:07:34.952407+00:00",
+  "gait_id": "bow_upright_24_38_20260921",
+  "generated_utc": "2026-09-22",
   "duration_seconds": 8.5,
   "motion_end_seconds": 8.0,
   "source_sample_hz": 120,
   "sample_count": 1021,
-  "entry_pose": "Corrected CAD standing neutral, four feet supported. Arbitrary-current-pose entry is not provided.",
+  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
   "completion": "Hold the front-leg stretch bow, reverse the reach and body shift, then return to exact standing and hold.",
   "final_actuator_angles_rad": [
     [
-      0.0,
-      0.0,
-      0.0
+      -3.427963279100442e-09,
+      0.0335251959798646,
+      0.0077388180943315735
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -6.855891607389937e-09,
+      0.03352502495338274,
+      0.007738784118953195
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      1.984718003258746e-09,
+      0.03352545121801717,
+      0.007738867197917383
     ],
     [
-      0.0,
-      0.0,
-      0.0
+      -3.427971941653721e-09,
+      0.03352532347011676,
+      0.007738840180846237
     ]
   ],
   "body_target": {
     "position_mm": [
       0.0,
       0.0,
-      80.96182697652446
+      63.0
     ],
-    "pitch_degrees": 0.0
+    "euler_xyz_rad": [
+      0.0,
+      0.0,
+      0.0
+    ]
   },
   "face_cues": [
     {
@@ -72,168 +76,121 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b",
-  "csv_sha256": "27a6a23e58c92e285c4c35131acf52e3e7e5738d262e55722aeecff0121f3cbf",
-  "geometry_sha256": "366824deb9132d9be566993ac973cf7cea18253bbf649130eab73e097adb9d90",
-  "sole_hulls_sha256": "e450c656915cabdeb7392c9b08e93b01802212ee6ef01f6792d9aa74c99960a6",
-  "body_samples_sha256": "967e0b376821b7d745fe4817534940dfab31b0c2d8a739ffda2cdb343a508d52",
+  "source_sha256": "1b313035a9ec4f92b88bece1b072ef3d28d64dcdb12ca42756d9f93c85ab6d95",
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
   "face_sha256": {
     "faces/bow/0.bin": "393a0db8923b80170bf21b1f7782609d87061befa863057f17e604d6e17bc33e",
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
-  "blender_workspace_file": "/home/greggles/blender-5.0.0-linux-x64/robot-bow-20260916/Ainekio-Bow.blend",
-  "blender_frames": [
-    2881,
-    3085
-  ],
-  "design": "Emulate V1 Bow with extended front forelegs, lowered front body and raised rear. Front soles reach forward 20 mm as the body moves back 10 mm; front carriers and cranks produce the stretch. V1 electrical angles are not copied.",
   "body_contact_required": false,
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "entry_actuator_angles_rad": [
+    [
+      -3.4277232242703374e-09,
+      0.033522787652696055,
+      0.0077382778671378615
+    ],
+    [
+      -6.855412137067195e-09,
+      0.03352259575715927,
+      0.007738239210021999
+    ],
+    [
+      1.9846059755857533e-09,
+      0.0335230550346877,
+      0.007738329695574771
+    ],
+    [
+      -3.4277327057149906e-09,
+      0.03352291414500837,
+      0.007738299730361967
+    ]
+  ],
   "source_validation": {
-    "duration_s": 8.5,
-    "motion_end_s": 8.0,
-    "sample_hz": 120,
+    "command": "bow",
+    "geometry_id": "upright-24-38-24-55-20260921",
     "samples": 1021,
-    "bow_hold_start_s": 2.5,
-    "bow_hold_end_s": 5.5,
+    "duration_s": 8.5,
+    "sample_hz": 120,
+    "max_target_error_mm": 0.00013011662907302934,
+    "min_sole_height_mm": -4.8338222313759616e-11,
+    "minimum_body_ground_clearance_mm": 6.823793977182007,
+    "minimum_closure_triangle_height_mm": 6.783099631111989,
+    "minimum_assumed_support_margin_mm": 33.143664149088586,
     "actuator_min_degrees": [
       [
-        0.0,
-        -23.209869122916324,
-        -18.247103309916334
+        -4.676204642739498e-06,
+        -5.451770993640807,
+        -1.9441600755110975
+      ],
+      [
+        -3.717011312507524e-06,
+        -5.451775337415742,
+        -1.9441497281309996
       ],
       [
         0.0,
-        -23.209869122916476,
-        -18.247105200177103
+        -5.451759786516668,
+        -1.9441555962332235
       ],
       [
-        0.0,
-        -32.823587901844604,
-        -45.915065332907254
-      ],
-      [
-        0.0,
-        -32.823587901844604,
-        -45.915065332907254
+        -1.964083245460243e-07,
+        -5.451769802159345,
+        -1.9441634208145062
       ]
     ],
     "actuator_max_degrees": [
       [
-        0.0,
-        5.055708940292995,
-        0.0
+        -1.9639407408966488e-07,
+        42.62127128895121,
+        31.038660337598344
       ],
       [
-        0.0,
-        5.055708940292969,
-        0.0
+        4.511896690258031e-06,
+        42.62126416648382,
+        31.038677295543998
       ],
       [
-        0.0,
-        5.0557101990931805,
-        0.0
+        5.020655749994167e-06,
+        119.99999999999999,
+        101.29499761671912
       ],
       [
-        0.0,
-        5.0557101990931805,
-        0.0
+        1.8657343497483061e-06,
+        119.99999999999999,
+        101.29499761671912
       ]
     ],
-    "actuator_peak_speed_degrees_s": [
-      [
-        0.0,
-        35.30621293321566,
-        16.996440541581848
-      ],
-      [
-        0.0,
-        35.30621293321566,
-        16.996442240697256
-      ],
-      [
-        0.0,
-        49.05735297247425,
-        52.65130491646829
-      ],
-      [
-        0.0,
-        49.05735297247425,
-        52.65130491646829
-      ]
-    ],
-    "actuator_peak_acceleration_degrees_s2": [
-      [
-        0.0,
-        74.25805492192919,
-        40.5827206345581
-      ],
-      [
-        0.0,
-        74.25805492183646,
-        40.582724935361014
-      ],
-      [
-        0.0,
-        115.3388172574779,
-        126.7181021337123
-      ],
-      [
-        0.0,
-        115.3388172574779,
-        126.7181021337123
-      ]
-    ],
-    "bow_actuator_degrees": [
-      [
-        0.0,
-        -23.209869122916324,
-        -18.247103309916334
-      ],
-      [
-        0.0,
-        -23.209869122916476,
-        -18.247105200177103
-      ],
-      [
-        0.0,
-        -32.823587901844604,
-        -45.915065332907254
-      ],
-      [
-        0.0,
-        -32.823587901844604,
-        -45.915065332907254
-      ]
-    ],
-    "front_body_datum_mm": [
-      75.0,
-      0.0,
-      0.0
-    ],
-    "front_body_drop_mm": 26.555203787856414,
-    "minimum_support_margin_mm": 29.47705196306707,
-    "minimum_stance_contacts": 4,
-    "maximum_rolling_normal_correction_mm": 0.0006065474177621155,
-    "solved_rolling_transfers": 204,
-    "max_stance_material_vertex_constraint_error_mm": 1.3398253154500904e-13,
-    "minimum_body_ground_clearance_mm": 3.0941867063545203,
-    "min_sole_height_mm": -2.947963650967722e-09,
-    "maximum_adjacent_joint_step_degrees": 0.4388135308902079,
-    "final_joint_return_error_degrees": 0.0,
-    "research_angle_bounds_satisfied": true,
-    "intentional_front_contact_slide_mm": 20.0,
-    "sliding_friction_verified": false,
+    "maximum_adjacent_joint_step_degrees": 1.3066817180837418,
+    "peak_joint_speed_deg_s": 156.80180617004712,
+    "peak_joint_acceleration_deg_s2": 702.9859053451459,
+    "native_solver_fallbacks": 0,
+    "seconds": 5.833472236998205,
+    "hardware_qualified": false,
     "collision_checked": false,
-    "hardware_servo_limits_verified": false,
-    "measured_mass_balance_verified": false,
-    "hardware_qualified": false
+    "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
+    "lower_leg_angle_above_floor_deg": {
+      "RL": 1.8000000000000638,
+      "RR": 1.799999999999259
+    },
+    "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+    "body_support_scope": "Current complete body hull.",
+    "front_hand_forward_travel_mm": {
+      "RL": 73.42286010442896,
+      "RR": 73.42286263304038
+    },
+    "motion_end_s": 8.0
   },
-  "interpolation_validation": {
-    "segments_checked": 1020,
-    "bounded_midpoints": true,
-    "final_hold_verified": true,
-    "peak_interpolated_speed_degrees_s": 52.67052383187966,
-    "peak_interpolated_acceleration_degrees_s2": 139.1987537611065,
-    "continuity": "Position and velocity continuous. Acceleration continuity and hardware capability unqualified."
-  }
+  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "retargeted_from": {
+    "path": "docs/gait-research/bow-20260916/source.json",
+    "sha256": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b"
+  },
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "blender_scene": "Motions - Current Geometry",
+  "posture_sha256": "79ce9bbc043368b1cec1a6f0d6a44e48ac0c69c3d7ee19e3855777813a62c6eb",
+  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "retargeting_notes": "Follow the V1 Bow sequence: brace, extend both front hands forward with the front low and rear raised, hold for three seconds, then reverse into standing. Front lower legs lie nearly flat along the floor.",
+  "choreography_source": "docs/gait-research/bow-20260916/manifest.json"
 }

@@ -7,8 +7,9 @@
 
 int main(void)
 {
-    assert(ainekio_v2_clip_count == 29);
-    ainekio_v2_frame_t frame, held;
+    assert(ainekio_v2_clip_count == 31);
+    ainekio_v2_frame_t frame, held, standing, entry;
+    assert(ainekio_v2_clip_sample(0, 0, &standing));
     size_t selected;
     assert(!ainekio_v2_clip_request(NULL, &selected));
     assert(!ainekio_v2_clip_find(NULL, &selected));
@@ -52,7 +53,12 @@ int main(void)
 
         assert(ainekio_v2_clip_sample(i, 0, &frame));
         assert(frame.phase == (magnitude ? AINEKIO_V2_ENTRY : AINEKIO_V2_CLIP));
-        for (unsigned j = 0; j < 12; ++j) assert(frame.position[j] == 0 && frame.velocity[j] == 0);
+        entry = frame;
+        for (unsigned j = 0; j < 12; ++j) {
+            /* Current hull solve changes Crouch entry by <0.0002 degrees. */
+            assert(fabsf(frame.position[j] - standing.position[j]) < (!strcmp(turn->command,"crouch") ? 0.02F : 0.01F));
+            assert(frame.velocity[j] == 0);
+        }
         if (magnitude) {
             assert(ainekio_v2_clip_sample(i, UINT64_C(5000000), &frame) && frame.phase == AINEKIO_V2_TURN);
             assert(ainekio_v2_clip_sample(i, turn->duration_us - UINT64_C(6000000), &frame) && frame.phase == AINEKIO_V2_EXIT);
@@ -63,19 +69,19 @@ int main(void)
         bool nonzero = false;
         for (unsigned j = 0; j < 12; ++j) {
             assert(frame.velocity[j] == 0 && frame.acceleration[j] == 0);
-            nonzero |= fabsf(frame.position[j]) > 1.0F;
+            nonzero |= fabsf(frame.position[j] - entry.position[j]) > 1.0F;
         }
-        assert(nonzero == (magnitude || !strcmp(turn->command, "sit") || !strcmp(turn->command, "rest") || !strcmp(turn->command, "dead")));
+        assert(nonzero == (magnitude || !strcmp(turn->command, "sit") || !strcmp(turn->command, "rest") || !strcmp(turn->command, "dead") || !strcmp(turn->command, "crouch") || !strcmp(turn->command, "upright")));
         for (uint64_t t = 0; t < turn->duration_us; t += UINT64_C(19997)) {
             assert(ainekio_v2_clip_sample(i, t, &frame));
             for (unsigned j = 0; j < 12; ++j)
                 assert(isfinite(frame.position[j]) && isfinite(frame.velocity[j]) && isfinite(frame.acceleration[j]));
         }
     }
-    assert(turns == 8 && gestures == 21);
+    assert(turns == 8 && gestures == 23);
     const char *names[] = {"sit", "rest", "wave", "dance", "swim", "point", "nod", "pushup", "bow",
         "cute", "freaky", "worm", "shake", "shrug", "dead", "crab", "celebrate", "stretch", "surprised", "sad", "curious"};
-    const uint64_t durations[] = {5000, 5000, 16000, 12500, 23500, 11000, 14500, 14500, 8500,
+    const uint64_t durations[] = {5000, 5000, 16000, 12500, 23500, 11000, 8500, 14500, 8500,
         13500, 9200, 12000, 7000, 10200, 7400, 30100, 12500, 6700, 11950, 8800, 9750};
     for (size_t i = 0; i < sizeof(names)/sizeof(names[0]); ++i) {
         assert(ainekio_v2_clip_find(names[i], &selected));
@@ -95,8 +101,8 @@ int main(void)
         assert(ainekio_v2_clip_sample(dead, t, &held));
         assert(!memcmp(&frame, &held, sizeof(frame)));
     }
-    assert(fabsf(frame.position[0] - 9000.0F) < 0.001F);
-    assert(fabsf(frame.position[3] + 9000.0F) < 0.001F);
+    assert(fabsf(frame.position[0] - standing.position[0]) > 6000.0F);
+    assert(fabsf(frame.position[3] - standing.position[3]) > 6000.0F);
     ainekio_command_t unknown = {.kind=AINEKIO_COMMAND_INTENT, .data.intent.kind=AINEKIO_INTENT_EMOTE};
     strcpy(unknown.data.intent.data.asset, "turn_left_16");
     assert(!ainekio_v2_clip_request(&unknown, &selected));

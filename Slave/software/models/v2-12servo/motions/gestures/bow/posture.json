@@ -1,0 +1,75 @@
+{
+  "schema": "ainekio.bow.forward-forelegs.v1",
+  "description": "Follow the V1 Bow sequence: brace, extend both front hands forward with the front low and rear raised, hold for three seconds, then reverse into standing. Front lower legs lie nearly flat along the floor.",
+  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "measured_date": "2026-09-22",
+  "body_support_scope": "Current complete body hull.",
+  "contact_hulls_file": "../sit/posture-hulls.npz",
+  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "grounded_legs": [
+    "RL",
+    "RR"
+  ],
+  "knee_to_ankle_local_unit": {
+    "RL": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ],
+    "RR": [
+      0.766344008122959,
+      0.0,
+      -0.6424304329762391
+    ]
+  },
+  "lower_leg_angle_above_floor_deg": 1.8,
+  "front_legs": [
+    "RL",
+    "RR"
+  ],
+  "extended_joint_offsets_rad": {
+    "RL": [
+      0.0,
+      2.0943951023931953,
+      1.7679312242115577
+    ],
+    "RR": [
+      0.0,
+      2.0943951023931953,
+      1.7679312242115577
+    ]
+  },
+  "brace_solver_seed_rad": {
+    "RL": [
+      8.718910419965412e-08,
+      -0.09515115830214846,
+      -0.0339319163247452
+    ],
+    "RR": [
+      8.718910419965412e-08,
+      -0.09515115830214846,
+      -0.0339319163247452
+    ]
+  },
+  "held_body_x_mm": -10.0,
+  "held_body_euler_xyz_rad": [
+    0,
+    0.20943951023931956,
+    0
+  ],
+  "timing_s": {
+    "brace_end": 1.0,
+    "extension_end": 2.5,
+    "hold_end": 5.5,
+    "retraction_end": 7.0
+  },
+  "posture_sample_time_s": 3.0,
+  "v1_reference": {
+    "file": "Slave/software/assets/seed/motions-v1.json",
+    "asset": "bow",
+    "asset_sha256": "b7942363f893fbfbcb05e6e16cb437fd32761dbbe3a1684717d2f2ffc1d63333",
+    "adaptation": "Preserve front-hand reach, front-low/rear-high posture, held bow and return; solve current linkage offsets instead of copying eight-servo electrical angles."
+  },
+  "contact_motion": "Front soles slide forward during extension and back during retraction; rear foot reference XY stays at the braced stance. Sliding traction and loaded hardware remain unqualified."
+}

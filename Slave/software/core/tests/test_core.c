@@ -169,6 +169,18 @@ static void test_calibration_gate_and_lifecycle(void)
     ainekio_command_t face = intent_command(5U, AINEKIO_INTENT_FACE);
     assert(ainekio_command_lifecycle(&face) == AINEKIO_LIFECYCLE_ACK_THEN_DONE);
 
+    ainekio_command_t walk = intent_command(6U, AINEKIO_INTENT_WALK);
+    assert(ainekio_core_accept(&core, &walk).lifecycle == AINEKIO_LIFECYCLE_ACK_THEN_DONE);
+    walk.sequence = 7U;
+    walk.data.intent.data.walk.update_sequence = 6U;
+    ainekio_decision_t update = ainekio_core_accept(&core, &walk);
+    assert(update.accepted && update.lifecycle == AINEKIO_LIFECYCLE_ACK_ONLY);
+    walk.sequence = 8U;
+    walk.data.intent.data.walk.controls = 1;
+    walk.data.intent.data.walk.speed_percent = 0; /* Finish shares the original completion. */
+    update = ainekio_core_accept(&core, &walk);
+    assert(update.accepted && update.lifecycle == AINEKIO_LIFECYCLE_ACK_ONLY);
+
     ainekio_core_set_mode(&core, AINEKIO_MODE_NORMAL);
     assert(core.mode == AINEKIO_MODE_NORMAL);
 }
@@ -189,7 +201,7 @@ static void test_sequence_can_be_claimed_without_executing_a_command(void)
     assert(ainekio_core_claim_sequence(&core, 0U) == AINEKIO_REJECT_MALFORMED);
 }
 
-static void test_tether_profile_rejects_continuous_camera_and_open_microphone(void)
+static void test_tether_profile_allows_explicit_media_choices(void)
 {
     ainekio_core_t core;
     ainekio_core_init(&core);
@@ -207,8 +219,7 @@ static void test_tether_profile_rejects_continuous_camera_and_open_microphone(vo
         },
     };
     ainekio_decision_t decision = ainekio_core_accept(&core, &camera);
-    assert(!decision.accepted);
-    assert(decision.rejection == AINEKIO_REJECT_PROFILE);
+    assert(decision.accepted);
 
     ainekio_command_t microphone = {
         .sequence = 2U,
@@ -219,8 +230,7 @@ static void test_tether_profile_rejects_continuous_camera_and_open_microphone(vo
         },
     };
     decision = ainekio_core_accept(&core, &microphone);
-    assert(!decision.accepted);
-    assert(decision.rejection == AINEKIO_REJECT_PROFILE);
+    assert(decision.accepted);
 
     microphone.sequence = 3U;
     microphone.data.microphone.gate = AINEKIO_MIC_GATE_VAD;
@@ -263,7 +273,7 @@ int main(void)
     test_cutoff_rejects_all_commands_until_recovery();
     test_calibration_gate_and_lifecycle();
     test_sequence_can_be_claimed_without_executing_a_command();
-    test_tether_profile_rejects_continuous_camera_and_open_microphone();
+    test_tether_profile_allows_explicit_media_choices();
     test_motion_plan_uses_normal_movement_safety_and_lifecycle();
     puts("ainekio core tests passed");
     return 0;

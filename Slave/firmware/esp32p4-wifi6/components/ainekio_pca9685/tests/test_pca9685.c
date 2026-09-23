@@ -98,8 +98,6 @@ static void test_initialization_and_frame(void)
     for (size_t i=0; i<16; ++i) assert(f.registers[6+4*i+3] == 0x10);
     uint16_t pulses[12] = {1500};
     pulses[11] = 1000;
-    assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_WIRING);
-    ainekio_pca_verify_wiring(&f.driver, true);
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);
     assert(!f.disabled && f.enables == 1);
     assert(f.registers[8] == (307 & 255) && f.registers[9] == 1);
@@ -133,7 +131,6 @@ static void test_disable_during_arm_and_recovery(void)
 {
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
-    ainekio_pca_verify_wiring(&f.driver, true);
     uint16_t pulses[12] = {1500};
     f.interrupt_at = f.calls + 1;
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_STALE);
@@ -157,7 +154,6 @@ static void test_failed_frame_and_progress_deadline(void)
 {
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
-    ainekio_pca_verify_wiring(&f.driver, true);
     uint16_t pulses[12] = {1500};
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);
     f.fail_at = f.calls + 1;
@@ -179,7 +175,6 @@ static void test_hung_transfer_and_stale_frame(void)
 {
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
-    ainekio_pca_verify_wiring(&f.driver, true);
     uint16_t pulses[12] = {1500};
     f.slow_at = f.calls + 1;
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_STALE);
@@ -193,12 +188,32 @@ static void test_hung_transfer_and_stale_frame(void)
     assert(f.disabled && ainekio_pca_status(&f.driver).frames == 1);
 }
 
+static void test_shutdown_preserves_fault_cause(void)
+{
+    for (unsigned fault=AINEKIO_PCA_FAULT_IO; fault<=AINEKIO_PCA_FAULT_PROGRESS; ++fault) {
+        fixture_t f = {0};
+        assert(initialize(&f) == AINEKIO_PCA_OK);
+        ainekio_pca_emergency_disable(&f.driver, (ainekio_pca_fault_t)fault);
+        const uint64_t generation = ainekio_pca_status(&f.driver).generation;
+        ainekio_pca_emergency_disable(&f.driver, AINEKIO_PCA_FAULT_EMERGENCY);
+        const ainekio_pca_status_t status = ainekio_pca_status(&f.driver);
+        assert(status.fault == (ainekio_pca_fault_t)fault && status.generation > generation && f.disabled);
+        assert(ainekio_pca_recover(&f.driver, status.generation) == AINEKIO_PCA_OK);
+        assert(ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_NONE);
+    }
+    fixture_t f = {0};
+    assert(initialize(&f) == AINEKIO_PCA_OK);
+    ainekio_pca_emergency_disable(&f.driver, AINEKIO_PCA_FAULT_EMERGENCY);
+    f.fail_at = f.calls + 1;
+    assert(ainekio_pca_recover(&f.driver, ainekio_pca_status(&f.driver).generation) == AINEKIO_PCA_IO);
+    assert(ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_IO);
+}
+
 static void test_late_writer_cannot_hide_missed_progress(void)
 {
     for (unsigned during_transfer = 0; during_transfer < 2; ++during_transfer) {
         fixture_t f = {0};
         assert(initialize(&f) == AINEKIO_PCA_OK);
-        ainekio_pca_verify_wiring(&f.driver, true);
         uint16_t pulses[12] = {1500};
         const uint64_t generation = ainekio_pca_status(&f.driver).generation;
         assert(ainekio_pca_arm(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
@@ -215,6 +230,44 @@ static void test_late_writer_cannot_hide_missed_progress(void)
         assert(!after.in_flight);
         assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_STALE);
     }
+}
+
+static void test_hardware_pulse_bounds(void)
+{
+    fixture_t f = {0};
+    assert(initialize(&f) == AINEKIO_PCA_OK);
+    uint16_t minimum, maximum;
+    assert(ainekio_pca_pulse_bounds(&f.driver, &minimum, &maximum));
+    assert(minimum == 3 && maximum == 19986);
+    uint16_t pulses[12] = {3000};
+    const uint64_t generation = ainekio_pca_status(&f.driver).generation;
+    assert(ainekio_pca_arm(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
+    assert((f.registers[8] | (f.registers[9] << 8U)) == 615);
+    pulses[0] = minimum;
+    assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
+    assert(f.registers[8] == 1 && f.registers[9] == 0);
+    pulses[0] = maximum;
+    assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
+    assert(f.registers[8] == 255 && f.registers[9] == 15);
+    const unsigned before = f.calls;
+    pulses[0] = maximum + 1;
+    assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_INVALID);
+    pulses[0] = minimum - 1;
+    assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_INVALID);
+    assert(f.calls == before && !f.disabled);
+    const uint32_t oscillators[] = {25000000, 26000000, 1000000};
+    const uint8_t prescales[] = {3, 121, 255};
+    for (size_t o=0; o<3; ++o) for (size_t p=0; p<3; ++p) {
+        f.driver.config.oscillator_hz = oscillators[o];
+        f.driver.prescale = prescales[p];
+        assert(ainekio_pca_pulse_bounds(&f.driver, &minimum, &maximum));
+        for (uint32_t pulse=0; pulse<=UINT16_MAX; ++pulse)
+            assert(ainekio_pca_pulse_valid(&f.driver, (uint16_t)pulse) ==
+                   (pulse >= minimum && pulse <= maximum));
+    }
+    f.driver.config.oscillator_hz = 0;
+    assert(!ainekio_pca_pulse_bounds(&f.driver, &minimum, &maximum));
+    assert(!ainekio_pca_pulse_valid(&f.driver, 1500));
 }
 
 int main(void)
@@ -236,7 +289,9 @@ int main(void)
     test_disable_during_arm_and_recovery();
     test_failed_frame_and_progress_deadline();
     test_hung_transfer_and_stale_frame();
+    test_shutdown_preserves_fault_cause();
     test_late_writer_cannot_hide_missed_progress();
+    test_hardware_pulse_bounds();
     puts("PCA9685: initialization, frames, failures, generation races, recovery and deadline tests passed");
     return 0;
 }
