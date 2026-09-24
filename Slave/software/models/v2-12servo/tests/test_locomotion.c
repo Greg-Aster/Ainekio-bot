@@ -11,11 +11,12 @@ int main(void)
     const double strides[]={1,50,100},rates[]={.25,3};
     const unsigned intervals[]={10000,20000,30000,40000};
     for(unsigned cadence=0;cadence<4;cadence++)
-    for(unsigned crawl=0;crawl<2;crawl++)for(unsigned direction=0;direction<4;direction++)
+    for(unsigned family=0;family<3;family++)for(unsigned direction=0;direction<(family==2?6:4);direction++)
     for(unsigned si=0;si<3;si++)for(unsigned ri=0;ri<2;ri++){
         ainekio_v2_walk_state_t state={0};
         ainekio_v2_walk_controls_t controls={strides[si],rates[ri]};
-        assert(ainekio_v2_locomotion_begin(&state,(ainekio_walk_direction_t)direction,crawl,0,controls,0));
+        bool crawl=family==1;
+        assert(ainekio_v2_gait_begin(&state,(ainekio_walk_direction_t)direction,family==2?AINEKIO_GAIT_CRAB:crawl?AINEKIO_GAIT_CRAWL:AINEKIO_GAIT_WALK,0,controls,0));
         uint64_t now=0;bool stopped=false;
         while(!state.complete&&now<UINT64_C(120000000)){
             ainekio_v2_walk_pose_t old=state.pose;now+=intervals[cadence];
@@ -34,11 +35,13 @@ int main(void)
             }
         }
         assert(stopped&&state.complete&&!state.failed);
-        assert(fabs(state.pose.body[2]-(crawl?-35.:-2.))<1e-8);
+        assert(fabs(state.pose.body[2]-(family==2?-18.:crawl?-35.:-2.))<1e-8);
         for(unsigned i=0;i<4;i++)assert(state.pose.grounded[i]&&state.pose.sole_height[i]==0.);
         if(direction==AINEKIO_WALK_FORWARD)assert(state.body_x>0);
         if(direction==AINEKIO_WALK_BACKWARD)assert(state.body_x<0);
-        if(direction>=AINEKIO_WALK_TURN_LEFT){assert(state.body_x==0.);assert(direction==AINEKIO_WALK_TURN_LEFT?state.body_yaw>0:state.body_yaw<0);}
+        if(direction==AINEKIO_WALK_SIDE_LEFT)assert(state.body_y>0);
+        if(direction==AINEKIO_WALK_SIDE_RIGHT)assert(state.body_y<0);
+        if(direction==AINEKIO_WALK_TURN_LEFT||direction==AINEKIO_WALK_TURN_RIGHT){assert(state.body_x==0.);assert(direction==AINEKIO_WALK_TURN_LEFT?state.body_yaw>0:state.body_yaw<0);}
     }
     assert(drift<1e-9);
     ainekio_v2_walk_state_t state={0};
@@ -59,6 +62,6 @@ int main(void)
         m.command.data.intent.data.walk.direction=(ainekio_walk_direction_t)i;m.command.data.intent.data.walk.gait=AINEKIO_GAIT_WALK;
         assert(!ainekio_v2_walk_accept(&state,&m.command,0));
     }
-    printf("48 locomotion envelopes at10/20/30/40 ms, planted XY drift %.9g mm; max output joint change %.6g rad. Finish during lowering and profile matching passed.\n",drift,step);
+    printf("84 locomotion envelopes at10/20/30/40 ms, planted XY drift %.9g mm; max output joint change %.6g rad. Finish during lowering and profile matching passed.\n",drift,step);
     return 0;
 }

@@ -14,7 +14,7 @@ typedef struct {
 
 typedef enum {
     AINEKIO_V2_ENTRY, AINEKIO_V2_LOOP, AINEKIO_V2_EXIT, AINEKIO_V2_COMPLETE,
-    AINEKIO_V2_TURN, AINEKIO_V2_CLIP
+    AINEKIO_V2_CLIP
 } ainekio_v2_phase_t;
 
 typedef struct {
@@ -39,7 +39,6 @@ typedef struct {
     const char *gait_id;
     ainekio_intent_kind_t intent;
     uint64_t duration_us;
-    int16_t heading_degrees; /* geometric heading change; not measured yaw */
     bool hardware_qualified;
 } ainekio_v2_clip_t;
 

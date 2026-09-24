@@ -1,8 +1,13 @@
-# Twelve-servo finite turns
+# Historical twelve-servo fixed-angle turns
 
-The V2 model resolves these semantic assets through the existing `emote`
-envelope. The six 45°/90°/180° names match V1; the two 15° names require an
-explicit body command declaration and are not added to V1's seed assets.
+These eight recordings are retained for desktop comparison and existing Blender
+deliverables. They are no longer compiled, advertised or executed by current V2
+firmware. Operating mode uses gait-based Left/Right with Speed, stride/cadence
+and Finish. V1 retains its separate working fixed-angle motions.
+
+`sole-hulls.npz` is also a shared geometry-provenance input for the gesture
+compiler and desktop tools; it remains here to preserve their recorded hashes.
+Neither the full hull file nor these turn recordings occupy P4 firmware space.
 
 | Names (left / right) | Geometric heading change | Full duration |
 | --- | --- | --- |
@@ -19,46 +24,29 @@ the duration; sampling never loops or resets the joints to zero.
 ## Provenance and ownership
 
 The [2026-09-15 handoff archive](../../../../../../docs/TURN_COMMANDS_12SERVO.md)
-remains preserved as historical choreography. This directory owns the current
-firmware sources: all 22,088 body/foot/contact/twelve-joint samples were solved
+remains preserved as historical choreography. This directory retains historical
+turn sources: all 22,088 body/foot/contact/twelve-joint samples were solved
 again against the present linkage and sole geometry. Updated manifests,
 configurations, schemas and reports bind the rebuilt sources. Original CSVs,
 previews and Blender files remain with the research package.
 
 The geometry hash matches the model's existing `geometry.json`. `catalog.json`
-and each manifest pin the full JSON source. The compiler checks source/geometry
+and each manifest pin the full JSON source. The original import checked source/geometry
 hashes, joint order, units, sample times, heading, entry and terminal poses.
 The supplied `sample_reference.py` remains an independent numerical reference.
 
-## Compiled sampling
+## Runtime retirement
 
-The model's `tools/compile_clips.py` generates flash-resident position tables
-for turns and gestures in the build directory. `clip.c` owns their shared finite
-sampler. Tangents are derived locally from neighboring samples with the
-handoff's harmonic-secant rule, with zero endpoint tangents. Twelve positions,
-velocities and accelerations are evaluated together through the existing shared
-cubic Hermite segment evaluator. Rational 120 Hz indexing uses elapsed monotonic
-microseconds; it does not accumulate rounded 8,333 µs steps or replay late frames.
-The sampler has no network, host-location or PCA channel dependency.
+`tools/compile_clips.py` now imports gestures only. The turn loader, generated
+turn tables, turn-specific phase/heading metadata and CMake dependencies on
+the turn catalog/commands have been removed. The native runtime turn-source
+test was retired; current tests verify that all eight names are unsupported
+without disturbing an active gait. Other gestures keep identical compact data.
+See [current validation and resource costs](../../CONTROLLER_VALIDATION.md).
 
-For example, the P4 console command `gait turn_left_15 7000` prints geometric
-samples without arming outputs or emitting an ACK/DONE for physical movement.
-
-## Physical execution remains unavailable
-
-`hardware_qualified=false` is retained for every asset. The P4 declares the
-installed names with `motion=false`; common admission and the gateway readiness
-gate block execution. Emergency disable remains independent.
-
-Entry assumes the recorded CAD standing pose. Current-pose transitions, ordinary
-stop/braking, measured servo zero/sign/travel/dynamics, channel mapping and the
-calibrated actuator executor are unfinished. Each clip's world heading is
-relative to its start; later execution must preserve accumulated physical heading.
-
-The source reports negative assumed-COM support margins (−1.821 to −4.442 mm),
-unverified collisions/loads/friction and cubic demands up to 243.887°/s and
-4267.022°/s². These are geometric calculations, not measured actuator capability.
-Electrical output-disable acceptance and supported physical trials remain open.
+The following dated records describe the original integration, not the current
+runtime, readiness or deployment. Its old console turn commands are no longer
+available in a build of the current source.
 
 ## Verification and application flash (2026-09-15)
 

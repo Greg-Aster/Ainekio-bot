@@ -6,6 +6,7 @@ const path = require('node:path');
 const nodes = new Map();
 function node(id) {
   if (!nodes.has(id)) nodes.set(id, { value: ({'walk-gait':'walk','walk-mode':'auto','walk-speed':'100','walk-direction':'fwd','walk-cycles':'2'})[id] || '', checked:true,
+    options:id==='walk-direction'?['fwd','back','turn_l','turn_r','side_l','side_r'].map(value=>({value,disabled:false})):[],
     listeners:new Map(),addEventListener(type,fn){this.listeners.set(type,fn);},
     fire(type){return this.listeners.get(type)?.({target:this,preventDefault(){}});},
     classList:{remove(){},add(){},toggle(){}},setAttribute(){},reportValidity(){return true;} });
@@ -22,7 +23,7 @@ source=source.replace('  if (!setupLogin()) {', `
   globalThis.motionTest = {
     select(id) { selectedRobotId=id; variableWalking=directionalWalking=true; availableBodyCommands=null; resetWalking(); },
     state() { return {activeWalkSequence,heldRequestPending,walkRequestPending,activeWalkProfile}; },
-    range(supported) { runningSupported=supported; updateSpeedRange(); },
+    range(supported,crab=false) { runningSupported=supported; crabSupported=crab; updateSpeedRange(); },
     beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus
   };
   if (false) {`);
@@ -166,5 +167,26 @@ async function run() {
   assert.equal(api.state().activeWalkSequence,null);
   assert.equal(api.state().heldRequestPending,false);
   console.log('Idle Speed, rejected/queued updates, fast terminal replies, completed walks, and reconnect races passed.');
+
+  api.select('robot-crab');node('walk-gait').value='crab';node('walk-speed').value='150';
+  api.range(true,true);
+  const sideways=node('walk-direction').options.filter(option=>option.value.startsWith('side_'));
+  assert.equal(node('walk-speed').max,'100');assert.equal(node('walk-speed').value,'100');
+  assert.ok(sideways.every(option=>!option.disabled));
+  node('walk-direction').value='side_l';
+  const crabStart=api.applyWalking();
+  assert.equal(requests.at(-1).body.params.gait,'crab');
+  assert.equal(requests.at(-1).body.params.dir,'side_l');
+  requests.at(-1).resolve(1000);await crabStart;
+  const crabFinish=api.applyWalking(true);
+  assert.equal(requests.at(-1).body.params.update,1000);
+  assert.equal(requests.at(-1).body.params.speed,0);
+  requests.at(-1).resolve(1001);await crabFinish;
+  node('walk-gait').value='walk';api.range(true,true);
+  assert.equal(node('walk-direction').value,'fwd');assert.ok(sideways.every(option=>option.disabled));
+  api.select('robot-without-crab');node('walk-gait').value='crab';api.range(true,false);
+  const beforeUnsupported=requests.length;await api.applyWalking();
+  assert.equal(requests.length,beforeUnsupported);assert.ok(sideways.every(option=>option.disabled));
+  console.log('Negotiated Crab directions, Start/Finish, and return to Walk passed.');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,0 +1,149 @@
+{
+  "command": "lay_down",
+  "gait_id": "lay_down_reviewed_expression",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "lay_down"
+  },
+  "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
+  "source_files": [
+    {
+      "path": "Slave/software/models/v2-12servo/motions/gestures/lay_down/source.json",
+      "sha256": "238f5b5de9555b5da0436afb65c3448a928c838d5cf20cfe0281811299ce735b"
+    },
+    {
+      "path": "Slave/software/models/v2-12servo/motions/gestures/lay_down/manifest.json",
+      "sha256": "e35faca053528fd334b38626de922909c285b1e31f0fcaeed54db10eec11fe20"
+    }
+  ],
+  "source_units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  },
+  "source_sample_hz": 120,
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "phases": [
+    {
+      "id": "p000",
+      "name": "Ready",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        0.0,
+        0.4
+      ]
+    },
+    {
+      "id": "p001",
+      "name": "Sudden splayed collapse",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        0.4,
+        0.9666666666666667
+      ]
+    },
+    {
+      "id": "p002",
+      "name": "Play dead \u2014 all legs grounded",
+      "section": "clip",
+      "execution_role": "command",
+      "source_interval_s": [
+        0.9666666666666667,
+        7.0
+      ]
+    }
+  ],
+  "timing_profiles": {
+    "demonstration": {
+      "duration_s": {
+        "p000": 0.4,
+        "p001": 0.5666666666666667,
+        "p002": 6.033333333333333
+      }
+    },
+    "research_candidate": {
+      "duration_s": {
+        "p000": 0.4,
+        "p001": 0.5666666666666667,
+        "p002": 6.033333333333333
+      }
+    }
+  },
+  "repeat": {
+    "section": null,
+    "minimum": 1,
+    "maximum": 1
+  },
+  "face_cues": [],
+  "entry": {
+    "joint_angles_rad": [
+      [
+        -3.4277231355700112e-09,
+        0.03352278781213001,
+        0.007738277999672739
+      ],
+      [
+        -6.855412043523829e-09,
+        0.033522596397426656,
+        0.007738238988523958
+      ],
+      [
+        1.9846059802971643e-09,
+        0.03352305412823901,
+        0.007738329494389129
+      ],
+      [
+        -3.427732808591979e-09,
+        0.0335229147284007,
+        0.007738299845916056
+      ]
+    ]
+  },
+  "completion": {
+    "joint_angles_rad": [
+      [
+        -0.6108652381980153,
+        0.6119047716702132,
+        1.1653309551175706
+      ],
+      [
+        -0.6108652381980153,
+        0.6119039138541652,
+        1.1653306499886618
+      ],
+      [
+        -0.6108652381980153,
+        0.6119055113784687,
+        1.1653313457657477
+      ],
+      [
+        -0.6108652381980153,
+        0.6119048056114776,
+        1.1653309806446919
+      ]
+    ],
+    "contacts": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "semantic_end_s": 7.0,
+    "optional_demo_recovery_end_s": null,
+    "behavior": "Hold the grounded terminal pose until another command."
+  },
+  "hardware_ready": false
+}

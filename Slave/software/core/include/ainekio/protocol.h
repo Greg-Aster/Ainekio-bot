@@ -65,12 +65,15 @@ typedef enum {
     AINEKIO_WALK_BACKWARD,
     AINEKIO_WALK_TURN_LEFT,
     AINEKIO_WALK_TURN_RIGHT,
+    AINEKIO_WALK_SIDE_LEFT,
+    AINEKIO_WALK_SIDE_RIGHT,
 } ainekio_walk_direction_t;
 
 typedef enum {
     AINEKIO_GAIT_WALK = 0,
     AINEKIO_GAIT_CRAWL,
     AINEKIO_GAIT_RUN,
+    AINEKIO_GAIT_CRAB,
 } ainekio_gait_t;
 
 typedef enum {

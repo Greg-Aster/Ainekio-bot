@@ -63,8 +63,7 @@ bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_
         memcpy(frame->position, track->positions[track->count-1], sizeof(frame->position));
         return true;
     }
-    frame->phase = elapsed_us < track->active_start_us ? AINEKIO_V2_ENTRY :
-                   elapsed_us < track->active_end_us ? track->active_phase : AINEKIO_V2_EXIT;
+    frame->phase = elapsed_us < track->active_end_us ? AINEKIO_V2_CLIP : AINEKIO_V2_EXIT;
     const uint64_t scaled = elapsed_us * V2_CLIP_SAMPLE_HZ;
     const uint64_t source_knot = scaled / UINT64_C(1000000);
     size_t low=0, high=track->count-1;

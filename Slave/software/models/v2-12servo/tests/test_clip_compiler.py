@@ -23,6 +23,7 @@ class HandoffValidation(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.family = self.root / "motions/gestures"
         self.family.mkdir(parents=True)
+        shutil.copy2(MODEL / "model.json", self.root / "model.json")
         shutil.copy2(MODEL / "geometry.json", self.root / "geometry.json")
         shutil.copy2(MODEL / "servo_profile.json", self.root / "servo_profile.json")
         (self.root / "motions/turns").mkdir()
@@ -57,12 +58,12 @@ class HandoffValidation(unittest.TestCase):
     def load(self):
         return compiler.load_gestures(self.root)
 
-    def use_dead(self):
-        self.command = "dead"
+    def use_recovery(self):
+        self.command = "freaky"
         original = MODEL / "motions/gestures"
-        shutil.copytree(original / "dead", self.family / "dead")
+        shutil.copytree(original / "freaky", self.family / "freaky")
         self.catalog = json.loads((original / "catalog.json").read_text())
-        self.catalog["commands"] = [e for e in self.catalog["commands"] if e["command"] == "dead"]
+        self.catalog["commands"] = [e for e in self.catalog["commands"] if e["command"] == "freaky"]
         self.write_catalog()
 
     def use_wave(self):
@@ -73,6 +74,18 @@ class HandoffValidation(unittest.TestCase):
         self.catalog = json.loads((original / "catalog.json").read_text())
         self.catalog["commands"] = [e for e in self.catalog["commands"] if e["command"] == "wave"]
         self.write_catalog()
+
+    def test_reviewed_recording_changes_require_regeneration(self):
+        original = MODEL / "motions/gestures"
+        self.command = "dead"
+        shutil.copytree(original / "dead", self.family / "dead")
+        shutil.copy2(original / "reviewed-hulls.npz", self.family / "reviewed-hulls.npz")
+        self.catalog = json.loads((original / "catalog.json").read_text())
+        self.catalog["commands"] = [e for e in self.catalog["commands"] if e["command"] == "dead"]
+        self.write_catalog()
+        self.assertEqual(len(self.load()), 1)
+        with (self.family / "dead/reviewed.json").open("a") as handle: handle.write(" ")
+        with self.assertRaisesRegex(ValueError, "reviewed recording changed"): self.load()
 
     def test_wave_reuses_corrected_sit_and_keeps_supporting_legs_planted(self):
         self.use_wave()
@@ -132,6 +145,14 @@ class HandoffValidation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "geometry"):
             self.load()
 
+    def test_reordered_model_joints_rejected(self):
+        path = self.root / "model.json"
+        model = json.loads(path.read_text())
+        model["joints"].reverse()
+        path.write_text(json.dumps(model))
+        with self.assertRaisesRegex(ValueError, "model joint order"):
+            self.load()
+
     def test_reordered_joints_rejected(self):
         self.edit("schema.json", lambda s: s["leg_order"].reverse())
         with self.assertRaisesRegex(ValueError, "joint order"):
@@ -170,36 +191,36 @@ class HandoffValidation(unittest.TestCase):
             self.load()
 
     def test_optional_recovery_is_excluded_from_compiled_command(self):
-        self.use_dead()
+        self.use_recovery()
         clip = self.load()[0]
-        self.assertEqual(clip["duration_s"], 7.4)
-        self.assertEqual(len(clip["positions"]), 889)
+        self.assertEqual(clip["duration_s"], 9.2)
+        self.assertEqual(len(clip["positions"]), 1105)
         source = json.loads((self.family / self.command / "source.json").read_text())
-        expected = [math.degrees(q)*100 for leg in source["samples"][888]["actuator_angles_rad"] for q in leg]
+        expected = [math.degrees(q)*100 for leg in source["samples"][1104]["actuator_angles_rad"] for q in leg]
         self.assertEqual(clip["positions"][-1], expected)
         self.assertNotEqual(clip["positions"][-1], clip["positions"][0])
-        self.assertEqual(clip["manifest"]["sample_count"], 1477)  # complete source retained
+        self.assertEqual(clip["manifest"]["sample_count"], 1165)  # complete source retained
 
     def test_semantic_end_must_be_a_source_knot(self):
-        self.use_dead()
+        self.use_recovery()
         self.edit("manifest.json", lambda m: m.update(semantic_end_seconds=7.4001), rebind=True)
         with self.assertRaisesRegex(ValueError, "semantic completion time"):
             self.load()
 
     def test_semantic_end_must_match_contract(self):
-        self.use_dead()
+        self.use_recovery()
         self.edit("execution-contract.json", lambda c: c["completion"].update(semantic_end_s=12.3))
         with self.assertRaisesRegex(ValueError, "semantic completion contract"):
             self.load()
 
     def test_recovery_cannot_be_relabelled_as_command(self):
-        self.use_dead()
+        self.use_recovery()
         self.edit("execution-contract.json", lambda c: c["phases"][-1].update(execution_role="command"))
         with self.assertRaisesRegex(ValueError, "execution role"):
             self.load()
 
     def test_wrong_semantic_terminal_rejected(self):
-        self.use_dead()
+        self.use_recovery()
         self.edit("manifest.json", lambda m: m.update(semantic_final_actuator_angles_rad=[[0]*3]*4), rebind=True)
         with self.assertRaisesRegex(ValueError, "entry/final"):
             self.load()

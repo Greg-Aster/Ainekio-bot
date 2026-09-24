@@ -35,42 +35,41 @@ def transform(cfg,leg,q):
 
 def main(root,binary):
     cfg=json.loads((root/'geometry.json').read_text());results=[]
-    for family in ('turns','gestures'):
-        catalog=json.loads((root/'motions'/family/'catalog.json').read_text())
-        for item in catalog['commands']:
-            folder=root/'motions'/family/item['path'];manifest=json.loads((folder/'manifest.json').read_text())
-            reference=root/'motions/turns/sample_reference.py' if family=='turns' else folder/'sample_reference.py'
-            spec=importlib.util.spec_from_file_location('clip_reference',reference);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);motion=module.Motion(folder)
-            duration=round(manifest.get('semantic_end_seconds',manifest['duration_seconds'])*1e6)
-            count=round(duration*120/1e6);times=sorted({round((i+f)*1e6/120) for i in range(count) for f in (0,.371)}|{duration})
-            data=subprocess.run([str(binary)],input=''.join(f'{item["command"]} {t}\n' for t in times),text=True,capture_output=True,check=True)
-            actual=np.array([json.loads(line)['position'] for line in data.stdout.splitlines()]).reshape(-1,4,3)*math.pi/18000
-            expected=np.array([motion.sample(t)['position'] for t in times]).reshape(-1,4,3)*math.pi/18000
-            source=json.loads((folder/'source.json').read_text())['samples']
-            # Body orientation is identical; interpolate only to evaluate the
-            # direction of gravity between source knots.
-            orientation=np.array([s['body_rotation_euler_xyz_rad'] for s in source])
-            u=np.asarray(times)*120/1e6;lo=np.minimum(u.astype(int),len(source)-2);f=u-lo
-            e=orientation[lo]*(1-f[:,None])+orientation[lo+1]*f[:,None]
-            body=rotations(e[:,2],2)@rotations(e[:,1],1)@rotations(e[:,0],0)
-            posture=folder/'posture.json';hulls=None
-            if posture.exists():hulls=np.load(folder/json.loads(posture.read_text())['contact_hulls_file'])
-            vertex_error=0.;floor_error=0.;closure=math.inf
-            for i,leg in enumerate(('FL','FR','RL','RR')):
-                points=np.array(hulls['sole_'+leg] if hulls is not None else cfg['legs'][leg]['sole_hull_local_mm'])
-                oldR,oldT,margin=transform(cfg,leg,expected[:,i]);newR,newT,newmargin=transform(cfg,leg,actual[:,i]);closure=min(closure,margin,newmargin)
-                deltaR=newR-oldR;deltaT=newT-oldT
-                for start in range(0,len(times),128):
-                    end=start+128
-                    delta=np.einsum('nkj,vj->nvk',deltaR[start:end],points)+deltaT[start:end,None,:]
-                    vertex_error=max(vertex_error,float(np.linalg.norm(delta,axis=2).max()))
-                    oldWorld=body[start:end]@oldR[start:end];newWorld=body[start:end]@newR[start:end]
-                    oldZ=np.einsum('nj,vj->nv',oldWorld[:,2],points)+np.einsum('nj,nj->n',body[start:end,2],oldT[start:end])[:,None]
-                    newZ=np.einsum('nj,vj->nv',newWorld[:,2],points)+np.einsum('nj,nj->n',body[start:end,2],newT[start:end])[:,None]
-                    floor_error=max(floor_error,float(abs(newZ.min(1)-oldZ.min(1)).max()))
-            row=dict(command=item['command'],samples=len(times),max_sole_vertex_error_mm=vertex_error,max_sole_clearance_change_mm=floor_error,min_closure_height_mm=closure)
-            assert vertex_error<.1 and floor_error<.1,row
-            results.append(row)
+    catalog=json.loads((root/'motions/gestures'/'catalog.json').read_text())
+    for item in catalog['commands']:
+        folder=root/'motions/gestures'/item['path'];manifest=json.loads((folder/'manifest.json').read_text())
+        reference=folder/'sample_reference.py'
+        spec=importlib.util.spec_from_file_location('clip_reference',reference);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);motion=module.Motion(folder)
+        duration=round(manifest.get('semantic_end_seconds',manifest['duration_seconds'])*1e6)
+        count=round(duration*120/1e6);times=sorted({round((i+f)*1e6/120) for i in range(count) for f in (0,.371)}|{duration})
+        data=subprocess.run([str(binary)],input=''.join(f'{item["command"]} {t}\n' for t in times),text=True,capture_output=True,check=True)
+        actual=np.array([json.loads(line)['position'] for line in data.stdout.splitlines()]).reshape(-1,4,3)*math.pi/18000
+        expected=np.array([motion.sample(t)['position'] for t in times]).reshape(-1,4,3)*math.pi/18000
+        source=json.loads((folder/'source.json').read_text())['samples']
+        # Body orientation is identical; interpolate only to evaluate the
+        # direction of gravity between source knots.
+        orientation=np.array([s['body_rotation_euler_xyz_rad'] for s in source])
+        u=np.asarray(times)*120/1e6;lo=np.minimum(u.astype(int),len(source)-2);f=u-lo
+        e=orientation[lo]*(1-f[:,None])+orientation[lo+1]*f[:,None]
+        body=rotations(e[:,2],2)@rotations(e[:,1],1)@rotations(e[:,0],0)
+        posture=folder/'posture.json';hulls=None
+        if posture.exists():hulls=np.load(folder/json.loads(posture.read_text())['contact_hulls_file'])
+        vertex_error=0.;floor_error=0.;closure=math.inf
+        for i,leg in enumerate(('FL','FR','RL','RR')):
+            points=np.array(hulls['sole_'+leg] if hulls is not None else cfg['legs'][leg]['sole_hull_local_mm'])
+            oldR,oldT,margin=transform(cfg,leg,expected[:,i]);newR,newT,newmargin=transform(cfg,leg,actual[:,i]);closure=min(closure,margin,newmargin)
+            deltaR=newR-oldR;deltaT=newT-oldT
+            for start in range(0,len(times),128):
+                end=start+128
+                delta=np.einsum('nkj,vj->nvk',deltaR[start:end],points)+deltaT[start:end,None,:]
+                vertex_error=max(vertex_error,float(np.linalg.norm(delta,axis=2).max()))
+                oldWorld=body[start:end]@oldR[start:end];newWorld=body[start:end]@newR[start:end]
+                oldZ=np.einsum('nj,vj->nv',oldWorld[:,2],points)+np.einsum('nj,nj->n',body[start:end,2],oldT[start:end])[:,None]
+                newZ=np.einsum('nj,vj->nv',newWorld[:,2],points)+np.einsum('nj,nj->n',body[start:end,2],newT[start:end])[:,None]
+                floor_error=max(floor_error,float(abs(newZ.min(1)-oldZ.min(1)).max()))
+        row=dict(command=item['command'],samples=len(times),max_sole_vertex_error_mm=vertex_error,max_sole_clearance_change_mm=floor_error,min_closure_height_mm=closure)
+        assert vertex_error<.1 and floor_error<.1,row
+        results.append(row)
     print(json.dumps(dict(samples=sum(r['samples'] for r in results),maximum_vertex_error_mm=max(r['max_sole_vertex_error_mm'] for r in results),maximum_clearance_change_mm=max(r['max_sole_clearance_change_mm'] for r in results),commands=results),indent=2))
 
 

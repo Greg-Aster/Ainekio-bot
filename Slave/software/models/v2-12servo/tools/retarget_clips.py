@@ -12,7 +12,7 @@ from scipy.spatial.transform import Rotation
 
 LEGS=['FL','FR','RL','RR']
 SOURCE_ORDER=[2,3,0,1]
-BODY_SUPPORTED={'swim','cute','dead','shrug','celebrate','surprised'}
+BODY_SUPPORTED={'swim','cute','celebrate','surprised'}
 SHORTER_REACH=BODY_SUPPORTED|{'bow','stretch','point','wave'}
 SEARCH_BOUNDS=np.deg2rad([[-150,150],[-145,145],[-180,180]])
 
@@ -240,6 +240,8 @@ def trim_nod_cycles(source, manifest, contract, repetitions):
     manifest.pop('source_validation',None)
 
 def retarget(root,source_repo,only=None):
+    from import_reviewed_clips import import_clips
+    import_clips(root, only)
     cfg=json.loads((root/'geometry.json').read_text());ref=load_reference(root);settings=bind_sources(root,source_repo)
     pivot=np.array(cfg['continuous_walk']['body_rotation_pivot_mm']);bodyhull=np.array(cfg['current_body_hull_local_mm'])
     geometry_hash=digest(root/'geometry.json');sole_hash=digest(root/'motions/turns/sole-hulls.npz')

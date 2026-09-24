@@ -1,193 +1,108 @@
 {
   "command": "worm",
-  "body_control_label": "WORM",
+  "body_control_label": "Worm",
   "wire": {
     "t": "intent",
     "name": "emote",
     "asset": "worm"
   },
-  "gait_id": "worm_upright_24_38_20260921",
-  "generated_utc": "2026-09-21",
-  "duration_seconds": 12.5,
-  "semantic_end_seconds": 12.0,
+  "gait_id": "worm_reviewed_expression",
+  "duration_seconds": 20.0,
+  "semantic_end_seconds": 20.0,
   "source_sample_hz": 120,
-  "sample_count": 1501,
-  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
-  "completion": "Five front/rear undulations, then return to standing; rolling may accumulate a small sole contact displacement.",
+  "sample_count": 2401,
+  "entry_actuator_angles_rad": [
+    [
+      -3.427955990658208e-09,
+      0.033525122567565194,
+      0.007738801723553247
+    ],
+    [
+      -6.855881272614236e-09,
+      0.03352495007837343,
+      0.007738766958158774
+    ],
+    [
+      1.9847437051268438e-09,
+      0.033525452378657276,
+      0.0077388674604132075
+    ],
+    [
+      -3.427965934192777e-09,
+      0.03352525226859398,
+      0.007738824193915258
+    ]
+  ],
   "semantic_final_actuator_angles_rad": [
     [
-      -3.4279031555893925e-09,
-      0.033522787660185835,
-      0.007738277870996827
+      -3.4279647309212463e-09,
+      0.03352512256757064,
+      0.007738801723555921
     ],
     [
-      -6.855426236048959e-09,
-      0.033522595760245695,
-      0.007738239210946014
+      -6.855880921940915e-09,
+      0.03352495007837294,
+      0.007738766958158343
     ],
     [
-      1.9847897245417953e-09,
-      0.03352305504042762,
-      0.007738329699015991
+      1.9847507661021993e-09,
+      0.03352545237863586,
+      0.007738867460407929
     ],
     [
-      -3.427686044812882e-09,
-      0.03352291415273477,
-      0.00773829973493477
+      -3.4279623944118405e-09,
+      0.03352525226859426,
+      0.0077388241939149545
     ]
   ],
   "playlist_final_actuator_angles_rad": [
     [
-      -3.4279031555893925e-09,
-      0.033522787660185835,
-      0.007738277870996827
+      -3.4279647309212463e-09,
+      0.03352512256757064,
+      0.007738801723555921
     ],
     [
-      -6.855426236048959e-09,
-      0.033522595760245695,
-      0.007738239210946014
+      -6.855880921940915e-09,
+      0.03352495007837294,
+      0.007738766958158343
     ],
     [
-      1.9847897245417953e-09,
-      0.03352305504042762,
-      0.007738329699015991
+      1.9847507661021993e-09,
+      0.03352545237863586,
+      0.007738867460407929
     ],
     [
-      -3.427686044812882e-09,
-      0.03352291415273477,
-      0.00773829973493477
+      -3.4279623944118405e-09,
+      0.03352525226859426,
+      0.0077388241939149545
     ]
   ],
-  "face_cues": [
-    {
-      "time_s": 0,
-      "name": "worm",
-      "mode": "once",
-      "fps": 1
-    },
-    {
-      "time_s": 12.0,
-      "name": "stand",
-      "mode": "once",
-      "fps": 1
-    }
-  ],
-  "hardware_qualified": false,
-  "actuator_calibration": null,
-  "source_sha256": "498c58758f53a289d599f4900c48a42c99e6a332917f20785cd79da95784de90",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
   "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
-  "face_sha256": {
-    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e",
-    "faces/worm/0.bin": "1c0be07609c7951aa12819941100055c0b7e85816998712d50946e98ea3a14ac"
-  },
-  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
-  "geometry_id": "upright-24-38-24-55-20260921",
-  "entry_actuator_angles_rad": [
-    [
-      -3.4277232242703374e-09,
-      0.033522787652696055,
-      0.0077382778671378615
-    ],
-    [
-      -6.855412137067195e-09,
-      0.03352259575715927,
-      0.007738239210021999
-    ],
-    [
-      1.9846059755857533e-09,
-      0.0335230550346877,
-      0.007738329695574771
-    ],
-    [
-      -3.4277327057149906e-09,
-      0.03352291414500837,
-      0.007738299730361967
-    ]
-  ],
+  "source_sha256": "1d5a14a2aaaa590556fe80c34dbba3dcf154ce09a99f1edb99cff8cc678c59e3",
+  "posture_sha256": "f5ff5dd994c69d15283a295900f0e6588554d8674f9fbfcd58f79295cb73751f",
+  "posture_hulls_sha256": "ba03e8350fe12186fd7f9c89fcfc57ed9f2807c0fa84058035655c06fca6fd35",
+  "reviewed_sha256": "11f2a8786123fd2b21384c1dd2a1dff336675898ed934e2b94119a24ffd5e518",
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "completion": "Return to the recorded standing pose.",
   "source_validation": {
     "command": "worm",
-    "geometry_id": "upright-24-38-24-55-20260921",
-    "samples": 1501,
-    "duration_s": 12.5,
+    "samples": 2401,
+    "duration_s": 20.0,
     "sample_hz": 120,
-    "max_target_error_mm": 9.93196060505852e-06,
-    "min_sole_height_mm": -9.266307650079852e-06,
-    "minimum_body_ground_clearance_mm": 9.461071916711298,
-    "minimum_closure_triangle_height_mm": 18.690595605670048,
-    "minimum_assumed_support_margin_mm": 41.800495529980935,
-    "actuator_min_degrees": [
-      [
-        -6.588414224310864e-06,
-        -37.61155787360547,
-        -23.511722675435173
-      ],
-      [
-        -1.0692885640707447e-06,
-        -37.61156310931881,
-        -23.511713801631846
-      ],
-      [
-        1.1370954639750696e-07,
-        -50.29336478378895,
-        -35.99783104432688
-      ],
-      [
-        -1.9639461733642719e-07,
-        -50.293397341041725,
-        -35.997869782604575
-      ]
-    ],
-    "actuator_max_degrees": [
-      [
-        -1.9639407408966488e-07,
-        1.9207142504418844,
-        0.4433706627075983
-      ],
-      [
-        8.826929875615318e-06,
-        1.9207032553852257,
-        0.44336844764985095
-      ],
-      [
-        9.637507216999673e-06,
-        1.9207295702012641,
-        0.44337363223435694
-      ],
-      [
-        1.0557169057583317e-05,
-        1.9207214979310783,
-        0.443371915418966
-      ]
-    ],
-    "maximum_adjacent_joint_step_degrees": 0.6167869130360606,
-    "peak_joint_speed_deg_s": 72.70821374760504,
-    "peak_joint_acceleration_deg_s2": 2462.566855795129,
-    "native_solver_fallbacks": 0,
-    "seconds": 1.6277605119976215,
+    "geometry_id": "upright-24-38-24-55-20260921",
+    "min_sole_height_mm": -0.0001970769587558152,
+    "minimum_body_ground_clearance_mm": 3.225957875992286,
+    "minimum_closure_triangle_height_mm": 15.600282353193986,
     "hardware_qualified": false,
     "collision_checked": false,
-    "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
-    "motion_end_s": 12.0
+    "reviewed_joint_keys_preserved": true,
+    "motion_end_s": 20.0,
+    "max_target_error_mm": 0.0,
+    "peak_joint_speed_deg_s": 23.37457522695107
   },
-  "retargeted_from": {
-    "path": "docs/gait-research/motion-batch-20260916/commands/worm/source.json",
-    "sha256": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca"
-  },
-  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
-  "blender_scene": "Motions - Current Geometry",
-  "body_target": {
-    "position_mm": [
-      0.0,
-      0.0,
-      63.0
-    ],
-    "euler_xyz_rad": [
-      0.0,
-      0.0,
-      0.0
-    ]
-  },
-  "choreography_source": "docs/gait-research/motion-batch-20260916/commands/worm/manifest.json",
-  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package."
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "blender_scene": "Motions - Current Geometry"
 }

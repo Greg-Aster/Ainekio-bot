@@ -155,12 +155,17 @@ static void heartbeat(uint64_t connection, bool pong)
     reply(connection, text);
 }
 
+static const char *const base_commands[] = {
+    "stop", "say", "stand", "neutral", "walk", "backward", "left", "right", "crawl", "run",
+    "crab", "crab_right", "crab_forward", "crab_backward", "crab_turn_left", "crab_turn_right"
+};
+enum { BASE_COMMAND_COUNT = sizeof(base_commands) / sizeof(base_commands[0]) };
+
 static ainekio_capabilities_t capabilities(const ainekio_p4_media_status_t *media,
     const ainekio_p4_calibration_t *calibration, const char **commands)
 {
-    const char *base[] = {"stop", "say", "stand", "neutral", "walk", "backward", "left", "right", "crawl", "run"};
-    size_t count = sizeof(base)/sizeof(base[0]);
-    memcpy(commands, base, sizeof(base));
+    size_t count = BASE_COMMAND_COUNT;
+    memcpy(commands, base_commands, sizeof(base_commands));
     for (size_t i = 0; i < ainekio_v2_clip_count; ++i) {
         bool duplicate = false;
         for (size_t j = 0; j < count; ++j)
@@ -183,9 +188,9 @@ static void hello(uint64_t connection)
     const ainekio_config_record_t *config = ainekio_p4_config();
     const ainekio_p4_media_status_t media = ainekio_p4_media_status();
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
-    const char *commands[10 + ainekio_v2_clip_count];
+    const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -404,7 +409,7 @@ static void telemetry(uint64_t connection)
         .wake_enabled=media.wake_enabled, .wake_ready=media.wake_ready};
     memcpy(status.wake_model, media.wake_model, sizeof(status.wake_model));
     if (!status.wake_model[0]) strcpy(status.wake_model, AINEKIO_DEFAULT_WAKE_MODEL);
-    const char *commands[10 + ainekio_v2_clip_count];
+    const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
     ainekio_body_status_fields_t body = {.mode=mode, .output_ready=output.ready,
         .output_armed=output.armed, .output_fault=output.fault,
@@ -834,9 +839,9 @@ int ainekio_p4_controller_command(int argc, char **argv)
            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
            (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
     for (size_t i = 0; i < ainekio_v2_clip_count; ++i)
-        printf("installed %s duration_ms=%" PRIu64 " heading_deg=%d hardware_qualified=%d\n",
+        printf("installed %s duration_ms=%" PRIu64 " hardware_qualified=%d\n",
                ainekio_v2_clips[i].command, ainekio_v2_clips[i].duration_us / 1000U,
-               ainekio_v2_clips[i].heading_degrees, ainekio_v2_clips[i].hardware_qualified);
+               ainekio_v2_clips[i].hardware_qualified);
     return 0;
 }
 
@@ -918,9 +923,9 @@ int ainekio_p4_gait_command(int argc, char **argv)
         size_t index;
         if (!ainekio_v2_clip_find(argv[1], &index) ||
             !ainekio_v2_clip_sample(index, (uint64_t)elapsed*1000U, &frame)) return 1;
-        printf("%s duration_ms=%" PRIu64 " phase=%d heading_deg=%d hardware_ready=0\n",
+        printf("%s duration_ms=%" PRIu64 " phase=%d hardware_ready=0\n",
                ainekio_v2_clips[index].command, ainekio_v2_clips[index].duration_us / 1000U,
-               frame.phase, ainekio_v2_clips[index].heading_degrees);
+               frame.phase);
     }
     for (size_t j=0; j<AINEKIO_V2_JOINT_COUNT; ++j)
         printf("%s CAD_cdeg=%.5f cdeg_s=%.5f cdeg_s2=%.5f\n",ainekio_v2_joints[j].name,

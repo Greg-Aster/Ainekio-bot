@@ -98,8 +98,8 @@
           <fieldset id="walk-fields">
             <legend>Walk, Run and Crawl</legend>
             <div id="locomotion-options" hidden>
-              <label>Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="run">Run (advanced tuning)</option></select></label>
-              <label>Direction <select id="walk-direction"><option value="fwd">Forward</option><option value="back">Backward</option><option value="turn_l">Turn left</option><option value="turn_r">Turn right</option></select></label>
+              <label>Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="crab">Crab (wide stance)</option><option value="run">Run (advanced tuning)</option></select></label>
+              <label>Direction <select id="walk-direction"><option value="fwd">Forward</option><option value="back">Backward</option><option value="turn_l">Turn left</option><option value="turn_r">Turn right</option><option value="side_l">Sideways left (Crab)</option><option value="side_r">Sideways right (Crab)</option></select></label>
               <label><input id="walk-continuous" type="checkbox" checked> Continue until Finish</label>
             </div>
             <label>Control mode <select id="walk-mode"><option value="auto">Automatic Speed</option><option value="manual">Advanced</option></select></label>
@@ -197,7 +197,8 @@
             <button type="button" data-emote="worm">Worm</button>
             <button type="button" data-emote="shake">Shake</button>
             <button type="button" data-emote="shrug">Shrug</button>
-            <button type="button" data-emote="dead">Dead</button>
+            <button type="button" data-emote="dead">Play Dead</button>
+            <button type="button" data-emote="lay_down" data-requires-declaration>Lay Down</button>
             <button type="button" data-emote="crab">Crab</button>
             <button type="button" data-emote="nod">Nod</button>
             <button type="button" data-emote="celebrate">Celebrate</button>
@@ -207,8 +208,6 @@
             <button type="button" data-emote="surprised">Surprised</button>
             <button type="button" data-emote="sad">Sad</button>
             <button type="button" data-emote="curious">Curious / look around</button>
-            <button type="button" data-emote="turn_left_15" data-requires-declaration>Turn left 15°</button>
-            <button type="button" data-emote="turn_right_15" data-requires-declaration>Turn right 15°</button>
             <button type="button" data-emote="turn_left_45">Turn left 45°</button>
             <button type="button" data-emote="turn_right_45">Turn right 45°</button>
             <button type="button" data-emote="turn_left_90">Turn left 90° / quarter</button>

@@ -24,7 +24,8 @@ asset state. **Display and touch implementation are deferred by the owner**;
 no display backend or speculative pin selection is compiled into this target.
 
 The body executes Stand, CAD Neutral, algorithmic walk/crawl (forward, backward,
-left and right), and every clip compiled from the model catalog. Body Control
+left and right), and every gesture compiled from the model catalog. Fixed-angle
+turn clips are no longer included in V2. Body Control
 builds its pose buttons from the firmware's advertised commands. Walking supports
 finite cycles, continuous operation, speed or independent stride/rate updates,
 and Finish at the existing gait boundary. See the
@@ -142,7 +143,7 @@ board through DTR/RTS; wait for the `ainekio-p4>` prompt before sending commands
 | `board` | Chip revision, flash, reset cause, pin assignment and driver state |
 | `controller` | Selected connection generation, epoch and capability readiness |
 | `gait walk <cycles> <elapsed-ms> [speed | stride rate]` | Evaluate variable walking to elapsed time; automatic Speed or independent stride/rate; no PWM or motion completion |
-| `gait <installed-finite-command> <elapsed-ms>` | Sample a complete turn or gesture, e.g. `gait bow 2500`; holds its recorded final pose after completion; no PWM |
+| `gait <installed-finite-command> <elapsed-ms>` | Sample a complete gesture, e.g. `gait bow 2500`; holds its recorded final pose after completion; no PWM |
 | `net` | C6 network initialization, station IP and AP state |
 | `net ap` / `net retry` | Request the existing provisioning state machine's setup AP / return to station operation |
 | `net key` | Display the device's persistent WPA2 setup-AP password locally |

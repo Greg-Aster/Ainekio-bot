@@ -45,8 +45,13 @@ captures/
 recordings/
 snapshots/
 
-# Oversized local CAD working copies (excluded from Git publication).
-/Slave/hardware/v2-12servo/ainekio-variable-gait*.blend*
+# Local Blender scenes and backups; publish STL exports instead.
+*.blend
+*.blend[0-9]*
+
+# Oversized local gait video renders and their chapter sidecars.
+/Slave/hardware/v2-12servo/ainekio-gaits-and-motions-2x-*.mp4
+/Slave/hardware/v2-12servo/ainekio-gaits-and-motions-2x-*-chapters.txt
 
 # Personal MetaHuman data must stay outside this repo.
 profiles/

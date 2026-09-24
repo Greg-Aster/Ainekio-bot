@@ -21,9 +21,7 @@
     "bow",
     "celebrate",
     "cute",
-    "dead",
     "point",
-    "shrug",
     "stretch",
     "surprised",
     "swim",
@@ -34,8 +32,6 @@
     "commands": [
       "celebrate",
       "cute",
-      "dead",
-      "shrug",
       "surprised",
       "swim"
     ],
@@ -199,44 +195,12 @@
       "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/freaky/execution-contract.json"
     },
     {
-      "command": "worm",
-      "family": "gestures",
-      "path": "worm",
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/worm",
-      "legacy_source_sha256": "959b9fcb7504c436a29a36479ea841e31ac69cf0e7b3a1a7f2e7057af98e15ca",
-      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/worm/execution-contract.json"
-    },
-    {
       "command": "shake",
       "family": "gestures",
       "path": "shake",
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/shake",
       "legacy_source_sha256": "d9c756082ef9bb055eb1c893b30301292874082820a4bd71b9a7a707a94f46f8",
       "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/shake/execution-contract.json"
-    },
-    {
-      "command": "shrug",
-      "family": "gestures",
-      "path": "shrug",
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/shrug",
-      "legacy_source_sha256": "4a332dbd2a1cc2d1918bde3d0f1e73d17c43ce935298dde3edd8e242c56ebf78",
-      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/shrug/execution-contract.json"
-    },
-    {
-      "command": "dead",
-      "family": "gestures",
-      "path": "dead",
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/dead",
-      "legacy_source_sha256": "6f9dd1d7b3b6fe394eb111bb2e646346feaba84c2f7f82aa322a94432515b29f",
-      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/dead/execution-contract.json"
-    },
-    {
-      "command": "crab",
-      "family": "gestures",
-      "path": "crab",
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/crab",
-      "legacy_source_sha256": "3fff90c90f4547219bd833e112f99488f35f991366a5f596e6cb7e3e99c3beb1",
-      "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/crab/execution-contract.json"
     },
     {
       "command": "celebrate",
@@ -278,5 +242,6 @@
       "legacy_source_sha256": "43d119af1b46820e2962dafa68ab3997f9a8ceb3a7464fa1d4608dd62e820d78",
       "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/curious/execution-contract.json"
     }
-  ]
+  ],
+  "reviewed_recordings": "motions/gestures/*/reviewed.json: regenerate with tools/import_reviewed_clips.py; never legacy retarget."
 }

@@ -1,4 +1,4 @@
-"""Compile retained finite turns and gestures. Standard Python only.
+"""Compile retained finite gestures. Standard Python only.
 
 Fit cubic segments to the retained 120 Hz reference, bounding continuous angle
 error. Preserve extrema, holds, duration and endpoints; one runtime sampler.
@@ -17,84 +17,15 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def load_turns(root: Path) -> list[dict]:
-    family = root / "motions/turns"
-    catalog = json.loads((family / "catalog.json").read_text())
+def load_gestures(root: Path) -> list[dict]:
     model = json.loads((root / "model.json").read_text())
     legs = ["FL", "FR", "RL", "RR"]
     axes = ["h_Part002", "alpha_Part006", "theta_Part005"]
     if model["model"] != "v2-12servo" or len(model["joints"]) != 12:
-        raise ValueError("incompatible turn model")
+        raise ValueError("incompatible gesture model")
     for i, joint in enumerate(model["joints"]):
         if joint["id"] != i or joint["cad_leg"] != legs[i // 3] or joint["actuator"] != axes[i % 3]:
-            raise ValueError("model joint order disagrees with the turn source")
-    entries = catalog["commands"]
-    if len(entries) != 8 or len({e["command"] for e in entries}) != 8:
-        raise ValueError("turn family must contain eight independent commands")
-    geometry_id = json.loads((root / "geometry.json").read_text())["geometry_id"]
-    geometry_hash, sole_hash = digest(root / "geometry.json"), digest(family / "sole-hulls.npz")
-    turns = []
-    for entry in entries:
-        command = entry["command"]
-        match = re.fullmatch(r"turn_(left|right)_(15|45|90|180)", command)
-        if not match or entry["path"] != f"commands/{command}":
-            raise ValueError("invalid turn command/path")
-        folder = family / entry["path"]
-        manifest = json.loads((folder / "manifest.json").read_text())
-        source = json.loads((folder / "source.json").read_text())
-        schema = json.loads((folder / "schema.json").read_text())
-        metadata = source["metadata"]
-        if (digest(folder / "source.json") != manifest["source_sha256"]
-            or manifest["source_sha256"] != entry["source_sha256"]
-            or manifest["geometry_id"] != geometry_id
-            or manifest["geometry_sha256"] != geometry_hash or manifest["sole_hulls_sha256"] != sole_hash):
-            raise ValueError(f"{command}: source or geometry provenance mismatch")
-        if (manifest["command"] != command or metadata["configuration"]["command"] != command
-            or manifest["wire"] != {"t": "intent", "name": "emote", "asset": command}
-            or metadata["leg_order"] != legs or metadata["joint_order"] != axes
-            or schema["leg_order"] != legs or schema["joint_order"] != axes
-            or metadata["angle_units"] != "radian" or metadata["position_units"] != "mm"
-            or metadata["time_units"] != "second"):
-            raise ValueError(f"{command}: incompatible command, joint order or units")
-        hz = manifest["source_sample_hz"]
-        duration = manifest["duration_seconds"]
-        if (hz != 120 or metadata["configuration"]["sample_hz"] != hz or schema["source_sample_hz"] != hz
-            or not math.isfinite(duration) or not 0 < duration <= 35
-            or duration != entry["duration_s"]
-            or len(source["samples"]) != round(duration * hz) + 1
-            or len(source["samples"]) != manifest["sample_count"] or len(source["samples"]) != entry["samples"]):
-            raise ValueError(f"{command}: invalid sample count or timing")
-        turn_start, turn_end = manifest["turn_source_seconds"]
-        if not 0 <= turn_start < turn_end <= duration:
-            raise ValueError(f"{command}: invalid turn interval")
-        heading = int(match[2]) * (1 if match[1] == "left" else -1)
-        if heading != manifest["heading_change_degrees"] or heading != entry["heading_degrees"]:
-            raise ValueError(f"{command}: heading/name mismatch")
-        positions = []
-        for i, sample in enumerate(source["samples"]):
-            if not math.isfinite(sample["time_s"]) or abs(sample["time_s"] - i / hz) > 1e-8:
-                raise ValueError(f"{command}: nonuniform or reordered samples")
-            angles = sample["actuator_angles_rad"]
-            if len(angles) != 4 or any(len(leg) != 3 for leg in angles):
-                raise ValueError(f"{command}: every sample must supply all twelve joints")
-            row = [math.degrees(value) * 100 for leg in angles for value in leg]
-            if not all(math.isfinite(value) for value in row):
-                raise ValueError(f"{command}: nonfinite angle")
-            positions.append(row)
-        yaw = source["samples"][-1]["body_yaw_world_rad"] - source["samples"][0]["body_yaw_world_rad"]
-        if not math.isfinite(yaw) or abs(math.degrees(yaw) - heading) > 1e-6:
-            raise ValueError(f"{command}: recorded heading does not match the command")
-        if (source["samples"][-1]["actuator_angles_rad"] != manifest["final_actuator_angles_rad"]
-            or source["samples"][0]["actuator_angles_rad"] != manifest["entry_actuator_angles_rad"]):
-            raise ValueError(f"{command}: recorded entry/final pose mismatch")
-        if catalog["hardware_qualified"] is not False or manifest["hardware_qualified"] is not False:
-            raise ValueError("research source import cannot grant hardware readiness")
-        turns.append(dict(command=command, manifest=manifest, positions=positions,
-                          duration_s=duration, start_s=turn_start, end_s=turn_end, phase='AINEKIO_V2_TURN'))
-    return turns
-
-
-def load_gestures(root: Path) -> list[dict]:
+            raise ValueError("model joint order disagrees with the gesture source")
     family = root / "motions/gestures"
     catalog = json.loads((family / "catalog.json").read_text())
     policy_hash = digest(family / "execution-policy.json")
@@ -127,6 +58,8 @@ def load_gestures(root: Path) -> list[dict]:
             if base and (digest(folder / base["source_file"]) != base["source_sha256"]
                          or digest(folder / base["posture_file"]) != base["posture_sha256"]):
                 raise ValueError(f"{command}: seated motion dependency changed; regenerate this motion")
+        if "reviewed_sha256" in manifest and digest(folder / "reviewed.json") != manifest["reviewed_sha256"]:
+            raise ValueError(f"{command}: reviewed recording changed; regenerate the clip")
         metadata = source["metadata"]
         wire = {"t": "intent", "name": "sit"} if command == "sit" else {
             "t": "intent", "name": "emote", "asset": command}
@@ -212,7 +145,7 @@ def load_gestures(root: Path) -> list[dict]:
             or manifest["actuator_calibration"] is not None):
             raise ValueError("research source import cannot grant hardware readiness")
         gestures.append(dict(command=command, manifest=manifest, positions=positions[:terminal_knot+1],
-                             duration_s=command_end, start_s=0, end_s=min(command_end, motion_end), phase='AINEKIO_V2_CLIP'))
+                             duration_s=command_end, end_s=min(command_end, motion_end)))
     return gestures
 
 
@@ -280,7 +213,7 @@ def compact(positions):
 
 
 def compile_clips(root: Path, out: Path) -> None:
-    clips = load_turns(root) + load_gestures(root)
+    clips = load_gestures(root)
     if len(clips) > 62 or len({c['command'] for c in clips}) != len(clips):
         raise ValueError("duplicate command or body declaration limit exceeded")
     out.mkdir(parents=True, exist_ok=True)
@@ -295,8 +228,7 @@ typedef struct {
     const uint16_t *knots;
     const float *minimum, *maximum;
     size_t count;
-    uint64_t active_start_us, active_end_us;
-    ainekio_v2_phase_t active_phase;
+    uint64_t active_end_us;
 } ainekio_v2_clip_track_t;
 extern const ainekio_v2_clip_track_t v2_clip_tracks[];
 #endif
@@ -321,12 +253,12 @@ extern const ainekio_v2_clip_track_t v2_clip_tracks[];
         manifest = clip['manifest']
         intent = 'AINEKIO_INTENT_SIT' if manifest['wire']['name'] == 'sit' else 'AINEKIO_INTENT_EMOTE'
         code.append('    {' + ','.join((json.dumps(clip['command']), json.dumps(manifest['gait_id']), intent,
-                    f'UINT64_C({round(clip["duration_s"] * 1e6)})', str(manifest.get('heading_change_degrees', 0)), 'false')) + '},')
+                    f'UINT64_C({round(clip["duration_s"] * 1e6)})', 'false')) + '},')
     code.extend(['};', 'const size_t ainekio_v2_clip_count = sizeof(ainekio_v2_clips) / sizeof(ainekio_v2_clips[0]);',
                  'const ainekio_v2_clip_track_t v2_clip_tracks[] = {'])
     for i, clip in enumerate(clips):
-        start, end, phase = clip['start_s'], clip['end_s'], clip['phase']
-        code.append(f'    {{clip_{i}_positions, clip_{i}_velocities, clip_{i}_knots, clip_{i}_minimum, clip_{i}_maximum, {len(clip["indices"])}U, UINT64_C({round(start * 1e6)}), UINT64_C({round(end * 1e6)}), {phase}}},')
+        end = clip['end_s']
+        code.append(f'    {{clip_{i}_positions, clip_{i}_velocities, clip_{i}_knots, clip_{i}_minimum, clip_{i}_maximum, {len(clip["indices"])}U, UINT64_C({round(end * 1e6)})}},')
     code.append('};')
     (out / 'clip_data.h').write_text(header)
     (out / 'clip_data.c').write_text('\n'.join(code) + '\n')

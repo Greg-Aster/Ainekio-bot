@@ -215,18 +215,16 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/worm",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/worm/execution-contract.json",
       "sha256": {
-        "source.json": "498c58758f53a289d599f4900c48a42c99e6a332917f20785cd79da95784de90",
-        "manifest.json": "ceadd9b961e1704c663ff60cddfe3f542200c38e1e058e1b8c916d7ec4a556f2",
-        "schema.json": "e1c19f3a774f649d24595f6eeb57feb1b9720798bbae5d8d22626a97beaa6deb",
-        "config.json": "28c5a4ba79de2e77247eafa9462709cebfa0e15315229413686a8eb085fc5e06",
-        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
-        "validation.json": "d791906ae64ab4eb58db965c645dc0ce3701e8dd982c5e25f32cd4ff83a7891a",
-        "interpolation-validation.json": "f9a27dc22c86b12491d3ea236a0f46a503dd468c0324660edd86243c901b85f0",
-        "blender-validation.json": "5fe5d5a03222310ccef45e4a3457a7e30b845522771a4338e41b1f041056f3a1",
-        "execution-contract.json": "435503f1ad882e697285596e02d5ef386b8c9a79b8e934f91c5229a5a4458672",
-        "source-review.json": "6dac8c905f69c33947a2e5a4020ba376d6ceb3a23a5b11296c68f7502c0df379"
-      },
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/worm"
+        "reviewed.json": "11f2a8786123fd2b21384c1dd2a1dff336675898ed934e2b94119a24ffd5e518",
+        "source.json": "1d5a14a2aaaa590556fe80c34dbba3dcf154ce09a99f1edb99cff8cc678c59e3",
+        "manifest.json": "0d34d557b20949bb4527a3179533e740f2e4faec43640919268da7f58b9bd597",
+        "schema.json": "1b68953fb1280dadb4854969e8111b832acd13cd7c0f8be3d76d529f0e8b297f",
+        "execution-contract.json": "2c5ff9b6c0aaceeb35a743f0e514ca2ea819611c04e261e66ad5e6306467575b",
+        "posture.json": "f5ff5dd994c69d15283a295900f0e6588554d8674f9fbfcd58f79295cb73751f",
+        "validation.json": "ac638ccc7c79ae10f20c675c159c656740b77a3045f6fcc8d378c4ff5354cd21",
+        "sample_reference.py": "80c66123e9ae1eb945b8e94fa3eefabc6653dac0f6da50042cf644793488b245",
+        "interpolation-validation.json": "efd6df022d3e1dfc5c7317020e1d475c034f7fb1eec66b4cdc95b63a990acda8"
+      }
     },
     {
       "command": "shake",
@@ -253,18 +251,16 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/shrug",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/shrug/execution-contract.json",
       "sha256": {
-        "source.json": "654ea6921687df20678ba92044e3749640907d38d947caf135fe6c2d05d71a0b",
-        "manifest.json": "c0f6e09ce43623eb2adbfd3f7023242c8164262af94a8f34551de5c138f78157",
-        "schema.json": "cb147937899cdbfd8a5e4c103ed6b275cf7ec480b0d4a976aafb81873c340b95",
-        "config.json": "8b2254176d23dc826bcf91c82f40316e568afae58b87b0ed76de7efa0f6d558c",
-        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
-        "validation.json": "902b50b02f521f69f6d5cf3cc8f92bd0edd7440489bc92fe8706992f2db71f5f",
-        "interpolation-validation.json": "394821246d65382e0bd6e36367aa32213a5d5a9787e36e29be3de26d77480358",
-        "blender-validation.json": "5b78841603cfec435744ff83298e2a68fe504b613bf499366f0c0a9abfcd9b26",
-        "execution-contract.json": "15b0449ec4633363082afdd3b37c1cf2a7f60320cfa7b020875cc871e702ca75",
-        "source-review.json": "2deae689b34d9fb8830450a3a5d51bfb31a55cdec8859ad93f912c3e9c0ed25a"
-      },
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/shrug"
+        "reviewed.json": "cdb6f75907934d5e472d4ef2d59ff5ada66ab03181fb1e3ceb1177516b1f364d",
+        "source.json": "81b8058260992d15b8da60ea28a67547a8b420b57dc33702326edb4379e8f4d9",
+        "manifest.json": "3d23529cda3a8dc5dbdc695216acd1c8a01e9e3c5633ab94db1878cb6d731bb7",
+        "schema.json": "217dee2e1f275f1ca94dcbe2e92b3fa337aaa5ef729ec6174b98a9f61b785d61",
+        "execution-contract.json": "27078f3e2593fedc8d93247c0792543f512587dd358e6bf951698bc895a52d39",
+        "posture.json": "bed455e22643f0f65770dea639703ce292e41d5568c17ffaad19135244894b32",
+        "validation.json": "aa8e72474f213ff785abdb9ece10e4d36c919ee31ece97a80b8959216a7340ee",
+        "sample_reference.py": "9f64896b2f6a365df66bd07341fb3c5138d6ea71464c9bff0994cb19a45958c8",
+        "interpolation-validation.json": "1e9f0704f752613e428f68e73b982e791c8aba50eaab18dc13f5715853cf91a0"
+      }
     },
     {
       "command": "dead",
@@ -272,37 +268,16 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/dead",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/dead/execution-contract.json",
       "sha256": {
-        "source.json": "9481691642903d1f8b2fd0246bf3a3131544e46f2bbb143690744f979418c88a",
-        "manifest.json": "fdbae764df6136c64c29019cc74db1b83b8d41efb2a5a7376ca1d1d744755a07",
-        "schema.json": "206055f05c2d4ee50ecde925f56ed45de2c06f83f0c1562bd0b4955de574d53f",
-        "config.json": "b30c391636f0e4a671d2f2ae241fc743af09ee90954041d2f6c43fdfce2c6f8f",
-        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
-        "validation.json": "6b194de8f3ddf38f7a34ee15cd186c08240200ddb4c80537d4bce03ddfceb66d",
-        "interpolation-validation.json": "9c7a6f66e4e6ba57e023fd72ecc0051a444917dcae7b3ca3408095e8ee425728",
-        "blender-validation.json": "e6bf6def4dcb236969fe979102f39f2bf534f86d8deaa553eb581aa029d7913f",
-        "execution-contract.json": "871905b363051a0b0e09ab923870941c94d11c02f93f395e8a8dfd0dad3cea64",
-        "source-review.json": "7fa36458c674e3d46b3ec3fa9aa353e383dfbcd10348dd3d4a41bebaaf26ccef"
-      },
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/dead"
-    },
-    {
-      "command": "crab",
-      "path": "crab",
-      "handoff": "Slave/software/models/v2-12servo/motions/gestures/crab",
-      "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/crab/execution-contract.json",
-      "sha256": {
-        "source.json": "7f7bd0a7f008fc9e922a9b142f4f6d3b1911bc1a804f185982b1c5e99e93d679",
-        "manifest.json": "e86dbb4496e8c9b89bd1e3f46d0d3588e5f80c144f18573e23ffc3e9f0701ec2",
-        "schema.json": "4dfe9f9392bb324f0853a0492804a1876c8d1f3b89bc82c7427b8e72d43aa4c3",
-        "config.json": "f6eeca6e76fb0de80af9b3fd859acf38bc80303db7620a1890e1a8b2d670026b",
-        "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
-        "validation.json": "3d94570a05ec0f580bb752ddcbe95a2aebb7fc48d61f2e2b48f3f78c63643458",
-        "interpolation-validation.json": "d085fb2995fa469132ebf2e643169923148ce43a64a9359e411db1a3d754778a",
-        "blender-validation.json": "cee522150b8dcb9bd919d135a42f4e9856de7e434b7d20c988cfc467ce0ffa6b",
-        "execution-contract.json": "b9ec9933a8673db348743e145a3cc6d48edce2fe436d833a5fad0ba8cc2eb3e0",
-        "source-review.json": "9350303fa95a24f2c1a3b7e15084e46e21c4186aed1bfc5245b4a35e1661dd9e"
-      },
-      "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/crab"
+        "reviewed.json": "9c363c5f9422fc8803652d24cf10901eb17e28754500e609664b6dba03f267a2",
+        "source.json": "8915e82d0ea0d3e1e758d3bd3ea9c64112a3bb44ab9e9e818279bb362c0ffb27",
+        "manifest.json": "bb9558afcabf9bb9631dab6bd717307667314b3de2c16f46309cc444cce6138f",
+        "schema.json": "d25af40bcfa8ef3ad6f04775ebadfa66c4c8e9e26715b449f2de00e37d74ca39",
+        "execution-contract.json": "0dbf31f306f8cabcd1b5dbd84fe1af39833ec112725f1500f602934d86b6e166",
+        "posture.json": "e41ce504e06630cf9034475c61bf500076693abb011c239175583c58a21b4390",
+        "validation.json": "dfa21cd371cdebf4fe1062714b59dc620b0cfe30aea3938c91ffc027c30c4e2a",
+        "sample_reference.py": "8eb8dfb9bca038e5247073891791d89f74f7a73e27f446cb2b7f8982719a99c1",
+        "interpolation-validation.json": "04dc0b63cf9bf90d5c63327cd2aef92277272b1ec3e54682dfb9c1ee547f49e4"
+      }
     },
     {
       "command": "celebrate",
@@ -428,6 +403,23 @@
         "source.json": "7622fbd68590a1ff60601d7abeca2660d5c209407e1ef56199629711da7d4835",
         "manifest.json": "813ab29877b395e88df24bff626e865b94a1fd162e407b2682bf65fd3f53617e",
         "sample_reference.py": "5527e29cb31e9b4453f7d3eb0502e5f5bc5c763b32f381e4b092e0b77202b61b"
+      }
+    },
+    {
+      "command": "lay_down",
+      "path": "lay_down",
+      "handoff": "Slave/software/models/v2-12servo/motions/gestures/lay_down",
+      "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/lay_down/execution-contract.json",
+      "sha256": {
+        "reviewed.json": "585879ce3d473cc750aa5d52c28c67948bce6032dbff7ca407096157b8abfc94",
+        "source.json": "238f5b5de9555b5da0436afb65c3448a928c838d5cf20cfe0281811299ce735b",
+        "manifest.json": "e35faca053528fd334b38626de922909c285b1e31f0fcaeed54db10eec11fe20",
+        "schema.json": "6d440aac16b4cc33b17d32256c1be759d0853865990ad59b84b35789960330ec",
+        "execution-contract.json": "193f567f0e6ae70bfd474e6cb965f5a6dd22655fabe77da8559cd9a87a086e92",
+        "posture.json": "6c50e362fc95c292a7c8b2ac2454f66aa7d13419cde85209baafa8b5cecda871",
+        "validation.json": "bfd114ba3fa00ce55564f4cb2730cbf150f8a5d2d73e0de1e6d3e355530f3871",
+        "sample_reference.py": "dda995bad633862f6f26d3dd089d0f2ef010bc6792e6008006dae837baf5cc1f",
+        "interpolation-validation.json": "64885ece8ea17bc0bf8419e22c1bd2e925502eb66c8c6551e9adeac731d21d81"
       }
     }
   ],

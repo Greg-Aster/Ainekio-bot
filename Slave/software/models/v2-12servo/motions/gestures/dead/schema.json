@@ -1,5 +1,6 @@
 {
   "command": "dead",
+  "geometry_id": "upright-24-38-24-55-20260921",
   "leg_order": [
     "FL",
     "FR",
@@ -11,70 +12,12 @@
     "alpha_Part006",
     "theta_Part005"
   ],
-  "physical_leg_mapping": {
-    "FL": "rear_left",
-    "FR": "rear_right",
-    "RL": "front_left",
-    "RR": "front_right"
-  },
   "sample_hz": 120,
-  "units": {
-    "positions": "mm",
-    "actuator_angles": "radians",
-    "time": "seconds and rounded integer microseconds"
-  },
-  "coordinates": "World X physical forward, Y left, Z up. Quaternion wxyz; geometric q about positive CAD axes: h X, alpha/theta Z.",
-  "joint_zero": "Current root geometry CAD offsets; standing is the solved entry pose.",
-  "interpolation": "Monotone cubic Hermite, harmonic same-sign secant tangents and zero endpoint tangents. Hold final position after duration.",
-  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
-  "com": {
-    "mode": "assumed",
-    "body_reference_mm": [
-      0,
-      0,
-      65
-    ],
-    "measured_mass_kg": null
-  },
-  "servo_calibration": null,
-  "semantic_end_s": 7.4,
-  "optional_demonstration_recovery": true,
-  "joint_conventions": {
-    "h_Part002": {
-      "pivot": "Each leg shoulder_world translation",
-      "axis": "Positive local X of shoulder_world",
-      "zero": "CAD shoulder neutral",
-      "sign": "positive right-hand rotation about local X"
-    },
-    "alpha_Part006": {
-      "pivot_mechanism_xz_mm": [
-        62.58781342006688,
-        69.71182170125783
-      ],
-      "axis": "Negative local Y of mechanism frame for increasing alpha",
-      "zero_radians": -2.589563330529253,
-      "mapping": "primary.rotation_y = -alpha_offset"
-    },
-    "theta_Part005": {
-      "pivot_mechanism_xz_mm": [
-        50.08774121717073,
-        81.2118481681196
-      ],
-      "axis": "Negative local Y of mechanism frame for increasing theta",
-      "zero_radians": 2.484925850946935,
-      "mapping": "input.rotation_y = -(theta_neutral+theta_offset)+old_theta_neutral"
-    },
-    "passive_lower_leg": {
-      "equation": "foot.rotation_y = -(beta-beta_neutral); beta from circle closure",
-      "independent_actuator": false
-    },
-    "provenance": "Measured rig transforms and driver expressions, verified against evaluated Blender poses; electrical horn index not calibrated"
-  },
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "semantic_end_s": 7.0,
+  "optional_demonstration_recovery": false,
   "sample_fields": [
     "time_s",
     "phase",
-    "phase_fraction",
     "body_translation_world_mm",
     "body_position_world_mm",
     "body_rotation_euler_xyz_rad",
@@ -96,5 +39,10 @@
     "target_foot_reference_xy_mm",
     "target_sole_clearance_mm"
   ],
-  "body_position_datum": "Current geometry rotation pivot; body_translation_world_mm is the model translation offset."
+  "interpolation": "Monotone cubic Hermite; compiled error bound 0.005 degree.",
+  "units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  }
 }

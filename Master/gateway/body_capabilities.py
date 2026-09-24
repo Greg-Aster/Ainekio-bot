@@ -8,6 +8,9 @@ from collections.abc import Mapping, Sequence
 
 from protocol.control_v1 import BODY_COMMANDS_FEATURE
 
+CRAB_DIRECTIONS = {"crab":"side_l", "crab_right":"side_r", "crab_forward":"fwd",
+                   "crab_backward":"back", "crab_turn_left":"turn_l", "crab_turn_right":"turn_r"}
+
 
 def body_commands(
     model: str,
@@ -42,6 +45,8 @@ def movement_command(message: Mapping[str, object]) -> str | None:
         return None
     if name == "walk":
         direction = message.get("dir")
+        if message.get("gait") == "crab":
+            return next((name for name, d in CRAB_DIRECTIONS.items() if d == direction), "crab")
         return {"fwd": "walk", "back": "backward", "turn_l": "left", "turn_r": "right"}.get(
             direction if isinstance(direction, str) else "", "walk"
         )

@@ -1,0 +1,108 @@
+{
+  "command": "lay_down",
+  "body_control_label": "Lay Down",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "lay_down"
+  },
+  "gait_id": "lay_down_reviewed_expression",
+  "duration_seconds": 7.0,
+  "semantic_end_seconds": 7.0,
+  "source_sample_hz": 120,
+  "sample_count": 841,
+  "entry_actuator_angles_rad": [
+    [
+      -3.4277231355700112e-09,
+      0.03352278781213001,
+      0.007738277999672739
+    ],
+    [
+      -6.855412043523829e-09,
+      0.033522596397426656,
+      0.007738238988523958
+    ],
+    [
+      1.9846059802971643e-09,
+      0.03352305412823901,
+      0.007738329494389129
+    ],
+    [
+      -3.427732808591979e-09,
+      0.0335229147284007,
+      0.007738299845916056
+    ]
+  ],
+  "semantic_final_actuator_angles_rad": [
+    [
+      -0.6108652381980153,
+      0.6119047716702132,
+      1.1653309551175706
+    ],
+    [
+      -0.6108652381980153,
+      0.6119039138541652,
+      1.1653306499886618
+    ],
+    [
+      -0.6108652381980153,
+      0.6119055113784687,
+      1.1653313457657477
+    ],
+    [
+      -0.6108652381980153,
+      0.6119048056114776,
+      1.1653309806446919
+    ]
+  ],
+  "playlist_final_actuator_angles_rad": [
+    [
+      -0.6108652381980153,
+      0.6119047716702132,
+      1.1653309551175706
+    ],
+    [
+      -0.6108652381980153,
+      0.6119039138541652,
+      1.1653306499886618
+    ],
+    [
+      -0.6108652381980153,
+      0.6119055113784687,
+      1.1653313457657477
+    ],
+    [
+      -0.6108652381980153,
+      0.6119048056114776,
+      1.1653309806446919
+    ]
+  ],
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
+  "source_sha256": "238f5b5de9555b5da0436afb65c3448a928c838d5cf20cfe0281811299ce735b",
+  "posture_sha256": "6c50e362fc95c292a7c8b2ac2454f66aa7d13419cde85209baafa8b5cecda871",
+  "posture_hulls_sha256": "ba03e8350fe12186fd7f9c89fcfc57ed9f2807c0fa84058035655c06fca6fd35",
+  "reviewed_sha256": "585879ce3d473cc750aa5d52c28c67948bce6032dbff7ca407096157b8abfc94",
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "completion": "Hold the grounded terminal pose until another command.",
+  "source_validation": {
+    "command": "lay_down",
+    "samples": 841,
+    "duration_s": 7.0,
+    "sample_hz": 120,
+    "geometry_id": "upright-24-38-24-55-20260921",
+    "min_sole_height_mm": -0.0656087503192424,
+    "minimum_body_ground_clearance_mm": 0.14999999999892566,
+    "minimum_closure_triangle_height_mm": 18.69059561987274,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "reviewed_joint_keys_preserved": true,
+    "motion_end_s": 7.0,
+    "max_target_error_mm": 0.0,
+    "peak_joint_speed_deg_s": 225.14200468417073
+  },
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "blender_scene": "Motions - Current Geometry"
+}

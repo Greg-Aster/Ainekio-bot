@@ -1,0 +1,16 @@
+{
+  "command": "lay_down",
+  "samples": 841,
+  "duration_s": 7.0,
+  "sample_hz": 120,
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "min_sole_height_mm": -0.0656087503192424,
+  "minimum_body_ground_clearance_mm": 0.14999999999892566,
+  "minimum_closure_triangle_height_mm": 18.69059561987274,
+  "hardware_qualified": false,
+  "collision_checked": false,
+  "reviewed_joint_keys_preserved": true,
+  "motion_end_s": 7.0,
+  "max_target_error_mm": 0.0,
+  "peak_joint_speed_deg_s": 225.14200468417073
+}

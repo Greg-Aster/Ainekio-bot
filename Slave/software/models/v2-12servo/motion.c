@@ -19,7 +19,8 @@ bool ainekio_v2_walk_controls(double speed,ainekio_v2_walk_controls_t *out)
 bool ainekio_v2_walk_request(const ainekio_command_t *command,uint8_t *cycles)
 {
     if(!command||!cycles||command->kind!=AINEKIO_COMMAND_INTENT||command->data.intent.kind!=AINEKIO_INTENT_WALK||
-       command->data.intent.data.walk.direction>AINEKIO_WALK_TURN_RIGHT||command->data.intent.data.walk.gait>AINEKIO_GAIT_RUN||command->data.intent.data.walk.steps>10)return false;
+       command->data.intent.data.walk.direction>AINEKIO_WALK_SIDE_RIGHT||command->data.intent.data.walk.gait>AINEKIO_GAIT_CRAB||
+       (command->data.intent.data.walk.direction>=AINEKIO_WALK_SIDE_LEFT&&command->data.intent.data.walk.gait!=AINEKIO_GAIT_CRAB)||command->data.intent.data.walk.steps>10)return false;
     *cycles=command->data.intent.data.walk.steps;return true;
 }
 static double run_at(const ainekio_v2_walk_state_t *s,double phase)
@@ -31,8 +32,8 @@ static double mixed(const ainekio_v2_walk_state_t *s,double phase,double walk,do
 {
     return walk+(run-walk)*run_at(s,phase);
 }
-static double duty_at(const ainekio_v2_walk_state_t *s,double phase) {return mixed(s,phase,V2_DUTY,V2_RUN_DUTY);}
-static double sweep_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_SWEEP:mixed(s,phase,V2_SWEEP,s->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_SWEEP:V2_RUN_SWEEP);}
+static double duty_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAB?.75:mixed(s,phase,V2_DUTY,V2_RUN_DUTY);}
+static double sweep_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAB?(s->direction>=AINEKIO_WALK_SIDE_LEFT?V2_CRAB_SIDE_SWEEP:V2_CRAB_SWEEP):s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_SWEEP:mixed(s,phase,V2_SWEEP,s->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_SWEEP:V2_RUN_SWEEP);}
 static double offset_at(const ainekio_v2_walk_state_t *s,unsigned leg,double phase) {return s->offset_from[leg]==s->offset_target[leg]?s->offset_from[leg]:s->offset_from[leg]+(s->offset_target[leg]-s->offset_from[leg])*smooth((phase-s->run_transition_phase)/V2_RUN_TRANSITION);}
 static void set_run_target(ainekio_v2_walk_state_t *s,double target)
 {
@@ -48,6 +49,7 @@ static void set_run_target(ainekio_v2_walk_state_t *s,double target)
 }
 static void body_pose(ainekio_v2_walk_pose_t *p,double stride)
 {
+    if(p->gait==AINEKIO_GAIT_CRAB){p->body[1]=0.;p->body[2]=V2_CRAB_BODY_Z;p->euler[0]=p->euler[1]=p->euler[2]=0.;return;}
     double strength=stride/100.,a=2.*pi*p->phase;
     p->body[1]=(p->gait==AINEKIO_GAIT_CRAWL?V2_CRAWL_SWAY:V2_SWAY)*strength*sin(a);
     p->body[2]=(p->gait==AINEKIO_GAIT_CRAWL?V2_CRAWL_BODY_Z:V2_BODY_Z)+(p->gait==AINEKIO_GAIT_CRAWL?V2_CRAWL_BOB:V2_BOB)*strength*cos(2*a);
@@ -107,7 +109,7 @@ static double profile_travel(const ainekio_v2_walk_state_t *s,double lo,double h
 {
     double first=controls_at(s,lo).stride_percent,last=controls_at(s,hi).stride_percent;
     double r0=run_at(s,lo),r1=run_at(s,hi);
-    const double angle=s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_TURN:V2_WALK_TURN;
+    const double angle=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_TURN:s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_TURN:V2_WALK_TURN;
     const double sign=s->direction==AINEKIO_WALK_TURN_LEFT?1.:-1.;
     if(first==last && r0==r1) {
         double distance=first*(hi-lo)/100.;
@@ -127,9 +129,9 @@ static double profile_travel(const ainekio_v2_walk_state_t *s,double lo,double h
         float ratio;
         if(turning)ratio=(float)angle+((float)V2_RUN_TURN-(float)angle)*run;
         else {
-            float sweep=s->gait_mode==AINEKIO_GAIT_CRAWL?(float)V2_CRAWL_SWEEP:
+            float sweep=s->gait_mode==AINEKIO_GAIT_CRAB?(float)sweep_at(s,lo):s->gait_mode==AINEKIO_GAIT_CRAWL?(float)V2_CRAWL_SWEEP:
                 (float)V2_SWEEP+(run_sweep-(float)V2_SWEEP)*run;
-            ratio=sweep/((float)V2_DUTY+((float)V2_RUN_DUTY-(float)V2_DUTY)*run);
+            ratio=sweep/(s->gait_mode==AINEKIO_GAIT_CRAB?.75f:((float)V2_DUTY+((float)V2_RUN_DUTY-(float)V2_DUTY)*run));
         }
         sum+=(i==0||i==32?1.f:(i%2?4.f:2.f))*stride*ratio;
     }
@@ -145,9 +147,9 @@ static double turn_travel(const ainekio_v2_walk_state_t *s,double lo,double hi)
 }
 bool ainekio_v2_gait_begin(ainekio_v2_walk_state_t *s,ainekio_walk_direction_t direction,ainekio_gait_t gait,unsigned cycles,ainekio_v2_walk_controls_t c,uint64_t now)
 {
-    if(!s||direction>AINEKIO_WALK_TURN_RIGHT||gait>AINEKIO_GAIT_RUN||cycles>10||!ainekio_v2_walk_controls_valid(c))return false;
+    if(!s||direction>AINEKIO_WALK_SIDE_RIGHT||gait>AINEKIO_GAIT_CRAB||(direction>=AINEKIO_WALK_SIDE_LEFT&&gait!=AINEKIO_GAIT_CRAB)||cycles>10||!ainekio_v2_walk_controls_valid(c))return false;
     *s=(ainekio_v2_walk_state_t){.last_us=now,.end_phase=cycles?2.+cycles:INFINITY,.direction=direction,.gait_mode=gait,.run_from=gait==AINEKIO_GAIT_RUN?1.:0.,.run_target=gait==AINEKIO_GAIT_RUN?1.:0.,.transition_span=direction==AINEKIO_WALK_BACKWARD||gait==AINEKIO_GAIT_RUN?3.:1.,.from={0.,1.},.target=c,.stopping=c.stride_percent==0.};
-    for(unsigned i=0;i<4;i++)s->offset_from[i]=s->offset_target[i]=gait==AINEKIO_GAIT_RUN?(i<2?0.:.5):v2_walk_offsets[i];
+    for(unsigned i=0;i<4;i++)s->offset_from[i]=s->offset_target[i]=gait==AINEKIO_GAIT_CRAB?v2_crab_offsets[i]:gait==AINEKIO_GAIT_RUN?(i<2?0.:.5):v2_walk_offsets[i];
     if(!standing(&s->pose)){s->failed=true;return false;}
     s->pose.gait=gait;s->pose.direction=direction;s->pose.run_blend=s->run_target;
     if(gait==AINEKIO_GAIT_CRAWL&&!ainekio_v2_walk_solve(&s->pose)){s->failed=true;return false;}
@@ -175,7 +177,8 @@ bool ainekio_v2_walk_update(ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_
 {
     if(!s||!s->initialized||s->failed||s->complete||!ainekio_v2_walk_controls_valid(c))return false;
     if(s->stopping&&c.stride_percent>0.)return false; /* A stopped command is never resurrected. */
-    if((s->pose.gait==AINEKIO_GAIT_CRAWL)&&s->preparation_seconds<V2_CRAWL_ENTRY){
+    if((s->gait_mode==AINEKIO_GAIT_CRAB&&s->preparation_seconds<V2_CRAB_ENTRY)||
+       (s->pose.gait==AINEKIO_GAIT_CRAWL&&s->preparation_seconds<V2_CRAWL_ENTRY)){
         s->target=c;s->pending_update=false;
         if(c.stride_percent==0.)s->stopping=true;
         return true;
@@ -187,6 +190,21 @@ bool ainekio_v2_walk_update(ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_
 }
 static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
 {
+    if(s->gait_mode==AINEKIO_GAIT_CRAB&&s->preparation_seconds<V2_CRAB_ENTRY){
+        s->preparation_seconds=fmin(V2_CRAB_ENTRY,s->preparation_seconds+dt);
+        if(s->preparation_seconds>V2_CRAB_ENTRY-1e-9)s->preparation_seconds=V2_CRAB_ENTRY;
+        s->pose.body[2]=V2_BODY_Z+(V2_CRAB_BODY_Z-V2_BODY_Z)*smooth(s->preparation_seconds/.6);
+        for(unsigned i=0;i<4;i++){
+            unsigned cad=(i+2)%4;
+            double u=fmax(0.,fmin(1.,(s->preparation_seconds-.4-cad*.6)/.6));
+            double y=copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1])-v2_walk_stance[i][1];
+            s->feet[i].start_y=s->feet[i].end_y=y*smooth(u);
+            s->pose.feet[i][1]=v2_walk_stance[i][1]+s->feet[i].start_y;
+            s->pose.sole_height[i]=8.*bump(u);s->pose.grounded[i]=u<=0.||u>=1.;
+        }
+        if(s->stopping&&s->preparation_seconds>=V2_CRAB_ENTRY){s->complete=true;s->pose.frame.phase=AINEKIO_V2_COMPLETE;}
+        return true;
+    }
     if((s->pose.gait==AINEKIO_GAIT_CRAWL)&&s->preparation_seconds<V2_CRAWL_ENTRY){
         s->preparation_seconds=fmin(V2_CRAWL_ENTRY,s->preparation_seconds+dt);
         if(s->preparation_seconds>V2_CRAWL_ENTRY-1e-9)s->preparation_seconds=V2_CRAWL_ENTRY;
@@ -203,12 +221,14 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
         if(!ainekio_v2_walk_update(s,c))return false;
     }
     ainekio_v2_walk_controls_t c=controls_at(s,s->phase);
-    double period=mixed(s,s->phase,V2_PERIOD,V2_RUN_PERIOD);
+    double period=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_PERIOD:mixed(s,s->phase,V2_PERIOD,V2_RUN_PERIOD);
     double dp=dt*controls_at(s,s->phase+.5*dt*c.motion_rate/period).motion_rate/period;
     s->phase+=dp;
     const bool turning=s->direction==AINEKIO_WALK_TURN_LEFT||s->direction==AINEKIO_WALK_TURN_RIGHT;
-    const double sign=s->direction==AINEKIO_WALK_BACKWARD?-1.:1.;
+    const bool sideways=s->direction>=AINEKIO_WALK_SIDE_LEFT;
+    const double sign=s->direction==AINEKIO_WALK_BACKWARD||s->direction==AINEKIO_WALK_SIDE_RIGHT?-1.:1.;
     if(turning)s->body_yaw+=turn_travel(s,previous,s->phase);
+    else if(sideways)s->body_y+=sign*travel(s,previous,s->phase);
     else s->body_x+=sign*travel(s,previous,s->phase);
     c=controls_at(s,s->phase);
     /* Intermediate substeps update contacts and anchors; only the emitted
@@ -216,7 +236,7 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
     if(emit) {
         s->pose.phase=s->phase;s->pose.run_blend=run_at(s,s->phase);body_pose(&s->pose,c.stride_percent);
         double sway=s->pose.body[1];s->pose.body[0]=s->body_x-sway*sin(s->body_yaw);
-        s->pose.body[1]=sway*cos(s->body_yaw);s->pose.euler[2]=s->body_yaw;
+        s->pose.body[1]=s->body_y+sway*cos(s->body_yaw);s->pose.euler[2]=s->body_yaw;
     }
     const bool settling=s->stopping&&c.stride_percent<1e-8&&!s->pending_update;
     bool resting=settling;
@@ -232,8 +252,12 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
             double td=f->touchdown_phase,stance=travel(s,td,td+duty_at(s,td));
             if(turning){
                 double yaw=s->body_yaw+turn_travel(s,s->phase,td+contact*.5);
-                double x=v2_walk_stance[i][0],y=v2_walk_stance[i][1];
-                f->end_x=x*cos(yaw)-y*sin(yaw)-x;f->end_y=x*sin(yaw)+y*cos(yaw)-y;
+                double x=v2_walk_stance[i][0],y=s->gait_mode==AINEKIO_GAIT_CRAB?copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1]):v2_walk_stance[i][1];
+                f->end_x=x*cos(yaw)-y*sin(yaw)-x;f->end_y=x*sin(yaw)+y*cos(yaw)-v2_walk_stance[i][1];
+            } else if(s->gait_mode==AINEKIO_GAIT_CRAB){
+                double lead=sign*(travel(s,s->phase,td)+stance*.5);
+                f->end_x=s->body_x+(sideways?0.:lead);
+                f->end_y=s->body_y+(sideways?lead:0.)+copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1])-v2_walk_stance[i][1];
             } else {
                 double bias=s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_BIAS/V2_CRAWL_SWEEP:mixed(s,td,V2_BIAS/V2_SWEEP,s->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_BIAS/V2_RUN_FORWARD_SWEEP:V2_RUN_BIAS/V2_RUN_SWEEP);
                 /* Bias stays rearward in the physical body frame even when reversing. */
@@ -245,8 +269,8 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
                 f->end_y=s->direction==AINEKIO_WALK_FORWARD?
                     side*(i<2?-1.:1.)*V2_RUN_FORWARD_LANE*run_at(s,td)*controls_at(s,td).stride_percent/100.:0.;
             }
-            double lift=s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_LIFT:mixed(s,s->phase,V2_LIFT,V2_RUN_LIFT);
-            double min_lift=s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_MIN_LIFT:mixed(s,s->phase,V2_MIN_LIFT,V2_RUN_MIN_LIFT);
+            double lift=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_LIFT:s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_LIFT:mixed(s,s->phase,V2_LIFT,V2_RUN_LIFT);
+            double min_lift=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_MIN_LIFT:s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_MIN_LIFT:mixed(s,s->phase,V2_MIN_LIFT,V2_RUN_MIN_LIFT);
             f->lift=min_lift+(lift-min_lift)*controls_at(s,td-(1.-contact)/2.).stride_percent/100.;f->swinging=true;
         }
         if(emit) {
@@ -290,7 +314,7 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
     double run_target=intent->data.walk.gait==AINEKIO_GAIT_RUN?1.:0.;
     if(intent->data.walk.controls==1){
         double speed=intent->data.walk.speed_percent;
-        if(!isfinite(speed)||speed<0.||speed>200.||(intent->data.walk.gait==AINEKIO_GAIT_CRAWL&&speed>100.))return false;
+        if(!isfinite(speed)||speed<0.||speed>200.||((intent->data.walk.gait==AINEKIO_GAIT_CRAWL||intent->data.walk.gait==AINEKIO_GAIT_CRAB)&&speed>100.))return false;
         if(intent->data.walk.gait==AINEKIO_GAIT_RUN||speed>100.){
             double stride=fmin(100.,2.*speed);
             if(intent->data.walk.gait==AINEKIO_GAIT_WALK&&intent->data.walk.direction==AINEKIO_WALK_FORWARD)

@@ -13,6 +13,7 @@
   let variableWalking = false;
   let directionalWalking = false;
   let runningSupported = false;
+  let crabSupported = false;
   let activeWalkProfile = null;
   let calibrationEntry = null;
   let calibrationData = null;
@@ -43,7 +44,7 @@
   let walkGeneration = 0;
   let walkApplyPending = false;
   let walkFinishPending = false;
-  const directionCommands = { fwd: "walk", back: "backward", turn_l: "left", turn_r: "right" };
+  const directionCommands = { fwd: "walk", back: "backward", turn_l: "left", turn_r: "right", side_l: "crab", side_r: "crab_right" };
 
   function bodyCommandAvailable(name) {
     return availableBodyCommands === null || availableBodyCommands.includes(name);
@@ -347,7 +348,11 @@
 
   function updateSpeedRange() {
     const gait = byId("walk-gait").value;
-    const extended = runningSupported && gait !== "crawl";
+    const extended = runningSupported && !["crawl", "crab"].includes(gait);
+    for (const option of byId("walk-direction").options) {
+      if (option.value.startsWith("side_")) option.disabled = gait !== "crab" || !crabSupported;
+    }
+    if (gait !== "crab" && byId("walk-direction").value.startsWith("side_")) byId("walk-direction").value = "fwd";
     const slider = byId("walk-speed");
     slider.max = extended ? "200" : "100";
     if (Number(slider.value) > Number(slider.max)) slider.value = slider.max;
@@ -369,6 +374,7 @@
     if (updateOnly && activeWalkSequence === null) return;
     const profile = activeWalkProfile || { dir: directionalWalking ? byId("walk-direction").value : "fwd", gait: byId("walk-gait").value };
     if (!bodyCommandAvailable(directionCommands[profile.dir]) || (directionalWalking && profile.gait === "crawl" && !bodyCommandAvailable("crawl"))) return;
+    if (profile.gait === "crab" && !crabSupported) return;
     if (walkRequestPending) { walkApplyPending = true; walkFinishPending ||= finish; return; }
     if (finish && activeWalkSequence === null) return;
     if (!finish && !byId("walk-controls").reportValidity()) return;
@@ -1071,7 +1077,7 @@
   function renderMotionCatalog(entry, legacyBody) {
     const catalog = byId("motion-catalog");
     const declared = entry && !legacyBody ? (entry.capabilities && entry.capabilities.commands || []) : null;
-    const dedicated = new Set(["run", "walk", "backward", "left", "right", "crawl", "stop", "say", "face", "look", "stand", "neutral"]);
+    const dedicated = new Set(["crab_right", "crab_forward", "crab_backward", "crab_turn_left", "crab_turn_right", "run", "walk", "backward", "left", "right", "crawl", "stop", "say", "face", "look", "stand", "neutral"]);
     // Keep the established labels, and accept newly installed clips from the
     // body's catalog without adding a second hardcoded firmware name list.
     catalog.querySelectorAll("[data-installed-motion]").forEach((button) => {
@@ -1090,7 +1096,8 @@
       existing.add(name);
     }
     catalog.querySelectorAll("[data-emote], [data-intent]").forEach((button) => {
-      button.hidden = declared !== null && !declared.includes(button.dataset.emote || button.dataset.intent);
+      button.hidden = (button.dataset.emote === "crab" && (entry?.features || []).includes("crab_gait_v1")) ||
+        (declared !== null && !declared.includes(button.dataset.emote || button.dataset.intent));
     });
   }
 
@@ -1113,6 +1120,9 @@
     directionalWalking = Boolean(entry && entry.model === "v2-12servo" && (entry.features || []).includes("walk_controls_v2"));
     variableWalking = directionalWalking || Boolean(entry && entry.model === "v2-12servo" && (entry.features || []).includes("walk_controls_v1"));
     runningSupported = Boolean(directionalWalking && (entry.features || []).includes("run_gait_v1") && bodyCommandAvailable("run"));
+    crabSupported = Boolean(directionalWalking && (entry.features || []).includes("crab_gait_v1") && bodyCommandAvailable("crab"));
+    byId("walk-gait").querySelector('[value="crab"]').disabled = !crabSupported;
+    if (!crabSupported && byId("walk-gait").value === "crab") byId("walk-gait").value = "walk";
     byId("walk-gait").querySelector('[value="run"]').disabled = !runningSupported;
     if (!runningSupported && byId("walk-gait").value === "run") byId("walk-gait").value = "walk";
     byId("locomotion-options").hidden = !directionalWalking;

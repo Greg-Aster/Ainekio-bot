@@ -1,7 +1,7 @@
 # Twelve-servo motion model
 
 V2 uses a shared measured linkage, direct closure checks, finite gestures
-and continuous Walk/Run/Crawl. The eight-servo V1 assets and default decoder retain
+and continuous Walk/Run/Crawl/Crab. The eight-servo V1 assets and default decoder retain
 their existing behavior. Assembly references and calibration are documented in
 [SERVO_ASSEMBLY.md](SERVO_ASSEMBLY.md).
 
@@ -73,7 +73,10 @@ lift-off. A reversed clock or output gap over 40 ms faults instead of replaying 
 
 The dashboard supplies Speed, advanced stride/cadence, direction and ongoing mode.
 Environment actions accept continuous walk/backward/left/right and crawl with an
-explicit direction. Legacy bare left/right still select finite 45° turns.
+explicit direction. Bare V2 left/right now select ongoing gait turns; Speed,
+stride/cadence and Finish use the existing walking controls. Explicit `units`
+select finite gait cycles, not a promised heading angle. V1 bare left/right
+retain their original 45° clips.
 
 ## Automatic Run above 100%
 
@@ -112,14 +115,36 @@ currently a kinematic reference: no measured ground-force/contact or attitude
 feedback proves airborne stability or servo tracking. No servo reference or
 original motion has been changed to accommodate it.
 
+## Wide-stance Crab
+
+`crab_gait_v1` adds `gait:"crab"` and sideways directions `side_l`/`side_r`.
+Forward, backward and turning reuse `fwd`, `back`, `turn_l`, `turn_r`.
+Semantic commands are `crab` (left), `crab_right`, `crab_forward`,
+`crab_backward`, `crab_turn_left`, `crab_turn_right`. V1 retains its finite Crab.
+
+The existing phase planner and direct linkage controller own Crab. A three-second
+entry places feet sequentially at a 190 mm stance width and body translation
+−18 mm. Three feet support each swing. Full stride travels 48 mm per cycle
+forward/backward, 32 mm sideways, or 32.73 degrees while turning, matching the
+steady travel of the reviewed Blender drafts. Lift is up to 12 mm. The base
+period is 2.4 s; Speed 25/50/100 gives 50%/100%/100% stride and 1x/1x/2x cadence.
+Advanced stride 1–100 and cadence 0.25–3x remain available. Crab Speed is 0–100;
+it never blends into Run. Finish settles the feet and holds the wide stance.
+Finish before selecting a different direction or gait; Stand uses normal entry.
+`motions/locomotion/crab.json` owns the parameters. No per-direction runtime
+recordings or additional solver are compiled. Generate development recordings
+with `tools/generate_locomotion.py --cli <v2_walk_command> --crab-only`.
+
 ## Finite motions and entry
 
-The catalog contains eight finite turns and 23 gestures/postures, including
-Crouch and experimental Upright. [The gesture README](motions/gestures/README.md) records command durations.
+The runtime catalog contains 23 gestures/postures. The eight fixed-angle turns
+(left/right 15°, 45°, 90°, 180°) have been removed from V2 firmware; Body Control
+uses the declared catalog and gait turning instead. The remaining motions include
+Lay Down, Crouch and experimental Upright. [The gesture README](motions/gestures/README.md) records command durations.
 Nod has two cycles. Wave reproduces Sit before extending and waving. Bow reaches
 both hands forward about 73.42 mm. Point reaches about 95.02 mm. Sit lays the rear lower legs along the floor; Rest lays all lower legs horizontal and grounds the chassis base plate.
 
-`retarget_clips.py` preserves task-space choreography without the rejected amplitude reductions. Sources and dependent hashes are
+`retarget_clips.py` preserves legacy-derived task-space choreography. Reviewed Worm, Shrug, Play Dead and Lay Down recordings regenerate through `import_reviewed_clips.py` without changing their joint paths. Sources and dependent hashes are
 regenerated together. The compiler checks provenance and preserves the original cubic tracks. Mechanical and reference-span conflicts are listed in `mechanics/original-motion-range-audit.json`; they are not corrected by changing the motion.
 
 P4 entry uses a known commanded reference and a coordinated path through the
@@ -133,7 +158,7 @@ not establish floor clearance or support stability for arbitrary physical poses.
 `joint_mapping` stores the current body_calibration_v2 mapping without Min/Max fields. Review and Save is required before normal motion. Hardware qualification is
 still false: shaft travel, direction, horn placement, tracking, dynamics and
 loaded operation require physical measurement. The compact controller has been
-application-flashed and tested with two unloaded servos; the current evidence is
+application-flashed and tested with two unloaded servos before the expressive-motion/Crab revision. That revision is built and tested offline, not flashed; the evidence is
 in [Controller validation](CONTROLLER_VALIDATION.md). Earlier deployment evidence
 in `docs/v2-12servo/FIRMWARE_DESIGN.md` belongs to previous applications.
 
@@ -152,7 +177,8 @@ against every original hull vertex with an all-orientation distance bound below
 0.15 mm. A 0.151 mm conservative allowance preserves floor clearance. Full CAD
 meshes and research fitting remain desktop inputs and are not linked into firmware.
 
-Finite gestures and turns retain their original workstation recordings. The
+Finite gestures retain their original workstation recordings. Historical fixed-angle
+turn recordings remain desktop references only and are excluded from the build. The
 compiler fits cubic segments with a continuous 0.005-degree error bound, keeps
 extrema/holds/endpoints and timing, and emits compact positions, tangents and
 extrema. No alternate dense runtime playback remains. The output owner retains
@@ -210,4 +236,7 @@ intervals. Validation reports distinguish geometry, source/build and saved Blend
 checks from unmeasured physical behavior. Firmware console `gait` queries calculate
 poses without PWM, for example `gait walk 3 5000 25` and `gait bow 2500`.
 
-Current verification counts and the offline firmware hash are in `servo-validation.json`.
+Current verification counts, application hash and bench limitations are in
+[Controller validation](CONTROLLER_VALIDATION.md). The locomotion generator
+regression runs with NumPy/SciPy in the CMake-selected Python interpreter;
+CTest explicitly skips that desktop geometry check when those packages are absent.

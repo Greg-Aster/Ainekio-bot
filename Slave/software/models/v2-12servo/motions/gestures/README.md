@@ -1,6 +1,6 @@
 # Twelve-servo postures and gestures
 
-The 23 gestures include the new experimental Upright. The preceding 22 gestures and eight finite turns retain their choreography. V1 assets are preserved. Sit uses the native `sit` intent; other gestures use `emote` with the named asset.
+The 23 gestures include Lay Down and experimental Upright. Worm, Shrug and Play Dead use the reviewed Blender recordings. Crab is now ongoing locomotion and has no finite runtime clip. V1 assets are preserved. Sit uses the native `sit` intent; other gestures use `emote` with the named asset.
 
 | Command | Duration | Completion |
 | --- | --- | --- |
@@ -15,11 +15,11 @@ The 23 gestures include the new experimental Upright. The preceding 22 gestures 
 | `bow` | 8.5 s | Hold the recorded command endpoint |
 | `cute` | 13.5 s | Hold the recorded command endpoint |
 | `freaky` | 9.2 s | Hold the recorded command endpoint |
-| `worm` | 12 s | Hold the recorded command endpoint |
+| `worm` | 20 s | Two slow deep body waves; return to standing |
 | `shake` | 7 s | Hold the recorded command endpoint |
-| `shrug` | 10.2 s | Hold the recorded command endpoint |
-| `dead` | 7.4 s | Hold the recorded command endpoint |
-| `crab` | 30.1 s | Hold the recorded command endpoint |
+| `shrug` | 14 s | Seated front-arm shrug; return to standing |
+| `dead` | 7 s | Play Dead: collapse and hold with front arms outstretched |
+| `lay_down` | 7 s | Hold the previous reviewed Dead pose as Lay Down |
 | `celebrate` | 12.5 s | Hold the recorded command endpoint |
 | `stretch` | 6.7 s | Hold the recorded command endpoint |
 | `surprised` | 11.95 s | Hold the recorded command endpoint |
@@ -32,17 +32,17 @@ Sit places the rear lower legs along the floor at 1.8° above horizontal. Rest m
 
 Point retains its original95.02mm forward extension and original recorded path. Bow preserves the eight-servo gesture: brace, slide both hands forward about 73.42 mm with the front low and rear high, hold three seconds, then reverse. Sliding friction is unqualified.
 
-Nod retains exactly two up/down cycles. Its original amplitude and timing are preserved, as are all other gestures. Crouch lowers four planted feet to a held squat at body translation -35 mm, with the chassis above ground. Ongoing Crawl and directional walking are native commands, not finite clips.
+Nod retains exactly two up/down cycles. Its original amplitude and timing are preserved. Crouch lowers four planted feet to a held squat at body translation -35 mm, with the chassis above ground. Ongoing Crawl and directional walking are native commands, not finite clips.
 
 Upright is distinct from four-foot Stand. It replays the accepted Sit, moves the front feet backward one at a time, shifts weight over the planted rear lower legs, then raises the chassis to vertical. [Upright geometry and limitations](upright/README.md).
 
 ## Source and execution
 
-`catalog.json` binds canonical sources, measured posture dependencies, schemas and execution contracts. Historical choreography under `docs/gait-research/` supplies task-space intent and timing, not current servo angles. `../../tools/retarget_clips.py` regenerates the finite library; `generate_locomotion.py` records Crouch and native walking demonstrations.
+`catalog.json` binds canonical sources, measured posture dependencies, schemas and execution contracts. Historical choreography under `docs/gait-research/` supplies task-space intent and timing, not current servo angles. `../../tools/retarget_clips.py` regenerates legacy-derived clips and dispatches approved `reviewed.json` recordings to `import_reviewed_clips.py`; `generate_locomotion.py` records Crouch and native walking demonstrations.
 
 The compiler checks units, joint order, hashes, exact endpoints, semantic duration and preserved cubic interpolation. `clip.c` uses harmonic-secant monotone cubic interpolation with zero endpoint velocity and a single clock for all twelve joints. The common P4 output task handles calibrated entry, execution, cancellation and electrical bounds.
 
-Dead completes at 7.4 seconds and holds. Its optional preview recovery remains separate from the compiled command. Freaky, Worm and Crab omit their optional final preview holds in firmware. Face cues and research timing profiles remain source metadata; animated face execution is not implemented by this library.
+Play Dead and Lay Down complete at 7 seconds and hold. Their rear support is identical; Play Dead extends the front hands 45.35 mm farther forward. Rest remains the separate all-lower-legs-flat, chassis-grounded pose. The reviewed clips retain the 30 Hz Blender keys; the offline importer resamples them at 120 Hz for the existing compact cubic compiler. `reviewed-hulls.npz` holds measured support geometry only on the development computer. Changing root geometry invalidates a reviewed recording and requires review again. Freaky still excludes its optional preview recovery from firmware. Face cues and research timing profiles remain source metadata; animated face execution is not implemented by this library.
 
 Each posture file records current constraints. Wave depends on Sit and must regenerate after Sit changes. Root geometry or motion geometry changes require all affected sources to regenerate, then native checks and saved-file Blender verification. The scene `Motions - Current Geometry` in `ainekio-variable-gait-Recovery.blend` shares meshes and keeps editable modeling work.
 

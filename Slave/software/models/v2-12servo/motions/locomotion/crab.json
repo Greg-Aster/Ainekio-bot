@@ -1,0 +1,20 @@
+{
+  "body_z_mm": -18,
+  "entry_seconds": 3,
+  "stance_half_width_mm": 95,
+  "period_seconds": 2.4,
+  "sweep_mm": 36,
+  "side_sweep_mm": 24,
+  "lift_mm": 12,
+  "minimum_lift_mm": 6,
+  "turn_degrees_per_cycle": 32.72727272727273,
+  "phase_offsets": [
+    0.25,
+    0.75,
+    0.5,
+    0
+  ],
+  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "hardware_qualified": false,
+  "reference": "Full-stride travel matches the steady part of the approved Blender chapters: 48 mm forward/backward, 32 mm sideways, 360/11 degrees per cycle."
+}
