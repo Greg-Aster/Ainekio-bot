@@ -598,7 +598,9 @@
                 "fwd",
                 "back",
                 "turn_l",
-                "turn_r"
+                "turn_r",
+                "side_l",
+                "side_r"
               ]
             },
             "steps": {
@@ -606,7 +608,7 @@
               "minimum": 0,
               "maximum": 10
             },
-            "gait": {"enum": ["walk", "crawl", "run"]},
+            "gait": {"enum": ["walk", "crawl", "run", "crab"]},
             "speed": {
               "type": "number",
               "minimum": 0,
@@ -707,11 +709,15 @@
               }
             },
             {
-              "if": {"required": ["gait"], "properties": {"gait": {"const": "crawl"}}},
+              "if": {"required": ["gait"], "properties": {"gait": {"enum": ["crawl", "crab"]}}},
               "then": {"properties": {"speed": {"maximum": 100}}}
+            },
+            {
+              "if": {"required": ["dir"], "properties": {"dir": {"enum": ["side_l", "side_r"]}}},
+              "then": {"required": ["gait"], "properties": {"gait": {"const": "crab"}}}
             }
           ],
-          "description": "Extended fields require negotiated walk_controls_v1/v2; Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Feature admission is checked against the connected body."
+          "description": "Extended fields require negotiated walk_controls_v1/v2; Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Crab requires crab_gait_v1 and declared Crab commands; side_l/side_r are Crab-only. Feature admission is checked against the connected body."
         },
         {
           "type": "object",

@@ -34,6 +34,20 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         gateway._connections["test-body"] = connection
         return connection, socket
 
+    async def test_lay_down_is_declared_and_keeps_rest_and_dead_distinct(self) -> None:
+        for name in ('lay_down','lay down','lie down'):
+            action=translate_environment_action({'type':'robotCommand','command':name},model='v2-12servo')
+            self.assertEqual((action.name,action.params),('emote',{'asset':'lay_down'}))
+        c,socket=self.connection('v2-12servo')
+        with self.assertRaises(GatewayError):await c.service.emote('lay_down',robot_id='test-body',received_at=100.)
+        c.capabilities['commands']=['lay_down','dead','rest','stop']
+        for name in ('lay_down','dead','rest'):
+            await c.service.emote(name,robot_id='test-body',received_at=100.)
+            self.assertEqual(socket.messages[-1]['asset'],name)
+        c,socket=self.connection('v1-8servo')
+        with self.assertRaises(GatewayError):await c.service.emote('lay_down',robot_id='test-body',received_at=100.)
+        self.assertFalse(socket.messages)
+
     async def test_same_walk_wire_and_lifecycle_for_both_bodies(self) -> None:
         translated = translate_environment_action({"type": "robotCommand", "command": "walk", "units": 3})
         self.assertEqual((translated.kind, translated.name, translated.params),

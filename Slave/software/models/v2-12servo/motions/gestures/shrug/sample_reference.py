@@ -42,6 +42,6 @@ if __name__=='__main__':
     parser.add_argument('elapsed_ms',type=int)
     args=parser.parse_args()
     result=Motion(P).sample(args.elapsed_ms*1000)
-    result.update(command='bow',leg_order=['FL','FR','RL','RR'],joint_order=['h002','alpha006','theta005'],
+    result.update(command='shrug',leg_order=['FL','FR','RL','RR'],joint_order=['h002','alpha006','theta005'],
                   units=['CAD centidegrees','centidegrees/second','centidegrees/second squared'],hardware_ready=False)
     print(json.dumps(result,indent=2))

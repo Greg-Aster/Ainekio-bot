@@ -1,65 +1,16 @@
 {
   "command": "worm",
-  "geometry_id": "upright-24-38-24-55-20260921",
-  "samples": 1501,
-  "duration_s": 12.5,
+  "samples": 2401,
+  "duration_s": 20.0,
   "sample_hz": 120,
-  "max_target_error_mm": 9.93196060505852e-06,
-  "min_sole_height_mm": -9.266307650079852e-06,
-  "minimum_body_ground_clearance_mm": 9.461071916711298,
-  "minimum_closure_triangle_height_mm": 18.690595605670048,
-  "minimum_assumed_support_margin_mm": 41.800495529980935,
-  "actuator_min_degrees": [
-    [
-      -6.588414224310864e-06,
-      -37.61155787360547,
-      -23.511722675435173
-    ],
-    [
-      -1.0692885640707447e-06,
-      -37.61156310931881,
-      -23.511713801631846
-    ],
-    [
-      1.1370954639750696e-07,
-      -50.29336478378895,
-      -35.99783104432688
-    ],
-    [
-      -1.9639461733642719e-07,
-      -50.293397341041725,
-      -35.997869782604575
-    ]
-  ],
-  "actuator_max_degrees": [
-    [
-      -1.9639407408966488e-07,
-      1.9207142504418844,
-      0.4433706627075983
-    ],
-    [
-      8.826929875615318e-06,
-      1.9207032553852257,
-      0.44336844764985095
-    ],
-    [
-      9.637507216999673e-06,
-      1.9207295702012641,
-      0.44337363223435694
-    ],
-    [
-      1.0557169057583317e-05,
-      1.9207214979310783,
-      0.443371915418966
-    ]
-  ],
-  "maximum_adjacent_joint_step_degrees": 0.6167869130360606,
-  "peak_joint_speed_deg_s": 72.70821374760504,
-  "peak_joint_acceleration_deg_s2": 2462.566855795129,
-  "native_solver_fallbacks": 0,
-  "seconds": 1.6277605119976215,
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "min_sole_height_mm": -0.0001970769587558152,
+  "minimum_body_ground_clearance_mm": 3.225957875992286,
+  "minimum_closure_triangle_height_mm": 15.600282353193986,
   "hardware_qualified": false,
   "collision_checked": false,
-  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
-  "motion_end_s": 12.0
+  "reviewed_joint_keys_preserved": true,
+  "motion_end_s": 20.0,
+  "max_target_error_mm": 0.0,
+  "peak_joint_speed_deg_s": 23.37457522695107
 }

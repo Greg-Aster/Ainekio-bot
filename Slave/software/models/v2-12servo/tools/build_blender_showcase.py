@@ -50,7 +50,7 @@ def build():
         for modifier in clone.modifiers:
             if hasattr(modifier,'object') and modifier.object:modifier.object=mapping.get(modifier.object,modifier.object)
     frames=[];body=[];euler=[];joints=[];chapters=[];cursor=1
-    order=['walk','sit','rest','wave','point','nod','pushup','bow','dance','swim','cute','freaky','worm','shake','shrug','dead','crab','celebrate','stretch','surprised','sad','curious']+[f'turn_{side}_{angle}' for angle in [15,45,90,180] for side in ['left','right']]
+    order=['walk','sit','rest','wave','point','nod','pushup','bow','dance','swim','cute','freaky','worm','shake','shrug','dead','lay_down','celebrate','stretch','surprised','sad','curious']+[f'turn_{side}_{angle}' for angle in [15,45,90,180] for side in ['left','right']]
     for command in order:
         if command=='walk':
             folder=ROOT/'motions/walk';source=json.loads((folder/'source.json').read_text());d=source['columns'];t=np.array(d['time_s']);b=np.array(d['body']);e=np.array(d['body_euler']);q=np.array(d['q'])[:,[2,3,0,1]];semantic=t[-1]
@@ -59,7 +59,7 @@ def build():
             source=json.loads((folder/'source.json').read_text());rows=source['samples'];t=np.array([x['time_s'] for x in rows]);b=np.array([x['body_translation_world_mm'] for x in rows]);e=np.array([x['body_rotation_euler_xyz_rad'] for x in rows]);q=np.array([x['actuator_angles_rad'] for x in rows]);manifest=json.loads((folder/'manifest.json').read_text());semantic=manifest.get('semantic_end_seconds',t[-1])
         f=cursor+t*30;frames.extend(f);body.extend(b);euler.extend(e);joints.extend(q)
         end=math.ceil(f[-1]);hold_end=end+30;frames.append(float(hold_end));body.append(b[-1]);euler.append(e[-1]);joints.append(q[-1])
-        title=command.replace('_',' ').title();chapters.append({'command':command,'label':title,'start_frame':cursor,'end_frame':hold_end,'source_end_frame':float(f[-1]),'semantic_end_frame':float(cursor+semantic*30),'source_duration_s':float(t[-1]),'samples':len(t),'source':str(folder.relative_to(ROOT)/'source.json'),'source_sha256':hashlib.sha256((folder/'source.json').read_bytes()).hexdigest(),'presentation_cut_after':True})
+        title='Play Dead' if command=='dead' else command.replace('_',' ').title();chapters.append({'command':command,'label':title,'start_frame':cursor,'end_frame':hold_end,'source_end_frame':float(f[-1]),'semantic_end_frame':float(cursor+semantic*30),'source_duration_s':float(t[-1]),'samples':len(t),'source':str(folder.relative_to(ROOT)/'source.json'),'source_sha256':hashlib.sha256((folder/'source.json').read_bytes()).hexdigest(),'presentation_cut_after':True})
         scene.timeline_markers.new(title,frame=cursor)
         if semantic<t[-1]-.05:scene.timeline_markers.new(title+' / demo recovery or hold',frame=round(cursor+semantic*30))
         cursor=hold_end+1
@@ -88,7 +88,7 @@ def build():
         fs=np.array(sorted(set([1,item['start_frame'],item['end_frame']+1,chapters[-1]['end_frame']+1])));hidden=np.array([0. if item['start_frame']<=f<=item['end_frame'] else 1. for f in fs]);bake(o,[('hide_viewport',-1,hidden),('hide_render',-1,hidden)],fs,True)
     scene.frame_start=1;scene.frame_end=chapters[-1]['end_frame'];scene.use_preview_range=True;scene.frame_preview_start=1;scene.frame_preview_end=scene.frame_end
     scene['ainekio_motion_chapters']=json.dumps(chapters);scene['geometry_id']=cfg['geometry_id'];scene['hardware_qualified']=False
-    for name,bodytext in [('MOTION LIBRARY - START HERE','Scene: '+SCENE+'\nSpace plays all 30 motions. N > Ainekio > Motion library selects one motion.\nThe timeline has named chapter markers. Each chapter preserves source timing, followed by one second holding its final pose and a presentation cut to the next command. Sit and rest remain seated; dead includes the labeled source demonstration recovery after its command hold. Firmware dead still holds at 7.4 seconds.\nThe original modeling and walking scenes are preserved. Meshes are shared and animation is separate; the finished cached face is included.\nIf the selector is unavailable after reopening, run the packed blender_motion_controls.py text. All baked playback works without scripts.\n'),('MOTION LIBRARY - chapters.json',json.dumps(chapters,indent=2)),('blender_motion_controls.py',(ROOT/'tools/blender_motion_controls.py').read_text())]:
+    for name,bodytext in [('MOTION LIBRARY - START HERE','Scene: '+SCENE+'\nSpace plays the motion chapters. N > Ainekio > Motion library selects one motion.\nThe timeline has named chapter markers. Each chapter preserves source timing, followed by one second holding its final pose and a presentation cut to the next command. Sit, Rest, Lay Down and Play Dead hold their command endpoints. Play Dead reaches the front arms farther than Lay Down.\nThe original modeling and walking scenes are preserved. Meshes are shared and animation is separate; the finished cached face is included.\nIf the selector is unavailable after reopening, run the packed blender_motion_controls.py text. All baked playback works without scripts.\n'),('MOTION LIBRARY - chapters.json',json.dumps(chapters,indent=2)),('blender_motion_controls.py',(ROOT/'tools/blender_motion_controls.py').read_text())]:
         text=bpy.data.texts.new(name);text.write(bodytext);text.use_module=name.endswith('.py')
     exec(compile((ROOT/'tools/blender_motion_controls.py').read_text(),'blender_motion_controls.py','exec'),{'__name__':'__main__'})
     for name,identity in originals.items():
@@ -99,7 +99,7 @@ def build():
             if area.type=='VIEW_3D':area.spaces.active.region_3d.view_perspective='CAMERA';area.spaces.active.overlay.show_overlays=False;area.spaces.active.show_region_ui=True
     scene.frame_set(1)
     import runpy
-    runpy.run_path(str(ROOT/'tools/append_blender_locomotion.py'), init_globals={'MODEL_ROOT':str(ROOT)}, run_name='append_locomotion')['append']()
+    runpy.run_path(str(ROOT/'tools/append_blender_locomotion.py'), init_globals={'MODEL_ROOT':str(ROOT)}, run_name='append_locomotion')['append'](['crouch','upright','run','crawl_forward','crawl_backward','crawl_turn_left','crawl_turn_right','walk_forward','walk_backward','walk_turn_left','walk_turn_right','crab','crab_right','crab_forward','crab_backward','crab_turn_left','crab_turn_right'])
     chapters=json.loads(scene['ainekio_motion_chapters'])
     return {'scene':scene.name,'file':bpy.data.filepath,'objects':len(scene.objects),'motions':len(chapters),'source_samples':sum(x['samples'] for x in chapters),'frame_end':scene.frame_end,'fps':30,'source_objects_preserved':len(originals),'mesh_data_shared':True,'chapters':chapters}
 if __name__=='__main__':print(json.dumps(build(),indent=2))

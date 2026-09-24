@@ -39,7 +39,7 @@ def validate(root,commands=None):
         write(catalog_path,catalog)
     aggregate=root/'motions/interpolation-validation.json'
     if commands and aggregate.exists():
-        old=json.loads(aggregate.read_text())['commands'];updated={x['command']:x for x in results};results=[updated.get(x['command'],x) for x in old]
+        old=json.loads(aggregate.read_text())['commands'];updated={x['command']:x for x in results};results=[updated.pop(x['command'],x) for x in old]+list(updated.values())
     write(aggregate,{'geometry_id':cfg['geometry_id'],'commands':results,'hardware_qualified':False})
 if __name__=='__main__':
     import argparse

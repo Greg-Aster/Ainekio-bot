@@ -29,6 +29,7 @@ BODY_COMMANDS_FEATURE = "body_commands_v1"
 WALK_CONTROLS_FEATURE = "walk_controls_v1"
 LOCOMOTION_FEATURE = "walk_controls_v2"
 RUN_GAIT_FEATURE = "run_gait_v1"
+CRAB_GAIT_FEATURE = "crab_gait_v1"
 MAX_MONOTONIC_MS = (1 << 53) - 1
 MOTION_PLAN_JOINT_MAP = 1
 MOTION_PLAN_JOINTS = 8
@@ -44,7 +45,7 @@ FEATURE_NAME = re.compile(r"[a-z0-9_]{1,32}\Z")
 INTENT_NAMES = frozenset(
     {"sit", "stand", "neutral", "look", "walk", "emote", "face", "say"}
 )
-WALK_DIRECTIONS = frozenset({"fwd", "back", "turn_l", "turn_r"})
+WALK_DIRECTIONS = frozenset({"fwd", "back", "turn_l", "turn_r", "side_l", "side_r"})
 PROFILES = frozenset({"home", "tether"})
 CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA", "XGA"})
 CAMERA_STREAM_RESOLUTIONS = frozenset({"QVGA", "VGA"})
@@ -262,7 +263,7 @@ def validate_walk_controls(message: Mapping[str, object]) -> None:
         _fail("value:walk.controls.incomplete")
     if any(k in message for k in ("speed_percent", "stride_percent", "motion_rate")):
         _fail("value:walk.controls.use_speed_stride_rate")
-    for name, lo, hi in (("speed", 0, 100 if message.get("gait") == "crawl" else 200), ("stride", 1, 100), ("rate", .25, 3)):
+    for name, lo, hi in (("speed", 0, 100 if message.get("gait") in {"crawl", "crab"} else 200), ("stride", 1, 100), ("rate", .25, 3)):
         if name in message:
             value = message[name]
             if type(value) not in (int, float) or not math.isfinite(value):
@@ -270,7 +271,9 @@ def validate_walk_controls(message: Mapping[str, object]) -> None:
             if not lo <= value <= hi:
                 _fail("range:walk." + name)
     if "gait" in message:
-        _string(message, "gait", allowed=frozenset({"walk", "crawl", "run"}))
+        _string(message, "gait", allowed=frozenset({"walk", "crawl", "run", "crab"}))
+    if message.get("dir") in {"side_l", "side_r"} and message.get("gait") != "crab":
+        _fail("value:walk.direction.gait")
     if "update" in message:
         _integer(message, "update", minimum=1, maximum=MAX_SEQUENCE)
         if not (auto or manual):

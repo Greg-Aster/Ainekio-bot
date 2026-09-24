@@ -764,7 +764,7 @@ static ainekio_decode_result_t decode_intent(
         intent->data.look.duration_ms = (uint16_t)duration;
         return result;
     } else if (strcmp(name, "walk") == 0) {
-        static const char *const directions[] = {"fwd", "back", "turn_l", "turn_r"};
+        static const char *const directions[] = {"fwd", "back", "turn_l", "turn_r", "side_l", "side_r"};
         char direction[8];
         int64_t steps = 0;
         intent->kind = AINEKIO_INTENT_WALK;
@@ -776,7 +776,7 @@ static ainekio_decode_result_t decode_intent(
         if (result == AINEKIO_DECODE_OK) {
             result = required_integer(parser, root, "steps", 0, 10, &steps);
         }
-        for (uint8_t index = 0U; index < 4U; ++index) {
+        for (uint8_t index = 0U; index < 6U; ++index) {
             if (strcmp(direction, directions[index]) == 0) {
                 intent->data.walk.direction = (ainekio_walk_direction_t)index;
             }
@@ -787,10 +787,11 @@ static ainekio_decode_result_t decode_intent(
             char gait[8];
             result = required_string(parser, root, "gait", gait, sizeof(gait), 1U, 7U);
             if (result != AINEKIO_DECODE_OK) return result;
-            if (strcmp(gait, "walk") != 0 && strcmp(gait, "crawl") != 0 && strcmp(gait, "run") != 0) return AINEKIO_DECODE_VALUE;
-            intent->data.walk.gait = strcmp(gait, "run") == 0 ? AINEKIO_GAIT_RUN :
+            if (strcmp(gait, "walk") != 0 && strcmp(gait, "crawl") != 0 && strcmp(gait, "run") != 0 && strcmp(gait, "crab") != 0) return AINEKIO_DECODE_VALUE;
+            intent->data.walk.gait = strcmp(gait, "crab") == 0 ? AINEKIO_GAIT_CRAB : strcmp(gait, "run") == 0 ? AINEKIO_GAIT_RUN :
                 strcmp(gait, "crawl") == 0 ? AINEKIO_GAIT_CRAWL : AINEKIO_GAIT_WALK;
         }
+        if (intent->data.walk.direction >= AINEKIO_WALK_SIDE_LEFT && intent->data.walk.gait != AINEKIO_GAIT_CRAB) return AINEKIO_DECODE_VALUE;
         const bool auto_speed = object_get(parser, root, "speed") >= 0;
         const bool stride = object_get(parser, root, "stride") >= 0;
         const bool rate = object_get(parser, root, "rate") >= 0;
@@ -802,7 +803,7 @@ static ainekio_decode_result_t decode_intent(
         if (auto_speed) {
             intent->data.walk.controls = 1;
             result = required_number(parser, root, "speed", &intent->data.walk.speed_percent);
-            if (result == AINEKIO_DECODE_OK && (intent->data.walk.speed_percent < 0 || intent->data.walk.speed_percent > (intent->data.walk.gait == AINEKIO_GAIT_CRAWL ? 100 : 200))) result = AINEKIO_DECODE_RANGE;
+            if (result == AINEKIO_DECODE_OK && (intent->data.walk.speed_percent < 0 || intent->data.walk.speed_percent > ((intent->data.walk.gait == AINEKIO_GAIT_CRAWL || intent->data.walk.gait == AINEKIO_GAIT_CRAB) ? 100 : 200))) result = AINEKIO_DECODE_RANGE;
         } else if (stride) {
             intent->data.walk.controls = 2;
             result = required_number(parser, root, "stride", &intent->data.walk.stride_percent);

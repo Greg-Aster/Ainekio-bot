@@ -32,6 +32,7 @@ from .speech_transport import (
 from .translation import (
     LEGACY_ROBOT_COMMANDS,
     ROBOT_COMMAND_DESCRIPTIONS,
+    V2_COMMAND_DESCRIPTIONS,
     SUPPORTED_ROBOT_COMMANDS,
     BridgeAction,
     translate_environment_action,
@@ -1178,7 +1179,7 @@ class EnvironmentAdapter:
                 "actions": actions,
                 "robotCommands": robot_commands,
                 "robotCommandDescriptions": {
-                    command: ("bound forward with front and rear leg pairs; automatic Speed above 100 to 200 selects Run, 0 finishes" if command == "run" and robot and robot.get("model") == "v2-12servo" else ROBOT_COMMAND_DESCRIPTIONS[command])
+                    command: (V2_COMMAND_DESCRIPTIONS.get(command, ROBOT_COMMAND_DESCRIPTIONS[command]) if robot and robot.get("model") == "v2-12servo" else ROBOT_COMMAND_DESCRIPTIONS[command])
                     for command in robot_commands
                 },
                 "text": True,

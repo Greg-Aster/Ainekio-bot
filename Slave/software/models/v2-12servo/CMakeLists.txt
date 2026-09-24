@@ -39,6 +39,8 @@ else()
     target_link_libraries(test_v2_locomotion PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_locomotion PRIVATE -Wall -Wextra -Werror -Wpedantic)
     add_test(NAME v2_locomotion COMMAND test_v2_locomotion)
+    add_test(NAME v2_crab_geometry COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_crab_geometry.py" $<TARGET_FILE:v2_walk_command>)
+    set_tests_properties(v2_crab_geometry PROPERTIES SKIP_RETURN_CODE 77)
     add_executable(test_v2_run tests/test_run.c)
     target_link_libraries(test_v2_run PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_run PRIVATE -Wall -Wextra -Werror -Wpedantic)
@@ -59,12 +61,13 @@ else()
     add_test(NAME v2_clips COMMAND test_v2_clips)
     add_executable(v2_clip_sample tests/clip_sample_cli.c)
     target_link_libraries(v2_clip_sample PRIVATE ainekio_v2_motion)
-    add_test(NAME v2_turn_source COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_clip_source.py"
-        $<TARGET_FILE:v2_clip_sample> turns)
     add_test(NAME v2_gesture_source COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_clip_source.py"
-        $<TARGET_FILE:v2_clip_sample> gestures)
+        $<TARGET_FILE:v2_clip_sample>)
     add_test(NAME v2_upright COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_upright.py")
     add_test(NAME v2_clip_compiler COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_clip_compiler.py")
+    add_test(NAME v2_locomotion_generator COMMAND "${PYTHON}"
+        "${CMAKE_CURRENT_LIST_DIR}/tests/test_locomotion_generator.py" $<TARGET_FILE:v2_walk_command>)
+    set_tests_properties(v2_locomotion_generator PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 add_custom_command(OUTPUT "${SERVO_OUTPUT}/servo_data.c" "${SERVO_OUTPUT}/servo_data.h"
@@ -72,10 +75,8 @@ add_custom_command(OUTPUT "${SERVO_OUTPUT}/servo_data.c" "${SERVO_OUTPUT}/servo_
     DEPENDS tools/compile_servo_profile.py servo_profile.json
     VERBATIM)
 
-file(GLOB TURN_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/motions/turns/commands/*/source.json"
-                       "${CMAKE_CURRENT_LIST_DIR}/motions/turns/commands/*/manifest.json"
-                       "${CMAKE_CURRENT_LIST_DIR}/motions/turns/commands/*/schema.json")
-file(GLOB GESTURE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/source.json"
+file(GLOB GESTURE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/reviewed.json"
+                       "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/source.json"
                        "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/manifest.json"
                        "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/schema.json"
                        "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/execution-contract.json"
@@ -83,15 +84,15 @@ file(GLOB GESTURE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/motions/g
                        "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/posture-hulls.npz")
 add_custom_command(OUTPUT "${CLIP_OUTPUT}/clip_data.c" "${CLIP_OUTPUT}/clip_data.h"
     COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tools/compile_clips.py" --out "${CLIP_OUTPUT}"
-    DEPENDS tools/compile_clips.py model.json geometry.json motions/turns/catalog.json
-            motions/turns/sole-hulls.npz ${TURN_SOURCES} ${GESTURE_SOURCES}
-            motions/gestures/catalog.json motions/gestures/execution-policy.json
+    DEPENDS tools/compile_clips.py model.json geometry.json
+            motions/turns/sole-hulls.npz ${GESTURE_SOURCES}
+            motions/gestures/catalog.json motions/gestures/execution-policy.json motions/gestures/reviewed-hulls.npz
     VERBATIM)
 
 add_custom_command(OUTPUT "${WALK_OUTPUT}/walk_data.c" "${WALK_OUTPUT}/walk_data.h"
     COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tools/compile_walk.py" --out "${WALK_OUTPUT}"
     DEPENDS tools/compile_walk.py model.json geometry.json motions/walk/reference.py
             motions/walk/manifest.json motions/walk/source.json
-            motions/locomotion/config.json motions/locomotion/contact-hulls.json motions/locomotion/sole-profile.json motions/run/config.json servo_profile.json
+            motions/locomotion/config.json motions/locomotion/crab.json motions/locomotion/contact-hulls.json motions/locomotion/sole-profile.json motions/run/config.json servo_profile.json
             motions/gestures/sit/posture-hulls.npz
     VERBATIM)

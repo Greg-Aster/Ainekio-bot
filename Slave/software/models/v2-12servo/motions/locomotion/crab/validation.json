@@ -1,0 +1,17 @@
+{
+  "command": "crab",
+  "samples": 2255,
+  "max_target_error_mm": 0.21959176636314126,
+  "foot_xy_error_mm": 5.686200703536315e-05,
+  "full_sole_height_error_mm": [
+    0.14579628594093208,
+    0.21959176636314126
+  ],
+  "support_allowance_mm": 0.151,
+  "min_sole_z_mm": 0.14579628594093208,
+  "min_body_z_mm": 34.13947595941907,
+  "min_closure_height_mm": 11.633525697153896,
+  "maximum_adjacent_joint_step_degrees": 1.9639935750708057,
+  "hardware_qualified": false,
+  "collision_checked": false
+}

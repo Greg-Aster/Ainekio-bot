@@ -1,12 +1,166 @@
 # Compact controller validation
 
-The replacement is built and application-flashed as `0.7.0-p4-compact-motion`.
+The preceding controller replacement was built and application-flashed as `0.7.0-p4-compact-motion`.
 The measurements below distinguish compiled resources, desktop geometry and
 observations from the connected P4 with two unloaded servos and no linkages.
 
+## Deployment verified 2026-09-24
+
+The reviewed motions, continuous six-direction Crab and fixed-angle turn removal
+are now application-flashed to the P4. The firmware version label remains
+`0.7.0-p4-compact-motion`; this build is identified by the hashes below.
+
+- Corrected both hello/status command buffers to derive their capacity from the
+  actual base-command array. The added Crab declarations otherwise exceeded the
+  former allocation by six pointers. A native address/undefined-behavior sanitizer
+  check generated and encoded all 39 declarations without an overrun.
+- Fresh Release build: 29 native/desktop tests passed, including Crab geometry;
+  72 gateway/protocol tests passed with the native command executable and no
+  skips. Dashboard motion-race tests passed after updating their select-option
+  fixture and adding Crab Start/Finish/feature-negotiation coverage.
+- All 23 compiled clips passed 61,919 full-sole comparison samples: maximum
+  vertex difference 0.012861 mm and clearance difference 0.007843 mm.
+- Application: 2,369,264 bytes; SHA-256
+  `50ce294fd03d26fcc2fac66958ade6ea2d0f77bd8ef17c9fbfac927230ba0ae2`.
+  The write at active OTA slot `0x20000` passed flash verification. No bootloader,
+  partition table, NVS, OTA metadata or stored assets were written. Readbacks of
+  `0x8000` through `0x11fff` before/after were byte-for-byte identical.
+- Boot confirmed ELF SHA-256
+  `94a53eaa8d18952094dc61d558adb3da9229f0219a3617bd1b642c4d832cde5d`,
+  controller authentication, and the new catalog. Calibration reported valid,
+  saved and clean, with carrier Home pulses 1270 and 1230 us preserved. Outputs
+  were explicitly disabled after verification.
+
+This verifies build, flash, boot and connection. It does not qualify loaded
+movement or measure the new gait's P4 frame timing. One initial gateway connection
+timeout recovered before authentication; the earlier transport limitation remains.
+The offline sections below preserve the earlier comparison checkpoints.
+
+## Fixed-angle turn retirement (offline)
+
+Current V2 firmware retains 23 gestures/postures plus its existing algorithmic
+gaits. Left/Right use gait turning with Speed, stride/cadence and Finish. Bare
+V2 environment Left/Right and Move Left/Right now select ongoing gait turns;
+explicit cycle counts remain supported. The dashboard derives its V2 buttons
+from that firmware declaration. V1's six fixed turns and its bare 45° Left/Right
+behavior are unchanged. Retired explicit angle commands are not silently
+translated into indefinite turning.
+
+Matched ESP-IDF 5.5.4 builds, with the same SDK configuration and dependencies:
+
+| Resource | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Application binary | 2,856,544 B | 2,369,296 B | −487,248 B (17.06%) |
+| Flash code | 1,322,926 B | 1,322,830 B | −96 B |
+| Flash read-only data | 1,418,128 B | 930,984 B | −487,144 B |
+| Static RAM data + BSS | 39,260 B | 39,260 B | 0 B |
+| Total occupied internal RAM, including code | 138,494 B | 138,494 B | 0 B |
+
+Removed from the runtime/build:
+
+- All eight `turn_left/right_15/45/90/180` tracks: 4,948 compact knots representing
+  22,088 dense reference samples, their tangents, extrema, descriptors and names.
+- `load_turns()` in `tools/compile_clips.py`, the turn-source glob and catalog
+  dependencies in CMake. Gesture model-order validation remains enforced.
+- The turn-only phase, heading metadata/console fields, active-start metadata
+  and generic per-track active-phase field. The single gesture sampler retains
+  its semantic completion and terminal-hold behavior.
+- The obsolete `v2_turn_source` CTest target and runtime turn branches in the
+  reference/geometry comparison tools; V2-only static 15° dashboard buttons.
+
+The remaining 4,885 knots across 23 gestures have byte-for-byte identical
+generated positions, tangents, knot times and extrema. Their compression reports
+are identical to the preceding build. Gait equations, full motion recordings,
+calibration/mapping files and V1 sources are unchanged. Desktop turn references,
+existing Blender chapters and shared full-sole provenance assets are preserved;
+they are not linked into the application. The new binary contains none of the
+eight retired command names. No runtime allocation or new buffer was added.
+
+Validation:
+
+- 29 native/desktop CTest checks pass with Release assertions enabled, including
+  a production-body regression rejecting each retired clip while preserving an
+  active gait, commanded pose and output ownership. The locomotion generator
+  fixture includes the model file now checked by the gesture loader.
+- 101 gateway/protocol/dashboard tests pass with simulated robots, including
+  bare V2 Left/Right → native gait → speed update → Finish, rejection of absent
+  fixed clips, and preserved V1 translation and command completion.
+- An isolated headless Chrome check of the actual dashboard markup/catalog
+  renderer shows no fixed turns for the new V2 declaration, all six for V1,
+  and no stale fixed buttons when switching back to V2.
+
+At this offline checkpoint, the connected board and running gateway were not
+changed. Deployment is recorded above. P4 timing and dynamic RAM were not
+remeasured; previous bench figures below do not qualify this application.
+
+Application SHA-256: `00235de07057f14c2bca32b00e7f60ca5d63a5be52206d5b6abe01224287d15d`.
+SDK configuration SHA-256: `6350c1e69b0e0c7b52a5c680191249f4f14f7932889930ee83c1d31035afe1b1`.
+
+## Reviewed motions and ongoing Crab revision (offline)
+
+Worm is the reviewed 20-second deep wave, Shrug is the 14-second seated arm
+gesture, Play Dead (`dead`) holds with farther-reaching front arms, and Lay Down
+(`lay_down`) preserves the previous reviewed Dead pose. Rest is unchanged.
+Crab uses the existing continuous planner in six directions with Speed, advanced
+stride/cadence and Finish. Saved calibration files, mapping logic, Stop, output
+ownership and the V1 robot are unchanged.
+
+- 30 native/desktop CTest checks pass with assertions enabled. The same production
+  body controller covers Crawl/Crab → Finish → Walk/Stand with altered saved
+  calibration and checks that calibration is unchanged.
+- 100 gateway/protocol/dashboard checks pass, including actual gateway wire →
+  native Crab, speed/manual updates, Finish, feature negotiation, old V2 finite
+  Crab compatibility and V1 behavior. These tests use simulated robots.
+- Compact clip comparison: 106,087 samples, maximum full-sole vertex difference
+  0.012861 mm and clearance difference 0.007843 mm. The new recordings retain the
+  Blender keys. Source/midpoint floor tolerance remains 0.25 mm; Play Dead reaches
+  −0.220704 mm transiently between reviewed 30 Hz keys and is grounded at its hold.
+- Crab checks use its own previous outputs, six directions, stride/rate extremes,
+  speed changes and Finish. Full measured Blender hulls verify linkage closure,
+  planted XY, body clearance and three-foot contact scheduling. The current sole
+  refinements add less than 0.07 mm to the original compact profile allowance;
+  this is explicitly bounded in `tests/test_crab_geometry.py`.
+
+Matched ESP-IDF 5.5.4 application builds, same SDK configuration and dependencies:
+
+| Resource | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Application binary | 2,870,000 B | 2,856,544 B | −13,456 B |
+| Flash code | 1,319,342 B | 1,322,926 B | +3,584 B |
+| Flash read-only data | 1,435,168 B | 1,418,128 B | −17,040 B |
+| Static RAM data + BSS | 39,252 B | 39,260 B | +8 B |
+| Total occupied internal RAM, including code | 138,486 B | 138,494 B | +8 B |
+
+Crab adds one double for world lateral translation. Motion updates add no heap
+allocation, storage I/O, media work, output owner or iterative geometry solver.
+The four reviewed clips use 175/881/74/59 compact knots for Worm/Shrug/Play Dead/
+Lay Down respectively. Detailed recordings and hulls remain host-only assets.
+
+Removed: the entire superseded V2 `motions/gestures/crab/` finite asset package;
+old Worm/Shrug/Dead `config.json`, `source-review.json`, and `blender-validation.json`;
+their legacy retarget records and old body-flattening dispatch entries; obsolete
+Dead-recovery test assumptions and stale aggregate Crab reports. Old Worm/Shrug/
+Dead source/contract/schema assets are replaced in place. V1 Crab and V1 assets
+remain intact. No alternate runtime motion implementation was added.
+
+At this offline checkpoint, the revision had not been flashed. New-command worst-case
+P4 calculation/frame times and dynamic heap/stack headroom are **not measured**;
+the proposed 2 ms calculation / 5 ms completed-frame targets still require a
+bench run. Earlier bench figures below apply to the preceding application.
+Full robot collision, loaded tracking, balance and friction remain unqualified.
+
 ## Offline evidence
 
-- 28 native tests pass in Release mode with `-UNDEBUG`; assertions execute.
+- 29 native/desktop checks pass from a fresh Release build with `-UNDEBUG`;
+  assertions execute. The generator regression requires NumPy/SciPy and was run,
+  not skipped, for this result.
+- Regeneration checks produce Crouch, Run and eight directional Walk/Crawl
+  recordings in a temporary workspace, then validate the new Crouch compiler
+  handoff. They reject incorrect XY targets, below-target soles and excessive
+  height offsets. Recorded reports separate XY accuracy from signed sole-height
+  error and bind the compact sole profile used for the clearance allowance.
+  The retained motion library and generated firmware data are unchanged by this
+  desktop-tool correction; it does not require another device flash.
 - Continuous tests reuse this controller's own previous output. Walk, Crawl,
   explicit Run, automatic Walk/Run transitions, directions, finite/ongoing
   commands, speed/stride/cadence updates and Finish run at 10/20/30/40 ms.

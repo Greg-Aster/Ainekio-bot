@@ -314,6 +314,25 @@ static void rejected_clip_preserves_motion(void)
     assert(!ainekio_v2_clip_bounds(point,&f,NULL));
     assert(!ainekio_v2_clip_bounds(point,&f,&f));
 }
+static void retired_turns_preserve_active_gait(void)
+{
+    reset();ainekio_command_t c=command(70,AINEKIO_INTENT_WALK);
+    c.data.intent.data.walk.steps=0;
+    assert(execute(&c)==ESP_OK);advance(6000);
+    const char *names[]={"turn_left_15","turn_right_15","turn_left_45","turn_right_45",
+        "turn_left_90","turn_right_90","turn_left_180","turn_right_180"};
+    for(unsigned i=0;i<sizeof(names)/sizeof(names[0]);++i) {
+        const unsigned before=writes;
+        const ainekio_v2_frame_t pose=body.pose;
+        c=command(71+i,AINEKIO_INTENT_EMOTE);strcpy(c.data.intent.data.asset,names[i]);
+        assert(execute(&c)==ESP_ERR_NOT_SUPPORTED);
+        assert(writes==before&&driver.state.armed&&body.pose_valid);
+        assert(!memcmp(&pose,&body.pose,sizeof(pose)));
+        assert(ainekio_p4_body_status().sequence==70&&ainekio_p4_body_status().moving);
+        ainekio_p4_body_event_t e;assert(!ainekio_p4_body_event(&e));
+        advance(20);assert(writes>before);
+    }
+}
 static void integrated_catalog(void)
 {
     unsigned completed=0,rejected=0;
@@ -438,14 +457,14 @@ static void supervised_faults_are_failures(void)
  * Crawl endpoint outside the former provisional angle envelope. */
 static void crawl_finish_handoff(void)
 {
-    for(unsigned target=0;target<2;target++)for(unsigned dir=0;dir<4;dir++) {
+    for(unsigned family=0;family<2;family++)for(unsigned target=0;target<2;target++)for(unsigned dir=0;dir<(family?6:4);dir++) {
         reset();assert(ainekio_p4_joint_defaults(mapped_joints));
         for(unsigned i=0;i<12;i++)mapped_joints[i].home_us=1500;
         mapped_joints[1].home_us=1270;mapped_joints[7].home_us=1230;
         ainekio_p4_joint_config_t saved[12];memcpy(saved,mapped_joints,sizeof(saved));
         ainekio_pca_disarm(&driver);output_step(clock_us);
         ainekio_command_t crawl=command(200,AINEKIO_INTENT_WALK);
-        crawl.data.intent.data.walk.gait=AINEKIO_GAIT_CRAWL;
+        crawl.data.intent.data.walk.gait=family?AINEKIO_GAIT_CRAB:AINEKIO_GAIT_CRAWL;
         crawl.data.intent.data.walk.direction=(ainekio_walk_direction_t)dir;
         crawl.data.intent.data.walk.controls=1;crawl.data.intent.data.walk.speed_percent=100;
         assert(execute(&crawl)==ESP_OK);
@@ -489,6 +508,7 @@ static void commanded_pose_survives_pwm_rounding(void)
 
 int main(void)
 {
+    retired_turns_preserve_active_gait();
     crawl_finish_handoff();
     commanded_pose_survives_pwm_rounding();
     supervised_faults_are_failures();

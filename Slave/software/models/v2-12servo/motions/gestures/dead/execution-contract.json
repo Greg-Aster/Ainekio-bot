@@ -1,22 +1,20 @@
 {
-  "schema": "ainekio-motion-execution-contract-1",
   "command": "dead",
-  "gait_id": "dead_upright_24_38_20260921",
+  "gait_id": "dead_reviewed_expression",
   "wire": {
     "t": "intent",
     "name": "emote",
     "asset": "dead"
   },
-  "shared_policy": "execution-policy.json",
   "policy_sha256": "42348b8828673ec6be0c164893d13e4c1c7a3bc14c67c9c2b421e45993bb438c",
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/dead/source.json",
-      "sha256": "9481691642903d1f8b2fd0246bf3a3131544e46f2bbb143690744f979418c88a"
+      "sha256": "8915e82d0ea0d3e1e758d3bd3ea9c64112a3bb44ab9e9e818279bb362c0ffb27"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/dead/manifest.json",
-      "sha256": "fdbae764df6136c64c29019cc74db1b83b8d41efb2a5a7376ca1d1d744755a07"
+      "sha256": "bb9558afcabf9bb9631dab6bd717307667314b3de2c16f46309cc444cce6138f"
     }
   ],
   "source_units": {
@@ -36,836 +34,52 @@
     "alpha_Part006",
     "theta_Part005"
   ],
-  "physical_leg_order": [
-    "rear_left",
-    "rear_right",
-    "front_left",
-    "front_right"
-  ],
   "phases": [
     {
-      "id": "p000_lower_into_dead_pose",
-      "name": "lower_into_dead_pose",
+      "id": "p000",
+      "name": "Ready",
       "section": "clip",
       "execution_role": "command",
       "source_interval_s": [
         0.0,
-        2.0
-      ],
-      "source_sample_indices_inclusive": [
-        0,
-        240
-      ],
-      "demonstration_duration_s": 2.0,
-      "supporting_legs_throughout": [
-        "FL",
-        "FR",
-        "RL",
-        "RR"
-      ],
-      "contact_states": [
-        [
-          true,
-          true,
-          true,
-          true
-        ]
-      ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [
-        1,
-        2,
-        4,
-        5,
-        7,
-        8,
-        10,
-        11
-      ],
-      "reference_peak_speed_rad_s": [
-        0.0,
-        0.8412632220680195,
-        0.4757281011578639,
-        0.0,
-        0.8412632220679199,
-        0.47572814815574277,
-        0.0,
-        0.6851760382330134,
-        0.38771078738407017,
-        0.0,
-        0.6851760382331582,
-        0.38771078738407017
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        0.0,
-        1.549832383659089,
-        1.0840462953023828,
-        0.0,
-        1.5498323836576604,
-        1.0840464121244584,
-        0.0,
-        1.2720609220469168,
-        0.8443434764795772,
-        0.0,
-        1.2720609220469168,
-        0.8443434764795772
-      ],
-      "current_geometry_note": "Includes sequential wide-stance preparation before lowering."
+        0.4
+      ]
     },
     {
-      "id": "p001_flatten_shoulders",
-      "name": "flatten_shoulders",
+      "id": "p001",
+      "name": "Collapse with arms reaching forward",
       "section": "clip",
       "execution_role": "command",
       "source_interval_s": [
-        2.0,
-        3.4
-      ],
-      "source_sample_indices_inclusive": [
-        240,
-        408
-      ],
-      "demonstration_duration_s": 1.4,
-      "supporting_legs_throughout": [],
-      "contact_states": [
-        [
-          false,
-          false,
-          false,
-          false
-        ],
-        [
-          true,
-          true,
-          true,
-          true
-        ]
-      ],
-      "support_sources": [
-        "feet",
-        "rear_cover_and_front_visor"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [
-        0,
-        3,
-        6,
-        9
-      ],
-      "reference_peak_speed_rad_s": [
-        2.103745103062087,
-        0.0,
-        0.0,
-        2.103745103062087,
-        0.0,
-        0.0,
-        2.103745103062087,
-        0.0,
-        0.0,
-        2.103745103062087,
-        0.0,
-        0.0
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        4.9139573450427445,
-        0.0,
-        0.0,
-        4.9139573450427445,
-        0.0,
-        0.0,
-        4.9139573450427445,
-        0.0,
-        0.0,
-        4.9139573450427445,
-        0.0,
-        0.0
+        0.4,
+        1.0666666666666667
       ]
     },
     {
-      "id": "p002_flatten_all_four_lower_legs",
-      "name": "flatten_all_four_lower_legs",
+      "id": "p002",
+      "name": "Play dead / arms extended along floor",
       "section": "clip",
       "execution_role": "command",
       "source_interval_s": [
-        3.4,
-        4.4
-      ],
-      "source_sample_indices_inclusive": [
-        408,
-        528
-      ],
-      "demonstration_duration_s": 1.0000000000000004,
-      "supporting_legs_throughout": [],
-      "contact_states": [
-        [
-          false,
-          false,
-          false,
-          false
-        ]
-      ],
-      "support_sources": [
-        "rear_cover_and_front_visor"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [
-        1,
-        2,
-        4,
-        5,
-        7,
-        8,
-        10,
-        11
-      ],
-      "reference_peak_speed_rad_s": [
-        0.0,
-        2.13396299114203,
-        1.3505785030468627,
-        0.0,
-        2.1339629911420337,
-        1.3505785880115013,
-        0.0,
-        1.7361043988689648,
-        1.2454178265125595,
-        0.0,
-        1.7361043988689648,
-        1.2454178265125595
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        0.0,
-        7.142848792173164,
-        4.520686661050204,
-        0.0,
-        7.142848792187145,
-        4.52068694544567,
-        0.0,
-        5.811127587515434,
-        4.168690485632181,
-        0.0,
-        5.811127587515434,
-        4.168690485632181
+        1.0666666666666667,
+        7.0
       ]
-    },
-    {
-      "id": "p003_hold_dead",
-      "name": "hold_dead",
-      "section": "clip",
-      "execution_role": "command",
-      "source_interval_s": [
-        4.4,
-        7.4
-      ],
-      "source_sample_indices_inclusive": [
-        528,
-        888
-      ],
-      "demonstration_duration_s": 3.0,
-      "supporting_legs_throughout": [],
-      "contact_states": [
-        [
-          false,
-          false,
-          false,
-          false
-        ]
-      ],
-      "support_sources": [
-        "rear_cover_and_front_visor"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [],
-      "reference_peak_speed_rad_s": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ]
-    },
-    {
-      "id": "p004_demonstration_recovery_fold_linkages",
-      "name": "demonstration_recovery_fold_linkages",
-      "section": "clip",
-      "execution_role": "optional_demonstration_recovery",
-      "source_interval_s": [
-        7.4,
-        8.4
-      ],
-      "source_sample_indices_inclusive": [
-        888,
-        1008
-      ],
-      "demonstration_duration_s": 1.0,
-      "supporting_legs_throughout": [],
-      "contact_states": [
-        [
-          false,
-          false,
-          false,
-          false
-        ]
-      ],
-      "support_sources": [
-        "rear_cover_and_front_visor"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [
-        1,
-        2,
-        4,
-        5,
-        7,
-        8,
-        10,
-        11
-      ],
-      "reference_peak_speed_rad_s": [
-        0.0,
-        2.1339629911420306,
-        1.3505785030468653,
-        0.0,
-        2.1339629911420213,
-        1.350578588011503,
-        0.0,
-        1.7361043988689664,
-        1.2454178265125595,
-        0.0,
-        1.7361043988689664,
-        1.2454178265125595
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        0.0,
-        7.142848792177773,
-        4.520686661048605,
-        0.0,
-        7.142848792178879,
-        4.520686945447442,
-        0.0,
-        5.81112758751231,
-        4.168690485629153,
-        0.0,
-        5.81112758751231,
-        4.168690485629153
-      ]
-    },
-    {
-      "id": "p005_demonstration_recovery_replace_feet",
-      "name": "demonstration_recovery_replace_feet",
-      "section": "clip",
-      "execution_role": "optional_demonstration_recovery",
-      "source_interval_s": [
-        8.4,
-        9.8
-      ],
-      "source_sample_indices_inclusive": [
-        1008,
-        1176
-      ],
-      "demonstration_duration_s": 1.4000000000000004,
-      "supporting_legs_throughout": [],
-      "contact_states": [
-        [
-          false,
-          false,
-          false,
-          false
-        ]
-      ],
-      "support_sources": [
-        "rear_cover_and_front_visor"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [
-        0,
-        3,
-        6,
-        9
-      ],
-      "reference_peak_speed_rad_s": [
-        2.103745103062087,
-        0.0,
-        0.0,
-        2.103745103062087,
-        0.0,
-        0.0,
-        2.103745103062087,
-        0.0,
-        0.0,
-        2.103745103062087,
-        0.0,
-        0.0
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        4.9139573450562315,
-        0.0,
-        0.0,
-        4.9139573450562315,
-        0.0,
-        0.0,
-        4.9139573450562315,
-        0.0,
-        0.0,
-        4.9139573450562315,
-        0.0,
-        0.0
-      ]
-    },
-    {
-      "id": "p006_demonstration_recovery_stand",
-      "name": "demonstration_recovery_stand",
-      "section": "clip",
-      "execution_role": "optional_demonstration_recovery",
-      "source_interval_s": [
-        9.8,
-        11.8
-      ],
-      "source_sample_indices_inclusive": [
-        1176,
-        1416
-      ],
-      "demonstration_duration_s": 2.0,
-      "supporting_legs_throughout": [],
-      "contact_states": [
-        [
-          false,
-          false,
-          false,
-          false
-        ],
-        [
-          true,
-          true,
-          true,
-          true
-        ]
-      ],
-      "support_sources": [
-        "feet",
-        "rear_cover_and_front_visor"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [
-        1,
-        2,
-        4,
-        5,
-        7,
-        8,
-        10,
-        11
-      ],
-      "reference_peak_speed_rad_s": [
-        0.0,
-        0.8412632220680194,
-        0.475728101157864,
-        0.0,
-        0.8412632220679198,
-        0.47572814815574277,
-        0.0,
-        0.6851760382330134,
-        0.38771078738407017,
-        0.0,
-        0.6851760382331585,
-        0.38771078738407017
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        0.0,
-        1.5498323836590797,
-        1.0840462953023733,
-        0.0,
-        1.549832383657632,
-        1.0840464121244489,
-        0.0,
-        1.2720609220469457,
-        0.8443434764795963,
-        0.0,
-        1.2720609220469457,
-        0.8443434764795963
-      ]
-    },
-    {
-      "id": "p007_hold_standing",
-      "name": "hold_standing",
-      "section": "clip",
-      "execution_role": "optional_demonstration_recovery",
-      "source_interval_s": [
-        11.8,
-        12.3
-      ],
-      "source_sample_indices_inclusive": [
-        1416,
-        1476
-      ],
-      "demonstration_duration_s": 0.5,
-      "supporting_legs_throughout": [
-        "FL",
-        "FR",
-        "RL",
-        "RR"
-      ],
-      "contact_states": [
-        [
-          true,
-          true,
-          true,
-          true
-        ]
-      ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "moving_joint_indices": [],
-      "reference_peak_speed_rad_s": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "reference_peak_acceleration_rad_s2": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ]
-    }
-  ],
-  "contact_model": "Measured sole rolling during approach/recovery. During flattening and hold, the measured rear-cover edge and front visor support the body; visor contact load capacity is unverified.",
-  "contact_events": [
-    {
-      "source_time_s": 0,
-      "sample_index": 0,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.008333333333333333,
-      "sample_index": 1,
-      "active": [
-        false,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.25,
-      "sample_index": 30,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.25833333333333336,
-      "sample_index": 31,
-      "active": [
-        true,
-        false,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.5,
-      "sample_index": 60,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.5083333333333333,
-      "sample_index": 61,
-      "active": [
-        true,
-        true,
-        false,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.75,
-      "sample_index": 90,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 0.7583333333333333,
-      "sample_index": 91,
-      "active": [
-        true,
-        true,
-        true,
-        false
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 1.0,
-      "sample_index": 120,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 1.9916666666666667,
-      "sample_index": 239,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": true,
-      "support_source": "body_and_feet"
-    },
-    {
-      "source_time_s": 2.0083333333333333,
-      "sample_index": 241,
-      "active": [
-        false,
-        false,
-        false,
-        false
-      ],
-      "body_contact_active": true,
-      "support_source": "body"
-    },
-    {
-      "source_time_s": 9.808333333333334,
-      "sample_index": 1177,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": true,
-      "support_source": "body_and_feet"
-    },
-    {
-      "source_time_s": 9.816666666666666,
-      "sample_index": 1178,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 10.808333333333334,
-      "sample_index": 1297,
-      "active": [
-        false,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.05,
-      "sample_index": 1326,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.058333333333334,
-      "sample_index": 1327,
-      "active": [
-        true,
-        false,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.3,
-      "sample_index": 1356,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.308333333333334,
-      "sample_index": 1357,
-      "active": [
-        true,
-        true,
-        false,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.55,
-      "sample_index": 1386,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.558333333333334,
-      "sample_index": 1387,
-      "active": [
-        true,
-        true,
-        true,
-        false
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
-    },
-    {
-      "source_time_s": 11.8,
-      "sample_index": 1416,
-      "active": [
-        true,
-        true,
-        true,
-        true
-      ],
-      "body_contact_active": false,
-      "support_source": "feet"
     }
   ],
   "timing_profiles": {
     "demonstration": {
-      "status": "recorded_kinematic_timing",
       "duration_s": {
-        "p000_lower_into_dead_pose": 2.0,
-        "p001_flatten_shoulders": 1.4,
-        "p002_flatten_all_four_lower_legs": 1.0000000000000004,
-        "p003_hold_dead": 3.0,
-        "p004_demonstration_recovery_fold_linkages": 1.0,
-        "p005_demonstration_recovery_replace_feet": 1.4000000000000004,
-        "p006_demonstration_recovery_stand": 2.0,
-        "p007_hold_standing": 0.5
+        "p000": 0.4,
+        "p001": 0.6666666666666666,
+        "p002": 5.933333333333334
       }
     },
     "research_candidate": {
-      "status": "offline_unvalidated",
       "duration_s": {
-        "p000_lower_into_dead_pose": 2.0,
-        "p001_flatten_shoulders": 1.4,
-        "p002_flatten_all_four_lower_legs": 1.0000000000000004,
-        "p003_hold_dead": 3.0,
-        "p004_demonstration_recovery_fold_linkages": 1.0,
-        "p005_demonstration_recovery_replace_feet": 1.4000000000000004,
-        "p006_demonstration_recovery_stand": 2.0,
-        "p007_hold_standing": 0.5
+        "p000": 0.4,
+        "p001": 0.6666666666666666,
+        "p002": 5.933333333333334
       }
-    },
-    "operating": {
-      "status": "unconfigured_pending_loaded_calibration",
-      "duration_s": {
-        "p000_lower_into_dead_pose": null,
-        "p001_flatten_shoulders": null,
-        "p002_flatten_all_four_lower_legs": null,
-        "p003_hold_dead": null,
-        "p004_demonstration_recovery_fold_linkages": null,
-        "p005_demonstration_recovery_replace_feet": null,
-        "p006_demonstration_recovery_stand": null,
-        "p007_hold_standing": null
-      },
-      "calibration_id": null
     }
   },
   "repeat": {
@@ -873,93 +87,63 @@
     "minimum": 1,
     "maximum": 1
   },
-  "face_cues": [
-    {
-      "time_s": 0.0,
-      "name": "dead",
-      "mode": "boomerang",
-      "fps": 1
-    },
-    {
-      "time_s": 11.8,
-      "name": "stand",
-      "mode": "once",
-      "fps": 1
-    }
-  ],
+  "face_cues": [],
   "entry": {
     "joint_angles_rad": [
       [
-        -3.4277232242703374e-09,
-        0.033522787652696055,
-        0.0077382778671378615
+        -3.4277231355700112e-09,
+        0.03352278781213001,
+        0.007738277999672739
       ],
       [
-        -6.855412137067195e-09,
-        0.03352259575715927,
-        0.007738239210021999
+        -6.855412043523829e-09,
+        0.033522596397426656,
+        0.007738238988523958
       ],
       [
-        1.9846059755857533e-09,
-        0.0335230550346877,
-        0.007738329695574771
+        1.1588639560404655e-07,
+        0.03352305412823901,
+        0.007738329494389129
       ],
       [
-        -3.4277327057149906e-09,
-        0.03352291414500837,
-        0.007738299730361967
+        1.5680199353604625e-09,
+        0.0335229147284007,
+        0.007738299845916056
+      ]
+    ]
+  },
+  "completion": {
+    "joint_angles_rad": [
+      [
+        -0.6108652381980153,
+        0.6119047716702132,
+        1.1653309551175706
+      ],
+      [
+        -0.6108652381980153,
+        0.6119039138541652,
+        1.1653306499886618
+      ],
+      [
+        -0.4363323129985824,
+        1.8497168798181454,
+        1.5913174739633906
+      ],
+      [
+        -0.4363323129985824,
+        1.8497175076089791,
+        1.591317665780511
       ]
     ],
-    "contact_active": [
+    "contacts": [
       true,
       true,
       true,
       true
     ],
-    "arbitrary_pose_entry_verified": false
+    "semantic_end_s": 7.0,
+    "optional_demo_recovery_end_s": null,
+    "behavior": "Hold the grounded terminal pose until another command."
   },
-  "completion": {
-    "behavior": "V1 holds dead. The source includes a separately labelled optional demonstration recovery after semantic_end_s for a continuous Blender playlist.",
-    "semantic_end_s": 7.4,
-    "joint_angles_rad": [
-      [
-        -1.3420692055085595,
-        0.5147882951535478,
-        0.14785841110526507
-      ],
-      [
-        -1.3420693817440401,
-        0.5147879229747997,
-        0.14785821425609694
-      ],
-      [
-        -1.3617589800862637,
-        0.5199824135008942,
-        0.14962518856563026
-      ],
-      [
-        -1.3617591816255403,
-        0.5199818219743506,
-        0.14962472283050848
-      ]
-    ],
-    "contacts": [
-      false,
-      false,
-      false,
-      false
-    ],
-    "optional_demo_recovery_end_s": 12.3
-  },
-  "source_qualification": {
-    "hardware_qualified": false,
-    "collision_checked": false,
-    "measured_mass_balance_verified": false,
-    "source_acceleration_continuous": false,
-    "minimum_assumed_support_margin_mm": -23.069416537698874
-  },
-  "body_support_required": true,
-  "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
-  "hardware_ready": false,
-  "geometry_id": "upright-24-38-24-55-20260921"
+  "hardware_ready": false
 }

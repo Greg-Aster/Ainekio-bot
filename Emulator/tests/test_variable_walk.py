@@ -2,10 +2,85 @@
 import json,math,os,subprocess,unittest
 from gateway.environment_adapter.translation import translate_environment_action
 from gateway.server.service import GatewayError
-from protocol.control_v1 import validate_control_message,ProtocolValidationError,WALK_CONTROLS_FEATURE,LOCOMOTION_FEATURE,RUN_GAIT_FEATURE
+from protocol.control_v1 import validate_control_message,ProtocolValidationError,WALK_CONTROLS_FEATURE,LOCOMOTION_FEATURE,RUN_GAIT_FEATURE,CRAB_GAIT_FEATURE
 from Emulator.tests.test_v2_commands import V2CommandsTests
 
 class VariableWalkTests(V2CommandsTests):
+    async def test_bare_v2_turns_use_gait_and_finish_with_retired_clips_absent(self):
+        from Emulator.tests.test_v2_commands import TURNS
+        from gateway.environment_adapter.translation import V2_COMMAND_DESCRIPTIONS
+        exe=os.environ.get('AINEKIO_V2_WALK_COMMAND')
+        if not exe:self.skipTest('set AINEKIO_V2_WALK_COMMAND to compiled offline CLI')
+        for side,direction in [('left','turn_l'),('right','turn_r')]:
+            self.assertIn('ongoing gait',V2_COMMAND_DESCRIPTIONS[side])
+            actions=[{'type':'robotCommand','command':side},
+                     {'type':'robotCommand','command':'turn_'+side},
+                     {'type':'move','direction':side}]
+            for action in actions:
+                v2=translate_environment_action(action,model='v2-12servo')
+                self.assertEqual((v2.name,v2.params),('walk',{'dir':direction,'steps':0}))
+                v1=translate_environment_action(action,model='v1-8servo')
+                self.assertEqual((v1.name,v1.params),('emote',{'asset':f'turn_{side}_45'}))
+                finite=translate_environment_action({**action,'units':2},model='v2-12servo')
+                self.assertEqual(finite.params,{'dir':direction,'steps':2})
+                finite=translate_environment_action({**action,'continuous':False},model='v2-12servo')
+                self.assertEqual(finite.params,{'dir':direction,'steps':1})
+            c,socket=self.connection('v2-12servo');c.features+=(LOCOMOTION_FEATURE,)
+            c.capabilities['commands']=['walk','backward','left','right','stop']
+            for name in TURNS:
+                with self.assertRaises(GatewayError):
+                    await c.service.emote(name,robot_id='test-body',received_at=100.)
+            self.assertFalse(socket.messages);self.assertEqual(c.next_sequence,1)
+            seq=await c.service.queue_intent(v2.name,v2.params,robot_id='test-body',received_at=100.)
+            await c._handle_control({'t':'ack','seq':seq})
+            params={**v2.params,'speed':75,'update':seq}
+            update=await c.service.queue_intent('walk',params,robot_id='test-body',received_at=100.)
+            await c._handle_control({'t':'ack','seq':update})
+            finish=await c.service.queue_intent('walk',{**params,'speed':0},robot_id='test-body',received_at=100.)
+            await c._handle_control({'t':'ack','seq':finish})
+            self.assertIn(seq,c.pending)
+            wire=json.dumps(socket.messages[0])+'\n6000 '+json.dumps(socket.messages[1])+'\n14000 '+json.dumps(socket.messages[2])+'\n'
+            run=subprocess.run([exe,'30000','50'],input=wire,capture_output=True,text=True,check=True)
+            frames=[json.loads(line) for line in run.stdout.splitlines()]
+            self.assertTrue(frames[-1]['complete']);self.assertTrue(all(frames[-1]['grounded']))
+            yaw=frames[-1]['euler'][2]
+            self.assertGreater(yaw if side=='left' else -yaw,0.1)
+            await c._handle_control({'t':'done','seq':seq})
+            self.assertNotIn(seq,c.pending)
+
+    async def test_crab_negotiation_native_updates_and_finish(self):
+        from gateway.body_capabilities import CRAB_DIRECTIONS
+        exe=os.environ.get('AINEKIO_V2_WALK_COMMAND')
+        if not exe:self.skipTest('set AINEKIO_V2_WALK_COMMAND to compiled offline CLI')
+        for name,direction in CRAB_DIRECTIONS.items():
+            action=translate_environment_action({'type':'robotCommand','command':name,'speed':25},model='v2-12servo')
+            self.assertEqual(action.params,{'dir':direction,'steps':0,'gait':'crab','speed':25})
+            c,socket=self.connection('v2-12servo');c.features+=(LOCOMOTION_FEATURE,)
+            c.capabilities['commands']=['walk','backward','left','right','stop',*CRAB_DIRECTIONS]
+            with self.assertRaises(GatewayError):await c.service.queue_intent(action.name,action.params,robot_id='test-body',received_at=100.)
+            self.assertEqual(c.next_sequence,1);self.assertFalse(socket.messages)
+            c.features+=(CRAB_GAIT_FEATURE,)
+            seq=await c.service.queue_intent(action.name,action.params,robot_id='test-body',received_at=100.)
+            await c._handle_control({'t':'ack','seq':seq})
+            params={**action.params,'speed':100,'update':seq}
+            update=await c.service.queue_intent('walk',params,robot_id='test-body',received_at=100.)
+            await c._handle_control({'t':'ack','seq':update})
+            self.assertIn(seq,c.pending);self.assertNotIn(update,c.pending)
+            finish=await c.service.queue_intent('walk',{**params,'speed':0},robot_id='test-body',received_at=100.)
+            await c._handle_control({'t':'ack','seq':finish})
+            wire=json.dumps(socket.messages[0])+'\n6000 '+json.dumps(socket.messages[1])+'\n14000 '+json.dumps(socket.messages[2])+'\n'
+            run=subprocess.run([exe,'30000','50'],input=wire,capture_output=True,text=True,check=True)
+            frames=[json.loads(line) for line in run.stdout.splitlines()]
+            self.assertTrue(frames[-1]['complete']);self.assertTrue(all(frames[-1]['grounded']))
+            self.assertEqual(frames[-1]['body'][2],-18)
+            await c._handle_control({'t':'done','seq':seq})
+            self.assertNotIn(seq,c.pending)
+        legacy=translate_environment_action({'type':'robotCommand','command':'crab'},model='v1-8servo')
+        self.assertEqual((legacy.name,legacy.params),('emote',{'asset':'crab'}))
+        for message in [{'gait':'crab','speed':101},{'gait':'walk','dir':'side_l','speed':25}]:
+            with self.assertRaises(ProtocolValidationError):
+                validate_control_message({'t':'intent','seq':1,'name':'walk','dir':'fwd','steps':0,**message})
+
     async def test_parameter_delivery_and_update_lifecycle(self):
         connection,socket=self.connection('v2-12servo');connection.features+= (WALK_CONTROLS_FEATURE,)
         action=translate_environment_action({'type':'robotCommand','command':'walk','units':3,'speed':25})

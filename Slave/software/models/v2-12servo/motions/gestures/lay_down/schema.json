@@ -1,0 +1,48 @@
+{
+  "command": "lay_down",
+  "geometry_id": "upright-24-38-24-55-20260921",
+  "leg_order": [
+    "FL",
+    "FR",
+    "RL",
+    "RR"
+  ],
+  "joint_order": [
+    "h_Part002",
+    "alpha_Part006",
+    "theta_Part005"
+  ],
+  "sample_hz": 120,
+  "semantic_end_s": 7.0,
+  "optional_demonstration_recovery": false,
+  "sample_fields": [
+    "time_s",
+    "phase",
+    "body_translation_world_mm",
+    "body_position_world_mm",
+    "body_rotation_euler_xyz_rad",
+    "body_orientation_world_quaternion_wxyz",
+    "body_yaw_world_rad",
+    "actuator_angles_rad",
+    "passive_beta_rad",
+    "foot_bolt_world_mm",
+    "contact_world_mm",
+    "contact_vertex_index",
+    "contact_active",
+    "sole_clearance_mm",
+    "body_ground_clearance_mm",
+    "body_contact_active",
+    "body_contact_polygon_world_mm",
+    "support_source",
+    "assumed_com_world_mm",
+    "support_margin_mm",
+    "target_foot_reference_xy_mm",
+    "target_sole_clearance_mm"
+  ],
+  "interpolation": "Monotone cubic Hermite; compiled error bound 0.005 degree.",
+  "units": {
+    "angle": "radian",
+    "position": "mm",
+    "time": "second"
+  }
+}

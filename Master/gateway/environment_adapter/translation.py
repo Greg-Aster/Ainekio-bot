@@ -113,12 +113,26 @@ ROBOT_COMMAND_DESCRIPTIONS: dict[str, str] = {
 # New model-specific names require an explicit body_commands_v1 declaration.
 LEGACY_ROBOT_COMMANDS = tuple(sorted(ROBOT_COMMAND_DESCRIPTIONS))
 DECLARED_EMOTES = {
+    "lay_down": "lower into the grounded wide lying pose and hold; distinct from Rest and Play Dead",
     "upright": "experimental motion: sit, brace the front legs backward, then rise onto the rear lower legs and hold upright",
     "crouch": "squat on all four feet and hold the body above the floor",
     "turn_left_15": "turn left approximately 15 degrees",
     "turn_right_15": "turn right approximately 15 degrees",
 }
 DECLARED_GAITS = {"crawl": "walk continuously with the body low above the floor; supports direction, Speed, stride and cadence"}
+from gateway.body_capabilities import CRAB_DIRECTIONS
+
+# Keep the V1 Crab asset and descriptions. V2 advertises ongoing gait commands.
+DECLARED_GAITS.update({name: "ongoing wide-stance walking; Speed, stride, cadence and Finish" for name in CRAB_DIRECTIONS if name != "crab"})
+V2_COMMAND_DESCRIPTIONS = {
+    "left": "ongoing gait turn left; supports Speed, stride, cadence and Finish; optional units choose finite cycles",
+    "right": "ongoing gait turn right; supports Speed, stride, cadence and Finish; optional units choose finite cycles",
+    "run": "bound with front and rear leg pairs; automatic Speed above 100 to 200 selects Run, 0 finishes",
+    "worm": "two slow, deep whole-body waves, then return to standing",
+    "shrug": "sit, lift and open the front arms in a shrug, then return to standing",
+    "dead": "collapse into Play Dead with outstretched front arms and grounded lower legs; hold",
+    **{name: "ongoing wide-stance " + {"side_l":"sideways left", "side_r":"sideways right", "fwd":"forward", "back":"backward", "turn_l":"turning left", "turn_r":"turning right"}[direction] + "; supports Speed, stride, cadence and Finish" for name,direction in CRAB_DIRECTIONS.items()},
+}
 ROBOT_COMMAND_DESCRIPTIONS.update(DECLARED_EMOTES)
 ROBOT_COMMAND_DESCRIPTIONS.update(DECLARED_GAITS)
 ROBOT_COMMAND_DESCRIPTIONS.update({
@@ -157,7 +171,7 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
     if action_type == "stop":
         return BridgeAction("stop")
     if action_type == "move":
-        return _translate_move(action)
+        return _translate_move(action, model=model)
     if action_type == "robotmotionplan":
         return _translate_motion_plan(action)
     if action_type != "robotcommand":
@@ -208,6 +222,9 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
         "number2": "numbertwo",
         "pushups": "pushup",
         "playdead": "dead",
+        "laydown": "laydown",
+        "liedown": "laydown",
+        "crableft": "crab",
         "die": "dead",
     }
     command = aliases.get(command, command)
@@ -215,6 +232,12 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
         return BridgeAction("stop")
     if command in {"stand", "neutral", "sit"}:
         return BridgeAction("intent", command)
+    crab = next((name for name in CRAB_DIRECTIONS if _normalized(name) == command), None)
+    if crab and (model == "v2-12servo" or crab != "crab"):
+        direction = action.get("direction", CRAB_DIRECTIONS[crab])
+        direction = {"forward":"fwd", "backward":"back", "left":"side_l", "right":"side_r", "turn_left":"turn_l", "turn_right":"turn_r"}.get(direction, direction) if isinstance(direction, str) else None
+        if direction not in CRAB_DIRECTIONS.values(): return None
+        return BridgeAction("intent", "walk", _walk_params({**action, "gait":"crab", "continuous":action.get("continuous", True)}, direction))
     if command == "run" and model == "v2-12servo":
         defaults = {} if "stride" in action or "rate" in action else {"speed":150}
         # Use the automatic family so Speed can return to Walk in the same
@@ -226,14 +249,8 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
         direction = {"forward":"fwd", "backward":"back", "left":"turn_l", "right":"turn_r"}.get(direction, direction) if isinstance(direction, str) else None
         if direction not in {"fwd", "back", "turn_l", "turn_r"}:return None
         return BridgeAction("intent", "walk", _walk_params({**action, "gait":"crawl", "continuous":action.get("continuous", True)}, direction))
-    if command in {"left", "right"} and _locomotion_requested(action):
-        return BridgeAction("intent", "walk", _walk_params(action, "turn_l" if command == "left" else "turn_r"))
     if command in {"left", "right"}:
-        return BridgeAction(
-            "intent",
-            "emote",
-            {"asset": f"turn_{command}_45"},
-        )
+        return _translate_turn(action, command, model=model)
     if command in {"walk", "backward"}:
         direction = {
             "walk": "fwd",
@@ -317,17 +334,11 @@ def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
     )
 
 
-def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:
+def _translate_move(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
     direction = _normalized(action.get("direction") or "forward")
     if direction in {"left", "turnleft", "right", "turnright"}:
         side = "left" if direction in {"left", "turnleft"} else "right"
-        if _locomotion_requested(action):
-            return BridgeAction("intent", "walk", _walk_params(action, "turn_l" if side == "left" else "turn_r"))
-        return BridgeAction(
-            "intent",
-            "emote",
-            {"asset": f"turn_{side}_45"},
-        )
+        return _translate_turn(action, side, model=model)
     directions = {
         "forward": "fwd",
         "ahead": "fwd",
@@ -344,6 +355,15 @@ def _translate_move(action: Mapping[str, object]) -> BridgeAction | None:
         "walk",
         _walk_params(action, wire_direction),
     )
+
+
+def _translate_turn(action: Mapping[str, object], side: str, *, model: str | None) -> BridgeAction:
+    if model == "v2-12servo":
+        # Bare V2 turns are ongoing; an explicit cycle count remains available.
+        action = {**action, "continuous": action.get("continuous", "units" not in action)}
+    if model == "v2-12servo" or _locomotion_requested(action):
+        return BridgeAction("intent", "walk", _walk_params(action, "turn_l" if side == "left" else "turn_r"))
+    return BridgeAction("intent", "emote", {"asset": f"turn_{side}_45"})
 
 
 def _locomotion_requested(action: Mapping[str, object]) -> bool:

@@ -9,7 +9,7 @@ typedef struct {
     double joints[4][3]; /* reference order RL, RR, FL, FR; radians */
     double run_blend; /* 0 walking, 1 bounding; zero for Crawl */
     bool grounded[4];
-    ainekio_gait_t gait; /* Walk, low Crawl, or paired-leg Run */
+    ainekio_gait_t gait; /* Walk, low Crawl, paired-leg Run, or wide Crab */
     ainekio_walk_direction_t direction;
     ainekio_v2_frame_t frame; /* stable model order FL, FR, RL, RR */
 } ainekio_v2_walk_pose_t;
@@ -21,7 +21,7 @@ typedef struct {
 typedef struct {
     uint64_t last_us;
     uint32_t command_sequence, latest_sequence;
-    double phase, body_x, body_yaw, preparation_seconds, transition_phase, transition_span, end_phase;
+    double phase, body_x, body_y, body_yaw, preparation_seconds, transition_phase, transition_span, end_phase;
     ainekio_walk_direction_t direction;
     ainekio_gait_t gait_mode; /* command family; Walk can cross into Run */
     double run_from, run_target, run_transition_phase;

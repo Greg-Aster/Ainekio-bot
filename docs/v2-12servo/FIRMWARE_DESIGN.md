@@ -1,6 +1,10 @@
 # V2 Firmware Review and Implementation Design
 
-Current source: `0.6.3-p4-calibration` removes the P4 pulse-endpoint subsystem:
+This document preserves the earlier implementation plan and deployment checkpoints.
+Current firmware, verification counts, application hash and bench limitations are
+in [Controller validation](../../Slave/software/models/v2-12servo/CONTROLLER_VALIDATION.md).
+
+Historical calibration update: `0.6.3-p4-calibration` removed the P4 pulse-endpoint subsystem:
 Min/Max fields, ordering/Home checks, stored endpoints, old NVS import code,
 protocol/schema fields, endpoint UI and draft handling, and unused model endpoint
 accessors. Home/channel/inversion/angle/scale are the complete joint mapping.
@@ -11,7 +15,7 @@ Manual and generated pulses use actual PCA9685 timer capacity. The motion
 model's coupled mechanism geometry remains unchanged. See the
 [assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).
 
-This source update has not been flashed. The P4 was disconnected when a fresh
+At that checkpoint, the source update had not been flashed. The P4 was disconnected when a fresh
 calibration export was attempted; its existing NVS remains untouched. Export
 and restore the retained mapping fields before relying on automatic Home with
 this format. Without saved mapping, startup leaves outputs disabled.
@@ -21,7 +25,7 @@ continuous gait/direction combinations, compact calibration save/reload and
 failure handling. Protocol/calibration and dashboard tests passed; the ESP-IDF
 application rebuilt successfully. These are software checks, not hardware proof.
 
-Restoration/review update: the selected reference is **1300 µs**, with non-inverted CAD offsets shoulder 0°, carrier +1.17° and crank −40.41°. The original motion choreography is restored. Mode handoff preserves a known Home pose; integer-pulse inverse mapping accounts for rounding; delayed dashboard replies are fenced by robot and request identity. The updated mounting references fit the recorded carrier/crank ranges within the observed pulse span at the provisional scale. Shrug and Surprised retain shoulder pulse-span conflicts; existing modeled-collision conflicts remain flagged without reducing movements. Saved device mapping is retained until physical re-indexing and explicit recalibration. See the [range findings](../../Slave/software/models/v2-12servo/mechanics/original-motion-range-audit.md) and current `servo-validation.json`. This work did not flash or move the robot.
+Restoration/review update: the selected reference is **1300 µs**, with non-inverted CAD offsets shoulder 0°, carrier +1.17° and crank −40.41°. The original motion choreography is restored. Mode handoff preserves a known Home pose; integer-pulse inverse mapping accounts for rounding; delayed dashboard replies are fenced by robot and request identity. The updated mounting references fit the recorded carrier/crank ranges within the observed pulse span at the provisional scale. Shrug and Surprised retain shoulder pulse-span conflicts; existing modeled-collision conflicts remain flagged without reducing movements. Saved device mapping is retained until physical re-indexing and explicit recalibration. See the [range findings](../../Slave/software/models/v2-12servo/mechanics/original-motion-range-audit.md). This historical update did not flash or move the robot.
 
 ## Previous deployed application and evidence
 
@@ -29,12 +33,12 @@ Updated: 2026-09-22. The owner authorized completing P4 firmware and Body Contro
 including **all currently implemented motion controls**. Display/touch selection
 and implementation remain deferred. Source `0.6.1-p4-motion` connects the model
 executors to calibrated PCA output and advertises the installed motion catalog.
-The P4 now runs this application and advertises its motion catalog. Physical pose
+At this checkpoint, the P4 ran this application and advertised its motion catalog. Physical pose
 and peripheral acceptance remain separate from source and transport checks.
 The no-output gait calculation completes, but some updates exceed the nominal
 20 ms interval. Actual PWM timing and physical pose fit remain unqualified.
 
-This is the current work tracker. The numbered implementation order later in
+This was the work tracker at that checkpoint. The numbered implementation order later in
 this document is the original plan, not a claim that every physical acceptance
 step has passed. Earlier electrical evidence remains in
 [STEP1_EVIDENCE.md](STEP1_EVIDENCE.md); software tests do not establish physical

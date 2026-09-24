@@ -93,6 +93,14 @@ expresses field ranges; negotiated-feature admission is an additional runtime ru
 A bare semantic Run selects ongoing V2 Walk-family Speed 150; V1 keeps its
 preprogrammed Run asset. Firmware output supervision and calibration are unchanged.
 
+`crab_gait_v1` negotiates ongoing wide-stance `gait:crab`, with Speed 0–100,
+advanced stride/rate and the same sequence-bound Finish. It adds Crab-only
+`side_l` and `side_r`; forward/backward/turning reuse the existing directions.
+The semantic commands `crab`, `crab_right`, `crab_forward`, `crab_backward`,
+`crab_turn_left`, `crab_turn_right` require the connected V2 body's declarations.
+The V1 `crab` emote is unchanged. `lay_down` is a separate declared V2 emote;
+`dead` is labeled Play Dead, and `rest` retains the chassis-grounded posture.
+
 ## Existing lifecycle and media contracts
 
 The current protocol-v1 liveness contract sends an application control ping

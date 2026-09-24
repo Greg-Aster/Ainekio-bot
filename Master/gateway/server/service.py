@@ -26,6 +26,7 @@ from protocol.control_v1 import (
     WALK_CONTROLS_FEATURE,
     LOCOMOTION_FEATURE,
     RUN_GAIT_FEATURE,
+    CRAB_GAIT_FEATURE,
     COMMAND_DEADLINE_FEATURE,
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
@@ -38,7 +39,7 @@ from protocol.control_v1 import (
     validate_control_message,
 )
 from protocol.joints_v1 import joint_contract
-from gateway.body_capabilities import body_command_available, body_commands, movement_command
+from gateway.body_capabilities import body_command_available, body_commands, movement_command, CRAB_DIRECTIONS
 from websockets.exceptions import ConnectionClosed
 
 
@@ -214,6 +215,8 @@ class GatewayConnection:
             # walking command with Speed above 100; feature admission follows.
             if self.model == "v2-12servo" and message.get("t") == "intent" and message.get("name") == "emote" and message.get("asset") == "run":
                 message = {"t":"intent", "name":"walk", "dir":"fwd", "steps":0, "gait":"walk", "speed":150}
+            if self.model == "v2-12servo" and CRAB_GAIT_FEATURE in self.features and message.get("t") == "intent" and message.get("name") == "emote" and message.get("asset") in CRAB_DIRECTIONS:
+                message = {"t":"intent", "name":"walk", "dir":CRAB_DIRECTIONS[message["asset"]], "steps":0, "gait":"crab", "speed":50}
             if message.get("t") == "intent" and message.get("name") == "walk" and (
                 message.get("steps") == 0 or any(key in message for key in
                     ("speed", "stride", "rate", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
@@ -236,6 +239,9 @@ class GatewayConnection:
             if message.get("name") == "walk" and (message.get("gait") == "run" or message.get("speed", 0) > 100):
                 if RUN_GAIT_FEATURE not in self.features or not body_command_available("run", supported):
                     raise GatewayError("body does not support the bounding Run gait")
+            if message.get("name") == "walk" and message.get("gait") == "crab":
+                if CRAB_GAIT_FEATURE not in self.features or not body_command_available("crab", supported):
+                    raise GatewayError("body does not support ongoing Crab")
             movement = movement_command(message)
             if movement is not None and not body_command_available(movement, supported):
                 raise GatewayError(f"{movement} is unavailable on body {self.robot_id} ({self.model})")

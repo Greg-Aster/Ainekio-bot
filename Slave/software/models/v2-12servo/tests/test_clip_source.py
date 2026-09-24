@@ -7,21 +7,19 @@ from pathlib import Path
 import subprocess
 import sys
 
-family = Path(__file__).resolve().parents[1] / "motions" / sys.argv[2]
+family = Path(__file__).resolve().parents[1] / "motions/gestures"
 catalog = json.loads((family / "catalog.json").read_text())
-timing = None
-if sys.argv[2] == "gestures":
-    retained = catalog["timing_reference"]
-    timing_path = family / retained["path"]
-    assert hashlib.sha256(timing_path.read_bytes()).hexdigest() == retained["sha256"]
-    spec = importlib.util.spec_from_file_location("timing_reference", timing_path)
-    timing = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(timing)
+retained = catalog["timing_reference"]
+timing_path = family / retained["path"]
+assert hashlib.sha256(timing_path.read_bytes()).hexdigest() == retained["sha256"]
+spec = importlib.util.spec_from_file_location("timing_reference", timing_path)
+timing = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(timing)
 maximum = {"position": 0, "velocity": 0, "acceleration": 0}
 count = 0
 for item in catalog["commands"]:
     folder = family / item["path"]
-    reference_path = family / "sample_reference.py" if sys.argv[2] == "turns" else folder / "sample_reference.py"
+    reference_path = folder / "sample_reference.py"
     spec = importlib.util.spec_from_file_location("source_reference", reference_path)
     reference = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(reference)
@@ -31,12 +29,10 @@ for item in catalog["commands"]:
     times = {round(i * 1000000 / motion.hz) for i in range(len(motion.positions))}
     times.update(round((i + 0.371) * 1000000 / motion.hz) for i in range(len(motion.positions) - 1))
     contract_path = folder / "execution-contract.json"
-    command_duration_us = motion.duration_us
-    if timing:
-        contract = json.loads(contract_path.read_text())
-        schedule = timing.build_schedule(contract)
-        command_duration_us = round(schedule["duration_s"] * 1000000)
-    boundaries = [5000000, motion.duration_us - 6000000, motion.duration_us] if sys.argv[2] == "turns" else [
+    contract = json.loads(contract_path.read_text())
+    schedule = timing.build_schedule(contract)
+    command_duration_us = round(schedule["duration_s"] * 1000000)
+    boundaries = [
         round(value * 1000000) for phase in json.loads(contract_path.read_text())["phases"] for value in phase["source_interval_s"]]
     for boundary in boundaries:
         times.update(t for t in (boundary - 1, boundary, boundary + 1) if t >= 0)
@@ -61,4 +57,4 @@ for item in catalog["commands"]:
 assert maximum["position"] < 0.502, maximum
 assert maximum["velocity"] < 400 and maximum["acceleration"] < 200000, maximum
 
-print(f"{sys.argv[2]}: all twelve joints at {count} times; maximum numeric errors: {maximum}")
+print(f"gestures: all twelve joints at {count} times; maximum numeric errors: {maximum}")
