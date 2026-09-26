@@ -89,6 +89,38 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         await connection.send_command({"t":"stop","detach":True},received_at=100.0)
         self.assertEqual(socket.messages,[{"t":"stop","detach":True,"seq":1}])
 
+    async def test_motion_speed_negotiation_and_saved_readback(self) -> None:
+        import asyncio
+        from protocol.control_v1 import MOTION_SPEED_FEATURE
+        for model,feature in (("v1-8servo",False),("v1-8servo",True),("v2-12servo",False)):
+            connection,socket=self.connection(model)
+            if feature: connection.features+=(MOTION_SPEED_FEATURE,)
+            for msg in ({"t":"intent","name":"emote","asset":"wave","playback_rate":2},
+                        {"t":"motion_speed","op":"get"}):
+                with self.assertRaises(GatewayError): await connection.send_command(msg,received_at=100.)
+            self.assertEqual(socket.messages,[]);self.assertEqual(connection.next_sequence,1)
+        connection,socket=self.connection("v2-12servo")
+        connection.features+=(MOTION_SPEED_FEATURE,)
+        connection.capabilities["commands"]=["wave","sit","stand","walk","stop"]
+        for name in ("sit","stand","emote"):
+            params={"playback_rate":6,**({"asset":"wave"} if name=="emote" else {})}
+            seq=await connection.service.queue_intent(name,params,robot_id="test-body",received_at=100.)
+            self.assertEqual(socket.messages[-1]["playback_rate"],6)
+            await connection._handle_control({"t":"ack","seq":seq})
+            await connection._handle_control({"t":"done","seq":seq})
+        for rate in (0,-1,True,"2",float("nan"),float("inf")):
+            with self.assertRaises(ProtocolValidationError):
+                await connection.send_command({"t":"motion_speed","op":"save","rate":rate},received_at=100.)
+        task=asyncio.create_task(connection.service.body_motion_speed("save",{"rate":1.35},robot_id="test-body"))
+        await asyncio.sleep(0)
+        seq=socket.messages[-1]["seq"]
+        status={"t":"motion_speed_status","seq":seq,"rate":1.35,"saved":True}
+        await connection._handle_control(status);self.assertFalse(task.done(),"unacknowledged readback must not settle a save")
+        await connection._handle_control({"t":"ack","seq":seq})
+        await connection._handle_control({**status,"seq":seq+100});self.assertFalse(task.done())
+        await connection._handle_control(status)
+        self.assertEqual(await task,status)
+
     async def test_newly_advertised_clip_uses_existing_semantic_motion_lifecycle(self) -> None:
         connection, socket = self.connection("v2-12servo")
         connection.capabilities["commands"].append("new_pose")

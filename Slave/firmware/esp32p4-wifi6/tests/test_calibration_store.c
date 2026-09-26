@@ -27,6 +27,7 @@ void *xSemaphoreCreateMutex(void){return (void *)1;}
 int xSemaphoreTake(void *p,unsigned t){(void)p;(void)t;return 1;}
 int xSemaphoreGive(void *p){(void)p;return 1;}
 ainekio_pca9685_t *ainekio_p4_output(void){return &driver;}
+ainekio_pca_status_t ainekio_pca_status(ainekio_pca9685_t *d){return d->state;}
 bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *d,uint16_t p){(void)d;return p>=3 && p<=19986;}
 static void boot(void){memset(&calibration,0,sizeof calibration);memset(&committed,0,sizeof committed);assert(ainekio_p4_config_init()==ESP_OK);}
 int main(void){
@@ -61,6 +62,18 @@ int main(void){
     frame.position[0]=183870;
     assert(!ainekio_p4_frame_pulses(&frame,pulses));
     for(unsigned i=0;i<12;i++)assert(!pulses[i]);
+    boot();ainekio_p4_joint_record_t preserved=committed;
+    assert(ainekio_p4_motion_rate()==2.F && !ainekio_p4_motion_rate_saved());
+    driver.state.armed=true;assert(ainekio_p4_motion_rate_save(1.5F)==ESP_ERR_INVALID_STATE);
+    driver.state.armed=false;assert(ainekio_p4_motion_rate_save(0.F)==ESP_ERR_INVALID_ARG);
+    fail_commit=true;assert(ainekio_p4_motion_rate_save(1.5F)!=ESP_OK);
+    assert(ainekio_p4_motion_rate()==2.F && !ainekio_p4_motion_rate_saved());
+    fail_commit=false;assert(ainekio_p4_motion_rate_save(4.5F)==ESP_OK);
+    boot();assert(ainekio_p4_motion_rate()==4.5F && ainekio_p4_motion_rate_saved());
+    assert(!memcmp(&preserved,&committed,sizeof committed));
+    float invalid_rate=0;put("motion_rate",&invalid_rate,sizeof invalid_rate);
+    boot();assert(ainekio_p4_motion_rate()==2.F && !ainekio_p4_motion_rate_saved());
+    assert(!memcmp(&preserved,&committed,sizeof committed));
     count=0;stored.version=99;put("joint_mapping",&stored,sizeof stored);boot();
     assert(!calibration.valid && !calibration.saved);
     count=0;stored.version=1;put("joint_mapping",&stored,sizeof stored-1);boot();

@@ -10,9 +10,9 @@
     100
   ],
   "ground_contact_fraction": 0.7,
-  "stance_sweep_100_mm": 52,
-  "rearward_bias_100_mm": 2,
-  "steady_advance_mm": "52 * stride_percent / 100 / 0.70",
+  "stance_sweep_100_mm": 92,
+  "rearward_bias_100_mm": 30,
+  "steady_advance_mm": "92 * stride_percent / 100 / 0.70",
   "phase_clock": "monotonic; rate/base_cycle_seconds; no reset on updates",
   "startup_phase_cycles": 2,
   "steady_phase_cycles": "steps 1..10, or ongoing when steps is zero",
@@ -23,5 +23,7 @@
   "stop_policy": "Speed zero; reduce stride then finish active swings; no new command resurrects a stopping state",
   "maximum_tick_gap_ms": 40,
   "hardware_qualified": false,
-  "servo_profile": "../../servo_profile.json"
+  "servo_profile": "../../servo_profile.json",
+  "body_translation_z_mm": -8,
+  "stand_body_translation_z_mm": -2
 }

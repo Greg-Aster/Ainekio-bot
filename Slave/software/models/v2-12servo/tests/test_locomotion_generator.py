@@ -21,6 +21,7 @@ CLI = Path(sys.argv.pop(1)).resolve()
 sys.path.insert(0, str(MODEL / "tools"))
 import compile_clips
 import generate_locomotion as generator
+from validate_locomotion import leverage_report
 
 
 class LocomotionGeneration(unittest.TestCase):
@@ -67,6 +68,14 @@ class LocomotionGeneration(unittest.TestCase):
         catalog["commands"] = [c for c in catalog["commands"] if c["command"] == "crouch"]
         catalog_path.write_text(json.dumps(catalog))
         self.assertEqual([c["command"] for c in compile_clips.load_gestures(self.root)], ["crouch"])
+
+    def test_reject_straightened_and_weak_linkages(self):
+        cfg = json.loads((MODEL / "geometry.json").read_text())
+        margins = json.loads((MODEL / "motions/locomotion/config.json").read_text())["leverage_validation"]
+        for crank in (-40.41, -35.):
+            q = numpy.deg2rad(numpy.tile([0., 10.050314941406251, crank], (2,4,1)))
+            with self.subTest(crank=crank), self.assertRaises(ValueError):
+                leverage_report(cfg, q, numpy.ones((2,4), dtype=bool), margins)
 
     def test_allowance_does_not_hide_xy_error_or_wrong_height(self):
         wire = json.dumps(dict(t="intent", seq=1, name="walk", dir="fwd",

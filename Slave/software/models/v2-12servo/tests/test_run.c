@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include "leverage_checks.h"
 
 static ainekio_command_t command(unsigned sequence,unsigned update,unsigned direction,ainekio_gait_t gait,double speed)
 {
@@ -21,6 +22,7 @@ static void tick(ainekio_v2_walk_state_t *s,uint64_t now)
     if(!ainekio_v2_walk_tick(s,now)){
         fprintf(stderr,"Run solve failed dir=%u blend=%g phase=%g now=%llu\n",s->direction,s->pose.run_blend,s->phase,(unsigned long long)now);assert(false);
     }
+    leverage_step(&old,&s->pose);
     for(unsigned i=0;i<4;i++){
         if(old.grounded[i]&&s->pose.grounded[i])for(unsigned k=0;k<2;k++)drift=fmax(drift,fabs(s->pose.feet[i][k]-old.feet[i][k]));
         assert(s->pose.sole_height[i]>=-1e-8);
@@ -129,4 +131,5 @@ int main(void)
     c=command(1,0,0,AINEKIO_GAIT_CRAWL,101);assert(!ainekio_v2_walk_accept(&s,&c,0));
     assert(drift<1e-9&&paired>100&&flight>100);
     printf("Run: 64 automatic round trips, 8 early exits, 12 rapid reversals/Finish, 96 advanced envelopes; planted drift %.9g mm, max emitted step %.6g rad, paired=%u flight=%u\n",drift,max_step,paired,flight);
+    leverage_report();
 }

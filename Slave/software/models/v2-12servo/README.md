@@ -12,8 +12,8 @@ provisional 234° conversion and mounting offsets. Its historical angle-envelope
 data remains a desktop research reference and is not compiled into the firmware.
 234° is not measured shaft travel. The recommended model offsets at 1300 µs are
 shoulder 0°, Part 006 carrier +1.17°, and Part 005 crank −40.41°. These non-inverted
-references balance the original library's combined leg-joint ranges; the motion
-and gait trajectories are unchanged. Existing saved mappings require deliberate
+references balance the original library's combined leg-joint ranges. Mounting
+references and measured calibration do not rescale the gait trajectories. Existing saved mappings require deliberate
 re-indexing and calibration rather than automatic replacement. Startup and transitions use the same actual four-bar closure as locomotion.
 Carrier/crank entry follows normalized coordinates inside the exact closure
 annulus, with bounded interval arithmetic for path extrema and rates. Shoulder/body and full-robot collision sweeps remain
@@ -44,7 +44,7 @@ Finish. The base period is 1.8 seconds; advanced cadence supports 0.25–3×.
 
 Walk's full planted sweep is 92 mm, with 30 mm rearward bias and up to 14 mm lift.
 Sweep and bias scale with stride. Nominal advance is `92*stride/100/0.70` mm per
-cycle; this is geometric translation, not measured ground distance. The original choreography is preserved; modeled collision conflicts are reported separately. Sway, bob, roll and
+cycle; this is geometric translation, not measured ground distance. The approved Walk leverage revision lowers the body reference from -2 to -8 mm while retaining stride, bias, lift and cadence. Named Stand retains its -2 mm reference. Modeled collision conflicts are reported separately. Sway, bob, roll and
 pitch remain continuous and scale with stride. Cadence changes the common clock.
 
 Crouch/Crawl use body translation -35 mm, leaving about 12 mm of complete-body
@@ -83,12 +83,12 @@ retain their original 45° clips.
 With `run_gait_v1` and the declared `run` command, the normal Walk Speed range
 extends to 200%. **0 finishes, 1–100 walks, above 100 transitions to Run.**
 Returning to 100 or below transitions back to Walk within the same command.
-Crawl stays 0–100. Existing Walk/Crawl formulas, geometry and recordings are unchanged.
+Crawl stays 0–100. The current leverage revision and its offline checks are recorded in [CONTROLLER_VALIDATION.md](CONTROLLER_VALIDATION.md).
 
 Run is a front-pair/rear-pair bound: 42% stance per pair, half a cycle apart,
 with two brief flight intervals. Body pitch replaces the walking side sway.
 Forward Run opens its planted sweep from 80 mm just above 100% Speed to 104 mm
-at 200%, with 10 mm rear bias at full stride and up to 22 mm lift. At full stride
+at 200%, with 10 mm rear bias at full stride and up to 18 mm lift. At full stride
 the shorter stance fraction advances 247.62 mm per cycle, versus Walk's
 131.43 mm; this is modeled translation, not measured speed. Backward Run and
 turns retain an 80 mm sweep with 20 mm bias. Run's 1.2 s base period uses
@@ -96,7 +96,7 @@ automatic rate `2+(Speed-100)/150`, giving about 0.6 s just above 100%, 0.514 s
 at 150%, and 0.45 s at 200%. Forward Run uses direct linkage geometry and the existing
 horn indexing without changing servo references or imposing new pulse caps.
 At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward;
-a 6° nose-up bias preserves reach. Lanes blend through swing while stance feet
+a 3° nose-up bias and -9 mm body reference retain reach with the revised swing lift. Backward Run and turns use a -8 mm body reference. Lanes blend through swing while stance feet
 remain planted. This separates the crossing lower legs without retiming pairs.
 
 The transition takes four gait cycles with smooth body/contact changes. Feet
@@ -124,7 +124,7 @@ Semantic commands are `crab` (left), `crab_right`, `crab_forward`,
 
 The existing phase planner and direct linkage controller own Crab. A three-second
 entry places feet sequentially at a 190 mm stance width and body translation
-−18 mm. Three feet support each swing. Full stride travels 48 mm per cycle
+−22 mm. A startup ramp of two cycles (three backward) establishes the wide stance anchors without overextending the initially planted inside leg. Three feet support each swing. Full stride travels 48 mm per cycle
 forward/backward, 32 mm sideways, or 32.73 degrees while turning, matching the
 steady travel of the reviewed Blender drafts. Lift is up to 12 mm. The base
 period is 2.4 s; Speed 25/50/100 gives 50%/100%/100% stride and 1x/1x/2x cadence.
@@ -148,7 +148,7 @@ both hands forward about 73.42 mm. Point reaches about 95.02 mm. Sit lays the re
 regenerated together. The compiler checks provenance and preserves the original cubic tracks. Mechanical and reference-span conflicts are listed in `mechanics/original-motion-range-audit.json`; they are not corrected by changing the motion.
 
 P4 entry uses a known commanded reference and a coordinated path through the
-carrier/crank closure region. Conservative continuous path bounds are checked against PWM timer capacity before replacing a motion; entry pulse change is bounded to 1000 µs/s.
+carrier/crank closure region. Conservative continuous path bounds are checked against PWM timer capacity before replacing a motion; entry pulse change is bounded to 1000 µs/s at 1×; named-motion speed scales this entry timing as well.
 A new motion request with outputs off or only partly commanded first engages
 the saved Home pulses 200 ms apart, then enters the requested motion. Invalid
 model references are reported before enabling outputs. This is commanded state,

@@ -30,6 +30,7 @@ from protocol.control_v1 import (
     COMMAND_DEADLINE_FEATURE,
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
+    MOTION_SPEED_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
     MOTION_PLAN_JOINT_MAP,
@@ -149,6 +150,7 @@ class GatewayConnection:
         self.last_status: dict[str, object] | None = None
         self.last_calibration: dict[str, object] | None = None
         self.last_storage: dict[str, object] | None = None
+        self.last_motion_speed: dict[str, object] | None = None
         self.mode = "normal"
         self.last_command: dict[str, object] | None = None
         self.profile = service.config.profile
@@ -211,6 +213,14 @@ class GatewayConnection:
                 raise GatewayError("session sequence space exhausted")
 
             message = dict(command)
+            if message.get("t") == "motion_speed" or "playback_rate" in message:
+                if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
+                    raise GatewayError("body does not support saved motion speed")
+                validate_control_message({**message, "seq": 1})
+                if "playback_rate" in message and (message.get("t") != "intent" or
+                    message.get("name") not in {"sit", "stand", "emote"} or
+                    message.get("asset") in {"run", *CRAB_DIRECTIONS}):
+                    raise GatewayError("use walking controls for ongoing gaits")
             # V1 keeps its preprogrammed Run asset. V2 Run is the same ongoing
             # walking command with Speed above 100; feature admission follows.
             if self.model == "v2-12servo" and message.get("t") == "intent" and message.get("name") == "emote" and message.get("asset") == "run":
@@ -478,6 +488,13 @@ class GatewayConnection:
             self.last_calibration = dict(message)
             self._finish_pending(sequence, message)
             return
+        if message_type == "motion_speed_status":
+            if pending.command.get("t") != "motion_speed" or not pending.acknowledged:
+                return
+            validate_control_message(message)
+            self.last_motion_speed = dict(message)
+            self._finish_pending(sequence, message)
+            return
         if message_type == "storage_status":
             if pending.command.get("t") != "storage" or not pending.acknowledged:
                 return
@@ -523,7 +540,7 @@ class GatewayConnection:
             # their individual cancellation acknowledgements were lost. Keep
             # commands admitted after the stop and ACK-only controls intact.
             for earlier, command in tuple(self.pending.items()):
-                if earlier < sequence and command.needs_done and command.command.get("t") != "storage":
+                if earlier < sequence and command.needs_done and command.command.get("t") not in {"storage", "motion_speed"}:
                     self._finish_pending(earlier, {"t": "cancelled", "seq": earlier, "code": "stop"})
 
     async def wait_acknowledged(
@@ -904,6 +921,24 @@ class GatewayService:
             raise GatewayError(str(result.get("msg") or result.get("code") or "calibration did not complete"))
         return result
 
+    async def body_motion_speed(self, operation: str, values: Mapping[str, object] | None = None,
+                                *, robot_id: str | None = None) -> dict[str, object]:
+        connection = self._connection(robot_id)
+        fields = dict(values or {})
+        if set(fields) - {"rate"}:
+            raise GatewayError("unknown motion speed fields")
+        sequence = await connection.send_command(
+            {**fields, "t": "motion_speed", "op": operation}, received_at=self.clock())
+        try:
+            result = await connection.wait_terminal(sequence, timeout=5.0)
+        except TimeoutError as error:
+            connection.last_motion_speed = None
+            connection._finish_pending(sequence, {"t": "cancelled", "seq": sequence, "code": "disconnect"})
+            raise GatewayError("motion speed readback timed out; read from robot again") from error
+        if result.get("t") != "motion_speed_status":
+            raise GatewayError(str(result.get("msg") or result.get("code") or "motion speed did not complete"))
+        return result
+
     async def body_storage(self, operation: str, *, robot_id: str | None = None) -> dict[str, object]:
         """Storage operations are operator-owned and settle only on device readback."""
         connection = self._connection(robot_id)
@@ -1073,6 +1108,7 @@ class GatewayService:
                     "status": connection.last_status,
                     "calibration": connection.last_calibration,
                     "storage": connection.last_storage,
+                    "motion_speed": connection.last_motion_speed,
                 }
                 for robot_id, connection in self._connections.items()
             }
@@ -1161,7 +1197,7 @@ def _command_needs_done(command: Mapping[str, object]) -> bool:
     if message_type == "intent" and command.get("name") == "walk" and "update" in command:
         return False  # settings acknowledgement; original walk owns completion
     return (
-        message_type in {"intent", "motion_plan", "snap", "calibration", "storage"}
+        message_type in {"intent", "motion_plan", "snap", "calibration", "storage", "motion_speed"}
         or (message_type == "tts" and command.get("op") == "start")
         or (message_type == "state" and command.get("name") == "sleep")
     )

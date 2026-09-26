@@ -1,11 +1,12 @@
 {
-  "gait_id": "stride-and-rate-current-geometry",
+  "gait_id": "stride-and-rate-v2-24-38-reference-1300",
   "geometry_id": "upright-24-38-24-55-20260921",
   "hardware_qualified": false,
   "sha256": {
     "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
     "../../geometry.json": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
-    "source.json": "4322b699df36d7db37fd0044cb71c1faa7f531a38fb81f4fe7ffb803ca2d7453"
+    "../locomotion/config.json": "3d4fbcb401edcf00b002922847f2206e5574b4c542e1d9752d09d6f85eed403f",
+    "source.json": "fbf62170a5db29b2a0701d6f3c158a50ec8f1d8a44f2a8c04f1cd9d4e9590f43"
   },
   "source_leg_order": [
     "RL",

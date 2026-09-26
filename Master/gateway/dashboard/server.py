@@ -339,6 +339,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             )
             return {"ok": True, "seq": sequence}
+        if path == "/api/motion-speed":
+            operation = _required_string(payload, "op")
+            values = {key: value for key, value in payload.items() if key not in {"op", "robot_id"}}
+            result = self.server.call_gateway(self.server.gateway.body_motion_speed(
+                operation, values, robot_id=robot_id), timeout=8.0)
+            self.server.audit_log.record("motion_speed_confirmed", robot_id=robot_id,
+                                         operation=operation, sequence=result["seq"])
+            return {"ok": True, "seq": result["seq"], "motion_speed": result}
         if path == "/api/storage":
             operation = _required_string(payload, "op")
             if operation == "clear" and payload.get("confirmed") is not True:

@@ -14,6 +14,9 @@ static ainekio_command_t decode(const char *text)
 int main(void)
 {
     ainekio_v2_walk_controls_t c;
+    ainekio_v2_walk_pose_t stand;
+    assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
+    assert(stand.body[2]==-2.); /* Named Stand retains its reviewed height. */
     assert(ainekio_v2_walk_controls(25,&c)&&c.stride_percent==50&&c.motion_rate==1);
     assert(ainekio_v2_walk_controls(50,&c)&&c.stride_percent==100&&c.motion_rate==1);
     assert(ainekio_v2_walk_controls(75,&c)&&c.stride_percent==100&&c.motion_rate==1.5);

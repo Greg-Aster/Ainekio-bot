@@ -1,13 +1,177 @@
 {
-  "rate_changes_only_time": true,
-  "2x_halves_time": true,
-  "stride_and_rate_independent": true,
-  "ramp_control_boundary_derivatives_continuous": true,
-  "maximum_planted_reference_step_mm": 2.1767004420687363e-11,
-  "fore_aft_reference_range_mm": [
-    -78.9675401936872,
-    19.317350602060415
+  "schema": "ainekio.stride-and-rate.v3",
+  "mode": "demo",
+  "duration_s": 14.00764940116619,
+  "cycles": 9.0,
+  "samples": 3889,
+  "stride_percent_range": [
+    25.0,
+    100.0
   ],
-  "cycle_pose_seam_deg": 9.757305651793777e-11,
-  "full_stride_matches_previous_corrected_joint_curve_deg": 1.0448758239543945e-10
+  "motion_rate_range": [
+    1.0,
+    2.0
+  ],
+  "body_speed_mm_s_range": [
+    18.253968253968257,
+    146.03174603174605
+  ],
+  "cycle_frequency_hz_range": [
+    0.5555555555555556,
+    1.1111111111111112
+  ],
+  "stance_sweep_mm_range": [
+    23.0,
+    92.0
+  ],
+  "rear_bias_mm_range": [
+    7.5,
+    30.0
+  ],
+  "effective_sample_hz_range": [
+    239.99999999960437,
+    479.999999999618
+  ],
+  "max_ik_error_mm": 3.772822419382423e-11,
+  "cycle_joint_seam_error_deg": 1.0023200023164127e-10,
+  "minimum_closure_triangle_height_mm": 14.351300038912594,
+  "ground_penetration_mm": 3.7417180465126876e-11,
+  "max_stance_reference_step_xy_mm": 2.5012561676338633e-11,
+  "max_stance_material_point_step_xy_mm": 0.03975813238460794,
+  "joint_min_deg": [
+    [
+      -4.622171094677033,
+      -55.40568969896715,
+      -109.10849011902768
+    ],
+    [
+      -4.620895877930349,
+      -55.22468707964103,
+      -108.98712992498523
+    ],
+    [
+      -4.386021717810968,
+      -49.718047305001285,
+      -109.2294892808629
+    ],
+    [
+      -4.386021082234094,
+      -50.11069537528391,
+      -109.37193664215994
+    ]
+  ],
+  "joint_max_deg": [
+    [
+      4.303226778105452,
+      17.871470106790003,
+      26.80495565358833
+    ],
+    [
+      4.303273480414945,
+      18.062292387276695,
+      27.140840883072723
+    ],
+    [
+      4.3595830382306,
+      16.778356240718598,
+      30.488929158219022
+    ],
+    [
+      4.359584248862288,
+      17.16846756934533,
+      31.204806830339002
+    ]
+  ],
+  "peak_joint_speed_deg_s": [
+    [
+      30.3461285773091,
+      960.7417453172974,
+      1409.6581645104204
+    ],
+    [
+      30.346112297317752,
+      960.7420315874008,
+      1409.6584857319492
+    ],
+    [
+      31.48171757529682,
+      909.9779990034971,
+      1389.8118774497268
+    ],
+    [
+      31.481705934992036,
+      909.9783033994296,
+      1389.8122389078555
+    ]
+  ],
+  "peak_joint_acceleration_deg_s2": [
+    [
+      365.0152729884116,
+      28039.20550332353,
+      24468.304935330074
+    ],
+    [
+      365.0118123932445,
+      28039.22164093556,
+      24468.348424114814
+    ],
+    [
+      236.20767552476516,
+      26463.784376806314,
+      25251.605508723533
+    ],
+    [
+      236.2073230237331,
+      26463.800192150582,
+      25251.606932946426
+    ]
+  ],
+  "minimum_grounded_feet": 2,
+  "maximum_grounded_feet": 3,
+  "all_feet_grounded_samples": 0,
+  "static_support_margin_min_mm": -60.022644016402275,
+  "validation_scope": "Geometric animation with a shared variable clock and fixed stance references. Dynamics, traction and loaded servo capability are unmeasured.",
+  "timeline": [
+    {
+      "label": "SHORT STRIDE",
+      "phase": 0,
+      "time_s": 0.0
+    },
+    {
+      "label": "LENGTHEN STRIDE",
+      "phase": 1,
+      "time_s": 1.7999999999992724
+    },
+    {
+      "label": "FULL STRIDE",
+      "phase": 2.5,
+      "time_s": 4.499999999998383
+    },
+    {
+      "label": "INCREASE RATE",
+      "phase": 3.5,
+      "time_s": 6.300000000001293
+    },
+    {
+      "label": "FULL STRIDE - FAST",
+      "phase": 5,
+      "time_s": 8.224589640695893
+    },
+    {
+      "label": "DECREASE RATE",
+      "phase": 6,
+      "time_s": 9.124589640697348
+    },
+    {
+      "label": "SHORTEN STRIDE",
+      "phase": 7,
+      "time_s": 10.407649401160374
+    },
+    {
+      "label": "SHORT STRIDE",
+      "phase": 8,
+      "time_s": 12.207649401163284
+    }
+  ],
+  "hardware_qualified": false
 }

@@ -30,6 +30,8 @@
     {"$ref": "#/$defs/cal_save"},
     {"$ref": "#/$defs/calibration"},
     {"$ref": "#/$defs/calibration_status"},
+    {"$ref": "#/$defs/motion_speed"},
+    {"$ref": "#/$defs/motion_speed_status"},
     {"$ref": "#/$defs/storage"},
     {"$ref": "#/$defs/storage_status"},
     {"$ref": "#/$defs/ack"},
@@ -41,7 +43,27 @@
     {"$ref": "#/$defs/cam_meta"},
     {"$ref": "#/$defs/pong"}
   ],
+  "allOf": [{"if": {"required": ["playback_rate"]}, "then": {
+    "required": ["t", "name"], "properties": {"t": {"const": "intent"},
+      "name": {"enum": ["sit", "stand", "emote"]},
+      "playback_rate": {"$ref": "#/$defs/motionRate"}}
+  }}],
   "$defs": {
+    "motionRate": {"type": "number", "exclusiveMinimum": 0},
+    "motion_speed": {
+      "x-ainekio-message-type": "motion_speed", "x-ainekio-direction": "brain-to-body",
+      "type": "object", "required": ["t", "seq", "op"],
+      "properties": {"t": {"const": "motion_speed"}, "seq": {"$ref": "#/$defs/sequence"},
+        "op": {"enum": ["get", "save"]}, "rate": {"$ref": "#/$defs/motionRate"}},
+      "if": {"properties": {"op": {"const": "save"}}},
+      "then": {"required": ["rate"]}, "else": {"properties": {"rate": false}}
+    },
+    "motion_speed_status": {
+      "x-ainekio-message-type": "motion_speed_status", "x-ainekio-direction": "body-to-brain",
+      "type": "object", "required": ["t", "seq", "rate", "saved"],
+      "properties": {"t": {"const": "motion_speed_status"}, "seq": {"$ref": "#/$defs/sequence"},
+        "rate": {"$ref": "#/$defs/motionRate"}, "saved": {"type": "boolean"}}
+    },
     "bodyCapabilities": {
       "type": "object",
       "required": [

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include "leverage_checks.h"
 
 int main(void)
 {
@@ -23,6 +24,7 @@ int main(void)
             if(!ainekio_v2_walk_tick(&state,now)){
                 fprintf(stderr,"failed dt=%u crawl=%u dir=%u stride=%g rate=%g phase=%g\n",intervals[cadence],crawl,direction,controls.stride_percent,controls.motion_rate,state.phase);return 1;
             }
+            leverage_step(&old,&state.pose);
             for(unsigned i=0;i<4;i++){
                 if(old.grounded[i]&&state.pose.grounded[i])for(unsigned k=0;k<2;k++)
                     drift=fmax(drift,fabs(old.feet[i][k]-state.pose.feet[i][k]));
@@ -35,7 +37,7 @@ int main(void)
             }
         }
         assert(stopped&&state.complete&&!state.failed);
-        assert(fabs(state.pose.body[2]-(family==2?-18.:crawl?-35.:-2.))<1e-8);
+        assert(fabs(state.pose.body[2]-(family==2?V2_CRAB_BODY_Z:crawl?V2_CRAWL_BODY_Z:V2_BODY_Z))<1e-8);
         for(unsigned i=0;i<4;i++)assert(state.pose.grounded[i]&&state.pose.sole_height[i]==0.);
         if(direction==AINEKIO_WALK_FORWARD)assert(state.body_x>0);
         if(direction==AINEKIO_WALK_BACKWARD)assert(state.body_x<0);
@@ -63,5 +65,6 @@ int main(void)
         assert(!ainekio_v2_walk_accept(&state,&m.command,0));
     }
     printf("84 locomotion envelopes at10/20/30/40 ms, planted XY drift %.9g mm; max output joint change %.6g rad. Finish during lowering and profile matching passed.\n",drift,step);
+    leverage_report();
     return 0;
 }

@@ -4,6 +4,180 @@ The preceding controller replacement was built and application-flashed as `0.7.0
 The measurements below distinguish compiled resources, desktop geometry and
 observations from the connected P4 with two unloaded servos and no linkages.
 
+## Saved named-motion speed, 2026-09-25
+
+Body Control now has one shared **Motion speed (×)** setting for Stand, Sit and
+all finite named gestures. It defaults to 2×, supports 0.25–3× in 0.05× UI steps,
+and offers explicit Save on robot / Read from robot. Editing previews the value
+on the next named-motion command; saving retains it across P4 restarts. The
+setting is captured at motion start and scales both entry and the clip timeline,
+including velocity/acceleration, without changing poses or choreography. The
+protocol and device setting retain 0.001× resolution.
+
+The existing config owner stores a separate two-byte `motion_rate` NVS blob.
+Saving stops outputs through the existing output/body owners before committing;
+starting a subsequent motion resumes operation. No storage write, allocation or
+new queue was added to the servo update path. The frame calculation adds bounded
+integer timeline scaling and single-precision derivative scaling. Startup Home,
+Neutral/Stop, the separate working V1 body and gait controls retain their timing.
+The existing motion implementation and compact assets are retained; no alternate
+player or new motion tables were added.
+
+Matched ESP-IDF 5.5.4 builds with unchanged SDK configuration:
+
+| Resource | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Application binary | 2,369,408 B | 2,371,248 B | +1,840 B |
+| Flash code | 1,322,926 B | 1,324,526 B | +1,600 B |
+| Flash read-only data | 931,000 B | 931,176 B | +176 B |
+| Static RAM data + BSS | 39,260 B | 39,324 B | +64 B |
+| Total occupied internal RAM, including code | 138,494 B | 138,558 B | +64 B |
+
+ELF section checks show unchanged TCM and RTC allocations. DWARF type sizes show
+unchanged 592-byte command, 672-byte controller request, 1,360-byte motion and
+1,760-byte body-state structures. The existing depth-one body request queue's
+payload grows 104 to 112 bytes (+8 heap bytes; no additional queue).
+
+Validation: all 30 native/desktop checks passed across the native and geometry
+runs, with Release assertions explicitly enabled (`-UNDEBUG`) and no remaining
+skips. Production body-controller tests exercised all 23 clips at 0.25×, 1×, 2×
+and 3×, compared output pulses at the same choreography times, and verified entry
+scaling, completion, captured settings and unaffected gait timing. Config tests
+covered default, save/reload, invalid values, failed commits, and unchanged joint
+calibration. Gateway/dashboard Python tests passed (27), variable-walk tests
+passed (42), and both the JavaScript race suite and isolated Chrome acceptance
+passed. Browser checks cover selected speed in motion commands, confirmed save,
+readback after an actual page reload, robot-selection races and mobile layout.
+Two stale gateway test expectations were aligned with the preceding leverage
+revision's Walk (-8 mm) and Crab (-22 mm) heights; gait code was not changed here.
+
+The connected P4 received only the 2,371,248-byte application at its verified
+active `ota_0` offset `0x20000`. Application flash digest verification passed;
+`0x00000` through `0x1ffff` were identical before/after flashing, preserving
+bootloader, partition table, NVS, PHY and OTA selection metadata. This protected
+region's SHA-256 was `c369b24fe7d452cf1f04d0665d708783dadc509cde0d87ad767aa2e63c5e7afc`.
+Other application slots and LittleFS were not written. The gateway was restarted
+with its existing credentials and runtime data and negotiated `motion_speed_v1`.
+
+Application SHA-256:
+`a887ceda20dbd8111022110b995d8bc784e4cf55e696f23fd12de4d3c85ca952`.
+ELF SHA-256:
+`2be99f9ca7cb884e75cf2f6cdf61b5ea66f437f9444d89ac102bc2f19283a296`.
+Both deployment and subsequent persistence-check boots reported the matching
+ELF prefix. The shared 2× value was explicitly saved on the robot. Another control request
+then saved a setting (epoch 1, sequence 10); after the persistence reboot the P4
+reported **3× with `saved:true`**. That newer setting was preserved. The compiled
+default remains 2×. All twelve saved joint mappings,
+including the owner's current Home pulse values and inversion settings, matched
+the pre-deployment readback after flashing and again after the persistence reboot.
+No joint calibration record was rewritten by the speed save.
+
+These hardware checks ran startup Home and read/save operations, not loaded
+gestures or gait trials. Native timing-scaling checks do not establish servo
+tracking, torque capability or worst-case P4 calculation/frame timing at higher
+motion speeds. Dynamic heap snapshots vary with mode and connected peripherals;
+no matched dynamic-RAM or motion-timing benchmark is claimed for this revision.
+Raw NVS images, credentials, calibration snapshots and boot logs are excluded
+from the repository.
+
+## Gait leverage revision, 2026-09-25
+
+The approved Walk body reference is -8 mm, 6 mm below its preceding trajectory.
+The 92 mm stride, 30 mm rearward bias, 14 mm lift, sway and cadence are retained.
+Named Stand and all 23 compiled gestures retain their existing poses and timing.
+Calibration, electrical mapping, assembly references and V1 are unchanged.
+
+Forward Run keeps its 104 mm maximum sweep, paired contacts and separated lanes;
+body reference changes -6 to -9 mm, nose-up bias 6 to 3 degrees, and maximum lift
+22 to 18 mm. Backward Run/turn body reference changes -2 to -8 mm. Those coordinated
+changes preserve reach during rapid Walk/Run changes without extra solver passes.
+Crab changes -18 to -22 mm and establishes its first anchors over two cycles
+(three for backward, as before);
+steady travel, stance width and cadence are unchanged. Crawl's -35 mm working
+height, stride and lift remain; it enters from the revised walking-ready pose.
+
+Thirty Release native/desktop tests pass with assertions enabled and no skips.
+The same production body controller covers saved calibration, Home, gait entry,
+Finish and return to Walk/Stand. Expanded full-CAD checks exercise all four gait
+families and every direction, their own previous outputs, speed changes and Finish
+at 20/40 ms. Native envelope tests also cover 10/30 ms, finite commands, rapid
+threshold reversals and advanced stride/cadence extremes, including key midpoints.
+Both four-bar branch signs are checked. Regression floors are 45 degrees at the
+output during planned stance, 35 during swing, 20 at the crank and 3 mm remaining
+extension. These are offline regression margins, not measured torque capability.
+
+The original compact sole is unchanged. Walk/Crawl/Run retain their original
+0.151 mm support allowance; the refined Crab sole has an explicitly tested extra
+0.08 mm height allowance in its revised poses, replacing the prior 0.07 mm value.
+Horizontal foot error and below-target rejection remain independently strict.
+The compiled gesture and servo data are byte-for-byte identical to the baseline.
+
+Matched ESP-IDF 5.5.4 builds with identical SDK configuration:
+
+| Resource | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Application binary | 2,369,264 B | 2,369,408 B | +144 B |
+| Flash code | 1,322,798 B | 1,322,926 B | +128 B |
+| Flash read-only data | 930,984 B | 931,000 B | +16 B |
+| Static RAM data + BSS | 39,260 B | 39,260 B | 0 B |
+| Total occupied internal RAM, including code | 138,494 B | 138,494 B | 0 B |
+
+The expanded full-sole command-path check covers 14,391 robot poses; maximum
+horizontal foot error is 0.000070 mm. Across that sequence and its joint midpoints,
+minimum output angle is 46.61 degrees in planned stance and 37.57 in swing, with
+at least 3.13 mm remaining extension. The wider native envelope tests perform
+9,611,184 leg checks (including repeated endpoints/midpoints), without branch
+reversals. Recorded locomotion midpoint checks retain positive body clearance
+and no floor penetration beyond 0.000087 mm numerical error. These are sampled
+geometric checks, not a continuous-time collision or load proof.
+
+Runtime changes are gait constants, a separate retained Stand height and the
+Crab startup-ramp selection. No new solver, runtime motion table, allocation,
+state field, buffer or output owner was added. Existing generated recordings and
+reports were replaced in place; the new regression helper is host-only. The
+old Walk-height value remains solely as the reviewed Stand/reference height.
+All compiled gesture and servo tables are identical to the baseline.
+
+Application SHA-256:
+`ec8543b6e2ae8281ea4a97e68d8c348e08e10432248d0bfd6aaef41e6fe1f438`.
+The full measurements and source identities are in
+[`motions/locomotion/validation.json`](motions/locomotion/validation.json).
+
+The checks above were offline. Loaded torque, slip, balance, actual speed and
+whole-robot collision clearance remain unqualified. Current P4 frame timing and
+dynamic RAM are not measured; earlier timing results below do not qualify this
+revision. The direct geometry solver retains its four-pass bound and buffers.
+
+
+### Application deployment verified 2026-09-25
+
+The gait leverage revision above is now installed on the connected ESP32-P4
+revision 1.3. The exact 2,369,408-byte application identified above was written
+to the existing active `ota_0` slot at `0x20000`; flash digest verification passed.
+Only the application was written. A before/after readback of `0x00000` through
+`0x1ffff` was byte-for-byte identical, covering the bootloader, partition table,
+saved NVS calibration, PHY data and OTA selection metadata. Other application
+and LittleFS partitions were not written.
+
+The reboot reported the matching ELF SHA-256 prefix `2aa15e298...`; the complete
+build ELF SHA-256 is
+`2aa15e2987eafa4912016a78f4316d4ba86e804740b804f303ee2c60a5511a70`.
+The console confirmed calibration `valid=1 saved=1 dirty=0`; its Home values
+were retained. The controller authenticated and output status reported ready,
+armed and without a fault. This deployment allowed the normal startup Home sequence but
+sent no gait commands. Boot and read-only status checks do not establish loaded
+walking performance or new motion/frame timing measurements.
+
+Startup also logged I2S disable-before-enable messages and unavailable removable
+storage (`ESP_ERR_TIMEOUT`). An initial gateway connection timeout recovered before
+authentication. These peripheral/transport observations were not changed or
+qualified by this application deployment.
+
+Preserved-region SHA-256 before and after:
+`376036bff27f8cf83a1c58e01323976bcd9719fb80d271b3d74d65cc79e5acd8`.
+Structured deployment evidence is recorded in the locomotion validation report;
+raw device configuration and serial logs are excluded from the repository.
+
 ## Deployment verified 2026-09-24
 
 The reviewed motions, continuous six-direction Crab and fixed-angle turn removal

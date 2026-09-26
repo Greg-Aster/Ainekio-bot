@@ -6,6 +6,7 @@ from retarget_clips import load_reference
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def generate(root):
     ref=load_reference(root);cfg=json.loads((root/'geometry.json').read_text())
+    cfg['body_translation_z_mm']=json.loads((root/'motions/locomotion/config.json').read_text())['walk']['body_z_mm']
     with tempfile.TemporaryDirectory(prefix='ainekio-walk-') as temporary:
         data,report=ref.generate(cfg,output_dir=Path(temporary))
     folder=root/'motions/walk';profile=json.loads((root/'servo_profile.json').read_text())
@@ -16,7 +17,7 @@ def generate(root):
     manifest=json.loads((folder/'manifest.json').read_text());manifest.update(gait_id='stride-and-rate-'+profile['profile_id'],
         source_blend='Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend',
         electrical_zero_and_signs='Recommended references in servo_profile.json; per-joint measured calibration and direction remain operator settings.')
-    manifest['sha256']={name:digest(folder/name) for name in ['reference.py','../../geometry.json','source.json']}
+    manifest['sha256']={name:digest(folder/name) for name in ['reference.py','../../geometry.json','../locomotion/config.json','source.json']}
     (folder/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     report.update(hardware_qualified=False)
     (folder/'control-checks.json').write_text(json.dumps(report,indent=2)+'\n')

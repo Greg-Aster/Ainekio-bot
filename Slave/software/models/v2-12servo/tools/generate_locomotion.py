@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation
 from retarget_clips import load_reference, support_margin, LEGS, SOURCE_ORDER
+from validate_locomotion import leverage_report
 
 
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -53,9 +54,10 @@ def record(root,cli,command,direction,crawl):
         for r,n in zip(rows,native):r['run_blend']=n['run_blend']
     # Match full-CAD controller validation: XY stays exact; signed sole height
     # includes the compact profile's conservative allowance and arithmetic error.
-    assert xy_error<.005 and sole_low>-.001 and sole_high<allowance+(.07 if crab else .002),(command,xy_error,sole_low,sole_high,allowance)
+    assert xy_error<.005 and sole_low>-.001 and sole_high<allowance+(json.loads((root/'motions/locomotion/crab.json').read_text())['sole_refinement_allowance_mm'] if crab else .002),(command,xy_error,sole_low,sole_high,allowance)
     assert ground>-.005 and body_ground>0 and closure>0,(command,ground,body_ground,closure)
     angles=np.array([r['actuator_angles_rad'] for r in rows]);report=dict(command=command,samples=len(rows),max_target_error_mm=max(xy_error,abs(sole_low),abs(sole_high)),foot_xy_error_mm=xy_error,full_sole_height_error_mm=[sole_low,sole_high],support_allowance_mm=allowance,min_sole_z_mm=ground,min_body_z_mm=body_ground,min_closure_height_mm=float(closure),maximum_adjacent_joint_step_degrees=float(np.rad2deg(abs(np.diff(angles,axis=0))).max()),hardware_qualified=False,collision_checked=False)
+    report['leverage']=leverage_report(cfg,angles,[r['contact_active'] for r in rows],json.loads((root/'motions/locomotion/config.json').read_text())['leverage_validation'])
     source=dict(metadata=dict(configuration=dict(command=command,sample_hz=120,geometry_id=cfg['geometry_id'],hardware_qualified=False),leg_order=LEGS,joint_order=cfg['joint_order'],angle_units='radian',position_units='mm',time_units='second',generator='tools/generate_locomotion.py',native_initial_command=initial,native_updates=[dict(at_ms=ms,command=msg) for ms,msg in events],native_sources_sha256={p:digest(root/p) for p in ['motion.c','walk_kinematics.c','geometry.json','motions/locomotion/config.json','motions/locomotion/contact-hulls.json','motions/locomotion/sole-profile.json']}),samples=rows,validation=report)
     if crab:
         source['metadata']['native_sources_sha256'].update({p:digest(root/p) for p in ['motions/locomotion/crab.json','motions/gestures/reviewed-hulls.npz']})

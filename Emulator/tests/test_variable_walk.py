@@ -72,7 +72,7 @@ class VariableWalkTests(V2CommandsTests):
             run=subprocess.run([exe,'30000','50'],input=wire,capture_output=True,text=True,check=True)
             frames=[json.loads(line) for line in run.stdout.splitlines()]
             self.assertTrue(frames[-1]['complete']);self.assertTrue(all(frames[-1]['grounded']))
-            self.assertEqual(frames[-1]['body'][2],-18)
+            self.assertEqual(frames[-1]['body'][2],-22)
             await c._handle_control({'t':'done','seq':seq})
             self.assertNotIn(seq,c.pending)
         legacy=translate_environment_action({'type':'robotCommand','command':'crab'},model='v1-8servo')
@@ -173,7 +173,7 @@ class VariableWalkTests(V2CommandsTests):
                 run=subprocess.run([exe,"15000"],input=json.dumps(socket.messages[0])+"\n10000 "+json.dumps(socket.messages[1])+"\n",capture_output=True,text=True,check=True)
                 frames=[json.loads(line) for line in run.stdout.splitlines()]
                 self.assertFalse(frames[999]["complete"]);self.assertTrue(frames[-1]["complete"]);self.assertTrue(all(frames[-1]["grounded"]))
-                self.assertAlmostEqual(frames[-1]["body"][2],-35 if gait=="crawl" else -2)
+                self.assertAlmostEqual(frames[-1]["body"][2],-35 if gait=="crawl" else -8)
 
     async def test_run_negotiation_and_legacy_asset(self):
         for model in ['v1-8servo','v2-12servo']:
