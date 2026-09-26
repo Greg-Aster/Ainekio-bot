@@ -736,6 +736,15 @@ static ainekio_decode_result_t decode_intent(
     message->has_command = true;
     message->command.kind = AINEKIO_COMMAND_INTENT;
     ainekio_intent_t *intent = &message->command.data.intent;
+    if (object_get(parser, root, "playback_rate") >= 0) {
+        if (strcmp(name, "sit") && strcmp(name, "stand") && strcmp(name, "emote"))
+            return AINEKIO_DECODE_VALUE;
+        float rate;
+        result = required_number(parser, root, "playback_rate", &rate);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (rate <= 0.F) return AINEKIO_DECODE_RANGE;
+        intent->playback_rate = rate;
+    }
     if (strcmp(name, "sit") == 0) {
         intent->kind = AINEKIO_INTENT_SIT;
     } else if (strcmp(name, "stand") == 0) {
@@ -1445,7 +1454,7 @@ static ainekio_decode_result_t decode_control(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong", "calibration", "storage",
+        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1458,9 +1467,27 @@ static ainekio_decode_result_t decode_control(
         return AINEKIO_DECODE_VALUE;
     }
     message->kind = (ainekio_message_kind_t)kind;
-    if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE) &&
+    if (message->kind != AINEKIO_MESSAGE_INTENT && object_get(&parser, root, "playback_rate") >= 0)
+        return AINEKIO_DECODE_VALUE;
+    if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE ||
+         message->kind == AINEKIO_MESSAGE_MOTION_SPEED) &&
         !body_extensions) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
+    case AINEKIO_MESSAGE_MOTION_SPEED: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_MOTION_SPEED);
+        char op[8];
+        if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3U, 4U);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (!strcmp(op, "get")) return object_get(&parser, root, "rate") < 0 ? AINEKIO_DECODE_OK : AINEKIO_DECODE_VALUE;
+        if (strcmp(op, "save")) return AINEKIO_DECODE_VALUE;
+        float rate;
+        result = required_number(&parser, root, "rate", &rate);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (rate <= 0.F) return AINEKIO_DECODE_RANGE;
+        message->command.data.motion_speed.save = true;
+        message->command.data.motion_speed.rate = rate;
+        return AINEKIO_DECODE_OK;
+    }
     case AINEKIO_MESSAGE_STORAGE: {
         result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_STORAGE);
         char operation[8];
@@ -1552,6 +1579,8 @@ static ainekio_decode_result_t decode_control(
     }
     case AINEKIO_MESSAGE_INTENT:
         result = decode_intent(&parser, root, message);
+        if (result == AINEKIO_DECODE_OK && !body_extensions && message->command.data.intent.playback_rate)
+            return AINEKIO_DECODE_VALUE;
         if (result == AINEKIO_DECODE_OK && !walk_controls && message->command.data.intent.kind == AINEKIO_INTENT_WALK &&
             (message->command.data.intent.data.walk.controls || message->command.data.intent.data.walk.update_sequence ||
              message->command.data.intent.data.walk.steps == 0 || object_get(&parser, root, "gait") >= 0)) return AINEKIO_DECODE_VALUE;

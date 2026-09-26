@@ -11,7 +11,7 @@
   },
   "sweep_mm": 80,
   "rearward_bias_mm": 20,
-  "lift_mm": 22,
+  "lift_mm": 18,
   "minimum_lift_mm": 4,
   "bob_mm": 3,
   "pitch_deg": 4,
@@ -24,7 +24,7 @@
   "automatic_speed_threshold_percent": 100,
   "maximum_speed_percent": 200,
   "transition_cycles": 4,
-  "body_z_mm": -2,
+  "body_z_mm": -8,
   "research_angle_bounds_deg": [
     [
       -35,
@@ -42,10 +42,10 @@
   "forward": {
     "sweep_mm": 104,
     "rearward_bias_mm": 10,
-    "body_z_mm": -6,
+    "body_z_mm": -9,
     "lane_offset_mm": 8,
     "lane_assignment": "physical_front_inside_rear_outside",
-    "pitch_bias_deg": -6
+    "pitch_bias_deg": -3
   },
   "mounting_profile_sha256": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3",
   "search_bounds_basis": "Selected 1300 us reference with carrier +1.17 and crank -40.41 degrees; provisional 234 degree conversion. Run IK branch-search bounds only; no firmware pulse caps."

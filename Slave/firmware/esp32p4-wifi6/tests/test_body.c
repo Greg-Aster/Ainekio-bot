@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../main/body.c"
+#include "ainekio/control_codec.h"
+static float saved_motion_rate=1.F;
+float ainekio_p4_motion_rate(void) { return saved_motion_rate; }
 
 struct test_queue { unsigned capacity, size, count; unsigned char data[]; };
 static uint64_t clock_us;
@@ -112,6 +115,7 @@ static void reset(void)
     body=(body_state_t){0};motion_status=(ainekio_p4_body_status_t){0};
     memset(commanded,0,sizeof(commanded));driver=(ainekio_pca9685_t){.state={.generation=1,.ready=true}};
     system_state=AINEKIO_STATE_IDLE;
+    saved_motion_rate=1.F;
     clock_us=1000000;writes=0;enabled=0xfff;mapping_failure=driver_failure=power_pending=false;
     mapping_delay_us=write_delay_us=last_mapping_started=last_write_started=0;
     /* Broad test fixture for executor lifecycle coverage. The actual shipping
@@ -506,8 +510,70 @@ static void commanded_pose_survives_pwm_rounding(void)
     assert(body.motion.entry_from.position[0]==1500);
 }
 
+static void motion_speed(void)
+{
+    ainekio_control_message_t decoded;
+    const char *wire="{\"t\":\"intent\",\"name\":\"emote\",\"asset\":\"wave\",\"playback_rate\":2,\"seq\":1}";
+    assert(ainekio_control_decode_for_body(wire,strlen(wire),&decoded)==AINEKIO_DECODE_OK);
+    assert(decoded.command.data.intent.playback_rate==2.F);
+    assert(ainekio_control_decode(wire,strlen(wire),&decoded)==AINEKIO_DECODE_VALUE);
+    wire="{\"t\":\"motion_speed\",\"op\":\"save\",\"rate\":1.35,\"seq\":2}";
+    assert(ainekio_control_decode_for_body(wire,strlen(wire),&decoded)==AINEKIO_DECODE_OK);
+    assert(decoded.command.data.motion_speed.save && decoded.command.data.motion_speed.rate==1.35F);
+    assert(ainekio_control_decode(wire,strlen(wire),&decoded)==AINEKIO_DECODE_VALUE);
+    const char *invalid[]={
+        "{\"t\":\"intent\",\"name\":\"neutral\",\"playback_rate\":2,\"seq\":1}",
+        "{\"t\":\"intent\",\"name\":\"sit\",\"playback_rate\":0,\"seq\":1}",
+        "{\"t\":\"intent\",\"name\":\"sit\",\"playback_rate\":-1,\"seq\":1}",
+        "{\"t\":\"motion_speed\",\"op\":\"get\",\"rate\":2,\"seq\":1}",
+        "{\"t\":\"motion_speed\",\"op\":\"save\",\"rate\":true,\"seq\":1}",
+        "{\"t\":\"motion_speed\",\"op\":\"save\",\"rate\":-1,\"seq\":1}"};
+    for(unsigned i=0;i<sizeof invalid/sizeof invalid[0];i++)
+        assert(ainekio_control_decode_for_body(invalid[i],strlen(invalid[i]),&decoded)!=AINEKIO_DECODE_OK);
+    const float rates[]={1.F,.25F,2.F,3.F,4.F,6.F,8.F,12.F};
+    for(size_t clip=0;clip<ainekio_v2_clip_count;clip++) {
+        const uint64_t duration=ainekio_v2_clips[clip].duration_us;
+        const size_t count=(size_t)((duration-1)/480000);
+        uint16_t (*reference)[12]=calloc(count+1,sizeof(*reference));assert(reference);
+        uint64_t entry_at_1x=0;
+        for(unsigned r=0;r<sizeof rates/sizeof rates[0];r++) {
+            reset();ainekio_command_t c=command(1,ainekio_v2_clips[clip].intent);
+            if(c.data.intent.kind==AINEKIO_INTENT_EMOTE)strcpy(c.data.intent.data.asset,ainekio_v2_clips[clip].command);
+            c.data.intent.playback_rate=rates[r];
+            assert(execute(&c)==ESP_OK);
+            if(!r)entry_at_1x=body.motion.entry_duration;
+            else assert(body.motion.entry_duration==entry_at_1x);
+            const uint64_t entry_started=clock_us;
+            while(body.motion.entering)advance(20);
+            const uint64_t entry_expected=(uint64_t)ceil(entry_at_1x/(double)rates[r]);
+            assert(clock_us-entry_started>=entry_expected && clock_us-entry_started-entry_expected<20000);
+            const uint64_t started=clock_us;
+            /* Compare actual output frames against the 1x run at identical
+             * points in the choreography, with the production 20ms scheduler. */
+            for(size_t i=0;i<count;i++) {
+                advance((unsigned)(480/rates[r]));
+                if(!r)memcpy(reference[i],last_written,sizeof last_written);
+                else assert(!memcmp(reference[i],last_written,sizeof last_written));
+            }
+            ainekio_p4_body_event_t e=finish((unsigned)(duration/rates[r]/1000)+1000);
+            assert(e.completed && e.sequence==1 && e.result==ESP_OK);
+            const uint64_t expected=(uint64_t)ceil(duration/(double)rates[r]);
+            assert(clock_us-started>=expected && clock_us-started-expected<20000);
+        }
+        free(reference);
+    }
+    reset();saved_motion_rate=2.F;
+    ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
+    assert(body.motion.playback_rate==2.F);
+    saved_motion_rate=3.F;assert(body.motion.playback_rate==2.F);
+    c=command(2,AINEKIO_INTENT_WALK);c.data.intent.data.walk.steps=1;
+    assert(execute(&c)==ESP_OK && body.motion.playback_rate==1.F);
+    puts("Named motion speed: every clip at 0.25x through 12x, identical paths, scaled entry, exact completion and V1 rejection passed.");
+}
+
 int main(void)
 {
+    motion_speed();
     retired_turns_preserve_active_gait();
     crawl_finish_handoff();
     commanded_pose_survives_pwm_rounding();

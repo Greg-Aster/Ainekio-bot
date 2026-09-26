@@ -64,16 +64,16 @@ static void body_pose(ainekio_v2_walk_pose_t *p,double stride)
         p->euler[1]+=(pitch-p->euler[1])*p->run_blend;
     }
 }
-static bool standing(ainekio_v2_walk_pose_t *p)
+static bool standing(ainekio_v2_walk_pose_t *p,double height)
 {
-    *p=(ainekio_v2_walk_pose_t){0};p->body[2]=V2_BODY_Z;
+    *p=(ainekio_v2_walk_pose_t){0};p->body[2]=height;
     for(unsigned i=0;i<4;i++){p->feet[i][0]=v2_walk_stance[i][0];p->feet[i][1]=v2_walk_stance[i][1];p->grounded[i]=true;}
     return ainekio_v2_walk_solve(p);
 }
 bool ainekio_v2_walk_pose(double phase,ainekio_v2_walk_controls_t c,ainekio_v2_walk_pose_t *p)
 {
     if(!p||!isfinite(phase)||fabs(phase)>1e6||!ainekio_v2_walk_controls_valid(c))return false;
-    if(!standing(p))return false;
+    if(!standing(p,V2_STAND_BODY_Z))return false;
     if(c.stride_percent==0.)return true;
     ainekio_v2_walk_pose_t target=*p;target.phase=phase;
     double advance=V2_SWEEP*c.stride_percent/100./V2_DUTY;
@@ -148,9 +148,11 @@ static double turn_travel(const ainekio_v2_walk_state_t *s,double lo,double hi)
 bool ainekio_v2_gait_begin(ainekio_v2_walk_state_t *s,ainekio_walk_direction_t direction,ainekio_gait_t gait,unsigned cycles,ainekio_v2_walk_controls_t c,uint64_t now)
 {
     if(!s||direction>AINEKIO_WALK_SIDE_RIGHT||gait>AINEKIO_GAIT_CRAB||(direction>=AINEKIO_WALK_SIDE_LEFT&&gait!=AINEKIO_GAIT_CRAB)||cycles>10||!ainekio_v2_walk_controls_valid(c))return false;
-    *s=(ainekio_v2_walk_state_t){.last_us=now,.end_phase=cycles?2.+cycles:INFINITY,.direction=direction,.gait_mode=gait,.run_from=gait==AINEKIO_GAIT_RUN?1.:0.,.run_target=gait==AINEKIO_GAIT_RUN?1.:0.,.transition_span=direction==AINEKIO_WALK_BACKWARD||gait==AINEKIO_GAIT_RUN?3.:1.,.from={0.,1.},.target=c,.stopping=c.stride_percent==0.};
+    /* Give the wide Crab stance two cycles to establish its first anchors.
+     * A one-cycle launch left too little margin at the planted inside leg. */
+    *s=(ainekio_v2_walk_state_t){.last_us=now,.end_phase=cycles?2.+cycles:INFINITY,.direction=direction,.gait_mode=gait,.run_from=gait==AINEKIO_GAIT_RUN?1.:0.,.run_target=gait==AINEKIO_GAIT_RUN?1.:0.,.transition_span=direction==AINEKIO_WALK_BACKWARD||gait==AINEKIO_GAIT_RUN?3.:gait==AINEKIO_GAIT_CRAB?V2_CRAB_STARTUP_CYCLES:1.,.from={0.,1.},.target=c,.stopping=c.stride_percent==0.};
     for(unsigned i=0;i<4;i++)s->offset_from[i]=s->offset_target[i]=gait==AINEKIO_GAIT_CRAB?v2_crab_offsets[i]:gait==AINEKIO_GAIT_RUN?(i<2?0.:.5):v2_walk_offsets[i];
-    if(!standing(&s->pose)){s->failed=true;return false;}
+    if(!standing(&s->pose,V2_BODY_Z)){s->failed=true;return false;}
     s->pose.gait=gait;s->pose.direction=direction;s->pose.run_blend=s->run_target;
     if(gait==AINEKIO_GAIT_CRAWL&&!ainekio_v2_walk_solve(&s->pose)){s->failed=true;return false;}
     s->initialized=true;s->pose.frame.phase=AINEKIO_V2_ENTRY;return true;

@@ -24,6 +24,7 @@ COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
 MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
 STORAGE_CONTROL_FEATURE = "storage_control_v1"
+MOTION_SPEED_FEATURE = "motion_speed_v1"
 BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
 BODY_COMMANDS_FEATURE = "body_commands_v1"
 WALK_CONTROLS_FEATURE = "walk_controls_v1"
@@ -283,6 +284,10 @@ def validate_walk_controls(message: Mapping[str, object]) -> None:
 def _validate_intent(message: Mapping[str, object]) -> None:
     _seq(message)
     name = _string(message, "name", allowed=INTENT_NAMES)
+    if "playback_rate" in message:
+        if name not in {"sit", "stand", "emote"}:
+            _fail("value:playback_rate.named_motion_required")
+        _motion_rate(message, "playback_rate")
     if name == "look":
         _integer(message, "yaw", minimum=-90, maximum=90)
         _integer(message, "pitch", minimum=-45, maximum=45)
@@ -457,6 +462,26 @@ def _validate_calibration_status(message: Mapping[str, object]) -> None:
         channels.add(joint["channel"])
 
 
+def _motion_rate(message: Mapping[str, object], key: str = "rate") -> None:
+    if _number(message, key) <= 0:
+        _fail("range:" + key)
+
+
+def _validate_motion_speed(message: Mapping[str, object]) -> None:
+    _seq(message)
+    operation = _string(message, "op", allowed=frozenset({"get", "save"}))
+    if operation == "save":
+        _motion_rate(message)
+    elif "rate" in message:
+        _fail("unexpected:rate")
+
+
+def _validate_motion_speed_status(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _motion_rate(message)
+    _boolean(message, "saved")
+
+
 def _validate_storage(message: Mapping[str, object]) -> None:
     _seq(message)
     _string(message, "op", allowed=frozenset({"get", "retry", "clear"}))
@@ -617,6 +642,8 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "cal_save": _validate_cal_save,
     "calibration": _validate_calibration,
     "calibration_status": _validate_calibration_status,
+    "motion_speed": _validate_motion_speed,
+    "motion_speed_status": _validate_motion_speed_status,
     "storage": _validate_storage,
     "storage_status": _validate_storage_status,
     "ack": _validate_ack,
@@ -637,6 +664,8 @@ def validate_control_message(message: object) -> None:
     validator = VALIDATORS.get(message_type)
     if validator is None:
         _fail("value:t")
+    if "playback_rate" in message and message_type != "intent":
+        _fail("value:playback_rate.named_motion_required")
     validator(message)
     # Negotiated extensions are also typed when present on an older message.
     _optional_integer(message, "epoch", minimum=0, maximum=MAX_BINARY_COUNTER)

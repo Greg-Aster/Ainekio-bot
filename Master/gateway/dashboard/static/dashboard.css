@@ -216,6 +216,35 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .meter-label { display: block; margin-top: 1rem; }
 progress { width: 100%; height: 14px; margin-top: 0.35rem; accent-color: var(--green); }
 .calibration-section { grid-column: 1 / -1; }
+.calibration-selection { display: grid; grid-template-columns: minmax(240px, 1fr) 1fr; align-items: end; gap: 1rem; margin-bottom: 1rem; }
+.calibration-selection label { display: grid; gap: 0.4rem; }
+.calibration-selection p { margin: 0; font-size: 0.85rem; }
+.calibration-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.calibration-card { min-width: 0; padding: 1rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.calibration-card h3, .calibration-test h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+.calibration-card-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+.calibration-card .calibration-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.calibration-card .muted, .calibration-save-row p { font-size: 0.8rem; line-height: 1.5; }
+.calibration-readback { margin: 0 0 1rem; }
+.calibration-readback div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
+.calibration-readback dt { color: var(--muted); }
+.calibration-readback dd { margin: 0; font-weight: 700; text-align: right; }
+.calibration-feedback { padding: 0.8rem 1rem; border-left: 4px solid var(--blue); background: var(--surface); overflow-wrap: anywhere; }
+.calibration-feedback.error { border-color: var(--red); color: var(--red); }
+.calibration-draft-status { font-size: 0.85rem; color: var(--muted); }
+.calibration-draft-status.has-edits { color: #ffd184; }
+.calibration-save-row { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
+.calibration-save-row p { margin: 0; max-width: 740px; }
+.calibration-test { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+@media (max-width: 800px) {
+  .calibration-settings, .calibration-selection { grid-template-columns: 1fr; }
+  .calibration-save-row { align-items: stretch; flex-direction: column; }
+}
+@media (max-width: 420px) {
+  .calibration-card .calibration-grid { grid-template-columns: 1fr; }
+  .calibration-readback div { gap: 0.5rem; font-size: 0.85rem; }
+}
+
 .calibration-grid { margin-bottom: 0.8rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 0.7rem; }
 .calibration-grid label { display: grid; gap: 0.35rem; }
 .calibration-grid .calibration-joint-field { grid-column: span 2; }

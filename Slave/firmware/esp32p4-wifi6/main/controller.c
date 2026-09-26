@@ -190,7 +190,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1", "motion_speed_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -594,6 +594,16 @@ static void calibration_status(const request_t *request)
     cJSON_Delete(message);
 }
 
+static void motion_speed_status(const request_t *request)
+{
+    char text[160];
+    const float rate = ainekio_p4_motion_rate();
+    snprintf(text, sizeof(text), "{\"t\":\"motion_speed_status\",\"seq\":%lu,\"rate\":%.9g,\"saved\":%s}",
+        (unsigned long)request->message.sequence, (double)rate,
+        ainekio_p4_motion_rate_saved() ? "true" : "false");
+    reply(request->connection, text);
+}
+
 static void storage_status(const request_t *request)
 {
     const ainekio_p4_storage_status_t status = ainekio_p4_storage_status();
@@ -678,6 +688,14 @@ static esp_err_t apply(const request_t *request)
         ainekio_p4_media_cancel_snapshots();
         return ESP_OK;
     case AINEKIO_COMMAND_BODY_CALIBRATION: return calibrate(request);
+    case AINEKIO_COMMAND_MOTION_SPEED:
+        if (!command->data.motion_speed.save) return ESP_OK;
+        ainekio_pca_disarm(ainekio_p4_output());
+        {
+            const esp_err_t result = ainekio_p4_body_prepare(ainekio_pca_status(ainekio_p4_output()).generation);
+            if (result != ESP_OK) return result;
+        }
+        return ainekio_p4_motion_rate_save(command->data.motion_speed.rate);
     case AINEKIO_COMMAND_STORAGE:
         if (command->data.storage_operation == AINEKIO_STORAGE_RETRY) return ainekio_p4_storage_retry();
         if (command->data.storage_operation == AINEKIO_STORAGE_CLEAR) return ainekio_p4_storage_clear();
@@ -770,6 +788,7 @@ static void control_task(void *arg)
                 reply(request.connection, text);
                 if (command->kind == AINEKIO_COMMAND_BODY_CALIBRATION) calibration_status(&request);
                 if (command->kind == AINEKIO_COMMAND_STORAGE) storage_status(&request);
+                if (command->kind == AINEKIO_COMMAND_MOTION_SPEED) motion_speed_status(&request);
                 if (command->kind == AINEKIO_COMMAND_STATE && command->data.state.request == AINEKIO_STATE_REQUEST_SLEEP)
                     done(request.connection, command->sequence);
             }
@@ -786,7 +805,7 @@ esp_err_t ainekio_p4_controller_start(void)
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STATE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_CAMERA) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_SNAPSHOT) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MICROPHONE) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_TTS) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_WAKE_CONFIG) |
-        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE);
+        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_SPEED);
     ainekio_admission_init(&admission, allowed, true);
     requests = xQueueCreate(8, sizeof(request_t));
     replies = xQueueCreate(16, sizeof(reply_t));

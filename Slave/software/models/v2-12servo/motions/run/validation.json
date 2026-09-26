@@ -1,30 +1,45 @@
 {
   "command": "run",
   "samples": 3552,
-  "max_target_error_mm": 9.984965231524257e-06,
-  "min_sole_z_mm": -5.898559443551221e-06,
-  "min_body_z_mm": 32.31699500515963,
-  "min_closure_height_mm": 5.881225553748754,
-  "maximum_adjacent_joint_step_degrees": 24.83555052061938,
+  "max_target_error_mm": 0.15145952573869792,
+  "foot_xy_error_mm": 5.675120610248996e-05,
+  "full_sole_height_error_mm": [
+    0.040455024468087686,
+    0.15145952573869792
+  ],
+  "support_allowance_mm": 0.151,
+  "min_sole_z_mm": 0.040455024468087686,
+  "min_body_z_mm": 33.62221100411527,
+  "min_closure_height_mm": 10.758938976895953,
+  "maximum_adjacent_joint_step_degrees": 24.17675913343203,
   "hardware_qualified": false,
   "collision_checked": false,
+  "leverage": {
+    "checked_leg_poses": 28412,
+    "branch_reversals": 0,
+    "minimum_straightening_clearance_mm": 4.101574293475018,
+    "stance_output_min_deg": 62.285558970083486,
+    "swing_output_min_deg": 43.08106925498261,
+    "stance_input_min_deg": 31.59219004767623,
+    "swing_input_min_deg": 26.326139689694628
+  },
   "flight_samples": 233,
   "paired_samples": 1364,
   "dynamics_scope": "Kinematic target only; no force or attitude control and no physical running qualification.",
-  "peak_sampled_joint_speed_deg_s": 2980.2660624743253,
+  "peak_sampled_joint_speed_deg_s": 2901.2110960118434,
   "reference_pulse_span_us": [
-    375.4029160212509,
-    2458.907531077137
+    433.80351388690826,
+    2489.308115249266
   ],
   "modeled_envelope_conflict": true,
   "first_bound_envelope_conflict": {
-    "sample": 1041,
-    "time_s": 8.675,
+    "sample": 1040,
+    "time_s": 8.666666666666666,
     "cad_leg": "RL",
     "q_deg": [
-      5.57882181157165,
-      -31.869172767569424,
-      -53.738428157854955
+      6.023325689859093,
+      -37.444872879213236,
+      -50.92543965915766
     ]
   },
   "mounting_profile_sha256": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3"

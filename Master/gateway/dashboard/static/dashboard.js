@@ -14,6 +14,12 @@
   let directionalWalking = false;
   let runningSupported = false;
   let crabSupported = false;
+  let motionSpeedSupported = false;
+  let motionSpeedSession = null;
+  let motionSpeedGeneration = 0;
+  let motionSpeedData = null;
+  let motionSpeedBusy = false;
+  let motionSpeedEdited = false;
   let activeWalkProfile = null;
   let calibrationEntry = null;
   let calibrationData = null;
@@ -26,12 +32,19 @@
   let calibrationLoading = false;
   let calibrationAttempted = false;
   let calibrationEdited = false;
+  let calibrationReadAt = null;
   let storageData = null;
   let storageLoading = false;
   let storageAttempted = false;
   const bodyJointNames = ["Rear left shoulder", "Rear left carrier", "Rear left crank",
     "Rear right shoulder", "Rear right carrier", "Rear right crank", "Front left shoulder",
     "Front left carrier", "Front left crank", "Front right shoulder", "Front right carrier", "Front right crank"];
+  const bodyJointParts = [
+    "Shoulder: Part_002 moves the whole Part_003 leg carrier inward/outward.",
+    "Carrier: Part_006 drives the Part_023 main arm.",
+    "Crank: Part_005 drives the short Part_009 arm."
+  ];
+
   const bodyCalibrationFields = ["channel", "center", "home_deg", "us_per_degree"];
   const bodyCalibrationEnabled = () => Boolean(calibrationEntry && calibrationEntry.model === "v2-12servo" &&
     (calibrationEntry.features || []).includes("body_calibration_v2"));
@@ -422,7 +435,81 @@
     }
   }
 
+  function renderMotionSpeed() {
+    byId("motion-speed").disabled = !motionSpeedSupported || !motionSpeedData || motionSpeedBusy;
+    byId("motion-speed-read").disabled = !motionSpeedSupported || motionSpeedBusy;
+    byId("motion-speed-save").disabled = !motionSpeedSupported || !motionSpeedData || motionSpeedBusy ||
+      (!motionSpeedEdited && motionSpeedData.saved);
+  }
+
+  async function operateMotionSpeed(op) {
+    if (!motionSpeedSupported || motionSpeedBusy) return;
+    if (op === "save" && !byId("motion-speed").reportValidity()) return;
+    const generation = motionSpeedGeneration;
+    const robotId = selectedRobotId;
+    const current = () => generation === motionSpeedGeneration && robotId === selectedRobotId;
+    motionSpeedBusy = true;
+    renderMotionSpeed();
+    text("motion-speed-status", op === "save" ? "Saving motion speed on robot…" : "Reading motion speed from robot…");
+    try {
+      const response = await command("/api/motion-speed", {op, robot_id: robotId,
+        ...(op === "save" ? {rate: Number(byId("motion-speed").value)} : {})},
+        op === "save" ? "Motion speed saved on robot" : "Motion speed read from robot", current);
+      if (!current()) return;
+      const state = response.motion_speed;
+      if (!state || state.seq !== response.seq || !Number.isFinite(state.rate) ||
+          state.rate <= 0 || typeof state.saved !== "boolean")
+        throw new Error("Invalid motion speed readback; read from robot again.");
+      motionSpeedData = state;
+      motionSpeedEdited = false;
+      byId("motion-speed").value = String(state.rate);
+      text("motion-speed-status", `${state.saved ? "Saved on robot" : "Robot default"}: ${state.rate}×. Adjust, try a named motion, then save to keep it after restart.`);
+    } catch (error) {
+      if (current()) text("motion-speed-status", error.message);
+    } finally {
+      if (current()) { motionSpeedBusy = false; renderMotionSpeed(); }
+    }
+  }
+
+  function updateMotionSpeed(entry) {
+    const p4 = entry?.model === "v2-12servo";
+    const supported = Boolean(p4 && entry.connection_state !== "stale" && entry.connected !== false &&
+      (entry.features || []).includes("motion_speed_v1"));
+    const session = entry ? `${selectedRobotId}:${entry.epoch}:${supported}` : null;
+    byId("motion-speed-controls").hidden = !p4;
+    motionSpeedSupported = supported;
+    if (session !== motionSpeedSession) {
+      motionSpeedSession = session;
+      motionSpeedGeneration++;
+      motionSpeedData = null;
+      motionSpeedBusy = motionSpeedEdited = false;
+      byId("motion-speed").value = "2";
+      if (supported) operateMotionSpeed("get");
+      else text("motion-speed-status", p4 ? "A firmware update is needed to enable Motion speed." : "Connect a robot to read its motion speed.");
+    }
+    renderMotionSpeed();
+  }
+
+  function sendNamedMotion(name, asset, label) {
+    const params = asset ? {asset} : {};
+    const ongoing = asset === "run" || (crabSupported && asset?.startsWith("crab"));
+    if (motionSpeedSupported && !ongoing && ["sit", "stand", "emote"].includes(name)) {
+      if (!motionSpeedData || motionSpeedBusy) { showResult("Read motion speed from robot before starting a motion.", true); return; }
+      if (!byId("motion-speed").reportValidity()) return;
+      params.playback_rate = Number(byId("motion-speed").value);
+    }
+    return command("/api/intent", {name, params}, label);
+  }
+
   function setupMotionControls() {
+    byId("motion-speed-read").addEventListener("click", () => operateMotionSpeed("get"));
+    byId("motion-speed-save").addEventListener("click", () => operateMotionSpeed("save"));
+    byId("motion-speed").addEventListener("input", () => {
+      motionSpeedEdited = Number(byId("motion-speed").value) !== motionSpeedData?.rate;
+      text("motion-speed-status", motionSpeedEdited ? "Unsaved speed — try a named motion, then Save on robot." :
+        `${motionSpeedData?.saved ? "Saved on robot" : "Robot default"}: ${motionSpeedData?.rate}×.`);
+      renderMotionSpeed();
+    });
     byId("walk-continuous").addEventListener("change", () => {
       byId("walk-cycles-field").hidden = directionalWalking && byId("walk-continuous").checked;
       byId("walk-cycles").disabled = activeWalkSequence !== null || (directionalWalking && byId("walk-continuous").checked);
@@ -438,7 +525,7 @@
     byId("walk-speed").addEventListener("input", updateSpeedRange);
     byId("walk-speed").addEventListener("change", () => applyWalking(false, true));
     document.querySelectorAll("[data-intent]").forEach((button) => {
-      button.addEventListener("click", () => command("/api/intent", { name: button.dataset.intent }, `${button.textContent.trim()} sent`));
+      button.addEventListener("click", () => sendNamedMotion(button.dataset.intent, null, `${button.textContent.trim()} sent`));
     });
     document.querySelectorAll("[data-held-direction]").forEach((button) => {
       button.addEventListener("pointerdown", (event) => {
@@ -532,6 +619,46 @@
     if (gamepadSampling) gamepadTimer = window.setTimeout(pollGamepad, 50);
   }
 
+  function showCalibrationResult(message, error = false) {
+    const output = byId("calibration-feedback");
+    output.textContent = message;
+    output.classList.toggle("error", error);
+    output.hidden = !message;
+    if (message) showResult(message, error);
+  }
+
+  function renderCalibrationReadback() {
+    const p4 = bodyCalibrationEnabled();
+    const joint = selectedCalibrationJoint();
+    byId("calibration-settings").hidden = !p4;
+    byId("calibration-save-help").hidden = !p4;
+    text("calibration-save-button", p4 ? "Apply & save to robot" : "Save calibration");
+    text("calibration-read-button", calibrationLoading ? "Waiting for robot…" : "Read settings from robot");
+    const id = Number(byId("servo-form").elements.id.value);
+    text("calibration-joint-help", p4 ? `${bodyJointParts[id % 3]} Front is the face end; left/right are the robot’s own sides.` : "");
+    const values = {
+      channel: joint ? (joint.channel < 0 ? "Unassigned" : `Output ${joint.channel}`) : "—",
+      home: joint ? `${joint.home_us} µs` : "—",
+      angle: Number.isFinite(joint?.home_cd) ? `${(joint.home_cd / 100).toFixed(2)}°` : "—",
+      invert: joint ? (joint.invert ? "On" : "Off") : "—",
+      scale: Number.isFinite(joint?.us_per_degree) ? `${joint.us_per_degree.toFixed(4)} µs/°` : "—",
+      pulse: joint ? (joint.pulse_us ? `${joint.pulse_us} µs` : "Outputs off / no command") : "—",
+    };
+    for (const [name, value] of Object.entries(values)) text(`calibration-body-${name}`, value);
+    const saved = calibrationData?.dirty ? "Applied on robot, not saved after restart" :
+      calibrationData?.saved ? "Saved on robot" : "Defaults on robot; not saved";
+    const stamp = calibrationReadAt ? ` Last confirmed at ${calibrationReadAt.toLocaleTimeString()}.` : "";
+    text("calibration-readback-status", !joint ? "No confirmed settings. Read settings from robot." :
+      `${saved}.${stamp}${calibrationEntry?.connection_state === "stale" ? " Robot offline; these are the last reported values." : ""}`);
+    const changed = joint && !calibrationDraftMatches(joint, calibrationDraft());
+    text("calibration-draft-status", !joint ? "Read the robot’s settings before editing." : changed ?
+      "Local edits — not applied to the robot. Reading settings keeps these edits in this column." : "Fields match the robot’s reported settings.");
+    byId("calibration-draft-status").classList.toggle("has-edits", Boolean(changed));
+    const recommended = Number.isFinite(joint?.recommended_home_cd) && Number.isFinite(calibrationData?.recommended_reference_us);
+    text("calibration-reference-help", recommended ?
+      `Assembly reference: ${calibrationData.recommended_reference_us} µs corresponds to ${(joint.recommended_home_cd / 100).toFixed(2)}° for this joint. All joints at the same pulse do not necessarily have the same model angle.` : "");
+  }
+
   function selectedCalibrationJoint() {
     const id = Number(byId("servo-form").elements.id.value);
     return calibrationData && calibrationData.joints.find((joint) => joint.id === id);
@@ -622,7 +749,6 @@
     byId("calibration-use-body-values").disabled = calibrationLoading || !joint;
     if (!joint) {
       text("calibration-calculated-angle", "Waiting for controller mapping; target retained locally.");
-      text("calibration-draft-status", "Waiting for controller readback. Local drafts will not be sent automatically.");
       return;
     }
     const bounds = calibrationPulseBounds();
@@ -642,9 +768,7 @@
     text("calibration-slider-value", `${input.value || "—"} µs target`);
     text("calibration-calculated-angle", Number.isFinite(angle) ?
       `Calculated model angle: ${angle.toFixed(2)}° from controller mapping; not measured.` : "Calculated angle unavailable until the controller supplies its mapping.");
-    const recommended = Number.isFinite(joint.recommended_home_cd) && Number.isFinite(calibrationData?.recommended_reference_us) ?
-      ` Default profile: ${calibrationData.recommended_reference_us} µs at ${(joint.recommended_home_cd / 100).toFixed(2)}° model offset. Your saved Home and model angle above define this joint's reference.` : "";
-    text("calibration-draft-status", `${draft.fields ? `Local settings ${calibrationDraftMatches(joint, draft) ? "match" : "differ from"} controller readback. ` : ""}Controller: Home ${joint.home_us} µs; ${joint.pulse_us ? `last confirmed command ${joint.pulse_us} µs` : "outputs off"}. Restored targets are not sent automatically.${recommended}`);
+
   }
 
   function hasJointAngleMapping() {
@@ -666,7 +790,7 @@
     const servo = byId("servo-form");
     const mapping = byId("body-calibration-form");
     const draft = calibrationDraft(joint.id);
-    calibrationEdited = draft.edited === true || !calibrationDraftMatches(joint, draft);
+    calibrationEdited = !calibrationDraftMatches(joint, draft);
     if (force || !servo.contains(document.activeElement)) servo.elements.deg.value = draft.pulse ?? (joint.pulse_us || joint.home_us);
     if (force || !mapping.contains(document.activeElement)) {
       mapping.elements.id.value = joint.id;
@@ -701,7 +825,7 @@
     if (op === "move") {
       const bounds = calibrationPulseBounds();
       if (!Number.isInteger(fields.pulse_us) || fields.pulse_us < bounds.min || fields.pulse_us > bounds.max) {
-        showResult(`Commanded pulse must be an integer from ${bounds.min} to ${bounds.max} µs.`, true);
+        showCalibrationResult(`Commanded pulse must be an integer from ${bounds.min} to ${bounds.max} µs.`, true);
         return false;
       }
     }
@@ -712,10 +836,14 @@
       persistCalibrationWorkspace();
     }
     calibrationLoading = true;
+    const operationLabel = {get: "Reading settings from robot…", set: "Applying this joint’s settings…", save: "Saving settings on robot…", home: "Moving to Home…", move: "Moving selected joint…"};
+    showCalibrationResult(operationLabel[op] || "Waiting for robot…");
     renderCalibration();
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
     try {
       const response = await request("/api/calibration/body", {
-        method: "POST", body: JSON.stringify(withRobot({op, ...fields})),
+        method: "POST", body: JSON.stringify(withRobot({op, ...fields})), signal: controller.signal,
       });
       if (session !== calibrationGeneration || jointId !== Number(byId("servo-form").elements.id.value)) return false;
       if (!response.calibration || response.calibration.seq !== response.seq)
@@ -731,6 +859,7 @@
       if (op === "save" && (!response.calibration.saved || response.calibration.dirty))
         throw new Error("The body did not confirm saved calibration. Read from the body before continuing.");
       calibrationData = response.calibration;
+      calibrationReadAt = new Date();
       if (op === "save") {
         delete calibrationDraft(jointId).fields;
         calibrationDraft(jointId).edited = false;
@@ -741,16 +870,20 @@
       }
       persistCalibrationWorkspace();
       fillCalibrationFields(true);
-      showResult(response.seq ? `${label} (sequence ${response.seq})` : label);
+      const confirmed = op === "get" ? "Read complete. ‘On the robot’ shows the returned settings; local edits remain in ‘Edit selected joint’." :
+        op === "set" ? "Settings applied temporarily. Save to keep them after restart. Outputs are off." :
+        op === "save" ? "Settings saved on the robot and read back successfully. Outputs are off." : label;
+      showCalibrationResult(confirmed);
       return true;
     } catch (error) {
       // A lost reply leaves the commanded position unknown until a fresh read.
       if (session === calibrationGeneration) {
         calibrationData = null;
-        showResult(error.message, true);
+        showCalibrationResult(error.name === "AbortError" ? "The robot did not reply within 10 seconds. Read settings again before continuing." : error.message, true);
       }
       return false;
     } finally {
+      window.clearTimeout(timeout);
       if (session === calibrationGeneration) {
         calibrationLoading = false;
         renderCalibration();
@@ -814,6 +947,7 @@
       `${calibrationEntry.mode === "calibrate" ? "Calibration enabled" : "Enable calibration to adjust joints"}. ${calibrationEdited ? "Edited settings are not saved" : calibrationData.dirty ? "Unsaved changes" : calibrationData.saved ? "Saved on the body" : "Defaults have not been saved"}. ${calibrationData.ready ? "Pulse values are commands, not measured shaft positions. Home uses µs; staging does not move a servo." : calibrationData.reason || "Servo outputs unavailable."}`;
     text("calibration-availability", state + (p4 && calibrationData?.profile_confirmed === false ? " Review the mounting reference and mapping, then Save before using motion commands." : ""));
     renderCalibrationSlider(moving);
+    renderCalibrationReadback();
   }
 
   function bodyStorageEnabled() {
@@ -865,7 +999,7 @@
     byId("motion-catalog").addEventListener("click", (event) => {
       const button = event.target.closest("[data-emote]");
       if (!button || button.disabled || !bodyCommandAvailable(button.dataset.emote)) return;
-      command("/api/intent", { name: "emote", params: { asset: button.dataset.emote } }, `${button.textContent.trim()} sent`);
+      sendNamedMotion("emote", button.dataset.emote, `${button.textContent.trim()} sent`);
     });
     document.querySelectorAll("[data-state]").forEach((button) => button.addEventListener("click", () => command("/api/state", { name: button.dataset.state, ...(button.dataset.state === "sleep" ? { sleep_s: 60 } : {}) }, "State applied")));
     document.querySelectorAll("[data-calibration-mode]").forEach((button) => button.addEventListener("click", async () => {
@@ -875,11 +1009,12 @@
         persistCalibrationWorkspace();
       }
       try {
+        showCalibrationResult(button.dataset.calibrationMode === "calibrate" ? "Enabling calibration…" : "Exiting calibration…");
         await command("/api/calibration/mode", {mode: button.dataset.calibrationMode}, "Calibration mode requested");
         if (generation !== calibrationGeneration) return;
         await refreshStatus();
         if (bodyCalibrationEnabled()) await calibrateBody("get", {}, "Calibration read from body");
-      } catch (_error) { /* command reports the error */ }
+      } catch (error) { if (generation === calibrationGeneration) showCalibrationResult(error.message, true); }
     }));
 
     byId("asset-intent-form").addEventListener("submit", (event) => {
@@ -963,8 +1098,10 @@
       calibrationSliderView = null;
       delete calibrationWorkspaceForRobot().joints[Number(byId("servo-form").elements.id.value)];
       persistCalibrationWorkspace();
+      persistCalibrationWorkspace();
       fillCalibrationFields(true);
       renderCalibration();
+      showCalibrationResult("Local edits discarded. Fields now match the robot’s reported settings. No command was sent.");
     });
     byId("limits-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -996,17 +1133,17 @@
     }));
     byId("calibration-use-position-button").addEventListener("click", () => {
       const joint = selectedCalibrationJoint();
-      if (!joint || !joint.pulse_us) { showResult("Home or move the joint before using its commanded pulse.", true); return; }
+      if (!joint || !joint.pulse_us) { showCalibrationResult("Home or move the joint before using its commanded pulse.", true); return; }
       byId("body-calibration-form").elements.center.value = joint.pulse_us;
       rememberCalibrationSettings();
       renderCalibration();
-      const fields = calibrationFields();
-      if (fields) calibrateBody("set", fields, "Home pulse staged; save to retain it after restart");
+      showCalibrationResult("Last commanded pulse copied to the Home field. This is a local edit; apply or save when ready.");
     });
     document.querySelectorAll("[data-joint-select]").forEach((select) => select.addEventListener("change", () => {
       if (!bodyCalibrationEnabled()) return;
       cancelCalibrationSlider();
       document.querySelectorAll("[data-joint-select]").forEach((other) => { other.value = select.value; });
+      showCalibrationResult("");
       calibrationWorkspaceForRobot().joint = Number(select.value);
       persistCalibrationWorkspace();
       fillCalibrationFields(true);
@@ -1069,7 +1206,7 @@
     preferredRobotId = selectedRobotId;
     writeLocal("ainekio-selected-robot", preferredRobotId);
     select.value = selectedRobotId;
-    if (selectedRobotId !== previous) { resetCameraView(); resetWalking(); }
+    if (selectedRobotId !== previous) { resetCameraView(); resetWalking(); updateMotionSpeed(null); }
   }
 
   function text(id, value) { byId(id).textContent = value; }
@@ -1112,6 +1249,7 @@
       Array.isArray(entry.robot_commands) ? entry.robot_commands :
         legacyBody && (!entry.capabilities || entry.capabilities.motion === true) ? null : [];
     renderMotionCatalog(entry, legacyBody);
+    updateMotionSpeed(entry);
     document.querySelectorAll("[data-intent], [data-emote], [data-held-direction]").forEach((button) => {
       const name = button.dataset.intent || button.dataset.emote || directionCommands[button.dataset.heldDirection];
       button.disabled = !bodyCommandAvailable(name) ||
@@ -1144,6 +1282,8 @@
       cancelCalibrationSlider();
       calibrationSession = session;
       calibrationData = null;
+      calibrationReadAt = null;
+      showCalibrationResult("");
       calibrationAttempted = false;
       calibrationLoading = false;
       calibrationEdited = false;
@@ -1167,7 +1307,7 @@
       if (select.options.length) return;
       const joints = p4Calibration ? bodyJointNames.map((label, id) => ({id, label})) :
         legacyBody ? (payload.joint_contract && payload.joint_contract.joints || []) : [];
-      joints.forEach((joint) => select.add(new Option(`${joint.id}: ${joint.label}`, joint.id)));
+      joints.forEach((joint) => select.add(new Option(p4Calibration ? joint.label : `${joint.id}: ${joint.label}`, joint.id)));
       if (p4Calibration) select.value = String(calibrationWorkspaceForRobot().joint);
     });
     fillCalibrationFields();
@@ -1304,6 +1444,7 @@
     byId("robot-select").addEventListener("change", (event) => {
       availableBodyCommands = [];
       selectedRobotId = event.target.value || null;
+      updateMotionSpeed(null);
       preferredRobotId = selectedRobotId;
       writeLocal("ainekio-selected-robot", preferredRobotId);
       statusGeneration++;
@@ -1311,6 +1452,8 @@
       cancelCalibrationSlider();
       calibrationEntry = null;
       calibrationData = null;
+      calibrationReadAt = null;
+      showCalibrationResult("");
       calibrationSession = null;
       calibrationLoading = false;
       calibrationEdited = false;

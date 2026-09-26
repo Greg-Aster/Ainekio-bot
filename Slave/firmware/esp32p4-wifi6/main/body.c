@@ -128,6 +128,7 @@ typedef struct {
     uint32_t sequence;
     bool entering;
     size_t clip;
+    float playback_rate;
     uint16_t from[AINEKIO_PCA_BODY_CHANNELS], target[AINEKIO_PCA_BODY_CHANNELS];
     ainekio_v2_walk_state_t walk;
     ainekio_v2_frame_t entry_from, entry_to;
@@ -274,9 +275,15 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         return ainekio_v2_walk_accept(&body.motion.walk, &command, body.motion.walk.last_us)
             ? ESP_OK : ESP_ERR_INVALID_ARG;
     }
+    const bool named = request->intent.kind == AINEKIO_INTENT_SIT ||
+        request->intent.kind == AINEKIO_INTENT_STAND || request->intent.kind == AINEKIO_INTENT_EMOTE;
+    const float override = request->intent.playback_rate;
+    if (override && (!named || !isfinite(override) || override < 0.F))
+        return ESP_ERR_INVALID_ARG;
     if (uxQueueSpacesAvailable(events) < 2) return ESP_ERR_NO_MEM;
     motion_t next = {.connection=request->connection, .sequence=request->sequence,
-        .entry_start=now, .entry_duration=UINT64_C(500000), .entering=true};
+        .entry_start=now, .entry_duration=UINT64_C(500000), .entering=true,
+        .playback_rate=named ? (override ? override : ainekio_p4_motion_rate()) : 1.F};
     ainekio_v2_frame_t frame = {.geometry_id=ainekio_v2_walk_geometry_id};
     if (request->intent.kind == AINEKIO_INTENT_WALK) {
         next.kind = MOTION_WALK;
@@ -334,7 +341,7 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
     for (unsigned i=0;i<AINEKIO_PCA_BODY_CHANNELS;i++) {
         if (calibration.joints[i].channel < 0) continue;
         /* Exact path derivative times the quintic's 1.875 peak bounds entry
-         * to 1000 us/second, including curved carrier/crank coordination. */
+         * to 1000 us/second at 1x, including curved carrier/crank coordination. */
         const uint64_t duration=(uint64_t)ceil(derivatives[i]/100.*calibration.joints[i].us_per_degree*1875.);
         if (duration > next.entry_duration) next.entry_duration=duration;
     }
@@ -376,7 +383,7 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
     motion_t *motion = &body.motion;
     *complete = false;
     if (motion->entering) {
-        double u = fmin(1., (double)(now-motion->entry_start)/motion->entry_duration);
+        const float u = fminf(1.F, ((float)(now-motion->entry_start)/motion->entry_duration) * motion->playback_rate);
         const double smooth = u*u*u*(10.+u*(-15.+6.*u));
         ainekio_v2_frame_t entry;
         if (!ainekio_v2_transition(&motion->entry_from, &motion->entry_to, smooth, &entry) ||
@@ -398,7 +405,12 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
         frame = motion->walk.pose.frame;
         *complete = motion->walk.complete;
     } else {
-        if (!ainekio_v2_clip_sample(motion->clip, now-motion->started, &frame)) return ESP_FAIL;
+        if (now < motion->started) return ESP_ERR_TIMEOUT;
+        const uint64_t duration = ainekio_v2_clips[motion->clip].duration_us;
+        const uint64_t elapsed = now - motion->started;
+        const float progress = (float)elapsed * motion->playback_rate;
+        const uint64_t sample = progress >= duration ? duration : (uint64_t)progress;
+        if (!ainekio_v2_clip_sample(motion->clip, sample, &frame)) return ESP_FAIL;
         *complete = frame.phase == AINEKIO_V2_COMPLETE;
     }
     if(!ainekio_p4_frame_pulses(&frame,body.pulses))return ESP_ERR_INVALID_ARG;

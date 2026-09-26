@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #define AINEKIO_PROTOCOL_VERSION 1U
+#define AINEKIO_MOTION_RATE_DEFAULT 2.F
 #define AINEKIO_ASSET_NAME_MAX 32U
 #define AINEKIO_WAKE_MODEL_MAX AINEKIO_ASSET_NAME_MAX
 #define AINEKIO_DEFAULT_WAKE_MODEL "ainekio"
@@ -47,6 +48,7 @@ typedef enum {
     AINEKIO_COMMAND_CALIBRATION_SAVE,
     AINEKIO_COMMAND_BODY_CALIBRATION,
     AINEKIO_COMMAND_STORAGE,
+    AINEKIO_COMMAND_MOTION_SPEED,
 } ainekio_command_kind_t;
 
 typedef enum {
@@ -166,6 +168,7 @@ typedef struct {
 
 typedef struct {
     ainekio_intent_kind_t kind;
+    float playback_rate; /* 0 uses the saved body setting; named motions only. */
     union {
         struct {
             int16_t yaw;
@@ -210,6 +213,7 @@ typedef struct {
         ainekio_motion_plan_t motion_plan;
         ainekio_tts_operation_t tts_operation;
         ainekio_storage_operation_t storage_operation;
+        struct { bool save; float rate; } motion_speed;
         struct {
             bool enabled;
             uint8_t fps;

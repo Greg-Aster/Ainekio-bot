@@ -46,6 +46,32 @@ unready movement is rejected before gateway dispatch, and firmware admission
 independently applies model support after session, expiry and sequence checks.
 No raw twelve-joint motion/calibration payload is introduced by this feature.
 
+## Saved named-motion speed
+
+V2 `motion_speed_v1` provides one shared speed multiplier for Stand, Sit and
+finite named motions. The default is 2×; the supported range is 0.25–3×.
+An optional `playback_rate` on these intents previews a different speed for that
+command. Omission uses the robot's current saved setting. The setting is captured
+when a motion starts; changing it does not retime a running gesture.
+
+```json
+{"t":"intent","name":"emote","asset":"wave","playback_rate":1.35,"seq":71}
+{"t":"motion_speed","op":"get","seq":72}
+{"t":"motion_speed","op":"save","rate":1.35,"seq":73}
+{"t":"motion_speed_status","seq":73,"rate":1.35,"saved":true}
+```
+
+Get/Save settle on a matching `motion_speed_status` after ACK. Saving disables
+outputs through the existing owner before writing a separate two-byte NVS value;
+it never alters the joint-mapping record. A missing or invalid value falls back
+to 2× with `saved:false`. Device values have 0.001× resolution. Body Control uses
+0.05× input steps, confirmed robot readback, and explicit Save on robot.
+
+The multiplier scales the existing entry and clip timeline, including velocities
+and accelerations; it does not change joint positions or motion assets. Startup
+Home, Neutral/Stop and ongoing gait controls retain their existing timing. V1 and
+older V2 firmware reject the extension at the gateway; the V1 C decoder rejects it.
+
 ## Variable forward walking
 
 `walk_controls_v1` is an optional V2 hello feature. The existing `intent: walk`

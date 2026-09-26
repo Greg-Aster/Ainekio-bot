@@ -1,6 +1,13 @@
 {
   "commands": [
     {
+      "leverage": {
+        "checked_leg_poses": 3844,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 13.858975470639017,
+        "stance_output_min_deg": 55.33253750877123,
+        "stance_input_min_deg": 81.24394031077397
+      },
       "command": "crouch",
       "source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
       "samples": 481,
@@ -12,94 +19,3204 @@
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 18036,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 6.092135030358115,
+        "stance_output_min_deg": 53.265354772192275,
+        "swing_output_min_deg": 52.68552509999605,
+        "stance_input_min_deg": 69.72579607047297,
+        "swing_input_min_deg": 69.42897132548667
+      },
+      "command": "crab",
+      "source_sha256": "2b65f21a78b4e95f4c8c7fd8781567ecb5ab6f30dec21b0b6a88a9a6c26ec445",
+      "samples": 2255,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": 0.14619877108955137,
+      "minimum_body_z_mm": 30.139475959419073,
+      "minimum_closure_height_mm": 12.991145935591263,
+      "maximum_interpolated_target_error_mm": 0.22141684079900603,
+      "hardware_qualified": false
+    },
+    {
+      "leverage": {
+        "checked_leg_poses": 18036,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 9.477223413436292,
+        "stance_output_min_deg": 66.27183158690863,
+        "swing_output_min_deg": 66.11155051679484,
+        "stance_input_min_deg": 70.74264285315078,
+        "swing_input_min_deg": 70.43564202475862
+      },
+      "command": "crab_backward",
+      "source_sha256": "7be05ddecd3803c7840775669cf0216c60a7aa8ff41aa42952b1f61df2512eb1",
+      "samples": 2255,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": 0.14619877108955137,
+      "minimum_body_z_mm": 30.139475959419073,
+      "minimum_closure_height_mm": 15.883997961073355,
+      "maximum_interpolated_target_error_mm": 0.21422264123572354,
+      "hardware_qualified": false
+    },
+    {
+      "leverage": {
+        "checked_leg_poses": 18036,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 9.914712279886594,
+        "stance_output_min_deg": 67.84604472554459,
+        "swing_output_min_deg": 67.67456259213645,
+        "stance_input_min_deg": 68.90142147860658,
+        "swing_input_min_deg": 68.66153861635384
+      },
+      "command": "crab_forward",
+      "source_sha256": "e65c6504c83bf3b66a0dd13e4139faccb2aa1d88b191cc98660c248ab04f4d9d",
+      "samples": 2255,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": 0.14619877108955137,
+      "minimum_body_z_mm": 30.139475959419073,
+      "minimum_closure_height_mm": 16.200303850681827,
+      "maximum_interpolated_target_error_mm": 0.21377858947235318,
+      "hardware_qualified": false
+    },
+    {
+      "leverage": {
+        "checked_leg_poses": 18036,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.217066033805828,
+        "stance_output_min_deg": 49.21571003531847,
+        "swing_output_min_deg": 48.680824209182894,
+        "stance_input_min_deg": 67.6777498314808,
+        "swing_input_min_deg": 67.41173157302012
+      },
+      "command": "crab_right",
+      "source_sha256": "0f4b97bf168e832ff33cb7355993d6e648ad23f631d7f754b37a4882fb119174",
+      "samples": 2255,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": 0.14619877108955137,
+      "minimum_body_z_mm": 30.139475959419073,
+      "minimum_closure_height_mm": 12.062730590840797,
+      "maximum_interpolated_target_error_mm": 0.2216011686957824,
+      "hardware_qualified": false
+    },
+    {
+      "leverage": {
+        "checked_leg_poses": 18036,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.607441421683021,
+        "stance_output_min_deg": 51.12737649939637,
+        "swing_output_min_deg": 50.5035013351138,
+        "stance_input_min_deg": 57.88835466889862,
+        "swing_input_min_deg": 57.213634932035895
+      },
+      "command": "crab_turn_left",
+      "source_sha256": "6c35e808ccd8ae6c2e836ed86cb191b52ec8226ee5683073af8ab2e30cd4b069",
+      "samples": 2255,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": 0.14619877108955137,
+      "minimum_body_z_mm": 30.139475959419073,
+      "minimum_closure_height_mm": 12.497469697456166,
+      "maximum_interpolated_target_error_mm": 0.21592323637943878,
+      "hardware_qualified": false
+    },
+    {
+      "leverage": {
+        "checked_leg_poses": 18036,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.629043506656998,
+        "stance_output_min_deg": 46.42247730594161,
+        "swing_output_min_deg": 45.808872014025184,
+        "stance_input_min_deg": 53.854698989871714,
+        "swing_input_min_deg": 53.174959509329966
+      },
+      "command": "crab_turn_right",
+      "source_sha256": "0ea6e675f999bf1afe4780571ed3af0392bd6f65fda18547249f6f27478479ba",
+      "samples": 2255,
+      "planted_xy_drift_mm": 0.0,
+      "minimum_interpolated_sole_z_mm": 0.14619877108955137,
+      "minimum_body_z_mm": 30.139475959419073,
+      "minimum_closure_height_mm": 11.405751802513235,
+      "maximum_interpolated_target_error_mm": 0.21567786952428492,
+      "hardware_qualified": false
+    },
+    {
+      "leverage": {
+        "checked_leg_poses": 17708,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 48.3368656815064,
+        "swing_output_min_deg": 45.29788752541745,
+        "stance_input_min_deg": 72.21317324805612,
+        "swing_input_min_deg": 71.34265471205973
+      },
       "command": "crawl_backward",
-      "source_sha256": "234c180c9f77326dd894baf7aa555a41bcad2beb1336ae793c638827c1261aae",
+      "source_sha256": "690ef15508c87326c7064511a09a73457396c5f5164c3ad4e3b266c9a6d6f136",
       "samples": 2214,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -0.00011560938156662814,
+      "minimum_interpolated_sole_z_mm": 0.0969930391884759,
       "minimum_body_z_mm": 12.320677198904292,
-      "minimum_closure_height_mm": 18.690561744496467,
-      "maximum_interpolated_target_error_mm": 0.010741672589631435,
+      "minimum_closure_height_mm": 20.29886834443534,
+      "maximum_interpolated_target_error_mm": 0.15421872798910385,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17660,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 48.1682932401638,
+        "swing_output_min_deg": 44.87497683575829,
+        "stance_input_min_deg": 75.96541862058415,
+        "swing_input_min_deg": 75.27400860557337
+      },
       "command": "crawl_forward",
-      "source_sha256": "91d459614c94d9273d771f2a50572c977158196b60b0d93788c3fc0275873201",
+      "source_sha256": "7c87da27c522d74a466d6af0f1aa965105a9a4c4cb3b8fcd2c1a2bd9ee009117",
       "samples": 2208,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -0.00012551769464863582,
+      "minimum_interpolated_sole_z_mm": 0.09488518632277376,
       "minimum_body_z_mm": 12.320579059374843,
-      "minimum_closure_height_mm": 18.690561744496467,
-      "maximum_interpolated_target_error_mm": 0.010614614585335858,
+      "minimum_closure_height_mm": 20.29886834443534,
+      "maximum_interpolated_target_error_mm": 0.15570708479816542,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17660,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 50.02093551008111,
+        "swing_output_min_deg": 47.88688720073399,
+        "stance_input_min_deg": 77.5374568352973,
+        "swing_input_min_deg": 77.25428675516487
+      },
       "command": "crawl_turn_left",
-      "source_sha256": "db8b665ed90dc4a4e1a7a05f6f5085a6e81de47d154ceee7255335ad4eb068ac",
+      "source_sha256": "190ff97d751c106a87a5093d3e986cbdbaebccf51f0939cb1a8e0c188293d770",
       "samples": 2208,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -9.600314137259147e-05,
+      "minimum_interpolated_sole_z_mm": 0.019020838404507856,
       "minimum_body_z_mm": 12.320579059374836,
-      "minimum_closure_height_mm": 18.690561744496467,
-      "maximum_interpolated_target_error_mm": 0.017172254569128853,
+      "minimum_closure_height_mm": 20.29886834443534,
+      "maximum_interpolated_target_error_mm": 0.1520253456545002,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17660,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 50.02083113468049,
+        "swing_output_min_deg": 47.719853981396824,
+        "stance_input_min_deg": 77.53749703150478,
+        "swing_input_min_deg": 77.23981014664237
+      },
       "command": "crawl_turn_right",
-      "source_sha256": "6960ddcf505c6f3fe4fe3dd3a284defca192c149264ee753fa6a7e0e7bdb5de7",
+      "source_sha256": "46256f4fa54eaa3a6bbed73bb28fdf963b03b42ca468fbcf02ce6a01c7ff7f93",
       "samples": 2208,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -9.212453487350558e-05,
-      "minimum_body_z_mm": 12.320579059374836,
-      "minimum_closure_height_mm": 18.690561744496467,
-      "maximum_interpolated_target_error_mm": 0.019916732305329532,
+      "minimum_interpolated_sole_z_mm": 0.01898924221971754,
+      "minimum_body_z_mm": 12.320579059374829,
+      "minimum_closure_height_mm": 20.29886834443534,
+      "maximum_interpolated_target_error_mm": 0.1517575234368933,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17468,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 7.226376572661081,
+        "stance_output_min_deg": 59.05205197554946,
+        "swing_output_min_deg": 57.495704137235016,
+        "stance_input_min_deg": 28.932164442306707,
+        "swing_input_min_deg": 25.034419495981112
+      },
       "command": "walk_backward",
-      "source_sha256": "5dd2a014758959172ef2834441b1d354a7af823ef6003356e6abef7b406a809c",
+      "source_sha256": "46ff639c93ddac6ff6f6e1b6a9146acafce0e1a24ae2ec31dfb1b69308610617",
       "samples": 2184,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -0.00449264084556944,
-      "minimum_body_z_mm": 42.399158814293976,
-      "minimum_closure_height_mm": 11.123576803683676,
-      "maximum_interpolated_target_error_mm": 0.11572422288572781,
+      "minimum_interpolated_sole_z_mm": 0.04803379636641836,
+      "minimum_body_z_mm": 36.39915881429397,
+      "minimum_closure_height_mm": 14.043324098470437,
+      "maximum_interpolated_target_error_mm": 0.15166611987954504,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17468,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 7.673752361457737,
+        "stance_output_min_deg": 63.10687782067184,
+        "swing_output_min_deg": 59.29594850362145,
+        "stance_input_min_deg": 31.659846105463462,
+        "swing_input_min_deg": 26.560237439353777
+      },
       "command": "walk_forward",
-      "source_sha256": "ff28418703aac467f394e421139a49a01ccb4ae9f02d77b493fd6f786084fa0b",
+      "source_sha256": "70715d892ae9735d60f20c80f59d8af97151141e1f6880d3f954c21f275382e8",
       "samples": 2184,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -0.004513914081272219,
-      "minimum_body_z_mm": 42.399158814293976,
-      "minimum_closure_height_mm": 11.70056358429804,
-      "maximum_interpolated_target_error_mm": 0.12332915488141794,
+      "minimum_interpolated_sole_z_mm": 0.04163722807938086,
+      "minimum_body_z_mm": 36.39915881429397,
+      "minimum_closure_height_mm": 14.45594990127494,
+      "maximum_interpolated_target_error_mm": 0.15135637366052768,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17468,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.682355437595952,
+        "stance_output_min_deg": 81.18621145055224,
+        "swing_output_min_deg": 71.01765573617551,
+        "stance_input_min_deg": 81.22652194159127,
+        "swing_input_min_deg": 80.71797195027062
+      },
       "command": "walk_turn_left",
-      "source_sha256": "02625de45a8ec950bcec17ae5ff3a6058fc36ce2d3fd28250b0b8f7cebc8bae6",
+      "source_sha256": "bbeaaccad544bd8c0649306c422d0a7647c428bfb775b944487d149a90fe7cee",
       "samples": 2184,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -0.00029111473196508086,
-      "minimum_body_z_mm": 42.399158814293976,
-      "minimum_closure_height_mm": 17.33691340974978,
-      "maximum_interpolated_target_error_mm": 0.02096957611756345,
+      "minimum_interpolated_sole_z_mm": 0.12970381323535207,
+      "minimum_body_z_mm": 36.39915881429397,
+      "minimum_closure_height_mm": 19.149398423498564,
+      "maximum_interpolated_target_error_mm": 0.17205812952741262,
       "hardware_qualified": false
     },
     {
+      "leverage": {
+        "checked_leg_poses": 17468,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.682355437595952,
+        "stance_output_min_deg": 81.12547544894215,
+        "swing_output_min_deg": 70.93750586273717,
+        "stance_input_min_deg": 81.09335808598281,
+        "swing_input_min_deg": 80.69380481749833
+      },
       "command": "walk_turn_right",
-      "source_sha256": "b80aa4e7000eca09e80b44dd314d264bb5fca6f8b7b303b40c409d321cb5f139",
+      "source_sha256": "2ac1517eedf22f30982f3e7514d0ff81bd04f697012945a6c9ae7dc34727264f",
       "samples": 2184,
       "planted_xy_drift_mm": 0.0,
-      "minimum_interpolated_sole_z_mm": -0.0003019851968346643,
-      "minimum_body_z_mm": 42.399158814293976,
-      "minimum_closure_height_mm": 17.33691679762618,
-      "maximum_interpolated_target_error_mm": 0.017581025619461954,
+      "minimum_interpolated_sole_z_mm": 0.1296905346982058,
+      "minimum_body_z_mm": 36.39915881429397,
+      "minimum_closure_height_mm": 19.149398423498564,
+      "maximum_interpolated_target_error_mm": 0.17246400017029373,
       "hardware_qualified": false
     }
   ],
   "hardware_qualified": false,
-  "scope": "Recorded native trajectories and linear Blender midpoints; not physical tracking, collision or load qualification."
+  "scope": "Recorded native trajectories and linear Blender midpoints; not physical tracking, collision or load qualification.",
+  "before": {
+    "walk/fwd/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 1.269803104730471,
+      "stance_output": 43.91643302450261,
+      "stance_output_at": {
+        "ms": 17780.0,
+        "leg": "RR",
+        "phase": 18.9608646521,
+        "blend": 1
+      },
+      "swing_output": 23.85673024247544,
+      "swing_output_at": {
+        "ms": 17760.0,
+        "leg": "RL",
+        "phase": 18.9164202077,
+        "blend": 1
+      },
+      "stance_input": 22.363667164603097,
+      "stance_input_at": {
+        "ms": 8280.0,
+        "leg": "FL",
+        "phase": 5.44104310296,
+        "blend": 0
+      },
+      "swing_input": 16.577742875855108,
+      "swing_input_at": {
+        "ms": 21220.0,
+        "leg": "RL",
+        "phase": 25.5777725342,
+        "blend": 0.645867851662
+      }
+    },
+    "walk/fwd/max": {
+      "leg_poses": 8564,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.119478784077302,
+      "stance_output": 51.436108442146,
+      "stance_output_at": {
+        "ms": 1620.0,
+        "leg": "FR",
+        "phase": 1.93279308546,
+        "blend": 0
+      },
+      "swing_output": 48.21523207946752,
+      "swing_output_at": {
+        "ms": 1640.0,
+        "leg": "FR",
+        "phase": 1.96612641879,
+        "blend": 0
+      },
+      "stance_input": 23.06775861409199,
+      "stance_input_at": {
+        "ms": 1620.0,
+        "leg": "FR",
+        "phase": 1.93279308546,
+        "blend": 0
+      },
+      "swing_input": 18.737957553366755,
+      "swing_input_at": {
+        "ms": 1640.0,
+        "leg": "FR",
+        "phase": 1.96612641879,
+        "blend": 0
+      }
+    },
+    "walk/back/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.230519717044061,
+      "stance_output": 45.2229343222438,
+      "stance_output_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      },
+      "swing_output": 43.76267284815413,
+      "swing_output_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      },
+      "stance_input": 17.739371619446946,
+      "stance_input_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      },
+      "swing_input": 13.590156974074183,
+      "swing_input_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      }
+    },
+    "walk/back/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.690041216575473,
+      "stance_output": 46.918570383411456,
+      "stance_output_at": {
+        "ms": 2860.0,
+        "leg": "RR",
+        "phase": 2.46905553974,
+        "blend": 0
+      },
+      "swing_output": 46.11453960712133,
+      "swing_output_at": {
+        "ms": 2860.0,
+        "leg": "RR",
+        "phase": 2.46905553974,
+        "blend": 0
+      },
+      "stance_input": 19.891107356718805,
+      "stance_input_at": {
+        "ms": 2860.0,
+        "leg": "RR",
+        "phase": 2.46905553974,
+        "blend": 0
+      },
+      "swing_input": 15.62982517301385,
+      "swing_input_at": {
+        "ms": 3160.0,
+        "leg": "RL",
+        "phase": 2.96506600019,
+        "blend": 0
+      }
+    },
+    "walk/turn_l/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 10.99043098921205,
+      "stance_output": 72.84378373746071,
+      "stance_output_at": {
+        "ms": 19580.0,
+        "leg": "RL",
+        "phase": 22.9608646521,
+        "blend": 1
+      },
+      "swing_output": 68.10436249535317,
+      "swing_output_at": {
+        "ms": 20140.0,
+        "leg": "FR",
+        "phase": 24.1985627406,
+        "blend": 0.996081953947
+      },
+      "stance_input": 76.38199036036566,
+      "stance_input_at": {
+        "ms": 15480.0,
+        "leg": "RL",
+        "phase": 13.9675340217,
+        "blend": 0.579736607915
+      },
+      "swing_input": 75.46762017366159,
+      "swing_input_at": {
+        "ms": 16420.0,
+        "leg": "RL",
+        "phase": 15.9386424299,
+        "blend": 1
+      }
+    },
+    "walk/turn_l/max": {
+      "leg_poses": 8564,
+      "reversals": 0,
+      "straightening_clearance_mm": 11.80533878171692,
+      "stance_output": 75.08157222628513,
+      "stance_output_at": {
+        "ms": 19660.0,
+        "leg": "RL",
+        "phase": 31.9994597521,
+        "blend": 0
+      },
+      "swing_output": 74.10645386193143,
+      "swing_output_at": {
+        "ms": 2860.0,
+        "leg": "RL",
+        "phase": 3.99945975213,
+        "blend": 0
+      },
+      "stance_input": 77.83751097775088,
+      "stance_input_at": {
+        "ms": 19660.0,
+        "leg": "RL",
+        "phase": 31.9994597521,
+        "blend": 0
+      },
+      "swing_input": 76.15565382477897,
+      "swing_input_at": {
+        "ms": 1040.0,
+        "leg": "RL",
+        "phase": 0.966128485038,
+        "blend": 0
+      }
+    },
+    "walk/turn_r/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 10.989926643386028,
+      "stance_output": 71.82595619589192,
+      "stance_output_at": {
+        "ms": 21520.0,
+        "leg": "RR",
+        "phase": 25.8871943741,
+        "blend": 0.503282915982
+      },
+      "swing_output": 68.10621478578051,
+      "swing_output_at": {
+        "ms": 20140.0,
+        "leg": "FL",
+        "phase": 24.1985627406,
+        "blend": 0.996081953947
+      },
+      "stance_input": 75.44940748439473,
+      "stance_input_at": {
+        "ms": 21500.0,
+        "leg": "RR",
+        "phase": 25.8671226988,
+        "blend": 0.512689990069
+      },
+      "swing_input": 75.32512510642397,
+      "swing_input_at": {
+        "ms": 21480.0,
+        "leg": "RR",
+        "phase": 25.8469747877,
+        "blend": 0.522127648025
+      }
+    },
+    "walk/turn_r/max": {
+      "leg_poses": 8564,
+      "reversals": 0,
+      "straightening_clearance_mm": 11.745848953176079,
+      "stance_output": 74.688723847328,
+      "stance_output_at": {
+        "ms": 1020.0,
+        "leg": "FR",
+        "phase": 0.932824237899,
+        "blend": 0
+      },
+      "swing_output": 73.91118871738645,
+      "swing_output_at": {
+        "ms": 1040.0,
+        "leg": "FR",
+        "phase": 0.966128485038,
+        "blend": 0
+      },
+      "stance_input": 77.8375250674245,
+      "stance_input_at": {
+        "ms": 5560.0,
+        "leg": "RR",
+        "phase": 8.49945975213,
+        "blend": 0
+      },
+      "swing_input": 76.20063468004058,
+      "swing_input_at": {
+        "ms": 1340.0,
+        "leg": "RR",
+        "phase": 1.46612641879,
+        "blend": 0
+      }
+    },
+    "crawl/fwd/auto": {
+      "leg_poses": 7820,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 48.05788214345651,
+      "stance_output_at": {
+        "ms": 8160.0,
+        "leg": "RR",
+        "phase": 4.19659865852,
+        "blend": 0
+      },
+      "swing_output": 44.876897541240304,
+      "swing_output_at": {
+        "ms": 12640.0,
+        "leg": "RR",
+        "phase": 9.30226708031,
+        "blend": 0
+      },
+      "stance_input": 75.8313604394247,
+      "stance_input_at": {
+        "ms": 13040.0,
+        "leg": "RL",
+        "phase": 9.96847367105,
+        "blend": 0
+      },
+      "swing_input": 75.33250057779433,
+      "swing_input_at": {
+        "ms": 7280.0,
+        "leg": "FR",
+        "phase": 3.21882088078,
+        "blend": 0
+      }
+    },
+    "crawl/fwd/max": {
+      "leg_poses": 8628,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 47.86932669902202,
+      "stance_output_at": {
+        "ms": 3780.0,
+        "leg": "RR",
+        "phase": 2.19945975213,
+        "blend": 0
+      },
+      "swing_output": 44.89957316440171,
+      "swing_output_at": {
+        "ms": 3840.0,
+        "leg": "RR",
+        "phase": 2.29945975213,
+        "blend": 0
+      },
+      "stance_input": 76.0505559165057,
+      "stance_input_at": {
+        "ms": 20160.0,
+        "leg": "RR",
+        "phase": 29.4936834423,
+        "blend": 0
+      },
+      "swing_input": 75.26816901473333,
+      "swing_input_at": {
+        "ms": 2880.0,
+        "leg": "FL",
+        "phase": 0.708250629467,
+        "blend": 0
+      }
+    },
+    "crawl/back/auto": {
+      "leg_poses": 7844,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 48.17383941081478,
+      "stance_output_at": {
+        "ms": 13060.0,
+        "leg": "FR",
+        "phase": 9.22180700438,
+        "blend": 0
+      },
+      "swing_output": 45.306809676633065,
+      "swing_output_at": {
+        "ms": 18120.0,
+        "leg": "FL",
+        "phase": 17.6531046265,
+        "blend": 0
+      },
+      "stance_input": 71.77837487937433,
+      "stance_input_at": {
+        "ms": 8640.0,
+        "leg": "FR",
+        "phase": 3.94994072826,
+        "blend": 0
+      },
+      "swing_input": 71.43492783788672,
+      "swing_input_at": {
+        "ms": 8680.0,
+        "leg": "FR",
+        "phase": 3.99437644025,
+        "blend": 0
+      }
+    },
+    "crawl/back/max": {
+      "leg_poses": 8468,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 48.29426063102772,
+      "stance_output_at": {
+        "ms": 5320.0,
+        "leg": "FR",
+        "phase": 3.23173257783,
+        "blend": 0
+      },
+      "swing_output": 45.348297420779076,
+      "swing_output_at": {
+        "ms": 4960.0,
+        "leg": "FL",
+        "phase": 2.63270323692,
+        "blend": 0
+      },
+      "stance_input": 75.67178592453821,
+      "stance_input_at": {
+        "ms": 20000.0,
+        "leg": "RL",
+        "phase": 27.6983992445,
+        "blend": 0
+      },
+      "swing_input": 75.27872574250655,
+      "swing_input_at": {
+        "ms": 20020.0,
+        "leg": "RL",
+        "phase": 27.7317306403,
+        "blend": 0
+      }
+    },
+    "crawl/turn_l/auto": {
+      "leg_poses": 7820,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 49.950555069094115,
+      "stance_output_at": {
+        "ms": 7740.0,
+        "leg": "FL",
+        "phase": 3.72993199185,
+        "blend": 0
+      },
+      "swing_output": 47.987660151525134,
+      "swing_output_at": {
+        "ms": 7680.0,
+        "leg": "FL",
+        "phase": 3.66326532519,
+        "blend": 0
+      },
+      "stance_input": 77.62266171311013,
+      "stance_input_at": {
+        "ms": 7300.0,
+        "leg": "FR",
+        "phase": 3.24104310296,
+        "blend": 0
+      },
+      "swing_input": 77.27349751380838,
+      "swing_input_at": {
+        "ms": 7280.0,
+        "leg": "FR",
+        "phase": 3.21882088078,
+        "blend": 0
+      }
+    },
+    "crawl/turn_l/max": {
+      "leg_poses": 8628,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 48.858082975086866,
+      "stance_output_at": {
+        "ms": 3020.0,
+        "leg": "FR",
+        "phase": 0.932824237899,
+        "blend": 0
+      },
+      "swing_output": 46.85745985803513,
+      "swing_output_at": {
+        "ms": 3080.0,
+        "leg": "FR",
+        "phase": 1.03279308546,
+        "blend": 0
+      },
+      "stance_input": 77.5950525622211,
+      "stance_input_at": {
+        "ms": 20000.0,
+        "leg": "FR",
+        "phase": 29.2327930855,
+        "blend": 0
+      },
+      "swing_input": 77.30814262373394,
+      "swing_input_at": {
+        "ms": 10980.0,
+        "leg": "FR",
+        "phase": 14.1994597521,
+        "blend": 0
+      }
+    },
+    "crawl/turn_r/auto": {
+      "leg_poses": 7820,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 50.08214106004565,
+      "stance_output_at": {
+        "ms": 16800.0,
+        "leg": "FR",
+        "phase": 16.2351403377,
+        "blend": 0
+      },
+      "swing_output": 47.559640924298726,
+      "swing_output_at": {
+        "ms": 18200.0,
+        "leg": "FL",
+        "phase": 18.5559281464,
+        "blend": 0
+      },
+      "stance_input": 77.48917905740704,
+      "stance_input_at": {
+        "ms": 11340.0,
+        "leg": "FL",
+        "phase": 7.72993199185,
+        "blend": 0
+      },
+      "swing_input": 77.26242660946744,
+      "swing_input_at": {
+        "ms": 12220.0,
+        "leg": "FL",
+        "phase": 8.71103725585,
+        "blend": 0
+      }
+    },
+    "crawl/turn_r/max": {
+      "leg_poses": 8628,
+      "reversals": 0,
+      "straightening_clearance_mm": 13.938249059194924,
+      "stance_output": 50.05090664131493,
+      "stance_output_at": {
+        "ms": 18800.0,
+        "leg": "FR",
+        "phase": 27.2327930855,
+        "blend": 0
+      },
+      "swing_output": 47.601250336824165,
+      "swing_output_at": {
+        "ms": 20200.0,
+        "leg": "FL",
+        "phase": 29.5535808941,
+        "blend": 0
+      },
+      "stance_input": 76.54640111356377,
+      "stance_input_at": {
+        "ms": 3020.0,
+        "leg": "FR",
+        "phase": 0.932824237899,
+        "blend": 0
+      },
+      "swing_input": 76.24341579810806,
+      "swing_input_at": {
+        "ms": 3060.0,
+        "leg": "FR",
+        "phase": 0.999459752127,
+        "blend": 0
+      }
+    },
+    "run/fwd/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 1.0655229887412787,
+      "stance_output": 43.221735699274014,
+      "stance_output_at": {
+        "ms": 14920.0,
+        "leg": "RR",
+        "phase": 13.9591675208,
+        "blend": 1
+      },
+      "swing_output": 21.846277083668326,
+      "swing_output_at": {
+        "ms": 7320.0,
+        "leg": "RL",
+        "phase": 4.91812922412,
+        "blend": 1
+      },
+      "stance_input": 40.77947700588674,
+      "stance_input_at": {
+        "ms": 15120.0,
+        "leg": "RL",
+        "phase": 14.4036119653,
+        "blend": 1
+      },
+      "swing_input": 19.839509767178125,
+      "swing_input_at": {
+        "ms": 28260.0,
+        "leg": "RL",
+        "phase": 32.5091124987,
+        "blend": 1
+      }
+    },
+    "run/fwd/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 1.6062336639465187,
+      "stance_output": 55.158458515205396,
+      "stance_output_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_output": 26.84660726790548,
+      "swing_output_at": {
+        "ms": 2080.0,
+        "leg": "RL",
+        "phase": 2.89840239783,
+        "blend": 1
+      },
+      "stance_input": 41.44295396579168,
+      "stance_input_at": {
+        "ms": 2680.0,
+        "leg": "RL",
+        "phase": 4.39839611405,
+        "blend": 1
+      },
+      "swing_input": 23.15494455345972,
+      "swing_input_at": {
+        "ms": 2720.0,
+        "leg": "RL",
+        "phase": 4.49839611405,
+        "blend": 1
+      }
+    },
+    "run/back/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.335185872337796,
+      "stance_output": 57.3075497800056,
+      "stance_output_at": {
+        "ms": 14920.0,
+        "leg": "RL",
+        "phase": 13.9591675208,
+        "blend": 1
+      },
+      "swing_output": 49.23891260700419,
+      "swing_output_at": {
+        "ms": 7780.0,
+        "leg": "FL",
+        "phase": 5.42924033523,
+        "blend": 1
+      },
+      "stance_input": 37.51385356356998,
+      "stance_input_at": {
+        "ms": 14920.0,
+        "leg": "RL",
+        "phase": 13.9591675208,
+        "blend": 1
+      },
+      "swing_input": 27.753655295275625,
+      "swing_input_at": {
+        "ms": 7320.0,
+        "leg": "RL",
+        "phase": 4.91812922412,
+        "blend": 1
+      }
+    },
+    "run/back/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.530997529673556,
+      "stance_output": 57.12555327624662,
+      "stance_output_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_output": 50.15140401409893,
+      "swing_output_at": {
+        "ms": 2300.0,
+        "leg": "FR",
+        "phase": 3.44839611405,
+        "blend": 1
+      },
+      "stance_input": 38.263553217626686,
+      "stance_input_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_input": 29.616771040989093,
+      "swing_input_at": {
+        "ms": 2080.0,
+        "leg": "RL",
+        "phase": 2.89840239783,
+        "blend": 1
+      }
+    },
+    "run/turn_l/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 10.981085261308593,
+      "stance_output": 72.75206920861909,
+      "stance_output_at": {
+        "ms": 17620.0,
+        "leg": "RL",
+        "phase": 19.9591675208,
+        "blend": 1
+      },
+      "swing_output": 68.09517965228811,
+      "swing_output_at": {
+        "ms": 21880.0,
+        "leg": "FR",
+        "phase": 27.1924458374,
+        "blend": 1
+      },
+      "stance_input": 77.047365673521,
+      "stance_input_at": {
+        "ms": 17620.0,
+        "leg": "RL",
+        "phase": 19.9591675208,
+        "blend": 1
+      },
+      "swing_input": 75.43742663172259,
+      "swing_input_at": {
+        "ms": 7340.0,
+        "leg": "RL",
+        "phase": 4.94035144634,
+        "blend": 1
+      }
+    },
+    "run/turn_l/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 11.005019087837859,
+      "stance_output": 73.11227303507307,
+      "stance_output_at": {
+        "ms": 1900.0,
+        "leg": "FR",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_output": 68.12348396228275,
+      "swing_output_at": {
+        "ms": 19800.0,
+        "leg": "FR",
+        "phase": 47.198396114,
+        "blend": 1
+      },
+      "stance_input": 80.04453338859287,
+      "stance_input_at": {
+        "ms": 20120.0,
+        "leg": "RL",
+        "phase": 47.998396114,
+        "blend": 1
+      },
+      "swing_input": 75.48925280486604,
+      "swing_input_at": {
+        "ms": 2100.0,
+        "leg": "RL",
+        "phase": 2.94839653486,
+        "blend": 1
+      }
+    },
+    "run/turn_r/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 10.981077766344761,
+      "stance_output": 72.75209222120577,
+      "stance_output_at": {
+        "ms": 16720.0,
+        "leg": "RR",
+        "phase": 17.9591675208,
+        "blend": 1
+      },
+      "swing_output": 68.09520229675961,
+      "swing_output_at": {
+        "ms": 25480.0,
+        "leg": "FL",
+        "phase": 30.1924458374,
+        "blend": 1
+      },
+      "stance_input": 77.0473737001243,
+      "stance_input_at": {
+        "ms": 16720.0,
+        "leg": "RR",
+        "phase": 17.9591675208,
+        "blend": 1
+      },
+      "swing_input": 75.43742741179915,
+      "swing_input_at": {
+        "ms": 7340.0,
+        "leg": "RR",
+        "phase": 4.94035144634,
+        "blend": 1
+      }
+    },
+    "run/turn_r/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 11.005014769913238,
+      "stance_output": 73.1122436170401,
+      "stance_output_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_output": 68.12349272501702,
+      "swing_output_at": {
+        "ms": 14600.0,
+        "leg": "FL",
+        "phase": 34.198396114,
+        "blend": 1
+      },
+      "stance_input": 80.04453338859287,
+      "stance_input_at": {
+        "ms": 20120.0,
+        "leg": "RR",
+        "phase": 47.998396114,
+        "blend": 1
+      },
+      "swing_input": 75.48923850227474,
+      "swing_input_at": {
+        "ms": 2100.0,
+        "leg": "RR",
+        "phase": 2.94839653486,
+        "blend": 1
+      }
+    },
+    "crab/fwd/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 8.442859987630243,
+      "stance_output": 62.45626901730699,
+      "stance_output_at": {
+        "ms": 7700.0,
+        "leg": "RL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "swing_output": 62.28242429101874,
+      "swing_output_at": {
+        "ms": 7700.0,
+        "leg": "RL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "stance_input": 66.47943605646591,
+      "stance_input_at": {
+        "ms": 7700.0,
+        "leg": "FL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "swing_input": 66.24684845073696,
+      "swing_input_at": {
+        "ms": 7720.0,
+        "leg": "FL",
+        "phase": 2.25771047238,
+        "blend": 0
+      }
+    },
+    "crab/fwd/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 8.466249498821021,
+      "stance_output": 62.500821019102396,
+      "stance_output_at": {
+        "ms": 4400.0,
+        "leg": "FR",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "swing_output": 62.37126834185509,
+      "swing_output_at": {
+        "ms": 4400.0,
+        "leg": "FR",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "stance_input": 64.77921843957466,
+      "stance_input_at": {
+        "ms": 4400.0,
+        "leg": "RL",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "swing_input": 64.42953446160305,
+      "swing_input_at": {
+        "ms": 4420.0,
+        "leg": "RL",
+        "phase": 1.00779636064,
+        "blend": 0
+      }
+    },
+    "crab/back/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 8.029360422430052,
+      "stance_output": 60.913500741526896,
+      "stance_output_at": {
+        "ms": 11900.0,
+        "leg": "RL",
+        "phase": 3.98937716612,
+        "blend": 0
+      },
+      "swing_output": 60.69292737835895,
+      "swing_output_at": {
+        "ms": 11920.0,
+        "leg": "RL",
+        "phase": 4.00604380571,
+        "blend": 0
+      },
+      "stance_input": 68.16798481232658,
+      "stance_input_at": {
+        "ms": 12700.0,
+        "leg": "RR",
+        "phase": 4.7274444936,
+        "blend": 0
+      },
+      "swing_input": 68.00224249155765,
+      "swing_input_at": {
+        "ms": 11900.0,
+        "leg": "FR",
+        "phase": 3.98937716612,
+        "blend": 0
+      }
+    },
+    "crab/back/max": {
+      "leg_poses": 8620,
+      "reversals": 0,
+      "straightening_clearance_mm": 8.496362373821498,
+      "stance_output": 62.48548769872308,
+      "stance_output_at": {
+        "ms": 8240.0,
+        "leg": "FL",
+        "phase": 4.24840034125,
+        "blend": 0
+      },
+      "swing_output": 62.642142377183895,
+      "swing_output_at": {
+        "ms": 20260.0,
+        "leg": "FL",
+        "phase": 19.2618904966,
+        "blend": 0
+      },
+      "stance_input": 68.24559089533798,
+      "stance_input_at": {
+        "ms": 6820.0,
+        "leg": "FL",
+        "phase": 2.47716278337,
+        "blend": 0
+      },
+      "swing_input": 68.13413668106446,
+      "swing_input_at": {
+        "ms": 6820.0,
+        "leg": "FL",
+        "phase": 2.47716278337,
+        "blend": 0
+      }
+    },
+    "crab/turn_l/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.2672558869185835,
+      "stance_output": 44.50061898071286,
+      "stance_output_at": {
+        "ms": 7700.0,
+        "leg": "FL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "swing_output": 43.95503585883191,
+      "swing_output_at": {
+        "ms": 7720.0,
+        "leg": "FL",
+        "phase": 2.25771047238,
+        "blend": 0
+      },
+      "stance_input": 55.062611029668496,
+      "stance_input_at": {
+        "ms": 15920.0,
+        "leg": "RR",
+        "phase": 10.4962527727,
+        "blend": 0
+      },
+      "swing_input": 54.58648942449405,
+      "swing_input_at": {
+        "ms": 15140.0,
+        "leg": "RR",
+        "phase": 9.5212527727,
+        "blend": 0
+      }
+    },
+    "crab/turn_l/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.371704355794144,
+      "stance_output": 45.13715871237465,
+      "stance_output_at": {
+        "ms": 17400.0,
+        "leg": "RL",
+        "phase": 17.2327963606,
+        "blend": 0
+      },
+      "swing_output": 44.497685656687594,
+      "swing_output_at": {
+        "ms": 17400.0,
+        "leg": "RL",
+        "phase": 17.2327963606,
+        "blend": 0
+      },
+      "stance_input": 55.1773226706585,
+      "stance_input_at": {
+        "ms": 15000.0,
+        "leg": "RL",
+        "phase": 14.2327963606,
+        "blend": 0
+      },
+      "swing_input": 54.557766522251654,
+      "swing_input_at": {
+        "ms": 6200.0,
+        "leg": "RL",
+        "phase": 3.23279636064,
+        "blend": 0
+      }
+    },
+    "crab/turn_r/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.389422933086593,
+      "stance_output": 45.087583680650674,
+      "stance_output_at": {
+        "ms": 17120.0,
+        "leg": "RL",
+        "phase": 11.9962527727,
+        "blend": 0
+      },
+      "swing_output": 44.589124210741666,
+      "swing_output_at": {
+        "ms": 8300.0,
+        "leg": "RR",
+        "phase": 2.74104380571,
+        "blend": 0
+      },
+      "stance_input": 55.06259100593772,
+      "stance_input_at": {
+        "ms": 17120.0,
+        "leg": "RL",
+        "phase": 11.9962527727,
+        "blend": 0
+      },
+      "swing_input": 54.58647739048253,
+      "swing_input_at": {
+        "ms": 17140.0,
+        "leg": "RL",
+        "phase": 12.0212527727,
+        "blend": 0
+      }
+    },
+    "crab/turn_r/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 2.510807930499368,
+      "stance_output": 34.817012450202654,
+      "stance_output_at": {
+        "ms": 4400.0,
+        "leg": "RL",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "swing_output": 33.61613826975776,
+      "swing_output_at": {
+        "ms": 4420.0,
+        "leg": "RL",
+        "phase": 1.00779636064,
+        "blend": 0
+      },
+      "stance_input": 47.437406534581065,
+      "stance_input_at": {
+        "ms": 4400.0,
+        "leg": "RL",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "swing_input": 46.60632570670111,
+      "swing_input_at": {
+        "ms": 4420.0,
+        "leg": "RL",
+        "phase": 1.00779636064,
+        "blend": 0
+      }
+    },
+    "crab/side_l/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.861499635109901,
+      "stance_output": 47.30648694368729,
+      "stance_output_at": {
+        "ms": 12700.0,
+        "leg": "FL",
+        "phase": 6.47911116027,
+        "blend": 0
+      },
+      "swing_output": 46.96377262722486,
+      "swing_output_at": {
+        "ms": 7700.0,
+        "leg": "RL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "stance_input": 66.73389543208617,
+      "stance_input_at": {
+        "ms": 12700.0,
+        "leg": "FL",
+        "phase": 6.47911116027,
+        "blend": 0
+      },
+      "swing_input": 66.56587067303168,
+      "swing_input_at": {
+        "ms": 7700.0,
+        "leg": "RL",
+        "phase": 2.24104381312,
+        "blend": 0
+      }
+    },
+    "crab/side_l/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.8363670856451435,
+      "stance_output": 47.42181078723659,
+      "stance_output_at": {
+        "ms": 4800.0,
+        "leg": "FL",
+        "phase": 1.48279636064,
+        "blend": 0
+      },
+      "swing_output": 46.840190599287375,
+      "swing_output_at": {
+        "ms": 4800.0,
+        "leg": "FL",
+        "phase": 1.48279636064,
+        "blend": 0
+      },
+      "stance_input": 66.7908617630492,
+      "stance_input_at": {
+        "ms": 4800.0,
+        "leg": "FL",
+        "phase": 1.48279636064,
+        "blend": 0
+      },
+      "swing_input": 66.50546527480728,
+      "swing_input_at": {
+        "ms": 4800.0,
+        "leg": "FL",
+        "phase": 1.48279636064,
+        "blend": 0
+      }
+    },
+    "crab/side_r/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.0269065541989235,
+      "stance_output": 43.25265835894505,
+      "stance_output_at": {
+        "ms": 7700.0,
+        "leg": "FL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "swing_output": 42.68168469455975,
+      "swing_output_at": {
+        "ms": 7720.0,
+        "leg": "FL",
+        "phase": 2.25771047238,
+        "blend": 0
+      },
+      "stance_input": 64.78223549611856,
+      "stance_input_at": {
+        "ms": 7700.0,
+        "leg": "FL",
+        "phase": 2.24104381312,
+        "blend": 0
+      },
+      "swing_input": 64.51277840880233,
+      "swing_input_at": {
+        "ms": 7720.0,
+        "leg": "FL",
+        "phase": 2.25771047238,
+        "blend": 0
+      }
+    },
+    "crab/side_r/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 3.195900288547662,
+      "stance_output": 38.91432416604292,
+      "stance_output_at": {
+        "ms": 4400.0,
+        "leg": "RL",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "swing_output": 37.969860032319275,
+      "swing_output_at": {
+        "ms": 4420.0,
+        "leg": "RL",
+        "phase": 1.00779636064,
+        "blend": 0
+      },
+      "stance_input": 62.78213560885294,
+      "stance_input_at": {
+        "ms": 4400.0,
+        "leg": "RL",
+        "phase": 0.982796497741,
+        "blend": 0
+      },
+      "swing_input": 62.3574758092074,
+      "swing_input_at": {
+        "ms": 4420.0,
+        "leg": "RL",
+        "phase": 1.00779636064,
+        "blend": 0
+      }
+    }
+  },
+  "after": {
+    "walk/fwd/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.157003956248957,
+      "stance_output": 59.93146308211683,
+      "stance_output_at": {
+        "ms": 17780.0,
+        "leg": "RR",
+        "phase": 18.9608646521,
+        "blend": 1
+      },
+      "swing_output": 43.37530712670332,
+      "swing_output_at": {
+        "ms": 17760.0,
+        "leg": "RR",
+        "phase": 18.9164202077,
+        "blend": 1
+      },
+      "stance_input": 31.020984470258988,
+      "stance_input_at": {
+        "ms": 8280.0,
+        "leg": "FL",
+        "phase": 5.44104310296,
+        "blend": 0
+      },
+      "swing_input": 26.254029056318352,
+      "swing_input_at": {
+        "ms": 14160.0,
+        "leg": "FR",
+        "phase": 11.9750575103,
+        "blend": 0.000829674499761
+      }
+    },
+    "walk/fwd/max": {
+      "leg_poses": 8564,
+      "reversals": 0,
+      "straightening_clearance_mm": 7.891720794852112,
+      "stance_output": 63.12949342783021,
+      "stance_output_at": {
+        "ms": 1620.0,
+        "leg": "FR",
+        "phase": 1.93279308546,
+        "blend": 0
+      },
+      "swing_output": 60.155632973324046,
+      "swing_output_at": {
+        "ms": 1640.0,
+        "leg": "FR",
+        "phase": 1.96612641879,
+        "blend": 0
+      },
+      "stance_input": 31.672879279363187,
+      "stance_input_at": {
+        "ms": 1620.0,
+        "leg": "FR",
+        "phase": 1.93279308546,
+        "blend": 0
+      },
+      "swing_input": 27.851173756967523,
+      "swing_input_at": {
+        "ms": 1640.0,
+        "leg": "FR",
+        "phase": 1.96612641879,
+        "blend": 0
+      }
+    },
+    "walk/back/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 6.928893798496318,
+      "stance_output": 57.94263076133377,
+      "stance_output_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      },
+      "swing_output": 56.27014774114507,
+      "swing_output_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      },
+      "stance_input": 26.938738757308542,
+      "stance_input_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      },
+      "swing_input": 23.515907347310435,
+      "swing_input_at": {
+        "ms": 14560.0,
+        "leg": "RR",
+        "phase": 12.476834242,
+        "blend": 0.0374889509944
+      }
+    },
+    "walk/back/max": {
+      "leg_poses": 8588,
+      "reversals": 0,
+      "straightening_clearance_mm": 7.393950885766131,
+      "stance_output": 59.38014172569132,
+      "stance_output_at": {
+        "ms": 2860.0,
+        "leg": "RR",
+        "phase": 2.46905553974,
+        "blend": 0
+      },
+      "swing_output": 58.17585340833563,
+      "swing_output_at": {
+        "ms": 3160.0,
+        "leg": "RL",
+        "phase": 2.96506600019,
+        "blend": 0
+      },
+      "stance_input": 28.71019788214923,
+      "stance_input_at": {
+        "ms": 2860.0,
+        "leg": "RR",
+        "phase": 2.46905553974,
+        "blend": 0
+      },
+      "swing_input": 25.252996979832556,
+      "swing_input_at": {
+        "ms": 3160.0,
+        "leg": "RL",
+        "phase": 2.96506600019,
+        "blend": 0
+      }
+    },
+    "walk/turn_l/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.05366946430135,
+      "stance_output": 78.19049264503818,
+      "stance_output_at": {
+        "ms": 15620.0,
+        "leg": "RR",
+        "phase": 14.2309227193,
+        "blend": 0.69727919793
+      },
+      "swing_output": 64.52622230221031,
+      "swing_output_at": {
+        "ms": 15060.0,
+        "leg": "RR",
+        "phase": 13.2462698926,
+        "blend": 0.254758985182
+      },
+      "stance_input": 79.25046968351587,
+      "stance_input_at": {
+        "ms": 15620.0,
+        "leg": "RR",
+        "phase": 14.2309227193,
+        "blend": 0.69727919793
+      },
+      "swing_input": 75.95297562138254,
+      "swing_input_at": {
+        "ms": 15560.0,
+        "leg": "RR",
+        "phase": 14.1164315195,
+        "blend": 0.647385272313
+      }
+    },
+    "walk/turn_l/max": {
+      "leg_poses": 8564,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.863661004847401,
+      "stance_output": 80.90034148694852,
+      "stance_output_at": {
+        "ms": 9280.0,
+        "leg": "RL",
+        "phase": 14.6994597521,
+        "blend": 0
+      },
+      "swing_output": 71.03592355463661,
+      "swing_output_at": {
+        "ms": 13560.0,
+        "leg": "RL",
+        "phase": 21.8327930855,
+        "blend": 0
+      },
+      "stance_input": 81.24386387423162,
+      "stance_input_at": {
+        "ms": 16480.0,
+        "leg": "RL",
+        "phase": 26.6994597521,
+        "blend": 0
+      },
+      "swing_input": 80.53396009164138,
+      "swing_input_at": {
+        "ms": 20140.0,
+        "leg": "RL",
+        "phase": 32.795881877,
+        "blend": 0
+      }
+    },
+    "walk/turn_r/auto": {
+      "leg_poses": 11876,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.048280207131725,
+      "stance_output": 78.46571640638267,
+      "stance_output_at": {
+        "ms": 15860.0,
+        "leg": "FR",
+        "phase": 14.7134104084,
+        "blend": 0.873346140344
+      },
+      "swing_output": 62.14437564658267,
+      "swing_output_at": {
+        "ms": 15380.0,
+        "leg": "FR",
+        "phase": 13.7871534669,
+        "blend": 0.495572632275
+      },
+      "stance_input": 80.55654886763512,
+      "stance_input_at": {
+        "ms": 21500.0,
+        "leg": "RR",
+        "phase": 25.8671226988,
+        "blend": 0.512689990069
+      },
+      "swing_input": 77.90090991684283,
+      "swing_input_at": {
+        "ms": 16120.0,
+        "leg": "FL",
+        "phase": 15.2732614818,
+        "blend": 0.981769465713
+      }
+    },
+    "walk/turn_r/max": {
+      "leg_poses": 8564,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.78708041356031,
+      "stance_output": 80.90032919573501,
+      "stance_output_at": {
+        "ms": 14980.0,
+        "leg": "RR",
+        "phase": 24.1994597521,
+        "blend": 0
+      },
+      "swing_output": 71.03592685906116,
+      "swing_output_at": {
+        "ms": 6660.0,
+        "leg": "RR",
+        "phase": 10.3327930855,
+        "blend": 0
+      },
+      "stance_input": 81.24384437371934,
+      "stance_input_at": {
+        "ms": 4780.0,
+        "leg": "RR",
+        "phase": 7.19945975213,
+        "blend": 0
+      },
+      "swing_input": 80.83767280800822,
+      "swing_input_at": {
+        "ms": 1100.0,
+        "leg": "FR",
+        "phase": 1.06612641879,
+        "blend": 0
+      }
+    },
+    "crawl/fwd/auto": {
+      "leg_poses": 7820,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 48.05788214345651,
+      "stance_output_at": {
+        "ms": 8160.0,
+        "leg": "RR",
+        "phase": 4.19659865852,
+        "blend": 0
+      },
+      "swing_output": 44.876897541240304,
+      "swing_output_at": {
+        "ms": 12640.0,
+        "leg": "RR",
+        "phase": 9.30226708031,
+        "blend": 0
+      },
+      "stance_input": 75.8313604394247,
+      "stance_input_at": {
+        "ms": 13040.0,
+        "leg": "RL",
+        "phase": 9.96847367105,
+        "blend": 0
+      },
+      "swing_input": 75.33250057779433,
+      "swing_input_at": {
+        "ms": 7280.0,
+        "leg": "FR",
+        "phase": 3.21882088078,
+        "blend": 0
+      }
+    },
+    "crawl/fwd/max": {
+      "leg_poses": 8628,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 47.86932669902202,
+      "stance_output_at": {
+        "ms": 3780.0,
+        "leg": "RR",
+        "phase": 2.19945975213,
+        "blend": 0
+      },
+      "swing_output": 44.89957316440171,
+      "swing_output_at": {
+        "ms": 3840.0,
+        "leg": "RR",
+        "phase": 2.29945975213,
+        "blend": 0
+      },
+      "stance_input": 76.0505559165057,
+      "stance_input_at": {
+        "ms": 20160.0,
+        "leg": "RR",
+        "phase": 29.4936834423,
+        "blend": 0
+      },
+      "swing_input": 75.26816901473333,
+      "swing_input_at": {
+        "ms": 2880.0,
+        "leg": "FL",
+        "phase": 0.708250629467,
+        "blend": 0
+      }
+    },
+    "crawl/back/auto": {
+      "leg_poses": 7844,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 48.17383941081478,
+      "stance_output_at": {
+        "ms": 13060.0,
+        "leg": "FR",
+        "phase": 9.22180700438,
+        "blend": 0
+      },
+      "swing_output": 45.306809676633065,
+      "swing_output_at": {
+        "ms": 18120.0,
+        "leg": "FL",
+        "phase": 17.6531046265,
+        "blend": 0
+      },
+      "stance_input": 71.77837487937433,
+      "stance_input_at": {
+        "ms": 8640.0,
+        "leg": "FR",
+        "phase": 3.94994072826,
+        "blend": 0
+      },
+      "swing_input": 71.43492783788672,
+      "swing_input_at": {
+        "ms": 8680.0,
+        "leg": "FR",
+        "phase": 3.99437644025,
+        "blend": 0
+      }
+    },
+    "crawl/back/max": {
+      "leg_poses": 8468,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 48.29426063102772,
+      "stance_output_at": {
+        "ms": 5320.0,
+        "leg": "FR",
+        "phase": 3.23173257783,
+        "blend": 0
+      },
+      "swing_output": 45.348297420779076,
+      "swing_output_at": {
+        "ms": 4960.0,
+        "leg": "FL",
+        "phase": 2.63270323692,
+        "blend": 0
+      },
+      "stance_input": 75.67178592453821,
+      "stance_input_at": {
+        "ms": 20000.0,
+        "leg": "RL",
+        "phase": 27.6983992445,
+        "blend": 0
+      },
+      "swing_input": 75.27872574250655,
+      "swing_input_at": {
+        "ms": 20020.0,
+        "leg": "RL",
+        "phase": 27.7317306403,
+        "blend": 0
+      }
+    },
+    "crawl/turn_l/auto": {
+      "leg_poses": 7820,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 49.950555069094115,
+      "stance_output_at": {
+        "ms": 7740.0,
+        "leg": "FL",
+        "phase": 3.72993199185,
+        "blend": 0
+      },
+      "swing_output": 47.987660151525134,
+      "swing_output_at": {
+        "ms": 7680.0,
+        "leg": "FL",
+        "phase": 3.66326532519,
+        "blend": 0
+      },
+      "stance_input": 77.62266171311013,
+      "stance_input_at": {
+        "ms": 7300.0,
+        "leg": "FR",
+        "phase": 3.24104310296,
+        "blend": 0
+      },
+      "swing_input": 77.27349751380838,
+      "swing_input_at": {
+        "ms": 7280.0,
+        "leg": "FR",
+        "phase": 3.21882088078,
+        "blend": 0
+      }
+    },
+    "crawl/turn_l/max": {
+      "leg_poses": 8628,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 48.858082975086866,
+      "stance_output_at": {
+        "ms": 3020.0,
+        "leg": "FR",
+        "phase": 0.932824237899,
+        "blend": 0
+      },
+      "swing_output": 46.85745985803513,
+      "swing_output_at": {
+        "ms": 3080.0,
+        "leg": "FR",
+        "phase": 1.03279308546,
+        "blend": 0
+      },
+      "stance_input": 77.5950525622211,
+      "stance_input_at": {
+        "ms": 20000.0,
+        "leg": "FR",
+        "phase": 29.2327930855,
+        "blend": 0
+      },
+      "swing_input": 77.30814262373394,
+      "swing_input_at": {
+        "ms": 10980.0,
+        "leg": "FR",
+        "phase": 14.1994597521,
+        "blend": 0
+      }
+    },
+    "crawl/turn_r/auto": {
+      "leg_poses": 7820,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 50.08214106004565,
+      "stance_output_at": {
+        "ms": 16800.0,
+        "leg": "FR",
+        "phase": 16.2351403377,
+        "blend": 0
+      },
+      "swing_output": 47.559640924298726,
+      "swing_output_at": {
+        "ms": 18200.0,
+        "leg": "FL",
+        "phase": 18.5559281464,
+        "blend": 0
+      },
+      "stance_input": 77.48917905740704,
+      "stance_input_at": {
+        "ms": 11340.0,
+        "leg": "FL",
+        "phase": 7.72993199185,
+        "blend": 0
+      },
+      "swing_input": 77.26242660946744,
+      "swing_input_at": {
+        "ms": 12220.0,
+        "leg": "FL",
+        "phase": 8.71103725585,
+        "blend": 0
+      }
+    },
+    "crawl/turn_r/max": {
+      "leg_poses": 8628,
+      "reversals": 0,
+      "straightening_clearance_mm": 17.071387824684166,
+      "stance_output": 50.05090664131493,
+      "stance_output_at": {
+        "ms": 18800.0,
+        "leg": "FR",
+        "phase": 27.2327930855,
+        "blend": 0
+      },
+      "swing_output": 47.601250336824165,
+      "swing_output_at": {
+        "ms": 20200.0,
+        "leg": "FL",
+        "phase": 29.5535808941,
+        "blend": 0
+      },
+      "stance_input": 76.54640111356377,
+      "stance_input_at": {
+        "ms": 3020.0,
+        "leg": "FR",
+        "phase": 0.932824237899,
+        "blend": 0
+      },
+      "swing_input": 76.24341579810806,
+      "swing_input_at": {
+        "ms": 3060.0,
+        "leg": "FR",
+        "phase": 0.999459752127,
+        "blend": 0
+      }
+    },
+    "run/fwd/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 3.903216117587334,
+      "stance_output": 59.35142470138315,
+      "stance_output_at": {
+        "ms": 14920.0,
+        "leg": "RL",
+        "phase": 13.9591675208,
+        "blend": 1
+      },
+      "swing_output": 42.01219781396624,
+      "swing_output_at": {
+        "ms": 7320.0,
+        "leg": "RR",
+        "phase": 4.91812922412,
+        "blend": 1
+      },
+      "stance_input": 42.54445791505526,
+      "stance_input_at": {
+        "ms": 14900.0,
+        "leg": "FL",
+        "phase": 13.9147230764,
+        "blend": 1
+      },
+      "swing_input": 29.02358024065619,
+      "swing_input_at": {
+        "ms": 14940.0,
+        "leg": "FL",
+        "phase": 14.0036119653,
+        "blend": 1
+      }
+    },
+    "run/fwd/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.436966124216461,
+      "stance_output": 57.40823534342177,
+      "stance_output_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_output": 44.833609817103785,
+      "swing_output_at": {
+        "ms": 2080.0,
+        "leg": "RL",
+        "phase": 2.89840239783,
+        "blend": 1
+      },
+      "stance_input": 46.23483817410409,
+      "stance_input_at": {
+        "ms": 20080.0,
+        "leg": "FR",
+        "phase": 47.898396114,
+        "blend": 1
+      },
+      "swing_input": 27.22615443633436,
+      "swing_input_at": {
+        "ms": 20120.0,
+        "leg": "FR",
+        "phase": 47.998396114,
+        "blend": 1
+      }
+    },
+    "run/back/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 8.18310712469281,
+      "stance_output": 69.03572192486766,
+      "stance_output_at": {
+        "ms": 14920.0,
+        "leg": "RL",
+        "phase": 13.9591675208,
+        "blend": 1
+      },
+      "swing_output": 61.28817072346409,
+      "swing_output_at": {
+        "ms": 7780.0,
+        "leg": "FL",
+        "phase": 5.42924033523,
+        "blend": 1
+      },
+      "stance_input": 44.381737941255835,
+      "stance_input_at": {
+        "ms": 14920.0,
+        "leg": "RL",
+        "phase": 13.9591675208,
+        "blend": 1
+      },
+      "swing_input": 35.20082425265587,
+      "swing_input_at": {
+        "ms": 7320.0,
+        "leg": "RR",
+        "phase": 4.91812922412,
+        "blend": 1
+      }
+    },
+    "run/back/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 8.501469720666954,
+      "stance_output": 68.81331807574315,
+      "stance_output_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_output": 62.50484192821299,
+      "swing_output_at": {
+        "ms": 2300.0,
+        "leg": "FL",
+        "phase": 3.44839611405,
+        "blend": 1
+      },
+      "stance_input": 44.900300409602146,
+      "stance_input_at": {
+        "ms": 1900.0,
+        "leg": "FL",
+        "phase": 2.45286891198,
+        "blend": 1
+      },
+      "swing_input": 36.56516534532878,
+      "swing_input_at": {
+        "ms": 2080.0,
+        "leg": "RR",
+        "phase": 2.89840239783,
+        "blend": 1
+      }
+    },
+    "run/turn_l/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.027689043586115,
+      "stance_output": 79.31581019080453,
+      "stance_output_at": {
+        "ms": 20740.0,
+        "leg": "RL",
+        "phase": 26.242445834,
+        "blend": 1
+      },
+      "swing_output": 65.58191484169456,
+      "swing_output_at": {
+        "ms": 20680.0,
+        "leg": "FR",
+        "phase": 26.1924086209,
+        "blend": 1
+      },
+      "stance_input": 81.99972264465738,
+      "stance_input_at": {
+        "ms": 19420.0,
+        "leg": "RL",
+        "phase": 23.9591675208,
+        "blend": 1
+      },
+      "swing_input": 78.01132585822806,
+      "swing_input_at": {
+        "ms": 23160.0,
+        "leg": "FR",
+        "phase": 28.259112504,
+        "blend": 1
+      }
+    },
+    "run/turn_l/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.029230662989484,
+      "stance_output": 79.3421562178625,
+      "stance_output_at": {
+        "ms": 3020.0,
+        "leg": "RL",
+        "phase": 5.24839611405,
+        "blend": 1
+      },
+      "swing_output": 65.41710092353654,
+      "swing_output_at": {
+        "ms": 20200.0,
+        "leg": "FR",
+        "phase": 48.1960977747,
+        "blend": 1
+      },
+      "stance_input": 82.49971788920185,
+      "stance_input_at": {
+        "ms": 13840.0,
+        "leg": "RL",
+        "phase": 32.298396114,
+        "blend": 1
+      },
+      "swing_input": 77.78665169289482,
+      "swing_input_at": {
+        "ms": 20200.0,
+        "leg": "FL",
+        "phase": 48.1960977747,
+        "blend": 1
+      }
+    },
+    "run/turn_r/auto": {
+      "leg_poses": 12260,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.027697934127474,
+      "stance_output": 79.31578463814782,
+      "stance_output_at": {
+        "ms": 25540.0,
+        "leg": "RR",
+        "phase": 30.2424458374,
+        "blend": 1
+      },
+      "swing_output": 65.58192013360367,
+      "swing_output_at": {
+        "ms": 20680.0,
+        "leg": "FL",
+        "phase": 26.1924086209,
+        "blend": 1
+      },
+      "stance_input": 81.99972918975128,
+      "stance_input_at": {
+        "ms": 17620.0,
+        "leg": "RR",
+        "phase": 19.9591675208,
+        "blend": 1
+      },
+      "swing_input": 78.01133641238029,
+      "swing_input_at": {
+        "ms": 24360.0,
+        "leg": "FL",
+        "phase": 29.259112504,
+        "blend": 1
+      }
+    },
+    "run/turn_r/max": {
+      "leg_poses": 8772,
+      "reversals": 0,
+      "straightening_clearance_mm": 14.029252880415378,
+      "stance_output": 79.34212966473903,
+      "stance_output_at": {
+        "ms": 5420.0,
+        "leg": "RR",
+        "phase": 11.248396114,
+        "blend": 1
+      },
+      "swing_output": 65.41714033653275,
+      "swing_output_at": {
+        "ms": 20200.0,
+        "leg": "FL",
+        "phase": 48.1960977747,
+        "blend": 1
+      },
+      "stance_input": 82.49970451591571,
+      "stance_input_at": {
+        "ms": 13040.0,
+        "leg": "RR",
+        "phase": 30.298396114,
+        "blend": 1
+      },
+      "swing_input": 77.78664129094179,
+      "swing_input_at": {
+        "ms": 20200.0,
+        "leg": "FR",
+        "phase": 48.1960977747,
+        "blend": 1
+      }
+    },
+    "crab/fwd/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 9.916869321147864,
+      "stance_output": 67.84720499804136,
+      "stance_output_at": {
+        "ms": 9500.0,
+        "leg": "FR",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "swing_output": 67.6821925016979,
+      "swing_output_at": {
+        "ms": 9500.0,
+        "leg": "FR",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "stance_input": 68.96887370210527,
+      "stance_input_at": {
+        "ms": 9500.0,
+        "leg": "RL",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "swing_input": 68.73696312853835,
+      "swing_input_at": {
+        "ms": 9520.0,
+        "leg": "RL",
+        "phase": 3.00771047238,
+        "blend": 0
+      }
+    },
+    "crab/fwd/max": {
+      "leg_poses": 8604,
+      "reversals": 0,
+      "straightening_clearance_mm": 9.916037677232772,
+      "stance_output": 67.93272924673879,
+      "stance_output_at": {
+        "ms": 5820.0,
+        "leg": "FR",
+        "phase": 1.99059905401,
+        "blend": 0
+      },
+      "swing_output": 67.67925088873287,
+      "swing_output_at": {
+        "ms": 5820.0,
+        "leg": "FR",
+        "phase": 1.99059905401,
+        "blend": 0
+      },
+      "stance_input": 70.71405707446812,
+      "stance_input_at": {
+        "ms": 20020.0,
+        "leg": "FR",
+        "phase": 19.7405984334,
+        "blend": 0
+      },
+      "swing_input": 70.42881667657078,
+      "swing_input_at": {
+        "ms": 20040.0,
+        "leg": "FR",
+        "phase": 19.7655893006,
+        "blend": 0
+      }
+    },
+    "crab/back/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 9.497738628929163,
+      "stance_output": 66.39347579574977,
+      "stance_output_at": {
+        "ms": 11900.0,
+        "leg": "RL",
+        "phase": 3.98937716612,
+        "blend": 0
+      },
+      "swing_output": 66.18555141958326,
+      "swing_output_at": {
+        "ms": 11920.0,
+        "leg": "RL",
+        "phase": 4.00604380571,
+        "blend": 0
+      },
+      "stance_input": 70.64026030621069,
+      "stance_input_at": {
+        "ms": 12700.0,
+        "leg": "RR",
+        "phase": 4.7274444936,
+        "blend": 0
+      },
+      "swing_input": 70.48476556290787,
+      "swing_input_at": {
+        "ms": 11900.0,
+        "leg": "FR",
+        "phase": 3.98937716612,
+        "blend": 0
+      }
+    },
+    "crab/back/max": {
+      "leg_poses": 8620,
+      "reversals": 0,
+      "straightening_clearance_mm": 9.971657693946106,
+      "stance_output": 67.8757454542114,
+      "stance_output_at": {
+        "ms": 8040.0,
+        "leg": "RL",
+        "phase": 3.99840034125,
+        "blend": 0
+      },
+      "swing_output": 67.99694592243422,
+      "swing_output_at": {
+        "ms": 20060.0,
+        "leg": "RL",
+        "phase": 19.0233523848,
+        "blend": 0
+      },
+      "stance_input": 70.71793215037893,
+      "stance_input_at": {
+        "ms": 6820.0,
+        "leg": "FL",
+        "phase": 2.47716278337,
+        "blend": 0
+      },
+      "swing_input": 70.59280310545762,
+      "swing_input_at": {
+        "ms": 6820.0,
+        "leg": "FL",
+        "phase": 2.47716278337,
+        "blend": 0
+      }
+    },
+    "crab/turn_l/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.615938122429725,
+      "stance_output": 51.085362542152545,
+      "stance_output_at": {
+        "ms": 12480.0,
+        "leg": "RR",
+        "phase": 5.49432354844,
+        "blend": 0
+      },
+      "swing_output": 50.54249710521798,
+      "swing_output_at": {
+        "ms": 12500.0,
+        "leg": "RR",
+        "phase": 5.51407453272,
+        "blend": 0
+      },
+      "stance_input": 57.72715320569731,
+      "stance_input_at": {
+        "ms": 15720.0,
+        "leg": "RR",
+        "phase": 9.4962527727,
+        "blend": 0
+      },
+      "swing_input": 57.23128063441099,
+      "swing_input_at": {
+        "ms": 18140.0,
+        "leg": "RR",
+        "phase": 12.520013156,
+        "blend": 0
+      }
+    },
+    "crab/turn_l/max": {
+      "leg_poses": 8604,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.616563880372169,
+      "stance_output": 51.21811435377622,
+      "stance_output_at": {
+        "ms": 16620.0,
+        "leg": "RR",
+        "phase": 15.4905990526,
+        "blend": 0
+      },
+      "swing_output": 50.545367937137826,
+      "swing_output_at": {
+        "ms": 16640.0,
+        "leg": "RR",
+        "phase": 15.5155990526,
+        "blend": 0
+      },
+      "stance_input": 57.90615991353835,
+      "stance_input_at": {
+        "ms": 16620.0,
+        "leg": "RR",
+        "phase": 15.4905990526,
+        "blend": 0
+      },
+      "swing_input": 57.241638489206366,
+      "swing_input_at": {
+        "ms": 16640.0,
+        "leg": "RR",
+        "phase": 15.5155990526,
+        "blend": 0
+      }
+    },
+    "crab/turn_r/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 4.6631490007619405,
+      "stance_output": 46.60894401600124,
+      "stance_output_at": {
+        "ms": 9500.0,
+        "leg": "RL",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "swing_output": 45.980013491815576,
+      "swing_output_at": {
+        "ms": 9520.0,
+        "leg": "RL",
+        "phase": 3.00771047238,
+        "blend": 0
+      },
+      "stance_input": 54.00409801134753,
+      "stance_input_at": {
+        "ms": 9500.0,
+        "leg": "RL",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "swing_input": 53.31035881673209,
+      "swing_input_at": {
+        "ms": 9540.0,
+        "leg": "RL",
+        "phase": 3.02437713904,
+        "blend": 0
+      }
+    },
+    "crab/turn_r/max": {
+      "leg_poses": 8604,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.616574063640897,
+      "stance_output": 51.218145526092286,
+      "stance_output_at": {
+        "ms": 14620.0,
+        "leg": "RL",
+        "phase": 12.9905990526,
+        "blend": 0
+      },
+      "swing_output": 50.545414654364194,
+      "swing_output_at": {
+        "ms": 13840.0,
+        "leg": "RL",
+        "phase": 12.0155990526,
+        "blend": 0
+      },
+      "stance_input": 57.90617795252013,
+      "stance_input_at": {
+        "ms": 14620.0,
+        "leg": "RL",
+        "phase": 12.9905990526,
+        "blend": 0
+      },
+      "swing_input": 57.24165986275377,
+      "swing_input_at": {
+        "ms": 13840.0,
+        "leg": "RL",
+        "phase": 12.0155990526,
+        "blend": 0
+      }
+    },
+    "crab/side_l/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 6.101457941181344,
+      "stance_output": 53.217306220233034,
+      "stance_output_at": {
+        "ms": 12480.0,
+        "leg": "RR",
+        "phase": 5.49432354844,
+        "blend": 0
+      },
+      "swing_output": 52.726683177435994,
+      "swing_output_at": {
+        "ms": 12500.0,
+        "leg": "RR",
+        "phase": 5.51407453272,
+        "blend": 0
+      },
+      "stance_input": 69.70141037815084,
+      "stance_input_at": {
+        "ms": 12480.0,
+        "leg": "RR",
+        "phase": 5.49432354844,
+        "blend": 0
+      },
+      "swing_input": 69.4499955599547,
+      "swing_input_at": {
+        "ms": 12500.0,
+        "leg": "RR",
+        "phase": 5.51407453272,
+        "blend": 0
+      }
+    },
+    "crab/side_l/max": {
+      "leg_poses": 8604,
+      "reversals": 0,
+      "straightening_clearance_mm": 6.09069277945995,
+      "stance_output": 53.3102549350235,
+      "stance_output_at": {
+        "ms": 20020.0,
+        "leg": "FR",
+        "phase": 19.7405984334,
+        "blend": 0
+      },
+      "swing_output": 52.679155334830575,
+      "swing_output_at": {
+        "ms": 20040.0,
+        "leg": "FR",
+        "phase": 19.7655893006,
+        "blend": 0
+      },
+      "stance_input": 69.74926432631666,
+      "stance_input_at": {
+        "ms": 20020.0,
+        "leg": "FR",
+        "phase": 19.7405984334,
+        "blend": 0
+      },
+      "swing_input": 69.42571306483772,
+      "swing_input_at": {
+        "ms": 20040.0,
+        "leg": "FR",
+        "phase": 19.7655893006,
+        "blend": 0
+      }
+    },
+    "crab/side_r/auto": {
+      "leg_poses": 7924,
+      "reversals": 0,
+      "straightening_clearance_mm": 5.25023155316606,
+      "stance_output": 49.37289833265002,
+      "stance_output_at": {
+        "ms": 9500.0,
+        "leg": "RL",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "swing_output": 48.83812012340291,
+      "swing_output_at": {
+        "ms": 9520.0,
+        "leg": "RL",
+        "phase": 3.00771047238,
+        "blend": 0
+      },
+      "stance_input": 67.75646470428332,
+      "stance_input_at": {
+        "ms": 9500.0,
+        "leg": "RL",
+        "phase": 2.99104381312,
+        "blend": 0
+      },
+      "swing_input": 67.48981900412545,
+      "swing_input_at": {
+        "ms": 9520.0,
+        "leg": "RL",
+        "phase": 3.00771047238,
+        "blend": 0
+      }
+    },
+    "crab/side_r/max": {
+      "leg_poses": 8604,
+      "reversals": 0,
+      "straightening_clearance_mm": 6.099852650770288,
+      "stance_output": 53.33022180007037,
+      "stance_output_at": {
+        "ms": 6820.0,
+        "leg": "FL",
+        "phase": 3.24059905262,
+        "blend": 0
+      },
+      "swing_output": 52.719598356949284,
+      "swing_output_at": {
+        "ms": 6840.0,
+        "leg": "FL",
+        "phase": 3.26559905262,
+        "blend": 0
+      },
+      "stance_input": 69.75946842506713,
+      "stance_input_at": {
+        "ms": 6820.0,
+        "leg": "FL",
+        "phase": 3.24059905262,
+        "blend": 0
+      },
+      "swing_input": 69.44637433977289,
+      "swing_input_at": {
+        "ms": 6840.0,
+        "leg": "FL",
+        "phase": 3.26559905262,
+        "blend": 0
+      }
+    }
+  },
+  "native_full_sole": {
+    "leverage": {
+      "walk/fwd/25": {
+        "checked_leg_poses": 1996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.6853863176424753,
+        "stance_output_min_deg": 55.704446361337126,
+        "swing_output_min_deg": 40.80792246931369,
+        "stance_input_min_deg": 31.146469744899765,
+        "swing_input_min_deg": 26.254155599814407
+      },
+      "walk/fwd/50": {
+        "checked_leg_poses": 3980,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.130437576610568,
+        "stance_output_min_deg": 58.5348504448328,
+        "swing_output_min_deg": 37.5748139523162,
+        "stance_input_min_deg": 32.25646665569572,
+        "swing_input_min_deg": 26.253802067464985
+      },
+      "walk/back/25": {
+        "checked_leg_poses": 2028,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 7.362000156646587,
+        "stance_output_min_deg": 60.51520319774243,
+        "swing_output_min_deg": 58.046722561540015,
+        "stance_input_min_deg": 31.00453410920289,
+        "swing_input_min_deg": 26.419132766496286
+      },
+      "walk/back/50": {
+        "checked_leg_poses": 4044,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 7.361942734914564,
+        "stance_output_min_deg": 59.10295156898476,
+        "swing_output_min_deg": 58.04649025680008,
+        "stance_input_min_deg": 28.644798929791158,
+        "swing_input_min_deg": 26.418979376008593
+      },
+      "walk/turn_l/25": {
+        "checked_leg_poses": 1996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.035438076903404,
+        "stance_output_min_deg": 77.13517654778727,
+        "swing_output_min_deg": 60.5906657810049,
+        "stance_input_min_deg": 78.5715822519685,
+        "swing_input_min_deg": 75.95298588649712
+      },
+      "walk/turn_l/50": {
+        "checked_leg_poses": 3980,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.035438076903404,
+        "stance_output_min_deg": 77.72856287699915,
+        "swing_output_min_deg": 60.59064803710476,
+        "stance_input_min_deg": 79.19145599920203,
+        "swing_input_min_deg": 75.95298588649712
+      },
+      "walk/turn_r/25": {
+        "checked_leg_poses": 1996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.03341827925344,
+        "stance_output_min_deg": 78.1260798137567,
+        "swing_output_min_deg": 58.583271472266155,
+        "stance_input_min_deg": 80.62516116819562,
+        "swing_input_min_deg": 77.95331378092956
+      },
+      "walk/turn_r/50": {
+        "checked_leg_poses": 3980,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.03341827925344,
+        "stance_output_min_deg": 78.32923117517764,
+        "swing_output_min_deg": 58.583271472266155,
+        "stance_input_min_deg": 80.28148127805184,
+        "swing_input_min_deg": 77.72660594586561
+      },
+      "crawl/fwd/25": {
+        "checked_leg_poses": 2020,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 47.69641253661921,
+        "swing_output_min_deg": 44.46847602076568,
+        "stance_input_min_deg": 75.77951834076086,
+        "swing_input_min_deg": 75.25424154284045
+      },
+      "crawl/fwd/50": {
+        "checked_leg_poses": 4044,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 48.03349168179045,
+        "swing_output_min_deg": 44.51148343359879,
+        "stance_input_min_deg": 75.82654170129157,
+        "swing_input_min_deg": 75.25424154284045
+      },
+      "crawl/back/25": {
+        "checked_leg_poses": 2004,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 47.99389554401648,
+        "swing_output_min_deg": 45.29467981172774,
+        "stance_input_min_deg": 75.62689126274014,
+        "swing_input_min_deg": 75.19100385547065
+      },
+      "crawl/back/50": {
+        "checked_leg_poses": 4004,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 48.260987422260186,
+        "swing_output_min_deg": 45.27742428108792,
+        "stance_input_min_deg": 75.76443118259732,
+        "swing_input_min_deg": 75.18435338933763
+      },
+      "crawl/turn_l/25": {
+        "checked_leg_poses": 2020,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 49.03075107404522,
+        "swing_output_min_deg": 46.74204744137575,
+        "stance_input_min_deg": 77.46474141484507,
+        "swing_input_min_deg": 77.26123274176496
+      },
+      "crawl/turn_l/50": {
+        "checked_leg_poses": 4044,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 48.94102994464579,
+        "swing_output_min_deg": 46.7420760149416,
+        "stance_input_min_deg": 77.51752668195685,
+        "swing_input_min_deg": 77.26122232946028
+      },
+      "crawl/turn_r/25": {
+        "checked_leg_poses": 2020,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 49.818570141581205,
+        "swing_output_min_deg": 47.9053731294448,
+        "stance_input_min_deg": 76.78309059450996,
+        "swing_input_min_deg": 76.22550865796985
+      },
+      "crawl/turn_r/50": {
+        "checked_leg_poses": 4044,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 17.071387824684166,
+        "stance_output_min_deg": 49.993994813781654,
+        "swing_output_min_deg": 47.90534802637602,
+        "stance_input_min_deg": 76.64679310094695,
+        "swing_input_min_deg": 76.22550865796985
+      },
+      "run/fwd/25": {
+        "checked_leg_poses": 2124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.133545346795771,
+        "stance_output_min_deg": 54.94616026408128,
+        "swing_output_min_deg": 43.251012014103836,
+        "stance_input_min_deg": 39.84894050540171,
+        "swing_input_min_deg": 28.64827074791157
+      },
+      "run/fwd/50": {
+        "checked_leg_poses": 4236,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.133529041708194,
+        "stance_output_min_deg": 58.92513990140834,
+        "swing_output_min_deg": 43.250925504666526,
+        "stance_input_min_deg": 44.05281398370118,
+        "swing_input_min_deg": 27.390022775188754
+      },
+      "run/back/25": {
+        "checked_leg_poses": 2124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 8.217715006477931,
+        "stance_output_min_deg": 67.25862146390388,
+        "swing_output_min_deg": 61.421456157324585,
+        "stance_input_min_deg": 42.761923020235635,
+        "swing_input_min_deg": 35.595217443129975
+      },
+      "run/back/50": {
+        "checked_leg_poses": 4236,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 8.217711006255676,
+        "stance_output_min_deg": 69.52033789908043,
+        "swing_output_min_deg": 61.42144076598266,
+        "stance_input_min_deg": 45.58299585205692,
+        "swing_input_min_deg": 35.42714815287962
+      },
+      "run/turn_l/25": {
+        "checked_leg_poses": 2124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.023207366713741,
+        "stance_output_min_deg": 79.31440501688101,
+        "swing_output_min_deg": 65.63160607534978,
+        "stance_input_min_deg": 81.80219747756206,
+        "swing_input_min_deg": 78.01396688410745
+      },
+      "run/turn_l/50": {
+        "checked_leg_poses": 4236,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.023191822864462,
+        "stance_output_min_deg": 79.31500723310396,
+        "swing_output_min_deg": 65.57391249794104,
+        "stance_input_min_deg": 82.26768908437681,
+        "swing_input_min_deg": 77.60314979903433
+      },
+      "run/turn_r/25": {
+        "checked_leg_poses": 2124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.023206253876289,
+        "stance_output_min_deg": 79.31439175685267,
+        "swing_output_min_deg": 65.63163618977936,
+        "stance_input_min_deg": 81.80219113561478,
+        "swing_input_min_deg": 78.01397567648867
+      },
+      "run/turn_r/50": {
+        "checked_leg_poses": 4236,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 14.02321180910345,
+        "stance_output_min_deg": 79.31497219315332,
+        "swing_output_min_deg": 65.5739266993556,
+        "stance_input_min_deg": 82.26770279065589,
+        "swing_input_min_deg": 77.6031893518491
+      },
+      "crab/fwd/25": {
+        "checked_leg_poses": 2252,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 9.877527245156813,
+        "stance_output_min_deg": 67.80622522870419,
+        "swing_output_min_deg": 67.54291579086501,
+        "stance_input_min_deg": 69.20794767290789,
+        "swing_input_min_deg": 68.73696312853835
+      },
+      "crab/fwd/50": {
+        "checked_leg_poses": 4500,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 9.877534405650017,
+        "stance_output_min_deg": 67.65048796126909,
+        "swing_output_min_deg": 67.54294116234067,
+        "stance_input_min_deg": 68.96887370210527,
+        "swing_input_min_deg": 68.73696312853835
+      },
+      "crab/back/25": {
+        "checked_leg_poses": 2532,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 10.97888064717904,
+        "stance_output_min_deg": 71.11330892582357,
+        "swing_output_min_deg": 69.46084218043067,
+        "stance_input_min_deg": 75.81894530623747,
+        "swing_input_min_deg": 75.64547048257744
+      },
+      "crab/back/50": {
+        "checked_leg_poses": 5052,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 10.969976086267103,
+        "stance_output_min_deg": 71.11330892582357,
+        "swing_output_min_deg": 69.4608397917214,
+        "stance_input_min_deg": 75.77152898782666,
+        "swing_input_min_deg": 75.642191977548
+      },
+      "crab/turn_l/25": {
+        "checked_leg_poses": 2252,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.5320613970524235,
+        "stance_output_min_deg": 51.061072250362365,
+        "swing_output_min_deg": 50.15631978242593,
+        "stance_input_min_deg": 57.80308833674441,
+        "swing_input_min_deg": 56.969838533226856
+      },
+      "crab/turn_l/50": {
+        "checked_leg_poses": 4500,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.532078602491019,
+        "stance_output_min_deg": 50.566363311719066,
+        "swing_output_min_deg": 50.15639927923682,
+        "stance_input_min_deg": 57.36304218688653,
+        "swing_input_min_deg": 56.96989001892882
+      },
+      "crab/turn_r/25": {
+        "checked_leg_poses": 2252,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.663145645108315,
+        "stance_output_min_deg": 47.25512741501044,
+        "swing_output_min_deg": 45.97999668245899,
+        "stance_input_min_deg": 54.54816710121498,
+        "swing_input_min_deg": 53.474015500057625
+      },
+      "crab/turn_r/50": {
+        "checked_leg_poses": 4500,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.6631490007619405,
+        "stance_output_min_deg": 46.60894401600124,
+        "swing_output_min_deg": 45.980013491815576,
+        "stance_input_min_deg": 54.00409801134753,
+        "swing_input_min_deg": 53.310343037027764
+      },
+      "crab/side_l/25": {
+        "checked_leg_poses": 2252,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 6.027112557939994,
+        "stance_output_min_deg": 53.202533105418205,
+        "swing_output_min_deg": 52.39764690848689,
+        "stance_input_min_deg": 69.69434633352209,
+        "swing_input_min_deg": 69.28204870103885
+      },
+      "crab/side_l/50": {
+        "checked_leg_poses": 4500,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 6.027109949335866,
+        "stance_output_min_deg": 52.76602143258334,
+        "swing_output_min_deg": 52.397635330221945,
+        "stance_input_min_deg": 69.47028782641168,
+        "swing_input_min_deg": 69.28204768653907
+      },
+      "crab/side_r/25": {
+        "checked_leg_poses": 2252,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.250240963154198,
+        "stance_output_min_deg": 49.9263568211507,
+        "swing_output_min_deg": 48.83816468601144,
+        "stance_input_min_deg": 68.03442395655226,
+        "swing_input_min_deg": 67.48983878935518
+      },
+      "crab/side_r/50": {
+        "checked_leg_poses": 4500,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.25023155316606,
+        "stance_output_min_deg": 49.37289833265002,
+        "swing_output_min_deg": 48.83812012340291,
+        "stance_input_min_deg": 67.75646470428332,
+        "swing_input_min_deg": 67.48981900412545
+      }
+    },
+    "samples": 14391,
+    "whole_hull_distance_bound_mm": {
+      "walk": 0.14632447972659618,
+      "crawl": 0.1471917681780701
+    },
+    "foot_xy_error_mm": 6.989697430981323e-05,
+    "full_sole_height_error_mm": [
+      0.01816270427295308,
+      0.2240613598533212
+    ],
+    "max_output_step_degrees": 100.1947223692485
+  },
+  "native_tests": {
+    "passed": 30,
+    "skipped": 0,
+    "assertions_enabled": true,
+    "hardware_moved": false,
+    "firmware_flashed": false,
+    "compiled_gestures_unchanged": true,
+    "compiled_servo_mapping_unchanged": true
+  },
+  "firmware_resources": {
+    "before": {
+      "application_bytes": 2369264,
+      "application_sha256": "7057458c5d04d67672c68873d50d1991a4994a0e7c833a72beac773dabaf0ea2",
+      "sdkconfig_sha256": "6350c1e69b0e0c7b52a5c680191249f4f14f7932889930ee83c1d31035afe1b1",
+      "size": {
+        "dram_data": 0,
+        "dram_bss": 0,
+        "dram_rodata": 0,
+        "dram_other": 0,
+        "used_dram": 0,
+        "dram_total": 0,
+        "used_dram_ratio": 0,
+        "dram_remain": 0,
+        "iram_vectors": 0,
+        "iram_text": 0,
+        "iram_other": 0,
+        "used_iram": 0,
+        "iram_total": 0,
+        "used_iram_ratio": 0,
+        "iram_remain": 0,
+        "diram_data": 14664,
+        "diram_bss": 24596,
+        "diram_text": 99234,
+        "diram_vectors": 0,
+        "diram_rodata": 0,
+        "diram_other": 0,
+        "diram_total": 576464,
+        "used_diram": 138494,
+        "used_diram_ratio": 0.2402474395625746,
+        "diram_remain": 437970,
+        "flash_code": 1322798,
+        "flash_rodata": 930984,
+        "flash_other": 536,
+        "used_flash_non_ram": 2254318,
+        "total_size": 2368216
+      }
+    },
+    "after": {
+      "application_bytes": 2369408,
+      "application_sha256": "ec8543b6e2ae8281ea4a97e68d8c348e08e10432248d0bfd6aaef41e6fe1f438",
+      "sdkconfig_sha256": "6350c1e69b0e0c7b52a5c680191249f4f14f7932889930ee83c1d31035afe1b1",
+      "size": {
+        "dram_data": 0,
+        "dram_bss": 0,
+        "dram_rodata": 0,
+        "dram_other": 0,
+        "used_dram": 0,
+        "dram_total": 0,
+        "used_dram_ratio": 0,
+        "dram_remain": 0,
+        "iram_vectors": 0,
+        "iram_text": 0,
+        "iram_other": 0,
+        "used_iram": 0,
+        "iram_total": 0,
+        "used_iram_ratio": 0,
+        "iram_remain": 0,
+        "diram_data": 14664,
+        "diram_bss": 24596,
+        "diram_text": 99234,
+        "diram_vectors": 0,
+        "diram_rodata": 0,
+        "diram_other": 0,
+        "diram_total": 576464,
+        "used_diram": 138494,
+        "used_diram_ratio": 0.2402474395625746,
+        "diram_remain": 437970,
+        "flash_code": 1322926,
+        "flash_rodata": 931000,
+        "flash_other": 536,
+        "used_flash_non_ram": 2254462,
+        "total_size": 2368360
+      }
+    },
+    "p4_timing_measured": false,
+    "hardware_moved": false,
+    "flashed": false
+  },
+  "revision_sources_sha256": {
+    "motion.c": "77ce2bedf1f02be5f10a5c83fcdd8d74dca6d6817bfb719312e6e08c64d7d629",
+    "walk_kinematics.c": "384e31538657a8825ff0aec0d1d86d50243e940e9442855ace575660f1f279c9",
+    "geometry.json": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+    "servo_profile.json": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3",
+    "motions/locomotion/config.json": "3d4fbcb401edcf00b002922847f2206e5574b4c542e1d9752d09d6f85eed403f",
+    "motions/locomotion/crab.json": "c5caf456303bf454b64933873139b9cf1dadaa8f5e506a4c096fb28592f37ae6",
+    "motions/run/config.json": "162a27d0380ce2e73370321eda9cb4f3638de1a8aa3c83ada1ba98091438fb1a",
+    "tools/compile_walk.py": "aad0c63a5a0deaaba19aed3e12d80db93d414c3fe7e67040fd6a92cc87dc2a97"
+  },
+  "deployment": {
+    "timestamp_utc": "2026-09-25T18:57:02.952702+00:00",
+    "application_sha256": "ec8543b6e2ae8281ea4a97e68d8c348e08e10432248d0bfd6aaef41e6fe1f438",
+    "application_bytes": 2369408,
+    "elf_sha256": "2aa15e2987eafa4912016a78f4316d4ba86e804740b804f303ee2c60a5511a70",
+    "gait_commands_sent": false,
+    "chip": "ESP32-P4 (revision v1.3)",
+    "partitions": [
+      {
+        "name": "nvs",
+        "type": 1,
+        "subtype": 2,
+        "offset": "0x9000",
+        "size": 24576
+      },
+      {
+        "name": "phy_init",
+        "type": 1,
+        "subtype": 1,
+        "offset": "0xf000",
+        "size": 4096
+      },
+      {
+        "name": "otadata",
+        "type": 1,
+        "subtype": 0,
+        "offset": "0x10000",
+        "size": 8192
+      },
+      {
+        "name": "ota_0",
+        "type": 0,
+        "subtype": 16,
+        "offset": "0x20000",
+        "size": 8388608
+      },
+      {
+        "name": "ota_1",
+        "type": 0,
+        "subtype": 17,
+        "offset": "0x820000",
+        "size": 8388608
+      },
+      {
+        "name": "littlefs",
+        "type": 1,
+        "subtype": 131,
+        "offset": "0x1020000",
+        "size": 16646144
+      }
+    ],
+    "ota_entries": [
+      {
+        "sequence": 1,
+        "state": 2,
+        "valid": true
+      },
+      {
+        "sequence": 4294967295,
+        "state": 4294967295,
+        "valid": false
+      }
+    ],
+    "application_partition": "ota_0",
+    "application_offset": "0x20000",
+    "preserved_region": "0x00000..0x1ffff",
+    "preserved_before_sha256": "376036bff27f8cf83a1c58e01323976bcd9719fb80d271b3d74d65cc79e5acd8",
+    "flash_verified": true,
+    "flash_md5": "1731f4229d071a0002eb6b167283c09e",
+    "preserved_after_sha256": "376036bff27f8cf83a1c58e01323976bcd9719fb80d271b3d74d65cc79e5acd8",
+    "preserved_region_identical": true,
+    "boot_elf_prefix_verified": true,
+    "boot_application_offset_verified": false,
+    "calibration_valid_saved_clean": true,
+    "boot_panic_observed": false,
+    "serial_reset_dtr_released": true,
+    "status_evidence": [
+      "I (1570) app_init: ELF file SHA256:  2aa15e298...",
+      "home settings valid=1 saved=1 dirty=0; 0 means disabled",
+      "channel=0 home_us=1500",
+      "channel=1 home_us=1270",
+      "channel=2 home_us=1500",
+      "channel=3 home_us=1500",
+      "channel=4 home_us=1500",
+      "channel=5 home_us=1500",
+      "channel=6 home_us=1200",
+      "channel=7 home_us=1230",
+      "channel=8 home_us=1350",
+      "channel=9 home_us=1500",
+      "channel=10 home_us=1315",
+      "channel=11 home_us=1500",
+      "I (15804) controller: Selected controller authenticated epoch=3",
+      "output ready=1 armed=1 fault=0 outstanding=0",
+      "console minimum_free_stack=9708 bytes",
+      "controller configured=1 connected=1 authenticated=1 generation=4 epoch=3",
+      "internal_heap_free=254871 internal_heap_minimum=229583"
+    ],
+    "boot_elf_prefix": "2aa15e298",
+    "controller_authenticated": true,
+    "output_ready_armed_no_fault": true
+  }
 }

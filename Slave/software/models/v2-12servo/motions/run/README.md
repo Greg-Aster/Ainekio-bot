@@ -17,35 +17,25 @@ biological galloping dynamics. The paired timing is informed by
 opens the planted sweep from 80 mm just above 100% to **104 mm at 200%**
 (92 mm at 150%). The maximum is 30% longer than the initial Run prototype.
 Forward Run uses a 10 mm rearward bias at full stride and a chassis translation
-of -6 mm plus 3 mm bob and 4° pitch oscillation around a 6° nose-up bias. The lower Run stance remains through an
-explicit Run Finish; returning to Walk restores its original stance. Backward
-Run and Run turns retain the original 80 mm sweep, 20 mm bias and -2 mm stance.
-All Run directions retain up to 22 mm lift.
+of -9 mm plus 3 mm bob and 4° pitch oscillation around a 3° nose-up bias. Backward
+Run and turns retain the 80 mm sweep and 20 mm bias, with a -8 mm body reference.
+All directions use up to 18 mm lift. Relative to the preceding Run, the lower
+body improves transmission angles; reducing lift from 22 mm preserves reachable
+swing targets during rapid Walk/Run reversals. Stride length and cadence remain.
 
 Forward Run puts the physical front pair inside and rear pair outside. At full
 stride each pair shifts its touchdown lane 8 mm, giving 16 mm nominal lane
 separation. The offset scales with stride and the existing Run transition.
 Targets are selected at liftoff; planted feet stay fixed and airborne feet keep
 their landing targets. Returning to Walk restores its lanes through subsequent
-swings. Shoulder angles compensate for body motion instead of being locked;
-the current CAD convention is positive inward and negative outward. A 6°
-nose-up bias retains linkage reach with these lanes. Sweep, cadence and paired
-contact timing are unchanged. Offset-only candidates failed transition/Finish
-cases; this combined posture passed all 172 Run regression cases.
+swings. Shoulder angles compensate for body motion instead of being locked.
 
 At full forward Run, 42% stance produces about 247.62 mm of modeled advance per
 cycle. Automatic rate is `2+(Speed-100)/150` against a 1.2-second base cycle:
 about 0.6 s just above 100%, 0.514 s at 150%, 0.45 s at 200%. Advanced forward
-Run stride 100% uses the same 104 mm sweep. Original Walk 92/30 and Crawl 18/4
-trajectories and all 39 earlier motion sources remain byte-for-byte unchanged.
-
-Run alone uses the wider linkage search windows supported by the current horn
-indexing: carrier -88.83° to +145.17°, crank -130.41° to +103.59° in CAD-relative
-coordinates. These are research solver windows derived from the selected
-1300 µs reference and provisional 234° conversion, not new firmware pulse caps
-or proof of mechanical clearance. Shoulder search remains ±35°. The selected
-horn centers and reference-only servo-limit behavior are unchanged. A 110 mm
-forward sweep failed some Finish cases; 104 mm passed the regression suite.
+Run stride 100% uses the same 104 mm sweep. These are planned values, not measured
+loaded tracking. Saved calibration, horn centers and reference-only servo limits
+are unchanged; the direct controller adds no solver iterations or pulse caps.
 
 A four-cycle quintic transition changes contact timing, paired phases and body
 motion. Liftoff phases advance to synchronize the pairs instead of delaying a
@@ -70,39 +60,30 @@ as **Walk > Run > Walk** in the existing Blender motion library. After
 regeneration, `refresh_run()` in `tools/append_blender_locomotion.py` replaces
 only this final chapter in the live scene; save a verified rolling recovery first.
 
-`validation.json` records independent linkage/sole calculations: 3,552 samples,
-maximum target error below 0.00001 mm, minimum chassis clearance about 32.32 mm,
-and 233 flight samples. `integration-validation.json` records build/command
-checks and exact parity against all eight original Walk/Crawl profiles.
-The original 39 motion sources remain intact. `clearance-validation.json` checks
-7,103 poses including every native knot and its linear-joint midpoint against
-the current Part027 and Part020/022 meshes: all six pairs of lower-leg assemblies
-remain separate, with at least 2.13 mm conservative sampled separation. This
-specifically resolves the inter-leg crossing; other modeled internal-leg and
-body clearance flags remain. It is not a continuous-time or whole-robot proof.
+`validation.json` records the current regenerated native trajectory against the
+full soles, including transmission angles and linear joint midpoints. The old
+`integration-validation.json` remains historical pre-revision evidence; current
+build and regression results are in [CONTROLLER_VALIDATION.md](../../CONTROLLER_VALIDATION.md)
+and the locomotion validation report. Existing Blender chapters require a separate
+refresh before they depict this code revision. No hardware movement or flash was
+performed for this leverage update.
 
-Recheck against an open/saved current Blender scene with
-`tools/validate_run_clearance.py --midpoints --report /tmp/run-clearance.json`
-using Blender's `--python` entry point. Geometry is read from the actual scene;
-no cached duplicate robot is needed.
+The preceding `clearance-validation.json` is historical evidence for the earlier
+Run, not a collision qualification of these revised joint paths. The earlier
+screen covered all six lower-leg pairs at source keys and linear midpoints;
+whole-robot/body/hardware clearance was not established. Recheck the current
+geometry in Blender using `tools/validate_run_clearance.py --midpoints --report
+/tmp/run-clearance.json` through Blender's `--python` entry point.
 
-With the selected 1300 µs reference and unchanged mounting centers, the demo
-uses approximately **375–2459 µs** under the provisional 234° conversion. It
-still crosses the modeled mechanical clearance envelope; see
-[the range audit](../../mechanics/original-motion-range-audit.md). Those flags
-are not proof of actual part collision. Full-speed motion demands a sampled
-peak of about **2,980°/s** at a leg joint. Loaded servo tracking has not been
-measured, and this kinematic generator has no force/contact/attitude feedback
-that would establish airborne stability. Physical running is unqualified;
-this work does not flash firmware, change NVS calibration, or move the robot.
+The current demonstration still crosses the provisional mechanical envelope;
+see [the range audit](../../mechanics/original-motion-range-audit.md). This is a
+flag for geometric review, not proof of actual part collision. Its unchanged
+1300 us mounting reference maps to approximately 434–2489 us under the provisional
+234-degree conversion. Peak sampled joint demand is about 2,901 degrees/s;
+loaded servo tracking and airborne stability remain unqualified.
 
-Regenerate only this new demonstration from the model directory:
+Regenerate this demonstration with NumPy/SciPy from the model directory:
 
 ```sh
 python tools/generate_locomotion.py --run-only --cli /path/to/v2_walk_command
-python tools/audit_mounting_ranges.py
 ```
-
-Use a Python environment with NumPy/SciPy for the recording generator. The CMake
-native suite includes Run threshold, all directions, repeated transitions,
-Finish, paired contacts/flight, reference provenance and sampled playback parity.

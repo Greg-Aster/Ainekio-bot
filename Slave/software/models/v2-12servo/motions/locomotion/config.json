@@ -14,5 +14,16 @@
     "pitch_deg": 0.25,
     "turn_degrees_per_cycle": 10
   },
-  "hardware_qualified": false
+  "hardware_qualified": false,
+  "walk": {
+    "body_z_mm": -8
+  },
+  "leverage_validation": {
+    "stance_output_min_deg": 45,
+    "swing_output_min_deg": 35,
+    "stance_input_min_deg": 20,
+    "swing_input_min_deg": 20,
+    "straightening_clearance_min_mm": 3,
+    "scope": "Offline gait regression margins, not measured torque limits or servo pulse caps."
+  }
 }

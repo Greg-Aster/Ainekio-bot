@@ -182,6 +182,16 @@
         </form>
         <div class="emote-group">
           <span class="field-label">Named poses and emotes</span>
+          <div id="motion-speed-controls" class="field-group" hidden>
+            <label for="motion-speed">Motion speed (×)</label>
+            <div class="input-with-actions">
+              <input id="motion-speed" type="number" step="any" value="2" aria-describedby="motion-speed-help motion-speed-status" disabled required>
+              <button id="motion-speed-save" type="button" disabled>Save on robot</button>
+              <button id="motion-speed-read" type="button" disabled>Read from robot</button>
+            </div>
+            <p id="motion-speed-help" class="muted">2× plays a motion in half the time. Changes apply to the next named motion, including its entry pose. Walking uses its own Speed control. Saving stops the robot; start a motion to resume.</p>
+            <p id="motion-speed-status" class="muted" role="status">Connect a robot to read its motion speed.</p>
+          </div>
           <div id="motion-catalog" class="emote-grid">
             <button type="button" data-intent="sit">Sit · bored</button>
             <button type="button" data-emote="rest">Rest</button>
@@ -294,28 +304,74 @@
           </div>
         </div>
         <p id="calibration-availability" class="muted" role="status">Connect a robot to calibrate its joints.</p>
-        <form id="servo-form" class="calibration-grid">
-          <label class="calibration-joint-field">Joint<select name="id" data-joint-select required></select></label>
-          <label><span id="servo-target-label">Angle</span><input name="deg" type="number" min="0" max="180" step="0.1" value="90" required></label>
-          <label id="servo-duration-label">Duration ms<input name="ms" type="number" min="0" max="5000" value="400" required></label>
-          <button type="submit">Move joint</button>
-        </form>
-        <div id="calibration-slider-panel" class="calibration-slider-panel" hidden>
-          <label for="calibration-pulse-slider">Pulse target <output id="calibration-slider-value" for="calibration-pulse-slider">—</output></label>
-          <input id="calibration-pulse-slider" type="range" min="1" max="65535" step="1" value="1300" disabled>
-          <p id="calibration-calculated-angle" class="muted">Calculated angle unavailable.</p>
-          <p class="muted">Drag to choose a pulse; release to move. The slider starts at 300–2900 µs and expands to include Home and pulse targets. Numeric entry uses the full controller range.</p>
-          <p id="calibration-draft-status" class="muted"></p>
-          <button id="calibration-use-body-values" type="button">Use controller values</button>
+        <div class="calibration-selection">
+          <label>Physical joint<select name="id" form="servo-form" data-joint-select required></select></label>
+          <p id="calibration-joint-help" class="muted"></p>
         </div>
-        <div id="body-calibration-trim" class="command-row" hidden>
-          <button type="button" data-calibration-trim="-5">−5 µs</button>
-          <button type="button" data-calibration-trim="5">+5 µs</button>
-          <button id="calibration-joint-home-button" type="button">Home selected joint</button>
-          <button id="calibration-use-position-button" type="button">Use commanded pulse as home</button>
-          <button id="calibration-read-button" type="button">Read from body</button>
+        <p id="calibration-feedback" class="calibration-feedback" role="status" aria-live="polite" hidden></p>
+        <div id="calibration-settings" class="calibration-settings" hidden>
+          <section class="calibration-card" aria-labelledby="calibration-readback-title">
+            <div class="calibration-card-heading">
+              <h3 id="calibration-readback-title">On the robot</h3>
+              <button id="calibration-read-button" type="button">Read settings from robot</button>
+            </div>
+            <p id="calibration-readback-status" class="muted">Waiting for settings.</p>
+            <dl class="calibration-readback">
+              <div><dt>PCA9685 output</dt><dd id="calibration-body-channel">—</dd></div>
+              <div><dt>Home pulse</dt><dd id="calibration-body-home">—</dd></div>
+              <div><dt>Model angle at Home</dt><dd id="calibration-body-angle">—</dd></div>
+              <div><dt>Reverse angle direction</dt><dd id="calibration-body-invert">—</dd></div>
+              <div><dt>Servo scale</dt><dd id="calibration-body-scale">—</dd></div>
+              <div><dt>Last commanded pulse</dt><dd id="calibration-body-pulse">—</dd></div>
+            </dl>
+            <p id="calibration-reference-help" class="muted"></p>
+            <p class="muted">These are settings reported by the controller, not measured shaft positions. Reading settings does not move the robot.</p>
+          </section>
+          <section class="calibration-card" aria-labelledby="calibration-edit-title">
+            <h3 id="calibration-edit-title">Edit selected joint</h3>
+            <p id="calibration-draft-status" class="calibration-draft-status"></p>
+            <form id="body-calibration-form" class="calibration-grid" hidden>
+              <input name="id" type="hidden">
+              <label>PCA9685 output (0–11; −1 unassigned)<input name="channel" type="number" min="-1" max="11" step="1" value="0" required></label>
+              <label>Home pulse µs<input name="center" type="number" min="1" max="65535" step="1" value="1300" required></label>
+              <label id="calibration-angle-label" hidden>Model angle at Home °<input name="home_deg" type="number" min="-360" max="360" step="0.01" value="0" disabled required></label>
+              <label id="calibration-scale-label" hidden>Servo scale µs/degree<input name="us_per_degree" type="number" min="0.001" max="100" step="any" value="11.111111" disabled required></label>
+              <label class="switch-row invert-row"><span>Reverse angle direction (Invert)</span><input name="invert" type="checkbox"></label>
+              <button id="calibration-stage-button" type="submit">Apply temporarily</button>
+            </form>
+            <button id="calibration-use-body-values" type="button">Discard local edits</button>
+            <p id="calibration-mapping-help" class="muted" hidden>Home pulse and Model angle at Home describe the same physical pose. Invert reverses angle-driven motion; the pulse test below still sends the exact µs value entered. Apply temporarily sends this joint’s settings without saving them after restart.</p>
+          </section>
         </div>
-        <p id="calibration-pulse-help" class="muted" hidden>Pulse inputs use the body's reported PWM capacity; this does not measure servo travel.</p>
+        <div class="calibration-save-row">
+          <button id="calibration-save-button" class="primary-command" type="button">Save calibration</button>
+          <p id="calibration-save-help" class="muted" hidden>Applies this joint’s fields and saves all settings currently on the robot. Local edits to other joints are not sent. Applying or saving settings turns outputs off; it does not move the servos.</p>
+        </div>
+        <div class="calibration-test">
+          <h3>Test selected joint</h3>
+          <form id="servo-form" class="calibration-grid">
+            <label><span id="servo-target-label">Angle</span><input name="deg" type="number" min="0" max="180" step="0.1" value="90" required></label>
+            <label id="servo-duration-label">Duration ms<input name="ms" type="number" min="0" max="5000" value="400" required></label>
+            <button type="submit">Move joint</button>
+          </form>
+          <div id="calibration-slider-panel" class="calibration-slider-panel" hidden>
+            <label for="calibration-pulse-slider">Pulse target <output id="calibration-slider-value" for="calibration-pulse-slider">—</output></label>
+            <input id="calibration-pulse-slider" type="range" min="1" max="65535" step="1" value="1300" disabled>
+            <p id="calibration-calculated-angle" class="muted">Calculated angle unavailable.</p>
+            <p>Releasing the slider moves this servo. Editing the number alone does not; press Move joint to send it.</p>
+          </div>
+          <div id="body-calibration-trim" class="command-row" hidden>
+            <button type="button" data-calibration-trim="-5">−5 µs</button>
+            <button type="button" data-calibration-trim="5">+5 µs</button>
+            <button id="calibration-joint-home-button" type="button">Move to Home</button>
+            <button id="calibration-use-position-button" type="button">Copy last command to Home field</button>
+          </div>
+          <p id="calibration-pulse-help" class="muted" hidden>Pulse targets use the controller’s output range. These are commands, not measured servo positions.</p>
+          <div class="command-row">
+            <button id="calibration-neutral-button" type="button">All neutral</button>
+            <button id="calibration-detach-button" class="danger-command" type="button">Detach outputs</button>
+          </div>
+        </div>
         <form id="limits-form" class="calibration-grid limits-grid" hidden>
           <label class="calibration-joint-field">Joint<select name="id" data-joint-select required></select></label>
           <label>Minimum<input name="min" type="number" min="0" max="180" step="0.1" value="0" required></label>
@@ -324,21 +380,6 @@
           <label class="switch-row invert-row"><span>Invert</span><input name="invert" type="checkbox"></label>
           <button type="submit">Stage limits</button>
         </form>
-        <form id="body-calibration-form" class="calibration-grid" hidden>
-          <label class="calibration-joint-field">Joint<select name="id" data-joint-select required></select></label>
-          <label>PCA channel (−1 disables)<input name="channel" type="number" min="-1" max="11" step="1" value="0" required></label>
-          <label>Home µs<input name="center" type="number" min="1" max="65535" step="1" value="1600" required></label>
-          <label id="calibration-angle-label" hidden>Model angle at Home °<input name="home_deg" type="number" min="-360" max="360" step="0.01" value="0" disabled required></label>
-          <label id="calibration-scale-label" hidden>Servo scale µs/degree<input name="us_per_degree" type="number" min="0.001" max="100" step="any" value="11.111111" disabled required></label>
-          <label class="switch-row invert-row"><span>Invert</span><input name="invert" type="checkbox"></label>
-          <button id="calibration-stage-button" type="submit">Stage calibration</button>
-        </form>
-        <p id="calibration-mapping-help" class="muted" hidden>Home is the selected 1300 µs mounting reference. The arithmetic midpoint of 300–2900 µs is 1600 µs. The controller supplies the recommended model angle for each joint. Save calibration applies the displayed joint settings and saves them on the body. Moving a joint does not change Home; use “Use commanded pulse as home” to keep that position. Measure the actual shaft travel to set µs/degree, and check the installed direction. Review the mapping before saving it for this profile. Staging does not move a joint.</p>
-        <div class="command-row">
-          <button id="calibration-neutral-button" type="button">All neutral</button>
-          <button id="calibration-detach-button" class="danger-command" type="button">Detach outputs</button>
-          <button id="calibration-save-button" class="primary-command" type="button">Save calibration</button>
-        </div>
       </section>
 
       <section class="control-section controller-section" aria-labelledby="controller-title">

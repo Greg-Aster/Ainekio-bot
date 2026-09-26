@@ -16,15 +16,15 @@ const requests = [];
 const context = { console, URLSearchParams, AbortController, navigator:{getGamepads(){return [];}}, localStorage:{getItem(){return null;}},
   document:{getElementById:node, querySelector:node, querySelectorAll(){return [];}},
   window:{addEventListener(){},clearTimeout(){}},
-  fetch(url,opts){return new Promise((resolve,reject)=>requests.push({url,body:JSON.parse(opts.body),resolve:(seq)=>resolve({ok:true,status:200,json:async()=>({seq})}),reject}));}
+  fetch(url,opts){return new Promise((resolve,reject)=>requests.push({url,body:JSON.parse(opts.body),resolve:(seq)=>resolve({ok:true,status:200,json:async()=>typeof seq === "object" ? seq : ({seq})}),reject}));}
 };
 let source=fs.readFileSync(path.join(__dirname,'../../Master/gateway/dashboard/static/dashboard.js'),'utf8');
 source=source.replace('  if (!setupLogin()) {', `
   globalThis.motionTest = {
-    select(id) { selectedRobotId=id; variableWalking=directionalWalking=true; availableBodyCommands=null; resetWalking(); },
+    select(id) { selectedRobotId=id; variableWalking=directionalWalking=true; availableBodyCommands=null; resetWalking(); updateMotionSpeed(null); },
     state() { return {activeWalkSequence,heldRequestPending,walkRequestPending,activeWalkProfile}; },
     range(supported,crab=false) { runningSupported=supported; crabSupported=crab; updateSpeedRange(); },
-    beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus
+    beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus,updateMotionSpeed,operateMotionSpeed,sendNamedMotion
   };
   if (false) {`);
 vm.createContext(context);vm.runInContext(source,context);
@@ -188,5 +188,35 @@ async function run() {
   const beforeUnsupported=requests.length;await api.applyWalking();
   assert.equal(requests.length,beforeUnsupported);assert.ok(sideways.every(option=>option.disabled));
   console.log('Negotiated Crab directions, Start/Finish, and return to Walk passed.');
+  const ready={model:'v2-12servo',epoch:1,features:['motion_speed_v1']};
+  api.select('speed-a');api.updateMotionSpeed(ready);
+  const staleSpeedRead=requests.at(-1);
+  api.select('speed-b');api.updateMotionSpeed(ready);
+  const liveSpeedRead=requests.at(-1);
+  staleSpeedRead.resolve({seq:2000,motion_speed:{seq:2000,rate:3,saved:true}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(node('motion-speed').value,'2');assert.equal(node('motion-speed').disabled,true);
+  liveSpeedRead.resolve({seq:2001,motion_speed:{seq:2001,rate:1.25,saved:true}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(node('motion-speed').value,'1.25');assert.equal(node('motion-speed').disabled,false);
+  const beforeEdit=requests.length;
+  node('motion-speed').value='2';await node('motion-speed').fire('input');
+  assert.equal(requests.length,beforeEdit,'editing speed must not send movement or save');
+  const wave=api.sendNamedMotion('emote','wave','Wave sent');
+  assert.equal(requests.at(-1).body.params.playback_rate,2);
+  assert.equal(requests.at(-1).body.robot_id,'speed-b');requests.at(-1).resolve(2002);await wave;
+  const save=api.operateMotionSpeed('save'), staleSave=requests.at(-1);
+  assert.equal(staleSave.body.rate,2);assert.equal(staleSave.body.op,'save');
+  api.select('speed-a');api.updateMotionSpeed(ready);
+  const newRead=requests.at(-1);
+  staleSave.resolve({seq:2003,motion_speed:{seq:2003,rate:2,saved:true}});await save;
+  assert.equal(node('motion-speed').disabled,true,'old save cannot unlock new robot settings');
+  newRead.resolve({seq:2004,motion_speed:{seq:2004,rate:.75,saved:true}});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(node('motion-speed').value,'0.75');
+  api.updateMotionSpeed({...ready,features:[]});
+  assert.equal(node('motion-speed').disabled,true);
+  const legacy=api.sendNamedMotion('emote','wave','Wave sent');
+  assert.equal(requests.at(-1).body.params.playback_rate,undefined);requests.at(-1).resolve(2005);await legacy;
+  console.log('Motion speed preview, saved readback, feature gating and delayed robot-selection replies passed.');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

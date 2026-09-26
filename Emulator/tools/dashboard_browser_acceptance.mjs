@@ -13,6 +13,19 @@ const staticRoot = path.join(repoRoot, "Master/gateway/dashboard/static");
 const requests = [];
 const requestWaiters = new Set();
 let nextSequence = 1;
+let calibrationFailure = null;
+let calibrationWrongSequence = false;
+let delayedCalibrationRobot = null;
+let releaseCalibration = null;
+const calibrationByRobot = new Map();
+const motionSpeedByRobot = new Map();
+function calibrationFixture(home = 1300) {
+  return {seq: 0, saved: true, dirty: false, ready: true, profile_confirmed: true,
+    recommended_reference_us: 1300, pulse_min_us: 1, pulse_max_us: 20000,
+    joints: Array.from({length: 12}, (_, id) => ({id, channel: id, home_us: home,
+      home_cd: [0,117,-4041][id % 3], recommended_home_cd: [0,117,-4041][id % 3],
+      us_per_degree: 11.111111, invert: false, pulse_us: id === 8 ? 1370 : home}))};
+}
 
 const statusPayload = {
   profile: "home",
@@ -106,6 +119,38 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname.startsWith("/api/")) {
       const payload = await readRequestBody(request);
       recordRequest({ path: url.pathname, payload });
+      if (url.pathname === "/api/motion-speed") {
+        const state = motionSpeedByRobot.get(payload.robot_id) || {rate:2,saved:false};
+        if (payload.op === "save") {state.rate=payload.rate;state.saved=true;}
+        motionSpeedByRobot.set(payload.robot_id,state);
+        const seq=nextSequence++;
+        json(response,200,{seq,motion_speed:{t:"motion_speed_status",seq,...state}});
+        return;
+      }
+      if (url.pathname === "/api/calibration/body") {
+        const state = calibrationByRobot.get(payload.robot_id);
+        if (!state) throw new Error("Unknown fixture robot");
+        if (calibrationFailure === payload.op) {
+          calibrationFailure = null;
+          json(response, 409, {error: "Fixture: robot read/save failed"});
+          return;
+        }
+        if (payload.op === "set") {
+          const {id, channel, home_us, home_cd, us_per_degree, invert} = payload;
+          Object.assign(state.joints[id], {channel, home_us, home_cd, us_per_degree, invert});
+          state.dirty = true;
+        } else if (payload.op === "save") {
+          state.saved = true; state.dirty = false;
+        }
+        state.seq = nextSequence++;
+        const calibration = structuredClone(state);
+        const seq = state.seq;
+        if (calibrationWrongSequence) {calibrationWrongSequence = false; calibration.seq += 100;}
+        const send = () => json(response, 200, {seq, calibration});
+        if (payload.robot_id === delayedCalibrationRobot) {delayedCalibrationRobot = null; releaseCalibration = send;}
+        else send();
+        return;
+      }
       json(response, 200, { seq: nextSequence++ });
       return;
     }
@@ -234,8 +279,8 @@ function assert(condition, message) {
 }
 
 const expectedEmotes = [
-  "rest", "stand", "wave", "dance", "swim", "point", "pushup", "bow",
-  "cute", "freaky", "worm", "shake", "shrug", "dead", "crab",
+  "rest", "crouch", "wave", "dance", "swim", "point", "pushup", "bow",
+  "cute", "freaky", "worm", "shake", "shrug", "dead", "lay_down", "crab",
   "nod", "celebrate", "stretch",
   "macarena", "salsa", "surprised", "sad", "curious",
   "turn_left_45", "turn_right_45", "turn_left_90", "turn_right_90",
@@ -284,6 +329,7 @@ try {
   });
   await client.send("Page.navigate", { url: `http://127.0.0.1:${webPort}/` });
   await waitFor(client, `document.readyState === "complete" && document.querySelector("#connection-state")?.textContent === "Online"`);
+  assert(await evaluate(client, `document.querySelector('#servo-form').elements.id.options.length === 8 && document.querySelector('#calibration-settings').hidden`), "V1 calibration was changed by the V2 UI");
 
   const emotes = await evaluate(
     client,
@@ -482,13 +528,131 @@ try {
     Buffer.from(loginMobileShot.data, "base64"),
   );
 
+  // V2 calibration runs only against this isolated HTTP fixture, never hardware.
+  statusPayload.robots = Object.fromEntries(["p4-a", "p4-b"].map(id => [id, {
+    connected: true, connection_state: "online", model: "v2-12servo", mode: "calibrate",
+    epoch: 1, next_sequence: 100, pending: 0, heartbeat_age_ms: 10,
+    features: ["body_calibration_v2"], capabilities: {motion: false, commands: []},
+  }]));
+  calibrationByRobot.set("p4-a", calibrationFixture());
+  calibrationByRobot.set("p4-b", calibrationFixture(1600));
+  await evaluate(client, `localStorage.setItem('ainekio-selected-robot', JSON.stringify('p4-a'))`);
+  await client.send("Page.navigate", {url: `http://127.0.0.1:${webPort}/`});
+  await waitFor(client, `document.querySelector('#calibration-body-home')?.textContent === '1300 µs' && !document.querySelector('#calibration-read-button').disabled`);
+  await evaluate(client, `(() => { const s=document.querySelector('#servo-form').elements.id; s.value='8'; s.dispatchEvent(new Event('change', {bubbles:true})); })()`);
+  await waitFor(client, `document.querySelector('#calibration-body-angle').textContent === '-40.41°'`);
+  assert(await evaluate(client, `document.querySelector('#servo-form').elements.id.selectedOptions[0].textContent === 'Front left crank'`), "joint label must describe the physical joint without masquerading as an output number");
+  assert(await evaluate(client, `document.querySelector('#calibration-joint-help').textContent.includes('Part_005') && document.querySelector('#calibration-body-channel').textContent === 'Output 8'`), "joint-to-part and output mapping are missing");
+
+  const setDraft = async (name, value) => evaluate(client, `(() => {
+    const input=document.querySelector('#body-calibration-form').elements[${JSON.stringify(name)}];
+    if(input.type==='checkbox') input.checked=${JSON.stringify(value)}; else input.value=${JSON.stringify(value)};
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  })()`);
+  requests.length = 0;
+  await setDraft('home_deg', '0'); await setDraft('invert', true);
+  assert(requests.length === 0, "editing calibration sent a robot command");
+  await evaluate(client, `document.querySelector('#calibration-read-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').textContent.startsWith('Read complete.') && !document.querySelector('#calibration-read-button').disabled`);
+  const separated = await evaluate(client, `({robotAngle:document.querySelector('#calibration-body-angle').textContent, robotInvert:document.querySelector('#calibration-body-invert').textContent, draftAngle:document.querySelector('#body-calibration-form').elements.home_deg.value, draftInvert:document.querySelector('#body-calibration-form').elements.invert.checked, notice:document.querySelector('#calibration-draft-status').textContent})`);
+  assert(separated.robotAngle === '-40.41°' && separated.robotInvert === 'Off', "readback is hidden by local draft settings");
+  assert(separated.draftAngle === '0' && separated.draftInvert && separated.notice.includes('Local edits'), "read silently discarded or concealed local edits");
+  assert(requests.every(r => r.path === '/api/calibration/body' && r.payload.op === 'get'), "read issued a write or motion");
+
+  const beforeDiscard = requests.length;
+  await evaluate(client, `document.querySelector('#calibration-use-body-values').click()`);
+  assert(await evaluate(client, `document.querySelector('#body-calibration-form').elements.home_deg.value === '-40.41' && !document.querySelector('#body-calibration-form').elements.invert.checked`), "discard did not restore confirmed settings");
+  assert(requests.length === beforeDiscard, "discard sent a command");
+  await evaluate(client, `globalThis.__reloadPending = true`);
+  await client.send("Page.reload");
+  await waitFor(client, `globalThis.__reloadPending !== true && document.readyState === "complete"`);
+  await waitFor(client, `document.querySelector('#calibration-body-angle')?.textContent === '-40.41°' && !document.querySelector('#calibration-read-button').disabled`);
+  assert(await evaluate(client, `document.querySelector('#body-calibration-form').elements.home_deg.value === '-40.41'`), "discarded local edits returned after reload");
+
+  requests.length = 0;
+  await evaluate(client, `document.querySelector('#calibration-use-position-button').click()`);
+  assert(await evaluate(client, `document.querySelector('#body-calibration-form').elements.center.value === '1370' && document.querySelector('#calibration-body-home').textContent === '1300 µs'`), "copy pulse did not stay a local edit");
+  assert(requests.length === 0, "copying a pulse applied settings without an explicit apply/save");
+  await evaluate(client, `document.querySelector('#body-calibration-form').requestSubmit()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').textContent.startsWith('Settings applied temporarily.') && !document.querySelector('#calibration-save-button').disabled`);
+  assert(requests.length === 1 && requests[0].payload.op === 'set' && requests[0].payload.id === 8 && requests[0].payload.home_us === 1370, "temporary apply sent the wrong joint or operation");
+  assert(await evaluate(client, `document.querySelector('#calibration-readback-status').textContent.includes('not saved after restart')`), "temporary and persistent settings are indistinguishable");
+
+  calibrationFailure = 'save';
+  await evaluate(client, `document.querySelector('#calibration-save-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').classList.contains('error') && document.querySelector('#calibration-feedback').textContent.includes('failed')`);
+  assert(!await evaluate(client, `document.querySelector('#calibration-feedback').textContent.includes('successfully')`), "failed save claimed success");
+  await evaluate(client, `document.querySelector('#calibration-read-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').textContent.startsWith('Read complete.') && !document.querySelector('#calibration-save-button').disabled`);
+  await evaluate(client, `document.querySelector('#calibration-save-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').textContent.includes('saved on the robot and read back successfully')`);
+  assert(await evaluate(client, `document.querySelector('#calibration-readback-status').textContent.startsWith('Saved on robot.')`), "save readback is not displayed");
+  assert(requests.every(r => r.path === '/api/calibration/body' && ['get','set','save'].includes(r.payload.op)), "calibration settings operations moved a servo");
+
+  calibrationFailure = 'get';
+  await evaluate(client, `document.querySelector('#calibration-read-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').classList.contains('error')`);
+  assert(await evaluate(client, `document.querySelector('#calibration-body-angle').textContent === '—' && !document.querySelector('#calibration-read-button').disabled`), "failed read left an apparently successful readback or locked retry");
+  calibrationWrongSequence = true;
+  await evaluate(client, `document.querySelector('#calibration-read-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').textContent.includes('did not confirm the requested operation')`);
+
+  delayedCalibrationRobot = 'p4-a';
+  await evaluate(client, `document.querySelector('#calibration-read-button').click()`);
+  await waitFor(client, `document.querySelector('#calibration-feedback').textContent.startsWith('Reading settings') && document.querySelector('#calibration-read-button').disabled`);
+  assert(releaseCalibration, "delayed fixture request was not captured");
+  await evaluate(client, `(() => {const s=document.querySelector('#robot-select');s.value='p4-b';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await waitFor(client, `document.querySelector('#calibration-body-home').textContent === '1600 µs' && !document.querySelector('#calibration-read-button').disabled`);
+  releaseCalibration(); releaseCalibration = null;
+  await delay(150);
+  assert(await evaluate(client, `document.querySelector('#calibration-body-home').textContent === '1600 µs'`), "old robot readback crossed the robot selection");
+
+  for (const [width,height,name] of [[1440,1300,'desktop'],[390,844,'mobile']]) {
+    await client.send('Emulation.setDeviceMetricsOverride', {width,height,deviceScaleFactor:1,mobile:width<500});
+    await evaluate(client, `document.querySelector('.calibration-section').scrollIntoView()`);
+    const layout = await evaluate(client, `({width:innerWidth,scroll:document.documentElement.scrollWidth,visible:!document.querySelector('#calibration-settings').hidden})`);
+    assert(layout.scroll <= layout.width && layout.visible, `V2 calibration ${name} layout overflows or is hidden`);
+    const clip = await evaluate(client, `(() => {const r=document.querySelector('.calibration-section').getBoundingClientRect();return {x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height,scale:1};})()`);
+    const shot = await client.send('Page.captureScreenshot', {format:'png',clip,captureBeyondViewport:true});
+    await writeFile(`/tmp/ainekio-calibration-${name}.png`, Buffer.from(shot.data,'base64'));
+  }
+
   const exceptions = client.events.filter((event) => event.method === "Runtime.exceptionThrown");
   assert(exceptions.length === 0, `dashboard raised ${exceptions.length} browser exceptions`);
+  // Saved named-motion speed uses the isolated robot fixture, never hardware.
+  const speedRobot=statusPayload.robots["p4-a"];
+  speedRobot.features.push("motion_speed_v1");
+  speedRobot.mode="normal";speedRobot.capabilities={motion:true,commands:["stand","sit","wave","stop"]};
+  speedRobot.robot_commands=["stand","sit","wave","stop"];
+  await evaluate(client, `localStorage.setItem('ainekio-selected-robot', JSON.stringify('p4-a'))`);
+  await evaluate(client, `globalThis.__reloadPending = true`);
+  await client.send("Page.reload");
+  await waitFor(client, `globalThis.__reloadPending !== true && document.readyState === "complete"`);
+  await waitFor(client, `document.querySelector('#motion-speed')?.disabled === false`);
+  assert(await evaluate(client, `document.querySelector('#motion-speed').value === '2'`), "motion speed default must be 2x");
+  assert(await evaluate(client, `document.querySelector('#motion-speed').max === '' && document.querySelector('#motion-speed').min === '' && document.querySelector('#motion-speed').step === 'any'`), "motion speed must not impose a range or step cap");
+  requests.length=0;
+  await evaluate(client, `(() => {const s=document.querySelector('#motion-speed');s.value='6.125';s.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  assert(requests.length===0,"speed editing must remain local");
+  await evaluate(client, `document.querySelector('[data-emote="wave"]').click()`);
+  await waitForRequests(() => requests.some(r=>r.path==="/api/intent" && r.payload.params?.asset==="wave"), "Wave request missing");
+  assert(requests.at(-1).payload.params.playback_rate===6.125,"Wave omitted selected speed");
+  await evaluate(client, `document.querySelector('#motion-speed-save').click()`);
+  await waitFor(client, `document.querySelector('#motion-speed-status').textContent.startsWith('Saved on robot: 6.125') && !document.querySelector('#motion-speed-read').disabled`);
+  assert(motionSpeedByRobot.get("p4-a").rate===6.125,"save did not reach robot fixture");
+  await evaluate(client, `globalThis.__reloadPending = true`);
+  await client.send("Page.reload");
+  await waitFor(client, `globalThis.__reloadPending !== true && document.readyState === "complete"`);
+  await waitFor(client, `document.querySelector('#motion-speed')?.value === '6.125' && document.querySelector('#motion-speed')?.disabled === false`);
+  await evaluate(client, `document.querySelector('#motion-speed-controls').scrollIntoView()`);
+  const motionLayout=await evaluate(client, `({width:innerWidth,scroll:document.documentElement.scrollWidth})`);
+  assert(motionLayout.scroll<=motionLayout.width+1,"motion speed controls overflow mobile view");
   assert(chromeErrors.length === 0, chromeErrors.join("\n"));
 
   console.log(JSON.stringify({
     result: "passed",
     checks: [
+      "saved-motion-speed-default-preview-readback",
       "full-emote-catalog",
       "visible-semantic-sit",
       "camera-full-frame",
@@ -502,11 +666,22 @@ try {
       "semantic-commands-only",
       "mobile-no-overflow",
       "login-mobile-no-overflow",
+      "v1-calibration-preserved",
+      "v2-readback-separated-from-drafts",
+      "discard-persists-across-reload",
+      "copy-home-is-local-only",
+      "temporary-apply-and-confirmed-save",
+      "read-and-save-errors-inline",
+      "mismatched-and-late-readback-rejected",
+      "settings-actions-do-not-move-servos",
+      "v2-calibration-desktop-mobile-layout",
     ],
     screenshots: [
       "/tmp/ainekio-dashboard-desktop.png",
       "/tmp/ainekio-dashboard-mobile.png",
       "/tmp/ainekio-dashboard-login-mobile.png",
+      "/tmp/ainekio-calibration-desktop.png",
+      "/tmp/ainekio-calibration-mobile.png",
     ],
   }, null, 2));
 } finally {

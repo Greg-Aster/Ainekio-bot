@@ -4,6 +4,8 @@
 #include "system.h"
 
 #include <stdio.h>
+#include <math.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include "nvs.h"
@@ -19,6 +21,9 @@ static bool boot_configured;
 static SemaphoreHandle_t config_lock;
 static ainekio_p4_calibration_t calibration;
 static ainekio_p4_joint_record_t committed;
+/* Independent of joint calibration. Readers never take the NVS write lock. */
+static _Atomic float motion_rate = AINEKIO_MOTION_RATE_DEFAULT;
+static atomic_bool motion_rate_saved;
 _Static_assert(AINEKIO_BODY_JOINT_COUNT == AINEKIO_PCA_BODY_CHANNELS, "Joint/channel count mismatch");
 
 static bool joints_valid(const ainekio_p4_joint_config_t *joints)
@@ -84,6 +89,14 @@ esp_err_t ainekio_p4_config_init(void)
     const ainekio_config_load_result_t result = ainekio_config_store_load(&store);
     boot_configured = store.has_active;
     boot_config = store.active;
+    float rate = AINEKIO_MOTION_RATE_DEFAULT;
+    const ainekio_store_result_t rate_result = blob("motion_rate", &rate, sizeof(rate), false);
+    const bool rate_valid = rate_result == AINEKIO_STORE_OK &&
+        isfinite(rate) && rate > 0.F;
+    atomic_store(&motion_rate, rate_valid ? rate : AINEKIO_MOTION_RATE_DEFAULT);
+    atomic_store(&motion_rate_saved, rate_valid);
+    if (rate_result != AINEKIO_STORE_NOT_FOUND && !rate_valid)
+        puts("Motion speed unavailable; using 2x until a setting is saved.");
     const bool defaults_valid = ainekio_p4_joint_defaults(calibration.joints);
     const ainekio_store_result_t saved = blob("joint_mapping", &committed, sizeof(committed), false);
     if (saved == AINEKIO_STORE_OK && committed.version == 1 && joints_valid(committed.joints)) {
@@ -97,6 +110,19 @@ esp_err_t ainekio_p4_config_init(void)
     if (!calibration.valid) puts("Joint settings unreadable or invalid; automatic home disabled. Repair and save calibration.");
     printf("configuration load=%d; configured=%d\n", result, store.has_active);
     return result == AINEKIO_CONFIG_LOAD_IO_ERROR ? ESP_FAIL : ESP_OK;
+}
+
+float ainekio_p4_motion_rate(void) { return atomic_load(&motion_rate); }
+bool ainekio_p4_motion_rate_saved(void) { return atomic_load(&motion_rate_saved); }
+esp_err_t ainekio_p4_motion_rate_save(float rate)
+{
+    if (!isfinite(rate) || rate <= 0.F) return ESP_ERR_INVALID_ARG;
+    if (ainekio_pca_status(ainekio_p4_output()).armed) return ESP_ERR_INVALID_STATE;
+    const ainekio_store_result_t result = blob("motion_rate", &rate, sizeof(rate), true);
+    if (result != AINEKIO_STORE_OK) return ESP_FAIL;
+    atomic_store(&motion_rate, rate);
+    atomic_store(&motion_rate_saved, true);
+    return ESP_OK;
 }
 
 const ainekio_config_record_t *ainekio_p4_config(void)
