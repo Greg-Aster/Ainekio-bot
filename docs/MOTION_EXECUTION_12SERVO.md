@@ -22,7 +22,7 @@ scene, implement electrical scheduling, or qualify the robot for physical motion
 
 ## Added command: Dance
 
-[Dance source and execution contract](DANCE_12SERVO.md) adds a thirteenth motion
+[Historical dance source and execution contract](https://github.com/Greg-Aster/Ainekio-bot/blob/b46a5f7da7d25db945ca2c6e6321d344030acc3c/docs/DANCE_12SERVO.md) adds a thirteenth motion
 handoff using the same timing/coordination policy. Its separate versioned package
 contains the 12.5-second demonstration and editable phase timing; the original
 twelve-command supplement and its catalog remain the recorded baseline.
@@ -59,7 +59,7 @@ follows at 2509–2857 in the combined scene.
 
 ## Added command: Bow
 
-[Bow source and execution contract](BOW_12SERVO.md) adapts the V1 stance,
+[Historical bow source and execution contract](https://github.com/Greg-Aster/Ainekio-bot/blob/b46a5f7da7d25db945ca2c6e6321d344030acc3c/docs/BOW_12SERVO.md) adapts the V1 stance,
 front-leg stretch and front-low/rear-high bow, sustained pose and standing return. Its separate
 8.5-second source package contains 120 Hz geometric tracks and the original
 Bow face/reference data. It is the eighteenth named motion handoff, appended

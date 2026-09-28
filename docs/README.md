@@ -29,11 +29,12 @@ implementation boundary.
 | [V1 pinout diagnostics](v1-8servo/PINOUT_DIAGNOSTICS.md) | V1 Freenove header numbering, the flashed GPIO map, peripheral wiring, and expected diagnostic values |
 | [V2 hardware record](v2-12servo/README.md) | Selected ESP32-P4-WIFI6/PCA9685 hardware, design assets, and current implementation limits |
 | [V2 firmware design](v2-12servo/FIRMWARE_DESIGN.md) | V1 review, P4/PCA9685 requirements, controller/Q6A boundaries and staged acceptance |
+| [Body Control Integration](BODY_CONTROL_INTEGRATION.md) | ROS 2's proposed role alongside Ainekio/MetaHuman, recommended native USB/Wi-Fi layout and operating targets, audit findings and remaining implementation work |
+| [Complete robot resource budget](v2-12servo/RESOURCE_BUDGET.md) | Power branches, P4/Q6A memory and processing, all equipment, camera/audio quality, motion timing, pins and wired/Wi-Fi comparisons; reproducible arithmetic and final qualification boundaries |
+| [Budget audit evidence](v2-12servo/BUDGET_AUDIT_EVIDENCE.md) | Repository/source identities, manufacturer references, Q6A Wi-Fi capability readback, offline Kokoro timing/RSS and exclusions of stale evidence |
 | [V2 Step 1 evidence](v2-12servo/STEP1_EVIDENCE.md) | Build/flash commands, tests, actual board/network results and outstanding electrical proof |
 | [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Current robot-body software status, implementation evidence, and deliberately pending work |
 | [AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md](AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md) | Current generic Environment Bridge ownership and closed-loop software status |
-| [BRIDGE_HARDENING_PLAN.md](BRIDGE_HARDENING_PLAN.md) | Live physical-bridge findings, remediation phases, ownership, and acceptance criteria |
-| [BRIDGE_LIVENESS_HANDOFF_2026-07-22.md](BRIDGE_LIVENESS_HANDOFF_2026-07-22.md) | Exact paused controller/gateway state, physical timeout evidence, diagnostic cleanup, and next-session procedure |
 | [LOCAL_WAKE_WORD.md](LOCAL_WAKE_WORD.md) | Owner-local microWakeWord training, packaging, installation, and validation workflow |
 | [freestyle-movement.md](freestyle-movement.md) | Owner-approved bounded motion-plan extension, emulator evidence, and physical enablement gate |
 | [REPOSITORY_MAP.md](REPOSITORY_MAP.md) | Current Master, Slave, Emulator, documentation, and reference ownership map |
