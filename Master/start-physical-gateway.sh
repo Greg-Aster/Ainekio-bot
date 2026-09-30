@@ -37,7 +37,13 @@ GATEWAY_PORT="${AINEKIO_GATEWAY_PORT:-8790}"
 DASHBOARD_HOST="${AINEKIO_DASHBOARD_HOST:-127.0.0.1}"
 DASHBOARD_PORT="${AINEKIO_DASHBOARD_PORT:-8791}"
 LOCAL_DISCOVERY="${AINEKIO_LOCAL_DISCOVERY:-1}"
+HOTSPOT="${AINEKIO_HOTSPOT:-0}"
 GATEWAY_PID_FILE="$DATA_DIR/physical-gateway.pid"
+
+if [[ "$HOTSPOT" != "0" && "$HOTSPOT" != "1" ]]; then
+  echo "AINEKIO_HOTSPOT must be 0 or 1." >&2
+  exit 2
+fi
 
 if [[ -z "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
   echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required for the MetaHuman Environment Bridge." >&2
@@ -53,11 +59,6 @@ fi
 export AINEKIO_ROBOT_ID="${AINEKIO_ROBOT_ID:-ainekio-01}"
 export AINEKIO_ENVIRONMENT_SESSION_ID="${AINEKIO_ENVIRONMENT_SESSION_ID:-$AINEKIO_ROBOT_ID}"
 mkdir -p "$DATA_DIR"
-
-if [[ -z "${AINEKIO_DASHBOARD_PASSWORD:-}" ]]; then
-  AINEKIO_DASHBOARD_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
-  export AINEKIO_DASHBOARD_PASSWORD
-fi
 
 if [[ -r "$GATEWAY_PID_FILE" ]]; then
   IFS= read -r recorded_gateway_pid <"$GATEWAY_PID_FILE" || true
@@ -116,13 +117,14 @@ if [[ -n "$lan_addresses" ]]; then
 fi
 echo "  Robot ID:           ${AINEKIO_ROBOT_ID}"
 echo "  Runtime data:       ${DATA_DIR}"
-echo "  Dashboard password: ${AINEKIO_DASHBOARD_PASSWORD}"
+echo "  Dashboard login:    uses the saved operator password"
 echo "Press Ctrl+C to stop the gateway."
 
 cd "$REPO_ROOT"
 
 discovery_pid=""
 gateway_pid=""
+hotspot_managed=0
 cleanup_services() {
   local exit_status=$?
   trap - EXIT INT TERM
@@ -140,11 +142,29 @@ cleanup_services() {
       rm -f "$GATEWAY_PID_FILE"
     fi
   fi
+  if (( hotspot_managed )); then
+    if ! systemctl --no-ask-password stop ainekio-hotspot-interface.service; then
+      echo "Could not stop the robot hotspot; check ainekio-hotspot-interface.service." >&2
+    fi
+  fi
   return "$exit_status"
 }
 trap cleanup_services EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+if [[ "$HOTSPOT" == "1" ]]; then
+  if ! command -v systemctl >/dev/null 2>&1; then
+    echo "Robot hotspot support requires the configured system services." >&2
+    exit 2
+  fi
+  hotspot_managed=1
+  if ! systemctl --no-ask-password start ainekio-hotspot-dhcp.service; then
+    echo "Could not start the robot hotspot; check its installed services and permissions." >&2
+    exit 1
+  fi
+  echo "  Robot hotspot:      active for this gateway session"
+fi
 
 if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
   if ! command -v avahi-publish-service >/dev/null 2>&1; then

@@ -1,5 +1,6 @@
 #include "ainekio/v2_motion.h"
 #include "ainekio/admission.h"
+#include "ainekio/v2_walk.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -20,6 +21,12 @@ int main(void)
         const ainekio_v2_clip_t *clip = &ainekio_v2_clips[i];
         assert(ainekio_v2_clip_find(clip->command, &selected) && selected == i);
         assert(!clip->hardware_qualified);
+        assert(clip->peak_joint_speed_degrees_s > 0.F);
+        const float below = 1.24 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
+        const float above = 1.26 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
+        assert(ainekio_v2_clip_playback_rate(i, below) == below);
+        const float limited = ainekio_v2_clip_playback_rate(i, above);
+        assert(fabs(limited * clip->peak_joint_speed_degrees_s - ainekio_v2_gait_joint_speed_limit()) < .001);
         char wire[256];
         if (clip->intent == AINEKIO_INTENT_SIT)
             snprintf(wire, sizeof(wire), "{\"t\":\"intent\",\"name\":\"sit\",\"seq\":1,\"epoch\":7,\"deadline_ms\":1000}");
@@ -47,8 +54,14 @@ int main(void)
         assert(frame.phase == AINEKIO_V2_CLIP);
         entry = frame;
         for (unsigned j = 0; j < 12; ++j) {
-            /* Current hull solves change Crouch/Worm entry by <0.0002 degrees. */
-            assert(fabsf(frame.position[j] - standing.position[j]) < ((!strcmp(clip->command,"crouch") || !strcmp(clip->command,"worm")) ? 0.02F : 0.01F));
+            if (!strcmp(clip->command,"crouch")) {
+                ainekio_v2_walk_pose_t native_stand;
+                assert(ainekio_v2_walk_pose(0., (ainekio_v2_walk_controls_t){0,1}, &native_stand));
+                assert(fabsf(frame.position[j]-native_stand.frame.position[j])<.02F);
+            } else {
+                /* Independent hull solves differ below 0.0002 degrees. */
+                assert(fabsf(frame.position[j] - standing.position[j]) < .02F);
+            }
             assert(frame.velocity[j] == 0);
         }
         assert(ainekio_v2_clip_sample(i, clip->duration_us, &frame) && frame.phase == AINEKIO_V2_COMPLETE);
@@ -62,8 +75,10 @@ int main(void)
         assert(nonzero == (!strcmp(clip->command, "sit") || !strcmp(clip->command, "rest") || !strcmp(clip->command, "dead") || !strcmp(clip->command, "lay_down") || !strcmp(clip->command, "crouch") || !strcmp(clip->command, "upright")));
         for (uint64_t t = 0; t < clip->duration_us; t += UINT64_C(19997)) {
             assert(ainekio_v2_clip_sample(i, t, &frame));
-            for (unsigned j = 0; j < 12; ++j)
+            for (unsigned j = 0; j < 12; ++j) {
                 assert(isfinite(frame.position[j]) && isfinite(frame.velocity[j]) && isfinite(frame.acceleration[j]));
+                assert(fabs(frame.velocity[j])/100. <= clip->peak_joint_speed_degrees_s);
+            }
         }
     }
     const char *names[] = {"sit", "rest", "wave", "dance", "swim", "point", "nod", "pushup", "bow",

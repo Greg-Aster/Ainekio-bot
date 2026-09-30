@@ -1,12 +1,15 @@
 {
   "command": "bow",
-  "samples": 1021,
-  "old_samples": 1021,
-  "joint_max_error_deg": 3.806405572959193e-06,
-  "rotation_max_error_rad": 7.386134176501358e-09,
-  "body_max_error_mm": 7.665187482075453e-06,
-  "status": "original_actions_restored_and_source_parity_verified",
-  "source_sha256": "1b313035a9ec4f92b88bece1b072ef3d28d64dcdb12ca42756d9f93c85ab6d95",
-  "original_action_bindings_exact": true,
+  "source_sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
+  "source": "motions/gestures/bow/source.json",
+  "evaluated_poses": 33,
+  "minimum_sole_z_mm": -0.0020647048950195312,
+  "max_foot_position_error_mm": 2.2518790117942444e-05,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "scene": "Motions - Firmware Remap",
+  "complete_joint_and_body_key_arrays_verified": true,
   "hardware_qualified": false
 }

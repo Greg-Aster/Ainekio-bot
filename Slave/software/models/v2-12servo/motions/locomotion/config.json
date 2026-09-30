@@ -1,5 +1,5 @@
 {
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "walk_turn_degrees_per_cycle": 18,
   "crawl": {
     "body_z_mm": -35,

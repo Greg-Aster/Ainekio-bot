@@ -1,12 +1,15 @@
 {
   "command": "wave",
-  "samples": 1921,
-  "old_samples": 1921,
-  "joint_max_error_deg": 3.814697265625e-06,
-  "rotation_max_error_rad": 1.488336587307515e-08,
-  "body_max_error_mm": 2.6456319730527866e-06,
-  "status": "original_actions_restored_and_source_parity_verified",
-  "source_sha256": "e051a59136d8d75461c3595477932f49001b433f9df1fb8f040fe4b838ae07b9",
-  "original_action_bindings_exact": true,
+  "source_sha256": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
+  "source": "motions/gestures/wave/source.json",
+  "evaluated_poses": 33,
+  "minimum_sole_z_mm": -2.002716064453125e-05,
+  "max_foot_position_error_mm": 1.4320595447259166e-05,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "scene": "Motions - Firmware Remap",
+  "complete_joint_and_body_key_arrays_verified": true,
   "hardware_qualified": false
 }

@@ -9,10 +9,10 @@ from mathutils import Euler, Vector
 
 ROOT = Path(globals().get('MODEL_ROOT', Path(__file__).resolve().parents[1]))
 
-def refresh():
-    scene = bpy.data.scenes['Motions - Current Geometry']
+def refresh(scene_name='Motions - Current Geometry', prefix='ML | '):
+    scene = bpy.data.scenes[scene_name]
     previous = json.loads(scene['ainekio_motion_chapters'])
-    assert len(previous) == 39
+    assert previous and len({c['command'] for c in previous}) == len(previous)
     cfg = json.loads((ROOT/'geometry.json').read_text())
     profile = json.loads((ROOT/'servo_profile.json').read_text())
     frames, bodies, eulers, joints, chapters = [], [], [], [], []
@@ -58,13 +58,13 @@ def refresh():
         obj.animation_data.action.name=obj.name
     pivot=Vector(cfg['continuous_walk']['body_rotation_pivot_mm'])
     locations=np.array([Vector(b)+pivot-Euler(tuple(e),'XYZ').to_matrix()@pivot for b,e in zip(bodies,eulers)])
-    bake(bpy.data.objects['ML | Body motion'], [('location',i,locations[:,i]) for i in range(3)]+[('rotation_euler',i,eulers[:,i]) for i in range(3)])
+    bake(scene.objects[prefix+'Body motion'], [('location',i,locations[:,i]) for i in range(3)]+[('rotation_euler',i,eulers[:,i]) for i in range(3)])
     for i,leg in enumerate(['FL','FR','RL','RR']):
-        bake(bpy.data.objects[f'ML | REFINED | {leg} | h alpha theta'],[(f'["{key}"]',-1,np.rad2deg(joints[:,i,j])) for j,key in enumerate(['h_deg','alpha_deg','theta_deg'])])
-    bake(bpy.data.objects['ML | Camera follow'],[('location',i,bodies[:,i] if i<2 else np.zeros(len(bodies))) for i in range(3)])
+        bake(scene.objects[f'{prefix}REFINED | {leg} | h alpha theta'],[(f'["{key}"]',-1,np.rad2deg(joints[:,i,j])) for j,key in enumerate(['h_deg','alpha_deg','theta_deg'])])
+    bake(scene.objects[prefix+'Camera follow'],[('location',i,bodies[:,i] if i<2 else np.zeros(len(bodies))) for i in range(3)])
     for marker in list(scene.timeline_markers): scene.timeline_markers.remove(marker)
     for i,item in enumerate(chapters):
-        obj=bpy.data.objects['ML | Title | '+item['command']]
+        obj=scene.objects[prefix+'Title | '+item['command']]
         fs=np.array(sorted(set([1,item['start_frame'],item['end_frame']+1,chapters[-1]['end_frame']+1])))
         hidden=np.array([float(not item['start_frame']<=f<=item['end_frame']) for f in fs])
         bake(obj,[('hide_viewport',-1,hidden),('hide_render',-1,hidden)],fs,True)
@@ -77,20 +77,24 @@ def refresh():
         elif item['semantic_end_frame'] < item['source_end_frame']-1:
             scene.timeline_markers.new(item['label']+' / demo recovery or hold',frame=round(item['semantic_end_frame']))
     for old in set(old_actions):
-        if old.users==0 and old.name.startswith('ML |'): bpy.data.actions.remove(old)
+        if old.users==0 and old.name.startswith(prefix): bpy.data.actions.remove(old)
     scene.frame_start=1; scene.frame_end=chapters[-1]['end_frame']; scene.use_preview_range=True
     scene.frame_preview_start=1; scene.frame_preview_end=scene.frame_end
     scene['ainekio_motion_chapters']=json.dumps(chapters); scene['geometry_id']=cfg['geometry_id']
     scene['servo_profile_id']=profile['profile_id']; scene['hardware_qualified']=False
     texts={
         'MOTION LIBRARY - chapters.json':json.dumps(chapters,indent=2),
-        'MOTION LIBRARY - START HERE': 'Scene: Motions - Current Geometry\nSpace plays 39 chapters; N > Ainekio selects a command.\nThe current coupled servo profile is '+profile['profile_id']+'. The canonical model owns all baked trajectories.\nSit, Rest, Wave, Point, two-cycle Nod and forward-hands Bow retain their intended postures within the guarded linkage region.\nOngoing Walk/Crawl chapters show forward, backward and both turn directions, Speed 25% to 100%, advanced stride/cadence and Finish.\nEach chapter has a one-second hold and a presentation cut. Cuts are not firmware transitions. Firmware coordinates entry from a known commanded calibrated pose.\nGeometry, face cache and editable modeling dependencies are preserved. Mesh checks and offline playback do not qualify actual shaft travel, load or full-body clearance.\n',
+        'MOTION LIBRARY - START HERE': 'Scene: Motions - Current Geometry\nSpace plays '+str(len(chapters))+' chapters; N > Ainekio selects a command.\nThe current servo profile is '+profile['profile_id']+'. The canonical model owns all baked trajectories.\nSit, Rest, Wave, Point, two-cycle Nod and forward-hands Bow retain their intended postures.\nOngoing Walk/Crawl chapters show forward, backward and both turn directions, Speed 25% to 100%, advanced stride/cadence and Finish.\nEach chapter has a one-second hold and a presentation cut. Cuts are not firmware transitions. Firmware coordinates entry from a known commanded calibrated pose.\nGeometry, face cache and editable modeling dependencies are preserved. Mesh checks and offline playback do not qualify actual shaft travel, load or full-body clearance.\n',
         'blender_motion_controls.py':(ROOT/'tools/blender_motion_controls.py').read_text(),
         'SERVO ASSEMBLY - READ FIRST':(ROOT/'SERVO_ASSEMBLY.md').read_text(),
     }
     for name,value in texts.items():
+        if scene_name!='Motions - Current Geometry':
+            if name=='blender_motion_controls.py':continue
+            name='FIRMWARE PREVIEW - '+name
+            value=value.replace('Scene: Motions - Current Geometry','Scene: '+scene_name).replace('; N > Ainekio selects a command','; timeline markers identify each command')
         text=bpy.data.texts.get(name) or bpy.data.texts.new(name); text.clear(); text.write(value)
-    if not bpy.app.background:
+    if not bpy.app.background and scene_name=='Motions - Current Geometry':
         exec(compile(texts['blender_motion_controls.py'],'blender_motion_controls.py','exec'),{'__name__':'__main__'})
     scene.frame_set(1)
     return dict(scene=scene.name,chapters=len(chapters),samples=len(frames)-len(chapters),frame_end=scene.frame_end,servo_profile_id=profile['profile_id'])

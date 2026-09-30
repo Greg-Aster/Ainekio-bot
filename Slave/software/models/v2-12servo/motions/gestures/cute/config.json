@@ -1,7 +1,7 @@
 {
   "command": "cute",
   "sample_hz": 120,
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "retargeting": "../../retargeting.json",
   "preview_fps": 30,
   "geometric_solver_search_bounds_degrees": [

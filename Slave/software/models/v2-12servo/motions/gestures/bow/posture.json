@@ -1,12 +1,12 @@
 {
   "schema": "ainekio.bow.forward-forelegs.v1",
   "description": "Follow the V1 Bow sequence: brace, extend both front hands forward with the front low and rear raised, hold for three seconds, then reverse into standing. Front lower legs lie nearly flat along the floor.",
-  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
-  "measured_date": "2026-09-22",
+  "measured_date": "2026-09-29",
   "body_support_scope": "Current complete body hull.",
   "contact_hulls_file": "../sit/posture-hulls.npz",
-  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "grounded_legs": [
     "RL",
     "RR"

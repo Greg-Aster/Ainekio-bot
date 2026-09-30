@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import io
+import logging
+import math
 import wave
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
+from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MAX_JPEG_BYTES, MIC_PCM_FRAME_TYPE
 
 from .server.service import GatewayService
 
@@ -324,17 +328,146 @@ class AudioTranscriptPlugin:
         )
 
 
+@dataclass(frozen=True)
+class CameraAnalysis:
+    """Backend output tied to its source frame and local monotonic times.
+
+    received_at is gateway receipt time, not sensor capture time. result remains
+    backend-owned: a detector and a vision LLM need not return the same format.
+    """
+
+    robot_id: str
+    epoch: int
+    counter: int
+    received_at: float
+    completed_at: float
+    result: object
+
+
+@dataclass(frozen=True)
+class _CameraInput:
+    robot_id: str
+    epoch: int
+    counter: int
+    received_at: float
+    payload: bytes
+
+
+CameraObserver = Callable[[CameraAnalysis], object | Awaitable[object]]
+
+
 class CameraFramePlugin:
-    def __init__(self, gateway: GatewayService, consume: CameraFunction) -> None:
+    """Process one image at a time without awaiting inference in robot receive.
+
+    There is one waiting image; newer images replace it. Synchronous callbacks
+    run on one private worker thread, while async callbacks must yield normally.
+    This plugin observes images and has no movement or task authority.
+    Owners must await aclose() when removing the plugin or shutting down.
+    """
+
+    def __init__(
+        self,
+        gateway: GatewayService,
+        consume: CameraFunction,
+        *,
+        observe: CameraObserver | None = None,
+        robot_id: str | None = None,
+        max_frame_age_s: float = 1.0,
+    ) -> None:
+        if not math.isfinite(max_frame_age_s) or max_frame_age_s <= 0:
+            raise ValueError("max_frame_age_s must be finite and positive")
+        self.gateway = gateway
         self.consume = consume
+        self.observe = observe
+        self.robot_id = robot_id
+        self.max_frame_age_s = max_frame_age_s
+        self.dropped_frames = 0
+        self.stale_frames = 0
+        self.errors = 0
+        self._queue: asyncio.Queue[_CameraInput] = asyncio.Queue(maxsize=1)
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ainekio-camera")
+        self._worker: asyncio.Task[None] | None = None
+        self._close_task: asyncio.Task[None] | None = None
+        self._closed = False
         gateway.subscribe_frames(self._handle_frame)
 
     async def _handle_frame(self, frame: dict[str, object]) -> None:
-        if frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
+        if self._closed or frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
             return
         payload = frame.get("payload")
-        if not isinstance(payload, bytes):
+        robot_id, epoch, counter = frame.get("robot_id"), frame.get("epoch"), frame.get("counter")
+        received_at = frame.get("received_at", self.gateway.clock())
+        if (
+            not isinstance(payload, bytes) or not 0 < len(payload) <= MAX_JPEG_BYTES
+            or not isinstance(robot_id, str) or not robot_id
+            or (self.robot_id is not None and robot_id != self.robot_id)
+            or type(epoch) is not int or epoch < 1
+            or type(counter) is not int or not 0 <= counter <= MAX_BINARY_COUNTER
+            or type(received_at) not in {int, float} or not math.isfinite(received_at)
+        ):
             return
-        result = self.consume(payload)
-        if inspect.isawaitable(result):
-            await result
+        item = _CameraInput(robot_id, epoch, counter, received_at, payload)
+        if self._queue.full():
+            self._queue.get_nowait()
+            self._queue.task_done()
+            self.dropped_frames += 1
+        self._queue.put_nowait(item)
+        if self._worker is None:
+            self._worker = asyncio.create_task(self._consume_frames())
+
+    def _fresh(self, frame: _CameraInput) -> bool:
+        robot = self.gateway.status()["robots"].get(frame.robot_id)
+        age = self.gateway.clock() - frame.received_at
+        return (
+            not self._closed and robot is not None
+            and robot.get("epoch") == frame.epoch
+            and robot.get("connection_state") == "online"
+            and 0 <= age <= self.max_frame_age_s
+        )
+
+    async def _call(self, callback: Callable, argument: object) -> object:
+        if inspect.iscoroutinefunction(callback):
+            result = callback(argument)
+        else:
+            result = await asyncio.get_running_loop().run_in_executor(self._executor, callback, argument)
+        return await result if inspect.isawaitable(result) else result
+
+    async def _consume_frames(self) -> None:
+        while True:
+            frame = await self._queue.get()
+            try:
+                if not self._fresh(frame):
+                    self.stale_frames += 1
+                    continue
+                result = await self._call(self.consume, frame.payload)
+                if not self._fresh(frame):
+                    self.stale_frames += 1
+                    continue
+                if self.observe is not None:
+                    await self._call(self.observe, CameraAnalysis(
+                        frame.robot_id, frame.epoch, frame.counter, frame.received_at,
+                        self.gateway.clock(), result,
+                    ))
+            except Exception as error:
+                self.errors += 1
+                logging.getLogger(__name__).warning("Camera processing failed (%s)", type(error).__name__)
+            finally:
+                self._queue.task_done()
+
+    async def aclose(self) -> None:
+        if self._close_task is None:
+            self._closed = True
+            self.gateway.unsubscribe_frames(self._handle_frame)
+            self._close_task = asyncio.create_task(self._finish_close())
+        await asyncio.shield(self._close_task)
+
+    async def _finish_close(self) -> None:
+        if self._worker is not None:
+            self._worker.cancel()
+            await asyncio.gather(self._worker, return_exceptions=True)
+        while not self._queue.empty():
+            self._queue.get_nowait()
+            self._queue.task_done()
+        # Cancellation cannot interrupt native inference already on the thread.
+        # Wait for it without blocking the event loop; its result is discarded.
+        await asyncio.to_thread(self._executor.shutdown, wait=True, cancel_futures=True)

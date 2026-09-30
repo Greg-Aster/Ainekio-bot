@@ -2,83 +2,68 @@
 
 The preceding controller replacement was built and application-flashed as `0.7.0-p4-compact-motion`.
 The measurements below distinguish compiled resources, desktop geometry and
-observations from the connected P4 with two unloaded servos and no linkages.
+hardware observations under the operating conditions stated in each section.
 
 ## Saved named-motion speed, 2026-09-25
 
-Body Control now has one shared **Motion speed (×)** setting for Stand, Sit and
-all finite named gestures. It defaults to 2×, supports 0.25–3× in 0.05× UI steps,
-and offers explicit Save on robot / Read from robot. Editing previews the value
-on the next named-motion command; saving retains it across P4 restarts. The
-setting is captured at motion start and scales both entry and the clip timeline,
-including velocity/acceleration, without changing poses or choreography. The
-protocol and device setting retain 0.001× resolution.
+Body Control provides one shared **Motion speed (×)** for Stand, Sit and finite
+named gestures, defaulting to 2×. The input accepts arbitrary positive numeric
+multipliers without an application-imposed minimum, maximum or fixed increment.
+Editing affects the next named motion; Save on robot retains the value across
+restarts, and Read from robot confirms the stored value. Saving stops outputs
+through the existing owner; starting a subsequent motion resumes operation.
 
-The existing config owner stores a separate two-byte `motion_rate` NVS blob.
-Saving stops outputs through the existing output/body owners before committing;
-starting a subsequent motion resumes operation. No storage write, allocation or
-new queue was added to the servo update path. The frame calculation adds bounded
-integer timeline scaling and single-precision derivative scaling. Startup Home,
-Neutral/Stop, the separate working V1 body and gait controls retain their timing.
-The existing motion implementation and compact assets are retained; no alternate
-player or new motion tables were added.
+A single-precision multiplier directly scales the existing entry and clip clocks.
+The unrequested 0.25–3× checks, integer thousandths conversion and unused twelve-
+joint derivative-rescaling loop were removed. There is one rate representation
+from command decoding through playback and the separate four-byte `motion_rate`
+NVS record. Missing/unreadable settings use the 2× default. Only numeric validity
+is checked for the multiplier; no new motion/output restrictions were introduced.
+No new queue, motion assets, runtime module, allocation or servo-loop storage
+write was added. Calibration, motion paths, V1, startup Home and gait controls
+retain their existing behavior.
 
 Matched ESP-IDF 5.5.4 builds with unchanged SDK configuration:
 
-| Resource | Before | After | Change |
+| Resource | Before feature | Final | Change |
 | --- | ---: | ---: | ---: |
-| Application binary | 2,369,408 B | 2,371,248 B | +1,840 B |
-| Flash code | 1,322,926 B | 1,324,526 B | +1,600 B |
+| Application binary | 2,369,408 B | 2,370,848 B | +1,440 B |
+| Flash code | 1,322,926 B | 1,324,126 B | +1,200 B |
 | Flash read-only data | 931,000 B | 931,176 B | +176 B |
 | Static RAM data + BSS | 39,260 B | 39,324 B | +64 B |
 | Total occupied internal RAM, including code | 138,494 B | 138,558 B | +64 B |
 
-ELF section checks show unchanged TCM and RTC allocations. DWARF type sizes show
-unchanged 592-byte command, 672-byte controller request, 1,360-byte motion and
-1,760-byte body-state structures. The existing depth-one body request queue's
-payload grows 104 to 112 bytes (+8 heap bytes; no additional queue).
+The final image is 400 bytes smaller than the initial capped implementation;
+static RAM is unchanged from it. The existing depth-one body request queue adds
+8 bytes of payload versus the pre-feature firmware. No additional queue exists.
 
-Validation: all 30 native/desktop checks passed across the native and geometry
-runs, with Release assertions explicitly enabled (`-UNDEBUG`) and no remaining
-skips. Production body-controller tests exercised all 23 clips at 0.25×, 1×, 2×
-and 3×, compared output pulses at the same choreography times, and verified entry
-scaling, completion, captured settings and unaffected gait timing. Config tests
-covered default, save/reload, invalid values, failed commits, and unchanged joint
-calibration. Gateway/dashboard Python tests passed (27), variable-walk tests
-passed (42), and both the JavaScript race suite and isolated Chrome acceptance
-passed. Browser checks cover selected speed in motion commands, confirmed save,
-readback after an actual page reload, robot-selection races and mobile layout.
-Two stale gateway test expectations were aligned with the preceding leverage
-revision's Walk (-8 mm) and Crab (-22 mm) heights; gait code was not changed here.
+All 30 native/desktop tests pass with Release assertions enabled and no skips.
+Production-controller tests cover every one of the 23 clips at 0.25×, 1×, 2×,
+3×, 4×, 6×, 8× and 12×: equal choreography-time pulse outputs, scaled entry,
+completion and unaffected gait timing. Config tests cover a saved value above
+3×, reload, failed writes, invalid records and unchanged joint calibration.
+Gateway/dashboard tests pass (27), variable-walk tests pass (42), and JavaScript
+race tests pass. Isolated Chrome tests verify uncapped 6.125× entry, command,
+save and readback after an actual reload, plus mobile layout and calibration UX.
 
-The connected P4 received only the 2,371,248-byte application at its verified
-active `ota_0` offset `0x20000`. Application flash digest verification passed;
-`0x00000` through `0x1ffff` were identical before/after flashing, preserving
-bootloader, partition table, NVS, PHY and OTA selection metadata. This protected
-region's SHA-256 was `c369b24fe7d452cf1f04d0665d708783dadc509cde0d87ad767aa2e63c5e7afc`.
-Other application slots and LittleFS were not written. The gateway was restarted
-with its existing credentials and runtime data and negotiated `motion_speed_v1`.
+Application SHA-256: `50a9092e3cde37a7c2644820f6e5082e2b5de29be79cac8f89b556fca0e9eaed`.
+ELF SHA-256: `47a4d6aa94a5be7aedd90637427b9a0fd590570b3542505b4ba699963dbe3288`.
 
-Application SHA-256:
-`a887ceda20dbd8111022110b995d8bc784e4cf55e696f23fd12de4d3c85ca952`.
-ELF SHA-256:
-`2be99f9ca7cb884e75cf2f6cdf61b5ea66f437f9444d89ac102bc2f19283a296`.
-Both deployment and subsequent persistence-check boots reported the matching
-ELF prefix. The shared 2× value was explicitly saved on the robot. Another control request
-then saved a setting (epoch 1, sequence 10); after the persistence reboot the P4
-reported **3× with `saved:true`**. That newer setting was preserved. The compiled
-default remains 2×. All twelve saved joint mappings,
-including the owner's current Home pulse values and inversion settings, matched
-the pre-deployment readback after flashing and again after the persistence reboot.
-No joint calibration record was rewritten by the speed save.
+The application was flashed to the verified active `ota_0` slot at `0x20000`.
+Flash digest verification passed. The first 128 KiB were byte-for-byte unchanged,
+preserving bootloader, partition table, NVS, PHY and OTA selection metadata;
+protected-region SHA-256: `e9b9e7fd47cc172bdc46f3a87efbc7df82c089e31a5fb49d88b7a8d947726810`.
+The gateway was restarted with its existing credentials and runtime data.
+The robot's pre-update speed (3×) was read and saved in the new
+float representation by the deployment tool, without a firmware migration path.
+All twelve saved joint mappings and inversion settings matched after flashing.
+A further reboot retained the 3× setting with `saved:true` and
+all twelve joint mappings unchanged. Both boots reported the matching ELF prefix.
 
-These hardware checks ran startup Home and read/save operations, not loaded
-gestures or gait trials. Native timing-scaling checks do not establish servo
-tracking, torque capability or worst-case P4 calculation/frame timing at higher
-motion speeds. Dynamic heap snapshots vary with mode and connected peripherals;
-no matched dynamic-RAM or motion-timing benchmark is claimed for this revision.
-Raw NVS images, credentials, calibration snapshots and boot logs are excluded
-from the repository.
+Hardware deployment checks cover startup Home and settings operations, not
+loaded high-speed gestures. Servo tracking and worst-case P4 frame timing at
+higher multipliers have not been measured. Raw NVS, calibration snapshots,
+credentials and boot logs are excluded from the repository.
 
 ## Gait leverage revision, 2026-09-25
 
@@ -498,3 +483,146 @@ The segment compiler writes `clip/compression.json` in the build directory.
 Console `controller` reports actual body calculation/frame/request maxima,
 over-target counts, internal heap and body stack headroom. `gait` diagnostics
 calculate positions without PWM; they are not end-to-end frame measurements.
+
+
+## Entry endpoint rounding and pulse-center diagnosis (2026-09-26)
+
+A production-body reproduction of Crab turn-left → Finish → Stand exposed
+mixed-precision easing rounding above the transition domain:
+`u=0.999633491039` produced `progress=1.0000000138189644`. The valid entry was
+rejected as `ESP_ERR_INVALID_ARG`. The existing expression now evaluates the
+nearer half of the same quintic in double and reflects the upper half. It does
+not change the geometric path, loosen linkage checks or add a servo limit.
+The native production `motion_frame` regression checks the failing input and
+exact completion. The affected body, joint-mapping and transition tests pass.
+
+The separate Point/Bow/Dead errors remain calibration/assembly conflicts.
+With the saved front-left carrier Home=1230 us, model=+1.17 degrees and
+Invert=On, Point's carrier target maps to approximately -261.123 us. Bow also
+requests -224.500 us from the front-left crank. Playback speed does not alter
+these required pulse extrema. A native fixture with the actual saved mapping
+reproduced the three startup rejections at each of seven playback rates;
+the other twenty named motions completed at each rate.
+
+For observed endpoints 300 and 2900 us, **the pulse midpoint is 1600 us**.
+1300 us is the half-range (`(2900-300)/2`), and is an asymmetric pulse position.
+Inversion does not change the midpoint. Existing engravings correspond to the
+previously selected 1300 us datum and model offsets; the UI now distinguishes
+that physical reference from the center of servo travel. No saved mapping or
+CAD marks were changed. A new centered mounting pose requires coupled-linkage
+validation and matching physical horn placement before calibration is saved.
+
+The final firmware contains only the entry arithmetic correction, with no new
+calibration metadata, persistent fields, queues, buffers or allocations. Motion
+tracks, gait parameters, existing calibration and V1 are unchanged.
+
+| Resource | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Application binary | 2,370,848 B | 2,371,104 B | +256 B |
+| Linked flash code | 1,324,126 B | 1,324,382 B | +256 B |
+| Linked flash rodata | 931,176 B | 931,176 B | 0 B |
+| Static data + BSS | 39,324 B | 39,324 B | 0 B |
+| Total used DIRAM | 138,558 B | 138,558 B | 0 B |
+
+P4 calculation/frame timing was not remeasured during this correction. Native
+checks do not establish loaded motion or physical mounting. Application SHA-256:
+`70b301e8ddccfa854d23a1826231dd00f2c49858a17ca4214465e38cfbe02da6`.
+ELF SHA-256:
+`5a0fb22a5f41d647ceab8e83b59e2f21014e2ecc0ca8292f282a93128cf6f9c8`.
+
+Application-only deployment to the existing active OTA slot at 0x20000 passed
+full-image flash digest verification. The first 128 KiB, including NVS and OTA
+metadata, matched byte-for-byte before/after. The serial boot reported the new
+ELF prefix `5a0fb22a5` and `home: ESP_OK`. The P4 reconnected to the physical
+gateway; all twelve saved Home pulses, model angles, scales, channels and
+inversion flags matched the pre-update snapshot. No motion or gait trials were
+sent to the assembled robot. The corrected UI text is served by the live gateway.
+
+## Current geometry, 1650 µs reference and servo timing (2026-09-29)
+
+This source/build update supersedes the earlier statements that motion has no
+servo-rate limit. It was built and checked offline; it has not been flashed or
+tested with powered servos. Existing saved calibration is retained. The owner
+places the existing carrier/crank matchmarks at 1650 µs; their model offsets
+remain shoulder 0°, carrier +1.17°, crank −40.41°. The historical 234° conversion
+and pulse endpoints remain reported references, not motion limits.
+
+The visible Wireless assembly gives shoulder-axis spacing of 173.433792 mm
+longitudinally and 63.500012 mm laterally, replacing 152.7 × 48.2 mm. The rear
+rig was moved 21.633808 mm to match its assembled meshes, with child transforms
+compensated so visible parts did not move. The linkage lengths are unchanged.
+The owner identified `temp_mesh.ply` as a temporary reference; it is preserved
+in the authoring scene and excluded from the robot's contact hull and playback.
+
+The selected [MG90S advertised rating](https://www.amazon.com/dp/B0BWJ41FZB)
+is 0.11 s/60° at 4.8 V, or **545.455°/s**. The supply
+voltage and loaded shaft response have not been measured. The owner's flag
+threshold is 125%, **681.818°/s**; flagged motion is retimed to the rating.
+Continuous gaits preserve requested timing until the threshold is crossed,
+then use a shared clock with bounded candidate evaluation to keep each emitted
+joint step within the rated budget for the rest of that run. Stride, gait blending, foot
+paths, body movement and planted anchors remain coordinated. Cadence recovers
+at 0.5 clock fraction per second. The 40 ms wall-time fault still applies;
+unused motion time is not replayed.
+
+Finite clips use an analytical bound on every compiled cubic's derivative.
+At 1×, all 23 authored gesture timelines are unchanged. At the firmware's 2×
+default, Point's 1059.583°/s demand is flagged and the complete clip runs at
+approximately 1.029564×; the other 22 clips retain 2×. Higher requested rates
+use the same threshold. Entry transitions apply the policy separately to
+their bounded quintic path. Saved speed settings are not overwritten.
+
+All 47 motion sources were regenerated for the measured assembly. Old
+foot excursions retain their scale while stance anchors move into the new
+footprint. The four reviewed recordings retain their 30 Hz times, body
+rotations, phases, contacts and cues; support/contact corrections adapt their
+joints to the new geometry. No gesture amplitude or travel clamp was added.
+The reviewed JSON files retain their original diagnostic samples as recording
+provenance; their regenerated source/validation reports own current clearances.
+Upright retains its 22-second phases, full −90° finish and 92.93 mm final arm
+reach. Its intermediate support pitch changes from −27.5° to −22.954°, the
+rearward support shift gains 1.5 mm, and the carrier leads the crank through the
+existing 14–16 second waypoint to clear an unreachable linkage region.
+Rear boot poses remain anchored within 0.000043 mm, with modeled body clearance
+at least 0.543535 mm. Details are in the [Upright record](motions/gestures/upright/README.md).
+
+The stride/rate demonstration originally demanded 1414.859°/s on this geometry.
+Retiming only its timestamps changes the duration from 14.007649 to 14.981486 s
+and its sampled peak to 545.455°/s. Continuous Walk at Speed 100 reaches about
+67.7 mm/s of modeled body translation; Speed 200 continues changing the gait
+and stride and reaches about 167.4 mm/s. These are kinematic predictions, not
+measured ground speed.
+
+Validation completed:
+
+- All **31 native tests passed**, including production-body entry/playback,
+  direct geometry, source provenance, compact clips and saved calibration.
+  The gait timing test checked 38,146 frames at fixed and irregular intervals;
+  15,693 were retimed. Before flagging, 283 joint samples used the permitted
+  margin; the maximum was 681.719079°/s. After flagging, the maximum was
+  545.391288°/s.
+- Full source and interpolation-midpoint checks passed for the 23 gestures
+  and eight legacy fixed-angle turn references. The reviewed recordings retain
+  their existing 0.25 mm interpolation allowance; the worst sampled sole
+  penetration is 0.240119 mm in Dead. Other motions use the existing 0.03 mm
+  allowance. The complete-body hull excludes the temporary reference mesh.
+- The saved Blender recovery was reopened. **1,724,706 joint/body key values**
+  and **1,584 evaluated poses** matched the canonical sources and independent
+  geometry. Maximum evaluated foot-position error was 0.002111 mm.
+  `Motions - Firmware Remap` contains 47 updated firmware chapters. The original
+  `Motions - Current Geometry` draft scene retains all 275 objects and 53 animated
+  objects with exact key arrays, interpolation and chapter metadata. All 468
+  Wireless objects retain the transforms and geometry captured after rear-rig
+  reconciliation. The external experimental gait sidebar builder is outside
+  this saved-playback check. [Saved playback and parity evidence](motions/blender-validation.json).
+- ESP-IDF 5.5.4 produced the P4 application successfully: **2,412,928 bytes**,
+  71% of the application partition free. Application SHA-256:
+  `ad0bb87d0c5807c609a86df520db8624d608fcfe6f87ca3d3e54010bc24b3606`.
+  ELF SHA-256:
+  `7935ecc243ba7e84fbc0e0946565af1d2d2eae4df6000847b1537c018c0a7fb2`.
+
+The [range audit](mechanics/original-motion-range-audit.md) reports electrical
+demands and historical mechanical-envelope conflicts without clipping motions.
+This update does not qualify full-body collision clearance, torque, balance,
+servo tracking, acceleration, or P4 task timing under load. No hardware commands,
+calibration writes, IMU integration or firmware deployment were performed.

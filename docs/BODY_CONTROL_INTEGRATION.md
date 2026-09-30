@@ -2,7 +2,7 @@
 
 Started: 2026-09-28
 
-Updated: 2026-09-28 — complete-system audit, recommended settings and ROS 2 role
+Updated: 2026-09-30 — bounded host perception and active-walk update foundations
 
 Status: Living research and decision record
 
@@ -12,13 +12,12 @@ Record how ROS 2 can supplement Ainekio and MetaHuman OS, compare the two ways
 to connect the ESP32-P4 body controller to Q6A, and preserve the findings and
 implementation targets for later work.
 
-**Current recommendation: native USB from P4 to onboard Q6A, then Wi-Fi from
-Q6A to the remote desktop.** The owner requested this comparison with power
-excluded. The reasons are body-link media capacity, removal of radio contention
-on that link, and keeping Q6A wireless resources available for the desktop.
-The cost is implementing and validating USB transport; Wi-Fi already has an
-Ainekio implementation. No measured CPU/RAM saving or command-latency bound is
-assigned to USB. This is a recommended build direction, not a completed migration.
+**Current owner direction: direct Wi-Fi between P4 and Q6A.** Keep gait execution
+and fast IMU feedback local to P4, with perception and expensive planning on the
+host. Measure concurrent resource use and end-to-end update latency before
+offloading additional computation. The earlier USB recommendation and bandwidth
+comparison below remain alternatives; USB implementation is not a prerequisite
+for the present work. Neither connection has a qualified full-load latency bound.
 
 **ROS 2 is an optional Q6A integration layer.** Preserve the existing gateway,
 body controller and MetaHuman responsibilities. Start with telemetry and tools;
@@ -47,6 +46,26 @@ a completed transport migration, or authorize firmware flashing or body motion.
 Existing implementation and hardware boundaries remain documented in the
 [V2 firmware design](v2-12servo/FIRMWARE_DESIGN.md) and
 [P4 firmware README](../Slave/firmware/esp32p4-wifi6/README.md).
+
+The first software increment is [portable IMU estimation](../Slave/software/imu/README.md):
+timestamped SI-unit samples, explicit mounting/calibration, attitude estimates,
+freshness and recovery state, with host tests and P4 compilation. There is no
+live sensor task, wire telemetry or movement correction yet. The GY-LSM6DS3 is
+not wired; GPIO7/8 on the existing media/control I2C bus is the recommendation,
+pending the owner's wiring choice and physical axis verification. MetaHuman
+retains command authority through the existing gateway and Environment Bridge.
+
+The host foundations now include
+[continuous camera processing and ongoing movement updates](../Master/gateway/README.md#updating-an-ongoing-movement).
+Camera consumers process fresh frames independently of the gateway receive loop,
+with a replaceable recognition backend. The authenticated adapter can adjust an
+already-admitted walk's speed or stride/cadence while keeping its original action
+and body lease. Revisions, expiry, cancellation and control-session checks fence
+updates; the P4 retains motion execution and deadlines. These paths have desktop
+and simulated-body WebSocket coverage. MetaHuman's local task producer, recognition
+backend, combined forward/turn control and live IMU feedback remain separate
+integration work. The owner prefers recognition-model comparisons on the
+assembled prototype; no model benchmark is required before these foundations.
 
 ## Intended responsibility split
 
@@ -109,7 +128,7 @@ owns the detailed arithmetic and alternative profiles.
 
 | Function | Target | Implementation consequence |
 | --- | --- | --- |
-| Body transport | Native USB HS, P4 device to Q6A host; Q6A Wi-Fi to desktop | Use the separate P1 native interface; USB class and host adapter remain to be implemented |
+| Body transport | Direct P4-to-Q6A Wi-Fi initially; USB HS remains an alternative | Qualify concurrent latency and queues; USB class and host adapter are separate future work |
 | Camera | 1920 × 1080 at 30 fps, RGB565 capture, hardware JPEG/YUV420, initially quality 75 | Change current capture/output limits; preserve image quality while budgeting actual encoded byte sizes |
 | Physical audio | 24 kHz, 16-bit mono duplex | Shared I2S/codec clock; resize and relocate buffers where required |
 | Speaker transport | 24 kHz, 16-bit mono | Preserve Kokoro's native rate across MetaHuman, gateway and firmware |

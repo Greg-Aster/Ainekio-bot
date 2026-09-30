@@ -16,24 +16,24 @@
   "completion": "Lower the waving foot into Sit, then return to standing and hold; restore the stand face.",
   "final_actuator_angles_rad": [
     [
-      -3.4277232242703374e-09,
-      0.033522787652696055,
-      0.0077382778671378615
+      -3.4279175756615554e-09,
+      0.03352514669016316,
+      0.007738809518691742
     ],
     [
-      -6.855412137067195e-09,
-      0.03352259575715927,
-      0.007738239210021999
+      -6.855835318943024e-09,
+      0.03352477345347081,
+      0.007738730184252423
     ],
     [
-      1.9846059755857533e-09,
-      0.0335230550346877,
-      0.007738329695574771
+      1.9847632452160202e-09,
+      0.03352559296754421,
+      0.007738898994546462
     ],
     [
-      -3.4277327057149906e-09,
-      0.03352291414500837,
-      0.007738299730361967
+      -3.4280487131336387e-09,
+      0.03352525226236473,
+      0.007738824207827111
     ]
   ],
   "body_target": {
@@ -76,57 +76,57 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "e051a59136d8d75461c3595477932f49001b433f9df1fb8f040fe4b838ae07b9",
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
-  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
+  "source_sha256": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "wave": "670ca1479f4bff8c38b90077774c32ca3aa78a3c65013defa00f86f605fc36c1",
     "stand": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "entry_actuator_angles_rad": [
     [
-      -3.4277232242703374e-09,
-      0.033522787652696055,
-      0.0077382778671378615
+      -3.4279175756615554e-09,
+      0.03352514669016316,
+      0.007738809518691742
     ],
     [
-      -6.855412137067195e-09,
-      0.03352259575715927,
-      0.007738239210021999
+      -6.855835318943024e-09,
+      0.03352477345347081,
+      0.007738730184252423
     ],
     [
-      1.9846059755857533e-09,
-      0.0335230550346877,
-      0.007738329695574771
+      1.9847632452160202e-09,
+      0.03352559296754421,
+      0.007738898994546462
     ],
     [
-      -3.4277327057149906e-09,
-      0.03352291414500837,
-      0.007738299730361967
+      -3.4280487131336387e-09,
+      0.03352525226236473,
+      0.007738824207827111
     ]
   ],
   "source_validation": {
     "command": "wave",
-    "geometry_id": "upright-24-38-24-55-20260921",
+    "geometry_id": "upright-24-38-24-55-visible-20260929",
     "samples": 1921,
     "duration_s": 16.0,
     "sample_hz": 120,
-    "max_target_error_mm": 0.00013011662907302934,
-    "min_sole_height_mm": -2.4443025381515326e-10,
-    "minimum_body_ground_clearance_mm": 0.54353543730317,
-    "minimum_closure_triangle_height_mm": 9.008050900809067,
-    "minimum_assumed_support_margin_mm": -20.169068295418622,
+    "max_target_error_mm": 6.580229694463924e-08,
+    "min_sole_height_mm": -2.361936424222222e-09,
+    "minimum_body_ground_clearance_mm": 0.5435354083108006,
+    "minimum_closure_triangle_height_mm": 8.477181439116967,
+    "minimum_assumed_support_margin_mm": -14.95875792285599,
     "actuator_min_degrees": [
       [
-        -5.423360867848567e-07,
-        -27.49999361624477,
-        -6.676876805900039
+        -1.873202335363268e-06,
+        -34.531875422436215,
+        -12.612535673178588
       ],
       [
-        -7.763523114492182e-06,
-        -30.529358626601628,
-        -16.774610619801543
+        -8.368668965135026e-06,
+        -34.53193489173708,
+        -16.497522707688205
       ],
       [
         -83.0,
@@ -134,46 +134,45 @@
         -25.000000000000004
       ],
       [
-        -1.9639461733642719e-07,
-        -6.546663704546301,
-        -21.360506996895143
+        -4.816900980230896e-07,
+        0.034881212180973994,
+        -18.631261502349652
       ]
     ],
     "actuator_max_degrees": [
       [
-        1.7564222037815569e-06,
-        1.9208256001119373,
-        17.127262856626682
+        1.756424741151163e-06,
+        4.907308522319258,
+        15.628532405188116
       ],
       [
-        4.448567284274776e-06,
-        1.920815801013028,
-        1.545804808111805
+        3.3748356194268686e-06,
+        1.920828028016099,
+        0.44339657834816176
       ],
       [
-        7.761153876378962e-06,
+        7.680269058932221e-06,
         51.00000000000001,
         40.00000000000001
       ],
       [
-        2.5027429950102923e-06,
-        5.96332353796838,
-        0.4433823720338099
+        1.814831263994432e-06,
+        12.782358007374505,
+        0.4434019655021661
       ]
     ],
     "maximum_adjacent_joint_step_degrees": 1.1117431639628899,
     "peak_joint_speed_deg_s": 133.01060792497822,
     "peak_joint_acceleration_deg_s2": 1609.2766707334458,
-    "native_solver_fallbacks": 0,
-    "seconds": 2.0883196299982956,
+    "seconds": 2.266995642999973,
     "hardware_qualified": false,
     "collision_checked": false,
     "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
     "lower_leg_angle_above_floor_deg": {
-      "FL": 1.800000000000024,
-      "FR": 1.7999999999999934
+      "FL": 1.79999999999996,
+      "FR": 1.800000000000001
     },
-    "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+    "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
     "body_support_scope": "Current complete body hull.",
     "motion_end_s": 15.2
   },
@@ -184,8 +183,8 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "d29f4ffddf49b94346a8de20b90da183b8c396243ee3255af9652ef2f2388043",
-  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "posture_sha256": "6b33c88b80161ffefab2f158e355329f60d8cc851a03f35f97e4b0200063e695",
+  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Reuse the corrected Sit exactly, lift and extend the front-left leg for three smooth waves, replace the foot, and reverse Sit into standing.",
   "choreography_source": "docs/gait-research/wave-seated-20260916/manifest.json"
 }

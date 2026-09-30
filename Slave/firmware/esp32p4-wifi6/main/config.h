@@ -4,6 +4,11 @@
 #include "ainekio/protocol.h"
 #include "esp_err.h"
 #include "joint_calibration.h"
+#include "robot_settings.h"
+
+const ainekio_p4_robot_settings_t *ainekio_p4_boot_settings(void);
+ainekio_p4_robot_settings_t ainekio_p4_saved_settings(void);
+esp_err_t ainekio_p4_settings_change(const ainekio_robot_settings_command_t *command);
 
 esp_err_t ainekio_p4_config_init(void);
 const ainekio_config_record_t *ainekio_p4_config(void);

@@ -239,6 +239,16 @@ extern const ainekio_v2_clip_track_t v2_clip_tracks[];
     report=[]
     for i, clip in enumerate(clips):
         indices,velocities,error=compact(clip['positions']);clip['indices']=indices
+        peak=0.
+        for lo,hi in zip(indices,indices[1:]):
+            duration=(hi-lo)/120
+            for joint in range(12):
+                a,b,c,_=polynomial(clip['positions'][lo][joint],clip['positions'][hi][joint],velocities[lo][joint],velocities[hi][joint],duration)
+                times=[0.,1.]
+                if abs(a)>1e-15 and 0<-b/(3*a)<1:times.append(-b/(3*a))
+                peak=max(peak,max(abs((3*a*u+2*b)*u+c)/duration/100 for u in times))
+        # Cover rounding of stored float positions, tangents and evaluation.
+        clip['peak_joint_speed_degrees_s']=peak*1.00001+.01
         for name,values in [('positions',clip['positions']),('velocities',velocities)]:
             code.append(f'static const float clip_{i}_{name}[][AINEKIO_V2_JOINT_COUNT] = {{')
             code.extend('    {' + ','.join(f'{value:.9e}F' for value in values[knot]) + '},' for knot in indices)
@@ -246,14 +256,14 @@ extern const ainekio_v2_clip_track_t v2_clip_tracks[];
         code.append(f'static const uint16_t clip_{i}_knots[] = '+'{'+','.join(map(str,indices))+'};')
         for name,operation in [('minimum',min),('maximum',max)]:
             code.append(f'static const float clip_{i}_{name}[] = '+'{'+','.join(f'{operation(row[j] for row in clip["positions"]):.9e}F' for j in range(12))+'};')
-        report.append(dict(command=clip['command'],original_knots=len(clip['positions']),stored_knots=len(indices),continuous_error_cd=error))
+        report.append(dict(command=clip['command'],original_knots=len(clip['positions']),stored_knots=len(indices),continuous_error_cd=error,peak_joint_speed_degrees_s=clip['peak_joint_speed_degrees_s']))
     (out/'compression.json').write_text(json.dumps(report,indent=2)+'\n')
     code.append('const ainekio_v2_clip_t ainekio_v2_clips[] = {')
     for clip in clips:
         manifest = clip['manifest']
         intent = 'AINEKIO_INTENT_SIT' if manifest['wire']['name'] == 'sit' else 'AINEKIO_INTENT_EMOTE'
         code.append('    {' + ','.join((json.dumps(clip['command']), json.dumps(manifest['gait_id']), intent,
-                    f'UINT64_C({round(clip["duration_s"] * 1e6)})', 'false')) + '},')
+                    f'UINT64_C({round(clip["duration_s"] * 1e6)})', 'false', f'{clip["peak_joint_speed_degrees_s"]:.9e}F')) + '},')
     code.extend(['};', 'const size_t ainekio_v2_clip_count = sizeof(ainekio_v2_clips) / sizeof(ainekio_v2_clips[0]);',
                  'const ainekio_v2_clip_track_t v2_clip_tracks[] = {'])
     for i, clip in enumerate(clips):

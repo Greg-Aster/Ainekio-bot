@@ -49,7 +49,21 @@ typedef enum {
     AINEKIO_COMMAND_BODY_CALIBRATION,
     AINEKIO_COMMAND_STORAGE,
     AINEKIO_COMMAND_MOTION_SPEED,
+    AINEKIO_COMMAND_ROBOT_SETTINGS,
 } ainekio_command_kind_t;
+
+#define AINEKIO_NETWORK_SLOTS 4U
+typedef enum {
+    AINEKIO_SETTINGS_GET, AINEKIO_SETTINGS_NETWORK, AINEKIO_SETTINGS_REMOVE,
+    AINEKIO_SETTINGS_SECURITY, AINEKIO_SETTINGS_APPLY,
+} ainekio_robot_settings_operation_t;
+typedef struct {
+    ainekio_robot_settings_operation_t operation;
+    uint32_t revision;
+    uint8_t index;
+    bool has_wifi_password, has_robot_token, has_setup_password;
+    char ssid[33], wifi_password[65], endpoint[256], robot_token[129], setup_password[64];
+} ainekio_robot_settings_command_t;
 
 typedef enum {
     AINEKIO_INTENT_SIT = 0,
@@ -213,6 +227,7 @@ typedef struct {
         ainekio_motion_plan_t motion_plan;
         ainekio_tts_operation_t tts_operation;
         ainekio_storage_operation_t storage_operation;
+        ainekio_robot_settings_command_t robot_settings;
         struct { bool save; float rate; } motion_speed;
         struct {
             bool enabled;

@@ -510,6 +510,19 @@ static void commanded_pose_survives_pwm_rounding(void)
     assert(body.motion.entry_from.position[0]==1500);
 }
 
+static void entry_endpoint_precision(void)
+{
+    reset();ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK && body.motion.entering);
+    body.motion.entry_duration=2000000;
+    bool complete;ainekio_v2_frame_t frame;
+    /* Previously u=0.999633491 produced progress=1.0000000138. */
+    assert(motion_frame(body.motion.entry_start+1999267,&complete,&frame)==ESP_OK);
+    assert(!complete && ainekio_v2_limits_frame(&frame));
+    assert(motion_frame(body.motion.entry_start+2000000,&complete,&frame)==ESP_OK);
+    assert(complete && !memcmp(frame.position,body.motion.entry_to.position,sizeof frame.position));
+}
+
 static void motion_speed(void)
 {
     ainekio_control_message_t decoded;
@@ -541,23 +554,26 @@ static void motion_speed(void)
             if(c.data.intent.kind==AINEKIO_INTENT_EMOTE)strcpy(c.data.intent.data.asset,ainekio_v2_clips[clip].command);
             c.data.intent.playback_rate=rates[r];
             assert(execute(&c)==ESP_OK);
+            const float actual_rate=ainekio_v2_clip_playback_rate(clip,rates[r]);
+            assert(body.motion.playback_rate==actual_rate);
             if(!r)entry_at_1x=body.motion.entry_duration;
             else assert(body.motion.entry_duration==entry_at_1x);
             const uint64_t entry_started=clock_us;
             while(body.motion.entering)advance(20);
-            const uint64_t entry_expected=(uint64_t)ceil(entry_at_1x/(double)rates[r]);
+            const uint64_t entry_expected=(uint64_t)ceil(entry_at_1x/(double)body.motion.entry_rate);
             assert(clock_us-entry_started>=entry_expected && clock_us-entry_started-entry_expected<20000);
             const uint64_t started=clock_us;
             /* Compare actual output frames against the 1x run at identical
              * points in the choreography, with the production 20ms scheduler. */
             for(size_t i=0;i<count;i++) {
-                advance((unsigned)(480/rates[r]));
+                if(actual_rate!=rates[r])break;
+                advance((unsigned)(480/actual_rate));
                 if(!r)memcpy(reference[i],last_written,sizeof last_written);
                 else assert(!memcmp(reference[i],last_written,sizeof last_written));
             }
-            ainekio_p4_body_event_t e=finish((unsigned)(duration/rates[r]/1000)+1000);
+            ainekio_p4_body_event_t e=finish((unsigned)(duration/actual_rate/1000)+1000);
             assert(e.completed && e.sequence==1 && e.result==ESP_OK);
-            const uint64_t expected=(uint64_t)ceil(duration/(double)rates[r]);
+            const uint64_t expected=(uint64_t)ceil(duration/(double)actual_rate);
             assert(clock_us-started>=expected && clock_us-started-expected<20000);
         }
         free(reference);
@@ -568,11 +584,12 @@ static void motion_speed(void)
     saved_motion_rate=3.F;assert(body.motion.playback_rate==2.F);
     c=command(2,AINEKIO_INTENT_WALK);c.data.intent.data.walk.steps=1;
     assert(execute(&c)==ESP_OK && body.motion.playback_rate==1.F);
-    puts("Named motion speed: every clip at 0.25x through 12x, identical paths, scaled entry, exact completion and V1 rejection passed.");
+    puts("Named motion speed: every clip at 0.25x through 12x, 125% threshold and rated retiming, identical unflagged paths, scaled entry, exact completion and V1 rejection passed.");
 }
 
 int main(void)
 {
+    entry_endpoint_precision();
     motion_speed();
     retired_turns_preserve_active_gait();
     crawl_finish_handoff();

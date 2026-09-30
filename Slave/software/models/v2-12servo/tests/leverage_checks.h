@@ -30,6 +30,8 @@ static void leverage_leg(const double q[3],bool grounded,double branch[2])
     leverage_clearance=fmin(leverage_clearance,V2_ROD+V2_PICKUP-d);
     /* Regression floors across all supported gaits, not measured torque limits.
      * Crawl folds more tightly; zero acute angle would also be a folded toggle. */
+    if(input < (grounded ? V2_CHECK_STANCE_INPUT_MIN_DEG : V2_CHECK_SWING_INPUT_MIN_DEG))
+        fprintf(stderr,"Input leverage %.9g deg, grounded=%u, q=[%.9g,%.9g,%.9g]\n",input,grounded,q[0],q[1],q[2]);
     assert(output >= (grounded ? V2_CHECK_STANCE_OUTPUT_MIN_DEG : V2_CHECK_SWING_OUTPUT_MIN_DEG));
     assert(input >= (grounded ? V2_CHECK_STANCE_INPUT_MIN_DEG : V2_CHECK_SWING_INPUT_MIN_DEG));
     assert(V2_ROD+V2_PICKUP-d >= V2_CHECK_STRAIGHTENING_CLEARANCE_MIN_MM);

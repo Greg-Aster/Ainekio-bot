@@ -74,7 +74,9 @@ static esp_err_t root(httpd_req_t *request)
         "<label>Robot identity<input name=robot_id maxlength=64 autocomplete=off required></label>"
         "<label>Robot pairing token<input type=password name=robot_token maxlength=128 required></label>");
     else if (result == ESP_OK) result = httpd_resp_sendstr_chunk(request,
-        "<p>The robot identity, pairing token and selected controller are preserved.</p>");
+        "<label>Body Control address<input name=endpoint_url maxlength=255 placeholder='Leave blank to keep the saved address'></label>"
+        "<label>Pairing token<input type=password name=robot_token maxlength=128 placeholder='Leave blank to keep the saved token'></label>"
+        "<p>Robot identity and other saved networks are preserved. Update the server address when changing between a home router and computer hotspot.</p>");
     if (result == ESP_OK) result = httpd_resp_sendstr_chunk(request,
         "<p>Saving restarts the controller. If Wi-Fi cannot connect, setup remains available.</p>"
         "<button>Save and connect</button></form></body></html>");
@@ -121,9 +123,10 @@ static esp_err_t configure(httpd_req_t *request)
     }
     if (existing) {
         memcpy(candidate.transport_mode, existing->transport_mode, sizeof(candidate.transport_mode));
-        memcpy(candidate.endpoint_url, existing->endpoint_url, sizeof(candidate.endpoint_url));
+        if (!candidate.endpoint_url[0]) memcpy(candidate.endpoint_url, existing->endpoint_url, sizeof(candidate.endpoint_url));
+        strcpy(candidate.transport_mode, !strncmp(candidate.endpoint_url, "wss://", 6) ? "remote" : "local");
         memcpy(candidate.robot_id, existing->robot_id, sizeof(candidate.robot_id));
-        memcpy(candidate.robot_token, existing->robot_token, sizeof(candidate.robot_token));
+        if (!candidate.robot_token[0]) memcpy(candidate.robot_token, existing->robot_token, sizeof(candidate.robot_token));
     }
     ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
     const esp_err_t saved = ainekio_p4_config_save_record(&candidate);

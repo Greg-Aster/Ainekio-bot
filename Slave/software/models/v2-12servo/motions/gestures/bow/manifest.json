@@ -16,24 +16,24 @@
   "completion": "Hold the front-leg stretch bow, reverse the reach and body shift, then return to exact standing and hold.",
   "final_actuator_angles_rad": [
     [
-      -3.427963279100442e-09,
-      0.0335251959798646,
-      0.0077388180943315735
+      -3.427958867362899e-09,
+      0.03352514669021242,
+      0.007738809518703035
     ],
     [
-      -6.855891607389937e-09,
-      0.03352502495338274,
-      0.007738784118953195
+      -6.8558411791990795e-09,
+      0.033524773453467355,
+      0.007738730184251282
     ],
     [
-      1.984718003258746e-09,
-      0.03352545121801717,
-      0.007738867197917383
+      1.9847264133372035e-09,
+      0.033525592967578455,
+      0.007738898994553826
     ],
     [
-      -3.427971941653721e-09,
-      0.03352532347011676,
-      0.007738840180846237
+      -3.4279778641785868e-09,
+      0.033525252262272265,
+      0.00773882420780645
     ]
   ],
   "body_target": {
@@ -76,97 +76,96 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "1b313035a9ec4f92b88bece1b072ef3d28d64dcdb12ca42756d9f93c85ab6d95",
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
-  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
+  "source_sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "faces/bow/0.bin": "393a0db8923b80170bf21b1f7782609d87061befa863057f17e604d6e17bc33e",
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
   "body_contact_required": false,
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "entry_actuator_angles_rad": [
     [
-      -3.4277232242703374e-09,
-      0.033522787652696055,
-      0.0077382778671378615
+      -3.4279175756615554e-09,
+      0.03352514669016316,
+      0.007738809518691742
     ],
     [
-      -6.855412137067195e-09,
-      0.03352259575715927,
-      0.007738239210021999
+      -6.855835318943024e-09,
+      0.03352477345347081,
+      0.007738730184252423
     ],
     [
-      1.9846059755857533e-09,
-      0.0335230550346877,
-      0.007738329695574771
+      1.9847632452160202e-09,
+      0.03352559296754421,
+      0.007738898994546462
     ],
     [
-      -3.4277327057149906e-09,
-      0.03352291414500837,
-      0.007738299730361967
+      -3.4280487131336387e-09,
+      0.03352525226236473,
+      0.007738824207827111
     ]
   ],
   "source_validation": {
     "command": "bow",
-    "geometry_id": "upright-24-38-24-55-20260921",
+    "geometry_id": "upright-24-38-24-55-visible-20260929",
     "samples": 1021,
     "duration_s": 8.5,
     "sample_hz": 120,
-    "max_target_error_mm": 0.00013011662907302934,
-    "min_sole_height_mm": -4.8338222313759616e-11,
-    "minimum_body_ground_clearance_mm": 6.823793977182007,
-    "minimum_closure_triangle_height_mm": 6.783099631111989,
-    "minimum_assumed_support_margin_mm": 33.143664149088586,
+    "max_target_error_mm": 9.72022462519817e-11,
+    "min_sole_height_mm": -6.495781690318836e-11,
+    "minimum_body_ground_clearance_mm": 5.262739768285016,
+    "minimum_closure_triangle_height_mm": 4.493533179854496,
+    "minimum_assumed_support_margin_mm": 49.26986684948603,
     "actuator_min_degrees": [
       [
-        -4.676204642739498e-06,
-        -5.451770993640807,
-        -1.9441600755110975
+        -4.7374145983252526e-06,
+        -5.313539162484738,
+        -1.9028721854086035
       ],
       [
-        -3.717011312507524e-06,
-        -5.451775337415742,
-        -1.9441497281309996
+        -3.987229073970162e-06,
+        -5.313557061255728,
+        -1.9028658588531508
       ],
       [
         0.0,
-        -5.451759786516668,
-        -1.9441555962332235
+        -5.3135186378820185,
+        -1.9028646007140266
       ],
       [
-        -1.964083245460243e-07,
-        -5.451769802159345,
-        -1.9441634208145062
+        -1.9641272322781057e-07,
+        -5.313540650516646,
+        -1.9028759695094746
       ]
     ],
     "actuator_max_degrees": [
       [
-        -1.9639407408966488e-07,
-        42.62127128895121,
-        31.038660337598344
+        -1.9640520960412418e-07,
+        46.93723190808014,
+        30.635124904873923
       ],
       [
-        4.511896690258031e-06,
-        42.62126416648382,
-        31.038677295543998
+        3.165338448457297e-06,
+        46.93722449701652,
+        30.635143451299477
       ],
       [
-        5.020655749994167e-06,
+        5.020656409349951e-06,
         119.99999999999999,
         101.29499761671912
       ],
       [
-        1.8657343497483061e-06,
+        1.8470264299905514e-06,
         119.99999999999999,
         101.29499761671912
       ]
     ],
-    "maximum_adjacent_joint_step_degrees": 1.3066817180837418,
-    "peak_joint_speed_deg_s": 156.80180617004712,
-    "peak_joint_acceleration_deg_s2": 702.9859053451459,
-    "native_solver_fallbacks": 0,
-    "seconds": 5.833472236998205,
+    "maximum_adjacent_joint_step_degrees": 1.3052419495922964,
+    "peak_joint_speed_deg_s": 156.62903395107367,
+    "peak_joint_acceleration_deg_s2": 812.923517035105,
+    "seconds": 6.226304566000181,
     "hardware_qualified": false,
     "collision_checked": false,
     "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
@@ -174,11 +173,11 @@
       "RL": 1.8000000000000638,
       "RR": 1.799999999999259
     },
-    "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+    "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
     "body_support_scope": "Current complete body hull.",
     "front_hand_forward_travel_mm": {
-      "RL": 73.42286010442896,
-      "RR": 73.42286263304038
+      "RL": 73.33326688702203,
+      "RR": 73.33326640987337
     },
     "motion_end_s": 8.0
   },
@@ -189,8 +188,8 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "79ce9bbc043368b1cec1a6f0d6a44e48ac0c69c3d7ee19e3855777813a62c6eb",
-  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "posture_sha256": "cfdb396b4ec68d4e825f295867fa3ae19bb16a60fe29282f07aac70a39751a4b",
+  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Follow the V1 Bow sequence: brace, extend both front hands forward with the front low and rear raised, hold for three seconds, then reverse into standing. Front lower legs lie nearly flat along the floor.",
   "choreography_source": "docs/gait-research/bow-20260916/manifest.json"
 }

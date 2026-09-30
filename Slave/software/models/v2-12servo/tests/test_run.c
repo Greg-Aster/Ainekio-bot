@@ -62,7 +62,7 @@ int main(void)
             while(s.phase<3.){now+=intervals[interval];tick(&s,now);}
             c=command(2,1,AINEKIO_WALK_FORWARD,AINEKIO_GAIT_WALK,0);assert(ainekio_v2_walk_accept(&s,&c,now));
         }
-        while(!s.complete){assert(now<10000000);now+=intervals[interval];tick(&s,now);}
+        while(!s.complete){assert(now<30000000);now+=intervals[interval];tick(&s,now);}
         for(unsigned i=0;i<4;i++)assert(s.pose.grounded[i]);
     }
     /* Threshold reversals and Finish while feet are being resynchronized. */

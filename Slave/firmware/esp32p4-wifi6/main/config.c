@@ -18,6 +18,7 @@
 static ainekio_config_store_t store;
 static ainekio_config_record_t boot_config;
 static bool boot_configured;
+static ainekio_p4_robot_settings_t boot_settings, saved_settings;
 static SemaphoreHandle_t config_lock;
 static ainekio_p4_calibration_t calibration;
 static ainekio_p4_joint_record_t committed;
@@ -89,6 +90,37 @@ esp_err_t ainekio_p4_config_init(void)
     const ainekio_config_load_result_t result = ainekio_config_store_load(&store);
     boot_configured = store.has_active;
     boot_config = store.active;
+    saved_settings = (ainekio_p4_robot_settings_t){.version=1};
+    const ainekio_store_result_t settings_result = blob("robot_settings", &saved_settings, sizeof(saved_settings), false);
+    if (settings_result == AINEKIO_STORE_NOT_FOUND) {
+        saved_settings = (ainekio_p4_robot_settings_t){.version=1};
+        if (boot_configured) {
+            strcpy(saved_settings.robot_id, boot_config.robot_id);
+            strcpy(saved_settings.robot_token, boot_config.robot_token);
+            strcpy(saved_settings.networks[0].ssid, boot_config.wifi_ssid);
+            strcpy(saved_settings.networks[0].password, boot_config.wifi_psk);
+            strcpy(saved_settings.networks[0].endpoint, boot_config.endpoint_url);
+        }
+    } else if (settings_result != AINEKIO_STORE_OK || !ainekio_p4_robot_settings_valid(&saved_settings)) {
+        puts("Robot settings unavailable; refusing to use stale credentials.");
+        return ESP_FAIL;
+    }
+    boot_settings = saved_settings;
+    boot_configured = boot_settings.robot_id[0] && boot_settings.robot_token[0];
+    if (boot_configured) {
+        boot_config.schema_version = AINEKIO_NVS_SCHEMA_VERSION;
+        boot_config.generation = boot_settings.revision + 1U;
+        boot_config.complete = true;
+        strcpy(boot_config.robot_id, boot_settings.robot_id);
+        strcpy(boot_config.robot_token, boot_settings.robot_token);
+        int index = ainekio_p4_network_next(&boot_settings, -1);
+        const ainekio_p4_network_profile_t empty = {0};
+        const ainekio_p4_network_profile_t *p = index < 0 ? &empty : &boot_settings.networks[index];
+        strcpy(boot_config.wifi_ssid, p->ssid);
+        strcpy(boot_config.wifi_psk, p->password);
+        strcpy(boot_config.endpoint_url, p->endpoint);
+        strcpy(boot_config.transport_mode, !strncmp(p->endpoint, "wss://", 6) ? "remote" : "local");
+    }
     float rate = AINEKIO_MOTION_RATE_DEFAULT;
     const ainekio_store_result_t rate_result = blob("motion_rate", &rate, sizeof(rate), false);
     const bool rate_valid = rate_result == AINEKIO_STORE_OK &&
@@ -252,27 +284,71 @@ static bool copy(char *target, size_t capacity, const char *source)
     return true;
 }
 
+const ainekio_p4_robot_settings_t *ainekio_p4_boot_settings(void) { return &boot_settings; }
+ainekio_p4_robot_settings_t ainekio_p4_saved_settings(void)
+{
+    xSemaphoreTake(config_lock, portMAX_DELAY);
+    ainekio_p4_robot_settings_t result = saved_settings;
+    xSemaphoreGive(config_lock);
+    return result;
+}
+
+/* Caller holds config_lock and has disabled outputs. NVS replaces one blob
+ * atomically, including identity, credentials and every network profile. */
+static esp_err_t commit_settings(const ainekio_p4_robot_settings_t *candidate)
+{
+    if (!ainekio_p4_robot_settings_valid(candidate)) return ESP_ERR_INVALID_ARG;
+    if (blob("robot_settings", (void *)candidate, sizeof(*candidate), true) != AINEKIO_STORE_OK) return ESP_FAIL;
+    saved_settings = *candidate;
+    return ESP_OK;
+}
+
+esp_err_t ainekio_p4_settings_change(const ainekio_robot_settings_command_t *command)
+{
+    if (ainekio_p4_system_status().restart_pending || ainekio_pca_status(ainekio_p4_output()).armed) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(config_lock, portMAX_DELAY);
+    ainekio_p4_robot_settings_t candidate = saved_settings;
+    esp_err_t result = ESP_ERR_INVALID_ARG;
+    if (command->operation == AINEKIO_SETTINGS_APPLY) {
+        result = command->revision == saved_settings.revision ? ainekio_p4_system_restart() : ESP_ERR_INVALID_STATE;
+    } else if (ainekio_p4_robot_settings_update(&candidate, command)) result = commit_settings(&candidate);
+    memset(&candidate, 0, sizeof(candidate));
+    xSemaphoreGive(config_lock);
+    return result;
+}
+
 esp_err_t ainekio_p4_config_save_record(const ainekio_config_record_t *record)
 {
     if (ainekio_p4_system_status().restart_pending) return ESP_ERR_INVALID_STATE;
     if (!record || !ainekio_config_record_valid(record, true)) return ESP_ERR_INVALID_ARG;
-    const size_t length = strlen(record->endpoint_url);
-    if (length < 6 || strcmp(record->endpoint_url + length - 6, "/robot") != 0) return ESP_ERR_INVALID_ARG;
     xSemaphoreTake(config_lock, portMAX_DELAY);
-    ainekio_store_result_t result = ainekio_config_store_stage_initial(&store, record);
-    if (result == AINEKIO_STORE_OK) result = ainekio_config_store_commit(&store);
+    ainekio_p4_robot_settings_t candidate = saved_settings;
+    strcpy(candidate.robot_id, record->robot_id);
+    strcpy(candidate.robot_token, record->robot_token);
+    int index = 0;
+    for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
+        if (!strcmp(candidate.networks[i].ssid, record->wifi_ssid)) index = i;
+    strcpy(candidate.networks[index].ssid, record->wifi_ssid);
+    strcpy(candidate.networks[index].password, record->wifi_psk);
+    strcpy(candidate.networks[index].endpoint, record->endpoint_url);
+    ++candidate.revision;
+    esp_err_t result = commit_settings(&candidate);
+    memset(&candidate, 0, sizeof(candidate));
     xSemaphoreGive(config_lock);
-    return result == AINEKIO_STORE_OK ? ESP_OK : ESP_FAIL;
+    return result;
 }
 
 esp_err_t ainekio_p4_config_reset_network(void)
 {
     if (ainekio_p4_system_status().restart_pending) return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(config_lock, portMAX_DELAY);
-    ainekio_store_result_t result = ainekio_config_store_stage_network_reset(&store);
-    if (result == AINEKIO_STORE_OK) result = ainekio_config_store_commit(&store);
+    ainekio_p4_robot_settings_t candidate = saved_settings;
+    memset(candidate.networks, 0, sizeof(candidate.networks));
+    ++candidate.revision;
+    esp_err_t result = commit_settings(&candidate);
+    memset(&candidate, 0, sizeof(candidate));
     xSemaphoreGive(config_lock);
-    return result == AINEKIO_STORE_OK ? ESP_OK : ESP_FAIL;
+    return result;
 }
 
 int ainekio_p4_config_command(int argc, char **argv)

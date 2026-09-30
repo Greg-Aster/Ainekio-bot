@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/curious/source.json",
-      "sha256": "baa86ca3bea4daefc5af122f255712c3bb6fb86a19851510b339ce1ccccf17ee"
+      "sha256": "2b29b7096a63335304fce9d0fc8db5a550b9b15b25d1f9a51eeb62dc306e69cc"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/curious/manifest.json",
-      "sha256": "c43f952aeff92a66fc74afef0a06f4854c60df607fa69f43f63ba6e6f08021f0"
+      "sha256": "cac8c5db781439bad0a9d6172ff5e308548abb2cbfbfb456a5d635264acffb6b"
     }
   ],
   "source_units": {
@@ -967,24 +967,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        -3.4277232242703374e-09,
-        0.033522787652696055,
-        0.0077382778671378615
+        -3.4279175756615554e-09,
+        0.03352514669016316,
+        0.007738809518691742
       ],
       [
-        -6.855412137067195e-09,
-        0.03352259575715927,
-        0.007738239210021999
+        -6.855835318943024e-09,
+        0.03352477345347081,
+        0.007738730184252423
       ],
       [
-        1.9846059755857533e-09,
-        0.0335230550346877,
-        0.007738329695574771
+        1.9847632452160202e-09,
+        0.03352559296754421,
+        0.007738898994546462
       ],
       [
-        -3.4277327057149906e-09,
-        0.03352291414500837,
-        0.007738299730361967
+        -3.4279704092815887e-09,
+        0.03352525226234025,
+        0.007738824207822239
       ]
     ],
     "contact_active": [
@@ -1000,24 +1000,24 @@
     "semantic_end_s": 9.75,
     "joint_angles_rad": [
       [
-        -3.4279026412415128e-09,
-        0.033522787659864745,
-        0.007738277870748512
+        -3.4279694351711426e-09,
+        0.0335251466902196,
+        0.007738809518704252
       ],
       [
-        -6.855426176290186e-09,
-        0.03352259575991824,
-        0.0077382392106952035
+        -6.855838147113188e-09,
+        0.033524773453466494,
+        0.007738730184251139
       ],
       [
-        1.9847893064277773e-09,
-        0.03352305504051837,
-        0.007738329699078083
+        1.984739535100651e-09,
+        0.033525592967530715,
+        0.007738898994544002
       ],
       [
-        -3.4276861389303723e-09,
-        0.03352291415282544,
-        0.007738299734997753
+        -3.4279603642707846e-09,
+        0.0335252522623351,
+        0.007738824207821058
       ]
     ],
     "contacts": [
@@ -1033,10 +1033,10 @@
     "collision_checked": false,
     "measured_mass_balance_verified": false,
     "source_acceleration_continuous": false,
-    "minimum_assumed_support_margin_mm": 41.670854345367005
+    "minimum_assumed_support_margin_mm": 58.276588061326066
   },
   "body_support_required": false,
   "interruption_note": "Hold or resume along the coordinated recorded path; do not jump tracks or seek to standing. Preserve the documented support model.",
   "hardware_ready": false,
-  "geometry_id": "upright-24-38-24-55-20260921"
+  "geometry_id": "upright-24-38-24-55-visible-20260929"
 }

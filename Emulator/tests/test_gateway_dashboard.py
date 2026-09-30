@@ -108,6 +108,11 @@ class FakeGateway:
         sequence = self._record("body_calibration", (operation, values, kwargs))
         return calibration_status(sequence)
 
+    async def body_robot_settings(self, operation, values=None, **kwargs):
+        sequence = self._record("robot_settings", (operation, values, kwargs))
+        return {"t": "robot_settings_status", "seq": sequence, "revision": 1,
+                "active_index": 0, "pending_restart": True, "setup_open": False, "networks": []}
+
     async def body_storage(self, operation, **kwargs):
         from Emulator.tests.test_body_storage import storage_status
         return storage_status(self._record("storage", (operation, kwargs)))
@@ -210,6 +215,109 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         cookie = headers["set-cookie"].split(";", 1)[0]
         return cookie, str(payload["csrf"])
 
+    async def _restart_dashboard(self) -> None:
+        await asyncio.to_thread(self.server.shutdown)
+        self.server.server_close()
+        self.thread.join(timeout=2.0)
+        self.server = start_dashboard_server(
+            "127.0.0.1", 0, gateway=self.gateway,
+            event_loop=asyncio.get_running_loop(), password_store=self.password_store,
+            token_store=self.token_store,
+        )
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    async def test_login_survives_restart_and_logout_stays_revoked(self) -> None:
+        cookie, csrf = await self._login()
+        await self._restart_dashboard()
+        status, payload, _ = await self._request("GET", "/api/session", cookie=cookie)
+        self.assertEqual((status, payload["csrf"]), (200, csrf))
+        status, _, headers = await self._raw_request("GET", "/login", cookie=cookie)
+        self.assertEqual((status, headers["location"]), (303, "/"))
+        status, _, _ = await self._request("POST", "/api/logout", {}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        await self._restart_dashboard()
+        status, _, _ = await self._request("GET", "/api/session", cookie=cookie)
+        self.assertEqual(status, 401)
+
+    async def test_password_change_requires_session_csrf_and_current_password(self) -> None:
+        payload = {"current_password": self.password, "new_password": "new-operator-password", "confirm_password": "new-operator-password"}
+        status, _, _ = await self._request("POST", "/api/settings/password", payload)
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/settings/password", payload, cookie=cookie)
+        self.assertEqual(status, 403)
+        for changes, expected in [
+            ({"current_password": "incorrect-password"}, 403),
+            ({"confirm_password": "different-password"}, 400),
+            ({"new_password": None}, 400),
+            ({"current_password": None}, 400),
+        ]:
+            status, _, _ = await self._request("POST", "/api/settings/password", {**payload, **changes}, cookie=cookie, csrf=csrf)
+            self.assertEqual(status, expected)
+            self.assertTrue(self.password_store.verify(self.password))
+
+    async def test_owner_chosen_passwords_can_be_saved_and_used_after_restart(self) -> None:
+        cookie, csrf = await self._login()
+        current = self.password
+        for password in (self.password, "a", "long" * 100, "  café 🔑  ", "", "after-blank"):
+            with self.subTest(password_length=len(password)):
+                status, _, _ = await self._request("POST", "/api/settings/password", {
+                    "current_password": current, "new_password": password, "confirm_password": password,
+                }, cookie=cookie, csrf=csrf)
+                self.assertEqual(status, 200)
+                await self._restart_dashboard()
+                status, _, _ = await self._request("POST", "/api/login", {"password": password})
+                self.assertEqual(status, 200)
+                status, _, _ = await self._request("POST", "/api/login", {"password": password + "incorrect"})
+                self.assertEqual(status, 401)
+                current = password
+
+    async def test_password_change_keeps_current_browser_and_revokes_others_across_restart(self) -> None:
+        cookie, csrf = await self._login()
+        other_cookie, _ = await self._login()
+        new_password = "new-operator-password"
+        status, _, _ = await self._request("POST", "/api/settings/password", {
+            "current_password": self.password, "new_password": new_password, "confirm_password": new_password,
+        }, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertTrue(self.password_store.verify(new_password))
+        self.assertFalse(self.password_store.verify(self.password))
+        entries = self.server.audit_log.entries()
+        self.assertTrue(any(entry["event"] == "dashboard_password_changed" for entry in entries))
+        audit = json.dumps(entries)
+        self.assertNotIn(self.password, audit)
+        self.assertNotIn(new_password, audit)
+        self.password_store.initialize(password=self.password)
+        await self._restart_dashboard()
+        self.assertTrue(self.password_store.verify(new_password))
+        status, payload, _ = await self._request("GET", "/api/session", cookie=cookie)
+        self.assertEqual((status, payload["csrf"]), (200, csrf))
+        status, _, _ = await self._request("GET", "/api/session", cookie=other_cookie)
+        self.assertEqual(status, 401)
+        status, _, _ = await self._request("POST", "/api/login", {"password": self.password})
+        self.assertEqual(status, 401)
+        status, _, _ = await self._request("POST", "/api/login", {"password": new_password})
+        self.assertEqual(status, 200)
+
+    async def test_robot_settings_requires_auth_csrf_and_explicit_restart(self):
+        payload = {"op": "security", "robot_id": "ainekio-test-01", "revision": 0, "setup_password": "setup-secret"}
+        status, _, _ = await self._request("POST", "/api/settings/robot", payload)
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/settings/robot", payload, cookie=cookie)
+        self.assertEqual(status, 403)
+        status, response, _ = await self._request("POST", "/api/settings/robot", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertTrue(response["settings"]["pending_restart"])
+        self.assertNotIn("setup-secret", json.dumps(self.server.audit_log.entries()))
+        restart = {"op": "apply", "robot_id": "ainekio-test-01", "revision": 1}
+        status, _, _ = await self._request("POST", "/api/settings/robot", restart, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 400)
+        status, _, _ = await self._request("POST", "/api/settings/robot", {**restart, "confirmed": True}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+
     async def test_login_sets_bounded_hardened_session_cookie(self) -> None:
         status, payload, headers = await self._request(
             "POST",
@@ -222,7 +330,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         cookie = headers["set-cookie"]
         self.assertIn("HttpOnly", cookie)
         self.assertIn("SameSite=Strict", cookie)
-        self.assertIn("Max-Age=28800", cookie)
+        self.assertIn("Max-Age=2592000", cookie)
         self.assertEqual(headers["cache-control"], "no-store")
         self.assertEqual(headers["x-frame-options"], "DENY")
 

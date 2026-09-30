@@ -9,7 +9,7 @@ import threading
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from time import time
-from typing import Any, AsyncIterator, Iterator, Mapping
+from typing import Any, AsyncIterator, Callable, Iterator, Mapping
 
 from gateway.server.service import GatewayError
 
@@ -152,6 +152,41 @@ class ActionReceipts:
         async with self._wire_guard(action_id, "started"):
             yield
 
+    def _prepare_walk_update(self, action_id: str, lease: object, context: Mapping[str, object],
+        revision: int, sequence: int) -> None:
+        with self.transaction():
+            row = self._action(action_id)
+            if row is None or row["state"] != "started" or row["wire"] is None:
+                raise GatewayError("walk action is not active")
+            payload, wire = json.loads(row["payload"]), json.loads(row["wire"])
+            if payload.get("bodyLease") != lease:
+                raise ActionConflictError("walk update identifies a different body owner")
+            self._assert_owner(payload, advance=False)
+            if any(wire.get(key) != value for key, value in context.items()):
+                raise ActionConflictError("walk update belongs to a different control session")
+            previous = wire.get("walkUpdate", {})
+            if revision <= previous.get("revision", 0):
+                raise ActionConflictError("walk update revision was already consumed")
+            wire["walkUpdate"] = {"revision": revision, "sequence": sequence, "dispatched": False}
+            self.db.execute("UPDATE actions SET wire=?,updated=? WHERE id=?", (encoded(wire), time(), action_id))
+
+    @asynccontextmanager
+    async def walk_update_dispatch(self, action_id: str, lease: object, context: Mapping[str, object],
+        revision: int, sequence: int, before_send: Callable[[], None]) -> AsyncIterator[None]:
+        # Reserve the revision durably before any physical send. Updates retain
+        # the original command's receipt and never create a second body lease.
+        await asyncio.to_thread(self._prepare_walk_update, action_id, lease, context, revision, sequence)
+        async with self._wire_guard(action_id, "started"):
+            row = self._action(action_id)
+            wire = json.loads(row["wire"])
+            update = wire["walkUpdate"]
+            if update["revision"] != revision or update["sequence"] != sequence:
+                raise ActionConflictError("walk update was superseded before dispatch")
+            before_send()
+            update["dispatched"] = True
+            self.db.execute("UPDATE actions SET wire=?,updated=? WHERE id=?", (encoded(wire), time(), action_id))
+            yield
+
     @asynccontextmanager
     async def cancellation_dispatch(self, action_id: str) -> AsyncIterator[None]:
         async with self._wire_guard(action_id, "cancelling"):
@@ -174,9 +209,9 @@ class ActionReceipts:
         try:
             yield
         finally:
-            # This thread already owns the read-only guard transaction. Pool
+            # This thread already owns the guard transaction. Pool
             # workers can all be waiting for its lock; release must not queue
-            # behind those waiters. COMMIT performs no physical or network I/O.
+            # behind those waiters. COMMIT performs no robot or network I/O.
             self._release_dispatch()
 
     def queue_feedback(self, envelope: dict[str, Any]) -> dict[str, Any]:

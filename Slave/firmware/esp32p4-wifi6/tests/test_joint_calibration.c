@@ -28,15 +28,15 @@ static void test_defaults_home_and_full_nominal_span(void)
     assert(ainekio_p4_joint_map_frame(joints, &frame, pulses));
     for (size_t i = 0; i < AINEKIO_BODY_JOINT_COUNT; ++i) {
         assert(joints[i].home_cd == (int32_t)frame.position[i]);
-        assert(pulses[i] == 1300);
+        assert(pulses[i] == 1650);
     }
     frame.position[8] += 14400;
     frame.position[11] -= 9000;
     assert(ainekio_p4_joint_map_frame(joints, &frame, pulses));
-    assert(pulses[8] == 2900 && pulses[11] == 300);
+    assert(pulses[8] == 3250 && pulses[11] == 650);
     frame.position[11] -= 100;
     assert(ainekio_p4_joint_map_frame(joints, &frame, pulses));
-    assert(pulses[11] == 289); /* No servo travel cap. */
+    assert(pulses[11] == 639); /* Literal mapping; no servo travel cap. */
 }
 
 static void test_mapping_direction_channels_and_disabled_joint(void)
@@ -52,7 +52,7 @@ static void test_mapping_direction_channels_and_disabled_joint(void)
     joints[0].us_per_degree = 10;
     frame.position[0] = 2900;
     assert(ainekio_p4_joint_map_frame(joints, &frame, pulses));
-    assert(pulses[11] == 1885 && pulses[0] == 1300);
+    assert(pulses[11] == 1885 && pulses[0] == 1650);
     joints[0].invert = 1;
     assert(ainekio_p4_joint_map_frame(joints, &frame, pulses));
     assert(pulses[11] == 1105);
@@ -81,8 +81,8 @@ static void test_original_library_leg_extremes(void)
                 frame.position[leg*3+j] = end ? maximum_cd[j] : minimum_cd[j];
         assert(ainekio_p4_joint_map_frame(joints, &frame, pulses));
         for (unsigned leg = 0; leg < 4; ++leg) {
-            assert(pulses[leg*3+1] == (end ? 2791 : 409));
-            assert(pulses[leg*3+2] == (end ? 2874 : 326));
+            assert(pulses[leg*3+1] == (end ? 3141 : 759));
+            assert(pulses[leg*3+2] == (end ? 3224 : 676));
         }
     }
 }

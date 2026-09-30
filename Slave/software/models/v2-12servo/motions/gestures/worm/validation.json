@@ -3,14 +3,14 @@
   "samples": 2401,
   "duration_s": 20.0,
   "sample_hz": 120,
-  "geometry_id": "upright-24-38-24-55-20260921",
-  "min_sole_height_mm": -0.0001970769587558152,
-  "minimum_body_ground_clearance_mm": 3.225957875992286,
-  "minimum_closure_triangle_height_mm": 15.600282353193986,
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "min_sole_height_mm": -0.0011692967169736335,
+  "minimum_body_ground_clearance_mm": 3.2048940429429393,
+  "minimum_closure_triangle_height_mm": 12.830566274784287,
   "hardware_qualified": false,
   "collision_checked": false,
   "reviewed_joint_keys_preserved": true,
   "motion_end_s": 20.0,
   "max_target_error_mm": 0.0,
-  "peak_joint_speed_deg_s": 23.37457522695107
+  "peak_joint_speed_deg_s": 35.350551196905805
 }

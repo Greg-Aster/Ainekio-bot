@@ -1,12 +1,15 @@
 {
   "command": "crouch",
-  "samples": 481,
-  "old_samples": 481,
-  "joint_max_error_deg": 2.612256581713268e-05,
-  "rotation_max_error_rad": 0.0,
-  "body_max_error_mm": 2.7508726532232686e-06,
-  "status": "original_actions_restored_and_source_parity_verified",
-  "source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
-  "original_action_bindings_exact": true,
+  "source_sha256": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
+  "source": "motions/gestures/crouch/source.json",
+  "evaluated_poses": 33,
+  "minimum_sole_z_mm": 0.147857666015625,
+  "max_foot_position_error_mm": 1.2277547384087484e-05,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "scene": "Motions - Firmware Remap",
+  "complete_joint_and_body_key_arrays_verified": true,
   "hardware_qualified": false
 }

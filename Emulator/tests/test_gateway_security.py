@@ -11,6 +11,7 @@ from pathlib import Path
 
 import gateway.server.__main__ as gateway_main
 from gateway.security import DashboardPasswordStore, RobotTokenStore
+from gateway.dashboard.auth import DashboardSessions, SESSION_TTL_SECONDS
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 
 
@@ -174,16 +175,66 @@ class GatewaySecurityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "interactive TTY"):
             store.initialize()
 
-    def test_explicit_password_replaces_existing_verifier(self) -> None:
+    def test_explicit_password_change_replaces_existing_verifier(self) -> None:
         path = self.root / "dashboard-auth.json"
         store = DashboardPasswordStore(path)
         old_password = "old-dashboard-password"
         new_password = "new-dashboard-password"
 
         store.initialize(password=old_password)
-        self.assertEqual(store.initialize(password=new_password), new_password)
+        store.set_password(new_password)
         self.assertFalse(store.verify(old_password))
         self.assertTrue(store.verify(new_password))
+        store.initialize(password=old_password)
+        self.assertTrue(store.verify(new_password), "A stale startup variable must not undo a UI password change")
+
+    def test_saved_password_and_revision_survive_normal_startup(self) -> None:
+        store = DashboardPasswordStore(self.root / "dashboard-auth.json")
+        store.initialize(password="stable-dashboard-password")
+        original = store.path.read_bytes()
+        self.assertIsNone(store.initialize())
+        store.initialize(password="stable-dashboard-password")
+        self.assertEqual(store.path.read_bytes(), original)
+
+    def test_sessions_survive_restart_but_not_logout_expiry_or_password_change(self) -> None:
+        store = DashboardPasswordStore(self.root / "dashboard-auth.json")
+        store.initialize(password="stable-dashboard-password")
+        path = self.root / "dashboard-sessions.json"
+        now = 1000.0
+
+        def reload_sessions() -> DashboardSessions:
+            return DashboardSessions(path=path, password_revision=store.revision(), clock=lambda: now)
+
+        sessions = reload_sessions()
+        token, session = sessions.create()
+        self.assertNotIn(token, path.read_text())
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertEqual(reload_sessions().get(token), session)
+        sessions.revoke(token)
+        self.assertIsNone(reload_sessions().get(token))
+
+        token, _ = sessions.create()
+        now += SESSION_TTL_SECONDS
+        self.assertIsNone(reload_sessions().get(token))
+        sessions = reload_sessions()
+        token, _ = sessions.create()
+        store.set_password("changed-dashboard-password")
+        self.assertIsNone(reload_sessions().get(token))
+
+    def test_session_store_is_bounded_and_rejects_malformed_entries(self) -> None:
+        from gateway.dashboard.auth import MAX_SESSIONS
+        path = self.root / "dashboard-sessions.json"
+        sessions = DashboardSessions(path=path, password_revision="test")
+        old_token, _ = sessions.create()
+        for _ in range(MAX_SESSIONS):
+            sessions.create()
+        self.assertIsNone(sessions.get(old_token))
+        record = json.loads(path.read_text())
+        self.assertEqual(len(record["sessions"]), MAX_SESSIONS)
+        next(iter(record["sessions"].values()))["expires_at"] = "invalid"
+        path.write_text(json.dumps(record))
+        with self.assertRaisesRegex(RuntimeError, "invalid entry"):
+            DashboardSessions(path=path, password_revision="test")
 
     def test_invalid_store_fails_closed(self) -> None:
         path = self.root / "robot-tokens.json"

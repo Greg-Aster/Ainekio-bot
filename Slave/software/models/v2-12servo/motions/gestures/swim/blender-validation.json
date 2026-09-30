@@ -1,12 +1,15 @@
 {
   "command": "swim",
-  "samples": 2821,
-  "old_samples": 2821,
-  "joint_max_error_deg": 3.814639427446309e-06,
-  "rotation_max_error_rad": 1.8544693280997393e-09,
-  "body_max_error_mm": 6.541013753746938e-06,
-  "status": "original_actions_restored_and_source_parity_verified",
-  "source_sha256": "5c65ee82bf6a18f05085b0b9c4a5fec08206050957092469ed86d664591acc3b",
-  "original_action_bindings_exact": true,
+  "source_sha256": "1d44ae1fc78d55be814ad9165b7915b74f04b2022f0741801df9b7a451c51a49",
+  "source": "motions/gestures/swim/source.json",
+  "evaluated_poses": 33,
+  "minimum_sole_z_mm": -2.288818359375e-05,
+  "max_foot_position_error_mm": 1.633918567200965e-05,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "scene": "Motions - Firmware Remap",
+  "complete_joint_and_body_key_arrays_verified": true,
   "hardware_qualified": false
 }

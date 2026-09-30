@@ -23,6 +23,7 @@ MOTION_PLAN_FEATURE = "motion_plan_v1"
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
 MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
+ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
 STORAGE_CONTROL_FEATURE = "storage_control_v1"
 MOTION_SPEED_FEATURE = "motion_speed_v1"
 BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
@@ -482,6 +483,80 @@ def _validate_motion_speed_status(message: Mapping[str, object]) -> None:
     _boolean(message, "saved")
 
 
+def _settings_text(message: Mapping[str, object], name: str, maximum: int, minimum: int = 0) -> str:
+    value = _string(message, name, min_length=minimum, max_length=maximum)
+    if "\x00" in value or len(value.encode("utf-8")) > maximum:
+        _fail(f"range:{name}")
+    return value
+
+
+def _wifi_password(value: str, *, raw_key: bool = False) -> None:
+    if not value:
+        return
+    if raw_key and len(value) == 64 and all(c in "0123456789abcdefABCDEF" for c in value):
+        return
+    if not (8 <= len(value) <= 63 and all(32 <= ord(c) <= 126 for c in value)):
+        _fail("Wi-Fi requires 8–63 ASCII characters, a 64-digit hex key, or an empty password for an open network")
+
+
+def _settings_endpoint(message: Mapping[str, object]) -> None:
+    endpoint = _settings_text(message, "endpoint", 255, 1)
+    if not re.fullmatch(r"wss?://[^/@?#\s]+/robot", endpoint):
+        _fail("endpoint must be ws://host:port/robot or wss://host/robot")
+
+
+def _validate_robot_settings(message: Mapping[str, object]) -> None:
+    _seq(message)
+    op = _string(message, "op", allowed=frozenset({"get", "network", "remove", "security", "apply"}))
+    allowed = {"t", "seq", "epoch", "deadline_ms", "op"}
+    if op != "get":
+        allowed.add("revision")
+        _integer(message, "revision", minimum=0, maximum=2**32-1)
+    if op in {"network", "remove"}:
+        allowed.add("index")
+        _integer(message, "index", minimum=0, maximum=3)
+    if op == "network":
+        allowed.update({"ssid", "endpoint", "wifi_password"})
+        _settings_text(message, "ssid", 32, 1)
+        _settings_endpoint(message)
+        if "wifi_password" in message:
+            _wifi_password(_settings_text(message, "wifi_password", 64), raw_key=True)
+    if op == "security":
+        allowed.update({"robot_token", "setup_password"})
+        if not {"robot_token", "setup_password"} & message.keys():
+            _fail("select a credential to change")
+        if "robot_token" in message:
+            _settings_text(message, "robot_token", 128, 1)
+        if "setup_password" in message:
+            _wifi_password(_settings_text(message, "setup_password", 63))
+    if set(message) - allowed:
+        _fail("unexpected robot settings fields")
+
+
+def _validate_robot_settings_status(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _integer(message, "revision", minimum=0, maximum=2**32-1)
+    _integer(message, "active_index", minimum=-1, maximum=3)
+    _boolean(message, "pending_restart")
+    _boolean(message, "setup_open")
+    networks = message.get("networks")
+    if not isinstance(networks, list) or len(networks) > 4:
+        _fail("invalid networks")
+    indices = set()
+    for profile in networks:
+        if not isinstance(profile, dict) or set(profile) != {"index", "ssid", "endpoint", "open"}:
+            _fail("invalid network profile")
+        index = _integer(profile, "index", minimum=0, maximum=3)
+        if index in indices:
+            _fail("duplicate network slot")
+        indices.add(index)
+        _settings_text(profile, "ssid", 32, 1)
+        _settings_endpoint(profile)
+        _boolean(profile, "open")
+    if set(message) != {"t", "seq", "revision", "active_index", "pending_restart", "setup_open", "networks"}:
+        _fail("unexpected settings readback fields")
+
+
 def _validate_storage(message: Mapping[str, object]) -> None:
     _seq(message)
     _string(message, "op", allowed=frozenset({"get", "retry", "clear"}))
@@ -644,6 +719,8 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "calibration_status": _validate_calibration_status,
     "motion_speed": _validate_motion_speed,
     "motion_speed_status": _validate_motion_speed_status,
+    "robot_settings": _validate_robot_settings,
+    "robot_settings_status": _validate_robot_settings_status,
     "storage": _validate_storage,
     "storage_status": _validate_storage_status,
     "ack": _validate_ack,

@@ -1,11 +1,14 @@
 #include "ainekio/v2_walk.h"
 #include "walk_data.h"
+#include "servo_data.h"
 #include <math.h>
 #include <string.h>
 
 static const double pi=3.14159265358979323846;
 static double smooth(double u) {if(u<=0.)return 0.;if(u>=1.)return 1.;return u*u*u*(10.+u*(-15.+6.*u));}
 static double bump(double u) {return 64.*u*u*u*(1.-u)*(1.-u)*(1.-u);}
+double ainekio_v2_gait_joint_speed_limit(void){return V2_GAIT_MAX_JOINT_SPEED_DEGREES_S;}
+double ainekio_v2_gait_joint_speed_flag_threshold(void){return V2_GAIT_MAX_JOINT_SPEED_DEGREES_S*V2_SERVO_SPEED_EXCESS_FLAG_RATIO;}
 
 bool ainekio_v2_walk_controls_valid(ainekio_v2_walk_controls_t c)
 {
@@ -152,7 +155,8 @@ bool ainekio_v2_gait_begin(ainekio_v2_walk_state_t *s,ainekio_walk_direction_t d
      * A one-cycle launch left too little margin at the planted inside leg. */
     *s=(ainekio_v2_walk_state_t){.last_us=now,.end_phase=cycles?2.+cycles:INFINITY,.direction=direction,.gait_mode=gait,.run_from=gait==AINEKIO_GAIT_RUN?1.:0.,.run_target=gait==AINEKIO_GAIT_RUN?1.:0.,.transition_span=direction==AINEKIO_WALK_BACKWARD||gait==AINEKIO_GAIT_RUN?3.:gait==AINEKIO_GAIT_CRAB?V2_CRAB_STARTUP_CYCLES:1.,.from={0.,1.},.target=c,.stopping=c.stride_percent==0.};
     for(unsigned i=0;i<4;i++)s->offset_from[i]=s->offset_target[i]=gait==AINEKIO_GAIT_CRAB?v2_crab_offsets[i]:gait==AINEKIO_GAIT_RUN?(i<2?0.:.5):v2_walk_offsets[i];
-    if(!standing(&s->pose,V2_BODY_Z)){s->failed=true;return false;}
+    s->clock_scale=1.;
+    if(!standing(&s->pose,gait==AINEKIO_GAIT_CRAWL?V2_STAND_BODY_Z:V2_BODY_Z)){s->failed=true;return false;}
     s->pose.gait=gait;s->pose.direction=direction;s->pose.run_blend=s->run_target;
     if(gait==AINEKIO_GAIT_CRAWL&&!ainekio_v2_walk_solve(&s->pose)){s->failed=true;return false;}
     s->initialized=true;s->pose.frame.phase=AINEKIO_V2_ENTRY;return true;
@@ -210,7 +214,7 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
     if((s->pose.gait==AINEKIO_GAIT_CRAWL)&&s->preparation_seconds<V2_CRAWL_ENTRY){
         s->preparation_seconds=fmin(V2_CRAWL_ENTRY,s->preparation_seconds+dt);
         if(s->preparation_seconds>V2_CRAWL_ENTRY-1e-9)s->preparation_seconds=V2_CRAWL_ENTRY;
-        s->pose.body[2]=V2_BODY_Z+(V2_CRAWL_BODY_Z-V2_BODY_Z)*smooth(s->preparation_seconds/V2_CRAWL_ENTRY);
+        s->pose.body[2]=V2_STAND_BODY_Z+(V2_CRAWL_BODY_Z-V2_STAND_BODY_Z)*smooth(s->preparation_seconds/V2_CRAWL_ENTRY);
         if(s->stopping&&s->preparation_seconds>=V2_CRAWL_ENTRY){s->complete=true;s->pose.frame.phase=AINEKIO_V2_COMPLETE;}
         return true;
     }
@@ -295,12 +299,36 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *s,uint64_t now)
     uint64_t elapsed=now-s->last_us;
     if(elapsed>40000){s->failed=true;return false;} /* fault, never replay missed output */
     if(!elapsed)return true;
-    unsigned steps=(unsigned)((elapsed+4166)/4167);double dt=elapsed/1e6/steps;
+    const double seconds=elapsed/1e6;
+    const double allowance=100.*V2_GAIT_MAX_JOINT_SPEED_DEGREES_S*seconds;
+    /* Preserve requested timing until the excess threshold is crossed. Once
+     * flagged, this gait run keeps the rated budget, including updates/Finish.
+     * Preview one coordinated gait step. If any motor exceeds its budget,
+     * retry from the unchanged state with less gait time. Feet, anchors,
+     * body, preparation and blends all use that same clock; no joint clamps.
+     * Recover cadence gradually (0.5 clock fraction/s), reduce it immediately.
+     * Four bounded attempts keep computation and scratch storage predictable.
+     * A rejected candidate never changes the command or contact state. */
+    double scale=fmin(1.,s->clock_scale+.5*seconds);
+    ainekio_v2_walk_state_t candidate;
+    bool accepted=false;
+    bool flagged=s->speed_flagged;
+    for(unsigned attempt=0;attempt<4;attempt++) {
+        candidate=*s;
+        double duration=seconds*scale;
+        unsigned steps=(unsigned)ceil(duration/.004167);
+        double dt=duration/steps;
+        for(unsigned i=0;i<steps;i++)if(!advance(&candidate,dt,i+1==steps)){s->failed=true;return false;}
+        if(!ainekio_v2_walk_solve(&candidate.pose)){s->failed=true;return false;}
+        double change=0.;
+        for(unsigned j=0;j<12;j++)change=fmax(change,fabs((double)candidate.pose.frame.position[j]-s->pose.frame.position[j]));
+        if(change>=allowance*V2_SERVO_SPEED_EXCESS_FLAG_RATIO)flagged=true;
+        if(!flagged||change<=allowance){accepted=true;break;}
+        scale*=.9*allowance/change;
+    }
+    if(!accepted){s->failed=true;return false;}
     ainekio_v2_frame_t before=s->pose.frame;
-    for(unsigned i=0;i<steps;i++)if(!advance(s,dt,i+1==steps)){s->failed=true;return false;}
-    /* Contact/control integration retains its small steps. Only the final pose
-     * is emitted, so solve that pose once from the previous output's joints. */
-    if(!ainekio_v2_walk_solve(&s->pose)){s->failed=true;return false;}
+    *s=candidate;s->clock_scale=scale;s->speed_flagged=flagged;
     s->last_us=now;
     for(unsigned j=0;j<12;j++){
         double v=s->complete?0.:(s->pose.frame.position[j]-before.position[j])/(elapsed/1e6);

@@ -7,12 +7,13 @@ their existing behavior. Assembly references and calibration are documented in
 
 ## Servo profile and geometry
 
-`servo_profile.json` owns the observed 300–2900 µs pulse span, 1300 µs selected reference,
+`servo_profile.json` owns the historical 300–2900 µs pulse span, 1650 µs selected reference,
 provisional 234° conversion and mounting offsets. Its historical angle-envelope
 data remains a desktop research reference and is not compiled into the firmware.
-234° is not measured shaft travel. The recommended model offsets at 1300 µs are
+The owner reports more than 234° of travel; 234° is a provisional conversion,
+not a hard travel cap. The matchmark model offsets at 1650 µs are
 shoulder 0°, Part 006 carrier +1.17°, and Part 005 crank −40.41°. These non-inverted
-references balance the original library's combined leg-joint ranges. Mounting
+references preserve the existing carrier/crank matchmarks at the owner's new pulse reference. Mounting
 references and measured calibration do not rescale the gait trajectories. Existing saved mappings require deliberate
 re-indexing and calibration rather than automatic replacement. Startup and transitions use the same actual four-bar closure as locomotion.
 Carrier/crank entry follows normalized coordinates inside the exact closure
@@ -25,6 +26,13 @@ centidegrees. Geometric zero, solved Stand, calibration Home, Sit and Rest are
 separate poses. Electrical conversion belongs to the device's measured per-joint
 mapping; changing calibration never stretches or clamps a motion to fit.
 
+The 2026-09-29 visible Wireless assembly measures 173.434 mm between front and
+rear shoulder axes and 63.500 mm between left and right axes (previously
+152.700 × 48.200 mm). Rear animation pivots were reconciled to the assembled
+parts without moving their visible meshes. Legacy motion excursions use their
+original coordinate scale; changed foot placements are translated into the new
+footprint instead of stretching whole gestures.
+
 Model IDs 0–2/3–5 are physical rear-left/rear-right (CAD FL/FR), and 6–8/9–11
 are front-left/front-right (CAD RL/RR). Each triple is shoulder, carrier, crank.
 `model.json` preserves recorded channel assignments; assembly must verify them.
@@ -35,19 +43,34 @@ Normal Speed coordinates stride and cadence. Advanced controls remain independen
 For Walk/Crawl Speed 0<s<=100, stride=min(100,2*s)% and cadence=max(1,s/50). Speed zero requests
 Finish. The base period is 1.8 seconds; advanced cadence supports 0.25–3×.
 
-| Speed | Stride | Cadence | Steady cycle |
+| Speed | Stride | Requested cadence | Requested cycle |
 | --- | --- | --- | --- |
 | 25% | 50% | 1× | 1.8 s |
 | 50% | 100% | 1× | 1.8 s |
 | 75% | 100% | 1.5× | 1.2 s |
 | 100% | 100% | 2× | 0.9 s |
 
+The runtime preserves requested gait timing until an output would demand at
+least 125% of `gait_max_joint_speed_degrees_s` in `servo_profile.json`.
+The selected rating is 545.455°/s (advertised 0.11 s/60° at 4.8 V), making the
+flag threshold 681.818°/s. A flagged gait then slows its shared clock to enforce
+the rated budget for the rest of that run, including updates and Finish.
+Stride and Walk/Run blending continue responding to Speed. Body motion, swings,
+planted anchors and preparation share the same time scale; no individual joint
+is clamped. Cadence recovers gradually at 0.5 clock fraction per second, with at
+most four candidate solves per output. Unused gait time is discarded. This caps
+commanded frame-to-frame velocity; loaded tracking, torque and acceleration
+limits remain unmeasured. Finite gestures retain their authored paths and relative
+timing. Their compiled cubic speed bound includes the requested playback rate:
+below 125% it is unchanged; at or above 125% the whole clip is retimed to the rating.
+Entry transitions retain their separate bounded pulse-rate policy.
+
 Walk's full planted sweep is 92 mm, with 30 mm rearward bias and up to 14 mm lift.
 Sweep and bias scale with stride. Nominal advance is `92*stride/100/0.70` mm per
 cycle; this is geometric translation, not measured ground distance. The approved Walk leverage revision lowers the body reference from -2 to -8 mm while retaining stride, bias, lift and cadence. Named Stand retains its -2 mm reference. Modeled collision conflicts are reported separately. Sway, bob, roll and
 pitch remain continuous and scale with stride. Cadence changes the common clock.
 
-Crouch/Crawl use body translation -35 mm, leaving about 12 mm of complete-body
+Crouch/Crawl use body translation -35 mm, leaving about 14.25 mm of complete-body
 floor clearance. Crawl's full sweep is 18 mm, 4 mm rear bias and
 4 mm maximum lift. Lower legs remain inclined; Rest is the separate grounded
 chassis pose. Turns advance 18° per full-stride Walk cycle or 10° per Crawl cycle.
@@ -88,12 +111,13 @@ Crawl stays 0–100. The current leverage revision and its offline checks are re
 Run is a front-pair/rear-pair bound: 42% stance per pair, half a cycle apart,
 with two brief flight intervals. Body pitch replaces the walking side sway.
 Forward Run opens its planted sweep from 80 mm just above 100% Speed to 104 mm
-at 200%, with 10 mm rear bias at full stride and up to 18 mm lift. At full stride
+at 200%, with the original 10 mm rear bias at full stride and up to 18 mm lift. At full stride
 the shorter stance fraction advances 247.62 mm per cycle, versus Walk's
 131.43 mm; this is modeled translation, not measured speed. Backward Run and
 turns retain an 80 mm sweep with 20 mm bias. Run's 1.2 s base period uses
-automatic rate `2+(Speed-100)/150`, giving about 0.6 s just above 100%, 0.514 s
-at 150%, and 0.45 s at 200%. Forward Run uses direct linkage geometry and the existing
+automatic rate `2+(Speed-100)/150`, requesting about 0.6 s just above 100%, 0.514 s
+at 150%, and 0.45 s at 200%. The joint-speed budget can lengthen these periods.
+Forward Run uses direct linkage geometry and the existing
 horn indexing without changing servo references or imposing new pulse caps.
 At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward;
 a 3° nose-up bias and -9 mm body reference retain reach with the revised swing lift. Backward Run and turns use a -8 mm body reference. Lanes blend through swing while stance feet
@@ -142,13 +166,16 @@ The runtime catalog contains 23 gestures/postures. The eight fixed-angle turns
 uses the declared catalog and gait turning instead. The remaining motions include
 Lay Down, Crouch and experimental Upright. [The gesture README](motions/gestures/README.md) records command durations.
 Nod has two cycles. Wave reproduces Sit before extending and waving. Bow reaches
-both hands forward about 73.42 mm. Point reaches about 95.02 mm. Sit lays the rear lower legs along the floor; Rest lays all lower legs horizontal and grounds the chassis base plate.
+both hands forward about 73.42 mm. Point reaches about 95.02 mm. Sit lays the rear lower legs along the floor; Rest lays all lower legs horizontal and grounds the current structural chassis supports.
 
-`retarget_clips.py` preserves legacy-derived task-space choreography. Reviewed Worm, Shrug, Play Dead and Lay Down recordings regenerate through `import_reviewed_clips.py` without changing their joint paths. Sources and dependent hashes are
+`retarget_clips.py` preserves legacy-derived task-space choreography. Reviewed Worm,
+Shrug, Play Dead and Lay Down use `remap_reviewed_clips.py` for translated support
+anchors and necessary floor corrections, retaining their recorded timing,
+rotations and phases. `import_reviewed_clips.py` then preserves the adapted keys. Sources and dependent hashes are
 regenerated together. The compiler checks provenance and preserves the original cubic tracks. Mechanical and reference-span conflicts are listed in `mechanics/original-motion-range-audit.json`; they are not corrected by changing the motion.
 
 P4 entry uses a known commanded reference and a coordinated path through the
-carrier/crank closure region. Conservative continuous path bounds are checked against PWM timer capacity before replacing a motion; entry pulse change is bounded to 1000 µs/s at 1×; named-motion speed scales this entry timing as well.
+carrier/crank closure region. Conservative continuous path bounds are checked against PWM timer capacity before replacing a motion; entry pulse change is bounded to 1000 µs/s at 1×. Increased entry rates also use the 125% flag threshold and retime to rated shaft speed when exceeded.
 A new motion request with outputs off or only partly commanded first engages
 the saved Home pulses 200 ms apart, then enters the requested motion. Invalid
 model references are reported before enabling outputs. This is commanded state,
@@ -172,7 +199,7 @@ and a safe recovery transition remain unqualified. [Upright](motions/gestures/up
 The P4 contains one motion implementation. Direct single-precision linkage
 geometry replaces the numerical search; a maximum of four endpoint evaluations
 per leg resolves the rocking sole. Unreachable circles and changes of linkage
-branch are rejected. The 101/90-vertex Walk/Crawl support profiles are certified
+branch are rejected. The 92-vertex Walk/Crawl support profiles are certified
 against every original hull vertex with an all-orientation distance bound below
 0.15 mm. A 0.151 mm conservative allowance preserves floor clearance. Full CAD
 meshes and research fitting remain desktop inputs and are not linked into firmware.
