@@ -1,0 +1,569 @@
+{
+  "type": "reconstructed reference",
+  "pcb_mm": [
+    13.0,
+    18.0,
+    1.6
+  ],
+  "mount_holes_estimated_mm": {
+    "diameter": 3.0,
+    "centers": [
+      [
+        2.5,
+        7.1
+      ],
+      [
+        2.5,
+        -7.1
+      ]
+    ]
+  },
+  "pads": [
+    [
+      -5.08,
+      7.62
+    ],
+    [
+      -5.08,
+      5.08
+    ],
+    [
+      -5.08,
+      2.54
+    ],
+    [
+      -5.08,
+      0.0
+    ],
+    [
+      -5.08,
+      -2.54
+    ],
+    [
+      -5.08,
+      -5.079999999999999
+    ],
+    [
+      -5.08,
+      -7.62
+    ],
+    [
+      5.08,
+      5.08
+    ],
+    [
+      5.08,
+      2.54
+    ],
+    [
+      5.08,
+      0.0
+    ],
+    [
+      5.08,
+      -2.54
+    ],
+    [
+      5.08,
+      -5.08
+    ]
+  ],
+  "parts": [
+    {
+      "name": "Purple_PCB_13x18_two_holes_ESTIMATED",
+      "basis": "outline from listings; thickness and holes estimated"
+    },
+    {
+      "name": "Gold_pad_top_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_4",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_4",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_4",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_5",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_5",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_5",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_6",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_6",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_6",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_7",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_7",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_7",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_8",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_8",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_8",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_9",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_9",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_9",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_10",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_10",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_10",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_11",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_11",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_11",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_top_12",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Gold_pad_bottom_12",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Plated_barrel_12",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Decorative_trace_1",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_2",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_3",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_4",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_5",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_6",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_7",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_8",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_9",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_10",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_11",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Decorative_trace_12",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Regulator_SOT23_5_ESTIMATED",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Regulator_lead_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Regulator_lead_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Regulator_lead_3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Regulator_lead_4",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Regulator_lead_5",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Regulator_mark",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_1_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_1_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_1_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_2_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_2_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_2_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_3_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_3_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_top_3_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_right_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_right_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Capacitor_right_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_1_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_1_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_1_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_1_mark",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_2_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_2_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_2_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_left_2_mark",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_1_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_1_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_1_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_1_mark",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_2_body",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_2_end_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_2_end_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Resistor_bottom_2_mark",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_-1_0",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_1_0",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_-1_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_1_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_-1_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_1_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_-1_3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_1_3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_-1_4",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_side_1_4",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_end_-1_0",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_end_1_0",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_end_-1_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "IMU_contact_end_1_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "LSM6DS3_LGA14_2p5x3x0p83",
+      "basis": "package size ST datasheet; board position estimated"
+    },
+    {
+      "name": "Chip_text_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Chip_text_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Chip_pin1_dot",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Board_name_1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Board_name_2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Axis_cosmetic_horizontal",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Axis_cosmetic_vertical",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Arrow_1",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Arrow_2",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Arrow_3",
+      "basis": "decorative; not a circuit schematic"
+    },
+    {
+      "name": "Axis_glyph_X",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Axis_glyph_Y",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Axis_glyph_Z",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_VIN",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_3V3",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_GND",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_SCL",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_SDA",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_CS",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_SA0",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_OCS",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_INT2",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_INT1",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_SCX",
+      "basis": "estimated from photos"
+    },
+    {
+      "name": "Rear_label_SDX",
+      "basis": "estimated from photos"
+    }
+  ]
+}

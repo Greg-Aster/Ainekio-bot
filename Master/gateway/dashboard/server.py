@@ -18,7 +18,7 @@ from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.control_v1 import ProtocolValidationError
 
-from .auth import AuditLog, DashboardSession, DashboardSessions, LoginRateLimiter
+from .auth import AuditLog, DashboardSession, DashboardSessions, LoginRateLimiter, SESSION_TTL_SECONDS
 
 
 MAX_REQUEST_BODY_BYTES = 16 * 1024
@@ -57,8 +57,12 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.password_store = password_store
         self.token_store = token_store
         self.audit_log = audit_log or AuditLog()
-        self.sessions = DashboardSessions()
+        self.sessions = DashboardSessions(
+            path=password_store.path.with_name("dashboard-sessions.json"),
+            password_revision=password_store.revision(),
+        )
         self.login_limiter = LoginRateLimiter()
+        self.authentication_lock = threading.RLock()
         self.stop_latched = False
         self.primary_view = primary_view
         self._camera_condition = threading.Condition()
@@ -112,6 +116,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         path = parsed_url.path
         if path in STATIC_FILES:
             filename, content_type, requires_auth = STATIC_FILES[path]
+            if path == "/login" and self._session() is not None:
+                self.send_response(HTTPStatus.SEE_OTHER)
+                self.send_header("Location", "/")
+                self._security_headers()
+                self.end_headers()
+                return
             if requires_auth and self._session() is None:
                 self.send_response(HTTPStatus.SEE_OTHER)
                 self.send_header("Location", "/login")
@@ -219,6 +229,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         payload = self._read_json()
         if payload is None:
+            return
+        if path == "/api/settings/password":
+            self._change_password(payload)
             return
         try:
             response = self._dispatch_api(path, payload)
@@ -347,6 +360,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.server.audit_log.record("motion_speed_confirmed", robot_id=robot_id,
                                          operation=operation, sequence=result["seq"])
             return {"ok": True, "seq": result["seq"], "motion_speed": result}
+        if path == "/api/settings/robot":
+            operation = _required_string(payload, "op")
+            if operation == "apply" and payload.get("confirmed") is not True:
+                raise ValueError("confirm restarting the robot to apply settings")
+            values = {key: value for key, value in payload.items() if key not in {"op", "robot_id", "confirmed"}}
+            result = self.server.call_gateway(self.server.gateway.body_robot_settings(
+                operation, values, robot_id=robot_id), timeout=12.0)
+            self.server.audit_log.record("robot_settings_confirmed", robot_id=robot_id, operation=operation, sequence=result["seq"])
+            return {"ok": True, "settings": result}
         if path == "/api/storage":
             operation = _required_string(payload, "op")
             if operation == "clear" and payload.get("confirmed") is not True:
@@ -430,7 +452,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return {"ok": True}
         raise ValueError("unknown API command")
 
+    def _change_password(self, payload: dict[str, object]) -> None:
+        current = payload.get("current_password")
+        password = payload.get("new_password")
+        confirmation = payload.get("confirm_password")
+        if not isinstance(current, str) or not isinstance(password, str):
+            self._send_json({"error": "Password fields must contain text."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if password != confirmation:
+            self._send_json({"error": "The new passwords do not match."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        address = self.client_address[0]
+        with self.server.authentication_lock:
+            # Recheck after acquiring the lock: another browser may have just
+            # changed the password and revoked this session.
+            if self._require_session() is None:
+                return
+            if not self.server.login_limiter.allow_attempt(address):
+                self._send_json({"error": "Too many attempts. Try again shortly."}, status=HTTPStatus.TOO_MANY_REQUESTS)
+                return
+            if not self.server.password_store.verify(current):
+                self._send_json({"error": "The current password is incorrect."}, status=HTTPStatus.FORBIDDEN)
+                return
+            self.server.password_store.set_password(password)
+            self.server.sessions.password_changed(self.server.password_store.revision(), self._session_token())
+            self.server.login_limiter.clear(address)
+            self.server.audit_log.record("dashboard_password_changed", address=address)
+        self._send_json({"ok": True})
+
     def _login(self) -> None:
+        with self.server.authentication_lock:
+            self._login_locked()
+
+    def _login_locked(self) -> None:
         address = self.client_address[0]
         if not self.server.login_limiter.allow_attempt(address):
             self.server.audit_log.record("login_rate_limited", address=address)
@@ -451,7 +505,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             extra_headers={
                 "Set-Cookie": (
                     f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; "
-                    "Max-Age=28800"
+                    f"Max-Age={SESSION_TTL_SECONDS}"
                 )
             },
         )
@@ -466,7 +520,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return morsel.value if morsel is not None else None
 
     def _session(self) -> DashboardSession | None:
-        return self.server.sessions.get(self._session_token())
+        with self.server.authentication_lock:
+            return self.server.sessions.get(self._session_token())
 
     def _require_session(self) -> DashboardSession | None:
         session = self._session()

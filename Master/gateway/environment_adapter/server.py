@@ -19,9 +19,10 @@ from gateway.plugins import (
     AudioUtterancePlugin,
     robot_utterance_id,
 )
-from gateway.server.service import GatewayError, GatewayService
+from gateway.server.service import ActionExpiredError, GatewayError, GatewayService
 from gateway.body_capabilities import body_commands
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
+from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
 from websockets.exceptions import ConnectionClosed
 
 from .speech_transport import (
@@ -52,6 +53,8 @@ BRIDGE_SEND_TIMEOUT_SECONDS = 2.0
 ACTION_VISUAL_WAIT_SECONDS = 2.0
 CAMERA_DELIVERY_QUEUE_LENGTH = 1
 MAX_PENDING_ACTION_VISUALS = 32
+MAX_WALK_UPDATE_VALIDITY_MS = 2000
+WALK_UPDATE_ACK_TIMEOUT_SECONDS = 2.0
 
 
 def _normalized_action_type(action: Mapping[str, object]) -> str:
@@ -139,6 +142,7 @@ class EnvironmentAdapter:
         self._last_audio_result: dict[str, object] | None = None
         self._action_tasks: set[asyncio.Task[None]] = set()
         self._active_action_ids: set[str] = set()
+        self._walk_update_task: asyncio.Task[None] | None = None
         self._bridge_ready = False
         self._audio_utterances = AudioUtterancePlugin(
             gateway,
@@ -259,6 +263,9 @@ class EnvironmentAdapter:
                     self._action_tasks.add(task)
                     task.add_done_callback(self._action_finished)
                     continue
+                if message.get("type") == "environment.action.update":
+                    await self._schedule_walk_update(message, websocket)
+                    continue
                 if message.get("type") != "environment.action":
                     continue
                 action = message.get("action")
@@ -306,6 +313,119 @@ class EnvironmentAdapter:
                         return_exceptions=True,
                     )
                 self._microphone_level_task = None
+
+    async def _schedule_walk_update(self, request: dict[str, Any], websocket: Any) -> None:
+        # Backpressure is explicit: one in-flight update, no update task queue.
+        # A sender must await its result before supplying the next revision.
+        if self._walk_update_task is not None and not self._walk_update_task.done():
+            await self._send_walk_update_result(websocket, request, "rejected", "a walk update is already in flight")
+            return
+        task = asyncio.create_task(self._update_walk(request, websocket, self.clock()))
+        self._walk_update_task = task
+        self._action_tasks.add(task)
+        task.add_done_callback(self._action_finished)
+
+    def _walk_update_robot(self, request: Mapping[str, object]) -> Mapping[str, object]:
+        robot_id, robot = self._selected_robot()
+        if (request.get("gatewayInstance") != self.gateway.instance_id
+            or robot is None or robot_id != request.get("robotId") or robot.get("epoch") != request.get("epoch")):
+            raise GatewayError("walk update belongs to an ended control session")
+        if (robot.get("model") != "v2-12servo"
+            or not {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
+            or robot.get("connection_state") != "online"
+            or not isinstance(robot.get("capabilities"), Mapping) or robot["capabilities"].get("motion") is not True):
+            raise GatewayError("body is not ready for active walk updates")
+        return robot
+
+    async def _update_walk(self, request: dict[str, Any], websocket: Any, received_at: float) -> None:
+        sequence: int | None = None
+        dispatched = False
+        try:
+            if request.get("version") != ADAPTER_PROTOCOL_VERSION or type(request.get("version")) is not int:
+                raise GatewayError("walk update requires adapter protocol version 1")
+            if request.get("sessionId") != self.config.session_id:
+                raise GatewayError("walk update identifies a different environment session")
+            action_id, revision, validity_ms = request.get("actionId"), request.get("revision"), request.get("validForMs")
+            if not isinstance(action_id, str) or not 1 <= len(action_id) <= 256:
+                raise GatewayError("walk update requires bounded action identity")
+            if type(revision) is not int or not 1 <= revision <= MAX_SEQUENCE:
+                raise GatewayError("walk update requires a positive revision")
+            if type(validity_ms) is not int or not 1 <= validity_ms <= MAX_WALK_UPDATE_VALIDITY_MS:
+                raise GatewayError("walk update validity must be between 1 and 2000 ms")
+            if type(request.get("epoch")) is not int:
+                raise GatewayError("walk update requires the robot epoch")
+            controls = request.get("controls")
+            if not isinstance(controls, dict) or set(controls) not in ({"speed"}, {"stride", "rate"}):
+                raise GatewayError("walk update controls must be speed OR stride and rate")
+            robot = self._walk_update_robot(request)
+            row = await asyncio.to_thread(self.receipts.action, action_id)
+            if row is None or row["state"] != "started" or row["wire"] is None:
+                raise GatewayError("walk action is not active")
+            payload, wire = json.loads(row["payload"]), json.loads(row["wire"])
+            if payload.get("bodyLease") != request.get("bodyLease"):
+                raise GatewayError("walk update identifies a different body owner")
+            original_sequence = wire.get("sequence")
+            active = robot.get("active_walk")
+            if (wire.get("gatewayInstance") != self.gateway.instance_id or wire.get("robotId") != request["robotId"]
+                or wire.get("epoch") != request["epoch"] or wire.get("kind") != "intent"
+                or robot.get("active_walk_sequence") != original_sequence
+                or not isinstance(active, Mapping) or active.get("steps") != 0):
+                raise GatewayError("update does not identify this action's ongoing walk")
+            if revision <= wire.get("walkUpdate", {}).get("revision", 0):
+                raise GatewayError("walk update revision was already consumed")
+            previous = wire.get("walkUpdate", {})
+            if previous.get("dispatched") is True:
+                try:
+                    await self.gateway.wait_terminal(previous["sequence"], robot_id=request["robotId"],
+                        epoch=request["epoch"], timeout=0)
+                except (GatewayError, TimeoutError) as error:
+                    raise GatewayError("previous walk update has no terminal acknowledgement") from error
+            params = {"dir": active["dir"], "steps": 0, "update": original_sequence,
+                "gait": active.get("gait", "walk"), **controls}
+            validate_walk_controls(params)
+            context = {key: wire[key] for key in ("gatewayInstance", "robotId", "epoch", "sequence", "kind")}
+
+            def before_send() -> None:
+                nonlocal dispatched
+                age_ms = (self.clock() - received_at) * 1000
+                if not math.isfinite(age_ms) or not 0 <= age_ms <= validity_ms:
+                    raise ActionExpiredError("walk update expired before dispatch")
+                if self._websocket is not websocket or websocket.closed:
+                    raise GatewayError("walk update bridge session ended before dispatch")
+                current = self._walk_update_robot(request)
+                if current.get("active_walk_sequence") != original_sequence:
+                    raise GatewayError("walk action ended before update dispatch")
+                dispatched = True
+
+            def guard(assigned: int):
+                nonlocal sequence
+                sequence = assigned
+                return self.receipts.walk_update_dispatch(action_id, request.get("bodyLease"), context,
+                    revision, assigned, before_send)
+
+            await self.gateway.queue_intent("walk", params, robot_id=request["robotId"],
+                received_at=received_at, on_sequence=guard, valid_for_ms=validity_ms)
+            terminal = await self.gateway.wait_terminal(sequence, robot_id=request["robotId"],
+                epoch=request["epoch"], timeout=WALK_UPDATE_ACK_TIMEOUT_SECONDS)
+            status = "acknowledged" if terminal.get("t") == "ack" else "rejected"
+            message = str(terminal.get("code", terminal.get("t")))
+        except (GatewayError, ProtocolValidationError, TimeoutError, ConnectionClosed, OSError) as error:
+            status, message = ("outcome_unknown" if dispatched else "rejected"), str(error)
+        await self._send_walk_update_result(websocket, request, status, message, sequence=sequence)
+
+    async def _send_walk_update_result(self, websocket: Any, request: Mapping[str, object],
+        status: str, message: str, *, sequence: int | None = None) -> None:
+        if self._websocket is not websocket or websocket.closed:
+            return
+        # This is a control update receipt, not the parent action's completion.
+        # It is never admitted as cognitive work or replayed after reconnection.
+        result = {"type": "environment.action.update.result", "version": ADAPTER_PROTOCOL_VERSION,
+            "sessionId": self.config.session_id,
+            "actionId": request["actionId"] if isinstance(request.get("actionId"), str) and len(request["actionId"]) <= 256 else None,
+            "revision": request["revision"] if type(request.get("revision")) is int and 1 <= request["revision"] <= MAX_SEQUENCE else None,
+            "status": status, "message": message,
+            "sequence": sequence, "timestamp": self.utcnow().isoformat()}
+        await self._send_payload(websocket, json.dumps(result, separators=(",", ":")))
 
     async def _process_speech_audio(self, speech: SpeechAudioMessage) -> None:
         robot_id, robot = self._selected_robot()
@@ -1150,6 +1270,16 @@ class EnvironmentAdapter:
             },
             "gateway": gateway_status,
             "freestyleMovement": self._motion_plan_support_status(gateway_status),
+            "activeMovementUpdates": {
+                "version": 1,
+                "available": bool(motion_ready and robot and robot.get("model") == "v2-12servo"
+                    and {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
+                    and robot.get("connection_state") == "online"),
+                "gatewayInstance": self.gateway.instance_id,
+                "maxValidityMs": MAX_WALK_UPDATE_VALIDITY_MS,
+                "controls": ["speed", "stride", "rate"],
+                "maxInFlight": 1,
+            },
         }
         if body_event is not None:
             state["bodyEvent"] = {

@@ -190,7 +190,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1", "motion_speed_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "robot_settings_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -463,7 +463,7 @@ static void link_task(void *arg)
         if (!config || atomic_load(&quiesced) || !ainekio_p4_network_online()) { vTaskDelay(pdMS_TO_TICKS(100)); continue; }
         atomic_store(&reconnect, false);
         const esp_websocket_client_config_t options = {
-            .uri=config->endpoint_url, .disable_auto_reconnect=true,
+            .uri=ainekio_p4_network_endpoint(), .disable_auto_reconnect=true,
             .task_prio=5, .task_stack=16384, .buffer_size=1024,
             .network_timeout_ms=1000, .crt_bundle_attach=esp_crt_bundle_attach,
         };
@@ -677,6 +677,34 @@ static void cancel_audio(uint64_t connection, ainekio_cancel_code_t code)
     }
 }
 
+static void robot_settings_status(const request_t *request)
+{
+    const ainekio_p4_robot_settings_t s = ainekio_p4_saved_settings();
+    cJSON *message = cJSON_CreateObject();
+    if (!message) { fail_link(); return; }
+    cJSON_AddStringToObject(message, "t", "robot_settings_status");
+    cJSON_AddNumberToObject(message, "seq", request->message.sequence);
+    cJSON_AddNumberToObject(message, "revision", s.revision);
+    cJSON_AddNumberToObject(message, "active_index", ainekio_p4_network_index());
+    cJSON_AddBoolToObject(message, "pending_restart", s.revision != ainekio_p4_boot_settings()->revision);
+    cJSON_AddBoolToObject(message, "setup_open", s.setup_password_set && !s.setup_password[0]);
+    cJSON *profiles = cJSON_AddArrayToObject(message, "networks");
+    for (unsigned i=0; profiles && i<AINEKIO_NETWORK_SLOTS; ++i) {
+        if (!s.networks[i].ssid[0]) continue;
+        cJSON *p = cJSON_CreateObject();
+        if (!p) { cJSON_Delete(message); fail_link(); return; }
+        cJSON_AddItemToArray(profiles, p);
+        cJSON_AddNumberToObject(p, "index", i);
+        cJSON_AddStringToObject(p, "ssid", s.networks[i].ssid);
+        cJSON_AddStringToObject(p, "endpoint", s.networks[i].endpoint);
+        cJSON_AddBoolToObject(p, "open", !s.networks[i].password[0]);
+    }
+    char *text = cJSON_PrintUnformatted(message);
+    if (text) { reply(request->connection, text); cJSON_free(text); }
+    else fail_link();
+    cJSON_Delete(message);
+}
+
 static esp_err_t apply(const request_t *request)
 {
     const ainekio_command_t *command = &request->message.command;
@@ -696,6 +724,16 @@ static esp_err_t apply(const request_t *request)
             if (result != ESP_OK) return result;
         }
         return ainekio_p4_motion_rate_save(command->data.motion_speed.rate);
+    case AINEKIO_COMMAND_ROBOT_SETTINGS: {
+        const ainekio_robot_settings_command_t *s = &command->data.robot_settings;
+        if (s->operation == AINEKIO_SETTINGS_GET) return ESP_OK;
+        const ainekio_p4_robot_settings_t saved = ainekio_p4_saved_settings();
+        if (s->revision != saved.revision) return ESP_ERR_INVALID_STATE;
+        ainekio_pca_disarm(ainekio_p4_output());
+        esp_err_t result = ainekio_p4_body_prepare(ainekio_pca_status(ainekio_p4_output()).generation);
+        if (result != ESP_OK) return result;
+        return ainekio_p4_settings_change(s);
+    }
     case AINEKIO_COMMAND_STORAGE:
         if (command->data.storage_operation == AINEKIO_STORAGE_RETRY) return ainekio_p4_storage_retry();
         if (command->data.storage_operation == AINEKIO_STORAGE_CLEAR) return ainekio_p4_storage_clear();
@@ -788,6 +826,7 @@ static void control_task(void *arg)
                 reply(request.connection, text);
                 if (command->kind == AINEKIO_COMMAND_BODY_CALIBRATION) calibration_status(&request);
                 if (command->kind == AINEKIO_COMMAND_STORAGE) storage_status(&request);
+                if (command->kind == AINEKIO_COMMAND_ROBOT_SETTINGS) robot_settings_status(&request);
                 if (command->kind == AINEKIO_COMMAND_MOTION_SPEED) motion_speed_status(&request);
                 if (command->kind == AINEKIO_COMMAND_STATE && command->data.state.request == AINEKIO_STATE_REQUEST_SLEEP)
                     done(request.connection, command->sequence);
@@ -805,7 +844,8 @@ esp_err_t ainekio_p4_controller_start(void)
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STATE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_CAMERA) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_SNAPSHOT) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MICROPHONE) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_TTS) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_WAKE_CONFIG) |
-        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_SPEED);
+        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_SPEED) |
+        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_ROBOT_SETTINGS);
     ainekio_admission_init(&admission, allowed, true);
     requests = xQueueCreate(8, sizeof(request_t));
     replies = xQueueCreate(16, sizeof(reply_t));

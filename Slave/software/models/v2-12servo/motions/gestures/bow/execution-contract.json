@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/bow/source.json",
-      "sha256": "1b313035a9ec4f92b88bece1b072ef3d28d64dcdb12ca42756d9f93c85ab6d95"
+      "sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/bow/manifest.json",
-      "sha256": "3f4a8c1a56022e3fbcda2f64988e022f8e7de39726ba632c1d4d05d75a397893"
+      "sha256": "e150274b27d27c62eb29da44fe0b6ca19d319490b3c53fbf794bb43b097eb152"
     }
   ],
   "source_units": {
@@ -582,24 +582,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        -3.4277232242703374e-09,
-        0.033522787652696055,
-        0.0077382778671378615
+        -3.4279175756615554e-09,
+        0.03352514669016316,
+        0.007738809518691742
       ],
       [
-        -6.855412137067195e-09,
-        0.03352259575715927,
-        0.007738239210021999
+        -6.855835318943024e-09,
+        0.03352477345347081,
+        0.007738730184252423
       ],
       [
-        1.9846059755857533e-09,
-        0.0335230550346877,
-        0.007738329695574771
+        1.9847632452160202e-09,
+        0.03352559296754421,
+        0.007738898994546462
       ],
       [
-        -3.4277327057149906e-09,
-        0.03352291414500837,
-        0.007738299730361967
+        -3.4280487131336387e-09,
+        0.03352525226236473,
+        0.007738824207827111
       ]
     ],
     "contact_active": [
@@ -614,24 +614,24 @@
     "behavior": "Hold the front-leg stretch bow, reverse the reach and body shift, then return to exact standing and hold.",
     "joint_angles_rad": [
       [
-        -3.427963279100442e-09,
-        0.0335251959798646,
-        0.0077388180943315735
+        -3.427958867362899e-09,
+        0.03352514669021242,
+        0.007738809518703035
       ],
       [
-        -6.855891607389937e-09,
-        0.03352502495338274,
-        0.007738784118953195
+        -6.8558411791990795e-09,
+        0.033524773453467355,
+        0.007738730184251282
       ],
       [
-        1.984718003258746e-09,
-        0.03352545121801717,
-        0.007738867197917383
+        1.9847264133372035e-09,
+        0.033525592967578455,
+        0.007738898994553826
       ],
       [
-        -3.427971941653721e-09,
-        0.03352532347011676,
-        0.007738840180846237
+        -3.4279778641785868e-09,
+        0.033525252262272265,
+        0.00773882420780645
       ]
     ],
     "contacts": [
@@ -646,10 +646,10 @@
     "collision_checked": false,
     "measured_mass_balance_verified": false,
     "source_acceleration_continuous": false,
-    "minimum_assumed_support_margin_mm": 33.143664149088586
+    "minimum_assumed_support_margin_mm": 49.26986684948603
   },
   "body_support_required": false,
   "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded path and raise the front through the braced stance before standing; never seek directly to the last row.",
   "hardware_ready": false,
-  "geometry_id": "upright-24-38-24-55-20260921"
+  "geometry_id": "upright-24-38-24-55-visible-20260929"
 }

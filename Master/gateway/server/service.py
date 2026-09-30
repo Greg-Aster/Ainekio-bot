@@ -15,6 +15,8 @@ from time import monotonic
 from typing import Any, AsyncContextManager
 from uuid import uuid4
 
+from gateway.security import RobotTokenStore
+
 from protocol.binary_helpers import (
     MAX_JPEG_BYTES,
     MIC_PCM_FRAME_TYPE,
@@ -30,6 +32,7 @@ from protocol.control_v1 import (
     COMMAND_DEADLINE_FEATURE,
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
+    ROBOT_SETTINGS_FEATURE,
     MOTION_SPEED_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
@@ -175,11 +178,11 @@ class GatewayConnection:
             self.body_clock_ms = value
             self.body_clock_received_at = self.service.clock()
 
-    def _deadline(self, age_ms: float) -> int:
+    def _deadline(self, age_ms: float, validity_ms: int) -> int:
         now = self.service.clock()
         if self.body_clock_ms is None or now - self.body_clock_received_at >= 1.0:
             raise ActionExpiredError("fresh body clock required before dispatch")
-        remaining = min(1000, math.floor(self.service.config.max_action_age_ms - age_ms)) - 5
+        remaining = min(1000, math.floor(validity_ms - age_ms)) - 5
         if remaining <= 0:
             raise ActionExpiredError("action validity exhausted before dispatch")
         # Anchor to an observed body monotonic time, never advance it by a
@@ -201,10 +204,16 @@ class GatewayConnection:
         *,
         received_at: float,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
+        valid_for_ms: int | None = None,
     ) -> int:
         async with self._send_lock:
+            validity_ms = self.service.config.max_action_age_ms
+            if valid_for_ms is not None:
+                if type(valid_for_ms) is not int or not 1 <= valid_for_ms <= 60000:
+                    raise GatewayError("command validity must be between 1 and 60000 ms")
+                validity_ms = min(validity_ms, valid_for_ms)
             age_ms = (self.service.clock() - received_at) * 1000.0
-            if not math.isfinite(age_ms) or age_ms < 0 or age_ms > self.service.config.max_action_age_ms:
+            if not math.isfinite(age_ms) or age_ms < 0 or age_ms > validity_ms:
                 raise ActionExpiredError("action expired before sequence assignment")
             if self.websocket.closed:
                 raise RobotOfflineError(f"robot {self.robot_id} is offline")
@@ -261,6 +270,8 @@ class GatewayConnection:
                 self.model != "v2-12servo" or BODY_CALIBRATION_FEATURE not in self.features
             ):
                 raise GatewayError("body does not support twelve-joint calibration")
+            if message.get("t") == "robot_settings" and (self.model != "v2-12servo" or ROBOT_SETTINGS_FEATURE not in self.features):
+                raise GatewayError("Update the P4 firmware to manage robot settings here")
             if message.get("t") == "storage" and (
                 self.model != "v2-12servo" or STORAGE_CONTROL_FEATURE not in self.features
             ):
@@ -283,7 +294,7 @@ class GatewayConnection:
             if COMMAND_DEADLINE_FEATURE in self.features:
                 message["epoch"] = self.epoch
                 if message.get("t") != "stop":
-                    message["deadline_ms"] = self._deadline(age_ms)
+                    message["deadline_ms"] = self._deadline(age_ms, validity_ms)
             sequence = self.next_sequence
             self.next_sequence += 1
             message["seq"] = sequence
@@ -448,6 +459,7 @@ class GatewayConnection:
                 "frame_type": frame.frame_type,
                 "counter": frame.counter,
                 "payload": raw[5:],
+                "received_at": self.service.clock(),
             }
         )
 
@@ -495,6 +507,12 @@ class GatewayConnection:
             self.last_motion_speed = dict(message)
             self._finish_pending(sequence, message)
             return
+        if message_type == "robot_settings_status":
+            if pending.command.get("t") != "robot_settings" or not pending.acknowledged:
+                return
+            validate_control_message(message)
+            self._finish_pending(sequence, message)
+            return
         if message_type == "storage_status":
             if pending.command.get("t") != "storage" or not pending.acknowledged:
                 return
@@ -540,7 +558,7 @@ class GatewayConnection:
             # their individual cancellation acknowledgements were lost. Keep
             # commands admitted after the stop and ACK-only controls intact.
             for earlier, command in tuple(self.pending.items()):
-                if earlier < sequence and command.needs_done and command.command.get("t") not in {"storage", "motion_speed"}:
+                if earlier < sequence and command.needs_done and command.command.get("t") not in {"storage", "motion_speed", "robot_settings"}:
                     self._finish_pending(earlier, {"t": "cancelled", "seq": earlier, "code": "stop"})
 
     async def wait_acknowledged(
@@ -609,6 +627,7 @@ class GatewayService:
         *,
         clock: Callable[[], float] | None = None,
         clock_source: GatewayClock | None = None,
+        token_store: RobotTokenStore | None = None,
     ) -> None:
         if clock is not None and clock_source is not None:
             raise ValueError("provide clock or clock_source, not both")
@@ -619,6 +638,7 @@ class GatewayService:
         self.clock = self.clock_source.monotonic
         self.instance_id = uuid4().hex
         self._tokens = dict(config.tokens)
+        self.token_store = token_store
         self._connections: dict[str, GatewayConnection] = {}
         self._epochs: dict[str, int] = {}
         self._lock = asyncio.Lock()
@@ -651,7 +671,9 @@ class GatewayService:
         robot_id = str(hello["id"])
         expected_token = self._tokens.get(robot_id)
         supplied_token = str(hello["auth"])
-        if expected_token is None or not hmac.compare_digest(expected_token, supplied_token):
+        valid_token = self.token_store.matches(robot_id, supplied_token) if self.token_store else (
+            expected_token is not None and hmac.compare_digest(expected_token.encode(), supplied_token.encode()))
+        if not valid_token:
             await _send_control(websocket, {"t": "err", "code": "auth"})
             await websocket.close(code=4001, reason="authentication failed")
             return
@@ -735,6 +757,7 @@ class GatewayService:
         robot_id: str | None = None,
         received_at: float | None = None,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
+        valid_for_ms: int | None = None,
     ) -> int:
         command: dict[str, object] = {"t": "intent", "name": name}
         if params:
@@ -744,6 +767,7 @@ class GatewayService:
             robot_id=robot_id,
             received_at=received_at,
             on_sequence=on_sequence,
+            valid_for_ms=valid_for_ms,
         )
 
     async def emote(
@@ -939,6 +963,30 @@ class GatewayService:
             raise GatewayError(str(result.get("msg") or result.get("code") or "motion speed did not complete"))
         return result
 
+    async def body_robot_settings(self, operation: str, values: Mapping[str, object] | None = None,
+                                  *, robot_id: str | None = None) -> dict[str, object]:
+        connection = self._connection(robot_id)
+        if connection.model != "v2-12servo" or ROBOT_SETTINGS_FEATURE not in connection.features:
+            raise GatewayError("Update the P4 firmware to manage robot settings here")
+        message = {**dict(values or {}), "t": "robot_settings", "op": operation}
+        validate_control_message({**message, "seq": 1})
+        token = message.get("robot_token")
+        if token is not None:
+            if self.token_store is None:
+                raise GatewayError("Persistent pairing storage is required to change the robot token")
+            # Persist both credentials before sending. Even an ambiguous timeout
+            # or host restart must not strand a body which saved the new token.
+            self.token_store.stage(connection.robot_id, str(token))
+        sequence = await connection.send_command(message, received_at=self.clock())
+        try:
+            result = await connection.wait_terminal(sequence, timeout=8.0)
+        except TimeoutError as error:
+            connection._finish_pending(sequence, {"t": "cancelled", "seq": sequence, "code": "disconnect"})
+            raise GatewayError("Settings result is unknown; reconnect and read from the robot before retrying") from error
+        if result.get("t") != "robot_settings_status":
+            raise GatewayError(str(result.get("msg") or result.get("code") or "robot settings did not complete"))
+        return result
+
     async def body_storage(self, operation: str, *, robot_id: str | None = None) -> dict[str, object]:
         """Storage operations are operator-owned and settle only on device readback."""
         connection = self._connection(robot_id)
@@ -1031,6 +1079,8 @@ class GatewayService:
         return await connection.wait_terminal(sequence, timeout=timeout)
 
     async def revoke_token(self, robot_id: str) -> None:
+        if self.token_store is not None:
+            self.token_store.revoke(robot_id)
         self._tokens.pop(robot_id, None)
         connection = self._connections.get(robot_id)
         if connection is not None:
@@ -1039,6 +1089,8 @@ class GatewayService:
     def set_token(self, robot_id: str, token: str) -> None:
         if not robot_id or not token or len(token) > 128:
             raise ValueError("robot_id and bounded token are required")
+        if self.token_store is not None:
+            self.token_store.set(robot_id, token)
         self._tokens[robot_id] = token
 
     def subscribe_events(self, callback: GatewayCallback) -> None:
@@ -1046,6 +1098,10 @@ class GatewayService:
 
     def subscribe_frames(self, callback: GatewayCallback) -> None:
         self._frame_callbacks.append(callback)
+
+    def unsubscribe_frames(self, callback: GatewayCallback) -> None:
+        if callback in self._frame_callbacks:
+            self._frame_callbacks.remove(callback)
 
     def subscribe_transcripts(self, callback: GatewayCallback) -> None:
         self._transcript_callbacks.append(callback)
@@ -1128,12 +1184,14 @@ class GatewayService:
         robot_id: str | None,
         received_at: float | None = None,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
+        valid_for_ms: int | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         return await connection.send_command(
             command,
             received_at=self.clock() if received_at is None else received_at,
             on_sequence=on_sequence,
+            valid_for_ms=valid_for_ms,
         )
 
     def _connection(self, robot_id: str | None) -> GatewayConnection:
@@ -1169,6 +1227,8 @@ class GatewayService:
         await _publish(self._frame_callbacks, frame)
 
     async def _publish_command(self, command: dict[str, object]) -> None:
+        if command.get("t") == "robot_settings":
+            command = {key: value for key, value in command.items() if key not in {"wifi_password", "setup_password", "robot_token"}}
         await _publish(self._command_callbacks, command)
 
 
@@ -1197,7 +1257,7 @@ def _command_needs_done(command: Mapping[str, object]) -> bool:
     if message_type == "intent" and command.get("name") == "walk" and "update" in command:
         return False  # settings acknowledgement; original walk owns completion
     return (
-        message_type in {"intent", "motion_plan", "snap", "calibration", "storage", "motion_speed"}
+        message_type in {"intent", "motion_plan", "snap", "calibration", "storage", "motion_speed", "robot_settings"}
         or (message_type == "tts" and command.get("op") == "start")
         or (message_type == "state" and command.get("name") == "sleep")
     )

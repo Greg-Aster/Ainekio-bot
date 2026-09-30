@@ -24,7 +24,7 @@ int main(void)
 {
     ainekio_v2_frame_t center={0},stand={0},invalid={0};
     for(unsigned j=0;j<12;j++)center.position[j]=(float)(100.*ainekio_v2_center_degrees(j));
-    assert(ainekio_v2_pulse_reference()==1300);
+    assert(ainekio_v2_pulse_reference()==1650);
     assert(ainekio_v2_limits_frame(&center));
     invalid.position[1]=6000; /* Cannot close the actual rod/pickup triangle at crank zero. */
     assert(!ainekio_v2_limits_frame(&invalid));

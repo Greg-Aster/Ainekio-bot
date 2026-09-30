@@ -1,15 +1,17 @@
 {
   "schema": "ainekio.v2-servo-profile.v1",
-  "profile_id": "v2-24-38-reference-1300",
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "profile_id": "v2-24-38-reference-1650",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "pulse_range_us": [
     300,
     2900
   ],
-  "pulse_reference_us": 1300,
+  "pulse_reference_us": 1650,
   "provisional_travel_degrees": 234,
   "travel_measured": false,
   "us_per_degree": 11.11111111111111,
+  "gait_max_joint_speed_degrees_s": 545.4545454545455,
+  "gait_speed_limit_basis": "Miuzei MG90S advertised 0.11 s/60 degrees at 4.8 V (545.4545 degrees/s). Flag demands above 125 percent of this rating; retime to the rating. Supply voltage and loaded tracking unmeasured.",
   "joint_order": [
     "h_Part002",
     "alpha_Part006",
@@ -1946,7 +1948,9 @@
     57,
     43
   ],
-  "center_policy": "Common carrier/crank mounting offsets balance the union of the 39 restored motion recordings across all four legs, rounded to firmware centidegrees. Shoulder remains CAD neutral. Mechanical envelope and motion trajectories are unchanged.",
+  "center_policy": "Retain the existing shoulder-neutral and carrier/crank matchmarks. Their angles were selected for the historical 1300 us reference; the owner now reports assembly at 1650 us. Do not rebalance or re-index the installed horns automatically.",
   "mathematical_pulse_midpoint_us": 1600,
-  "reference_note": "Owner-selected 1300 us reference, not the arithmetic midpoint. With provisional 234-degree travel and non-inverted mapping, the usable offset is -90/+144 degrees. For each leg joint type, Home = (library minimum + library maximum)/2 - 27 degrees. Verify installed direction, shaft travel and achieved horn alignment."
+  "reference_note": "Owner reports assembly at 1650 us with the existing carrier/crank matchmarks aligned. Those marks encode model offsets 0, +1.17, -40.41 degrees. Default pulse reference updated; existing saved per-joint calibration is not overwritten. Pulse range and degree conversion remain historical/provisional; centering the pulse does not establish motion coverage or change shaft travel.",
+  "servo_speed_rating_voltage_v": 4.8,
+  "servo_speed_excess_flag_ratio": 1.25
 }

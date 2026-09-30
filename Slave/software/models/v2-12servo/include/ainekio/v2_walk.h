@@ -2,7 +2,7 @@
 #define AINEKIO_V2_WALK_H
 #include "ainekio/v2_motion.h"
 
-/* Control values are geometric research settings, not electrical limits. */
+/* Requested stride/cadence; the common clock enforces the command-speed limit. */
 typedef struct { double stride_percent, motion_rate; } ainekio_v2_walk_controls_t;
 typedef struct {
     double phase, body[3], euler[3], feet[4][3], sole_height[4];
@@ -22,6 +22,8 @@ typedef struct {
     uint64_t last_us;
     uint32_t command_sequence, latest_sequence;
     double phase, body_x, body_y, body_yaw, preparation_seconds, transition_phase, transition_span, end_phase;
+    double clock_scale; /* accepted gait time / wall time, in (0,1] */
+    bool speed_flagged; /* once >=125%, use the rated budget for this gait run */
     ainekio_walk_direction_t direction;
     ainekio_gait_t gait_mode; /* command family; Walk can cross into Run */
     double run_from, run_target, run_transition_phase;
@@ -33,6 +35,9 @@ typedef struct {
 } ainekio_v2_walk_state_t;
 
 extern const char ainekio_v2_walk_geometry_id[];
+/* Configured command limit in degrees/second, not measured shaft capability. */
+double ainekio_v2_gait_joint_speed_limit(void);
+double ainekio_v2_gait_joint_speed_flag_threshold(void);
 bool ainekio_v2_walk_controls(double speed_percent, ainekio_v2_walk_controls_t *out);
 bool ainekio_v2_walk_controls_valid(ainekio_v2_walk_controls_t controls);
 /* Stateless reference pose, for C/Python parity and diagnostic sampling. */

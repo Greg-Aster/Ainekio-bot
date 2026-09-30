@@ -65,7 +65,25 @@ static void update_coprocessor(void)
     esp_restart();
 }
 #endif
-static char ap_name[33], ap_key[17];
+static char ap_name[33], ap_key[64];
+static atomic_int network_index = -1;
+int ainekio_p4_network_index(void) { return atomic_load(&network_index); }
+const char *ainekio_p4_network_endpoint(void)
+{
+    int index = ainekio_p4_network_index();
+    return index < 0 ? "" : ainekio_p4_boot_settings()->networks[index].endpoint;
+}
+static esp_err_t select_network(int index)
+{
+    const ainekio_p4_network_profile_t *p = &ainekio_p4_boot_settings()->networks[index];
+    wifi_config_t sta = {0};
+    memcpy(sta.sta.ssid, p->ssid, strlen(p->ssid));
+    memcpy(sta.sta.password, p->password, strlen(p->password));
+    sta.sta.threshold.authmode = p->password[0] ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
+    esp_err_t result = esp_wifi_set_config(WIFI_IF_STA, &sta);
+    if (result == ESP_OK) atomic_store(&network_index, index);
+    return result;
+}
 static esp_netif_t *station;
 
 bool ainekio_p4_network_online(void) { return atomic_load(&online) && !atomic_load(&maintenance); }
@@ -108,7 +126,9 @@ static void network_task(void *arg)
 {
     (void)arg;
     const ainekio_config_record_t *config = ainekio_p4_config();
-    const bool has_wifi = config && config->wifi_ssid[0];
+    const ainekio_p4_robot_settings_t *settings = ainekio_p4_boot_settings();
+    const int first_network = ainekio_p4_network_next(settings, -1);
+    const bool has_wifi = first_network >= 0;
     /* Network initialization can block or fail without blocking board startup,
      * the console, or the independent output supervisor. */
     esp_err_t result = esp_netif_init();
@@ -130,18 +150,12 @@ static void network_task(void *arg)
         ESP_LOGI("network", "C6 firmware=%" PRIu32 ".%" PRIu32 ".%" PRIu32 " rev=%" PRId32,
                  version.major1, version.minor1, version.patch1, version.revision);
     else ESP_LOGE("network", "C6 firmware query failed: %s; pairing UNVERIFIED", esp_err_to_name(result));
-    wifi_config_t ap = {.ap={.ssid_len=strlen(ap_name), .channel=1, .max_connection=2, .authmode=WIFI_AUTH_WPA2_PSK}};
+    wifi_config_t ap = {.ap={.ssid_len=strlen(ap_name), .channel=1, .max_connection=2, .authmode=ap_key[0] ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN}};
     memcpy(ap.ap.ssid, ap_name, strlen(ap_name));
     memcpy(ap.ap.password, ap_key, strlen(ap_key));
     result = esp_wifi_set_mode(WIFI_MODE_APSTA);
     if (result == ESP_OK) result = esp_wifi_set_config(WIFI_IF_AP, &ap);
-    if (has_wifi) {
-        wifi_config_t sta = {0};
-        memcpy(sta.sta.ssid, config->wifi_ssid, strlen(config->wifi_ssid));
-        memcpy(sta.sta.password, config->wifi_psk, strlen(config->wifi_psk));
-        sta.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-        if (result == ESP_OK) result = esp_wifi_set_config(WIFI_IF_STA, &sta);
-    }
+    if (has_wifi && result == ESP_OK) result = select_network(first_network);
     if (result == ESP_OK) result = esp_wifi_set_mode(has_wifi ? WIFI_MODE_STA : WIFI_MODE_APSTA);
     if (result == ESP_OK) result = esp_wifi_start();
     if (result != ESP_OK) goto failed;
@@ -155,7 +169,7 @@ static void network_task(void *arg)
     ainekio_provisioning_t provision;
     ainekio_provisioning_init(&provision, has_wifi ? AINEKIO_CONFIG_STATUS_VALID : AINEKIO_CONFIG_STATUS_MISSING,
                               esp_timer_get_time() / 1000U);
-    uint64_t last_connect_ms = 0;
+    uint64_t last_connect_ms = 0, profile_started_ms = esp_timer_get_time() / 1000U;
     bool time_service_started = false;
     for (;;) {
 #ifdef AINEKIO_C6_IMAGE_INCLUDED
@@ -164,7 +178,7 @@ static void network_task(void *arg)
         if (atomic_load(&maintenance)) { vTaskDelay(pdMS_TO_TICKS(100)); continue; }
         const uint64_t now_ms = esp_timer_get_time() / 1000U;
         if (!time_service_started && atomic_load(&online) && config &&
-            strcmp(config->transport_mode, AINEKIO_TRANSPORT_REMOTE) == 0) {
+            strncmp(ainekio_p4_network_endpoint(), "wss://", 6) == 0) {
             /* TLS needs wall-clock certificate validation. Time sync never
              * blocks board startup; command deadlines remain monotonic. */
             esp_sntp_config_t time_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
@@ -190,6 +204,16 @@ static void network_task(void *arg)
         const ainekio_provision_actions_t actions = ainekio_provisioning_take_actions(&provision);
         if (actions & AINEKIO_PROVISION_ACTION_START_SETUP_AP) setup_ap(true);
         if (actions & AINEKIO_PROVISION_ACTION_STOP_SETUP_AP) setup_ap(false);
+        if (atomic_load(&online)) profile_started_ms = now_ms;
+        if (has_wifi && !atomic_load(&online) && now_ms - profile_started_ms >= 15000U) {
+            const int next = ainekio_p4_network_next(settings, ainekio_p4_network_index());
+            if (next != ainekio_p4_network_index()) {
+                (void)esp_wifi_disconnect();
+                result = select_network(next);
+                if (result != ESP_OK) ESP_LOGW("network", "Profile switch failed: %s", esp_err_to_name(result));
+            }
+            profile_started_ms = now_ms;
+        }
         if (has_wifi && !atomic_load(&online) &&
             ((actions & AINEKIO_PROVISION_ACTION_CONNECT_ACTIVE_WIFI) || now_ms - last_connect_ms >= 5000U)) {
             result = esp_wifi_connect();
@@ -208,6 +232,11 @@ esp_err_t ainekio_p4_network_prepare(void)
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_BASE);
     snprintf(ap_name, sizeof(ap_name), "Ainekio-P4-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    const ainekio_p4_robot_settings_t *settings = ainekio_p4_boot_settings();
+    if (settings->setup_password_set) {
+        strcpy(ap_key, settings->setup_password);
+        return ESP_OK;
+    }
     nvs_handle_t nvs;
     esp_err_t result = nvs_open("p4_network", NVS_READWRITE, &nvs);
     if (result != ESP_OK) return result;
@@ -226,7 +255,7 @@ esp_err_t ainekio_p4_network_prepare(void)
 
 esp_err_t ainekio_p4_network_start(void)
 {
-    if (strlen(ap_key) != 16) return ESP_ERR_INVALID_STATE;
+    if (!ainekio_p4_wifi_password_valid(ap_key, sizeof(ap_key), false)) return ESP_ERR_INVALID_STATE;
     return xTaskCreate(network_task, "network", 8192, NULL, 4, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
 

@@ -233,7 +233,7 @@ async def _run_production(args: argparse.Namespace) -> None:
 
     audit_log = AuditLog(args.data_dir / "operations.jsonl")
     service = GatewayService(
-        GatewayServiceConfig(tokens=token_store.snapshot(), profile=args.profile)
+        GatewayServiceConfig(tokens=token_store.snapshot(), profile=args.profile), token_store=token_store
     )
     service.subscribe_commands(
         lambda command: audit_log.record("gateway_command", **_audit_fields(command))
@@ -317,7 +317,8 @@ def _seed_environment_token(token_store: RobotTokenStore) -> None:
     if not token:
         return
     robot_id = os.environ.get("AINEKIO_ROBOT_ID", "ainekio-emulator-01")
-    token_store.set(robot_id, token)
+    if robot_id not in token_store.snapshot():
+        token_store.set(robot_id, token)
 
 
 def _audit_fields(payload: dict[str, object]) -> dict[str, object]:

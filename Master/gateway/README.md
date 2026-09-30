@@ -23,7 +23,7 @@ token through the environment. Do not commit either value:
 export AINEKIO_ROBOT_ID='ainekio-01'
 export AINEKIO_ROBOT_TOKEN='<strong generated robot token>'
 export AINEKIO_ENVIRONMENT_ADAPTER_TOKEN='<strong generated environment token>'
-# Optional fixed password; the physical launcher otherwise creates one per start.
+# Optional first-run password; later launches reuse the saved password.
 export AINEKIO_DASHBOARD_PASSWORD='<strong local dashboard password>'
 ./Master/start-physical-gateway.sh
 ```
@@ -44,13 +44,46 @@ This one-off home deployment intentionally uses authenticated `ws://` on the
 owner's private WPA2 LAN. It is the smallest local path, but the LAN is part of
 the trust boundary: do not use it on guest, shared, or public WiFi. Remote mode
 remains explicit and requires `wss://`; it is never an automatic fallback.
-On every physical-launcher start, the terminal prints the dashboard password.
-If `AINEKIO_DASHBOARD_PASSWORD` is unset, the launcher creates a fresh password
-for that run and replaces the prior verifier. Setting the environment variable
-uses and prints that configured password instead. Only the verifier persists;
-the generated plaintext is not written to the repository or runtime data.
+The dashboard reuses its saved operator password across launches. A first run
+without `AINEKIO_DASHBOARD_PASSWORD` generates and prints a password once when
+launched in an interactive terminal; an unattended first run requires that
+environment variable. Later launches do not generate or print another password.
+Use **Settings → Body Control password** to change it with your current password.
+The environment variable seeds a missing password store only; it cannot undo a
+later password change. Only the verifier persists; plaintext passwords are not
+saved by the dashboard. Browser sessions last 30 days and survive server
+restarts. Logging out revokes the session. A password change keeps the current
+browser signed in and signs out other browsers.
+Session token hashes and CSRF state are stored in the owner-only ignored runtime
+file `dashboard-sessions.json` alongside `dashboard-auth.json`.
 Dashboard authentication is separate from robot WiFi setup and is never
 presented by the ESP32 setup portal.
+
+**Settings → Robot Wi-Fi and pairing** reads and edits P4 settings over the
+existing authenticated connection when firmware advertises `robot_settings_v1`.
+Older firmware shows an update message. The operator can save four network slots,
+each with its own Wi-Fi credentials and Body Control URL, remove a network,
+change the robot setup-hotspot password, and change its pairing token. Passwords
+are write-only: unchecked password options preserve the saved secret; checking
+an option with an empty Wi-Fi password explicitly selects an open network.
+WPA2 passphrases follow the radio's 8–63 ASCII requirement (station profiles also
+accept a 64-digit hexadecimal PSK); the dashboard login has no such policy.
+
+Read the robot settings before editing. Saves carry the device revision so a
+stale browser cannot overwrite another editor's changes. Saving disables output
+and persists settings without dropping the running connection. **Restart robot
+to apply** is a separate confirmed action; normal startup can move servos to
+saved Home positions. A save/restart response confirms that operation, not
+successful reconnection. Secrets are omitted from readback, status and audit.
+
+Pairing changes persist the old and new credentials on this server before the
+robot receives the write. Both survive a gateway restart or ambiguous device
+result. The first authenticated connection using the new token promotes it and
+retires the old one. Reuse that pending token when retrying an uncertain save;
+apply/reconnect before starting another rotation. Other server installations
+must be given the matching token separately. The existing Generate/Revoke
+controls still manage server pairing only. Startup environment tokens seed
+missing identities and never overwrite a saved token.
 
 The launcher stays in the foreground. Press Ctrl+C to stop it. For normal
 owner operation it can instead be supervised by the included user service.
@@ -64,6 +97,35 @@ systemctl --user enable --now ainekio-gateway.service
 After that, the gateway and its discovery advertisement start when the owner
 logs in and restart after a process failure. This service file assumes the
 repository remains at `~/Ainekio`.
+
+On a host with the Ainekio hotspot services installed, set `AINEKIO_HOTSPOT=1`
+in the ignored `.env` to start the hotspot with this launcher. The launcher
+starts `ainekio-hotspot-dhcp.service` and its dependencies before the server,
+then stops `ainekio-hotspot-interface.service` and its dependent services when
+the server exits, including a failed startup. The operator needs permission to
+start/stop those specific system units without an interactive prompt. Disable
+their independent boot enablement when using this gateway-owned lifecycle.
+The default is `0`, so other hosts need no hotspot services. Body Control's
+dashboard login and robot pairing authentication continue to use their existing
+owners. Starting `python3 -m gateway.server` directly bypasses this launcher.
+
+Updated P4 firmware tries saved Wi-Fi slots in order, allowing 15 seconds per
+slot before trying the next while offline. It keeps a working Wi-Fi connection;
+gateway failure alone does not cause roaming. Each slot supplies its own server
+URL (for example `ws://10.42.77.1:8790/robot` on the computer hotspot). This uses
+normal Wi-Fi association, not Wi-Fi Direct. If no saved network works, the
+existing timed setup AP becomes available after 60 seconds; with no networks it
+opens immediately. Wi-Fi/controller loss retains the existing output disable
+and stale-command fencing, and reconnecting never replays movement.
+
+The AP-only setup page at `http://192.168.4.1/` remains the recovery path. For an
+already configured P4, it can replace a network and optionally change its server
+address or token; blank address/token inputs preserve those values. Portal
+saves restart immediately, as before. The serial configuration path also remains.
+Existing single-network NVS configuration and setup passwords are retained when
+upgrading; the first save creates the new P4 settings record. No NVS erase is
+needed. Board-level switching and provisioning still require device testing.
+
 The physical dashboard uses the selected robot's authenticated JPEG stream as
 its first panel; enable the camera in **Camera and audio** if the panel is
 waiting for frames. The emulator stack keeps the visual robot simulator in that
@@ -118,6 +180,133 @@ firmware-originated correlated still when the camera is ready. Future typed
 safety or sensor events should opt into the same controller-owned trigger and
 correlation fields. Routine status, heartbeat, individual PCM frames, and
 dashboard preview traffic do not produce Environment snapshots.
+
+## Updating an ongoing movement
+
+The authenticated Environment adapter accepts `environment.action.update` for
+an already-admitted, ongoing V2 walk. It updates the original command through
+the same gateway and body lease; it does not submit another cognitive action or
+take task ownership from MetaHuman. The original action must have passed the
+existing accepted-feedback admission gate before updates can be sent.
+
+The `bridge.ready` observation exposes `state.activeMovementUpdates`. Updates
+are available only for an online, motion-ready V2 body advertising ongoing
+locomotion and command deadlines. Use its `gatewayInstance`, the body's current
+`robotId`/`epoch`, the original `actionId`, and the exact original `bodyLease`:
+
+```json
+{
+  "type": "environment.action.update",
+  "version": 1,
+  "sessionId": "ainekio-01",
+  "gatewayInstance": "<current gateway instance>",
+  "robotId": "<connected robot ID>",
+  "epoch": 7,
+  "actionId": "<original action ID>",
+  "bodyLease": {
+    "bodyId": "ainekio-01",
+    "executionId": "<original execution ID>",
+    "generation": 1
+  },
+  "revision": 1,
+  "validForMs": 500,
+  "controls": {"speed": 70}
+}
+```
+
+`controls` accepts `speed` **or** both `stride` and `rate`, using the existing
+walking protocol ranges. Direction and gait come from the active wire command;
+updates do not change them. Finite movements cannot be converted into ongoing
+walks. Servo targets and additional control fields are rejected. The body retains
+its existing gait interpolation, coordinated timing and calibrated limits.
+
+Use increasing positive integer revisions, up to 2,147,483,647. A revision
+reserved for dispatch is stored in the original receipt and cannot be replayed,
+including after reopening the receipt store. Send one update at a time and await
+its result; a second concurrent update is rejected rather than queued.
+
+`validForMs` is an integer from 1 through 2000, measured from receipt at this
+adapter. The gateway's configured action-age limit can shorten it. Expiry,
+lease, cancellation and connection identity are checked before dispatch; the
+remaining validity also reaches the P4 through its existing command deadline.
+Queueing and body receipt do not restart that validity. Upstream observation age
+and transport delay before adapter receipt are separate and remain the sender's
+responsibility.
+
+The reply is `environment.action.update.result`, with the same `actionId` and
+`revision`, a wire `sequence` when assigned, and status `acknowledged`, `rejected`
+or `outcome_unknown`. An acknowledgement confirms body acceptance of the update;
+it does not complete the parent task or verify measured motion. If the body's
+reply times out after dispatch, further updates are blocked until that sequence
+has a terminal receipt. Cancellation remains available while awaiting a reply.
+Update results are not cognitive feedback and are not replayed to a new bridge.
+The original action retains its normal completion/cancellation receipt.
+
+This implements the Ainekio adapter boundary. A MetaHuman-owned local task
+producer and handling of update results still need integration; no autonomous
+search capability or recognition policy is advertised. Object-recognition model
+comparisons are deferred to the assembled prototype.
+
+Desktop coverage includes an authenticated WebSocket bridge, the real gateway
+command path with a simulated body, parent-action lifetime, cancellation and
+ownership changes, expiry, replay, reconnect identities and lost receipts:
+
+```sh
+PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
+  python3 -m unittest Emulator.tests.test_active_movement
+```
+
+## Continuous camera processing
+
+`gateway.plugins.CameraFramePlugin` processes camera images outside the robot
+receive loop. It retains one image being processed and one waiting image; each
+new arrival replaces the waiting image. Synchronous consumers run on one worker
+thread, and async consumers run in a separate task and must yield during I/O.
+Slow inference therefore does not make the receive loop await the model.
+
+An optional `observe` callback receives a `CameraAnalysis` containing the
+backend's result, robot ID, connection epoch, frame counter, and monotonic
+receipt/completion times. The backend can return detector boxes or a vision LLM
+description; the gateway does not reinterpret either as verified identity or
+task completion. Consumers must not treat model scores as measured probabilities.
+
+The plugin drops frames/results that exceed `max_frame_age_s` (default one
+second), belong to an ended connection epoch, or have a stale control heartbeat.
+Set this limit for the intended observation use before selecting a backend.
+Receipt time is **not** sensor capture time: it excludes age accumulated before
+the gateway received the image. Acquisition timestamps and frame-associated
+robot pose remain necessary before using image geometry for motion control.
+
+The owner must await `plugin.aclose()` on removal or shutdown. Closing
+unsubscribes the plugin, discards waiting frames/results, and joins its worker.
+A running native inference call cannot be killed by coroutine cancellation;
+shutdown waits for that call, so inference backends need their own bounded
+request deadlines. This thread separation does not establish hard real-time
+behavior for CPU-bound Python code or under system-wide load.
+
+At the current 256 KiB JPEG transport cap, the two retained input images use at
+most 512 KiB of payload storage. Model weights, decoded images, intermediate
+tensors, results, and runtime overhead require a separate measured budget.
+
+This is a host-side perception foundation, with no model selected or launched
+by the gateway CLI. It does not add a movement authority or advertise a search
+capability. MetaHuman keeps task ownership, the Environment adapter keeps its
+body leases and correlated receipts, and the body keeps servo execution.
+
+Desktop replay and WebSocket tests cover newest-frame delivery, stale/session
+rejection, processing failures, shutdown, and command/stop receipts while
+synchronous inference is blocked:
+
+```sh
+PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
+  python3 -m unittest Emulator.tests.test_camera_perception \
+  Emulator.tests.test_gateway_service Emulator.tests.test_environment_adapter \
+  Emulator.tests.test_action_receipts
+```
+
+These tests use synthetic observations and the host emulator. They do not
+qualify object-recognition accuracy, Q6A throughput, Wi-Fi latency, or physical
+movement.
 
 ## P4 assembly calibration
 

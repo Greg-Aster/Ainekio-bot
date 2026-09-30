@@ -1,12 +1,15 @@
 {
   "command": "point",
-  "samples": 1321,
-  "old_samples": 1321,
-  "joint_max_error_deg": 7.591681224994318e-06,
-  "rotation_max_error_rad": 7.423480469226362e-09,
-  "body_max_error_mm": 2.316950954650565e-06,
-  "status": "original_actions_restored_and_source_parity_verified",
-  "source_sha256": "27ababa8e086f6feb73081a8bc752ca0233ab35c5a7fd672ee9e51a4c6c60a9e",
-  "original_action_bindings_exact": true,
+  "source_sha256": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
+  "source": "motions/gestures/point/source.json",
+  "evaluated_poses": 33,
+  "minimum_sole_z_mm": -9.059906005859375e-05,
+  "max_foot_position_error_mm": 0.0019051217639862728,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "scene": "Motions - Firmware Remap",
+  "complete_joint_and_body_key_arrays_verified": true,
   "hardware_qualified": false
 }

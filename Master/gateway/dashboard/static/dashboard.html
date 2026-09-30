@@ -19,6 +19,7 @@
       <div class="header-actions">
         <span id="connection-state" class="connection-state offline">Offline</span>
         <select id="robot-select" aria-label="Robot"></select>
+        <button id="settings-button" type="button" aria-expanded="false" aria-controls="settings-panel">Settings</button>
         <button id="logout-button" class="icon-button" type="button" title="Sign out" aria-label="Sign out">&#x21aa;</button>
       </div>
     </header>
@@ -30,6 +31,83 @@
       </button>
       <p id="command-result" class="command-result" role="status">Ready</p>
     </div>
+
+    <section id="settings-panel" class="control-section settings-panel" aria-labelledby="settings-title" hidden>
+      <div class="section-heading">
+        <h2 id="settings-title">Settings</h2>
+        <button id="settings-close-button" type="button">Close settings</button>
+      </div>
+      <div class="settings-grid">
+        <section class="settings-card" aria-labelledby="password-title">
+          <h3 id="password-title">Body Control password</h3>
+          <p class="muted">Choose the password you use to sign in. It stays the same across restarts.</p>
+          <form id="password-form" class="password-form">
+            <label>Current password<input name="current_password" type="password" autocomplete="current-password"></label>
+            <label>New password<input name="new_password" type="password" autocomplete="new-password"></label>
+            <label>Confirm new password<input name="confirm_password" type="password" autocomplete="new-password"></label>
+            <p class="muted">Choose your own password, or leave both new password fields blank to sign in with an empty password. Other browsers will be signed out; this browser stays signed in.</p>
+            <button type="submit">Change password</button>
+            <p id="password-result" role="status" aria-live="polite" hidden></p>
+          </form>
+        </section>
+      <section class="settings-card security-section" aria-labelledby="security-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Access</p>
+            <h3 id="security-title">Robot pairing</h3>
+          </div>
+        </div>
+        <p class="muted">Pairing tokens let a robot connect to Body Control. Generating a replacement changes the server token; you must also update the robot through its setup or serial configuration.</p>
+        <form id="token-form" class="inline-form">
+          <label for="token-robot-id">Robot ID</label>
+          <div class="input-with-actions">
+            <input id="token-robot-id" name="robot_id" maxlength="64" placeholder="Robot ID" required>
+            <button type="submit" name="action" value="generate">Generate</button>
+            <button type="submit" name="action" value="revoke" class="danger-command">Revoke</button>
+          </div>
+        </form>
+        <div id="token-result" class="token-result" hidden>
+          <span>New token</span>
+          <code id="token-value"></code>
+          <button id="token-dismiss-button" type="button">Dismiss</button>
+        </div>
+        <p class="stored-token-label">Configured robots</p>
+        <div id="token-robot-list" class="tag-list"></div>
+      </section>
+        <section class="settings-card settings-network" aria-labelledby="network-settings-title">
+          <h3 id="network-settings-title">Robot Wi-Fi and pairing</h3>
+          <p id="robot-settings-availability" class="muted">Connect a robot to read its settings.</p>
+          <button id="robot-settings-read" type="button" disabled>Read from robot</button>
+          <p id="robot-settings-result" role="status" aria-live="polite"></p>
+          <div id="robot-settings-editor" hidden>
+            <p id="robot-settings-state" class="muted"></p>
+            <form id="robot-network-form" class="password-form">
+              <label>Saved network slot<select name="index" id="robot-network-index">
+                <option value="0">1 — first choice</option><option value="1">2</option><option value="2">3</option><option value="3">4</option>
+              </select></label>
+              <label>Network name (SSID)<input name="ssid" autocomplete="off" required></label>
+              <label>Body Control address for this network<input name="endpoint" placeholder="ws://10.42.77.1:8790/robot" required></label>
+              <label class="settings-check"><input name="change_wifi_password" type="checkbox"> Set Wi-Fi password</label>
+              <label>Wi-Fi password<input name="wifi_password" type="password" autocomplete="new-password"></label>
+              <p class="muted">Unchecked keeps the saved password. For a new network, check the box and enter its password, or leave it blank for an open network.</p>
+              <div class="settings-actions"><button type="submit">Save network</button><button id="robot-network-remove" type="button">Remove this network</button></div>
+            </form>
+            <form id="robot-security-form" class="password-form">
+              <label class="settings-check"><input name="change_setup_password" type="checkbox"> Change the robot setup hotspot password</label>
+              <label>New setup hotspot password<input name="setup_password" type="password" autocomplete="new-password"></label>
+              <p class="muted">Wi-Fi passwords use 8–63 ASCII characters. A blank password makes the selected hotspot open. These are Wi-Fi requirements, separate from your Body Control login.</p>
+              <label class="settings-check"><input name="change_robot_token" type="checkbox"> Change robot pairing token</label>
+              <label>New pairing token<input name="robot_token" type="password" autocomplete="new-password"></label>
+              <p class="muted">This server will accept the new token when the robot reconnects. Other Body Control servers must also be given the same token.</p>
+              <button type="submit">Save robot credentials</button>
+            </form>
+            <p class="muted">Saving stops motion and keeps the current connection. Restart to apply saved settings. The robot tries occupied slots in order and keeps a working connection; if no saved network connects, its setup page becomes available.</p>
+            <button id="robot-settings-apply" type="button">Restart robot to apply</button>
+          </div>
+          <p>For recovery, join the robot’s <strong>Ainekio-P4-…</strong> setup network and open <a href="http://192.168.4.1/" target="_blank" rel="noopener noreferrer">the robot setup page</a>.</p>
+        </section>
+      </div>
+    </section>
 
     <main class="dashboard-grid">
       <div class="primary-view-container">
@@ -414,29 +492,7 @@
         </div>
       </section>
 
-      <section class="control-section security-section" aria-labelledby="security-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Access</p>
-            <h2 id="security-title">Robot tokens</h2>
-          </div>
-        </div>
-        <form id="token-form" class="inline-form">
-          <label for="token-robot-id">Robot ID</label>
-          <div class="input-with-actions">
-            <input id="token-robot-id" name="robot_id" maxlength="64" value="ainekio-test-01" required>
-            <button type="submit" name="action" value="generate">Generate</button>
-            <button type="submit" name="action" value="revoke" class="danger-command">Revoke</button>
-          </div>
-        </form>
-        <div id="token-result" class="token-result" hidden>
-          <span>New token</span>
-          <code id="token-value"></code>
-          <button id="token-dismiss-button" type="button">Dismiss</button>
-        </div>
-        <p class="stored-token-label">Configured robots</p>
-        <div id="token-robot-list" class="tag-list"></div>
-      </section>
+
 
       <section class="control-section audit-section" aria-labelledby="audit-title">
         <div class="section-heading">

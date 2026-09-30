@@ -4,6 +4,7 @@ import asyncio
 import io
 import json
 import struct
+import threading
 import unittest
 import wave
 from collections.abc import Mapping
@@ -615,12 +616,14 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         frame_ready = asyncio.Event()
         payloads: list[bytes] = []
+        loop = asyncio.get_running_loop()
 
         def consume(payload: bytes) -> None:
             payloads.append(payload)
-            frame_ready.set()
+            loop.call_soon_threadsafe(frame_ready.set)
 
-        CameraFramePlugin(service, consume)
+        plugin = CameraFramePlugin(service, consume)
+        self.addAsyncCleanup(plugin.aclose)
         camera = FixtureCameraSource(b"\xff\xd8fixture\xff\xd9")
         core = PortableCore(self.library_path)
         session = BodySession(
@@ -653,6 +656,48 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             await service.revoke_token("ainekio-test-01")
             await client_task
         core.close()
+
+    async def test_slow_camera_inference_preserves_command_and_stop_receipts(self) -> None:
+        service = GatewayService(GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"}))
+        inference_started, release = asyncio.Event(), threading.Event()
+        loop = asyncio.get_running_loop()
+
+        def consume(payload: bytes) -> str:
+            loop.call_soon_threadsafe(inference_started.set)
+            if not release.wait(5):
+                raise TimeoutError("test inference was not released")
+            return "replayed scene"
+
+        plugin = CameraFramePlugin(service, consume)
+        self.addAsyncCleanup(plugin.aclose)
+        core = PortableCore(self.library_path)
+        self.addCleanup(core.close)
+        session = BodySession(core, ImmediateMotionBackend(),
+                              camera_source=FixtureCameraSource(b"\xff\xd8fixture\xff\xd9"))
+        async with websockets.serve(service.handler, "127.0.0.1", 0, ping_interval=None) as server:
+            port = server.sockets[0].getsockname()[1]
+            client = ProtocolV1BodyClient(BodyClientConfig(
+                endpoint=f"ws://127.0.0.1:{port}/robot", robot_id="ainekio-test-01",
+                auth_token="test-token",
+            ), session)
+            client_task = asyncio.create_task(client.run_once())
+            try:
+                await service.wait_connected("ainekio-test-01")
+                camera_sequence = await service.set_camera(on=True, fps=5, resolution="VGA")
+                self.assertEqual(await service.wait_terminal(camera_sequence, timeout=1),
+                                 {"t": "ack", "seq": camera_sequence})
+                await asyncio.wait_for(inference_started.wait(), 1)
+                sequence = await service.queue_intent("stand")
+                self.assertEqual(await service.wait_terminal(sequence, timeout=1),
+                                 {"t": "done", "seq": sequence})
+                stop_sequence = await service.estop()
+                self.assertEqual(await service.wait_terminal(stop_sequence, timeout=1),
+                                 {"t": "ack", "seq": stop_sequence})
+                self.assertFalse(release.is_set())
+            finally:
+                release.set()
+                await service.revoke_token("ainekio-test-01")
+                await client_task
 
     async def test_gateway_allows_explicit_media_in_tether(self) -> None:
         service = GatewayService(

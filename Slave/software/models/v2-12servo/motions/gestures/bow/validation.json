@@ -1,63 +1,62 @@
 {
   "command": "bow",
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "samples": 1021,
   "duration_s": 8.5,
   "sample_hz": 120,
-  "max_target_error_mm": 0.00013011662907302934,
-  "min_sole_height_mm": -4.8338222313759616e-11,
-  "minimum_body_ground_clearance_mm": 6.823793977182007,
-  "minimum_closure_triangle_height_mm": 6.783099631111989,
-  "minimum_assumed_support_margin_mm": 33.143664149088586,
+  "max_target_error_mm": 9.72022462519817e-11,
+  "min_sole_height_mm": -6.495781690318836e-11,
+  "minimum_body_ground_clearance_mm": 5.262739768285016,
+  "minimum_closure_triangle_height_mm": 4.493533179854496,
+  "minimum_assumed_support_margin_mm": 49.26986684948603,
   "actuator_min_degrees": [
     [
-      -4.676204642739498e-06,
-      -5.451770993640807,
-      -1.9441600755110975
+      -4.7374145983252526e-06,
+      -5.313539162484738,
+      -1.9028721854086035
     ],
     [
-      -3.717011312507524e-06,
-      -5.451775337415742,
-      -1.9441497281309996
+      -3.987229073970162e-06,
+      -5.313557061255728,
+      -1.9028658588531508
     ],
     [
       0.0,
-      -5.451759786516668,
-      -1.9441555962332235
+      -5.3135186378820185,
+      -1.9028646007140266
     ],
     [
-      -1.964083245460243e-07,
-      -5.451769802159345,
-      -1.9441634208145062
+      -1.9641272322781057e-07,
+      -5.313540650516646,
+      -1.9028759695094746
     ]
   ],
   "actuator_max_degrees": [
     [
-      -1.9639407408966488e-07,
-      42.62127128895121,
-      31.038660337598344
+      -1.9640520960412418e-07,
+      46.93723190808014,
+      30.635124904873923
     ],
     [
-      4.511896690258031e-06,
-      42.62126416648382,
-      31.038677295543998
+      3.165338448457297e-06,
+      46.93722449701652,
+      30.635143451299477
     ],
     [
-      5.020655749994167e-06,
+      5.020656409349951e-06,
       119.99999999999999,
       101.29499761671912
     ],
     [
-      1.8657343497483061e-06,
+      1.8470264299905514e-06,
       119.99999999999999,
       101.29499761671912
     ]
   ],
-  "maximum_adjacent_joint_step_degrees": 1.3066817180837418,
-  "peak_joint_speed_deg_s": 156.80180617004712,
-  "peak_joint_acceleration_deg_s2": 702.9859053451459,
-  "native_solver_fallbacks": 0,
-  "seconds": 5.833472236998205,
+  "maximum_adjacent_joint_step_degrees": 1.3052419495922964,
+  "peak_joint_speed_deg_s": 156.62903395107367,
+  "peak_joint_acceleration_deg_s2": 812.923517035105,
+  "seconds": 6.226304566000181,
   "hardware_qualified": false,
   "collision_checked": false,
   "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
@@ -65,11 +64,11 @@
     "RL": 1.8000000000000638,
     "RR": 1.799999999999259
   },
-  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "body_support_scope": "Current complete body hull.",
   "front_hand_forward_travel_mm": {
-    "RL": 73.42286010442896,
-    "RR": 73.42286263304038
+    "RL": 73.33326688702203,
+    "RR": 73.33326640987337
   },
   "motion_end_s": 8.0
 }

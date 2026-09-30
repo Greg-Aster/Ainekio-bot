@@ -16,24 +16,24 @@
   "completion": "Retract front-left arm, replace its sole, undo the support crouch, and hold exact standing neutral.",
   "final_actuator_angles_rad": [
     [
-      -3.4279730946464096e-09,
-      0.033525195979799034,
-      0.007738818094317624
+      -3.427958682014423e-09,
+      0.03352514669021188,
+      0.007738809518702306
     ],
     [
-      -6.8558914362768375e-09,
-      0.033525024953376385,
-      0.007738784118952224
+      -6.855854248336155e-09,
+      0.03352477345349806,
+      0.007738730184258506
     ],
     [
-      1.9847208311538007e-09,
-      0.033525451218018115,
-      0.007738867197917231
+      1.9847292486991334e-09,
+      0.03352559296755279,
+      0.007738898994547839
     ],
     [
-      -3.427966535772385e-09,
-      0.0335253234700979,
-      0.007738840180842572
+      -3.4279673981167617e-09,
+      0.033525252262341855,
+      0.0077388242078228735
     ]
   ],
   "body_target": {
@@ -84,9 +84,9 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "27ababa8e086f6feb73081a8bc752ca0233ab35c5a7fd672ee9e51a4c6c60a9e",
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
-  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
+  "source_sha256": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "faces/point/0.bin": "b39eb349030abed806b20676029bd24a63641a6e9b3d3fa52d70192cf62d2695",
     "faces/point/1.bin": "7ba5e49ed63b3719fc1568fb8166f20d1fefb0e33312ba4130e6c0c00579c6c8",
@@ -94,97 +94,96 @@
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
   "body_contact_required": false,
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "entry_actuator_angles_rad": [
     [
-      -3.4277232242703374e-09,
-      0.033522787652696055,
-      0.0077382778671378615
+      -3.4279175756615554e-09,
+      0.03352514669016316,
+      0.007738809518691742
     ],
     [
-      -6.855412137067195e-09,
-      0.03352259575715927,
-      0.007738239210021999
+      -6.855835318943024e-09,
+      0.03352477345347081,
+      0.007738730184252423
     ],
     [
-      1.9846059755857533e-09,
-      0.0335230550346877,
-      0.007738329695574771
+      1.9847632452160202e-09,
+      0.03352559296754421,
+      0.007738898994546462
     ],
     [
-      -3.4277327057149906e-09,
-      0.03352291414500837,
-      0.007738299730361967
+      -3.4280487131336387e-09,
+      0.03352525226236473,
+      0.007738824207827111
     ]
   ],
   "source_validation": {
     "command": "point",
-    "geometry_id": "upright-24-38-24-55-20260921",
+    "geometry_id": "upright-24-38-24-55-visible-20260929",
     "samples": 1321,
     "duration_s": 11.0,
     "sample_hz": 120,
-    "max_target_error_mm": 0.00013011662907302934,
-    "min_sole_height_mm": -6.409095476556104e-12,
-    "minimum_body_ground_clearance_mm": 16.78410598500208,
-    "minimum_closure_triangle_height_mm": 4.62165760940606,
-    "minimum_assumed_support_margin_mm": 26.781923609798163,
+    "max_target_error_mm": 1.4154011296341196e-11,
+    "min_sole_height_mm": -6.188827228470473e-12,
+    "minimum_body_ground_clearance_mm": 19.68438162058138,
+    "minimum_closure_triangle_height_mm": 4.6322044047305075,
+    "minimum_assumed_support_margin_mm": 22.264084990360963,
     "actuator_min_degrees": [
       [
-        -6.26553680107432,
-        -7.351558309278555,
-        -0.8978084138479272
+        -5.927128509639827,
+        -2.257277044064797,
+        0.020950534375296398
       ],
       [
-        -3.9281364409854695e-07,
-        -31.097419439390368,
-        -8.310614527926454
+        -3.928115133864971e-07,
+        -32.848309403039615,
+        -10.778244950103431
       ],
       [
-        -56.11494555071406,
-        -8.555312272265711,
-        -128.1133308333266
+        -56.10427264645513,
+        -8.41853940099484,
+        -128.11403782222735
       ],
       [
-        -1.964080148118392e-07,
-        -6.690773297232606,
-        -0.7315042964506314
+        -1.9641272322781057e-07,
+        -0.09219959486285224,
+        0.12362613139543198
       ]
     ],
     "actuator_max_degrees": [
       [
-        -1.9639407408966488e-07,
-        1.9208522369914394,
-        8.731356798125407
+        -1.9640520960412418e-07,
+        1.920849412907482,
+        7.884563125721874
       ],
       [
-        10.170383594122939,
-        1.9208424378992364,
-        0.44340091106151164
+        10.147904167846947,
+        1.9208280280176602,
+        0.4433967898132149
       ],
       [
         8.000023474449272,
-        135.37104396384453,
-        11.85794822879295
+        135.3710439638445,
+        13.240975727880201
       ],
       [
-        3.912781390706422,
-        1.9208595416474932,
-        4.930524907563905
+        3.160278503265149,
+        3.494732996834554,
+        4.001510740164627
       ]
     ],
-    "maximum_adjacent_joint_step_degrees": 4.423925789570413,
-    "peak_joint_speed_deg_s": 530.310169528273,
-    "peak_joint_acceleration_deg_s2": 4712.9293904834985,
-    "native_solver_fallbacks": 0,
-    "seconds": 7.858605186003842,
+    "maximum_adjacent_joint_step_degrees": 4.412092482890916,
+    "peak_joint_speed_deg_s": 528.8276312971154,
+    "peak_joint_acceleration_deg_s2": 4718.763120832922,
+    "seconds": 9.51340237399927,
     "hardware_qualified": false,
     "collision_checked": false,
     "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
     "lower_leg_angle_above_floor_deg": {},
-    "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+    "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
     "body_support_scope": "Current complete body hull.",
-    "full_forward_extension_mm": 95.02010426519043,
-    "pointing_endpoint_lateral_vertical_error_mm": 2.923370071579416e-06,
+    "full_forward_extension_mm": 95.02010426519041,
+    "pointing_endpoint_lateral_vertical_error_mm": 2.923370133097541e-06,
     "motion_end_s": 10.4
   },
   "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
@@ -194,8 +193,8 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "3e274c6c06e10d416dfb5fb592f672cafd5da0f4cd8ba863a9b840fe803fdf25",
-  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "posture_sha256": "afe1d1af6d0b75e5df08bbc7e372c60079ec4ba2a7ce11878cb7c88918922b23",
+  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Extend the physical front-left upper and lower leg into one forward horizontal line for the full 40 + 55 mm modeled reach.",
   "choreography_source": "docs/gait-research/point-20260916/manifest.json"
 }

@@ -15,31 +15,31 @@
   "completion": "Hold the recorded sitting pose until another command. No automatic stand or joint reset.",
   "final_actuator_angles_rad": [
     [
-      3.0655350511122965e-08,
-      -0.4799654328808932,
-      -0.11653348401299804
+      3.0655394796576934e-08,
+      -0.6026949230100197,
+      -0.22013027452220582
     ],
     [
-      -1.2034045561900375e-07,
-      -0.4799653239902808,
-      -0.11653331741213373
+      -1.2034044090517206e-07,
+      -0.6026959609451237,
+      -0.22013109754644425
     ],
     [
-      1.0519816837789467e-07,
-      0.10407971470388502,
-      -0.3728110332054092
+      1.0259691567723077e-07,
+      0.22309478759106696,
+      -0.32401367059114855
     ],
     [
-      -1.1591512940231056e-09,
-      0.10407963009922531,
-      -0.37281117699110644
+      -8.407078184757143e-09,
+      0.22309423339734674,
+      -0.3240141703337829
     ]
   ],
   "body_target": {
     "position_mm": [
       -8.389548142783564,
       0.0,
-      47.80000443171561
+      51.153346186935885
     ],
     "euler_xyz_rad": [
       0.0,
@@ -70,104 +70,103 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "07e253c0c9ce6beddf64355bff7ace4fae9aa2d621bcbfb13f5282cf2cd90960",
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
-  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
+  "source_sha256": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "0": "f77bce618caa17900273bfec68c4dbaae654a168f87d218a9b5be08f1a8a9987",
     "1": "2ba684a6fb6b3d4b1a401a21737bb23f61537bacc67a996f75f38eca84439e7d"
   },
-  "geometry_id": "upright-24-38-24-55-20260921",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "entry_actuator_angles_rad": [
     [
-      -3.4277232242703374e-09,
-      0.033522787652696055,
-      0.0077382778671378615
+      -3.4279175756615554e-09,
+      0.03352514669016316,
+      0.007738809518691742
     ],
     [
-      -6.855412137067195e-09,
-      0.03352259575715927,
-      0.007738239210021999
+      -6.855835318943024e-09,
+      0.03352477345347081,
+      0.007738730184252423
     ],
     [
-      1.9846059755857533e-09,
-      0.0335230550346877,
-      0.007738329695574771
+      1.9847632452160202e-09,
+      0.03352559296754421,
+      0.007738898994546462
     ],
     [
-      -3.4277327057149906e-09,
-      0.03352291414500837,
-      0.007738299730361967
+      -3.4280487131336387e-09,
+      0.03352525226236473,
+      0.007738824207827111
     ]
   ],
   "source_validation": {
     "command": "sit",
-    "geometry_id": "upright-24-38-24-55-20260921",
+    "geometry_id": "upright-24-38-24-55-visible-20260929",
     "samples": 601,
     "duration_s": 5.0,
     "sample_hz": 120,
-    "max_target_error_mm": 0.00013011662907302934,
-    "min_sole_height_mm": -2.4443025381515326e-10,
-    "minimum_body_ground_clearance_mm": 0.54353543730317,
-    "minimum_closure_triangle_height_mm": 11.954284840588493,
-    "minimum_assumed_support_margin_mm": -20.169068295418622,
+    "max_target_error_mm": 6.580229694463924e-08,
+    "min_sole_height_mm": -2.361936424222222e-09,
+    "minimum_body_ground_clearance_mm": 0.5435354083108006,
+    "minimum_closure_triangle_height_mm": 8.477181439116967,
+    "minimum_assumed_support_margin_mm": -14.95875792285599,
     "actuator_min_degrees": [
       [
-        -5.423360867848567e-07,
-        -27.49999361624477,
-        -6.676876805900039
+        -1.873202335363268e-06,
+        -34.531875422436215,
+        -12.612535673178588
       ],
       [
-        -7.763523114492182e-06,
-        -30.529358626601628,
-        -16.774610619801543
+        -8.368668965135026e-06,
+        -34.53193489173708,
+        -16.497522707688205
       ],
       [
-        1.1370954639750696e-07,
-        -6.546653350170308,
-        -21.36049875858154
+        1.1371855728356684e-07,
+        0.034903250827514734,
+        -18.631235637171127
       ],
       [
-        -1.9639461733642719e-07,
-        -6.546663704546301,
-        -21.360506996895143
+        -4.816900980230896e-07,
+        0.034881212180973994,
+        -18.631261502349652
       ]
     ],
     "actuator_max_degrees": [
       [
-        1.7564222037815569e-06,
-        1.9208256001119373,
-        17.127262856626682
+        1.756424741151163e-06,
+        4.907308522319258,
+        15.628532405188116
       ],
       [
-        4.448567284274776e-06,
-        1.920815801013028,
-        1.545804808111805
+        3.3748356194268686e-06,
+        1.920828028016099,
+        0.44339657834816176
       ],
       [
-        7.761153876378962e-06,
-        5.963328385458309,
-        0.44339110262155607
+        7.680269058932221e-06,
+        12.782389760335708,
+        0.44340625046554855
       ],
       [
-        2.5027429950102923e-06,
-        5.96332353796838,
-        0.4433823720338099
+        1.814831263994432e-06,
+        12.782358007374505,
+        0.4434019655021661
       ]
     ],
-    "maximum_adjacent_joint_step_degrees": 0.5122270347183134,
-    "peak_joint_speed_deg_s": 61.45487848401844,
-    "peak_joint_acceleration_deg_s2": 1447.2011222797576,
-    "native_solver_fallbacks": 0,
-    "seconds": 4.629566973999317,
+    "maximum_adjacent_joint_step_degrees": 0.4322469842737395,
+    "peak_joint_speed_deg_s": 51.85719996650522,
+    "peak_joint_acceleration_deg_s2": 733.3257788141744,
+    "seconds": 5.01605699799984,
     "hardware_qualified": false,
     "collision_checked": false,
     "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
     "lower_leg_angle_above_floor_deg": {
-      "FL": 1.800000000000024,
-      "FR": 1.7999999999999934
+      "FL": 1.79999999999996,
+      "FR": 1.800000000000001
     },
-    "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+    "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
     "body_support_scope": "Current complete body hull.",
     "motion_end_s": 3.0
   },
@@ -178,8 +177,8 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "65c62ea75a07e1f0816e2fdd48018ba3821c62582cc6b303ccdf0b4f0688223b",
-  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "posture_sha256": "dc16931666c7d3213e1966de3f4be645ebed441f1dae24d2debb33a7a5cd2cde",
+  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Rear lower legs finish nearly horizontal with broad boot support; current shell clearance retained.",
   "choreography_source": "docs/gait-research/sit-bored-20260915/manifest.json"
 }

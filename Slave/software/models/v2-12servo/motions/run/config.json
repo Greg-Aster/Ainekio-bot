@@ -1,5 +1,5 @@
 {
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "gait": "bound",
   "base_cycle_seconds": 1.2,
   "ground_contact_fraction": 0.42,
@@ -47,6 +47,6 @@
     "lane_assignment": "physical_front_inside_rear_outside",
     "pitch_bias_deg": -3
   },
-  "mounting_profile_sha256": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3",
-  "search_bounds_basis": "Selected 1300 us reference with carrier +1.17 and crank -40.41 degrees; provisional 234 degree conversion. Run IK branch-search bounds only; no firmware pulse caps."
+  "mounting_profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
+  "search_bounds_basis": "Historical geometric search envelope retained. Firmware default is now the owner-reported 1650 us matchmark reference; loaded tracking and pulse coverage require measured calibration."
 }

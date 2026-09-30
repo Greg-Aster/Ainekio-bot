@@ -24,6 +24,7 @@ Slave/
   software/
     assets/                   Current V1 motion, face, and PCM assets
     core/                     Portable C lifecycle/safety with V1 body assumptions
+    imu/                      Portable six-axis attitude estimator and native tests; acquisition not integrated
     models/v2-12servo/        Twelve-joint geometry, first walk source, compiler and sampler
     protocol/                 Protocol-v1 schemas, validator, helpers, fixtures
     tests/                    Portable slave-software protocol tests

@@ -1,12 +1,15 @@
 {
   "command": "dance",
-  "samples": 1501,
-  "old_samples": 1501,
-  "joint_max_error_deg": 1.8256060201338187e-06,
-  "rotation_max_error_rad": 3.549656790724498e-09,
-  "body_max_error_mm": 6.456704554125281e-06,
-  "status": "original_actions_restored_and_source_parity_verified",
-  "source_sha256": "059cb599dc8fd29d9d44cd157d0e6929ff03f4a3751be4e41a6ac4724d1bafde",
-  "original_action_bindings_exact": true,
+  "source_sha256": "50290b6586dd3d29b32cb480476bcf6c76614f70daf804b17c090ce0515f8af5",
+  "source": "motions/gestures/dance/source.json",
+  "evaluated_poses": 33,
+  "minimum_sole_z_mm": -0.000377655029296875,
+  "max_foot_position_error_mm": 0.0021106181392660517,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "scene": "Motions - Firmware Remap",
+  "complete_joint_and_body_key_arrays_verified": true,
   "hardware_qualified": false
 }

@@ -1,46 +1,46 @@
 {
   "command": "run",
-  "samples": 3552,
-  "max_target_error_mm": 0.15145952573869792,
-  "foot_xy_error_mm": 5.675120610248996e-05,
+  "samples": 3618,
+  "max_target_error_mm": 0.1514507817403299,
+  "foot_xy_error_mm": 6.511341234727297e-05,
   "full_sole_height_error_mm": [
-    0.040455024468087686,
-    0.15145952573869792
+    0.04432113445538022,
+    0.1514507817403299
   ],
   "support_allowance_mm": 0.151,
-  "min_sole_z_mm": 0.040455024468087686,
-  "min_body_z_mm": 33.62221100411527,
-  "min_closure_height_mm": 10.758938976895953,
-  "maximum_adjacent_joint_step_degrees": 24.17675913343203,
+  "min_sole_z_mm": 0.04432113445538022,
+  "min_body_z_mm": 29.409873727345264,
+  "min_closure_height_mm": 10.550104262805776,
+  "maximum_adjacent_joint_step_degrees": 5.640056027910987,
   "hardware_qualified": false,
   "collision_checked": false,
   "leverage": {
-    "checked_leg_poses": 28412,
+    "checked_leg_poses": 28940,
     "branch_reversals": 0,
-    "minimum_straightening_clearance_mm": 4.101574293475018,
-    "stance_output_min_deg": 62.285558970083486,
-    "swing_output_min_deg": 43.08106925498261,
-    "stance_input_min_deg": 31.59219004767623,
-    "swing_input_min_deg": 26.326139689694628
+    "minimum_straightening_clearance_mm": 3.9371080750074867,
+    "stance_output_min_deg": 63.30318907898505,
+    "swing_output_min_deg": 42.19664061578729,
+    "stance_input_min_deg": 31.75965521813348,
+    "swing_input_min_deg": 26.186481864181978
   },
-  "flight_samples": 233,
-  "paired_samples": 1364,
+  "flight_samples": 182,
+  "paired_samples": 883,
   "dynamics_scope": "Kinematic target only; no force or attitude control and no physical running qualification.",
-  "peak_sampled_joint_speed_deg_s": 2901.2110960118434,
+  "peak_sampled_joint_speed_deg_s": 676.8067233493184,
   "reference_pulse_span_us": [
-    433.80351388690826,
-    2489.308115249266
+    794.8855717024614,
+    2838.9775340904343
   ],
   "modeled_envelope_conflict": true,
   "first_bound_envelope_conflict": {
-    "sample": 1040,
-    "time_s": 8.666666666666666,
+    "sample": 1517,
+    "time_s": 12.641666666666667,
     "cad_leg": "RL",
     "q_deg": [
-      6.023325689859093,
-      -37.444872879213236,
-      -50.92543965915766
+      5.838547728490777,
+      -38.938307401623035,
+      -73.77760654665195
     ]
   },
-  "mounting_profile_sha256": "e0e746910e8a1f1b53c5da9784ddb295d4304d7a4098a1562c708ffe4357c2f3"
+  "mounting_profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e"
 }

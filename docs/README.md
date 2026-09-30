@@ -38,6 +38,7 @@ implementation boundary.
 | [LOCAL_WAKE_WORD.md](LOCAL_WAKE_WORD.md) | Owner-local microWakeWord training, packaging, installation, and validation workflow |
 | [freestyle-movement.md](freestyle-movement.md) | Owner-approved bounded motion-plan extension, emulator evidence, and physical enablement gate |
 | [REPOSITORY_MAP.md](REPOSITORY_MAP.md) | Current Master, Slave, Emulator, documentation, and reference ownership map |
+| [ROS2_SETUP.md](ROS2_SETUP.md) | Desktop ROS tools, validation, and portability requirements for later Q6A deployment |
 
 These documents describe current implementation and evidence. They do not
 silently amend the normative specification. A behavioral conflict requires a

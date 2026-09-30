@@ -1,7 +1,7 @@
 {
   "description": "Sudden 0.65-second collapse with both front arms reaching far forward along the floor; rear legs retain the grounded splay. Holds without recovery.",
-  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "contact_hulls_file": "../reviewed-hulls.npz",
-  "contact_hulls_sha256": "ba03e8350fe12186fd7f9c89fcfc57ed9f2807c0fa84058035655c06fca6fd35",
+  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "body_support_scope": "Measured Blender body and lower-leg surfaces; physical balance unqualified."
 }

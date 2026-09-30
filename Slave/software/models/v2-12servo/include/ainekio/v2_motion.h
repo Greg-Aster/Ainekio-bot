@@ -40,6 +40,7 @@ typedef struct {
     ainekio_intent_kind_t intent;
     uint64_t duration_us;
     bool hardware_qualified;
+    float peak_joint_speed_degrees_s; /* Bound over the compiled cubic tracks. */
 } ainekio_v2_clip_t;
 
 extern const ainekio_v2_clip_t ainekio_v2_clips[];
@@ -49,6 +50,10 @@ extern const size_t ainekio_v2_clip_count;
 bool ainekio_v2_clip_find(const char *name, size_t *index);
 bool ainekio_v2_clip_request(const ainekio_command_t *command, size_t *index);
 bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_t *frame);
+/* Preserve requested rate below the 125% flag threshold; otherwise retime
+ * the entire clip to rated speed, retaining all joint paths and relative timing. */
+float ainekio_v2_clip_playback_rate(size_t index, float requested);
+float ainekio_v2_speed_limited_rate(double peak_degrees_s, float requested);
 /* Position envelopes include every knot and every interpolated segment. The
  * extrema for different joints need not occur in the same sampled frame. */
 bool ainekio_v2_clip_bounds(size_t index, ainekio_v2_frame_t *minimum,

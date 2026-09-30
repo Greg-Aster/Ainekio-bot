@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 import stat
+import threading
 from pathlib import Path
 from typing import TextIO
 
@@ -19,6 +20,8 @@ PASSWORD_ITERATIONS = 240_000
 class RobotTokenStore:
     def __init__(self, path: str | os.PathLike[str]) -> None:
         self.path = Path(path)
+        self._lock = threading.RLock()
+        self._pending: dict[str, str] = {}
         self._tokens = self._load()
 
     def snapshot(self) -> dict[str, str]:
@@ -26,10 +29,16 @@ class RobotTokenStore:
 
     def set(self, robot_id: str, token: str) -> None:
         _validate_robot_token(robot_id, token)
-        updated = dict(self._tokens)
-        updated[robot_id] = token
-        self._write(updated)
-        self._tokens = updated
+        with self._lock:
+            updated = {**self._tokens, robot_id: token}
+            previous = dict(self._pending)
+            self._pending.pop(robot_id, None)
+            try:
+                self._write(updated)
+            except Exception:
+                self._pending = previous
+                raise
+            self._tokens = updated
 
     def generate(self, robot_id: str) -> str:
         token = secrets.token_urlsafe(32)
@@ -37,12 +46,19 @@ class RobotTokenStore:
         return token
 
     def revoke(self, robot_id: str) -> None:
-        if robot_id not in self._tokens:
-            return
-        updated = dict(self._tokens)
-        del updated[robot_id]
-        self._write(updated)
-        self._tokens = updated
+        with self._lock:
+            if robot_id not in self._tokens:
+                return
+            updated = dict(self._tokens)
+            del updated[robot_id]
+            previous = dict(self._pending)
+            self._pending.pop(robot_id, None)
+            try:
+                self._write(updated)
+            except Exception:
+                self._pending = previous
+                raise
+            self._tokens = updated
 
     def _load(self) -> dict[str, str]:
         if not self.path.exists():
@@ -59,12 +75,45 @@ class RobotTokenStore:
                 raise RuntimeError("robot token store contains an invalid entry")
             _validate_robot_token(robot_id, token)
             result[robot_id] = token
+        pending = value.get("pending", {})
+        if not isinstance(pending, dict):
+            raise RuntimeError("robot token transitions are malformed")
+        for robot_id, token in pending.items():
+            if robot_id not in result or not isinstance(token, str):
+                raise RuntimeError("robot token transition is invalid")
+            _validate_robot_token(robot_id, token)
+        self._pending = dict(pending)
         return result
+
+    def stage(self, robot_id: str, token: str) -> None:
+        _validate_robot_token(robot_id, token)
+        with self._lock:
+            if robot_id not in self._tokens:
+                raise ValueError("robot is not paired")
+            pending = self._pending.get(robot_id)
+            if pending is not None and pending != token:
+                raise ValueError("a pairing change is awaiting reconnect; apply it before changing the token again")
+            previous = dict(self._pending)
+            self._pending[robot_id] = token
+            try:
+                self._write(self._tokens)
+            except Exception:
+                self._pending = previous
+                raise
+
+    def matches(self, robot_id: str, token: str) -> bool:
+        with self._lock:
+            pending = self._pending.get(robot_id)
+            if pending is not None and hmac.compare_digest(pending.encode(), token.encode()):
+                self.set(robot_id, token)
+                return True
+            current = self._tokens.get(robot_id)
+            return current is not None and hmac.compare_digest(current.encode(), token.encode())
 
     def _write(self, tokens: dict[str, str]) -> None:
         _atomic_secure_json(
             self.path,
-            {"schema_version": 1, "tokens": tokens},
+            {"schema_version": 1, "tokens": tokens, "pending": self._pending},
         )
 
 
@@ -78,12 +127,12 @@ class DashboardPasswordStore:
         output: TextIO | None = None,
         password: str | None = None,
     ) -> str | None:
-        if password is not None:
-            self.set_password(password)
-            return password
         if self.path.exists():
             self._record()
             return None
+        if password is not None:
+            self.set_password(password)
+            return password
         if output is None or not output.isatty():
             raise RuntimeError(
                 "dashboard password store is missing and no interactive TTY is available"
@@ -95,8 +144,6 @@ class DashboardPasswordStore:
         return password
 
     def set_password(self, password: str) -> None:
-        if not 12 <= len(password) <= 256:
-            raise ValueError("dashboard password must contain 12 to 256 characters")
         salt = secrets.token_bytes(32)
         verifier = hashlib.pbkdf2_hmac(
             "sha256",
@@ -124,6 +171,10 @@ class DashboardPasswordStore:
             record["iterations"],
         )
         return hmac.compare_digest(candidate, record["verifier"])
+
+    def revision(self) -> str:
+        record = self._record()
+        return hashlib.sha256(record["salt"] + record["verifier"]).hexdigest()
 
     def _record(self) -> dict[str, object]:
         value = _read_json(self.path)

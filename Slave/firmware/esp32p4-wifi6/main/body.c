@@ -129,6 +129,7 @@ typedef struct {
     bool entering;
     size_t clip;
     float playback_rate;
+    float entry_rate;
     uint16_t from[AINEKIO_PCA_BODY_CHANNELS], target[AINEKIO_PCA_BODY_CHANNELS];
     ainekio_v2_walk_state_t walk;
     ainekio_v2_frame_t entry_from, entry_to;
@@ -301,6 +302,7 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         next.kind = MOTION_CLIP;
         if (!ainekio_v2_clip_request(&command, &next.clip) ||
             !ainekio_v2_clip_sample(next.clip, 0, &frame)) return ESP_ERR_NOT_SUPPORTED;
+        next.playback_rate = ainekio_v2_clip_playback_rate(next.clip, next.playback_rate);
         ainekio_v2_frame_t minimum, maximum;
         uint16_t checked[AINEKIO_PCA_BODY_CHANNELS];
         /* A fitting first frame is insufficient: reject an unreachable clip
@@ -345,6 +347,11 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         const uint64_t duration=(uint64_t)ceil(derivatives[i]/100.*calibration.joints[i].us_per_degree*1875.);
         if (duration > next.entry_duration) next.entry_duration=duration;
     }
+    double entry_peak=0.;
+    for(unsigned i=0;i<AINEKIO_BODY_JOINT_COUNT;i++)
+        if(calibration.joints[i].channel>=0)
+            entry_peak=fmax(entry_peak,derivatives[i]/100.*1.875e6/next.entry_duration);
+    next.entry_rate=ainekio_v2_speed_limited_rate(entry_peak,next.playback_rate);
     ainekio_pca9685_t *output = ainekio_p4_output();
     if ((uint64_t)esp_timer_get_time() >= request->deadline) return ESP_ERR_TIMEOUT;
     const ainekio_pca_status_t status = ainekio_pca_status(output);
@@ -383,8 +390,12 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
     motion_t *motion = &body.motion;
     *complete = false;
     if (motion->entering) {
-        const float u = fminf(1.F, ((float)(now-motion->entry_start)/motion->entry_duration) * motion->playback_rate);
-        const double smooth = u*u*u*(10.+u*(-15.+6.*u));
+        const float u = fminf(1.F, ((float)(now-motion->entry_start)/motion->entry_duration) * motion->entry_rate);
+        /* Evaluate the nearer half in double. Mixed-precision u*u*u rounded
+         * the upper end above 1 and rejected otherwise valid entry frames. */
+        const double half = u <= .5F ? u : 1.-u;
+        const double ramp = half*half*half*(10.+half*(-15.+6.*half));
+        const double smooth = u <= .5F ? ramp : 1.-ramp;
         ainekio_v2_frame_t entry;
         if (!ainekio_v2_transition(&motion->entry_from, &motion->entry_to, smooth, &entry) ||
             !ainekio_p4_frame_pulses(&entry, body.pulses)) return ESP_ERR_INVALID_ARG;

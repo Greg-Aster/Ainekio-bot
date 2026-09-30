@@ -1,324 +1,805 @@
 {
-  "status": "original_actions_restored_and_source_parity_verified",
   "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
-  "recovery": "ainekio-variable-gait-Rolling-Recovery.blend",
-  "original_action_bindings_exact": 62,
-  "original_keys_exact": 1894581,
-  "chapters": 39,
-  "source_comparison": [
+  "servo_profile_id": "v2-24-38-reference-1650",
+  "hardware_qualified": false,
+  "modeled_envelope_conflicts": {
+    "sampled_occurrences": 1327,
+    "by_command": {
+      "stride_rate_demo": 40,
+      "walk": 40,
+      "sit": 34,
+      "rest": 84,
+      "wave": 40,
+      "point": 31,
+      "nod": 22,
+      "pushup": 54,
+      "bow": 32,
+      "swim": 24,
+      "freaky": 48,
+      "worm": 16,
+      "shake": 40,
+      "shrug": 52,
+      "dead": 58,
+      "celebrate": 4,
+      "turn_left_90": 2,
+      "turn_right_90": 2,
+      "turn_left_180": 1,
+      "turn_right_180": 1,
+      "crouch": 76,
+      "crawl_forward": 116,
+      "crawl_backward": 116,
+      "crawl_turn_left": 106,
+      "crawl_turn_right": 102,
+      "walk_forward": 40,
+      "walk_backward": 34,
+      "run": 44,
+      "upright": 68
+    },
+    "scope": "Historical desktop envelope reference; not used to clamp motion. These occurrences do not establish physical collision."
+  },
+  "key_values_checked": 1724706,
+  "evaluated_poses": 1584,
+  "max_foot_position_error_mm": 0.0021106181392660517,
+  "max_foot_rotation_error": 7.617973653923523e-05,
+  "minimum_evaluated_sole_z_mm": -0.13998651504516602,
+  "chapters": [
+    {
+      "command": "stride_rate_demo",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00029087066650390625,
+      "max_foot_position_error_mm": 8.807091626295005e-05
+    },
     {
       "command": "walk",
-      "samples": 3889,
-      "old_samples": 3889,
-      "joint_max_error_deg": 3.8113937819161947e-06,
-      "rotation_max_error_rad": 1.8605529200632631e-09,
-      "body_max_error_mm": 6.0739970763279416e-05
+      "source_sha256": "8ab2142f5c73190859c04e8b05e7efde16f631c5bfe0bc6c934e6a3e2b719b19",
+      "source": "motions/walk/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0002765655517578125,
+      "max_foot_position_error_mm": 9.081989651349431e-05
     },
     {
       "command": "sit",
-      "samples": 601,
-      "old_samples": 601,
-      "joint_max_error_deg": 9.532762241803994e-07,
-      "rotation_max_error_rad": 1.488336587307515e-08,
-      "body_max_error_mm": 2.6456319730527866e-06
+      "source_sha256": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
+      "source": "motions/gestures/sit/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -2.47955322265625e-05,
+      "max_foot_position_error_mm": 1.9688243241944292e-05
     },
     {
       "command": "rest",
-      "samples": 601,
-      "old_samples": 601,
-      "joint_max_error_deg": 9.519538153313079e-07,
-      "rotation_max_error_rad": 0.0,
-      "body_max_error_mm": 1.8892219699750967e-06
+      "source_sha256": "26c4cf3ee0ebb53a4385ece7850c73e9a7e753d76bb922d379981e605e58bd16",
+      "source": "motions/gestures/rest/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00017642974853515625,
+      "max_foot_position_error_mm": 1.2680705111733914e-05
     },
     {
       "command": "wave",
-      "samples": 1921,
-      "old_samples": 1921,
-      "joint_max_error_deg": 3.814697265625e-06,
-      "rotation_max_error_rad": 1.488336587307515e-08,
-      "body_max_error_mm": 2.6456319730527866e-06
+      "source_sha256": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
+      "source": "motions/gestures/wave/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -2.002716064453125e-05,
+      "max_foot_position_error_mm": 1.4320595447259166e-05
     },
     {
       "command": "point",
-      "samples": 1321,
-      "old_samples": 1321,
-      "joint_max_error_deg": 7.591681224994318e-06,
-      "rotation_max_error_rad": 7.423480469226362e-09,
-      "body_max_error_mm": 2.316950954650565e-06
+      "source_sha256": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
+      "source": "motions/gestures/point/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -9.059906005859375e-05,
+      "max_foot_position_error_mm": 0.0019051217639862728
     },
     {
       "command": "nod",
-      "samples": 1021,
-      "old_samples": 1021,
-      "joint_max_error_deg": 3.6013772870546745e-06,
-      "rotation_max_error_rad": 7.401801643824868e-09,
-      "body_max_error_mm": 7.849703322904134e-06
+      "source_sha256": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1",
+      "source": "motions/gestures/nod/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00032520294189453125,
+      "max_foot_position_error_mm": 4.3109952753361824e-05
     },
     {
       "command": "pushup",
-      "samples": 1741,
-      "old_samples": 1741,
-      "joint_max_error_deg": 3.808495350199337e-06,
-      "rotation_max_error_rad": 1.4780654589152675e-08,
-      "body_max_error_mm": 7.361696560792552e-06
+      "source_sha256": "2c136913a43119a5f41af6e900c5bcae4d5ffcfedb32ef26178ca6b7a4a75d1d",
+      "source": "motions/gestures/pushup/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00016117095947265625,
+      "max_foot_position_error_mm": 1.9837831956692753e-05
     },
     {
       "command": "bow",
-      "samples": 1021,
-      "old_samples": 1021,
-      "joint_max_error_deg": 3.806405572959193e-06,
-      "rotation_max_error_rad": 7.386134176501358e-09,
-      "body_max_error_mm": 7.665187482075453e-06
+      "source_sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
+      "source": "motions/gestures/bow/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0020647048950195312,
+      "max_foot_position_error_mm": 2.2518790117942444e-05
     },
     {
       "command": "dance",
-      "samples": 1501,
-      "old_samples": 1501,
-      "joint_max_error_deg": 1.8256060201338187e-06,
-      "rotation_max_error_rad": 3.549656790724498e-09,
-      "body_max_error_mm": 6.456704554125281e-06
+      "source_sha256": "50290b6586dd3d29b32cb480476bcf6c76614f70daf804b17c090ce0515f8af5",
+      "source": "motions/gestures/dance/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.000377655029296875,
+      "max_foot_position_error_mm": 0.0021106181392660517
     },
     {
       "command": "swim",
-      "samples": 2821,
-      "old_samples": 2821,
-      "joint_max_error_deg": 3.814639427446309e-06,
-      "rotation_max_error_rad": 1.8544693280997393e-09,
-      "body_max_error_mm": 6.541013753746938e-06
+      "source_sha256": "1d44ae1fc78d55be814ad9165b7915b74f04b2022f0741801df9b7a451c51a49",
+      "source": "motions/gestures/swim/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -2.288818359375e-05,
+      "max_foot_position_error_mm": 1.633918567200965e-05
     },
     {
       "command": "cute",
-      "samples": 1621,
-      "old_samples": 1621,
-      "joint_max_error_deg": 3.813961811260924e-06,
-      "rotation_max_error_rad": 1.8498546097700519e-09,
-      "body_max_error_mm": 7.120604998078761e-06
+      "source_sha256": "dbdd7e65b6d2205db430fd498b14daa2f7682e54e01b47613d3cb7a481ef9e51",
+      "source": "motions/gestures/cute/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -3.7670135498046875e-05,
+      "max_foot_position_error_mm": 1.7540138998128896e-05
     },
     {
       "command": "freaky",
-      "samples": 1165,
-      "old_samples": 1165,
-      "joint_max_error_deg": 3.803779620170644e-06,
-      "rotation_max_error_rad": 0.0,
-      "body_max_error_mm": 2.8548896153779424e-06
+      "source_sha256": "b5f856b658ddc777d76511f057b37b3df2635ac5ed45683d28e92415ee2ddbb3",
+      "source": "motions/gestures/freaky/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0002155303955078125,
+      "max_foot_position_error_mm": 1.8076688519386153e-05
     },
     {
       "command": "worm",
-      "samples": 1501,
-      "old_samples": 1501,
-      "joint_max_error_deg": 1.9065591132516602e-06,
-      "rotation_max_error_rad": 3.678905194370863e-09,
-      "body_max_error_mm": 6.907422360313831e-06
+      "source_sha256": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef",
+      "source": "motions/gestures/worm/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00032520294189453125,
+      "max_foot_position_error_mm": 1.797683125914773e-05
     },
     {
       "command": "shake",
-      "samples": 841,
-      "old_samples": 841,
-      "joint_max_error_deg": 1.9042862575702202e-06,
-      "rotation_max_error_rad": 1.3395824227657727e-08,
-      "body_max_error_mm": 7.8659646121082e-06
+      "source_sha256": "4ce21b2cc6ebb59b96c36a009a5adea1a261953c6b6019843c178f11db57c620",
+      "source": "motions/gestures/shake/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00034427642822265625,
+      "max_foot_position_error_mm": 2.3982163114055766e-05
     },
     {
       "command": "shrug",
-      "samples": 1225,
-      "old_samples": 1225,
-      "joint_max_error_deg": 3.8090109626409685e-06,
-      "rotation_max_error_rad": 1.8498546097700519e-09,
-      "body_max_error_mm": 6.24719956476838e-06
+      "source_sha256": "34badfe186ec00a529c50bb3c8c1d8bbfe8d0a4b16d39fc6aa9e49965ded7f99",
+      "source": "motions/gestures/shrug/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -1.33514404296875e-05,
+      "max_foot_position_error_mm": 1.8406921071800753e-05
     },
     {
       "command": "dead",
-      "samples": 1477,
-      "old_samples": 1477,
-      "joint_max_error_deg": 3.8117928795600164e-06,
-      "rotation_max_error_rad": 1.7974751270743994e-09,
-      "body_max_error_mm": 6.855079966783251e-06
+      "source_sha256": "27b314a63510f8d1039ee2ab473a225441ead1961590256e254354b4d8c3fad9",
+      "source": "motions/gestures/dead/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.13998651504516602,
+      "max_foot_position_error_mm": 1.7417585638668243e-05
     },
     {
       "command": "crab",
-      "samples": 3673,
-      "old_samples": 3673,
-      "joint_max_error_deg": 1.9062801612790281e-06,
-      "rotation_max_error_rad": 0.0,
-      "body_max_error_mm": 2.4906341025143774e-06
+      "source_sha256": "bc11ae05994370fa302a4217c7fcde55cff933b2bfa94b033665b2348cf9b26d",
+      "source": "motions/locomotion/crab/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.11910343170166016,
+      "max_foot_position_error_mm": 2.3824888444323733e-05
+    },
+    {
+      "command": "crab_right",
+      "source_sha256": "e908779edd8e29aa482748f386185403906eea62fabe0d97f1421e142e5bdf5d",
+      "source": "motions/locomotion/crab_right/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08712482452392578,
+      "max_foot_position_error_mm": 2.8304898648912058e-05
+    },
+    {
+      "command": "crab_forward",
+      "source_sha256": "a550c3e0133afd57dcaf25806bc64122624f0d3ed55c8515473cb0be67fdd752",
+      "source": "motions/locomotion/crab_forward/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08757400512695312,
+      "max_foot_position_error_mm": 4.0986403519127634e-05
+    },
+    {
+      "command": "crab_backward",
+      "source_sha256": "d80da69b7d80dc2fc2e0c22ece42ee91669e455fcd02815f24beb7dcdeda7177",
+      "source": "motions/locomotion/crab_backward/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08225727081298828,
+      "max_foot_position_error_mm": 3.073062333669441e-05
+    },
+    {
+      "command": "crab_turn_left",
+      "source_sha256": "2eabec37b2ca12029d135db2b8fffc1d6f0d8abe7f6a510ca98e627d09965421",
+      "source": "motions/locomotion/crab_turn_left/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08304977416992188,
+      "max_foot_position_error_mm": 1.4540599153178846e-05
+    },
+    {
+      "command": "crab_turn_right",
+      "source_sha256": "87d8c219c0ce2a0d46eeb260d1b40784c189a01955c7856530e4ebdd346ccec6",
+      "source": "motions/locomotion/crab_turn_right/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08376550674438477,
+      "max_foot_position_error_mm": 1.7374708832562646e-05
     },
     {
       "command": "celebrate",
-      "samples": 1501,
-      "old_samples": 1501,
-      "joint_max_error_deg": 3.8106471720311674e-06,
-      "rotation_max_error_rad": 1.8498546097700519e-09,
-      "body_max_error_mm": 7.120604998078761e-06
+      "source_sha256": "cb71e9e54b1bb645cb8738403341d895b4fd006a5af5c06691fb4fe7284a3d7a",
+      "source": "motions/gestures/celebrate/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00010156631469726562,
+      "max_foot_position_error_mm": 1.4606475048140055e-05
     },
     {
       "command": "stretch",
-      "samples": 805,
-      "old_samples": 805,
-      "joint_max_error_deg": 1.902015107191346e-06,
-      "rotation_max_error_rad": 7.301235727119604e-09,
-      "body_max_error_mm": 6.7871207534153655e-06
+      "source_sha256": "50e7447fa5433b13c0037a42cdbb1073257032969532e3d7d1b2c8cb0ba7d709",
+      "source": "motions/gestures/stretch/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0001087188720703125,
+      "max_foot_position_error_mm": 1.7201157959334523e-05
     },
     {
       "command": "surprised",
-      "samples": 1435,
-      "old_samples": 1435,
-      "joint_max_error_deg": 3.8135250264303977e-06,
-      "rotation_max_error_rad": 1.8498546097700519e-09,
-      "body_max_error_mm": 6.24719956476838e-06
+      "source_sha256": "285b58d660a2bfa16650154cf220a7a7ac43b45b683b0c7291d96d66e585b0a5",
+      "source": "motions/gestures/surprised/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -2.288818359375e-05,
+      "max_foot_position_error_mm": 1.7181836611257495e-05
     },
     {
       "command": "sad",
-      "samples": 1057,
-      "old_samples": 1057,
-      "joint_max_error_deg": 9.533899820723946e-07,
-      "rotation_max_error_rad": 7.301011878402264e-09,
-      "body_max_error_mm": 7.467483364109739e-06
+      "source_sha256": "17f5ee3d1b025abfb42bfdcbde9e6368ca96b6c86ef1fa0e1a882cd1a4cc15c7",
+      "source": "motions/gestures/sad/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -6.198883056640625e-05,
+      "max_foot_position_error_mm": 0.0005944189580535664
     },
     {
       "command": "curious",
-      "samples": 1171,
-      "old_samples": 1171,
-      "joint_max_error_deg": 9.494649901853336e-07,
-      "rotation_max_error_rad": 7.401801643824868e-09,
-      "body_max_error_mm": 6.749740634859336e-06
+      "source_sha256": "2b29b7096a63335304fce9d0fc8db5a550b9b15b25d1f9a51eeb62dc306e69cc",
+      "source": "motions/gestures/curious/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00018310546875,
+      "max_foot_position_error_mm": 1.6742342495490448e-05
     },
     {
       "command": "turn_left_15",
-      "samples": 1801,
-      "old_samples": 1801,
-      "joint_max_error_deg": 1.8268924648623397e-06,
-      "rotation_max_error_rad": 1.4900334743828125e-08,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "93cb6839fb33ce52c4c732523d79629719d7e238977355be6d9c5c6e547b509e",
+      "source": "motions/turns/commands/turn_left_15/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00026798248291015625,
+      "max_foot_position_error_mm": 1.5919854121193566e-05
     },
     {
       "command": "turn_right_15",
-      "samples": 1801,
-      "old_samples": 1801,
-      "joint_max_error_deg": 1.8905687753090206e-06,
-      "rotation_max_error_rad": 1.4900334743828125e-08,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "a272b3f36a8aa647b0cae75fead947b1854c1e934584176938a681474cdff08f",
+      "source": "motions/turns/commands/turn_right_15/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0002613067626953125,
+      "max_foot_position_error_mm": 1.5302397287086933e-05
     },
     {
       "command": "turn_left_45",
-      "samples": 2281,
-      "old_samples": 2281,
-      "joint_max_error_deg": 1.9045255754690515e-06,
-      "rotation_max_error_rad": 2.929492814995882e-08,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "4fa7d126b8363aa9a2100157e8aa8a48064a4f7c57303c57a83c659a7e901405",
+      "source": "motions/turns/commands/turn_left_45/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.000621795654296875,
+      "max_foot_position_error_mm": 1.340435138530438e-05
     },
     {
       "command": "turn_right_45",
-      "samples": 2281,
-      "old_samples": 2281,
-      "joint_max_error_deg": 1.896806857359934e-06,
-      "rotation_max_error_rad": 2.929492814995882e-08,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "8a127d5dc9ad12301e9024a070df06b860a57d4a5f01185703d3b3d249672231",
+      "source": "motions/turns/commands/turn_right_45/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0006198883056640625,
+      "max_foot_position_error_mm": 2.140787539417488e-05
     },
     {
       "command": "turn_left_90",
-      "samples": 2761,
-      "old_samples": 2761,
-      "joint_max_error_deg": 1.881873622266994e-06,
-      "rotation_max_error_rad": 5.918679746308442e-08,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "f82d7a9995d261565acf1a72ae3cbc9af288e0cb1271082ca498032ae622dca0",
+      "source": "motions/turns/commands/turn_left_90/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0020351409912109375,
+      "max_foot_position_error_mm": 1.600272226909283e-05
     },
     {
       "command": "turn_right_90",
-      "samples": 2761,
-      "old_samples": 2761,
-      "joint_max_error_deg": 1.9043366563664677e-06,
-      "rotation_max_error_rad": 5.918679746308442e-08,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "07ff14391ae154bd35b20a357317e0e3d4116433c7043e6914a433d3852dff63",
+      "source": "motions/turns/commands/turn_right_90/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0020189285278320312,
+      "max_foot_position_error_mm": 1.4718247726364098e-05
     },
     {
       "command": "turn_left_180",
-      "samples": 4201,
-      "old_samples": 4201,
-      "joint_max_error_deg": 1.9070926171593783e-06,
-      "rotation_max_error_rad": 1.1888646911373257e-07,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "352dd28e3226540febed9f0cc30a3a9c827b4f1b077983dde16ddf57cb665007",
+      "source": "motions/turns/commands/turn_left_180/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0008392333984375,
+      "max_foot_position_error_mm": 1.6455639041623726e-05
     },
     {
       "command": "turn_right_180",
-      "samples": 4201,
-      "old_samples": 4201,
-      "joint_max_error_deg": 1.9063946581354685e-06,
-      "rotation_max_error_rad": 1.1888646911373257e-07,
-      "body_max_error_mm": 2.1254618189914254e-06
+      "source_sha256": "c13cae404ddde302bd21ea9a73226f81f8e227623a629a7a93744088ac666166",
+      "source": "motions/turns/commands/turn_right_180/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0008230209350585938,
+      "max_foot_position_error_mm": 1.7001231327640198e-05
     },
     {
       "command": "crouch",
-      "samples": 481,
-      "old_samples": 481,
-      "joint_max_error_deg": 2.612256581713268e-05,
-      "rotation_max_error_rad": 0.0,
-      "body_max_error_mm": 2.7508726532232686e-06
+      "source_sha256": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
+      "source": "motions/gestures/crouch/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.147857666015625,
+      "max_foot_position_error_mm": 1.2277547384087484e-05
     },
     {
       "command": "crawl_forward",
-      "samples": 2208,
-      "old_samples": 2208,
-      "joint_max_error_deg": 3.437115289983694e-05,
-      "rotation_max_error_rad": 4.5435469622767677e-10,
-      "body_max_error_mm": 2.8046426166383753e-05
+      "source_sha256": "ac5f7d5382f785dd5dbfcaf2c0b2429812a689cb83589c4df42ade6142b2151c",
+      "source": "motions/locomotion/crawl_forward/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.11681461334228516,
+      "max_foot_position_error_mm": 3.109227395725611e-05
     },
     {
       "command": "crawl_backward",
-      "samples": 2214,
-      "old_samples": 2214,
-      "joint_max_error_deg": 3.541767343406832e-05,
-      "rotation_max_error_rad": 4.628353950097974e-10,
-      "body_max_error_mm": 2.9268597586451506e-05
+      "source_sha256": "1db7aa3c04c05f9e5ada9c24df22af5f4a6afbc97b720feeb4595954f14cf271",
+      "source": "motions/locomotion/crawl_backward/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.11008262634277344,
+      "max_foot_position_error_mm": 0.00028103183760919137
     },
     {
       "command": "crawl_turn_left",
-      "samples": 2208,
-      "old_samples": 2208,
-      "joint_max_error_deg": 3.743368259279123e-05,
-      "rotation_max_error_rad": 1.1838859848012362e-07,
-      "body_max_error_mm": 6.5675547418209135e-06
+      "source_sha256": "bc20c6c158aca218f74bbe2e12981fef8f6e5fb913d37f8ca5244478cbf01c54",
+      "source": "motions/locomotion/crawl_turn_left/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.09232902526855469,
+      "max_foot_position_error_mm": 0.0018249414717743662
     },
     {
       "command": "crawl_turn_right",
-      "samples": 2208,
-      "old_samples": 2208,
-      "joint_max_error_deg": 3.421832932204438e-05,
-      "rotation_max_error_rad": 1.1838859848012362e-07,
-      "body_max_error_mm": 6.5675547418209135e-06
+      "source_sha256": "b065482dd1d29f68a35a12f9446763eee7e4a916e6174d3d02825a0eac2d73a1",
+      "source": "motions/locomotion/crawl_turn_right/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.10188007354736328,
+      "max_foot_position_error_mm": 0.0008001988542361005
     },
     {
       "command": "walk_forward",
-      "samples": 2184,
-      "old_samples": 2184,
-      "joint_max_error_deg": 2.309661650201633e-05,
-      "rotation_max_error_rad": 1.8562316614345598e-09,
-      "body_max_error_mm": 0.00012091234816580254
+      "source_sha256": "7f2e95a2f290b2c493ce4bdbd0f7ed601caf90b48a6a4b3d1afa5bb4daa3d9b6",
+      "source": "motions/locomotion/walk_forward/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.07638263702392578,
+      "max_foot_position_error_mm": 0.00010870443861676904
     },
     {
       "command": "walk_backward",
-      "samples": 2184,
-      "old_samples": 2184,
-      "joint_max_error_deg": 2.2672375180832205e-05,
-      "rotation_max_error_rad": 1.8562316614345598e-09,
-      "body_max_error_mm": 0.0001204354509809491
+      "source_sha256": "fc8db6203f99aec96602fd29fff28a82d8435c31faffd1b3c6fa9b4226a82750",
+      "source": "motions/locomotion/walk_backward/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08314704895019531,
+      "max_foot_position_error_mm": 9.285696535243915e-05
     },
     {
       "command": "walk_turn_left",
-      "samples": 2184,
-      "old_samples": 2184,
-      "joint_max_error_deg": 1.5314537290311847e-05,
-      "rotation_max_error_rad": 2.3829755857462942e-07,
-      "body_max_error_mm": 8.52109373283838e-06
+      "source_sha256": "a23c3bf2b524f35f443cbba9f6095a26ae82829aacc74141185bb7a831070f0c",
+      "source": "motions/locomotion/walk_turn_left/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.0939321517944336,
+      "max_foot_position_error_mm": 0.00033567805405709805
     },
     {
       "command": "walk_turn_right",
-      "samples": 2184,
-      "old_samples": 2184,
-      "joint_max_error_deg": 1.33697164428348e-05,
-      "rotation_max_error_rad": 2.3829755857462942e-07,
-      "body_max_error_mm": 8.52109373283838e-06
+      "source_sha256": "41d6f991de4690630b0078178a43961729303d1c09a05f0224a85092d94d61dd",
+      "source": "motions/locomotion/walk_turn_right/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.10316753387451172,
+      "max_foot_position_error_mm": 1.5869755813469055e-05
+    },
+    {
+      "command": "run",
+      "source_sha256": "bb5869beeb67716234607df02bc5d9556e5b0587d4f84397be2188e172c00263",
+      "source": "motions/run/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": 0.08034801483154297,
+      "max_foot_position_error_mm": 0.000460365433809784
+    },
+    {
+      "command": "upright",
+      "source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
+      "source": "motions/gestures/upright/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.00018024444580078125,
+      "max_foot_position_error_mm": 2.3602173541803495e-05
+    },
+    {
+      "command": "lay_down",
+      "source_sha256": "3f321c5e0718e437be8606815359ef4391dbc32f3c9df5569a910d24d369fefd",
+      "source": "motions/gestures/lay_down/source.json",
+      "evaluated_poses": 33,
+      "minimum_sole_z_mm": -0.0005712509155273438,
+      "max_foot_position_error_mm": 1.4680746133421962e-05
     }
   ],
-  "verification_scope": "Original saved action keys, handles and interpolation exact against rolling recovery. Regenerated numerical sources match original keys within float storage/recording tolerance. Does not claim collision-free or physically qualified motion.",
-  "hardware_qualified": false
+  "passed": true,
+  "status": "saved_current_geometry_firmware_playback_verified",
+  "motion_scene": "Motions - Firmware Remap",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
+  "finite_choreography_comparison": [
+    {
+      "command": "bow",
+      "old_source_sha256": "1b313035a9ec4f92b88bece1b072ef3d28d64dcdb12ca42756d9f93c85ab6d95",
+      "source_sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
+      "samples": 1021,
+      "source_timestamps_exact": true,
+      "source_duration_s": 8.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 156.65783766324583,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "celebrate",
+      "old_source_sha256": "2ecbf52a62bfb7846449f49bbe919e521a69910038680f0bf3e705f5295e89fa",
+      "source_sha256": "cb71e9e54b1bb645cb8738403341d895b4fd006a5af5c06691fb4fe7284a3d7a",
+      "samples": 1501,
+      "source_timestamps_exact": true,
+      "source_duration_s": 12.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 233.60337335911086,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "crouch",
+      "old_source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
+      "source_sha256": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
+      "samples": 481,
+      "source_timestamps_exact": true,
+      "source_duration_s": 4.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 35.57500340637178,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "curious",
+      "old_source_sha256": "baa86ca3bea4daefc5af122f255712c3bb6fb86a19851510b339ce1ccccf17ee",
+      "source_sha256": "2b29b7096a63335304fce9d0fc8db5a550b9b15b25d1f9a51eeb62dc306e69cc",
+      "samples": 1171,
+      "source_timestamps_exact": true,
+      "source_duration_s": 9.75,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 47.508479508767294,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "cute",
+      "old_source_sha256": "9cebddc53e40d021986610b7aa5c6848046545c2ea49a0f931183fb8ea6df0a3",
+      "source_sha256": "dbdd7e65b6d2205db430fd498b14daa2f7682e54e01b47613d3cb7a481ef9e51",
+      "samples": 1621,
+      "source_timestamps_exact": true,
+      "source_duration_s": 13.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 233.60337335910754,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "dance",
+      "old_source_sha256": "059cb599dc8fd29d9d44cd157d0e6929ff03f4a3751be4e41a6ac4724d1bafde",
+      "source_sha256": "50290b6586dd3d29b32cb480476bcf6c76614f70daf804b17c090ce0515f8af5",
+      "samples": 1501,
+      "source_timestamps_exact": true,
+      "source_duration_s": 12.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 96.20916478983749,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "dead",
+      "old_source_sha256": "8915e82d0ea0d3e1e758d3bd3ea9c64112a3bb44ab9e9e818279bb362c0ffb27",
+      "source_sha256": "27b314a63510f8d1039ee2ab473a225441ead1961590256e254354b4d8c3fad9",
+      "samples": 841,
+      "source_timestamps_exact": true,
+      "source_duration_s": 7.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 310.6133105468803,
+      "recorded_timing_rotations_phases_contacts_and_cues_exact": true,
+      "geometry_remap": {
+        "source_recording_sha256": "9c363c5f9422fc8803652d24cf10901eb17e28754500e609664b6dba03f267a2",
+        "source_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+        "timing_rotations_phases_and_cues_preserved": true,
+        "amplitude_scale": 1.0,
+        "maximum_body_floor_correction_mm": 2.8894675598225206,
+        "maximum_joint_correction_deg": 2.2523111164736775,
+        "airborne_floor_corrections": 0,
+        "maximum_ik_error_mm": 1.0999201549566351e-11,
+        "maximum_additional_root_correction_mm": 1.0605736773065228e-07,
+        "scope": "Translated stance anchors and necessary floor corrections; no servo travel clipping or gesture amplitude scaling."
+      },
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "freaky",
+      "old_source_sha256": "8145723c6aec3dd9193c0538c1195466eddf5978815ab2096b84055955420d0b",
+      "source_sha256": "b5f856b658ddc777d76511f057b37b3df2635ac5ed45683d28e92415ee2ddbb3",
+      "samples": 1165,
+      "source_timestamps_exact": true,
+      "source_duration_s": 9.7,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 145.2083546572059,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "lay_down",
+      "old_source_sha256": "238f5b5de9555b5da0436afb65c3448a928c838d5cf20cfe0281811299ce735b",
+      "source_sha256": "3f321c5e0718e437be8606815359ef4391dbc32f3c9df5569a910d24d369fefd",
+      "samples": 841,
+      "source_timestamps_exact": true,
+      "source_duration_s": 7.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 218.51806537576232,
+      "recorded_timing_rotations_phases_contacts_and_cues_exact": true,
+      "geometry_remap": {
+        "source_recording_sha256": "585879ce3d473cc750aa5d52c28c67948bce6032dbff7ca407096157b8abfc94",
+        "source_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+        "timing_rotations_phases_and_cues_preserved": true,
+        "amplitude_scale": 1.0,
+        "maximum_body_floor_correction_mm": 2.8894675598225157,
+        "maximum_joint_correction_deg": 2.252315154305259,
+        "airborne_floor_corrections": 0,
+        "maximum_ik_error_mm": 5.172751116333529e-12,
+        "maximum_additional_root_correction_mm": 7.98142845148675e-08,
+        "scope": "Translated stance anchors and necessary floor corrections; no servo travel clipping or gesture amplitude scaling."
+      },
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "nod",
+      "old_source_sha256": "a5ab9286250e9cbd319de4dc953ca8d2d948c7e24755316cd7ec2116f6d93cdc",
+      "source_sha256": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1",
+      "samples": 1021,
+      "source_timestamps_exact": true,
+      "source_duration_s": 8.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 258.5070016668107,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "point",
+      "old_source_sha256": "27ababa8e086f6feb73081a8bc752ca0233ab35c5a7fd672ee9e51a4c6c60a9e",
+      "source_sha256": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
+      "samples": 1321,
+      "source_timestamps_exact": true,
+      "source_duration_s": 11.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 529.7915462442511,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 1.0295644566647602
+    },
+    {
+      "command": "pushup",
+      "old_source_sha256": "58aa76bdf77a212570bd3f0f232ab41cbc471beff74f16da6b3e6281372b1b61",
+      "source_sha256": "2c136913a43119a5f41af6e900c5bcae4d5ffcfedb32ef26178ca6b7a4a75d1d",
+      "samples": 1741,
+      "source_timestamps_exact": true,
+      "source_duration_s": 14.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 139.88952885908637,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "rest",
+      "old_source_sha256": "820cfae899bc33f2d8263068534b83751357cbd59624a60e9aecdceb0648d7ad",
+      "source_sha256": "26c4cf3ee0ebb53a4385ece7850c73e9a7e753d76bb922d379981e605e58bd16",
+      "samples": 601,
+      "source_timestamps_exact": true,
+      "source_duration_s": 5.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 170.1202444540831,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "sad",
+      "old_source_sha256": "1897d2d41a733b3bb1696200e87e81af1ffca0e231d5c695e52ce8e84ecb4445",
+      "source_sha256": "17f5ee3d1b025abfb42bfdcbde9e6368ca96b6c86ef1fa0e1a882cd1a4cc15c7",
+      "samples": 1057,
+      "source_timestamps_exact": true,
+      "source_duration_s": 8.8,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 52.184104173247675,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "shake",
+      "old_source_sha256": "905aa48065d1110f669a0e3b7c6385e12f3b7a6e4f8463c55d62fc5ea52f621f",
+      "source_sha256": "4ce21b2cc6ebb59b96c36a009a5adea1a261953c6b6019843c178f11db57c620",
+      "samples": 841,
+      "source_timestamps_exact": true,
+      "source_duration_s": 7.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 95.47459036494173,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "shrug",
+      "old_source_sha256": "81b8058260992d15b8da60ea28a67547a8b420b57dc33702326edb4379e8f4d9",
+      "source_sha256": "34badfe186ec00a529c50bb3c8c1d8bbfe8d0a4b16d39fc6aa9e49965ded7f99",
+      "samples": 1681,
+      "source_timestamps_exact": true,
+      "source_duration_s": 14.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 294.2432057454061,
+      "recorded_timing_rotations_phases_contacts_and_cues_exact": true,
+      "geometry_remap": {
+        "source_recording_sha256": "cdb6f75907934d5e472d4ef2d59ff5ada66ab03181fb1e3ceb1177516b1f364d",
+        "source_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+        "timing_rotations_phases_and_cues_preserved": true,
+        "amplitude_scale": 1.0,
+        "maximum_body_floor_correction_mm": 6.623982773687265,
+        "maximum_joint_correction_deg": 11.294733168172215,
+        "airborne_floor_corrections": 16,
+        "maximum_ik_error_mm": 3.159091849624929e-05,
+        "maximum_additional_root_correction_mm": 1.5478212568425196,
+        "scope": "Translated stance anchors and necessary floor corrections; no servo travel clipping or gesture amplitude scaling."
+      },
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "sit",
+      "old_source_sha256": "07e253c0c9ce6beddf64355bff7ace4fae9aa2d621bcbfb13f5282cf2cd90960",
+      "source_sha256": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
+      "samples": 601,
+      "source_timestamps_exact": true,
+      "source_duration_s": 5.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 51.827659592742364,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "stretch",
+      "old_source_sha256": "bdba196ac206cfe7fc2e4c5d19cbceb51846984130066eff613118683a6be2d3",
+      "source_sha256": "50e7447fa5433b13c0037a42cdbb1073257032969532e3d7d1b2c8cb0ba7d709",
+      "samples": 805,
+      "source_timestamps_exact": true,
+      "source_duration_s": 6.7,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 108.71101453439216,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "surprised",
+      "old_source_sha256": "8baa241f1ae52950e762da06b6b41c64c80b5ddc81aa23cb2c8847c1293ecb5d",
+      "source_sha256": "285b58d660a2bfa16650154cf220a7a7ac43b45b683b0c7291d96d66e585b0a5",
+      "samples": 1435,
+      "source_timestamps_exact": true,
+      "source_duration_s": 11.95,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 259.63385522058564,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "swim",
+      "old_source_sha256": "5c65ee82bf6a18f05085b0b9c4a5fec08206050957092469ed86d664591acc3b",
+      "source_sha256": "1d44ae1fc78d55be814ad9165b7915b74f04b2022f0741801df9b7a451c51a49",
+      "samples": 2821,
+      "source_timestamps_exact": true,
+      "source_duration_s": 23.5,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 233.60337335911245,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "upright",
+      "old_source_sha256": "7622fbd68590a1ff60601d7abeca2660d5c209407e1ef56199629711da7d4835",
+      "source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
+      "samples": 2641,
+      "source_timestamps_exact": true,
+      "source_duration_s": 22.0,
+      "maximum_body_rotation_change_deg": 4.546372543913592,
+      "compiled_peak_joint_speed_deg_s": 90.99705367396936,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "wave",
+      "old_source_sha256": "e051a59136d8d75461c3595477932f49001b433f9df1fb8f040fe4b838ae07b9",
+      "source_sha256": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
+      "samples": 1921,
+      "source_timestamps_exact": true,
+      "source_duration_s": 16.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 133.8174525818829,
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    },
+    {
+      "command": "worm",
+      "old_source_sha256": "1d5a14a2aaaa590556fe80c34dbba3dcf154ce09a99f1edb99cff8cc678c59e3",
+      "source_sha256": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef",
+      "samples": 2401,
+      "source_timestamps_exact": true,
+      "source_duration_s": 20.0,
+      "maximum_body_rotation_change_deg": 0.0,
+      "compiled_peak_joint_speed_deg_s": 40.167569342163254,
+      "recorded_timing_rotations_phases_contacts_and_cues_exact": true,
+      "geometry_remap": {
+        "source_recording_sha256": "11f2a8786123fd2b21384c1dd2a1dff336675898ed934e2b94119a24ffd5e518",
+        "source_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+        "timing_rotations_phases_and_cues_preserved": true,
+        "amplitude_scale": 1.0,
+        "maximum_body_floor_correction_mm": 8.890705680570115,
+        "maximum_joint_correction_deg": 20.98149922842654,
+        "airborne_floor_corrections": 0,
+        "maximum_ik_error_mm": 1.7528876128380944e-08,
+        "maximum_additional_root_correction_mm": 2.825799008121521e-07,
+        "scope": "Translated stance anchors and necessary floor corrections; no servo travel clipping or gesture amplitude scaling."
+      },
+      "authored_playback_rate": 1.0,
+      "firmware_default_requested_rate": 2.0,
+      "effective_rate_at_default": 2.0
+    }
+  ],
+  "scope": "All firmware source joint/body key arrays; 33 evaluated poses per chapter and in the stride/rate demo. Full source and midpoint floor checks are separate interpolation-validation reports. The original authoring draft scene is preserved, not newly integrated. The external experimental gait sidebar builder is outside this baked-playback verification.",
+  "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
+  "preserved_scenes": {
+    "Wireless": {
+      "objects_exact": 468,
+      "animated_objects_exact": 0,
+      "chapter_metadata_exact": true
+    },
+    "Motions - Current Geometry": {
+      "objects_exact": 275,
+      "animated_objects_exact": 53,
+      "chapter_metadata_exact": true
+    },
+    "passed": true,
+    "file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+    "scope": "Object membership, local transforms, parenting, mesh coordinates/topology, action key coordinates/interpolation, and authoring chapter metadata. Recovery was captured after the authorized rear-pivot reconciliation."
+  }
 }

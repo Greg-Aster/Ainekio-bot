@@ -1,5 +1,8 @@
 #pragma once
 
+int ainekio_p4_network_index(void);
+const char *ainekio_p4_network_endpoint(void);
+
 #include <stdbool.h>
 #include "esp_err.h"
 

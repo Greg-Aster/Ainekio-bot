@@ -28,7 +28,7 @@ int main(int argc,char **argv)
         for(unsigned i=0;i<4;i++)for(unsigned j=0;j<3;j++)printf("%s%.12g",i||j?",":"",state.pose.joints[i][j]);
         printf("],\"feet\":[");for(unsigned i=0;i<4;i++)printf("%s[%.12g,%.12g,%.12g]",i?",":"",state.pose.feet[i][0],state.pose.feet[i][1],state.pose.sole_height[i]);
         printf("],\"grounded\":[");for(unsigned i=0;i<4;i++)printf("%s%s",i?",":"",state.pose.grounded[i]?"true":"false");
-        printf("],\"complete\":%s}\n",state.complete?"true":"false");if(state.complete)break;
+        printf("],\"clock_scale\":%.12g,\"complete\":%s}\n",state.clock_scale,state.complete?"true":"false");if(state.complete)break;
     }
     return 0;
 }

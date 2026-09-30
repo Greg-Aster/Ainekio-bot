@@ -1,7 +1,7 @@
 {
   "schema": "ainekio.current-geometry-retarget.v1",
-  "geometry_id": "upright-24-38-24-55-20260921",
-  "coordinate_policy": "Preserve world contact choreography, phase timing, headings and semantic completion; solve all twelve joints on current geometry.",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "coordinate_policy": "Preserve authored timing, body rotation, lift and motion excursions. Translate each leg footprint for the measured chassis; hold offsets fixed in stance and interpolate through swings to the touchdown heading.",
   "finite_motion_solver_search_bounds_deg": [
     [
       -150.0,
@@ -243,5 +243,23 @@
       "execution_handoff": "docs/gait-research/motion-batch-20260916/commands/curious/execution-contract.json"
     }
   ],
-  "reviewed_recordings": "motions/gestures/*/reviewed.json: regenerate with tools/import_reviewed_clips.py; never legacy retarget."
+  "reviewed_recordings": "motions/gestures/*/reviewed.json: regenerate with tools/import_reviewed_clips.py; never legacy retarget.",
+  "choreography_reference_stance_xy_mm": [
+    [
+      70.10747440127479,
+      59.461174163036226
+    ],
+    [
+      70.10747977703589,
+      -59.461148713918995
+    ],
+    [
+      -42.56813151166144,
+      59.46115498470341
+    ],
+    [
+      -42.56814587526131,
+      -59.461145260792954
+    ]
+  ]
 }

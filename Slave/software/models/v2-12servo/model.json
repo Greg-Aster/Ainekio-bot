@@ -1,6 +1,6 @@
 {
   "model": "v2-12servo",
-  "joint_map": "upright-24-38-24-55-20260921",
+  "joint_map": "upright-24-38-24-55-visible-20260929",
   "position_units": "signed centidegrees from recorded CAD neutral",
   "zero": "Root geometry.json measured current CAD neutral; standing is a solved pose, not zero offsets.",
   "joints": [

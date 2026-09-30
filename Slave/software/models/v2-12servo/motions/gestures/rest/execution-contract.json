@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/rest/source.json",
-      "sha256": "820cfae899bc33f2d8263068534b83751357cbd59624a60e9aecdceb0648d7ad"
+      "sha256": "26c4cf3ee0ebb53a4385ece7850c73e9a7e753d76bb922d379981e605e58bd16"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/rest/manifest.json",
-      "sha256": "c081d67deb3a819fc6811f9c9ba0bbd48fa62bbd7120fed50bfa62d5d544d57c"
+      "sha256": "47fb44689e4b46bed4aa142a0594e28d4583d2cb91e361ef8bc1510fe18a2eb4"
     }
   ],
   "source_units": {
@@ -333,24 +333,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        -3.4277232242703374e-09,
-        0.033522787652696055,
-        0.0077382778671378615
+        -3.4279175756615554e-09,
+        0.03352514669016316,
+        0.007738809518691742
       ],
       [
-        -6.855412137067195e-09,
-        0.03352259575715927,
-        0.007738239210021999
+        -6.855835318943024e-09,
+        0.03352477345347081,
+        0.007738730184252423
       ],
       [
-        1.9846059755857533e-09,
-        0.0335230550346877,
-        0.007738329695574771
+        1.9847632452160202e-09,
+        0.03352559296754421,
+        0.007738898994546462
       ],
       [
-        -3.4277327057149906e-09,
-        0.03352291414500837,
-        0.007738299730361967
+        -3.4280487131336387e-09,
+        0.03352525226236473,
+        0.007738824207827111
       ]
     ],
     "contact_active": [
@@ -376,24 +376,24 @@
     "behavior": "Hold the recorded resting pose until another command. No automatic stand or joint reset.",
     "joint_angles_rad": [
       [
-        -2.932825912799326e-06,
-        -0.3982926997359503,
-        0.3526568383890241
+        -2.9328205064178076e-06,
+        -0.47381571844967596,
+        0.2710959935807967
       ],
       [
-        -3.0838132875897823e-06,
-        -0.3982925888979263,
-        0.35265702211888383
+        -3.0838074313384494e-06,
+        -0.4738167624882043,
+        0.2710949114991522
       ],
       [
-        -2.694422589737271e-06,
-        -0.3982925226653594,
-        0.35265696886897485
+        -2.6944225973676895e-06,
+        -0.47381608113866414,
+        0.27109549799052324
       ],
       [
-        -1.5099626874382522e-07,
-        -0.39829517153727373,
-        0.3526541489360166
+        -1.5099626892852678e-07,
+        -0.47381889287226187,
+        0.2710924191213492
       ]
     ],
     "contacts": [
@@ -408,9 +408,9 @@
     "collision_checked": false,
     "measured_mass_balance_verified": false,
     "source_acceleration_continuous": false,
-    "minimum_assumed_support_margin_mm": -17.559800920402626
+    "minimum_assumed_support_margin_mm": -12.46170201436936
   },
   "hardware_ready": false,
   "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands.",
-  "geometry_id": "upright-24-38-24-55-20260921"
+  "geometry_id": "upright-24-38-24-55-visible-20260929"
 }

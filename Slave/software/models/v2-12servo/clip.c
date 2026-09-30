@@ -1,8 +1,23 @@
 #include "ainekio/v2_motion.h"
 #include "ainekio/trajectory.h"
 #include "clip_data.h"
+#include "servo_data.h"
 #include <math.h>
 #include <string.h>
+
+float ainekio_v2_speed_limited_rate(double peak, float requested)
+{
+    if (!isfinite(peak) || peak < 0. || !isfinite(requested) || requested <= 0.F) return 0.F;
+    if (peak * requested >= V2_GAIT_MAX_JOINT_SPEED_DEGREES_S * V2_SERVO_SPEED_EXCESS_FLAG_RATIO)
+        return (float)(V2_GAIT_MAX_JOINT_SPEED_DEGREES_S / peak);
+    return requested;
+}
+
+float ainekio_v2_clip_playback_rate(size_t index, float requested)
+{
+    if (index >= ainekio_v2_clip_count) return 0.F;
+    return ainekio_v2_speed_limited_rate(ainekio_v2_clips[index].peak_joint_speed_degrees_s, requested);
+}
 
 bool ainekio_v2_clip_find(const char *name, size_t *index)
 {

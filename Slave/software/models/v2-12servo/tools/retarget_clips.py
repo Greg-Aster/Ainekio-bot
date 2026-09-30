@@ -29,9 +29,9 @@ def support_margin(points,com):
     d=np.roll(poly,-1,axis=0)-poly
     return float(np.min((d[:,0]*(com[1]-poly[:,1])-d[:,1]*(com[0]-poly[:,0]))/np.linalg.norm(d,axis=1)))
 
-def target_rows(source,cfg,command,ref):
+def target_rows(source,cfg,command,ref,reference_stance=None):
     """Adapt full-body targets; step to a wide support stance before lying down."""
-    rows=source['samples'];first=rows[0];neutral=np.array(cfg['reference_stance_xy_mm'])[SOURCE_ORDER]
+    rows=source['samples'];first=rows[0];neutral=np.array(reference_stance if reference_stance is not None else cfg['reference_stance_xy_mm'])[SOURCE_ORDER]
     oldfeet=np.array(first['foot_bolt_world_mm']);scale=np.array([(neutral[2,0]-neutral[0,0])/(oldfeet[2,0]-oldfeet[0,0]),neutral[0,1]/oldfeet[0,1]])
     shift=neutral.mean(0)-(oldfeet[:,:2]*scale).mean(0);pivot=np.array(cfg['continuous_walk']['body_rotation_pivot_mm'])
     hull=np.array(cfg['current_body_hull_local_mm']);clearance=float(hull[:,2].min()+cfg['body_translation_z_mm'])
@@ -75,6 +75,33 @@ def target_rows(source,cfg,command,ref):
             and (not wide or t==0 or t>=recovery['end'])):
             body=np.array([0.,0.,cfg['body_translation_z_mm']]);feet=neutral.copy();z[:]=0.;grounded[:]=True
         yield dict(time_s=t,phase=phase,body=body,euler=e,feet=feet,z=z,grounded=grounded,original=original)
+
+def remap_footprint(targets,reference_stance,current_stance,ref):
+    """Translate leg placements without scaling authored gesture excursions.
+
+    Keep each planted offset fixed. During a swing, smoothly relocate it to the
+    new footprint at touchdown's heading. This preserves stance anchors during
+    turns as well as the original timing, lift and body rotation.
+    """
+    targets=list(targets)
+    delta=(np.asarray(current_stance)-np.asarray(reference_stance))[SOURCE_ORDER]
+    for leg in range(4):
+        def rotated(index):
+            yaw=targets[index]['euler'][2];c,s=math.cos(yaw),math.sin(yaw)
+            return np.array([[c,-s],[s,c]])@delta[leg]
+        offset=rotated(0);i=0
+        while i<len(targets):
+            if targets[i]['grounded'][leg]:
+                targets[i]['feet'][leg]+=offset;i+=1;continue
+            end=i
+            while end<len(targets) and not targets[end]['grounded'][leg]:end+=1
+            landing=rotated(min(end,len(targets)-1))
+            start_time=targets[max(0,i-1)]['time_s'];end_time=targets[min(end,len(targets)-1)]['time_s']
+            for j in range(i,end):
+                u=(targets[j]['time_s']-start_time)/max(end_time-start_time,1e-9)
+                targets[j]['feet'][leg]+=offset+ref.smooth(u)*(landing-offset)
+            offset=landing;i=end
+    return targets
 
 def grounded_posture_targets(targets,cfg,posture,mechanism,ref):
     """Lay the configured boot surfaces along the floor in the final hold."""
@@ -274,7 +301,8 @@ def retarget(root,source_repo,only=None):
         current['research_angle_bounds_deg']=np.rad2deg(SEARCH_BOUNDS).tolist();mechanism=ref.Mechanism(current)
         neutral=np.array(cfg['reference_stance_xy_mm']);standing_mechanism=ref.Mechanism(cfg);q=np.array([standing_mechanism.solve(l,[0,0,-2],[0,0,0],neutral[i])[0] for i,l in enumerate(ref.LEGS)])
         output=[];worst=0.;closure=1e9;minimum_body=1e9;minimum_margin=1e9
-        targets=target_rows(source,cfg,name,ref)
+        reference_stance=settings.get('choreography_reference_stance_xy_mm',cfg['reference_stance_xy_mm'])
+        targets=remap_footprint(target_rows(source,cfg,name,ref,reference_stance),reference_stance,cfg['reference_stance_xy_mm'],ref)
         if name=='wave' and posture:targets=seated_wave_targets(targets,posture,folder,mechanism,ref)
         elif name=='point' and posture:targets=extended_point_targets(targets,posture,mechanism,ref)
         elif name=='bow' and posture:targets=forward_bow_targets(targets,posture,mechanism,ref)

@@ -1454,7 +1454,7 @@ static ainekio_decode_result_t decode_control(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed",
+        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1470,9 +1470,47 @@ static ainekio_decode_result_t decode_control(
     if (message->kind != AINEKIO_MESSAGE_INTENT && object_get(&parser, root, "playback_rate") >= 0)
         return AINEKIO_DECODE_VALUE;
     if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE ||
-         message->kind == AINEKIO_MESSAGE_MOTION_SPEED) &&
+         message->kind == AINEKIO_MESSAGE_MOTION_SPEED || message->kind == AINEKIO_MESSAGE_ROBOT_SETTINGS) &&
         !body_extensions) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
+    case AINEKIO_MESSAGE_ROBOT_SETTINGS: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_ROBOT_SETTINGS);
+        char op[9];
+        if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3U, 8U);
+        if (result != AINEKIO_DECODE_OK) return result;
+        const char *operations[] = {"get", "network", "remove", "security", "apply"};
+        unsigned selected = 0;
+        while (selected < 5 && strcmp(op, operations[selected])) ++selected;
+        if (selected == 5) return AINEKIO_DECODE_VALUE;
+        ainekio_robot_settings_command_t *s = &message->command.data.robot_settings;
+        s->operation = (ainekio_robot_settings_operation_t)selected;
+        int64_t number;
+        if (selected != AINEKIO_SETTINGS_GET) {
+            result = required_integer(&parser, root, "revision", 0, UINT32_MAX, &number);
+            if (result != AINEKIO_DECODE_OK) return result;
+            s->revision = (uint32_t)number;
+        }
+        if (selected == AINEKIO_SETTINGS_NETWORK || selected == AINEKIO_SETTINGS_REMOVE) {
+            result = required_integer(&parser, root, "index", 0, AINEKIO_NETWORK_SLOTS - 1, &number);
+            if (result != AINEKIO_DECODE_OK) return result;
+            s->index = (uint8_t)number;
+        }
+        if (selected == AINEKIO_SETTINGS_NETWORK) {
+            result = required_string(&parser, root, "ssid", s->ssid, sizeof(s->ssid), 1, 32);
+            if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "endpoint", s->endpoint, sizeof(s->endpoint), 1, 255);
+            if (result != AINEKIO_DECODE_OK) return result;
+            s->has_wifi_password = object_get(&parser, root, "wifi_password") >= 0;
+            if (s->has_wifi_password) result = required_string(&parser, root, "wifi_password", s->wifi_password, sizeof(s->wifi_password), 0, 64);
+        }
+        if (selected == AINEKIO_SETTINGS_SECURITY) {
+            s->has_robot_token = object_get(&parser, root, "robot_token") >= 0;
+            s->has_setup_password = object_get(&parser, root, "setup_password") >= 0;
+            if (!s->has_robot_token && !s->has_setup_password) return AINEKIO_DECODE_MISSING;
+            if (s->has_robot_token) result = required_string(&parser, root, "robot_token", s->robot_token, sizeof(s->robot_token), 1, 128);
+            if (result == AINEKIO_DECODE_OK && s->has_setup_password) result = required_string(&parser, root, "setup_password", s->setup_password, sizeof(s->setup_password), 0, 63);
+        }
+        return result;
+    }
     case AINEKIO_MESSAGE_MOTION_SPEED: {
         result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_MOTION_SPEED);
         char op[8];

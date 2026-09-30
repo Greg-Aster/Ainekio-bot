@@ -14,6 +14,7 @@ add_test(NAME joint_calibration COMMAND test_joint_calibration)
 # Compile the production output owner against a host scheduler/driver boundary
 # and the same native model used by the firmware.
 add_subdirectory("../../../software/models/v2-12servo" "v2_model")
+add_subdirectory("../../../software/imu" "imu")
 add_executable(test_body test_body.c ../main/joint_calibration.c)
 target_include_directories(test_body PRIVATE body_shim
     "../components/ainekio_pca9685/include")
@@ -21,9 +22,22 @@ target_link_libraries(test_body PRIVATE ainekio_v2_motion m)
 target_compile_options(test_body PRIVATE -Wall -Wextra -Werror)
 add_test(NAME body_execution COMMAND test_body)
 
-add_executable(test_calibration_store test_calibration_store.c ../main/joint_calibration.c)
+add_executable(test_calibration_store test_calibration_store.c ../main/joint_calibration.c ../main/robot_settings.c)
 target_include_directories(test_calibration_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)
 target_compile_options(test_calibration_store PRIVATE -Wall -Wextra -Werror -ffunction-sections -fdata-sections)
 target_link_options(test_calibration_store PRIVATE -Wl,--gc-sections)
 target_link_libraries(test_calibration_store PRIVATE ainekio_v2_motion m)
 add_test(NAME calibration_store COMMAND test_calibration_store)
+
+add_executable(test_robot_settings test_robot_settings.c ../main/robot_settings.c)
+target_include_directories(test_robot_settings PRIVATE ../main)
+target_compile_options(test_robot_settings PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(test_robot_settings PRIVATE ainekio_core)
+add_test(NAME robot_settings COMMAND test_robot_settings)
+
+add_executable(test_robot_settings_store test_robot_settings_store.c ../main/joint_calibration.c ../main/robot_settings.c)
+target_include_directories(test_robot_settings_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)
+target_compile_options(test_robot_settings_store PRIVATE -Wall -Wextra -Werror -ffunction-sections -fdata-sections)
+target_link_options(test_robot_settings_store PRIVATE -Wl,--gc-sections)
+target_link_libraries(test_robot_settings_store PRIVATE ainekio_v2_motion m)
+add_test(NAME robot_settings_store COMMAND test_robot_settings_store)

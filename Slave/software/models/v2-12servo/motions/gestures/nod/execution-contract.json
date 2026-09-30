@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/nod/source.json",
-      "sha256": "a5ab9286250e9cbd319de4dc953ca8d2d948c7e24755316cd7ec2116f6d93cdc"
+      "sha256": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/nod/manifest.json",
-      "sha256": "032c8bd4611b0e124177aa9c560ec8936f1b42d3c31f2005851412f08ef1df51"
+      "sha256": "a9e5bb6819fef95298aa70d4a621b570b67bdad0fc016bc1b4baa7a4e9140968"
     }
   ],
   "source_units": {
@@ -624,24 +624,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        -3.4277232242703374e-09,
-        0.033522787652696055,
-        0.0077382778671378615
+        -3.4279175756615554e-09,
+        0.03352514669016316,
+        0.007738809518691742
       ],
       [
-        -6.855412137067195e-09,
-        0.03352259575715927,
-        0.007738239210021999
+        -6.855835318943024e-09,
+        0.03352477345347081,
+        0.007738730184252423
       ],
       [
-        1.9846059755857533e-09,
-        0.0335230550346877,
-        0.007738329695574771
+        1.9847632452160202e-09,
+        0.03352559296754421,
+        0.007738898994546462
       ],
       [
-        -3.4277327057149906e-09,
-        0.03352291414500837,
-        0.007738299730361967
+        -3.4279704092815887e-09,
+        0.03352525226234025,
+        0.007738824207822239
       ]
     ],
     "contact_active": [
@@ -656,24 +656,24 @@
     "behavior": "Complete 2 nods, retrace the rear-right support crouch, and hold exact standing neutral.",
     "joint_angles_rad": [
       [
-        -3.428020194709491e-09,
-        0.03352278765671142,
-        0.007738277869526852
+        -3.427989022969129e-09,
+        0.033525146690245845,
+        0.007738809518710152
       ],
       [
-        1.3464825738906752e-09,
-        0.033522496814112214,
-        0.007738235111994251
+        -6.8558415557848275e-09,
+        0.03352477345346827,
+        0.007738730184251216
       ],
       [
-        1.984854429534458e-09,
-        0.03352305503517666,
-        0.007738329696720787
+        1.9847044413412104e-09,
+        0.033525592967568914,
+        0.00773889899455201
       ],
       [
-        -3.42761339120148e-09,
-        0.033522914147910546,
-        0.007738299732869661
+        -3.4279801026750856e-09,
+        0.03352525226237688,
+        0.007738824207830102
       ]
     ],
     "contacts": [
@@ -688,10 +688,10 @@
     "collision_checked": false,
     "measured_mass_balance_verified": false,
     "source_acceleration_continuous": false,
-    "minimum_assumed_support_margin_mm": 41.78526286108655
+    "minimum_assumed_support_margin_mm": 57.55173906589672
   },
   "body_support_required": false,
   "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded body path and return through the raised crouch to standing; never seek directly to the last row.",
   "hardware_ready": false,
-  "geometry_id": "upright-24-38-24-55-20260921"
+  "geometry_id": "upright-24-38-24-55-visible-20260929"
 }

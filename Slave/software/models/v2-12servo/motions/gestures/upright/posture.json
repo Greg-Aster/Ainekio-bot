@@ -1,13 +1,13 @@
 {
-  "description": "Experimental Sit, front feet backward, supported rearward push, then rise to a vertical chassis over the flat rear lower legs.",
+  "description": "Experimental Sit, front feet backward, supported rearward push and full vertical rise over anchored rear lower legs.",
   "contact_hulls_file": "../sit/posture-hulls.npz",
-  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
-  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
+  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "base_motion": {
     "source_file": "../sit/source.json",
-    "source_sha256": "07e253c0c9ce6beddf64355bff7ace4fae9aa2d621bcbfb13f5282cf2cd90960",
+    "source_sha256": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
     "posture_file": "../sit/posture.json",
-    "posture_sha256": "65c62ea75a07e1f0816e2fdd48018ba3821c62582cc6b303ccdf0b4f0688223b"
+    "posture_sha256": "dc16931666c7d3213e1966de3f4be645ebed441f1dae24d2debb33a7a5cd2cde"
   },
   "sit_prefix_end_s": 3.0,
   "provisional_COM_body_mm": [
@@ -18,15 +18,18 @@
   "rear_contact_tolerance_mm": 0.5,
   "front_brace_xy_mm": [
     [
-      0,
-      52
+      4.099998474120241,
+      59.64999961852961
     ],
     [
-      0,
-      -52
+      4.099990844726548,
+      -59.65000152587897
     ]
   ],
   "rear_only_support_start_s": 12.0,
+  "brace_pitch_deg": -22.95362745608641,
+  "brace_shift_x_mm": -16.5,
+  "rear_support_policy": "Rear boot pose fixed throughout. Full vertical pitch and original phase times retained; temporary reference meshes excluded from body clearance.",
   "upright_pitch_deg": -90.0,
   "front_extended_angles_rad": [
     0.13962634015954636,

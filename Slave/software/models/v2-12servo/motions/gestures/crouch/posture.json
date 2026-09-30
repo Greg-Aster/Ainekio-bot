@@ -1,8 +1,8 @@
 {
   "description": "Lower all four planted feet into a held squat. Lower legs stay inclined; chassis and shell remain above ground.",
   "contact_hulls_file": "../sit/posture-hulls.npz",
-  "contact_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
-  "mechanism_geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
+  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
+  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "body_support_scope": "Feet only; complete current body hull above floor.",
   "body_z_mm": -35
 }

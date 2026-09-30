@@ -12,66 +12,79 @@
   "sample_count": 481,
   "entry_actuator_angles_rad": [
     [
-      -3.42796330722e-09,
-      0.0335251959917,
-      0.00773881810065
+      -6.56346230699e-08,
+      0.0307123661041,
+      0.00710606575012
     ],
     [
-      -6.85589133915e-09,
-      0.0335250249653,
-      0.00773878412533
+      6.56346301753e-08,
+      0.0307121276855,
+      0.00710606575012
     ],
     [
-      1.98472066748e-09,
-      0.0335254512298,
-      0.00773886720421
+      -6.5634608859e-08,
+      0.0307130813599,
+      0.0071063041687
     ],
     [
-      -3.42797678367e-09,
-      0.033525323482,
-      0.00773884018717
+      9.84519132885e-08,
+      0.0307126045227,
+      0.00710654258728
     ]
   ],
   "final_actuator_angles_rad": [
     [
-      1.02856202131e-07,
-      -0.655705415271,
-      -0.357353392352
+      -1.46362182818e-07,
+      -0.660025119781,
+      -0.361294269562
     ],
     [
-      2.05712497805e-07,
-      -0.655705920647,
-      -0.357353920858
+      1.46362197029e-07,
+      -0.660026073456,
+      -0.361295223236
     ],
     [
-      -5.95511146234e-08,
-      -0.655704597624,
-      -0.357352520291
+      -1.8295264681e-07,
+      -0.660024166107,
+      -0.36129283905
     ],
     [
-      1.02856182834e-07,
-      -0.655705050942,
-      -0.357352947821
+      1.46362154396e-07,
+      -0.660025119781,
+      -0.361293315887
     ]
   ],
-  "geometry_id": "upright-24-38-24-55-20260921",
-  "geometry_sha256": "1b53103369882485d929cdfc657cba2b4dbf9a2d0e969b12cc1a3c5187addee2",
-  "sole_hulls_sha256": "460e0ed5df9c852856b01afa8a13f22dc3e0505630582b06382f2d86fbb154c2",
-  "source_sha256": "e7af65658cbd8a87c1e9ab19ffa6f2f303afb84c47808e664f2ea8e099cc942e",
-  "posture_sha256": "65c170b27e9fd8d5e9f04e69a60b3fe4496fcf8b9f099a2ea17dfd87c5cbc07e",
-  "posture_hulls_sha256": "daf3c532a4e93b210626032f0fa00453cc7039fa0febbe655eb049e44b3628bf",
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
+  "source_sha256": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
+  "posture_sha256": "5b2c229033fe0f4c5d17d3cacc75180f8fbbb5105016a9b9f3a71b5f2c7fb730",
+  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "hardware_qualified": false,
   "actuator_calibration": null,
   "completion": "Hold the four-foot crouch until another command.",
   "source_validation": {
     "command": "crouch",
     "samples": 481,
-    "max_target_error_mm": 8.382624727687471e-06,
-    "min_sole_z_mm": -6.521770927747639e-07,
-    "min_body_z_mm": 12.776263738559258,
-    "min_closure_height_mm": 18.690558296944562,
-    "maximum_adjacent_joint_step_degrees": 0.2957260193801399,
+    "max_target_error_mm": 0.15101472682226103,
+    "foot_xy_error_mm": 5.93468508682804e-05,
+    "full_sole_height_error_mm": [
+      0.14268696597501673,
+      0.15101472682226103
+    ],
+    "support_allowance_mm": 0.151,
+    "min_sole_z_mm": 0.14268696597501673,
+    "min_body_z_mm": 14.250007629394531,
+    "min_closure_height_mm": 18.734238833597132,
+    "maximum_adjacent_joint_step_degrees": 0.2963619081092921,
     "hardware_qualified": false,
-    "collision_checked": false
+    "collision_checked": false,
+    "leverage": {
+      "checked_leg_poses": 3844,
+      "branch_reversals": 0,
+      "minimum_straightening_clearance_mm": 13.938078413402707,
+      "stance_output_min_deg": 55.14385885443712,
+      "stance_input_min_deg": 81.24394051616281
+    }
   }
 }

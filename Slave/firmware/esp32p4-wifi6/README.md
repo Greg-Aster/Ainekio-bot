@@ -74,6 +74,16 @@ the old `0.3.0-p4-turns` partition layout require the migration described in the
 [integration record](../../../docs/v2-12servo/MOTION_INTEGRATION_20260917.md),
 not just an application-only flash.
 
+## IMU foundation
+
+The [portable IMU component](../../software/imu/README.md) is compiled by the P4
+project and exercised by its native test project. It defines timestamped samples,
+calibrated sensor-to-body transforms, attitude estimates and freshness/recovery
+flags using pinned x-io Fusion sources. It does not start acquisition, transmit
+IMU telemetry or modify movement. Wiring, mounting calibration, the sensor driver
+and physical timing measurements are the next integration step. The existing
+motion/output owner and motion library are unchanged by this component.
+
 ## Build and flash
 
 Use ESP-IDF **5.5.4**. The tested board is P4 **revision 1.3**, 32 MiB flash and
@@ -169,11 +179,27 @@ The existing LAN trust model is retained: the body authenticates to the selected
 gateway with its token; plaintext LAN WebSocket does not cryptographically
 authenticate the server. Use TLS for connections needing server authentication.
 
-The setup AP provides WPA2 association, DHCP and browser provisioning at
+The setup AP defaults to WPA2 association and provides DHCP and browser provisioning at
 `http://192.168.4.1/`. The HTTP listener accepts the AP interface only, validates
 bounded configuration input and a per-start CSRF token, and preserves existing
 pairing identity for network-only changes. The setup key persists across boots.
 The serial configuration commands remain available.
+
+Firmware advertising `robot_settings_v1` also supports authenticated settings
+readback, per-slot network writes/removal, setup-hotspot password and pairing-token
+changes, and a separate restart-to-apply command through Body Control Settings.
+Four ordered network slots each contain their own controller URL. While offline,
+the network task tries the next occupied slot every 15 seconds. A working Wi-Fi
+link stays selected; server failure alone does not switch profiles. The existing
+60-second setup fallback remains active while cycling unavailable networks.
+Settings saves disable outputs and use an atomic P4 NVS blob with revision checks;
+running credentials remain immutable until restart. Legacy single-network records
+and the generated setup key are imported without erasing NVS. All network slots
+are cleared by `net reset`, retaining identity, pairing and setup credentials.
+Explicit empty Wi-Fi passwords select open networks. Settings readbacks never
+include passwords or tokens. See [Body Control setup](../../../Master/gateway/README.md)
+for the save/apply and token-transition workflow. Firmware compilation and host
+tests do not qualify physical Wi-Fi switching, setup recovery or servo behavior.
 
 ## Startup and assembly
 

@@ -1,0 +1,576 @@
+{
+  "status": "Reconstructed reference; not manufacturer CAD; no physical measurements",
+  "asin": "B0DFWMC16W",
+  "pcb_mm": [
+    29.0,
+    62.0,
+    1.6
+  ],
+  "mounting_holes_estimated_mm": {
+    "diameter": 2.5,
+    "centers": [
+      [
+        -12.5,
+        -29
+      ],
+      [
+        -12.5,
+        29
+      ],
+      [
+        12.5,
+        -29
+      ],
+      [
+        12.5,
+        29
+      ]
+    ]
+  },
+  "listing_length_conflict_mm": [
+    62,
+    57.9
+  ],
+  "components": [
+    {
+      "name": "PCB_29x62_holes_ESTIMATED",
+      "basis": "outline per listing photo; holes estimated"
+    },
+    {
+      "name": "Mount_pad_front_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_back_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_front_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_back_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_front_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_back_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_front_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "Mount_pad_back_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_5",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_5",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_5",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_6",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_6",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_6",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_7",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_7",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_7",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_front_8",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_pad_back_8",
+      "basis": "estimated"
+    },
+    {
+      "name": "Pin_label_8",
+      "basis": "estimated"
+    },
+    {
+      "name": "Adhesive_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "LCD_package_base_representative_25p8x49p72",
+      "basis": "estimated"
+    },
+    {
+      "name": "Glass_border",
+      "basis": "estimated"
+    },
+    {
+      "name": "Viewing_window_23p695x43p72",
+      "basis": "estimated"
+    },
+    {
+      "name": "Active_area_22p695x42p72",
+      "basis": "size from Amazon; offset estimated"
+    },
+    {
+      "name": "LCD_driver_strip_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "Rear_flex_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_through_slot_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_front_fold_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_5",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_6",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_7",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_8",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_9",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_10",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_11",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_12",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_13",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_14",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_15",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_16",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_17",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_18",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_19",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_20",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_21",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_22",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_23",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_24",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_25",
+      "basis": "estimated"
+    },
+    {
+      "name": "Flex_trace_26",
+      "basis": "estimated"
+    },
+    {
+      "name": "Rear_FPC_connector_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_latch_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_3",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_4",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_5",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_6",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_7",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_8",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_9",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_10",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_11",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_12",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_13",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_14",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_15",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_16",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_17",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_18",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_19",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_20",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_21",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_22",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_23",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_24",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_25",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_26",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_27",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_28",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_29",
+      "basis": "estimated"
+    },
+    {
+      "name": "FPC_contact_30",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_1_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_1_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_1_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_2_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_2_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_2_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_3_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_3_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_3_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_4_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_4_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_4_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_5_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_5_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_5_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_6_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_6_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_6_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_7_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_7_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_7_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_8_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_8_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_8_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_9_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_9_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SMD_pad_9_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_1_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_leg_1_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_leg_1_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_leg_1_2",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_2_ESTIMATED",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_leg_2_0",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_leg_2_1",
+      "basis": "estimated"
+    },
+    {
+      "name": "SOT23_leg_2_2",
+      "basis": "estimated"
+    }
+  ]
+}

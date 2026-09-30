@@ -3,6 +3,9 @@
 
   const HELD_MOTION_STEPS = 10;
 
+  let robotSettings = null;
+  let robotSettingsSession = null;
+  let robotSettingsBusy = false;
   let csrfToken = null;
   let selectedRobotId = null;
   let preferredRobotId = readLocal("ainekio-selected-robot", null);
@@ -656,7 +659,7 @@
     byId("calibration-draft-status").classList.toggle("has-edits", Boolean(changed));
     const recommended = Number.isFinite(joint?.recommended_home_cd) && Number.isFinite(calibrationData?.recommended_reference_us);
     text("calibration-reference-help", recommended ?
-      `Assembly reference: ${calibrationData.recommended_reference_us} µs corresponds to ${(joint.recommended_home_cd / 100).toFixed(2)}° for this joint. All joints at the same pulse do not necessarily have the same model angle.` : "");
+      `Engraved assembly reference: ${calibrationData.recommended_reference_us} µs at ${(joint.recommended_home_cd / 100).toFixed(2)}° model angle. This marks a physical pose, not the midpoint of servo travel. Home pulse and model angle must describe the installed horn position.` : "");
   }
 
   function selectedCalibrationJoint() {
@@ -1165,6 +1168,49 @@
   }
 
   function setupSecurity() {
+    const settings = byId("settings-panel");
+    const settingsButton = byId("settings-button");
+    function showSettings(open) {
+      settings.hidden = !open;
+      settingsButton.setAttribute("aria-expanded", String(open));
+      if (open) {
+        if (selectedRobotId) byId("token-robot-id").value = selectedRobotId;
+        settings.scrollIntoView({ block: "start" });
+        byId("password-form").elements.current_password.focus({ preventScroll: true });
+      } else {
+        byId("password-form").reset();
+        byId("password-result").hidden = true;
+        settingsButton.focus();
+      }
+    }
+    settingsButton.addEventListener("click", () => showSettings(settings.hidden));
+    byId("settings-close-button").addEventListener("click", () => showSettings(false));
+    byId("password-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const values = Object.fromEntries(new FormData(form));
+      const result = byId("password-result");
+      const button = form.querySelector("button[type=submit]");
+      result.hidden = false;
+      result.classList.remove("form-error");
+      if (values.new_password !== values.confirm_password) {
+        result.textContent = "The new passwords do not match.";
+        result.classList.add("form-error");
+        return;
+      }
+      button.disabled = true;
+      result.textContent = "Saving password…";
+      try {
+        await request("/api/settings/password", { method: "POST", body: JSON.stringify(values) });
+        form.reset();
+        result.textContent = "Password changed. This browser stays signed in; other browsers have been signed out.";
+      } catch (error) {
+        result.textContent = error.message;
+        result.classList.add("form-error");
+      } finally {
+        button.disabled = false;
+      }
+    });
     byId("logout-button").addEventListener("click", async () => {
       try { await request("/api/logout", { method: "POST", body: "{}" }); } finally { window.location.assign("/login"); }
     });
@@ -1238,6 +1284,93 @@
     });
   }
 
+  function updateRobotSettings(entry) {
+    const supported = Boolean(entry && entry.connected && entry.connection_state !== "stale" &&
+      (entry.features || []).includes("robot_settings_v1"));
+    const session = supported ? `${selectedRobotId}:${entry.epoch}` : null;
+    if (session !== robotSettingsSession) {
+      robotSettingsSession = session;
+      robotSettings = null;
+      byId("robot-network-form").reset();
+      byId("robot-security-form").reset();
+      text("robot-settings-result", "");
+    }
+    text("robot-settings-availability", !entry || !entry.connected ? "Connect a robot to read its settings." :
+      !supported ? "This robot needs the firmware update for settings management." : `Settings for ${selectedRobotId}`);
+    byId("robot-settings-read").disabled = !supported || robotSettingsBusy;
+    byId("robot-settings-editor").hidden = !robotSettings;
+    byId("robot-settings-editor").querySelectorAll("button, input, select").forEach(el => { el.disabled = robotSettingsBusy || !supported; });
+    byId("robot-settings-apply").disabled = robotSettingsBusy || !supported || !robotSettings?.pending_restart;
+  }
+
+  function loadRobotNetworkSlot() {
+    const form = byId("robot-network-form");
+    const index = Number(form.elements.index.value);
+    const profile = robotSettings?.networks.find(p => p.index === index);
+    form.elements.ssid.value = profile?.ssid || "";
+    form.elements.endpoint.value = profile?.endpoint || "";
+    form.elements.wifi_password.value = "";
+    form.elements.change_wifi_password.checked = !profile;
+    byId("robot-network-remove").disabled = !profile || robotSettingsBusy;
+  }
+
+  async function robotSettingsRequest(op, values = {}) {
+    const session = robotSettingsSession;
+    const robotId = selectedRobotId;
+    if (!session || robotSettingsBusy || (op !== "get" && !robotSettings)) return;
+    robotSettingsBusy = true;
+    updateRobotSettings(calibrationEntry);
+    text("robot-settings-result", "Waiting for the robot…");
+    try {
+      const payload = {op, robot_id: robotId, ...values};
+      if (op !== "get") payload.revision = robotSettings.revision;
+      const result = await request("/api/settings/robot", {method: "POST", body: JSON.stringify(payload)});
+      if (session !== robotSettingsSession) return;
+      robotSettings = result.settings;
+      byId("robot-security-form").reset();
+      loadRobotNetworkSlot();
+      text("robot-settings-state", `Connected slot: ${robotSettings.active_index < 0 ? "none" : robotSettings.active_index + 1}. ` +
+        (robotSettings.pending_restart ? "Saved changes are waiting for restart." : "Saved settings are active.") +
+        (robotSettings.setup_open ? " The robot setup hotspot is open." : " The robot setup hotspot uses a password."));
+      text("robot-settings-result", op === "get" ? "Settings read from the robot." : op === "apply" ?
+        "Restart accepted. Waiting for the robot to reconnect; connection is not yet confirmed." : "Saved on the robot. Restart when ready to apply.");
+    } catch (error) {
+      if (session === robotSettingsSession) text("robot-settings-result", error.message);
+    } finally {
+      robotSettingsBusy = false;
+      updateRobotSettings(calibrationEntry);
+    }
+  }
+
+  function setupRobotSettings() {
+    byId("robot-settings-read").addEventListener("click", () => robotSettingsRequest("get"));
+    byId("robot-network-index").addEventListener("change", loadRobotNetworkSlot);
+    byId("robot-network-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const values = {index: Number(form.elements.index.value), ssid: form.elements.ssid.value, endpoint: form.elements.endpoint.value};
+      if (form.elements.change_wifi_password.checked) values.wifi_password = form.elements.wifi_password.value;
+      robotSettingsRequest("network", values);
+    });
+    byId("robot-network-remove").addEventListener("click", () => {
+      const index = Number(byId("robot-network-index").value);
+      if (window.confirm("Remove this saved network? It remains connected until you restart the robot.")) robotSettingsRequest("remove", {index});
+    });
+    byId("robot-security-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const values = {};
+      if (form.elements.change_setup_password.checked) values.setup_password = form.elements.setup_password.value;
+      if (form.elements.change_robot_token.checked) values.robot_token = form.elements.robot_token.value;
+      if (!Object.keys(values).length) { text("robot-settings-result", "Select the credential you want to change."); return; }
+      robotSettingsRequest("security", values);
+    });
+    byId("robot-settings-apply").addEventListener("click", () => {
+      if (window.confirm("Restart the robot and apply saved settings? The connection will drop. Normal startup can move the servos to their saved Home positions."))
+        robotSettingsRequest("apply", {confirmed: true});
+    });
+  }
+
   function renderStatus(payload) {
     const robots = payload.robots || {};
     const robotIds = Object.keys(robots).sort();
@@ -1276,6 +1409,7 @@
         availableBodyCommands.length ? availableBodyCommands.join(", ") :
           installedMotions.length ? `${installedMotions.join(", ")} installed; motion unavailable` : "motion unavailable"}`);
     calibrationEntry = entry;
+    updateRobotSettings(entry);
     const session = entry ? `${selectedRobotId}:${entry.epoch}:${entry.model}` : null;
     if (session !== calibrationSession) {
       calibrationGeneration++;
@@ -1467,6 +1601,7 @@
     setupMotionControls();
     setupForms();
     setupSecurity();
+    setupRobotSettings();
     await refreshStatus();
     runCameraView();
     statusTimer = window.setInterval(refreshStatus, 1000);
