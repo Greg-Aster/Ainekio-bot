@@ -820,6 +820,12 @@ static ainekio_decode_result_t decode_intent(
             if (result == AINEKIO_DECODE_OK && (intent->data.walk.stride_percent < 1 || intent->data.walk.stride_percent > 100 ||
                 intent->data.walk.motion_rate < .25F || intent->data.walk.motion_rate > 3)) result = AINEKIO_DECODE_RANGE;
         }
+        if (result == AINEKIO_DECODE_OK && (object_get(parser, root, "forward") >= 0 || object_get(parser, root, "turn") >= 0)) {
+            intent->data.walk.steering = true;
+            result = required_number(parser, root, "forward", &intent->data.walk.forward);
+            if (result == AINEKIO_DECODE_OK) result = required_number(parser, root, "turn", &intent->data.walk.turn);
+            if (result == AINEKIO_DECODE_OK && (fabsf(intent->data.walk.forward) > 100.F || fabsf(intent->data.walk.turn) > 100.F)) result = AINEKIO_DECODE_RANGE;
+        }
         if (result == AINEKIO_DECODE_OK && update) {
             int64_t seq = 0;
             result = required_integer(parser, root, "update", 1, AINEKIO_MAX_SEQUENCE, &seq);
@@ -1026,6 +1032,20 @@ static ainekio_decode_result_t decode_camera(
         return AINEKIO_DECODE_VALUE;
     }
     message->command.data.camera.fps = (uint8_t)fps;
+    if (object_get(parser, root, "snapshot_res") >= 0) {
+        result = required_string(parser, root, "snapshot_res", resolution, sizeof(resolution), 3U, 4U);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (strcmp(resolution, "QVGA") == 0) {
+            message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_QVGA;
+        } else if (strcmp(resolution, "VGA") == 0) {
+            message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_VGA;
+        } else if (strcmp(resolution, "XGA") == 0) {
+            message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_XGA;
+        } else {
+            return AINEKIO_DECODE_VALUE;
+        }
+        message->command.data.camera.has_snapshot_resolution = true;
+    }
     return AINEKIO_DECODE_OK;
 }
 
@@ -1620,7 +1640,7 @@ static ainekio_decode_result_t decode_control(
         if (result == AINEKIO_DECODE_OK && !body_extensions && message->command.data.intent.playback_rate)
             return AINEKIO_DECODE_VALUE;
         if (result == AINEKIO_DECODE_OK && !walk_controls && message->command.data.intent.kind == AINEKIO_INTENT_WALK &&
-            (message->command.data.intent.data.walk.controls || message->command.data.intent.data.walk.update_sequence ||
+            (message->command.data.intent.data.walk.controls || message->command.data.intent.data.walk.steering || message->command.data.intent.data.walk.update_sequence ||
              message->command.data.intent.data.walk.steps == 0 || object_get(&parser, root, "gait") >= 0)) return AINEKIO_DECODE_VALUE;
         return result;
     case AINEKIO_MESSAGE_STOP:

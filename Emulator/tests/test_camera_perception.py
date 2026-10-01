@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import unittest
 
 from gateway.plugins import CameraAnalysis, CameraFramePlugin
+from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.server.service import GatewayConnection, GatewayService, GatewayServiceConfig
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MAX_JPEG_BYTES, MIC_PCM_FRAME_TYPE
 
@@ -32,6 +34,58 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
             "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": str(frame_counter).encode(),
             "received_at": self.now, **overrides,
         })
+
+    async def test_local_video_and_correlated_remote_still_share_camera_transport(self) -> None:
+        class BridgeSocket:
+            closed = False
+
+            def __init__(self):
+                self.sent = []
+
+            async def send(self, raw):
+                self.sent.append(json.loads(raw))
+
+        adapter = EnvironmentAdapter(self.gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        bridge = BridgeSocket()
+        adapter._websocket = bridge
+        local_frames = []
+
+        async def consume(payload):
+            local_frames.append(payload)
+
+        plugin = self.plugin(consume)
+        await self.gateway._publish_event({"t": "cam_meta", "robot_id": "robot", "epoch": 1,
+            "res": "QVGA", "fps": 5, "counter_base": 1})
+        await self.frame(1)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        self.assertEqual(bridge.sent, [], "preview frames must remain outside the remote snapshot path")
+        # Earlier P4 metadata carried preview FPS on its explicitly tagged still.
+        await self.gateway._publish_event({"t": "cam_meta", "robot_id": "robot", "epoch": 1,
+            "res": "XGA", "fps": 5, "counter_base": 2, "origin": "audio", "origin_id": 73})
+        await self.frame(2)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        await self.frame(3)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        self.assertEqual(local_frames, [b"1", b"2", b"3"])
+        observations = [message["observation"] for message in bridge.sent if message["type"] == "environment.observation"]
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0]["visual"]["metadata"]["counter"], 2)
+        self.assertIn("audioUtteranceId", observations[0]["visual"]["metadata"])
+
+    async def test_requested_and_action_stills_use_origin_even_when_preview_is_enabled(self) -> None:
+        adapter = EnvironmentAdapter(self.gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        for origin in ("request", "action"):
+            action_id = "capture-" + origin
+            result = asyncio.get_running_loop().create_future()
+            adapter._pending_action_visuals[action_id] = result
+            adapter._robot_action_contexts[("robot", 1, 77)] = {"actionId": action_id}
+            await self.gateway._publish_event({"t": "cam_meta", "robot_id": "robot", "epoch": 1,
+                "res": "VGA", "fps": 5, "counter_base": 4, "origin": origin, "origin_id": 77})
+            await self.frame(4)
+            visual = await asyncio.wait_for(result, 1)
+            self.assertEqual(visual["metadata"]["actionId"], action_id)
 
     async def test_keeps_newest_waiting_frame_and_correlates_backend_output(self) -> None:
         started, release, done = asyncio.Event(), asyncio.Event(), asyncio.Event()

@@ -129,10 +129,17 @@
                 <span>Camera</span>
                 <input name="on" type="checkbox">
               </label>
-              <label>Resolution
+              <label>Stream resolution
                 <select name="res">
                   <option value="QVGA">QVGA</option>
                   <option value="VGA">VGA</option>
+                </select>
+              </label>
+              <label data-camera-profiles hidden>Snapshot resolution
+                <select name="snapshot_res" disabled>
+                  <option value="QVGA">QVGA</option>
+                  <option value="VGA" selected>VGA</option>
+                  <option value="XGA">XGA</option>
                 </select>
               </label>
               <label>Frame rate

@@ -397,7 +397,8 @@ size_t ainekio_encode_camera_meta(
     append_literal(&writer, "{\"t\":\"cam_meta\",\"res\":\"");
     append_literal(&writer, resolutions[resolution]);
     append_literal(&writer, "\",\"fps\":");
-    append_u32(&writer, fps);
+    /* Correlated stills have no cadence, even while preview is streaming. */
+    append_u32(&writer, origin == AINEKIO_CAMERA_ORIGIN_NONE ? fps : 0U);
     append_literal(&writer, ",\"counter_base\":");
     append_u32(&writer, counter_base);
     if (origin != AINEKIO_CAMERA_ORIGIN_NONE) {

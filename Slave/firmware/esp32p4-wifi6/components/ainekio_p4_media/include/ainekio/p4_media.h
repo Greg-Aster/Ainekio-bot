@@ -41,8 +41,11 @@ esp_err_t ainekio_p4_media_say(uint32_t sequence, const char *asset_name);
 esp_err_t ainekio_p4_media_tts_push(const uint8_t pcm[AINEKIO_AUDIO_PAYLOAD_BYTES]);
 esp_err_t ainekio_p4_media_tts_end(void);
 uint32_t ainekio_p4_media_audio_cancel(void);
+/* Apply both profiles under the camera lock. NULL preserves the snapshot
+ * resolution; its boot default is VGA. These settings are not stored in NVS. */
 esp_err_t ainekio_p4_media_camera_configure(bool enabled, uint8_t fps,
-                                           ainekio_camera_resolution_t resolution);
+                                           ainekio_camera_resolution_t resolution,
+                                           const ainekio_camera_resolution_t *snapshot_resolution);
 esp_err_t ainekio_p4_media_snapshot(ainekio_camera_origin_t origin, uint32_t origin_id);
 void ainekio_p4_media_cancel_snapshots(void);
 /* Cancel queued snapshots, streaming and audio on connection loss. */

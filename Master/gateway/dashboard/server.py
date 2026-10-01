@@ -301,12 +301,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return {"ok": True, "seq": sequence}
         if path == "/api/camera":
+            options = {"snapshot_resolution": _required_string(payload, "snapshot_res")} if "snapshot_res" in payload else {}
             sequence = self.server.call_gateway(
                 self.server.gateway.set_camera(
                     on=_required_bool(payload, "on"),
                     fps=_required_int(payload, "fps"),
                     resolution=_required_string(payload, "res"),
                     robot_id=robot_id,
+                    **options,
                 )
             )
             return {"ok": True, "seq": sequence}

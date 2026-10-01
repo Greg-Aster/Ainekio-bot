@@ -100,7 +100,6 @@ docs/
     README.md                 Selected hardware and current design status
     FIRMWARE_DESIGN.md         V1 review, P4 design and optional Q6A boundaries
     STEP1_EVIDENCE.md          Board bring-up evidence and open electrical checks
-  AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md
   BODY_CONTROL_INTEGRATION.md  ROS 2 role, transport and operating targets
   LOCAL_WAKE_WORD.md
   freestyle-movement.md

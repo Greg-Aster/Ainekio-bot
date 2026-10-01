@@ -2,7 +2,7 @@
 
 Started: 2026-09-28
 
-Updated: 2026-09-30 — bounded host perception and active-walk update foundations
+Updated: 2026-09-30 — canonical active task execution and continuous steering
 
 Status: Living research and decision record
 
@@ -55,17 +55,34 @@ not wired; GPIO7/8 on the existing media/control I2C bus is the recommendation,
 pending the owner's wiring choice and physical axis verification. MetaHuman
 retains command authority through the existing gateway and Environment Bridge.
 
-The host foundations now include
-[continuous camera processing and ongoing movement updates](../Master/gateway/README.md#updating-an-ongoing-movement).
-Camera consumers process fresh frames independently of the gateway receive loop,
-with a replaceable recognition backend. The authenticated adapter can adjust an
-already-admitted walk's speed or stride/cadence while keeping its original action
-and body lease. Revisions, expiry, cancellation and control-session checks fence
-updates; the P4 retains motion execution and deadlines. These paths have desktop
-and simulated-body WebSocket coverage. MetaHuman's local task producer, recognition
-backend, combined forward/turn control and live IMU feedback remain separate
-integration work. The owner prefers recognition-model comparisons on the
-assembled prototype; no model benchmark is required before these foundations.
+The host now uses MetaHuman's existing durable execution and Work Coordinator
+for one active task program. Environment Mode and the autonomy executor both
+select ordered semantic actions, generated gestures, and ongoing behaviors for
+that same executor. A behavior starts one continuous gait; fresh recognition can
+update forward movement and turning together while a separate finite model job
+identifies a free-text target from a correlated still. Identifying a target ends
+that phase, then the executor performs the remaining gestures before recording
+whole-task completion. Conversation alone creates no body action. The active
+executor and its two entry graphs use event-driven loops without a fixed count
+on recognition events or steering instructions.
+
+The temporary repeated-motion local-task route and per-motion Action Result
+workflow have been removed. Task-level cognitive review still handles unfinished
+conversational objectives; it is not called between physical phases. The existing
+Bridge sends ongoing updates with the original action identity and body lease;
+the P4 interpolates steering without restarting gait phase. No ROS execution
+owner, obstacle/edge policy, lost-vision stop, or model-error recovery command was
+added. Metric navigation, target tracking, live IMU feedback, Q6A deployment,
+recognition quality and loaded wireless latency require prototype work. The owner
+prefers recognition-model comparisons on the assembled prototype.
+
+Camera streaming and remote snapshots now share one P4 capture/encoder owner
+with independently configurable output resolutions. The negotiated
+[`camera_profiles_v1` contract](../Slave/software/protocol/README.md#existing-lifecycle-and-media-contracts)
+keeps lower-resolution preview local and preserves correlated per-call stills
+for the Environment Bridge. Native camera-owner and gateway tests cover their
+coexistence, including snapshots with streaming disabled; hardware throughput,
+capture age and recognition accuracy remain unqualified.
 
 ## Intended responsibility split
 

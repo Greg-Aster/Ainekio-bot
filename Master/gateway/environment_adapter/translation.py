@@ -374,7 +374,7 @@ def _walk_params(action: Mapping[str, object], direction: str) -> dict[str, obje
     if "continuous" in action and type(action["continuous"]) is not bool:
         raise ProtocolValidationError("type:continuous")
     params = {"dir": direction, "steps": 0 if action.get("continuous") else _bounded_steps(action.get("units"))}
-    for key in ("speed", "stride", "rate", "update", "gait", "speed_percent", "stride_percent", "motion_rate"):
+    for key in ("speed", "stride", "rate", "forward", "turn", "update", "gait", "speed_percent", "stride_percent", "motion_rate"):
         if key in action:
             params[key] = action[key]
     validate_walk_controls(params)

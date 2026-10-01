@@ -5,6 +5,7 @@ import asyncio
 import errno
 import ipaddress
 import logging
+import math
 import os
 import sys
 import threading
@@ -17,6 +18,8 @@ import websockets
 from gateway.dashboard.auth import AuditLog
 from gateway.dashboard.server import start_dashboard_server
 from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
+from gateway.perception import LocalVisionBackend
+from gateway.plugins import CameraFramePlugin
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 from protocol.binary_helpers import MIC_PCM_FRAME_TYPE
 
@@ -129,6 +132,11 @@ def _parser() -> argparse.ArgumentParser:
         help="Primary Body Control panel",
     )
     parser.add_argument("--data-dir", type=Path, default=Path("build/gateway"))
+    parser.add_argument("--vision-url", default=os.environ.get("AINEKIO_VISION_URL"),
+                        help="Local loopback Chat Completions vision endpoint; disabled when omitted")
+    parser.add_argument("--vision-model", default=os.environ.get("AINEKIO_VISION_MODEL"))
+    parser.add_argument("--vision-timeout-s", type=float, default=2.0)
+    parser.add_argument("--vision-max-frame-age-s", type=float, default=1.0)
     parser.add_argument(
         "--environment-session-id",
         default=os.environ.get("AINEKIO_ENVIRONMENT_SESSION_ID", "ainekio-01"),
@@ -221,6 +229,14 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
 
 async def _run_production(args: argparse.Namespace) -> None:
     adapter_token = os.environ.get("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN", "").strip()
+    if bool(args.vision_url) != bool(args.vision_model):
+        raise ValueError("vision requires both --vision-url and --vision-model")
+    if args.vision_url and not adapter_token:
+        raise ValueError("local recognition requires the authenticated Environment Bridge")
+    if args.vision_url and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
+        raise ValueError("vision frame age must be between 0.1 and 30 seconds")
+    backend = LocalVisionBackend(args.vision_url, args.vision_model,
+        timeout_s=args.vision_timeout_s, api_key=os.environ.get("AINEKIO_VISION_API_KEY", "")) if args.vision_url else None
 
     args.data_dir.mkdir(parents=True, exist_ok=True)
     password_store = DashboardPasswordStore(args.data_dir / "dashboard-auth.json")
@@ -268,6 +284,11 @@ async def _run_production(args: argparse.Namespace) -> None:
             freestyle_enabled=os.environ.get("AINEKIO_FREESTYLE_ENABLED", "1") == "1",
         ),
     ) if adapter_token else None
+    async def publish_recognition(analysis):
+        await adapter.publish_camera_analysis(analysis, max_frame_age_s=args.vision_max_frame_age_s)
+
+    camera = CameraFramePlugin(service, backend, observe=publish_recognition,
+        robot_id=os.environ.get("AINEKIO_ROBOT_ID"), max_frame_age_s=args.vision_max_frame_age_s) if backend else None
 
     async def route(websocket: object, path: str) -> None:
         if path == "/robot":
@@ -307,6 +328,8 @@ async def _run_production(args: argparse.Namespace) -> None:
             print(f"Ainekio dashboard:    http://{args.dashboard_host}:{args.dashboard_port}/")
             await asyncio.Future()
     finally:
+        if camera is not None:
+            await camera.aclose()
         await asyncio.to_thread(dashboard.shutdown)
         dashboard.server_close()
         dashboard_thread.join(timeout=2.0)

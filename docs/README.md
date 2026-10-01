@@ -34,7 +34,6 @@ implementation boundary.
 | [Budget audit evidence](v2-12servo/BUDGET_AUDIT_EVIDENCE.md) | Repository/source identities, manufacturer references, Q6A Wi-Fi capability readback, offline Kokoro timing/RSS and exclusions of stale evidence |
 | [V2 Step 1 evidence](v2-12servo/STEP1_EVIDENCE.md) | Build/flash commands, tests, actual board/network results and outstanding electrical proof |
 | [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Current robot-body software status, implementation evidence, and deliberately pending work |
-| [AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md](AINEKIO_METAHUMAN_CLOSED_LOOP_STATUS.md) | Current generic Environment Bridge ownership and closed-loop software status |
 | [LOCAL_WAKE_WORD.md](LOCAL_WAKE_WORD.md) | Owner-local microWakeWord training, packaging, installation, and validation workflow |
 | [freestyle-movement.md](freestyle-movement.md) | Owner-approved bounded motion-plan extension, emulator evidence, and physical enablement gate |
 | [REPOSITORY_MAP.md](REPOSITORY_MAP.md) | Current Master, Slave, Emulator, documentation, and reference ownership map |

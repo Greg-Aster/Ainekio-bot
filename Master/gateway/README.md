@@ -142,6 +142,21 @@ snapshot command. MetaHuman can still request `captureImage` directly. These
 bounded snapshots share the camera service with the dashboard but are the only
 camera images admitted to the Environment observation path.
 
+Bodies advertising `camera_profiles_v1` expose separate **Stream resolution**
+and **Snapshot resolution** controls in the existing panel. Stream output is
+QVGA or VGA at the selected frame rate; snapshots can also use XGA (1024×768).
+The still profile defaults to VGA and stays unchanged when a gateway caller
+omits `snapshot_resolution`. Both profiles are runtime settings. One P4 camera
+task and JPEG encoder serve both outputs, with no additional image-buffer
+allocation. Disabling preview leaves requested snapshots available. A still
+has explicit request/action/audio correlation, independent of preview FPS.
+
+This supports a local P4→Q6A preview and occasional remote LLM stills through
+the existing gateway and Environment Bridge. Continuous video is not sent to
+the remote LLM. Selecting a frame from a low-resolution preview would limit
+remote image detail to that preview resolution; requesting a separate encoded
+still preserves the option of more detail from the same sensor capture mode.
+
 Run the production gateway with development credentials supplied through the
 environment on first startup:
 
@@ -210,13 +225,16 @@ locomotion and command deadlines. Use its `gatewayInstance`, the body's current
   },
   "revision": 1,
   "validForMs": 500,
-  "controls": {"speed": 70}
+  "controls": {"speed": 70, "forward": 80, "turn": 25}
 }
 ```
 
 `controls` accepts `speed` **or** both `stride` and `rate`, using the existing
-walking protocol ranges. Direction and gait come from the active wire command;
-updates do not change them. Finite movements cannot be converted into ongoing
+walking protocol ranges. Optional paired `forward` and `turn` percentages
+(-100 through 100) compose translation and yaw in the running gait. Positive
+forward advances; positive turn turns left. The original direction and gait
+identifiers stay attached to the original command; composed steering is
+interpolated over a gait cycle without resetting its phase. Finite movements cannot be converted into ongoing
 walks. Servo targets and additional control fields are rejected. The body retains
 its existing gait interpolation, coordinated timing and calibrated limits.
 
@@ -242,9 +260,10 @@ has a terminal receipt. Cancellation remains available while awaiting a reply.
 Update results are not cognitive feedback and are not replayed to a new bridge.
 The original action retains its normal completion/cancellation receipt.
 
-This implements the Ainekio adapter boundary. A MetaHuman-owned local task
-producer and handling of update results still need integration; no autonomous
-search capability or recognition policy is advertised. Object-recognition model
+MetaHuman's canonical active task executor now produces these updates through
+the existing Coordinator and Bridge. The Bridge correlates each update receipt
+to its finite settings job while leaving the original movement active. Task
+programs use semantic moves, rather than a new body-level search command. Object-recognition model
 comparisons are deferred to the assembled prototype.
 
 Desktop coverage includes an authenticated WebSocket bridge, the real gateway
@@ -288,10 +307,71 @@ At the current 256 KiB JPEG transport cap, the two retained input images use at
 most 512 KiB of payload storage. Model weights, decoded images, intermediate
 tensors, results, and runtime overhead require a separate measured budget.
 
-This is a host-side perception foundation, with no model selected or launched
-by the gateway CLI. It does not add a movement authority or advertise a search
-capability. MetaHuman keeps task ownership, the Environment adapter keeps its
-body leases and correlated receipts, and the body keeps servo execution.
+## Local recognition and MetaHuman handoff
+
+The production gateway can connect the camera worker to an explicitly configured
+local vision service. It uses the Chat Completions image/JSON interface supported
+by services such as [vLLM](https://docs.vllm.ai/en/latest/features/multimodal_inputs/).
+The model must support images and JSON output. No model, weights, package or
+inference server is installed or started by this gateway.
+
+```sh
+export AINEKIO_VISION_URL='http://127.0.0.1:8000/v1/chat/completions'
+export AINEKIO_VISION_MODEL='your-served-vision-model'
+# Start the existing authenticated production gateway with these settings.
+```
+
+Equivalent CLI options are `--vision-url`, `--vision-model`,
+`--vision-timeout-s` (default 2), and `--vision-max-frame-age-s` (default 1).
+The frame-age limit must be 0.1–30 seconds and includes inference time; choose it
+for the consumer's freshness needs. The URL and model must both be configured,
+and the authenticated Environment Bridge must be enabled. Omission disables
+recognition while leaving preview and correlated stills available. An optional
+`AINEKIO_VISION_API_KEY` supplies the local service's authorization header.
+The endpoint must use HTTP on a loopback IP (or `localhost`, pinned to 127.0.0.1).
+Proxies and redirects are not followed, so preview pixels stay on the receiving
+host. The existing remote snapshot path is unchanged.
+
+[`RecognitionResult`](perception.py) contains a bounded summary, up to 32
+candidate objects, and up to 8 uncertainties. Object labels may carry optional
+scores and normalized top-left `x/y/width/height` boxes. Missing scores or boxes
+stay absent. Scores are estimates, not calibrated probabilities; a label does
+not verify physical identity, task completion, distance or walkability. A
+detector can return the same result type through the existing camera consumer
+without changing the bridge or MetaHuman. Backend errors, incomplete JSON and
+oversized responses are failures, not empty successful observations.
+
+The adapter emits `environment.telemetry` with `kind: "vision.recognition"`
+and a compact `perception` record: version 1, robot ID, connection epoch,
+gateway instance, frame counter, backend/model, receipt-based `observedAt` and
+`expiresAt`, summary, objects and uncertainties. `timeBasis: "gateway_receipt"`
+explicitly excludes unmeasured sensor/transport age. Results expire from frame
+receipt, not inference completion. Recognition metadata has no image data and
+is not replayed after bridge reconnection.
+
+MetaHuman's existing Environment Bridge coalesces recognition delivery to one
+active and one newest pending result, independently of control receipts. Core
+validates its contract and robot/session identity, rejects old frames, and stores
+it in the existing observation's `state.perception` without replacing its still
+image or renewing its control heartbeat. The existing **Environment Bridge
+Input** exposes a fresh `perception` output; live observation reads remove
+expired recognition while recorded evidence remains intact. Recognition arrivals
+create no new objective or independent body job. An existing MetaHuman local
+task can resume on recognition through its execution ledger and Work Coordinator.
+MetaHuman retains task and movement decisions through the same body leases.
+
+MetaHuman's sole active task executor accepts complete ordered programs from
+Environment Mode and the autonomy selector. It advances saved gestures from
+physical receipts without additional model calls, and can retain an ongoing gait
+while fresh recognition steers it. Target identification uses free-text phase
+criteria and finite asynchronous snapshot/model jobs. A confirmed identification
+ends the search phase through semantic stop; subsequent gestures run before the
+whole task is complete. This replaces the temporary repeated-motion local-task
+route and the per-movement Action Result model workflow. MetaHuman remains the
+commander; processing services do not acquire another motion channel.
+
+Metric navigation, tracking, live IMU feedback and hardware qualification remain
+separate work. Model comparisons remain deferred to the assembled prototype.
 
 Desktop replay and WebSocket tests cover newest-frame delivery, stale/session
 rejection, processing failures, shutdown, and command/stop receipts while
@@ -299,7 +379,8 @@ synchronous inference is blocked:
 
 ```sh
 PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
-  python3 -m unittest Emulator.tests.test_camera_perception \
+  python3 -m unittest Emulator.tests.test_recognition_backend \
+  Emulator.tests.test_camera_perception \
   Emulator.tests.test_gateway_service Emulator.tests.test_environment_adapter \
   Emulator.tests.test_action_receipts
 ```

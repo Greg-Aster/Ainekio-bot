@@ -21,6 +21,7 @@ MAX_FEATURES = 16
 MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
+CAMERA_PROFILES_FEATURE = "camera_profiles_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
 MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
 ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
@@ -272,6 +273,13 @@ def validate_walk_controls(message: Mapping[str, object]) -> None:
                 _fail("type:walk." + name)
             if not lo <= value <= hi:
                 _fail("range:walk." + name)
+    if "forward" in message or "turn" in message:
+        for name in ("forward", "turn"):
+            value = message.get(name)
+            if type(value) not in (int, float) or not math.isfinite(value):
+                _fail("type:walk." + name)
+            if not -100 <= value <= 100:
+                _fail("range:walk." + name)
     if "gait" in message:
         _string(message, "gait", allowed=frozenset({"walk", "crawl", "run", "crab"}))
     if message.get("dir") in {"side_l", "side_r"} and message.get("gait") != "crab":
@@ -356,6 +364,8 @@ def _validate_cam(message: Mapping[str, object]) -> None:
     _boolean(message, "on")
     _integer(message, "fps", minimum=0, maximum=15)
     _string(message, "res", allowed=CAMERA_STREAM_RESOLUTIONS)
+    if "snapshot_res" in message:
+        _string(message, "snapshot_res", allowed=CAMERA_RESOLUTIONS)
 
 
 def _validate_snap(message: Mapping[str, object]) -> None:

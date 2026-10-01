@@ -148,6 +148,22 @@ static double turn_travel(const ainekio_v2_walk_state_t *s,double lo,double hi)
 {
     return profile_travel(s,lo,hi,true);
 }
+static double steering_at(const ainekio_v2_walk_state_t *s,double phase,bool turn)
+{
+    double u=smooth(phase-s->steering_phase);
+    double from=turn?s->turn_from:s->forward_from,target=turn?s->turn_target:s->forward_target;
+    return (from+(target-from)*u)/100.;
+}
+/* Integrate a body-frame translation and yaw together. Planted foot anchors
+ * stay fixed; each swing chooses its landing from the same predicted body path. */
+static void steered_path(const ainekio_v2_walk_state_t *s,double lo,double hi,double *x,double *y,double *yaw)
+{
+    double distance=travel(s,lo,hi)*steering_at(s,(lo+hi)*.5,false);
+    double angle=fabs(turn_travel(s,lo,hi))*steering_at(s,(lo+hi)*.5,true);
+    if(fabs(angle)<1e-9){*x+=distance*cos(*yaw);*y+=distance*sin(*yaw);}
+    else{double radius=distance/angle;*x+=radius*(sin(*yaw+angle)-sin(*yaw));*y+=radius*(cos(*yaw)-cos(*yaw+angle));}
+    *yaw+=angle;
+}
 bool ainekio_v2_gait_begin(ainekio_v2_walk_state_t *s,ainekio_walk_direction_t direction,ainekio_gait_t gait,unsigned cycles,ainekio_v2_walk_controls_t c,uint64_t now)
 {
     if(!s||direction>AINEKIO_WALK_SIDE_RIGHT||gait>AINEKIO_GAIT_CRAB||(direction>=AINEKIO_WALK_SIDE_LEFT&&gait!=AINEKIO_GAIT_CRAB)||cycles>10||!ainekio_v2_walk_controls_valid(c))return false;
@@ -233,7 +249,8 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
     const bool turning=s->direction==AINEKIO_WALK_TURN_LEFT||s->direction==AINEKIO_WALK_TURN_RIGHT;
     const bool sideways=s->direction>=AINEKIO_WALK_SIDE_LEFT;
     const double sign=s->direction==AINEKIO_WALK_BACKWARD||s->direction==AINEKIO_WALK_SIDE_RIGHT?-1.:1.;
-    if(turning)s->body_yaw+=turn_travel(s,previous,s->phase);
+    if(s->steering)steered_path(s,previous,s->phase,&s->body_x,&s->body_y,&s->body_yaw);
+    else if(turning)s->body_yaw+=turn_travel(s,previous,s->phase);
     else if(sideways)s->body_y+=sign*travel(s,previous,s->phase);
     else s->body_x+=sign*travel(s,previous,s->phase);
     c=controls_at(s,s->phase);
@@ -256,7 +273,18 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
         if(!f->swinging&&!settling&&due) {
             f->touchdown_phase=floor(s->phase-offset)+offset+1.;f->swing_span=transitioning?f->touchdown_phase-s->phase:1.-contact;
             double td=f->touchdown_phase,stance=travel(s,td,td+duty_at(s,td));
-            if(turning){
+            if(s->steering){
+                double x=s->body_x,y=s->body_y,yaw=s->body_yaw;
+                steered_path(s,s->phase,td+contact*.5,&x,&y,&yaw);
+                double lane=s->gait_mode==AINEKIO_GAIT_CRAB?copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1]):v2_walk_stance[i][1];
+                if(s->gait_mode!=AINEKIO_GAIT_CRAB){
+                    double bias=s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_BIAS/V2_CRAWL_SWEEP:mixed(s,td,V2_BIAS/V2_SWEEP,V2_RUN_FORWARD_BIAS/V2_RUN_FORWARD_SWEEP);
+                    x-=stance*bias*cos(yaw);y-=stance*bias*sin(yaw);
+                    lane+=copysign(1.,lane)*(i<2?-1.:1.)*V2_RUN_FORWARD_LANE*run_at(s,td)*controls_at(s,td).stride_percent/100.;
+                }
+                f->end_x=x+v2_walk_stance[i][0]*cos(yaw)-lane*sin(yaw)-v2_walk_stance[i][0];
+                f->end_y=y+v2_walk_stance[i][0]*sin(yaw)+lane*cos(yaw)-v2_walk_stance[i][1];
+            } else if(turning){
                 double yaw=s->body_yaw+turn_travel(s,s->phase,td+contact*.5);
                 double x=v2_walk_stance[i][0],y=s->gait_mode==AINEKIO_GAIT_CRAB?copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1]):v2_walk_stance[i][1];
                 f->end_x=x*cos(yaw)-y*sin(yaw)-x;f->end_y=x*sin(yaw)+y*cos(yaw)-v2_walk_stance[i][1];
@@ -359,11 +387,20 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
            intent->data.walk.direction!=s->direction||intent->data.walk.gait!=s->gait_mode||
            intent->data.walk.update_sequence!=s->command_sequence||command->sequence<=s->latest_sequence||now!=s->last_us)return false;
         if(!ainekio_v2_walk_update(s,controls))return false;
+        if(intent->data.walk.steering){
+            s->forward_from=s->steering?100.*steering_at(s,s->phase,false):(s->direction==AINEKIO_WALK_BACKWARD?-100.:s->direction==AINEKIO_WALK_FORWARD?100.:0.);
+            s->turn_from=s->steering?100.*steering_at(s,s->phase,true):(s->direction==AINEKIO_WALK_TURN_LEFT?100.:s->direction==AINEKIO_WALK_TURN_RIGHT?-100.:0.);
+            s->forward_target=intent->data.walk.forward;s->turn_target=intent->data.walk.turn;s->steering_phase=s->phase;s->steering=true;
+        }
         if(controls.stride_percent>0.)set_run_target(s,run_target);
         s->latest_sequence=command->sequence;return true;
     }
     if(s->initialized&&!s->complete)return false;
     if(!ainekio_v2_gait_begin(s,intent->data.walk.direction,intent->data.walk.gait,cycles,controls,now))return false;
+    if(intent->data.walk.steering){
+        s->steering=true;s->forward_from=s->forward_target=intent->data.walk.forward;
+        s->turn_from=s->turn_target=intent->data.walk.turn;
+    }
     if(controls.stride_percent>0.)set_run_target(s,run_target);
     s->command_sequence=s->latest_sequence=command->sequence;return true;
 }

@@ -8,17 +8,19 @@ import math
 import struct
 from collections.abc import Coroutine
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import monotonic
 from typing import Any, AsyncContextManager, Callable, Mapping
 from uuid import uuid4
 from time import time
 
 from gateway.plugins import (
+    CameraAnalysis,
     AudioUtterance,
     AudioUtterancePlugin,
     robot_utterance_id,
 )
+from gateway.perception import RecognitionResult
 from gateway.server.service import ActionExpiredError, GatewayError, GatewayService
 from gateway.body_capabilities import body_commands
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
@@ -355,8 +357,8 @@ class EnvironmentAdapter:
             if type(request.get("epoch")) is not int:
                 raise GatewayError("walk update requires the robot epoch")
             controls = request.get("controls")
-            if not isinstance(controls, dict) or set(controls) not in ({"speed"}, {"stride", "rate"}):
-                raise GatewayError("walk update controls must be speed OR stride and rate")
+            if not isinstance(controls, dict) or set(controls) - {"forward", "turn"} not in ({"speed"}, {"stride", "rate"}):
+                raise GatewayError("walk update controls require speed OR stride and rate, optionally forward and turn")
             robot = self._walk_update_robot(request)
             row = await asyncio.to_thread(self.receipts.action, action_id)
             if row is None or row["state"] != "started" or row["wire"] is None:
@@ -931,8 +933,7 @@ class EnvironmentAdapter:
             origin = event.get("origin")
             origin_id = event.get("origin_id")
             if (
-                event.get("fps") == 0
-                and type(counter) is int
+                type(counter) is int
                 and origin in {"request", "action"}
                 and type(origin_id) is int
             ):
@@ -957,8 +958,7 @@ class EnvironmentAdapter:
                     )
                     return
             if (
-                event.get("fps") == 0
-                and type(counter) is int
+                type(counter) is int
                 and origin == "audio"
                 and type(origin_id) is int
                 and isinstance(event.get("robot_id"), str)
@@ -1205,6 +1205,25 @@ class EnvironmentAdapter:
             }
         )
 
+    async def publish_camera_analysis(self, analysis: CameraAnalysis, *, max_frame_age_s: float) -> None:
+        """Send compact current recognition on the existing local bridge, without pixels or replay."""
+        robot_id, robot = self._selected_robot()
+        age = self.gateway.clock() - analysis.received_at
+        if (not self._bridge_ready or robot is None or robot_id != analysis.robot_id
+            or robot.get("epoch") != analysis.epoch or robot.get("connection_state") != "online"
+            or not 0 <= age < max_frame_age_s):
+            return
+        if not isinstance(analysis.result, RecognitionResult):
+            raise ValueError("camera recognition backend must return RecognitionResult")
+        # These wall times describe host receipt, not sensor acquisition.
+        now = self.utcnow()
+        perception = {"version": 1, "robotId": robot_id, "epoch": analysis.epoch,
+            "gatewayInstance": self.gateway.instance_id, "frameCounter": analysis.counter,
+            "timeBasis": "gateway_receipt", "observedAt": (now - timedelta(seconds=age)).isoformat(),
+            "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat(),
+            **analysis.result.message()}
+        await self._send_telemetry("vision.recognition", {"perception": perception})
+
     async def _send_observation(
         self,
         *,
@@ -1277,7 +1296,8 @@ class EnvironmentAdapter:
                     and robot.get("connection_state") == "online"),
                 "gatewayInstance": self.gateway.instance_id,
                 "maxValidityMs": MAX_WALK_UPDATE_VALIDITY_MS,
-                "controls": ["speed", "stride", "rate"],
+                "controls": ["speed", "stride", "rate", "forward", "turn"],
+                "robotId": robot_id, "epoch": robot.get("epoch") if robot else None,
                 "maxInFlight": 1,
             },
         }

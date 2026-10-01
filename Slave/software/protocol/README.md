@@ -99,6 +99,16 @@ cannot physically execute this extension yet. See the
 
 ## Directional locomotion and automatic Run
 
+Composed steering uses paired `forward` and `turn` percentages (-100 through
+100) on a V2 walk or its update. Positive forward advances and positive turn
+turns left. Translation and yaw combine into an arc; updates keep the original
+sequence, stance anchors, gait phase and existing servo-speed budgeting.
+
+```json
+{"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":60,"forward":80,"turn":25,"seq":50}
+{"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":60,"forward":80,"turn":-25,"update":50,"seq":51}
+```
+
 `walk_controls_v2` adds `dir: fwd|back|turn_l|turn_r`, `gait: walk|crawl`
 and `steps:0` for ongoing operation. `run_gait_v1` additionally permits Speed
 above 100 through 200 on the Walk family, and explicit `gait:run` for advanced
@@ -169,6 +179,28 @@ Completed physical actions use `origin="action"` and the command sequence as
 explicit `snap` command uses `origin="request"`. These fields are optional for
 protocol-v1 compatibility with older bodies, but when present they must occur
 as a validated pair.
+
+`camera_profiles_v1` negotiates independent stream and snapshot resolutions on
+the existing `cam` command:
+
+```json
+{"t":"cam","seq":74,"on":true,"fps":5,"res":"QVGA","snapshot_res":"XGA"}
+```
+
+`res` selects QVGA (320×240) or VGA (640×480) preview; `fps` accepts 0–15.
+The optional `snapshot_res` selects QVGA, VGA or XGA (1024×768) for request,
+action and audio stills. Omission preserves the current still profile; its boot
+default remains VGA. Disabling the stream does not disable requested snapshots.
+The gateway rejects `snapshot_res` before dispatch when the body has not
+advertised this feature. These profiles are runtime settings, not NVS records.
+
+The P4 uses one camera task and one JPEG encoder for both outputs, at the
+existing quality 75. A queued snapshot retains the profile selected when it was
+requested. Tagged still metadata reports `fps:0` regardless of preview rate;
+the gateway also accepts explicit still origins from older P4 metadata that
+carried preview FPS. Preview frames do not enter the remote Environment
+observation path. Snapshot capture does not reset the preview's next-frame
+deadline, although encoding and transport still share resources.
 
 Run the host fixture suite from the repository root:
 

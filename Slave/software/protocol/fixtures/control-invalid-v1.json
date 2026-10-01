@@ -1,6 +1,10 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "walk_turn_missing_forward", "message": {"t": "intent", "seq": 50, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "turn": 30}, "reason": "type:walk.forward"},
+    {"name": "walk_forward_range", "message": {"t": "intent", "seq": 50, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "forward": 101, "turn": 30}, "reason": "range:walk.forward"},
+    {"name": "invalid_snapshot_resolution", "message": {"t": "cam", "seq": 40, "on": true, "fps": 5, "res": "VGA", "snapshot_res": "HD"}, "reason": "value:snapshot_res"},
+    {"name": "invalid_snapshot_resolution_type", "message": {"t": "cam", "seq": 40, "on": false, "fps": 0, "res": "VGA", "snapshot_res": 1}, "reason": "type:snapshot_res"},
     {"name": "body_calibration_move_0", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 0}, "reason": "range:pulse_us"},
     {"name": "body_calibration_move_65536", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 65536}, "reason": "range:pulse_us"},
     {"name": "body_calibration_home_zero", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 0, "invert": false}, "reason": "range:home_us"},

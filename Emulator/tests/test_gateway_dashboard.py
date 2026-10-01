@@ -318,6 +318,15 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         status, _, _ = await self._request("POST", "/api/settings/robot", {**restart, "confirmed": True}, cookie=cookie, csrf=csrf)
         self.assertEqual(status, 200)
 
+    async def test_camera_controls_forward_independent_snapshot_resolution(self):
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/camera",
+            {"robot_id": "ainekio-test-01", "on": True, "fps": 5, "res": "QVGA", "snapshot_res": "XGA"},
+            cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertEqual(self.gateway.calls[-1], ("camera", {"robot_id": "ainekio-test-01", "on": True,
+            "fps": 5, "resolution": "QVGA", "snapshot_resolution": "XGA"}))
+
     async def test_login_sets_bounded_hardened_session_cookie(self) -> None:
         status, payload, headers = await self._request(
             "POST",
