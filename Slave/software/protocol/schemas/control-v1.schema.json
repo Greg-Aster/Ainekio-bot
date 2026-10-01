@@ -742,7 +742,7 @@
               "then": {"required": ["gait"], "properties": {"gait": {"const": "crab"}}}
             }
           ],
-          "description": "Extended fields require negotiated walk_controls_v1/v2; Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Crab requires crab_gait_v1 and declared Crab commands; side_l/side_r are Crab-only. Feature admission is checked against the connected body."
+          "description": "Extended fields require negotiated walk_controls_v1/v2; paired forward/turn steering additionally requires walk_steering_v1 and walk_controls_v2. Values are signed body-local percentages: positive forward advances, positive turn turns left. ACK confirms admission, not task completion; only the original walk emits DONE/CANCELLED. Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Crab requires crab_gait_v1 and declared Crab commands; side_l/side_r are Crab-only. Feature admission is checked against the connected body."
         },
         {
           "type": "object",

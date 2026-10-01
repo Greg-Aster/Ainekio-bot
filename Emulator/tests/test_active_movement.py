@@ -12,10 +12,10 @@ import websockets
 
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.action_receipts import ActionConflictError, ActionReceipts
-from gateway.server.service import GatewayConnection, GatewayService, GatewayServiceConfig
-from protocol.control_v1 import BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE
-from test_action_receipts import accepted, action
-from test_environment_adapter import FakeWebSocket
+from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
+from protocol.control_v1 import BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE, WALK_STEERING_FEATURE, ProtocolValidationError
+from Emulator.tests.test_action_receipts import accepted, action
+from Emulator.tests.test_environment_adapter import FakeWebSocket
 
 
 class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
@@ -24,7 +24,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.gateway = GatewayService(GatewayServiceConfig(tokens={"robot": "test-token"}), clock=lambda: self.now)
         self.body = FakeWebSocket()
         self.connection = GatewayConnection(self.gateway, self.body, "robot", 7,
-            (BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE), model="v2-12servo",
+            (BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE, WALK_STEERING_FEATURE), model="v2-12servo",
             capabilities={"motion": True, "camera": False, "commands": ["walk", "left", "run", "stop"]})
         self.connection.observe_body_clock({"clock_ms": 20000})
         self.gateway._connections["robot"] = self.connection
@@ -87,6 +87,82 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((command["forward"], command["turn"]), (70, -30))
         self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "started")
         self.assertEqual(self.result()["actionId"], self.original["id"])
+
+    async def test_legacy_firmware_never_receives_substitute_motion_for_steering(self) -> None:
+        self.connection.features = tuple(feature for feature in self.connection.features
+                                         if feature != WALK_STEERING_FEATURE)
+        for controls in ({"forward": 80, "turn": 25}, {"forward": 0, "turn": 0},
+                         {"forward": 50}, {"turn": -25}):
+            with self.subTest(controls=controls), self.assertRaisesRegex(GatewayError, "steering"):
+                await self.connection.send_command({"t": "intent", "name": "walk", "dir": "fwd",
+                    "steps": 0, "speed": 50, **controls}, received_at=self.now)
+        self.assertEqual(self.body.sent, [])
+        self.assertEqual(self.connection.next_sequence, 1)
+        self.assertEqual(self.connection.pending, {})
+
+    async def test_legacy_steering_rejection_preserves_emergency_stop(self) -> None:
+        self.connection.features = tuple(feature for feature in self.connection.features
+                                         if feature != WALK_STEERING_FEATURE)
+        original = await self.connection.send_command(
+            {"t": "intent", "name": "walk", "dir": "fwd", "steps": 0, "speed": 50},
+            received_at=self.now)
+        await self.connection._handle_control({"t": "ack", "seq": original})
+        with self.assertRaisesRegex(GatewayError, "steering"):
+            await self.connection.send_command(
+                {"t": "intent", "name": "walk", "dir": "fwd", "steps": 0,
+                 "speed": 50, "forward": 80, "turn": 25, "update": original}, received_at=self.now)
+        self.assertEqual(len(self.body.sent), 1)
+        # Forward-compatible extra fields must not turn STOP into a steering request.
+        sequence = await self.connection.send_command(
+            {"t": "stop", "detach": True, "forward": 80, "turn": 25}, received_at=self.now)
+        stop = await self.sent(2)
+        self.assertEqual(stop["t"], "stop")
+        self.assertTrue(stop["detach"])
+        self.assertNotIn("deadline_ms", stop)
+        await self.connection._handle_control({"t": "ack", "seq": sequence})
+        self.assertEqual(self.connection.completed[original],
+                         {"t": "cancelled", "seq": original, "code": "stop"})
+
+    async def test_run_alias_never_discards_steering_but_legacy_run_remains_supported(self) -> None:
+        self.connection.features = tuple(feature for feature in self.connection.features
+                                         if feature != WALK_STEERING_FEATURE)
+        command = {"t": "intent", "name": "emote", "asset": "run"}
+        with self.assertRaisesRegex(GatewayError, "steering requires a walk"):
+            await self.connection.send_command({**command, "forward": 80, "turn": 25},
+                                               received_at=self.now)
+        self.assertEqual(self.body.sent, [])
+        self.assertEqual(self.connection.next_sequence, 1)
+        self.assertEqual(self.connection.pending, {})
+        sequence = await self.connection.send_command(command, received_at=self.now)
+        sent = await self.sent(1)
+        self.assertEqual((sent["name"], sent["speed"], sent["seq"]), ("walk", 150, sequence))
+        self.assertNotIn("forward", sent)
+
+    async def test_legacy_speed_updates_remain_available_without_advertising_steering(self) -> None:
+        self.connection.features = tuple(feature for feature in self.connection.features
+                                         if feature != WALK_STEERING_FEATURE)
+        capability = self.adapter._observation()["state"]["activeMovementUpdates"]
+        self.assertTrue(capability["available"])
+        self.assertEqual(capability["controls"], ["speed", "stride", "rate"])
+        await self.start()
+        await (await self.update(self.request(controls={"speed": 50, "forward": 80, "turn": 25})))
+        self.assertEqual(self.result()["status"], "rejected")
+        self.assertIn("steering", self.result()["message"])
+        self.assertEqual(len(self.body.sent), 1)
+        await self.update(self.request(2))
+        await self.acknowledge_update()
+        self.assertNotIn("forward", json.loads(self.body.sent[-1]))
+        self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "started")
+
+    async def test_supported_steering_requires_paired_finite_bounded_controls(self) -> None:
+        for controls in ({"forward": 80}, {"turn": -25}, {"forward": True, "turn": 0},
+                         {"forward": float("nan"), "turn": 0}, {"forward": 101, "turn": 0},
+                         {"forward": 0, "turn": -101}):
+            with self.subTest(controls=controls), self.assertRaises(ProtocolValidationError):
+                await self.connection.send_command({"t": "intent", "name": "walk", "dir": "fwd",
+                    "steps": 0, "speed": 50, **controls}, received_at=self.now)
+        self.assertEqual(self.body.sent, [])
+        self.assertEqual(self.connection.next_sequence, 1)
 
     async def test_updates_keep_parent_active_until_original_walk_completes(self) -> None:
         await self.start()

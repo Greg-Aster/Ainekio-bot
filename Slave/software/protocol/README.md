@@ -99,10 +99,31 @@ cannot physically execute this extension yet. See the
 
 ## Directional locomotion and automatic Run
 
-Composed steering uses paired `forward` and `turn` percentages (-100 through
-100) on a V2 walk or its update. Positive forward advances and positive turn
-turns left. Translation and yaw combine into an arc; updates keep the original
+`walk_steering_v1` separately negotiates composed steering, in addition to
+`walk_controls_v2`. It uses paired finite `forward` and `turn` percentages
+(-100 through 100) on a V2 walk or its update: positive forward advances,
+negative forward reverses; positive turn turns left, negative turn turns right.
+These are body-local movement magnitudes, not degrees, metres or a measured
+velocity. Translation and yaw combine into an arc; updates keep the original
 sequence, stance anchors, gait phase and existing servo-speed budgeting.
+
+This contract was agreed with the owner on 2026-10-01 and matches MetaHuman's
+existing signed-percentage action/update fields. `walk_controls_v2` alone does
+**not** establish steering support: older P4 decoders can ignore these added
+fields and acknowledge a straight walk. The gateway rejects either steering
+field before allocating a sequence or dispatching when `walk_steering_v1` is
+absent, including zero-valued fields. It advertises `forward` and `turn` only
+with this feature. Older directional walking and speed-only updates remain
+supported; steering is never translated into substitute motion.
+Steering fields on another intent are explicitly malformed, so alias
+normalization (including Run) cannot discard them and dispatch straight walking.
+
+ACK confirms body admission, not goal achievement. An update ACK settles only
+that correlated settings request; the original walk retains its action identity
+and alone emits DONE or CANCELLED. Missing acknowledgement after dispatch is an
+explicit unknown outcome, never completion. Session, epoch, revision, body-lease
+and deadline fencing, controlled Finish and independent emergency stop retain
+their existing owners.
 
 ```json
 {"t":"intent","name":"walk","dir":"fwd","gait":"walk","steps":0,"speed":60,"forward":80,"turn":25,"seq":50}

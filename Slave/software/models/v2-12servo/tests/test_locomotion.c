@@ -68,7 +68,21 @@ int main(void)
      * command. Neither an update nor a fresh heading restarts the gait phase. */
     const char *arc="{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":40,\"forward\":65,\"turn\":25}";
     ainekio_control_message_t command;
-    assert(ainekio_control_decode_with_walk_controls(arc,strlen(arc),&command)==AINEKIO_DECODE_OK);
+    assert(ainekio_control_decode(arc,strlen(arc),&command)!=AINEKIO_DECODE_OK);
+    assert(ainekio_control_decode_for_body(arc,strlen(arc),&command)==AINEKIO_DECODE_OK);
+    assert(command.command.data.intent.data.walk.steering);
+    assert(command.command.data.intent.data.walk.forward==65.F);
+    assert(command.command.data.intent.data.walk.turn==25.F);
+    const char *bad_steering[]={
+        "{\"t\":\"intent\",\"seq\":2,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"forward\":70}",
+        "{\"t\":\"intent\",\"seq\":2,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"turn\":25}",
+        "{\"t\":\"intent\",\"seq\":2,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"forward\":101,\"turn\":25}",
+        "{\"t\":\"intent\",\"seq\":2,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"forward\":70,\"turn\":-101}",
+        "{\"t\":\"intent\",\"seq\":2,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"forward\":70,\"turn\":true}"};
+    for(unsigned i=0;i<sizeof(bad_steering)/sizeof(bad_steering[0]);i++){
+        ainekio_control_message_t rejected;
+        assert(ainekio_control_decode_for_body(bad_steering[i],strlen(bad_steering[i]),&rejected)!=AINEKIO_DECODE_OK);
+    }
     state=(ainekio_v2_walk_state_t){0};assert(ainekio_v2_walk_accept(&state,&command.command,0));
     uint64_t arc_time=0;
     while(state.phase<5){arc_time+=20000;assert(ainekio_v2_walk_tick(&state,arc_time));}

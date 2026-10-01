@@ -132,12 +132,16 @@ int main(void)
         .motion=true, .camera=true, .microphone=true, .speaker=true, .profile=true,
         .display_reason="Display \"pending\"."};
     hello.model = "v2-12servo";
+    const char *body_features[] = {"walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE};
+    hello.features = body_features;
+    hello.feature_count = sizeof(body_features) / sizeof(body_features[0]);
     hello.clock_ms = UINT64_C(4294967296);
     hello.capabilities = &caps;
     length = ainekio_encode_hello(&hello, body_output, sizeof(body_output));
     valid(body_output, length, AINEKIO_MESSAGE_HELLO);
     assert(strstr(body_output, "\"clock_ms\":4294967296") != NULL);
     assert(strstr(body_output, "\"commands\":[\"stop\",\"say\",\"walk\",\"bow\"]") != NULL);
+    assert(strstr(body_output, "\"features\":[\"walk_controls_v2\",\"walk_steering_v1\"]") != NULL);
     assert(strstr(body_output, "Display \\\"pending\\\".") != NULL);
     const ainekio_body_status_fields_t body = {.mode=AINEKIO_MODE_CALIBRATE,
         .output_ready=true, .output_fault=3, .calibration_saved=true, .capabilities=&caps};

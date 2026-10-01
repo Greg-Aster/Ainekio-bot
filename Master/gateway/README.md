@@ -40,6 +40,12 @@ same-computer MetaHuman OS process continues to use
 `ws://127.0.0.1:8790/environment`. Runtime tokens and password verifiers remain
 under ignored `build/gateway/physical/` storage.
 
+The discovery description above is not implemented by every firmware target.
+The current ESP32-P4 link task uses its configured `endpoint_url` directly and
+retries that host. It does not implement automatic Q6A/remote gateway selection.
+The [distributed foundation](../../docs/DISTRIBUTED_ROBOT_FOUNDATION.md) records
+the planned common-source and takeover contract.
+
 This one-off home deployment intentionally uses authenticated `ws://` on the
 owner's private WPA2 LAN. It is the smallest local path, but the LAN is part of
 the trust boundary: do not use it on guest, shared, or public WiFi. Remote mode
@@ -87,16 +93,35 @@ missing identities and never overwrite a saved token.
 
 The launcher stays in the foreground. Press Ctrl+C to stop it. For normal
 owner operation it can instead be supervised by the included user service.
-After `.env` contains the required tokens, this is a one-time setup:
+The launcher uses `.venv/bin/python3` from this checkout; `AINEKIO_PYTHON` can
+select another absolute interpreter path with the gateway dependencies installed.
+Check local prerequisites without opening listeners or printing credentials:
 
 ```sh
-systemctl --user link "$PWD/Master/ainekio-gateway.service"
+./Master/start-physical-gateway.sh --check
+```
+
+This checks the interpreter, dependencies, discovery executable when enabled, and
+required token presence. It does not verify token-store contents, network/port
+availability or a physical connection.
+
+Install the user service for this checkout without enabling or starting it:
+
+```sh
+./Master/start-physical-gateway.sh --install-service
+systemctl --user daemon-reload
+```
+
+The installer preserves unmanaged existing units. After `.env` contains the
+required tokens and the check passes, explicitly enable operation with:
+
+```sh
 systemctl --user enable --now ainekio-gateway.service
 ```
 
 After that, the gateway and its discovery advertisement start when the owner
-logs in and restart after a process failure. This service file assumes the
-repository remains at `~/Ainekio`.
+logs in and restart after a process failure. Rerun the installer and daemon reload
+after moving the checkout. The unmodified tracked template assumes `~/Ainekio`.
 
 On a host with the Ainekio hotspot services installed, set `AINEKIO_HOTSPOT=1`
 in the ignored `.env` to start the hotspot with this launcher. The launcher
@@ -206,7 +231,10 @@ existing accepted-feedback admission gate before updates can be sent.
 
 The `bridge.ready` observation exposes `state.activeMovementUpdates`. Updates
 are available only for an online, motion-ready V2 body advertising ongoing
-locomotion and command deadlines. Use its `gatewayInstance`, the body's current
+locomotion and command deadlines. Composed steering additionally requires
+`walk_steering_v1`; use only the advertised `controls`. Older supported bodies
+keep speed/stride/rate updates and explicitly reject steering before dispatch.
+Use its `gatewayInstance`, the body's current
 `robotId`/`epoch`, the original `actionId`, and the exact original `bodyLease`:
 
 ```json
@@ -307,17 +335,18 @@ At the current 256 KiB JPEG transport cap, the two retained input images use at
 most 512 KiB of payload storage. Model weights, decoded images, intermediate
 tensors, results, and runtime overhead require a separate measured budget.
 
-## Local recognition and MetaHuman handoff
+## Configured recognition and MetaHuman handoff
 
 The production gateway can connect the camera worker to an explicitly configured
-local vision service. It uses the Chat Completions image/JSON interface supported
+local or remote vision service. It uses the Chat Completions image/JSON interface supported
 by services such as [vLLM](https://docs.vllm.ai/en/latest/features/multimodal_inputs/).
 The model must support images and JSON output. No model, weights, package or
 inference server is installed or started by this gateway.
 
 ```sh
-export AINEKIO_VISION_URL='http://127.0.0.1:8000/v1/chat/completions'
+export AINEKIO_VISION_URL='https://your-recognition-host/v1/chat/completions'
 export AINEKIO_VISION_MODEL='your-served-vision-model'
+# Set AINEKIO_VISION_API_KEY in the ignored .env or the service environment.
 # Start the existing authenticated production gateway with these settings.
 ```
 
@@ -326,11 +355,18 @@ Equivalent CLI options are `--vision-url`, `--vision-model`,
 The frame-age limit must be 0.1–30 seconds and includes inference time; choose it
 for the consumer's freshness needs. The URL and model must both be configured,
 and the authenticated Environment Bridge must be enabled. Omission disables
-recognition while leaving preview and correlated stills available. An optional
-`AINEKIO_VISION_API_KEY` supplies the local service's authorization header.
-The endpoint must use HTTP on a loopback IP (or `localhost`, pinned to 127.0.0.1).
-Proxies and redirects are not followed, so preview pixels stay on the receiving
-host. The existing remote snapshot path is unchanged.
+recognition while leaving preview and correlated stills available.
+`AINEKIO_VISION_API_KEY` supplies a Bearer authorization header; it is required
+for a remote service and optional for a loopback service. Remote endpoints must
+use HTTPS with normal certificate and hostname verification. Private certificate
+authorities can use Python's standard `SSL_CERT_FILE` trust configuration; there
+is no TLS-disable option. HTTP is retained only on a loopback IP (or `localhost`,
+pinned to 127.0.0.1). URL credentials, queries, fragments and control characters
+are rejected. Proxies and redirects are not followed. Images go only to this
+operator-configured endpoint; observations cannot supply another destination.
+The gateway's one bounded camera worker handles transport and validation while
+the remote server performs heavy perception. The existing correlated remote
+snapshot path is unchanged; no second runtime or task authority is added.
 
 [`RecognitionResult`](perception.py) contains a bounded summary, up to 32
 candidate objects, and up to 8 uncertainties. Object labels may carry optional
@@ -339,7 +375,11 @@ stay absent. Scores are estimates, not calibrated probabilities; a label does
 not verify physical identity, task completion, distance or walkability. A
 detector can return the same result type through the existing camera consumer
 without changing the bridge or MetaHuman. Backend errors, incomplete JSON and
-oversized responses are failures, not empty successful observations.
+oversized responses are failures, not empty successful observations. Current-body
+failures reach the existing `environment.observation` route as
+`metadata.recognitionFailure` with robot/epoch/frame/gateway correlation and an
+explicit reason (including HTTP authentication failures and timeouts). They do
+not fabricate objects, body completion, or an automatic stop policy.
 
 The adapter emits `environment.telemetry` with `kind: "vision.recognition"`
 and a compact `perception` record: version 1, robot ID, connection epoch,

@@ -31,6 +31,7 @@ BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
 BODY_COMMANDS_FEATURE = "body_commands_v1"
 WALK_CONTROLS_FEATURE = "walk_controls_v1"
 LOCOMOTION_FEATURE = "walk_controls_v2"
+WALK_STEERING_FEATURE = "walk_steering_v1"
 RUN_GAIT_FEATURE = "run_gait_v1"
 CRAB_GAIT_FEATURE = "crab_gait_v1"
 MAX_MONOTONIC_MS = (1 << 53) - 1
