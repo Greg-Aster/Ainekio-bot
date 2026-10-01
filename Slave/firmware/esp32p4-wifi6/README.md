@@ -84,6 +84,28 @@ IMU telemetry or modify movement. Wiring, mounting calibration, the sensor drive
 and physical timing measurements are the next integration step. The existing
 motion/output owner and motion library are unchanged by this component.
 
+## Shared camera streaming and snapshots
+
+The existing camera owner multiplexes preview JPEGs and correlated stills;
+there is one task, sensor capture mode (1280×960 RGB565), JPEG encoder and
+shared output/scaling buffers. The negotiated `camera_profiles_v1` extension
+adds an independent snapshot resolution to the existing `cam` command.
+Preview remains QVGA/VGA at 0–15 fps; stills can use QVGA/VGA/XGA and default
+to VGA. JPEG quality remains 75. Changing preview settings leaves the still
+profile unchanged unless `snapshot_res` is supplied. Neither profile is stored
+in NVS.
+
+Queued stills retain their requested resolution, work with preview disabled,
+and emit `fps:0` metadata with their original correlation. A still does not
+reset the next preview deadline. Shared encoding and transport can still delay
+preview delivery; concurrent throughput and acquisition age require device
+measurements. These changes add no camera task or image-buffer allocation.
+
+The native `camera_profiles_and_snapshots` test runs production `camera.c`
+against virtual sensor/encoder/scheduler I/O. It covers independent profiles,
+zero-FPS snapshots, preview cadence, cancellation and session fencing. It does
+not establish physical sensor operation, image quality or encoding latency.
+
 ## Build and flash
 
 Use ESP-IDF **5.5.4**. The tested board is P4 **revision 1.3**, 32 MiB flash and

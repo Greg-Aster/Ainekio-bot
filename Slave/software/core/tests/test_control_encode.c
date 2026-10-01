@@ -28,6 +28,18 @@ int main(void)
     assert(detach_message.command.kind == AINEKIO_COMMAND_STOP);
     assert(detach_message.command.data.stop.detach);
 
+    const char *camera_json = "{\"t\":\"cam\",\"seq\":2,\"on\":true,\"fps\":5,\"res\":\"QVGA\",\"snapshot_res\":\"XGA\"}";
+    ainekio_control_message_t camera_message;
+    assert(ainekio_control_decode_for_body(camera_json, strlen(camera_json), &camera_message) == AINEKIO_DECODE_OK);
+    assert(camera_message.command.data.camera.enabled && camera_message.command.data.camera.fps == 5);
+    assert(camera_message.command.data.camera.resolution == AINEKIO_CAMERA_QVGA);
+    assert(camera_message.command.data.camera.has_snapshot_resolution);
+    assert(camera_message.command.data.camera.snapshot_resolution == AINEKIO_CAMERA_XGA);
+    camera_json = "{\"t\":\"cam\",\"seq\":3,\"on\":false,\"fps\":0,\"res\":\"VGA\"}";
+    assert(ainekio_control_decode_for_body(camera_json, strlen(camera_json), &camera_message) == AINEKIO_DECODE_OK);
+    assert(!camera_message.command.data.camera.enabled && camera_message.command.data.camera.fps == 0);
+    assert(!camera_message.command.data.camera.has_snapshot_resolution);
+
     const char *features[] = {"motion_plan_v1"};
     ainekio_hello_t hello = {.firmware="0.1.0\"test", .robot_id="ainekio-01", .auth_token="token\\value",
         .features=features, .feature_count=1};
@@ -93,9 +105,10 @@ int main(void)
         sizeof(output)
     );
     valid(output, length, AINEKIO_MESSAGE_CAMERA_META);
+    assert(strstr(output, "\"fps\":5") != NULL);
     length = ainekio_encode_camera_meta(
         AINEKIO_CAMERA_XGA,
-        0U,
+        5U,
         1U,
         AINEKIO_CAMERA_ORIGIN_ACTION,
         4U,
@@ -106,6 +119,7 @@ int main(void)
     assert(strstr(output, "\"res\":\"XGA\"") != NULL);
     assert(strstr(output, "\"origin\":\"action\"") != NULL);
     assert(strstr(output, "\"origin_id\":4") != NULL);
+    assert(strstr(output, "\"fps\":0") != NULL);
     length = ainekio_encode_ping(false, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_PING);
     length = ainekio_encode_ping(true, output, sizeof(output));

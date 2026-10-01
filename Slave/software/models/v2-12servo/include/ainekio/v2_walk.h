@@ -29,6 +29,8 @@ typedef struct {
     double run_from, run_target, run_transition_phase;
     double offset_from[4], offset_target[4];
     ainekio_v2_walk_controls_t from, target, pending;
+    bool steering;
+    double forward_from, forward_target, turn_from, turn_target, steering_phase;
     ainekio_v2_foot_state_t feet[4];
     ainekio_v2_walk_pose_t pose;
     bool initialized, pending_update, stopping, complete, failed;

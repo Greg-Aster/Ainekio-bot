@@ -1031,7 +1031,9 @@
       event.preventDefault();
       const form = event.currentTarget;
       const values = new FormData(form);
-      command("/api/camera", { on: form.elements.on.checked, fps: Number(values.get("fps")), res: values.get("res") }, "Camera setting applied");
+      const payload = { on: form.elements.on.checked, fps: Number(values.get("fps")), res: values.get("res") };
+      if (!form.elements.snapshot_res.disabled) payload.snapshot_res = values.get("snapshot_res");
+      command("/api/camera", payload, "Camera settings applied");
     });
     byId("microphone-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -1467,6 +1469,9 @@
       control.disabled = !capability(name);
       control.title = capability(name) ? "" : unavailable(name);
     }));
+    const cameraProfiles = Boolean(entry && (entry.features || []).includes("camera_profiles_v1"));
+    document.querySelector("[data-camera-profiles]").hidden = !cameraProfiles;
+    byId("camera-form").elements.snapshot_res.disabled = !cameraProfiles || !capability("camera");
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
     connection.textContent = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";

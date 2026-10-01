@@ -197,6 +197,8 @@ typedef struct {
             float speed_percent;
             float stride_percent;
             float motion_rate;
+            bool steering; /* forward/turn percentages compose in the body frame */
+            float forward, turn;
             uint32_t update_sequence; /* active walk sequence; zero starts a walk */
         } walk;
         char asset[AINEKIO_ASSET_NAME_MAX + 1U];
@@ -233,6 +235,8 @@ typedef struct {
             bool enabled;
             uint8_t fps;
             ainekio_camera_resolution_t resolution;
+            bool has_snapshot_resolution;
+            ainekio_camera_resolution_t snapshot_resolution;
         } camera;
         struct {
             bool enabled;

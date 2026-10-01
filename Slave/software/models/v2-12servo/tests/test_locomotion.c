@@ -64,6 +64,22 @@ int main(void)
         m.command.data.intent.data.walk.direction=(ainekio_walk_direction_t)i;m.command.data.intent.data.walk.gait=AINEKIO_GAIT_WALK;
         assert(!ainekio_v2_walk_accept(&state,&m.command,0));
     }
+    /* Compose translation and yaw, then reverse steering on the same running
+     * command. Neither an update nor a fresh heading restarts the gait phase. */
+    const char *arc="{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":40,\"forward\":65,\"turn\":25}";
+    ainekio_control_message_t command;
+    assert(ainekio_control_decode_with_walk_controls(arc,strlen(arc),&command)==AINEKIO_DECODE_OK);
+    state=(ainekio_v2_walk_state_t){0};assert(ainekio_v2_walk_accept(&state,&command.command,0));
+    uint64_t arc_time=0;
+    while(state.phase<5){arc_time+=20000;assert(ainekio_v2_walk_tick(&state,arc_time));}
+    assert(state.body_x>0&&state.body_y>0&&state.body_yaw>0&&!state.complete);
+    double arc_phase=state.phase,left_yaw=state.body_yaw;
+    command.command.sequence=2;command.command.data.intent.data.walk.update_sequence=1;
+    command.command.data.intent.data.walk.turn=-25;
+    assert(ainekio_v2_walk_accept(&state,&command.command,arc_time));
+    assert(state.phase==arc_phase&&state.command_sequence==1);
+    while(state.phase<arc_phase+4){arc_time+=20000;assert(ainekio_v2_walk_tick(&state,arc_time));}
+    assert(state.body_yaw<left_yaw&&!state.complete);
     printf("84 locomotion envelopes at10/20/30/40 ms, planted XY drift %.9g mm; max output joint change %.6g rad. Finish during lowering and profile matching passed.\n",drift,step);
     leverage_report();
     return 0;

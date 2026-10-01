@@ -77,6 +77,17 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         await self.connection._handle_control({"t": "ack", "seq": command["seq"]})
         await asyncio.wait_for(self.adapter._walk_update_task, 1)
 
+    async def test_steering_updates_keep_original_action_and_sequence(self) -> None:
+        await self.start(forward=70, turn=20)
+        self.assertEqual(json.loads(self.body.sent[0])["forward"], 70)
+        await self.update(self.request(controls={"speed": 50, "forward": 70, "turn": -30}))
+        await self.acknowledge_update()
+        command = json.loads(self.body.sent[-1])
+        self.assertEqual(command["update"], json.loads(self.body.sent[0])["seq"])
+        self.assertEqual((command["forward"], command["turn"]), (70, -30))
+        self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "started")
+        self.assertEqual(self.result()["actionId"], self.original["id"])
+
     async def test_updates_keep_parent_active_until_original_walk_completes(self) -> None:
         await self.start()
         await self.update(self.request())

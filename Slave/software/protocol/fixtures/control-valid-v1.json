@@ -1,6 +1,10 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "walk_forward_turn", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 50, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "forward": 70, "turn": 30}},
+    {"name": "walk_reverse_steering_update", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 51, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "forward": -50, "turn": -30, "update": 50}},
+    {"name": "independent_camera_profiles", "message": {"t": "cam", "seq": 40, "on": true, "fps": 5, "res": "QVGA", "snapshot_res": "XGA"}},
+    {"name": "snapshot_profile_with_stream_off", "message": {"t": "cam", "seq": 41, "on": false, "fps": 0, "res": "VGA", "snapshot_res": "VGA"}},
     {"name": "body_calibration_move_1", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 1}},
     {"name": "body_calibration_move_499", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 499}},
     {"name": "body_calibration_move_2501", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 2501}},

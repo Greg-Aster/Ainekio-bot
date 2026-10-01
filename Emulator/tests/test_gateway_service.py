@@ -24,6 +24,7 @@ from gateway.server.service import (
     RobotOfflineError,
 )
 from gateway.plugins import AudioTranscriptPlugin, CameraFramePlugin
+from protocol.control_v1 import CAMERA_PROFILES_FEATURE
 from emulator.body.media import FixtureCameraSource, QueueMicrophoneSource
 from Emulator.tests.support import build_core_library
 
@@ -40,6 +41,32 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.library_path = build_core_library()
+
+    async def test_independent_camera_profiles_require_negotiation_before_sending(self) -> None:
+        class Socket:
+            closed = False
+            sent = []
+
+            async def send(self, raw):
+                self.sent.append(json.loads(raw))
+
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo", capabilities={"camera": True})
+        service._connections["robot"] = connection
+        with self.assertRaisesRegex(GatewayError, "independent snapshot"):
+            await service.set_camera(on=True, fps=5, resolution="QVGA", snapshot_resolution="XGA", robot_id="robot")
+        self.assertEqual(socket.sent, [])
+        self.assertEqual(connection.next_sequence, 1)
+        connection.features = (CAMERA_PROFILES_FEATURE,)
+        sequence = await service.set_camera(on=True, fps=5, resolution="QVGA", snapshot_resolution="XGA", robot_id="robot")
+        self.assertEqual(socket.sent, [{"t": "cam", "seq": sequence, "on": True, "fps": 5, "res": "QVGA", "snapshot_res": "XGA"}])
+        await connection._handle_control({"t": "ack", "seq": sequence})
+        self.assertEqual((await service.wait_terminal(sequence))["t"], "ack")
+        # Existing stream callers retain their envelope and leave the still profile alone.
+        sequence = await service.set_camera(on=False, fps=0, resolution="VGA", robot_id="robot")
+        self.assertNotIn("snapshot_res", socket.sent[-1])
+        await connection._handle_control({"t": "ack", "seq": sequence})
 
     def test_gateway_liveness_defaults_match_physical_body_contract(self) -> None:
         config = GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})

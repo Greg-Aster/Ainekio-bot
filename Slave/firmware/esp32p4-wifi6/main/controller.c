@@ -190,7 +190,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "robot_settings_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "robot_settings_v1", "camera_profiles_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -765,7 +765,8 @@ static esp_err_t apply(const request_t *request)
     case AINEKIO_COMMAND_CAMERA:
         {
             esp_err_t result = ainekio_p4_media_camera_configure(command->data.camera.enabled,
-                command->data.camera.fps, command->data.camera.resolution);
+                command->data.camera.fps, command->data.camera.resolution,
+                command->data.camera.has_snapshot_resolution ? &command->data.camera.snapshot_resolution : NULL);
             if (result == ESP_OK) atomic_store(&camera_fps, command->data.camera.enabled ? command->data.camera.fps : 0);
             return result;
         }

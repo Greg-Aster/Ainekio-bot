@@ -22,6 +22,14 @@ target_link_libraries(test_body PRIVATE ainekio_v2_motion m)
 target_compile_options(test_body PRIVATE -Wall -Wextra -Werror)
 add_test(NAME body_execution COMMAND test_body)
 
+# Exercise the real camera owner; only hardware I/O and task scheduling are virtual.
+add_executable(test_camera test_camera.c ../components/ainekio_p4_media/camera.c)
+target_include_directories(test_camera PRIVATE camera_shim body_shim
+    ../components/ainekio_p4_media ../components/ainekio_p4_media/include)
+target_link_libraries(test_camera PRIVATE ainekio_core)
+target_compile_options(test_camera PRIVATE -Wall -Wextra -Werror)
+add_test(NAME camera_profiles_and_snapshots COMMAND test_camera)
+
 add_executable(test_calibration_store test_calibration_store.c ../main/joint_calibration.c ../main/robot_settings.c)
 target_include_directories(test_calibration_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)
 target_compile_options(test_calibration_store PRIVATE -Wall -Wextra -Werror -ffunction-sections -fdata-sections)

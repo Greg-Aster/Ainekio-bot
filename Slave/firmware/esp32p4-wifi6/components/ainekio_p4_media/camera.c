@@ -45,6 +45,7 @@ static i2c_master_bus_handle_t bus;
 static bool enabled, suspended;
 static uint8_t fps = 2;
 static ainekio_camera_resolution_t resolution = AINEKIO_CAMERA_VGA;
+static ainekio_camera_resolution_t snapshot_resolution = AINEKIO_CAMERA_VGA;
 static uint32_t generation, frame_counter;
 static uint64_t session;
 
@@ -197,7 +198,9 @@ static void camera_task(void *unused)
         if (emit && current && callbacks.camera_frame) {
             callbacks.camera_frame(callbacks.context, request.session, request.origin, request.origin_id,
                 request.resolution, ++frame_counter, jpeg, encoded);
-            next_frame = esp_timer_get_time() + 1000000 / active_fps;
+            /* A still neither depends on nor resets the preview cadence. */
+            if (!snapshot && active_fps > 0)
+                next_frame = esp_timer_get_time() + 1000000 / active_fps;
         }
     }
 cleanup:
@@ -252,9 +255,11 @@ esp_err_t p4_camera_start(i2c_master_bus_handle_t shared_bus, const ainekio_p4_m
 bool p4_camera_ready(void) { return atomic_load(&ready); }
 uint32_t p4_camera_failures(void) { return atomic_load(&failures); }
 
-esp_err_t ainekio_p4_media_camera_configure(bool stream, uint8_t rate, ainekio_camera_resolution_t size)
+esp_err_t ainekio_p4_media_camera_configure(bool stream, uint8_t rate, ainekio_camera_resolution_t size,
+                                         const ainekio_camera_resolution_t *snapshot_size)
 {
-    if (rate > 15 || size < AINEKIO_CAMERA_QVGA || size > AINEKIO_CAMERA_XGA)
+    if (rate > 15 || size < AINEKIO_CAMERA_QVGA || size > AINEKIO_CAMERA_XGA ||
+        (snapshot_size && (*snapshot_size < AINEKIO_CAMERA_QVGA || *snapshot_size > AINEKIO_CAMERA_XGA)))
         return ESP_ERR_INVALID_ARG;
     if (!p4_camera_ready()) return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(state_lock, portMAX_DELAY);
@@ -262,6 +267,7 @@ esp_err_t ainekio_p4_media_camera_configure(bool stream, uint8_t rate, ainekio_c
     enabled = stream && rate > 0;
     fps = rate;
     resolution = size;
+    if (snapshot_size) snapshot_resolution = *snapshot_size;
     xSemaphoreGive(state_lock);
     return ESP_OK;
 }
@@ -274,7 +280,7 @@ esp_err_t ainekio_p4_media_snapshot(ainekio_camera_origin_t origin, uint32_t id)
     xSemaphoreTake(state_lock, portMAX_DELAY);
     bool paused = suspended || !session;
     snapshot_t request = {.origin = origin, .origin_id = id, .generation = generation,
-        .resolution = resolution, .session = session};
+        .resolution = snapshot_resolution, .session = session};
     esp_err_t result = paused ? ESP_ERR_INVALID_STATE :
         (xQueueSend(requests, &request, 0) == pdTRUE ? ESP_OK : ESP_ERR_NO_MEM);
     xSemaphoreGive(state_lock);

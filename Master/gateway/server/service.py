@@ -30,6 +30,7 @@ from protocol.control_v1 import (
     RUN_GAIT_FEATURE,
     CRAB_GAIT_FEATURE,
     COMMAND_DEADLINE_FEATURE,
+    CAMERA_PROFILES_FEATURE,
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
     ROBOT_SETTINGS_FEATURE,
@@ -222,6 +223,9 @@ class GatewayConnection:
                 raise GatewayError("session sequence space exhausted")
 
             message = dict(command)
+            if message.get("t") == "cam" and "snapshot_res" in message:
+                if CAMERA_PROFILES_FEATURE not in self.features:
+                    raise GatewayError("body does not support independent snapshot settings")
             if message.get("t") == "motion_speed" or "playback_rate" in message:
                 if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
                     raise GatewayError("body does not support saved motion speed")
@@ -864,9 +868,13 @@ class GatewayService:
         fps: int,
         resolution: str,
         robot_id: str | None = None,
+        snapshot_resolution: str | None = None,
     ) -> int:
+        command: dict[str, object] = {"t": "cam", "on": on, "fps": fps, "res": resolution}
+        if snapshot_resolution is not None:
+            command["snapshot_res"] = snapshot_resolution
         return await self._send(
-            {"t": "cam", "on": on, "fps": fps, "res": resolution},
+            command,
             robot_id=robot_id,
         )
 
