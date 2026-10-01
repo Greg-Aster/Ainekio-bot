@@ -13,6 +13,8 @@ from gateway.environment_adapter.translation import (
 
 
 class FakeGateway:
+    instance_id = "fixture-gateway"
+
     def subscribe_events(self, _callback: object) -> None:
         return None
 

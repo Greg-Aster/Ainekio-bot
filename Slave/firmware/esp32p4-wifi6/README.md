@@ -33,6 +33,16 @@ and Finish at the existing gait boundary. See the
 catalog, timing and source provenance. Finite commands hold their terminal pose;
 Dead's optional preview recovery is excluded.
 
+Current source advertises `walk_steering_v1` alongside `walk_controls_v2` for
+the existing paired `forward`/`turn` decoder and gait owner. Both are finite
+percentages from −100 to +100: positive forward advances, positive turn turns
+left. An update ACK confirms admission and leaves the original action running;
+only its terminal result ends that action. See the
+[negotiated steering contract](../../software/protocol/README.md#directional-locomotion-and-automatic-run).
+Older firmware lacking this feature receives no composed steering from the
+gateway. Native decoder/model tests cover this source contract; this change has
+not been cross-compiled, flashed or tested on a physical body.
+
 All execution uses the existing body output task and device joint calibration.
 Entry follows a coordinated carrier/crank path from a commanded reference; this is not measured shaft position. Conservative continuous path bounds and actual linkage closure are checked before execution; the provisional angle envelope is not a runtime dependency. When outputs are off or only some assigned joints have been commanded, a new motion request first engages the saved Home pulses 200 ms apart, then enters the requested motion. Save and reconnection alone leave outputs off. An invalid model reference is reported explicitly before enabling outputs; changing firmware defaults never rewrites measured Home pulses or model angles.
 Clip angle envelopes are checked before movement, and every emitted pulse must

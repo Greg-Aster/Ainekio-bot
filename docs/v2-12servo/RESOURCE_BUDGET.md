@@ -5,6 +5,11 @@ Scope: twelve servos, P4 / C6, camera, audio, LCD, IMU, storage, Q6A, gateway,
 MetaHuman services and remote LLM boundary. This supersedes the earlier partial
 budgets and withdrawn invented CPU / RAM / power allowances.
 
+Later owner decision: wireless body with offboard Q6A, remote/manual takeover and
+a shared status/routing contract. See the
+[distributed foundation](../DISTRIBUTED_ROBOT_FOUNDATION.md). This changes the
+selected deployment direction, not the component limits or recorded arithmetic.
+
 [Audit evidence and sources](BUDGET_AUDIT_EVIDENCE.md).
 Reproduce arithmetic from the repo root:
 `python3 docs/v2-12servo/budget_math.py`.

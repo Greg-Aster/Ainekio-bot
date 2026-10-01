@@ -24,7 +24,7 @@ from gateway.perception import RecognitionResult
 from gateway.server.service import ActionExpiredError, GatewayError, GatewayService
 from gateway.body_capabilities import body_commands
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
-from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
+from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
 from websockets.exceptions import ConnectionClosed
 
 from .speech_transport import (
@@ -1210,8 +1210,17 @@ class EnvironmentAdapter:
         robot_id, robot = self._selected_robot()
         age = self.gateway.clock() - analysis.received_at
         if (not self._bridge_ready or robot is None or robot_id != analysis.robot_id
-            or robot.get("epoch") != analysis.epoch or robot.get("connection_state") != "online"
-            or not 0 <= age < max_frame_age_s):
+            or robot.get("epoch") != analysis.epoch or robot.get("connection_state") != "online"):
+            return
+        if analysis.error is not None:
+            # Use the existing observation route so MetaHuman receives an
+            # explicit failure without fabricating perception or body feedback.
+            await self._send_observation(metadata={"recognitionFailure": {
+                "robotId": robot_id, "epoch": analysis.epoch, "frameCounter": analysis.counter,
+                "gatewayInstance": self.gateway.instance_id, "reason": analysis.error,
+            }})
+            return
+        if not 0 <= age < max_frame_age_s:
             return
         if not isinstance(analysis.result, RecognitionResult):
             raise ValueError("camera recognition backend must return RecognitionResult")
@@ -1264,6 +1273,9 @@ class EnvironmentAdapter:
             declared if isinstance(declared, Mapping) else None,
         ) if robot is not None else ()
         motion_ready = body_authenticated and (supported is None or any(name in SUPPORTED_ROBOT_COMMANDS and name != "stop" for name in supported))
+        updates_available = bool(motion_ready and robot and robot.get("model") == "v2-12servo"
+            and {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
+            and robot.get("connection_state") == "online")
         speaker_ready = body_authenticated and (not isinstance(declared, Mapping) or declared.get("speaker") is True)
         body_status = robot.get("status") if robot is not None else None
         camera_ready = (
@@ -1291,12 +1303,11 @@ class EnvironmentAdapter:
             "freestyleMovement": self._motion_plan_support_status(gateway_status),
             "activeMovementUpdates": {
                 "version": 1,
-                "available": bool(motion_ready and robot and robot.get("model") == "v2-12servo"
-                    and {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
-                    and robot.get("connection_state") == "online"),
+                "available": updates_available,
                 "gatewayInstance": self.gateway.instance_id,
                 "maxValidityMs": MAX_WALK_UPDATE_VALIDITY_MS,
-                "controls": ["speed", "stride", "rate", "forward", "turn"],
+                "controls": (["speed", "stride", "rate"] + (["forward", "turn"]
+                    if WALK_STEERING_FEATURE in robot.get("features", []) else [])) if updates_available else [],
                 "robotId": robot_id, "epoch": robot.get("epoch") if robot else None,
                 "maxInFlight": 1,
             },

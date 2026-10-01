@@ -342,6 +342,7 @@ class CameraAnalysis:
     received_at: float
     completed_at: float
     result: object
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -415,15 +416,17 @@ class CameraFramePlugin:
         if self._worker is None:
             self._worker = asyncio.create_task(self._consume_frames())
 
-    def _fresh(self, frame: _CameraInput) -> bool:
+    def _current(self, frame: _CameraInput) -> bool:
         robot = self.gateway.status()["robots"].get(frame.robot_id)
-        age = self.gateway.clock() - frame.received_at
         return (
             not self._closed and robot is not None
             and robot.get("epoch") == frame.epoch
             and robot.get("connection_state") == "online"
-            and 0 <= age <= self.max_frame_age_s
         )
+
+    def _fresh(self, frame: _CameraInput) -> bool:
+        age = self.gateway.clock() - frame.received_at
+        return self._current(frame) and 0 <= age <= self.max_frame_age_s
 
     async def _call(self, callback: Callable, argument: object) -> object:
         if inspect.iscoroutinefunction(callback):
@@ -439,7 +442,20 @@ class CameraFramePlugin:
                 if not self._fresh(frame):
                     self.stale_frames += 1
                     continue
-                result = await self._call(self.consume, frame.payload)
+                try:
+                    result = await self._call(self.consume, frame.payload)
+                except Exception as error:
+                    self.errors += 1
+                    reason = f"{type(error).__name__}: {error}"[:240]
+                    logging.getLogger(__name__).warning("Camera processing failed (%s)", reason)
+                    # A timed-out frame is not a fresh observation, but its
+                    # failure still belongs to the current connected body.
+                    if self._current(frame) and self.observe is not None:
+                        await self._call(self.observe, CameraAnalysis(
+                            frame.robot_id, frame.epoch, frame.counter, frame.received_at,
+                            self.gateway.clock(), None, error=reason,
+                        ))
+                    continue
                 if not self._fresh(frame):
                     self.stale_frames += 1
                     continue

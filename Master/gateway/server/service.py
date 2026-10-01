@@ -27,6 +27,7 @@ from protocol.control_v1 import (
     BODY_CAPABILITIES_FEATURE,
     WALK_CONTROLS_FEATURE,
     LOCOMOTION_FEATURE,
+    WALK_STEERING_FEATURE,
     RUN_GAIT_FEATURE,
     CRAB_GAIT_FEATURE,
     COMMAND_DEADLINE_FEATURE,
@@ -223,6 +224,11 @@ class GatewayConnection:
                 raise GatewayError("session sequence space exhausted")
 
             message = dict(command)
+            if message.get("t") == "intent" and ("forward" in message or "turn" in message):
+                if message.get("name") != "walk":
+                    raise GatewayError("steering requires a walk command")
+                if self.model != "v2-12servo" or not {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE}.issubset(self.features):
+                    raise GatewayError("body does not support composed steering (walk_steering_v1 required)")
             if message.get("t") == "cam" and "snapshot_res" in message:
                 if CAMERA_PROFILES_FEATURE not in self.features:
                     raise GatewayError("body does not support independent snapshot settings")
@@ -242,7 +248,7 @@ class GatewayConnection:
                 message = {"t":"intent", "name":"walk", "dir":CRAB_DIRECTIONS[message["asset"]], "steps":0, "gait":"crab", "speed":50}
             if message.get("t") == "intent" and message.get("name") == "walk" and (
                 message.get("steps") == 0 or any(key in message for key in
-                    ("speed", "stride", "rate", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
+                    ("speed", "stride", "rate", "forward", "turn", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
             ):
                 if self.model != "v2-12servo" or not {WALK_CONTROLS_FEATURE, LOCOMOTION_FEATURE}.intersection(self.features):
                     raise GatewayError("body does not support variable walking controls")

@@ -2,9 +2,9 @@
 
 Started: 2026-09-28
 
-Updated: 2026-09-30 — canonical active task execution and continuous steering
+Updated: 2026-10-01 — negotiated steering compatibility and configured remote recognition fixes
 
-Status: Living research and decision record
+Status: Living research, implementation and decision record
 
 ## Purpose and current direction
 
@@ -12,12 +12,35 @@ Record how ROS 2 can supplement Ainekio and MetaHuman OS, compare the two ways
 to connect the ESP32-P4 body controller to Q6A, and preserve the findings and
 implementation targets for later work.
 
-**Current owner direction: direct Wi-Fi between P4 and Q6A.** Keep gait execution
-and fast IMU feedback local to P4, with perception and expensive planning on the
-host. Measure concurrent resource use and end-to-end update latency before
-offloading additional computation. The earlier USB recommendation and bandwidth
-comparison below remain alternatives; USB implementation is not a prerequisite
-for the present work. Neither connection has a qualified full-load latency bound.
+**Selected direction: wireless P4/C6 body to offboard Q6A, with a separate
+Q6A connection to remote MetaHuman OS.** The owner selected this to reduce robot
+weight and carried compute power. Both Q6A and the remote machine run MetaHuman:
+Q6A handles responsive local processing; remote MetaHuman handles heavy reasoning,
+long-term memory and training. The remote machine may be geographically distant.
+
+The previous native-USB recommendation compared transport with power excluded.
+Its capacity advantages remain valid, but it is now the alternative rather than
+the implementation priority. Wi-Fi already has an Ainekio implementation; the
+two-installation MetaHuman division of labor still needs defined contracts.
+
+The [distributed robot foundation](DISTRIBUTED_ROBOT_FOUNDATION.md) records the
+function allocation, existing source owners, proposed communication contracts,
+failure behavior and staged migration. **Define those boundaries before migrating
+features.** The owner confirmed that Q6A should continue defined local skills
+while remote-dependent tasks pause when the remote server is unavailable.
+
+**Latest control requirement:** P4 is the robot brain and accepts the same
+control contract from interchangeable authorized sources. Q6A, remote MetaHuman
+and standalone manual Body Control must each be usable without requiring the
+other hosts. Source takeover is planned, not currently implemented. The shared
+gateway is the existing integration point; extend P4 admission/connection
+ownership rather than making Q6A a mandatory intermediary. Manual client hardware
+remains undecided.
+
+Keep gait execution and fast IMU feedback local to P4, with perception and
+expensive planning on the host. Measure concurrent resource use and end-to-end
+update latency before offloading additional computation. Neither connection has
+a qualified full-load latency bound.
 
 **ROS 2 is an optional Q6A integration layer.** Preserve the existing gateway,
 body controller and MetaHuman responsibilities. Start with telemetry and tools;
@@ -37,12 +60,13 @@ why chip typical-current figures cannot form a guaranteed whole-robot total.
 The owner reports Q6A operation from 5 V / 3 A and plans a headless workload
 without USB peripherals, monitor, or fan. Do not treat Radxa's recommended supply
 rating as actual consumption or use it alone to select onboard versus offboard
-placement. The latest transport recommendation above excludes power at the
-owner's request. The electrical research below remains available for the later
-physical design; it does not determine that transport recommendation.
+placement. The earlier cable comparison excluded power at the owner's request.
+The later wireless/offboard selection explicitly considers robot weight and power.
+Preserve both rationales when revisiting the decision.
 
-This is a planning document. It does not amend the system specification, record
-a completed transport migration, or authorize firmware flashing or body motion.
+This record separates planning from the tested software increments below. It
+does not amend the system specification, record a completed transport migration,
+or authorize firmware flashing or body motion.
 Existing implementation and hardware boundaries remain documented in the
 [V2 firmware design](v2-12servo/FIRMWARE_DESIGN.md) and
 [P4 firmware README](../Slave/firmware/esp32p4-wifi6/README.md).
@@ -89,16 +113,198 @@ capture age and recognition accuracy remain unqualified.
 | Device | Intended responsibility |
 | --- | --- |
 | ESP32-P4 | Execute the existing gait and servo control; acquire the planned LSM6DS3 IMU; own local movement supervision and future fast posture correction. |
-| Onboard Q6A | Host the existing Ainekio gateway and selected MetaHuman coordination; run local speech recognition, TTS, vision, and lightweight processing. |
-| Remote desktop | Provide heavyweight LLM inference and other explicitly assigned expensive processing. |
+| Offboard Q6A | Host the existing Ainekio gateway and local MetaHuman; provide lightweight task coordination, bounded media transport, responsive feedback and defined local skills. |
+| Remote computer/server | Run heavy inference and perception, long-term memory, training and expensive tools; may run on a distant server. |
 
-The Q6A deployment split is still design work. The existing gateway remains the
-single body-command authority. Processing services do not acquire an independent
-movement channel. The LSM6DS3 has been received; its installation and integration
+The deployment split and takeover policy are still design work. All sources
+must use the common Ainekio control contract and P4 admission/output owner.
+The existing gateway already serves manual and MetaHuman requests, but does not
+implement automatic host failover. The LSM6DS3 has been received; its installation and integration
 are planned, not verified. Whether ROS is used for sensors or diagnostics is a
 separate decision from wired versus wireless transport.
 
+## 2026-10-01 implementation: steering and remote recognition
+
+Implementation and simulated-device testing were authorized; publishing,
+deployment, flashing and robot movement were excluded. Starting refs were
+recorded after fetching remote refs without changing either checkout:
+
+| Repository | Starting refs |
+| --- | --- |
+| Ainekio-bot | Local `main` HEAD, `origin/dev` and `origin/main`: `022bda54ebd97711d656313513d29c3a80bb3f28` |
+| MetaHuman OS | Local `main` HEAD and `origin/dev`: `3445379711a58c2360928e700d418728e839bd4b`; `origin/main`: `c3f56d41dfb396cd68391d12a2910aee8c32870b` |
+
+The initial Ainekio edits were gateway/launcher documentation and launcher
+changes, this record, docs index, resource budget, plus untracked distributed
+foundation and launcher tests. A backup of those exact files, the starting
+binary diff and refs is at
+`/tmp/ainekio-steering-recognition-start-hie6r8r_/`. Existing unrelated edits
+were preserved. MetaHuman initially had a local backend configuration edit;
+its consumer implementation changed concurrently during this task. This
+Ainekio repair did not edit MetaHuman source or configuration.
+
+Historical speech cleanup commit `9e1e402c` is already an ancestor of the
+MetaHuman starting HEAD. The maintained architecture/source retains the current
+speech chunk/delivery owners and active-task executor. No separate patch bundle
+was found. Reapplying that cleanup would conflict with newer code. The old
+speech/catalog test doubles were instead updated to supply the real gateway
+instance identifier; their existing assertions and production speech/catalog
+owners were retained. Aggregate discovery also now uses the package-qualified
+receipt-test import.
+
+The owner approved the steering contract before source changes:
+[`walk_steering_v1`](../Slave/software/protocol/README.md#directional-locomotion-and-automatic-run)
+is distinct from `walk_controls_v2`. Paired finite `forward` and `turn` use
+signed percentages from −100 to +100; positive forward advances and positive
+turn turns left. ACK confirms admission, and an update ACK cannot complete the
+original action or goal. The existing MetaHuman action/update fields agree with
+these signs, units and receipt semantics. Current P4 source advertises the new
+feature for its existing decoder/model. The gateway rejects either steering
+field on an unsupported body before allocating a sequence or dispatching,
+including zero-valued fields, and advertises only supported controls.
+Run alias normalization cannot discard steering: those fields require an
+explicit walk intent and otherwise reject before dispatch. Existing
+directional commands, speed/stride/rate, Finish, deadlines, disconnect fencing,
+calibrated limits and emergency stop retain their existing execution owners.
+
+The existing camera worker now accepts one operator-configured recognition
+endpoint. Remote service requires authenticated, certificate- and
+hostname-verified HTTPS. Local loopback HTTP remains supported. URL credentials,
+queries, fragments, control characters, invalid ports and unauthenticated remote
+configuration are rejected before transport; redirects and proxies are not
+followed. JPEG/result/object bounds and request/read deadlines remain. Failures
+reach the existing observation route with robot/epoch/frame/gateway correlation
+and a reason, rather than becoming empty successful observations or causing a
+new behavioral policy. Q6A transports bounded requests/results, the remote
+service performs perception, MetaHuman's LLM/executor owns behavior, and P4's
+existing owner performs body execution. No queue, inference runtime or durable
+execution authority was added.
+
+Configuration uses the existing `AINEKIO_VISION_URL`, `AINEKIO_VISION_MODEL`,
+`AINEKIO_VISION_API_KEY`, timeout and frame-age options documented in the
+[gateway README](../Master/gateway/README.md#configured-recognition-and-metahuman-handoff).
+Both URL/model and an authenticated Environment Bridge are required. Remote
+URL must name an HTTPS Chat Completions route; API key comes from the ignored
+environment configuration. Optional private CA trust uses standard
+`SSL_CERT_FILE`. The default request timeout is 2 seconds and the frame-age
+limit is 1 second; configure freshness deliberately for the selected service.
+Only `.env.example` guidance changed; no live endpoint or credentials were set.
+
+The integrated software regression runs the real authenticated HTTPS client
+against a simulated recognition service, then the existing adapter/gateway and
+SQLite receipts, and feeds the exact emitted steering commands/updates into the
+native production P4 decoder/model. It verifies that recognition alone sends no
+motion, update results retain action/revision/original sequence correlation,
+and the original receipt remains started until its terminal result. Inference
+responses, task/model decisions and device ACK/DONE transport are simulated.
+Separate MetaHuman consumer tests exercise the actual coordinator/task-state
+code. This establishes software integration; it does not demonstrate hosted
+inference, Q6A performance or physical motion.
+
+Repair files (existing unrelated dirty files are excluded):
+
+| Area | Changed files |
+| --- | --- |
+| Gateway | `Master/gateway/server/service.py`, `Master/gateway/environment_adapter/server.py`, `Master/gateway/perception.py`, `Master/gateway/plugins.py`, `Master/gateway/server/__main__.py` |
+| P4/protocol | `Slave/firmware/esp32p4-wifi6/main/controller.c`, `Slave/software/core/include/ainekio/protocol.h`, `Slave/software/protocol/control_v1.py`, `Slave/software/protocol/schemas/control-v1.schema.json` |
+| Regression tests | `Emulator/tests/test_active_movement.py`, `Emulator/tests/test_recognition_backend.py`, `Emulator/tests/test_camera_perception.py`, `Emulator/tests/test_action_receipts.py`, `Emulator/tests/test_environment_command_catalog.py`, `Emulator/tests/test_environment_speech.py`, `Slave/software/core/tests/test_control_encode.c`, `Slave/software/models/v2-12servo/tests/test_locomotion.c` |
+| Configuration/docs | `.env.example`, `Master/gateway/README.md`, `Slave/software/protocol/README.md`, `Slave/firmware/esp32p4-wifi6/README.md`, this record |
+
+Final validation (software only):
+
+| Check | Exact final result |
+| --- | --- |
+| Focused gateway/perception/receipt/steering/speech/catalog/P4 regressions | 130 tests, 130 passed, 24.730 s; exit 0 |
+| Native P4/core/model build | CMake build passed with configured `-Wall -Wextra -Werror` and core/model `-Wpedantic`; no ESP-IDF cross-build |
+| Full native CTest | 35 cases: 31 passed, 1 failed (`v2_run_source`), 3 skipped (`v2_crab_geometry`, `v2_gait_geometry`, `v2_locomotion_generator`); exit 8 |
+| Required A-series aggregate | 27/30 cases passed; A16, A27 and A29 failed; exit 1 |
+| Aggregate emulator component | 367 tests: 360 passed, 6 failures, 1 error; 103.444 s |
+| Aggregate protocol component | 14 tests: 11 passed, 3 failures; 0.159 s |
+| Aggregate portable C component | 13/13 passed |
+| MetaHuman `pnpm test:environment-perception` | 33/33 passed, 199401.668296 ms; exit 0 |
+| MetaHuman Bridge lifecycle tests | 4/4 passed, 11814.459383 ms; exit 0 |
+| MetaHuman `pnpm typecheck:core` | Passed; exit 0 |
+| MetaHuman `pnpm check:architecture` | Passed, 0 violations; exit 0 |
+| Syntax and whitespace checks | 12 changed Python files parsed successfully; protocol schema JSON parsed; `git diff --check` passed |
+
+Ainekio has no configured Python lint/static-type check and its venv has no
+Ruff, Mypy or Pyright. The Python syntax and whitespace checks above do not
+establish Python static type correctness. C compiler warnings and MetaHuman's
+configured TypeScript/architecture checks passed. The five original unrelated
+dirty files remain byte-identical to the starting-state backup; additions to
+the two overlapping documentation files preserve their prior content.
+
+Reproduce the focused check from Ainekio root:
+
+```sh
+env PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
+  .venv/bin/python3 -m unittest \
+  Emulator.tests.test_active_movement Emulator.tests.test_recognition_backend \
+  Emulator.tests.test_camera_perception Emulator.tests.test_action_receipts \
+  Emulator.tests.test_environment_adapter Emulator.tests.test_environment_speech \
+  Emulator.tests.test_environment_command_catalog Emulator.tests.test_gateway_service \
+  Emulator.tests.test_p4_foundation
+
+cmake -S Slave/firmware/esp32p4-wifi6/tests -B build/steering-recognition/p4 \
+  -DPython3_EXECUTABLE=/usr/bin/python3
+cmake --build build/steering-recognition/p4 --parallel 2
+ctest --test-dir build/steering-recognition/p4 --output-on-failure \
+  --output-junit "$PWD/build/steering-recognition/native-final.xml"
+
+env PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
+  AINEKIO_V2_WALK_COMMAND="$PWD/build/steering-recognition/p4/v2_model/v2_walk_command" \
+  .venv/bin/python3 Emulator/tools/run_acceptance.py
+```
+
+From MetaHuman root, the consumer commands are `pnpm test:environment-perception`,
+`pnpm typecheck:core`, `pnpm check:architecture`, and:
+
+```sh
+node --experimental-test-module-mocks --import tsx --test \
+  brain/agents/environment-bridge/core-lifecycle.spec.ts
+```
+
+Generated logs live in ignored `build/steering-recognition/`:
+`focused-final.log`, `acceptance-final.log`, `native-final.xml`,
+`consumer-tests-final.log`, `bridge-lifecycle-final.log`,
+`typecheck-core-final.log` and `architecture-final.log`. The aggregate's
+machine-readable report is `build/acceptance/a-series.json`. These include final
+repair regression results even when the aggregate gate fails.
+
+The native Run recording assertion and gateway Walk→Run→Walk assertion both
+fail identically using archived pristine starting-commit sources. The asset
+counts (38 versus expected 36), owner Sit pose/excursion mismatches, missing
+ignored Sesame source header, and schema/fixture message-type coverage gaps
+also reproduce there. No assertion was relaxed, assets regenerated or Run
+behavior changed. The protocol gaps concern `robot_settings`,
+`robot_settings_status`, `motion_speed` and `motion_speed_status`. A29 cannot
+start its browser because `/usr/bin/google-chrome` is absent. Native geometry
+generator checks skip because their scientific Python dependencies are missing.
+Baseline reproduction logs are `baseline-assets-run.log`,
+`baseline-session.log`, `baseline-protocol.log`; the pristine native reproduction
+build is under the temporary starting-state backup. These remain blockers to a
+completely green aggregate, outside the two repaired defects.
+
+Real hosted perception is still blocked by the missing operator-supplied remote
+URL, served image/JSON model and existing API-key environment variable name.
+The software fixtures exercise HTTPS success, timeout, HTTP 401/403, invalid and
+oversized/truncated responses, redirects, untrusted certificates and wrong TLS
+hostnames. They do not establish remote inference availability or accuracy.
+ESP-IDF/toolchain is absent on this checkout host, so the P4 source advertisement
+has only native protocol/model validation. Installed firmware capabilities,
+physical turn signs/magnitudes, calibrated loaded movement, link timing and
+emergency-stop latency under hardware/media load remain untested. No Q6A
+throughput/latency benchmark or physical-motion success is claimed. No push,
+merge, deployment, firmware flash or robot movement occurred.
+
 ## Where ROS 2 fits
+
+For the proposed shared status/router/queue system, see
+[foundation section 5](DISTRIBUTED_ROBOT_FOUNDATION.md#5-shared-status-routing-and-queues).
+Reuse MetaHuman's Robot Status projection and Work Coordinator. ROS diagnostics
+can supply component-health reporting and monitoring; control-source arbitration,
+durable job ownership and application state synchronization still need explicit
+contracts. The existing status file is not a distributed coordination service.
 
 ROS 2 provides communicating nodes and reusable tooling. It is not a single
 robot application with an on/off GUI. Nodes exchange topics, services and
@@ -138,15 +344,15 @@ implementation work. See the [host budget](v2-12servo/RESOURCE_BUDGET.md#9-q6a-m
 
 ## Recommended operating targets
 
-These are the proposed final build settings from the audit discussion, not
-settings already enabled or proof of simultaneous full-load operation. The
+These retain quality targets from the audit, updated for the wireless decision.
+They are not enabled settings or proof of simultaneous full-load operation. The
 [resource budget](v2-12servo/RESOURCE_BUDGET.md#11-operating-targets-and-adjustment-rules)
 owns the detailed arithmetic and alternative profiles.
 
 | Function | Target | Implementation consequence |
 | --- | --- | --- |
-| Body transport | Direct P4-to-Q6A Wi-Fi initially; USB HS remains an alternative | Qualify concurrent latency and queues; USB class and host adapter are separate future work |
-| Camera | 1920 × 1080 at 30 fps, RGB565 capture, hardware JPEG/YUV420, initially quality 75 | Change current capture/output limits; preserve image quality while budgeting actual encoded byte sizes |
+| Body transport | Existing Wi-Fi/WebSocket path to offboard Q6A; USB HS remains an alternative | Establish network topology and bounded media/control scheduling; qualify concurrent latency and queues before increasing load |
+| Camera | Preserve 1920 × 1080 RGB565/hardware JPEG/YUV420 as the quality target, initially quality 75; desired 30 fps remains subject to encoded-byte admission | At 256 KiB/frame, 30 fps needs 62.915 Mbit/s before audio, above the linked 53.4 Mbit/s TX reference; define stream purpose, codec, queue and byte budget before choosing the final rate |
 | Physical audio | 24 kHz, 16-bit mono duplex | Shared I2S/codec clock; resize and relocate buffers where required |
 | Speaker transport | 24 kHz, 16-bit mono | Preserve Kokoro's native rate across MetaHuman, gateway and firmware |
 | Mic for wake/STT and transport | Resample physical capture to 16 kHz, 16-bit mono | Account separately for resampling and physical-rate input buffers |
@@ -165,7 +371,7 @@ buffer budget must be calculated separately from the current JPEG path.
 | --- | --- |
 | OV5647 supports 5 MP, but the P4 ISP used by the current path is specified to 1920 × 1080 | Use 1080p as the main processed-video target; full 5 MP requires a different capture/processing path |
 | Three full 5 MP RGB888 frames require 43.249 MiB, exceeding 32 MiB PSRAM | Reducing copies and selecting formats matters; no blanket claim that every maximum setting fits |
-| 256 KiB JPEGs at 30 fps require 62.915 Mbit/s before audio, above the matching 53.4 Mbit/s Hosted TX reference | Native USB offers meaningful capacity for the selected media direction; neither figure proves actual application throughput |
+| 256 KiB JPEGs at 30 fps require 62.915 Mbit/s before audio, above the matching 53.4 Mbit/s Hosted TX reference | Wireless media admission must consider encoded bytes and concurrent audio; full-HD capture does not require forwarding every frame to the remote server |
 | P4 internal RAM, DMA-capable allocations and PSRAM have distinct constraints | PSRAM free space does not cure internal allocation failures or enlarged microphone stack arrays |
 | The link loop can wait 20 ms, then send at most one microphone packet and one JPEG; authenticated send failure disables PCA output | Address media/control scheduling and failure handling within existing owners; changing the cable alone does not repair this behavior |
 | Q6A Kokoro generated a five-second phrase in 15.068–15.904 seconds, with 1,537.797 MiB peak process RSS | Speech synthesis is an independent response-time bottleneck; neither ROS nor USB removes it |
@@ -217,7 +423,21 @@ controller failover or two simultaneous command authorities.
 Hardware references: [Waveshare board documentation](https://docs.waveshare.com/ESP32-P4-WIFI6)
 and [Q6A USB ports](https://docs.radxa.com/en/dragon/q6a/hardware-use/usb).
 
-## Choice 2: Direct Wi-Fi to a Q6A hotspot
+## Choice 2: Wireless to offboard Q6A — selected
+
+An independent private LAN is the proposed first deployment. The P4 currently
+uses one configured gateway URL and retries that host; DNS-SD advertisement by
+the gateway does not establish discovery in this firmware target. A direct Q6A
+hotspot is the second topology below; wireless
+selection does not require hotspot/client concurrency. No network topology has
+been configured by this document. The remote MetaHuman connection is separate
+from the body connection and can traverse the Internet.
+
+Q6A cannot be the robot's only access point/Internet route if remote takeover
+must survive loss of Q6A. Host failover needs a surviving network path as well as
+the source/endpoint policy described in the foundation.
+
+### Direct Q6A hotspot variant
 
 ```text
 LSM6DS3 -> P4/C6 <-- private 2.4 GHz hotspot --> Q6A
@@ -370,7 +590,7 @@ design history must not be treated as measurements of the current application.
 Proposed responsibility split:
 
 ```text
-Q6A -- native USB: direction, speed --> P4 gait + balance controller
+Q6A -- Wi-Fi: bounded direction, speed --> P4 gait + planned balance controller
                                             ^              |
                                             |              v
                                          wired IMU    PCA9685 / servos
@@ -503,8 +723,9 @@ unqualified; the resource document records the specific evidence and sources.
 
 ## Questions to revisit
 
-1. Select the native USB class and host integration while preserving the existing
-   gateway/protocol ownership; specify connectors, VBUS handling and reconnects.
+1. Complete the [distributed foundation](DISTRIBUTED_ROBOT_FOUNDATION.md): allocate
+   functions, identity, memory, work ownership and failure handling across both
+   MetaHuman installations before feature migration.
 2. Address shared media/control scheduling and failure handling before increasing
    stream rates. Define response deadlines and acceptable frame age separately
    from the local 20 ms servo cadence.
@@ -516,12 +737,13 @@ unqualified; the resource document records the specific evidence and sources.
    vision runtime and measure their concurrent Q6A demand.
 6. Add a ROS telemetry adapter if visualization/recording is selected; keep a
    single command authority and budget the chosen nodes and queues.
-7. If wireless body transport is later selected, establish its AP/client channel
-   strategy, byte-rate limit and power-saving policy; driver capability is not
-   demonstrated concurrent throughput.
+7. Establish the selected wireless network topology, byte-rate limit and
+   power-saving policy. Start from the existing private-LAN path unless a direct
+   hotspot is selected; advertised AP/client capability is not demonstrated
+   concurrent throughput.
 8. Revisit placement, mass, electrical distribution and loaded/peak current as a
-   separate physical-design decision. Power was excluded only from the latest
-   wired-versus-wireless recommendation.
+   separate physical-design task. Native USB remains a future alternative if
+   body-link requirements exceed the qualified wireless envelope.
 
 Research should establish the design and expected behavior before physical
 scenario testing. Later validation should confirm an agreed design, rather than
@@ -531,6 +753,8 @@ serve as a substitute for selecting one.
 
 | Date | Finding or decision | Evidence level |
 | --- | --- | --- |
+| 2026-09-28, latest clarification | P4 is the robot brain; Q6A, remote and standalone manual Body Control are interchangeable authorized sources. Shared status/routing/queues should reuse existing owners. P4 currently retries one configured gateway; cross-host takeover remains to be designed. | Owner requirements and targeted source inspection; ROS diagnostics/control packages researched; no feature migration. |
+| 2026-09-28, latest | Owner selected wireless body/offboard Q6A to reduce carried weight and power; clarified that both Q6A and remote run MetaHuman with different responsibilities. Define the foundation before feature migration. Continue defined local skills during remote outages and pause remote-dependent tasks. | Explicit owner decisions; distributed contracts are proposed, not implemented. |
 | 2026-09-28 | Native USB recommended for onboard P4/Q6A; Q6A Wi-Fi reserved for upstream desktop communication. | Engineering recommendation; implementation pending. |
 | 2026-09-28 | Q6A hotspot plus Wi-Fi client is advertised by the installed driver and chipset documentation. | Read-only capability inspection; no networking changes or concurrency trial. |
 | 2026-09-28 | Audio payload rates calculated from code; media transport and queue owners inspected. | Source evidence and arithmetic; no live throughput or latency measurement. |

@@ -18,7 +18,7 @@ import websockets
 from gateway.dashboard.auth import AuditLog
 from gateway.dashboard.server import start_dashboard_server
 from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
-from gateway.perception import LocalVisionBackend
+from gateway.perception import VisionBackend
 from gateway.plugins import CameraFramePlugin
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 from protocol.binary_helpers import MIC_PCM_FRAME_TYPE
@@ -133,7 +133,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--data-dir", type=Path, default=Path("build/gateway"))
     parser.add_argument("--vision-url", default=os.environ.get("AINEKIO_VISION_URL"),
-                        help="Local loopback Chat Completions vision endpoint; disabled when omitted")
+                        help="Configured Chat Completions endpoint (remote requires authenticated HTTPS); disabled when omitted")
     parser.add_argument("--vision-model", default=os.environ.get("AINEKIO_VISION_MODEL"))
     parser.add_argument("--vision-timeout-s", type=float, default=2.0)
     parser.add_argument("--vision-max-frame-age-s", type=float, default=1.0)
@@ -232,10 +232,10 @@ async def _run_production(args: argparse.Namespace) -> None:
     if bool(args.vision_url) != bool(args.vision_model):
         raise ValueError("vision requires both --vision-url and --vision-model")
     if args.vision_url and not adapter_token:
-        raise ValueError("local recognition requires the authenticated Environment Bridge")
+        raise ValueError("recognition requires the authenticated Environment Bridge")
     if args.vision_url and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
         raise ValueError("vision frame age must be between 0.1 and 30 seconds")
-    backend = LocalVisionBackend(args.vision_url, args.vision_model,
+    backend = VisionBackend(args.vision_url, args.vision_model,
         timeout_s=args.vision_timeout_s, api_key=os.environ.get("AINEKIO_VISION_API_KEY", "")) if args.vision_url else None
 
     args.data_dir.mkdir(parents=True, exist_ok=True)

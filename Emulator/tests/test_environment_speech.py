@@ -49,6 +49,7 @@ class FakeWebSocket:
 
 class FakeGateway:
     def __init__(self) -> None:
+        self.instance_id = "fixture-gateway"
         self.frames: list[bytes] = []
 
     def subscribe_events(self, _callback: object) -> None:

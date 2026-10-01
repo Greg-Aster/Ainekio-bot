@@ -13,7 +13,7 @@ from gateway.environment_adapter.action_receipts import ActionReceipts
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
-from test_environment_adapter import FakeGateway, FakeWebSocket, SnapshotGateway
+from Emulator.tests.test_environment_adapter import FakeGateway, FakeWebSocket, SnapshotGateway
 
 
 def action(identifier: str, generation: int = 1) -> dict:

@@ -1,4 +1,4 @@
-"""Bounded local recognition; image interpretation has no movement authority."""
+"""Bounded configured recognition; image interpretation has no movement authority."""
 from __future__ import annotations
 
 import base64
@@ -99,14 +99,17 @@ identifications in uncertainties. Do not provide actions, motion, distances,
 walkability, physical identity verification or task-completion claims."""
 
 
-class LocalVisionBackend:
-    """Chat Completions vision endpoint, explicitly configured on this host.
+class VisionBackend:
+    """One operator-configured Chat Completions endpoint, local or remote.
 
-    No proxy, redirects, remote URL, model download or automatic fallback.
+    Remote requests require authenticated, certificate-verified HTTPS.
+    No proxy, redirects, model download or automatic fallback.
     A detector backend can return the same RecognitionResult to the camera owner.
     """
 
     def __init__(self, endpoint: str, model: str, *, timeout_s: float = 2.0, api_key: str = "") -> None:
+        if not isinstance(endpoint, str) or any(ord(char) <= 32 for char in endpoint):
+            raise ValueError("vision endpoint requires a URL without whitespace or control characters")
         url = urlsplit(endpoint)
         host = url.hostname
         if host == "localhost":
@@ -115,15 +118,24 @@ class LocalVisionBackend:
             local = host is not None and ipaddress.ip_address(host).is_loopback
         except ValueError:
             local = False
-        if url.scheme != "http" or not local or url.username or url.password or url.query or url.fragment:
-            raise ValueError("continuous vision requires an HTTP endpoint on this host's loopback interface")
+        if (url.scheme not in {"http", "https"} or not host or url.username is not None
+            or url.password is not None or url.query or url.fragment or "\\" in endpoint):
+            raise ValueError("vision endpoint requires an HTTP(S) host without credentials, query or fragment")
+        if not local and url.scheme != "https":
+            raise ValueError("remote vision requires HTTPS with certificate verification")
         if not url.path or not url.path.endswith("/chat/completions"):
             raise ValueError("vision endpoint must name its Chat Completions route")
         if not math.isfinite(timeout_s) or not 0.1 <= timeout_s <= 30:
             raise ValueError("vision timeout must be between 0.1 and 30 seconds")
-        if len(api_key) > 512 or "\r" in api_key or "\n" in api_key:
+        if not isinstance(api_key, str) or len(api_key) > 512 or "\r" in api_key or "\n" in api_key:
             raise ValueError("vision API key must be a bounded header value")
-        self.host, self.port, self.path = host, url.port or 80, url.path
+        if not local and not api_key.strip():
+            raise ValueError("remote vision requires AINEKIO_VISION_API_KEY")
+        port = url.port
+        if port is not None and not 1 <= port <= 65535:
+            raise ValueError("vision endpoint port must be between 1 and 65535")
+        self.scheme = url.scheme
+        self.host, self.port, self.path = host, port or (443 if url.scheme == "https" else 80), url.path
         self.model = _text(model, "vision model", 160)
         self.timeout_s, self.api_key = timeout_s, api_key
 
@@ -138,42 +150,43 @@ class LocalVisionBackend:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = "Bearer " + self.api_key
-        connection = http.client.HTTPConnection(self.host, self.port, timeout=self.timeout_s)
+        connection_type = http.client.HTTPSConnection if self.scheme == "https" else http.client.HTTPConnection
+        connection = connection_type(self.host, self.port, timeout=self.timeout_s)
         deadline = monotonic() + self.timeout_s
         try:
             connection.request("POST", self.path, json.dumps(request, separators=(",", ":")), headers)
             sock = connection.sock
             remaining = deadline - monotonic()
             if remaining <= 0:
-                raise TimeoutError("local vision request expired")
+                raise TimeoutError("vision request expired")
             if sock is not None:
                 sock.settimeout(remaining)
             response = connection.getresponse()
             if response.status != 200:
-                raise ValueError(f"local vision endpoint returned HTTP {response.status}")
+                raise ValueError(f"vision endpoint returned HTTP {response.status}")
             content = bytearray()
             while not response.isclosed():
                 remaining = deadline - monotonic()
                 if remaining <= 0:
-                    raise TimeoutError("local vision request expired")
+                    raise TimeoutError("vision request expired")
                 if sock is not None:
                     sock.settimeout(remaining)
                 chunk = response.read1(min(16384, MAX_RESPONSE_BYTES + 1 - len(content)))
                 content.extend(chunk)
                 if len(content) > MAX_RESPONSE_BYTES:
-                    raise ValueError("local vision response exceeds its size limit")
+                    raise ValueError("vision response exceeds its size limit")
                 if not chunk:
                     break
             if response.length not in (None, 0):
-                raise ValueError("local vision response is incomplete")
+                raise ValueError("vision response is incomplete")
             payload = json.loads(content)
             choices = payload.get("choices") if isinstance(payload, dict) else None
             if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict) or choices[0].get("finish_reason") != "stop":
-                raise ValueError("local vision response did not finish normally")
+                raise ValueError("vision response did not finish normally")
             message = choices[0].get("message")
             text = message.get("content") if isinstance(message, dict) else None
             if not isinstance(text, str):
-                raise ValueError("local vision response requires JSON message content")
+                raise ValueError("vision response requires JSON message content")
             return parse_recognition(json.loads(text), backend="chat-completions", model=self.model)
         finally:
             connection.close()

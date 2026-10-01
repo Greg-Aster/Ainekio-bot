@@ -221,7 +221,7 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plugin.stale_frames, 2)
 
     async def test_failed_inference_or_observer_does_not_kill_next_frame(self) -> None:
-        processed, observed = [], []
+        processed, observed, failures = [], [], []
 
         async def consume(payload):
             processed.append(payload)
@@ -230,6 +230,9 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
             return "candidate"
 
         async def observe(analysis):
+            if analysis.error is not None:
+                failures.append(analysis)
+                return
             if analysis.counter == 2:
                 raise RuntimeError("fixture observer failure")
             observed.append(analysis.counter)
@@ -243,6 +246,10 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(plugin._queue.join(), 1)
         self.assertEqual(processed, [b"1", b"2", b"3"])
         self.assertEqual(observed, [3])
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0].counter, 1)
+        self.assertIsNone(failures[0].result)
+        self.assertIn("fixture inference failure", failures[0].error)
         self.assertEqual(plugin.errors, 2)
 
     async def test_close_unsubscribes_discards_results_and_joins_native_worker(self) -> None:
