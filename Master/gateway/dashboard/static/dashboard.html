@@ -82,15 +82,16 @@
           <div id="robot-settings-editor" hidden>
             <p id="robot-settings-state" class="muted"></p>
             <form id="robot-network-form" class="password-form">
-              <label>Saved network slot<select name="index" id="robot-network-index">
+              <label>Saved connection slot<select name="index" id="robot-network-index">
                 <option value="0">1 — first choice</option><option value="1">2</option><option value="2">3</option><option value="3">4</option>
               </select></label>
               <label>Network name (SSID)<input name="ssid" autocomplete="off" required></label>
-              <label>Body Control address for this network<input name="endpoint" placeholder="ws://10.42.77.1:8790/robot" required></label>
+              <label>Body Control address<input name="endpoint" placeholder="ws://computer:8790/robot or wss://tunnel-host/robot" required></label>
+              <p id="robot-gateway-help" class="muted"></p>
               <label class="settings-check"><input name="change_wifi_password" type="checkbox"> Set Wi-Fi password</label>
               <label>Wi-Fi password<input name="wifi_password" type="password" autocomplete="new-password"></label>
-              <p class="muted">Unchecked keeps the saved password. For a new network, check the box and enter its password, or leave it blank for an open network.</p>
-              <div class="settings-actions"><button type="submit">Save network</button><button id="robot-network-remove" type="button">Remove this network</button></div>
+              <p class="muted">Unchecked keeps a saved network's password. For a new network, check the box and enter its password, or leave it blank for an open network.</p>
+              <div class="settings-actions"><button type="submit">Save connection</button><button id="robot-network-remove" type="button">Remove this connection</button></div>
             </form>
             <form id="robot-security-form" class="password-form">
               <label class="settings-check"><input name="change_setup_password" type="checkbox"> Change the robot setup hotspot password</label>

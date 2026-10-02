@@ -1341,6 +1341,9 @@
     }
     text("robot-settings-availability", !entry || !entry.connected ? "Connect a robot to read its settings." :
       !supported ? "This robot needs the firmware update for settings management." : `Settings for ${selectedRobotId}`);
+    text("robot-gateway-help", (entry?.features || []).includes("gateway_switching_v1") ?
+      "Save another computer with the same Wi-Fi name, or a separate hotspot. Use ws:// for your private LAN and wss:// for a configured tunnel. The robot keeps its connected computer until that connection ends, then tries other saved addresses and local discovery. Stop Body Control on the current computer to switch." :
+      "This firmware supports one computer per Wi-Fi network. Update P4 firmware for automatic computer switching and local discovery.");
     byId("robot-settings-read").disabled = !supported || robotSettingsBusy;
     byId("robot-settings-editor").hidden = !robotSettings;
     byId("robot-settings-editor").querySelectorAll("button, input, select").forEach(el => { el.disabled = robotSettingsBusy || !supported; });
@@ -1373,7 +1376,7 @@
       robotSettings = result.settings;
       byId("robot-security-form").reset();
       loadRobotNetworkSlot();
-      text("robot-settings-state", `Connected slot: ${robotSettings.active_index < 0 ? "none" : robotSettings.active_index + 1}. ` +
+      text("robot-settings-state", `Wi-Fi slot: ${robotSettings.active_index < 0 ? "none" : robotSettings.active_index + 1}. Connected to this Body Control server. ` +
         (robotSettings.pending_restart ? "Saved changes are waiting for restart." : "Saved settings are active.") +
         (robotSettings.setup_open ? " The robot setup hotspot is open." : " The robot setup hotspot uses a password."));
       text("robot-settings-result", op === "get" ? "Settings read from the robot." : op === "apply" ?
@@ -1398,7 +1401,7 @@
     });
     byId("robot-network-remove").addEventListener("click", () => {
       const index = Number(byId("robot-network-index").value);
-      if (window.confirm("Remove this saved network? It remains connected until you restart the robot.")) robotSettingsRequest("remove", {index});
+      if (window.confirm("Remove this saved connection? It remains active until you restart the robot.")) robotSettingsRequest("remove", {index});
     });
     byId("robot-security-form").addEventListener("submit", event => {
       event.preventDefault();

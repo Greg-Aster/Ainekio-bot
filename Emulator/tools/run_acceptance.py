@@ -254,6 +254,17 @@ CASES = {
             "ctest:ainekio_settings_tests",
         ),
     ),
+    "A31": AcceptanceCase(
+        "Portable pairing, one selected gateway, TLS and truthful interrupted-action results.",
+        (
+            PY + "test_pairing_transfer.PairingTransferTests.test_credentials_transfer_without_sessions_receipts_or_host_configuration",
+            PY + "test_gateway_switching.GatewaySwitchingTests.test_switch_between_independent_hosts_cancels_old_action_without_replay",
+            PY + "test_gateway_switching.GatewaySwitchingTests.test_configured_tls_relay_uses_same_pairing_and_rejects_untrusted_certificate",
+            PY + "test_gateway_switching.GatewaySwitchingTests.test_wrong_pairing_is_rejected_then_next_configured_host_can_connect",
+            PY + "test_gateway_switching.GatewaySwitchingTests.test_production_sigterm_releases_body_and_exits_without_waiting_for_robot",
+            PY + "test_robot_settings.RobotSettingsTests.test_legacy_firmware_same_wifi_computer_is_rejected_before_write",
+        ),
+    ),
 }
 
 

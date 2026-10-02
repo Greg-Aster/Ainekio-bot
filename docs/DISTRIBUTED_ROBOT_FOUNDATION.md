@@ -1,9 +1,10 @@
 # Distributed Robot Foundation
 
-Updated: 2026-09-28 — universal P4 control, interchangeable hosts and shared coordination
+Updated: 2026-10-02 — connection switching implemented; distributed coordination remains design
 
-Status: design draft for the next system release. Automatic takeover and the
-cross-installation coordination contract are not implemented. Confirmed owner
+Status: design draft for distributed coordination. P4 connection switching and
+portable Body Control pairing are implemented in source and software-tested.
+Cross-installation task continuation and controller grants are not implemented. Confirmed owner
 requirements and proposed mechanisms are distinguished below.
 
 This extends [Body Control Integration](BODY_CONTROL_INTEGRATION.md). The
@@ -33,8 +34,9 @@ withdrawn because it cannot satisfy Q6A-absent operation.
 
 ## 2. What already exists
 
-**Body Control is already a common host-side command path. Automatic host/source
-takeover is not implemented.**
+**Body Control is a common host-side command path. The 2026-10-02 increment
+selects available paired gateways through the existing P4 link owner. General
+source priority, control grants and durable task handoff remain design work.**
 
 | Inspected owner | Existing behavior | Gap for this design |
 | --- | --- | --- |
@@ -42,16 +44,19 @@ takeover is not implemented.**
 | [Dashboard](../Master/gateway/dashboard/server.py) | Manual intents and stop call the same gateway service; MetaHuman is not required | Still needs its gateway host and body link |
 | [Environment adapter](../Master/gateway/environment_adapter/server.py) | One active bridge socket; a new authenticated bridge replaces the previous one | Socket replacement is not priority-based takeover |
 | Gateway `/environment` route | Loopback-only; relay requests rejected | Keep bridge/gateway co-located per host or explicitly revise this boundary |
-| [P4 controller](../Slave/firmware/esp32p4-wifi6/main/controller.c) | One outbound WebSocket to configured `endpoint_url`; retries only that host | No alternate-host selection or automatic Q6A/remote failover |
+| [P4 controller](../Slave/firmware/esp32p4-wifi6/main/controller.c) | One outbound WebSocket; ordered configured endpoints on associated Wi-Fi, then permitted LAN discovery; healthy connection stays selected | General provider priority/grants and cross-installation task continuation |
 | [Shared admission](../Slave/software/core/src/admission.c) | Connection generation, epoch, sequence, expiry and command validation | Robot-wide controller grant/priority across independent hosts |
 | [Host action receipts](../Master/gateway/environment_adapter/action_receipts.py) | Durable MetaHuman action identity and Coordinator body-lease fencing in host SQLite | Two independent host databases do not establish global control ownership; manual dashboard uses a different admission entry |
 | [P4 portal](../Slave/firmware/esp32p4-wifi6/main/portal.c) | Setup page and `/configure` | No on-P4 manual Body Control API/UI |
 | MetaHuman `robot-status.ts` | Profile-scoped situation/body/task projection, source timestamps and eight history entries; task read from durable execution | Not a replicated multi-host health/control/work service |
 | MetaHuman `queue/queue-system.ts` | Existing Work Coordinator, work/resource lanes and remote dispatcher | Cross-installation delegation/takeover must extend these owners |
 
-**Discovery correction:** the gateway advertises DNS-SD, but the inspected P4
-link task uses its configured URL directly. Gateway discovery documentation and
-another firmware target's behavior do not prove P4 discovery or failover.
+**Discovery evidence:** `gateway_switching_v1` uses the shared S3/P4 DNS-SD owner
+with up to eight current-subnet protocol-v1 LAN candidates. Older P4 firmware
+still retries one configured URL. TLS-only profiles do not discover plain WS.
+Native and real-loopback socket tests prove software behavior; installed P4,
+radio, Cloudflare and physical handoff remain untested. See the
+[implementation record](BODY_CONTROL_INTEGRATION.md#2026-10-02-implementation-portable-body-control-and-host-switching).
 
 ## 3. Universal control architecture
 
@@ -298,16 +303,19 @@ configuration versions. Do not copy live execution databases for takeover.
 
 ## 9. Current setup and remaining decisions
 
-The manual device is intentionally undecided. Before phase 1, settle source
+The manual device is intentionally undecided. The implemented connection return
+rule is sticky: start the desired gateway and stop the active gateway; a returning
+host does not seize a healthy connection. Before the remaining grant work, settle source
 priority when both hosts are healthy, return/manual override/re-arm rules,
 authentication/grant schema, interrupted-action behavior and numeric skill/handoff
 targets. No further endpoint/model-address decision is needed to finish design.
 
-Limited launcher work begun before this discussion adds prerequisite checks,
-repository-venv selection and checkout-specific service installation. The Q6A
-user service is valid, stopped and disabled; credentials/pairing are unconfigured.
-No takeover, distributed roles, ROS adapters, firmware flash or physical motion
-was enabled.
+Launcher work adds prerequisite checks, repository-venv selection,
+checkout-specific service installation and one-time pairing export/import.
+Manual Body Control works without a MetaHuman token. Stop and relay share the
+same `.env` loader, and production shutdown explicitly releases authenticated
+body sessions. No distributed role migration, service deployment, firmware flash
+or physical motion was performed by the switching increment.
 
 Source review: Ainekio `270537fa56c8d77efd72ff694f4294d15381de52`; MetaHuman
 `8f9ee64558a9d67854fbaae62d796151f871b98d`. Resource figures retain the prior
