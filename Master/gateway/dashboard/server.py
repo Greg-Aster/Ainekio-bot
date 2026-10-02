@@ -236,12 +236,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             response = self._dispatch_api(path, payload)
         except GatewayError as exc:
+            self.server.audit_log.record("dashboard_request_failed", path=path,
+                robot_id=payload.get("robot_id"), name=payload.get("name"),
+                error=str(exc), error_type=type(exc).__name__, http_status=409)
             self._send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
             return
         except (ProtocolValidationError, ValueError, KeyError) as exc:
+            self.server.audit_log.record("dashboard_request_failed", path=path,
+                robot_id=payload.get("robot_id"), name=payload.get("name"),
+                error=str(exc), error_type=type(exc).__name__, http_status=400)
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
         except TimeoutError:
+            self.server.audit_log.record("dashboard_request_failed", path=path,
+                robot_id=payload.get("robot_id"), name=payload.get("name"),
+                error="gateway timeout", error_type="TimeoutError", http_status=504)
             self._send_json({"error": "gateway timeout"}, status=HTTPStatus.GATEWAY_TIMEOUT)
             return
         self._send_json(response)

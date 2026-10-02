@@ -2,13 +2,21 @@
 #include "walk_data.h"
 #include "servo_data.h"
 #include <math.h>
+#include <stdatomic.h>
 #include <string.h>
 
 static const double pi=3.14159265358979323846;
 static double smooth(double u) {if(u<=0.)return 0.;if(u>=1.)return 1.;return u*u*u*(10.+u*(-15.+6.*u));}
 static double bump(double u) {return 64.*u*u*u*(1.-u)*(1.-u)*(1.-u);}
-double ainekio_v2_gait_joint_speed_limit(void){return V2_GAIT_MAX_JOINT_SPEED_DEGREES_S;}
-double ainekio_v2_gait_joint_speed_flag_threshold(void){return V2_GAIT_MAX_JOINT_SPEED_DEGREES_S*V2_SERVO_SPEED_EXCESS_FLAG_RATIO;}
+static _Atomic float joint_speed_limit = V2_GAIT_MAX_JOINT_SPEED_DEGREES_S;
+double ainekio_v2_joint_speed_default(void){return V2_GAIT_MAX_JOINT_SPEED_DEGREES_S;}
+bool ainekio_v2_joint_speed_set(float value)
+{
+    if (!isfinite(value) || value <= 0.F) return false;
+    atomic_store(&joint_speed_limit,value); return true;
+}
+double ainekio_v2_gait_joint_speed_limit(void){return atomic_load(&joint_speed_limit);}
+double ainekio_v2_gait_joint_speed_flag_threshold(void){return ainekio_v2_gait_joint_speed_limit();}
 
 bool ainekio_v2_walk_controls_valid(ainekio_v2_walk_controls_t c)
 {
@@ -195,6 +203,15 @@ static double control_transition_start(const ainekio_v2_walk_state_t *s,ainekio_
         for(unsigned i=0;i<4;i++)if(s->feet[i].swinging)phase=fmax(phase,s->feet[i].touchdown_phase);
     return phase;
 }
+static double control_transition_span(const ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_t c)
+{
+    /* Run's committed swing destinations were planned at the previous stride.
+     * Use its existing three-cycle entry profile to open or close the stroke,
+     * so body bounding and new landings evolve together. Rate-only changes
+     * and Finish retain their existing interpolation. */
+    return c.stride_percent>0. && s->from.stride_percent!=c.stride_percent &&
+        (s->run_target>0. || run_at(s,s->phase)>0.) ? 3. : 1.;
+}
 bool ainekio_v2_walk_update(ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_t c)
 {
     if(!s||!s->initialized||s->failed||s->complete||!ainekio_v2_walk_controls_valid(c))return false;
@@ -206,7 +223,7 @@ bool ainekio_v2_walk_update(ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_
         return true;
     }
     if(s->phase<s->transition_phase+s->transition_span){s->pending=c;s->pending_update=true;}
-    else {s->from=controls_at(s,s->phase);s->target=c;s->transition_phase=control_transition_start(s,c);s->transition_span=1.;}
+    else {s->from=controls_at(s,s->phase);s->target=c;s->transition_phase=control_transition_start(s,c);s->transition_span=control_transition_span(s,c);}
     if(c.stride_percent==0.)s->stopping=true;
     return true;
 }
@@ -236,7 +253,7 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
     }
     double previous=s->phase;
     if(s->pending_update&&s->phase>=s->transition_phase+s->transition_span){
-        s->from=s->target;s->target=s->pending;s->transition_phase=control_transition_start(s,s->pending);s->transition_span=1.;s->pending_update=false;
+        s->from=s->target;s->target=s->pending;s->transition_phase=control_transition_start(s,s->pending);s->transition_span=control_transition_span(s,s->pending);s->pending_update=false;
     }
     if(!s->stopping&&s->phase>=s->end_phase){
         ainekio_v2_walk_controls_t c=controls_at(s,s->phase);c.stride_percent=0.;
@@ -327,11 +344,10 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *s,uint64_t now)
     uint64_t elapsed=now-s->last_us;
     if(elapsed>40000){s->failed=true;return false;} /* fault, never replay missed output */
     if(!elapsed)return true;
-    const double seconds=elapsed/1e6;
-    const double allowance=100.*V2_GAIT_MAX_JOINT_SPEED_DEGREES_S*seconds;
-    /* Preserve requested timing until the excess threshold is crossed. Once
-     * flagged, this gait run keeps the rated budget, including updates/Finish.
-     * Preview one coordinated gait step. If any motor exceeds its budget,
+    const double seconds=elapsed/1e6, previous_phase=s->phase;
+    const double allowance=100.*ainekio_v2_gait_joint_speed_limit()*seconds;
+    /* Preview one coordinated gait step against the owner-selected limit.
+     * If any motor exceeds its budget,
      * retry from the unchanged state with less gait time. Feet, anchors,
      * body, preparation and blends all use that same clock; no joint clamps.
      * Recover cadence gradually (0.5 clock fraction/s), reduce it immediately.
@@ -340,7 +356,7 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *s,uint64_t now)
     double scale=fmin(1.,s->clock_scale+.5*seconds);
     ainekio_v2_walk_state_t candidate;
     bool accepted=false;
-    bool flagged=s->speed_flagged;
+    bool flagged=false;
     for(unsigned attempt=0;attempt<4;attempt++) {
         candidate=*s;
         double duration=seconds*scale;
@@ -350,14 +366,18 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *s,uint64_t now)
         if(!ainekio_v2_walk_solve(&candidate.pose)){s->failed=true;return false;}
         double change=0.;
         for(unsigned j=0;j<12;j++)change=fmax(change,fabs((double)candidate.pose.frame.position[j]-s->pose.frame.position[j]));
-        if(change>=allowance*V2_SERVO_SPEED_EXCESS_FLAG_RATIO)flagged=true;
-        if(!flagged||change<=allowance){accepted=true;break;}
+        if(change<=allowance){accepted=true;break;}
+        flagged=true;
         scale*=.9*allowance/change;
     }
     if(!accepted){s->failed=true;return false;}
     ainekio_v2_frame_t before=s->pose.frame;
-    *s=candidate;s->clock_scale=scale;s->speed_flagged=flagged;
+    *s=candidate;s->clock_scale=scale;s->speed_flagged=flagged || scale<.999999;
     s->last_us=now;
+    s->cycles_s=(s->phase-previous_phase)/seconds;
+    const double period=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_PERIOD:mixed(s,s->phase,V2_PERIOD,V2_RUN_PERIOD);
+    const ainekio_v2_walk_controls_t current=controls_at(s,s->phase);
+    s->requested_cycles_s=current.motion_rate/period;s->stride_percent=current.stride_percent;
     for(unsigned j=0;j<12;j++){
         double v=s->complete?0.:(s->pose.frame.position[j]-before.position[j])/(elapsed/1e6);
         s->pose.frame.velocity[j]=(float)v;s->pose.frame.acceleration[j]=s->complete?0.:(float)((v-before.velocity[j])/(elapsed/1e6));
@@ -374,14 +394,20 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
         double speed=intent->data.walk.speed_percent;
         if(!isfinite(speed)||speed<0.||speed>200.||((intent->data.walk.gait==AINEKIO_GAIT_CRAWL||intent->data.walk.gait==AINEKIO_GAIT_CRAB)&&speed>100.))return false;
         if(intent->data.walk.gait==AINEKIO_GAIT_RUN||speed>100.){
-            double stride=fmin(100.,2.*speed);
-            if(intent->data.walk.gait==AINEKIO_GAIT_WALK&&intent->data.walk.direction==AINEKIO_WALK_FORWARD)
-                stride=100.*(V2_RUN_SWEEP+(V2_RUN_FORWARD_SWEEP-V2_RUN_SWEEP)*(speed-100.)/100.)/V2_RUN_FORWARD_SWEEP;
+            /* Open the Run stroke, lift and body bounding together from the
+             * initial Run amplitude at 100% to its full envelope at 200%.
+             * Explicit Run uses the same amplitude profile at lower speeds.
+             * The owner's joint limit retimes this path; it never shrinks it. */
+            double stride=speed>100. ?
+                100.*(V2_RUN_SWEEP+(V2_RUN_FORWARD_SWEEP-V2_RUN_SWEEP)*(speed-100.)/100.)/V2_RUN_FORWARD_SWEEP :
+                fmin(100.,2.*speed)*V2_RUN_SWEEP/V2_RUN_FORWARD_SWEEP;
             controls=(ainekio_v2_walk_controls_t){stride,intent->data.walk.gait==AINEKIO_GAIT_RUN?fmax(2./3.,speed/75.):2.+(speed-100.)/150.};run_target=1.;
         } else if(!ainekio_v2_walk_controls(speed,&controls))return false;
     }
     else if(intent->data.walk.controls==2){controls=(ainekio_v2_walk_controls_t){intent->data.walk.stride_percent,intent->data.walk.motion_rate};if(controls.stride_percent<1||!ainekio_v2_walk_controls_valid(controls))return false;}
     else if(intent->data.walk.controls!=0)return false;
+    const bool automatic_run=intent->data.walk.controls==1 && run_target==1. && controls.stride_percent>0.;
+    const double requested_stride=controls.stride_percent;
     if(intent->data.walk.update_sequence){
         if(!s->initialized||s->failed||s->complete||intent->data.walk.controls==0||
            intent->data.walk.direction!=s->direction||intent->data.walk.gait!=s->gait_mode||
@@ -393,6 +419,7 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
             s->forward_target=intent->data.walk.forward;s->turn_target=intent->data.walk.turn;s->steering_phase=s->phase;s->steering=true;
         }
         if(controls.stride_percent>0.)set_run_target(s,run_target);
+        s->automatic_run=automatic_run;s->requested_stride_percent=requested_stride;
         s->latest_sequence=command->sequence;return true;
     }
     if(s->initialized&&!s->complete)return false;
@@ -402,5 +429,6 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
         s->turn_from=s->turn_target=intent->data.walk.turn;
     }
     if(controls.stride_percent>0.)set_run_target(s,run_target);
+    s->automatic_run=automatic_run;s->requested_stride_percent=requested_stride;
     s->command_sequence=s->latest_sequence=command->sequence;return true;
 }

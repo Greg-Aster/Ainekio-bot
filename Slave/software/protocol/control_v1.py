@@ -27,6 +27,7 @@ MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo tra
 ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
 STORAGE_CONTROL_FEATURE = "storage_control_v1"
 MOTION_SPEED_FEATURE = "motion_speed_v1"
+JOINT_SPEED_LIMIT_FEATURE = "joint_speed_limit_v1"
 BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
 BODY_COMMANDS_FEATURE = "body_commands_v1"
 WALK_CONTROLS_FEATURE = "walk_controls_v1"
@@ -482,16 +483,22 @@ def _motion_rate(message: Mapping[str, object], key: str = "rate") -> None:
 def _validate_motion_speed(message: Mapping[str, object]) -> None:
     _seq(message)
     operation = _string(message, "op", allowed=frozenset({"get", "save"}))
+    fields = {"rate", "joint_speed_limit_deg_s"}.intersection(message)
     if operation == "save":
-        _motion_rate(message)
-    elif "rate" in message:
-        _fail("unexpected:rate")
+        if len(fields) != 1:
+            _fail("save requires one speed setting")
+        _motion_rate(message, next(iter(fields)))
+    elif fields:
+        _fail("unexpected speed setting")
 
 
 def _validate_motion_speed_status(message: Mapping[str, object]) -> None:
     _seq(message)
     _motion_rate(message)
     _boolean(message, "saved")
+    if "joint_speed_limit_deg_s" in message:
+        _motion_rate(message, "joint_speed_limit_deg_s")
+        _boolean(message, "joint_speed_limit_saved")
 
 
 def _settings_text(message: Mapping[str, object], name: str, maximum: int, minimum: int = 0) -> str:

@@ -46,6 +46,37 @@ unready movement is rejected before gateway dispatch, and firmware admission
 independently applies model support after session, expiry and sequence checks.
 No raw twelve-joint motion/calibration payload is introduced by this feature.
 
+## Saved joint speed limit
+
+V2 `joint_speed_limit_v1` extends the existing motion-speed command with
+`joint_speed_limit_deg_s`: one positive finite maximum commanded joint speed
+for gaits, finite named motions and entry transitions. There is no fixed upper
+ceiling. The default is the previous nominal 545.4545 degrees/second. Automatic
+Run increases stride, leg lift, body bounding and requested cadence together as
+Speed rises through the Run range. It preserves this requested motion envelope;
+the configured limit retimes the whole motion without shortening stride.
+Committed landing targets and planted anchors are retained. Run stride changes
+use its existing three-cycle entry interpolation to coordinate body bounding
+with subsequent landings; this does not change settled cadence. Independent
+stride/rate mode, named motions and entry transitions also retime together. The old
+125% trigger and separate 1000 microseconds/second entry ceiling are removed.
+Manual calibration pulses and startup Home remain direct pulse operations.
+
+```json
+{"t":"motion_speed","op":"save","joint_speed_limit_deg_s":900,"seq":74}
+{"t":"motion_speed_status","seq":74,"rate":2,"saved":true,"joint_speed_limit_deg_s":900,"joint_speed_limit_saved":true}
+```
+
+Save accepts exactly one setting, either `rate` or `joint_speed_limit_deg_s`.
+Get returns both. The limit is saved in its own four-byte NVS value, preserving
+calibration and the named-motion multiplier. Saving follows the existing output
+disarm behavior; start another motion to resume. Status includes the configured
+limit and `speed_limited`, indicating slowed coordinated motion timing.
+`gait_cadence` reports automatic Run mode, commanded and requested cycles/second,
+and commanded and requested stride percentages. These are model command values,
+not measured shaft tracking. Gate limit writes on the advertised feature; older firmware
+continues to support rate-only commands and readback.
+
 ## Saved named-motion speed
 
 V2 `motion_speed_v1` provides one shared speed multiplier for Stand, Sit and
@@ -70,7 +101,8 @@ Body Control uses confirmed robot readback and explicit Save on robot.
 
 The multiplier directly scales the existing entry and clip clocks; it does not
 change the joint path or motion assets. Startup
-Home, Neutral/Stop and ongoing gait controls retain their existing timing. V1 and
+Home and Stop retain their existing timing. Ongoing gaits use their own requested
+cadence with the shared joint ceiling; Neutral entry also uses that ceiling. V1 and
 older V2 firmware reject the extension at the gateway; the V1 C decoder rejects it.
 
 ## Variable forward walking

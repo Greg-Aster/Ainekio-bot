@@ -9,6 +9,13 @@
 int main(void)
 {
     assert(ainekio_v2_clip_count == 23);
+    assert(!ainekio_v2_joint_speed_set(0.F));
+    assert(!ainekio_v2_joint_speed_set(NAN));
+    assert(ainekio_v2_joint_speed_set(100.F));
+    assert(ainekio_v2_speed_limited_rate(200.,2.F)==.5F);
+    assert(ainekio_v2_joint_speed_set(2000.F));
+    assert(ainekio_v2_speed_limited_rate(200.,2.F)==2.F);
+    assert(ainekio_v2_joint_speed_set(ainekio_v2_joint_speed_default()));
     ainekio_v2_frame_t frame, held, standing, entry;
     assert(ainekio_v2_clip_sample(0, 0, &standing));
     size_t selected;
@@ -22,8 +29,8 @@ int main(void)
         assert(ainekio_v2_clip_find(clip->command, &selected) && selected == i);
         assert(!clip->hardware_qualified);
         assert(clip->peak_joint_speed_degrees_s > 0.F);
-        const float below = 1.24 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
-        const float above = 1.26 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
+        const float below = 0.99 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
+        const float above = 1.01 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
         assert(ainekio_v2_clip_playback_rate(i, below) == below);
         const float limited = ainekio_v2_clip_playback_rate(i, above);
         assert(fabs(limited * clip->peak_joint_speed_degrees_s - ainekio_v2_gait_joint_speed_limit()) < .001);

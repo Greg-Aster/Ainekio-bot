@@ -121,6 +121,31 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         await connection._handle_control(status)
         self.assertEqual(await task,status)
 
+    async def test_joint_speed_limit_negotiation_and_saved_readback(self) -> None:
+        import asyncio
+        from protocol.control_v1 import MOTION_SPEED_FEATURE, JOINT_SPEED_LIMIT_FEATURE
+        connection,socket=self.connection("v2-12servo")
+        connection.features+=(MOTION_SPEED_FEATURE,)
+        with self.assertRaises(GatewayError):
+            await connection.service.body_motion_speed("save",{"joint_speed_limit_deg_s":2000},robot_id="test-body")
+        self.assertEqual(socket.messages,[])
+        connection.features+=(JOINT_SPEED_LIMIT_FEATURE,)
+        for value in (0,-1,True,"2000",float("nan"),float("inf")):
+            with self.assertRaises(ProtocolValidationError):
+                await connection.send_command({"t":"motion_speed","op":"save","joint_speed_limit_deg_s":value},received_at=100.)
+        task=asyncio.create_task(connection.service.body_motion_speed("save",{"joint_speed_limit_deg_s":2000},robot_id="test-body"))
+        await asyncio.sleep(0)
+        seq=socket.messages[-1]["seq"]
+        self.assertEqual(socket.messages[-1]["joint_speed_limit_deg_s"],2000)
+        status={"t":"motion_speed_status","seq":seq,"rate":2,"saved":True,
+                "joint_speed_limit_deg_s":2000,"joint_speed_limit_saved":True}
+        await connection._handle_control({"t":"ack","seq":seq})
+        await connection._handle_control(status)
+        self.assertEqual(await task,status)
+        for message in ({"t":"motion_speed","op":"save","rate":2,"joint_speed_limit_deg_s":2000,"seq":1},
+                        {"t":"motion_speed","op":"get","joint_speed_limit_deg_s":2000,"seq":1}):
+            with self.assertRaises(ProtocolValidationError): validate_control_message(message)
+
     async def test_newly_advertised_clip_uses_existing_semantic_motion_lifecycle(self) -> None:
         connection, socket = self.connection("v2-12servo")
         connection.capabilities["commands"].append("new_pose")

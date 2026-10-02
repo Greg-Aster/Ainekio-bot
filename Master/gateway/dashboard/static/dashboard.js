@@ -23,6 +23,8 @@
   let motionSpeedData = null;
   let motionSpeedBusy = false;
   let motionSpeedEdited = false;
+  let jointSpeedSupported = false;
+  let jointSpeedEdited = false;
   let activeWalkProfile = null;
   let calibrationEntry = null;
   let calibrationData = null;
@@ -439,15 +441,20 @@
   }
 
   function renderMotionSpeed() {
+    byId("joint-speed-limit").disabled = !jointSpeedSupported || !motionSpeedData || motionSpeedBusy;
+    byId("joint-speed-save").disabled = !jointSpeedSupported || !motionSpeedData || motionSpeedBusy ||
+      (!jointSpeedEdited && motionSpeedData.joint_speed_limit_saved);
     byId("motion-speed").disabled = !motionSpeedSupported || !motionSpeedData || motionSpeedBusy;
     byId("motion-speed-read").disabled = !motionSpeedSupported || motionSpeedBusy;
     byId("motion-speed-save").disabled = !motionSpeedSupported || !motionSpeedData || motionSpeedBusy ||
       (!motionSpeedEdited && motionSpeedData.saved);
   }
 
-  async function operateMotionSpeed(op) {
+  async function operateMotionSpeed(op, setting = "rate") {
     if (!motionSpeedSupported || motionSpeedBusy) return;
-    if (op === "save" && !byId("motion-speed").reportValidity()) return;
+    if (setting === "joint_speed_limit_deg_s" && !jointSpeedSupported) return;
+    const input = byId(setting === "rate" ? "motion-speed" : "joint-speed-limit");
+    if (op === "save" && !input.reportValidity()) return;
     const generation = motionSpeedGeneration;
     const robotId = selectedRobotId;
     const current = () => generation === motionSpeedGeneration && robotId === selectedRobotId;
@@ -456,19 +463,34 @@
     text("motion-speed-status", op === "save" ? "Saving motion speed on robot…" : "Reading motion speed from robot…");
     try {
       const response = await command("/api/motion-speed", {op, robot_id: robotId,
-        ...(op === "save" ? {rate: Number(byId("motion-speed").value)} : {})},
+        ...(op === "save" ? {[setting]: Number(input.value)} : {})},
         op === "save" ? "Motion speed saved on robot" : "Motion speed read from robot", current);
       if (!current()) return;
       const state = response.motion_speed;
       if (!state || state.seq !== response.seq || !Number.isFinite(state.rate) ||
           state.rate <= 0 || typeof state.saved !== "boolean")
         throw new Error("Invalid motion speed readback; read from robot again.");
+      if (jointSpeedSupported && (!Number.isFinite(state.joint_speed_limit_deg_s) ||
+          state.joint_speed_limit_deg_s <= 0 || typeof state.joint_speed_limit_saved !== "boolean"))
+        throw new Error("Invalid joint speed limit readback; read from robot again.");
+      const keepRate = op === "save" && setting !== "rate" && motionSpeedEdited;
+      const keepLimit = op === "save" && setting !== "joint_speed_limit_deg_s" && jointSpeedEdited;
       motionSpeedData = state;
-      motionSpeedEdited = false;
-      byId("motion-speed").value = String(state.rate);
-      text("motion-speed-status", `${state.saved ? "Saved on robot" : "Robot default"}: ${state.rate}×. Adjust, try a named motion, then save to keep it after restart.`);
+      motionSpeedEdited = keepRate;
+      jointSpeedEdited = keepLimit;
+      if (!keepRate) byId("motion-speed").value = String(state.rate);
+      if (jointSpeedSupported) {
+        if (!keepLimit) byId("joint-speed-limit").value = String(state.joint_speed_limit_deg_s);
+        text("joint-speed-status", keepLimit ? "Unsaved limit — Save limit on robot to apply it." :
+          `${state.joint_speed_limit_saved ? "Saved on robot" : "Robot default"}: ${state.joint_speed_limit_deg_s} °/s.`);
+      }
+      text("motion-speed-status", keepRate ? "Unsaved speed — try a named motion, then Save on robot." :
+        `${state.saved ? "Saved on robot" : "Robot default"}: ${state.rate}×. Adjust, try a named motion, then save to keep it after restart.`);
     } catch (error) {
-      if (current()) text("motion-speed-status", error.message);
+      if (current()) {
+        text("motion-speed-status", error.message);
+        if (jointSpeedSupported) text("joint-speed-status", error.message);
+      }
     } finally {
       if (current()) { motionSpeedBusy = false; renderMotionSpeed(); }
     }
@@ -478,14 +500,24 @@
     const p4 = entry?.model === "v2-12servo";
     const supported = Boolean(p4 && entry.connection_state !== "stale" && entry.connected !== false &&
       (entry.features || []).includes("motion_speed_v1"));
-    const session = entry ? `${selectedRobotId}:${entry.epoch}:${supported}` : null;
+    jointSpeedSupported = supported && (entry.features || []).includes("joint_speed_limit_v1");
+    const session = entry ? `${selectedRobotId}:${entry.epoch}:${supported}:${jointSpeedSupported}` : null;
+    if (p4 && !jointSpeedSupported) text("joint-speed-status", "A firmware update is needed to enable the joint speed limit.");
+    const cadence = entry?.status?.gait_cadence;
+    text("run-cadence-status", cadence?.automatic_run ?
+      `Commanded Run cadence: ${Number(cadence.cycles_s).toFixed(2)} / ${Number(cadence.requested_cycles_s).toFixed(2)} requested cycles/s · stride ${Number(cadence.stride_percent).toFixed(1)}% (requested ${Number(cadence.requested_stride_percent).toFixed(1)}%).` : "");
+    const limited = entry?.status?.speed_limited;
+    text("joint-speed-active", typeof limited === "boolean" ?
+      (limited ? "Speed limit active — motion timing is slowed to meet the saved limit; the requested stride is preserved." : "Speed limit is not reducing the current motion.") : "");
     byId("motion-speed-controls").hidden = !p4;
     motionSpeedSupported = supported;
     if (session !== motionSpeedSession) {
       motionSpeedSession = session;
       motionSpeedGeneration++;
       motionSpeedData = null;
-      motionSpeedBusy = motionSpeedEdited = false;
+      motionSpeedBusy = motionSpeedEdited = jointSpeedEdited = false;
+      byId("joint-speed-limit").value = "";
+      byId("joint-speed-limit").setCustomValidity("");
       byId("motion-speed").value = "2";
       if (supported) operateMotionSpeed("get");
       else text("motion-speed-status", p4 ? "A firmware update is needed to enable Motion speed." : "Connect a robot to read its motion speed.");
@@ -505,6 +537,16 @@
   }
 
   function setupMotionControls() {
+    byId("joint-speed-save").addEventListener("click", () => operateMotionSpeed("save", "joint_speed_limit_deg_s"));
+    byId("joint-speed-limit").addEventListener("input", () => {
+      const input = byId("joint-speed-limit");
+      const value = Number(input.value);
+      input.setCustomValidity(Number.isFinite(value) && value > 0 ? "" : "Enter a positive speed in degrees per second.");
+      jointSpeedEdited = value !== motionSpeedData?.joint_speed_limit_deg_s;
+      text("joint-speed-status", jointSpeedEdited ? "Unsaved limit — Save limit on robot to apply it." :
+        `${motionSpeedData?.joint_speed_limit_saved ? "Saved on robot" : "Robot default"}: ${motionSpeedData?.joint_speed_limit_deg_s} °/s.`);
+      renderMotionSpeed();
+    });
     byId("motion-speed-read").addEventListener("click", () => operateMotionSpeed("get"));
     byId("motion-speed-save").addEventListener("click", () => operateMotionSpeed("save"));
     byId("motion-speed").addEventListener("input", () => {

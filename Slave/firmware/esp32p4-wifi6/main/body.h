@@ -29,7 +29,8 @@ typedef struct {
 typedef struct {
     uint64_t connection;
     uint32_t sequence;
-    bool moving;
+    bool moving, speed_limited, automatic_run;
+    float gait_cycles_s, gait_requested_cycles_s, stride_percent, requested_stride_percent;
 } ainekio_p4_body_status_t;
 
 bool ainekio_p4_body_supports(const ainekio_command_t *command);
@@ -44,5 +45,6 @@ ainekio_p4_body_status_t ainekio_p4_body_status(void);
 typedef struct {
     uint32_t frames, calculation_us, frame_us, request_us, over_2ms, over_5ms;
     uint32_t stack_free_bytes;
+    uint32_t queue_depth;
 } ainekio_p4_body_timing_t;
 ainekio_p4_body_timing_t ainekio_p4_body_timing(void);

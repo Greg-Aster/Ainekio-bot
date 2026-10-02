@@ -29,7 +29,10 @@ esp_err_t ainekio_p4_calibration_save(void);
 bool ainekio_p4_home_pulses(uint16_t pulses[AINEKIO_BODY_JOINT_COUNT]);
 bool ainekio_p4_frame_pulses(const ainekio_v2_frame_t *frame,
                            uint16_t pulses[AINEKIO_BODY_JOINT_COUNT]);
-/* Named-motion speed, in thousandths. Storage writes require disabled output. */
+/* Joint speed in degrees/second; storage writes require disabled output. */
+bool ainekio_p4_joint_speed_saved(void);
+esp_err_t ainekio_p4_joint_speed_save(float limit);
+/* Named-motion playback multiplier. Storage writes require disabled output. */
 float ainekio_p4_motion_rate(void);
 bool ainekio_p4_motion_rate_saved(void);
 esp_err_t ainekio_p4_motion_rate_save(float rate);

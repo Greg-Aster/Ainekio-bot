@@ -62,7 +62,7 @@ else()
     add_executable(v2_walk_command tests/walk_command_cli.c)
     target_link_libraries(v2_walk_command PRIVATE ainekio_v2_motion)
     add_test(NAME v2_run_source COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_run_source.py"
-        $<TARGET_FILE:v2_walk_command>)
+        $<TARGET_FILE:v2_walk_command> $<TARGET_FILE:v2_walk_solve>)
     add_executable(test_v2_clips tests/test_clips.c)
     target_link_libraries(test_v2_clips PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_clips PRIVATE -Wall -Wextra -Werror -Wpedantic)

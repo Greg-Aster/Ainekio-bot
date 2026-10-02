@@ -667,8 +667,11 @@ credentials or independently issue movement. Future automatic failover needs an
 explicit authority/evidence design and is outside this foundation.
 
 Body deadlines use an observed P4 clock, remaining upstream validity, a 1,000 ms
-maximum dispatch window and a 5 ms margin. Old clock samples are refused. The
-body checks expiry again and limits local queue age to 1,000 ms; network transit
+maximum dispatch window and a 5 ms margin. While a sample is cached, the gateway
+adds the measured monotonic time since receiving it and subtracts command age
+at the same instant. It does not estimate or compensate for network delay.
+Old clock samples are refused. The body checks expiry again and limits local
+queue age to 1,000 ms; network transit
 does not start a fresh lifetime. Cancellation and results retain action ID at
 the adapter and epoch/sequence at the body. Local connections do not bypass these
 checks. Plain LAN WebSocket retains the existing trusted-LAN server assumption;

@@ -1,5 +1,6 @@
 /* Offline command path. Input: initial JSON, then optional "milliseconds JSON"
- * updates (at most 32). Output: geometry samples. Never emits robot receipts. */
+ * updates (at most 32). Optional third argument: joint limit in degrees/s.
+ * Output: geometry samples. Never emits robot receipts. */
 #include "ainekio/v2_walk.h"
 #include "ainekio/control_codec.h"
 #include <stdio.h>
@@ -10,6 +11,7 @@ int main(int argc,char **argv)
     unsigned milliseconds=argc>1?(unsigned)strtoul(argv[1],NULL,10):15000;
     unsigned hz=argc>2?(unsigned)strtoul(argv[2],NULL,10):100;
     if(milliseconds>120000 || (hz!=25 && hz!=50 && hz!=100 && hz!=120))return 1;
+    if(argc>3 && !ainekio_v2_joint_speed_set(strtof(argv[3],NULL)))return 1;
     char json[1024];ainekio_control_message_t message;ainekio_v2_walk_state_t state={0};
     if(!fgets(json,sizeof(json),stdin)||ainekio_control_decode_with_walk_controls(json,strlen(json),&message)!=AINEKIO_DECODE_OK||!ainekio_v2_walk_accept(&state,&message.command,0))return 2;
     struct {unsigned ms; ainekio_command_t command;} events[32];unsigned count=0,next=0;
@@ -28,7 +30,7 @@ int main(int argc,char **argv)
         for(unsigned i=0;i<4;i++)for(unsigned j=0;j<3;j++)printf("%s%.12g",i||j?",":"",state.pose.joints[i][j]);
         printf("],\"feet\":[");for(unsigned i=0;i<4;i++)printf("%s[%.12g,%.12g,%.12g]",i?",":"",state.pose.feet[i][0],state.pose.feet[i][1],state.pose.sole_height[i]);
         printf("],\"grounded\":[");for(unsigned i=0;i<4;i++)printf("%s%s",i?",":"",state.pose.grounded[i]?"true":"false");
-        printf("],\"clock_scale\":%.12g,\"complete\":%s}\n",state.clock_scale,state.complete?"true":"false");if(state.complete)break;
+        printf("],\"stride_percent\":%.12g,\"requested_stride_percent\":%.12g,\"clock_scale\":%.12g,\"complete\":%s}\n",state.target.stride_percent,state.requested_stride_percent,state.clock_scale,state.complete?"true":"false");if(state.complete)break;
     }
     return 0;
 }

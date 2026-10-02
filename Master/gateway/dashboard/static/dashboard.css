@@ -204,8 +204,21 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .emote-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.4rem; }
 .emote-grid button { min-width: 0; padding-inline: 0.35rem; font-size: 0.75rem; }
 .input-with-actions { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; gap: 0.5rem; }
+#motion-speed-controls, #joint-speed-controls {
+  display: grid;
+  align-items: stretch;
+  justify-content: normal;
+  min-width: 0;
+  gap: 0.5rem;
+}
+#joint-speed-controls { margin-bottom: 0.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
+#motion-speed-controls p { margin: 0; font-size: 0.8rem; line-height: 1.5; }
+#motion-speed-controls .input-with-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#motion-speed-controls .input-with-actions input,
+#joint-speed-controls .input-with-actions button { grid-column: 1 / -1; }
 .settings-form { margin-top: 0.85rem; padding-top: 0.85rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 0.7rem; border-top: 1px solid var(--line); }
 .settings-form label { display: grid; gap: 0.35rem; }
+#wake-capability { grid-column: 1 / -1; margin: 0; font-size: 0.8rem; line-height: 1.5; }
 .speaker-test-form { grid-template-columns: minmax(180px, 1fr) auto; }
 .speaker-test-volume-heading { display: flex; justify-content: space-between; gap: 1rem; }
 .speaker-test-volume-heading output { color: var(--ink); }

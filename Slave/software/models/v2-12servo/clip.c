@@ -1,15 +1,16 @@
 #include "ainekio/v2_motion.h"
 #include "ainekio/trajectory.h"
 #include "clip_data.h"
-#include "servo_data.h"
+#include "ainekio/v2_walk.h"
 #include <math.h>
 #include <string.h>
 
 float ainekio_v2_speed_limited_rate(double peak, float requested)
 {
     if (!isfinite(peak) || peak < 0. || !isfinite(requested) || requested <= 0.F) return 0.F;
-    if (peak * requested >= V2_GAIT_MAX_JOINT_SPEED_DEGREES_S * V2_SERVO_SPEED_EXCESS_FLAG_RATIO)
-        return (float)(V2_GAIT_MAX_JOINT_SPEED_DEGREES_S / peak);
+    const double limit = ainekio_v2_gait_joint_speed_limit();
+    if (peak * requested > limit)
+        return (float)(limit / peak);
     return requested;
 }
 

@@ -94,15 +94,20 @@ static ainekio_pca_result_t transfer(ainekio_pca9685_t *d, uint64_t generation,
         : d->port.write(d->port.context, reg, bytes, count, 5U);
     lock(d);
     d->state.io_pending = false;
+    const uint64_t elapsed = d->port.now_us(d->port.context) - started;
     ainekio_pca_result_t result = AINEKIO_PCA_OK;
     if (generation != d->state.generation) result = AINEKIO_PCA_STALE;
-    else if (d->port.now_us(d->port.context) - started > AINEKIO_PCA_IO_BUDGET_US) {
+    else if (elapsed > AINEKIO_PCA_IO_BUDGET_US) {
         disable_locked(d, AINEKIO_PCA_FAULT_DEADLINE);
         result = AINEKIO_PCA_DEADLINE;
     } else if (!ok) {
         disable_locked(d, AINEKIO_PCA_FAULT_IO);
         result = AINEKIO_PCA_IO;
     }
+    d->state.last_io_us = elapsed;
+    if (elapsed > d->state.max_io_us) d->state.max_io_us = elapsed;
+    ++d->state.io_transfers;
+    if (!ok) ++d->state.io_failures;
     unlock(d);
     return result;
 }

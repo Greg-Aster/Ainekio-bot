@@ -14,6 +14,8 @@
 
 esp_err_t ainekio_p4_board_init(void);
 ainekio_pca9685_t *ainekio_p4_output(void);
+/* Last failed servo-bus ESP-IDF result; retained until the next failure/reboot. */
+esp_err_t ainekio_p4_i2c_error(void);
 void ainekio_p4_board_identify(void);
 
 #endif

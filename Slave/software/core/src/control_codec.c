@@ -1536,14 +1536,18 @@ static ainekio_decode_result_t decode_control(
         char op[8];
         if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3U, 4U);
         if (result != AINEKIO_DECODE_OK) return result;
-        if (!strcmp(op, "get")) return object_get(&parser, root, "rate") < 0 ? AINEKIO_DECODE_OK : AINEKIO_DECODE_VALUE;
+        if (!strcmp(op, "get")) return object_get(&parser, root, "rate") < 0 && object_get(&parser, root, "joint_speed_limit_deg_s") < 0 ? AINEKIO_DECODE_OK : AINEKIO_DECODE_VALUE;
         if (strcmp(op, "save")) return AINEKIO_DECODE_VALUE;
+        const bool has_limit = object_get(&parser, root, "joint_speed_limit_deg_s") >= 0;
+        if (has_limit && object_get(&parser, root, "rate") >= 0) return AINEKIO_DECODE_VALUE;
         float rate;
-        result = required_number(&parser, root, "rate", &rate);
+        result = required_number(&parser, root, has_limit ? "joint_speed_limit_deg_s" : "rate", &rate);
         if (result != AINEKIO_DECODE_OK) return result;
         if (rate <= 0.F) return AINEKIO_DECODE_RANGE;
         message->command.data.motion_speed.save = true;
-        message->command.data.motion_speed.rate = rate;
+        message->command.data.motion_speed.has_joint_speed_limit = has_limit;
+        if (has_limit) message->command.data.motion_speed.joint_speed_limit_deg_s = rate;
+        else message->command.data.motion_speed.rate = rate;
         return AINEKIO_DECODE_OK;
     }
     case AINEKIO_MESSAGE_STORAGE: {

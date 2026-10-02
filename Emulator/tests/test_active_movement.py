@@ -246,7 +246,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         await self.acknowledge_update()
         command = json.loads(self.body.sent[-1])
         self.assertEqual(command["epoch"], 7)
-        self.assertEqual(command["deadline_ms"], 20370)
+        self.assertEqual(command["deadline_ms"], 20495)
 
     async def test_update_cannot_extend_gateway_validity_limit(self) -> None:
         await self.start()

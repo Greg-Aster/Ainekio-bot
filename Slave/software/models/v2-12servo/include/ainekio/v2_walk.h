@@ -23,7 +23,9 @@ typedef struct {
     uint32_t command_sequence, latest_sequence;
     double phase, body_x, body_y, body_yaw, preparation_seconds, transition_phase, transition_span, end_phase;
     double clock_scale; /* accepted gait time / wall time, in (0,1] */
-    bool speed_flagged; /* once >=125%, use the rated budget for this gait run */
+    bool speed_flagged; /* coordinated motion timing is reduced by the limit */
+    bool automatic_run;
+    double requested_stride_percent, cycles_s, requested_cycles_s, stride_percent;
     ainekio_walk_direction_t direction;
     ainekio_gait_t gait_mode; /* command family; Walk can cross into Run */
     double run_from, run_target, run_transition_phase;

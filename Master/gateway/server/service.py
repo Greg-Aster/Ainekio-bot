@@ -36,6 +36,7 @@ from protocol.control_v1 import (
     STORAGE_CONTROL_FEATURE,
     ROBOT_SETTINGS_FEATURE,
     MOTION_SPEED_FEATURE,
+    JOINT_SPEED_LIMIT_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
     MOTION_PLAN_JOINT_MAP,
@@ -52,6 +53,7 @@ from websockets.exceptions import ConnectionClosed
 MAX_WEBSOCKET_MESSAGE_BYTES = MAX_JPEG_BYTES + 5
 DEFAULT_PING_INTERVAL_SECONDS = 1.0
 CONTROL_STALE_SECONDS = 4.0
+BODY_CLOCK_FRESHNESS_SECONDS = 1.0
 TTS_START_ACK_TIMEOUT_SECONDS = 2.0
 SPEAKER_FRAME_SECONDS = 0.020
 SPEAKER_PREBUFFER_FRAMES = 5
@@ -149,6 +151,8 @@ class GatewayConnection:
         self.capabilities = dict(capabilities) if capabilities is not None else None
         self.body_clock_ms: int | None = None
         self.body_clock_received_at = 0.0
+        self.body_clock_samples = 0
+        self.body_clock_max_gap_ms = 0
         self.next_sequence = 1
         self.pending: dict[int, PendingCommand] = {}
         self.completed: dict[int, dict[str, object]] = {}
@@ -177,20 +181,43 @@ class GatewayConnection:
             return
         value = message.get("clock_ms")
         if type(value) is int and (self.body_clock_ms is None or value >= self.body_clock_ms):
+            now = self.service.clock()
+            if self.body_clock_ms is not None:
+                gap_ms = round((now - self.body_clock_received_at) * 1000)
+                self.body_clock_max_gap_ms = max(self.body_clock_max_gap_ms, gap_ms)
+                if gap_ms >= BODY_CLOCK_FRESHNESS_SECONDS * 1000:
+                    self.service._record_diagnostic({
+                        "event": "body_clock_gap", "robot_id": self.robot_id,
+                        "epoch": self.epoch, "clock_gap_ms": gap_ms,
+                        "clock_advance_ms": value - self.body_clock_ms,
+                        "body_clock_ms": value,
+                    })
             self.body_clock_ms = value
-            self.body_clock_received_at = self.service.clock()
+            self.body_clock_received_at = now
+            self.body_clock_samples += 1
 
-    def _deadline(self, age_ms: float, validity_ms: int) -> int:
+    def clock_diagnostics(self) -> dict[str, object]:
+        return {
+            "body_clock_ms": self.body_clock_ms,
+            "clock_age_ms": (round((self.service.clock() - self.body_clock_received_at) * 1000)
+                             if self.body_clock_ms is not None else None),
+            "clock_samples": self.body_clock_samples,
+            "clock_max_gap_ms": self.body_clock_max_gap_ms,
+        }
+
+    def _deadline(self, received_at: float, validity_ms: int) -> int:
         now = self.service.clock()
-        if self.body_clock_ms is None or now - self.body_clock_received_at >= 1.0:
+        if self.body_clock_ms is None or now - self.body_clock_received_at >= BODY_CLOCK_FRESHNESS_SECONDS:
             raise ActionExpiredError("fresh body clock required before dispatch")
+        age_ms = (now - received_at) * 1000.0
         remaining = min(1000, math.floor(validity_ms - age_ms)) - 5
         if remaining <= 0:
             raise ActionExpiredError("action validity exhausted before dispatch")
-        # Anchor to an observed body monotonic time, never advance it by a
-        # guessed network latency/clock offset. This can expire early; it cannot
-        # restart the upstream lifetime on receipt. The body checks it again.
-        return self.body_clock_ms + remaining
+        # Both monotonic clocks advance while a sample is cached. Add only the
+        # measured time since its receipt, leaving unknown network delay
+        # uncompensated. Remaining upstream validity uses this same host instant.
+        elapsed_ms = math.floor((now - self.body_clock_received_at) * 1000.0)
+        return self.body_clock_ms + elapsed_ms + remaining
 
     async def send_control(self, message: Mapping[str, object]) -> None:
         validate_control_message(message)
@@ -235,6 +262,8 @@ class GatewayConnection:
             if message.get("t") == "motion_speed" or "playback_rate" in message:
                 if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
                     raise GatewayError("body does not support saved motion speed")
+                if "joint_speed_limit_deg_s" in message and JOINT_SPEED_LIMIT_FEATURE not in self.features:
+                    raise GatewayError("body firmware does not support a configurable joint speed limit")
                 validate_control_message({**message, "seq": 1})
                 if "playback_rate" in message and (message.get("t") != "intent" or
                     message.get("name") not in {"sit", "stand", "emote"} or
@@ -304,7 +333,16 @@ class GatewayConnection:
             if COMMAND_DEADLINE_FEATURE in self.features:
                 message["epoch"] = self.epoch
                 if message.get("t") != "stop":
-                    message["deadline_ms"] = self._deadline(age_ms, validity_ms)
+                    try:
+                        message["deadline_ms"] = self._deadline(received_at, validity_ms)
+                    except ActionExpiredError as error:
+                        self.service._record_diagnostic({
+                            **message, **self.clock_diagnostics(),
+                            "event": "dispatch_rejected", "robot_id": self.robot_id,
+                            "epoch": self.epoch, "error": str(error),
+                            "action_age_ms": round(age_ms),
+                        })
+                        raise
             sequence = self.next_sequence
             self.next_sequence += 1
             message["seq"] = sequence
@@ -486,7 +524,8 @@ class GatewayConnection:
             if message.get("mode") in {"normal", "calibrate"}:
                 self.mode = str(message["mode"])
             await self.service._publish_event(
-                {"robot_id": self.robot_id, "epoch": self.epoch, **message}
+                {"robot_id": self.robot_id, "epoch": self.epoch, **message,
+                 **self.clock_diagnostics()}
             )
             return
         if message_type in {"event", "cam_meta"}:
@@ -562,7 +601,7 @@ class GatewayConnection:
         self.completed[sequence] = dict(result)
         while len(self.completed) > 256:
             del self.completed[next(iter(self.completed))]
-        self.service._record_terminal(self, sequence, result)
+        self.service._record_terminal(self, sequence, result, pending.command)
         if pending.command.get("t") == "stop" and result.get("t") in {"ack", "done"}:
             # A confirmed stop ends earlier asynchronous commands even when
             # their individual cancellation acknowledgements were lost. Keep
@@ -656,6 +695,7 @@ class GatewayService:
         self._frame_callbacks: list[GatewayCallback] = []
         self._transcript_callbacks: list[GatewayCallback] = []
         self._command_callbacks: list[GatewayCallback] = []
+        self._diagnostic_callbacks: list[Callable[[dict[str, object]], None]] = []
         self.terminals: list[dict[str, object]] = []
 
     async def handler(
@@ -963,7 +1003,7 @@ class GatewayService:
                                 *, robot_id: str | None = None) -> dict[str, object]:
         connection = self._connection(robot_id)
         fields = dict(values or {})
-        if set(fields) - {"rate"}:
+        if set(fields) - {"rate", "joint_speed_limit_deg_s"}:
             raise GatewayError("unknown motion speed fields")
         sequence = await connection.send_command(
             {**fields, "t": "motion_speed", "op": operation}, received_at=self.clock())
@@ -1123,6 +1163,13 @@ class GatewayService:
     def subscribe_commands(self, callback: GatewayCallback) -> None:
         self._command_callbacks.append(callback)
 
+    def subscribe_diagnostics(self, callback: Callable[[dict[str, object]], None]) -> None:
+        self._diagnostic_callbacks.append(callback)
+
+    def _record_diagnostic(self, diagnostic: dict[str, object]) -> None:
+        for callback in tuple(self._diagnostic_callbacks):
+            callback(dict(diagnostic))
+
     async def publish_transcript(self, transcript: dict[str, object]) -> None:
         await _publish(self._transcript_callbacks, transcript)
 
@@ -1174,6 +1221,7 @@ class GatewayService:
                         else None
                     ),
                     "last_command": connection.last_command,
+                    "body_clock": connection.clock_diagnostics(),
                     "microphone_level": round(connection.microphone_level, 4),
                     "status": connection.last_status,
                     "calibration": connection.last_calibration,
@@ -1224,6 +1272,7 @@ class GatewayService:
         connection: GatewayConnection,
         sequence: int,
         result: Mapping[str, object],
+        command: Mapping[str, object],
     ) -> None:
         self.terminals.append(
             {
@@ -1233,6 +1282,12 @@ class GatewayService:
                 "result": dict(result),
             }
         )
+        self._record_diagnostic({
+            **command, **result, **connection.clock_diagnostics(),
+            "event": "command_result", "robot_id": connection.robot_id,
+            "epoch": connection.epoch, "seq": sequence,
+            "command_type": command.get("t"),
+        })
 
     async def _publish_event(self, event: dict[str, object]) -> None:
         await _publish(self._event_callbacks, event)

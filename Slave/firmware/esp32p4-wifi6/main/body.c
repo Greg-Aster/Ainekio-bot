@@ -42,6 +42,7 @@ ainekio_p4_body_timing_t ainekio_p4_body_timing(void)
     ainekio_p4_body_timing_t result=timing;
     portEXIT_CRITICAL(&pulse_lock);
     if(output_handle)result.stack_free_bytes=uxTaskGetStackHighWaterMark(output_handle);
+    if(requests)result.queue_depth=uxQueueMessagesWaiting(requests);
     return result;
 }
 
@@ -128,7 +129,7 @@ typedef struct {
     uint32_t sequence;
     bool entering;
     size_t clip;
-    float playback_rate;
+    float playback_rate, requested_rate;
     float entry_rate;
     uint16_t from[AINEKIO_PCA_BODY_CHANNELS], target[AINEKIO_PCA_BODY_CHANNELS];
     ainekio_v2_walk_state_t walk;
@@ -153,6 +154,15 @@ static void publish_motion(void)
     const ainekio_p4_body_status_t value = {
         .connection=body.motion.connection, .sequence=body.motion.sequence,
         .moving=body.motion.kind != MOTION_NONE,
+        .automatic_run=body.motion.kind==MOTION_WALK && body.motion.walk.automatic_run,
+        .gait_cycles_s=body.motion.kind==MOTION_WALK && !body.motion.entering ? body.motion.walk.cycles_s : 0.F,
+        .gait_requested_cycles_s=body.motion.kind==MOTION_WALK ? body.motion.walk.requested_cycles_s : 0.F,
+        .stride_percent=body.motion.kind==MOTION_WALK ? body.motion.walk.stride_percent : 0.F,
+        .requested_stride_percent=body.motion.kind==MOTION_WALK ? body.motion.walk.requested_stride_percent : 0.F,
+        .speed_limited=body.motion.kind != MOTION_NONE && (body.motion.entering
+            ? body.motion.entry_rate < body.motion.requested_rate
+            : body.motion.kind == MOTION_WALK ? body.motion.walk.speed_flagged
+            : body.motion.playback_rate < body.motion.requested_rate),
     };
     portENTER_CRITICAL(&pulse_lock);
     motion_status = value;
@@ -285,6 +295,7 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
     motion_t next = {.connection=request->connection, .sequence=request->sequence,
         .entry_start=now, .entry_duration=UINT64_C(500000), .entering=true,
         .playback_rate=named ? (override ? override : ainekio_p4_motion_rate()) : 1.F};
+    next.requested_rate = next.playback_rate;
     ainekio_v2_frame_t frame = {.geometry_id=ainekio_v2_walk_geometry_id};
     if (request->intent.kind == AINEKIO_INTENT_WALK) {
         next.kind = MOTION_WALK;
@@ -340,18 +351,11 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         !ainekio_p4_frame_pulses(&path_minimum, checked) ||
         !ainekio_p4_frame_pulses(&path_maximum, checked)) return ESP_ERR_INVALID_ARG;
     for(unsigned i=0;i<AINEKIO_PCA_BODY_CHANNELS;i++)if(!next.target[i])next.from[i]=0;
-    for (unsigned i=0;i<AINEKIO_PCA_BODY_CHANNELS;i++) {
-        if (calibration.joints[i].channel < 0) continue;
-        /* Exact path derivative times the quintic's 1.875 peak bounds entry
-         * to 1000 us/second at 1x, including curved carrier/crank coordination. */
-        const uint64_t duration=(uint64_t)ceil(derivatives[i]/100.*calibration.joints[i].us_per_degree*1875.);
-        if (duration > next.entry_duration) next.entry_duration=duration;
-    }
     double entry_peak=0.;
     for(unsigned i=0;i<AINEKIO_BODY_JOINT_COUNT;i++)
         if(calibration.joints[i].channel>=0)
             entry_peak=fmax(entry_peak,derivatives[i]/100.*1.875e6/next.entry_duration);
-    next.entry_rate=ainekio_v2_speed_limited_rate(entry_peak,next.playback_rate);
+    next.entry_rate=ainekio_v2_speed_limited_rate(entry_peak,next.requested_rate);
     ainekio_pca9685_t *output = ainekio_p4_output();
     if ((uint64_t)esp_timer_get_time() >= request->deadline) return ESP_ERR_TIMEOUT;
     const ainekio_pca_status_t status = ainekio_pca_status(output);
@@ -473,6 +477,7 @@ static bool output_step(uint64_t now)
     if(sampling) { body.pose=sampled;body.pose_valid=true; }
     else if(was_ramping && !body.ramping)retain_manual_reference();
     publish(body.pulses);
+    publish_motion();
     body.last_frame = esp_timer_get_time();
     /* Compute/write time consumes this frame's budget instead of extending the
      * next interval. If late, sample the current time once; never replay missed

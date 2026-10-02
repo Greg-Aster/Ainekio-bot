@@ -53,6 +53,8 @@ typedef struct {
     uint64_t generation;
     uint64_t last_frame_us;
     uint64_t io_started_us;
+    uint64_t last_io_us, max_io_us;
+    uint32_t io_transfers, io_failures;
     uint32_t frames;
     ainekio_pca_fault_t fault;
     bool ready;
