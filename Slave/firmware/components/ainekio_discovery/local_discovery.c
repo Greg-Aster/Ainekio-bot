@@ -9,7 +9,6 @@
 #include "mdns.h"
 
 #define DISCOVERY_TIMEOUT_MS 2500U
-#define DISCOVERY_MAX_RESULTS 8U
 
 static const char *TAG = "ainekio_discovery";
 static bool mdns_initialized;
@@ -73,15 +72,13 @@ static esp_err_t ensure_mdns(void)
     return result;
 }
 
-esp_err_t ainekio_local_gateway_discover(
-    char *endpoint,
-    size_t endpoint_capacity
-)
+esp_err_t ainekio_local_gateways_discover(
+    char endpoints[][AINEKIO_DISCOVERY_ENDPOINT_CAPACITY], size_t capacity, size_t *count)
 {
-    if (endpoint == NULL || endpoint_capacity == 0U) {
+    if (endpoints == NULL || count == NULL || capacity == 0U || capacity > AINEKIO_DISCOVERY_MAX_RESULTS) {
         return ESP_ERR_INVALID_ARG;
     }
-    endpoint[0] = '\0';
+    *count = 0;
     esp_err_t result = ensure_mdns();
     if (result != ESP_OK) {
         return result;
@@ -92,17 +89,15 @@ esp_err_t ainekio_local_gateway_discover(
         "_ainekio",
         "_tcp",
         DISCOVERY_TIMEOUT_MS,
-        DISCOVERY_MAX_RESULTS,
+        AINEKIO_DISCOVERY_MAX_RESULTS,
         &results
     );
     if (result != ESP_OK) {
+        mdns_query_results_free(results);
         return result;
     }
 
     result = ESP_ERR_NOT_FOUND;
-    bool selected = false;
-    esp_ip4_addr_t selected_address = {0};
-    uint16_t selected_port = 0U;
     for (const mdns_result_t *candidate = results;
          candidate != NULL;
          candidate = candidate->next) {
@@ -117,43 +112,44 @@ esp_err_t ainekio_local_gateway_discover(
         if (address == NULL) {
             continue;
         }
-        if (selected &&
-            (selected_address.addr != address->addr ||
-             selected_port != candidate->port)) {
-            ESP_LOGW(TAG, "multiple local gateways discovered");
-            result = ESP_ERR_INVALID_STATE;
-            selected = false;
-            break;
-        }
-        selected = true;
-        selected_address = *address;
-        selected_port = candidate->port;
-    }
-    if (selected) {
         char address_text[16] = {0};
         if (esp_ip4addr_ntoa(
-                &selected_address,
+                address,
                 address_text,
                 sizeof(address_text)
             ) == NULL) {
-            result = ESP_FAIL;
-        } else {
-            const int written = snprintf(
-                endpoint,
-                endpoint_capacity,
-                "ws://%s:%u/robot",
-                address_text,
-                (unsigned int)selected_port
-            );
-            if (written < 0 || (size_t)written >= endpoint_capacity) {
-                endpoint[0] = '\0';
-                result = ESP_ERR_INVALID_SIZE;
-            } else {
-                ESP_LOGI(TAG, "discovered local gateway at %s", endpoint);
-                result = ESP_OK;
-            }
+            continue;
         }
+        char endpoint[AINEKIO_DISCOVERY_ENDPOINT_CAPACITY];
+        const int written = snprintf(endpoint, sizeof(endpoint), "ws://%s:%u/robot",
+                                     address_text, (unsigned int)candidate->port);
+        if (written < 0 || (size_t)written >= sizeof(endpoint)) continue;
+        bool duplicate = false;
+        for (size_t i=0; i<*count; ++i)
+            if (!strcmp(endpoints[i], endpoint)) duplicate = true;
+        if (duplicate) continue;
+        strcpy(endpoints[(*count)++], endpoint);
+        result = ESP_OK;
+        if (*count == capacity) break;
     }
     mdns_query_results_free(results);
     return result;
+}
+
+/* The S3 single-candidate consumer retains its explicit ambiguity result. */
+esp_err_t ainekio_local_gateway_discover(char *endpoint, size_t endpoint_capacity)
+{
+    if (!endpoint || !endpoint_capacity) return ESP_ERR_INVALID_ARG;
+    endpoint[0] = '\0';
+    char endpoints[2][AINEKIO_DISCOVERY_ENDPOINT_CAPACITY];
+    size_t count;
+    esp_err_t result = ainekio_local_gateways_discover(endpoints, 2, &count);
+    if (result != ESP_OK) return result;
+    if (count != 1) {
+        ESP_LOGW(TAG, "multiple local gateways discovered");
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (strlen(endpoints[0]) >= endpoint_capacity) return ESP_ERR_INVALID_SIZE;
+    strcpy(endpoint, endpoints[0]);
+    return ESP_OK;
 }

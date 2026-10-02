@@ -25,6 +25,7 @@ CAMERA_PROFILES_FEATURE = "camera_profiles_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
 MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
 ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
+GATEWAY_SWITCHING_FEATURE = "gateway_switching_v1"
 STORAGE_CONTROL_FEATURE = "storage_control_v1"
 MOTION_SPEED_FEATURE = "motion_speed_v1"
 BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"

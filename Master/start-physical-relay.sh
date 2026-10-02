@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$REPO_ROOT/.env"
 
 check_only=0
 if (( $# > 1 )); then
@@ -18,31 +17,8 @@ if (( $# == 1 )); then
   check_only=1
 fi
 
-if [[ -f "$ENV_FILE" ]]; then
-  declare -A explicit_ainekio_env=()
-  while IFS='=' read -r -d '' env_name env_value; do
-    if [[ "$env_name" == AINEKIO_* ]]; then
-      explicit_ainekio_env["$env_name"]="$env_value"
-    fi
-  done < <(env -0)
-
-  allexport_was_enabled=0
-  if [[ "$-" == *a* ]]; then
-    allexport_was_enabled=1
-  fi
-  set -a
-  # shellcheck disable=SC1090 -- this is the operator's repo-local environment file.
-  source "$ENV_FILE"
-  if (( ! allexport_was_enabled )); then
-    set +a
-  fi
-
-  for env_name in "${!explicit_ainekio_env[@]}"; do
-    printf -v "$env_name" '%s' "${explicit_ainekio_env[$env_name]}"
-    export "$env_name"
-  done
-  unset explicit_ainekio_env env_name env_value allexport_was_enabled
-fi
+source "$SCRIPT_DIR/gateway-env.sh"
+ainekio_load_environment "$REPO_ROOT"
 
 if ! command -v cloudflared >/dev/null 2>&1; then
   echo "cloudflared is required to run the physical robot relay." >&2

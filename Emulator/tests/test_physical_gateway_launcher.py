@@ -20,7 +20,7 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         self.root = Path(self.temporary.name) / "checkout with spaces 100%"
         (self.root / "Master").mkdir(parents=True)
         (self.root / "Slave").mkdir()
-        for name in ("start-physical-gateway.sh", "ainekio-gateway.service"):
+        for name in ("start-physical-gateway.sh", "stop-physical-gateway.sh", "gateway-env.sh", "ainekio-gateway.service"):
             shutil.copy2(SOURCE / "Master" / name, self.root / "Master" / name)
         (self.root / "Master/gateway").symlink_to(SOURCE / "Master/gateway", target_is_directory=True)
         (self.root / "Slave/software").symlink_to(SOURCE / "Slave/software", target_is_directory=True)
@@ -63,8 +63,15 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         self.assertIn("Gateway prerequisites passed", result.stdout)
         self.assertFalse((self.root / "build").exists())
 
-    def test_missing_adapter_token_is_actionable(self):
+    def test_standalone_body_control_does_not_require_metahuman(self):
         del self.env["AINEKIO_ENVIRONMENT_ADAPTER_TOKEN"]
+        result = self.run_launcher("--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("standalone Body Control", result.stdout)
+
+    def test_recognition_still_requires_authenticated_bridge(self):
+        del self.env["AINEKIO_ENVIRONMENT_ADAPTER_TOKEN"]
+        self.env["AINEKIO_VISION_URL"] = "https://vision.example/v1/chat/completions"
         result = self.run_launcher("--check")
         self.assertEqual(result.returncode, 2)
         self.assertIn("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required", result.stderr)
@@ -79,10 +86,59 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         del self.env["AINEKIO_ROBOT_TOKEN"]
         data = self.root / "existing-runtime"
         data.mkdir()
-        (data / "robot-tokens.json").write_text("{}")
+        from gateway.security import RobotTokenStore
+        RobotTokenStore(data / "robot-tokens.json").set("robot", "fixture-robot-secret")
         self.env["AINEKIO_GATEWAY_DATA_DIR"] = str(data)
         result = self.run_launcher("--check")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_existing_invalid_store_is_reported_before_start(self):
+        data = self.root / "existing-runtime"
+        data.mkdir()
+        (data / "robot-tokens.json").write_text("{}")
+        (data / "robot-tokens.json").chmod(0o600)
+        self.env["AINEKIO_GATEWAY_DATA_DIR"] = str(data)
+        result = self.run_launcher("--check")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unsupported schema", result.stderr)
+
+    def test_pairing_transfer_uses_saved_credentials_and_not_machine_paths(self):
+        from gateway.security import DashboardPasswordStore, RobotTokenStore
+        original = self.root / "original runtime"
+        RobotTokenStore(original / "robot-tokens.json").set("robot", "fixture-robot-secret")
+        DashboardPasswordStore(original / "dashboard-auth.json").set_password("fixture-dashboard-password")
+        self.env["AINEKIO_GATEWAY_DATA_DIR"] = str(original)
+        bundle = self.root / "portable pairing.json"
+        result = self.run_launcher("--export-pairing", str(bundle))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("fixture-dashboard-password", result.stdout + result.stderr)
+        self.assertNotIn(str(original), bundle.read_text())
+        destination = self.root / "new computer runtime"
+        self.env["AINEKIO_GATEWAY_DATA_DIR"] = str(destination)
+        del self.env["AINEKIO_ROBOT_TOKEN"]
+        del self.env["AINEKIO_ENVIRONMENT_ADAPTER_TOKEN"]
+        result = self.run_launcher("--import-pairing", str(bundle))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(DashboardPasswordStore(destination / "dashboard-auth.json").verify("fixture-dashboard-password"))
+        self.assertTrue(RobotTokenStore(destination / "robot-tokens.json").matches("robot", "fixture-robot-secret"))
+        self.assertEqual(self.run_launcher("--check").returncode, 0)
+        self.assertFalse((self.root / "build").exists())
+
+    def test_pairing_filename_required_and_existing_export_preserved(self):
+        self.assertEqual(self.run_launcher("--import-pairing").returncode, 2)
+        self.assertEqual(self.run_launcher("--export-pairing", "one", "two").returncode, 2)
+
+    def test_stop_reads_same_dotenv_runtime_as_start_without_touching_other_gateway(self):
+        data = self.root / "custom runtime"
+        data.mkdir()
+        (data / "physical-gateway.pid").write_text("99999999\n")
+        (self.root / ".env").write_text(f"AINEKIO_GATEWAY_DATA_DIR='{data}'\n")
+        (self.bin / "systemctl").write_text("#!/bin/sh\nexit 1\n")
+        result = subprocess.run(["bash", str(self.root / "Master/stop-physical-gateway.sh")],
+                                env=self.env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((data / "physical-gateway.pid").exists())
+        self.assertFalse(self.marker.exists())
 
     def test_explicit_environment_retains_precedence_over_dotenv(self):
         (self.root / ".env").write_text("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN=''\n")

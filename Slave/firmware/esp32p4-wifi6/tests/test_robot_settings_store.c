@@ -67,5 +67,18 @@ int main(void) {
     assert(ainekio_p4_config_init()==ESP_OK);
     assert(!strcmp(ainekio_p4_config()->wifi_ssid,"Recovered"));
     assert(!strcmp(ainekio_p4_config()->robot_token,"replacement-token"));
+    /* Recovery edits the primary address without deleting another computer on
+     * the same Wi-Fi. A password change follows that shared network identity. */
+    ainekio_p4_robot_settings_t saved=ainekio_p4_saved_settings();
+    c=(ainekio_robot_settings_command_t){.operation=AINEKIO_SETTINGS_NETWORK,.revision=saved.revision,.index=2};
+    strcpy(c.ssid,"Recovered");strcpy(c.endpoint,"wss://second.example/robot");
+    assert(ainekio_p4_settings_change(&c)==ESP_OK);
+    strcpy(legacy.wifi_psk,"changed-password");strcpy(legacy.endpoint_url,"ws://new-primary:8790/robot");
+    assert(ainekio_p4_config_save_record(&legacy)==ESP_OK);
+    assert(ainekio_p4_config_init()==ESP_OK);
+    saved=ainekio_p4_saved_settings();
+    assert(!strcmp(saved.networks[0].endpoint,"ws://new-primary:8790/robot"));
+    assert(!strcmp(saved.networks[2].endpoint,"wss://second.example/robot"));
+    assert(!strcmp(saved.networks[2].password,"changed-password"));
     return 0;
 }

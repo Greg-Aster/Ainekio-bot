@@ -10,6 +10,7 @@ from unittest.mock import patch
 from gateway.security import RobotTokenStore
 from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
 from protocol.control_v1 import ProtocolValidationError, validate_control_message
+from protocol.control_v1 import GATEWAY_SWITCHING_FEATURE
 
 
 class RobotSettingsTests(unittest.IsolatedAsyncioTestCase):
@@ -36,7 +37,7 @@ class RobotSettingsTests(unittest.IsolatedAsyncioTestCase):
                 # ACK alone must not settle a save or claim device persistence.
                 test.assertIn(message["seq"], test.connection.pending)
                 await test.connection._handle_control({
-                    "t": "robot_settings_status", "seq": message["seq"], "revision": 1,
+                    "t": "robot_settings_status", "seq": message["seq"], "revision": 0 if message["op"] == "get" else 1,
                     "active_index": 0, "pending_restart": True, "setup_open": False,
                     "networks": [{"index": 0, "ssid": "Home", "endpoint": "ws://home:8790/robot", "open": False}],
                 })
@@ -52,10 +53,47 @@ class RobotSettingsTests(unittest.IsolatedAsyncioTestCase):
         }, robot_id="robot")
         self.assertEqual(result["revision"], 1)
         self.assertEqual(result["networks"][0]["ssid"], "Home")  # body readback, not request echo
-        self.assertEqual(self.sent[0]["wifi_password"], "wifi-secret")
+        self.assertEqual(self.sent[-1]["wifi_password"], "wifi-secret")
         self.assertNotIn("wifi-secret", json.dumps(self.published))
         self.assertNotIn("wifi-secret", json.dumps(self.service.status()))
         self.assertFalse(self.connection.pending)
+
+    async def test_legacy_firmware_same_wifi_computer_is_rejected_before_write(self):
+        with self.assertRaisesRegex(GatewayError, "switch computers"):
+            await self.service.body_robot_settings("network", {
+                "revision": 0, "index": 1, "ssid": "Home", "endpoint": "ws://second:8790/robot",
+            }, robot_id="robot")
+        self.assertEqual([m["op"] for m in self.sent], ["get"])
+        self.assertFalse(self.connection.pending)
+
+    async def test_supported_firmware_same_wifi_profile_preserves_wire_contract(self):
+        self.connection.features += (GATEWAY_SWITCHING_FEATURE,)
+        await self.service.body_robot_settings("network", {
+            "revision": 0, "index": 1, "ssid": "Home", "endpoint": "wss://tunnel.example/robot",
+        }, robot_id="robot")
+        self.assertEqual(len(self.sent), 1)
+        self.assertEqual(self.sent[0]["op"], "network")
+        self.assertNotIn("wifi_password", self.sent[0])
+
+    async def test_raw_legacy_network_dispatch_cannot_bypass_profile_compatibility(self):
+        with self.assertRaisesRegex(GatewayError, "Read robot settings"):
+            await self.connection.send_command({"t": "robot_settings", "op": "network", "revision": 0,
+                "index": 1, "ssid": "Home", "endpoint": "ws://second:8790/robot"}, received_at=self.service.clock())
+        self.assertFalse(self.sent)
+        self.assertEqual(self.connection.next_sequence, 1)
+
+    async def test_legacy_settings_session_change_does_not_dispatch_to_successor(self):
+        original = self.service.body_robot_settings
+        async def replace_during_read(operation, values=None, **kwargs):
+            result = await original(operation, values, **kwargs)
+            if operation == "get":
+                self.service._connections["robot"] = GatewayConnection(self.service, self.connection.websocket,
+                    "robot", 2, features=("robot_settings_v1",), model="v2-12servo")
+            return result
+        with patch.object(self.service, "body_robot_settings", replace_during_read):
+            with self.assertRaisesRegex(GatewayError, "session changed"):
+                await original("network", {"revision": 1, "index": 1, "ssid": "Other", "endpoint": "ws://other:8790/robot"}, robot_id="robot")
+        self.assertEqual([m["op"] for m in self.sent], ["get"])
 
     async def test_older_firmware_rejected_before_send_or_staging(self):
         self.connection.features = ()

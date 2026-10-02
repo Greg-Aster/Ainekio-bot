@@ -67,7 +67,9 @@ static void update_coprocessor(void)
 #endif
 static char ap_name[33], ap_key[64];
 static atomic_int network_index = -1;
+static atomic_uint network_generation;
 int ainekio_p4_network_index(void) { return atomic_load(&network_index); }
+uint32_t ainekio_p4_network_generation(void) { return atomic_load(&network_generation); }
 const char *ainekio_p4_network_endpoint(void)
 {
     int index = ainekio_p4_network_index();
@@ -95,11 +97,13 @@ static void event(void *arg, esp_event_base_t base, int32_t id, void *data)
     (void)arg;
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         const bool was_online = atomic_exchange(&online, false);
+        atomic_fetch_add(&network_generation, 1);
         atomic_store(&lost, true);
         /* No motion queue, RPC or I2C is involved in loss handling. */
         if (was_online) ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
         ESP_LOGI("network", "Station disconnected reason=%u", ((wifi_event_sta_disconnected_t *)data)->reason);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        atomic_fetch_add(&network_generation, 1);
         atomic_store(&online, true);
         const ip_event_got_ip_t *ip = data;
         ESP_LOGI("network", "Station IPv4=" IPSTR, IP2STR(&ip->ip_info.ip));
@@ -177,8 +181,11 @@ static void network_task(void *arg)
 #endif
         if (atomic_load(&maintenance)) { vTaskDelay(pdMS_TO_TICKS(100)); continue; }
         const uint64_t now_ms = esp_timer_get_time() / 1000U;
-        if (!time_service_started && atomic_load(&online) && config &&
-            strncmp(ainekio_p4_network_endpoint(), "wss://", 6) == 0) {
+        bool needs_tls_time = false;
+        for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
+            if (settings->networks[i].ssid[0] && !strncmp(settings->networks[i].endpoint, "wss://", 6))
+                needs_tls_time = true;
+        if (!time_service_started && atomic_load(&online) && config && needs_tls_time) {
             /* TLS needs wall-clock certificate validation. Time sync never
              * blocks board startup; command deadlines remain monotonic. */
             esp_sntp_config_t time_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
