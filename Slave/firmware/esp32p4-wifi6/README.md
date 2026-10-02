@@ -1,6 +1,6 @@
 # ESP32-P4-WIFI6 body firmware
 
-Native V2 body-controller target (`0.7.0-p4-compact-motion`). It uses the portable Ainekio lifecycle,
+Native V2 body-controller target (`0.7.1-p4-gateway-switching`). It uses the portable Ainekio lifecycle,
 configuration store and command decoder, with its own P4 startup, board resources,
 C6 networking and PCA9685 output driver. It does not compile the S3 platform.
 
@@ -246,9 +246,22 @@ The serial configuration commands remain available.
 Firmware advertising `robot_settings_v1` also supports authenticated settings
 readback, per-slot network writes/removal, setup-hotspot password and pairing-token
 changes, and a separate restart-to-apply command through Body Control Settings.
-Four ordered network slots each contain their own controller URL. While offline,
-the network task tries the next occupied slot every 15 seconds. A working Wi-Fi
-link stays selected; server failure alone does not switch profiles. The existing
+`gateway_switching_v1` adds multiple Body Control computers on one Wi-Fi and
+uses the existing DNS-SD owner shared with the S3 target. Four ordered connection
+slots each contain a network and controller URL. Slots for the same SSID share
+one password and must have distinct URLs; their NVS layout/version is unchanged.
+While offline, the network task tries the next distinct network every 15 seconds.
+A working Wi-Fi link stays selected. The existing controller link task cycles
+that network's configured URLs after connection failure, followed by up to eight
+discovered protocol-v1 LAN gateways on the current station subnet. TLS-only
+networks never discover plain WS; explicit `wss://` URLs retain certificate-bundle
+verification. The MDNS dependency is pinned to the S3 target's `1.11.3` version.
+An attempt must authenticate within 10 seconds; a healthy authenticated session
+remains selected until loss or explicit gateway shutdown. Old admission/client
+state closes before another WebSocket is created, and network-generation changes
+discard old discoveries. No movement replay, task migration or second admission
+owner is added. Existing output disable, emergency stop and stale fencing remain.
+The existing
 60-second setup fallback remains active while cycling unavailable networks.
 Settings saves disable outputs and use an atomic P4 NVS blob with revision checks;
 running credentials remain immutable until restart. Legacy single-network records
@@ -258,6 +271,13 @@ Explicit empty Wi-Fi passwords select open networks. Settings readbacks never
 include passwords or tokens. See [Body Control setup](../../../Master/gateway/README.md)
 for the save/apply and token-transition workflow. Firmware compilation and host
 tests do not qualify physical Wi-Fi switching, setup recovery or servo behavior.
+
+Native switching and discovery tests compile the production selection, settings,
+DNS-SD and shared admission owners with `-Wall -Wextra -Werror -Wpedantic`.
+The gateway software tests exercise two independent real loopback WebSocket
+servers, verified TLS and the production SIGTERM entrypoint with simulated body
+I/O. Actual ESP-IDF build, mDNS/Wi-Fi operation and Cloudflare-to-P4 use still need
+the SDK and authorized device validation; these fixtures do not prove motion.
 
 ## Startup and assembly
 

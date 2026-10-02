@@ -3,6 +3,7 @@ dependencies:
   espressif/esp_wifi_remote: "==1.6.4"
   espressif/esp_hosted: "==2.12.8"
   espressif/esp_websocket_client: "==1.7.0"
+  espressif/mdns: "==1.11.3"
   espressif/esp_codec_dev: "==1.5.2"
   espressif/esp_video: "==2.5.0"
   espressif/esp-sr: "==2.4.7"

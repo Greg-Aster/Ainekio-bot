@@ -7,6 +7,7 @@ import ipaddress
 import logging
 import math
 import os
+import signal
 import sys
 import threading
 from collections.abc import Callable
@@ -322,14 +323,35 @@ async def _run_production(args: argparse.Namespace) -> None:
             close_timeout=1.0,
             create_protocol=BoundedHandshakeProtocol,
             logger=_websocket_logger(),
-        ):
+        ) as server:
             _print_gateway_addresses(
                 bind_host=args.host,
                 port=args.port,
                 environment_enabled=adapter is not None,
             )
             print(f"Ainekio dashboard:    http://{args.dashboard_host}:{args.dashboard_port}/")
-            await asyncio.Future()
+            loop = asyncio.get_running_loop()
+            stopped = loop.create_future()
+            def request_stop() -> None:
+                if not stopped.done():
+                    stopped.set_result(None)
+            previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: loop.call_soon_threadsafe(request_stop))
+            try:
+                await stopped
+            finally:
+                signal.signal(signal.SIGTERM, previous_sigterm)
+                server.close()
+                await service.close()
+                # Environment and not-yet-paired sockets share this server.
+                # Release them before asyncio.Server.wait_closed waits for all
+                # accepted transports on Python 3.12.
+                established = []
+                for websocket in tuple(server.websockets):
+                    if websocket.open:
+                        established.append(websocket.close(1001, "gateway stopped"))
+                    elif not websocket.closed:
+                        websocket.transport.close()
+                await asyncio.gather(*established)
     finally:
         if camera is not None:
             await camera.aclose()

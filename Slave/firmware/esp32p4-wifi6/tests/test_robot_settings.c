@@ -17,7 +17,7 @@ int main(void)
     assert(s.revision == 1 && ainekio_p4_network_next(&s, -1) == 0);
     assert(!ainekio_p4_robot_settings_update(&s, &c)); /* stale editor */
     c.revision=1; c.index=1;
-    assert(!ainekio_p4_robot_settings_update(&s, &c)); /* duplicate SSID */
+    assert(!ainekio_p4_robot_settings_update(&s, &c)); /* duplicate connection */
     strcpy(c.ssid, "Ainekio-Robot"); strcpy(c.endpoint, "ws://10.42.77.1:8790/robot");
     assert(ainekio_p4_robot_settings_update(&s, &c));
     assert(ainekio_p4_network_next(&s, 0) == 1 && ainekio_p4_network_next(&s, 1) == 0);

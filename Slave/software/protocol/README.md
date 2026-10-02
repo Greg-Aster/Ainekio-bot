@@ -262,6 +262,26 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=Slave/software \
   python3 -m unittest discover -s Slave/software/tests/protocol -v
 ```
 
+## Gateway switching
+
+`gateway_switching_v1` accompanies P4's existing `robot_settings_v1` messages.
+It changes no command/result envelope: saved slots may share an SSID with
+distinct `ws://` LAN or `wss://` configured remote addresses. Shared-SSID slots
+have one Wi-Fi password; an omitted password for another address reuses that
+network's saved credential. Readback and revision/ACK/persistence semantics stay
+unchanged. Gateway admission explicitly rejects a same-SSID alternate for
+firmware lacking this feature before dispatching that write. Legacy distinct
+networks and other supported commands remain usable.
+
+P4 keeps one authenticated outbound WebSocket and its existing admission
+generation. Failed configured candidates can advance to another address on the
+associated network, then to bounded protocol-v1 DNS-SD LAN candidates only if a
+plain-WS address was explicitly configured for that network. TLS-only profiles
+never downgrade to discovery. A healthy connection is sticky; an unauthenticated
+attempt expires after 10 seconds. Close invalidates old work before reconnect,
+even when independent hosts assign the same epoch. Switching is connection
+availability, not task completion or cross-installation durable continuation.
+
 ## Twelve-joint operator calibration
 
 `body_calibration_v2` is negotiated only by the P4 body. V1's eight-joint

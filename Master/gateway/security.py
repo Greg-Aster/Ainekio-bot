@@ -8,6 +8,7 @@ import os
 import secrets
 import stat
 import threading
+import tempfile
 from pathlib import Path
 from typing import TextIO
 
@@ -64,6 +65,11 @@ class RobotTokenStore:
         if not self.path.exists():
             return {}
         value = _read_json(self.path)
+        result, self._pending = self._parse_configuration(value)
+        return result
+
+    @staticmethod
+    def _parse_configuration(value: object) -> tuple[dict[str, str], dict[str, str]]:
         if not isinstance(value, dict) or value.get("schema_version") != 1:
             raise RuntimeError("robot token store has an unsupported schema")
         tokens = value.get("tokens")
@@ -82,8 +88,11 @@ class RobotTokenStore:
             if robot_id not in result or not isinstance(token, str):
                 raise RuntimeError("robot token transition is invalid")
             _validate_robot_token(robot_id, token)
-        self._pending = dict(pending)
-        return result
+        return result, dict(pending)
+
+    def configuration(self) -> dict[str, object]:
+        with self._lock:
+            return {"schema_version": 1, "tokens": dict(self._tokens), "pending": dict(self._pending)}
 
     def stage(self, robot_id: str, token: str) -> None:
         _validate_robot_token(robot_id, token)
@@ -177,7 +186,10 @@ class DashboardPasswordStore:
         return hashlib.sha256(record["salt"] + record["verifier"]).hexdigest()
 
     def _record(self) -> dict[str, object]:
-        value = _read_json(self.path)
+        return self._parse_record(_read_json(self.path))
+
+    @staticmethod
+    def _parse_record(value: object) -> dict[str, object]:
         if (
             not isinstance(value, dict)
             or value.get("schema_version") != 1
@@ -200,6 +212,61 @@ class DashboardPasswordStore:
             "verifier": verifier,
         }
 
+    def configuration(self) -> dict[str, object]:
+        return _password_configuration(self._record())
+
+
+def _password_configuration(record: dict[str, object]) -> dict[str, object]:
+    return {"schema_version": 1, "algorithm": "pbkdf2-sha256",
+            "iterations": record["iterations"],
+            "salt": base64.b64encode(record["salt"]).decode("ascii"),
+            "verifier": base64.b64encode(record["verifier"]).decode("ascii")}
+
+
+def export_pairing(data_dir: Path, destination: Path) -> None:
+    """Portable credentials only. Sessions, receipts, tasks and host config stay local."""
+    tokens = RobotTokenStore(data_dir / "robot-tokens.json").configuration()
+    if not tokens["tokens"]:
+        raise ValueError("No saved robot pairing to export; pair this computer first")
+    password = DashboardPasswordStore(data_dir / "dashboard-auth.json").configuration()
+    _atomic_secure_json(destination, {"kind": "ainekio-pairing", "schema_version": 1,
+                                    "robot_tokens": tokens, "dashboard_auth": password}, overwrite=False)
+
+
+def import_pairing(data_dir: Path, source: Path) -> None:
+    value = _read_json(source)
+    if not isinstance(value, dict) or set(value) != {"kind", "schema_version", "robot_tokens", "dashboard_auth"} or \
+            value["kind"] != "ainekio-pairing" or value["schema_version"] != 1:
+        raise ValueError("Unsupported pairing bundle")
+    tokens, pending = RobotTokenStore._parse_configuration(value["robot_tokens"])
+    if not tokens:
+        raise ValueError("Pairing bundle contains no robot identities")
+    token_config = {"schema_version": 1, "tokens": tokens, "pending": pending}
+    password_config = _password_configuration(DashboardPasswordStore._parse_record(value["dashboard_auth"]))
+    entries = ((data_dir / "robot-tokens.json", token_config, RobotTokenStore),
+               (data_dir / "dashboard-auth.json", password_config, DashboardPasswordStore))
+    # Validate the entire bundle and both destinations before writing either.
+    # Existing different credentials are never overwritten by an import.
+    for path, config, owner in entries:
+        if path.exists() and owner(path).configuration() != config:
+            raise ValueError(f"Existing different credentials preserved: {path}")
+    for path, config, owner in entries:
+        if not path.exists():
+            _atomic_secure_json(path, config, overwrite=False)
+    # Each owner writes atomically. A filesystem failure is explicit; repeating
+    # the same import finishes a partial first import without changing identity.
+
+
+def check_pairing(data_dir: Path, robot_id: str, environment_token: str) -> None:
+    store = RobotTokenStore(data_dir / "robot-tokens.json")
+    if environment_token:
+        _validate_robot_token(robot_id, environment_token)
+    if not store.snapshot() and not environment_token:
+        raise ValueError("No saved robot pairing; use --import-pairing or set AINEKIO_ROBOT_TOKEN")
+    password = data_dir / "dashboard-auth.json"
+    if password.exists():
+        DashboardPasswordStore(password).configuration()
+
 
 def _validate_robot_token(robot_id: str, token: str) -> None:
     if not 1 <= len(robot_id) <= 64:
@@ -211,7 +278,8 @@ def _validate_robot_token(robot_id: str, token: str) -> None:
 def _read_json(path: Path) -> object:
     if os.name == "posix" and stat.S_IMODE(path.stat().st_mode) & 0o077:
         raise RuntimeError(f"security file {path} must use owner-only permissions")
-    raw = path.read_bytes()
+    with path.open("rb") as handle:
+        raw = handle.read(MAX_SECURITY_FILE_BYTES + 1)
     if len(raw) > MAX_SECURITY_FILE_BYTES:
         raise RuntimeError(f"security file {path} exceeds its size limit")
     try:
@@ -220,23 +288,23 @@ def _read_json(path: Path) -> object:
         raise RuntimeError(f"security file {path} is invalid JSON") from exc
 
 
-def _atomic_secure_json(path: Path, value: object) -> None:
+def _atomic_secure_json(path: Path, value: object, *, overwrite: bool = True) -> None:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     if len(encoded) > MAX_SECURITY_FILE_BYTES:
         raise OSError("security file exceeds its size limit")
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
-    descriptor = os.open(
-        temporary,
-        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-        SECURE_FILE_MODE,
-    )
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(encoded)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        if overwrite:
+            os.replace(temporary, path)
+        else:
+            os.link(temporary, path)  # Exclusive destination; also rejects a symlink.
+            temporary.unlink()
         os.chmod(path, SECURE_FILE_MODE)
     except Exception:
         try:
@@ -244,3 +312,34 @@ def _atomic_secure_json(path: Path, value: object) -> None:
         except FileNotFoundError:
             pass
         raise
+
+
+def main() -> int:
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Transfer existing Body Control pairing without starting a gateway")
+    parser.add_argument("--data-dir", type=Path, required=True)
+    modes = parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument("--export-pairing", type=Path)
+    modes.add_argument("--import-pairing", type=Path)
+    modes.add_argument("--check-pairing", action="store_true")
+    args = parser.parse_args()
+    try:
+        if args.export_pairing:
+            export_pairing(args.data_dir, args.export_pairing)
+            print(f"Pairing exported to {args.export_pairing} (owner-only). Transfer this file privately.")
+        elif args.import_pairing:
+            import_pairing(args.data_dir, args.import_pairing)
+            print("Pairing imported. This computer uses the same robot token and Body Control password.")
+        else:
+            check_pairing(args.data_dir, os.environ.get("AINEKIO_ROBOT_ID", "ainekio-01"),
+                          os.environ.get("AINEKIO_ROBOT_TOKEN", ""))
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"Pairing configuration: {error}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

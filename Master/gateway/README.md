@@ -16,8 +16,9 @@ headers. Once established, either side can send data,
 so the fact that the ESP32 initiates its connection does not make communication
 one-way.
 
-On first launch, supply a strong robot token and a separate Environment Bridge
-token through the environment. Do not commit either value:
+On first pairing, supply a strong robot token. Configure a separate Environment
+Bridge token when using MetaHuman on this host; standalone Body Control does not
+require MetaHuman. Do not commit either value:
 
 ```sh
 export AINEKIO_ROBOT_ID='ainekio-01'
@@ -31,25 +32,27 @@ export AINEKIO_DASHBOARD_PASSWORD='<strong local dashboard password>'
 The launcher listens for the robot and Environment Bridge on `0.0.0.0:8790`
 but permits `/environment` only from loopback and keeps the dashboard on
 `127.0.0.1:8791`. In the default local mode the
-launcher advertises `_ainekio._tcp.local`, and the robot accepts only an
-advertised IPv4 address on its current WiFi subnet. After authentication the
-robot caches that local endpoint and tries it first on the next boot or
-transport reconnect. A failed cached attempt falls back to DNS-SD, so DHCP or
-network changes require no reconfiguration. A
+launcher advertises `_ainekio._tcp.local` with a host-specific service name. P4
+firmware advertising `gateway_switching_v1` tries the saved addresses for its
+associated Wi-Fi, then discovered protocol-v1 LAN gateways on that subnet. It
+keeps an authenticated connection until that connection fails or the gateway
+stops. Discoveries are bounded to eight and stay in RAM for that network
+association. A
 same-computer MetaHuman OS process continues to use
 `ws://127.0.0.1:8790/environment`. Runtime tokens and password verifiers remain
 under ignored `build/gateway/physical/` storage.
 
-The discovery description above is not implemented by every firmware target.
-The current ESP32-P4 link task uses its configured `endpoint_url` directly and
-retries that host. It does not implement automatic Q6A/remote gateway selection.
+Older P4 firmware retries one configured URL and requires an update for this
+switching behavior. The S3 consumer retains its single-candidate ambiguity result.
 The [distributed foundation](../../docs/DISTRIBUTED_ROBOT_FOUNDATION.md) records
-the planned common-source and takeover contract.
+the remaining cross-installation work and control-grant design.
 
 This one-off home deployment intentionally uses authenticated `ws://` on the
 owner's private WPA2 LAN. It is the smallest local path, but the LAN is part of
-the trust boundary: do not use it on guest, shared, or public WiFi. Remote mode
-remains explicit and requires `wss://`; it is never an automatic fallback.
+the trust boundary: do not use it on guest, shared, or public WiFi. Remote
+endpoints remain explicitly configured `wss://` addresses with certificate
+verification. TLS-only Wi-Fi profiles never fall back to discovered plain WS;
+configure a LAN address on that same network to opt into discovery there.
 The dashboard reuses its saved operator password across launches. A first run
 without `AINEKIO_DASHBOARD_PASSWORD` generates and prints a password once when
 launched in an interactive terminal; an unattended first run requires that
@@ -67,13 +70,18 @@ presented by the ESP32 setup portal.
 
 **Settings → Robot Wi-Fi and pairing** reads and edits P4 settings over the
 existing authenticated connection when firmware advertises `robot_settings_v1`.
-Older firmware shows an update message. The operator can save four network slots,
-each with its own Wi-Fi credentials and Body Control URL, remove a network,
+Older firmware shows an update message. The operator can save four connection slots,
+each with Wi-Fi credentials and a Body Control URL, remove a connection,
 change the robot setup-hotspot password, and change its pairing token. Passwords
 are write-only: unchecked password options preserve the saved secret; checking
 an option with an empty Wi-Fi password explicitly selects an open network.
 WPA2 passphrases follow the radio's 8–63 ASCII requirement (station profiles also
 accept a 64-digit hexadecimal PSK); the dashboard login has no such policy.
+With `gateway_switching_v1`, two slots may name the same Wi-Fi and different
+computer/tunnel addresses. They share one Wi-Fi password; changing it updates
+all slots for that network. Adding another address may omit the already saved
+password. Duplicate network/address pairs are rejected. Older firmware is
+explicitly rejected before a same-network alternate is written.
 
 Read the robot settings before editing. Saves carry the device revision so a
 stale browser cannot overwrite another editor's changes. Saving disables output
@@ -91,6 +99,64 @@ must be given the matching token separately. The existing Generate/Revoke
 controls still manage server pairing only. Startup environment tokens seed
 missing identities and never overwrite a saved token.
 
+## Using more than one computer
+
+The robot identity belongs to the robot. Each host runs the same gateway and uses
+the existing robot token and Body Control password. Transfer those credentials
+once using the existing security owners; copying `.env` alone is insufficient.
+On the working computer, from the repository root:
+
+```sh
+./Master/start-physical-gateway.sh --export-pairing /tmp/ainekio-pairing.json
+```
+
+Privately transfer that owner-only file to the other computer, then run:
+
+```sh
+chmod 600 /tmp/ainekio-pairing.json
+./Master/start-physical-gateway.sh --import-pairing /tmp/ainekio-pairing.json
+./Master/start-physical-gateway.sh --check
+```
+
+Import starts no listeners or services and is idempotent for the same credentials.
+It validates both stores before writing; different existing credentials are
+preserved with an explicit error. A disk failure can leave one newly imported
+store; repeating that same import completes it. The bundle contains tokens and
+the password verifier, including any pending token transition. It excludes
+browser sessions, tasks, action receipts, logs, Python paths, MetaHuman credentials
+and Cloudflare tunnel credentials. Delete the transfer file when finished.
+Later password/token changes are local to each installation; copy the matching
+credentials to other hosts again rather than assuming automatic synchronization.
+
+Both hosts install their own gateway dependencies and use their own checkout's
+`.venv`. Keep machine paths out of shared configuration. Each optional MetaHuman
+Bridge retains its matching local adapter token. Cloudflare's existing relay
+remains `/robot` only; its credentials/configuration stay separate.
+
+- **Same LAN:** a paired gateway with local discovery enabled can be found after
+  the current gateway stops. Multiple advertisements are candidates, not an
+  error or permission for simultaneous controllers.
+- **Different hotspots:** save their SSIDs/passwords and server addresses once.
+  P4 cycles distinct networks when Wi-Fi is offline, then selects gateways on
+  the associated network. Turn off the previous hotspot when switching SSIDs;
+  a still-working Wi-Fi connection is retained. With `AINEKIO_HOTSPOT=1`, the
+  existing gateway launcher stops its managed hotspot on shutdown.
+- **Cloudflare/remote:** save the `wss://.../robot` endpoint on the relevant Wi-Fi.
+  It uses the same pairing and command/result contract with verified TLS.
+
+Start Body Control on the desired host and stop it on the current host using
+`./Master/stop-physical-gateway.sh` (or Ctrl+C for a foreground launcher).
+A returning host does not seize a healthy connection. The P4 destroys the old
+WebSocket and closes admission before opening another. Stop/disconnect output
+disable and generation fencing remain; interrupted actions return their existing
+disconnect outcome. Connection switching does not transfer a MetaHuman objective,
+replay movement or copy a durable execution database.
+
+A phone browser can use an available host's password-protected dashboard when
+that host's `AINEKIO_DASHBOARD_HOST` is bound to its private LAN address. The
+default dashboard remains loopback. Direct on-P4 browser control is separate
+from its setup portal and is not implemented by this change.
+
 The launcher stays in the foreground. Press Ctrl+C to stop it. For normal
 owner operation it can instead be supervised by the included user service.
 The launcher uses `.venv/bin/python3` from this checkout; `AINEKIO_PYTHON` can
@@ -102,7 +168,8 @@ Check local prerequisites without opening listeners or printing credentials:
 ```
 
 This checks the interpreter, dependencies, discovery executable when enabled, and
-required token presence. It does not verify token-store contents, network/port
+saved pairing/password-store validity and recognition/Bridge configuration.
+It does not verify network/port
 availability or a physical connection.
 
 Install the user service for this checkout without enabling or starting it:
@@ -134,9 +201,12 @@ The default is `0`, so other hosts need no hotspot services. Body Control's
 dashboard login and robot pairing authentication continue to use their existing
 owners. Starting `python3 -m gateway.server` directly bypasses this launcher.
 
-Updated P4 firmware tries saved Wi-Fi slots in order, allowing 15 seconds per
-slot before trying the next while offline. It keeps a working Wi-Fi connection;
-gateway failure alone does not cause roaming. Each slot supplies its own server
+Updated P4 firmware tries distinct saved Wi-Fi networks in order, allowing 15
+seconds per network while offline. It keeps a working Wi-Fi connection; gateway
+failure selects other computers on that same network without Wi-Fi roaming.
+An unauthenticated gateway attempt expires after 10 seconds, with a 1-second
+retry delay and a bounded 2.5-second discovery query after configured candidates.
+These are source limits, not measured physical handoff latency. Each slot supplies its own server
 URL (for example `ws://10.42.77.1:8790/robot` on the computer hotspot). This uses
 normal Wi-Fi association, not Wi-Fi Direct. If no saved network works, the
 existing timed setup AP becomes available after 60 seconds; with no networks it

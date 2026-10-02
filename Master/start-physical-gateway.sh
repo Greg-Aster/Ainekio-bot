@@ -7,10 +7,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MODE=start
 case "${1:-}" in
   --help|-h)
-    echo "Usage: $0 [--check | --install-service | gateway arguments]"
+    echo "Usage: $0 [--check | --install-service | --export-pairing FILE | --import-pairing FILE | gateway arguments]"
     echo "--check validates local prerequisites without starting services or printing credentials."
     echo "--install-service installs the existing user service for this checkout; it does not start or enable it."
     echo "Python defaults to .venv/bin/python3; override with AINEKIO_PYTHON."
+    echo "Pairing export/import shares the existing robot token and dashboard password; it starts no services."
     exit 0
     ;;
   --check|--install-service)
@@ -21,34 +22,19 @@ case "${1:-}" in
       exit 2
     fi
     ;;
+  --export-pairing|--import-pairing)
+    MODE="${1#--}"
+    if (( $# != 2 )) || [[ -z "$2" ]]; then
+      echo "--$MODE requires one pairing bundle filename." >&2
+      exit 2
+    fi
+    PAIRING_FILE="$2"
+    shift 2
+    ;;
 esac
 
-ENV_FILE="$REPO_ROOT/.env"
-if [[ -f "$ENV_FILE" ]]; then
-  declare -A explicit_ainekio_env=()
-  while IFS='=' read -r -d '' env_name env_value; do
-    if [[ "$env_name" == AINEKIO_* ]]; then
-      explicit_ainekio_env["$env_name"]="$env_value"
-    fi
-  done < <(env -0)
-
-  allexport_was_enabled=0
-  if [[ "$-" == *a* ]]; then
-    allexport_was_enabled=1
-  fi
-  set -a
-  # shellcheck disable=SC1090 -- this is the operator's repo-local environment file.
-  source "$ENV_FILE"
-  if (( ! allexport_was_enabled )); then
-    set +a
-  fi
-
-  for env_name in "${!explicit_ainekio_env[@]}"; do
-    printf -v "$env_name" '%s' "${explicit_ainekio_env[$env_name]}"
-    export "$env_name"
-  done
-  unset explicit_ainekio_env env_name env_value allexport_was_enabled
-fi
+source "$SCRIPT_DIR/gateway-env.sh"
+ainekio_load_environment "$REPO_ROOT"
 
 DATA_DIR="${AINEKIO_GATEWAY_DATA_DIR:-$REPO_ROOT/build/gateway/physical}"
 GATEWAY_HOST="${AINEKIO_GATEWAY_HOST:-0.0.0.0}"
@@ -65,6 +51,9 @@ if [[ ! -x "$GATEWAY_PYTHON" ]]; then
   echo "Gateway Python is not executable: $GATEWAY_PYTHON" >&2
   echo "Install the repository .venv dependencies or set AINEKIO_PYTHON to an absolute interpreter path." >&2
   exit 2
+fi
+if [[ "$MODE" == export-pairing || "$MODE" == import-pairing ]]; then
+  exec "$GATEWAY_PYTHON" -m gateway.security --data-dir "$DATA_DIR" "--$MODE" "$PAIRING_FILE"
 fi
 if ! "$GATEWAY_PYTHON" -c 'import gateway.server.__main__'; then
   echo "Gateway dependencies are unavailable in $GATEWAY_PYTHON." >&2
@@ -121,14 +110,17 @@ if [[ "$HOTSPOT" != "0" && "$HOTSPOT" != "1" ]]; then
   exit 2
 fi
 
-if [[ -z "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
-  echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required for the MetaHuman Environment Bridge." >&2
+if [[ -n "${AINEKIO_VISION_URL:-}" && -z "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
+  echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required when recognition uses the MetaHuman Environment Bridge." >&2
   exit 2
 fi
 
 if [[ ! -f "$DATA_DIR/robot-tokens.json" && -z "${AINEKIO_ROBOT_TOKEN:-}" ]]; then
   echo "First launch requires AINEKIO_ROBOT_TOKEN to seed the physical robot identity." >&2
   echo "Set AINEKIO_ROBOT_ID (default: ainekio-01) and a strong AINEKIO_ROBOT_TOKEN." >&2
+  exit 2
+fi
+if ! "$GATEWAY_PYTHON" -m gateway.security --data-dir "$DATA_DIR" --check-pairing; then
   exit 2
 fi
 
@@ -141,6 +133,11 @@ if [[ "$MODE" == check ]]; then
   echo "  Gateway bind:    $GATEWAY_HOST:$GATEWAY_PORT"
   echo "  Dashboard bind:  $DASHBOARD_HOST:$DASHBOARD_PORT"
   echo "  Local discovery: $LOCAL_DISCOVERY"
+  if [[ -n "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
+    echo "  MetaHuman Bridge: configured (authentication required)"
+  else
+    echo "  MetaHuman Bridge: disabled; standalone Body Control is available"
+  fi
   echo "No listeners, discovery announcements or robot connections were started."
   exit 0
 fi
@@ -256,7 +253,7 @@ fi
 if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
   avahi-publish-service \
     --service \
-    "Ainekio Gateway" \
+    "Ainekio Gateway $(hostname)" \
     _ainekio._tcp \
     "$GATEWAY_PORT" \
     "protocol=1" \

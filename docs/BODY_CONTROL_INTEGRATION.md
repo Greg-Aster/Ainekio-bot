@@ -2,7 +2,7 @@
 
 Started: 2026-09-28
 
-Updated: 2026-10-01 — negotiated steering compatibility and configured remote recognition fixes
+Updated: 2026-10-02 — portable Body Control pairing and P4 connection switching
 
 Status: Living research, implementation and decision record
 
@@ -32,7 +32,8 @@ while remote-dependent tasks pause when the remote server is unavailable.
 **Latest control requirement:** P4 is the robot brain and accepts the same
 control contract from interchangeable authorized sources. Q6A, remote MetaHuman
 and standalone manual Body Control must each be usable without requiring the
-other hosts. Source takeover is planned, not currently implemented. The shared
+other hosts. Available-gateway connection switching is implemented in source;
+general source grants and cross-installation task continuation remain planned. The shared
 gateway is the existing integration point; extend P4 admission/connection
 ownership rather than making Q6A a mandatory intermediary. Manual client hardware
 remains undecided.
@@ -118,10 +119,189 @@ capture age and recognition accuracy remain unqualified.
 
 The deployment split and takeover policy are still design work. All sources
 must use the common Ainekio control contract and P4 admission/output owner.
-The existing gateway already serves manual and MetaHuman requests, but does not
-implement automatic host failover. The LSM6DS3 has been received; its installation and integration
+The existing gateway serves manual and MetaHuman requests. P4 now selects another
+available paired gateway after losing its current connection, without replaying
+movement or transferring an active objective. The LSM6DS3 has been received; its installation and integration
 are planned, not verified. Whether ROS is used for sensors or diagnostics is a
 separate decision from wired versus wireless transport.
+
+## 2026-10-02 implementation: portable Body Control and host switching
+
+The owner selected both shared-LAN and separate-hotspot operation, with any
+authorized Body Control host using the same robot identity and command/result
+contract. This increment changes source and tests only. No service was started
+against the robot, credentials/configuration changed, firmware flashed, or new
+changes committed/pushed. The earlier steering/recognition increment is retained;
+its approved `walk_steering_v1` signs, percentage units and ACK semantics are
+unchanged. No historical speech/catalog patch was reapplied.
+
+The owner subsequently authorized committing and pushing this increment to
+`origin/dev`. Publication preserves the remote structural crossbar additions;
+the outstanding SDK build, dependency-lock regeneration and hardware checks
+below remain outstanding. That instruction does not authorize deployment,
+flashing or robot movement.
+
+The worktree started clean on local `main` at
+`eb3e50e2c00fb76096e8538022f62474349fb361`. Fetching remote refs left the checkout
+unchanged: `origin/dev` is `7cf5a543e086bd94f3c0833e5e7d1bd054df5bf2` and
+`origin/main` is `022bda54ebd97711d656313513d29c3a80bb3f28`. The remote dev increment
+contains only front/rear structural crossbar STL exports and overlaps none of
+this repair. No merge was performed. The supplied prep, parent `AGENTS.md`,
+distributed foundation, maintained MetaHuman boundaries and protocol/firmware
+records were read; no Ainekio repository-specific `AGENTS.md` exists.
+
+**Connection and identity contract.** P4 advertises `gateway_switching_v1`
+through existing protocol-v1 feature negotiation. The existing four-slot
+`robot_settings_v1` wire/NVS structure is unchanged. Same-SSID slots can hold
+different computer or tunnel URLs and share one Wi-Fi password; duplicate
+SSID/URL pairs reject, password updates apply to all slots for that network, and
+legacy recovery preserves alternate URLs. Wi-Fi selection cycles distinct SSIDs
+when offline. A working Wi-Fi association is retained, so switching to a
+different hotspot requires the previous hotspot to stop. The existing managed
+hotspot lifecycle does that on gateway shutdown when enabled.
+
+P4's existing `link_task` selects configured URLs on that association, followed
+by at most eight discovered protocol-v1 LAN candidates. An authenticated
+connection remains selected until loss or explicit gateway shutdown. Discovery
+requires a configured plain-WS LAN profile on that network; WSS-only networks
+never downgrade to discovery. Configured WSS retains certificate-bundle checks.
+Network-generation changes clear discoveries. The old WebSocket/admission owner
+closes before another opens; sequence/session fencing and output disable remain
+with P4. An unauthenticated attempt expires after 10 seconds, retry delay is
+1 second, and a discovery query is bounded to 2.5 seconds. These are configured
+bounds, not measured handoff latency or Q6A performance.
+
+The S3 DNS-SD implementation was moved into one shared component and extended
+with a list API. Its existing single-result API retains explicit ambiguity
+rejection. Filters still require the current station IPv4 subnet, the existing
+protocol/path/transport/TLS TXT values and a nonzero port. Older P4 firmware
+retains its supported network commands; fresh correlated settings readback
+lets the gateway reject unsupported same-network alternates before assigning
+a sequence or dispatching. No substitute command is sent.
+
+The existing security owners export/import a versioned, owner-only bundle of
+saved robot tokens (including pending rotation) and dashboard password verifier.
+The bundle excludes sessions, task/action databases, logs, `.env`, machine paths,
+MetaHuman and tunnel credentials. Imports validate the whole bundle and both
+stores first, preserve conflicting credentials with an explicit error, and
+allow identical retries. Each new store is written exclusively and atomically;
+an explicit disk failure may leave one imported store, and the same import
+finishes it. This is credential portability, not another writable authority.
+Later credential changes must be coordinated across the hosts.
+
+Standalone Body Control no longer requires a MetaHuman Bridge token; configured
+recognition still requires the authenticated Bridge. Start, stop and relay now
+share the existing trusted `.env` loader and preserve explicit environment
+precedence. Stop uses the same configured runtime directory as start. Production
+SIGTERM stops admission, cancels pending commands with `disconnect`, releases
+body/Bridge/incomplete-handshake sockets and exits. This also fixes a shutdown
+hang with the installed WebSocket/Python 3.12 server lifecycle.
+
+The integrated regression uses two independent real loopback gateway servers
+and the production native P4 selector, settings, decoder and admission code.
+One ongoing walk ACK remains pending; stopping its host returns correlated
+`cancelled/disconnect`. The next paired host receives no replay and admits a new
+finite command. The old generation rejects even if both hosts reuse epoch 1.
+Device transport/execution is simulated. A TLS fixture tests an untrusted
+certificate rejection and authenticated configured relay transport, using a
+simulated Cloudflare header. A real production subprocess shutdown test covers
+an authenticated body, authenticated Bridge and incomplete HTTP handshake.
+The existing recognition/steering and emergency-stop regressions also run in
+the aggregate. No second queue, durable executor, inference runtime or LLM
+behavioral substitute was introduced; task ownership remains in MetaHuman.
+
+Changed files, grouped by owner (paths are relative to the named directory):
+
+| Directory | Files |
+| --- | --- |
+| `Master/` | `gateway-env.sh` (new), `start-physical-gateway.sh`, `stop-physical-gateway.sh`, `start-physical-relay.sh` |
+| `Master/gateway/` | `security.py`, `server/service.py`, `server/__main__.py`, `dashboard/static/dashboard.html`, `dashboard/static/dashboard.js`, `README.md` |
+| `Slave/firmware/esp32p4-wifi6/` | `CMakeLists.txt`, `README.md`, `main/CMakeLists.txt`, `main/config.c`, `main/controller.c`, `main/gateway_selection.c` and `.h` (new), `main/idf_component.yml`, `main/network.c`, `main/network.h`, `main/robot_settings.c`, `main/robot_settings.h` |
+| `Slave/firmware/components/ainekio_discovery/` | `CMakeLists.txt` (new), `local_discovery.c`, `include/ainekio/platform/local_discovery.h`; implementation/header moved from S3 `components/ainekio_platform/src/local_discovery.c` and `include/ainekio/platform/local_discovery.h` |
+| `Slave/firmware/esp32s3/` | `CMakeLists.txt`, `components/ainekio_platform/CMakeLists.txt` |
+| `Slave/software/` | `core/include/ainekio/protocol.h`, `protocol/control_v1.py`, `protocol/README.md` |
+| `Slave/firmware/esp32p4-wifi6/tests/` | `CMakeLists.txt`, `test_robot_settings.c`, `test_robot_settings_store.c`, new `test_gateway_selection.c`, `test_gateway_discovery.c`, `discovery_shim/esp_netif.h`, `discovery_shim/mdns.h` |
+| `Emulator/` | new `tests/test_pairing_transfer.py`, `tests/test_gateway_switching.py`; `tests/test_physical_gateway_launcher.py`, `tests/test_robot_settings.py`, `tools/run_acceptance.py`, `tools/dashboard_browser_acceptance.mjs` |
+| Root/docs | `.env.example`, `docs/BODY_CONTROL_INTEGRATION.md`, `docs/DISTRIBUTED_ROBOT_FOUNDATION.md` |
+
+**Configuration changes to use after review/build.** Export pairing once from
+the working host with `./Master/start-physical-gateway.sh --export-pairing FILE`;
+privately copy that file, retain mode 0600, then use `--import-pairing FILE` and
+`--check` on the other host. Each host installs its own dependencies and uses
+its own `.venv`; machine paths, local Bridge tokens and tunnel credentials stay
+local. Configure the robot's LAN or WSS URLs using its existing settings UI.
+Start the desired host, stop the currently selected host, and stop the old
+hotspot if changing SSIDs. A returning host does not seize a healthy connection.
+The [gateway README](../Master/gateway/README.md#using-more-than-one-computer)
+contains the exact commands. Phone browsers use a host dashboard explicitly
+bound to its private LAN address; the default stays loopback. The P4 setup
+portal is not a body-control dashboard.
+
+Final software validation:
+
+| Check | Exact result |
+| --- | --- |
+| Pairing, launcher, legacy/current settings, security, real-socket/native switching and production shutdown | 53/53 passed, 11.786 s; exit 0 |
+| Native CMake configure/build | Passed with configured `-Wall -Wextra -Werror`, new shared discovery/selection and core/model `-Wpedantic`; exit 0 |
+| Focused P4 settings/store/discovery/admission/body/camera/calibration | 9/9 passed, 0.90 s; exit 0 |
+| Full native CTest | 37 cases: 33 passed, 1 failed (`v2_run_source`), 3 skipped (`v2_crab_geometry`, `v2_gait_geometry`, `v2_locomotion_generator`); 36.26 s; exit 8 |
+| Headless Chromium dashboard | All 23 browser checks passed; exit 0 |
+| Required A-series aggregate | 29/31 passed, including new A31; A16 and A27 fail; exit 1 |
+| Aggregate emulator component | 390 tests: 383 passed, 6 failures, 1 error; 65.335 s; no skipped tests |
+| Aggregate protocol component | 14 tests: 11 passed, 3 failures; 0.033 s |
+| Aggregate portable C component | 13/13 passed |
+| Aggregate browser component | 23 checks passed; A29 passed |
+| This checkout's actual `./Master/start-physical-gateway.sh --check` | Interpreter/dependency loading passed, then exit 2: no saved robot pairing or `AINEKIO_ROBOT_TOKEN` here. Import the working computer's pairing bundle; no listeners/services started |
+| Python syntax, shell syntax, JavaScript syntax, YAML and whitespace | 9 changed/new Python files parsed; 4 shell scripts pass `bash -n`; 2 JavaScript files pass `node --check`; P4/S3 manifests parsed and mDNS pins agree; local documentation links and `git diff --check` pass; exit 0 |
+
+The full native failure is the existing exact `run_blend` source assertion;
+the skips require scientific Python dependencies. Existing aggregate failures
+in asset counts/sit poses, the missing Sesame source header, run-to-walk blending
+and protocol schema/fixture coverage are outside this increment. Their source
+inputs are unchanged from starting HEAD, and the prior implementation record
+below reports the same failures. Chromium is installed here instead of Google
+Chrome: the browser test now accepts `AINEKIO_TEST_BROWSER`; its first cold
+launch missed the existing five-second DevTools readiness window, and the
+subsequent full run passed. There is no configured Python lint/type check and
+Ruff/Mypy/Pyright/ShellCheck are absent; syntax checks do not prove Python static
+type correctness. No MetaHuman/TypeScript source changed in this increment.
+
+**Remaining build/hardware blockers.** ESP-IDF 5.5.4 and `idf.py` are absent on
+this machine. The P4 manifest pins the shared `espressif/mdns` dependency to
+`1.11.3`, matching S3, but its committed P4 dependency lock predates this
+addition. Run the required IDF reconfigure/build to resolve and regenerate that
+lock; no dependency hash was fabricated. Both P4 and S3 need SDK builds before
+firmware release. Real mDNS/radio switching, TLS time synchronization,
+Cloudflare-to-P4 transport, board memory/timing and physical servo/output-disable
+behavior remain untested. No external perception service or robot was contacted.
+The fixtures do not establish Q6A performance, perception quality, physical
+motion, automatic objective transfer or hardware handoff latency.
+The local checkout also needs the existing robot pairing imported before
+startup. Credentials were not generated or guessed, and this configuration
+blocker does not affect the isolated test fixtures.
+
+Reproduce from the repository root:
+
+```sh
+env PYTHONPATH=Master:Slave/software:Emulator .venv/bin/python3 -m unittest \
+  Emulator.tests.test_pairing_transfer Emulator.tests.test_physical_gateway_launcher \
+  Emulator.tests.test_robot_settings Emulator.tests.test_gateway_security \
+  Emulator.tests.test_gateway_switching
+
+cmake -S Slave/firmware/esp32p4-wifi6/tests -B build/host-switching/p4 \
+  -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE=/usr/bin/python3
+cmake --build build/host-switching/p4 --parallel 2
+ctest --test-dir build/host-switching/p4 --output-on-failure \
+  --output-junit "$PWD/build/host-switching/native-final.xml"
+
+env AINEKIO_TEST_BROWSER=/snap/bin/chromium \
+  AINEKIO_V2_WALK_COMMAND="$PWD/build/host-switching/p4/v2_model/v2_walk_command" \
+  .venv/bin/python3 Emulator/tools/run_acceptance.py
+```
+
+The aggregate report is `build/acceptance/a-series.json`; full native results
+are `build/host-switching/native-final.xml`. These ignored artifacts contain
+software evidence, not deployment approval.
 
 ## 2026-10-01 implementation: steering and remote recognition
 
