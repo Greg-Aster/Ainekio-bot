@@ -90,6 +90,15 @@ static void fail_link(void)
     atomic_store(&reconnect, true);
 }
 
+/* Caller holds admission_lock. Enforce the physical timeout before a late
+ * frame can refresh admission, without tearing down the telemetry bridge. */
+static bool control_current(uint64_t connection, uint64_t now)
+{
+    if (ainekio_admission_check_stale(&admission, now))
+        ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
+    return ainekio_admission_control(&admission, connection, now);
+}
+
 void ainekio_p4_controller_quiesce(void)
 {
     atomic_store(&quiesced, true);
@@ -253,7 +262,11 @@ static void received(void)
         }
         return;
     }
-    if (!ainekio_admission_control(&admission, request.connection, now_us())) { leave(); fail_link(); return; }
+    if (!control_current(request.connection, now_us())) {
+        leave();
+        nak(request.connection, m, AINEKIO_REJECT_STALE);
+        return;
+    }
     if (m->has_command && m->command.kind == AINEKIO_COMMAND_STOP) {
         /* Preserve core STOP semantics: current authenticated stops disable even
          * when duplicated. Expiry never delays this separate gate operation. */
@@ -321,7 +334,7 @@ static void websocket_event(void *arg, esp_event_base_t base, int32_t id, void *
             if (receive_opcode == 1) received();
             else {
                 enter();
-                const bool current = ainekio_admission_control(&admission, link_generation, now_us());
+                const bool current = control_current(link_generation, now_us());
                 leave();
                 ainekio_binary_frame_t frame;
                 if (!current || ainekio_binary_decode((uint8_t *)receive_text, receive_used, &frame) != AINEKIO_BINARY_OK ||
@@ -615,8 +628,10 @@ void ainekio_p4_controller_supervise(void)
     if (!atomic_load(&initialized)) return;
     enter();
     const bool stale = ainekio_admission_check_stale(&admission, now_us());
+    if (stale)
+        ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
     leave();
-    if (stale) fail_link();
+    if (stale) ESP_LOGW("controller", "Control heartbeat stale; outputs disabled, bridge retained");
 }
 
 static void calibration_status(const request_t *request)

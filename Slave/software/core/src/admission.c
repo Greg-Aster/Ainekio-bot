@@ -47,7 +47,10 @@ bool ainekio_admission_welcome(ainekio_admission_t *a, uint64_t generation,
 
 bool ainekio_admission_control(ainekio_admission_t *a, uint64_t generation, uint64_t now_us)
 {
-    if (generation != a->generation || !a->connected || !a->authenticated || a->stale) return false;
+    if (generation != a->generation || !a->connected || !a->authenticated) return false;
+    /* Silence stops execution, not the authenticated transport. If this frame
+     * detects the timeout, let the caller disable outputs before accepting a
+     * subsequent fresh frame. Recovery never clears the core's stop latch. */
     if (ainekio_admission_check_stale(a, now_us)) return false;
     a->last_control_us = now_us;
     a->stale = false;

@@ -710,9 +710,12 @@ coordinator either uses an already configured ready provider or reports that
 operation unavailable; delayed results cannot issue expired movement. A future
 healthy body executes an already admitted bounded trajectory locally. In this
 Step 1 target, loss of the selected controller or stale control immediately
-latches disable; ordinary joint braking remains Step 3. If Q6A is the selected
-coordinator and unavailable, P4 stays disarmed and reconnects only to it. Restored
-connectivity is never an instruction to resume an interrupted operation.
+latches disable; ordinary joint braking remains Step 3. Stale control keeps the
+authenticated WebSocket open for audio, video, status and telemetry. A fresh
+control frame can restore admission on that same generation and epoch without
+clearing the physical stop or replaying queued work. An actual transport loss
+uses the existing reconnect/paired-host selection owner while P4 stays disarmed.
+Restored connectivity is never an instruction to resume an interrupted operation.
 
 Start Q6A integration over the existing network transport. Preserve P4 native
 USB HS on P1 (MX1.25: pin 1 VCC_5V, 2 D−, 3 D+, 4 GND), with **P4 as device and

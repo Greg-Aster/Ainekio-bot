@@ -2,7 +2,7 @@
 
 Started: 2026-09-28
 
-Updated: 2026-10-02 — portable Body Control pairing and P4 connection switching
+Updated: 2026-10-02 — portable Body Control, P4 switching and installed Q6A hotspot
 
 Status: Living research, implementation and decision record
 
@@ -124,6 +124,256 @@ available paired gateway after losing its current connection, without replaying
 movement or transferring an active objective. The LSM6DS3 has been received; its installation and integration
 are planned, not verified. Whether ROS is used for sensors or diagnostics is a
 separate decision from wired versus wireless transport.
+
+## 2026-10-02 publication: hotspot and continuous bridge
+
+The owner requested publishing the local changes to remote `dev`. The starting
+checkout was `0c5a3923e5135b71dbdb183ce27635a93fd49bef` with the twelve changed
+files recorded below. A fresh fetch confirmed remote `dev` at
+`0c1850c521eea10cf5cf05279cfd63df3bb6569f`. The bounded hotspot/bridge commit
+was rebased onto that revision without conflicts, preserving its joint speed,
+motion diagnostics and CAD changes. DNDIY's uncommitted work was not modified.
+
+The combined source was checked again before publication:
+
+| Publication validation | Exact result |
+| --- | --- |
+| Gateway switching, robot settings, P4 foundation and hotspot installation | 32/32 passed, 6.198 s; exit 0 |
+| Native C/model/body/camera/selection build and tests | Build passed; 37 tests: 34 passed, 3 skipped, 0 failed; 46.43 s; exit 0 |
+| Required A-series aggregate | 29/31 passed; existing A16 and A27 failed; exit 1 |
+| Aggregate emulator | 407 tests: 400 passed, 6 failures, 1 error; 82.583 s |
+| Aggregate protocol / portable C / browser | Protocol 11/14 passed, 0.047 s; portable C 13/13 passed; all 23 Chromium checks passed |
+| Static/syntax checks | Three changed Python files parsed; launcher shell syntax and `git diff --check` passed; native build uses warnings as errors; no configured Python lint/type checker |
+
+The native `v2_run_source` failure from the earlier checkout is resolved by the
+preserved remote changes. The three native skips remain the unqualified geometry
+and generator gates. Aggregate asset/header/sit, run-to-walk and protocol
+schema/fixture failures remain. Commands were
+`PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests .venv/bin/python3 -m unittest Emulator.tests.test_gateway_switching Emulator.tests.test_robot_settings Emulator.tests.test_p4_foundation Emulator.tests.test_robot_hotspot_installation`,
+`cmake --build build/host-switching/p4 -j4`,
+`ctest --test-dir build/host-switching/p4 --output-on-failure`, and the existing
+acceptance runner with the Chromium/offline gait CLI configuration recorded below.
+The aggregate report was generated at `2026-10-02T23:49:03.863066+00:00`;
+logs are `build/acceptance/bridge-dev-final.log` and
+`build/acceptance/bridge-dev-native.log`. The earlier ESP-IDF translation-unit
+check remains evidence for the pre-rebase source; a full final firmware build
+and authorized flash are still outstanding. Publication does not change the
+installed robot or qualify physical motion, media continuity or Q6A performance.
+
+## 2026-10-02 follow-up: continuous Body Control bridge
+
+The owner clarified that Body Control and the robot form an active bridge for
+video, audio, status and telemetry. Delayed control traffic must stop physical
+execution without deliberately tearing down that authenticated bridge. An actual
+transport failure must use the existing reconnect owner; reconnection must not
+replay movement. This changes the heartbeat timeout's transport consequence,
+not emergency stop, authentication, physical limits, command expiry or ownership.
+
+Starting local HEAD remains `0c5a3923e5135b71dbdb183ce27635a93fd49bef`; fetched
+remote dev is `0c1850c521eea10cf5cf05279cfd63df3bb6569f`. The Q6A hotspot patch
+below was already local work. DNDIY is at the latter commit with substantial
+uncommitted motion/calibration/geometry edits, including a different public
+pulse-reference signature. Those edits were inspected and preserved. During
+this installation and diagnosis, no DNDIY source file was replaced, and no commit,
+push, merge, firmware flash or movement command was performed. The subsequent
+publication and its validation are recorded above.
+
+The real P4 reported `0.7.0-p4-compact-motion`, built `Oct 1 2026 19:30:57`,
+ESP-IDF `v5.5.4`, and C6 firmware `2.12.8`. Its advertised features include
+`walk_steering_v1`, `joint_speed_limit_v1` and `robot_settings_v1`, but omit
+`gateway_switching_v1`. A read-only attempt to copy its home-network credential
+was therefore rejected explicitly before any network write. The Q6A's saved
+credential for that same home SSID was then reused privately through the existing
+authenticated settings API. The P4 returned correlated network saves at sequences
+48 and 50, revision 2, a verifying read at 51, and restart acceptance at 52.
+Its saved profiles are:
+
+| Slot/index | Wi-Fi | Gateway |
+| --- | --- | --- |
+| First / 0 | `Ainekio-Robot` | `ws://10.42.77.1:8790/robot` |
+| Second / 1 | `CenturyLink3059` | `ws://192.168.0.44:8790/robot` |
+
+The pairing identity/token were retained. DNDIY's existing stop launcher stopped
+its gateway and all three hotspot units. The P4 actually associated with the Q6A,
+obtained `10.42.77.110`, and authenticated as `ainekio-p4-e6ebe5`. A subsequent
+Q6A settings read returned revision 2, active index 0 and `pending_restart=false`.
+Owner-confirmed disconnected servo power authorized USB inspection and settings
+restarts. USB opening did restart this board; automatic Home reported `ESP_OK`
+internally, which is not evidence of powered servo movement. Read-only USB
+commands also confirmed station IP and authenticated controller epoch. Temporary
+credential staging was deleted; passwords were not printed or committed.
+
+The live link still reconnected repeatedly. A 120-second verification attempt
+did not meet the 30-second continuous-session criterion and returned explicit
+`disconnect`, `stale` and missing-fresh-clock reasons before eventually obtaining
+the settings readback. Gateway close code 1006 does not identify the initiating
+fault. Thus neither stable hardware bridging nor the cause of every live drop
+is claimed. Wi-Fi power saving was inspected as enabled; the proposed temporary
+disable was interrupted and was not applied. Camera, SD storage and battery
+monitoring were reported unavailable in the USB snapshot; no live video/audio
+stream qualification, remote perception, Q6A performance or physical-motion
+result is claimed.
+
+The source defect was nevertheless explicit: P4 supervision called `fail_link()`
+on the four-second admission timeout, which disabled outputs, invalidated the
+generation and forced a reconnect. Supervision now disables the same physical
+outputs while retaining the authenticated transport. Native admission recovers
+fresh control on the existing generation/epoch without resetting sequence
+history or clearing the stop latch. The receive path enforces that output stop
+before a late frame can recover admission, preserving the supervisor race fence.
+Actual transport-loss reconnection and paired-host selection remain in their
+existing owner. No additional runtime, queue or behavior policy was introduced.
+
+Follow-up source files are `Slave/firmware/esp32p4-wifi6/main/controller.c`,
+`Slave/software/core/src/admission.c`, its public header and admission tests,
+`Emulator/tests/test_gateway_switching.py`, the native firmware README,
+`docs/v2-12servo/FIRMWARE_DESIGN.md` and this existing record. The hotspot source
+files listed below were also included in this work.
+
+| Final follow-up validation | Exact result |
+| --- | --- |
+| Real gateway sockets + native admission, settings and foundation regressions | 21/21 passed, 4.142 s; exit 0; new recovery case also passed in the final aggregate |
+| Added recovery regression | Same authenticated socket/epoch/generation survives simulated silence, stop stays latched, microphone PCM arrives after recovery, no movement is replayed, and explicit Stop keeps the connection open |
+| Native C/model/body/camera/selection checks | 37 total: 33 passed, 3 skipped, existing `v2_run_source` failure; 37.57 s; exit 8 |
+| Production ESP-IDF translation units | Modified controller and admission both cross-compiled successfully using DNDIY's existing SDK and matching isolated Q6A headers; no desktop sources/build outputs were overwritten |
+| Required final aggregate | 29/31 passed; existing A16 and A27 failed; exit 1 |
+| Final aggregate emulator | 398 tests: 391 passed, 6 failures, 1 error; 63.403 s |
+| Final aggregate protocol / portable C / browser | Protocol 11/14 passed, 0.030 s; portable C 13/13 passed; all 23 Chromium checks passed |
+| Static/syntax checks | Native host builds use warnings as errors; cross-compiler reported no diagnostics; three changed Python files parsed; `git diff --check` passed; no configured Python lint/type checker |
+
+The aggregate used the installed Chromium via `AINEKIO_TEST_BROWSER` and the
+compiled offline gait CLI via `AINEKIO_V2_WALK_COMMAND`; its report is
+`build/acceptance/a-series.json`, generated `2026-10-02T23:39:15.601349+00:00`,
+and its log is `build/acceptance/bridge-continuity-final.log`. The existing
+asset/header/sit, run-to-walk and protocol schema/fixture failures remain those
+recorded for the starting checkout. The initial cross-compile against DNDIY's
+different uncommitted headers failed; the isolated matching-header build passed.
+The native test's three skips are unqualified geometric/generator gates.
+
+These timeout fixes are source changes, not running robot changes. A complete
+firmware build/reconciliation with DNDIY's concurrent work and an explicitly
+authorized flash are still required before qualifying this behavior on the
+physical P4. Same-Wi-Fi multi-host switching also remains unsupported by the
+installed firmware's advertised capabilities.
+
+## 2026-10-02 installation: Q6A robot hotspot
+
+The owner explicitly requested installing the missing Q6A hotspot software and
+services. This is local host installation and network verification, not firmware
+flashing or movement authorization. Starting local HEAD was
+`0c5a3923e5135b71dbdb183ce27635a93fd49bef`, initially clean. During this work,
+remote `dev` advanced to `0c1850c521eea10cf5cf05279cfd63df3bb6569f`, merging
+motion-control and CAD work. Its changes were inspected after fetching; none
+overlap this hotspot installer. That remote increment was not pulled, merged or
+tested here, and these new hotspot changes were not committed or pushed. Results
+below apply to the starting checkout plus this installation patch.
+
+The earlier first-launch pairing blocker was resolved by privately importing
+the working DNDIY desktop's existing robot-token and dashboard-password stores,
+including robot `ainekio-p4-e6ebe5`. No new robot identity or dashboard password
+was generated, and task databases/sessions were not copied. The normal Q6A
+launcher and `--check` now work. The owner entered the desktop's Linux sudo
+password in an SSH terminal, outside chat, to make an owner-only copy of its
+existing hotspot identity. That copy was transferred over host-key-verified SSH;
+both transfer copies were removed after installation. Passwords were not printed
+or committed.
+
+Ubuntu `hostapd` `2:2.10-21ubuntu0.4` was installed; apt also updated
+`wpasupplicant` to the matching version. Existing `dnsmasq-base` `2.90-2ubuntu0.1`,
+NetworkManager, iw, iproute2, Avahi and polkit were reused. The package operation
+reported no service restart required. No global dnsmasq daemon or second gateway
+runtime was installed.
+
+The new [hotspot installer](../Master/install-robot-hotspot.py) supplies the
+three system service names already consumed by the existing physical launcher.
+It copies only SSID/WPA identity, validates private credential input, preserves
+unmanaged existing files explicitly, and leaves the services stopped and without
+independent boot enablement. The gateway launcher owns AP start/stop. The local
+operator can only start/stop those three named units; dnsmasq drops to its own
+account. Hostapd and DHCP configuration remain root-owned 0600 in a 0700
+directory. NetworkManager continues managing the station connection and leaves
+only `aineap0` unmanaged. No command/capability or execution-owner contract changed.
+
+The first live startup exposed Ubuntu's USB naming rule renaming `aineap0` to
+`wlxecb50a9834f9`, causing an explicit interface/dependency failure before gateway
+startup. The installer now supplies a link rule matching only original name
+`aineap0`, reloads udev configuration without retriggering the uplink, and uses
+`ExecStopPost` to remove the AP after both normal and failed service startup.
+The unused interface from that first attempt was removed; `wlan0` stayed connected.
+
+Installed system files:
+
+| Directory | Files |
+| --- | --- |
+| `/etc/ainekio-network/` | `hostapd.conf`, `dnsmasq.conf` (private) |
+| `/etc/systemd/system/` | `ainekio-hotspot-interface.service`, `ainekio-hotspot.service`, `ainekio-hotspot-dhcp.service` |
+| `/etc/systemd/network/` | `10-ainekio-hotspot.link` |
+| `/etc/NetworkManager/conf.d/` | `80-ainekio-hotspot.conf` |
+| `/etc/polkit-1/rules.d/` | `49-ainekio-hotspot.rules` |
+
+The ignored local `.env` now selects `AINEKIO_HOTSPOT=1`,
+`AINEKIO_GATEWAY_ADVERTISED_HOST=10.42.77.1` and the existing
+`AINEKIO_ROBOT_ID=ainekio-p4-e6ebe5`. The Q6A actually broadcasts `Ainekio-Robot`
+on 2.4 GHz channel 1 while its station stays on `CenturyLink3059` at 5 GHz channel
+36, IPv4 `192.168.0.88`. Hostapd reported `state=ENABLED`; all three services were
+active and the physical gateway listened on `0.0.0.0:8790`. The login page returned
+HTTP 200 at `http://127.0.0.1:8791/`. SSH to desktop DNDIY (`192.168.0.44`)
+succeeded while the AP was running. A normal gateway stop removed `aineap0` and
+stopped all three services while preserving the station route and desktop SSH.
+The gateway/hotspot were restarted and left running.
+
+This is a private robot-to-Q6A LAN (`10.42.77.0/24`, gateway endpoint
+`ws://10.42.77.1:8790/robot`). DHCP is restricted to the AP; it advertises neither
+Internet routing nor DNS. Q6A's applications use its existing uplink for remote
+work. No NAT/router, Cloudflare setup or remote MetaHuman runtime was added.
+At verification time hostapd reported zero associated clients and the Q6A had
+no body connection events. Actual P4 association, DHCP exchange, authenticated
+body connection and computer handoff remain untested. The desktop's running
+hotspot/gateway were not stopped, and no serial port was opened or motor command
+sent. These host observations do not establish radio/media throughput, remote
+perception quality, physical motion or Q6A task performance.
+
+**Follow-up after the owner stopped DNDIY Body Control.** All three desktop
+hotspot services were confirmed inactive, its AP interface was absent and its
+gateway/dashboard ports had no listeners. The Q6A remained ready with no robot
+connection events. The reported dashboard authentication failure was checked:
+both computers had identical valid owner-only password stores. The owner chose
+a new shared Body Control password in a private Q6A terminal. Existing
+`DashboardPasswordStore` verification/atomic-writing functions updated only the
+dashboard verifier on both hosts, and the Q6A's normal launcher was restarted
+to refresh sessions. Actual password login and the authenticated session endpoint
+both returned HTTP 200; the new stores were independently confirmed identical
+and private. DNDIY stayed stopped. No robot token, firmware or body command was
+changed. Robot power/configuration still requires confirmation: there are no
+Q6A body connections or recorded AP association attempts yet.
+
+Source changes are `Master/install-robot-hotspot.py`,
+`Emulator/tests/test_robot_hotspot_installation.py`, `Master/gateway/README.md`,
+`.env.example` and this record. Reproduction instructions and radio/channel
+requirements are in the [gateway README](../Master/gateway/README.md).
+
+Final validation:
+
+| Check | Exact result |
+| --- | --- |
+| Installer and launcher regressions | 22/22 passed, 4.190 s; exit 0 |
+| Hotspot, launcher, pairing and simulated gateway switching | 36/36 passed, 9.790 s; exit 0 |
+| Installed unit and DHCP parsers | All generated services passed `systemd-analyze verify`; dnsmasq configuration passed `--test` |
+| Installed runtime | AP enabled; three services active; dashboard HTTP 200; station and desktop SSH preserved across gateway/AP stop/start |
+| Required final A-series aggregate | 29/31 passed; A16 and A27 remain failed; exit 1 |
+| Final aggregate emulator component | 397 tests: 390 passed, 6 failures, 1 error; 72.246 s |
+| Final aggregate protocol component | 14 tests: 11 passed, 3 failures; 0.042 s |
+| Final aggregate portable C / browser | 13/13 C tests and all 23 Chromium checks passed |
+| Syntax/whitespace | Two new Python files parsed; generated polkit JavaScript passed `node --check`; existing start/stop/env scripts passed `bash -n`; `git diff --check` passed |
+
+Aggregate failures match the starting checkout's existing asset/header/sit,
+run-to-walk blend and protocol schema/fixture issues recorded below. The final
+report is `build/acceptance/a-series.json`, generated
+`2026-10-02T21:44:05.820014+00:00`; full output is
+`build/acceptance/hotspot-final.log`. No configured Python lint/type checker is
+available in this checkout; syntax and runtime tests do not establish static
+type correctness. Remote dev's newer motion fixes and firmware lock changes
+were not tested or claimed by this host installation.
 
 ## 2026-10-02 implementation: portable Body Control and host switching
 
