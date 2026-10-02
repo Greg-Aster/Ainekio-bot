@@ -2,6 +2,7 @@
 #include "controller.h"
 
 #include <inttypes.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -22,6 +23,7 @@ static portMUX_TYPE gate_lock = portMUX_INITIALIZER_UNLOCKED;
 static i2c_master_bus_handle_t bus;
 static i2c_master_dev_handle_t device;
 static ainekio_pca9685_t output;
+static atomic_int last_i2c_error;
 
 static void enter(void *context) { (void)context; portENTER_CRITICAL(&gate_lock); }
 static void leave(void *context) { (void)context; portEXIT_CRITICAL(&gate_lock); }
@@ -41,14 +43,19 @@ static bool write_registers(void *context, uint8_t reg, const uint8_t *data,
     uint8_t bytes[65];
     bytes[0] = reg;
     memcpy(bytes + 1, data, length);
-    return i2c_master_transmit(device, bytes, length + 1U, (int)timeout_ms) == ESP_OK;
+    const esp_err_t error = i2c_master_transmit(device, bytes, length + 1U, (int)timeout_ms);
+    if (error != ESP_OK) atomic_store_explicit(&last_i2c_error, error, memory_order_relaxed);
+    return error == ESP_OK;
 }
 static bool read_registers(void *context, uint8_t reg, uint8_t *data,
                            size_t length, uint32_t timeout_ms)
 {
     (void)context;
-    return device && i2c_master_transmit_receive(device, &reg, 1U, data, length,
-                                                (int)timeout_ms) == ESP_OK;
+    if (!device) return false;
+    const esp_err_t error = i2c_master_transmit_receive(device, &reg, 1U, data, length,
+                                                      (int)timeout_ms);
+    if (error != ESP_OK) atomic_store_explicit(&last_i2c_error, error, memory_order_relaxed);
+    return error == ESP_OK;
 }
 
 static void supervisor(void *context)
@@ -112,6 +119,10 @@ esp_err_t ainekio_p4_board_init(void)
 }
 
 ainekio_pca9685_t *ainekio_p4_output(void) { return &output; }
+esp_err_t ainekio_p4_i2c_error(void)
+{
+    return atomic_load_explicit(&last_i2c_error, memory_order_relaxed);
+}
 
 void ainekio_p4_board_identify(void)
 {

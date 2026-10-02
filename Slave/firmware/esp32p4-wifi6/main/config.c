@@ -25,6 +25,7 @@ static ainekio_p4_joint_record_t committed;
 /* Independent of joint calibration. Readers never take the NVS write lock. */
 static _Atomic float motion_rate = AINEKIO_MOTION_RATE_DEFAULT;
 static atomic_bool motion_rate_saved;
+static atomic_bool joint_speed_saved;
 _Static_assert(AINEKIO_BODY_JOINT_COUNT == AINEKIO_PCA_BODY_CHANNELS, "Joint/channel count mismatch");
 
 static bool joints_valid(const ainekio_p4_joint_config_t *joints)
@@ -129,6 +130,11 @@ esp_err_t ainekio_p4_config_init(void)
     atomic_store(&motion_rate_saved, rate_valid);
     if (rate_result != AINEKIO_STORE_NOT_FOUND && !rate_valid)
         puts("Motion speed unavailable; using 2x until a setting is saved.");
+    float limit = ainekio_v2_joint_speed_default();
+    const ainekio_store_result_t limit_result = blob("joint_speed", &limit, sizeof(limit), false);
+    const bool limit_valid = limit_result == AINEKIO_STORE_OK && isfinite(limit) && limit > 0.F;
+    ainekio_v2_joint_speed_set(limit_valid ? limit : ainekio_v2_joint_speed_default());
+    atomic_store(&joint_speed_saved, limit_valid);
     const bool defaults_valid = ainekio_p4_joint_defaults(calibration.joints);
     const ainekio_store_result_t saved = blob("joint_mapping", &committed, sizeof(committed), false);
     if (saved == AINEKIO_STORE_OK && committed.version == 1 && joints_valid(committed.joints)) {
@@ -142,6 +148,17 @@ esp_err_t ainekio_p4_config_init(void)
     if (!calibration.valid) puts("Joint settings unreadable or invalid; automatic home disabled. Repair and save calibration.");
     printf("configuration load=%d; configured=%d\n", result, store.has_active);
     return result == AINEKIO_CONFIG_LOAD_IO_ERROR ? ESP_FAIL : ESP_OK;
+}
+
+bool ainekio_p4_joint_speed_saved(void) { return atomic_load(&joint_speed_saved); }
+esp_err_t ainekio_p4_joint_speed_save(float limit)
+{
+    if (!isfinite(limit) || limit <= 0.F) return ESP_ERR_INVALID_ARG;
+    if (ainekio_pca_status(ainekio_p4_output()).armed) return ESP_ERR_INVALID_STATE;
+    if (blob("joint_speed", &limit, sizeof(limit), true) != AINEKIO_STORE_OK) return ESP_FAIL;
+    ainekio_v2_joint_speed_set(limit);
+    atomic_store(&joint_speed_saved,true);
+    return ESP_OK;
 }
 
 float ainekio_p4_motion_rate(void) { return atomic_load(&motion_rate); }

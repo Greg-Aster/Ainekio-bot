@@ -124,6 +124,33 @@ static void nak(uint64_t connection, const ainekio_control_message_t *m, ainekio
     reply(connection, text);
 }
 
+/* Sample existing counters outside the output task; serialization never runs
+ * in the servo/I2C loop. These observations do not change timing admission. */
+static size_t append_motion_diagnostics(char *text, size_t capacity, size_t length)
+{
+    const ainekio_pca_status_t output = ainekio_pca_status(ainekio_p4_output());
+    const ainekio_p4_body_timing_t timing = ainekio_p4_body_timing();
+    const ainekio_p4_body_status_t motion = ainekio_p4_body_status();
+    const int added = snprintf(text + length - 1U, capacity - length + 1U,
+        ",\"gait_cadence\":{\"automatic_run\":%s,\"cycles_s\":%.6g,\"requested_cycles_s\":%.6g,\"stride_percent\":%.6g,\"requested_stride_percent\":%.6g},\"speed_limited\":%s,\"joint_speed_limit_deg_s\":%.9g,\"clock_ms\":%" PRIu64 ",\"output_fault\":%u,\"controller_queue_depth\":%u,"
+        "\"output_timing\":{\"last_io_us\":%" PRIu64 ",\"max_io_us\":%" PRIu64
+        ",\"transfers\":%" PRIu32 ",\"failures\":%" PRIu32 ",\"budget_us\":%" PRIu64
+        ",\"last_esp_error\":%d},"
+        "\"motion_timing\":{\"frames\":%" PRIu32 ",\"max_calculation_us\":%" PRIu32
+        ",\"max_frame_us\":%" PRIu32 ",\"max_request_us\":%" PRIu32
+        ",\"over_2ms\":%" PRIu32 ",\"over_5ms\":%" PRIu32 ",\"queue_depth\":%" PRIu32 "}}",
+        motion.automatic_run ? "true" : "false", (double)motion.gait_cycles_s,
+        (double)motion.gait_requested_cycles_s, (double)motion.stride_percent, (double)motion.requested_stride_percent,
+        motion.speed_limited ? "true" : "false", ainekio_v2_gait_joint_speed_limit(),
+        now_us()/1000U, (unsigned)output.fault, (unsigned)uxQueueMessagesWaiting(requests),
+        output.last_io_us, output.max_io_us, output.io_transfers, output.io_failures,
+        AINEKIO_PCA_IO_BUDGET_US, (int)ainekio_p4_i2c_error(), timing.frames, timing.calculation_us, timing.frame_us,
+        timing.request_us, timing.over_2ms, timing.over_5ms, timing.queue_depth);
+    /* Fixed keys and integer fields fit with the NAK in 1024 bytes and with
+     * the bounded status catalog in 4096 bytes. snprintf also bounds writes. */
+    return length - 1U + (size_t)added;
+}
+
 static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t error)
 {
     const ainekio_p4_system_status_t system = ainekio_p4_system_status();
@@ -142,8 +169,9 @@ static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t e
         error == ESP_ERR_NO_MEM ? "Body lacks memory or command queue space" :
         output.fault ? "Motion stopped after execution failed" :
         "Command could not execute; read body status and retry";
-    char text[192];
-    ainekio_encode_nak(true, sequence, code, detail, text, sizeof(text));
+    char text[1024];
+    const size_t length = ainekio_encode_nak(true, sequence, code, detail, text, sizeof(text));
+    append_motion_diagnostics(text, sizeof(text), length);
     reply(connection, text);
 }
 
@@ -190,7 +218,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "robot_settings_v1", "camera_profiles_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "robot_settings_v1", "camera_profiles_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -418,12 +446,15 @@ static void telemetry(uint64_t connection)
         .speaker_ready=media.speaker_ready, .capabilities=&caps};
     status.body = &body;
     char text[4096];
-    if (!ainekio_encode_status(&status, text, sizeof(text))) { fail_link(); return; }
+    size_t length = ainekio_encode_status(&status, text, sizeof(text));
+    if (!length) { fail_link(); return; }
+    append_motion_diagnostics(text, sizeof(text), length);
     reply(connection, text);
     if (status.uptime_seconds % 5U == 0U) {
         /* Store changing measurements, not the repeated command catalog. */
         body.capabilities = NULL;
-        const size_t length = ainekio_encode_status(&status, text, sizeof(text));
+        length = ainekio_encode_status(&status, text, sizeof(text));
+        if (length) length = append_motion_diagnostics(text, sizeof(text), length);
         if (length) ainekio_p4_storage_record(1, text, length);
     }
 }
@@ -596,11 +627,12 @@ static void calibration_status(const request_t *request)
 
 static void motion_speed_status(const request_t *request)
 {
-    char text[160];
+    char text[320];
     const float rate = ainekio_p4_motion_rate();
-    snprintf(text, sizeof(text), "{\"t\":\"motion_speed_status\",\"seq\":%lu,\"rate\":%.9g,\"saved\":%s}",
+    snprintf(text, sizeof(text), "{\"t\":\"motion_speed_status\",\"seq\":%lu,\"rate\":%.9g,\"saved\":%s,\"joint_speed_limit_deg_s\":%.9g,\"joint_speed_limit_saved\":%s}",
         (unsigned long)request->message.sequence, (double)rate,
-        ainekio_p4_motion_rate_saved() ? "true" : "false");
+        ainekio_p4_motion_rate_saved() ? "true" : "false",
+        ainekio_v2_gait_joint_speed_limit(), ainekio_p4_joint_speed_saved() ? "true" : "false");
     reply(request->connection, text);
 }
 
@@ -723,7 +755,9 @@ static esp_err_t apply(const request_t *request)
             const esp_err_t result = ainekio_p4_body_prepare(ainekio_pca_status(ainekio_p4_output()).generation);
             if (result != ESP_OK) return result;
         }
-        return ainekio_p4_motion_rate_save(command->data.motion_speed.rate);
+        return command->data.motion_speed.has_joint_speed_limit
+            ? ainekio_p4_joint_speed_save(command->data.motion_speed.joint_speed_limit_deg_s)
+            : ainekio_p4_motion_rate_save(command->data.motion_speed.rate);
     case AINEKIO_COMMAND_ROBOT_SETTINGS: {
         const ainekio_robot_settings_command_t *s = &command->data.robot_settings;
         if (s->operation == AINEKIO_SETTINGS_GET) return ESP_OK;

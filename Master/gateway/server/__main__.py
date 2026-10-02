@@ -257,6 +257,9 @@ async def _run_production(args: argparse.Namespace) -> None:
     service.subscribe_events(
         lambda event: audit_log.record("body_event", **_audit_fields(event))
     )
+    service.subscribe_diagnostics(
+        lambda diagnostic: audit_log.record(str(diagnostic["event"]), **_audit_fields(diagnostic))
+    )
     service.subscribe_frames(MicrophoneFrameAudit(audit_log).record)
     dashboard = start_dashboard_server(
         args.dashboard_host,
@@ -363,6 +366,12 @@ def _audit_fields(payload: dict[str, object]) -> dict[str, object]:
         "last_control_type",
         "rssi",
         "mic_drops",
+        "msg", "error", "command_type", "dir", "gait", "steps", "speed",
+        "stride", "rate", "forward", "turn", "update", "playback_rate",
+        "body_clock_ms", "clock_age_ms", "clock_samples", "clock_max_gap_ms",
+        "clock_gap_ms", "clock_advance_ms", "action_age_ms", "clock_ms",
+        "motion_timing", "output_timing", "controller_queue_depth",
+        "output_ready", "output_armed", "output_fault",
     }
     return {key: value for key, value in payload.items() if key in allowed}
 

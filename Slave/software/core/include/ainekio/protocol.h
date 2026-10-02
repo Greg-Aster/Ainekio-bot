@@ -231,7 +231,7 @@ typedef struct {
         ainekio_tts_operation_t tts_operation;
         ainekio_storage_operation_t storage_operation;
         ainekio_robot_settings_command_t robot_settings;
-        struct { bool save; float rate; } motion_speed;
+        struct { bool save, has_joint_speed_limit; float rate, joint_speed_limit_deg_s; } motion_speed;
         struct {
             bool enabled;
             uint8_t fps;

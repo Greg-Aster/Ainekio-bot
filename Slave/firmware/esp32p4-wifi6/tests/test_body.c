@@ -46,6 +46,7 @@ int xQueueReceive(QueueHandle_t q,void *p,unsigned timeout)
 int xQueueOverwrite(QueueHandle_t q,const void *p)
 { assert(q->capacity==1); q->count=0; return xQueueSend(q,p,0); }
 unsigned uxQueueSpacesAvailable(QueueHandle_t q) { return q->capacity-q->count; }
+unsigned uxQueueMessagesWaiting(QueueHandle_t q) { return q->count; }
 void *xSemaphoreCreateMutex(void) { return (void *)1; }
 int xSemaphoreTake(void *p,unsigned t) { (void)p;(void)t;return 1; }
 int xSemaphoreGive(void *p) { (void)p;return 1; }
@@ -534,7 +535,13 @@ static void motion_speed(void)
     assert(ainekio_control_decode_for_body(wire,strlen(wire),&decoded)==AINEKIO_DECODE_OK);
     assert(decoded.command.data.motion_speed.save && decoded.command.data.motion_speed.rate==1.35F);
     assert(ainekio_control_decode(wire,strlen(wire),&decoded)==AINEKIO_DECODE_VALUE);
+    wire="{\"t\":\"motion_speed\",\"op\":\"save\",\"joint_speed_limit_deg_s\":2000,\"seq\":3}";
+    assert(ainekio_control_decode_for_body(wire,strlen(wire),&decoded)==AINEKIO_DECODE_OK);
+    assert(decoded.command.data.motion_speed.has_joint_speed_limit && decoded.command.data.motion_speed.joint_speed_limit_deg_s==2000.F);
     const char *invalid[]={
+        "{\"t\":\"motion_speed\",\"op\":\"save\",\"rate\":2,\"joint_speed_limit_deg_s\":2000,\"seq\":1}",
+        "{\"t\":\"motion_speed\",\"op\":\"get\",\"joint_speed_limit_deg_s\":2000,\"seq\":1}",
+        "{\"t\":\"motion_speed\",\"op\":\"save\",\"joint_speed_limit_deg_s\":0,\"seq\":1}",
         "{\"t\":\"intent\",\"name\":\"neutral\",\"playback_rate\":2,\"seq\":1}",
         "{\"t\":\"intent\",\"name\":\"sit\",\"playback_rate\":0,\"seq\":1}",
         "{\"t\":\"intent\",\"name\":\"sit\",\"playback_rate\":-1,\"seq\":1}",
@@ -578,13 +585,31 @@ static void motion_speed(void)
         }
         free(reference);
     }
+    /* The entry path uses degrees/s, independently of pulse mapping, and a
+     * raised limit releases the old slow-entry ceiling without changing paths. */
+    const float entry_limits[]={100.F,2000.F};
+    float entry_rates[2];
+    for(unsigned k=0;k<2;k++) {
+        reset();assert(ainekio_v2_joint_speed_set(entry_limits[k]));
+        ainekio_command_t stand=command(1,AINEKIO_INTENT_STAND);
+        stand.data.intent.playback_rate=8.F;
+        assert(execute(&stand)==ESP_OK);
+        double derivatives[12];ainekio_v2_frame_t low,high;
+        assert(ainekio_v2_transition_bounds(&body.motion.entry_from,&body.motion.entry_to,&low,&high,derivatives));
+        for(unsigned j=0;j<12;j++)
+            assert(derivatives[j]/100.*1.875e6/body.motion.entry_duration*body.motion.entry_rate<=entry_limits[k]+.001);
+        entry_rates[k]=body.motion.entry_rate;
+        assert(ainekio_p4_body_status().speed_limited==(body.motion.entry_rate<8.F));
+    }
+    assert(entry_rates[1]>entry_rates[0]);
+    assert(ainekio_v2_joint_speed_set(ainekio_v2_joint_speed_default()));
     reset();saved_motion_rate=2.F;
     ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
     assert(body.motion.playback_rate==2.F);
     saved_motion_rate=3.F;assert(body.motion.playback_rate==2.F);
     c=command(2,AINEKIO_INTENT_WALK);c.data.intent.data.walk.steps=1;
     assert(execute(&c)==ESP_OK && body.motion.playback_rate==1.F);
-    puts("Named motion speed: every clip at 0.25x through 12x, 125% threshold and rated retiming, identical unflagged paths, scaled entry, exact completion and V1 rejection passed.");
+    puts("Named motion speed: every clip at 0.25x through 12x, configured joint limit and coordinated retiming, identical unflagged paths, scaled entry, exact completion and V1 rejection passed.");
 }
 
 int main(void)

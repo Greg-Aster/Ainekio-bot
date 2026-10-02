@@ -49,11 +49,26 @@ int main(void)
         assert(!ainekio_v2_walk_tick(&s,now+40001));
         for(unsigned j=0;j<12;j++)assert(before.position[j]==s.pose.frame.position[j]);
     }
+    /* A changed owner setting controls the same production common clock.
+     * A high setting releases timing; a low setting bounds each frame. */
+    const float limits[]={100.F,20000.F};
+    for(unsigned k=0;k<2;k++) {
+        assert(ainekio_v2_joint_speed_set(limits[k]));
+        ainekio_v2_walk_state_t custom={0};
+        assert(ainekio_v2_gait_begin(&custom,AINEKIO_WALK_FORWARD,AINEKIO_GAIT_RUN,0,(ainekio_v2_walk_controls_t){100.,3.},0));
+        bool slowed=false;
+        for(uint64_t now=20000;now<=10000000;now+=20000) {
+            tick(&custom,now);slowed|=custom.clock_scale<.999;
+        }
+        if (k==0) assert(slowed);
+        else assert(!slowed);
+    }
+    assert(ainekio_v2_joint_speed_set(ainekio_v2_joint_speed_default()));
     /* A slow request retains its original common clock. */
     ainekio_v2_walk_state_t s={0};
     assert(ainekio_v2_walk_begin(&s,0,(ainekio_v2_walk_controls_t){5.,.25},0));
     for(uint64_t now=20000;now<=10000000;now+=20000){tick(&s,now);assert(s.clock_scale==1.);}
-    assert(limited>100 && margin_frames>0);
-    printf("Gait timing: %u frames, %u limited, unmodified margin samples %u; peak %.6f deg/s < %.3f flag threshold; flagged peak %.6f <= %.3f rated. Common clock, anchors, Finish and deadlines verified.\n",
+    assert(limited>100 && margin_frames==0);
+    printf("Gait timing: %u frames, %u limited, unmodified margin samples %u; peak %.6f deg/s across owner settings; restored limit %.3f; limited peak %.6f. Configured %.3f. Common clock, anchors, Finish and deadlines verified.\n",
         frames,limited,margin_frames,peak,ainekio_v2_gait_joint_speed_flag_threshold(),flagged_peak,ainekio_v2_gait_joint_speed_limit());
 }

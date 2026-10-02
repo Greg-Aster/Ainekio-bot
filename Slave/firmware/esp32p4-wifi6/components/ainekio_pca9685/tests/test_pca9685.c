@@ -180,6 +180,9 @@ static void test_hung_transfer_and_stale_frame(void)
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_STALE);
     assert(f.disabled && f.enables == 0);
     assert(ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_DEADLINE);
+    const ainekio_pca_status_t measured = ainekio_pca_status(&f.driver);
+    assert(measured.last_io_us == 6000U && measured.max_io_us == 6000U);
+    assert(measured.io_transfers == f.calls && measured.io_failures == 0U);
     f.slow_at = 0;
     assert(ainekio_pca_recover(&f.driver, ainekio_pca_status(&f.driver).generation) == AINEKIO_PCA_OK);
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);

@@ -116,6 +116,32 @@ against virtual sensor/encoder/scheduler I/O. It covers independent profiles,
 zero-FPS snapshots, preview cadence, cancellation and session fencing. It does
 not establish physical sensor operation, image quality or encoding latency.
 
+## Command diagnostics
+
+Body Control saves command results (including the robot's rejection code and
+message), dashboard request failures, and robot clock gaps of at least one
+second in its existing `operations.jsonl`. The physical launcher uses
+`build/gateway/physical/operations.jsonl`; the preceding segment is
+`operations.jsonl.1`. Records include robot identity, connection epoch and
+command sequence where available, plus walking speed and gait for correlation.
+Pairing tokens and Wi-Fi/setup passwords are excluded from these records.
+
+P4 status and execution failures include `output_timing` (last and maximum I2C
+call duration in microseconds, transfer/failure counts, and the existing timing
+budget and last failed ESP-IDF result, retained until the next failure/reboot),
+`motion_timing` (existing calculation/frame/request maxima and the
+output queue depth), and `controller_queue_depth`. Maxima and counts are since
+boot. Serialization runs in the controller tasks, outside the servo output
+loop. These observations retain the existing clock and I2C deadline rules.
+The serial console also includes ESP-IDF's I2C failure messages, distinguishing
+hardware NACKs from hardware/software timeouts without logging each frame.
+
+The eight-entry controller queue and one-entry output queue buffer work between
+tasks. They are not a playlist that waits for each entire motion to finish:
+walking updates adjust the active walk, and a new motion can replace it. The
+gateway's fresh-clock check happens before a command reaches either robot
+queue; an I2C deadline failure happens while the robot executes it.
+
 ## Build and flash
 
 Use ESP-IDF **5.5.4**. The tested board is P4 **revision 1.3**, 32 MiB flash and
@@ -312,7 +338,21 @@ recommended servo sweep. Normal motion targets and clip/entry extrema use this
 same timer capacity. The direct model checks actual rod/pickup closure.
 A manual pose that cannot close the linkage is rejected for
 semantic entry; operator recovery is required. Entry preflight includes
-intermediate path extrema and a 1000 µs/s pulse-rate bound.
+intermediate path extrema. Gaits, named motions and entry transitions share an
+owner-configurable commanded joint speed limit in degrees per second. Body
+Control reads and saves it through `motion_speed` / `joint_speed_limit_v1`.
+The robot persists it independently of calibration and the named-motion
+multiplier. The initial displayed value is the former nominal 545.4545 °/s;
+there is no fixed upper ceiling. Automatic Run increases stride, leg lift, body
+bounding and requested cadence together through its Speed range. The configured
+limit retimes the whole motion while preserving its requested stride. Independent
+stride/rate mode and other motions also retime together at the configured limit,
+without the former 125% trigger or separate pulse-speed entry bound.
+Status reports `speed_limited`, `joint_speed_limit_deg_s` and `gait_cadence`
+(commanded/requested cycles per second and stride percentages). These describe
+commanded timing, not measured shaft tracking. Manual calibration pulses and
+startup Home remain direct pulse operations. Saving uses the existing output
+disarm behavior; a subsequent operator motion resumes outputs.
 Motion converts model angles
 using `home_us + direction * (angle - home_angle) * us_per_degree`. Calibration
 exposes that reference and scale. A manual pulse remains the literal commanded
@@ -332,7 +372,9 @@ fault-injection command. The direct OE stop and progress watchdog remain.
 
 ## Servo power
 
-PC USB currently supplies both the P4 and the single connected servo. Startup
+During assembly testing, PC USB supplies the P4 and all twelve servos through
+the P4 5 V terminal. The intended finished supply is 5 V / 3 A; its adequacy
+under actual motion remains unmeasured. Startup
 staggering reduces simultaneous starts but does not limit total holding/stall
 current. A brownout does not prove that cables, connectors or the P4 power path
 are safe at that load; this firmware has no current or temperature measurement.

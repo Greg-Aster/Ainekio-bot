@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Callable
 
 from gateway.dashboard.server import start_dashboard_server
+from gateway.dashboard.auth import AuditLog
+from gateway.server.service import ActionExpiredError
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.joints_v1 import joint_contract
@@ -107,6 +109,12 @@ class FakeGateway:
         from Emulator.tests.test_body_calibration import calibration_status
         sequence = self._record("body_calibration", (operation, values, kwargs))
         return calibration_status(sequence)
+
+    async def body_motion_speed(self, operation, values=None, **kwargs):
+        seq = self._record("motion_speed", (operation, values, kwargs))
+        return {"t":"motion_speed_status", "seq":seq, "rate":2, "saved":True,
+                "joint_speed_limit_deg_s":(values or {}).get("joint_speed_limit_deg_s",545.4545),
+                "joint_speed_limit_saved":operation=="save"}
 
     async def body_robot_settings(self, operation, values=None, **kwargs):
         sequence = self._record("robot_settings", (operation, values, kwargs))
@@ -241,6 +249,28 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         status, _, _ = await self._request("GET", "/api/session", cookie=cookie)
         self.assertEqual(status, 401)
 
+    async def test_dashboard_error_is_saved_without_request_credentials(self) -> None:
+        path = Path(self.temporary_directory.name) / "operations.jsonl"
+        self.server.audit_log = AuditLog(path)
+
+        async def reject(*_args, **_kwargs):
+            raise ActionExpiredError("fresh body clock required before dispatch")
+
+        self.gateway.queue_intent = reject
+        cookie, csrf = await self._login()
+        status, response, _ = await self._request("POST", "/api/intent",
+            {"name": "walk", "params": {"speed": 150}, "password": "do-not-save"},
+            cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 409)
+        self.assertEqual(response["error"], "fresh body clock required before dispatch")
+        saved = path.read_text()
+        row = json.loads(saved.splitlines()[-1])
+        self.assertEqual(row["event"], "dashboard_request_failed")
+        self.assertEqual(row["path"], "/api/intent")
+        self.assertEqual(row["name"], "walk")
+        self.assertEqual(row["error_type"], "ActionExpiredError")
+        self.assertNotIn("do-not-save", saved)
+
     async def test_password_change_requires_session_csrf_and_current_password(self) -> None:
         payload = {"current_password": self.password, "new_password": "new-operator-password", "confirm_password": "new-operator-password"}
         status, _, _ = await self._request("POST", "/api/settings/password", payload)
@@ -317,6 +347,20 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 400)
         status, _, _ = await self._request("POST", "/api/settings/robot", {**restart, "confirmed": True}, cookie=cookie, csrf=csrf)
         self.assertEqual(status, 200)
+
+    async def test_joint_speed_limit_save_requires_login_and_csrf_and_returns_readback(self):
+        payload={"robot_id":"ainekio-test-01","op":"save","joint_speed_limit_deg_s":900}
+        status,_,_=await self._request("POST","/api/motion-speed",payload)
+        self.assertEqual(status,401)
+        cookie,csrf=await self._login()
+        status,_,_=await self._request("POST","/api/motion-speed",payload,cookie=cookie)
+        self.assertEqual(status,403)
+        status,response,_=await self._request("POST","/api/motion-speed",payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(status,200)
+        self.assertEqual(response["motion_speed"]["joint_speed_limit_deg_s"],900)
+        self.assertTrue(response["motion_speed"]["joint_speed_limit_saved"])
+        self.assertEqual(response["seq"],response["motion_speed"]["seq"])
+        self.assertEqual(self.gateway.calls[-1],("motion_speed",("save",{"joint_speed_limit_deg_s":900},{"robot_id":"ainekio-test-01"})))
 
     async def test_camera_controls_forward_independent_snapshot_resolution(self):
         cookie, csrf = await self._login()

@@ -195,7 +195,7 @@
             </div>
             <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
             <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
-            <p>Speed adjusts stride and cadence together. Changes apply smoothly while moving. Finish settles the feet; Crawl remains crouched. Speed can cross between Walk and Run while moving. Finish before changing the selected gait or direction.</p>
+            <p>Speed increases Run stride, leg lift, body bounding and requested cadence together. The saved joint speed limit slows the whole motion when needed, preserving its stride. Changes apply smoothly while moving. Finish settles the feet; Crawl remains crouched. Speed can cross between Walk and Run while moving. Finish before changing the selected gait or direction.</p>
             <button id="walk-apply" type="submit">Walk</button>
             <button id="walk-finish" type="button">Finish</button>
           </fieldset>
@@ -268,7 +268,18 @@
         <div class="emote-group">
           <span class="field-label">Named poses and emotes</span>
           <div id="motion-speed-controls" class="field-group" hidden>
-            <label for="motion-speed">Motion speed (×)</label>
+            <div id="joint-speed-controls" class="field-group">
+              <label for="joint-speed-limit">Joint speed limit (°/s) · all automatic movement</label>
+              <div class="input-with-actions">
+                <input id="joint-speed-limit" type="number" step="any" aria-describedby="joint-speed-help joint-speed-status" disabled required>
+                <button id="joint-speed-save" type="button" disabled>Save limit on robot</button>
+              </div>
+              <p id="joint-speed-help" class="muted">One maximum commanded joint speed for walking, named motions and entry transitions. Motions slow together to preserve their path and stride. If Run cannot reach its requested cadence, this limit is controlling its timing. Enter any positive value; there is no fixed maximum. Saving stops motion; start it again to resume.</p>
+              <p id="joint-speed-status" class="muted" role="status">Read from robot to load its limit.</p>
+              <p id="joint-speed-active" class="muted" role="status"></p>
+              <p id="run-cadence-status" class="muted" role="status"></p>
+            </div>
+            <label for="motion-speed">Named motion speed (×)</label>
             <div class="input-with-actions">
               <input id="motion-speed" type="number" step="any" value="2" aria-describedby="motion-speed-help motion-speed-status" disabled required>
               <button id="motion-speed-save" type="button" disabled>Save on robot</button>

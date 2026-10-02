@@ -1,5 +1,6 @@
 /* Production NVS loader with in-memory NVS and scheduler boundaries. */
 #include <assert.h>
+#include "ainekio/v2_walk.h"
 #include <string.h>
 #define portMAX_DELAY 0xffffffffu
 #include "../main/config.c"
@@ -71,6 +72,17 @@ int main(void){
     fail_commit=false;assert(ainekio_p4_motion_rate_save(4.5F)==ESP_OK);
     boot();assert(ainekio_p4_motion_rate()==4.5F && ainekio_p4_motion_rate_saved());
     assert(!memcmp(&preserved,&committed,sizeof committed));
+    assert(!ainekio_p4_joint_speed_saved());
+    driver.state.armed=true;assert(ainekio_p4_joint_speed_save(900.F)==ESP_ERR_INVALID_STATE);
+    driver.state.armed=false;assert(ainekio_p4_joint_speed_save(0.F)==ESP_ERR_INVALID_ARG);
+    fail_commit=true;assert(ainekio_p4_joint_speed_save(900.F)!=ESP_OK);
+    assert(!ainekio_p4_joint_speed_saved());
+    fail_commit=false;assert(ainekio_p4_joint_speed_save(2000.F)==ESP_OK);
+    boot();assert(ainekio_p4_joint_speed_saved() && ainekio_v2_gait_joint_speed_limit()==2000.);
+    assert(ainekio_p4_motion_rate()==4.5F && !memcmp(&preserved,&committed,sizeof committed));
+    float invalid_limit=0;put("joint_speed",&invalid_limit,sizeof invalid_limit);
+    boot();assert(!ainekio_p4_joint_speed_saved());
+    assert(fabs(ainekio_v2_gait_joint_speed_limit()-ainekio_v2_joint_speed_default())<.001);
     float invalid_rate=0;put("motion_rate",&invalid_rate,sizeof invalid_rate);
     boot();assert(ainekio_p4_motion_rate()==2.F && !ainekio_p4_motion_rate_saved());
     assert(!memcmp(&preserved,&committed,sizeof committed));

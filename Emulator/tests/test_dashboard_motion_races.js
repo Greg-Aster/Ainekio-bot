@@ -9,7 +9,7 @@ function node(id) {
     options:id==='walk-direction'?['fwd','back','turn_l','turn_r','side_l','side_r'].map(value=>({value,disabled:false})):[],
     listeners:new Map(),addEventListener(type,fn){this.listeners.set(type,fn);},
     fire(type){return this.listeners.get(type)?.({target:this,preventDefault(){}});},
-    classList:{remove(){},add(){},toggle(){}},setAttribute(){},reportValidity(){return true;} });
+    classList:{remove(){},add(){},toggle(){}},setAttribute(){},setCustomValidity(value){this.validationMessage=value;},reportValidity(){return !this.validationMessage;} });
   return nodes.get(id);
 }
 const requests = [];
@@ -218,5 +218,48 @@ async function run() {
   const legacy=api.sendNamedMotion('emote','wave','Wave sent');
   assert.equal(requests.at(-1).body.params.playback_rate,undefined);requests.at(-1).resolve(2005);await legacy;
   console.log('Motion speed preview, saved readback, feature gating and delayed robot-selection replies passed.');
+  const jointReady={...ready,features:['motion_speed_v1','joint_speed_limit_v1'],status:{speed_limited:false}};
+  api.select('joint-a');api.updateMotionSpeed(jointReady);
+  requests.at(-1).resolve({seq:2100,motion_speed:{seq:2100,rate:2,saved:true,joint_speed_limit_deg_s:545.4545,joint_speed_limit_saved:false}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(node('joint-speed-limit').disabled,false);
+  assert.equal(node('joint-speed-limit').value,'545.4545');
+  const beforeJointEdit=requests.length;
+  node('joint-speed-limit').value='900';await node('joint-speed-limit').fire('input');
+  assert.equal(requests.length,beforeJointEdit,'editing a limit sends neither movement nor a save');
+  node('motion-speed').value='3';await node('motion-speed').fire('input');
+  const limitSave=api.operateMotionSpeed('save','joint_speed_limit_deg_s');
+  assert.equal(requests.at(-1).body.joint_speed_limit_deg_s,900);
+  assert.equal(requests.at(-1).body.rate,undefined);
+  requests.at(-1).resolve({seq:2101,motion_speed:{seq:2101,rate:2,saved:true,joint_speed_limit_deg_s:900,joint_speed_limit_saved:true}});
+  await limitSave;
+  assert.equal(node('motion-speed').value,'3','saving the limit preserves an unsaved multiplier');
+  assert.equal(node('motion-speed-save').disabled,false);
+  assert.equal(node('joint-speed-save').disabled,true);
+  api.updateMotionSpeed({...jointReady,status:{speed_limited:true}});
+  assert.match(node('joint-speed-active').textContent,/Speed limit active/);
+  api.updateMotionSpeed({...jointReady,status:{speed_limited:true,gait_cadence:{automatic_run:true,cycles_s:.99,requested_cycles_s:2.22,stride_percent:100,requested_stride_percent:100}}});
+  assert.match(node('run-cadence-status').textContent,/0.99 \/ 2.22 requested cycles\/s/);
+  assert.match(node('run-cadence-status').textContent,/stride 100.0% \(requested 100.0%\)/);
+  assert.match(node('joint-speed-active').textContent,/timing is slowed.*stride is preserved/);
+  node('joint-speed-limit').value='0';await node('joint-speed-limit').fire('input');
+  const beforeInvalid=requests.length;await api.operateMotionSpeed('save','joint_speed_limit_deg_s');
+  assert.equal(requests.length,beforeInvalid);
+  node('joint-speed-limit').value='100000';await node('joint-speed-limit').fire('input');
+  const highSave=api.operateMotionSpeed('save','joint_speed_limit_deg_s'), staleLimit=requests.at(-1);
+  assert.equal(staleLimit.body.joint_speed_limit_deg_s,100000,'the UI imposes no fixed maximum');
+  api.select('joint-b');api.updateMotionSpeed(jointReady);
+  const jointRead=requests.at(-1);
+  staleLimit.resolve({seq:2102,motion_speed:{seq:2102,rate:2,saved:true,joint_speed_limit_deg_s:100000,joint_speed_limit_saved:true}});
+  await highSave;
+  assert.equal(node('joint-speed-limit').disabled,true,'a stale save cannot unlock another robot');
+  jointRead.resolve({seq:2103,motion_speed:{seq:2103,rate:1,saved:true,joint_speed_limit_deg_s:700,joint_speed_limit_saved:true}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(node('joint-speed-limit').value,'700');
+  api.updateMotionSpeed(ready);
+  assert.equal(node('joint-speed-limit').disabled,true);
+  assert.match(node('joint-speed-status').textContent,/firmware update/);
+  console.log('Joint speed setting, uncapped values, explicit save, edit preservation, active feedback and robot-selection races passed.');
+
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});
