@@ -201,6 +201,38 @@ The default is `0`, so other hosts need no hotspot services. Body Control's
 dashboard login and robot pairing authentication continue to use their existing
 owners. Starting `python3 -m gateway.server` directly bypasses this launcher.
 
+To install these missing services on Ubuntu, install the packaged dependencies
+and run the existing-contract installer once as root:
+
+```sh
+sudo apt-get install --no-install-recommends hostapd dnsmasq-base iw iproute2 network-manager polkitd
+sudo python3 Master/install-robot-hotspot.py --interface wlan0 --operator "$USER" \
+  --credentials /private/path/hostapd.conf
+```
+
+Run from the repository root; select the actual station interface and an
+owner-only (0600) hostapd file containing the existing `ssid` and either
+`wpa_passphrase` or `wpa_psk`. Privately copy that identity from the working
+host to reuse the robot's saved Wi-Fi credentials. The installer copies only
+those fields; desktop interface names and other hostapd settings are not imported.
+It preserves unmanaged existing files with an explicit error and installs
+no independently boot-enabled hotspot. Stop the gateway before updating the
+installed configuration. Set `AINEKIO_HOTSPOT=1` in `.env` and use the normal
+launcher to start it.
+
+The radio must support an AP alongside its station connection; inspect `iw list`
+for valid interface combinations. The installer adds `aineap0`, leaves the
+station connection intact and defaults to 2.4 GHz channel 1. Use `--channel`
+for another permitted channel (1–11); hardware limited to one channel requires
+a compatible uplink channel or another adapter. Verify actual radio operation.
+The separate interface serves the private `10.42.77.0/24` robot LAN, with the
+gateway at `ws://10.42.77.1:8790/robot`. DHCP is confined to that interface and
+does not advertise Internet routing or DNS. This is the robot-to-gateway link;
+the Q6A gateway and configured remote services use the Q6A's existing uplink.
+The installer does not configure NAT, remote MetaHuman execution or Cloudflare.
+Operator permissions allow only starting/stopping the three named hotspot
+units. Stopping the gateway removes its AP and DHCP/hostapd services together.
+
 Updated P4 firmware tries distinct saved Wi-Fi networks in order, allowing 15
 seconds per network while offline. It keeps a working Wi-Fi connection; gateway
 failure selects other computers on that same network without Wi-Fi roaming.

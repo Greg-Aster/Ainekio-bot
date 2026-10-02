@@ -31,6 +31,9 @@ void ainekio_admission_close(ainekio_admission_t *admission, uint64_t generation
 bool ainekio_admission_welcome(ainekio_admission_t *admission, uint64_t generation,
                               uint32_t epoch, ainekio_profile_t profile,
                               bool deadline_supported, uint64_t now_us);
+/* A stale authenticated session can receive fresh control on the same
+ * generation. The caller must enforce the output stop when check_stale first
+ * returns true; receiving traffic does not re-arm outputs or reset sequencing. */
 bool ainekio_admission_control(ainekio_admission_t *admission,
                               uint64_t generation, uint64_t now_us);
 bool ainekio_admission_check_stale(ainekio_admission_t *admission, uint64_t now_us);

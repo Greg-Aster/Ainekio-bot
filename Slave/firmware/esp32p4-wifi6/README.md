@@ -261,6 +261,15 @@ remains selected until loss or explicit gateway shutdown. Old admission/client
 state closes before another WebSocket is created, and network-generation changes
 discard old discoveries. No movement replay, task migration or second admission
 owner is added. Existing output disable, emergency stop and stale fencing remain.
+
+Control silence and transport loss have separate consequences. The four-second
+control timeout disables physical outputs and latches stopped execution while
+retaining the authenticated bridge for media and telemetry. Fresh control
+traffic can recover on the same generation/epoch; it does not re-arm outputs,
+reset sequence history, or replay movement. Actual Wi-Fi/WebSocket failure still
+uses the existing reconnect and paired-gateway selection loop. Firmware logs the
+stale-output stop explicitly. This source behavior requires a firmware update;
+host tests alone do not establish continuous operation on a flashed robot.
 The existing
 60-second setup fallback remains active while cycling unavailable networks.
 Settings saves disable outputs and use an atomic P4 NVS blob with revision checks;

@@ -76,13 +76,23 @@ static void test_target_policy_and_fault_liveness(void)
     assert(ainekio_admission_accept(&a, g, &m, 2, 3, true).rejection == AINEKIO_REJECT_UNKNOWN);
     assert(!ainekio_admission_check_stale(&a, 3999999));
     assert(ainekio_admission_check_stale(&a, 4000000));
-    assert(!ainekio_admission_control(&a, g, 4000001));
+    assert(a.connected && a.authenticated && a.generation == g);
+    assert(a.core.state == AINEKIO_STATE_FAILSAFE && a.core.stop_latched);
     assert(!ainekio_admission_accept(&a, g, &m, 4000001, 4000002, true).accepted);
+    assert(ainekio_admission_control(&a, g, 4000003));
+    assert(!a.stale && a.core.stop_latched && a.core.state == AINEKIO_STATE_FAILSAFE);
+    assert(a.core.epoch == 1 && a.core.highest_sequence == 3);
+    m = decode("{\"t\":\"calibration\",\"seq\":4,\"op\":\"get\",\"epoch\":1,\"deadline_ms\":5000}");
+    assert(ainekio_admission_accept(&a, g, &m, 4000003, 4000004, true).accepted);
+    assert(a.core.stop_latched); /* Readback and heartbeats do not resume motion. */
     const uint64_t next = connect(&a, 2, 5000000);
-    /* A late heartbeat cannot win a race with the periodic supervisor. */
+    /* A late frame still detects the timeout if it beats the supervisor. */
     assert(!ainekio_admission_control(&a, next, 9000000));
     assert(a.stale);
-    assert(!ainekio_admission_control(&a, next, 9000001));
+    assert(a.connected && a.authenticated && a.generation == next && a.core.stop_latched);
+    assert(ainekio_admission_control(&a, next, 9000001));
+    assert(!a.stale && a.core.stop_latched);
+    assert(!ainekio_admission_control(&a, g, 9000002)); /* Superseded source stays fenced. */
 }
 
 static void test_decoder_negotiation_and_bounds(void)

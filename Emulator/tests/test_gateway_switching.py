@@ -20,6 +20,7 @@ from gateway.security import DashboardPasswordStore, RobotTokenStore, export_pai
 from gateway.environment_adapter.server import ADAPTER_PROTOCOL_VERSION
 from gateway.server.__main__ import _robot_transport
 from gateway.server.service import GatewayService, GatewayServiceConfig, RobotOfflineError
+from protocol.binary_helpers import MIC_PCM_FRAME_TYPE, encode_binary_frame
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +33,7 @@ typedef struct {
     ainekio_p4_robot_settings_t settings;
     ainekio_p4_gateway_selection_t selection;
     ainekio_admission_t admission;
+    uint64_t now_us;
 } simulation_t;
 void *simulation_create(const char *first, const char *second) {
     simulation_t *s=calloc(1,sizeof(*s));
@@ -45,6 +47,7 @@ void *simulation_create(const char *first, const char *second) {
     ainekio_p4_gateway_select_network(&s->selection,&s->settings,0);
     ainekio_admission_init(&s->admission,AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_INTENT)|AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STOP),true);
     ainekio_core_set_boot_ready(&s->admission.core,true);
+    s->now_us=1000000;
     return s;
 }
 const char *simulation_endpoint(simulation_t *s) { return ainekio_p4_gateway_endpoint(&s->selection,&s->settings); }
@@ -61,9 +64,18 @@ int simulation_welcome(simulation_t *s,uint64_t generation,const char *json) {
 int simulation_accept(simulation_t *s,uint64_t generation,const char *json) {
     ainekio_control_message_t m;
     if(ainekio_control_decode_for_body(json,strlen(json),&m)!=AINEKIO_DECODE_OK)return -1;
-    if(!ainekio_admission_control(&s->admission,generation,1000000))return -2;
-    return ainekio_admission_accept(&s->admission,generation,&m,1000000,1000000,true).accepted;
+    if(!ainekio_admission_control(&s->admission,generation,s->now_us))return -2;
+    return ainekio_admission_accept(&s->admission,generation,&m,s->now_us,s->now_us,true).accepted;
 }
+int simulation_stale(simulation_t *s,uint64_t now) {
+    s->now_us=now;
+    return ainekio_admission_check_stale(&s->admission,now);
+}
+int simulation_control(simulation_t *s,uint64_t generation,uint64_t now) {
+    s->now_us=now;
+    return ainekio_admission_control(&s->admission,generation,now);
+}
+int simulation_stopped(simulation_t *s) { return s->admission.core.stop_latched; }
 void simulation_destroy(simulation_t *s) { free(s); }
 '''
 
@@ -93,6 +105,9 @@ class GatewaySwitchingTests(unittest.IsolatedAsyncioTestCase):
             "simulation_failed": ([ctypes.c_void_p, ctypes.c_uint64], None),
             "simulation_welcome": ([ctypes.c_void_p, ctypes.c_uint64, ctypes.c_char_p], ctypes.c_int),
             "simulation_accept": ([ctypes.c_void_p, ctypes.c_uint64, ctypes.c_char_p], ctypes.c_int),
+            "simulation_stale": ([ctypes.c_void_p, ctypes.c_uint64], ctypes.c_int),
+            "simulation_control": ([ctypes.c_void_p, ctypes.c_uint64, ctypes.c_uint64], ctypes.c_int),
+            "simulation_stopped": ([ctypes.c_void_p], ctypes.c_int),
             "simulation_destroy": ([ctypes.c_void_p], None),
         }
         for name, (args, result) in signatures.items():
@@ -122,9 +137,10 @@ class GatewaySwitchingTests(unittest.IsolatedAsyncioTestCase):
         self.reader = None
         self.socket = None
 
-    async def gateway(self, data, *, tls=False):
+    async def gateway(self, data, *, tls=False, clock=None):
         store = RobotTokenStore(data / "robot-tokens.json")
-        service = GatewayService(GatewayServiceConfig(tokens=store.snapshot()), token_store=store)
+        options = {} if clock is None else {"clock": clock}
+        service = GatewayService(GatewayServiceConfig(tokens=store.snapshot()), token_store=store, **options)
         async def route(socket, path):
             await service.handler(socket, path, transport=_robot_transport(socket))
         server = await websockets.serve(route, "127.0.0.1", 0, ping_interval=None, close_timeout=1,
@@ -133,7 +149,7 @@ class GatewaySwitchingTests(unittest.IsolatedAsyncioTestCase):
         self.servers.append(server)
         return service, server, f"{'wss' if tls else 'ws'}://127.0.0.1:{server.sockets[0].getsockname()[1]}/robot"
 
-    async def connect_body(self, *, token="shared-token", trust=True):
+    async def connect_body(self, *, token="shared-token", trust=True, microphone=False):
         endpoint = self.native.simulation_endpoint(self.body).decode()
         self.generation = self.native.simulation_open(self.body)
         options = {"ping_interval": None, "open_timeout": 1, "close_timeout": 1}
@@ -144,7 +160,7 @@ class GatewaySwitchingTests(unittest.IsolatedAsyncioTestCase):
         await self.socket.send(json.dumps({"t":"hello", "ver":1, "fw":"native-p4-sim", "id":"robot", "auth":token,
             "features":["command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "walk_controls_v2",
                         "walk_steering_v1", "gateway_switching_v1"], "clock_ms":1000, "model":"v2-12servo",
-            "capabilities":{"motion":True,"speaker":False,"microphone":False,"camera":False,"commands":["stand","walk","stop"]}}))
+            "capabilities":{"motion":True,"speaker":False,"microphone":microphone,"camera":False,"commands":["stand","walk","stop"]}}))
         welcome = await self.socket.recv()
         if json.loads(welcome)["t"] == "err":
             await self.socket.wait_closed()
@@ -226,6 +242,47 @@ class GatewaySwitchingTests(unittest.IsolatedAsyncioTestCase):
         sequence = await new.send_command({"t":"intent","name":"stand"}, received_at=second.clock())
         self.assertEqual((await new.wait_terminal(sequence, timeout=2))["t"], "done")
         self.assertEqual([m.get("name") for _, m in self.executed], ["walk", "stand"])
+
+    async def test_stale_control_recovers_same_bridge_without_resuming_motion(self):
+        now = [100.0]
+        service, _, endpoint = await self.gateway(self.first, clock=lambda: now[0])
+        standby = endpoint.replace("127.0.0.1", "127.0.0.2")
+        self.body = self.native.simulation_create(endpoint.encode(), standby.encode())
+        self.assertTrue(self.body)
+        self.assertTrue(await self.connect_body(microphone=True))
+        connection = service._connection("robot")
+        generation, epoch = self.generation, connection.epoch
+        sequence = await connection.send_command({"t":"intent", "name":"stand"}, received_at=now[0])
+        self.assertEqual((await connection.wait_terminal(sequence, timeout=2))["t"], "done")
+
+        now[0] += 4.0
+        self.assertEqual(self.native.simulation_stale(self.body, 5000000), 1)
+        self.assertEqual(self.native.simulation_stopped(self.body), 1)
+        self.assertEqual(service.status()["robots"]["robot"]["connection_state"], "stale")
+        self.assertFalse(self.socket.closed)
+        self.assertIs(service._connection("robot"), connection)
+        self.assertEqual(self.native.simulation_control(self.body, generation, 5000001), 1)
+        self.assertEqual(self.native.simulation_stopped(self.body), 1)
+        await self.socket.send(json.dumps({"t":"pong", "clock_ms":5000}))
+        async with asyncio.timeout(2):
+            while connection.last_control_at != now[0]:
+                await asyncio.sleep(0.01)
+        self.assertEqual(service.status()["robots"]["robot"]["connection_state"], "online")
+        self.assertEqual(connection.epoch, epoch)
+        self.assertEqual(self.generation, generation)
+        self.assertEqual(len(self.executed), 1)  # Recovery did not replay movement.
+
+        frames = []
+        service.subscribe_frames(frames.append)
+        await self.socket.send(encode_binary_frame(MIC_PCM_FRAME_TYPE, 7, bytes(640)))
+        async with asyncio.timeout(2):
+            while not frames:
+                await asyncio.sleep(0.01)
+        self.assertEqual((frames[0]["epoch"], frames[0]["counter"]), (epoch, 7))
+        stop = await connection.send_command({"t":"stop", "detach":True}, received_at=now[0])
+        self.assertEqual((await connection.wait_terminal(stop, timeout=2))["t"], "ack")
+        self.assertFalse(self.socket.closed)
+        self.assertEqual(self.native.simulation_stopped(self.body), 1)
 
     async def test_configured_tls_relay_uses_same_pairing_and_rejects_untrusted_certificate(self):
         _, _, a = await self.gateway(self.first)
