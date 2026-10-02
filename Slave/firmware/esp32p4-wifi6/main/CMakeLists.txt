@@ -1,6 +1,6 @@
 idf_component_register(SRCS "app_main.c" "board.c" "body.c" "config.c" "joint_calibration.c" "network.c" "controller.c"
-                           "system.c" "storage.c" "portal.c" "robot_settings.c" INCLUDE_DIRS "."
-    REQUIRES ainekio_pca9685 core imu v2-12servo esp_driver_gpio esp_driver_i2c esp_driver_uart
+                           "system.c" "storage.c" "portal.c" "robot_settings.c" "gateway_selection.c" INCLUDE_DIRS "."
+    REQUIRES ainekio_discovery ainekio_pca9685 core imu v2-12servo esp_driver_gpio esp_driver_i2c esp_driver_uart
              esp_timer esp_system esp_wifi esp_event esp_netif nvs_flash console
              esp_websocket_client esp_hw_support json spi_flash esp_hosted mbedtls
              ainekio_p4_media ainekio_p4_assets app_update esp_http_server fatfs sdmmc esp_driver_sdmmc

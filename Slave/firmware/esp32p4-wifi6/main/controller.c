@@ -3,6 +3,7 @@
 #include "config.h"
 #include "ainekio/v2_limits.h"
 #include "network.h"
+#include "gateway_selection.h"
 #include "body.h"
 #include "system.h"
 #include "storage.h"
@@ -190,7 +191,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "robot_settings_v1", "camera_profiles_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "robot_settings_v1", "camera_profiles_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -459,22 +460,57 @@ static void link_task(void *arg)
 {
     (void)arg;
     const ainekio_config_record_t *config = ainekio_p4_config();
+    const ainekio_p4_robot_settings_t *settings = ainekio_p4_boot_settings();
+    ainekio_p4_gateway_selection_t selection = {.network=-1};
+    uint32_t selected_network_generation = UINT32_MAX;
     for (;;) {
         if (!config || atomic_load(&quiesced) || !ainekio_p4_network_online()) { vTaskDelay(pdMS_TO_TICKS(100)); continue; }
+        const int network = ainekio_p4_network_index();
+        const uint32_t network_generation = ainekio_p4_network_generation();
+        if (network != selection.network || network_generation != selected_network_generation) {
+            ainekio_p4_gateway_select_network(&selection, settings, network);
+            selected_network_generation = network_generation;
+        }
+        if (selection.needs_discovery) {
+            size_t count = 0;
+            const esp_err_t discovered = ainekio_local_gateways_discover(selection.discovered,
+                AINEKIO_DISCOVERY_MAX_RESULTS, &count);
+            if (discovered != ESP_OK)
+                ESP_LOGW("controller", "Local gateway discovery: %s", esp_err_to_name(discovered));
+            ainekio_p4_gateway_discovered(&selection, settings, discovered == ESP_OK ? count : 0);
+            if (atomic_load(&quiesced) || !ainekio_p4_network_online() ||
+                network_generation != ainekio_p4_network_generation()) continue;
+        }
+        const char *endpoint = ainekio_p4_gateway_endpoint(&selection, settings);
+        if (!endpoint[0]) { vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+        ESP_LOGI("controller", "Connecting to Body Control at %s", endpoint);
         atomic_store(&reconnect, false);
         const esp_websocket_client_config_t options = {
-            .uri=ainekio_p4_network_endpoint(), .disable_auto_reconnect=true,
+            .uri=endpoint, .disable_auto_reconnect=true,
             .task_prio=5, .task_stack=16384, .buffer_size=1024,
             .network_timeout_ms=1000, .crt_bundle_attach=esp_crt_bundle_attach,
         };
+        const uint64_t started = now_us();
         esp_websocket_client_handle_t client = esp_websocket_client_init(&options);
-        if (!client) { vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+        if (!client) {
+            ESP_LOGW("controller", "Gateway client initialization failed");
+            ainekio_p4_gateway_failed(&selection, settings);
+            vTaskDelay(pdMS_TO_TICKS(1000)); continue;
+        }
         esp_err_t error = esp_websocket_register_events(client, WEBSOCKET_EVENT_ANY, websocket_event, NULL);
         if (error == ESP_OK) error = esp_websocket_client_start(client);
         uint64_t last_ping = now_us(), last_status = now_us();
         ainekio_p4_body_event_t event = {0};
         bool have_body_event = false;
-        while (error == ESP_OK && !atomic_load(&reconnect) && ainekio_p4_network_online()) {
+        while (error == ESP_OK && !atomic_load(&reconnect) && !atomic_load(&quiesced) &&
+               ainekio_p4_network_online() && network_generation == ainekio_p4_network_generation()) {
+            enter();
+            const bool authenticated = admission.authenticated;
+            leave();
+            if (ainekio_p4_gateway_connect_expired(started, now_us(), authenticated)) {
+                ESP_LOGW("controller", "Gateway did not authenticate within 10 seconds");
+                break;
+            }
             reply_t message;
             if (xQueueReceive(replies, &message, pdMS_TO_TICKS(20)) == pdTRUE) {
                 enter();
@@ -537,7 +573,9 @@ static void link_task(void *arg)
         ainekio_p4_media_disconnect();
         esp_websocket_client_stop(client);
         esp_websocket_client_destroy(client);
-        vTaskDelay(pdMS_TO_TICKS(1000)); /* Retry only the explicitly selected host. */
+        ESP_LOGI("controller", "Gateway connection ended; trying the next candidate");
+        ainekio_p4_gateway_failed(&selection, settings);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 

@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/gateway-env.sh"
+ainekio_load_environment "$REPO_ROOT"
 DATA_DIR="$(realpath -m "${AINEKIO_GATEWAY_DATA_DIR:-$REPO_ROOT/build/gateway/physical}")"
 PID_FILE="$DATA_DIR/physical-gateway.pid"
 STOP_TIMEOUT="${AINEKIO_STOP_TIMEOUT:-5}"
@@ -60,7 +62,7 @@ declare -a gateway_pids=()
 add_gateway_pid() {
   local candidate="$1"
   local existing
-  process_matches_gateway "$candidate" || return
+  process_matches_gateway "$candidate" || return 0
   for existing in "${gateway_pids[@]}"; do
     [[ "$existing" == "$candidate" ]] && return
   done

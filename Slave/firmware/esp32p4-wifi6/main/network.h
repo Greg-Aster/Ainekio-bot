@@ -1,6 +1,8 @@
 #pragma once
+#include <stdint.h>
 
 int ainekio_p4_network_index(void);
+uint32_t ainekio_p4_network_generation(void);
 const char *ainekio_p4_network_endpoint(void);
 
 #include <stdbool.h>

@@ -296,7 +296,7 @@ try {
   const debugPort = await availablePort();
   profileDirectory = await mkdtemp(path.join(os.tmpdir(), "ainekio-dashboard-chrome-"));
   chrome = spawn(
-    "/usr/bin/google-chrome",
+    process.env.AINEKIO_TEST_BROWSER || "/usr/bin/google-chrome",
     [
       "--headless=new",
       "--no-sandbox",

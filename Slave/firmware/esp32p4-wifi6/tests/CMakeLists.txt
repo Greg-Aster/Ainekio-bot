@@ -49,3 +49,16 @@ target_compile_options(test_robot_settings_store PRIVATE -Wall -Wextra -Werror -
 target_link_options(test_robot_settings_store PRIVATE -Wl,--gc-sections)
 target_link_libraries(test_robot_settings_store PRIVATE ainekio_v2_motion m)
 add_test(NAME robot_settings_store COMMAND test_robot_settings_store)
+
+add_executable(test_gateway_selection test_gateway_selection.c ../main/gateway_selection.c ../main/robot_settings.c)
+target_include_directories(test_gateway_selection PRIVATE ../main body_shim
+    ../../components/ainekio_discovery/include)
+target_compile_options(test_gateway_selection PRIVATE -Wall -Wextra -Werror -Wpedantic)
+target_link_libraries(test_gateway_selection PRIVATE ainekio_core)
+add_test(NAME gateway_selection_and_session_fencing COMMAND test_gateway_selection)
+
+add_executable(test_gateway_discovery test_gateway_discovery.c ../../components/ainekio_discovery/local_discovery.c)
+target_include_directories(test_gateway_discovery PRIVATE discovery_shim camera_shim
+    ../../components/ainekio_discovery/include)
+target_compile_options(test_gateway_discovery PRIVATE -Wall -Wextra -Werror -Wpedantic)
+add_test(NAME shared_gateway_discovery COMMAND test_gateway_discovery)

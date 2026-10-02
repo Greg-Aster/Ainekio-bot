@@ -327,10 +327,13 @@ esp_err_t ainekio_p4_config_save_record(const ainekio_config_record_t *record)
     strcpy(candidate.robot_token, record->robot_token);
     int index = 0;
     for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
-        if (!strcmp(candidate.networks[i].ssid, record->wifi_ssid)) index = i;
+        if (!strcmp(candidate.networks[i].ssid, record->wifi_ssid)) { index = i; break; }
     strcpy(candidate.networks[index].ssid, record->wifi_ssid);
     strcpy(candidate.networks[index].password, record->wifi_psk);
     strcpy(candidate.networks[index].endpoint, record->endpoint_url);
+    for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
+        if (!strcmp(candidate.networks[i].ssid, record->wifi_ssid))
+            strcpy(candidate.networks[i].password, record->wifi_psk);
     ++candidate.revision;
     esp_err_t result = commit_settings(&candidate);
     memset(&candidate, 0, sizeof(candidate));

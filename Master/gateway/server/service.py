@@ -35,6 +35,7 @@ from protocol.control_v1 import (
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
     ROBOT_SETTINGS_FEATURE,
+    GATEWAY_SWITCHING_FEATURE,
     MOTION_SPEED_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
@@ -156,6 +157,7 @@ class GatewayConnection:
         self.last_calibration: dict[str, object] | None = None
         self.last_storage: dict[str, object] | None = None
         self.last_motion_speed: dict[str, object] | None = None
+        self.last_robot_settings: dict[str, object] | None = None
         self.mode = "normal"
         self.last_command: dict[str, object] | None = None
         self.profile = service.config.profile
@@ -282,6 +284,13 @@ class GatewayConnection:
                 raise GatewayError("body does not support twelve-joint calibration")
             if message.get("t") == "robot_settings" and (self.model != "v2-12servo" or ROBOT_SETTINGS_FEATURE not in self.features):
                 raise GatewayError("Update the P4 firmware to manage robot settings here")
+            if message.get("t") == "robot_settings" and message.get("op") == "network" and GATEWAY_SWITCHING_FEATURE not in self.features:
+                saved = self.last_robot_settings
+                if saved is None or saved["revision"] != message.get("revision"):
+                    raise GatewayError("Read robot settings before editing this firmware's network profiles")
+                if any(p["ssid"] == message.get("ssid") and p["index"] != message.get("index")
+                       for p in saved["networks"]):
+                    raise GatewayError("This firmware cannot switch computers on the same Wi-Fi; update the P4 firmware")
             if message.get("t") == "storage" and (
                 self.model != "v2-12servo" or STORAGE_CONTROL_FEATURE not in self.features
             ):
@@ -521,6 +530,7 @@ class GatewayConnection:
             if pending.command.get("t") != "robot_settings" or not pending.acknowledged:
                 return
             validate_control_message(message)
+            self.last_robot_settings = dict(message)
             self._finish_pending(sequence, message)
             return
         if message_type == "storage_status":
@@ -652,6 +662,7 @@ class GatewayService:
         self._connections: dict[str, GatewayConnection] = {}
         self._epochs: dict[str, int] = {}
         self._lock = asyncio.Lock()
+        self._closing = False
         self._event_callbacks: list[GatewayCallback] = []
         self._frame_callbacks: list[GatewayCallback] = []
         self._transcript_callbacks: list[GatewayCallback] = []
@@ -689,6 +700,9 @@ class GatewayService:
             return
 
         async with self._lock:
+            if self._closing:
+                await websocket.close(code=1001, reason="gateway stopped")
+                return
             previous = self._connections.get(robot_id)
             epoch = self._epochs.get(robot_id, 0) + 1
             self._epochs[robot_id] = epoch
@@ -758,6 +772,14 @@ class GatewayService:
                 return
             await asyncio.sleep(0.01)
         raise TimeoutError(f"robot {robot_id} did not connect")
+
+    async def close(self) -> None:
+        """Release body sessions before the server waits for its sockets to close."""
+        async with self._lock:
+            self._closing = True
+            connections = tuple(self._connections.values())
+        await asyncio.gather(*(connection.close(1001, "gateway stopped", cancel_code="disconnect")
+                               for connection in connections))
 
     async def queue_intent(
         self,
@@ -984,6 +1006,10 @@ class GatewayService:
             raise GatewayError("Update the P4 firmware to manage robot settings here")
         message = {**dict(values or {}), "t": "robot_settings", "op": operation}
         validate_control_message({**message, "seq": 1})
+        if operation == "network" and GATEWAY_SWITCHING_FEATURE not in connection.features:
+            await self.body_robot_settings("get", robot_id=connection.robot_id)
+            if self._connection(connection.robot_id) is not connection:
+                raise GatewayError("Body session changed before saving the network; read its settings again")
         token = message.get("robot_token")
         if token is not None:
             if self.token_store is None:

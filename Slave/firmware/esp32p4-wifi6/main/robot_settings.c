@@ -43,8 +43,12 @@ bool ainekio_p4_robot_settings_valid(const ainekio_p4_robot_settings_t *s)
         if (!p->ssid[0]) continue;
         if (!s->robot_id[0] || !s->robot_token[0] || !endpoint_valid(p->endpoint) ||
             !ainekio_p4_wifi_password_valid(p->password, sizeof(p->password), true)) return false;
-        for (unsigned j=0; j<i; ++j)
-            if (!strcmp(p->ssid, s->networks[j].ssid)) return false;
+        for (unsigned j=0; j<i; ++j) {
+            const ainekio_p4_network_profile_t *other = &s->networks[j];
+            if (!strcmp(p->ssid, other->ssid) &&
+                (!strcmp(p->endpoint, other->endpoint) || strcmp(p->password, other->password)))
+                return false; /* One Wi-Fi credential, distinct computer addresses. */
+        }
     }
     return true;
 }
@@ -58,10 +62,21 @@ bool ainekio_p4_robot_settings_update(ainekio_p4_robot_settings_t *s,
         if (c->index >= AINEKIO_NETWORK_SLOTS || !text(c->ssid, sizeof(c->ssid)) || !c->ssid[0] ||
             !text(c->endpoint, sizeof(c->endpoint))) return false;
         ainekio_p4_network_profile_t *p = &next.networks[c->index];
-        if (!c->has_wifi_password && strcmp(p->ssid, c->ssid)) return false;
+        if (!c->has_wifi_password && strcmp(p->ssid, c->ssid)) {
+            const ainekio_p4_network_profile_t *existing = NULL;
+            for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
+                if (!strcmp(next.networks[i].ssid, c->ssid)) existing = &next.networks[i];
+            if (!existing) return false;
+            memcpy(p->password, existing->password, sizeof(p->password));
+        }
         memcpy(p->ssid, c->ssid, sizeof(p->ssid));
         memcpy(p->endpoint, c->endpoint, sizeof(p->endpoint));
-        if (c->has_wifi_password) memcpy(p->password, c->wifi_password, sizeof(p->password));
+        if (c->has_wifi_password) {
+            /* Updating a network's credential applies to all its computers. */
+            for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
+                if (!strcmp(next.networks[i].ssid, c->ssid))
+                    memcpy(next.networks[i].password, c->wifi_password, sizeof(p->password));
+        }
     } else if (c->operation == AINEKIO_SETTINGS_REMOVE) {
         if (c->index >= AINEKIO_NETWORK_SLOTS) return false;
         memset(&next.networks[c->index], 0, sizeof(next.networks[c->index]));
@@ -85,7 +100,30 @@ int ainekio_p4_network_next(const ainekio_p4_robot_settings_t *s, int after)
 {
     for (unsigned step=1; step<=AINEKIO_NETWORK_SLOTS; ++step) {
         unsigned index = (after + (int)step) % AINEKIO_NETWORK_SLOTS;
-        if (s->networks[index].ssid[0]) return (int)index;
+        if (!s->networks[index].ssid[0]) continue;
+        bool first = true;
+        for (unsigned i=0; i<index; ++i)
+            if (!strcmp(s->networks[i].ssid, s->networks[index].ssid)) first = false;
+        if (first) return (int)index;
     }
     return -1;
+}
+
+int ainekio_p4_gateway_next(const ainekio_p4_robot_settings_t *s, int network, int after)
+{
+    if (network < 0 || network >= (int)AINEKIO_NETWORK_SLOTS || !s->networks[network].ssid[0]) return -1;
+    for (unsigned step=1; step<=AINEKIO_NETWORK_SLOTS; ++step) {
+        unsigned index = (after + (int)step) % AINEKIO_NETWORK_SLOTS;
+        if (!strcmp(s->networks[index].ssid, s->networks[network].ssid)) return (int)index;
+    }
+    return -1;
+}
+
+bool ainekio_p4_gateway_discovery_allowed(const ainekio_p4_robot_settings_t *s, int network)
+{
+    if (network < 0 || network >= (int)AINEKIO_NETWORK_SLOTS || !s->networks[network].ssid[0]) return false;
+    for (unsigned i=0; i<AINEKIO_NETWORK_SLOTS; ++i)
+        if (!strcmp(s->networks[i].ssid, s->networks[network].ssid) &&
+            !strncmp(s->networks[i].endpoint, "ws://", 5)) return true;
+    return false; /* A TLS-only profile never discovers an unencrypted LAN host. */
 }
