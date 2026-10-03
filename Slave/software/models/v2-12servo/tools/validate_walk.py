@@ -9,6 +9,7 @@ try:
     import numpy as np
     from build_sole_profile import distances
     from validate_locomotion import leverage_report
+    from mechanical_limits import Limits
 except ImportError:
     raise SystemExit(77)
 
@@ -17,7 +18,7 @@ def main(root, binary):
     spec=importlib.util.spec_from_file_location('cad_reference',root/'motions/walk/reference.py')
     ref=importlib.util.module_from_spec(spec);spec.loader.exec_module(ref)
     cfg=json.loads((root/'geometry.json').read_text());contact=json.loads((root/'motions/locomotion/contact-hulls.json').read_text())
-    profile=json.loads((root/'motions/locomotion/sole-profile.json').read_text());m=ref.Mechanism(cfg)
+    profile=json.loads((root/'motions/locomotion/sole-profile.json').read_text());m=ref.Mechanism(cfg);limits=Limits(root)
     bounds={}
     for gait in ('walk','crawl'):
         compact=np.array(profile['profiles'][gait]);maximum=0.
@@ -29,7 +30,7 @@ def main(root, binary):
     low=json.loads((root/'motions/locomotion/config.json').read_text())
     crab=json.loads((root/'motions/locomotion/crab.json').read_text())
     reviewed=np.load(root/'motions/gestures/reviewed-hulls.npz')
-    leverage={}
+    leverage={};envelope_conflicts={}
     xy=0.;zlow=math.inf;zhigh=-math.inf;step=0.;count=0
     for gait in ('walk','crawl','run','crab'):
         m.hulls={leg:np.asarray(contact['soles'][leg] if gait=='crawl' else cfg['legs'][leg]['sole_hull_local_mm']) for leg in cfg['leg_order']}
@@ -47,9 +48,14 @@ def main(root, binary):
                 rows=[json.loads(line) for line in result.stdout.splitlines()]
                 assert rows[-1]['complete'] and all(rows[-1]['grounded'])
                 leverage[f'{gait}/{direction}/{hz}']=leverage_report(cfg,np.array([r['q'] for r in rows]).reshape(-1,4,3),[r['grounded'] for r in rows],low['leverage_validation'])
-                previous=None
+                previous=None;conflicts=0;first_conflict=None
                 for row in rows:
                     m.body_euler=np.asarray(row['euler']);q=np.array(row['q']).reshape(4,3)
+                    # Preserve the owner's full motion range; historical
+                    # mechanical-envelope conflicts remain diagnostic evidence.
+                    if not all(limits.allowed(a) for a in q):
+                        conflicts+=1
+                        if first_conflict is None:first_conflict=dict(ms=row['ms'],joints_deg=np.rad2deg(q).tolist())
                     if previous is not None:step=max(step,float(abs(q-previous).max()))
                     previous=q
                     for i,leg in enumerate(cfg['leg_order']):
@@ -59,10 +65,11 @@ def main(root, binary):
                         assert -.001<error<profile['support_allowance_mm']+(crab['sole_refinement_allowance_mm'] if gait=='crab' else .002),(gait,direction,hz,error)
                         zlow=min(zlow,error);zhigh=max(zhigh,error)
                     count+=1
+                envelope_conflicts[f'{gait}/{direction}/{hz}']=dict(samples=conflicts,first=first_conflict)
     # Every pose uses its own profile allowance above; do not hide XY or
     # below-target errors behind the sole refinement allowance.
     assert xy<.005 and zlow>-.001,(xy,zlow,zhigh)
-    result=dict(leverage=leverage,samples=count,whole_hull_distance_bound_mm=bounds,foot_xy_error_mm=xy,full_sole_height_error_mm=[zlow,zhigh],max_output_step_degrees=math.degrees(step))
+    result=dict(leverage=leverage,modeled_envelope_conflicts=envelope_conflicts,samples=count,whole_hull_distance_bound_mm=bounds,foot_xy_error_mm=xy,full_sole_height_error_mm=[zlow,zhigh],max_output_step_degrees=math.degrees(step))
     print(json.dumps(result,indent=2))
 
 

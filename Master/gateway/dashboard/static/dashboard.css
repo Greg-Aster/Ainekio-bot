@@ -347,5 +347,10 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 
 .settings-check { display: flex !important; align-items: center; gap: .6rem; }
 .settings-check input { width: auto !important; }
+.host-network-toggle { display: flex; align-items: center; gap: .8rem; min-height: 42px; margin: 1rem 0; font-weight: 600; }
+.host-network-toggle input { appearance: none; width: 3rem; height: 1.6rem; min-height: 0; margin: 0; padding: 0; border-radius: 1rem; background: var(--line); position: relative; cursor: pointer; flex-shrink: 0; }
+.host-network-toggle input::before { content: ""; position: absolute; top: .15rem; left: .15rem; width: 1.2rem; height: 1.2rem; border-radius: 50%; background: var(--ink); transition: transform .15s; }
+.host-network-toggle input:checked { background: var(--blue-fill); }
+.host-network-toggle input:checked::before { transform: translateX(1.4rem); }
 .settings-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 #robot-settings-editor form { margin: 1rem 0; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }

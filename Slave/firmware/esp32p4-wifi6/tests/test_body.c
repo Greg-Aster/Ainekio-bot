@@ -554,7 +554,6 @@ static void motion_speed(void)
     for(size_t clip=0;clip<ainekio_v2_clip_count;clip++) {
         const uint64_t duration=ainekio_v2_clips[clip].duration_us;
         const size_t count=(size_t)((duration-1)/480000);
-        uint16_t (*reference)[12]=calloc(count+1,sizeof(*reference));assert(reference);
         uint64_t entry_at_1x=0;
         for(unsigned r=0;r<sizeof rates/sizeof rates[0];r++) {
             reset();ainekio_command_t c=command(1,ainekio_v2_clips[clip].intent);
@@ -570,20 +569,26 @@ static void motion_speed(void)
             const uint64_t entry_expected=(uint64_t)ceil(entry_at_1x/(double)body.motion.entry_rate);
             assert(clock_us-entry_started>=entry_expected && clock_us-entry_started-entry_expected<20000);
             const uint64_t started=clock_us;
-            /* Compare actual output frames against the 1x run at identical
-             * points in the choreography, with the production 20ms scheduler. */
+            /* Compare the output owner with native choreography at its exact
+             * source time. A retimed 1x request is not a usable cross-rate
+             * reference, and scheduler rounding can select different samples. */
             for(size_t i=0;i<count;i++) {
-                if(actual_rate!=rates[r])break;
-                advance((unsigned)(480/actual_rate));
-                if(!r)memcpy(reference[i],last_written,sizeof last_written);
-                else assert(!memcmp(reference[i],last_written,sizeof last_written));
+                const uint64_t target=(uint64_t)ceil((i+1)*480000./actual_rate/20000.)*20000;
+                const uint64_t elapsed=clock_us-started;
+                if(target>elapsed)advance((unsigned)((target-elapsed)/1000));
+                const float progress=(float)(clock_us-started)*actual_rate;
+                const uint64_t source_time=progress>=duration ? duration : (uint64_t)progress;
+                ainekio_v2_frame_t expected_frame;uint16_t expected_pulses[12];
+                assert(ainekio_v2_clip_sample(clip,source_time,&expected_frame));
+                assert(ainekio_p4_joint_map_frame(mapped_joints,&expected_frame,expected_pulses));
+                assert(!memcmp(expected_pulses,last_written,sizeof last_written));
+                assert(!memcmp(expected_frame.position,body.pose.position,sizeof expected_frame.position));
             }
             ainekio_p4_body_event_t e=finish((unsigned)(duration/actual_rate/1000)+1000);
             assert(e.completed && e.sequence==1 && e.result==ESP_OK);
             const uint64_t expected=(uint64_t)ceil(duration/(double)actual_rate);
             assert(clock_us-started>=expected && clock_us-started-expected<20000);
         }
-        free(reference);
     }
     /* The entry path uses degrees/s, independently of pulse mapping, and a
      * raised limit releases the old slow-entry ceiling without changing paths. */
@@ -609,7 +614,7 @@ static void motion_speed(void)
     saved_motion_rate=3.F;assert(body.motion.playback_rate==2.F);
     c=command(2,AINEKIO_INTENT_WALK);c.data.intent.data.walk.steps=1;
     assert(execute(&c)==ESP_OK && body.motion.playback_rate==1.F);
-    puts("Named motion speed: every clip at 0.25x through 12x, configured joint limit and coordinated retiming, identical unflagged paths, scaled entry, exact completion and V1 rejection passed.");
+    puts("Named motion speed: every clip at 0.25x through 12x, configured joint limit and coordinated retiming, requested and retimed source parity, scaled entry, exact completion and V1 rejection passed.");
 }
 
 int main(void)

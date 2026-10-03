@@ -6,8 +6,10 @@ bool ainekio_v2_limits_leg(const double joints_rad[3]);
 bool ainekio_v2_limits_frame(const ainekio_v2_frame_t *frame);
 
 double ainekio_v2_center_degrees(unsigned joint);
+/* Reported servo-profile window midpoint; distinct from driver timer capacity. */
+double ainekio_v2_pulse_midpoint(void);
 double ainekio_v2_us_per_degree(void);
-unsigned ainekio_v2_pulse_reference(void);
+unsigned ainekio_v2_pulse_reference(unsigned joint);
 const char *ainekio_v2_servo_profile_id(void);
 /* progress is in [0,1]. Bounds conservatively enclose the full direct
  * linkage path; derivatives are centidegrees per unit progress. */

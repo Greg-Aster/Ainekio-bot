@@ -7,6 +7,7 @@
   let robotSettingsSession = null;
   let robotSettingsBusy = false;
   let csrfToken = null;
+  let hostNetworkBusy = false;
   let selectedRobotId = null;
   let preferredRobotId = readLocal("ainekio-selected-robot", null);
   let statusRequest = null;
@@ -699,9 +700,9 @@
     text("calibration-draft-status", !joint ? "Read the robot’s settings before editing." : changed ?
       "Local edits — not applied to the robot. Reading settings keeps these edits in this column." : "Fields match the robot’s reported settings.");
     byId("calibration-draft-status").classList.toggle("has-edits", Boolean(changed));
-    const recommended = Number.isFinite(joint?.recommended_home_cd) && Number.isFinite(calibrationData?.recommended_reference_us);
+    const recommended = Number.isFinite(joint?.recommended_home_cd) && Number.isFinite(joint?.recommended_home_us);
     text("calibration-reference-help", recommended ?
-      `Engraved assembly reference: ${calibrationData.recommended_reference_us} µs at ${(joint.recommended_home_cd / 100).toFixed(2)}° model angle. This marks a physical pose, not the midpoint of servo travel. Home pulse and model angle must describe the installed horn position.` : "");
+      `Default motion mapping reference: ${joint.recommended_home_us} µs at ${(joint.recommended_home_cd / 100).toFixed(2)}° model angle. This is a calculated reference, not measured horn alignment. Home pulse and model angle remain separately editable.` : "");
   }
 
   function selectedCalibrationJoint() {
@@ -1279,6 +1280,40 @@
     });
   }
 
+  function renderHostNetwork(network) {
+    if (!network || hostNetworkBusy) return;
+    byId("host-hotspot-toggle").checked = network.hotspot;
+    text("host-network-state", network.hotspot ? "Robot hotspot enabled." : "Using the existing Wi-Fi network.");
+  }
+
+  function setupHostNetwork() {
+    const toggle = byId("host-hotspot-toggle");
+    const result = byId("host-network-result");
+    toggle.addEventListener("change", async () => {
+      hostNetworkBusy = true;
+      toggle.disabled = true;
+      result.hidden = false;
+      result.classList.remove("form-error");
+      result.textContent = "Switching connection mode…";
+      try {
+        const response = await request("/api/settings/network", {
+          method: "POST", body: JSON.stringify({hotspot: toggle.checked}),
+        });
+        hostNetworkBusy = false;
+        renderHostNetwork(response.host_network);
+        result.textContent = "Connection mode applied and saved.";
+      } catch (error) {
+        result.textContent = error.message;
+        result.classList.add("form-error");
+      } finally {
+        hostNetworkBusy = false;
+        statusGeneration++;
+        toggle.disabled = false;
+        await refreshStatus();
+      }
+    });
+  }
+
   function updateRobotSelect(robotIds) {
     const select = byId("robot-select");
     const previous = selectedRobotId;
@@ -1613,7 +1648,10 @@
     statusRequest = (async () => {
       try {
         const payload = await request("/api/status");
-        if (generation === statusGeneration) renderStatus(payload);
+        if (generation === statusGeneration) {
+          renderStatus(payload);
+          renderHostNetwork(payload.host_network);
+        }
       } catch (error) {
         if (generation === statusGeneration) showResult(error.message, true);
       } finally { statusRequest = null; }
@@ -1651,6 +1689,7 @@
     setupMotionControls();
     setupForms();
     setupSecurity();
+    setupHostNetwork();
     setupRobotSettings();
     await refreshStatus();
     runCameraView();

@@ -1,5 +1,5 @@
 {
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "gait": "bound",
   "base_cycle_seconds": 1.2,
   "ground_contact_fraction": 0.42,
@@ -23,20 +23,20 @@
   ],
   "automatic_speed_threshold_percent": 100,
   "maximum_speed_percent": 200,
-  "transition_cycles": 4,
+  "transition_cycles": 6,
   "body_z_mm": -8,
   "research_angle_bounds_deg": [
     [
-      -35,
-      35
+      -110,
+      110
     ],
     [
-      -88.83,
-      145.17
+      -39.99,
+      185.33
     ],
     [
-      -130.41,
-      103.59
+      -53.27,
+      139.36
     ]
   ],
   "forward": {
@@ -47,6 +47,6 @@
     "lane_assignment": "physical_front_inside_rear_outside",
     "pitch_bias_deg": -3
   },
-  "mounting_profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
-  "search_bounds_basis": "Historical geometric search envelope retained. Firmware default is now the owner-reported 1650 us matchmark reference; loaded tracking and pulse coverage require measured calibration."
+  "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
+  "search_bounds_basis": "Original authored Run trajectory restored for comparison; current screw-aware limits and mounting calibration retained separately. Original path has not been proven collision-safe."
 }

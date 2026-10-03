@@ -53,7 +53,7 @@
       21.67498529757701
     ]
   ],
-  "maximum_adjacent_joint_step_degrees": 1.4172896594929494,
+  "maximum_adjacent_joint_step_degrees": 3.6778195198941765,
   "peak_joint_speed_deg_s": 169.56681647884287,
   "peak_joint_acceleration_deg_s2": 1756.3263249282707,
   "seconds": 5.2735171589993115,
@@ -68,5 +68,24 @@
   },
   "posture_hulls_sha256": "d36e34fa0f1697cc3d65364c1344d2e1f0ca363375684b3877d2b46cb471d1b2",
   "body_support_scope": "Current visible structural chassis supports. Carapace and mask remain excluded from the Rest support check, as in the authored pose.",
-  "motion_end_s": 3.0
+  "motion_end_s": 3.0,
+  "clearance_fit": {
+    "command": "rest",
+    "samples": 601,
+    "maximum_planted_knot_error_mm": 1.0547033184593602e-06,
+    "maximum_airborne_target_change_mm": 0.046314510842820414,
+    "maximum_root_correction_mm": 55.408477670130544,
+    "maximum_joint_step_degrees": 1.0224714667034522,
+    "timing_and_body_rotation_preserved": true,
+    "amplitude_scale": 1.0,
+    "profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37",
+    "scope": "Coupled internal-linkage offline source fit; sampled contacts and all source interpolation checked separately. Physical tracking and whole-body strength unqualified.",
+    "maximum_planted_sample_error_mm": 0.002162536210558608,
+    "minimum_sole_clearance_mm": -1.8079345501575972e-05,
+    "polished_samples": 89
+  },
+  "min_sole_z_mm": -2.1254820126159757e-10,
+  "min_body_z_mm": 0.0,
+  "minimum_closure_height_mm": 8.503803376801361,
+  "maximum_planted_target_error_mm": 0.0
 }

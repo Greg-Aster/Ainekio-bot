@@ -57,6 +57,8 @@ class LocomotionGeneration(unittest.TestCase):
                 self.assertEqual(source["validation"], report)
                 self.assertGreater(report["full_sole_height_error_mm"][1], .005)
                 self.assertFalse(report["hardware_qualified"])
+                self.assertEqual(report["modeled_envelope_conflict"],
+                                 report["first_bound_envelope_conflict"] is not None)
                 name = "motions/locomotion/sole-profile.json"
                 self.assertEqual(source["metadata"]["native_sources_sha256"][name],
                                  generator.digest(self.root / name))
@@ -69,13 +71,28 @@ class LocomotionGeneration(unittest.TestCase):
         catalog_path.write_text(json.dumps(catalog))
         self.assertEqual([c["command"] for c in compile_clips.load_gestures(self.root)], ["crouch"])
 
-    def test_reject_straightened_and_weak_linkages(self):
+    def test_reject_straightened_linkage_and_report_near_straight_pose(self):
         cfg = json.loads((MODEL / "geometry.json").read_text())
         margins = json.loads((MODEL / "motions/locomotion/config.json").read_text())["leverage_validation"]
-        for crank in (-40.41, -35.):
-            q = numpy.deg2rad(numpy.tile([0., 10.050314941406251, crank], (2,4,1)))
-            with self.subTest(crank=crank), self.assertRaises(ValueError):
-                leverage_report(cfg, q, numpy.ones((2,4), dtype=bool), margins)
+        contact = numpy.ones((2,4), dtype=bool)
+        q = numpy.deg2rad(numpy.tile([0., 10.050314941406251, -40.41], (2,4,1)))
+        with self.assertRaisesRegex(ValueError, "impossible or straight"):
+            leverage_report(cfg, q, contact, margins)
+
+        # This pose closes the four-bar, but has little mechanical leverage.
+        # The report must expose that geometry when measuring without floors;
+        # configured regression floors still reject the weak transmission.
+        q = numpy.deg2rad(numpy.tile([0., 10.050314941406251, -35.], (2,4,1)))
+        with self.assertRaisesRegex(ValueError, 'stance_output_min_deg'):
+            leverage_report(cfg, q, contact, margins)
+        measured = dict.fromkeys(margins, 0.)
+        report = leverage_report(cfg, q, contact, measured)
+        self.assertAlmostEqual(report["minimum_straightening_clearance_mm"], .14861838098, places=8)
+        self.assertAlmostEqual(report["stance_output_min_deg"], 8.146626379, places=7)
+        self.assertEqual(report["branch_reversals"], 0)
+        required = dict(measured, straightening_clearance_min_mm=.2)
+        with self.assertRaisesRegex(ValueError, "straightening clearance"):
+            leverage_report(cfg, q, contact, required)
 
     def test_allowance_does_not_hide_xy_error_or_wrong_height(self):
         wire = json.dumps(dict(t="intent", seq=1, name="walk", dir="fwd",

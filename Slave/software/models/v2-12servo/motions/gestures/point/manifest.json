@@ -85,7 +85,7 @@
   "hardware_qualified": false,
   "actuator_calibration": null,
   "source_sha256": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "faces/point/0.bin": "b39eb349030abed806b20676029bd24a63641a6e9b3d3fa52d70192cf62d2695",
@@ -193,8 +193,10 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "afe1d1af6d0b75e5df08bbc7e372c60079ec4ba2a7ce11878cb7c88918922b23",
+  "posture_sha256": "7585187c1140ae9059533ebd92c0169e5658578b9fd029426d646035691b48a0",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Extend the physical front-left upper and lower leg into one forward horizontal line for the full 40 + 55 mm modeled reach.",
-  "choreography_source": "docs/gait-research/point-20260916/manifest.json"
+  "choreography_source": "docs/gait-research/point-20260916/manifest.json",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

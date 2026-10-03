@@ -75,7 +75,7 @@
   "hardware_qualified": false,
   "actuator_calibration": null,
   "source_sha256": "b5f856b658ddc777d76511f057b37b3df2635ac5ed45683d28e92415ee2ddbb3",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "faces/freaky/0.bin": "939ef873907ab786ff0229e2f1da4a34047bf1be1acae0c97e93689d3e3ea8d1",
@@ -188,5 +188,7 @@
     ]
   },
   "choreography_source": "docs/gait-research/motion-batch-20260916/commands/freaky/manifest.json",
-  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package."
+  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package.",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

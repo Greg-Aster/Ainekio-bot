@@ -19,6 +19,8 @@ typedef struct {
 
 bool ainekio_p4_joints_valid(const ainekio_p4_joint_config_t *joints);
 bool ainekio_p4_joint_defaults(ainekio_p4_joint_config_t *joints);
+/* Display-only mounting reference; saved mappings remain unchanged. */
+uint16_t ainekio_p4_joint_recommended_home(unsigned joint_id, bool inverted);
 /* All-or-nothing: failure clears every pulse; enabled joints never clamp. */
 bool ainekio_p4_joint_map_frame(const ainekio_p4_joint_config_t *joints,
                               const ainekio_v2_frame_t *frame,

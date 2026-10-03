@@ -1,6 +1,6 @@
 {
   "schema": "ainekio.compact-sole.v1",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "contact_source_sha256": "2a06757574d41c73b3ea7033a4804791629dc4725b93395534669f99d7a63b4e",
   "support_allowance_mm": 0.151,
   "maximum_support_error_mm": 0.15,

@@ -1,74 +1,74 @@
 # Motion range conflicts
 
-This report measures the current geometry-remapped library. The audit itself changes no trajectories or calibration. Choreography and gesture timing are preserved except where geometry contact corrections or the explicit speed policy require a change.
+This report measures the original recorded motion library through the retained provisional mapping. Joint curves and authored timing remain unchanged. Physical parity is unresolved; whole-library range centering changed the leg poses and was removed.
 
-Selected reference: 1650 µs. Arithmetic midpoint: 1600 µs. Reported span: 300–2900 µs. Conversion assumes 234° of unmeasured shaft travel. Endpoints remain reference data; firmware retains the PWM timer capacity check.
+Selected reference: [1650, 856, 723] µs. Arithmetic midpoint: 1650 µs. Reported span: 300–3000 µs. Conversion assumes 243° of unmeasured shaft travel. Endpoints remain reference data; firmware retains the PWM timer capacity check.
 
-Non-inverted mounting offsets at 1650 µs: shoulder 0°, carrier 1.17°, crank -40.41°. Carrier/crank matchmark angles are retained and rounded to centidegrees.
+Non-inverted mounting offsets at [1650, 856, 723] µs: shoulder 0°, carrier 1.17°, crank -40.41°. Carrier/crank angle references are retained from the pre-centering configuration; they are not measured installed angles.
 
 | Joint type | Combined recorded model range | Span | Pulse range with selected mounting |
 | --- | --- | ---: | --- |
 | h_Part002 | -87.02…27.54° | 114.56° | 683.14…1956.02 µs |
-| alpha_Part006 | -89.13…135.37° | 224.50° | 646.65…3141.12 µs |
-| theta_Part005 | -128.11…101.29° | 229.41° | 675.51…3224.50 µs |
+| alpha_Part006 | -89.13…135.37° | 224.50° | -147.35…2347.12 µs |
+| theta_Part005 | -128.11…101.29° | 229.41° | -251.49…2297.50 µs |
 
-The owner reports shaft travel greater than 234°. The historical 234° conversion and pulse endpoints are provisional references, not enforced travel stops. Excursions outside them are reported without clipping motion.
+The owner reports 300–2900 µs travel. The 11.111111 µs/degree conversion remains provisional. The audit reports excursions without clipping motion.
 
-The combined Home lies inside the existing coupled mechanical envelope. Horn indexing does not remove the modeled collision conflicts elsewhere in the trajectories. These sampled source ranges do not prove every continuous gait setting, transition, loaded clearance or actual servo tracking.
+The retained modeled Home closes the four-bar. This does not establish its physical association with the saved pulse. The separate provisional mesh envelope still reports conflicts in some original poses; those modeled observations are not measured hardware limits. Sampled ranges do not establish loaded clearance or servo tracking.
 
 | Demonstration | Computed minimum µs | Maximum µs | Outside 300–2900 reference | Outside PWM capacity | Modeled collision envelope conflict |
 | --- | ---: | ---: | --- | --- | --- |
-| bow | 1577.96 | 3224.50 | yes | no | yes |
-| celebrate | 833.88 | 2168.37 | no | no | yes |
-| crouch | 1216.81 | 2103.52 | no | no | yes |
-| curious | 1322.85 | 2311.64 | no | no | no |
-| cute | 845.09 | 2168.37 | no | no | no |
-| dance | 1290.19 | 2170.87 | no | no | no |
-| dead | 1251.15 | 3101.98 | yes | no | yes |
-| freaky | 866.45 | 2103.93 | no | no | yes |
-| lay_down | 1286.14 | 2820.25 | no | no | no |
-| nod | 916.10 | 2169.87 | no | no | yes |
-| point | 675.51 | 3141.12 | yes | no | yes |
-| pushup | 646.65 | 2119.11 | no | no | yes |
-| rest | 1335.36 | 2339.83 | no | no | yes |
-| sad | 1536.09 | 2446.22 | no | no | no |
-| shake | 1269.81 | 2362.12 | no | no | yes |
-| shrug | 916.67 | 2432.33 | no | no | yes |
-| sit | 1253.31 | 2272.65 | no | no | yes |
-| stretch | 1579.37 | 2790.63 | no | no | no |
-| surprised | 683.14 | 2168.37 | no | no | no |
-| swim | 843.47 | 2266.38 | no | no | yes |
-| upright | 737.69 | 2628.96 | no | no | yes |
-| wave | 727.78 | 2543.44 | no | no | yes |
-| worm | 1066.97 | 2337.29 | no | no | yes |
-| crab | 1290.31 | 2125.32 | no | no | no |
-| crab_backward | 1341.19 | 2445.71 | no | no | no |
-| crab_forward | 1341.13 | 2402.70 | no | no | no |
-| crab_right | 1278.82 | 2129.98 | no | no | no |
-| crab_turn_left | 1257.07 | 2508.68 | no | no | no |
-| crab_turn_right | 1253.49 | 2448.72 | no | no | no |
-| crawl_backward | 927.69 | 2173.89 | no | no | yes |
-| crawl_forward | 917.69 | 2103.52 | no | no | yes |
-| crawl_turn_left | 1032.37 | 2103.52 | no | no | yes |
-| crawl_turn_right | 1030.55 | 2103.52 | no | no | yes |
-| walk_backward | 877.64 | 2672.94 | no | no | yes |
-| walk_forward | 884.29 | 2445.37 | no | no | yes |
-| walk_turn_left | 1378.87 | 2252.07 | no | no | no |
-| walk_turn_right | 1379.87 | 2251.00 | no | no | no |
-| run | 794.89 | 2838.98 | no | no | yes |
-| turn_left_15 | 1414.12 | 2160.71 | no | no | no |
-| turn_left_180 | 1295.39 | 2405.95 | no | no | yes |
-| turn_left_45 | 1371.67 | 2270.38 | no | no | no |
-| turn_left_90 | 1309.54 | 2361.34 | no | no | yes |
-| turn_right_15 | 1414.12 | 2160.71 | no | no | no |
-| turn_right_180 | 1295.39 | 2405.95 | no | no | yes |
-| turn_right_45 | 1371.67 | 2270.38 | no | no | no |
-| turn_right_90 | 1309.54 | 2361.34 | no | no | yes |
-| walk | 883.47 | 2445.97 | no | no | yes |
+| bow | 783.96 | 2297.50 | no | no | no |
+| celebrate | 559.32 | 1650.00 | no | no | no |
+| crouch | 422.81 | 1650.00 | no | no | no |
+| curious | 528.85 | 1796.00 | no | no | no |
+| cute | 559.32 | 1650.00 | no | no | no |
+| dance | 496.19 | 1846.52 | no | no | no |
+| dead | 864.34 | 2174.98 | no | no | no |
+| freaky | 445.89 | 1717.55 | no | no | no |
+| lay_down | 864.34 | 1893.25 | no | no | no |
+| nod | 122.10 | 1721.50 | yes | no | yes |
+| point | -251.49 | 2347.12 | yes | yes | yes |
+| pushup | -147.35 | 1650.00 | yes | yes | yes |
+| rest | 541.36 | 1650.00 | no | no | yes |
+| sad | 742.09 | 1698.41 | no | no | no |
+| shake | 475.81 | 1650.00 | no | no | no |
+| shrug | 265.79 | 1670.54 | yes | no | yes |
+| sit | 459.31 | 1650.00 | no | no | no |
+| stretch | 785.37 | 1863.63 | no | no | no |
+| surprised | 556.38 | 1650.00 | no | no | no |
+| swim | 555.11 | 1650.00 | no | no | no |
+| upright | -189.31 | 1738.89 | yes | yes | yes |
+| wave | 459.31 | 1650.00 | no | no | no |
+| worm | 272.97 | 1650.00 | yes | no | yes |
+| crab | 592.15 | 1650.00 | no | no | no |
+| crab_backward | 592.15 | 1650.00 | no | no | no |
+| crab_forward | 592.15 | 1650.00 | no | no | no |
+| crab_right | 592.15 | 1650.00 | no | no | no |
+| crab_turn_left | 463.07 | 1650.00 | no | no | no |
+| crab_turn_right | 459.49 | 1650.00 | no | no | no |
+| crawl_backward | 133.69 | 1660.58 | yes | no | yes |
+| crawl_forward | 123.69 | 1660.59 | yes | no | yes |
+| crawl_turn_left | 238.37 | 1720.26 | yes | no | yes |
+| crawl_turn_right | 236.55 | 1726.74 | yes | no | yes |
+| walk_backward | -49.36 | 1745.94 | yes | yes | yes |
+| walk_forward | -42.71 | 1698.29 | yes | yes | yes |
+| walk_turn_left | 584.87 | 1733.79 | no | no | no |
+| walk_turn_right | 585.87 | 1733.79 | no | no | no |
+| run | -132.11 | 1911.98 | yes | yes | yes |
+| turn_left_15 | 620.12 | 1774.61 | no | no | no |
+| turn_left_180 | 501.39 | 1956.02 | no | no | no |
+| turn_left_45 | 577.67 | 1862.86 | no | no | no |
+| turn_left_90 | 516.27 | 1956.02 | no | no | no |
+| turn_right_15 | 620.12 | 1774.61 | no | no | no |
+| turn_right_180 | 501.39 | 1956.02 | no | no | no |
+| turn_right_45 | 577.67 | 1862.86 | no | no | no |
+| turn_right_90 | 516.27 | 1956.02 | no | no | no |
+| walk | -43.53 | 1698.26 | yes | yes | yes |
 
 ## Sampled joint speed
 
-Provisional 4.8 V rating: 545.455°/s. Flag threshold: 681.818°/s (125%). Flagged motions are retimed to the rating; geometry paths and amplitudes are retained. Continuous gaits coordinate all joints through one clock. These are commanded shaft speeds using the provisional pulse conversion; loaded tracking is unmeasured.
+Provisional 4.8 V rating: 545.455°/s. Flag threshold: 681.818°/s (125%). These offline rating flags do not change runtime timing. The owner-selected joint speed limit retains control of the shared clock. These are commanded shaft speeds using the provisional pulse conversion; loaded tracking is unmeasured.
 
 | Motion | Peak sampled °/s | Rating ratio | Flagged |
 | --- | ---: | ---: | --- |

@@ -44,7 +44,7 @@
   "hardware_qualified": false,
   "calibration": null,
   "source_sha256": "352dd28e3226540febed9f0cc30a3a9c827b4f1b077983dde16ddf57cb665007",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "86b6acfd280f36760b6edb5b7bd9659a85758d63fc317dcbc8b3df751b34acb3",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "mirror_partner": "turn_right_180",
   "geometry_id": "upright-24-38-24-55-visible-20260929",

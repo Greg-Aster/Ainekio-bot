@@ -10,9 +10,12 @@ import unittest
 from collections.abc import AsyncIterable
 from pathlib import Path
 from typing import Callable
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from gateway.dashboard.server import start_dashboard_server
 from gateway.dashboard.auth import AuditLog
+from gateway.hotspot import RobotHotspot
 from gateway.server.service import ActionExpiredError
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
@@ -148,6 +151,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.password_store.initialize(password=self.password)
         self.token_store = RobotTokenStore(root / "robot-tokens.json")
         self.gateway = FakeGateway()
+        self.hotspot = RobotHotspot(root / ".env", enabled=False)
         self.server = start_dashboard_server(
             "127.0.0.1",
             0,
@@ -155,6 +159,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             event_loop=asyncio.get_running_loop(),
             password_store=self.password_store,
             token_store=self.token_store,
+            hotspot=self.hotspot,
         )
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -231,6 +236,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             "127.0.0.1", 0, gateway=self.gateway,
             event_loop=asyncio.get_running_loop(), password_store=self.password_store,
             token_store=self.token_store,
+            hotspot=self.hotspot,
         )
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -248,6 +254,34 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         await self._restart_dashboard()
         status, _, _ = await self._request("GET", "/api/session", cookie=cookie)
         self.assertEqual(status, 401)
+
+    async def test_network_toggle_uses_existing_auth_and_persists_without_robot_commands(self):
+        process = SimpleNamespace(returncode=0, communicate=AsyncMock(return_value=(b"", b"")))
+        with patch("gateway.hotspot.asyncio.create_subprocess_exec", AsyncMock(return_value=process)) as execute:
+            status, _, _ = await self._request("POST", "/api/settings/network", {"hotspot": True})
+            self.assertEqual(status, 401)
+            cookie, csrf = await self._login()
+            status, _, _ = await self._request("POST", "/api/settings/network", {"hotspot": True}, cookie=cookie)
+            self.assertEqual(status, 403)
+            execute.assert_not_awaited()
+            status, payload, _ = await self._request("POST", "/api/settings/network", {"hotspot": True}, cookie=cookie, csrf=csrf)
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["host_network"], {"hotspot": True})
+            self.assertEqual(self.hotspot.env_file.read_text(), "AINEKIO_HOTSPOT=1\n")
+            status, snapshot, _ = await self._request("GET", "/api/status", cookie=cookie)
+            self.assertEqual(snapshot["host_network"], {"hotspot": True})
+            self.assertEqual(self.gateway.calls, [])
+            self.assertEqual(execute.await_args.args[:4], ("systemctl", "--no-ask-password", "start", "ainekio-hotspot-dhcp.service"))
+
+    async def test_network_service_failure_is_visible_and_preserves_saved_mode(self):
+        process = SimpleNamespace(returncode=1, communicate=AsyncMock(return_value=(b"", b"Missing hotspot service")))
+        cookie, csrf = await self._login()
+        with patch("gateway.hotspot.asyncio.create_subprocess_exec", AsyncMock(return_value=process)):
+            status, payload, _ = await self._request("POST", "/api/settings/network", {"hotspot": True}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 409)
+        self.assertIn("Missing hotspot service", payload["error"])
+        self.assertFalse(self.hotspot.enabled)
+        self.assertFalse(self.hotspot.env_file.exists())
 
     async def test_dashboard_error_is_saved_without_request_credentials(self) -> None:
         path = Path(self.temporary_directory.name) / "operations.jsonl"

@@ -1,11 +1,11 @@
 {
-  "gait_id": "stride-and-rate-v2-24-38-reference-1650",
+  "gait_id": "stride-and-rate-v2-24-38-original-comparison",
   "geometry_id": "upright-24-38-24-55-visible-20260929",
   "hardware_qualified": false,
   "sha256": {
     "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
-    "../../geometry.json": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
-    "../locomotion/config.json": "f9968276afcc66809b78dff00adf6a77627a94477c096026883ea15c8eab8a8d",
+    "../../geometry.json": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+    "../locomotion/config.json": "459118fcabdf2f3fd3c63437cd09f2a3267ed3a0326ff850c55f7df17f1c7051",
     "source.json": "8ab2142f5c73190859c04e8b05e7efde16f631c5bfe0bc6c934e6a3e2b719b19"
   },
   "source_leg_order": [
@@ -26,6 +26,15 @@
     0,
     1
   ],
-  "electrical_zero_and_signs": "Recommended references in servo_profile.json; per-joint measured calibration and direction remain operator settings.",
-  "source_blend": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend"
+  "electrical_zero_and_signs": "Current per-joint references and modeled envelope are in servo_profile.json; saved measured calibration/direction remain operator settings. Historical recording does not qualify the current screw-aware mapping.",
+  "source_blend": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "recorded_gait_id": "stride-and-rate-v2-24-38-reference-1650",
+  "recorded_source_bindings_sha256": {
+    "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
+    "../../geometry.json": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+    "../locomotion/config.json": "f9968276afcc66809b78dff00adf6a77627a94477c096026883ea15c8eab8a8d",
+    "source.json": "8ab2142f5c73190859c04e8b05e7efde16f631c5bfe0bc6c934e6a3e2b719b19"
+  },
+  "comparison_status": "Exact pre-task Walk source; current screw-clearance qualification pending.",
+  "current_calibration_profile": "v2-24-38-centered-shaft-heads"
 }

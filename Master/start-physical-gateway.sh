@@ -208,7 +208,6 @@ cd "$REPO_ROOT"
 
 discovery_pid=""
 gateway_pid=""
-hotspot_managed=0
 cleanup_services() {
   local exit_status=$?
   trap - EXIT INT TERM
@@ -226,29 +225,11 @@ cleanup_services() {
       rm -f "$GATEWAY_PID_FILE"
     fi
   fi
-  if (( hotspot_managed )); then
-    if ! systemctl --no-ask-password stop ainekio-hotspot-interface.service; then
-      echo "Could not stop the robot hotspot; check ainekio-hotspot-interface.service." >&2
-    fi
-  fi
   return "$exit_status"
 }
 trap cleanup_services EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-
-if [[ "$HOTSPOT" == "1" ]]; then
-  if ! command -v systemctl >/dev/null 2>&1; then
-    echo "Robot hotspot support requires the configured system services." >&2
-    exit 2
-  fi
-  hotspot_managed=1
-  if ! systemctl --no-ask-password start ainekio-hotspot-dhcp.service; then
-    echo "Could not start the robot hotspot; check its installed services and permissions." >&2
-    exit 1
-  fi
-  echo "  Robot hotspot:      active for this gateway session"
-fi
 
 if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
   avahi-publish-service \

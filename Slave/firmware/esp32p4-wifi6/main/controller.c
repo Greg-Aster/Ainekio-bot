@@ -648,7 +648,6 @@ static void calibration_status(const request_t *request)
     cJSON_AddBoolToObject(message, "saved", state.saved);
     cJSON_AddBoolToObject(message, "profile_confirmed", state.profile_confirmed);
     cJSON_AddStringToObject(message, "servo_profile_id", ainekio_v2_servo_profile_id());
-    cJSON_AddNumberToObject(message, "recommended_reference_us", ainekio_v2_pulse_reference());
     cJSON_AddNumberToObject(message, "provisional_us_per_degree", ainekio_v2_us_per_degree());
     cJSON_AddBoolToObject(message, "shaft_travel_measured", false);
     cJSON_AddBoolToObject(message, "ready", state.valid && output.ready);
@@ -668,6 +667,8 @@ static void calibration_status(const request_t *request)
         cJSON_AddNumberToObject(entry, "home_us", joint->home_us);
         cJSON_AddBoolToObject(entry, "invert", joint->invert);
         cJSON_AddNumberToObject(entry, "home_cd", joint->home_cd);
+        cJSON_AddNumberToObject(entry, "recommended_home_us",
+            ainekio_p4_joint_recommended_home(i, joint->invert));
         cJSON_AddNumberToObject(entry, "recommended_home_cd", 100.*ainekio_v2_center_degrees(i));
         cJSON_AddNumberToObject(entry, "us_per_degree", joint->us_per_degree);
         cJSON_AddNumberToObject(entry, "pulse_us", joint->channel < 0 ? 0 : pulses[joint->channel]);

@@ -1,26 +1,29 @@
 {
   "command": "crawl_backward",
-  "samples": 2214,
-  "max_target_error_mm": 0.151239334073054,
-  "foot_xy_error_mm": 6.204089965677895e-05,
+  "samples": 2454,
+  "max_target_error_mm": 0.15105009582429263,
+  "foot_xy_error_mm": 5.06387152086063e-05,
   "full_sole_height_error_mm": [
-    0.08920663387039962,
-    0.151239334073054
+    0.10208575106568629,
+    0.15105009582429263
   ],
   "support_allowance_mm": 0.151,
-  "min_sole_z_mm": 0.09144065562205128,
-  "min_body_z_mm": 13.716971823839629,
+  "min_sole_z_mm": 0.10536768224998028,
+  "min_body_z_mm": 20.717232680463884,
   "min_closure_height_mm": 18.734238833597132,
-  "maximum_adjacent_joint_step_degrees": 5.164982220173827,
+  "maximum_adjacent_joint_step_degrees": 3.9098461677087433,
   "hardware_qualified": false,
   "collision_checked": false,
   "leverage": {
-    "checked_leg_poses": 17708,
+    "checked_leg_poses": 19628,
     "branch_reversals": 0,
     "minimum_straightening_clearance_mm": 13.938078413402707,
-    "stance_output_min_deg": 48.21258659462031,
-    "swing_output_min_deg": 45.33107984406653,
-    "stance_input_min_deg": 72.21025581352235,
-    "swing_input_min_deg": 71.34118946897927
-  }
+    "stance_output_min_deg": 63.688653008043076,
+    "swing_output_min_deg": 61.20039973695302,
+    "stance_input_min_deg": 60.77270109526645,
+    "swing_input_min_deg": 60.069466865023195
+  },
+  "modeled_envelope_conflict": false,
+  "first_bound_envelope_conflict": null,
+  "mounting_profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37"
 }

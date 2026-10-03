@@ -42,5 +42,8 @@
       -73.77760654665195
     ]
   },
-  "mounting_profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e"
+  "mounting_profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
+  "source_sha256": "bb5869beeb67716234607df02bc5d9556e5b0587d4f84397be2188e172c00263",
+  "report_basis": "Historical pre-task recording and its original model/calibration; values have not been recalculated.",
+  "current_screw_qualification": "pending"
 }

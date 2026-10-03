@@ -12,5 +12,26 @@
   "reviewed_joint_keys_preserved": true,
   "motion_end_s": 14.0,
   "max_target_error_mm": 0.0,
-  "peak_joint_speed_deg_s": 220.6726975820788
+  "peak_joint_speed_deg_s": 220.6726975820788,
+  "clearance_fit": {
+    "command": "shrug",
+    "samples": 1681,
+    "maximum_planted_knot_error_mm": 4.353287804548245e-05,
+    "maximum_airborne_target_change_mm": 0.15039164285819137,
+    "maximum_root_correction_mm": 22.651911379925668,
+    "maximum_joint_step_degrees": 0.9550728267303339,
+    "timing_and_body_rotation_preserved": true,
+    "amplitude_scale": 1.0,
+    "profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37",
+    "scope": "Coupled internal-linkage offline source fit; sampled contacts and all source interpolation checked separately. Physical tracking and whole-body strength unqualified.",
+    "maximum_planted_sample_error_mm": 0.0025338022369609803,
+    "minimum_sole_clearance_mm": -2.0412116001011782e-05,
+    "polished_samples": 0,
+    "common_stand_entry_and_finish_preserved": true
+  },
+  "min_sole_z_mm": -2.0412116001011782e-05,
+  "min_body_z_mm": 2.5707455179646432,
+  "minimum_closure_height_mm": 0.5515652715795313,
+  "maximum_adjacent_joint_step_degrees": 1.9576715063302705,
+  "maximum_planted_target_error_mm": 0.003296342874478775
 }

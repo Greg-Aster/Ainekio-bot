@@ -1,26 +1,21 @@
-# Upright (experimental)
+# Upright
 
-`upright` is a separate V2 command. `stand` keeps its four-foot meaning.
-Send `{"t":"intent","name":"emote","asset":"upright"}` with the normal transport fields; the gateway accepts the name only when the body declares it.
+`upright` is a separate experimental V2 command. `stand` retains its four-foot meaning. Send `{"t":"intent","name":"emote","asset":"upright"}` with the normal transport fields; the gateway accepts it only when the body declares this capability.
 
-The 22-second clip replays the exact first three seconds of Sit, moves each front foot backward, shifts the body rearward with all four feet supporting it, then rises to a vertical chassis. The rear lower legs retain their flat Sit contact throughout. It holds Upright until another command; automatic recovery is not included.
+The 22-second clip preserves the exact first three seconds of Sit, levels the chassis while all four feet support it, shifts the body rearward with those foot reference positions fixed, then withdraws the front pair and rises to a vertical chassis. It holds Upright until another command; automatic recovery is not included.
 
-| Phase | Time |
+| Phase | Source interval |
 | --- | --- |
-| Accepted Sit | 0–3 s |
-| Left front foot backward | 3–5 s |
-| Rearward support shift | 5–6 s |
-| Right front foot backward | 6–8 s |
-| Supported push | 8–12 s |
-| Rise and finish rearward arm extension | 12–20 s |
-| Upright hold | 20–22 s, then held by the controller |
+| Accepted Sit prefix | 0–3 s |
+| Level seated chassis from −27.5° to −10° | 3–5 s |
+| Grounded rearward support transfer | 5–12 s |
+| Withdraw forelimbs and rise to −90° | 12–20 s |
+| Hold Upright | 20–22 s |
 
-The supported push reaches about 88.48 mm of front-arm extension. The final backward reach is 92.93 mm, compared with 95.02 mm theoretical straight reach. A direct interpolation to the backward near-straight pose crosses an unreachable four-bar region; the recorded route goes around it and retains at least 2.38 mm of closure-triangle height. This is not a measured force or torque margin. Front feet lift before the final arm extension, once the assumed center of mass is above the rear support area.
+Leveling before the rearward transfer keeps the grounded front-foot targets within the screw-aware linkage range. The previous simultaneous transfer at the seated pitch required unreachable front-foot placements; lifting the front pair early instead left the assumed center of mass outside the rear support. This route keeps all four contacts until the modeled support transfer is complete.
 
-The full source has 2,641 knots at 120 Hz. Rear sole poses remain anchored within 0.000043 mm in the reference solution, minimum complete-body floor clearance is 0.54 mm, and the assumed center of mass remains at least 0.737 mm inside the support polygon after Sit. This assumes the center of mass is the model pivot `[0,0,65]` mm and counts sole vertices within 0.5 mm of the floor. Real mass distribution, contact compliance, traction, balancing and loaded servo tracking are unknown.
+The source has 2,641 knots at 120 Hz. Rear foot reference XY positions stay fixed within 0.000018 mm; rear soles may roll as the chassis rises. Minimum complete-body floor clearance is 0.5435 mm, and the provisional center of mass stays at least 1.5626 mm inside the supporting sole polygon after Sit. The final constrained forelimb reach is 89.1123 mm, with at least 2.2703 mm of closure-triangle height. The earlier 92.93 mm forelimb endpoint exceeded the current screw-aware joint range.
 
-The 2026-09-29 remap translates the front braces into the current footprint and changes the intermediate support pitch from −27.5° to −22.954° to retain front-foot reach on the longer chassis. The support shift moves 1.5 mm farther rearward to keep the assumed COM inside the support polygon. During 14–16 seconds the carrier clears the unreachable linkage region before the crank follows; the original waypoint, final 92.93 mm arm reach, full −90° body pitch and all phase times remain intact. The rear boot poses stay anchored. `temp_mesh.ply` is an owner-identified temporary reference and is excluded from robot clearance and playback geometry.
+These are geometric results using an assumed center of mass at the model pivot `[0,0,65]` mm and sole vertices within 0.5 mm of ground. Real mass distribution, traction, compliance, dynamic balance and loaded servo tracking remain unqualified. The complete robot has not been collision-qualified by this support calculation.
 
-Current pulse demands use 1650 µs at the existing matchmarks. The mounting audit reports the resulting ranges and historical mechanical-envelope conflicts without clipping the movement. Complete-body collision and loaded balance remain unqualified for the changed assembly; older mesh-separation numbers do not qualify this remap.
-
-`../../../tools/generate_upright.py` generates this source with NumPy and SciPy. Run `python tools/generate_upright.py` from the model directory, then build the native tests and P4 firmware. The compiler binds Sit, geometry and contact-hull hashes so stale dependencies fail instead of being silently accepted. Append the source to Blender with `append_blender_locomotion.append(['upright'])` only after verifying the current rolling recovery.
+Pulse demands use the current per-joint matchmark references in `servo_profile.json`; these remain provisional until physical shaft mapping is verified. `tools/generate_upright.py` generates the source with NumPy and SciPy. `tests/test_upright.py` independently recomputes contact geometry and support, checks the exact Sit prefix and vertical hold, and proves interpolation remains inside the authored coupled joint envelope.

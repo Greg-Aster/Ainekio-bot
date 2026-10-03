@@ -1,6 +1,6 @@
 {
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
-  "walk_turn_degrees_per_cycle": 18,
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+  "walk_turn_degrees_per_cycle": 8.73,
   "crawl": {
     "body_z_mm": -35,
     "entry_seconds": 2,
@@ -16,7 +16,13 @@
   },
   "hardware_qualified": false,
   "walk": {
-    "body_z_mm": -8
+    "body_z_mm": -8,
+    "stance_sweep_mm": 96,
+    "rearward_bias_mm": -8,
+    "lift_mm": 8.85,
+    "body_motion_scale": 0.485,
+    "stroke_basis": "Wider coordinated foot path: 96 mm stance sweep, centered 8 mm forward. Retains the previous full-Walk lift and body sway/bob/roll/pitch; Home calibration is unchanged. Calculated using saved mirrored carrier 856/2444 us, crank 723/2577 us, and 11.111111 us/degree.",
+    "transition_cycles": 2
   },
   "leverage_validation": {
     "stance_output_min_deg": 45,

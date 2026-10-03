@@ -5,11 +5,13 @@
   "evaluated_poses": 33,
   "minimum_sole_z_mm": -0.0002765655517578125,
   "max_foot_position_error_mm": 9.081989651349431e-05,
-  "status": "saved_current_geometry_firmware_playback_verified",
+  "status": "historical_original_recording_report_current_screw_qualification_pending",
   "geometry_id": "upright-24-38-24-55-visible-20260929",
   "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
   "scene": "Motions - Firmware Remap",
   "complete_joint_and_body_key_arrays_verified": true,
-  "hardware_qualified": false
+  "hardware_qualified": false,
+  "historical_status": "saved_current_geometry_firmware_playback_verified",
+  "report_basis": "Archived Blender verification of the original recording; this report does not verify the current saved Blender file or screw-aware calibration."
 }

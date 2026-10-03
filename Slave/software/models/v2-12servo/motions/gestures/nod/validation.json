@@ -53,7 +53,7 @@
       0.4434019655023375
     ]
   ],
-  "maximum_adjacent_joint_step_degrees": 1.9376122819715007,
+  "maximum_adjacent_joint_step_degrees": 0.5922431778412713,
   "peak_joint_speed_deg_s": 231.12112385411874,
   "peak_joint_acceleration_deg_s2": 9672.41347272736,
   "seconds": 11.801886970999476,
@@ -61,5 +61,25 @@
   "collision_checked": false,
   "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
   "motion_end_s": 8.0,
-  "repetitions": 2
+  "repetitions": 2,
+  "clearance_fit": {
+    "command": "nod",
+    "samples": 1021,
+    "maximum_planted_knot_error_mm": 3.790488023724947e-05,
+    "maximum_airborne_target_change_mm": 0.0,
+    "maximum_root_correction_mm": 35.20608725966309,
+    "maximum_joint_step_degrees": 0.5947226934506258,
+    "timing_and_body_rotation_preserved": true,
+    "amplitude_scale": 1.0,
+    "profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37",
+    "scope": "Coupled internal-linkage offline source fit; sampled contacts and all source interpolation checked separately. Physical tracking and whole-body strength unqualified.",
+    "maximum_planted_sample_error_mm": 0.0028703723287966,
+    "minimum_sole_clearance_mm": -8.503417333827201e-06,
+    "polished_samples": 0,
+    "common_stand_entry_and_finish_preserved": true
+  },
+  "min_sole_z_mm": -8.503417333827201e-06,
+  "min_body_z_mm": 29.300655716243305,
+  "minimum_closure_height_mm": 8.847869670678332,
+  "maximum_planted_target_error_mm": 0.0029703723287737207
 }

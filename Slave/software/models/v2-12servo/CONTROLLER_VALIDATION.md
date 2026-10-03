@@ -1,3 +1,39 @@
+# Centered motion revision, 2026-10-02
+
+The current source uses the screw-aware coupled linkage region and separate
+mounting references: shoulder1650 µs, carrier856 µs, crank723 µs at the retained
+CAD mounting marks. The conversion remains provisional; existing device NVS
+calibration is preserved. There is no new runtime collision limiter.
+
+Full steady Walk sweep is97.7 mm and forward Run sweep104 mm. Walk↔Run uses a
+continuous eight-cycle morph. Landing prediction includes the changing future
+contact duration, and rephasing swing paths follow the body while retaining
+committed touchdown targets and planted anchors. Normal stride changes also
+respect committed contacts. No automatic all-feet pause is inserted.
+
+Current validation covers28 model/core tests and9 firmware/IMU host tests, all
+passing. It includes4,155,048 sampled leg-pose checks for threshold/stride/rate
+changes and435,945 interpolation breakpoint checks on long transitions. The23
+finite motions pass124,124 authored joint poses and conservative interpolation
+proof against the internal linkage region. All16 native locomotion recordings
+pass159,104 leg poses, along with FK, sole and closure checks.
+
+The final Run recording contains4024 samples. A separate actual-mesh BVH check
+found no intersections in148 selected robot poses /592 leg poses, including
+critical interpolation midpoints, all four captured leg assemblies and the
+modeled4 mm×1.5 mm shaft screw heads. This is sampled internal-linkage evidence,
+not complete-body, cable, loaded-servo or physical running qualification.
+
+Upright now retains four-foot support while leveling and shifting rearward,
+then withdraws the front pair after the modeled COM reaches the rear support.
+Minimum provisional support margin after its Sit prefix is1.563 mm. Other
+expressive motions retain existing support/floor limitations; mass distribution
+and dynamic balance are unmeasured.
+
+Source/build validation does not flash firmware, write calibration or command
+the physical robot. Blender preview parity is a separate check. The dated
+sections below are historical and describe earlier source/deployments.
+
 # Compact controller validation
 
 The preceding controller replacement was built and application-flashed as `0.7.0-p4-compact-motion`.

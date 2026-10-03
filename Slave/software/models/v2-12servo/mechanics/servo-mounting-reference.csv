@@ -1,13 +1,13 @@
-id,joint,cad_leg,default_channel,recorded_assembly_channel,actuator,home_us,home_model_deg,home_cd,projected_min_model_deg,projected_max_model_deg,provisional_us_per_degree,pulse_at_min_noninverted,pulse_at_max_noninverted,recorded_min_model_deg,recorded_max_model_deg,recorded_pulse_min_us,recorded_pulse_max_us,direction,limits
-0,rear_left_shoulder,FL,0,,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222,-87.01780399600136,27.541510327858546,683.136,1956.017,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-1,rear_left_carrier,FL,1,,alpha_Part006,1650,1.17,117,-55,162,11.11111111111111,1025.889,3437.0,-89.13189582051982,135.3710439638445,646.646,3141.123,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-2,rear_left_crank,FL,2,,theta_Part005,1650,-40.41,-4041,-50,136,11.11111111111111,1543.444,3610.111,-128.11403782222735,101.29499761671912,675.511,3224.5,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-3,rear_right_shoulder,FR,3,,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222,-87.01780399600136,27.541510327858546,683.136,1956.017,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-4,rear_right_carrier,FR,4,,alpha_Part006,1650,1.17,117,-55,162,11.11111111111111,1025.889,3437.0,-89.13189582051982,135.3710439638445,646.646,3141.123,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-5,rear_right_crank,FR,5,,theta_Part005,1650,-40.41,-4041,-50,136,11.11111111111111,1543.444,3610.111,-128.11403782222735,101.29499761671912,675.511,3224.5,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-6,front_left_shoulder,RL,6,6,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222,-87.01780399600136,27.541510327858546,683.136,1956.017,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-7,front_left_carrier,RL,7,7,alpha_Part006,1650,1.17,117,-55,162,11.11111111111111,1025.889,3437.0,-89.13189582051982,135.3710439638445,646.646,3141.123,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-8,front_left_crank,RL,8,8,theta_Part005,1650,-40.41,-4041,-50,136,11.11111111111111,1543.444,3610.111,-128.11403782222735,101.29499761671912,675.511,3224.5,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-9,front_right_shoulder,RR,9,,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222,-87.01780399600136,27.541510327858546,683.136,1956.017,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-10,front_right_carrier,RR,10,,alpha_Part006,1650,1.17,117,-55,162,11.11111111111111,1025.889,3437.0,-89.13189582051982,135.3710439638445,646.646,3141.123,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
-11,front_right_crank,RR,11,,theta_Part005,1650,-40.41,-4041,-50,136,11.11111111111111,1543.444,3610.111,-128.11403782222735,101.29499761671912,675.511,3224.5,non-inverted default; verify installed direction before indexing,carrier/crank coupled; shoulder body sweep unqualified
+id,joint,cad_leg,default_channel,recorded_assembly_channel,actuator,home_us,home_model_deg,home_cd,projected_min_model_deg,projected_max_model_deg,provisional_us_per_degree,pulse_at_min_noninverted,pulse_at_max_noninverted
+0,rear_left_shoulder,FL,0,,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222
+1,rear_left_carrier,FL,1,,alpha_Part006,856,1.17,117,-39.99,185.33,11.11111111111111,398.667,2902.222
+2,rear_left_crank,FL,2,,theta_Part005,723,-40.41,-4041,-53.27,139.36,11.11111111111111,580.111,2720.444
+3,rear_right_shoulder,FR,3,,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222
+4,rear_right_carrier,FR,4,,alpha_Part006,856,1.17,117,-39.99,185.33,11.11111111111111,398.667,2902.222
+5,rear_right_crank,FR,5,,theta_Part005,723,-40.41,-4041,-53.27,139.36,11.11111111111111,580.111,2720.444
+6,front_left_shoulder,RL,6,6,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222
+7,front_left_carrier,RL,7,7,alpha_Part006,856,1.17,117,-39.99,185.33,11.11111111111111,398.667,2902.222
+8,front_left_crank,RL,8,8,theta_Part005,723,-40.41,-4041,-53.27,139.36,11.11111111111111,580.111,2720.444
+9,front_right_shoulder,RR,9,,h_Part002,1650,0,0,-110,110,11.11111111111111,427.778,2872.222
+10,front_right_carrier,RR,10,,alpha_Part006,856,1.17,117,-39.99,185.33,11.11111111111111,398.667,2902.222
+11,front_right_crank,RR,11,,theta_Part005,723,-40.41,-4041,-53.27,139.36,11.11111111111111,580.111,2720.444

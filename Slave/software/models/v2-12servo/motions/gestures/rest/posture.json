@@ -48,7 +48,7 @@
   },
   "contact_hulls_file": "posture-hulls.npz",
   "contact_hulls_sha256": "d36e34fa0f1697cc3d65364c1344d2e1f0ca363375684b3877d2b46cb471d1b2",
-  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "measured_date": "2026-09-29",
   "scope": "Visible structural frames replace the removed bottom cover as the body support datum; visible boots and linkage axes measured from Wireless assembly.",

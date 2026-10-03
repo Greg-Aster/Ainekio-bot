@@ -7,18 +7,21 @@ their existing behavior. Assembly references and calibration are documented in
 
 ## Servo profile and geometry
 
-`servo_profile.json` owns the historical 300–2900 µs pulse span, 1650 µs selected reference,
-provisional 234° conversion and mounting offsets. Its historical angle-envelope
-data remains a desktop research reference and is not compiled into the firmware.
-The owner reports more than 234° of travel; 234° is a provisional conversion,
-not a hard travel cap. The matchmark model offsets at 1650 µs are
-shoulder 0°, Part 006 carrier +1.17°, and Part 005 crank −40.41°. These non-inverted
-references preserve the existing carrier/crank matchmarks at the owner's new pulse reference. Mounting
-references and measured calibration do not rescale the gait trajectories. Existing saved mappings require deliberate
-re-indexing and calibration rather than automatic replacement. Startup and transitions use the same actual four-bar closure as locomotion.
-Carrier/crank entry follows normalized coordinates inside the exact closure
-annulus, with bounded interval arithmetic for path extrema and rates. Shoulder/body and full-robot collision sweeps remain
-unqualified. The reproducible mesh sweep is in `tools/build_mechanical_envelope.py`.
+`servo_profile.json` owns the reported 300–3000 µs pulse span, provisional
+11.111111 µs/degree mapping and screw-aware internal linkage region. The existing
+mounting marks are preserved at shoulder 0°, carrier +1.17° and crank −40.41°.
+Their new non-inverted mounting references are respectively **1650, 856 and
+723 µs**. Carrier and crank use different references because their useful windows
+have different centers. Their individual angular midpoints cannot be assembled
+together: that combination does not close the four-bar.
+
+The region includes 4 mm × 1.5 mm shaft screw heads and captured linkage geometry
+on all four legs. It is an offline authoring reference; no new runtime collision
+limiter is introduced. Startup and transitions retain their existing four-bar
+closure and speed policies. Physical shaft travel, installed directions and loaded
+tracking remain unqualified. Body Control owns the saved per-joint mapping;
+firmware defaults preserve existing NVS calibration. Remounting and calibration
+are deliberate operations, rather than automatic replacements.
 
 `geometry.json` owns the 40/24/38/24 mm four-bar, 55 mm distal link, recorded CAD
 frames and current complete sole hulls. Model coordinates remain signed CAD
@@ -40,41 +43,45 @@ are front-left/front-right (CAD RL/RR). Each triple is shoulder, carrier, crank.
 ## Walking controls
 
 Normal Speed coordinates stride and cadence. Advanced controls remain independent.
-For Walk/Crawl Speed 0<s<=100, stride=min(100,2*s)% and cadence=max(1,s/50). Speed zero requests
-Finish. The base period is 1.8 seconds; advanced cadence supports 0.25–3×.
+For Walk Speed 0<s<=100, normalized stride=s% and cadence=1+s/100.
+Both increase throughout the slider. Speed zero requests Finish. The base period
+is 1.8 seconds; advanced cadence supports 0.25–3×.
 
 | Speed | Stride | Requested cadence | Requested cycle |
 | --- | --- | --- | --- |
-| 25% | 50% | 1× | 1.8 s |
-| 50% | 100% | 1× | 1.8 s |
-| 75% | 100% | 1.5× | 1.2 s |
+| 25% | 25% | 1.25× | 1.44 s |
+| 50% | 50% | 1.5× | 1.2 s |
+| 75% | 75% | 1.75× | 1.03 s |
 | 100% | 100% | 2× | 0.9 s |
 
-The runtime preserves requested gait timing until an output would demand at
-least 125% of `gait_max_joint_speed_degrees_s` in `servo_profile.json`.
-The selected rating is 545.455°/s (advertised 0.11 s/60° at 4.8 V), making the
-flag threshold 681.818°/s. A flagged gait then slows its shared clock to enforce
-the rated budget for the rest of that run, including updates and Finish.
-Stride and Walk/Run blending continue responding to Speed. Body motion, swings,
-planted anchors and preparation share the same time scale; no individual joint
-is clamped. Cadence recovers gradually at 0.5 clock fraction per second, with at
-most four candidate solves per output. Unused gait time is discarded. This caps
-commanded frame-to-frame velocity; loaded tracking, torque and acceleration
-limits remain unmeasured. Finite gestures retain their authored paths and relative
-timing. Their compiled cubic speed bound includes the requested playback rate:
-below 125% it is unchanged; at or above 125% the whole clip is retimed to the rating.
-Entry transitions retain their separate bounded pulse-rate policy.
+Full Walk uses a **96 mm planted foot sweep**, centered **8 mm forward** of
+its reference stance: touchdown +56 mm and stance end -40 mm. This is 2.15 times
+the previous 44.62 mm sweep. Automatic, independent and default Walk commands
+use the same full stroke; 50% gives a 48 mm sweep. Configuration lives in
+`motions/locomotion/config.json`. The original stateless geometry sampler remains
+available for comparison with the archived reference; it is not the runtime gait.
 
-Walk's full planted sweep is 92 mm, with 30 mm rearward bias and up to 14 mm lift.
-Sweep and bias scale with stride. Nominal advance is `92*stride/100/0.70` mm per
-cycle; this is geometric translation, not measured ground distance. The approved Walk leverage revision lowers the body reference from -2 to -8 mm while retaining stride, bias, lift and cadence. Named Stand retains its -2 mm reference. Modeled collision conflicts are reported separately. Sway, bob, roll and
-pitch remain continuous and scale with stride. Cadence changes the common clock.
+The body reference stays -8 mm. Full-Walk lift remains 8.85 mm, sway 1.2125 mm,
+bob 0.7275 mm, roll 1.455 degrees and pitch 0.97 degrees. The wider fore/aft path
+uses the crank and carrier together without changing saved Home references.
+With the saved mirrored calibration (carrier Home 856/2444 µs, crank Home
+723/2577 µs, 11.111111 µs/degree), steady forward Walk commands approximately
+409–2891 µs across all joints. Entry, speed changes and Finish are checked
+against 400–2900 µs in host regression tests. These are calculated commands;
+servo recalibration changes the pulse envelope, and loaded tracking is unmeasured.
 
-Crouch/Crawl use body translation -35 mm, leaving about 14.25 mm of complete-body
-floor clearance. Crawl's full sweep is 18 mm, 4 mm rear bias and
-4 mm maximum lift. Lower legs remain inclined; Rest is the separate grounded
-chassis pose. Turns advance 18° per full-stride Walk cycle or 10° per Crawl cycle.
-`motions/locomotion/config.json` owns these low-height and turning settings.
+The saved user-selected joint-speed limit retimes the whole gait when a frame
+would exceed that limit. Body motion, swings, planted anchors and transitions
+share the same clock; stride is retained. Cadence recovers at 0.5 clock fraction
+per second. Walk amplitude/rate changes use two gait cycles of interpolation;
+backward entry retains three. This establishes each foot's new landing while
+preserving planted contacts. Cadence requests still rise from 1x to 2x across
+0–100% Speed; advanced rate remains 0.25–3x.
+
+Crawl/Crab retain stride=min(100,2*s)% and cadence=max(1,s/50). Crawl uses a
+-35 mm body reference, 18 mm sweep, 4 mm rear bias and up to 4 mm lift. Full Walk
+turns retain the previous 8.73 degrees per cycle; Crawl turns use 10 degrees.
+Run retains its separate amplitude profile above 100%.
 
 `walk_controls_v2` negotiates directions `fwd`, `back`, `turn_l`, `turn_r`,
 `gait: "walk"|"crawl"` and `steps: 0` for ongoing operation. Finite steps 1–10
@@ -123,7 +130,7 @@ At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward;
 a 3° nose-up bias and -9 mm body reference retain reach with the revised swing lift. Backward Run and turns use a -8 mm body reference. Lanes blend through swing while stance feet
 remain planted. This separates the crossing lower legs without retiming pairs.
 
-The transition takes four gait cycles with smooth body/contact changes. Feet
+The transition takes six gait cycles with smooth body/contact changes. Feet
 already in stance keep their world anchors. Cyclic offsets advance the next
 step to form or separate pairs; active swings keep their landing targets.
 The common clock, command sequence, controlled Finish and emergency stop remain shared.
@@ -232,7 +239,27 @@ remain enabled in Release builds.
 - `tools/refresh_blender_motions.py`: refresh existing chapters in place.
 - `tools/validate_blender_scene.py`: reopen proof (`-- --report /tmp/report.json`).
 
-From the repository root, with NumPy/SciPy available for geometry tools:
+Run these commands from the repository root:
+
+For the native test suite alone, use an isolated host environment and pass its
+interpreter explicitly to CMake. This avoids selecting another Python on PATH
+that cannot run the geometry tests. These tests and dependencies run on the
+desktop; none are linked into the P4 firmware. The tests preserve the restored
+motion library. Modeled mechanical-envelope conflicts are reported separately
+from source parity and geometric correctness; they do not remap or block motions.
+
+```sh
+python3 -m venv build/native-tests-venv
+build/native-tests-venv/bin/python -m pip install -r Slave/software/models/v2-12servo/requirements-test.txt
+cmake -S Slave/firmware/esp32p4-wifi6/tests -B build/native-tests \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DPython3_EXECUTABLE="$PWD/build/native-tests-venv/bin/python"
+cmake --build build/native-tests -j4
+/usr/bin/ctest --test-dir build/native-tests --output-on-failure
+```
+
+The commands below regenerate source assets and are a separate workflow from
+running tests against the existing motion library:
 
 ```sh
 python3 Slave/software/models/v2-12servo/tools/build_sole_profile.py

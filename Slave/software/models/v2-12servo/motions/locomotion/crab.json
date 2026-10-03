@@ -14,7 +14,7 @@
     0.5,
     0
   ],
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "hardware_qualified": false,
   "reference": "Full-stride travel matches the steady part of the approved Blender chapters: 48 mm forward/backward, 32 mm sideways, 360/11 degrees per cycle.",
   "startup_cycles": 2,
