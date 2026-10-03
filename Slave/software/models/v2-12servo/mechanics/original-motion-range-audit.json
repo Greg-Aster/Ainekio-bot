@@ -1,8 +1,12 @@
 {
-  "status": "original_choreography_preserved_mounting_reference_updated",
-  "reference_us": 1650,
-  "mathematical_midpoint_us": 1600.0,
-  "provisional_travel_deg": 234,
+  "status": "original_motion_mapping_conflicts",
+  "reference_us": [
+    1650,
+    856,
+    723
+  ],
+  "mathematical_midpoint_us": 1650.0,
+  "provisional_travel_deg": 243,
   "travel_measured": false,
   "reference_endpoints_enforced": false,
   "mounting_reference_deg": [
@@ -11,7 +15,7 @@
     -40.41
   ],
   "mounting_pose_inside_modeled_envelope": true,
-  "profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
+  "profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
   "source_sha256": {
     "motions/gestures/bow/source.json": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
     "motions/gestures/celebrate/source.json": "cb71e9e54b1bb645cb8738403341d895b4fd006a5af5c06691fb4fe7284a3d7a",
@@ -130,46 +134,46 @@
   "widest_span_deg": 229.40903543894646,
   "library_balanced_reference_noninverted_deg": [
     [
-      -23.625325574803178,
-      -5.2735811473311145,
-      -17.214223220744557
+      -28.125325574803178,
+      -81.23358114733112,
+      -105.14422322074456
     ],
     [
-      -23.110150058370266,
-      -5.273643882173133,
-      -17.84542832272814
+      -27.610150058370266,
+      -81.23364388217314,
+      -105.77542832272815
     ],
     [
-      -25.238133401988094,
-      38.24371652412175,
-      -8.909520102754115
+      -29.738133401988094,
+      -37.71628347587826,
+      -96.83952010275412
     ],
     [
-      -25.23815206351822,
-      31.271006744583893,
-      -1.2068074296244475
+      -29.73815206351822,
+      -44.688993255416115,
+      -89.13680742962445
     ]
   ],
   "library_balanced_reference_inverted_deg": [
     [
-      -32.62532557480318,
-      -14.273581147331114,
-      -26.214223220744557
+      -28.125325574803178,
+      61.68641885266889,
+      61.71577677925545
     ],
     [
-      -32.110150058370266,
-      -14.273643882173133,
-      -26.84542832272814
+      -27.610150058370266,
+      61.686356117826875,
+      61.08457167727187
     ],
     [
-      -34.238133401988094,
-      29.24371652412175,
-      -17.909520102754115
+      -29.738133401988094,
+      105.20371652412176,
+      70.02047989724589
     ],
     [
-      -34.23815206351822,
-      22.271006744583893,
-      -10.206807429624448
+      -29.73815206351822,
+      98.23100674458391,
+      77.72319257037556
     ]
   ],
   "combined_ranges": [
@@ -179,7 +183,7 @@
       "max_deg": 27.541510327858546,
       "span_deg": 114.55931432385991,
       "home_deg": 0.0,
-      "balanced_noninverted_deg": -25.238146834071408,
+      "balanced_noninverted_deg": -29.738146834071408,
       "pulse_min_us": 683.1355111555405,
       "pulse_max_us": 1956.0167814206504
     },
@@ -189,9 +193,9 @@
       "max_deg": 135.3710439638445,
       "span_deg": 224.50293978436432,
       "home_deg": 1.17,
-      "balanced_noninverted_deg": 27.619574071662342,
-      "pulse_min_us": 646.6456019942243,
-      "pulse_max_us": 3141.1227107093837
+      "balanced_noninverted_deg": -48.340425928337666,
+      "pulse_min_us": -147.3543980057757,
+      "pulse_max_us": 2347.1227107093837
     },
     {
       "joint": "theta_Part005",
@@ -199,48 +203,40 @@
       "max_deg": 101.29499761671912,
       "span_deg": 229.40903543894646,
       "home_deg": -40.41,
-      "balanced_noninverted_deg": -8.909520102754115,
-      "pulse_min_us": 675.5106908641407,
-      "pulse_max_us": 3224.4999735191013
+      "balanced_noninverted_deg": -96.83952010275412,
+      "pulse_min_us": -251.48930913585934,
+      "pulse_max_us": 2297.4999735191013
     }
   ],
   "rated_joint_speed_deg_s": 545.4545454545455,
   "speed_flag_ratio": 1.25,
-  "speed_policy": "Flag demands at or above 125% of the selected rating; retime flagged motion to rated speed while retaining joint paths. Continuous gaits preserve requested timing until flagged, then enforce rated speed with a shared clock for the remainder of that run.",
-  "mapping_note": "Existing carrier/crank matchmarks are retained at the owner-reported pulse reference; firmware rounds Home to centidegrees. Shoulder stays CAD neutral. Non-inverted mapping assumed; installed direction and actual shaft travel require measurement. Per-leg and inverted balanced candidates are electrical calculations, not approved mounting poses. No trajectory edits or pulse caps.",
+  "speed_policy": "Rating ratios are offline observations. The existing owner-selected joint speed limit controls runtime timing; this audit adds no cap.",
+  "mapping_note": "Original joint curves are retained. Whole-library centering was removed because it changes physical poses. Actual model angles at saved Home pulses and shaft scale remain unmeasured. The audit adds no clipping or runtime caps.",
   "commands": [
     {
       "command": "bow",
       "peak_sampled_joint_speed_deg_s": 156.62903395106778,
       "speed_rating_ratio": 0.28715322891029094,
       "speed_flagged": false,
-      "pulse_min_us": 1577.9604770971587,
-      "pulse_max_us": 3224.4999735191013,
-      "outside_reference_span": true,
+      "pulse_min_us": 783.9604770971586,
+      "pulse_max_us": 2297.4999735191013,
+      "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
-        true,
-        true
+        false,
+        false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 200,
-        "cad_leg": "FL",
-        "q_deg": [
-          -4.7370821053831695e-06,
-          36.40131228047628,
-          19.306504934842174
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "celebrate",
       "peak_sampled_joint_speed_deg_s": 232.6129781345666,
       "speed_rating_ratio": 0.4264571265800387,
       "speed_flagged": false,
-      "pulse_min_us": 833.8823017044664,
-      "pulse_max_us": 2168.3664565029358,
+      "pulse_min_us": 559.3207520374406,
+      "pulse_max_us": 1650.0000557850726,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -248,24 +244,16 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 567,
-        "cad_leg": "FL",
-        "q_deg": [
-          -72.75487205390749,
-          22.056583895415585,
-          -3.108373989706795
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "crouch",
       "peak_sampled_joint_speed_deg_s": 35.56342897311518,
       "speed_rating_ratio": 0.0651996197840445,
       "speed_flagged": false,
-      "pulse_min_us": 1216.814351359773,
-      "pulse_max_us": 2103.5241655242344,
+      "pulse_min_us": 422.8143513597728,
+      "pulse_max_us": 1650.0001377596946,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -273,24 +261,16 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 201,
-        "cad_leg": "FL",
-        "q_deg": [
-          -1.0174710249088117e-05,
-          -36.045011948441456,
-          -19.10800061821708
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "curious",
       "peak_sampled_joint_speed_deg_s": 47.563378278836836,
       "speed_rating_ratio": 0.08719952684453419,
       "speed_flagged": false,
-      "pulse_min_us": 1322.8485956963145,
-      "pulse_max_us": 2311.6419619332482,
+      "pulse_min_us": 528.8485956963145,
+      "pulse_max_us": 1795.9952513729986,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -306,8 +286,8 @@
       "peak_sampled_joint_speed_deg_s": 232.61297813456392,
       "speed_rating_ratio": 0.4264571265800338,
       "speed_flagged": false,
-      "pulse_min_us": 845.0880744482223,
-      "pulse_max_us": 2168.366456502936,
+      "pulse_min_us": 559.3207520374406,
+      "pulse_max_us": 1650.0000557850726,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -323,8 +303,8 @@
       "peak_sampled_joint_speed_deg_s": 91.14737160528954,
       "speed_rating_ratio": 0.16710351460969747,
       "speed_flagged": false,
-      "pulse_min_us": 1290.190198665672,
-      "pulse_max_us": 2170.8713507433927,
+      "pulse_min_us": 496.19019866567186,
+      "pulse_max_us": 1846.5173738457697,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -340,33 +320,8 @@
       "peak_sampled_joint_speed_deg_s": 308.6213821546052,
       "speed_rating_ratio": 0.5658058672834428,
       "speed_flagged": false,
-      "pulse_min_us": 1251.153648312841,
-      "pulse_max_us": 3101.98457375453,
-      "outside_reference_span": true,
-      "outside_reference_by_joint_type": [
-        false,
-        false,
-        true
-      ],
-      "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 90,
-        "cad_leg": "RL",
-        "q_deg": [
-          -34.49371303525156,
-          62.37473221458024,
-          52.3018854545323
-        ]
-      }
-    },
-    {
-      "command": "freaky",
-      "peak_sampled_joint_speed_deg_s": 145.14372616935637,
-      "speed_rating_ratio": 0.26609683131048667,
-      "speed_flagged": false,
-      "pulse_min_us": 866.4475139101119,
-      "pulse_max_us": 2103.9268039334243,
+      "pulse_min_us": 864.3410350624849,
+      "pulse_max_us": 2174.98457375453,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -374,24 +329,33 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 134,
-        "cad_leg": "FL",
-        "q_deg": [
-          5.014169595991011,
-          -30.27476950119964,
-          -9.321395940097021
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
+    },
+    {
+      "command": "freaky",
+      "peak_sampled_joint_speed_deg_s": 145.14372616935637,
+      "speed_rating_ratio": 0.26609683131048667,
+      "speed_flagged": false,
+      "pulse_min_us": 445.8869950152074,
+      "pulse_max_us": 1717.5504204345498,
+      "outside_reference_span": false,
+      "outside_reference_by_joint_type": [
+        false,
+        false,
+        false
+      ],
+      "outside_pwm_timer_capacity": false,
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "lay_down",
       "peak_sampled_joint_speed_deg_s": 216.3601527489297,
       "speed_rating_ratio": 0.3966602800397044,
       "speed_flagged": false,
-      "pulse_min_us": 1286.136616618164,
-      "pulse_max_us": 2820.249775188503,
+      "pulse_min_us": 864.3410350624848,
+      "pulse_max_us": 1893.2497751885032,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -407,33 +371,8 @@
       "peak_sampled_joint_speed_deg_s": 232.5134738365809,
       "speed_rating_ratio": 0.42627470203373163,
       "speed_flagged": false,
-      "pulse_min_us": 916.0981604435967,
-      "pulse_max_us": 2169.8729309882647,
-      "outside_reference_span": false,
-      "outside_reference_by_joint_type": [
-        false,
-        false,
-        false
-      ],
-      "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 108,
-        "cad_leg": "RL",
-        "q_deg": [
-          -0.16573769031456081,
-          25.997846345400806,
-          2.775915545875606
-        ]
-      }
-    },
-    {
-      "command": "point",
-      "peak_sampled_joint_speed_deg_s": 529.4510979469126,
-      "speed_rating_ratio": 0.9706603462360063,
-      "speed_flagged": false,
-      "pulse_min_us": 675.5106908641407,
-      "pulse_max_us": 3141.1227107093837,
+      "pulse_min_us": 122.09816044359673,
+      "pulse_max_us": 1721.4955635984932,
       "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
@@ -443,12 +382,37 @@
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 185,
-        "cad_leg": "FR",
+        "sample": 322,
+        "cad_leg": "RR",
         "q_deg": [
-          8.62613381584222,
-          -30.098968111198726,
-          -9.314663195159484
+          4.435711035493403,
+          -40.550173616893844,
+          -26.249758755604084
+        ]
+      }
+    },
+    {
+      "command": "point",
+      "peak_sampled_joint_speed_deg_s": 529.4510979469126,
+      "speed_rating_ratio": 0.9706603462360063,
+      "speed_flagged": false,
+      "pulse_min_us": -251.48930913585934,
+      "pulse_max_us": 2347.1227107093837,
+      "outside_reference_span": true,
+      "outside_reference_by_joint_type": [
+        false,
+        false,
+        true
+      ],
+      "outside_pwm_timer_capacity": true,
+      "modeled_envelope_conflict": true,
+      "first_conflict": {
+        "sample": 414,
+        "cad_leg": "RL",
+        "q_deg": [
+          -48.62517584996247,
+          -4.541975963166899,
+          -56.853343956993974
         ]
       }
     },
@@ -457,23 +421,23 @@
       "peak_sampled_joint_speed_deg_s": 106.22844373159602,
       "speed_rating_ratio": 0.19475214684125935,
       "speed_flagged": false,
-      "pulse_min_us": 646.6456019942243,
-      "pulse_max_us": 2119.1053815171863,
-      "outside_reference_span": false,
+      "pulse_min_us": -147.3543980057757,
+      "pulse_max_us": 1650.0001732332512,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
-        false
+        true,
+        true
       ],
-      "outside_pwm_timer_capacity": false,
+      "outside_pwm_timer_capacity": true,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 158,
+        "sample": 142,
         "cad_leg": "FL",
         "q_deg": [
-          -6.896154311750293e-06,
-          -53.17268838612669,
-          -50.12415091246828
+          -7.093235821041637e-06,
+          -40.32936639221811,
+          -38.9614376938555
         ]
       }
     },
@@ -482,8 +446,8 @@
       "peak_sampled_joint_speed_deg_s": 170.07475913915454,
       "speed_rating_ratio": 0.31180372508844995,
       "speed_flagged": false,
-      "pulse_min_us": 1335.3575242762013,
-      "pulse_max_us": 2339.833692286068,
+      "pulse_min_us": 541.3575242762013,
+      "pulse_max_us": 1650.000018282271,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -493,12 +457,12 @@
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 211,
+        "sample": 270,
         "cad_leg": "FL",
         "q_deg": [
-          -8.792909235219446e-05,
-          -13.024387803118126,
-          21.124248004151898
+          -0.00013064982662322163,
+          -22.676060189645348,
+          18.152266393398175
         ]
       }
     },
@@ -507,8 +471,8 @@
       "peak_sampled_joint_speed_deg_s": 52.19309028528727,
       "speed_rating_ratio": 0.09568733218969332,
       "speed_flagged": false,
-      "pulse_min_us": 1536.089436829046,
-      "pulse_max_us": 2446.216506849062,
+      "pulse_min_us": 742.089436829046,
+      "pulse_max_us": 1698.4147676604944,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -524,8 +488,8 @@
       "peak_sampled_joint_speed_deg_s": 95.46468584626665,
       "speed_rating_ratio": 0.1750185907181555,
       "speed_flagged": false,
-      "pulse_min_us": 1269.8137809281202,
-      "pulse_max_us": 2362.119032099373,
+      "pulse_min_us": 475.81378092812014,
+      "pulse_max_us": 1650.000118417172,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -533,39 +497,31 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 120,
-        "cad_leg": "RL",
-        "q_deg": [
-          9.959312359454356e-06,
-          -30.117781082909115,
-          -9.239743035267617
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "shrug",
       "peak_sampled_joint_speed_deg_s": 220.6726975820797,
       "speed_rating_ratio": 0.40456661223381274,
       "speed_flagged": false,
-      "pulse_min_us": 916.6666666666667,
-      "pulse_max_us": 2432.333333333333,
-      "outside_reference_span": false,
+      "pulse_min_us": 265.7911932935335,
+      "pulse_max_us": 1670.5436961883179,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
+        true,
         false
       ],
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 266,
+        "sample": 433,
         "cad_leg": "FL",
         "q_deg": [
-          2.258352214024095e-06,
-          -28.113037245187666,
-          -5.871758676097843
+          5.394497585939192e-06,
+          -39.99679363499854,
+          -15.052235240528017
         ]
       }
     },
@@ -574,8 +530,8 @@
       "peak_sampled_joint_speed_deg_s": 51.86963811284892,
       "speed_rating_ratio": 0.095094336540223,
       "speed_flagged": false,
-      "pulse_min_us": 1253.3118345362545,
-      "pulse_max_us": 2272.6503600576457,
+      "pulse_min_us": 459.31183453625465,
+      "pulse_max_us": 1650.0000853363229,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -583,24 +539,16 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 266,
-        "cad_leg": "FL",
-        "q_deg": [
-          1.03514946301193e-06,
-          -29.05152858128723,
-          -7.479267894431217
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "stretch",
       "peak_sampled_joint_speed_deg_s": 108.6540292875709,
       "speed_rating_ratio": 0.19919905369387997,
       "speed_flagged": false,
-      "pulse_min_us": 1579.370351354101,
-      "pulse_max_us": 2790.6275361986827,
+      "pulse_min_us": 785.3703513541011,
+      "pulse_max_us": 1863.6275361986825,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -616,8 +564,8 @@
       "peak_sampled_joint_speed_deg_s": 258.2925980084987,
       "speed_rating_ratio": 0.47353642968224763,
       "speed_flagged": false,
-      "pulse_min_us": 683.1355111555405,
-      "pulse_max_us": 2168.3664565029467,
+      "pulse_min_us": 556.3825185421244,
+      "pulse_max_us": 1650.0000557850726,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -633,8 +581,8 @@
       "peak_sampled_joint_speed_deg_s": 232.61297813456392,
       "speed_rating_ratio": 0.4264571265800338,
       "speed_flagged": false,
-      "pulse_min_us": 843.4670824330833,
-      "pulse_max_us": 2266.380909851511,
+      "pulse_min_us": 555.1146625468295,
+      "pulse_max_us": 1650.0000557850726,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -642,39 +590,31 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 575,
-        "cad_leg": "FL",
-        "q_deg": [
-          -72.1416955734587,
-          22.18097729444494,
-          -3.807703213977492
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "upright",
       "peak_sampled_joint_speed_deg_s": 91.00924176983739,
       "speed_rating_ratio": 0.1668502765780352,
       "speed_flagged": false,
-      "pulse_min_us": 737.6922330371476,
-      "pulse_max_us": 2628.9560592693797,
-      "outside_reference_span": false,
+      "pulse_min_us": -189.30776696285238,
+      "pulse_max_us": 1738.888888888889,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
-        false
+        true,
+        true
       ],
-      "outside_pwm_timer_capacity": false,
+      "outside_pwm_timer_capacity": true,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 266,
-        "cad_leg": "FL",
+        "sample": 458,
+        "cad_leg": "RL",
         "q_deg": [
-          1.03514946301193e-06,
-          -29.05152858128723,
-          -7.479267894431217
+          1.7434409447867683,
+          -19.087419158255837,
+          -53.46630803944922
         ]
       }
     },
@@ -683,8 +623,8 @@
       "peak_sampled_joint_speed_deg_s": 133.40917967555436,
       "speed_rating_ratio": 0.24458349607184962,
       "speed_flagged": false,
-      "pulse_min_us": 727.7777777777778,
-      "pulse_max_us": 2543.4444444444443,
+      "pulse_min_us": 459.31183453625465,
+      "pulse_max_us": 1650.0000853363229,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -692,39 +632,31 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 266,
-        "cad_leg": "FL",
-        "q_deg": [
-          1.03514946301193e-06,
-          -29.05152858128723,
-          -7.479267894431217
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "worm",
       "peak_sampled_joint_speed_deg_s": 35.35055119690781,
       "speed_rating_ratio": 0.06480934386099764,
       "speed_flagged": false,
-      "pulse_min_us": 1066.9668698023333,
-      "pulse_max_us": 2337.2937766498653,
-      "outside_reference_span": false,
+      "pulse_min_us": 272.96686980233346,
+      "pulse_max_us": 1650.0001386044335,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
+        true,
         false
       ],
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 505,
-        "cad_leg": "RL",
+        "sample": 814,
+        "cad_leg": "FL",
         "q_deg": [
-          -2.8723427710438113e-06,
-          -25.05483371354065,
-          -0.6085003616797261
+          5.021929654661544e-06,
+          -40.154212217099456,
+          -26.34644469349739
         ]
       }
     },
@@ -733,8 +665,8 @@
       "peak_sampled_joint_speed_deg_s": 225.51426827942106,
       "speed_rating_ratio": 0.4134428251789386,
       "speed_flagged": false,
-      "pulse_min_us": 1290.3099060208247,
-      "pulse_max_us": 2125.3244597531448,
+      "pulse_min_us": 592.1490083905383,
+      "pulse_max_us": 1650.0001155971418,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -750,8 +682,8 @@
       "peak_sampled_joint_speed_deg_s": 490.49336958298454,
       "speed_rating_ratio": 0.8992378442354716,
       "speed_flagged": false,
-      "pulse_min_us": 1341.1930888177221,
-      "pulse_max_us": 2445.712393046684,
+      "pulse_min_us": 592.1490083905383,
+      "pulse_max_us": 1650.0001155971418,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -767,8 +699,8 @@
       "peak_sampled_joint_speed_deg_s": 490.84744658955015,
       "speed_rating_ratio": 0.8998869854141752,
       "speed_flagged": false,
-      "pulse_min_us": 1341.1338369265557,
-      "pulse_max_us": 2402.7010222409886,
+      "pulse_min_us": 592.1490083905383,
+      "pulse_max_us": 1650.0001155971418,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -784,8 +716,8 @@
       "peak_sampled_joint_speed_deg_s": 232.32697216567396,
       "speed_rating_ratio": 0.42593278230373555,
       "speed_flagged": false,
-      "pulse_min_us": 1278.820693036208,
-      "pulse_max_us": 2129.9774881796966,
+      "pulse_min_us": 592.1490083905383,
+      "pulse_max_us": 1650.0001155971418,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -801,8 +733,8 @@
       "peak_sampled_joint_speed_deg_s": 624.070559555011,
       "speed_rating_ratio": 1.1441293591841866,
       "speed_flagged": false,
-      "pulse_min_us": 1257.0705756361724,
-      "pulse_max_us": 2508.6820319525914,
+      "pulse_min_us": 463.07057563617235,
+      "pulse_max_us": 1650.0001155971418,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -818,8 +750,8 @@
       "peak_sampled_joint_speed_deg_s": 624.0787557828663,
       "speed_rating_ratio": 1.1441443856019216,
       "speed_flagged": false,
-      "pulse_min_us": 1253.4930743305345,
-      "pulse_max_us": 2448.7223815228144,
+      "pulse_min_us": 459.4930743305344,
+      "pulse_max_us": 1650.0001155971418,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -835,23 +767,23 @@
       "peak_sampled_joint_speed_deg_s": 619.7978664207624,
       "speed_rating_ratio": 1.1362960884380642,
       "speed_flagged": false,
-      "pulse_min_us": 927.6866760801367,
-      "pulse_max_us": 2173.889381481448,
-      "outside_reference_span": false,
+      "pulse_min_us": 133.68667608013675,
+      "pulse_max_us": 1660.583579704392,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
+        true,
         false
       ],
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 201,
-        "cad_leg": "FL",
+        "sample": 302,
+        "cad_leg": "RR",
         "q_deg": [
-          -1.0174710249088117e-05,
-          -36.045011948441456,
-          -19.10800061821708
+          -0.0035219084216380116,
+          -40.04635533028188,
+          -22.961729951759384
         ]
       }
     },
@@ -860,23 +792,23 @@
       "peak_sampled_joint_speed_deg_s": 592.5503293744248,
       "speed_rating_ratio": 1.0863422705197787,
       "speed_flagged": false,
-      "pulse_min_us": 917.6866720044643,
-      "pulse_max_us": 2103.5241655242344,
-      "outside_reference_span": false,
+      "pulse_min_us": 123.6866720044643,
+      "pulse_max_us": 1660.586908235794,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
+        true,
         false
       ],
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 201,
+        "sample": 348,
         "cad_leg": "FL",
         "q_deg": [
-          -1.0174710249088117e-05,
-          -36.045011948441456,
-          -19.10800061821708
+          -8.474448615010122e-06,
+          -40.0911613712112,
+          -23.770192123058962
         ]
       }
     },
@@ -885,23 +817,23 @@
       "peak_sampled_joint_speed_deg_s": 372.30951354395125,
       "speed_rating_ratio": 0.6825674414972439,
       "speed_flagged": false,
-      "pulse_min_us": 1032.3713158847922,
-      "pulse_max_us": 2103.5241655242344,
-      "outside_reference_span": false,
+      "pulse_min_us": 238.37131588479235,
+      "pulse_max_us": 1720.2584041313526,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
+        true,
         false
       ],
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 201,
-        "cad_leg": "FL",
+        "sample": 303,
+        "cad_leg": "RR",
         "q_deg": [
-          -1.0174710249088117e-05,
-          -36.045011948441456,
-          -19.10800061821708
+          0.3343040358128918,
+          -40.05171019859072,
+          -22.46465610468516
         ]
       }
     },
@@ -910,23 +842,23 @@
       "peak_sampled_joint_speed_deg_s": 349.8608674061336,
       "speed_rating_ratio": 0.6414115902445782,
       "speed_flagged": false,
-      "pulse_min_us": 1030.546592902502,
-      "pulse_max_us": 2103.5241655242344,
-      "outside_reference_span": false,
+      "pulse_min_us": 236.54659290250197,
+      "pulse_max_us": 1726.7398552255079,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
+        true,
         false
       ],
       "outside_pwm_timer_capacity": false,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 201,
-        "cad_leg": "FL",
+        "sample": 302,
+        "cad_leg": "RR",
         "q_deg": [
-          -1.0174710249088117e-05,
-          -36.045011948441456,
-          -19.10800061821708
+          -0.4051286418749012,
+          -40.10629707043231,
+          -23.134465435883946
         ]
       }
     },
@@ -935,23 +867,23 @@
       "peak_sampled_joint_speed_deg_s": 670.0628677713048,
       "speed_rating_ratio": 1.2284485909140588,
       "speed_flagged": false,
-      "pulse_min_us": 877.6393847797015,
-      "pulse_max_us": 2672.943831595627,
-      "outside_reference_span": false,
+      "pulse_min_us": -49.36061522029854,
+      "pulse_max_us": 1745.9438315956272,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
-        false
+        true,
+        true
       ],
-      "outside_pwm_timer_capacity": false,
+      "outside_pwm_timer_capacity": true,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 367,
-        "cad_leg": "FL",
+        "sample": 414,
+        "cad_leg": "RL",
         "q_deg": [
-          -1.2934388995431416,
-          -31.914823878045546,
-          -50.09969710923294
+          -0.8241278504880483,
+          -35.28101430864006,
+          -53.29017409318146
         ]
       }
     },
@@ -960,23 +892,23 @@
       "peak_sampled_joint_speed_deg_s": 658.6070012832615,
       "speed_rating_ratio": 1.2074461690193128,
       "speed_flagged": false,
-      "pulse_min_us": 884.2895605165612,
-      "pulse_max_us": 2445.366785474436,
-      "outside_reference_span": false,
+      "pulse_min_us": -42.71043948343879,
+      "pulse_max_us": 1698.2895512684786,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
-        false
+        true,
+        true
       ],
-      "outside_pwm_timer_capacity": false,
+      "outside_pwm_timer_capacity": true,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 254,
+        "sample": 261,
         "cad_leg": "RR",
         "q_deg": [
-          -1.9594766856065453,
-          -32.185026161632514,
-          -50.180457265999316
+          -2.1207165344536523,
+          -33.344355150582835,
+          -53.34487024807081
         ]
       }
     },
@@ -985,8 +917,8 @@
       "peak_sampled_joint_speed_deg_s": 302.4768398471472,
       "speed_rating_ratio": 0.5545408730531031,
       "speed_flagged": false,
-      "pulse_min_us": 1378.8706070294095,
-      "pulse_max_us": 2252.066360683815,
+      "pulse_min_us": 584.8706070294095,
+      "pulse_max_us": 1733.7920302866776,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1002,8 +934,8 @@
       "peak_sampled_joint_speed_deg_s": 292.503670823531,
       "speed_rating_ratio": 0.5362567298431402,
       "speed_flagged": false,
-      "pulse_min_us": 1379.8713056337965,
-      "pulse_max_us": 2250.9955388036597,
+      "pulse_min_us": 585.8713056337965,
+      "pulse_max_us": 1733.7918215868008,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1019,23 +951,23 @@
       "peak_sampled_joint_speed_deg_s": 676.8067233493208,
       "speed_rating_ratio": 1.2408123261404214,
       "speed_flagged": false,
-      "pulse_min_us": 794.8855717024614,
-      "pulse_max_us": 2838.9775340904343,
-      "outside_reference_span": false,
+      "pulse_min_us": -132.11442829753855,
+      "pulse_max_us": 1911.9775340904346,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
-        false
+        true,
+        true
       ],
-      "outside_pwm_timer_capacity": false,
+      "outside_pwm_timer_capacity": true,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 125,
-        "cad_leg": "RL",
+        "sample": 127,
+        "cad_leg": "FR",
         "q_deg": [
-          -3.9014774784466413,
-          -34.517672366953335,
-          -50.92910064054137
+          3.8861206518711553,
+          -32.472440521889645,
+          -53.30936009459738
         ]
       }
     },
@@ -1044,8 +976,8 @@
       "peak_sampled_joint_speed_deg_s": 121.89702837071117,
       "speed_rating_ratio": 0.2234778853463038,
       "speed_flagged": false,
-      "pulse_min_us": 1414.1239038923363,
-      "pulse_max_us": 2160.713263754123,
+      "pulse_min_us": 620.1239038923364,
+      "pulse_max_us": 1774.611960445741,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1061,8 +993,8 @@
       "peak_sampled_joint_speed_deg_s": 239.0624883061945,
       "speed_rating_ratio": 0.43828122856135654,
       "speed_flagged": false,
-      "pulse_min_us": 1295.3878236912965,
-      "pulse_max_us": 2405.9453719302833,
+      "pulse_min_us": 501.38782369129643,
+      "pulse_max_us": 1956.0167814206504,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1070,24 +1002,16 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 1361,
-        "cad_leg": "FL",
-        "q_deg": [
-          -27.666128648681255,
-          30.655197571304765,
-          10.410636231283254
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "turn_left_45",
       "peak_sampled_joint_speed_deg_s": 179.82616896598591,
       "speed_rating_ratio": 0.32968130977097415,
       "speed_flagged": false,
-      "pulse_min_us": 1371.6679770732349,
-      "pulse_max_us": 2270.380933700124,
+      "pulse_min_us": 577.6679770732347,
+      "pulse_max_us": 1862.857528350983,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1103,8 +1027,8 @@
       "peak_sampled_joint_speed_deg_s": 239.0624883061945,
       "speed_rating_ratio": 0.43828122856135654,
       "speed_flagged": false,
-      "pulse_min_us": 1309.536108352122,
-      "pulse_max_us": 2361.338776169817,
+      "pulse_min_us": 516.2654093860684,
+      "pulse_max_us": 1956.0167814206504,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1112,24 +1036,16 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 1361,
-        "cad_leg": "FL",
-        "q_deg": [
-          -27.666128648681255,
-          30.655197571304765,
-          10.410636231283254
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "turn_right_15",
       "peak_sampled_joint_speed_deg_s": 121.89701381138293,
       "speed_rating_ratio": 0.22347785865420203,
       "speed_flagged": false,
-      "pulse_min_us": 1414.124188872816,
-      "pulse_max_us": 2160.7131589336136,
+      "pulse_min_us": 620.1241888728159,
+      "pulse_max_us": 1774.6118784635153,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1145,8 +1061,8 @@
       "peak_sampled_joint_speed_deg_s": 239.06244946156932,
       "speed_rating_ratio": 0.43828115734621037,
       "speed_flagged": false,
-      "pulse_min_us": 1295.3880933480411,
-      "pulse_max_us": 2405.9453562009335,
+      "pulse_min_us": 501.3880933480412,
+      "pulse_max_us": 1956.0166652107214,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1154,24 +1070,16 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 1361,
-        "cad_leg": "FR",
-        "q_deg": [
-          -27.666125980651145,
-          30.655179371729634,
-          10.410634518043272
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "turn_right_45",
       "peak_sampled_joint_speed_deg_s": 179.82615194097377,
       "speed_rating_ratio": 0.3296812785584519,
       "speed_flagged": false,
-      "pulse_min_us": 1371.6682582954663,
-      "pulse_max_us": 2270.3808696683736,
+      "pulse_min_us": 577.6682582954662,
+      "pulse_max_us": 1862.8574276074155,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1187,8 +1095,8 @@
       "peak_sampled_joint_speed_deg_s": 239.06244946156932,
       "speed_rating_ratio": 0.43828115734621037,
       "speed_flagged": false,
-      "pulse_min_us": 1309.536134527629,
-      "pulse_max_us": 2361.338753792914,
+      "pulse_min_us": 516.2656980811034,
+      "pulse_max_us": 1956.0166652107214,
       "outside_reference_span": false,
       "outside_reference_by_joint_type": [
         false,
@@ -1196,39 +1104,31 @@
         false
       ],
       "outside_pwm_timer_capacity": false,
-      "modeled_envelope_conflict": true,
-      "first_conflict": {
-        "sample": 1361,
-        "cad_leg": "FR",
-        "q_deg": [
-          -27.666125980651145,
-          30.655179371729634,
-          10.410634518043272
-        ]
-      }
+      "modeled_envelope_conflict": false,
+      "first_conflict": null
     },
     {
       "command": "walk",
       "peak_sampled_joint_speed_deg_s": 545.4545454547663,
       "speed_rating_ratio": 1.0000000000004048,
       "speed_flagged": false,
-      "pulse_min_us": 883.4701853034167,
-      "pulse_max_us": 2445.966845723785,
-      "outside_reference_span": false,
+      "pulse_min_us": -43.529814696583344,
+      "pulse_max_us": 1698.264298894291,
+      "outside_reference_span": true,
       "outside_reference_by_joint_type": [
         false,
-        false,
-        false
+        true,
+        true
       ],
-      "outside_pwm_timer_capacity": false,
+      "outside_pwm_timer_capacity": true,
       "modeled_envelope_conflict": true,
       "first_conflict": {
-        "sample": 806,
+        "sample": 817,
         "cad_leg": "FR",
         "q_deg": [
-          2.3755073132942037,
-          -32.428001990225304,
-          -50.26836723773127
+          2.071619245667773,
+          -33.34867338924292,
+          -53.391961146221114
         ]
       }
     }

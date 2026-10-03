@@ -4,65 +4,226 @@
   "title": "Ainekio control protocol v1",
   "description": "One JSON object carried by one WebSocket text frame. Unknown additional fields on known messages are ignored for forward compatibility.",
   "properties": {
-    "epoch": {"type": "integer", "minimum": 0, "maximum": 4294967295},
-    "deadline_ms": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
-    "clock_ms": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "deadline_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "clock_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
   },
   "oneOf": [
-    {"$ref": "#/$defs/hello"},
-    {"$ref": "#/$defs/err"},
-    {"$ref": "#/$defs/welcome"},
-    {"$ref": "#/$defs/intent"},
-    {"$ref": "#/$defs/stop"},
-    {"$ref": "#/$defs/motion_plan"},
-    {"$ref": "#/$defs/tts"},
-    {"$ref": "#/$defs/cam"},
-    {"$ref": "#/$defs/snap"},
-    {"$ref": "#/$defs/mic"},
-    {"$ref": "#/$defs/wake"},
-    {"$ref": "#/$defs/profile"},
-    {"$ref": "#/$defs/state"},
-    {"$ref": "#/$defs/ping"},
-    {"$ref": "#/$defs/mode"},
-    {"$ref": "#/$defs/servo"},
-    {"$ref": "#/$defs/limits"},
-    {"$ref": "#/$defs/pose_save"},
-    {"$ref": "#/$defs/cal_save"},
-    {"$ref": "#/$defs/calibration"},
-    {"$ref": "#/$defs/calibration_status"},
-    {"$ref": "#/$defs/motion_speed"},
-    {"$ref": "#/$defs/motion_speed_status"},
-    {"$ref": "#/$defs/storage"},
-    {"$ref": "#/$defs/storage_status"},
-    {"$ref": "#/$defs/ack"},
-    {"$ref": "#/$defs/nak"},
-    {"$ref": "#/$defs/done"},
-    {"$ref": "#/$defs/cancelled"},
-    {"$ref": "#/$defs/status"},
-    {"$ref": "#/$defs/event"},
-    {"$ref": "#/$defs/cam_meta"},
-    {"$ref": "#/$defs/pong"}
+    {
+      "$ref": "#/$defs/hello"
+    },
+    {
+      "$ref": "#/$defs/err"
+    },
+    {
+      "$ref": "#/$defs/welcome"
+    },
+    {
+      "$ref": "#/$defs/intent"
+    },
+    {
+      "$ref": "#/$defs/stop"
+    },
+    {
+      "$ref": "#/$defs/motion_plan"
+    },
+    {
+      "$ref": "#/$defs/tts"
+    },
+    {
+      "$ref": "#/$defs/cam"
+    },
+    {
+      "$ref": "#/$defs/snap"
+    },
+    {
+      "$ref": "#/$defs/mic"
+    },
+    {
+      "$ref": "#/$defs/wake"
+    },
+    {
+      "$ref": "#/$defs/profile"
+    },
+    {
+      "$ref": "#/$defs/state"
+    },
+    {
+      "$ref": "#/$defs/ping"
+    },
+    {
+      "$ref": "#/$defs/mode"
+    },
+    {
+      "$ref": "#/$defs/servo"
+    },
+    {
+      "$ref": "#/$defs/limits"
+    },
+    {
+      "$ref": "#/$defs/pose_save"
+    },
+    {
+      "$ref": "#/$defs/cal_save"
+    },
+    {
+      "$ref": "#/$defs/calibration"
+    },
+    {
+      "$ref": "#/$defs/calibration_status"
+    },
+    {
+      "$ref": "#/$defs/motion_speed"
+    },
+    {
+      "$ref": "#/$defs/motion_speed_status"
+    },
+    {
+      "$ref": "#/$defs/storage"
+    },
+    {
+      "$ref": "#/$defs/storage_status"
+    },
+    {
+      "$ref": "#/$defs/ack"
+    },
+    {
+      "$ref": "#/$defs/nak"
+    },
+    {
+      "$ref": "#/$defs/done"
+    },
+    {
+      "$ref": "#/$defs/cancelled"
+    },
+    {
+      "$ref": "#/$defs/status"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/cam_meta"
+    },
+    {
+      "$ref": "#/$defs/pong"
+    }
   ],
-  "allOf": [{"if": {"required": ["playback_rate"]}, "then": {
-    "required": ["t", "name"], "properties": {"t": {"const": "intent"},
-      "name": {"enum": ["sit", "stand", "emote"]},
-      "playback_rate": {"$ref": "#/$defs/motionRate"}}
-  }}],
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "playback_rate"
+        ]
+      },
+      "then": {
+        "required": [
+          "t",
+          "name"
+        ],
+        "properties": {
+          "t": {
+            "const": "intent"
+          },
+          "name": {
+            "enum": [
+              "sit",
+              "stand",
+              "emote"
+            ]
+          },
+          "playback_rate": {
+            "$ref": "#/$defs/motionRate"
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
-    "motionRate": {"type": "number", "exclusiveMinimum": 0},
+    "motionRate": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
     "motion_speed": {
-      "x-ainekio-message-type": "motion_speed", "x-ainekio-direction": "brain-to-body",
-      "type": "object", "required": ["t", "seq", "op"],
-      "properties": {"t": {"const": "motion_speed"}, "seq": {"$ref": "#/$defs/sequence"},
-        "op": {"enum": ["get", "save"]}, "rate": {"$ref": "#/$defs/motionRate"}},
-      "if": {"properties": {"op": {"const": "save"}}},
-      "then": {"required": ["rate"]}, "else": {"properties": {"rate": false}}
+      "x-ainekio-message-type": "motion_speed",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
+      "properties": {
+        "t": {
+          "const": "motion_speed"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "op": {
+          "enum": [
+            "get",
+            "save"
+          ]
+        },
+        "rate": {
+          "$ref": "#/$defs/motionRate"
+        }
+      },
+      "if": {
+        "properties": {
+          "op": {
+            "const": "save"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "rate"
+        ]
+      },
+      "else": {
+        "properties": {
+          "rate": false
+        }
+      }
     },
     "motion_speed_status": {
-      "x-ainekio-message-type": "motion_speed_status", "x-ainekio-direction": "body-to-brain",
-      "type": "object", "required": ["t", "seq", "rate", "saved"],
-      "properties": {"t": {"const": "motion_speed_status"}, "seq": {"$ref": "#/$defs/sequence"},
-        "rate": {"$ref": "#/$defs/motionRate"}, "saved": {"type": "boolean"}}
+      "x-ainekio-message-type": "motion_speed_status",
+      "x-ainekio-direction": "body-to-brain",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "rate",
+        "saved"
+      ],
+      "properties": {
+        "t": {
+          "const": "motion_speed_status"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "rate": {
+          "$ref": "#/$defs/motionRate"
+        },
+        "saved": {
+          "type": "boolean"
+        }
+      }
     },
     "bodyCapabilities": {
       "type": "object",
@@ -265,11 +426,39 @@
           "maximum": 65535
         }
       },
-      "dependentRequired": {"home_cd": ["us_per_degree"], "us_per_degree": ["home_cd"]},
-      "allOf": [{
-        "if": {"anyOf": [{"required": ["home_cd"]}, {"required": ["us_per_degree"]}]},
-        "then": {"properties": {"op": {"const": "set"}}}
-      }],
+      "dependentRequired": {
+        "home_cd": [
+          "us_per_degree"
+        ],
+        "us_per_degree": [
+          "home_cd"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "home_cd"
+                ]
+              },
+              {
+                "required": [
+                  "us_per_degree"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "op": {
+                "const": "set"
+              }
+            }
+          }
+        }
+      ],
       "oneOf": [
         {
           "properties": {
@@ -420,6 +609,11 @@
                 "type": "integer",
                 "minimum": -36000,
                 "maximum": 36000
+              },
+              "recommended_home_us": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
               }
             },
             "dependentRequired": {
@@ -479,65 +673,179 @@
     },
     "profileName": {
       "type": "string",
-      "enum": ["home", "tether"]
+      "enum": [
+        "home",
+        "tether"
+      ]
     },
     "cameraResolution": {
       "type": "string",
-      "enum": ["QVGA", "VGA", "XGA"]
+      "enum": [
+        "QVGA",
+        "VGA",
+        "XGA"
+      ]
     },
     "cameraStreamResolution": {
       "type": "string",
-      "enum": ["QVGA", "VGA"]
+      "enum": [
+        "QVGA",
+        "VGA"
+      ]
     },
     "hello": {
       "x-ainekio-message-type": "hello",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "ver", "fw", "id", "auth"],
+      "required": [
+        "t",
+        "ver",
+        "fw",
+        "id",
+        "auth"
+      ],
       "properties": {
-        "t": {"const": "hello"},
-        "capabilities": {"$ref": "#/$defs/bodyCapabilities"},
-        "ver": {"const": 1},
-        "fw": {"type": "string", "minLength": 1, "maxLength": 32},
-        "id": {"type": "string", "minLength": 1, "maxLength": 64},
-        "auth": {"type": "string", "minLength": 1, "maxLength": 128},
+        "t": {
+          "const": "hello"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/bodyCapabilities"
+        },
+        "ver": {
+          "const": 1
+        },
+        "fw": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "auth": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
         "features": {
           "type": "array",
           "maxItems": 16,
-          "items": {"$ref": "#/$defs/featureName"},
-          "x-ainekio-rules": ["unique-items"]
+          "items": {
+            "$ref": "#/$defs/featureName"
+          },
+          "x-ainekio-rules": [
+            "unique-items"
+          ]
         },
         "seq": false
       },
       "allOf": [
         {
-          "if": {"required": ["features"], "properties": {"features": {"contains": {"const": "command_deadline_v1"}}}},
-          "then": {"required": ["clock_ms"]}
+          "if": {
+            "required": [
+              "features"
+            ],
+            "properties": {
+              "features": {
+                "contains": {
+                  "const": "command_deadline_v1"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "clock_ms"
+            ]
+          }
         },
         {
-          "if": {"required": ["features"], "properties": {"features": {"contains": {"const": "body_commands_v1"}}}},
+          "if": {
+            "required": [
+              "features"
+            ],
+            "properties": {
+              "features": {
+                "contains": {
+                  "const": "body_commands_v1"
+                }
+              }
+            }
+          },
           "then": {
             "properties": {
-              "features": {"contains": {"const": "body_capabilities_v1"}},
+              "features": {
+                "contains": {
+                  "const": "body_capabilities_v1"
+                }
+              },
               "capabilities": {
-                "required": ["commands"],
-                "properties": {"commands": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 32}}}
+                "required": [
+                  "commands"
+                ],
+                "properties": {
+                  "commands": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    }
+                  }
+                }
               }
             }
           }
         },
         {
-          "if": {"required": ["features"], "properties": {"features": {"contains": {"const": "body_capabilities_v1"}}}},
-          "then": {
-            "required": ["model", "capabilities"],
+          "if": {
+            "required": [
+              "features"
+            ],
             "properties": {
-              "model": {"type": "string", "minLength": 1, "maxLength": 32},
+              "features": {
+                "contains": {
+                  "const": "body_capabilities_v1"
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "model",
+              "capabilities"
+            ],
+            "properties": {
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
               "capabilities": {
                 "type": "object",
-                "required": ["motion", "camera", "microphone", "speaker"],
+                "required": [
+                  "motion",
+                  "camera",
+                  "microphone",
+                  "speaker"
+                ],
                 "properties": {
-                  "motion": {"type": "boolean"}, "camera": {"type": "boolean"},
-                  "microphone": {"type": "boolean"}, "speaker": {"type": "boolean"}
+                  "motion": {
+                    "type": "boolean"
+                  },
+                  "camera": {
+                    "type": "boolean"
+                  },
+                  "microphone": {
+                    "type": "boolean"
+                  },
+                  "speaker": {
+                    "type": "boolean"
+                  }
                 }
               }
             }
@@ -549,10 +857,21 @@
       "x-ainekio-message-type": "err",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "code"],
+      "required": [
+        "t",
+        "code"
+      ],
       "properties": {
-        "t": {"const": "err"},
-        "code": {"type": "string", "enum": ["auth", "ver"]},
+        "t": {
+          "const": "err"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "auth",
+            "ver"
+          ]
+        },
         "seq": false
       }
     },
@@ -560,13 +879,28 @@
       "x-ainekio-message-type": "welcome",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "ver", "epoch", "profile"],
+      "required": [
+        "t",
+        "ver",
+        "epoch",
+        "profile"
+      ],
       "properties": {
-        "t": {"const": "welcome"},
-        "ver": {"const": 1},
-        "epoch": {"$ref": "#/$defs/counter"},
-        "profile": {"$ref": "#/$defs/profileName"},
-        "command_deadline_v1": {"type": "boolean"},
+        "t": {
+          "const": "welcome"
+        },
+        "ver": {
+          "const": 1
+        },
+        "epoch": {
+          "$ref": "#/$defs/counter"
+        },
+        "profile": {
+          "$ref": "#/$defs/profileName"
+        },
+        "command_deadline_v1": {
+          "type": "boolean"
+        },
         "seq": false
       }
     },
@@ -576,23 +910,62 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["t", "seq", "name"],
+          "required": [
+            "t",
+            "seq",
+            "name"
+          ],
           "properties": {
-            "t": {"const": "intent"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"type": "string", "enum": ["sit", "stand", "neutral"]}
+            "t": {
+              "const": "intent"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "type": "string",
+              "enum": [
+                "sit",
+                "stand",
+                "neutral"
+              ]
+            }
           }
         },
         {
           "type": "object",
-          "required": ["t", "seq", "name", "yaw", "pitch"],
+          "required": [
+            "t",
+            "seq",
+            "name",
+            "yaw",
+            "pitch"
+          ],
           "properties": {
-            "t": {"const": "intent"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"const": "look"},
-            "yaw": {"type": "integer", "minimum": -90, "maximum": 90},
-            "pitch": {"type": "integer", "minimum": -45, "maximum": 45},
-            "ms": {"type": "integer", "minimum": 100, "maximum": 5000}
+            "t": {
+              "const": "intent"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "const": "look"
+            },
+            "yaw": {
+              "type": "integer",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "pitch": {
+              "type": "integer",
+              "minimum": -45,
+              "maximum": 45
+            },
+            "ms": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 5000
+            }
           }
         },
         {
@@ -630,9 +1003,24 @@
               "minimum": 0,
               "maximum": 10
             },
-            "gait": {"enum": ["walk", "crawl", "run", "crab"]},
-            "forward": {"type": "number", "minimum": -100, "maximum": 100},
-            "turn": {"type": "number", "minimum": -100, "maximum": 100},
+            "gait": {
+              "enum": [
+                "walk",
+                "crawl",
+                "run",
+                "crab"
+              ]
+            },
+            "forward": {
+              "type": "number",
+              "minimum": -100,
+              "maximum": 100
+            },
+            "turn": {
+              "type": "number",
+              "minimum": -100,
+              "maximum": 100
+            },
             "speed": {
               "type": "number",
               "minimum": 0,
@@ -652,7 +1040,14 @@
               "$ref": "#/$defs/sequence"
             }
           },
-          "dependentRequired": {"forward": ["turn"], "turn": ["forward"]},
+          "dependentRequired": {
+            "forward": [
+              "turn"
+            ],
+            "turn": [
+              "forward"
+            ]
+          },
           "allOf": [
             {
               "not": {
@@ -734,44 +1129,122 @@
               }
             },
             {
-              "if": {"required": ["gait"], "properties": {"gait": {"enum": ["crawl", "crab"]}}},
-              "then": {"properties": {"speed": {"maximum": 100}}}
+              "if": {
+                "required": [
+                  "gait"
+                ],
+                "properties": {
+                  "gait": {
+                    "enum": [
+                      "crawl",
+                      "crab"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "speed": {
+                    "maximum": 100
+                  }
+                }
+              }
             },
             {
-              "if": {"required": ["dir"], "properties": {"dir": {"enum": ["side_l", "side_r"]}}},
-              "then": {"required": ["gait"], "properties": {"gait": {"const": "crab"}}}
+              "if": {
+                "required": [
+                  "dir"
+                ],
+                "properties": {
+                  "dir": {
+                    "enum": [
+                      "side_l",
+                      "side_r"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "gait"
+                ],
+                "properties": {
+                  "gait": {
+                    "const": "crab"
+                  }
+                }
+              }
             }
           ],
           "description": "Extended fields require negotiated walk_controls_v1/v2; paired forward/turn steering additionally requires walk_steering_v1 and walk_controls_v2. Values are signed body-local percentages: positive forward advances, positive turn turns left. ACK confirms admission, not task completion; only the original walk emits DONE/CANCELLED. Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Crab requires crab_gait_v1 and declared Crab commands; side_l/side_r are Crab-only. Feature admission is checked against the connected body."
         },
         {
           "type": "object",
-          "required": ["t", "seq", "name", "asset"],
+          "required": [
+            "t",
+            "seq",
+            "name",
+            "asset"
+          ],
           "properties": {
-            "t": {"const": "intent"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"const": "emote"},
-            "asset": {"$ref": "#/$defs/assetName"}
+            "t": {
+              "const": "intent"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "const": "emote"
+            },
+            "asset": {
+              "$ref": "#/$defs/assetName"
+            }
           }
         },
         {
           "type": "object",
-          "required": ["t", "seq", "name", "expr"],
+          "required": [
+            "t",
+            "seq",
+            "name",
+            "expr"
+          ],
           "properties": {
-            "t": {"const": "intent"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"const": "face"},
-            "expr": {"$ref": "#/$defs/assetName"}
+            "t": {
+              "const": "intent"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "const": "face"
+            },
+            "expr": {
+              "$ref": "#/$defs/assetName"
+            }
           }
         },
         {
           "type": "object",
-          "required": ["t", "seq", "name", "asset"],
+          "required": [
+            "t",
+            "seq",
+            "name",
+            "asset"
+          ],
           "properties": {
-            "t": {"const": "intent"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"const": "say"},
-            "asset": {"$ref": "#/$defs/assetName"}
+            "t": {
+              "const": "intent"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "const": "say"
+            },
+            "asset": {
+              "$ref": "#/$defs/assetName"
+            }
           }
         }
       ]
@@ -780,26 +1253,46 @@
       "x-ainekio-message-type": "stop",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq"],
+      "required": [
+        "t",
+        "seq"
+      ],
       "properties": {
-        "t": {"const": "stop"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "detach": {"type": "boolean", "default": false}
+        "t": {
+          "const": "stop"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "detach": {
+          "type": "boolean",
+          "default": false
+        }
       }
     },
     "motionPlanTargets": {
       "type": "array",
       "minItems": 8,
       "maxItems": 8,
-      "items": {"type": "integer", "minimum": 0, "maximum": 18000}
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 18000
+      }
     },
     "motionPlanFrame": {
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
       "prefixItems": [
-        {"type": "integer", "minimum": 100, "maximum": 5000},
-        {"$ref": "#/$defs/motionPlanTargets"}
+        {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000
+        },
+        {
+          "$ref": "#/$defs/motionPlanTargets"
+        }
       ],
       "items": false
     },
@@ -807,89 +1300,195 @@
       "x-ainekio-message-type": "motion_plan",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "map", "frames", "end"],
+      "required": [
+        "t",
+        "seq",
+        "map",
+        "frames",
+        "end"
+      ],
       "properties": {
-        "t": {"const": "motion_plan"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "map": {"const": 1},
+        "t": {
+          "const": "motion_plan"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "map": {
+          "const": 1
+        },
         "frames": {
           "type": "array",
           "minItems": 1,
           "maxItems": 32,
-          "items": {"$ref": "#/$defs/motionPlanFrame"}
+          "items": {
+            "$ref": "#/$defs/motionPlanFrame"
+          }
         },
-        "end": {"type": "string", "enum": ["hold", "stand", "neutral"]}
+        "end": {
+          "type": "string",
+          "enum": [
+            "hold",
+            "stand",
+            "neutral"
+          ]
+        }
       },
-      "x-ainekio-rules": ["motion-plan-total-duration"]
+      "x-ainekio-rules": [
+        "motion-plan-total-duration"
+      ]
     },
     "tts": {
       "x-ainekio-message-type": "tts",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "op"],
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
       "properties": {
-        "t": {"const": "tts"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "op": {"type": "string", "enum": ["start", "end", "cancel"]}
+        "t": {
+          "const": "tts"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "start",
+            "end",
+            "cancel"
+          ]
+        }
       }
     },
     "cam": {
       "x-ainekio-message-type": "cam",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "on", "fps", "res"],
+      "required": [
+        "t",
+        "seq",
+        "on",
+        "fps",
+        "res"
+      ],
       "properties": {
-        "t": {"const": "cam"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "on": {"type": "boolean"},
-        "fps": {"type": "integer", "minimum": 0, "maximum": 15},
-        "res": {"$ref": "#/$defs/cameraStreamResolution"},
-        "snapshot_res": {"$ref": "#/$defs/cameraResolution"}
+        "t": {
+          "const": "cam"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "on": {
+          "type": "boolean"
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "res": {
+          "$ref": "#/$defs/cameraStreamResolution"
+        },
+        "snapshot_res": {
+          "$ref": "#/$defs/cameraResolution"
+        }
       }
     },
     "snap": {
       "x-ainekio-message-type": "snap",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq"],
+      "required": [
+        "t",
+        "seq"
+      ],
       "properties": {
-        "t": {"const": "snap"},
-        "seq": {"$ref": "#/$defs/sequence"}
+        "t": {
+          "const": "snap"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        }
       }
     },
     "mic": {
       "x-ainekio-message-type": "mic",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "on", "gate"],
+      "required": [
+        "t",
+        "seq",
+        "on",
+        "gate"
+      ],
       "properties": {
-        "t": {"const": "mic"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "on": {"type": "boolean"},
-        "gate": {"type": "string", "enum": ["open", "vad", "wake"]}
+        "t": {
+          "const": "mic"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "on": {
+          "type": "boolean"
+        },
+        "gate": {
+          "type": "string",
+          "enum": [
+            "open",
+            "vad",
+            "wake"
+          ]
+        }
       }
     },
     "wake": {
       "x-ainekio-message-type": "wake",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "enabled", "model"],
+      "required": [
+        "t",
+        "seq",
+        "enabled",
+        "model"
+      ],
       "properties": {
-        "t": {"const": "wake"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "enabled": {"type": "boolean"},
-        "model": {"$ref": "#/$defs/assetName"}
+        "t": {
+          "const": "wake"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "model": {
+          "$ref": "#/$defs/assetName"
+        }
       }
     },
     "profile": {
       "x-ainekio-message-type": "profile",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "name"],
+      "required": [
+        "t",
+        "seq",
+        "name"
+      ],
       "properties": {
-        "t": {"const": "profile"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "name": {"$ref": "#/$defs/profileName"}
+        "t": {
+          "const": "profile"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "name": {
+          "$ref": "#/$defs/profileName"
+        }
       }
     },
     "state": {
@@ -898,21 +1497,50 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["t", "seq", "name"],
+          "required": [
+            "t",
+            "seq",
+            "name"
+          ],
           "properties": {
-            "t": {"const": "state"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"type": "string", "enum": ["idle", "doze"]}
+            "t": {
+              "const": "state"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "type": "string",
+              "enum": [
+                "idle",
+                "doze"
+              ]
+            }
           }
         },
         {
           "type": "object",
-          "required": ["t", "seq", "name", "sleep_s"],
+          "required": [
+            "t",
+            "seq",
+            "name",
+            "sleep_s"
+          ],
           "properties": {
-            "t": {"const": "state"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "name": {"const": "sleep"},
-            "sleep_s": {"type": "integer", "minimum": 60, "maximum": 86400}
+            "t": {
+              "const": "state"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "name": {
+              "const": "sleep"
+            },
+            "sleep_s": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 86400
+            }
           }
         }
       ]
@@ -921,9 +1549,13 @@
       "x-ainekio-message-type": "ping",
       "x-ainekio-direction": "bidirectional",
       "type": "object",
-      "required": ["t"],
+      "required": [
+        "t"
+      ],
       "properties": {
-        "t": {"const": "ping"},
+        "t": {
+          "const": "ping"
+        },
         "seq": false
       }
     },
@@ -931,52 +1563,125 @@
       "x-ainekio-message-type": "mode",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "name"],
+      "required": [
+        "t",
+        "seq",
+        "name"
+      ],
       "properties": {
-        "t": {"const": "mode"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "name": {"type": "string", "enum": ["calibrate", "normal"]}
+        "t": {
+          "const": "mode"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "name": {
+          "type": "string",
+          "enum": [
+            "calibrate",
+            "normal"
+          ]
+        }
       }
     },
     "servo": {
       "x-ainekio-message-type": "servo",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq", "id", "deg", "ms"],
+      "required": [
+        "t",
+        "seq",
+        "id",
+        "deg",
+        "ms"
+      ],
       "properties": {
-        "t": {"const": "servo"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "id": {"type": "integer", "minimum": 0, "maximum": 7},
-        "deg": {"type": "number"},
-        "ms": {"type": "integer", "minimum": 0, "maximum": 5000}
+        "t": {
+          "const": "servo"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "deg": {
+          "type": "number"
+        },
+        "ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        }
       }
     },
     "limits": {
       "x-ainekio-message-type": "limits",
       "x-ainekio-direction": "brain-to-body",
-      "x-ainekio-rules": ["ordered-limits"],
+      "x-ainekio-rules": [
+        "ordered-limits"
+      ],
       "type": "object",
-      "required": ["t", "seq", "id", "min", "max", "invert", "center"],
+      "required": [
+        "t",
+        "seq",
+        "id",
+        "min",
+        "max",
+        "invert",
+        "center"
+      ],
       "properties": {
-        "t": {"const": "limits"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "id": {"type": "integer", "minimum": 0, "maximum": 7},
-        "min": {"type": "number"},
-        "max": {"type": "number"},
-        "invert": {"type": "boolean"},
-        "center": {"type": "number"}
+        "t": {
+          "const": "limits"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "invert": {
+          "type": "boolean"
+        },
+        "center": {
+          "type": "number"
+        }
       }
     },
     "pose_save": {
       "x-ainekio-message-type": "pose_save",
       "x-ainekio-direction": "brain-to-body",
-      "x-ainekio-rules": ["unique-servo-ids"],
+      "x-ainekio-rules": [
+        "unique-servo-ids"
+      ],
       "type": "object",
-      "required": ["t", "seq", "name", "servos"],
+      "required": [
+        "t",
+        "seq",
+        "name",
+        "servos"
+      ],
       "properties": {
-        "t": {"const": "pose_save"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "name": {"$ref": "#/$defs/assetName"},
+        "t": {
+          "const": "pose_save"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "name": {
+          "$ref": "#/$defs/assetName"
+        },
         "servos": {
           "type": "array",
           "minItems": 1,
@@ -984,8 +1689,14 @@
           "items": {
             "type": "array",
             "prefixItems": [
-              {"type": "integer", "minimum": 0, "maximum": 7},
-              {"type": "number"}
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              },
+              {
+                "type": "number"
+              }
             ],
             "items": false,
             "minItems": 2,
@@ -998,21 +1709,39 @@
       "x-ainekio-message-type": "cal_save",
       "x-ainekio-direction": "brain-to-body",
       "type": "object",
-      "required": ["t", "seq"],
+      "required": [
+        "t",
+        "seq"
+      ],
       "properties": {
-        "t": {"const": "cal_save"},
-        "seq": {"$ref": "#/$defs/sequence"}
+        "t": {
+          "const": "cal_save"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        }
       }
     },
     "ack": {
       "x-ainekio-message-type": "ack",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "seq"],
+      "required": [
+        "t",
+        "seq"
+      ],
       "properties": {
-        "t": {"const": "ack"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "sleep_s": {"type": "integer", "minimum": 60, "maximum": 86400}
+        "t": {
+          "const": "ack"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "sleep_s": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 86400
+        }
       }
     },
     "nak": {
@@ -1021,25 +1750,59 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["t", "code"],
+          "required": [
+            "t",
+            "code"
+          ],
           "properties": {
-            "t": {"const": "nak"},
-            "seq": {"$ref": "#/$defs/sequence"},
-            "code": {"const": "malformed"},
-            "msg": {"type": "string", "minLength": 1, "maxLength": 160}
+            "t": {
+              "const": "nak"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
+            "code": {
+              "const": "malformed"
+            },
+            "msg": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
           }
         },
         {
           "type": "object",
-          "required": ["t", "seq", "code"],
+          "required": [
+            "t",
+            "seq",
+            "code"
+          ],
           "properties": {
-            "t": {"const": "nak"},
-            "seq": {"$ref": "#/$defs/sequence"},
+            "t": {
+              "const": "nak"
+            },
+            "seq": {
+              "$ref": "#/$defs/sequence"
+            },
             "code": {
               "type": "string",
-              "enum": ["stale", "mode", "unsafe", "limit", "unknown", "busy", "profile", "asset_missing"]
+              "enum": [
+                "stale",
+                "mode",
+                "unsafe",
+                "limit",
+                "unknown",
+                "busy",
+                "profile",
+                "asset_missing"
+              ]
             },
-            "msg": {"type": "string", "minLength": 1, "maxLength": 160}
+            "msg": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
           }
         }
       ]
@@ -1048,92 +1811,246 @@
       "x-ainekio-message-type": "done",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "seq"],
+      "required": [
+        "t",
+        "seq"
+      ],
       "properties": {
-        "t": {"const": "done"},
-        "seq": {"$ref": "#/$defs/sequence"}
+        "t": {
+          "const": "done"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        }
       }
     },
     "cancelled": {
       "x-ainekio-message-type": "cancelled",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "seq", "code"],
+      "required": [
+        "t",
+        "seq",
+        "code"
+      ],
       "properties": {
-        "t": {"const": "cancelled"},
-        "seq": {"$ref": "#/$defs/sequence"},
-        "code": {"type": "string", "enum": ["stop", "disconnect", "reconnect", "overflow"]}
+        "t": {
+          "const": "cancelled"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "stop",
+            "disconnect",
+            "reconnect",
+            "overflow"
+          ]
+        }
       }
     },
     "status": {
       "x-ainekio-message-type": "status",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "vbat", "rssi", "state", "uptime", "heap", "sd", "cam_drops", "spk_underruns", "mic_drops"],
+      "required": [
+        "t",
+        "vbat",
+        "rssi",
+        "state",
+        "uptime",
+        "heap",
+        "sd",
+        "cam_drops",
+        "spk_underruns",
+        "mic_drops"
+      ],
       "properties": {
-        "t": {"const": "status"},
-        "capabilities": {"$ref": "#/$defs/bodyCapabilities"},
-        "mode": {"enum": ["normal", "calibrate"]},
-        "output_fault": {"type": "integer", "minimum": 0, "maximum": 255},
-        "output_ready": {"type": "boolean"},
-        "output_armed": {"type": "boolean"},
-        "calibration_dirty": {"type": "boolean"},
-        "calibration_saved": {"type": "boolean"},
-        "power_monitor_ready": {"type": "boolean"},
-        "microphone_ready": {"type": "boolean"},
-        "speaker_ready": {"type": "boolean"},
-        "display_ready": {"type": "boolean"},
-        "vbat": {"type": "number"},
-        "rssi": {"type": "integer", "minimum": -127, "maximum": 0},
-        "state": {"type": "string", "enum": ["active", "idle", "dozing", "deep-sleep", "failsafe"]},
-        "uptime": {"type": "integer", "minimum": 0},
-        "heap": {"type": "integer", "minimum": 0},
-        "sd": {"type": "boolean"},
-        "cam_drops": {"type": "integer", "minimum": 0},
-        "spk_underruns": {"type": "integer", "minimum": 0},
-        "mic_drops": {"type": "integer", "minimum": 0},
-        "wake_enabled": {"type": "boolean"},
-        "wake_model": {"$ref": "#/$defs/assetName"},
-        "wake_ready": {"type": "boolean"}
+        "t": {
+          "const": "status"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/bodyCapabilities"
+        },
+        "mode": {
+          "enum": [
+            "normal",
+            "calibrate"
+          ]
+        },
+        "output_fault": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "output_ready": {
+          "type": "boolean"
+        },
+        "output_armed": {
+          "type": "boolean"
+        },
+        "calibration_dirty": {
+          "type": "boolean"
+        },
+        "calibration_saved": {
+          "type": "boolean"
+        },
+        "power_monitor_ready": {
+          "type": "boolean"
+        },
+        "microphone_ready": {
+          "type": "boolean"
+        },
+        "speaker_ready": {
+          "type": "boolean"
+        },
+        "display_ready": {
+          "type": "boolean"
+        },
+        "vbat": {
+          "type": "number"
+        },
+        "rssi": {
+          "type": "integer",
+          "minimum": -127,
+          "maximum": 0
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "idle",
+            "dozing",
+            "deep-sleep",
+            "failsafe"
+          ]
+        },
+        "uptime": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "heap": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sd": {
+          "type": "boolean"
+        },
+        "cam_drops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spk_underruns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mic_drops": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wake_enabled": {
+          "type": "boolean"
+        },
+        "wake_model": {
+          "$ref": "#/$defs/assetName"
+        },
+        "wake_ready": {
+          "type": "boolean"
+        }
       }
     },
     "event": {
       "x-ainekio-message-type": "event",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "name"],
+      "required": [
+        "t",
+        "name"
+      ],
       "properties": {
-        "t": {"const": "event"},
+        "t": {
+          "const": "event"
+        },
         "name": {
           "type": "string",
-          "enum": ["vad_open", "vad_close", "wake_word", "battery_warn", "battery_cutoff", "brownout_recovered", "boot", "sd_fail", "sd_corrupt", "littlefs_fail", "asset_missing", "tts_orphan", "tts_overflow"]
+          "enum": [
+            "vad_open",
+            "vad_close",
+            "wake_word",
+            "battery_warn",
+            "battery_cutoff",
+            "brownout_recovered",
+            "boot",
+            "sd_fail",
+            "sd_corrupt",
+            "littlefs_fail",
+            "asset_missing",
+            "tts_orphan",
+            "tts_overflow"
+          ]
         },
-        "origin_id": {"$ref": "#/$defs/counter"}
+        "origin_id": {
+          "$ref": "#/$defs/counter"
+        }
       },
-      "x-ainekio-rules": ["event-origin"]
+      "x-ainekio-rules": [
+        "event-origin"
+      ]
     },
     "cam_meta": {
       "x-ainekio-message-type": "cam_meta",
       "x-ainekio-direction": "body-to-brain",
       "type": "object",
-      "required": ["t", "res", "fps", "counter_base"],
+      "required": [
+        "t",
+        "res",
+        "fps",
+        "counter_base"
+      ],
       "properties": {
-        "t": {"const": "cam_meta"},
-        "res": {"$ref": "#/$defs/cameraResolution"},
-        "fps": {"type": "integer", "minimum": 0, "maximum": 15},
-        "counter_base": {"$ref": "#/$defs/counter"},
-        "origin": {"type": "string", "enum": ["request", "action", "audio"]},
-        "origin_id": {"$ref": "#/$defs/counter"}
+        "t": {
+          "const": "cam_meta"
+        },
+        "res": {
+          "$ref": "#/$defs/cameraResolution"
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "counter_base": {
+          "$ref": "#/$defs/counter"
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "request",
+            "action",
+            "audio"
+          ]
+        },
+        "origin_id": {
+          "$ref": "#/$defs/counter"
+        }
       },
-      "x-ainekio-rules": ["camera-origin-pair"]
+      "x-ainekio-rules": [
+        "camera-origin-pair"
+      ]
     },
     "pong": {
       "x-ainekio-message-type": "pong",
       "x-ainekio-direction": "bidirectional",
       "type": "object",
-      "required": ["t"],
+      "required": [
+        "t"
+      ],
       "properties": {
-        "t": {"const": "pong"},
+        "t": {
+          "const": "pong"
+        },
         "seq": false
       }
     }

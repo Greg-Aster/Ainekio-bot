@@ -55,10 +55,10 @@
     ]
   ],
   "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
-  "posture_sha256": "508e5521583c7110078c5446bb8850ae002fa4745fce71bca9730900d3e160b1",
+  "posture_sha256": "d8e22b8504fb10e9a3a5817729ea9739c1a4f6feffc5e6c5449ed49b894073a0",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "hardware_qualified": false,
   "actuator_calibration": null,
@@ -125,5 +125,7 @@
     "hardware_qualified": false,
     "collision_checked": false,
     "support_scope": "Provisional COM at body pivot; broad soles within 0.5 mm of floor. No dynamics, mass distribution or traction qualification."
-  }
+  },
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

@@ -33,7 +33,7 @@ bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *d,uint16_t p){(void)d;retu
 static void boot(void){memset(&calibration,0,sizeof calibration);memset(&committed,0,sizeof committed);assert(ainekio_p4_config_init()==ESP_OK);}
 int main(void){
     boot();assert(calibration.valid && calibration.dirty && !calibration.saved && !calibration.profile_confirmed && commits==0);
-    assert(calibration.joints[1].home_us==1650 && calibration.joints[1].home_cd==117);
+    assert(calibration.joints[1].home_us==856 && calibration.joints[1].home_cd==117);
     assert(sizeof(ainekio_p4_joint_config_t)==12 && sizeof(ainekio_p4_joint_record_t)==148);
     ainekio_p4_joint_config_t joint=calibration.joints[1];
     joint.home_us=3000;joint.home_cd=-1200;joint.us_per_degree=10;joint.invert=1;

@@ -78,10 +78,10 @@
     ]
   ],
   "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "source_sha256": "3f321c5e0718e437be8606815359ef4391dbc32f3c9df5569a910d24d369fefd",
-  "posture_sha256": "42ea99737edaea907b24ae1aeb2c22cf4b764f138b72f532ecaefcd029c656fe",
+  "posture_sha256": "05d5d3e7fc20a5e87c710f45fd76a412111dc5ecf62ec6ce5f3df254fc492431",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "reviewed_sha256": "0d2ac4d09e8f3705fe601162be0a8c7e30da31660658768d68dcbdd6217b5d1f",
   "hardware_qualified": false,
@@ -104,5 +104,7 @@
     "peak_joint_speed_deg_s": 216.36015274892856
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
-  "blender_scene": "Motions - Current Geometry"
+  "blender_scene": "Motions - Current Geometry",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

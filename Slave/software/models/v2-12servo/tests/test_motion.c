@@ -11,16 +11,40 @@ static ainekio_command_t decode(const char *text)
     assert(ainekio_control_decode_with_walk_controls(text,strlen(text),&m)==AINEKIO_DECODE_OK);
     return m.command;
 }
+static void test_wider_walk_reach(void)
+{
+    double previous_span=0.;
+    for(unsigned speed=25;speed<=100;speed+=25) {
+        ainekio_command_t c=decode("{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":100}");
+        c.data.intent.data.walk.speed_percent=speed;
+        ainekio_v2_walk_state_t s={0};assert(ainekio_v2_walk_accept(&s,&c,0));
+        const double origin=s.pose.feet[1][0];
+        double low=INFINITY,high=-INFINITY;
+        for(uint64_t now=10000;s.phase<8.;now+=10000) {
+            assert(now<60000000&&ainekio_v2_walk_tick(&s,now));
+            if(s.phase>=6.) {
+                double x=s.pose.feet[1][0]-s.pose.body[0]-origin;
+                low=fmin(low,x);high=fmax(high,x);
+            }
+        }
+        double span=high-low;
+        assert(span>previous_span+20.);previous_span=span;
+        /* Physical reach regression: the previous full Walk was only 47 mm.
+         * Full Walk must reach farther both forward and behind the stance. */
+        if(speed==100)assert(low < -40. && high > 55. && span > 100.);
+    }
+}
 int main(void)
 {
+    test_wider_walk_reach();
     ainekio_v2_walk_controls_t c;
     ainekio_v2_walk_pose_t stand;
     assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
     assert(stand.body[2]==-2.); /* Named Stand retains its reviewed height. */
-    assert(ainekio_v2_walk_controls(25,&c)&&c.stride_percent==50&&c.motion_rate==1);
-    assert(ainekio_v2_walk_controls(50,&c)&&c.stride_percent==100&&c.motion_rate==1);
-    assert(ainekio_v2_walk_controls(75,&c)&&c.stride_percent==100&&c.motion_rate==1.5);
-    assert(ainekio_v2_walk_controls(100,&c)&&c.stride_percent==100&&c.motion_rate==2);
+    assert(ainekio_v2_walk_controls(25,&c)&&fabs(c.stride_percent-25)<1e-9&&c.motion_rate==1.25);
+    assert(ainekio_v2_walk_controls(50,&c)&&fabs(c.stride_percent-50)<1e-9&&c.motion_rate==1.5);
+    assert(ainekio_v2_walk_controls(75,&c)&&fabs(c.stride_percent-75)<1e-9&&c.motion_rate==1.75);
+    assert(ainekio_v2_walk_controls(100,&c)&&fabs(c.stride_percent-100)<1e-9&&c.motion_rate==2);
     assert(!ainekio_v2_walk_controls(NAN,&c));assert(!ainekio_v2_walk_controls(101,&c));
     assert(!ainekio_v2_walk_hardware_qualified);
     assert(!strcmp(ainekio_v2_joints[0].name,"rear_left_shoulder"));

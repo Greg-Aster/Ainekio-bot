@@ -19,6 +19,7 @@ import websockets
 from gateway.dashboard.auth import AuditLog
 from gateway.dashboard.server import start_dashboard_server
 from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
+from gateway.hotspot import RobotHotspot
 from gateway.perception import VisionBackend
 from gateway.plugins import CameraFramePlugin
 from gateway.security import DashboardPasswordStore, RobotTokenStore
@@ -262,6 +263,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         lambda diagnostic: audit_log.record(str(diagnostic["event"]), **_audit_fields(diagnostic))
     )
     service.subscribe_frames(MicrophoneFrameAudit(audit_log).record)
+    hotspot = RobotHotspot()
     dashboard = start_dashboard_server(
         args.dashboard_host,
         args.dashboard_port,
@@ -271,6 +273,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         token_store=token_store,
         audit_log=audit_log,
         primary_view=args.dashboard_primary_view,
+        hotspot=hotspot,
     )
     dashboard_thread = threading.Thread(
         target=dashboard.serve_forever,
@@ -312,7 +315,14 @@ async def _run_production(args: argparse.Namespace) -> None:
             return
         await websocket.close(code=1008, reason="wrong or unavailable endpoint")
 
+    loop = asyncio.get_running_loop()
+    stopped = loop.create_future()
+    def request_stop() -> None:
+        if not stopped.done():
+            stopped.set_result(None)
+    previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: loop.call_soon_threadsafe(request_stop))
     try:
+        await hotspot.start()
         async with websockets.serve(
             route,
             args.host,
@@ -330,16 +340,9 @@ async def _run_production(args: argparse.Namespace) -> None:
                 environment_enabled=adapter is not None,
             )
             print(f"Ainekio dashboard:    http://{args.dashboard_host}:{args.dashboard_port}/")
-            loop = asyncio.get_running_loop()
-            stopped = loop.create_future()
-            def request_stop() -> None:
-                if not stopped.done():
-                    stopped.set_result(None)
-            previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: loop.call_soon_threadsafe(request_stop))
             try:
                 await stopped
             finally:
-                signal.signal(signal.SIGTERM, previous_sigterm)
                 server.close()
                 await service.close()
                 # Environment and not-yet-paired sockets share this server.
@@ -353,11 +356,15 @@ async def _run_production(args: argparse.Namespace) -> None:
                         websocket.transport.close()
                 await asyncio.gather(*established)
     finally:
-        if camera is not None:
-            await camera.aclose()
-        await asyncio.to_thread(dashboard.shutdown)
-        dashboard.server_close()
-        dashboard_thread.join(timeout=2.0)
+        signal.signal(signal.SIGTERM, previous_sigterm)
+        try:
+            if camera is not None:
+                await camera.aclose()
+            await asyncio.to_thread(dashboard.shutdown)
+            dashboard.server_close()
+            dashboard_thread.join(timeout=2.0)
+        finally:
+            await hotspot.close()
 
 
 def _seed_environment_token(token_store: RobotTokenStore) -> None:

@@ -141,7 +141,7 @@ MetaHuman desktop as described below; its credentials/configuration stay local.
   P4 cycles distinct networks when Wi-Fi is offline, then selects gateways on
   the associated network. Turn off the previous hotspot when switching SSIDs;
   a still-working Wi-Fi connection is retained. With `AINEKIO_HOTSPOT=1`, the
-  existing gateway launcher stops its managed hotspot on shutdown.
+gateway stops its managed hotspot on shutdown.
 - **Cloudflare/remote:** save the `wss://.../robot` endpoint on the relevant Wi-Fi.
   It uses the same pairing and command/result contract with verified TLS.
 
@@ -192,15 +192,22 @@ logs in and restart after a process failure. Rerun the installer and daemon relo
 after moving the checkout. The unmodified tracked template assumes `~/Ainekio`.
 
 On a host with the Ainekio hotspot services installed, set `AINEKIO_HOTSPOT=1`
-in the ignored `.env` to start the hotspot with this launcher. The launcher
-starts `ainekio-hotspot-dhcp.service` and its dependencies before the server,
+in the ignored `.env` to select hotspot mode at startup. In Body Control,
+**Settings → Robot connection mode** switches between the existing Wi-Fi network
+and the configured robot hotspot immediately, saving the choice in `.env`.
+The running gateway starts `ainekio-hotspot-dhcp.service` and its dependencies,
 then stops `ainekio-hotspot-interface.service` and its dependent services when
-the server exits, including a failed startup. The operator needs permission to
+switched to Wi-Fi or when the gateway exits, including a failed startup.
+Switching does not restart Body Control. A robot using the hotspot reconnects
+through its saved Wi-Fi profiles when that hotspot is turned off.
+The operator needs permission to
 start/stop those specific system units without an interactive prompt. Disable
 their independent boot enablement when using this gateway-owned lifecycle.
 The default is `0`, so other hosts need no hotspot services. Body Control's
 dashboard login and robot pairing authentication continue to use their existing
-owners. Starting `python3 -m gateway.server` directly bypasses this launcher.
+owners. The launcher loads `.env`; a direct `python3 -m gateway.server` invocation
+uses `AINEKIO_HOTSPOT` from its process environment and saves UI choices to `.env`
+in its working directory.
 
 To install these missing services on Ubuntu, install the packaged dependencies
 and run the existing-contract installer once as root:

@@ -74,6 +74,18 @@
         <p class="stored-token-label">Configured robots</p>
         <div id="token-robot-list" class="tag-list"></div>
       </section>
+        <section class="settings-card" aria-labelledby="host-network-title">
+          <h3 id="host-network-title">Robot connection mode</h3>
+          <p class="muted">Use this computer’s existing Wi-Fi network, or its configured robot hotspot.</p>
+          <label class="host-network-toggle">
+            <span>Wi-Fi network</span>
+            <input id="host-hotspot-toggle" type="checkbox" role="switch" aria-label="Use this computer’s robot hotspot">
+            <span>Robot hotspot</span>
+          </label>
+          <p id="host-network-state" class="muted" role="status"></p>
+          <p class="muted">Switches immediately and remembers your choice. The robot uses its saved Wi-Fi connections.</p>
+          <p id="host-network-result" role="status" aria-live="polite" hidden></p>
+        </section>
         <section class="settings-card settings-network" aria-labelledby="network-settings-title">
           <h3 id="network-settings-title">Robot Wi-Fi and pairing</h3>
           <p id="robot-settings-availability" class="muted">Connect a robot to read its settings.</p>
@@ -196,7 +208,7 @@
             </div>
             <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
             <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
-            <p>Speed increases Run stride, leg lift, body bounding and requested cadence together. The saved joint speed limit slows the whole motion when needed, preserving its stride. Changes apply smoothly while moving. Finish settles the feet; Crawl remains crouched. Speed can cross between Walk and Run while moving. Finish before changing the selected gait or direction.</p>
+            <p>Walk stride and cadence increase together through 100%. Full Walk uses a 96 mm stance sweep; 50% uses 48 mm. Above 100%, Run increases stride, leg lift, body bounding and requested cadence together. The saved joint speed limit slows the whole motion when needed, preserving its stride. Changes apply smoothly while moving. Finish settles the feet; Crawl remains crouched. Speed can cross between Walk and Run while moving. Finish before changing the selected gait or direction.</p>
             <button id="walk-apply" type="submit">Walk</button>
             <button id="walk-finish" type="button">Finish</button>
           </fieldset>

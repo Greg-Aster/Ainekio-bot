@@ -430,7 +430,7 @@
   "status": "saved_current_geometry_firmware_playback_verified",
   "motion_scene": "Motions - Firmware Remap",
   "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "4d9e21e262f2eef4e2ea3fc131e13c8f27f4a6e8af301a11b213ada99d853d4e",
   "profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
   "finite_choreography_comparison": [
     {

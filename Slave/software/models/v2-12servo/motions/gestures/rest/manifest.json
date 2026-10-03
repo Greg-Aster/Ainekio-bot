@@ -73,7 +73,7 @@
   "hardware_qualified": false,
   "actuator_calibration": null,
   "source_sha256": "26c4cf3ee0ebb53a4385ece7850c73e9a7e753d76bb922d379981e605e58bd16",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "0": "b56169dcfc2fcd247b296b346dab40b73ef3b6438c6d7ddcd63383c71c0204d9",
@@ -182,8 +182,10 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "73a814c272f30abdd6513a618e6194203566919d21fc7e71f4cc70b90adf58a5",
+  "posture_sha256": "514d148a51fa11c860d033ae76760bd1bb993d8128d99863adfa4f598c542288",
   "posture_hulls_sha256": "d36e34fa0f1697cc3d65364c1344d2e1f0ca363375684b3877d2b46cb471d1b2",
   "retargeting_notes": "All four lower legs lie along the floor and the visible structural chassis supports rest on the floor.",
-  "choreography_source": "docs/gait-research/rest-20260915/manifest.json"
+  "choreography_source": "docs/gait-research/rest-20260915/manifest.json",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

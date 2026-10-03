@@ -39,8 +39,10 @@ int main(void)
         assert(stopped&&state.complete&&!state.failed);
         assert(fabs(state.pose.body[2]-(family==2?V2_CRAB_BODY_Z:crawl?V2_CRAWL_BODY_Z:V2_BODY_Z))<1e-8);
         for(unsigned i=0;i<4;i++)assert(state.pose.grounded[i]&&state.pose.sole_height[i]==0.);
-        if(direction==AINEKIO_WALK_FORWARD)assert(state.body_x>0);
-        if(direction==AINEKIO_WALK_BACKWARD)assert(state.body_x<0);
+        /* body_x records commanded travel from zero. Crawl's rearward bias
+         * belongs to its foot-placement targets, not the entry root position. */
+        if(direction==AINEKIO_WALK_FORWARD)assert(state.body_x>0.);
+        if(direction==AINEKIO_WALK_BACKWARD)assert(state.body_x<0.);
         if(direction==AINEKIO_WALK_SIDE_LEFT)assert(state.body_y>0);
         if(direction==AINEKIO_WALK_SIDE_RIGHT)assert(state.body_y<0);
         if(direction==AINEKIO_WALK_TURN_LEFT||direction==AINEKIO_WALK_TURN_RIGHT){assert(state.body_x==0.);assert(direction==AINEKIO_WALK_TURN_LEFT?state.body_yaw>0:state.body_yaw<0);}
@@ -51,7 +53,7 @@ int main(void)
     assert(ainekio_v2_walk_tick(&state,10000));
     assert(ainekio_v2_walk_update(&state,(ainekio_v2_walk_controls_t){0,1}));
     for(uint64_t now=20000;!state.complete;now+=10000)assert(ainekio_v2_walk_tick(&state,now));
-    assert(state.phase==0 && state.body_x==0 && fabs(state.pose.body[2]+35)<1e-8);
+    assert(state.phase==0 && state.body_x==0. && fabs(state.pose.body[2]-V2_CRAWL_BODY_Z)<1e-8);
     const char *directions[]={"fwd","back","turn_l","turn_r"};
     for(unsigned i=0;i<4;i++){
         char wire[256];snprintf(wire,sizeof(wire),"{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"%s\",\"steps\":0,\"gait\":\"crawl\",\"speed\":25}",directions[i]);

@@ -71,7 +71,7 @@
   "hardware_qualified": false,
   "actuator_calibration": null,
   "source_sha256": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "0": "f77bce618caa17900273bfec68c4dbaae654a168f87d218a9b5be08f1a8a9987",
@@ -177,8 +177,10 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "dc16931666c7d3213e1966de3f4be645ebed441f1dae24d2debb33a7a5cd2cde",
+  "posture_sha256": "e33a5d8230528e5fa9386868f84ed104d987593797a7a45bc9a69b7cc07c5438",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Rear lower legs finish nearly horizontal with broad boot support; current shell clearance retained.",
-  "choreography_source": "docs/gait-research/sit-bored-20260915/manifest.json"
+  "choreography_source": "docs/gait-research/sit-bored-20260915/manifest.json",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

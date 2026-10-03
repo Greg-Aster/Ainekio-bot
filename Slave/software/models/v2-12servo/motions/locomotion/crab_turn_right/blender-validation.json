@@ -7,7 +7,7 @@
   "max_foot_position_error_mm": 1.7374708832562646e-05,
   "status": "saved_current_geometry_firmware_playback_verified",
   "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "4d9e21e262f2eef4e2ea3fc131e13c8f27f4a6e8af301a11b213ada99d853d4e",
   "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
   "scene": "Motions - Firmware Remap",
   "complete_joint_and_body_key_arrays_verified": true,

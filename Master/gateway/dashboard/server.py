@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from gateway.security import DashboardPasswordStore, RobotTokenStore
+from gateway.hotspot import RobotHotspot
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.control_v1 import ProtocolValidationError
@@ -48,6 +49,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         token_store: RobotTokenStore,
         audit_log: AuditLog | None = None,
         primary_view: str = "camera",
+        hotspot: RobotHotspot | None = None,
     ) -> None:
         if primary_view not in {"camera", "simulator"}:
             raise ValueError("primary_view must be camera or simulator")
@@ -65,6 +67,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.authentication_lock = threading.RLock()
         self.stop_latched = False
         self.primary_view = primary_view
+        self.hotspot = hotspot if hotspot is not None else RobotHotspot()
         self._camera_condition = threading.Condition()
         self._camera_frames: dict[str, tuple[int, bytes]] = {}
         gateway.subscribe_frames(self._record_camera_frame)
@@ -144,6 +147,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     **status,
                     "audit": self.server.audit_log.entries(),
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
+                    "host_network": self.server.hotspot.snapshot(),
                 }
             )
             return
@@ -257,6 +261,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _dispatch_api(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         robot_id = _optional_string(payload, "robot_id")
+        if path == "/api/settings/network":
+            network = self.server.call_gateway(
+                self.server.hotspot.set_enabled(_required_bool(payload, "hotspot"))
+            )
+            self.server.audit_log.record("host_network_changed", **network)
+            return {"ok": True, "host_network": network}
         if path == "/api/intent":
             name = _required_string(payload, "name")
             params = payload.get("params")
@@ -627,6 +637,7 @@ def start_dashboard_server(
     token_store: RobotTokenStore,
     audit_log: AuditLog | None = None,
     primary_view: str = "camera",
+    hotspot: RobotHotspot | None = None,
 ) -> DashboardHttpServer:
     return DashboardHttpServer(
         (host, port),
@@ -636,6 +647,7 @@ def start_dashboard_server(
         token_store=token_store,
         audit_log=audit_log,
         primary_view=primary_view,
+        hotspot=hotspot,
     )
 
 

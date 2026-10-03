@@ -10,15 +10,15 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/sit/execution-contract.json",
       "sha256": {
         "source.json": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
-        "manifest.json": "78f085963161ecaf2ac048b458d83c597ed5855ad93ec079bfacc65310109ca5",
+        "manifest.json": "25f8e6ba095fd87b5d8d4c0e00dcfb7ab99e6a73f1a8a8158aafb6a75286ef98",
         "schema.json": "db696df45dbf243539c6e1da9bca851b27bdc2e2d9e8fc2e521e44c685b060c9",
         "config.json": "faaec91b2b891cc0e3bb4bc18ada973a18178211e18adeef380d7035e0dd49b7",
         "sample_reference.py": "165f4b7b43918d286b2391a6c96dc75c6104c7636fd93b2ee7b4232eb2b5fe15",
         "validation.json": "866949924956eb5eb74752f81c71f0df8b2c3c51e2f5a494123a9ee8f4f6078b",
         "interpolation-validation.json": "1c6f42e14ec4e2d72143552bd6a5b4307b23cbc20c8ca8ee6dcadf75a0dd0f74",
-        "blender-validation.json": "c0d44cd5d43d2fb164def21dd1e19dd4dc5ad4b9dfda49ade188dcd921cc34b3",
-        "execution-contract.json": "dec01c5a6d29bf687efa0b4c74ed4831354f08562fecff4fe19195366d9e14ba",
-        "posture.json": "dc16931666c7d3213e1966de3f4be645ebed441f1dae24d2debb33a7a5cd2cde",
+        "blender-validation.json": "c2902a9c150f733947d95bd32153cb08a7f596f8065deadd7794f65a6a490167",
+        "execution-contract.json": "ec2d0d5f9171adaed4a86733036fab9bced993f6e6da76300962a88fcc364967",
+        "posture.json": "e33a5d8230528e5fa9386868f84ed104d987593797a7a45bc9a69b7cc07c5438",
         "posture-hulls.npz": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c"
       },
       "legacy_handoff": "docs/gait-research/sit-bored-20260915"
@@ -30,15 +30,15 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/rest/execution-contract.json",
       "sha256": {
         "source.json": "26c4cf3ee0ebb53a4385ece7850c73e9a7e753d76bb922d379981e605e58bd16",
-        "manifest.json": "47fb44689e4b46bed4aa142a0594e28d4583d2cb91e361ef8bc1510fe18a2eb4",
+        "manifest.json": "13e9520d78c3cd3769a4460668d889565493397d1070a90a5fc1f5e338c9fb61",
         "schema.json": "cfdf8a421d1f0d45d75d0b89a3967b40843c22fd5a4a5a76d57f6e11b5a9ca3b",
         "config.json": "2efa914fb83ee905ef89593bf89f75b4edda4b2c00a46fb0cada310e8e4a1107",
         "sample_reference.py": "f3dd647498b8f606db24718269484605c0a5eec731cb2e71026a581d1e344bcf",
-        "validation.json": "6eadb8df99fab15184a53a2b62be6937d7913b482bf56f3a5f982d3592279a75",
+        "validation.json": "e296b8876f5a2270936b2d3647bda0f2153ef2da526b74480a8fb1fa9f4458cb",
         "interpolation-validation.json": "a8eff890f4560dc5128f25b96fc65745c88e81fa5133b3e22719dcc895a35b13",
-        "blender-validation.json": "0151c3a8fefa1b6226ba5807095e0bfa832e4a6184ffbc5da34528f287237c51",
-        "execution-contract.json": "ce9915e7bab837de45fbcd0f672fb5f9ddb425c9274591bcc3cedd38bc6fb3dc",
-        "posture.json": "73a814c272f30abdd6513a618e6194203566919d21fc7e71f4cc70b90adf58a5",
+        "blender-validation.json": "afb6954cc5c02eaa8785cf51100105c171e1bd7eb378a8608bce5e24130bc4f4",
+        "execution-contract.json": "7a9f7b92c800122bab0bc6cc4fbf61bd8edef46b887d210f61dc975098d4d7f1",
+        "posture.json": "514d148a51fa11c860d033ae76760bd1bb993d8128d99863adfa4f598c542288",
         "posture-hulls.npz": "d36e34fa0f1697cc3d65364c1344d2e1f0ca363375684b3877d2b46cb471d1b2"
       },
       "legacy_handoff": "docs/gait-research/rest-20260915"
@@ -50,15 +50,15 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/wave/execution-contract.json",
       "sha256": {
         "source.json": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
-        "manifest.json": "b51f622cb8aecde2f1c3f8fb7c1081eb782ba57ce0ec29e116fe927d8c3e6086",
+        "manifest.json": "beac83ca322eae812e1065fe15107302a56fc1b41a809a7fbb3aaf7e8f0e947e",
         "schema.json": "1aa3db3cd65907f0c1071ce5b3dd7e5b23315c432ce4c7670e27ec1ef925aec8",
         "config.json": "92b013f580451974c2023cfec3522b16e1f7061e13bc8cfdde64bbf2731027b3",
         "sample_reference.py": "ca54cf209e481e706899b85355db682d06848fa0c22c0ec7a53d48cd4f587760",
         "validation.json": "33ef90c8d3d08617e2bc04252ba5c0cc98206f88e3ec173776a6115f70656418",
         "interpolation-validation.json": "aefd6ea112e9230b6108dcbfdff6be0813034b2a7badab76a0aeb23d11346ca7",
-        "blender-validation.json": "e4270edabdb9e866942d1938fd47c716d46ab9de8ac2d2d72587fa5245b93dfa",
-        "execution-contract.json": "020738c799ff06272d12d9065d73f5275a753f4323aa79dc66fc4a5039558077",
-        "posture.json": "6b33c88b80161ffefab2f158e355329f60d8cc851a03f35f97e4b0200063e695"
+        "blender-validation.json": "3916c9c74ea4368601d60a8c08c10e81c25e162a7345353fda52c6b3b9828e33",
+        "execution-contract.json": "c2d4b9f92d1511fc3338fc74512b47fd7d6e0a08a1ec8e5b2843e086ace44cd8",
+        "posture.json": "ece84bf2021f53607df92146b44c88e929f741f7a6045638283b6ecbb0640e84"
       },
       "legacy_handoff": "docs/gait-research/wave-seated-20260916"
     },
@@ -69,14 +69,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/dance/execution-contract.json",
       "sha256": {
         "source.json": "50290b6586dd3d29b32cb480476bcf6c76614f70daf804b17c090ce0515f8af5",
-        "manifest.json": "db82fbfd7b98c72f3248b6f0223da1cc39a85a45909ae6a57c1b92997f2b5877",
+        "manifest.json": "89f548fa514d50790a9e02faa0ea40962c7d4d560e90961bb96d17327f1b18e1",
         "schema.json": "1e4a6c7153b2dda9f8b301d4d2c60225d48efadb18666cc18a7c7a3ae38caf5e",
         "config.json": "38498ae93002e5e62d7b1d62153b993105865ad83e1e819f8701052ee79085cc",
         "sample_reference.py": "29ca59707b74f18b7bc6a08803deb5c898a947eba739025bd675a9eb7159f29a",
         "validation.json": "fd0639810e8df5100b94c742eba286ae957e85a829ef43fd05d7b06981747f4e",
         "interpolation-validation.json": "2dc8f4fc181a3320c2f7e0602b0639279b994b8a4065f66d3ee2a61b0bfecb97",
-        "blender-validation.json": "04d582dd5bf02607fce70e5a0938d59b8ca5e93cb37af567a6e139ec17b294a6",
-        "execution-contract.json": "e21a7156b95d80eeaf87d342857589907e9d13f6e77eb8a5d7535030d345a803"
+        "blender-validation.json": "41e0608bb7ab21bcf97ef82699207e46c00689ac21d0f7c6c862e35b5a77e594",
+        "execution-contract.json": "d80342b8250974395e9173735960d8bb94c088575ecbddaee1a67900343786fc"
       },
       "legacy_handoff": "docs/gait-research/dance-20260916"
     },
@@ -87,14 +87,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/swim/execution-contract.json",
       "sha256": {
         "source.json": "1d44ae1fc78d55be814ad9165b7915b74f04b2022f0741801df9b7a451c51a49",
-        "manifest.json": "c32a0dd2825405f51e441288115076bd722ac40ec06937ae60a81e56894821c7",
+        "manifest.json": "d2c10152226be07baf72035dde5b354f23420e55870049e2038220d1a5c89ff7",
         "schema.json": "93686102609cacc9c1c54f1220a045d0cab5d05282a1638bd1ece11732d8668b",
         "config.json": "4232bbf61e23cf0b60803b3ad617b4c0b1458404de947109f08f6792e60ec631",
         "sample_reference.py": "90a0eddff8459b9e74d1669be61637194fd855b0d3ba9625e2754a8f11027444",
         "validation.json": "2415022de7ec44798c52bc8c6d0b3ee8997e656b9e58f2b83d1f06b9152a6f51",
         "interpolation-validation.json": "d889969ac2f1fccc66beafd049dfa5404c6071c9d5d060c4ee0ff958da277e02",
-        "blender-validation.json": "9b39f72b863b95dd3e45e9a764b188563039d4bf2f92ba0f2326fcbab1773a62",
-        "execution-contract.json": "2e4ac6b1091eaf472e7c6f451eae7dda1a1d6309116c70900e8654d5267e5937"
+        "blender-validation.json": "46f1962a77f3372ad80c73f5f1cbc711736745b732dae7f526a278f62dc36ccc",
+        "execution-contract.json": "e7c63788ea6f1521c91a9643f45cd93fff386e17af6e412dac29239359ccc829"
       },
       "legacy_handoff": "docs/gait-research/swim-20260916"
     },
@@ -105,15 +105,15 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/point/execution-contract.json",
       "sha256": {
         "source.json": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
-        "manifest.json": "907e31a8461b754d1666b3117f5e43a7f5c887c4418a7f258bfd00e0b8ad7c84",
+        "manifest.json": "06c3f24a97462e103f89071027d94eea8f2de742ee26b2a5a617f150f8526772",
         "schema.json": "7c490f6cb7d44ec8cf8ca1eac485b818b0273ab1cd296f6355ba0e5c5476c740",
         "config.json": "ee30e0d833f47bb733cfd0b7943aa1f4b26af1870570b9800ca9761004410feb",
         "sample_reference.py": "808aa5fef01363bfa7e554a78adb7c45cd4c9a02150b49851ecb9730e22bcacd",
-        "validation.json": "a99002c330bcbe583094fe68447b31efd6da945283de700322fd4cc1540cea9a",
+        "validation.json": "862ed34d1da94ad750c9b30bc034bc8c5fb9ac4be40037ae9ee9e5008de431ca",
         "interpolation-validation.json": "8915e1fdeee13fdc6f6c6af7986cff1fd71e6c58b05e5265a30f8a9764c6e364",
-        "blender-validation.json": "802b75b2c691b717f95c8d166e21567acd677c0d52e9cc85ae320a7b71f0d225",
-        "execution-contract.json": "55511cd7b3b1fae11268822de53875321d82480ed1900a99ee199d7fc088a094",
-        "posture.json": "afe1d1af6d0b75e5df08bbc7e372c60079ec4ba2a7ce11878cb7c88918922b23"
+        "blender-validation.json": "3223cb0d6f37cb68d0d03ee715b3c301199dcebf646004531488a7a800c7619b",
+        "execution-contract.json": "0cac3b58609c1afd9e821d6538a7252cfc715caf4e54520ef8fcf21ca865c67f",
+        "posture.json": "7585187c1140ae9059533ebd92c0169e5658578b9fd029426d646035691b48a0"
       },
       "legacy_handoff": "docs/gait-research/point-20260916"
     },
@@ -124,14 +124,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/nod/execution-contract.json",
       "sha256": {
         "source.json": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1",
-        "manifest.json": "a9e5bb6819fef95298aa70d4a621b570b67bdad0fc016bc1b4baa7a4e9140968",
+        "manifest.json": "cfab94bdec8f17ee47be3c9c13f7649a152214c15835c6a241683566f57e06de",
         "schema.json": "4da5b28a5331fcf4df5069e476ee34ca8d4407e35fcb2b170ae4e66658afb242",
         "config.json": "1f7f333c4329f23b1040739af64c429d76a6ca03eb65d06ba08daa20dcf68891",
         "sample_reference.py": "474398a428952aece9a9f9ae2849fca6f6363f5b502977a890025c10ea2d229b",
-        "validation.json": "3057ae86dac353a3b53e5655d924a407a7d251cddd8f5e8672a98afd24fd5af2",
+        "validation.json": "2ebb587719e073bbf2bdba75268d0223142703fa3b4b762604105d889f86a49e",
         "interpolation-validation.json": "4476e3c902dd183d5c1dc2d3d2e5c3461f71d90d6935867be6b5ba32c91ede61",
-        "blender-validation.json": "6b5854d5d740f22ba9e6f44aa84d5d4696dccd173ba00dad5611457e5e1955a2",
-        "execution-contract.json": "9d75d639c0faee6f51d9e998390aba1e8b544d7ac464cf75af437b5c8f4172bd"
+        "blender-validation.json": "1d0e67678b556764ebe67207dc0f6b45691c4579782f845d0385009e79f3a68d",
+        "execution-contract.json": "cfc58f9f27c97dfde268a1d90d539dfce608cb49d1e8d87fab9fd90229251e24"
       },
       "legacy_handoff": "docs/gait-research/nod-20260916"
     },
@@ -142,14 +142,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/pushup/execution-contract.json",
       "sha256": {
         "source.json": "2c136913a43119a5f41af6e900c5bcae4d5ffcfedb32ef26178ca6b7a4a75d1d",
-        "manifest.json": "c0b5e56e0d431151a55a5b71531543d18f23160c45a66458fe33db01b91f6c39",
+        "manifest.json": "d09101f024193814d0b3cd6d92584afd847608f3ad3449b76c72e4d5c667f538",
         "schema.json": "bf37438b7a0d8f67b1b892818dd6ce92fe57de12cc2fe0c1045056c99420841f",
         "config.json": "4104fbbc951f31af76510185f89cdcf75787cb9669f08c7ace9ea7b2e893ea5a",
         "sample_reference.py": "da23d419d21196dbca6917dc05110189ff8bf01826a90d54fe2e859da8c43f25",
-        "validation.json": "75ea537d5ab5cddc24dbae46cbc7243b91bc9e8236e9476863859bb2cb96369a",
+        "validation.json": "b92328a8f7ea9bc69ec48fc9776ce0335b29e6f1574ea85c83fa09d7cd333e48",
         "interpolation-validation.json": "cef15cee1ee0b91c6b2c22245774baf101809deedd8d439f3193c63a54806fe9",
-        "blender-validation.json": "c926cf198196f1797358567816f146d6824a01e9dd571324cde96f67f1e919de",
-        "execution-contract.json": "4d38287d06da41a169de237f69df70e6f2a9d9c00723e390107589efc76a8ec8"
+        "blender-validation.json": "6981b6600bdddca8d7d4fbb79b39f164ed2f5b3aac63ea8f81df78fbe328f202",
+        "execution-contract.json": "8dc1fcfdf8b70390a3915e4d0ea08258613167ecd05c81030494cfced4f7b471"
       },
       "legacy_handoff": "docs/gait-research/pushup-deep-20260916"
     },
@@ -160,14 +160,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/bow/execution-contract.json",
       "sha256": {
         "source.json": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
-        "manifest.json": "e150274b27d27c62eb29da44fe0b6ca19d319490b3c53fbf794bb43b097eb152",
+        "manifest.json": "db7aa4cb736cfe49cc7502d7cb20e335730061dda00334c8fef1a1b2e82dc18a",
         "schema.json": "d7803c4fa56f2a838a6f51c40c2dd3b96c4646b23a0e4af7d7fc8628612a98c9",
         "config.json": "1accc351f091ffe4e26591ac0bce8b29ec37e9e05bcb54c25153fe2e1b2777f2",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "fd1e8d03ec722728266556ce1272981f0e622de94e6d7dec43f0d27a8c7f0d48",
         "interpolation-validation.json": "651a3f3a0c8104b53910ec962944425c1284cedf3f128f2a7b41562cb956b107",
-        "blender-validation.json": "db20d7d5173aef85f537b2d18ad7257874e0470ea833df9a0d475500a98e3214",
-        "execution-contract.json": "7c0c28bc9ae96676a4d58110221832e117b7c68329b19e90f58a8f7669017308"
+        "blender-validation.json": "5b86223db9eeb82420b19ef31292e1fd1aa63549e78d21879f2df0f40d2edfba",
+        "execution-contract.json": "b8ca8e4dca8a863c989038a859d4f1d8e833f1303405370dcaeb265f6336c822"
       },
       "legacy_handoff": "docs/gait-research/bow-20260916"
     },
@@ -178,14 +178,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/cute/execution-contract.json",
       "sha256": {
         "source.json": "dbdd7e65b6d2205db430fd498b14daa2f7682e54e01b47613d3cb7a481ef9e51",
-        "manifest.json": "cb9f1e71322d46a4ab48dea45a1584fb09e5e13f52ede344aa8f44a49f559e3b",
+        "manifest.json": "3d143474f9d78fc7e367729704b71ae5b2c6e0fd443176945a627ddcff929dcf",
         "schema.json": "7215da5089261f3c516e44d82d9d06161c9af5f9111953c3202e42d9fc61fb41",
         "config.json": "cdcc34940b8aa038e19bc093187e15a6636057283382b570d8b5cef12dd2a336",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "3d5305366023263f79a0d1ce5ae9dd3bf3b274fc600b2251bbf6159b6f7af830",
         "interpolation-validation.json": "f62c21eb9badacc3b6fb573f0becb8b46064f56fa336522339c6052740d5e8b7",
-        "blender-validation.json": "58f547235a4e6d98e47a1e1e0de91c45f90a661ba3543fecc4eaaad64df95c24",
-        "execution-contract.json": "199727d2fd1ce3854a8eb9845ef278a3d92c0a2d7880545a329d5dd3029466c4",
+        "blender-validation.json": "400b6924a43e3b2af20c5a7a23935bd8178cfec5ea0aecca81fffc19171895ac",
+        "execution-contract.json": "f8b867ee21e274ebedb18abad006a8ea2244029c900c260ea50b5a124a4b74bc",
         "source-review.json": "c664ddf1a20bd3d352d18c490158a7975e6d0db2084e9e6e46f87a998081fc7b"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/cute"
@@ -197,14 +197,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/freaky/execution-contract.json",
       "sha256": {
         "source.json": "b5f856b658ddc777d76511f057b37b3df2635ac5ed45683d28e92415ee2ddbb3",
-        "manifest.json": "7c115fd897740fdd10b4b6bf27739e4cf49dc8dca6832a1d0f0d457953db1f81",
+        "manifest.json": "7ee2e1d8b8c63cf24b4a05fa9c81683231e0bb8186c449bb4d5da32b89a64b03",
         "schema.json": "ad5b3e8f7c81c7a0abd12d886ac200199bfab2200b899748022ef610935c36f2",
         "config.json": "0f449012a3dd2a7ef21a54a0839f15a200c8838a9f41f2da70b833b6ca590254",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "173e88abd188400266272f17d209a22b7d619fc668990f0fcf15b17859126ca5",
         "interpolation-validation.json": "d05ea9dc922ed1017aac392871921612fb0c5846af63509b29f258c1349a2cf7",
-        "blender-validation.json": "691ebd9bc19a698d65c07e89a5158f4ac067602553dec7b30b50ddea2ad9353e",
-        "execution-contract.json": "5e9b3a22588cea964293b85445f5bf15357f744ec93b8bba1e06fd8121023f36",
+        "blender-validation.json": "794e3261eb5b927572dc02cb98b4571c05f3ff6b1761002e8d22b748a0a478ff",
+        "execution-contract.json": "f50aff2b2584dc646962a8392b1b697554b2069d062d738839f74ca94e974951",
         "source-review.json": "e93b09d9e35c390fbc98f4467b750b9a329dac25e585293ac854a3acc0cce5bc"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/freaky"
@@ -217,11 +217,11 @@
       "sha256": {
         "reviewed.json": "2e4e92284bf509d81a162312aa03b42cd228ece26faa51d2c2542c7ee5824874",
         "source.json": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef",
-        "manifest.json": "d480a40fff95036edba60b866994316488632b36456abc5e73af0aa60a79b53b",
+        "manifest.json": "4147824f1ce4bffe11f60deb3f72fe85219b085944f83da96fbc50f3536fb017",
         "schema.json": "23df2ab2653b555d86dd6bb2f2ab5d6f50aa9f96cfd5fe600c9ab33981231ed6",
-        "execution-contract.json": "8f73a7e1099241b966e466e7feed6d4aca025081baf1cb0d3f5b936073636bd3",
-        "posture.json": "8dc29f38a1a3735b07b882eced4e19e6b3bc6b911eeeb14eeccd70c52836fba0",
-        "validation.json": "f1625911b88f815389e0fc5b6741e73ee7d1f191962a017e20e5ba82835153a6",
+        "execution-contract.json": "fe712aac713767675b8629adc68436e0565b4cca9a42078dd02a402a1003c662",
+        "posture.json": "e2514eea6f1e2ad0d62f1e02f114b357c43bf31b9de45a9801e2dcad62089bd5",
+        "validation.json": "4ffd94c834fa9333d856cc02023b093c8b0f0dc47c2321c17445554bc54d5f2b",
         "sample_reference.py": "80c66123e9ae1eb945b8e94fa3eefabc6653dac0f6da50042cf644793488b245",
         "interpolation-validation.json": "4763d9949b0e000c83fd6da88893cbd105713dc942746ea7a2faabe7b7a5c29e"
       }
@@ -233,14 +233,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/shake/execution-contract.json",
       "sha256": {
         "source.json": "4ce21b2cc6ebb59b96c36a009a5adea1a261953c6b6019843c178f11db57c620",
-        "manifest.json": "6553f54aef1f20a7bb98ee71db7377353bf83db8ed8f0e6441024d9ae3bbc604",
+        "manifest.json": "c49265177f7dd8b7cebdd714d67683778c55afc7779b2695a44a85c13ce7951d",
         "schema.json": "668b0c3c8d57a7756fde93419eb4de7e282f990097e90408264b8cd1a4c44fe4",
         "config.json": "a3bc5e7e2d3a6b40182105113608365d94e8260b5681de54eed777547f74f742",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "defbeec171cb46b6ac20bbf40c18d951f160e14153d6f1f68bb0f30c51104baf",
         "interpolation-validation.json": "eb3d08d72de368032ad3139b93a7a6eb4c6509b6001ade49219aefaf2c67852c",
-        "blender-validation.json": "8f1b3294e5b66928fe21cdd19e88952e7be77365fc66b7c760cc9c305c823621",
-        "execution-contract.json": "c5ad395e90babc3072707e30e46b10a9a432ecd3f88f9f33d2c0b6f772176182",
+        "blender-validation.json": "a54728a77c982e80641d020e2858e12dd76bec39ce0ff56365fbbd00f55d13d1",
+        "execution-contract.json": "c14d40b1c3a063b94bb7d8e0b5ac2b39cd472004dae50d73f9ddde4f465a8a7f",
         "source-review.json": "ad54aa84dc239beeb336dd12db5d8b420e18f80e673af256868bbbc4a2a41737"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/shake"
@@ -253,11 +253,11 @@
       "sha256": {
         "reviewed.json": "f9789ad80b71405eeecba8c3441e4cc90b8bb7b6dc7f0b644a8056e9f004bbbe",
         "source.json": "34badfe186ec00a529c50bb3c8c1d8bbfe8d0a4b16d39fc6aa9e49965ded7f99",
-        "manifest.json": "03be1b650cc875c903e8845997c0ca6b3baa19a24f6d738e9409b0c852f13c18",
+        "manifest.json": "0bfaffd5a6cc23be42b4202dfc83f289976450b9614ca5e0b4cb071962a5be15",
         "schema.json": "823060d19121d9244aad18516760d7c80affb6a9d59c4d6c0a56e2f5909c3006",
-        "execution-contract.json": "d33779d6b5091acb5e3b87aebb1abd427a6bbd46ffc96b5514d2cff18936ae94",
-        "posture.json": "f73c4d766f206039fa589683c901d740ede1ddbc803fc1f0f9da140bcad6c95f",
-        "validation.json": "117c93d0f099a1a75aae3c624c2d46a9eeb9ea90f1f05542e1406efa24c70934",
+        "execution-contract.json": "824b4e6ed38aa64de1962625e528c3838435a9c8e77ff155f2973cd4127e3c95",
+        "posture.json": "aebd9620ea7f37a9d2f6367b09bfd1acfffc9d4c4808b9ec94cebcb7d5a625ff",
+        "validation.json": "c1fb23f2f44be3801048e2013d3e182701370d7149483b7bedba99ea62c49fd2",
         "sample_reference.py": "9f64896b2f6a365df66bd07341fb3c5138d6ea71464c9bff0994cb19a45958c8",
         "interpolation-validation.json": "e6e24cde84e22fc53adb7bd465c97143ec6e799eca97a8d2b4de576aa76d2cf5"
       }
@@ -270,10 +270,10 @@
       "sha256": {
         "reviewed.json": "30cd7d5669948d67ff1f8aac0ed031beefba7fdcd8386ba8c6a5e1689094ba00",
         "source.json": "27b314a63510f8d1039ee2ab473a225441ead1961590256e254354b4d8c3fad9",
-        "manifest.json": "f86e2928a8bf5fc2bba99d08b75b7cb35ef2bfcfa71fd8efb49122a63ca73fb0",
+        "manifest.json": "fc41a9b2f883231350975ef9b5853655522a06b224ab2e6fa9ec59ee7723d43c",
         "schema.json": "5eeb8b0635a2a631b1b447786fd835cfe5bf30ca07e21fe6bdf5844e3694b1d9",
-        "execution-contract.json": "902e312e6453e7f875a746a8076abd86a8ef2c6a1f7a2e8606644b6724fecc9a",
-        "posture.json": "039a75f9992274d82b192d6d86c4c53d07af2e55c3ba2e72e0d52be74929f988",
+        "execution-contract.json": "44a537f2c171f0f1b2fbae68e6feb41ed2bae222fbed84c9255731b1364b8823",
+        "posture.json": "a6ab0d84f9e60666d67fabb5ef3594217e1e1748e2c6886173207f5d3873e345",
         "validation.json": "d70ed5ac41207528b90718418f80b4f5bbe5d205d349f9396c8091136abd7468",
         "sample_reference.py": "8eb8dfb9bca038e5247073891791d89f74f7a73e27f446cb2b7f8982719a99c1",
         "interpolation-validation.json": "1ee6618d4abef8919698c3b3c2ef8cfac72ed9a59b1a4a5346b667aee84543d5"
@@ -286,14 +286,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/celebrate/execution-contract.json",
       "sha256": {
         "source.json": "cb71e9e54b1bb645cb8738403341d895b4fd006a5af5c06691fb4fe7284a3d7a",
-        "manifest.json": "b2f791c8dfa91c67a9bd4c90a080eebe1e49acef57de2f809671271a88774afe",
+        "manifest.json": "b9bea1d9081c8b7aa0ceec644610af6326fbbd15be0540c66560c82ab278ec00",
         "schema.json": "bca7689275fbf7d7bca772a3c7a84e096ab41e7325771d8c1c350387aa49c2f1",
         "config.json": "f77d770d57bc5f8dc8a5371fe51e381af5e27ae20f5df2f76cf52e146c5f9b69",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "c165656ee473c002de58f079df1d23ea2a8ed61ae70e901d4742068493cdc10e",
         "interpolation-validation.json": "358ba56461d09c9313ff57245cca631d6c6968fe552b0d80fe9083baaad2087e",
-        "blender-validation.json": "210e67caaf24d1597c0cfbcacc82fc0a87b56eba82c5bc24184c5efbcdc3e9ad",
-        "execution-contract.json": "aabe0b9845bbbccc2b8fc6f24e055165f2a00a12044b528ece79a2c5ff11877e",
+        "blender-validation.json": "430937beb566de60c8593d3fa5d13709736fe52f1b1e574c6996e587e5dccd1b",
+        "execution-contract.json": "8a244dede490a53e68303571823ee4ae6813c2a99b136d9bec11c0638dc399ba",
         "source-review.json": "e9e1f51d48049f74f80dee30c1e0720bae093be7f1e0d0bf3c901573532bba3e"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/celebrate"
@@ -305,14 +305,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/stretch/execution-contract.json",
       "sha256": {
         "source.json": "50e7447fa5433b13c0037a42cdbb1073257032969532e3d7d1b2c8cb0ba7d709",
-        "manifest.json": "a092fbbe9e840815b7f4253497ae8de8c4cfc197307650e4bff76eb8ff3d4464",
+        "manifest.json": "aca8023e0955c6623011f0325a97059a6afc637e6e59d514308abad57371057a",
         "schema.json": "e95b3dd6a9cc54cefcf54435dbc5f8739094f9074102571c3c9bd925f38e3576",
         "config.json": "4f9cb5d1929f9950d98b6311213a05354ea0e7554575174432d1bfded41a355f",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "d9c9fb0a8c3367bf7eae3436fda78c1f7a1e2117c4cca30f39ff1c34048b327d",
         "interpolation-validation.json": "539ce90f3885e7dfc274467c3419cd8812559432c097cbbf38ff5f2f90bb6e5f",
-        "blender-validation.json": "70b66c6bb0322e14f894401a2d47ec3d499b959d75ec8a2e599cc094edf967df",
-        "execution-contract.json": "32321f68ed0e64fc77b5f781305860465b9060d6192f3d5b8b3b530cceeeb024",
+        "blender-validation.json": "30d73496470b00c650331e7ec026d544b93beaca305edd0be165be8ca3920732",
+        "execution-contract.json": "06f22b129aa1101422514d036da56c624037d265e45f01bb7e0e82ca1ae2ecb8",
         "source-review.json": "1bba78a28a4e6cb1ea99557b56f1fca8ec616f8ee8b251dfd2209640c2d053d9"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/stretch"
@@ -324,14 +324,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/surprised/execution-contract.json",
       "sha256": {
         "source.json": "285b58d660a2bfa16650154cf220a7a7ac43b45b683b0c7291d96d66e585b0a5",
-        "manifest.json": "d84fe8de460b743f7252939dfda1c4f7a24c8a3018eae77f67cdbd5fb96f96a3",
+        "manifest.json": "87edca97e8e9356602052982682f14ec291b02e51cc7ff478b48f4263c5ca643",
         "schema.json": "2742d8da8a6baa9cc28ab8fef3071d25a0466e5ffec31d40920a81a44a531fc2",
         "config.json": "7e3cf7739b621e5923df2deefbbe14b7c0562ab6739dcf5dd00011ba7a6d053d",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "0e6ec6a84a9646f3912c4b58059e8ce2b826093d9e50392f67637de1bcb0430f",
         "interpolation-validation.json": "d700dc5018f65a7e858d6bcb7bd69c369e0cb212b73ea7ce92b17863edd69cb5",
-        "blender-validation.json": "4244dc8d19024aaa87c5325185d45ce031169edda852935ee095019579b4b2ae",
-        "execution-contract.json": "b12698efa319a24c5ec1255d50b420cdd52f258b9816ce66a386138cd91262c1",
+        "blender-validation.json": "b71ba9d962cd046791ec51012025de78ae4cc2e7e4efa579022eadb5bcc8e3c1",
+        "execution-contract.json": "06ba5dba093ae7c3a9fe3c027570ae809a5139095f04afd5d7e1a6ff75a4c41b",
         "source-review.json": "c2386aedc780711578c5e1c97fea274ded6fd0a5ff691c8432b7b2971db85470"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/surprised"
@@ -343,14 +343,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/sad/execution-contract.json",
       "sha256": {
         "source.json": "17f5ee3d1b025abfb42bfdcbde9e6368ca96b6c86ef1fa0e1a882cd1a4cc15c7",
-        "manifest.json": "a7d3f5d5827351d0a20d4d1de7359b67a78ff1f57b74ca24cf8a59ec67bcce1f",
+        "manifest.json": "31fe0b913a9550aac31de083f6baa3774152f205400bd4a17246b56fed2ad949",
         "schema.json": "279ed764b5c9437916235470b3c33255a6ac45ea133012dfd442954b553a52b5",
         "config.json": "957dd3d420f195f5cd44ebf30714336be94c895b76b54985c9a392304ebbe8a5",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "21bd9c86e5fbac093e19d21824a18e14060a56eae6ba1f1a9201db61519b8957",
         "interpolation-validation.json": "69d69cb68fe9aa3ab7200a62a883281d6ef2595232deec0724fa5d8f73ed0358",
-        "blender-validation.json": "7b3dd264a0546ad345fc934ca0a299ba3bb9143f4a56bdc28d67b6b5cbb01218",
-        "execution-contract.json": "a889e8db7ec71a4d913e83e25b9dd5c3304c970c09acb9162056694a5c9367df",
+        "blender-validation.json": "c19fad88274b3953a5f54dda3d4a01f7cf0007e2fd6310dece2a555b6e3c05cc",
+        "execution-contract.json": "25aed3a748268285c9dd72335d21053f02fc48160c37e0e3480e916d55bd3e95",
         "source-review.json": "155f835cbde08526cff2f4a6a145ab7dac9c33a4d3617f9708b71d08ae947a64"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/sad"
@@ -362,14 +362,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/curious/execution-contract.json",
       "sha256": {
         "source.json": "2b29b7096a63335304fce9d0fc8db5a550b9b15b25d1f9a51eeb62dc306e69cc",
-        "manifest.json": "cac8c5db781439bad0a9d6172ff5e308548abb2cbfbfb456a5d635264acffb6b",
+        "manifest.json": "f601bf998f6b0f690f97905a46c4bdbeba3a5e6f7ebcda0af49a49d1b638e948",
         "schema.json": "e064b4d28c89f968599663d4e09b7202104b4d457cd0321e4fa4a622f86ad78d",
         "config.json": "eb73bf36b017eaa66510a7d0f34b533af6a3c1bb4ef918cd295741f27e155271",
         "sample_reference.py": "b8fe13d9089f48cc8f2a6daad0e21dfd440a88586f9f800f308e30f2870090a6",
         "validation.json": "17f142b04a36cf008e652ebfda455d623a0be4fef35f4ff986fc58e40c62caff",
         "interpolation-validation.json": "fcd0af16a4b450295457cf158ae47058b5fcacedd2caac0fb505ab597d31911d",
-        "blender-validation.json": "1bf416d924a114431df1e072faeff80522a44d4b6ac9cc326a181d6c99af22a7",
-        "execution-contract.json": "a05268e884c7355086159ca9754d573e0e7b7dbbd7f3ea53be15612872f40ce1",
+        "blender-validation.json": "b139cddb3a70a73004f1ac6ea2b04559eaf66d9771dc4b6b2f6bec970dc5ef2b",
+        "execution-contract.json": "2c895216e9ba4b1420a5bd69f1ac466a272db40f46d2a82c9c1ed37071d9cb30",
         "source-review.json": "8612cf7d38c5c18ccc2439be912e23c4cec411f495a2d547471aebf013c025d3"
       },
       "legacy_handoff": "docs/gait-research/motion-batch-20260916/commands/curious"
@@ -382,10 +382,10 @@
       "sha256": {
         "reviewed.json": "0d2ac4d09e8f3705fe601162be0a8c7e30da31660658768d68dcbdd6217b5d1f",
         "source.json": "3f321c5e0718e437be8606815359ef4391dbc32f3c9df5569a910d24d369fefd",
-        "manifest.json": "19106eda54d966a334b19b5ca0e48c51d50daa1338adb325ecc469344fa4d0a1",
+        "manifest.json": "963f7392704185b96f224ee8b837376b93d41be1c5804124dc015be0ce0446c0",
         "schema.json": "8dec1fc7bca19f9d9d63ed1f3e8421dd45cdbbe448a24f9a14f14450c8127cf1",
-        "execution-contract.json": "c902584513b82877ad2ff6ffd8e8dd03b79b0748c805948a847558ad55da08be",
-        "posture.json": "42ea99737edaea907b24ae1aeb2c22cf4b764f138b72f532ecaefcd029c656fe",
+        "execution-contract.json": "a0e0f131b892dea1ad5db411f17b4ebf4ac9dced30ea9b881dc36cad1784f34f",
+        "posture.json": "05d5d3e7fc20a5e87c710f45fd76a412111dc5ecf62ec6ce5f3df254fc492431",
         "validation.json": "d42570a4e1dec77d0b8a325279c8286936b679ccfb51381059eafd71c29940c9",
         "sample_reference.py": "dda995bad633862f6f26d3dd089d0f2ef010bc6792e6008006dae837baf5cc1f",
         "interpolation-validation.json": "65d02d085b77b68e8e9249fe21708b99900079bdee8c4984e3010a1fd42d4297"
@@ -397,12 +397,12 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/upright",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/upright/execution-contract.json",
       "sha256": {
-        "validation.json": "756f6482318e3b0b590b001e6309af2504bf5f9cc15de0bfc0f884aef2dd50d4",
+        "validation.json": "e95bacc264a0a67e156ccc6564a68b4a42e0c37e4f72eb8e6518a15a97a24947",
         "schema.json": "4310935a810bdfd77cb4767b73b832776dbf5371dfd6a9de725b7071f0073559",
-        "posture.json": "508e5521583c7110078c5446bb8850ae002fa4745fce71bca9730900d3e160b1",
-        "execution-contract.json": "7a9b8170a56e71153f8e4f41c6aa0e546d6eea184aa8410609ffb37593c7c4bf",
+        "posture.json": "d8e22b8504fb10e9a3a5817729ea9739c1a4f6feffc5e6c5449ed49b894073a0",
+        "execution-contract.json": "68c916c181c226de6c940eb3a7c2cfea6e8793a8978a4f51a1099d17574fdbce",
         "source.json": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
-        "manifest.json": "ac6198a65ed43eca43d41f05be1f7b76bea42bbf3631a4c897f9dbb30a93fa99",
+        "manifest.json": "8fb802018ad597dc672d70fb2e8b45aa3874888f965e402ae37354f828312628",
         "sample_reference.py": "5527e29cb31e9b4453f7d3eb0502e5f5bc5c763b32f381e4b092e0b77202b61b",
         "lower-leg-clearance-validation.json": "2324548a0547ea19dc0c10935a4d47a7e23f44aafc8f9b329956c59c2b32ee76",
         "interpolation-validation.json": "2328eace3efba24591d6a919c8cc491788d1fb83ad9837433af839d0c9ec488e"
@@ -415,12 +415,12 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/crouch/execution-contract.json",
       "sha256": {
         "source.json": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
-        "manifest.json": "9df430d745abb5061682f7c57a9e646ad8aef4935d98e178f8f6568990f0bddf",
+        "manifest.json": "082f35f95847e3aa4745ffb3439abfcfa52cb7318d5557b7629defeef2fa3ce6",
         "schema.json": "ae5ea7e6ecaa7b4d6df037cac25e9197fc8b835409a2c720e0137b2391c94f86",
-        "execution-contract.json": "587c36ce5f2d2ba1a72274a59abe751f13222167c83c6160736cde0ad904ec36",
+        "execution-contract.json": "9292b23dc56d8a6d0fe2584d4ea1e064a426b290ae794e2ac10a4a9bdea8482c",
         "sample_reference.py": "12fc9f547b48d511d68556c2b3861196c4687e769007ed1aa8f60b118f03e5da",
-        "posture.json": "5b2c229033fe0f4c5d17d3cacc75180f8fbbb5105016a9b9f3a71b5f2c7fb730",
-        "validation.json": "5727d25c74b326073e585ca08d3e4f80e04774c72f51d5762e9ab0e8c825a6d1",
+        "posture.json": "a7b4778b2a0c6b47e70d82951e7385452f4aca0279b606f1d2dd40c85e4ea51c",
+        "validation.json": "e0734e340822a68ded683f94c589b0849848a36f7536b7f312197443ff0fb77b",
         "interpolation-validation.json": "31baba1999c8a6b591e1a4faa73b27643c057db15d568836b2f2512dc8a0a2b3"
       }
     }
@@ -430,5 +430,6 @@
     "handoff": "docs/gait-research/motion-batch-20260916/timing.py",
     "sha256": "22da577c0d7f34233a9e4237f8ec6c10b05cb6a4f4ca1f672c36a218a51923fd"
   },
-  "geometry_id": "upright-24-38-24-55-visible-20260929"
+  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "current_mounting_qualification": "Original finite recordings only. Current centered mounts and shaft screw-head clearance remain unqualified; no finite motion recalculation performed."
 }

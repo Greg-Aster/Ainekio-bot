@@ -68,18 +68,19 @@ def record(root,cli,command,direction,crawl):
         report['dynamics_scope']='Kinematic target only; no force or attitude control and no physical running qualification.'
         report['peak_sampled_joint_speed_deg_s']=float(np.rad2deg(abs(np.diff(angles,axis=0))).max()*120)
         profile=json.loads((root/'servo_profile.json').read_text())
-        pulses=profile['pulse_reference_us']+(np.rad2deg(angles)-np.array(profile['center_degrees']))*profile['us_per_degree']
+        pulses=np.array(profile['pulse_reference_us'])+(np.rad2deg(angles)-np.array(profile['center_degrees']))*profile['us_per_degree']
         report['reference_pulse_span_us']=[float(pulses.min()),float(pulses.max())]
-        from mechanical_limits import Limits
-        limits=Limits(root);first=None
-        for i,row in enumerate(rows):
-            if row['run_blend']!=1:continue
-            for leg,q in zip(LEGS,row['actuator_angles_rad']):
-                if not limits.allowed_degrees(np.rad2deg(q)):
-                    first=dict(sample=i,time_s=row['time_s'],cad_leg=leg,q_deg=np.rad2deg(q).tolist());break
-            if first:break
-        report['modeled_envelope_conflict']=first is not None;report['first_bound_envelope_conflict']=first
-        report['mounting_profile_sha256']=digest(root/'servo_profile.json')
+    from mechanical_limits import Limits
+    limits=Limits(root);first=None
+    for i,row in enumerate(rows):
+        for leg,q in zip(LEGS,row['actuator_angles_rad']):
+            if not limits.allowed_degrees(np.rad2deg(q)):
+                first=dict(sample=i,time_s=row['time_s'],cad_leg=leg,q_deg=np.rad2deg(q).tolist());break
+        if first:break
+    report['modeled_envelope_conflict']=first is not None;report['first_bound_envelope_conflict']=first
+    report['mounting_profile_sha256']=digest(root/'servo_profile.json')
+    # The owner's restored trajectories retain their full authored range.
+    # Record modeled-envelope conflicts without replacing or blocking a motion.
     folder=root/('motions/run' if run_demo else 'motions/gestures/crouch' if command=='crouch' else 'motions/locomotion/'+command);folder.mkdir(exist_ok=True,parents=True)
     # Compact recordings are necessary source assets, not duplicate robot scenes.
     (folder/'source.json').write_text(json.dumps(source,separators=(',',':'),allow_nan=False)+'\n');write(folder/'validation.json',report)

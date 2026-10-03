@@ -77,7 +77,7 @@
   "hardware_qualified": false,
   "actuator_calibration": null,
   "source_sha256": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "wave": "670ca1479f4bff8c38b90077774c32ca3aa78a3c65013defa00f86f605fc36c1",
@@ -183,8 +183,10 @@
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "6b33c88b80161ffefab2f158e355329f60d8cc851a03f35f97e4b0200063e695",
+  "posture_sha256": "ece84bf2021f53607df92146b44c88e929f741f7a6045638283b6ecbb0640e84",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "retargeting_notes": "Reuse the corrected Sit exactly, lift and extend the front-left leg for three smooth waves, replace the foot, and reverse Sit into standing.",
-  "choreography_source": "docs/gait-research/wave-seated-20260916/manifest.json"
+  "choreography_source": "docs/gait-research/wave-seated-20260916/manifest.json",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

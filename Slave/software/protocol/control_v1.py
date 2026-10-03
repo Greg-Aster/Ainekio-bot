@@ -467,6 +467,8 @@ def _validate_calibration_status(message: Mapping[str, object]) -> None:
         if not isinstance(joint, Mapping):
             _fail("type:calibration.joint")
         _calibration_joint(joint)
+        if "recommended_home_us" in joint:
+            _integer(joint, "recommended_home_us", minimum=1, maximum=MAX_CALIBRATION_PULSE_US)
         if "recommended_home_cd" in joint:
             _integer(joint, "recommended_home_cd", minimum=-36000, maximum=36000)
         _integer(joint, "pulse_us", minimum=0, maximum=MAX_CALIBRATION_PULSE_US)

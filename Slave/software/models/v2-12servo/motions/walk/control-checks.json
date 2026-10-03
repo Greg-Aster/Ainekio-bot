@@ -182,5 +182,8 @@
     "final_peak_degrees_s": 545.4545454547663,
     "joint_and_body_paths_preserved": true
   },
-  "hardware_qualified": false
+  "hardware_qualified": false,
+  "source_sha256": "8ab2142f5c73190859c04e8b05e7efde16f631c5bfe0bc6c934e6a3e2b719b19",
+  "report_basis": "Historical pre-task recording and its original model/calibration; values have not been recalculated.",
+  "current_screw_qualification": "pending"
 }

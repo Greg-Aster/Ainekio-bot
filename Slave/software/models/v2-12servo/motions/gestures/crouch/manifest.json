@@ -55,10 +55,10 @@
     ]
   ],
   "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "source_sha256": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
-  "posture_sha256": "5b2c229033fe0f4c5d17d3cacc75180f8fbbb5105016a9b9f3a71b5f2c7fb730",
+  "posture_sha256": "a7b4778b2a0c6b47e70d82951e7385452f4aca0279b606f1d2dd40c85e4ea51c",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "hardware_qualified": false,
   "actuator_calibration": null,
@@ -86,5 +86,7 @@
       "stance_output_min_deg": 55.14385885443712,
       "stance_input_min_deg": 81.24394051616281
     }
-  }
+  },
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

@@ -18,7 +18,12 @@ def refresh(scene_name='Motions - Current Geometry', prefix='ML | '):
     frames, bodies, eulers, joints, chapters = [], [], [], [], []
     cursor = 1
     for old in previous:
-        command = old['command']; path = ROOT/old['source']
+        command = old['command']
+        candidates=[ROOT/old['source'],ROOT/'motions/gestures'/command/'source.json',ROOT/'motions/locomotion'/command/'source.json',ROOT/'motions/turns/commands'/command/'source.json']
+        if command=='walk': candidates.insert(0,ROOT/'motions/walk/source.json')
+        if command=='run': candidates.insert(0,ROOT/'motions/run/source.json')
+        path=next((p for p in candidates if p.exists()),None)
+        assert path is not None,command
         source = json.loads(path.read_text())
         if command == 'walk':
             d = source['columns']; t = np.array(d['time_s'])
@@ -35,7 +40,7 @@ def refresh(scene_name='Motions - Current Geometry', prefix='ML | '):
         frames.extend(fs); frames.append(end)
         for dest, values in [(bodies,b),(eulers,e),(joints,q)]:
             dest.extend(values); dest.append(values[-1])
-        chapter = dict(old, start_frame=cursor, end_frame=end,
+        chapter = dict(old, source=str(path.relative_to(ROOT)), draft=False, firmware_integrated=True, start_frame=cursor, end_frame=end,
             source_end_frame=float(fs[-1]), semantic_end_frame=float(cursor+semantic*30),
             source_duration_s=float(t[-1]), samples=len(t),
             source_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
@@ -53,7 +58,10 @@ def refresh(scene_name='Motions - Current Geometry', prefix='ML | '):
             fc=next(f for l in action.layers for s in l.strips for bag in s.channelbags for f in bag.fcurves if f.data_path==path and f.array_index==max(index,0))
             fc.keyframe_points.clear(); fc.keyframe_points.add(len(fs))
             fc.keyframe_points.foreach_set('co',np.c_[fs,values].astype(np.float32).ravel())
-            for key,frame in zip(fc.keyframe_points,fs): key.interpolation='CONSTANT' if constant or frame in cuts else 'LINEAR'
+            enums={i.identifier:i.value for i in bpy.types.Keyframe.bl_rna.properties['interpolation'].enum_items}
+            kinds=np.full(len(fs),enums['CONSTANT'] if constant else enums['LINEAR'],dtype=np.int32)
+            if not constant:kinds[np.isin(fs,list(cuts))]=enums['CONSTANT']
+            fc.keyframe_points.foreach_set('interpolation',kinds)
             fc.update()
         obj.animation_data.action.name=obj.name
     pivot=Vector(cfg['continuous_walk']['body_rotation_pivot_mm'])
@@ -70,7 +78,11 @@ def refresh(scene_name='Motions - Current Geometry', prefix='ML | '):
         bake(obj,[('hide_viewport',-1,hidden),('hide_render',-1,hidden)],fs,True)
         obj.data.body=f'{i+1:02d} / {len(chapters)}   '+item['label']
         scene.timeline_markers.new(item['label'],frame=item['start_frame'])
-        if item.get('ongoing_native'):
+        if item['command']=='run':
+            obj.data.body+='\nWalk 100% > Run 150% > Run 200% > Walk 75% > Finish'
+            for seconds,label in [(0,'Walk 100%'),(6,'Run 150%'),(14,'Run 200%'),(20,'Walk 75%'),(28,'Finish')]:
+                scene.timeline_markers.new(item['label']+' | '+label,frame=item['start_frame']+seconds*30)
+        elif item.get('ongoing_native'):
             obj.data.body+='\nSpeed 25% > 100% > Stride 60%, Cadence 3x > Finish'
             for seconds,label in [(0,'Speed 25%'),(6,'Speed 100%'),(12,'Stride 60% / cadence 3x'),(17,'Finish')]:
                 scene.timeline_markers.new(item['label']+' | '+label,frame=item['start_frame']+seconds*30)
@@ -90,7 +102,7 @@ def refresh(scene_name='Motions - Current Geometry', prefix='ML | '):
     }
     for name,value in texts.items():
         if scene_name!='Motions - Current Geometry':
-            if name=='blender_motion_controls.py':continue
+            if name in ('blender_motion_controls.py','SERVO ASSEMBLY - READ FIRST'):continue
             name='FIRMWARE PREVIEW - '+name
             value=value.replace('Scene: Motions - Current Geometry','Scene: '+scene_name).replace('; N > Ainekio selects a command','; timeline markers identify each command')
         text=bpy.data.texts.get(name) or bpy.data.texts.new(name); text.clear(); text.write(value)

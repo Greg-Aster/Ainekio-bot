@@ -78,7 +78,7 @@
   "hardware_qualified": false,
   "actuator_calibration": null,
   "source_sha256": "50290b6586dd3d29b32cb480476bcf6c76614f70daf804b17c090ce0515f8af5",
-  "geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "faces/dance/0.bin": "ba1093402b156084993dd5df2823d986ad18ab6c09a3c5178e9a081d314a0c9b",
@@ -180,5 +180,7 @@
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
   "blender_scene": "Motions - Current Geometry",
   "choreography_source": "docs/gait-research/dance-20260916/manifest.json",
-  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package."
+  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package.",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
 }

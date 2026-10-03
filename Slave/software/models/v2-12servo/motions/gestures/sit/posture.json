@@ -28,7 +28,7 @@
   },
   "contact_hulls_file": "posture-hulls.npz",
   "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "measured_date": "2026-09-29",
   "scope": "Part027 knee-to-ankle axes and current visible sole/body hulls. Canonical linkage frames and lengths remain in root geometry.json.",

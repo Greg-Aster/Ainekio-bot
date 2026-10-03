@@ -49,7 +49,7 @@ def generate(root=ROOT):
                 for joint, angle in enumerate(q):
                     lows[leg][joint] = min(lows[leg][joint], angle)
                     highs[leg][joint] = max(highs[leg][joint], angle)
-                    pulse = reference + (angle - centers[joint]) * scale
+                    pulse = reference[joint] + (angle - centers[joint]) * scale
                     pulse_min, pulse_max = min(pulse_min, pulse), max(pulse_max, pulse)
                     outside[joint] |= pulse < low_pulse or pulse > high_pulse
         rows.append(dict(command=path.parent.name, peak_sampled_joint_speed_deg_s=peak_speed,
@@ -62,16 +62,16 @@ def generate(root=ROOT):
                          modeled_envelope_conflict=first is not None, first_conflict=first))
     assert rows, 'No motion sources found'
     midpoint = (low_pulse + high_pulse) / 2
-    shift = (midpoint - reference) / scale
+    shift = [(midpoint-r)/scale for r in reference]
     spans = [[hi - lo for lo, hi in zip(a, b)] for a, b in zip(lows, highs)]
     combined = []
     for joint, name in enumerate(profile['joint_order']):
         lo, hi = min(q[joint] for q in lows), max(q[joint] for q in highs)
         combined.append(dict(joint=name, min_deg=lo, max_deg=hi, span_deg=hi-lo,
-                             home_deg=centers[joint], balanced_noninverted_deg=(lo+hi)/2-shift,
-                             pulse_min_us=reference+(lo-centers[joint])*scale,
-                             pulse_max_us=reference+(hi-centers[joint])*scale))
-    report = dict(status='original_choreography_preserved_mounting_reference_updated',
+                             home_deg=centers[joint], balanced_noninverted_deg=(lo+hi)/2-shift[joint],
+                             pulse_min_us=reference[joint]+(lo-centers[joint])*scale,
+                             pulse_max_us=reference[joint]+(hi-centers[joint])*scale))
+    report = dict(status='original_motion_mapping_conflicts',
                   reference_us=reference, mathematical_midpoint_us=midpoint,
                   provisional_travel_deg=profile['provisional_travel_degrees'],
                   travel_measured=profile['travel_measured'], reference_endpoints_enforced=False,
@@ -79,32 +79,32 @@ def generate(root=ROOT):
                   profile_sha256=hashlib.sha256((root/'servo_profile.json').read_bytes()).hexdigest(),
                   source_sha256=hashes, model_min_deg=lows, model_max_deg=highs,
                   model_spans_deg=spans, widest_span_deg=max(map(max, spans)),
-                  library_balanced_reference_noninverted_deg=[[(a+b)/2-shift for a,b in zip(lo,hi)] for lo,hi in zip(lows,highs)],
-                  library_balanced_reference_inverted_deg=[[(a+b)/2+shift for a,b in zip(lo,hi)] for lo,hi in zip(lows,highs)],
+                  library_balanced_reference_noninverted_deg=[[(a+b)/2-shift[j] for j,(a,b) in enumerate(zip(lo,hi))] for lo,hi in zip(lows,highs)],
+                  library_balanced_reference_inverted_deg=[[(a+b)/2+shift[j] for j,(a,b) in enumerate(zip(lo,hi))] for lo,hi in zip(lows,highs)],
                   combined_ranges=combined,
                   rated_joint_speed_deg_s=profile['gait_max_joint_speed_degrees_s'],
                   speed_flag_ratio=profile['servo_speed_excess_flag_ratio'],
-                  speed_policy='Flag demands at or above 125% of the selected rating; retime flagged motion to rated speed while retaining joint paths. Continuous gaits preserve requested timing until flagged, then enforce rated speed with a shared clock for the remainder of that run.',
-                  mapping_note='Existing carrier/crank matchmarks are retained at the owner-reported pulse reference; firmware rounds Home to centidegrees. Shoulder stays CAD neutral. Non-inverted mapping assumed; installed direction and actual shaft travel require measurement. Per-leg and inverted balanced candidates are electrical calculations, not approved mounting poses. No trajectory edits or pulse caps.',
+                  speed_policy='Rating ratios are offline observations. The existing owner-selected joint speed limit controls runtime timing; this audit adds no cap.',
+                  mapping_note='Original joint curves are retained. Whole-library centering was removed because it changes physical poses. Actual model angles at saved Home pulses and shaft scale remain unmeasured. The audit adds no clipping or runtime caps.',
                   commands=rows, hardware_qualified=False)
     (root/'mechanics/original-motion-range-audit.json').write_text(json.dumps(report, indent=2)+'\n')
     lines = ['# Motion range conflicts', '',
-             'This report measures the current geometry-remapped library. The audit itself changes no trajectories or calibration. Choreography and gesture timing are preserved except where geometry contact corrections or the explicit speed policy require a change.', '',
+             'This report measures the original recorded motion library through the retained provisional mapping. Joint curves and authored timing remain unchanged. Physical parity is unresolved; whole-library range centering changed the leg poses and was removed.', '',
              f'Selected reference: {reference} µs. Arithmetic midpoint: {midpoint:g} µs. Reported span: {low_pulse}–{high_pulse} µs. Conversion assumes {profile["provisional_travel_degrees"]}° of unmeasured shaft travel. Endpoints remain reference data; firmware retains the PWM timer capacity check.', '',
-             f'Non-inverted mounting offsets at {reference} µs: shoulder {centers[0]:g}°, carrier {centers[1]:g}°, crank {centers[2]:g}°. Carrier/crank matchmark angles are retained and rounded to centidegrees.', '',
+             f'Non-inverted mounting offsets at {reference} µs: shoulder {centers[0]:g}°, carrier {centers[1]:g}°, crank {centers[2]:g}°. Carrier/crank angle references are retained from the pre-centering configuration; they are not measured installed angles.', '',
              '| Joint type | Combined recorded model range | Span | Pulse range with selected mounting |',
              '| --- | --- | ---: | --- |']
     for r in combined:
         lines.append(f'| {r["joint"]} | {r["min_deg"]:.2f}…{r["max_deg"]:.2f}° | {r["span_deg"]:.2f}° | {r["pulse_min_us"]:.2f}…{r["pulse_max_us"]:.2f} µs |')
-    lines += ['', 'The owner reports shaft travel greater than 234°. The historical 234° conversion and pulse endpoints are provisional references, not enforced travel stops. Excursions outside them are reported without clipping motion.', '',
-              'The combined Home lies inside the existing coupled mechanical envelope. Horn indexing does not remove the modeled collision conflicts elsewhere in the trajectories. These sampled source ranges do not prove every continuous gait setting, transition, loaded clearance or actual servo tracking.', '',
+    lines += ['', 'The owner reports 300–2900 µs travel. The 11.111111 µs/degree conversion remains provisional. The audit reports excursions without clipping motion.', '',
+              'The retained modeled Home closes the four-bar. This does not establish its physical association with the saved pulse. The separate provisional mesh envelope still reports conflicts in some original poses; those modeled observations are not measured hardware limits. Sampled ranges do not establish loaded clearance or servo tracking.', '',
               '| Demonstration | Computed minimum µs | Maximum µs | Outside 300–2900 reference | Outside PWM capacity | Modeled collision envelope conflict |',
               '| --- | ---: | ---: | --- | --- | --- |']
     for r in rows:
         flags = ['yes' if r[k] else 'no' for k in ['outside_reference_span', 'outside_pwm_timer_capacity', 'modeled_envelope_conflict']]
         lines.append(f'| {r["command"]} | {r["pulse_min_us"]:.2f} | {r["pulse_max_us"]:.2f} | '+ ' | '.join(flags) + ' |')
     lines += ['', '## Sampled joint speed', '',
-              f'Provisional {profile["servo_speed_rating_voltage_v"]:g} V rating: {report["rated_joint_speed_deg_s"]:.3f}°/s. Flag threshold: {report["rated_joint_speed_deg_s"]*report["speed_flag_ratio"]:.3f}°/s (125%). Flagged motions are retimed to the rating; geometry paths and amplitudes are retained. Continuous gaits coordinate all joints through one clock. These are commanded shaft speeds using the provisional pulse conversion; loaded tracking is unmeasured.', '',
+              f'Provisional {profile["servo_speed_rating_voltage_v"]:g} V rating: {report["rated_joint_speed_deg_s"]:.3f}°/s. Flag threshold: {report["rated_joint_speed_deg_s"]*report["speed_flag_ratio"]:.3f}°/s (125%). These offline rating flags do not change runtime timing. The owner-selected joint speed limit retains control of the shared clock. These are commanded shaft speeds using the provisional pulse conversion; loaded tracking is unmeasured.', '',
               '| Motion | Peak sampled °/s | Rating ratio | Flagged |',
               '| --- | ---: | ---: | --- |']
     for r in rows:

@@ -34,8 +34,9 @@ At full forward Run, 42% stance produces about 247.62 mm of modeled advance per
 cycle. Automatic rate is `2+(Speed-100)/150` against a 1.2-second base cycle:
 about 0.6 s just above 100%, 0.514 s at 150%, 0.45 s at 200%. Advanced forward
 Run stride 100% uses the same 104 mm sweep. These are planned values, not measured
-loaded tracking. Saved calibration, horn centers and reference-only servo limits
-are unchanged; the direct controller adds no solver iterations or pulse caps.
+loaded tracking. The current per-joint horn references and modeled envelope remain in
+`servo_profile.json`; restoring this trajectory does not undo that calibration.
+The direct controller adds no solver iterations or pulse caps.
 
 A four-cycle quintic transition changes contact timing, paired phases and body
 motion. Liftoff phases advance to synchronize the pairs instead of delaying a
@@ -60,27 +61,15 @@ as **Walk > Run > Walk** in the existing Blender motion library. After
 regeneration, `refresh_run()` in `tools/append_blender_locomotion.py` replaces
 only this final chapter in the live scene; save a verified rolling recovery first.
 
-`validation.json` records the current regenerated native trajectory against the
-full soles, including transmission angles and linear joint midpoints. The old
-`integration-validation.json` remains historical pre-revision evidence; current
-build and regression results are in [CONTROLLER_VALIDATION.md](../../CONTROLLER_VALIDATION.md)
-and the locomotion validation report. Existing Blender chapters require a separate
-refresh before they depict this code revision. No hardware movement or flash was
-performed for this leverage update.
-
-The preceding `clearance-validation.json` is historical evidence for the earlier
-Run, not a collision qualification of these revised joint paths. The earlier
-screen covered all six lower-leg pairs at source keys and linear midpoints;
-whole-robot/body/hardware clearance was not established. Recheck the current
-geometry in Blender using `tools/validate_run_clearance.py --midpoints --report
-/tmp/run-clearance.json` through Blender's `--python` entry point.
-
-The current demonstration still crosses the provisional mechanical envelope;
-see [the range audit](../../mechanics/original-motion-range-audit.md). This is a
-flag for geometric review, not proof of actual part collision. Its unchanged
-1300 us mounting reference maps to approximately 434–2489 us under the provisional
-234-degree conversion. Peak sampled joint demand is about 2,901 degrees/s;
-loaded servo tracking and airborne stability remain unqualified.
+`source.json` is the exact pre-task recording, restored for comparison with the
+original Walk/Run motion. `validation.json` and `blender-validation.json` retain
+historical measurements of that recording and label their evidence scope.
+They do not establish clearance with the current 4 mm × 1.5 mm shaft screw heads
+or qualify the present calibration. Screw-clearance correction remains pending.
+The original recording already reports a provisional modeled-envelope conflict.
+The restored source keeps its original timing, body motion, lane offset and foot
+paths; no new motion calculation, hardware movement or firmware flash was
+performed for this restoration. Current measured calibration is retained.
 
 Regenerate this demonstration with NumPy/SciPy from the model directory:
 

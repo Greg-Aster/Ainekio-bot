@@ -2,7 +2,7 @@
 """Install the existing gateway-owned AP/hostapd/DHCP service contract on Ubuntu.
 
 Run once as root. Installation neither starts the hotspot nor changes the uplink.
-The physical gateway launcher remains the owner of hotspot start/stop.
+The running gateway owns hotspot start/stop, including the Body Control toggle.
 """
 from __future__ import annotations
 

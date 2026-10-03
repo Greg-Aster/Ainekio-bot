@@ -1,5 +1,5 @@
 {
-  "mechanism_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "measured_date": "2026-09-29",
   "grounded_legs": [
@@ -28,7 +28,7 @@
     "source_file": "../sit/source.json",
     "source_sha256": "c9451dcd1b5ac1ebfe8aec5a06c52e89ed0f8d04096d45bfb12ba5791272086e",
     "posture_file": "../sit/posture.json",
-    "posture_sha256": "dc16931666c7d3213e1966de3f4be645ebed441f1dae24d2debb33a7a5cd2cde"
+    "posture_sha256": "e33a5d8230528e5fa9386868f84ed104d987593797a7a45bc9a69b7cc07c5438"
   },
   "posture_sample_time_s": 3.0,
   "waving_leg": "RL",

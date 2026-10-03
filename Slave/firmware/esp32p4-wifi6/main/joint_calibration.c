@@ -35,11 +35,20 @@ bool ainekio_p4_joint_defaults(ainekio_p4_joint_config_t *joints)
     ainekio_p4_joint_config_t candidate[AINEKIO_BODY_JOINT_COUNT] = {0};
     for (size_t i = 0; i < AINEKIO_BODY_JOINT_COUNT; ++i) {
         candidate[i] = (ainekio_p4_joint_config_t){.channel = (int8_t)i,
-            .home_us = ainekio_v2_pulse_reference(),
+            .home_us = ainekio_v2_pulse_reference(i),
             .home_cd = (int32_t)lround(100.*ainekio_v2_center_degrees(i)), .us_per_degree = (float)ainekio_v2_us_per_degree()};
     }
     memcpy(joints, candidate, sizeof(candidate));
     return true;
+}
+
+/* Display-only mounting reference at the model assembly marks. Mirrored
+ * servos use the reflected pulse around the reported servo-profile window. This
+ * does not change the operator-owned calibration or write NVS. */
+uint16_t ainekio_p4_joint_recommended_home(unsigned joint_id, bool inverted)
+{
+    const uint16_t reference = ainekio_v2_pulse_reference(joint_id);
+    return inverted ? (uint16_t)lround(2.*ainekio_v2_pulse_midpoint()-reference) : reference;
 }
 
 bool ainekio_p4_joint_map_frame(const ainekio_p4_joint_config_t *joints,

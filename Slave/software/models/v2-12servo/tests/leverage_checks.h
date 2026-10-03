@@ -2,6 +2,7 @@
 #ifndef V2_TEST_LEVERAGE_CHECKS_H
 #define V2_TEST_LEVERAGE_CHECKS_H
 #include "walk_data.h"
+#include "ainekio/v2_limits.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -39,6 +40,7 @@ static void leverage_leg(const double q[3],bool grounded,double branch[2])
 }
 static void leverage_step(const ainekio_v2_walk_pose_t *old,const ainekio_v2_walk_pose_t *pose)
 {
+    assert(ainekio_v2_limits_frame(&pose->frame));
     for(unsigned leg=0;leg<4;leg++) {
         double previous[2],current[2],middle[2],q[3];
         leverage_leg(old->joints[leg],old->grounded[leg],previous);
