@@ -130,8 +130,9 @@ credentials to other hosts again rather than assuming automatic synchronization.
 
 Both hosts install their own gateway dependencies and use their own checkout's
 `.venv`. Keep machine paths out of shared configuration. Each optional MetaHuman
-Bridge retains its matching local adapter token. Cloudflare's existing relay
-remains `/robot` only; its credentials/configuration stay separate.
+Bridge retains its matching adapter token. The robot relay hostname remains
+`/robot` only. A separate Cloudflare Access TCP hostname can connect a remote
+MetaHuman desktop as described below; its credentials/configuration stay local.
 
 - **Same LAN:** a paired gateway with local discovery enabled can be found after
   the current gateway stops. Multiple advertisements are candidates, not an
@@ -322,6 +323,117 @@ firmware-originated correlated still when the camera is ready. Future typed
 safety or sensor events should opt into the same controller-owned trigger and
 correlation fields. Routine status, heartbeat, individual PCM frames, and
 dashboard preview traffic do not produce Environment snapshots.
+
+## Desktop MetaHuman connected to a Q6A through Cloudflare
+
+Run MetaHuman OS and its Environment Bridge on the desktop. Run only the Ainekio
+gateway and its Cloudflare connector on the Ubuntu Q6A. The robot connects to
+the Q6A gateway's `/robot` endpoint over its local Wi-Fi. No phone is involved.
+
+The existing `Master/start-physical-relay.sh` can add a separate TCP hostname to
+its named tunnel. TCP forwarding preserves the inner WebSocket request and the
+Q6A connector opens a loopback connection, so `/environment` retains its existing
+loopback and adapter-token checks. An HTTP tunnel to `/environment` is rejected
+because it adds Cloudflare relay headers. TCP forwards the gateway port, including
+both `/robot` and `/environment`; it is not a path-filtered HTTP route. The
+dashboard remains on its separate, unrouted port.
+
+### Q6A setup
+
+On Ubuntu, install `python3-venv` and `avahi-utils` for the existing launcher,
+then create this checkout's Python environment:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python3 -m pip install -r Emulator/requirements-host.txt
+```
+
+Install `cloudflared` using Cloudflare's
+[download instructions](https://developers.cloudflare.com/tunnel/downloads/).
+Import the existing robot pairing/password as described under **Using more than
+one computer**. Runtime stores and `.env` do not arrive through Git sync.
+
+Use a locally managed named tunnel with the existing relay launcher. If creating
+one for the Q6A, run:
+
+```sh
+cloudflared tunnel login
+cloudflared tunnel create ainekio-q6a
+cloudflared tunnel route dns ainekio-q6a bridge.ainek.io
+```
+
+Use `bridge.ainek.io` on your Cloudflare-managed domain. Login opens a
+browser, or prints a URL you can open on the desktop. In Cloudflare Zero Trust,
+create a self-hosted Access application for this exact hostname and an Allow
+policy for your login identity before starting the connector. Dashboard login
+alone is not the application's Access login.
+
+Set these in the Q6A's ignored `.env`, using the UUID/credentials file generated
+on this host and the same adapter secret configured on the MetaHuman desktop:
+
+```dotenv
+AINEKIO_CLOUDFLARE_TUNNEL_ID=<tunnel UUID>
+AINEKIO_CLOUDFLARE_CREDENTIALS_FILE=/home/<user>/.cloudflared/<tunnel UUID>.json
+AINEKIO_CLOUDFLARE_ENVIRONMENT_HOSTNAME=bridge.ainek.io
+AINEKIO_ENVIRONMENT_ADAPTER_TOKEN=<shared adapter secret>
+```
+
+Keep tunnel credentials outside the checkout. `AINEKIO_GATEWAY_PORT` selects the
+gateway origin port when changed from 8790. The legacy robot HTTP hostname is
+still configured, but only the separate TCP hostname needs a DNS route for this
+desktop-to-Q6A setup. Do not run the same tunnel's connector simultaneously on
+another host: Cloudflare can send connections to either installation.
+
+Start the gateway and connector in separate terminals for the first test:
+
+```sh
+./Master/start-physical-gateway.sh --check
+./Master/start-physical-gateway.sh
+# In a second terminal:
+./Master/start-physical-relay.sh --check
+./Master/start-physical-relay.sh
+```
+
+`--check` validates the local relay configuration; it does not prove the Access
+policy, DNS, Internet connectivity, or a robot connection. Keep both processes
+running. The gateway's existing user service is documented above. For unattended
+connector startup after reboot, use Cloudflare's documented
+[Linux service setup](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/as-a-service/linux/)
+with the generated `build/gateway/cloudflare/ainekio-robot.yml` config. Regenerate
+it with the relay's `--check` after changing `.env`, then restart that service;
+use either the service or the foreground relay launcher to own the connector.
+
+### Desktop setup and test
+
+Install `cloudflared` on the desktop, then in the MetaHuman checkout run:
+
+```sh
+./bin/connect-environment bridge.ainek.io
+```
+
+This opens local port 18790. Configure MetaHuman's ignored `.env` with
+`MH_ENVIRONMENT_ADAPTER_URL=ws://127.0.0.1:18790/environment` and
+`MH_ENVIRONMENT_ADAPTER_TOKEN` matching the Q6A's adapter secret.
+`MH_ENVIRONMENT_BRIDGE_TOKEN` remains the desktop's existing internal service
+token; it is separate from the adapter secret. Restart MetaHuman to load changed
+environment variables. Alternatively set **Agent Monitor → Environment Bridge
+→ Adapter URL** when `MH_ENVIRONMENT_ADAPTER_URL` is absent; the environment
+variable takes precedence over that setting.
+
+When the Bridge connects, the desktop connector opens a browser for Cloudflare
+Access authentication. A desktop shortcut can run the forwarding command.
+Keep the forwarder running, and use Agent Monitor's existing Bridge state and
+diagnostics to verify the returned gateway session and connected robot. Test an
+owner-selected command and its returned receipt, followed by the intended camera,
+microphone and speech paths, before calling the demo ready. No motion is started
+by the tunnel or desktop forwarding launchers.
+
+This transport uses Cloudflare's
+[Access TCP workflow](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/non-http/cloudflared-authentication/arbitrary-tcp/).
+Cloudflare recommends Client-to-Tunnel for
+[long-lived connections](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/routing-to-tunnel/protocols/).
+The local TCP-forwarding regression test establishes gateway compatibility, not
+Cloudflare authentication, Q6A performance, Wi-Fi latency, or physical behavior.
 
 ## Updating an ongoing movement
 
