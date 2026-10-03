@@ -28,10 +28,13 @@ fi
 TUNNEL_ID="${AINEKIO_CLOUDFLARE_TUNNEL_ID:-}"
 CREDENTIALS_FILE="${AINEKIO_CLOUDFLARE_CREDENTIALS_FILE:-}"
 PUBLIC_HOSTNAME="robot-gateway.ainek.io"
-ORIGIN_SERVICE="http://127.0.0.1:8790"
+GATEWAY_PORT="${AINEKIO_GATEWAY_PORT:-8790}"
+ORIGIN_SERVICE="http://127.0.0.1:${GATEWAY_PORT}"
+ENVIRONMENT_HOSTNAME="${AINEKIO_CLOUDFLARE_ENVIRONMENT_HOSTNAME:-}"
+ENVIRONMENT_SERVICE="tcp://127.0.0.1:${GATEWAY_PORT}"
 
 if [[ ! "$TUNNEL_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
-  echo "AINEKIO_CLOUDFLARE_TUNNEL_ID must be the ainekio-robot tunnel UUID." >&2
+  echo "AINEKIO_CLOUDFLARE_TUNNEL_ID must be a Cloudflare tunnel UUID." >&2
   exit 2
 fi
 if [[ -z "$CREDENTIALS_FILE" || "$CREDENTIALS_FILE" != /* ]]; then
@@ -67,6 +70,10 @@ umask 077
   printf '  - hostname: %s\n' "$PUBLIC_HOSTNAME"
   printf '    path: ^/robot$\n'
   printf '    service: %s\n' "$ORIGIN_SERVICE"
+  if [[ -n "$ENVIRONMENT_HOSTNAME" ]]; then
+    printf '  - hostname: %s\n' "$ENVIRONMENT_HOSTNAME"
+    printf '    service: %s\n' "$ENVIRONMENT_SERVICE"
+  fi
   printf '  - service: http_status:404\n'
 } >"$RUNTIME_CONFIG"
 
@@ -91,7 +98,11 @@ if (( check_only )); then
   echo "Physical relay configuration check passed."
   echo "  Public robot URL:   wss://${PUBLIC_HOSTNAME}/robot"
   echo "  Local origin:       ${ORIGIN_SERVICE}/robot"
-  echo "  Blocked publicly:   /environment, dashboard, all other paths"
+  echo "  Robot hostname:     /robot only; dashboard is not routed"
+  if [[ -n "$ENVIRONMENT_HOSTNAME" ]]; then
+    echo "  Access TCP hostname: ${ENVIRONMENT_HOSTNAME} -> ${ENVIRONMENT_SERVICE}"
+    echo "  Protect this hostname with Cloudflare Access before running the relay."
+  fi
   echo "  Runtime config:     ${RUNTIME_CONFIG}"
   exit 0
 fi
@@ -99,7 +110,11 @@ fi
 echo "Starting the physical Ainekio Cloudflare relay."
 echo "  Public robot URL:   wss://${PUBLIC_HOSTNAME}/robot"
 echo "  Local origin:       ${ORIGIN_SERVICE}/robot"
-echo "  Blocked publicly:   /environment, dashboard, all other paths"
+echo "  Robot hostname:     /robot only; dashboard is not routed"
+if [[ -n "$ENVIRONMENT_HOSTNAME" ]]; then
+  echo "  Access TCP hostname: ${ENVIRONMENT_HOSTNAME} -> ${ENVIRONMENT_SERVICE}"
+  echo "  Desktop: cloudflared access tcp --hostname ${ENVIRONMENT_HOSTNAME} --url 127.0.0.1:18790"
+fi
 echo "  Runtime config:     ${RUNTIME_CONFIG}"
 echo "Press Ctrl+C to stop the relay."
 
