@@ -69,13 +69,12 @@ for row in rows[361:]:
 
 assert abs(math.degrees(rows[-1]['body_rotation_euler_xyz_rad'][1]) + 90) < 1e-6
 for i in (2, 3):
-    assert np.max(np.abs(np.array(rows[-1]['actuator_angles_rad'][i]) - posture['front_extended_angles_rad'])) < 1e-10
+    assert np.max(np.abs(np.array(rows[-1]['actuator_angles_rad'][i]) - posture['front_extended_angles_rad_by_leg'][legs[i]])) < 1e-10
 assert all(row['actuator_angles_rad'] == rows[-1]['actuator_angles_rad'] for row in rows[2400:])
 assert not source['validation']['hardware_qualified']
-# The preserved experimental endpoint exceeds the separate modeled mechanical
-# envelope; the range audit reports it. This test checks its original geometry
-# and choreography rather than requiring the rejected constrained remap.
-assert min(rows[-1]['arm_reach_mm'][2:]) > 92
+# The calibrated endpoint retains extended forelimbs with 90.34 mm modeled reach.
+# Electrical extrema and entry paths are checked by test_clip_calibration.c.
+assert min(rows[-1]['arm_reach_mm'][2:]) > 90
 print(f'Upright: exact Sit prefix, grounded transfer, anchored rear XY and vertical hold pass; '
       f'modeled support margin {minimum_margin:.6f} mm, sole {minimum_sole:.8f} mm, '
       f'body clearance {minimum_body:.6f} mm, XY error {maximum_xy_error:.8f} mm. '

@@ -1,89 +1,19 @@
 {
   "command": "point",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
   "samples": 1321,
   "duration_s": 11.0,
   "sample_hz": 120,
-  "max_target_error_mm": 1.4154011296341196e-11,
-  "min_sole_height_mm": -6.188827228470473e-12,
-  "minimum_body_ground_clearance_mm": 19.68438162058138,
-  "minimum_closure_triangle_height_mm": 4.6322044047305075,
-  "minimum_assumed_support_margin_mm": 22.264084990360963,
-  "actuator_min_degrees": [
-    [
-      -5.927128509639827,
-      -2.257277044064797,
-      0.020950534375296398
-    ],
-    [
-      -3.928115133864971e-07,
-      -32.848309403039615,
-      -10.778244950103431
-    ],
-    [
-      -56.10427264645513,
-      -8.41853940099484,
-      -128.11403782222735
-    ],
-    [
-      -1.9641272322781057e-07,
-      -0.09219959486285224,
-      0.12362613139543198
-    ]
+  "min_sole_z_mm": -6.188827228470473e-12,
+  "min_body_z_mm": 19.68438162058138,
+  "minimum_closure_height_mm": 3.825900315528904,
+  "maximum_planted_target_error_mm": 1.4154011296341196e-11,
+  "minimum_assumed_support_margin_mm": 24.725723222569542,
+  "maximum_adjacent_joint_step_degrees": 1.2320503002270993,
+  "pulse_range_us": [
+    478.01879882951005,
+    2482.080854592495
   ],
-  "actuator_max_degrees": [
-    [
-      -1.9640520960412418e-07,
-      1.920849412907482,
-      7.884563125721874
-    ],
-    [
-      10.147904167846947,
-      1.9208280280176602,
-      0.4433967898132149
-    ],
-    [
-      8.000023474449272,
-      135.3710439638445,
-      13.240975727880201
-    ],
-    [
-      3.160278503265149,
-      3.494732996834554,
-      4.001510740164627
-    ]
-  ],
-  "maximum_adjacent_joint_step_degrees": 7.527309176570087,
-  "peak_joint_speed_deg_s": 528.8276312971154,
-  "peak_joint_acceleration_deg_s2": 4718.763120832922,
-  "seconds": 9.51340237399927,
   "hardware_qualified": false,
   "collision_checked": false,
-  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
-  "lower_leg_angle_above_floor_deg": {},
-  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "body_support_scope": "Current complete body hull.",
-  "full_forward_extension_mm": 95.02010426519041,
-  "pointing_endpoint_lateral_vertical_error_mm": 2.923370133097541e-06,
-  "motion_end_s": 10.4,
-  "clearance_fit": {
-    "command": "point",
-    "samples": 1321,
-    "maximum_planted_knot_error_mm": 0.0001396740947132713,
-    "maximum_airborne_target_change_mm": 0.7145256158900412,
-    "maximum_root_correction_mm": 14.032051570190951,
-    "maximum_joint_step_degrees": 7.137257397565119,
-    "timing_and_body_rotation_preserved": true,
-    "amplitude_scale": 1.0,
-    "profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37",
-    "scope": "Coupled internal-linkage offline source fit; sampled contacts and all source interpolation checked separately. Physical tracking and whole-body strength unqualified.",
-    "maximum_planted_sample_error_mm": 0.0020110506715160683,
-    "minimum_sole_clearance_mm": -9.929638996553081e-05,
-    "polished_samples": 0,
-    "common_stand_entry_and_finish_preserved": true
-  },
-  "min_sole_z_mm": -9.929638996553081e-05,
-  "min_body_z_mm": 14.461893513380822,
-  "minimum_closure_height_mm": 0.8104682875037912,
-  "maximum_planted_target_error_mm": 0.002111050671516068
+  "motion_end_s": 10.4
 }

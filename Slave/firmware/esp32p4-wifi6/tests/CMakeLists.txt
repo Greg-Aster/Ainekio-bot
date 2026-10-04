@@ -11,6 +11,24 @@ target_compile_options(test_joint_calibration PRIVATE -Wall -Wextra -Werror -Wpe
 target_link_libraries(test_joint_calibration PRIVATE ainekio_v2_motion m)
 add_test(NAME joint_calibration COMMAND test_joint_calibration)
 
+add_executable(test_run_calibration test_run_calibration.c ../main/joint_calibration.c)
+target_include_directories(test_run_calibration PRIVATE ../main)
+target_link_libraries(test_run_calibration PRIVATE ainekio_v2_motion m)
+target_compile_options(test_run_calibration PRIVATE -Wall -Wextra -Werror)
+add_test(NAME run_calibration COMMAND test_run_calibration)
+
+add_executable(test_crawl_calibration test_crawl_calibration.c ../main/joint_calibration.c)
+target_include_directories(test_crawl_calibration PRIVATE ../main)
+target_link_libraries(test_crawl_calibration PRIVATE ainekio_v2_motion m)
+target_compile_options(test_crawl_calibration PRIVATE -Wall -Wextra -Werror)
+add_test(NAME crawl_calibration COMMAND test_crawl_calibration)
+
+add_executable(test_clip_calibration test_clip_calibration.c ../main/joint_calibration.c)
+target_include_directories(test_clip_calibration PRIVATE ../main)
+target_link_libraries(test_clip_calibration PRIVATE ainekio_v2_motion m)
+target_compile_options(test_clip_calibration PRIVATE -Wall -Wextra -Werror)
+add_test(NAME clip_calibration COMMAND test_clip_calibration)
+
 # Compile the production output owner against a host scheduler/driver boundary
 # and the same native model used by the firmware.
 add_subdirectory("../../../software/models/v2-12servo" "v2_model")

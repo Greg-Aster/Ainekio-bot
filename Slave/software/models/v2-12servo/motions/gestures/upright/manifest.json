@@ -35,30 +35,30 @@
   "final_actuator_angles_rad": [
     [
       0.0,
-      -0.8578311986899925,
-      -1.4113358084124026
+      -0.43652912003815825,
+      -1.2048062705152456
     ],
     [
       -4.238702507631964e-07,
-      -0.8578319164214177,
-      -1.411335992116821
+      -0.43652912003815825,
+      -1.2048062705152456
     ],
     [
-      0.13962634015954636,
-      -0.03490658503988659,
-      -1.8151424220741028
+      0.1486946677051144,
+      -0.022494714092975987,
+      -1.2048008017066039
     ],
     [
-      0.13962634015954636,
-      -0.03490658503988659,
-      -1.8151424220741028
+      0.14869456907352185,
+      -0.022494714092975987,
+      -1.2048008017066039
     ]
   ],
   "geometry_id": "upright-24-38-24-55-visible-20260929",
   "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
-  "source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
-  "posture_sha256": "d8e22b8504fb10e9a3a5817729ea9739c1a4f6feffc5e6c5449ed49b894073a0",
+  "source_sha256": "05603ad712ee5be2b9a49c2689cbba4ae1f41d463793a802002f975279aa7cc6",
+  "posture_sha256": "9e4981aa7eca88f7d7f5ff9eeb2e81c0354c12f1f69c45475ca7682d20a0da08",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "hardware_qualified": false,
   "actuator_calibration": null,
@@ -66,65 +66,27 @@
   "source_validation": {
     "command": "upright",
     "samples": 2641,
-    "max_target_error_mm": 2.5462710677129664e-11,
-    "max_rear_anchor_error_mm": 4.2993458971236925e-05,
-    "min_sole_z_mm": -4.766192658589574e-05,
-    "min_body_z_mm": 0.5435354083108006,
-    "min_support_margin_after_sit_mm": 0.7369906620860218,
-    "minimum_closure_height_mm": 2.382384321067961,
-    "maximum_adjacent_joint_step_degrees": 0.7584103480819351,
-    "joint_min_deg": [
-      [
-        -1.873202335363268e-06,
-        -49.150107219584925,
-        -80.86358529771482
-      ],
-      [
-        -2.428597667734798e-05,
-        -49.15014834256641,
-        -80.86359582320266
-      ],
-      [
-        1.1371855728356684e-07,
-        -37.604568771227925,
-        -122.51769902665671
-      ],
-      [
-        -2.248934714810422e-06,
-        -25.304280962386766,
-        -104.0
-      ]
-    ],
-    "joint_max_deg": [
-      [
-        1.756424741151163e-06,
-        45.72585723391265,
-        47.69604533424418
-      ],
-      [
-        3.989161961610333e-06,
-        45.72584853646045,
-        47.69604472343891
-      ],
-      [
-        8.000000000000002,
-        12.782389760335708,
-        0.44340625046554855
-      ],
-      [
-        8.000000000000002,
-        29.408540556076197,
-        2.418028941457747
-      ]
-    ],
-    "final_pitch_deg": -90,
-    "final_front_reach_mm": [
-      92.92685527443531,
-      92.92685527443531
+    "duration_s": 22.0,
+    "sample_hz": 120,
+    "min_sole_z_mm": -5.143280086272739e-05,
+    "min_body_z_mm": 0.5435244033407685,
+    "minimum_closure_height_mm": 2.000102924262377,
+    "maximum_planted_target_error_mm": 4.615141298014436e-05,
+    "minimum_assumed_support_margin_mm": 1.5626987302587398,
+    "maximum_adjacent_joint_step_degrees": 1.9839450063225248,
+    "pulse_range_us": [
+      404.9945435730482,
+      2895.0054564269517
     ],
     "hardware_qualified": false,
     "collision_checked": false,
-    "support_scope": "Provisional COM at body pivot; broad soles within 0.5 mm of floor. No dynamics, mass distribution or traction qualification."
+    "motion_end_s": 22.0,
+    "min_support_margin_after_sit_mm": 1.5626987302587398,
+    "final_front_reach_mm": [
+      90.33943227369438,
+      90.33943227369438
+    ],
+    "final_pitch_deg": -90.0
   },
   "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."

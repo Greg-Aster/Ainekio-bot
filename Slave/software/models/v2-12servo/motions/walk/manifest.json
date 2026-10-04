@@ -5,7 +5,7 @@
   "sha256": {
     "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
     "../../geometry.json": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
-    "../locomotion/config.json": "459118fcabdf2f3fd3c63437cd09f2a3267ed3a0326ff850c55f7df17f1c7051",
+    "../locomotion/config.json": "163e8cda0a2845f568a0624452292138cc4cd4d073c859494bce272f1c4f2334",
     "source.json": "8ab2142f5c73190859c04e8b05e7efde16f631c5bfe0bc6c934e6a3e2b719b19"
   },
   "source_leg_order": [

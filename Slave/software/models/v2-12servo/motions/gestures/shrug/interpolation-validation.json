@@ -27,5 +27,7 @@
       "minimum_closure_height_mm": 7.5325556717154765,
       "maximum_interpolated_target_error_mm": 0.050146957539027426
     }
-  }
+  },
+  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
+  "superseded_source_sha256": "34badfe186ec00a529c50bb3c8c1d8bbfe8d0a4b16d39fc6aa9e49965ded7f99"
 }

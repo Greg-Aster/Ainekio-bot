@@ -1,63 +1,25 @@
 {
   "command": "upright",
   "samples": 2641,
-  "max_target_error_mm": 1.5190282001930684e-11,
-  "max_rear_anchor_error_mm": 1.7023127188805003e-05,
-  "min_sole_z_mm": -2.792214050284514e-05,
-  "min_body_z_mm": 0.5435354083108006,
-  "min_support_margin_after_sit_mm": 1.5626940351687182,
-  "minimum_closure_height_mm": 2.270368572348747,
-  "maximum_adjacent_joint_step_degrees": 0.4322469842737395,
-  "joint_min_deg": [
-    [
-      -1.873202335363268e-06,
-      -34.531875422436215,
-      -53.24999999999999
-    ],
-    [
-      -2.595073743099477e-05,
-      -34.53193489173708,
-      -53.24999999999999
-    ],
-    [
-      1.1371855728356684e-07,
-      -8.066398917009337,
-      -53.25
-    ],
-    [
-      -4.816900980230896e-07,
-      -8.066426110943468,
-      -53.25
-    ]
-  ],
-  "joint_max_deg": [
-    [
-      1.756424741151163e-06,
-      63.586943436748555,
-      68.1673384164717
-    ],
-    [
-      3.3748356194268686e-06,
-      63.586914030567826,
-      68.16737933203042
-    ],
-    [
-      8.8875,
-      56.766411211266075,
-      46.66121531884293
-    ],
-    [
-      8.8875,
-      56.76638186730672,
-      46.66120581435563
-    ]
-  ],
-  "final_pitch_deg": -90,
-  "final_front_reach_mm": [
-    89.1122687256966,
-    89.1122687256966
+  "duration_s": 22.0,
+  "sample_hz": 120,
+  "min_sole_z_mm": -5.143280086272739e-05,
+  "min_body_z_mm": 0.5435244033407685,
+  "minimum_closure_height_mm": 2.000102924262377,
+  "maximum_planted_target_error_mm": 4.615141298014436e-05,
+  "minimum_assumed_support_margin_mm": 1.5626987302587398,
+  "maximum_adjacent_joint_step_degrees": 1.9839450063225248,
+  "pulse_range_us": [
+    404.9945435730482,
+    2895.0054564269517
   ],
   "hardware_qualified": false,
   "collision_checked": false,
-  "support_scope": "Provisional COM at body pivot; broad soles within 0.5 mm of floor. No dynamics, mass distribution or traction qualification."
+  "motion_end_s": 22.0,
+  "min_support_margin_after_sit_mm": 1.5626987302587398,
+  "final_front_reach_mm": [
+    90.33943227369438,
+    90.33943227369438
+  ],
+  "final_pitch_deg": -90.0
 }

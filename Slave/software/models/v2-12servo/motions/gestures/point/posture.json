@@ -4,7 +4,7 @@
   "measured_date": "2026-09-29",
   "body_support_scope": "Current complete body hull.",
   "schema": "ainekio.point.full-forward-extension.v1",
-  "description": "Extend the physical front-left upper and lower leg into one forward horizontal line for the full 40 + 55 mm modeled reach.",
+  "description": "Forward pointing with a coupled positive-crank extension path that fits the mounted servo range.",
   "contact_hulls_file": "../sit/posture-hulls.npz",
   "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "grounded_legs": [],
@@ -17,43 +17,25 @@
     -35.346595764160156
   ],
   "extended_joint_offsets_rad": [
-    0.13962674986597626,
-    2.3626704290310827,
-    -1.5048208805328622
+    0.14263475862967734,
+    2.059730559444062,
+    1.637719397712503
   ],
   "extension_waypoints_rad": [
     [
-      -0.46671139706103615,
-      0.3614280083053928,
-      0.20712483278086327
+      -0.4266138172991002,
+      0.43046485428392867,
+      0.20006545236760376
     ],
     [
-      -0.9599310885968813,
-      -0.13962634015954636,
-      -1.6057029118347832
-    ],
-    [
-      -0.9599310885968813,
-      0.06981317007977318,
-      -2.059488517353309
-    ],
-    [
-      -0.9599310885968813,
-      0.6981317007977318,
-      -2.234021442552742
-    ],
-    [
-      0.13962674986597626,
-      2.3626704290310827,
-      -1.5048208805328622
+      0.14263475862967734,
+      2.059730559444062,
+      1.637719397712503
     ]
   ],
   "extension_waypoint_fractions": [
-    0.0,
-    0.37246732563214124,
-    0.4682062059702892,
-    0.5931239484608514,
-    1.0
+    0,
+    1
   ],
   "timing_s": {
     "lift_end": 3.0,
@@ -61,11 +43,18 @@
     "hold_end": 6.2,
     "retraction_end": 7.4
   },
-  "full_modeled_extension_mm": 95.02010426518976,
   "posture_sample_time_s": 5.0,
-  "angle_scope": "Measured linkage offsets within the research envelope; electrical stops and loaded motion are not calibrated.",
+  "angle_scope": "Authored for the mounted pulse mapping in calibrated_path_fit; loaded tracking is unmeasured.",
   "nominal_link_lengths_mm": [
     40,
     55
-  ]
+  ],
+  "calibrated_path_fit": {
+    "pulse_target_us": [
+      400,
+      2900
+    ],
+    "details": "source.json metadata.calibrated_path_fit"
+  },
+  "extension_interpolation": "Quintic progress in crank angle and normalized four-bar carrier coordinates."
 }

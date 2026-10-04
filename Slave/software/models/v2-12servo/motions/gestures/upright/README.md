@@ -1,21 +1,22 @@
 # Upright
 
-`upright` is a separate experimental V2 command. `stand` retains its four-foot meaning. Send `{"t":"intent","name":"emote","asset":"upright"}` with the normal transport fields; the gateway accepts it only when the body declares this capability.
+`upright` is an experimental V2 named motion, distinct from four-foot Stand. Send `{"t":"intent","name":"emote","asset":"upright"}` through the normal body-control transport.
 
-The 22-second clip preserves the exact first three seconds of Sit, levels the chassis while all four feet support it, shifts the body rearward with those foot reference positions fixed, then withdraws the front pair and rises to a vertical chassis. It holds Upright until another command; automatic recovery is not included.
+The 22-second clip preserves the exact first three seconds of Sit, steps the front feet backward one at a time, transfers support rearward, then rises to a vertical chassis. It holds the endpoint until another command.
 
 | Phase | Source interval |
 | --- | --- |
 | Accepted Sit prefix | 0–3 s |
-| Level seated chassis from −27.5° to −10° | 3–5 s |
-| Grounded rearward support transfer | 5–12 s |
+| First front foot steps backward; brace pitch adjusts | 3–5 s |
+| Second front foot steps backward | 6–8 s |
+| Grounded rearward support transfer | 8–12 s |
 | Withdraw forelimbs and rise to −90° | 12–20 s |
 | Hold Upright | 20–22 s |
 
-Leveling before the rearward transfer keeps the grounded front-foot targets within the screw-aware linkage range. The previous simultaneous transfer at the seated pitch required unreachable front-foot placements; lifting the front pair early instead left the assumed center of mass outside the rear support. This route keeps all four contacts until the modeled support transfer is complete.
+The mounted-calibration correction moves the front brace targets 15 mm forward of the previous targets. The chassis briefly levels to about −14.15° during the first step, then returns to about −22.75° before the final rise. Rear boot orientation and rear foot reference positions remain anchored; body translation and the final forelimb pose change to fit the requested 400–2900 µs span. Phase times and the full vertical rise are retained.
 
-The source has 2,641 knots at 120 Hz. Rear foot reference XY positions stay fixed within 0.000018 mm; rear soles may roll as the chassis rises. Minimum complete-body floor clearance is 0.5435 mm, and the provisional center of mass stays at least 1.5626 mm inside the supporting sole polygon after Sit. The final constrained forelimb reach is 89.1123 mm, with at least 2.2703 mm of closure-triangle height. The earlier 92.93 mm forelimb endpoint exceeded the current screw-aware joint range.
+The 2,641 source knots at 120 Hz require approximately 405–2895 µs with the mapping recorded in `source.json` metadata. After Sit, the maximum planted target error is 0.000047 mm, minimum body floor clearance is 0.5435 mm, and the provisional center of mass stays at least 1.5626 mm inside the supporting sole polygon. Final forelimb reach is 90.3394 mm; minimum closure-triangle height is 2.0001 mm.
 
-These are geometric results using an assumed center of mass at the model pivot `[0,0,65]` mm and sole vertices within 0.5 mm of ground. Real mass distribution, traction, compliance, dynamic balance and loaded servo tracking remain unqualified. The complete robot has not been collision-qualified by this support calculation.
+These are geometry calculations using an assumed center of mass at the model pivot `[0,0,65]` mm and sole vertices within 0.5 mm of ground. Real mass distribution, traction, compliance, dynamic balance, loaded servo tracking and robot collision clearance remain unqualified.
 
-Pulse demands use the current per-joint matchmark references in `servo_profile.json`; these remain provisional until physical shaft mapping is verified. `tools/generate_upright.py` generates the source with NumPy and SciPy. `tests/test_upright.py` independently recomputes contact geometry and support, checks the exact Sit prefix and vertical hold, and proves interpolation remains inside the authored coupled joint envelope.
+The corrected `source.json` is the canonical trajectory. `tools/generate_upright.py` and historical Blender reports describe earlier paths and do not regenerate or validate this calibration fit. `tests/test_upright.py` independently recomputes contact geometry, body clearance and support, and checks the exact Sit prefix and vertical hold. The firmware-native `clip_calibration` test checks compiled pulse extrema and entry interpolation using the mounted calibration. The source metadata records that calibration and the prior source hash.

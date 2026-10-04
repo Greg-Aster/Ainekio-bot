@@ -79,9 +79,17 @@ preserving planted contacts. Cadence requests still rise from 1x to 2x across
 0–100% Speed; advanced rate remains 0.25–3x.
 
 Crawl/Crab retain stride=min(100,2*s)% and cadence=max(1,s/50). Crawl uses a
--35 mm body reference, 18 mm sweep, 4 mm rear bias and up to 4 mm lift. Full Walk
+-22 mm body reference, 18 mm sweep, 4 mm rear bias and up to 4 mm lift. Full Walk
 turns retain the previous 8.73 degrees per cycle; Crawl turns use 10 degrees.
 Run retains its separate amplitude profile above 100%.
+
+Crawl's body reference was raised from -35 to -22 mm to fit the mounted servo
+calibration while retaining its full sweep, lift, turning angle and speed mapping.
+The native `crawl_calibration` regression checks the production pulse mapper
+against 400–2900 µs in all four directions, through entry, speed changes and
+Finish, including advanced rate extremes and 10/20/40 ms output intervals.
+This is calculated motion with the saved mounting profile and 1000°/s joint
+limit; physical tracking remains unmeasured. No pulse clamp is added.
 
 `walk_controls_v2` negotiates directions `fwd`, `back`, `turn_l`, `turn_r`,
 `gait: "walk"|"crawl"` and `steps: 0` for ongoing operation. Finite steps 1–10
@@ -117,22 +125,31 @@ Crawl stays 0–100. The current leverage revision and its offline checks are re
 
 Run is a front-pair/rear-pair bound: 42% stance per pair, half a cycle apart,
 with two brief flight intervals. Body pitch replaces the walking side sway.
-Forward Run opens its planted sweep from 80 mm just above 100% Speed to 104 mm
-at 200%, with the original 10 mm rear bias at full stride and up to 18 mm lift. At full stride
-the shorter stance fraction advances 247.62 mm per cycle, versus Walk's
+Forward Run opens its planted sweep from 80 mm just above 100% Speed to 96 mm
+at 200%, biased 8 mm forward at full stride, with up to 14 mm lift. At full
+stride the shorter stance fraction advances 228.57 mm per cycle, versus Walk's
 131.43 mm; this is modeled translation, not measured speed. Backward Run and
-turns retain an 80 mm sweep with 20 mm bias. Run's 1.2 s base period uses
-automatic rate `2+(Speed-100)/150`, requesting about 0.6 s just above 100%, 0.514 s
-at 150%, and 0.45 s at 200%. The joint-speed budget can lengthen these periods.
-Forward Run uses direct linkage geometry and the existing
-horn indexing without changing servo references or imposing new pulse caps.
-At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward;
-a 3° nose-up bias and -9 mm body reference retain reach with the revised swing lift. Backward Run and turns use a -8 mm body reference. Lanes blend through swing while stance feet
-remain planted. This separates the crossing lower legs without retiming pairs.
+turns use an 80 mm maximum sweep with the same forward bias. Run's 1.2 s base
+period uses automatic rate `2+(Speed-100)/150`, requesting about 0.6 s just above
+100%, 0.514 s at 150%, and 0.45 s at 200%. The joint-speed budget can lengthen
+these periods without shrinking the planned stride.
+
+Forward Run uses a -8 mm body reference, 3 mm bob and 5.5° pitch oscillation
+phased a quarter cycle ahead of the former sine profile to coordinate with the
+paired stance. Backward Run and turns use a -4 mm body reference and 4° pitch.
+At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward.
+The horizontal swing return uses smooth velocity ramps over its first and last
+5%, with constant velocity between them; this avoids carrying the foot beyond
+the reachable fore/aft path during the long flight. Vertical lift remains smooth.
+Servo references and the shared joint-speed control are unchanged; no pulse
+clamp is added.
 
 The transition takes six gait cycles with smooth body/contact changes. Feet
 already in stance keep their world anchors. Cyclic offsets advance the next
 step to form or separate pairs; active swings keep their landing targets.
+Run stride changes interpolate over three cycles, or the full six-cycle blend
+while changing gait. Finish also uses three cycles and reduces lift for newly
+planned swings as travel decelerates. Direct automatic-Run startup uses six cycles.
 The common clock, command sequence, controlled Finish and emergency stop remain shared.
 
 Advanced `gait:"run"` accepts stride 1–100 and rate 0.25–3 independently;

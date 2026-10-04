@@ -79,5 +79,7 @@
   "scope": "All six pairs of lower-leg assemblies (Part027 plus inner/outer boots); native source knots and optional linear-joint midpoints. Exact triangle intersection after broadphase; separating-plane gaps conservatively bound mesh distance. Common chassis pose removed. No whole-robot or continuous-time collision proof.",
   "intersecting_poses": 0,
   "elapsed_s": 21.959183854000003,
-  "passed": true
+  "passed": true,
+  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
+  "superseded_source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd"
 }

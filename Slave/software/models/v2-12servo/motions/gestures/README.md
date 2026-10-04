@@ -1,6 +1,6 @@
 # Twelve-servo postures and gestures
 
-The 23 gestures include Lay Down and experimental Upright. Worm, Shrug and Play Dead use the reviewed Blender recordings. Crab is now ongoing locomotion and has no finite runtime clip. V1 assets are preserved. Sit uses the native `sit` intent; other gestures use `emote` with the named asset.
+The 23 gestures include Lay Down and experimental Upright. Worm and Shrug derive from the reviewed Blender recordings with the calibrated trajectory adjustments below. Play Dead retains its reviewed recording. Crab is now ongoing locomotion and has no finite runtime clip. V1 assets are preserved. Sit uses the native `sit` intent; other gestures use `emote` with the named asset.
 
 | Command | Duration | Completion |
 | --- | --- | --- |
@@ -30,9 +30,9 @@ The 23 gestures include Lay Down and experimental Upright. Worm, Shrug and Play 
 
 Sit places the rear lower legs along the floor at 1.8° above horizontal. Rest makes all four lower legs horizontal and puts the chassis base plate on the floor; its contact scope deliberately excludes carapace and mask. Wave replays the exact Sit entry, extends the front-left arm, makes three shoulder waves, replaces the foot and reverses Sit into standing.
 
-Point retains its original95.02mm forward extension and original recorded path. Bow preserves the eight-servo gesture: brace, slide both hands forward about 73.42 mm with the front low and rear high, hold three seconds, then reverse. Sliding friction is unqualified.
+Point uses a coupled carrier/crank extension on the reachable branch of the linkage. Its 92.17 mm arm reach replaces the original 95.02 mm reach; its pointing endpoint is within 1.49 mm of the original world-space target. Bow preserves the eight-servo gesture: brace, slide both hands forward about 73.42 mm with the front low and rear high, hold three seconds, then reverse. Sliding friction is unqualified.
 
-Nod retains exactly two up/down cycles. Its original amplitude and timing are preserved. Crouch lowers four planted feet to a held squat at body translation -35 mm, with the chassis above ground. Ongoing Crawl and directional walking are native commands, not finite clips.
+Nod retains exactly two up/down cycles. Its pitch amplitude and timing are preserved; body translation and joint paths adjust to the mounted calibration. Crouch lowers four planted feet to a held squat at body translation -35 mm, with the chassis above ground. Ongoing Crawl and directional walking are native commands, not finite clips.
 
 Upright is distinct from four-foot Stand. It replays the accepted Sit, moves the front feet backward one at a time, shifts weight over the planted rear lower legs, then raises the chassis to vertical. [Upright geometry and limitations](upright/README.md).
 
@@ -50,4 +50,8 @@ Each posture file records current constraints. Wave depends on Sit and must rege
 
 All assets retain `hardware_qualified=false`. The coupled internal-leg sweep and floor/closure checks do not qualify shoulder/body clearance, loaded motion, servo travel, traction or balance. Firmware motion availability comes from confirmed calibration and runtime readiness; it is separate from research qualification. Assembly references, pulse-center arithmetic, migration and measurement procedures are in [SERVO_ASSEMBLY.md](../../SERVO_ASSEMBLY.md).
 
-Original motions conflict with portions of the modeled clearance envelope and the300–2900µs reference span. See `../../mechanics/original-motion-range-audit.json`. These conflicts are reported without shrinking the movements.
+Point, Nod, Pushup, Worm, Shrug and Upright have reauthored trajectories for the mounted mirrored calibration and the requested 400–2900 µs span. Their durations remain unchanged. The other 17 sources remain unchanged. This changes recorded poses, not the runtime speed limiter or servo calibration. Each adjusted source records its baseline hash and exact calibration in `metadata.calibrated_path_fit`.
+
+The canonical adjusted paths are `source.json`. Older generators and `reviewed.json` files describe the pre-adjustment choreography and do not reproduce these calibration fits. Historical Blender and interpolation reports are labeled as prior-recording evidence; the adjusted paths have not been reviewed in Blender or physically qualified. The independent native `clip_calibration` test checks all 23 compiled trajectory extrema and entry interpolation from Home and every named-motion terminal pose using the mounted profile. Changing that profile requires checking the pulse ranges again.
+
+`../../mechanics/original-motion-range-audit.json` describes the earlier recordings and modeled clearance envelope; it is not a pulse-range verdict on these corrected sources. Electrical pulse bounds do not establish mechanical collision clearance.

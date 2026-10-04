@@ -11,5 +11,7 @@
   "blend_sha256": "2c71a7d620b878c2ef50a589fd1f8325ecae924b727e3e855a35d7e8118e0cb3",
   "scene": "Motions - Firmware Remap",
   "complete_joint_and_body_key_arrays_verified": true,
-  "hardware_qualified": false
+  "hardware_qualified": false,
+  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
+  "superseded_source_sha256": "34badfe186ec00a529c50bb3c8c1d8bbfe8d0a4b16d39fc6aa9e49965ded7f99"
 }

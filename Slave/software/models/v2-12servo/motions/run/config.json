@@ -10,8 +10,8 @@
     "FR": 0.5
   },
   "sweep_mm": 80,
-  "rearward_bias_mm": 20,
-  "lift_mm": 18,
+  "rearward_bias_mm": -8,
+  "lift_mm": 14,
   "minimum_lift_mm": 4,
   "bob_mm": 3,
   "pitch_deg": 4,
@@ -24,7 +24,7 @@
   "automatic_speed_threshold_percent": 100,
   "maximum_speed_percent": 200,
   "transition_cycles": 6,
-  "body_z_mm": -8,
+  "body_z_mm": -4,
   "research_angle_bounds_deg": [
     [
       -110,
@@ -40,13 +40,17 @@
     ]
   ],
   "forward": {
-    "sweep_mm": 104,
-    "rearward_bias_mm": 10,
-    "body_z_mm": -9,
+    "sweep_mm": 96,
+    "rearward_bias_mm": -8,
+    "body_z_mm": -8,
     "lane_offset_mm": 8,
     "lane_assignment": "physical_front_inside_rear_outside",
-    "pitch_bias_deg": -3
+    "pitch_bias_deg": 0,
+    "pitch_deg": 5.5,
+    "pitch_phase_cycles": 0.25
   },
   "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
-  "search_bounds_basis": "Original authored Run trajectory restored for comparison; current screw-aware limits and mounting calibration retained separately. Original path has not been proven collision-safe."
+  "search_bounds_basis": "Recalculated Run with forward-biased foot placement and a quicker fore/aft return during flight; preserve 96 mm approved Walk and bound calculated servo commands to 400-2900 us with the saved mounting calibration. Physical tracking remains unmeasured.",
+  "initial_sweep_mm": 80,
+  "swing_ramp_fraction": 0.05
 }
