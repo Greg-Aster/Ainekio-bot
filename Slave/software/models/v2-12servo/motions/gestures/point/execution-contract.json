@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/point/source.json",
-      "sha256": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3"
+      "sha256": "60d7f1170e8a15821a729bc38d32ac998e495781c645a65aa0d80011c9d4d8e7"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/point/manifest.json",
-      "sha256": "06c3f24a97462e103f89071027d94eea8f2de742ee26b2a5a617f150f8526772"
+      "sha256": "2b181834eada7f549a745810f777af90537d79d0a73bf54241f8bb941afa5269"
     }
   ],
   "source_units": {

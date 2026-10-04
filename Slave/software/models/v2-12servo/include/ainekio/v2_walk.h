@@ -15,7 +15,7 @@ typedef struct {
 } ainekio_v2_walk_pose_t;
 
 typedef struct {
-    double start_x, end_x, start_y, end_y, lift, touchdown_phase, swing_span;
+    double start_x, end_x, start_y, end_y, lift, touchdown_phase, swing_span, run_shape;
     bool swinging;
 } ainekio_v2_foot_state_t;
 typedef struct {

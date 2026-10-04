@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/nod/source.json",
-      "sha256": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1"
+      "sha256": "77cfcdea5073baa96b93cc6ffe81bade93b283bcb58a83ddc1b6cb88cd970ff7"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/nod/manifest.json",
-      "sha256": "cfab94bdec8f17ee47be3c9c13f7649a152214c15835c6a241683566f57e06de"
+      "sha256": "337668727c56f566c2fa90c351231b13f8d3e7bb2de413dd3d4203bab32c217d"
     }
   ],
   "source_units": {

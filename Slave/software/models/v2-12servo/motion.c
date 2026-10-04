@@ -7,6 +7,16 @@
 
 static const double pi=3.14159265358979323846;
 static double smooth(double u) {if(u<=0.)return 0.;if(u>=1.)return 1.;return u*u*u*(10.+u*(-15.+6.*u));}
+/* Integrate a smooth acceleration/deceleration ramp around constant swing
+ * velocity. Run's long flight must return the foot promptly instead of
+ * carrying it far behind/above the intended stance endpoints. */
+static double run_swing(double u)
+{
+    const double r=V2_RUN_SWING_RAMP,v=1./(1.-r);
+    if(u<r){double t=u/r;return v*r*(t*t*t-.5*t*t*t*t);}
+    if(u>1.-r){double t=(1.-u)/r;return 1.-v*r*(t*t*t-.5*t*t*t*t);}
+    return v*(u-r*.5);
+}
 static double bump(double u) {return 64.*u*u*u*(1.-u)*(1.-u)*(1.-u);}
 static _Atomic float joint_speed_limit = V2_GAIT_MAX_JOINT_SPEED_DEGREES_S;
 double ainekio_v2_joint_speed_default(void){return V2_GAIT_MAX_JOINT_SPEED_DEGREES_S;}
@@ -71,7 +81,8 @@ static void body_pose(ainekio_v2_walk_pose_t *p,double stride,bool reference)
         /* Paired front stance, flight, paired rear stance, flight. This is a
          * kinematic reference, not a force/balance controller. */
         double z=V2_BODY_Z+((p->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_BODY_Z:V2_RUN_BODY_Z)-V2_BODY_Z)*smooth(p->phase/3.)+V2_RUN_BOB*strength*cos(2.*a-4.*pi*(V2_RUN_DUTY+.5)/2.);
-        double pitch=(V2_RUN_PITCH*sin(a)+(p->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_PITCH_BIAS:0.))*strength;
+        double pitch=(p->direction==AINEKIO_WALK_FORWARD ?
+            V2_RUN_FORWARD_PITCH*sin(a+V2_RUN_FORWARD_PITCH_PHASE)+V2_RUN_FORWARD_PITCH_BIAS : V2_RUN_PITCH*sin(a))*strength;
         p->body[1]*=1.-p->run_blend;p->euler[0]*=1.-p->run_blend;
         p->body[2]+=(z-p->body[2])*p->run_blend;
         p->euler[1]+=(pitch-p->euler[1])*p->run_blend;
@@ -210,17 +221,26 @@ static double control_transition_span(const ainekio_v2_walk_state_t *s,ainekio_v
 {
     /* Run's committed swing destinations were planned at the previous stride.
      * Use its existing three-cycle entry profile to open or close the stroke,
-     * so body bounding and new landings evolve together. Rate-only changes
-     * and Finish retain Run's existing interpolation. Wider Walk uses its
+     * so body bounding and new landings evolve together. Walk/Run rephasing
+     * uses the full six-cycle blend; Run Finish uses three cycles. Rate-only
+     * changes retain one-cycle interpolation. Wider Walk uses its
      * two-cycle interpolation so planted feet stay within the authored path. */
-    return c.stride_percent>0. && s->from.stride_percent!=c.stride_percent &&
-        (s->run_target>0. || run_at(s,s->phase)>0.) ? 3. :
+    return s->from.stride_percent!=c.stride_percent &&
+        (s->run_target>0. || run_at(s,s->phase)>0.) ?
+        (c.stride_percent>0. && s->run_from!=s->run_target && s->phase<s->run_transition_phase+V2_RUN_TRANSITION ? V2_RUN_TRANSITION : 3.) :
         s->gait_mode==AINEKIO_GAIT_WALK&&run_at(s,s->phase)==0. ? V2_WALK_TRANSITION : 1.;
 }
 bool ainekio_v2_walk_update(ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_t c)
 {
     if(!s||!s->initialized||s->failed||s->complete||!ainekio_v2_walk_controls_valid(c))return false;
     if(s->stopping&&c.stride_percent>0.)return false; /* A stopped command is never resurrected. */
+    /* Before the first tick there are no committed swings: replace the launch
+     * target, rather than queueing it behind an unused startup trajectory. */
+    if(s->phase==0. && s->preparation_seconds==0.) {
+        s->target=c;s->pending_update=false;
+        if(c.stride_percent==0.)s->stopping=true;
+        return true;
+    }
     if((s->gait_mode==AINEKIO_GAIT_CRAB&&s->preparation_seconds<V2_CRAB_ENTRY)||
        (s->pose.gait==AINEKIO_GAIT_CRAWL&&s->preparation_seconds<V2_CRAWL_ENTRY)){
         s->target=c;s->pending_update=false;
@@ -327,11 +347,12 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
             }
             double lift=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_LIFT:s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_LIFT:mixed(s,s->phase,V2_WALK_LIFT,V2_RUN_LIFT);
             double min_lift=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_MIN_LIFT:s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_MIN_LIFT:mixed(s,s->phase,V2_MIN_LIFT,V2_RUN_MIN_LIFT);
-            f->lift=min_lift+(lift-min_lift)*controls_at(s,td-(1.-contact)/2.).stride_percent/100.;f->swinging=true;
+            f->run_shape=run_at(s,s->phase)>0. ? 1. : 0.;
+            f->lift=min_lift+(lift-min_lift)*controls_at(s,s->stopping&&run_at(s,s->phase)>0. ? td : td-(1.-contact)/2.).stride_percent/100.;f->swinging=true;
         }
         if(emit) {
             double x=f->start_x,y=f->start_y,height=0.;
-            if(f->swinging){double u=(s->phase-(f->touchdown_phase-f->swing_span))/f->swing_span;u=fmax(0.,fmin(1.,u));x+=(f->end_x-f->start_x)*smooth(u);y+=(f->end_y-f->start_y)*smooth(u);height=f->lift*bump(u);}
+            if(f->swinging){double u=(s->phase-(f->touchdown_phase-f->swing_span))/f->swing_span;u=fmax(0.,fmin(1.,u));double horizontal=smooth(u)+f->run_shape*(run_swing(u)-smooth(u));x+=(f->end_x-f->start_x)*horizontal;y+=(f->end_y-f->start_y)*horizontal;height=f->lift*bump(u);}
             s->pose.feet[i][0]=v2_walk_stance[i][0]+x;s->pose.feet[i][1]=v2_walk_stance[i][1]+y;s->pose.sole_height[i]=height;s->pose.grounded[i]=!f->swinging;
         }
         if(f->swinging)resting=false;
@@ -404,8 +425,8 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
              * Explicit Run uses the same amplitude profile at lower speeds.
              * The owner's joint limit retimes this path; it never shrinks it. */
             double stride=speed>100. ?
-                100.*(V2_RUN_SWEEP+(V2_RUN_FORWARD_SWEEP-V2_RUN_SWEEP)*(speed-100.)/100.)/V2_RUN_FORWARD_SWEEP :
-                fmin(100.,2.*speed)*V2_RUN_SWEEP/V2_RUN_FORWARD_SWEEP;
+                100.*(V2_RUN_START_SWEEP+(V2_RUN_FORWARD_SWEEP-V2_RUN_START_SWEEP)*(speed-100.)/100.)/V2_RUN_FORWARD_SWEEP :
+                fmin(100.,2.*speed)*V2_RUN_START_SWEEP/V2_RUN_FORWARD_SWEEP;
             controls=(ainekio_v2_walk_controls_t){stride,intent->data.walk.gait==AINEKIO_GAIT_RUN?fmax(2./3.,speed/75.):2.+(speed-100.)/150.};run_target=1.;
         } else if(intent->data.walk.gait==AINEKIO_GAIT_WALK){
             if(!ainekio_v2_walk_controls(speed,&controls))return false;
@@ -426,11 +447,14 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
             s->forward_target=intent->data.walk.forward;s->turn_target=intent->data.walk.turn;s->steering_phase=s->phase;s->steering=true;
         }
         if(controls.stride_percent>0.)set_run_target(s,run_target);
+        if(!s->pending_update && controls.stride_percent>0.)s->transition_span=control_transition_span(s,controls);
+        if(automatic_run && s->phase==0.)s->transition_span=V2_RUN_TRANSITION;
         s->automatic_run=automatic_run;s->requested_stride_percent=requested_stride;
         s->latest_sequence=command->sequence;return true;
     }
     if(s->initialized&&!s->complete)return false;
     if(!ainekio_v2_gait_begin(s,intent->data.walk.direction,intent->data.walk.gait,cycles,controls,now))return false;
+    if(automatic_run && intent->data.walk.gait==AINEKIO_GAIT_WALK)s->transition_span=V2_RUN_TRANSITION;
     if(intent->data.walk.steering){
         s->steering=true;s->forward_from=s->forward_target=intent->data.walk.forward;
         s->turn_from=s->turn_target=intent->data.walk.turn;

@@ -35,53 +35,53 @@
   ],
   "semantic_final_actuator_angles_rad": [
     [
-      -3.4279677968728985e-09,
-      0.03352514667553436,
+      -3.427967796872899e-09,
+      0.03352514667553437,
       0.007738809546471098
     ],
     [
       -6.855846181461054e-09,
-      0.03352477307698931,
+      0.03352477307698932,
       0.0077387296689784505
     ],
     [
       1.9847588997823714e-09,
       0.033525592878715774,
-      0.007738898911065244
+      0.007738898911065243
     ],
     [
-      -3.4279631272421e-09,
+      -3.4279631272421003e-09,
       0.03352525215986665,
-      0.007738824103824394
+      0.0077388241038243944
     ]
   ],
   "playlist_final_actuator_angles_rad": [
     [
-      -3.4279677968728985e-09,
-      0.03352514667553436,
+      -3.427967796872899e-09,
+      0.03352514667553437,
       0.007738809546471098
     ],
     [
       -6.855846181461054e-09,
-      0.03352477307698931,
+      0.03352477307698932,
       0.0077387296689784505
     ],
     [
       1.9847588997823714e-09,
       0.033525592878715774,
-      0.007738898911065244
+      0.007738898911065243
     ],
     [
-      -3.4279631272421e-09,
+      -3.4279631272421003e-09,
       0.03352525215986665,
-      0.007738824103824394
+      0.0077388241038243944
     ]
   ],
   "geometry_id": "upright-24-38-24-55-visible-20260929",
   "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
-  "source_sha256": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef",
-  "posture_sha256": "e2514eea6f1e2ad0d62f1e02f114b357c43bf31b9de45a9801e2dcad62089bd5",
+  "source_sha256": "cbb77cb92aba509a28ffb2f14c03f0e46f91cfc14a3db4f6d6a19d70b0a5063d",
+  "posture_sha256": "1dbe64cd49c06a042579076918d10d99f903ca31c1dc57eec4e338842340e41d",
   "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
   "reviewed_sha256": "2e4e92284bf509d81a162312aa03b42cd228ece26faa51d2c2542c7ee5824874",
   "hardware_qualified": false,
@@ -92,16 +92,19 @@
     "samples": 2401,
     "duration_s": 20.0,
     "sample_hz": 120,
-    "geometry_id": "upright-24-38-24-55-visible-20260929",
-    "min_sole_height_mm": -0.0011692967169736335,
-    "minimum_body_ground_clearance_mm": 3.2048940429429393,
-    "minimum_closure_triangle_height_mm": 12.830566274784287,
+    "min_sole_z_mm": -0.0011692967173573265,
+    "min_body_z_mm": 3.2048940429429393,
+    "minimum_closure_height_mm": 12.520105890117543,
+    "maximum_planted_target_error_mm": 7.303688502702244e-05,
+    "minimum_assumed_support_margin_mm": 53.44487716901355,
+    "maximum_adjacent_joint_step_degrees": 0.3363844012693858,
+    "pulse_range_us": [
+      405.0,
+      2895.0
+    ],
     "hardware_qualified": false,
     "collision_checked": false,
-    "reviewed_joint_keys_preserved": true,
-    "motion_end_s": 20.0,
-    "max_target_error_mm": 0.0,
-    "peak_joint_speed_deg_s": 35.350551196905805
+    "motion_end_s": 20.0
   },
   "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "blender_scene": "Motions - Current Geometry",

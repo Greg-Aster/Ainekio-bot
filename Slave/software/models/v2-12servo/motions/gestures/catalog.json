@@ -104,16 +104,16 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/point",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/point/execution-contract.json",
       "sha256": {
-        "source.json": "d95544cf97e1f33e36885d9269c03f23f5e0f9701f4f04278e23aa47a56a20a3",
-        "manifest.json": "06c3f24a97462e103f89071027d94eea8f2de742ee26b2a5a617f150f8526772",
+        "source.json": "60d7f1170e8a15821a729bc38d32ac998e495781c645a65aa0d80011c9d4d8e7",
+        "manifest.json": "2b181834eada7f549a745810f777af90537d79d0a73bf54241f8bb941afa5269",
         "schema.json": "7c490f6cb7d44ec8cf8ca1eac485b818b0273ab1cd296f6355ba0e5c5476c740",
         "config.json": "ee30e0d833f47bb733cfd0b7943aa1f4b26af1870570b9800ca9761004410feb",
         "sample_reference.py": "808aa5fef01363bfa7e554a78adb7c45cd4c9a02150b49851ecb9730e22bcacd",
-        "validation.json": "862ed34d1da94ad750c9b30bc034bc8c5fb9ac4be40037ae9ee9e5008de431ca",
-        "interpolation-validation.json": "8915e1fdeee13fdc6f6c6af7986cff1fd71e6c58b05e5265a30f8a9764c6e364",
-        "blender-validation.json": "3223cb0d6f37cb68d0d03ee715b3c301199dcebf646004531488a7a800c7619b",
-        "execution-contract.json": "0cac3b58609c1afd9e821d6538a7252cfc715caf4e54520ef8fcf21ca865c67f",
-        "posture.json": "7585187c1140ae9059533ebd92c0169e5658578b9fd029426d646035691b48a0"
+        "validation.json": "ed2c74e07511351f6409eac4a809e6b175333ea2811f916af37cbb2573d534bf",
+        "interpolation-validation.json": "1519e7897acf59b7c3c56ecd81b9d9128f9df972f27e8376de401ed1acdfefbc",
+        "blender-validation.json": "d773b1be18c1369455620feac58ae1a0b6bc8f95eaa274aa91fc97fcda2aeb42",
+        "execution-contract.json": "54537ba532a1250536db6610d65b068955dfc3e09342dcdbf28a153c46bfb31b",
+        "posture.json": "85c36573c3f6a08c7661ad4c272bd43841544402128b73bd24348daf82109249"
       },
       "legacy_handoff": "docs/gait-research/point-20260916"
     },
@@ -123,15 +123,15 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/nod",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/nod/execution-contract.json",
       "sha256": {
-        "source.json": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1",
-        "manifest.json": "cfab94bdec8f17ee47be3c9c13f7649a152214c15835c6a241683566f57e06de",
+        "source.json": "77cfcdea5073baa96b93cc6ffe81bade93b283bcb58a83ddc1b6cb88cd970ff7",
+        "manifest.json": "337668727c56f566c2fa90c351231b13f8d3e7bb2de413dd3d4203bab32c217d",
         "schema.json": "4da5b28a5331fcf4df5069e476ee34ca8d4407e35fcb2b170ae4e66658afb242",
         "config.json": "1f7f333c4329f23b1040739af64c429d76a6ca03eb65d06ba08daa20dcf68891",
         "sample_reference.py": "474398a428952aece9a9f9ae2849fca6f6363f5b502977a890025c10ea2d229b",
-        "validation.json": "2ebb587719e073bbf2bdba75268d0223142703fa3b4b762604105d889f86a49e",
-        "interpolation-validation.json": "4476e3c902dd183d5c1dc2d3d2e5c3461f71d90d6935867be6b5ba32c91ede61",
-        "blender-validation.json": "1d0e67678b556764ebe67207dc0f6b45691c4579782f845d0385009e79f3a68d",
-        "execution-contract.json": "cfc58f9f27c97dfde268a1d90d539dfce608cb49d1e8d87fab9fd90229251e24"
+        "validation.json": "bd60017e954005e10533a1aeefe2342754f76a750b8ee99514a70dc5934440f6",
+        "interpolation-validation.json": "4c7abc215ed9e589418984150cffd0208649069e3da0ca4c87826f94ba956749",
+        "blender-validation.json": "5318a2f2e5d7efdd410896ecfc580b1f21a59866bbf10d6b7fa4e6d332a2bda4",
+        "execution-contract.json": "7a2006149e45664011de749b3eeba0719d46ada6e506925ea90f5affb9bd57b7"
       },
       "legacy_handoff": "docs/gait-research/nod-20260916"
     },
@@ -141,15 +141,15 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/pushup",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/pushup/execution-contract.json",
       "sha256": {
-        "source.json": "2c136913a43119a5f41af6e900c5bcae4d5ffcfedb32ef26178ca6b7a4a75d1d",
-        "manifest.json": "d09101f024193814d0b3cd6d92584afd847608f3ad3449b76c72e4d5c667f538",
+        "source.json": "6c1d45256eecb572e148b0a30cf0efc739a2188e57d715f4ff9674dc0228960f",
+        "manifest.json": "d94b3bc977c9b3bbe82ad645e06e15b13edf7ad1c9478480588349f5277f8b18",
         "schema.json": "bf37438b7a0d8f67b1b892818dd6ce92fe57de12cc2fe0c1045056c99420841f",
         "config.json": "4104fbbc951f31af76510185f89cdcf75787cb9669f08c7ace9ea7b2e893ea5a",
         "sample_reference.py": "da23d419d21196dbca6917dc05110189ff8bf01826a90d54fe2e859da8c43f25",
-        "validation.json": "b92328a8f7ea9bc69ec48fc9776ce0335b29e6f1574ea85c83fa09d7cd333e48",
-        "interpolation-validation.json": "cef15cee1ee0b91c6b2c22245774baf101809deedd8d439f3193c63a54806fe9",
-        "blender-validation.json": "6981b6600bdddca8d7d4fbb79b39f164ed2f5b3aac63ea8f81df78fbe328f202",
-        "execution-contract.json": "8dc1fcfdf8b70390a3915e4d0ea08258613167ecd05c81030494cfced4f7b471"
+        "validation.json": "bf0f3f32d79fd048447c2d3ec49543b173f44abaeede8ea235bcaeb19a389c04",
+        "interpolation-validation.json": "e13c8a4133883131e30d7312881617f8ec0c4abcb75f0c208407d4565f1dd6d4",
+        "blender-validation.json": "92fd73d9897f3c6cf103d1f2224f415f41e9e13db35601f38ca4b32378df909b",
+        "execution-contract.json": "57102d9a3f03e75fad93f0bc36f290564ef7d4dcd14a194cda2e84a78232fefb"
       },
       "legacy_handoff": "docs/gait-research/pushup-deep-20260916"
     },
@@ -216,14 +216,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/worm/execution-contract.json",
       "sha256": {
         "reviewed.json": "2e4e92284bf509d81a162312aa03b42cd228ece26faa51d2c2542c7ee5824874",
-        "source.json": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef",
-        "manifest.json": "4147824f1ce4bffe11f60deb3f72fe85219b085944f83da96fbc50f3536fb017",
+        "source.json": "cbb77cb92aba509a28ffb2f14c03f0e46f91cfc14a3db4f6d6a19d70b0a5063d",
+        "manifest.json": "41e7752326283b86c7e055d4e4ae905471b8da455fd12e2a3b967b8f4e618092",
         "schema.json": "23df2ab2653b555d86dd6bb2f2ab5d6f50aa9f96cfd5fe600c9ab33981231ed6",
-        "execution-contract.json": "fe712aac713767675b8629adc68436e0565b4cca9a42078dd02a402a1003c662",
-        "posture.json": "e2514eea6f1e2ad0d62f1e02f114b357c43bf31b9de45a9801e2dcad62089bd5",
-        "validation.json": "4ffd94c834fa9333d856cc02023b093c8b0f0dc47c2321c17445554bc54d5f2b",
+        "execution-contract.json": "dfc83fee8222b2515fc6cf725568cfde53ced05bf8cddd5ac195bafdf642dd46",
+        "posture.json": "1dbe64cd49c06a042579076918d10d99f903ca31c1dc57eec4e338842340e41d",
+        "validation.json": "a002f55a7750822bdb0e25b622fad4fe951315821d62abcdf68fca1ea5a23607",
         "sample_reference.py": "80c66123e9ae1eb945b8e94fa3eefabc6653dac0f6da50042cf644793488b245",
-        "interpolation-validation.json": "4763d9949b0e000c83fd6da88893cbd105713dc942746ea7a2faabe7b7a5c29e"
+        "interpolation-validation.json": "8251bf612439c1c75b17d232e6b82991a2a5555361c133c48b7ddb3746318a50"
       }
     },
     {
@@ -252,14 +252,14 @@
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/shrug/execution-contract.json",
       "sha256": {
         "reviewed.json": "f9789ad80b71405eeecba8c3441e4cc90b8bb7b6dc7f0b644a8056e9f004bbbe",
-        "source.json": "34badfe186ec00a529c50bb3c8c1d8bbfe8d0a4b16d39fc6aa9e49965ded7f99",
-        "manifest.json": "0bfaffd5a6cc23be42b4202dfc83f289976450b9614ca5e0b4cb071962a5be15",
+        "source.json": "b35378e6156b9d7cdd854c7423e6751a36c5f568679b82056ca7f4165e658a88",
+        "manifest.json": "4ae1d0a77e2c875f5e2d61c0e06557247a2d49e20fe3c2cfd7e2c3ef3382a28e",
         "schema.json": "823060d19121d9244aad18516760d7c80affb6a9d59c4d6c0a56e2f5909c3006",
-        "execution-contract.json": "824b4e6ed38aa64de1962625e528c3838435a9c8e77ff155f2973cd4127e3c95",
-        "posture.json": "aebd9620ea7f37a9d2f6367b09bfd1acfffc9d4c4808b9ec94cebcb7d5a625ff",
-        "validation.json": "c1fb23f2f44be3801048e2013d3e182701370d7149483b7bedba99ea62c49fd2",
+        "execution-contract.json": "7c0d57b321c1316fe58378b56817da6e43425b0b509c8261f7ad573999b728e4",
+        "posture.json": "c09a9e6b4791763d8c94c153cc2d56853703908b150dce9ef29433f13da01930",
+        "validation.json": "87331ffb53947bf6e96c21e94114681f139e7962176107ae69198f9b951ff8f4",
         "sample_reference.py": "9f64896b2f6a365df66bd07341fb3c5138d6ea71464c9bff0994cb19a45958c8",
-        "interpolation-validation.json": "e6e24cde84e22fc53adb7bd465c97143ec6e799eca97a8d2b4de576aa76d2cf5"
+        "interpolation-validation.json": "3c8ffd4927788b17f888d40928303cb8d5406ee2fed63f9c6562c48a18820580"
       }
     },
     {
@@ -397,15 +397,15 @@
       "handoff": "Slave/software/models/v2-12servo/motions/gestures/upright",
       "execution_handoff": "Slave/software/models/v2-12servo/motions/gestures/upright/execution-contract.json",
       "sha256": {
-        "validation.json": "e95bacc264a0a67e156ccc6564a68b4a42e0c37e4f72eb8e6518a15a97a24947",
+        "validation.json": "b56e91bd02e63d4059939fb8d9986f66a0f289ff08e53f40bdcdc3bbb30402ef",
         "schema.json": "4310935a810bdfd77cb4767b73b832776dbf5371dfd6a9de725b7071f0073559",
-        "posture.json": "d8e22b8504fb10e9a3a5817729ea9739c1a4f6feffc5e6c5449ed49b894073a0",
-        "execution-contract.json": "68c916c181c226de6c940eb3a7c2cfea6e8793a8978a4f51a1099d17574fdbce",
-        "source.json": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
-        "manifest.json": "8fb802018ad597dc672d70fb2e8b45aa3874888f965e402ae37354f828312628",
+        "posture.json": "9e4981aa7eca88f7d7f5ff9eeb2e81c0354c12f1f69c45475ca7682d20a0da08",
+        "execution-contract.json": "884b2ed9a769e888cbaf20eeeff60d7fc284e86757b1f8533a25b3f7d08fc62f",
+        "source.json": "05603ad712ee5be2b9a49c2689cbba4ae1f41d463793a802002f975279aa7cc6",
+        "manifest.json": "948dbdc9835f6b6698e1a393766fc16d8b0b1d4ce5906ad9da68dbd8584bcee5",
         "sample_reference.py": "5527e29cb31e9b4453f7d3eb0502e5f5bc5c763b32f381e4b092e0b77202b61b",
-        "lower-leg-clearance-validation.json": "2324548a0547ea19dc0c10935a4d47a7e23f44aafc8f9b329956c59c2b32ee76",
-        "interpolation-validation.json": "2328eace3efba24591d6a919c8cc491788d1fb83ad9837433af839d0c9ec488e"
+        "lower-leg-clearance-validation.json": "3734e9170fc64d7bad6eaf1b75f80d8a44bf02fcb7a4209d0fbe2ec9493a0902",
+        "interpolation-validation.json": "7efa396d44d3de05eda1166ade947a8a677849a0af72ea2f2f5ac5a73e0924a1"
       }
     },
     {

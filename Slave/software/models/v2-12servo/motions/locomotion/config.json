@@ -2,7 +2,7 @@
   "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
   "walk_turn_degrees_per_cycle": 8.73,
   "crawl": {
-    "body_z_mm": -35,
+    "body_z_mm": -22,
     "entry_seconds": 2,
     "sweep_mm": 18,
     "rearward_bias_mm": 4,

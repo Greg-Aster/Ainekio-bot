@@ -18,23 +18,37 @@
   "rear_contact_tolerance_mm": 0.5,
   "front_brace_xy_mm": [
     [
-      4.099998474120241,
-      59.64999961852961
+      19.099998474113153,
+      59.649999618530266
     ],
     [
-      4.099990844726548,
-      -59.65000152587897
+      19.099990844720548,
+      -59.65000152588149
     ]
   ],
   "rear_only_support_start_s": 12.0,
-  "brace_pitch_deg": -22.95362745608641,
-  "brace_shift_x_mm": -16.5,
-  "rear_support_policy": "Rear boot pose fixed throughout. Full vertical pitch and original phase times retained; temporary reference meshes excluded from body clearance.",
+  "brace_pitch_deg": -22.748036165258032,
+  "brace_shift_x_mm": -20.537084618779268,
+  "rear_support_policy": "Rear reference XY remains anchored; constrained joint reconstruction adjusts body translation while preserving full vertical rise and phase times; brace pitch adjusts to retain planted rear boots and front reach. Physical balance remains unqualified.",
   "upright_pitch_deg": -90.0,
-  "front_extended_angles_rad": [
-    0.13962634015954636,
-    -0.03490658503988659,
-    -1.8151424220741028
-  ],
-  "hardware_qualified": false
+  "hardware_qualified": false,
+  "calibrated_path_fit": {
+    "pulse_target_us": [
+      400,
+      2900
+    ],
+    "details": "source.json metadata.calibrated_path_fit"
+  },
+  "front_extended_angles_rad_by_leg": {
+    "RL": [
+      0.1486946677051144,
+      -0.022494714092975987,
+      -1.2048008017066039
+    ],
+    "RR": [
+      0.14869456907352185,
+      -0.022494714092975987,
+      -1.2048008017066039
+    ]
+  }
 }
