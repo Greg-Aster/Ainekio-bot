@@ -148,6 +148,8 @@ class GatewayConnection:
         self.epoch = epoch
         self.features = features
         self.transport = transport
+        socket_address = getattr(websocket, "local_address", None)
+        self.local_address = socket_address[0] if isinstance(socket_address, tuple) and socket_address else None
         self.model = model
         self.capabilities = dict(capabilities) if capabilities is not None else None
         self.body_clock_ms: int | None = None
@@ -1219,6 +1221,7 @@ class GatewayService:
                     "profile": connection.profile,
                     "mode": connection.mode,
                     "transport": connection.transport,
+                    "local_address": connection.local_address,
                     "features": list(connection.features),
                     "model": connection.model,
                     "capabilities": connection.capabilities,

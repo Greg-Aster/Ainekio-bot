@@ -1554,7 +1554,10 @@
     byId("camera-form").elements.snapshot_res.disabled = !cameraProfiles || !capability("camera");
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
-    connection.textContent = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
+    const connectionLabel = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
+    const connectionSsid = entry && entry.connection_ssid;
+    connection.textContent = connectionSsid ? `${connectionLabel} · ${connectionSsid}` : connectionLabel;
+    connection.title = connectionSsid ? `Robot connection through ${connectionSsid}` : "";
     connection.classList.toggle("online", connectionState === "online");
     connection.classList.toggle("stale", connectionState === "stale");
     connection.classList.toggle("offline", !entry);
