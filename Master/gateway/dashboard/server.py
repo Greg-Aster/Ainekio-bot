@@ -142,6 +142,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if self._require_session() is None:
                 return
             status = self.server.call_gateway(self.server.gateway.status_snapshot())
+            networks = self.server.hotspot.connection_networks() if any(
+                robot.get("local_address") and robot.get("transport", "lan") == "lan"
+                for robot in status.get("robots", {}).values()
+            ) else {}
+            for robot in status.get("robots", {}).values():
+                ssid = networks.get(robot.get("local_address"))
+                if ssid and robot.get("transport", "lan") == "lan":
+                    robot["connection_ssid"] = ssid
             self._send_json(
                 {
                     **status,
