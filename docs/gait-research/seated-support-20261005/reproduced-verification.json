@@ -1,0 +1,43 @@
+{
+  "sit": {
+    "samples": 601,
+    "maximum_stored_fk_error_mm": 0.0,
+    "minimum_sole_height_mm": -2.3590089881508902e-09,
+    "maximum_declared_contact_height_error_mm": 2.423675482532417e-09,
+    "minimum_body_clearance_mm": 0.5435354083108006,
+    "maximum_support_rotation_matrix_error": 3.3306690738754696e-16,
+    "maximum_seated_rear_xy_drift_mm": 0.0,
+    "timing_and_contacts_preserved": true
+  },
+  "wave": {
+    "samples": 1921,
+    "maximum_stored_fk_error_mm": 0.0,
+    "minimum_sole_height_mm": -2.3590089881508902e-09,
+    "maximum_declared_contact_height_error_mm": 2.423675482532417e-09,
+    "minimum_body_clearance_mm": 0.5435354083108006,
+    "maximum_support_rotation_matrix_error": 3.3306690738754696e-16,
+    "maximum_seated_rear_xy_drift_mm": 0.0,
+    "timing_and_contacts_preserved": true
+  },
+  "upright": {
+    "samples": 2641,
+    "maximum_stored_fk_error_mm": 0.0,
+    "minimum_sole_height_mm": -0.00037393968050025705,
+    "maximum_declared_contact_height_error_mm": 5.260075381219309e-05,
+    "minimum_body_clearance_mm": 0.5435260595500147,
+    "maximum_support_rotation_matrix_error": 2.9712702764239375e-08,
+    "maximum_seated_rear_xy_drift_mm": 2.5507601151275594e-05,
+    "timing_and_contacts_preserved": true,
+    "minimum_support_margin_after_sit_mm": 1.5627001760865693,
+    "final_front_reach_mm": [
+      76.58459416168884,
+      76.58459416168884
+    ],
+    "historical_90_mm_reach_check_passed": false
+  },
+  "regeneration_maximum_joint_difference_rad": {
+    "sit": 0.0,
+    "wave": 0.0,
+    "upright": 8.881784197001252e-16
+  }
+}

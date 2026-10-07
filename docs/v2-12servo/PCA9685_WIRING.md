@@ -9,6 +9,7 @@ have different layouts.
 
 - [Full P4 pinout — PNG](ESP32P4_Pinout.png) · [editable SVG](ESP32P4_Pinout.svg)
 - [P4 → PCA9685 wiring — PNG](PCA9685_Wiring.png) · [editable SVG](PCA9685_Wiring.svg)
+- [P4 → 1.9-inch LCD wiring — PNG](LCD_Wiring.png) · [editable SVG](LCD_Wiring.svg) · [LCD instructions](LCD_FACE.md)
 
 The pinout is an original vector illustration checked against Waveshare's
 [physical pinout](https://docs.waveshare.com/assets/images/ESP32-P4-WIFI6-details-inter-3472c9ea8e7f1e2665531f8d7e954e06.webp)

@@ -1,0 +1,35 @@
+[
+  {
+    "geometry": [
+      40,
+      24,
+      24,
+      38
+    ],
+    "utilization_1ms": 2.6964434970459763,
+    "utilization_025ms": 2.7187694952779755,
+    "relative_difference": 0.008279794572539023
+  },
+  {
+    "geometry": [
+      35,
+      28,
+      36,
+      38
+    ],
+    "utilization_1ms": 2.2989108462241266,
+    "utilization_025ms": 2.29915635302329,
+    "relative_difference": 0.00010679265773472224
+  },
+  {
+    "geometry": [
+      40,
+      32,
+      36,
+      38
+    ],
+    "utilization_1ms": 2.32011243375885,
+    "utilization_025ms": 2.3203490054496054,
+    "relative_difference": 0.00010196561481801147
+  }
+]

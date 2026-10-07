@@ -3,6 +3,7 @@
 #include "controller.h"
 #include "network.h"
 #include "system.h"
+#include "display.h"
 #include "ainekio/p4_assets.h"
 
 #include <stdio.h>
@@ -49,6 +50,8 @@ void app_main(void)
     ESP_ERROR_CHECK(ainekio_p4_controller_start());
     const esp_err_t media = ainekio_p4_controller_media_start();
     if (media != ESP_OK) printf("media initialization: %s\n", esp_err_to_name(media));
+    const esp_err_t display = ainekio_p4_display_start();
+    if (display != ESP_OK) printf("display initialization: %s\n", esp_err_to_name(display));
     /* Complete one-time NVS provisioning before enabling PWM. Never retry a
      * stalled mechanism automatically following a watchdog or brownout reset. */
     const esp_reset_reason_t reset = esp_reset_reason();
@@ -83,6 +86,8 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_console_cmd_register(&system));
     const esp_console_cmd_t gait = {.command="gait", .help="Inspect installed geometric gait; no PWM output", .func=ainekio_p4_gait_command};
     ESP_ERROR_CHECK(esp_console_cmd_register(&gait));
+    const esp_console_cmd_t face = {.command="face", .help="LCD status; face list / NAME / auto", .func=ainekio_p4_display_command};
+    ESP_ERROR_CHECK(esp_console_cmd_register(&face));
     ESP_ERROR_CHECK(esp_console_cmd_register(&home));
     ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }

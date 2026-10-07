@@ -1,0 +1,23 @@
+[
+  {
+    "command": "sit",
+    "original_knots": 601,
+    "stored_knots": 55,
+    "continuous_error_cd": 0.46335652052624526,
+    "peak_joint_speed_degrees_s": 88.5140492616431
+  },
+  {
+    "command": "wave",
+    "original_knots": 1921,
+    "stored_knots": 274,
+    "continuous_error_cd": 0.48323643551384104,
+    "peak_joint_speed_degrees_s": 162.07207848252654
+  },
+  {
+    "command": "upright",
+    "original_knots": 2641,
+    "stored_knots": 510,
+    "continuous_error_cd": 0.49135112289587374,
+    "peak_joint_speed_degrees_s": 1230.8415670343516
+  }
+]

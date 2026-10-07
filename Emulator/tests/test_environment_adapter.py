@@ -14,6 +14,7 @@ from gateway.environment_adapter import (
     translate_environment_action,
 )
 from gateway.environment_adapter.server import AUDIO_UTTERANCE_MAGIC
+from gateway.server.service import GatewayError
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 import websockets
 from websockets.exceptions import ConnectionClosedError
@@ -48,6 +49,10 @@ class FakeGateway:
 
     async def estop(self, **kwargs: object) -> int:
         self.calls.append(("stop", kwargs))
+        return 8
+
+    async def cancel_speech(self, **kwargs: object) -> int:
+        self.calls.append(("cancel_speech", kwargs))
         return 8
 
     async def queue_motion_plan(
@@ -170,6 +175,99 @@ class BlockingWebSocket(FakeWebSocket):
 
 
 class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_speech_settings_roundtrip_errors_and_disconnect(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(
+            receipt_path=":memory:", token="adapter-secret"))
+        with self.assertRaisesRegex(GatewayError, "Connect MetaHuman"):
+            await adapter.speech_output_settings()
+        async with websockets.serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
+            async with websockets.connect(f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}") as ws:
+                await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "adapter-secret"}))
+                self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
+                for target in (None, "robot", "local"):
+                    request = asyncio.create_task(adapter.speech_output_settings(target))
+                    message = json.loads(await ws.recv())
+                    self.assertEqual(message["type"], "speech.settings")
+                    self.assertEqual(message.get("outputTarget"), target)
+                    await ws.send(json.dumps({"type": "speech.settings.result", "requestId": "unrelated", "outputTarget": "robot"}))
+                    self.assertFalse(request.done())
+                    await ws.send(json.dumps({"type": "speech.settings.result", "requestId": message["requestId"],
+                                              "outputTarget": target or "local", "username": "fixture-owner"}))
+                    result = await request
+                    self.assertEqual(result["outputTarget"], target or "local")
+                    self.assertEqual(result["username"], "fixture-owner")
+                request = asyncio.create_task(adapter.speech_output_settings("robot"))
+                message = json.loads(await ws.recv())
+                await ws.send(json.dumps({"type": "speech.settings.result", "requestId": message["requestId"], "error": "Sign in first"}))
+                with self.assertRaisesRegex(GatewayError, "Sign in first"):
+                    await request
+                request = asyncio.create_task(adapter.speech_output_settings())
+                await ws.recv()
+                await ws.close()
+                with self.assertRaisesRegex(GatewayError, "disconnected"):
+                    await request
+        self.assertFalse(adapter._speech_settings_requests)
+
+    async def test_cancel_after_switch_stays_addressed_to_original_robot(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(
+            receipt_path=":memory:", token="adapter-secret"))
+        adapter._websocket = FakeWebSocket()
+        adapter.receipts.receive({"id": "old-speech", "type": "speechAudio"},
+                                 adapter._feedback("old-speech", "accepted", "accepted"))
+        adapter.receipts.begin("old-speech", {"robotId": "previous-body"})
+        await adapter._cancel_action({"actionId": "old-speech", "cancellationId": "cancel-old"})
+        self.assertEqual(gateway.calls[0][0], "cancel_speech")
+        self.assertEqual(gateway.calls[0][1]["robot_id"], "previous-body")
+        self.assertEqual(gateway.calls[1][1][1]["robot_id"], "previous-body")
+
+    async def test_automatic_selection_switches_v1_v2_v1_with_audio_and_commands(self) -> None:
+        gateway = FakeGateway()
+        robots = {
+            "v1": {"connected": False, "model": "v1-8servo", "epoch": 1,
+                   "features": [], "status": {"camera_ready": True}},
+            "v2": {"connected": False, "model": "v2-12servo", "epoch": 2,
+                   "features": ["body_commands_v1"], "status": {"camera_ready": True},
+                   "capabilities": {"commands": ["stand", "walk", "run", "stop", "say", "face"],
+                                    "motion": True, "speaker": True, "microphone": True}},
+        }
+        gateway.status = lambda: {"robots": robots}
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(
+            receipt_path=":memory:", token="adapter-secret"))
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket
+        assembler = adapter._audio_utterances.assembler
+        for index, robot_id in enumerate(("v1", "v2", "v1")):
+            for name, robot in robots.items():
+                robot["connected"] = name == robot_id
+            observation = adapter._observation()
+            self.assertEqual(observation["state"]["body"]["robotId"], robot_id)
+            self.assertTrue(observation["state"]["body"]["authenticated"])
+            self.assertTrue(observation["state"]["body"]["speakerReady"])
+            self.assertTrue(observation["capabilities"]["movement"])
+            identity = {"robot_id": robot_id, "epoch": robots[robot_id]["epoch"]}
+            await assembler.handle_event({**identity, "t": "event", "name": "vad_open"})
+            await assembler.handle_event({**identity, "t": "event", "name": "wake_word"})
+            await assembler.handle_frame({**identity, "frame_type": MIC_PCM_FRAME_TYPE,
+                                          "counter": index, "payload": bytes([index, 0]) * 320})
+            await assembler.handle_event({**identity, "t": "event", "name": "vad_close"})
+            encoded = websocket.sent[-1]
+            size = struct.unpack("<I", encoded[8:12])[0]
+            metadata = json.loads(encoded[12:12 + size])
+            self.assertEqual(metadata["robotId"], robot_id)
+            self.assertTrue(metadata["wakeTriggered"])
+            self.assertEqual(metadata["frameCount"], 1)
+            result = await adapter.handle_action({"id": f"stand-{index}", "type": "robotCommand",
+                                                  "command": "stand"})
+            self.assertEqual(result["type"], "completed")
+            self.assertEqual(gateway.calls[-2][1][2]["robot_id"], robot_id)
+            self.assertEqual(gateway.calls[-1][1][1]["robot_id"], robot_id)
+        robots["v2"]["connected"] = True
+        self.assertEqual(adapter._selected_robot(), (None, None))
+        for robot in robots.values():
+            robot["connected"] = False
+        self.assertEqual(adapter._selected_robot(), (None, None))
+
     async def test_environment_websocket_requires_auth_and_returns_ready_observation(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(

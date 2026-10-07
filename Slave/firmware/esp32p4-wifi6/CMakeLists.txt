@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.7.1-p4-gateway-switching")
+set(PROJECT_VER "0.8.12-p4-audio")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
+                        "${CMAKE_CURRENT_LIST_DIR}/../../software/faces"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/imu"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/models/v2-12servo"
                         "${CMAKE_CURRENT_LIST_DIR}/../components/ainekio_wake"

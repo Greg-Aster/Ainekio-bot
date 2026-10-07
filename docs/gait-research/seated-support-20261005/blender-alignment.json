@@ -1,0 +1,22 @@
+{
+  "scene": "Wireless",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "cad_theta_minus_firmware_theta_deg": 13.673601823752751,
+  "firmware_theta_zero_rad": 2.484925850946935,
+  "driver_theta_zero_rad": -3.7982594562326515,
+  "maximum_world_matrix_change": 1.52587890625e-05,
+  "preserved_objects": 483,
+  "copied_actions": [
+    "PREVIEW | Front Left RL | 24-38-24 | 103deg Sweep | Firmware reference"
+  ],
+  "original_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+  "recovery_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend",
+  "maximum_pivot_error_mm_by_leg": {
+    "FL": 2.4444873076845397e-06,
+    "FR": 2.4444873076845397e-06,
+    "RL": 5.03228740456052e-06,
+    "RR": 2.4444873076845397e-06
+  },
+  "firmware_header_theta_zero_rad": 2.484925851,
+  "file_saved": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend"
+}

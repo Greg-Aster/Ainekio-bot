@@ -686,6 +686,16 @@ extern "C" ainekio_wake_word_result_t ainekio_wake_word_process(
     return AINEKIO_WAKE_WORD_LISTENING;
 }
 
+extern "C" void ainekio_wake_word_set_cutoff(ainekio_wake_word_service_t *service, uint8_t cutoff)
+{
+    if (service) service->manifest.probability_cutoff = cutoff;
+}
+
+extern "C" uint8_t ainekio_wake_word_cutoff(const ainekio_wake_word_service_t *service)
+{
+    return service ? service->manifest.probability_cutoff : 0;
+}
+
 extern "C" void ainekio_wake_word_reset(ainekio_wake_word_service_t *service)
 {
     if (!ainekio_wake_word_ready(service)) {

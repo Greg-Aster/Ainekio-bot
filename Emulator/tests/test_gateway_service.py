@@ -24,7 +24,7 @@ from gateway.server.service import (
     RobotOfflineError,
 )
 from gateway.plugins import AudioTranscriptPlugin, CameraFramePlugin
-from protocol.control_v1 import CAMERA_PROFILES_FEATURE
+from protocol.control_v1 import CAMERA_PROFILES_FEATURE, CAMERA_ADAPTIVE_FEATURE
 from emulator.body.media import FixtureCameraSource, QueueMicrophoneSource
 from Emulator.tests.support import build_core_library
 
@@ -41,6 +41,78 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.library_path = build_core_library()
+
+    async def test_speech_cancellation_uses_audio_command_and_preserves_dispatch_receipt(self) -> None:
+        from contextlib import asynccontextmanager
+        messages, dispatches = [], []
+
+        class Socket:
+            closed = False
+            async def send(self, raw):
+                message = json.loads(raw)
+                self_test.assertEqual(dispatches, [message["seq"]])
+                messages.append(message)
+                await connection._handle_control({"t": "ack", "seq": message["seq"]})
+
+        @asynccontextmanager
+        async def record(sequence):
+            dispatches.append(sequence)
+            yield
+
+        self_test = self
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        connection = GatewayConnection(service, Socket(), "robot", 1)
+        service._connections["robot"] = connection
+        sequence = await service.cancel_speech(robot_id="robot", on_sequence=record)
+        self.assertEqual((messages[0]["t"], messages[0]["op"]), ("tts", "cancel"))
+        self.assertEqual((await service.wait_terminal(sequence, robot_id="robot"))["t"], "ack")
+
+    async def test_audio_controls_and_pre_gate_meter(self) -> None:
+        class Socket:
+            closed = False
+            def __init__(self):
+                self.sent = []
+            async def send(self, raw):
+                self.sent.append(json.loads(raw))
+
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo",
+                                       capabilities={"microphone": True, "wake": True, "speaker": True})
+        service._connections["robot"] = connection
+        with self.assertRaisesRegex(GatewayError, "audio input adjustments"):
+            await service.set_microphone(on=True, gate="wake", gain_db=36, robot_id="robot")
+        with self.assertRaisesRegex(GatewayError, "audio input adjustments"):
+            await service.set_wake_configuration(enabled=True, model="ainekio", threshold=0.4, robot_id="robot")
+        self.assertEqual(socket.sent, [])
+        self.assertEqual(connection.next_sequence, 1)
+        with self.assertRaisesRegex(GatewayError, "saved speaker volume"):
+            await service.set_speaker_volume(volume_percent=37, robot_id="robot")
+        connection.features = ("audio_input_v1",)
+        seq = await service.set_microphone(on=True, gate="wake", gain_db=36, robot_id="robot")
+        self.assertEqual(socket.sent[-1], {"t": "mic", "seq": seq, "on": True, "gate": "wake", "gain_db": 36})
+        await connection._handle_control({"t": "ack", "seq": seq})
+        seq = await service.set_wake_configuration(enabled=True, model="ainekio", threshold=0.4, robot_id="robot")
+        self.assertEqual(socket.sent[-1]["threshold"], 0.4)
+        await connection._handle_control({"t": "ack", "seq": seq})
+        audio = {"on": True, "listening": True, "gate": "wake", "gain_db": 36,
+                 "wake_enabled": True, "wake_threshold": 0.4, "rms": 0.08, "peak": 0.24,
+                 "speaker_volume_percent": 37}
+        # Meter updates without a wake event or any transmitted microphone PCM.
+        await connection._handle_control({"t": "ping", "clock_ms": 12000, "audio": audio})
+        self.assertEqual(socket.sent[-1], {"t": "pong"})
+        entry = service.status()["robots"]["robot"]
+        self.assertEqual(entry["audio_input"], audio)
+        self.assertEqual(entry["microphone_level"], 0.08)
+        self.assertLess(entry["audio_input_age_ms"], 100)
+        for volume in (0, 37, 100):
+            seq = await service.set_speaker_volume(volume_percent=volume, robot_id="robot")
+            self.assertEqual(socket.sent[-1], {"t": "speaker", "seq": seq, "volume_percent": volume})
+        # Gated PCM does not overwrite the pre-gate meter on upgraded bodies.
+        await connection._handle_binary(b"\x01" + struct.pack("<I320h", 1, *([0] * 320)))
+        self.assertEqual(connection.microphone_level, 0.08)
+        await connection._handle_control({"t": "pong", "audio": {**audio, "listening": False}})
+        self.assertEqual(connection.microphone_level, 0)
 
     async def test_independent_camera_profiles_require_negotiation_before_sending(self) -> None:
         class Socket:
@@ -59,9 +131,20 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(socket.sent, [])
         self.assertEqual(connection.next_sequence, 1)
         connection.features = (CAMERA_PROFILES_FEATURE,)
+        for resolution in ("AUTO", "960P", "FHD"):
+            with self.assertRaisesRegex(GatewayError, "adaptive/high-resolution"):
+                await service.set_camera(on=False, fps=0, resolution="VGA", snapshot_resolution=resolution, robot_id="robot")
+        self.assertEqual(socket.sent, [])
+        self.assertEqual(connection.next_sequence, 1)
         sequence = await service.set_camera(on=True, fps=5, resolution="QVGA", snapshot_resolution="XGA", robot_id="robot")
         self.assertEqual(socket.sent, [{"t": "cam", "seq": sequence, "on": True, "fps": 5, "res": "QVGA", "snapshot_res": "XGA"}])
         await connection._handle_control({"t": "ack", "seq": sequence})
+
+        connection.features = (CAMERA_PROFILES_FEATURE, CAMERA_ADAPTIVE_FEATURE)
+        for resolution in ("AUTO", "960P", "FHD"):
+            sequence = await service.set_camera(on=False, fps=0, resolution="VGA", snapshot_resolution=resolution, robot_id="robot")
+            self.assertEqual(socket.sent[-1]["snapshot_res"], resolution)
+            await connection._handle_control({"t": "ack", "seq": sequence})
         self.assertEqual((await service.wait_terminal(sequence))["t"], "ack")
         # Existing stream callers retain their envelope and leave the still profile alone.
         sequence = await service.set_camera(on=False, fps=0, resolution="VGA", robot_id="robot")

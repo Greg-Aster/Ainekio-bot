@@ -108,6 +108,13 @@ class MicrophoneFrameAudit:
 
 
 class BoundedHandshakeProtocol(websockets.WebSocketServerProtocol):
+    async def process_request(self, path: str, request_headers: object):
+        # Speech replies have no whole-message size ceiling. The adapter
+        # validates their format and streams small PCM frames to the robot.
+        if path == "/environment":
+            self.max_size = None
+        return await super().process_request(path, request_headers)
+
     async def handshake(self, *args: object, **kwargs: object) -> str:
         try:
             return await asyncio.wait_for(
@@ -263,6 +270,17 @@ async def _run_production(args: argparse.Namespace) -> None:
         lambda diagnostic: audit_log.record(str(diagnostic["event"]), **_audit_fields(diagnostic))
     )
     service.subscribe_frames(MicrophoneFrameAudit(audit_log).record)
+    adapter = EnvironmentAdapter(
+        service,
+        EnvironmentAdapterConfig(
+            token=adapter_token,
+            receipt_path=str(args.data_dir / "environment-actions.sqlite"),
+            session_id=args.environment_session_id,
+            # AINEKIO_ROBOT_ID seeds pairing, not bridge device selection.
+            # The bridge follows the single connected V1 or V2 body.
+            freestyle_enabled=os.environ.get("AINEKIO_FREESTYLE_ENABLED", "1") == "1",
+        ),
+    ) if adapter_token else None
     hotspot = RobotHotspot()
     dashboard = start_dashboard_server(
         args.dashboard_host,
@@ -274,6 +292,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         audit_log=audit_log,
         primary_view=args.dashboard_primary_view,
         hotspot=hotspot,
+        environment_adapter=adapter,
     )
     dashboard_thread = threading.Thread(
         target=dashboard.serve_forever,
@@ -281,21 +300,11 @@ async def _run_production(args: argparse.Namespace) -> None:
         daemon=True,
     )
     dashboard_thread.start()
-    adapter = EnvironmentAdapter(
-        service,
-        EnvironmentAdapterConfig(
-            token=adapter_token,
-            receipt_path=str(args.data_dir / "environment-actions.sqlite"),
-            session_id=args.environment_session_id,
-            robot_id=os.environ.get("AINEKIO_ROBOT_ID"),
-            freestyle_enabled=os.environ.get("AINEKIO_FREESTYLE_ENABLED", "1") == "1",
-        ),
-    ) if adapter_token else None
     async def publish_recognition(analysis):
         await adapter.publish_camera_analysis(analysis, max_frame_age_s=args.vision_max_frame_age_s)
 
     camera = CameraFramePlugin(service, backend, observe=publish_recognition,
-        robot_id=os.environ.get("AINEKIO_ROBOT_ID"), max_frame_age_s=args.vision_max_frame_age_s) if backend else None
+        max_frame_age_s=args.vision_max_frame_age_s) if backend else None
 
     async def route(websocket: object, path: str) -> None:
         if path == "/robot":

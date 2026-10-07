@@ -130,7 +130,7 @@
               <p class="section-kicker">Physical robot</p>
               <h2 id="camera-view-title">Camera view</h2>
             </div>
-            <button id="snapshot-button" type="button" title="Capture a fresh 1024 by 768 still image">Snapshot · XGA</button>
+            <button id="snapshot-button" type="button" title="Capture a fresh image using the applied snapshot settings">Snapshot</button>
           </div>
           <div class="camera-workspace">
             <div class="camera-stage">
@@ -153,12 +153,17 @@
                   <option value="QVGA">QVGA</option>
                   <option value="VGA" selected>VGA</option>
                   <option value="XGA">XGA</option>
+                  <option value="AUTO" data-camera-adaptive hidden disabled>Auto · 960p / 1080p</option>
+                  <option value="960P" data-camera-adaptive hidden disabled>1280 × 960 · full view</option>
+                  <option value="FHD" data-camera-adaptive hidden disabled>1920 × 1080 · cropped</option>
                 </select>
               </label>
               <label>Frame rate
-                <input name="fps" type="number" min="0" max="10" value="1">
+                <input name="fps" type="number" min="0" max="15" value="1">
               </label>
               <button type="submit">Apply camera</button>
+              <p class="field-help" id="camera-adaptive-help" hidden>Auto uses the full view at 960p in dim light, or a cropped 1080p view in brighter light. Photos allow longer exposure and may take several seconds; preview favors shorter exposure.</p>
+              <p class="field-help" id="camera-capture-status" aria-live="polite"></p>
             </form>
           </div>
         </section>
@@ -246,6 +251,32 @@
           <div><dt>Last command</dt><dd id="status-command">--</dd></div>
           <div><dt>Face</dt><dd id="status-face">--</dd></div>
         </dl>
+      </section>
+
+      <section id="faces-section" class="control-section faces-section" aria-labelledby="faces-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Expression library</p>
+            <h2 id="faces-title">Faces</h2>
+          </div>
+          <span id="face-count" class="muted">Expression previews</span>
+        </div>
+        <p class="muted">Select an expression to display it without moving the robot. The next motion can change the face.</p>
+        <div class="faces-workspace">
+          <div class="face-viewer">
+            <img id="face-preview" src="/assets/faces/default.webp" alt="Resting expression preview" width="320" height="170">
+            <p id="face-preview-name">Default</p>
+            <p id="face-library-status" class="field-help" role="status" aria-live="polite">Loading expressions…</p>
+          </div>
+          <div class="face-browser">
+            <div class="face-filters">
+              <label>Find a face<input id="face-search" type="search" placeholder="Happy, curious, love…"></label>
+              <label>Collection<select id="face-group"><option value="">All expressions</option><option>Expressions</option><option>Speaking</option><option>Motion faces</option></select></label>
+            </div>
+            <div id="face-library" class="face-library" role="group" aria-label="Select an LCD expression"></div>
+            <p id="face-empty" class="muted" hidden>No matching expressions.</p>
+          </div>
+        </div>
       </section>
 
       <section class="control-section" aria-labelledby="behavior-title">
@@ -348,10 +379,31 @@
             <h2 id="media-title">Audio</h2>
           </div>
         </div>
-        <form id="microphone-form" class="settings-form">
+        <form id="speech-output-form" class="settings-form audio-settings-form">
+          <label for="speech-output">Speech output
+            <select id="speech-output" name="outputTarget" disabled aria-describedby="speech-output-help speech-output-state">
+              <option value="" disabled selected>Loading setting…</option>
+              <option value="local">Computer</option>
+              <option value="robot">Robot speaker</option>
+            </select>
+          </label>
+          <button type="submit" disabled>Save speech output</button>
+          <p id="speech-output-help" class="audio-help">Choose where MetaHuman speaks its robot conversation replies. Computer plays through the MetaHuman browser; Robot speaker uses the connected V1 or V2. Saved with your MetaHuman voice settings.</p>
+          <p id="speech-output-state" class="audio-help" role="status">Reading MetaHuman settings…</p>
+        </form>
+        <form id="speaker-form" class="settings-form audio-settings-form">
+          <label class="audio-adjustment" for="speaker-volume">
+            <span class="speaker-test-volume-heading">Robot speaker volume <output id="speaker-volume-output" for="speaker-volume">—</output></span>
+            <input id="speaker-volume" name="volume_percent" type="range" min="0" max="100" step="1" value="100" disabled aria-describedby="speaker-volume-help speaker-settings-state">
+          </label>
+          <button type="submit" disabled>Save volume on robot</button>
+          <p id="speaker-volume-help" class="audio-help">Controls speech and other robot sounds. Saved on the robot and remembered after power cycling. 0% mutes; 100% is full volume.</p>
+          <p id="speaker-settings-state" class="audio-help" role="status">Waiting for robot volume</p>
+        </form>
+        <form id="microphone-form" class="settings-form audio-settings-form">
           <label class="switch-row">
             <span>Microphone</span>
-            <input name="on" type="checkbox" checked>
+            <input name="on" type="checkbox">
           </label>
           <label>Gate
             <select name="gate">
@@ -360,7 +412,13 @@
               <option value="open">Open</option>
             </select>
           </label>
+          <label class="audio-adjustment" data-audio-input hidden>
+            <span class="speaker-test-volume-heading">Microphone gain <output id="microphone-gain-output" for="microphone-gain">30 dB</output></span>
+            <input id="microphone-gain" name="gain_db" type="range" min="0" max="42" step="6" value="30" aria-describedby="microphone-gain-help">
+          </label>
           <button type="submit">Apply microphone</button>
+          <p id="microphone-gain-help" class="audio-help" data-audio-input hidden>Higher gain amplifies quieter speech and background noise. Gain is saved on the robot. The P4 also remembers microphone On and its gate after power cycling.</p>
+          <p id="microphone-settings-state" class="audio-help" data-audio-input hidden></p>
         </form>
         <form id="speaker-test-form" class="settings-form speaker-test-form">
           <label for="speaker-test-volume">
@@ -379,12 +437,12 @@
               aria-describedby="speaker-test-help"
             >
           </label>
-          <button id="speaker-test-button" type="submit">Test speaker</button>
+          <button id="speaker-test-button" type="submit">Test robot speaker</button>
           <p id="speaker-test-help" class="speaker-test-help">
-            Sends a buffered 2-second tone. Start low and increase gradually.
+            Sends a buffered 2-second tone to the robot. Test volume is also scaled by Robot speaker volume. Start low and increase gradually.
           </p>
         </form>
-        <form id="wake-form" class="settings-form">
+        <form id="wake-form" class="settings-form audio-settings-form">
           <label class="switch-row">
             <span>Wake word enabled</span>
             <input name="enabled" type="checkbox">
@@ -394,11 +452,19 @@
               <option value="ainekio">Ainekio</option>
             </select>
           </label>
+          <label class="audio-adjustment" data-audio-input hidden>
+            <span class="speaker-test-volume-heading">Wake sensitivity <output id="wake-sensitivity-output" for="wake-sensitivity">34%</output></span>
+            <input id="wake-sensitivity" name="sensitivity" type="range" min="0" max="100" step="1" value="34" aria-describedby="wake-sensitivity-help">
+          </label>
           <button type="submit">Save wake setting</button>
+          <p id="wake-sensitivity-help" class="audio-help" data-audio-input hidden>Higher sensitivity wakes more easily, but may trigger on other speech. Saved on the robot. At 0%, wake detection is effectively disabled.</p>
+          <p id="wake-settings-state" class="audio-help" data-audio-input hidden></p>
           <p id="wake-capability">Waiting for robot status</p>
         </form>
         <label class="meter-label" for="microphone-level">Live microphone level</label>
-        <progress id="microphone-level" max="1" value="0"></progress>
+        <progress id="microphone-level" max="100" value="0" aria-describedby="microphone-level-status microphone-level-help"></progress>
+        <p id="microphone-level-status" class="audio-help">Microphone off</p>
+        <p id="microphone-level-help" class="audio-help">Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping.</p>
       </section>
 
       <section class="control-section calibration-section" aria-labelledby="calibration-title">

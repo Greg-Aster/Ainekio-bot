@@ -1,0 +1,112 @@
+[
+  {
+    "command": "sit",
+    "time_s": 3.0,
+    "errors": {
+      "FL": {
+        "translation_mm": 4.337368785911622e-06,
+        "rotation_matrix": 2.879574756420311e-08
+      },
+      "FR": {
+        "translation_mm": 1.5037767710168737e-05,
+        "rotation_matrix": 3.67620119900991e-08
+      },
+      "RL": {
+        "translation_mm": 1.5449844639192634e-05,
+        "rotation_matrix": 5.6389934156378544e-08
+      },
+      "RR": {
+        "translation_mm": 1.6262129335586906e-05,
+        "rotation_matrix": 5.638996441834939e-08
+      }
+    }
+  },
+  {
+    "command": "wave",
+    "time_s": 7.0,
+    "errors": {
+      "FL": {
+        "translation_mm": 4.337368785911622e-06,
+        "rotation_matrix": 2.879574756420311e-08
+      },
+      "FR": {
+        "translation_mm": 1.5037767710168737e-05,
+        "rotation_matrix": 3.67620119900991e-08
+      },
+      "RL": {
+        "translation_mm": 1.4647448296045695e-05,
+        "rotation_matrix": 1.3166213841397933e-07
+      },
+      "RR": {
+        "translation_mm": 1.6262129335586906e-05,
+        "rotation_matrix": 5.638996441834939e-08
+      }
+    }
+  },
+  {
+    "command": "upright",
+    "time_s": 14.0,
+    "errors": {
+      "FL": {
+        "translation_mm": 4.2093803642728744e-06,
+        "rotation_matrix": 3.676196069779536e-08
+      },
+      "FR": {
+        "translation_mm": 1.3085579482208232e-05,
+        "rotation_matrix": 1.503771908106799e-07
+      },
+      "RL": {
+        "translation_mm": 1.8187507116351753e-05,
+        "rotation_matrix": 7.411968305781613e-08
+      },
+      "RR": {
+        "translation_mm": 1.240633772425781e-05,
+        "rotation_matrix": 8.27109767342904e-08
+      }
+    }
+  },
+  {
+    "command": "upright",
+    "time_s": 20.0,
+    "errors": {
+      "FL": {
+        "translation_mm": 1.1982747423644469e-05,
+        "rotation_matrix": 2.8795751894072907e-08
+      },
+      "FR": {
+        "translation_mm": 6.143697561356021e-06,
+        "rotation_matrix": 3.2173857023032326e-08
+      },
+      "RL": {
+        "translation_mm": 7.6025600037610275e-06,
+        "rotation_matrix": 1.3310016688805604e-07
+      },
+      "RR": {
+        "translation_mm": 2.3019831758119835e-05,
+        "rotation_matrix": 1.0475400569198712e-07
+      }
+    }
+  },
+  {
+    "command": "sit",
+    "time_s": 1.0,
+    "errors": {
+      "FL": {
+        "translation_mm": 1.1735182667393929e-05,
+        "rotation_matrix": 1.4146711913021193e-08
+      },
+      "FR": {
+        "translation_mm": 1.4387055443876307e-05,
+        "rotation_matrix": 6.760454036337793e-08
+      },
+      "RL": {
+        "translation_mm": 1.977825896659624e-05,
+        "rotation_matrix": 6.325074102705307e-08
+      },
+      "RR": {
+        "translation_mm": 1.927140922930448e-05,
+        "rotation_matrix": 6.325077069270812e-08
+      }
+    }
+  }
+]

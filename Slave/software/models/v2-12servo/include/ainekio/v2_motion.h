@@ -35,12 +35,20 @@ extern const bool ainekio_v2_walk_hardware_qualified;
 bool ainekio_v2_walk_request(const ainekio_command_t *command, uint8_t *cycles);
 
 typedef struct {
+    const char *name;
+    uint64_t at_us;
+    enum { AINEKIO_V2_FACE_ONCE, AINEKIO_V2_FACE_LOOP, AINEKIO_V2_FACE_BOOMERANG } mode;
+} ainekio_v2_face_cue_t;
+
+typedef struct {
     const char *command;
     const char *gait_id;
     ainekio_intent_kind_t intent;
     uint64_t duration_us;
     bool hardware_qualified;
     float peak_joint_speed_degrees_s; /* Bound over the compiled cubic tracks. */
+    const ainekio_v2_face_cue_t *face_cues;
+    size_t face_cue_count;
 } ainekio_v2_clip_t;
 
 extern const ainekio_v2_clip_t ainekio_v2_clips[];

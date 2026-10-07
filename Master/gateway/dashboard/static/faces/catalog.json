@@ -1,0 +1,356 @@
+[
+  {
+    "name": "default",
+    "label": "Default",
+    "group": "Expressions",
+    "period_ms": 5200
+  },
+  {
+    "name": "idle",
+    "label": "Idle",
+    "group": "Expressions",
+    "period_ms": 5200
+  },
+  {
+    "name": "stand",
+    "label": "Stand",
+    "group": "Expressions",
+    "period_ms": 5200
+  },
+  {
+    "name": "neutral",
+    "label": "Neutral",
+    "group": "Expressions",
+    "period_ms": 5200
+  },
+  {
+    "name": "idle_blink",
+    "label": "Idle blink",
+    "group": "Expressions",
+    "period_ms": 450
+  },
+  {
+    "name": "happy",
+    "label": "Happy",
+    "group": "Expressions",
+    "period_ms": 1800
+  },
+  {
+    "name": "talk_happy",
+    "label": "Talk happy",
+    "group": "Speaking",
+    "period_ms": 900
+  },
+  {
+    "name": "sad",
+    "label": "Sad",
+    "group": "Expressions",
+    "period_ms": 4200
+  },
+  {
+    "name": "talk_sad",
+    "label": "Talk sad",
+    "group": "Speaking",
+    "period_ms": 1200
+  },
+  {
+    "name": "angry",
+    "label": "Angry",
+    "group": "Expressions",
+    "period_ms": 1600
+  },
+  {
+    "name": "talk_angry",
+    "label": "Talk angry",
+    "group": "Speaking",
+    "period_ms": 800
+  },
+  {
+    "name": "surprised",
+    "label": "Surprised",
+    "group": "Expressions",
+    "period_ms": 1600
+  },
+  {
+    "name": "talk_surprised",
+    "label": "Talk surprised",
+    "group": "Speaking",
+    "period_ms": 800
+  },
+  {
+    "name": "sleepy",
+    "label": "Sleepy",
+    "group": "Expressions",
+    "period_ms": 4500
+  },
+  {
+    "name": "talk_sleepy",
+    "label": "Talk sleepy",
+    "group": "Speaking",
+    "period_ms": 1700
+  },
+  {
+    "name": "love",
+    "label": "Love",
+    "group": "Expressions",
+    "period_ms": 1500
+  },
+  {
+    "name": "talk_love",
+    "label": "Talk love",
+    "group": "Speaking",
+    "period_ms": 900
+  },
+  {
+    "name": "excited",
+    "label": "Excited",
+    "group": "Expressions",
+    "period_ms": 900
+  },
+  {
+    "name": "talk_excited",
+    "label": "Talk excited",
+    "group": "Speaking",
+    "period_ms": 650
+  },
+  {
+    "name": "confused",
+    "label": "Confused",
+    "group": "Expressions",
+    "period_ms": 2800
+  },
+  {
+    "name": "talk_confused",
+    "label": "Talk confused",
+    "group": "Speaking",
+    "period_ms": 1000
+  },
+  {
+    "name": "thinking",
+    "label": "Thinking",
+    "group": "Expressions",
+    "period_ms": 3600
+  },
+  {
+    "name": "talk_thinking",
+    "label": "Talk thinking",
+    "group": "Speaking",
+    "period_ms": 1400
+  },
+  {
+    "name": "bored",
+    "label": "Bored",
+    "group": "Expressions",
+    "period_ms": 4200
+  },
+  {
+    "name": "listening",
+    "label": "Listening",
+    "group": "Expressions",
+    "period_ms": 1800
+  },
+  {
+    "name": "walk",
+    "label": "Walk",
+    "group": "Motion faces",
+    "period_ms": 1100
+  },
+  {
+    "name": "walk_slow",
+    "label": "Walk slow",
+    "group": "Motion faces",
+    "period_ms": 2100
+  },
+  {
+    "name": "run",
+    "label": "Run",
+    "group": "Motion faces",
+    "period_ms": 620
+  },
+  {
+    "name": "crawl",
+    "label": "Crawl",
+    "group": "Motion faces",
+    "period_ms": 2400
+  },
+  {
+    "name": "crab",
+    "label": "Crab",
+    "group": "Motion faces",
+    "period_ms": 1400
+  },
+  {
+    "name": "rest",
+    "label": "Rest",
+    "group": "Motion faces",
+    "period_ms": 5200
+  },
+  {
+    "name": "lay_down",
+    "label": "Lay down",
+    "group": "Motion faces",
+    "period_ms": 4400
+  },
+  {
+    "name": "crouch",
+    "label": "Crouch",
+    "group": "Motion faces",
+    "period_ms": 2800
+  },
+  {
+    "name": "sit",
+    "label": "Sit",
+    "group": "Motion faces",
+    "period_ms": 3800
+  },
+  {
+    "name": "swim",
+    "label": "Swim",
+    "group": "Motion faces",
+    "period_ms": 1700
+  },
+  {
+    "name": "dance",
+    "label": "Dance",
+    "group": "Motion faces",
+    "period_ms": 1200
+  },
+  {
+    "name": "wave",
+    "label": "Wave",
+    "group": "Motion faces",
+    "period_ms": 1800
+  },
+  {
+    "name": "point",
+    "label": "Point",
+    "group": "Motion faces",
+    "period_ms": 2400
+  },
+  {
+    "name": "cute",
+    "label": "Cute",
+    "group": "Motion faces",
+    "period_ms": 2400
+  },
+  {
+    "name": "pushup",
+    "label": "Pushup",
+    "group": "Motion faces",
+    "period_ms": 1700
+  },
+  {
+    "name": "freaky",
+    "label": "Freaky",
+    "group": "Motion faces",
+    "period_ms": 800
+  },
+  {
+    "name": "bow",
+    "label": "Bow",
+    "group": "Motion faces",
+    "period_ms": 3200
+  },
+  {
+    "name": "worm",
+    "label": "Worm",
+    "group": "Motion faces",
+    "period_ms": 1400
+  },
+  {
+    "name": "shake",
+    "label": "Shake",
+    "group": "Motion faces",
+    "period_ms": 750
+  },
+  {
+    "name": "shrug",
+    "label": "Shrug",
+    "group": "Motion faces",
+    "period_ms": 2000
+  },
+  {
+    "name": "dead",
+    "label": "Dead",
+    "group": "Motion faces",
+    "period_ms": 2000
+  },
+  {
+    "name": "nod",
+    "label": "Nod",
+    "group": "Motion faces",
+    "period_ms": 1500
+  },
+  {
+    "name": "celebrate",
+    "label": "Celebrate",
+    "group": "Motion faces",
+    "period_ms": 1000
+  },
+  {
+    "name": "stretch",
+    "label": "Stretch",
+    "group": "Motion faces",
+    "period_ms": 3200
+  },
+  {
+    "name": "macarena",
+    "label": "Macarena",
+    "group": "Motion faces",
+    "period_ms": 1100
+  },
+  {
+    "name": "salsa",
+    "label": "Salsa",
+    "group": "Motion faces",
+    "period_ms": 900
+  },
+  {
+    "name": "surprised_motion",
+    "label": "Surprised motion",
+    "group": "Motion faces",
+    "period_ms": 1100
+  },
+  {
+    "name": "sad_motion",
+    "label": "Sad motion",
+    "group": "Motion faces",
+    "period_ms": 4800
+  },
+  {
+    "name": "curious",
+    "label": "Curious",
+    "group": "Expressions",
+    "period_ms": 2400
+  },
+  {
+    "name": "turn_left_90",
+    "label": "Turn left 90",
+    "group": "Motion faces",
+    "period_ms": 2200
+  },
+  {
+    "name": "turn_right_90",
+    "label": "Turn right 90",
+    "group": "Motion faces",
+    "period_ms": 2200
+  },
+  {
+    "name": "number_one",
+    "label": "Number one",
+    "group": "Motion faces",
+    "period_ms": 2000
+  },
+  {
+    "name": "number_two",
+    "label": "Number two",
+    "group": "Motion faces",
+    "period_ms": 1600
+  },
+  {
+    "name": "upright",
+    "label": "Upright",
+    "group": "Motion faces",
+    "period_ms": 2000
+  }
+]

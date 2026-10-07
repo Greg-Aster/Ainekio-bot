@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 from gateway.dashboard.server import start_dashboard_server
 from gateway.dashboard.auth import AuditLog
 from gateway.hotspot import RobotHotspot
-from gateway.server.service import ActionExpiredError
+from gateway.server.service import ActionExpiredError, GatewayError
 from gateway.security import DashboardPasswordStore, RobotTokenStore
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.joints_v1 import joint_contract
@@ -86,6 +86,9 @@ class FakeGateway:
     async def set_microphone(self, **kwargs: object) -> int:
         return self._record("microphone", kwargs)
 
+    async def set_speaker_volume(self, **kwargs: object) -> int:
+        return self._record("speaker", kwargs)
+
     async def set_wake_configuration(self, **kwargs: object) -> int:
         return self._record("wake", kwargs)
 
@@ -143,6 +146,48 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_speaker_volume_uses_robot_owner_and_existing_auth(self) -> None:
+        status, _, _ = await self._request("POST", "/api/speaker", {"volume_percent": 37})
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/speaker", {"volume_percent": 37}, cookie=cookie)
+        self.assertEqual(status, 403)
+        for volume in (0, 37, 100):
+            status, result, _ = await self._request("POST", "/api/speaker", {"volume_percent": volume, "robot_id": "ainekio-test-01"}, cookie=cookie, csrf=csrf)
+            self.assertEqual(status, 200)
+            self.assertIn("seq", result)
+            self.assertEqual(self.gateway.calls[-1], ("speaker", {"volume_percent": volume, "robot_id": "ainekio-test-01"}))
+        for volume in (-1, 101, True, 1.5):
+            status, _, _ = await self._request("POST", "/api/speaker", {"volume_percent": volume}, cookie=cookie, csrf=csrf)
+            self.assertEqual(status, 400)
+        self.assertEqual(len(self.gateway.calls), 3)
+
+    async def test_speech_output_uses_bridge_preference_and_existing_auth(self) -> None:
+        preference = {"outputTarget": "local", "provider": "kokoro", "username": "owner", "speechDisabled": False}
+        async def settings(target=None):
+            if target is not None:
+                preference["outputTarget"] = target
+            return dict(preference)
+        bridge = SimpleNamespace(speech_output_settings=AsyncMock(side_effect=settings))
+        self.server.environment_adapter = bridge
+        status, _, _ = await self._request("GET", "/api/speech-output")
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, result, _ = await self._request("GET", "/api/speech-output", cookie=cookie)
+        self.assertEqual((status, result["outputTarget"]), (200, "local"))
+        status, _, _ = await self._request("POST", "/api/speech-output", {"outputTarget": "robot"}, cookie=cookie)
+        self.assertEqual(status, 403)
+        for target in ("robot", "local"):
+            status, result, _ = await self._request("POST", "/api/speech-output", {"outputTarget": target}, cookie=cookie, csrf=csrf)
+            self.assertEqual((status, result["outputTarget"]), (200, target))
+        status, _, _ = await self._request("POST", "/api/speech-output", {"outputTarget": "invalid"}, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 400)
+        self.assertEqual(preference["outputTarget"], "local")
+        bridge.speech_output_settings.side_effect = GatewayError("Bridge disconnected")
+        status, result, _ = await self._request("GET", "/api/speech-output", cookie=cookie)
+        self.assertEqual((status, result["error"]), (503, "Bridge disconnected"))
+        self.assertEqual(self.gateway.calls, [], "Destination preferences must not issue robot commands")
+
     async def asyncSetUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         root = Path(self.temporary_directory.name)
@@ -588,6 +633,23 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"],
         )
 
+    async def test_audio_adjustment_api_forwards_optional_settings(self) -> None:
+        cookie, csrf = await self._login()
+        for path, kind, values in (
+            ("/api/microphone", "microphone", {"on": True, "gate": "wake", "gain_db": 36}),
+            ("/api/wake", "wake", {"enabled": True, "model": "ainekio", "threshold": 0.4}),
+        ):
+            status, _, _ = await self._request("POST", path,
+                {"robot_id": "ainekio-test-01", **values}, cookie=cookie, csrf=csrf)
+            self.assertEqual(status, 200)
+            self.assertEqual(self.gateway.calls[-1], (kind, {"robot_id": "ainekio-test-01", **values}))
+        for path, values in (
+            ("/api/microphone", {"on": True, "gate": "wake", "gain_db": True}),
+            ("/api/wake", {"enabled": True, "model": "ainekio", "threshold": "high"}),
+        ):
+            status, _, _ = await self._request("POST", path, values, cookie=cookie, csrf=csrf)
+            self.assertEqual(status, 400)
+
     async def test_wake_configuration_api_requires_auth_and_forwards_model(self) -> None:
         cookie, csrf = await self._login()
         status, payload, _headers = await self._request(
@@ -638,6 +700,17 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         samples = struct.unpack("<320h", frames[0])
         self.assertGreater(max(abs(sample) for sample in samples), 8000)
         self.assertLessEqual(max(abs(sample) for sample in samples), 8192)
+
+        status, _payload, _headers = await self._request(
+            "POST", "/api/speaker-test",
+            {"robot_id": "ainekio-test-01", "volume_percent": 100},
+            cookie=cookie, csrf=csrf,
+        )
+        self.assertEqual(status, 200)
+        full_frames, _kwargs = self.gateway.calls[-1][1]
+        full_samples = struct.unpack("<320h", full_frames[0])
+        self.assertEqual(max(full_samples), 32767)
+        self.assertEqual(min(full_samples), -32767)
 
         for invalid_volume in (0, 101):
             status, invalid_payload, _headers = await self._request(
@@ -723,6 +796,33 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             'data-dashboard-primary="simulator"',
             body.decode("utf-8"),
         )
+
+    async def test_face_library_assets_and_independent_expression_command(self) -> None:
+        cookie, csrf = await self._login()
+        status, body, _ = await self._raw_request("GET", "/assets/faces/catalog.json", cookie=cookie)
+        self.assertEqual(status, 200)
+        catalog = json.loads(body)
+        names = {face["name"] for face in catalog}
+        import re
+        definitions = Path(__file__).resolve().parents[2] / "Slave/software/faces/faces.def"
+        self.assertEqual(names, set(re.findall(r"^FACE\((\w+),", definitions.read_text(), re.MULTILINE)))
+        self.assertTrue({"default", "happy", "love", "curious", "run"}.issubset(names))
+        for name in names:
+            for extension, signature in (("png", b"\x89PNG"), ("webp", b"RIFF")):
+                status, image, _ = await self._raw_request("GET", f"/assets/faces/{name}.{extension}", cookie=cookie)
+                self.assertEqual(status, 200)
+                self.assertTrue(image.startswith(signature))
+        before = len(self.gateway.calls)
+        status, result, _ = await self._request("POST", "/api/intent",
+            {"robot_id": "ainekio-test-01", "name": "face", "params": {"expr": "run"}},
+            cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertIn("seq", result)
+        self.assertEqual(len(self.gateway.calls), before + 1)
+        name, payload = self.gateway.calls[-1]
+        self.assertEqual(name, "intent")
+        self.assertEqual(payload[0], "face")
+        self.assertEqual(payload[1], {"expr": "run"})
 
 
 if __name__ == "__main__":

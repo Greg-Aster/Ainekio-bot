@@ -32,6 +32,10 @@ ainekio_wake_word_result_t ainekio_wake_word_process(
     const int16_t *samples,
     size_t sample_count
 );
+/* Probability threshold in the model's native 0..255 units. Caller serializes
+ * these operations with process/reset. Does not change the model window. */
+void ainekio_wake_word_set_cutoff(ainekio_wake_word_service_t *service, uint8_t cutoff);
+uint8_t ainekio_wake_word_cutoff(const ainekio_wake_word_service_t *service);
 void ainekio_wake_word_reset(ainekio_wake_word_service_t *service);
 
 #ifdef __cplusplus

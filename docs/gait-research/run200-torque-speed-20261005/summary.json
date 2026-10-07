@@ -1,0 +1,207 @@
+{
+  "source_study": "/home/greggles/Downloads/Ainekio-Run200-Linkage-Study",
+  "source_commit": "a129fe65bafb459e77c32d53468eb313c66914e3",
+  "tested_candidates": 798,
+  "reachable_candidates": 753,
+  "native_validations": 17,
+  "maximum_independent_torque_error_Nm": 1.1747200434619742e-10,
+  "selected_results": [
+    {
+      "carrier_mm": 40,
+      "crank_mm": 24,
+      "pickup_mm": 24,
+      "rod_mm": 38,
+      "distal_mm": 55,
+      "w0_deg_s": 600,
+      "stall_kgcm": 1.8,
+      "load_multiplier": 1,
+      "envelope": "symmetric",
+      "utilization": 2.6964434970459763,
+      "margin": -1.6964434970459763,
+      "phase": 0.512092464297,
+      "time_s": 5.685,
+      "stage": "entry",
+      "leg": "rear_left",
+      "joint": "crank",
+      "torque_Nm": 0.38147151679115066,
+      "speed_deg_s": 321.2237966901915,
+      "joint_utilization": [
+        1.107661091719545,
+        2.4821591994471266,
+        2.6964434970459763
+      ],
+      "timing_fraction_bound": 0,
+      "steady_utilization": 2.6105574824407842
+    },
+    {
+      "carrier_mm": 35,
+      "crank_mm": 20,
+      "pickup_mm": 28,
+      "rod_mm": 38,
+      "distal_mm": 55,
+      "w0_deg_s": 600,
+      "stall_kgcm": 1.8,
+      "load_multiplier": 1,
+      "envelope": "symmetric",
+      "utilization": 2.5201686028101893,
+      "margin": -1.5201686028101893,
+      "phase": 0.19586530064600005,
+      "time_s": 5.993,
+      "stage": "steady_run",
+      "leg": "front_left",
+      "joint": "crank",
+      "torque_Nm": 0.10210794506694845,
+      "speed_deg_s": 1165.0307381573568,
+      "joint_utilization": [
+        1.1071458973933244,
+        2.018508366489667,
+        2.5201686028101893
+      ],
+      "timing_fraction_bound": 0,
+      "steady_utilization": 2.520168388322495
+    },
+    {
+      "carrier_mm": 36,
+      "crank_mm": 24,
+      "pickup_mm": 28,
+      "rod_mm": 38,
+      "distal_mm": 55,
+      "w0_deg_s": 600,
+      "stall_kgcm": 1.8,
+      "load_multiplier": 1,
+      "envelope": "symmetric",
+      "utilization": 2.487465924795564,
+      "margin": -1.487465924795564,
+      "phase": 0.2003097450900002,
+      "time_s": 5.995,
+      "stage": "steady_run",
+      "leg": "front_left",
+      "joint": "crank",
+      "torque_Nm": 0.12107896413443857,
+      "speed_deg_s": 1080.9256122824715,
+      "joint_utilization": [
+        1.107260624154129,
+        2.2589949481344975,
+        2.487465924795564
+      ],
+      "timing_fraction_bound": 0,
+      "steady_utilization": 2.4874527103050155
+    },
+    {
+      "carrier_mm": 37.5,
+      "crank_mm": 24,
+      "pickup_mm": 28,
+      "rod_mm": 38,
+      "distal_mm": 55,
+      "w0_deg_s": 600,
+      "stall_kgcm": 1.8,
+      "load_multiplier": 1,
+      "envelope": "symmetric",
+      "utilization": 2.489817472182371,
+      "margin": -1.489817472182371,
+      "phase": 0.19808752287000075,
+      "time_s": 10.494,
+      "stage": "steady_run",
+      "leg": "front_right",
+      "joint": "crank",
+      "torque_Nm": 0.12082529529644294,
+      "speed_deg_s": 1083.1987748039937,
+      "joint_utilization": [
+        1.1073374912247427,
+        2.1441459328088244,
+        2.489817472182371
+      ],
+      "timing_fraction_bound": 0,
+      "steady_utilization": 2.489817472182371
+    },
+    {
+      "carrier_mm": 35,
+      "crank_mm": 28,
+      "pickup_mm": 36,
+      "rod_mm": 38,
+      "distal_mm": 55,
+      "w0_deg_s": 600,
+      "stall_kgcm": 1.8,
+      "load_multiplier": 1,
+      "envelope": "symmetric",
+      "utilization": 2.2989108462241266,
+      "margin": -1.2989108462241266,
+      "phase": 0.2003097450919995,
+      "time_s": 10.945,
+      "stage": "steady_run",
+      "leg": "front_left",
+      "joint": "crank",
+      "torque_Nm": 0.10988609376662883,
+      "speed_deg_s": 1005.837736418995,
+      "joint_utilization": [
+        1.1071458973933244,
+        1.974324087345391,
+        2.2989108462241266
+      ],
+      "timing_fraction_bound": 0,
+      "steady_utilization": 2.2989108462241266
+    },
+    {
+      "carrier_mm": 40,
+      "crank_mm": 32,
+      "pickup_mm": 36,
+      "rod_mm": 38,
+      "distal_mm": 55,
+      "w0_deg_s": 600,
+      "stall_kgcm": 1.8,
+      "load_multiplier": 1,
+      "envelope": "symmetric",
+      "utilization": 2.32011243375885,
+      "margin": -1.3201124337588501,
+      "phase": 0.2069764117570001,
+      "time_s": 5.998,
+      "stage": "steady_run",
+      "leg": "front_left",
+      "joint": "crank",
+      "torque_Nm": 0.12302026077461813,
+      "speed_deg_s": 973.9149454664741,
+      "joint_utilization": [
+        1.107661091719545,
+        2.0218372163998546,
+        2.32011243375885
+      ],
+      "timing_fraction_bound": 0,
+      "steady_utilization": 2.3201080320308516
+    }
+  ],
+  "sampling_convergence": [
+    {
+      "geometry": [
+        40,
+        24,
+        24,
+        38
+      ],
+      "utilization_1ms": 2.6964434970459763,
+      "utilization_025ms": 2.7187694952779755,
+      "relative_difference": 0.008279794572539023
+    },
+    {
+      "geometry": [
+        35,
+        28,
+        36,
+        38
+      ],
+      "utilization_1ms": 2.2989108462241266,
+      "utilization_025ms": 2.29915635302329,
+      "relative_difference": 0.00010679265773472224
+    },
+    {
+      "geometry": [
+        40,
+        32,
+        36,
+        38
+      ],
+      "utilization_1ms": 2.32011243375885,
+      "utilization_025ms": 2.3203490054496054,
+      "relative_difference": 0.00010196561481801147
+    }
+  ]
+}

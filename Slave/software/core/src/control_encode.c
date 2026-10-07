@@ -311,6 +311,17 @@ size_t ainekio_encode_status(
     append_literal(&writer, status->camera_ready ? "true" : "false");
     append_literal(&writer, ",\"cam_drops\":");
     append_u32(&writer, status->camera_drops);
+    if (status->camera_capture && status->camera_capture->counter) {
+        const ainekio_camera_capture_t *capture = status->camera_capture;
+        append_literal(&writer, ",\"camera_capture\":{\"counter\":");
+        append_u32(&writer, capture->counter);
+        append_literal(&writer, ",\"width\":"); append_u32(&writer, capture->width);
+        append_literal(&writer, ",\"height\":"); append_u32(&writer, capture->height);
+        append_literal(&writer, ",\"exposure_us\":"); append_u32(&writer, capture->exposure_us);
+        append_literal(&writer, ",\"gain_x16\":"); append_u32(&writer, capture->gain_x16);
+        append_literal(&writer, ",\"settle_ms\":"); append_u32(&writer, capture->settle_ms);
+        append_literal(&writer, ",\"settled\":"); append_literal(&writer, capture->settled ? "true}" : "false}");
+    }
     append_literal(&writer, ",\"spk_underruns\":");
     append_u32(&writer, status->speaker_underruns);
     append_literal(&writer, ",\"mic_drops\":");
@@ -381,7 +392,7 @@ size_t ainekio_encode_camera_meta(
     size_t capacity
 )
 {
-    static const char *const resolutions[] = {"QVGA", "VGA", "XGA"};
+    static const char *const resolutions[] = {"QVGA", "VGA", "XGA", "960P", "FHD"};
     static const char *const origins[] = {"", "request", "action", "audio"};
     if ((unsigned int)resolution >=
             sizeof(resolutions) / sizeof(resolutions[0]) ||

@@ -1,0 +1,37 @@
+{
+  "baseline_hip_to_ankle_vector_mm": [
+    -56.0787346018024,
+    -70.82646785626137
+  ],
+  "new_carrier_plus_ankle_length_mm": 90.02010426518976,
+  "straight_arm_in_old_direction_crank_center_to_pickup_mm": 18.845049719471206,
+  "required_crank_center_to_pickup_range_mm": [
+    18.0,
+    58.0
+  ],
+  "reason": "Straightening in the old direction closes only on the opposite output assembly branch. The current Blender and firmware forward geometry both select output branch +1. No servo angle or speed bounds were used in this calculation.",
+  "baseline_hip_to_ankle_reach_mm": 90.33943227369438,
+  "candidate_crank_solutions": [
+    {
+      "input_branch": -1,
+      "output_branch": -1,
+      "output_signed_area_mm2": -1033.981325629668,
+      "joint_offsets_deg": [
+        8.519576895603276,
+        19.999695086315157,
+        -2.7750543162785966
+      ]
+    },
+    {
+      "input_branch": 1,
+      "output_branch": -1,
+      "output_signed_area_mm2": -834.7506191148103,
+      "joint_offsets_deg": [
+        8.519576895603276,
+        19.999695086315157,
+        -50.68837580895658
+      ]
+    }
+  ],
+  "current_output_assembly_branch": 1
+}

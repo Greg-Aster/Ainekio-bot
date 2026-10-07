@@ -2,6 +2,8 @@
 #include <stdio.h>
 
 #include "ainekio/core.h"
+#include "ainekio/control_codec.h"
+#include <string.h>
 
 static ainekio_command_t intent_command(uint32_t sequence, ainekio_intent_kind_t intent)
 {
@@ -263,8 +265,31 @@ static void test_motion_plan_uses_normal_movement_safety_and_lifecycle(void)
     assert(ainekio_core_accept(&core, &plan).rejection == AINEKIO_REJECT_UNSAFE);
 }
 
+static void test_audio_adjustment_decode_preserves_optional_settings(void)
+{
+    ainekio_control_message_t m;
+    const char *mic = "{\"t\":\"mic\",\"seq\":1,\"on\":true,\"gate\":\"wake\",\"gain_db\":36}";
+    assert(ainekio_control_decode_for_body(mic, strlen(mic), &m) == AINEKIO_DECODE_OK);
+    assert(m.command.data.microphone.has_gain_db && m.command.data.microphone.gain_db == 36);
+    assert(m.command.data.microphone.gate == AINEKIO_MIC_GATE_WAKE);
+    mic = "{\"t\":\"mic\",\"seq\":2,\"on\":false,\"gate\":\"vad\"}";
+    assert(ainekio_control_decode_for_body(mic, strlen(mic), &m) == AINEKIO_DECODE_OK);
+    assert(!m.command.data.microphone.has_gain_db);
+    const char *wake = "{\"t\":\"wake\",\"seq\":3,\"enabled\":true,\"model\":\"ainekio\",\"threshold\":0.4}";
+    assert(ainekio_control_decode_for_body(wake, strlen(wake), &m) == AINEKIO_DECODE_OK);
+    assert(m.command.data.wake.has_threshold && m.command.data.wake.threshold == 0.4F);
+    wake = "{\"t\":\"wake\",\"seq\":4,\"enabled\":true,\"model\":\"ainekio\"}";
+    assert(ainekio_control_decode_for_body(wake, strlen(wake), &m) == AINEKIO_DECODE_OK);
+    assert(!m.command.data.wake.has_threshold);
+    const char *speaker = "{\"t\":\"speaker\",\"seq\":5,\"volume_percent\":37}";
+    assert(ainekio_control_decode_for_body(speaker, strlen(speaker), &m) == AINEKIO_DECODE_OK);
+    assert(m.command.kind == AINEKIO_COMMAND_SPEAKER && m.command.data.speaker_volume_percent == 37);
+    assert(ainekio_control_decode(speaker, strlen(speaker), &m) != AINEKIO_DECODE_OK);
+}
+
 int main(void)
 {
+    test_audio_adjustment_decode_preserves_optional_settings();
     test_initial_state_is_safe();
     test_stop_holds_neutral_and_explicit_detach_releases_outputs();
     test_session_boundary_preserves_neutral_hold();

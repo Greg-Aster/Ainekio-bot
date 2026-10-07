@@ -1,0 +1,115 @@
+{
+  "schema": "ainekio.linkage-recalculation-handoff.v1",
+  "status": "Continuous gait calculation complete; whole motion-library integration incomplete",
+  "baseline_commit": "13fc3e4",
+  "candidate_archive": "gait-recalculation-candidate.zip",
+  "candidate_archive_sha256": "924579a65ee62858f5f5630fb5b240cafee4ddcf085bb31f6dcca7500fc864f1",
+  "files_sha256": {
+    "Slave/software/models/v2-12servo/geometry.json": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+    "Slave/software/models/v2-12servo/model.json": "c465cd3b84a869c23cdeb386030cb131c7dcc86975f6fb2d1cd975ebad33e150",
+    "Slave/software/models/v2-12servo/motion.c": "00c6821d554d672686548123d2a5a022522284b9db53c86f7ebabc73628537e7",
+    "Slave/software/models/v2-12servo/motions/locomotion/config.json": "2417752e983b33db7efe07b9268293c03b10c4f33bd4740e575d8476948b5330",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab.json": "1d5983f6d0b9122a2f6d3c5640c73d36e38e9b714bd4a5362fb0cb20fc7c7938",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab/source.json": "a06e01360719a22413a07e9d10fbda5588ae386b028527669a1c21579122b632",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab/validation.json": "e44587c4955bb33ae09bdd7bb61366ffcea78d14be6b4e43441f9759e33ced3b",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_backward/source.json": "0da3b91ca9ed3726705fea2b1813441555c4c09859fc657f430a94f1f7294756",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_backward/validation.json": "2e1e1207c4657a81647e4987eaf977af0f7ff8e1cbdc00c6a404cc4b7541932a",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_forward/source.json": "91f0e33f5fdb2b2ada674a6181610db2777adc37817498a562d4e6354a8fff25",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_forward/validation.json": "d7318b4ec8fb3652a1c6f273e0800aaf8c6569f135e33579ffd950bcad146e3b",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_right/source.json": "a26c32566ed6c71eaae9ba1d4456466a462ecc1616e4d15c17a6dbf2c7a8261b",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_right/validation.json": "63bbb8ec7b58a5d677db635cf502931f4577280b1fa19f8c666ebe3e77c58dd9",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_turn_left/source.json": "8007441bd529e5f6b965ff56c7a0eb3449a5d0e43057dd7fda7b1b306e355da6",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_turn_left/validation.json": "898f8fe92d47562ef68de6b1c6799658d0a46d76c7c7a9df324edd5ca5380212",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_turn_right/source.json": "6bbb7e03c0d3f33293fb557f61bc9ddbd615f89566e49d5e1b6425529f2efbcd",
+    "Slave/software/models/v2-12servo/motions/locomotion/crab_turn_right/validation.json": "668c6b97f16c3b373284838df3ce515f283c35865a052d5d34ebac1a059f4de3",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_backward/source.json": "0b65df496edd2b0740383966cc23dbf12554a191e100b099a09b91a5d0c1059f",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_backward/validation.json": "95c0c1d2fe61680228c2e867e4d08fcc36081768f459c4ffe250da3fb5442989",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_forward/source.json": "a3f06b9ab71e7a8e9108066227a2feac4b53ed70b7917a5865959c9aa463aa02",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_forward/validation.json": "d327b3afd9c452900886affa3a2b3a1d2084733e1f3fff5a4af029b56c2c3da1",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_turn_left/source.json": "e0d050829de9327e8c353aea9cabace0e31cdac433bc1b22c4f6da0f70d5bd90",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_turn_left/validation.json": "3e53c7463e115ff49003c33290ac5e11d4b68862ac142fc08083834ec431b16d",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_turn_right/source.json": "501ec227338ccc5d1df2031f64315c9afe4b743999a65da501f413a385d5f0ad",
+    "Slave/software/models/v2-12servo/motions/locomotion/crawl_turn_right/validation.json": "f32cc4e3796ad49272f75ccfd369152d6ab91bb27dffdeb474c9cdb5ea3226ea",
+    "Slave/software/models/v2-12servo/motions/locomotion/sole-profile.json": "7ae7b537b1fa5c5c52a7b7f091e70c8ef01de37d0ad3304147d76197dd759e95",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_backward/source.json": "fe6ad3aca2d4ab4aff2e5cba1de48bdaa39a94bc0b9df88ac9d35b30eb9b1e04",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_backward/validation.json": "14df3ef9b8fc9254f2e87aff5e31ff8c2d9364fb3dda7730b1488f9940c9bc1a",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_forward/source.json": "6830b1f9877a52d2227e43e752eaa819d7c96b4187287185552a2868d17994e0",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_forward/validation.json": "2f4511c9b31af7c0f3542c0963e05d0639f6d7445e3f3b8b26606bcae22a17b4",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_turn_left/source.json": "4bd43d02eefdbbf9fd0be4d528dd869bbe3a9493ba471cfcf1af0061e7e9fceb",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_turn_left/validation.json": "ef8c131bac69088aca1a6205d17b89e5510f067344bd4042531cc00a317311e6",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_turn_right/source.json": "ec5e0429aea6db4c976c0b219fc175d032dd873cc85de541d0f738ac71c06bab",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk_turn_right/validation.json": "fd13075e09bd766e9d58f901c5c6f252898e69f011e0a59d8ef50585be5a41f6",
+    "Slave/software/models/v2-12servo/motions/run/config.json": "87ab314d3d5875f6e863b8c3acaf6c52d43ee0afdd77172667521f51ceb94742",
+    "Slave/software/models/v2-12servo/motions/run/source.json": "0ee981960ff7eda38dbc0bdc6a3018ca9f3567f618cf66a1f9e02f5feead79ec",
+    "Slave/software/models/v2-12servo/motions/run/validation.json": "dbaeeb8ce73bda47d565a4f83ee7d70d3f16a27038f2d3c4084a8c156c225105",
+    "Slave/software/models/v2-12servo/motions/walk/control-checks.json": "369ff7552b765ee97fba46460d5b6031b9098cc7612a1154d5c1f3911448f252",
+    "Slave/software/models/v2-12servo/motions/walk/manifest.json": "11c2e3389b83ecd95fa4029f20565f3cb74182947d0ecc531848876bc2f2d1f3",
+    "Slave/software/models/v2-12servo/motions/walk/source.json": "2921c9ec5e68278ad517beb2d0c40da0ce7897344cb5ff83e6f1305095a64f37",
+    "Slave/software/models/v2-12servo/tools/generate_locomotion.py": "80994fd5d5908b54035d9f43fdc0a3a0a56cfaa9a693645e3ff1e8b6b57d870f",
+    "Slave/software/models/v2-12servo/tools/generate_walk.py": "9c33c6a085a9f36de9d505f4c7958a0433f606f356e71d84ff2c58630e984ccc",
+    "Slave/software/models/v2-12servo/tools/validate_locomotion.py": "e4862b77c1e48d72c155fab51b5f631993618fa9ec8eef7a495b6f16dd3e21f9",
+    "Slave/software/models/v2-12servo/tools/check_linkage_parity.py": "e55254db95b39287be111bfd4d4003adeb653d93f41c571413188c0f1989d859"
+  },
+  "dimensions_mm": {
+    "carrier": 35.0,
+    "crank": 20.0,
+    "pickup": 28.0,
+    "rod": 38.0,
+    "lower_leg": 55.0
+  },
+  "user_observed_cad_intervals_deg": {
+    "carrier": [
+      -30,
+      180
+    ],
+    "crank": [
+      -45,
+      150
+    ],
+    "scope": "Approximate user observations, interpreted as available arcs; not calibrated stops or runtime limits."
+  },
+  "continuous_gait_axis_span_deg": {
+    "carrier": 125.52353633972771,
+    "crank": 157.15038578227592
+  },
+  "continuous_gait_results": {
+    "cases": 70,
+    "successful": 70,
+    "maximum_target_difference": 0.0,
+    "maximum_independent_fk_xy_error_mm": 0.00011502091067683295
+  },
+  "preserved": [
+    "Planner foot targets",
+    "Planner body trajectory",
+    "Planner phase timing",
+    "Contact schedule",
+    "Run blend",
+    "Stride and rate controls",
+    "Saved joint-speed ceiling and common-clock behavior",
+    "Physical servo calibration coordinate zero"
+  ],
+  "host_native_checks_passed": [
+    "test_direct_geometry",
+    "test_motion",
+    "test_gait_timing"
+  ],
+  "unfinished_integration": [
+    "23 named-motion geometry bindings and trajectories remain on the previous geometry.",
+    "Sit, Wave and Upright need their supporting boot orientations preserved as well as their foot positions. Unaccepted fitted candidates remain outside the repository.",
+    "Whole firmware build and deployment have not been completed."
+  ],
+  "qualifications": {
+    "hardware_qualified": false,
+    "firmware_flashed": false,
+    "blender_scene_modified": false,
+    "new_runtime_limits_added": false,
+    "housing_collision_correction": "Explicitly deferred by owner",
+    "existing_calibration_reference_pulse_range_us": [
+      94.2851691064318,
+      3216.718189760129
+    ],
+    "mapping_note": "Old pulse references do not cover the full recalculated gait range. Mechanical mounting and calibration alignment remain required before installation.",
+    "legacy_leverage_benchmarks": "The full paths fall below previous geometry-specific leverage margins. These values are reported, and the gait paths have not been shrunk to pass those margins."
+  },
+  "active_source_tree": "Restored to the unchanged baseline shared model; all completed gait changes retained byte-for-byte in the candidate archive."
+}

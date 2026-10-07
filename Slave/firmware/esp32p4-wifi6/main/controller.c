@@ -5,6 +5,7 @@
 #include "network.h"
 #include "gateway_selection.h"
 #include "body.h"
+#include "display.h"
 #include "system.h"
 #include "storage.h"
 #include "ainekio/p4_media.h"
@@ -52,6 +53,7 @@ typedef struct {
     uint8_t *bytes;
     size_t length;
     uint32_t done_sequence;
+    bool wake_word;
     char metadata[192];
 } packet_t;
 
@@ -66,6 +68,7 @@ static atomic_uint microphone_counter, microphone_tx_drops, camera_tx_drops;
 static atomic_uint stopped_sequence;
 static atomic_uchar camera_fps;
 static atomic_bool initialized, reconnect, quiesced;
+static atomic_int display_link_state, display_rejection;
 /* One WebSocket instance at a time. The link task drains/stops the old client
  * before creating another; queued results can never cross into its successor. */
 static uint64_t link_generation;
@@ -75,13 +78,27 @@ static uint8_t receive_opcode;
 
 static void cancel_audio(uint64_t connection, ainekio_cancel_code_t code);
 static void telemetry(uint64_t connection);
+static bool current_connection(uint64_t connection);
 
 static uint64_t now_us(void) { return esp_timer_get_time(); }
 static void enter(void) { portENTER_CRITICAL(&admission_lock); }
 static void leave(void) { portEXIT_CRITICAL(&admission_lock); }
 
+ainekio_connection_gateway_t ainekio_p4_controller_display_status(void)
+{
+    enter();
+    const bool authenticated = admission.authenticated, connected = admission.connected;
+    leave();
+    if (authenticated) return AINEKIO_SCREEN_GATEWAY_ONLINE;
+    const int rejection = atomic_load(&display_rejection);
+    if (rejection) return rejection;
+    if (connected) return AINEKIO_SCREEN_GATEWAY_HANDSHAKE;
+    return atomic_load(&display_link_state);
+}
+
 static void fail_link(void)
 {
+    atomic_store(&display_link_state, AINEKIO_SCREEN_GATEWAY_UNAVAILABLE);
     enter();
     const bool had_controller = admission.authenticated;
     if (admission.connected) ainekio_admission_close(&admission, admission.generation);
@@ -142,6 +159,7 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
     const ainekio_p4_body_timing_t timing = ainekio_p4_body_timing();
     const ainekio_p4_body_status_t motion = ainekio_p4_body_status();
     const int added = snprintf(text + length - 1U, capacity - length + 1U,
+        ",\"face\":\"%s\""
         ",\"gait_cadence\":{\"automatic_run\":%s,\"cycles_s\":%.6g,\"requested_cycles_s\":%.6g,\"stride_percent\":%.6g,\"requested_stride_percent\":%.6g},\"speed_limited\":%s,\"joint_speed_limit_deg_s\":%.9g,\"clock_ms\":%" PRIu64 ",\"output_fault\":%u,\"controller_queue_depth\":%u,"
         "\"output_timing\":{\"last_io_us\":%" PRIu64 ",\"max_io_us\":%" PRIu64
         ",\"transfers\":%" PRIu32 ",\"failures\":%" PRIu32 ",\"budget_us\":%" PRIu64
@@ -149,7 +167,7 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
         "\"motion_timing\":{\"frames\":%" PRIu32 ",\"max_calculation_us\":%" PRIu32
         ",\"max_frame_us\":%" PRIu32 ",\"max_request_us\":%" PRIu32
         ",\"over_2ms\":%" PRIu32 ",\"over_5ms\":%" PRIu32 ",\"queue_depth\":%" PRIu32 "}}",
-        motion.automatic_run ? "true" : "false", (double)motion.gait_cycles_s,
+        ainekio_p4_display_face(), motion.automatic_run ? "true" : "false", (double)motion.gait_cycles_s,
         (double)motion.gait_requested_cycles_s, (double)motion.stride_percent, (double)motion.requested_stride_percent,
         motion.speed_limited ? "true" : "false", ainekio_v2_gait_joint_speed_limit(),
         now_us()/1000U, (unsigned)output.fault, (unsigned)uxQueueMessagesWaiting(requests),
@@ -187,14 +205,24 @@ static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t e
 
 static void heartbeat(uint64_t connection, bool pong)
 {
-    char text[96];
-    snprintf(text, sizeof(text), "{\"t\":\"%s\",\"clock_ms\":%" PRIu64 "}",
-             pong ? "pong" : "ping", now_us() / 1000U);
+    char text[512];
+    const ainekio_p4_media_status_t media = ainekio_p4_media_status();
+    const char *gate = media.microphone_gate == AINEKIO_MIC_GATE_WAKE ? "wake" :
+                       media.microphone_gate == AINEKIO_MIC_GATE_VAD ? "vad" : "open";
+    snprintf(text, sizeof(text), "{\"t\":\"%s\",\"clock_ms\":%" PRIu64
+             ",\"audio\":{\"on\":%s,\"listening\":%s,\"gate\":\"%s\",\"gain_db\":%u,"
+             "\"wake_enabled\":%s,\"wake_threshold\":%.5f,\"rms\":%.6f,\"peak\":%.6f,\"capturing\":%s,\"speaker_busy\":%s,\"speaker_volume_percent\":%u}}",
+             pong ? "pong" : "ping", now_us() / 1000U,
+             media.microphone_enabled ? "true" : "false", media.microphone_listening ? "true" : "false",
+             gate, (unsigned)media.microphone_gain_db, media.wake_enabled ? "true" : "false",
+             (double)media.wake_threshold, (double)media.microphone_rms, (double)media.microphone_peak,
+             media.utterance_open ? "true" : "false", media.speaker_busy ? "true" : "false",
+             (unsigned)media.speaker_volume_percent);
     reply(connection, text);
 }
 
 static const char *const base_commands[] = {
-    "stop", "say", "stand", "neutral", "walk", "backward", "left", "right", "crawl", "run",
+    "stop", "say", "face", "stand", "neutral", "walk", "backward", "left", "right", "crawl", "run",
     "crab", "crab_right", "crab_forward", "crab_backward", "crab_turn_left", "crab_turn_right"
 };
 enum { BASE_COMMAND_COUNT = sizeof(base_commands) / sizeof(base_commands[0]) };
@@ -213,9 +241,9 @@ static ainekio_capabilities_t capabilities(const ainekio_p4_media_status_t *medi
     return (ainekio_capabilities_t){.commands=commands, .command_count=count,
         .motion=calibration->valid && calibration->profile_confirmed && atomic_load(&initialized), .camera=media->camera_ready,
         .microphone=media->microphone_ready, .speaker=media->speaker_ready, .wake=media->wake_ready,
-        .profile=true, .power=true, .storage=true,
+        .profile=true, .power=true, .storage=true, .display=ainekio_p4_display_ready(),
         .motion_reason=!calibration->valid ? "Joint calibration is invalid." : !calibration->profile_confirmed ? "Review and Save joint calibration for the current servo profile." : NULL,
-        .display_reason="Display hardware selection and implementation are deferred.",
+        .display_reason=ainekio_p4_display_ready() ? NULL : "LCD driver is unavailable.",
         .camera_reason=media->camera_ready ? NULL : "OV5647 camera is not ready.",
         .microphone_reason=media->microphone_ready ? NULL : "Onboard audio input is not ready.",
         .speaker_reason=media->speaker_ready ? NULL : "Onboard audio output is not ready."};
@@ -228,7 +256,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "robot_settings_v1", "camera_profiles_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -253,6 +281,7 @@ static void received(void)
         leave();
         if (!valid) fail_link();
         else {
+            atomic_store(&display_rejection, 0);
             atomic_store(&stopped_sequence, 0);
             ainekio_p4_media_session(request.connection);
             if (ainekio_p4_system_profile(m->data.welcome.profile) != ESP_OK ||
@@ -305,6 +334,7 @@ static void websocket_event(void *arg, esp_event_base_t base, int32_t id, void *
         leave();
         hello(link_generation);
     } else if (id == WEBSOCKET_EVENT_DISCONNECTED || id == WEBSOCKET_EVENT_ERROR) {
+        atomic_store(&display_link_state, AINEKIO_SCREEN_GATEWAY_UNAVAILABLE);
         enter();
         const bool had_controller = admission.authenticated;
         ainekio_admission_close(&admission, link_generation);
@@ -313,7 +343,19 @@ static void websocket_event(void *arg, esp_event_base_t base, int32_t id, void *
         atomic_store(&reconnect, true);
     } else if (id == WEBSOCKET_EVENT_DATA) {
         const esp_websocket_event_data_t *data = event_data;
-        if (data->op_code >= 8) return; /* WebSocket control frames belong to IDF. */
+        if (data->op_code >= 8) {
+            /* Observe the existing server close reason; IDF still owns all
+             * close handling. A timeout alone is not an authentication error. */
+            if (data->op_code == 8 && data->payload_offset == 0 && data->data_len >= 2) {
+                const unsigned code = ((unsigned char)data->data_ptr[0] << 8) |
+                                      (unsigned char)data->data_ptr[1];
+                const ainekio_connection_gateway_t status = ainekio_connection_close_status(code);
+                if (status == AINEKIO_SCREEN_GATEWAY_AUTH_FAILED ||
+                    status == AINEKIO_SCREEN_GATEWAY_PROTOCOL_FAILED)
+                    atomic_store(&display_rejection, status);
+            }
+            return;
+        }
         if (data->payload_offset == 0) {
             if ((data->op_code != 0 && receive_opcode != 0) ||
                 (data->op_code == 0 && receive_opcode == 0) || data->op_code > 2) { fail_link(); return; }
@@ -384,10 +426,17 @@ static void audio_done(void *context, uint64_t session, uint32_t sequence, esp_e
 static void gate_event(void *context, uint64_t session, bool open, bool wake_word)
 {
     (void)context;
-    char text[128];
-    ainekio_encode_event(wake_word ? AINEKIO_EVENT_WAKE_WORD :
-        open ? AINEKIO_EVENT_VAD_OPEN : AINEKIO_EVENT_VAD_CLOSE, false, 0, text, sizeof(text));
-    media_event(session, 0, text);
+    if (!current_connection(session)) return;
+    enter();
+    const bool normal = admission.core.mode == AINEKIO_MODE_NORMAL;
+    leave();
+    ainekio_p4_body_listen(open && normal);
+    /* Boundaries share the PCM FIFO: start must precede pre-roll and close
+     * must follow the last sample, even while the link task is delayed. */
+    packet_t packet = {.connection=session, .wake_word=wake_word};
+    ainekio_encode_event(open ? AINEKIO_EVENT_VAD_OPEN : AINEKIO_EVENT_VAD_CLOSE,
+        false, 0, packet.metadata, sizeof(packet.metadata));
+    if (xQueueSend(audio_packets, &packet, 0) != pdTRUE) fail_link();
 }
 
 static void camera_failed(void *context, uint64_t session, ainekio_camera_origin_t origin,
@@ -443,9 +492,11 @@ static void telemetry(uint64_t connection)
     const ainekio_body_state_t state = system.state == AINEKIO_STATE_DOZING ||
         system.state == AINEKIO_STATE_DEEP_SLEEP ? system.state : admission.core.state;
     leave();
+    const ainekio_camera_capture_t capture = ainekio_p4_media_camera_capture();
     ainekio_status_t status = {.rssi=ap.rssi, .state=state, .uptime_seconds=system.uptime_ms/1000U,
         .free_heap=system.heap_free, .sd_available=ainekio_p4_storage_status().mounted,
         .camera_ready=media.camera_ready, .camera_drops=media.camera_failures+atomic_load(&camera_tx_drops),
+        .camera_capture=&capture,
         .speaker_underruns=media.speaker_underruns,
         .microphone_drops=media.microphone_drops+atomic_load(&microphone_tx_drops),
         .wake_enabled=media.wake_enabled, .wake_ready=media.wake_ready};
@@ -457,7 +508,7 @@ static void telemetry(uint64_t connection)
         .output_armed=output.armed, .output_fault=output.fault,
         .calibration_dirty=calibration.dirty, .calibration_saved=calibration.saved,
         .power_monitor_ready=system.battery_available, .microphone_ready=media.microphone_ready,
-        .speaker_ready=media.speaker_ready, .capabilities=&caps};
+        .speaker_ready=media.speaker_ready, .display_ready=ainekio_p4_display_ready(), .capabilities=&caps};
     status.body = &body;
     char text[4096];
     size_t length = ainekio_encode_status(&status, text, sizeof(text));
@@ -486,10 +537,16 @@ static void send_packet(esp_websocket_client_handle_t client, packet_t *packet)
     if (current_connection(packet->connection) &&
         (!packet->done_sequence || packet->done_sequence > atomic_load(&stopped_sequence))) {
         const size_t metadata_length = strlen(packet->metadata);
-        const bool metadata_ok = metadata_length == 0 ||
+        bool metadata_ok = metadata_length == 0 ||
             esp_websocket_client_send_text(client, packet->metadata, metadata_length, pdMS_TO_TICKS(100)) == (int)metadata_length;
+        if (metadata_ok && packet->wake_word) {
+            char text[80];
+            const size_t length = ainekio_encode_event(AINEKIO_EVENT_WAKE_WORD, false, 0, text, sizeof(text));
+            metadata_ok = esp_websocket_client_send_text(client, text, length, pdMS_TO_TICKS(100)) == (int)length;
+        }
         if (!metadata_ok || !current_connection(packet->connection) ||
-            esp_websocket_client_send_bin(client, (const char *)packet->bytes, packet->length, pdMS_TO_TICKS(250)) != (int)packet->length)
+            (packet->length && esp_websocket_client_send_bin(client, (const char *)packet->bytes,
+                packet->length, pdMS_TO_TICKS(250)) != (int)packet->length))
             fail_link();
         else if (packet->done_sequence) {
             char text[80];
@@ -512,6 +569,8 @@ static void link_task(void *arg)
         const int network = ainekio_p4_network_index();
         const uint32_t network_generation = ainekio_p4_network_generation();
         if (network != selection.network || network_generation != selected_network_generation) {
+            atomic_store(&display_rejection, 0);
+            atomic_store(&display_link_state, AINEKIO_SCREEN_GATEWAY_SEARCHING);
             ainekio_p4_gateway_select_network(&selection, settings, network);
             selected_network_generation = network_generation;
         }
@@ -526,7 +585,11 @@ static void link_task(void *arg)
                 network_generation != ainekio_p4_network_generation()) continue;
         }
         const char *endpoint = ainekio_p4_gateway_endpoint(&selection, settings);
-        if (!endpoint[0]) { vTaskDelay(pdMS_TO_TICKS(1000)); continue; }
+        if (!endpoint[0]) {
+            atomic_store(&display_link_state, AINEKIO_SCREEN_GATEWAY_UNAVAILABLE);
+            vTaskDelay(pdMS_TO_TICKS(1000)); continue;
+        }
+        atomic_store(&display_link_state, AINEKIO_SCREEN_GATEWAY_CONNECTING);
         ESP_LOGI("controller", "Connecting to Body Control at %s", endpoint);
         atomic_store(&reconnect, false);
         const esp_websocket_client_config_t options = {
@@ -798,6 +861,7 @@ static esp_err_t apply(const request_t *request)
         return ESP_ERR_INVALID_STATE;
     switch (command->kind) {
     case AINEKIO_COMMAND_STOP:
+        ainekio_p4_display_restore();
         cancel_audio(request->connection, AINEKIO_CANCEL_STOP);
         ainekio_p4_media_cancel_snapshots();
         return ESP_OK;
@@ -828,8 +892,11 @@ static esp_err_t apply(const request_t *request)
         return ESP_OK;
     case AINEKIO_COMMAND_WAKE_CONFIG:
         ainekio_pca_disarm(ainekio_p4_output());
-        return ainekio_p4_media_wake_configure(command->data.wake.enabled, command->data.wake.model);
+        return ainekio_p4_media_wake_configure(command->data.wake.enabled, command->data.wake.model,
+            command->data.wake.has_threshold ? &command->data.wake.threshold : NULL);
     case AINEKIO_COMMAND_INTENT:
+        if (command->data.intent.kind == AINEKIO_INTENT_FACE)
+            return ainekio_p4_display_expression(command->data.intent.data.asset);
         if (command->data.intent.kind == AINEKIO_INTENT_SAY)
             return ainekio_p4_media_say(command->sequence, command->data.intent.data.asset);
         return ainekio_p4_body_execute(request->output_generation, request->connection, command);
@@ -849,7 +916,10 @@ static esp_err_t apply(const request_t *request)
             return result;
         }
     case AINEKIO_COMMAND_MICROPHONE:
-        return ainekio_p4_media_microphone(command->data.microphone.enabled, command->data.microphone.gate);
+        return ainekio_p4_media_microphone(command->data.microphone.enabled, command->data.microphone.gate,
+            command->data.microphone.has_gain_db ? &command->data.microphone.gain_db : NULL);
+    case AINEKIO_COMMAND_SPEAKER:
+        return ainekio_p4_media_speaker_volume(command->data.speaker_volume_percent);
     case AINEKIO_COMMAND_CAMERA:
         {
             esp_err_t result = ainekio_p4_media_camera_configure(command->data.camera.enabled,
@@ -888,6 +958,7 @@ static void control_task(void *arg)
         const ainekio_mode_t previous_mode = admission.core.mode;
         const bool model_supported = command->kind != AINEKIO_COMMAND_MOTION_PLAN &&
             (command->kind != AINEKIO_COMMAND_INTENT || command->data.intent.kind == AINEKIO_INTENT_SAY ||
+             command->data.intent.kind == AINEKIO_INTENT_FACE ||
              ainekio_p4_body_supports(command));
         ainekio_core_set_boot_ready(&admission.core, true);
         const bool current = admission.connected && admission.authenticated && admission.generation == request.connection;
@@ -913,6 +984,8 @@ static void control_task(void *arg)
                 ainekio_encode_ack(command->sequence,
                     command->kind == AINEKIO_COMMAND_STATE ? command->data.state.sleep_seconds : 0, text, sizeof(text));
                 reply(request.connection, text);
+                if (command->kind == AINEKIO_COMMAND_INTENT && command->data.intent.kind == AINEKIO_INTENT_FACE)
+                    done(request.connection, command->sequence);
                 if (command->kind == AINEKIO_COMMAND_BODY_CALIBRATION) calibration_status(&request);
                 if (command->kind == AINEKIO_COMMAND_STORAGE) storage_status(&request);
                 if (command->kind == AINEKIO_COMMAND_ROBOT_SETTINGS) robot_settings_status(&request);
@@ -934,7 +1007,7 @@ esp_err_t ainekio_p4_controller_start(void)
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_SNAPSHOT) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MICROPHONE) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_TTS) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_WAKE_CONFIG) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_SPEED) |
-        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_ROBOT_SETTINGS);
+        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_ROBOT_SETTINGS) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_SPEAKER);
     ainekio_admission_init(&admission, allowed, true);
     requests = xQueueCreate(8, sizeof(request_t));
     replies = xQueueCreate(16, sizeof(reply_t));
@@ -973,9 +1046,13 @@ int ainekio_p4_controller_command(int argc, char **argv)
     printf("controller configured=%d connected=%d authenticated=%d generation=%" PRIu64 " epoch=%" PRIu32 "\n",
            config != NULL, connected, authenticated, generation, epoch);
     const ainekio_p4_media_status_t media = ainekio_p4_media_status();
-    printf("motion=%d display=deferred camera=%d microphone=%d speaker=%d wake=%d\n",
+    printf("motion=%d display=%d camera=%d microphone=%d speaker=%d wake=%d\n",
            ainekio_p4_calibration().valid && atomic_load(&initialized),
+           ainekio_p4_display_ready(),
            media.camera_ready, media.microphone_ready, media.speaker_ready, media.wake_ready);
+    printf("microphone minimum_free_stack=%" PRIu32 " bytes capturing=%d listening_feedback=%d\n",
+           ainekio_p4_media_microphone_stack_free(), media.utterance_open,
+           ainekio_p4_body_status().listening_feedback);
     printf("installed walk=%s joints=%u hardware_qualified=%d; use gait for geometric diagnostics\n",
            ainekio_v2_walk_id, AINEKIO_V2_JOINT_COUNT, ainekio_v2_walk_hardware_qualified);
     const ainekio_p4_body_timing_t timing=ainekio_p4_body_timing();

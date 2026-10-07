@@ -3,6 +3,12 @@
 
   const HELD_MOTION_STEPS = 10;
 
+  let audioSession = null;
+  const audioForms = {
+    microphone: { edited: false, pending: null, revision: 0 },
+    wake: { edited: false, pending: null, revision: 0 },
+    speaker: { edited: false, pending: null, revision: 0 },
+  };
   let robotSettings = null;
   let robotSettingsSession = null;
   let robotSettingsBusy = false;
@@ -42,6 +48,12 @@
   let storageData = null;
   let storageLoading = false;
   let storageAttempted = false;
+  let faceCatalog = [];
+  let faceLibraryReady = false;
+  let faceRobot = null;
+  let faceAvailable = false;
+  let faceSelection = "default";
+  let faceRequestGeneration = 0;
   const bodyJointNames = ["Rear left shoulder", "Rear left carrier", "Rear left crank",
     "Rear right shoulder", "Rear right carrier", "Rear right crank", "Front left shoulder",
     "Front left carrier", "Front left crank", "Front right shoulder", "Front right carrier", "Front right crank"];
@@ -80,6 +92,7 @@
   let cameraFrameCounter = null;
   let cameraFrameRobotId = null;
   let cameraObjectUrl = null;
+  let cameraProfileSession = null;
   let keyMappings = loadKeyMappings();
 
   const byId = (id) => document.getElementById(id);
@@ -115,6 +128,87 @@
     if (!output) return;
     output.textContent = message;
     output.classList.toggle("error", error);
+  }
+
+  function filterFaces() {
+    const query = byId("face-search").value.trim().toLowerCase();
+    const group = byId("face-group").value;
+    let visible = 0;
+    document.querySelectorAll("[data-face-expression]").forEach((button) => {
+      button.hidden = Boolean((group && button.dataset.group !== group) ||
+        !button.dataset.faceExpression.replaceAll("_", " ").includes(query));
+      if (!button.hidden) visible++;
+    });
+    byId("face-empty").hidden = visible !== 0;
+  }
+
+  async function selectFace(face) {
+    faceSelection = face.name;
+    byId("face-preview").src = `/assets/faces/${face.name}.webp`;
+    byId("face-preview").alt = `${face.label} expression preview`;
+    text("face-preview-name", face.label);
+    document.querySelectorAll("[data-face-expression]").forEach((button) =>
+      button.setAttribute("aria-pressed", String(button.dataset.faceExpression === face.name)));
+    const robot = selectedRobotId;
+    const generation = ++faceRequestGeneration;
+    const current = () => robot === selectedRobotId && generation === faceRequestGeneration;
+    text("face-library-status", `Sending ${face.label.toLowerCase()}…`);
+    try {
+      await command("/api/intent", {name: "face", params: {expr: face.name}}, `${face.label} face requested`, current);
+      if (current()) text("face-library-status", `${face.label} requested. Only the expression changes.`);
+    } catch (error) {
+      if (current()) text("face-library-status", error.message);
+    }
+  }
+
+  function renderFaceAvailability(entry, available) {
+    const session = entry ? `${selectedRobotId}:${entry.epoch}` : null;
+    const changed = session !== faceRobot || available !== faceAvailable;
+    if (session !== faceRobot) {
+      faceRobot = session;
+      faceRequestGeneration++;
+    }
+    faceAvailable = available;
+    // This gallery previews the P4's wide color library. V1 retains its manual
+    // asset control rather than presenting color previews it cannot display.
+    byId("faces-section").hidden = Boolean(entry && entry.model !== "v2-12servo");
+    document.querySelectorAll("[data-face-expression]").forEach((button) => {
+      button.disabled = !available;
+    });
+    if (!available) text("face-library-status", entry ? "The selected robot's display is unavailable." : "Connect a robot to select an expression.");
+    else if (faceLibraryReady && changed)
+      text("face-library-status", `${faceCatalog.length} expressions · no movement required`);
+  }
+
+  async function setupFaceLibrary() {
+    byId("face-search").addEventListener("input", filterFaces);
+    byId("face-group").addEventListener("change", filterFaces);
+    try {
+      faceCatalog = await request("/assets/faces/catalog.json");
+      for (const face of faceCatalog) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "face-card";
+        button.dataset.faceExpression = face.name;
+        button.dataset.group = face.group;
+        button.setAttribute("aria-pressed", String(face.name === faceSelection));
+        button.disabled = !faceAvailable;
+        const image = document.createElement("img");
+        image.src = `/assets/faces/${face.name}.png`;
+        image.alt = "";
+        image.loading = "lazy";
+        image.width = 320; image.height = 170;
+        const label = document.createElement("span");
+        label.textContent = face.label;
+        button.append(image, label);
+        button.addEventListener("click", () => selectFace(face));
+        byId("face-library").append(button);
+      }
+      faceLibraryReady = true;
+      text("face-count", `${faceCatalog.length} expressions`);
+      text("face-library-status", faceAvailable ? `${faceCatalog.length} expressions · no movement required` : "Connect a robot to select an expression.");
+      filterFaces();
+    } catch (error) { text("face-library-status", `Could not load expressions: ${error.message}`); }
   }
 
   function resetCameraView(message = "Waiting for camera frames. Turn on the camera below if needed.") {
@@ -190,6 +284,94 @@
         if (cameraRequestController === controller) cameraRequestController = null;
       }
     }
+  }
+
+  function updateAudioOutputs() {
+    byId("microphone-gain-output").value = `${byId("microphone-gain").value} dB`;
+    byId("wake-sensitivity-output").value = `${byId("wake-sensitivity").value}%`;
+    byId("speaker-volume-output").value = byId("speaker-volume").disabled ? "—" : `${byId("speaker-volume").value}%`;
+  }
+
+  async function submitAudioSettings(kind, payload) {
+    const state = audioForms[kind];
+    const revision = state.revision;
+    const session = audioSession;
+    state.edited = true;
+    try {
+      const result = await command(`/api/${kind}`, payload, `${{wake: "Wake", microphone: "Microphone", speaker: "Speaker volume"}[kind]} settings sent`);
+      if (audioSession === session && state.revision === revision) state.pending = { ...payload, seq: result.seq };
+    } catch (_) { /* command() displays the error; retain edits for retry. */ }
+  }
+
+  function renderAudioInput(entry, online, status) {
+    const supported = Boolean(entry && (entry.features || []).includes("audio_input_v1"));
+    const session = entry ? `${selectedRobotId}:${entry.epoch}` : null;
+    if (audioSession !== session) {
+      audioSession = session;
+      Object.values(audioForms).forEach((state) => { state.edited = false; state.pending = null; state.revision++; });
+    }
+    document.querySelectorAll("[data-audio-input]").forEach((element) => { element.hidden = !supported; });
+    const micForm = byId("microphone-form");
+    const wakeForm = byId("wake-form");
+    micForm.elements.gain_db.disabled = !supported || micForm.elements.on.disabled;
+    wakeForm.elements.sensitivity.disabled = !supported || wakeForm.elements.enabled.disabled;
+    const audio = entry && entry.audio_input;
+    const fresh = Boolean(online && audio && entry.audio_input_age_ms < 2000);
+    const volumeSupported = Number.isInteger(audio?.speaker_volume_percent);
+    const speakerForm = byId("speaker-form");
+    speakerForm.elements.volume_percent.disabled = !fresh || !volumeSupported || entry?.capabilities?.speaker !== true;
+    speakerForm.querySelector("button").disabled = speakerForm.elements.volume_percent.disabled;
+    if (!volumeSupported || !fresh) text("speaker-settings-state", !online ? "Robot offline" :
+      !supported || (fresh && !volumeSupported) ? "Update this robot's firmware to save speaker volume." : "Waiting for robot volume");
+    if (fresh) {
+      const micState = audioForms.microphone;
+      const wakeState = audioForms.wake;
+      const matches = {
+        microphone: (p) => p.on === audio.on && p.gate === audio.gate && (p.gain_db === undefined || p.gain_db === audio.gain_db),
+        wake: (p) => p.enabled === audio.wake_enabled && (p.threshold === undefined || Math.abs(p.threshold - audio.wake_threshold) <= 0.5 / 255 + 0.00001),
+        speaker: (p) => p.volume_percent === audio.speaker_volume_percent,
+      };
+      Object.entries(audioForms).forEach(([kind, state]) => {
+        if (state.pending && matches[kind](state.pending)) { state.edited = false; state.pending = null; }
+        else if (state.pending && entry.last_terminal?.seq === state.pending.seq && entry.last_terminal.t === "nak") state.pending = null;
+      });
+      if (!micState.edited) {
+        micForm.elements.on.checked = audio.on;
+        micForm.elements.gate.value = audio.gate;
+        micForm.elements.gain_db.value = audio.gain_db;
+      }
+      if (!wakeState.edited) {
+        wakeForm.elements.enabled.checked = audio.wake_enabled;
+        wakeForm.elements.model.value = status?.wake_model || "ainekio";
+        wakeForm.elements.sensitivity.value = Math.round((1 - audio.wake_threshold) * 100);
+      }
+      const suffix = (state) => state.pending ? " · Waiting for robot confirmation" : state.edited ? " · Unsaved changes" : "";
+      if (volumeSupported) {
+        const speakerState = audioForms.speaker;
+        if (!speakerState.edited) speakerForm.elements.volume_percent.value = audio.speaker_volume_percent;
+        text("speaker-settings-state", `Saved on robot: ${audio.speaker_volume_percent}%${audio.speaker_volume_percent === 0 ? " · Muted" : ""}${suffix(speakerState)}`);
+      }
+      text("microphone-settings-state", `Saved gain: ${audio.gain_db} dB${suffix(micState)}`);
+      text("wake-settings-state", `Saved sensitivity: ${Math.round((1 - audio.wake_threshold) * 100)}% (detection threshold ${(audio.wake_threshold * 100).toFixed(1)}%)${suffix(wakeState)}`);
+    } else if (supported) {
+      text("microphone-settings-state", "Waiting for current microphone settings");
+      text("wake-settings-state", "Waiting for current wake settings");
+    } else if (!audioForms.wake.edited && !wakeForm.contains(document.activeElement)) {
+      wakeForm.elements.enabled.checked = Boolean(status?.wake_enabled);
+      wakeForm.elements.model.value = status?.wake_model || "ainekio";
+    }
+    updateAudioOutputs();
+    const listening = supported ? fresh && audio.listening : Boolean(online);
+    const rms = listening ? (supported ? audio.rms : entry.microphone_level) || 0 : 0;
+    const db = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+    const clipping = Boolean(fresh && audio.listening && audio.peak >= 0.99);
+    const meter = byId("microphone-level");
+    meter.value = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+    meter.classList.toggle("clipping", clipping);
+    text("microphone-level-status", !online ? "Robot offline" : supported && !fresh ? "Waiting for input level" :
+      supported && !audio.on ? "Microphone off" : !listening ? "Listening paused during speaker playback" :
+      `${supported ? (audio.capturing ? "Recording" : "Listening") : "Sent audio"} · ${db > -60 ? `${db.toFixed(1)} dBFS` : "below −60 dBFS"}${clipping ? " · Clipping — lower gain" : ""}`);
+    text("microphone-level-help", supported ? "Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping." : "This firmware reports levels only while audio is being sent. Update the robot firmware for input gain, wake sensitivity and levels before detection.");
   }
 
   async function command(path, payload = {}, label = "Command sent", canReport = () => true) {
@@ -1078,17 +1260,33 @@
       if (!form.elements.snapshot_res.disabled) payload.snapshot_res = values.get("snapshot_res");
       command("/api/camera", payload, "Camera settings applied");
     });
+    Object.entries(audioForms).forEach(([kind, state]) => {
+      byId(`${kind}-form`).addEventListener("input", () => {
+        state.edited = true;
+        state.pending = null;
+        state.revision++;
+        updateAudioOutputs();
+      });
+    });
+    byId("speaker-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitAudioSettings("speaker", {volume_percent: Number(event.currentTarget.elements.volume_percent.value)});
+    });
     byId("microphone-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const values = new FormData(form);
-      command("/api/microphone", { on: form.elements.on.checked, gate: values.get("gate") }, "Microphone setting applied");
+      const payload = { on: form.elements.on.checked, gate: values.get("gate") };
+      if (!form.elements.gain_db.disabled) payload.gain_db = Number(values.get("gain_db"));
+      submitAudioSettings("microphone", payload);
     });
     byId("wake-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const values = new FormData(form);
-      command("/api/wake", { enabled: form.elements.enabled.checked, model: values.get("model") }, "Wake setting sent");
+      const payload = { enabled: form.elements.enabled.checked, model: values.get("model") };
+      if (!form.elements.sensitivity.disabled) payload.threshold = (100 - Number(values.get("sensitivity"))) / 100;
+      submitAudioSettings("wake", payload);
     });
     byId("snapshot-button").addEventListener("click", () => command("/api/snap", {}, "Snapshot requested"));
     const speakerTestForm = byId("speaker-test-form");
@@ -1549,9 +1747,25 @@
       control.disabled = !capability(name);
       control.title = capability(name) ? "" : unavailable(name);
     }));
+    renderFaceAvailability(entry, capability("display"));
     const cameraProfiles = Boolean(entry && (entry.features || []).includes("camera_profiles_v1"));
     document.querySelector("[data-camera-profiles]").hidden = !cameraProfiles;
     byId("camera-form").elements.snapshot_res.disabled = !cameraProfiles || !capability("camera");
+    const adaptiveCamera = Boolean(entry && (entry.features || []).includes("camera_adaptive_v1"));
+    document.querySelectorAll("[data-camera-adaptive]").forEach((option) => {
+      option.hidden = !adaptiveCamera;
+      option.disabled = !adaptiveCamera;
+    });
+    const cameraSession = entry ? `${selectedRobotId}:${entry.epoch}:${adaptiveCamera}` : null;
+    if (cameraSession !== cameraProfileSession) {
+      byId("camera-form").elements.snapshot_res.value = adaptiveCamera ? "AUTO" : "VGA";
+      cameraProfileSession = cameraSession;
+    }
+    byId("camera-adaptive-help").hidden = !adaptiveCamera;
+    const capture = status && status.camera_capture;
+    text("camera-capture-status", capture ?
+      `Last capture: ${capture.width} × ${capture.height}, ${(capture.exposure_us / 1000).toFixed(1)} ms exposure, ${(capture.gain_x16 / 16).toFixed(1)}× gain.` +
+      (capture.settle_ms ? ` ${capture.settled ? "Exposure settled" : "Exposure still adjusting"} after ${(capture.settle_ms / 1000).toFixed(1)} s.` : "") : "");
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
     connection.textContent = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
@@ -1569,6 +1783,7 @@
     text("status-session", entry ? `${entry.epoch} / ${entry.next_sequence}` : "--");
     text("status-heartbeat", entry ? `${entry.heartbeat_age_ms} ms` : "--");
     const caps = entry && entry.effective_caps || payload.effective_caps;
+    if (caps) byId("camera-form").elements.fps.max = caps.camera_max_fps;
     text("status-caps", caps ? `${entry && entry.profile || payload.profile}: ${caps.camera_max_fps} fps` : "--");
     text("status-camera-drops", status ? status.cam_drops : "--");
     text("status-audio-faults", status ? `${status.mic_drops} / ${status.spk_underruns}` : "--");
@@ -1576,11 +1791,6 @@
     const wakeEnabled = Boolean(status && status.wake_enabled);
     const wakeModel = status && status.wake_model ? status.wake_model : "ainekio";
     text("status-wake", status ? `${wakeEnabled ? "On" : "Off"} / ${wakeModel} / ${wakeReady ? "Ready" : "Model unavailable"}` : "--");
-    const wakeForm = byId("wake-form");
-    if (!wakeForm.contains(document.activeElement)) {
-      wakeForm.elements.enabled.checked = wakeEnabled;
-      wakeForm.elements.model.value = wakeModel;
-    }
     text("wake-capability", wakeReady ? "Wake-word model ready" : "Wake-word model unavailable; enabling is blocked");
     document.querySelectorAll("[data-requires-wake]").forEach((option) => { option.disabled = !wakeReady || !wakeEnabled; });
     const terminal = entry && entry.last_terminal;
@@ -1596,7 +1806,7 @@
     const lastCommand = entry && entry.last_command;
     text("status-command", lastCommand ? `${lastCommand.t}${lastCommand.name ? `:${lastCommand.name}` : ""} #${lastCommand.seq}` : "--");
     text("status-face", status && status.face ? status.face : "--");
-    byId("microphone-level").value = entry ? entry.microphone_level : 0;
+    renderAudioInput(entry, online, status);
 
     const tokenList = byId("token-robot-list");
     tokenList.replaceChildren(...(payload.token_robot_ids || []).map((id) => {
@@ -1659,6 +1869,58 @@
     return statusRequest;
   }
 
+  function setupSpeechOutput() {
+    const form = byId("speech-output-form");
+    const select = byId("speech-output");
+    const button = form.querySelector("button");
+    let edited = false;
+    let saving = false;
+    let reading = false;
+    let revision = 0;
+    function render(settings) {
+      select.value = settings.outputTarget;
+      select.disabled = false;
+      button.disabled = false;
+      const destination = settings.outputTarget === "robot" ? "Robot speaker" : "Computer";
+      text("speech-output-state", `Saved: ${destination}${settings.username ? ` · ${settings.username}` : ""}.${settings.speechDisabled ? " Speech is disabled in MetaHuman Voice Settings." : ""}${settings.outputTarget === "robot" && settings.provider !== "kokoro" ? " Robot speech currently requires Kokoro in MetaHuman Voice Settings." : ""}`);
+    }
+    async function refresh() {
+      if (saving || reading || edited) return;
+      reading = true;
+      const currentRevision = revision;
+      try {
+        const settings = await request("/api/speech-output");
+        if (currentRevision === revision) render(settings);
+      } catch (error) {
+        if (currentRevision === revision) text("speech-output-state", error.message);
+      } finally { reading = false; }
+    }
+    select.addEventListener("change", () => {
+      edited = true;
+      revision++;
+      text("speech-output-state", "Unsaved speech output selection.");
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (saving) return;
+      saving = true;
+      revision++;
+      select.disabled = true;
+      button.disabled = true;
+      try {
+        const settings = await request("/api/speech-output", {
+          method: "POST", body: JSON.stringify({outputTarget: select.value}),
+        });
+        edited = false;
+        render(settings);
+      } catch (error) { text("speech-output-state", error.message); }
+      finally { saving = false; select.disabled = false; button.disabled = false; }
+    });
+    void refresh();
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener("beforeunload", () => window.clearInterval(timer));
+  }
+
   async function setupDashboard() {
     const session = await request("/api/session");
     csrfToken = session.csrf;
@@ -1688,9 +1950,11 @@
     });
     setupMotionControls();
     setupForms();
+    setupSpeechOutput();
     setupSecurity();
     setupHostNetwork();
     setupRobotSettings();
+    setupFaceLibrary();
     await refreshStatus();
     runCameraView();
     statusTimer = window.setInterval(refreshStatus, 1000);

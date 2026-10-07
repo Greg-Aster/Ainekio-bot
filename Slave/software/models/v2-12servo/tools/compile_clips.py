@@ -145,7 +145,9 @@ def load_gestures(root: Path) -> list[dict]:
             or manifest["actuator_calibration"] is not None):
             raise ValueError("research source import cannot grant hardware readiness")
         gestures.append(dict(command=command, manifest=manifest, positions=positions[:terminal_knot+1],
-                             duration_s=command_end, end_s=min(command_end, motion_end)))
+                             duration_s=command_end, end_s=min(command_end, motion_end),
+                             face_cues=[cue for cue in contract.get('face_cues', [])
+                                        if cue['time_s'] <= command_end]))
     return gestures
 
 
@@ -258,12 +260,21 @@ extern const ainekio_v2_clip_track_t v2_clip_tracks[];
             code.append(f'static const float clip_{i}_{name}[] = '+'{'+','.join(f'{operation(row[j] for row in clip["positions"]):.9e}F' for j in range(12))+'};')
         report.append(dict(command=clip['command'],original_knots=len(clip['positions']),stored_knots=len(indices),continuous_error_cd=error,peak_joint_speed_degrees_s=clip['peak_joint_speed_degrees_s']))
     (out/'compression.json').write_text(json.dumps(report,indent=2)+'\n')
+    for i, clip in enumerate(clips):
+        if clip['face_cues']:
+            code.append(f'static const ainekio_v2_face_cue_t clip_{i}_faces[] = {{')
+            for cue in clip['face_cues']:
+                mode = {'once': 'ONCE', 'loop': 'LOOP', 'boomerang': 'BOOMERANG'}[cue['mode']]
+                code.append('    {' + json.dumps(cue['name']) +
+                            f', UINT64_C({round(cue["time_s"]*1e6)}), AINEKIO_V2_FACE_{mode}' + '},')
+            code.append('};')
     code.append('const ainekio_v2_clip_t ainekio_v2_clips[] = {')
-    for clip in clips:
+    for i, clip in enumerate(clips):
         manifest = clip['manifest']
         intent = 'AINEKIO_INTENT_SIT' if manifest['wire']['name'] == 'sit' else 'AINEKIO_INTENT_EMOTE'
         code.append('    {' + ','.join((json.dumps(clip['command']), json.dumps(manifest['gait_id']), intent,
-                    f'UINT64_C({round(clip["duration_s"] * 1e6)})', 'false', f'{clip["peak_joint_speed_degrees_s"]:.9e}F')) + '},')
+                    f'UINT64_C({round(clip["duration_s"] * 1e6)})', 'false', f'{clip["peak_joint_speed_degrees_s"]:.9e}F',
+                    f'clip_{i}_faces' if clip['face_cues'] else 'NULL', str(len(clip['face_cues'])))) + '},')
     code.extend(['};', 'const size_t ainekio_v2_clip_count = sizeof(ainekio_v2_clips) / sizeof(ainekio_v2_clips[0]);',
                  'const ainekio_v2_clip_track_t v2_clip_tracks[] = {'])
     for i, clip in enumerate(clips):

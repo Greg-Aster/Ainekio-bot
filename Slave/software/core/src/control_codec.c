@@ -1041,6 +1041,12 @@ static ainekio_decode_result_t decode_camera(
             message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_VGA;
         } else if (strcmp(resolution, "XGA") == 0) {
             message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_XGA;
+        } else if (strcmp(resolution, "960P") == 0) {
+            message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_960P;
+        } else if (strcmp(resolution, "FHD") == 0) {
+            message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_FHD;
+        } else if (strcmp(resolution, "AUTO") == 0) {
+            message->command.data.camera.snapshot_resolution = AINEKIO_CAMERA_AUTO;
         } else {
             return AINEKIO_DECODE_VALUE;
         }
@@ -1076,6 +1082,14 @@ static ainekio_decode_result_t decode_microphone(
     } else {
         return AINEKIO_DECODE_VALUE;
     }
+    if (object_get(parser, root, "gain_db") >= 0) {
+        int64_t gain;
+        result = required_integer(parser, root, "gain_db", 0, 42, &gain);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (gain % 6 != 0) return AINEKIO_DECODE_RANGE;
+        message->command.data.microphone.has_gain_db = true;
+        message->command.data.microphone.gain_db = (uint8_t)gain;
+    }
     return AINEKIO_DECODE_OK;
 }
 
@@ -1092,6 +1106,13 @@ static ainekio_decode_result_t decode_wake_config(
     }
     if (result == AINEKIO_DECODE_OK) {
         result = asset_string(parser, root, "model", message->command.data.wake.model);
+    }
+    if (result == AINEKIO_DECODE_OK && object_get(parser, root, "threshold") >= 0) {
+        result = required_number(parser, root, "threshold", &message->command.data.wake.threshold);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (message->command.data.wake.threshold < 0.F || message->command.data.wake.threshold > 1.F)
+            return AINEKIO_DECODE_RANGE;
+        message->command.data.wake.has_threshold = true;
     }
     return result;
 }
@@ -1428,8 +1449,8 @@ static ainekio_decode_result_t validate_outbound(
         };
         result = validate_string_enum(parser, root, "name", events, sizeof(events) / sizeof(events[0]));
     } else if (message->kind == AINEKIO_MESSAGE_CAMERA_META) {
-        static const char *const resolutions[] = {"QVGA", "VGA", "XGA"};
-        result = validate_string_enum(parser, root, "res", resolutions, 3U);
+        static const char *const resolutions[] = {"QVGA", "VGA", "XGA", "960P", "FHD"};
+        result = validate_string_enum(parser, root, "res", resolutions, 5U);
         if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "fps", 0, 15, &integer);
         if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "counter_base", 0, UINT32_MAX, &integer);
     }
@@ -1474,7 +1495,7 @@ static ainekio_decode_result_t decode_control(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings",
+        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings", "speaker",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1490,9 +1511,18 @@ static ainekio_decode_result_t decode_control(
     if (message->kind != AINEKIO_MESSAGE_INTENT && object_get(&parser, root, "playback_rate") >= 0)
         return AINEKIO_DECODE_VALUE;
     if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE ||
-         message->kind == AINEKIO_MESSAGE_MOTION_SPEED || message->kind == AINEKIO_MESSAGE_ROBOT_SETTINGS) &&
+         message->kind == AINEKIO_MESSAGE_MOTION_SPEED || message->kind == AINEKIO_MESSAGE_ROBOT_SETTINGS ||
+         message->kind == AINEKIO_MESSAGE_SPEAKER) &&
         !body_extensions) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
+    case AINEKIO_MESSAGE_SPEAKER: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_SPEAKER);
+        int64_t volume;
+        if (result == AINEKIO_DECODE_OK)
+            result = required_integer(&parser, root, "volume_percent", 0, 100, &volume);
+        if (result == AINEKIO_DECODE_OK) message->command.data.speaker_volume_percent = (uint8_t)volume;
+        return result;
+    }
     case AINEKIO_MESSAGE_ROBOT_SETTINGS: {
         result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_ROBOT_SETTINGS);
         char op[9];

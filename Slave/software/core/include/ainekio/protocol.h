@@ -52,6 +52,7 @@ typedef enum {
     AINEKIO_COMMAND_STORAGE,
     AINEKIO_COMMAND_MOTION_SPEED,
     AINEKIO_COMMAND_ROBOT_SETTINGS,
+    AINEKIO_COMMAND_SPEAKER,
 } ainekio_command_kind_t;
 
 #define AINEKIO_NETWORK_SLOTS 4U
@@ -115,7 +116,15 @@ typedef enum {
     AINEKIO_CAMERA_QVGA = 0,
     AINEKIO_CAMERA_VGA,
     AINEKIO_CAMERA_XGA,
+    AINEKIO_CAMERA_960P,
+    AINEKIO_CAMERA_FHD,
+    AINEKIO_CAMERA_AUTO,
 } ainekio_camera_resolution_t;
+
+typedef struct {
+    uint32_t counter, width, height, exposure_us, gain_x16, settle_ms;
+    bool settled;
+} ainekio_camera_capture_t;
 
 typedef enum {
     AINEKIO_CAMERA_ORIGIN_NONE = 0,
@@ -232,6 +241,7 @@ typedef struct {
         ainekio_tts_operation_t tts_operation;
         ainekio_storage_operation_t storage_operation;
         ainekio_robot_settings_command_t robot_settings;
+        uint8_t speaker_volume_percent;
         struct { bool save, has_joint_speed_limit; float rate, joint_speed_limit_deg_s; } motion_speed;
         struct {
             bool enabled;
@@ -243,10 +253,14 @@ typedef struct {
         struct {
             bool enabled;
             ainekio_microphone_gate_t gate;
+            bool has_gain_db;
+            uint8_t gain_db;
         } microphone;
         struct {
             bool enabled;
             char model[AINEKIO_WAKE_MODEL_MAX + 1U];
+            bool has_threshold;
+            float threshold;
         } wake;
         ainekio_profile_t profile;
         struct {

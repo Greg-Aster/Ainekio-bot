@@ -1,0 +1,238 @@
+[
+  {
+    "name": "default",
+    "period_ms": 5200
+  },
+  {
+    "name": "idle",
+    "period_ms": 5200
+  },
+  {
+    "name": "stand",
+    "period_ms": 5200
+  },
+  {
+    "name": "neutral",
+    "period_ms": 5200
+  },
+  {
+    "name": "idle_blink",
+    "period_ms": 450
+  },
+  {
+    "name": "happy",
+    "period_ms": 1800
+  },
+  {
+    "name": "talk_happy",
+    "period_ms": 900
+  },
+  {
+    "name": "sad",
+    "period_ms": 4200
+  },
+  {
+    "name": "talk_sad",
+    "period_ms": 1200
+  },
+  {
+    "name": "angry",
+    "period_ms": 1600
+  },
+  {
+    "name": "talk_angry",
+    "period_ms": 800
+  },
+  {
+    "name": "surprised",
+    "period_ms": 1600
+  },
+  {
+    "name": "talk_surprised",
+    "period_ms": 800
+  },
+  {
+    "name": "sleepy",
+    "period_ms": 4500
+  },
+  {
+    "name": "talk_sleepy",
+    "period_ms": 1700
+  },
+  {
+    "name": "love",
+    "period_ms": 1500
+  },
+  {
+    "name": "talk_love",
+    "period_ms": 900
+  },
+  {
+    "name": "excited",
+    "period_ms": 900
+  },
+  {
+    "name": "talk_excited",
+    "period_ms": 650
+  },
+  {
+    "name": "confused",
+    "period_ms": 2800
+  },
+  {
+    "name": "talk_confused",
+    "period_ms": 1000
+  },
+  {
+    "name": "thinking",
+    "period_ms": 3600
+  },
+  {
+    "name": "talk_thinking",
+    "period_ms": 1400
+  },
+  {
+    "name": "bored",
+    "period_ms": 4200
+  },
+  {
+    "name": "listening",
+    "period_ms": 1800
+  },
+  {
+    "name": "walk",
+    "period_ms": 1100
+  },
+  {
+    "name": "walk_slow",
+    "period_ms": 2100
+  },
+  {
+    "name": "run",
+    "period_ms": 620
+  },
+  {
+    "name": "crawl",
+    "period_ms": 2400
+  },
+  {
+    "name": "crab",
+    "period_ms": 1400
+  },
+  {
+    "name": "rest",
+    "period_ms": 5200
+  },
+  {
+    "name": "lay_down",
+    "period_ms": 4400
+  },
+  {
+    "name": "crouch",
+    "period_ms": 2800
+  },
+  {
+    "name": "sit",
+    "period_ms": 3800
+  },
+  {
+    "name": "swim",
+    "period_ms": 1700
+  },
+  {
+    "name": "dance",
+    "period_ms": 1200
+  },
+  {
+    "name": "wave",
+    "period_ms": 1800
+  },
+  {
+    "name": "point",
+    "period_ms": 2400
+  },
+  {
+    "name": "cute",
+    "period_ms": 2400
+  },
+  {
+    "name": "pushup",
+    "period_ms": 1700
+  },
+  {
+    "name": "freaky",
+    "period_ms": 800
+  },
+  {
+    "name": "bow",
+    "period_ms": 3200
+  },
+  {
+    "name": "worm",
+    "period_ms": 1400
+  },
+  {
+    "name": "shake",
+    "period_ms": 750
+  },
+  {
+    "name": "shrug",
+    "period_ms": 2000
+  },
+  {
+    "name": "dead",
+    "period_ms": 2000
+  },
+  {
+    "name": "nod",
+    "period_ms": 1500
+  },
+  {
+    "name": "celebrate",
+    "period_ms": 1000
+  },
+  {
+    "name": "stretch",
+    "period_ms": 3200
+  },
+  {
+    "name": "macarena",
+    "period_ms": 1100
+  },
+  {
+    "name": "salsa",
+    "period_ms": 900
+  },
+  {
+    "name": "surprised_motion",
+    "period_ms": 1100
+  },
+  {
+    "name": "sad_motion",
+    "period_ms": 4800
+  },
+  {
+    "name": "curious",
+    "period_ms": 2400
+  },
+  {
+    "name": "turn_left_90",
+    "period_ms": 2200
+  },
+  {
+    "name": "turn_right_90",
+    "period_ms": 2200
+  },
+  {
+    "name": "number_one",
+    "period_ms": 2000
+  },
+  {
+    "name": "number_two",
+    "period_ms": 1600
+  },
+  {
+    "name": "upright",
+    "period_ms": 2000
+  }
+]

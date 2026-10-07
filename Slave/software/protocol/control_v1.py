@@ -22,6 +22,8 @@ MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
 CAMERA_PROFILES_FEATURE = "camera_profiles_v1"
+CAMERA_ADAPTIVE_FEATURE = "camera_adaptive_v1"
+AUDIO_INPUT_FEATURE = "audio_input_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
 MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
 ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
@@ -53,7 +55,8 @@ INTENT_NAMES = frozenset(
 )
 WALK_DIRECTIONS = frozenset({"fwd", "back", "turn_l", "turn_r", "side_l", "side_r"})
 PROFILES = frozenset({"home", "tether"})
-CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA", "XGA"})
+CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA", "XGA", "960P", "FHD"})
+CAMERA_SNAPSHOT_RESOLUTIONS = CAMERA_RESOLUTIONS | {"AUTO"}
 CAMERA_STREAM_RESOLUTIONS = frozenset({"QVGA", "VGA"})
 CAMERA_ORIGINS = frozenset({"request", "action", "audio"})
 MIC_GATES = frozenset({"open", "vad", "wake"})
@@ -368,23 +371,43 @@ def _validate_cam(message: Mapping[str, object]) -> None:
     _integer(message, "fps", minimum=0, maximum=15)
     _string(message, "res", allowed=CAMERA_STREAM_RESOLUTIONS)
     if "snapshot_res" in message:
-        _string(message, "snapshot_res", allowed=CAMERA_RESOLUTIONS)
+        _string(message, "snapshot_res", allowed=CAMERA_SNAPSHOT_RESOLUTIONS)
 
 
 def _validate_snap(message: Mapping[str, object]) -> None:
     _seq(message)
 
 
+def _audio_gain(message: Mapping[str, object]) -> None:
+    gain = _integer(message, "gain_db", minimum=0, maximum=42)
+    if gain % 6:
+        _fail("range:gain_db")
+
+
+def _unit_level(message: Mapping[str, object], name: str) -> None:
+    if not 0 <= _number(message, name) <= 1:
+        _fail(f"range:{name}")
+
+
 def _validate_mic(message: Mapping[str, object]) -> None:
     _seq(message)
     _boolean(message, "on")
     _string(message, "gate", allowed=MIC_GATES)
+    if "gain_db" in message:
+        _audio_gain(message)
+
+
+def _validate_speaker(message: Mapping[str, object]) -> None:
+    _seq(message)
+    _integer(message, "volume_percent", minimum=0, maximum=100)
 
 
 def _validate_wake(message: Mapping[str, object]) -> None:
     _seq(message)
     _boolean(message, "enabled")
     _asset(message, "model")
+    if "threshold" in message:
+        _unit_level(message, "threshold")
 
 
 def _validate_profile(message: Mapping[str, object]) -> None:
@@ -403,6 +426,21 @@ def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
     if "seq" in message:
         _fail("unexpected:seq")
     _optional_integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
+    if "audio" in message:
+        audio = message["audio"]
+        if not isinstance(audio, Mapping):
+            _fail("type:audio")
+        _boolean(audio, "on")
+        _boolean(audio, "listening")
+        _boolean(audio, "wake_enabled")
+        for name in ("capturing", "speaker_busy"):
+            if name in audio:
+                _boolean(audio, name)
+        _string(audio, "gate", allowed=MIC_GATES)
+        _audio_gain(audio)
+        _optional_integer(audio, "speaker_volume_percent", minimum=0, maximum=100)
+        for name in ("rms", "peak", "wake_threshold"):
+            _unit_level(audio, name)
 
 
 def _calibration_joint(message: Mapping[str, object]) -> None:
@@ -727,6 +765,7 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "cam": _validate_cam,
     "snap": _validate_snap,
     "mic": _validate_mic,
+    "speaker": _validate_speaker,
     "wake": _validate_wake,
     "profile": _validate_profile,
     "state": _validate_state,

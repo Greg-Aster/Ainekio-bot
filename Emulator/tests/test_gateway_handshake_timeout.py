@@ -9,6 +9,33 @@ import gateway.server.__main__ as gateway_main
 
 
 class GatewayHandshakeTimeoutTests(unittest.IsolatedAsyncioTestCase):
+    async def test_environment_accepts_full_speech_without_changing_robot_frame_budget(self) -> None:
+        async def receive(websocket, _path):
+            try:
+                payload = await websocket.recv()
+                await websocket.send(str(len(payload)))
+            except websockets.exceptions.ConnectionClosed:
+                pass
+
+        async with websockets.serve(
+            receive, "127.0.0.1", 0,
+            create_protocol=gateway_main.BoundedHandshakeProtocol,
+            max_size=gateway_main.MAX_WEBSOCKET_MESSAGE_BYTES,
+            ping_interval=None,
+        ) as server:
+            port = server.sockets[0].getsockname()[1]
+            # Three minutes of speech must fit without a whole-reply cap.
+            # The robot endpoint still receives small individual media frames.
+            payload = bytes(180_000 * 32 + 4096 + 12)
+            async with websockets.connect(f"ws://127.0.0.1:{port}/environment") as ws:
+                await ws.send(payload)
+                self.assertEqual(await ws.recv(), str(len(payload)))
+            async with websockets.connect(f"ws://127.0.0.1:{port}/robot") as ws:
+                await ws.send(payload)
+                with self.assertRaises(websockets.exceptions.ConnectionClosedError) as closed:
+                    await ws.recv()
+                self.assertEqual(closed.exception.code, 1009)
+
     async def test_incomplete_websocket_handshake_is_closed(self) -> None:
         original_timeout = gateway_main.WEBSOCKET_OPEN_TIMEOUT_SECONDS
         gateway_main.WEBSOCKET_OPEN_TIMEOUT_SECONDS = 0.05

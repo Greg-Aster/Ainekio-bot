@@ -77,6 +77,7 @@ typedef struct {
     bool sd_available;
     bool camera_ready;
     uint32_t camera_drops;
+    const ainekio_camera_capture_t *camera_capture;
     uint32_t speaker_underruns;
     uint32_t microphone_drops;
     bool wake_enabled;
