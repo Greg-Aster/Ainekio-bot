@@ -168,6 +168,9 @@ class GatewayConnection:
         self.last_robot_settings: dict[str, object] | None = None
         self.mode = "normal"
         self.last_command: dict[str, object] | None = None
+        # Dispatch fence, not physical position or motion-completion state.
+        self.body_command_sequence: int | None = None
+        self.speech_command_sequence: int | None = None
         self.profile = service.config.profile
         self.microphone_level = 0.0
         self.audio_input: dict[str, object] | None = None
@@ -386,6 +389,14 @@ class GatewayConnection:
             try:
                 guard = on_sequence(sequence) if on_sequence is not None else None
                 async with guard if guard is not None else nullcontext():
+                    if (message.get("t") == "tts" and message.get("op") in {"start", "cancel"}
+                        or message.get("t") == "intent" and message.get("name") == "say"):
+                        self.speech_command_sequence = sequence
+                    if (message.get("t") in {"stop", "motion_plan", "servo", "calibration", "mode", "state"}
+                        or message.get("t") == "intent" and message.get("name") not in {"face", "say"}):
+                        # Adapter updates retain the original owner. Unguarded dashboard
+                        # updates are manual takeover, even before any device receipt.
+                        self.body_command_sequence = (message["update"] if "update" in message and on_sequence is not None else sequence)
                     await asyncio.wait_for(self.websocket.send(json.dumps(message, separators=(",", ":"))), timeout=5.0)
             except Exception:
                 self.pending.pop(sequence, None)
@@ -633,13 +644,8 @@ class GatewayConnection:
         while len(self.completed) > 256:
             del self.completed[next(iter(self.completed))]
         self.service._record_terminal(self, sequence, result, pending.command)
-        if pending.command.get("t") == "stop" and result.get("t") in {"ack", "done"}:
-            # A confirmed stop ends earlier asynchronous commands even when
-            # their individual cancellation acknowledgements were lost. Keep
-            # commands admitted after the stop and ACK-only controls intact.
-            for earlier, command in tuple(self.pending.items()):
-                if earlier < sequence and command.needs_done and command.command.get("t") not in {"storage", "motion_speed", "robot_settings"}:
-                    self._finish_pending(earlier, {"t": "cancelled", "seq": earlier, "code": "stop"})
+        # A Stop ACK confirms that command only. Earlier actions need their own
+        # terminal receipts; do not manufacture their cancellation here.
 
     async def wait_acknowledged(
         self,
@@ -696,7 +702,7 @@ class GatewayConnection:
         for sequence, pending in tuple(self.pending.items()):
             if pending.future.done():
                 continue
-            result = {"t": "cancelled", "seq": sequence, "code": cancellation_code}
+            result = {"t": "cancelled", "seq": sequence, "code": cancellation_code, "outcome_unknown": True}
             self._finish_pending(sequence, result)
 
 
@@ -1261,6 +1267,8 @@ class GatewayService:
                     "model": connection.model,
                     "capabilities": connection.capabilities,
                     "robot_commands": body_commands(connection.model, connection.features, connection.capabilities),
+                    "body_command_sequence": connection.body_command_sequence,
+                    "active_speech_sequence": connection.speech_command_sequence,
                     "active_walk_sequence": next((seq for seq, item in connection.pending.items()
                         if not item.future.done() and item.command.get("name") == "walk" and "update" not in item.command), None),
                     "active_walk": next((dict(item.command) for item in connection.pending.values()

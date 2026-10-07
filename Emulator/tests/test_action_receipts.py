@@ -4,6 +4,7 @@ import asyncio
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -121,8 +122,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                         "robot_id": "test-body", "epoch": 1})
                     await asyncio.wait_for(asyncio.gather(*tuple(adapter._action_tasks)), 2)
                     feedback = json.loads(adapter.receipts.action("restart")["result"])
-                    self.assertEqual(feedback["type"], "cancelled", "A new session's reused seq is not the old result")
-                    self.assertTrue(feedback["data"]["earlierEffectUnknown"])
+                    self.assertEqual(feedback["type"], "outcome_unknown", "A new session's reused seq is not the old result")
                     self.assertEqual(socket.sent, [], "Recovery must not force a stop or repeat an action")
                 finally:
                     for task in tuple(adapter._action_tasks):
@@ -142,7 +142,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
         result = await gateway.wait_terminal(1, robot_id="test-body", epoch=1, timeout=None)
         self.assertEqual(result["t"], "cancelled")
 
-    async def test_confirmed_stop_releases_a_capture_wait_and_allows_the_next_capture(self) -> None:
+    async def test_capture_cancellation_requires_its_receipt_before_releasing_capture_wait(self) -> None:
         gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "test"}))
         dispatched = asyncio.Queue()
 
@@ -165,19 +165,22 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
             await adapter._acknowledge_feedback("capture:accepted", admitted=True)
             self.assertEqual((await asyncio.wait_for(dispatched.get(), 2))["t"], "snap")
             self.assertTrue(adapter._snapshot_lock.locked())
-            await adapter._cancel_action({"actionId": "capture", "cancellationId": "owner-cancel",
-                "bodyLease": original["bodyLease"]})
+            with patch("gateway.environment_adapter.server.CANCELLATION_TIMEOUT_SECONDS", 0.01):
+                await adapter._cancel_action({"actionId": "capture", "cancellationId": "owner-cancel",
+                    "bodyLease": original["bodyLease"]})
+            self.assertEqual(json.loads(adapter.receipts.action("capture")["result"])["type"], "outcome_unknown")
+            self.assertTrue(adapter._snapshot_lock.locked())
+            await connection._handle_control({"t": "cancelled", "seq": 1, "code": "stop"})
             await asyncio.wait_for(asyncio.gather(*tuple(adapter._action_tasks)), 2)
             self.assertFalse(adapter._snapshot_lock.locked())
             self.assertEqual(connection.pending, {})
             self.assertEqual(json.loads(adapter.receipts.action("capture")["result"])["type"], "cancelled")
-            self.assertEqual((await dispatched.get())["t"], "stop")
             following = {**action("next", 2), "type": "captureImage"}
             adapter.receipts.receive(following, accepted("next"))
             await adapter._acknowledge_feedback("next:accepted", admitted=True)
             sent = await asyncio.wait_for(dispatched.get(), 2)
-            self.assertEqual(sent, {"t": "snap", "seq": 3})
-            await connection._handle_control({"t": "done", "seq": 3})
+            self.assertEqual(sent, {"t": "snap", "seq": 2})
+            await connection._handle_control({"t": "done", "seq": 2})
             await asyncio.wait_for(asyncio.gather(*tuple(adapter._action_tasks)), 2)
         finally:
             for task in tuple(adapter._action_tasks):
@@ -378,7 +381,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
         receipts.close()
         self.assertFalse(leaked, "Cancelled acquisition must release the transaction even after repeated cancellation")
 
-    async def test_wire_failure_persists_uncertainty_and_cancellation_accepts_stop_ack(self) -> None:
+    async def test_wire_failure_and_legacy_missing_identity_preserve_uncertainty(self) -> None:
         for fail in (True, False):
             with self.subTest(wire_failure=fail):
                 service = GatewayService(GatewayServiceConfig(tokens={"fixture": "fixture"}))
@@ -404,7 +407,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                     adapter.receipts.begin("transport", {"robotId": "body", "sequence": 9, "kind": "intent"})
                     await adapter._cancel_action({"cancellationId": "transport:cancel", "actionId": "transport",
                         "bodyLease": original["bodyLease"]})
-                    expected = "cancelled"
+                    expected = "outcome_unknown"
                 row = adapter.receipts.action("transport")
                 self.assertEqual(json.loads(row["result"])["type"], expected)
                 messages = [json.loads(value) for value in socket.sent]
@@ -431,6 +434,14 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_terminal_race_publishes_one_committed_result_in_feedback_and_observation(self) -> None:
         class Gateway(FakeGateway):
+            def status(self):
+                result = super().status()
+                result["robots"]["test-body"]["body_command_sequence"] = 1
+                return result
+
+            async def wait_terminal(self, sequence, **kwargs):
+                return {"t": "cancelled", "seq": sequence, "code": "stop"}
+
             async def estop(self, **kwargs):
                 async with kwargs["on_sequence"](8):
                     self.calls.append(("stop", 8))
@@ -441,7 +452,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
         adapter._websocket, adapter._bridge_ready = socket, True
         original = action("race")
         adapter.receipts.receive(original, accepted("race"))
-        adapter.receipts.begin("race", {"robotId": "test-body", "sequence": 1, "kind": "intent"})
+        adapter.receipts.begin("race", {"robotId": "test-body", "epoch": 1, "gatewayInstance": adapter.gateway.instance_id, "sequence": 1, "kind": "intent"})
         ready, release = asyncio.Event(), asyncio.Event()
         send = adapter._send_feedback
 
@@ -466,7 +477,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(message["observation"]["feedback"], [completed])
         adapter.receipts.close()
 
-    async def test_only_a_verified_stop_reconciles_older_same_body_uncertainty(self) -> None:
+    async def test_later_stop_ack_does_not_reconcile_earlier_command_uncertainty(self) -> None:
         receipts = ActionReceipts(":memory:")
         original = action("uncertain")
         receipts.receive(original, accepted("uncertain"))
@@ -484,10 +495,8 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
         receipts.queue_feedback({"type": "environment.feedback", "feedback": {
             "id": "stop-done", "actionId": "stop", "timestamp": "later", "type": "completed", "message": "Stop acknowledged"}})
         cancelled = json.loads(receipts.action("uncertain")["result"])
-        self.assertEqual(cancelled["type"], "cancelled")
-        self.assertEqual(cancelled["data"]["stoppedByActionId"], "stop")
-        self.assertEqual(cancelled["data"]["priorOutcome"], unknown)
-        self.assertTrue(cancelled["data"]["earlierEffectUnknown"])
+        self.assertEqual(cancelled, unknown)
+        self.assertEqual(receipts.action("uncertain")["state"], "outcome_unknown")
         self.assertEqual(receipts.action("other-body")["state"], "received")
         self.assertTrue(any(value.get("feedback") == cancelled for value in receipts.pending()))
         receipts.close()

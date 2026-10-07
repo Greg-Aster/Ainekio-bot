@@ -209,13 +209,20 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(adapter._speech_settings_requests)
 
     async def test_cancel_after_switch_stays_addressed_to_original_robot(self) -> None:
-        gateway = FakeGateway()
+        class PendingSpeechGateway(FakeGateway):
+            async def wait_terminal(self, sequence, **kwargs):
+                if kwargs.get("timeout") == 0:
+                    raise TimeoutError
+                return await super().wait_terminal(sequence, **kwargs)
+
+        gateway = PendingSpeechGateway()
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(
             receipt_path=":memory:", token="adapter-secret"))
         adapter._websocket = FakeWebSocket()
         adapter.receipts.receive({"id": "old-speech", "type": "speechAudio"},
                                  adapter._feedback("old-speech", "accepted", "accepted"))
-        adapter.receipts.begin("old-speech", {"robotId": "previous-body"})
+        adapter.receipts.begin("old-speech", {"robotId": "previous-body", "epoch": 1,
+            "sequence": 4, "gatewayInstance": gateway.instance_id})
         await adapter._cancel_action({"actionId": "old-speech", "cancellationId": "cancel-old"})
         self.assertEqual(gateway.calls[0][0], "cancel_speech")
         self.assertEqual(gateway.calls[0][1]["robot_id"], "previous-body")
