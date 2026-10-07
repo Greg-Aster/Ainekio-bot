@@ -100,6 +100,96 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.connection.next_sequence, 1)
         self.assertEqual(self.connection.pending, {})
 
+    async def test_finish_preserves_concurrent_speech_and_requires_original_done(self) -> None:
+        await self.start()
+        self.connection.capabilities["speaker"] = True
+        speech = await self.connection.send_command({"t": "tts", "op": "start"}, received_at=self.now)
+        await self.connection._handle_control({"t": "ack", "seq": speech})
+        update = await self.update(self.request(controls={"speed": 0}))
+        finish = await self.sent(3)
+        self.assertEqual(finish["update"], 1)
+        self.assertEqual(finish["speed"], 0)
+        await self.connection._handle_control({"t": "ack", "seq": finish["seq"]})
+        await update
+        self.assertEqual(self.result()["status"], "acknowledged")
+        self.assertIn(1, self.connection.pending)
+        self.assertIn(speech, self.connection.pending)
+        self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "started")
+        await self.connection._handle_control({"t": "done", "seq": 1})
+        await self.tasks[0]
+        self.assertIn(speech, self.connection.pending, "Normal Finish must leave speech running")
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "completed")
+        stop = await self.gateway.estop(robot_id="robot", received_at=self.now)
+        self.assertEqual((await self.sent(4))["t"], "stop", "Emergency Stop remains available")
+        await self.connection._handle_control({"t": "ack", "seq": stop})
+        await self.connection._handle_control({"t": "cancelled", "seq": speech, "code": "stop"})
+        self.assertEqual(self.connection.completed[speech]["t"], "cancelled")
+
+    async def test_stop_ack_without_original_terminal_is_bounded_unknown_then_late_receipt_reconciles(self) -> None:
+        await self.start()
+        with patch("gateway.environment_adapter.server.CANCELLATION_TIMEOUT_SECONDS", 0.03):
+            cancel = asyncio.create_task(self.adapter._cancel_action({"actionId": self.original["id"],
+                "cancellationId": "missing-terminal", "bodyLease": self.original["bodyLease"]}))
+            self.tasks.append(cancel)
+            stop = await self.sent(2)
+            await self.connection._handle_control({"t": "ack", "seq": stop["seq"]})
+            await asyncio.wait_for(cancel, 1)
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "outcome_unknown")
+        self.assertFalse(self.tasks[0].done())
+        await self.connection._handle_control({"t": "cancelled", "seq": 1, "code": "stop"})
+        await self.tasks[0]
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "cancelled")
+
+    async def test_manual_takeover_blocks_old_cleanup_and_late_updates_even_before_old_receipt(self) -> None:
+        await self.start()
+        manual = await self.connection.send_command({"t": "intent", "name": "walk", "dir": "fwd",
+            "steps": 0, "speed": 40, "update": 1}, received_at=self.now)
+        await self.adapter._cancel_action({"actionId": self.original["id"], "cancellationId": "late-cleanup",
+            "bodyLease": self.original["bodyLease"]})
+        self.assertEqual(len(self.body.sent), 2, "Old cleanup must not send Stop after manual update")
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "outcome_unknown")
+        await (await self.update(self.request()))
+        self.assertEqual(self.result()["status"], "rejected")
+        await self.connection._handle_control({"t": "cancelled", "seq": 1, "code": "stop"})
+        await self.tasks[0]
+        self.assertIn(manual, self.connection.pending)
+        self.assertEqual(len(self.body.sent), 2)
+
+    async def test_reconnect_blocks_old_cleanup_and_does_not_replay_motion(self) -> None:
+        await self.start()
+        self.connection.cancel_pending()
+        self.connection.epoch = 8
+        await self.tasks[0]
+        await self.adapter._cancel_action({"actionId": self.original["id"], "cancellationId": "old-epoch",
+            "bodyLease": self.original["bodyLease"]})
+        self.assertEqual(len(self.body.sent), 1)
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "outcome_unknown")
+
+    async def test_old_gateway_cancellation_cannot_claim_a_reused_sequence_terminal(self) -> None:
+        self.adapter.receipts.receive(self.original, accepted(self.original["id"]))
+        self.adapter.receipts.begin(self.original["id"], {"gatewayInstance": "previous-process",
+            "robotId": "robot", "epoch": 7, "sequence": 1, "kind": "intent"})
+        self.connection.completed[1] = {"t": "done", "seq": 1}
+        await self.adapter._cancel_action({"actionId": self.original["id"], "cancellationId": "previous-process",
+            "bodyLease": self.original["bodyLease"]})
+        self.assertEqual(self.body.sent, [])
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "outcome_unknown")
+
+    async def test_new_owner_fences_cancellation_after_waiting_for_send_lock(self) -> None:
+        await self.start()
+        async with self.connection._send_lock:
+            cancel = asyncio.create_task(self.adapter._cancel_action({"actionId": self.original["id"],
+                "cancellationId": "old-owner", "bodyLease": self.original["bodyLease"]}))
+            self.tasks.append(cancel)
+            for _ in range(100):
+                if self.adapter.receipts.action(self.original["id"])["state"] == "cancelling":
+                    break
+                await asyncio.sleep(0.001)
+            self.adapter.receipts.receive(action("replacement", 2), accepted("replacement"))
+        await asyncio.wait_for(cancel, 1)
+        self.assertEqual(len(self.body.sent), 1)
+        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "outcome_unknown")
+
     async def test_legacy_steering_rejection_preserves_emergency_stop(self) -> None:
         self.connection.features = tuple(feature for feature in self.connection.features
                                          if feature != WALK_STEERING_FEATURE)
@@ -120,8 +210,9 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(stop["detach"])
         self.assertNotIn("deadline_ms", stop)
         await self.connection._handle_control({"t": "ack", "seq": sequence})
-        self.assertEqual(self.connection.completed[original],
-                         {"t": "cancelled", "seq": original, "code": "stop"})
+        self.assertIn(original, self.connection.pending, "Stop ACK cannot synthesize original termination")
+        await self.connection._handle_control({"t": "cancelled", "seq": original, "code": "stop"})
+        self.assertEqual(self.connection.completed[original]["t"], "cancelled")
 
     async def test_run_alias_never_discards_steering_but_legacy_run_remains_supported(self) -> None:
         self.connection.features = tuple(feature for feature in self.connection.features
@@ -348,6 +439,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stop["t"], "stop")
         self.assertFalse(update.done(), "stop must be sent without waiting for the update receipt")
         await self.connection._handle_control({"t": "ack", "seq": stop["seq"]})
+        await self.connection._handle_control({"t": "cancelled", "seq": 1, "code": "stop"})
         await asyncio.wait_for(cancel, 1)
         self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "cancelled")
         await self.connection._handle_control({"t": "nak", "seq": 2, "code": "busy"})

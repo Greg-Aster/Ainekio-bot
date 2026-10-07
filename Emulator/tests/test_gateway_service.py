@@ -535,7 +535,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(
                 service.terminals[-1]["result"],
-                {"t": "cancelled", "seq": sequence, "code": "reconnect"},
+                {"t": "cancelled", "seq": sequence, "code": "reconnect", "outcome_unknown": True},
             )
             await second.close()
 

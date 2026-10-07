@@ -57,6 +57,7 @@ CAMERA_DELIVERY_QUEUE_LENGTH = 1
 MAX_PENDING_ACTION_VISUALS = 32
 MAX_WALK_UPDATE_VALIDITY_MS = 2000
 WALK_UPDATE_ACK_TIMEOUT_SECONDS = 2.0
+CANCELLATION_TIMEOUT_SECONDS = 2.0
 
 
 def _normalized_action_type(action: Mapping[str, object]) -> str:
@@ -414,6 +415,7 @@ class EnvironmentAdapter:
             active = robot.get("active_walk")
             if (wire.get("gatewayInstance") != self.gateway.instance_id or wire.get("robotId") != request["robotId"]
                 or wire.get("epoch") != request["epoch"] or wire.get("kind") != "intent"
+                or robot.get("body_command_sequence") != original_sequence
                 or robot.get("active_walk_sequence") != original_sequence
                 or not isinstance(active, Mapping) or active.get("steps") != 0):
                 raise GatewayError("update does not identify this action's ongoing walk")
@@ -439,7 +441,7 @@ class EnvironmentAdapter:
                 if self._websocket is not websocket or websocket.closed:
                     raise GatewayError("walk update bridge session ended before dispatch")
                 current = self._walk_update_robot(request)
-                if current.get("active_walk_sequence") != original_sequence:
+                if current.get("active_walk_sequence") != original_sequence or current.get("body_command_sequence") != original_sequence:
                     raise GatewayError("walk action ended before update dispatch")
                 dispatched = True
 
@@ -1506,7 +1508,7 @@ class EnvironmentAdapter:
                     raise GatewayError("previous gateway session ended; awaiting authenticated robot reconnection")
                 # Reauthentication establishes a new body session. The previous
                 # control session is over; this does not claim its motion succeeded.
-                feedback = self._feedback(action_id, "cancelled",
+                feedback = self._feedback(action_id, "outcome_unknown",
                     "Previous gateway session ended; earlier physical effect remains unverified",
                     command=command.get("command", command.get("type")), robot_id=robot_id, epoch=epoch, sequence=sequence)
                 feedback["data"]["earlierEffectUnknown"] = True
@@ -1546,19 +1548,55 @@ class EnvironmentAdapter:
             else:
                 try:
                     if row["wire"] is not None:
-                        robot_id = json.loads(row["wire"])["robotId"]
-                        if json.loads(row["payload"]).get("type") == "speechAudio":
-                            sequence = await self.gateway.cancel_speech(robot_id=robot_id,
-                                on_sequence=lambda _: self.receipts.cancellation_dispatch(action_id))
-                        else:
-                            sequence = await self.gateway.estop(robot_id=robot_id, received_at=self.clock(),
-                                on_sequence=lambda _: self.receipts.cancellation_dispatch(action_id))
-                        terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, timeout=None)
-                        if terminal.get("t") not in {"ack", "done"}:
-                            raise GatewayError("stop did not reach its terminal acknowledgement")
-                    feedback = self._feedback(action_id, "cancelled", str(request.get("reason") or "cancelled by Coordinator"))
+                        wire = json.loads(row["wire"])
+                        robot_id, epoch, original = wire.get("robotId"), wire.get("epoch"), wire.get("sequence")
+                        if not isinstance(robot_id, str) or type(epoch) is not int or type(original) is not int:
+                            raise GatewayError("Saved cancellation lacks its original wire identity")
+                        if wire.get("gatewayInstance") != self.gateway.instance_id:
+                            raise GatewayError("Cancellation belongs to a previous gateway instance; outcome unknown")
+                        speech = json.loads(row["payload"]).get("type") == "speechAudio"
+                        # Natural termination may have won the race while its
+                        # feedback was in transit. Reuse that receipt, not Stop.
+                        try:
+                            terminal = await self.gateway.wait_terminal(original, robot_id=robot_id, epoch=epoch, timeout=0)
+                        except (GatewayError, TimeoutError):
+                            terminal = None
+                        if terminal is not None:
+                            feedback = self._terminal_feedback(action_id, terminal, command=wire.get("kind"),
+                                robot_id=robot_id, epoch=epoch, sequence=original)
+                            if feedback["type"] != "outcome_unknown":
+                                feedback = await self._send_feedback(feedback)
+                                await self._send_observation(feedback=[feedback])
+                                return
+
+                        def before_send() -> None:
+                            robot = self.gateway.status().get("robots", {}).get(robot_id, {})
+                            if (wire.get("gatewayInstance") != self.gateway.instance_id
+                                or robot.get("epoch") != epoch or not robot.get("connected")):
+                                raise GatewayError("Cancellation belongs to an ended body session; outcome unknown")
+                            if not speech and robot.get("body_command_sequence") != original:
+                                raise GatewayError("Body control was replaced; old cleanup cannot stop the current owner")
+                            if speech and robot.get("active_speech_sequence") != original:
+                                raise GatewayError("Speech control was replaced; old cleanup cannot cancel the current speaker")
+
+                        async with asyncio.timeout(CANCELLATION_TIMEOUT_SECONDS):
+                            # The receipt owner and the wire fence are checked while
+                            # holding the same send lock as dashboard/manual commands.
+                            guard = lambda _: self.receipts.cancellation_dispatch(action_id, before_send)
+                            if speech:
+                                await self.gateway.cancel_speech(robot_id=robot_id, on_sequence=guard)
+                            elif wire.get("kind") != "snapshot":
+                                await self.gateway.estop(robot_id=robot_id, received_at=self.clock(), on_sequence=guard)
+                            terminal = await self.gateway.wait_terminal(original, robot_id=robot_id, epoch=epoch, timeout=None)
+                            feedback = self._terminal_feedback(action_id, terminal,
+                                command=wire.get("kind"), robot_id=robot_id, epoch=epoch, sequence=original)
+                        if feedback["type"] not in {"completed", "cancelled", "rejected"}:
+                            raise GatewayError("Original command termination remains unconfirmed")
+                    else:
+                        # Cancellation overtook dispatch: no physical command was sent.
+                        feedback = self._feedback(action_id, "cancelled", str(request.get("reason") or "cancelled by Coordinator"))
                 except (GatewayError, TimeoutError, ConnectionClosed, OSError) as error:
-                    feedback = self._feedback(action_id, "outcome_unknown", str(error))
+                    feedback = self._feedback(action_id, "outcome_unknown", str(error) or "Original command termination was not confirmed within the cancellation deadline")
             feedback = await self._send_feedback(feedback)
             await self._send_observation(feedback=[feedback])
         finally:
@@ -1656,6 +1694,8 @@ class EnvironmentAdapter:
         command: str | None, sequence: int, robot_id: str, epoch: int) -> dict[str, object]:
         terminal_type = str(terminal.get("t"))
         status = {"ack": "completed", "done": "completed", "cancelled": "cancelled"}.get(terminal_type, "rejected")
+        if terminal.get("seq") != sequence or terminal.get("outcome_unknown") or terminal.get("code") in {"disconnect", "superseded"}:
+            status = "outcome_unknown"
         return self._feedback(action_id, status, str(terminal.get("code", terminal_type)),
             command=command, sequence=sequence, robot_id=robot_id, epoch=epoch)
 

@@ -188,8 +188,10 @@ class ActionReceipts:
             yield
 
     @asynccontextmanager
-    async def cancellation_dispatch(self, action_id: str) -> AsyncIterator[None]:
+    async def cancellation_dispatch(self, action_id: str, before_send: Callable[[], None] | None = None) -> AsyncIterator[None]:
         async with self._wire_guard(action_id, "cancelling"):
+            if before_send is not None:
+                before_send()
             yield
 
     @asynccontextmanager
@@ -227,23 +229,8 @@ class ActionReceipts:
                 self.db.execute("UPDATE actions SET state=?,result=?,updated=? WHERE id=?", (
                     "outcome_unknown" if feedback["type"] == "outcome_unknown" else "terminal",
                     encoded(feedback), time(), feedback["actionId"]))
-                payload = json.loads(row["payload"])
-                wire = json.loads(row["wire"]) if row["wire"] else {}
-                if wire.get("kind") == "stop" and feedback["type"] == "completed":
-                    lease = payload["bodyLease"]
-                    for prior in self.db.execute("SELECT * FROM actions WHERE state != 'terminal'").fetchall():
-                        prior_lease = json.loads(prior["payload"]).get("bodyLease", {})
-                        if prior_lease.get("bodyId") != lease["bodyId"] or prior_lease.get("generation", 0) >= lease["generation"]:
-                            continue
-                        cancelled = {"id": f"{prior['id']}:stopped-by:{row['id']}", "actionId": prior["id"],
-                            "timestamp": feedback["timestamp"], "type": "cancelled",
-                            "message": "A later stop ended this action's control of the body; any earlier physical effect remains unverified.",
-                            "data": {"stoppedByActionId": row["id"], "bodyLease": lease,
-                                "priorOutcome": json.loads(prior["result"]) if prior["result"] else None,
-                                "earlierEffectUnknown": prior["wire"] is not None}}
-                        self.db.execute("UPDATE actions SET state='terminal',result=?,updated=?,observation_recorded=1 WHERE id=?",
-                            (encoded(cancelled), time(), prior["id"]))
-                        self._queue(cancelled["id"], prior["id"], {**envelope, "feedback": cancelled})
+                # A later Stop receipt is not a correlated terminal receipt for
+                # an earlier action. Preserve that action's explicit uncertainty.
             message = {**envelope, "feedback": feedback}
             return self._queue(str(feedback["id"]), feedback.get("actionId"), message)
 

@@ -626,10 +626,36 @@ Environment Mode and the autonomy selector. It advances saved gestures from
 physical receipts without additional model calls, and can retain an ongoing gait
 while fresh recognition steers it. Target identification uses free-text phase
 criteria and finite asynchronous snapshot/model jobs. A confirmed identification
-ends the search phase through semantic stop; subsequent gestures run before the
+requests Finish on the original gait; its terminal receipt precedes subsequent
+gestures, which run before the
 whole task is complete. This replaces the temporary repeated-motion local-task
 route and the per-movement Action Result model workflow. MetaHuman remains the
 commander; processing services do not acquire another motion channel.
+
+Stage 1 stopping policy (source/software only, 2026-10-07): normal Finish is a
+speed-zero update, preserving concurrent speech. MetaHuman allows 5 seconds for
+the original gait's terminal receipt, then uses owned cancellation. Failed or
+expired required feedback requests cancellation promptly. Adapter cancellation
+has a 2-second send/confirmation budget and requires the original command's
+terminal receipt; a Stop ACK alone cannot terminate older action records.
+MetaHuman also bounds its confirmation wait and retains `outcome_unknown` when
+transport or receipt confirmation is unavailable. These bounds depend on the
+existing Coordinator and transport; they are not a firmware feedback watchdog.
+
+Cancellation and steering validate the immutable action/lease, gateway instance,
+robot epoch and latest body dispatch inside the same send lock as manual control.
+An unguarded manual update also invalidates autonomous cleanup authority. Speaker
+cancellation is separately fenced. Capture cancellation never issues a body-wide
+Stop. Disconnect/reconnect evidence stays unknown; old motion is never replayed.
+A correlated terminal receipt establishes commanded execution outcome, not sensed
+physical rest or measured servo position. Emergency Stop still sends the existing
+P4 output-disable command and can interrupt speech.
+
+Before deployment, identify the actual MetaHuman/gateway/P4 versions and reconcile
+old active executions. Supervised checks must cover normal Finish with speech,
+required-feedback expiry, Stop plus original cancellation receipt, missing/late
+receipts, manual takeover and reconnect. No firmware or service was changed on a
+running robot during Stage 1; IMU and vision setup remain separate work.
 
 Metric navigation, tracking, live IMU feedback and hardware qualification remain
 separate work. Model comparisons remain deferred to the assembled prototype.
