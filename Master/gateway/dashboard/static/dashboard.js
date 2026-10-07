@@ -1768,7 +1768,10 @@
       (capture.settle_ms ? ` ${capture.settled ? "Exposure settled" : "Exposure still adjusting"} after ${(capture.settle_ms / 1000).toFixed(1)} s.` : "") : "");
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
-    connection.textContent = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
+    const connectionLabel = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
+    const connectionSsid = entry && entry.connection_ssid;
+    connection.textContent = connectionSsid ? `${connectionLabel} · ${connectionSsid}` : connectionLabel;
+    connection.title = connectionSsid ? `Robot connection through ${connectionSsid}` : "";
     connection.classList.toggle("online", connectionState === "online");
     connection.classList.toggle("stale", connectionState === "stale");
     connection.classList.toggle("offline", !entry);

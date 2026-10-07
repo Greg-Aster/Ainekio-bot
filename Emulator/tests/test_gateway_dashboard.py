@@ -328,6 +328,26 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.hotspot.enabled)
         self.assertFalse(self.hotspot.env_file.exists())
 
+    async def test_status_labels_each_robot_by_its_connection_not_selected_hotspot_mode(self):
+        robots = {
+            "hotspot-robot": {"local_address": "10.42.77.1", "transport": "lan"},
+            "home-robot": {"local_address": "192.168.0.88", "transport": "lan"},
+            "remote-robot": {"local_address": "10.42.77.1", "transport": "relay"},
+            "unknown-network": {"local_address": "127.0.0.1", "transport": "lan"},
+        }
+        cookie, _ = await self._login()
+        with patch.object(self.gateway, "status_snapshot", AsyncMock(return_value={"robots": robots})), \
+             patch.object(self.hotspot, "connection_networks", return_value={
+                 "10.42.77.1": "Ainekio-Robot", "192.168.0.88": "CenturyLink3059",
+             }):
+            status, payload, _ = await self._request("GET", "/api/status", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["robots"]["hotspot-robot"]["connection_ssid"], "Ainekio-Robot")
+        self.assertEqual(payload["robots"]["home-robot"]["connection_ssid"], "CenturyLink3059")
+        self.assertNotIn("connection_ssid", payload["robots"]["remote-robot"])
+        self.assertNotIn("connection_ssid", payload["robots"]["unknown-network"])
+        self.assertEqual(self.gateway.calls, [])
+
     async def test_dashboard_error_is_saved_without_request_credentials(self) -> None:
         path = Path(self.temporary_directory.name) / "operations.jsonl"
         self.server.audit_log = AuditLog(path)
