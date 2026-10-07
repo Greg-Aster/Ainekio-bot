@@ -25,8 +25,13 @@ static SemaphoreHandle_t initialized;
 static jmp_buf scheduler;
 static bool booting, finished, inject_snapshot, change_session_during_capture;
 static unsigned target_frames, received_frames, failures_received;
+static uint16_t *capture_pixels;
 static int64_t clock_us;
 static unsigned jpeg_width, jpeg_height, stream_fps;
+static unsigned sensor_width = 1280, sensor_height = 960, sensor_regs[65536];
+static unsigned sensor_gain = 16, sample_count;
+static bool changing_light;
+static ainekio_camera_capture_t captures[16];
 static void *allocations[32];
 static size_t allocation_count;
 static struct {
@@ -118,10 +123,20 @@ esp_err_t i2c_master_probe(i2c_master_bus_handle_t bus, uint16_t address, int ti
 esp_err_t esp_video_init_with_flags(const esp_video_init_config_t *config, int flags)
 { (void)config; (void)flags; return ESP_OK; }
 esp_err_t esp_video_deinit_with_flags(int flags) { (void)flags; return ESP_OK; }
-int open(const char *path, int flags, ...) { (void)flags; assert(strcmp(path, ESP_VIDEO_MIPI_CSI_DEVICE_NAME) == 0); return 10; }
+int open(const char *path, int flags, ...) {
+    (void)flags; assert(strcmp(path, ESP_VIDEO_MIPI_CSI_DEVICE_NAME) == 0);
+    memset(sensor_regs, 0, sizeof(sensor_regs));
+    sample_count = 0;
+    return 10;
+}
 int close(int fd) { assert(fd == 10); return 0; }
 void *mmap(void *address, size_t size, int protection, int flags, int fd, off_t offset)
-{ (void)address; (void)protection; (void)flags; (void)offset; assert(fd == 10); return allocate(size); }
+{
+    (void)address; (void)protection; (void)flags; assert(fd == 10);
+    uint16_t *pixels = allocate(size);
+    if (!offset) capture_pixels = pixels;
+    return pixels;
+}
 int munmap(void *address, size_t size) { (void)address; (void)size; return 0; }
 int ioctl(int fd, unsigned long operation, ...)
 {
@@ -130,15 +145,50 @@ int ioctl(int fd, unsigned long operation, ...)
     va_start(args, operation);
     void *argument = va_arg(args, void *);
     va_end(args);
-    if (operation == VIDIOC_QUERYBUF) {
+    if (operation == VIDIOC_ENUM_SENSOR_FMT) {
+        static const esp_cam_sensor_isp_info_t info[] = {
+            {.isp_v1_info.pclk = 88333333}, {.isp_v1_info.pclk = 81666700}};
+        struct v4l2_sensor_format_enum *sensor = argument;
+        if (sensor->index > 1) return -1;
+        sensor->format = (esp_cam_sensor_format_t){
+            .width = sensor->index ? 1920 : 1280, .height = sensor->index ? 1080 : 960,
+            .isp_info = &info[sensor->index]};
+    } else if (operation == VIDIOC_S_SENSOR_FMT) {
+        const esp_cam_sensor_format_t *format = argument;
+        sensor_width = format->width; sensor_height = format->height;
+        unsigned hts = sensor_width == 1280 ? 1796 : 2271, vts = sensor_width == 1280 ? 1093 : 1199;
+        sensor_regs[0x380c] = hts >> 8; sensor_regs[0x380d] = hts & 255;
+        sensor_regs[0x380e] = vts >> 8; sensor_regs[0x380f] = vts & 255;
+    } else if (operation == VIDIOC_G_EXT_CTRLS || operation == VIDIOC_S_EXT_CTRLS) {
+        struct v4l2_ext_controls *controls = argument;
+        assert(controls->ctrl_class == V4L2_CTRL_CLASS_ESP_CAM_IOCTL && controls->count == 1);
+        esp_cam_sensor_reg_val_t *reg = (void *)controls->controls->p_u8;
+        assert(reg->regaddr < 65536);
+        if (operation == VIDIOC_G_EXT_CTRLS) reg->value = sensor_regs[reg->regaddr];
+        else sensor_regs[reg->regaddr] = reg->value;
+    } else if (operation == VIDIOC_QUERYBUF) {
         struct v4l2_buffer *buffer = argument;
-        buffer->length = 1280U * 960U * 2U;
+        buffer->length = sensor_width * sensor_height * 2U;
+        buffer->m.offset = buffer->index * buffer->length;
     } else if (operation == VIDIOC_DQBUF) {
         if (finished) longjmp(scheduler, 1);
         clock_us += 50000;
         struct v4l2_buffer *buffer = argument;
         buffer->index = 0;
-        buffer->bytesused = 1280U * 960U * 2U;
+        buffer->bytesused = sensor_width * sensor_height * 2U;
+        ++sample_count;
+        /* Spatially distinct source pixels verify both axes of rotation,
+         * including native stills, downsampled preview and format switches. */
+        for (unsigned i = 0; i < sensor_width * sensor_height; ++i)
+            capture_pixels[i] = i % 65521U;
+        /* Initial exposure is rising; afterwards the camera converges unless
+         * this test simulates continuously changing illumination. */
+        unsigned exposure = sample_count < 6 ? sample_count * 1000 : 8000;
+        if (changing_light) exposure = sample_count % 2 ? 8000 : 24000;
+        sensor_regs[0x3500] = exposure >> 16;
+        sensor_regs[0x3501] = (exposure >> 8) & 255;
+        sensor_regs[0x3502] = exposure & 255;
+        sensor_regs[0x350a] = sensor_gain >> 8; sensor_regs[0x350b] = sensor_gain & 255;
         if (change_session_during_capture) {
             change_session_during_capture = false;
             p4_camera_session(8);
@@ -155,7 +205,17 @@ esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t encoder, const jpeg_encode_
                               uint8_t *input, size_t input_size, uint8_t *output,
                               size_t capacity, uint32_t *encoded)
 {
-    (void)encoder; (void)input;
+    (void)encoder;
+    const uint16_t *pixels = (const uint16_t *)input;
+    const unsigned probes[][2] = {{0, 0}, {config->width - 1, 0},
+        {0, config->height - 1}, {config->width - 1, config->height - 1},
+        {config->width / 3, config->height / 3}};
+    for (unsigned i = 0; i < sizeof(probes) / sizeof(probes[0]); ++i) {
+        const unsigned x = probes[i][0], y = probes[i][1];
+        const unsigned sx = (config->width - 1 - x) * sensor_width / config->width;
+        const unsigned sy = (config->height - 1 - y) * sensor_height / config->height;
+        assert(pixels[y * config->width + x] == (sy * sensor_width + sx) % 65521U);
+    }
     assert(config->image_quality == 75 && input_size == config->width * config->height * 2U && capacity >= 4);
     jpeg_width = config->width;
     jpeg_height = config->height;
@@ -172,8 +232,10 @@ static void frame_received(void *context, uint64_t session, ainekio_camera_origi
 {
     (void)context;
     assert(jpeg && length == 4 && received_frames < 16);
-    const unsigned widths[] = {320, 640, 1024}, heights[] = {240, 480, 768};
+    const unsigned widths[] = {320, 640, 1024, 1280, 1920}, heights[] = {240, 480, 768, 960, 1080};
     assert(jpeg_width == widths[resolution] && jpeg_height == heights[resolution]);
+    assert((sensor_regs[0x3a00] & 4) == (origin == AINEKIO_CAMERA_ORIGIN_NONE ? 0 : 4));
+    captures[received_frames] = ainekio_p4_media_camera_capture();
     frames[received_frames].session = session;
     frames[received_frames].origin = origin;
     frames[received_frames].id = id;
@@ -213,7 +275,8 @@ int main(void)
     configure(true, 5, NULL);
     assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 1) == ESP_OK);
     capture(2);
-    assert(frames[0].resolution == AINEKIO_CAMERA_VGA && frames[1].resolution == AINEKIO_CAMERA_QVGA);
+    assert(frames[0].resolution == AINEKIO_CAMERA_FHD && frames[1].resolution == AINEKIO_CAMERA_QVGA);
+    assert(captures[0].settled && captures[0].settle_ms >= 600 && captures[0].gain_x16 == 16);
 
     const ainekio_camera_resolution_t xga = AINEKIO_CAMERA_XGA, vga = AINEKIO_CAMERA_VGA, invalid = 99;
     configure(false, 0, &xga);
@@ -232,7 +295,7 @@ int main(void)
     capture(3);
     inject_snapshot = false;
     assert(frames[0].origin == AINEKIO_CAMERA_ORIGIN_NONE && frames[1].id == 42);
-    assert(frames[2].origin == AINEKIO_CAMERA_ORIGIN_NONE && frames[2].time - frames[0].time == 200000);
+    assert(frames[2].origin == AINEKIO_CAMERA_ORIGIN_NONE && frames[2].time - frames[1].time == 50000);
 
     assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 6) == ESP_OK);
     configure(true, 5, &vga);
@@ -265,5 +328,21 @@ int main(void)
     if (setjmp(scheduler) == 0) camera_task_entry(NULL);
     release_allocations();
     assert(received_frames == 0);
+
+    const ainekio_camera_resolution_t automatic = AINEKIO_CAMERA_AUTO, native = AINEKIO_CAMERA_960P;
+    configure(false, 0, &automatic);
+    sensor_gain = 128;
+    assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 13) == ESP_OK);
+    capture(1);
+    assert(frames[0].resolution == native && captures[0].settled);
+    assert(captures[0].exposure_us == 10166 && captures[0].gain_x16 == 128);
+    assert(((sensor_regs[0x3a02] << 8) | sensor_regs[0x3a03]) == 1093 * 8 - 4);
+
+    configure(false, 0, &native);
+    changing_light = true;
+    assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 14) == ESP_OK);
+    capture(1);
+    assert(frames[0].resolution == native && !captures[0].settled && captures[0].settle_ms == 4000);
+    changing_light = false;
     return 0;
 }

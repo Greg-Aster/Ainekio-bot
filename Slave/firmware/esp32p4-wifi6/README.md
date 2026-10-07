@@ -1,6 +1,6 @@
 # ESP32-P4-WIFI6 body firmware
 
-Native V2 body-controller target (`0.7.1-p4-gateway-switching`). It uses the portable Ainekio lifecycle,
+Native V2 body-controller target (`0.8.0-p4-color-face`). It uses the portable Ainekio lifecycle,
 configuration store and command decoder, with its own P4 startup, board resources,
 C6 networking and PCA9685 output driver. It does not compile the S3 platform.
 
@@ -20,8 +20,46 @@ pulses; updating geometric source alone does not change those home settings.
 The current source integrates twelve-joint operator calibration, provisioning,
 profiles/power states, removable storage, OV5647 camera, onboard ES8311 audio,
 VAD and the shared wake-word engine. Readiness comes from the actual driver and
-asset state. **Display and touch implementation are deferred by the owner**;
-no display backend or speculative pin selection is compiled into this target.
+asset state. The selected **1.9-inch ST7789 SPI LCD** now has a landscape
+320×170 RGB565 face renderer, motion cues and the existing Body Control `face`
+command. See the [LCD wiring and expression guide](../../../docs/v2-12servo/LCD_FACE.md).
+Touch is not part of this selected module. The LCD is installed, and the owner
+has confirmed its orientation on the robot.
+
+While a microphone utterance is open (wake, VAD or Open gate), the LCD overlays
+its animated Listening expression. It restores the underlying manual/motion face
+when capture closes, including when speaker playback interrupts capture.
+The sole body output owner also moves the physical front shoulders (model joints
+6 and 9) by +6° over 300 ms, holds while capturing, then returns to the exact
+previous commanded pose and pulses. The saved joint-speed limit can lengthen the
+transition. Carrier/crank geometry is unchanged. Normal motions take priority;
+calibration/manual targets supersede the cue, and existing Stop/disconnect/output
+state ownership remains in effect. This feedback never arms detached outputs.
+
+Speaker playback suspends both wake inference and microphone transmission from
+TTS/asset start through the existing 800 ms post-playback interval. Wake history
+and microphone pre-roll are flushed at playback boundaries. Results from an
+in-flight inference are checked again before entering the recording FIFO, so a
+speaker start during inference cannot open a stale recording. Dashboard input
+telemetry distinguishes listening, capturing and speaker playback. Speaker DMA
+writes release the media mutex so incoming audio and status callbacks can run;
+cancellation invalidates the write and mutes it before another playback starts.
+
+Body Control's Apply microphone button saves the microphone on/off choice,
+Open/VAD/Wake mode and input gain on the P4. These survive power cycles and
+controller reconnections; disconnect, sleep and speaker playback suspend capture
+without changing the saved choice. Wake enable/model/sensitivity remain saved
+by the separate wake settings control. Existing firmware installations retain
+their gain and wake settings; apply the microphone choice once after upgrading
+to save the formerly temporary on/off and mode settings.
+
+The Audio section exposes microphone gain (0–42 dB in 6 dB steps) and wake
+sensitivity (0–100%). Higher sensitivity lowers the model's
+probability threshold; gain amplifies the captured signal. Input level is
+reported before the wake/VAD gate, so tuning does not require a successful wake
+first. The current settings are read back from the robot; changes take effect
+without rebooting. The saved gain and
+threshold are separate `p4_media` NVS keys, preserving existing wake preferences.
 
 The body executes Stand, CAD Neutral, algorithmic walk/crawl (forward, backward,
 left and right), and every gesture compiled from the model catalog. Fixed-angle
@@ -79,7 +117,7 @@ bounds under untested media workloads. See the model's
 [controller validation](../../software/models/v2-12servo/CONTROLLER_VALIDATION.md)
 for resource costs, removed components and qualification limits.
 
-The current source build is `0.7.0-p4-compact-motion`; prior deployment records below refer to `0.6.1-p4-motion`. It requires the 8 MiB application partition. Boards still using
+The current source build is `0.8.0-p4-color-face`; prior deployment records below refer to `0.6.1-p4-motion`. It requires the 8 MiB application partition. Boards still using
 the old `0.3.0-p4-turns` partition layout require the migration described in the
 [integration record](../../../docs/v2-12servo/MOTION_INTEGRATION_20260917.md),
 not just an application-only flash.
@@ -96,25 +134,71 @@ motion/output owner and motion library are unchanged by this component.
 
 ## Shared camera streaming and snapshots
 
-The existing camera owner multiplexes preview JPEGs and correlated stills;
-there is one task, sensor capture mode (1280×960 RGB565), JPEG encoder and
-shared output/scaling buffers. The negotiated `camera_profiles_v1` extension
-adds an independent snapshot resolution to the existing `cam` command.
-Preview remains QVGA/VGA at 0–15 fps; stills can use QVGA/VGA/XGA and default
-to VGA. JPEG quality remains 75. Changing preview settings leaves the still
-profile unchanged unless `snapshot_res` is supplied. Neither profile is stored
-in NVS.
+The camera owner multiplexes preview JPEGs and correlated stills in one task.
+Espressif `esp_video` / `esp_cam_sensor` control CSI and the OV5647, `esp_ipa`
+controls the P4 ISP, and ESP-IDF's hardware JPEG encoder compresses the images.
+RAW10 stays on the P4; Body Control receives JPEGs. Sensor AEC/AGC adjusts
+exposure/gain; Body Control selects capture profiles, not individual shutter
+or ISO values. The vendor OV5647 ISP tuning remains unchanged.
+
+`camera_profiles_v1` provides independent preview/still settings; the additional
+`camera_adaptive_v1` feature enables `snapshot_res: AUTO | 960P | FHD` alongside
+QVGA/VGA/XGA. Preview remains QVGA/VGA at 0–15 fps. Still boot default is AUTO;
+JPEG quality remains 75. Changing preview settings preserves the still profile
+unless `snapshot_res` is supplied. Neither profile is stored in NVS.
+
+Preview uses the 1280×960 binned mode with one-frame exposure. Stills enable
+the OV5647's eight-frame night integration range (about 178 ms in 960p, 267 ms
+in 1080p); the sensor still chooses the exposure and gain for the light. After
+startup/profile changes, stills collect at least eight frames and wait until
+measured exposure and gain remain within 1/16 of an anchor for 300 ms. After
+four seconds per mode, a changing scene returns the current image marked
+unsettled instead of waiting indefinitely. This does not stop robot motion.
+
+AUTO meters in the full-field 1280×960 mode. If settled exposure × gain is at
+most 1/30 second at unity gain, it switches to the vendor's **cropped 1920×1080**
+mode and settles again; otherwise it returns 1280×960. This is an explicit
+initial selection heuristic, not a measured optimum across scenes. Select
+960P to keep a consistent full field of view, or FHD to force cropped detail.
+The installed camera is mounted upside down. Every emitted preview/still image
+is rotated 180 degrees before JPEG encoding, so saved files and all consumers
+receive upright pixels. Preview rotation is folded into the existing resize
+sampling; native stills reverse their dequeued RGB565 buffer in place before
+hardware JPEG encoding. This adds a CPU pass for native stills, with no additional
+full-frame allocation or sensor/ISP Bayer-pattern changes. Exposure and gain
+behavior is unchanged. Physical capture latency must be measured on the P4.
+The existing 256 KiB JPEG transport capacity remains unchanged; a larger
+encoded image returns the existing camera failure, without silently lowering
+quality. Full 5 MP raw capture and host-side raw processing are not implemented.
 
 Queued stills retain their requested resolution, work with preview disabled,
 and emit `fps:0` metadata with their original correlation. A still does not
 reset the next preview deadline. Shared encoding and transport can still delay
 preview delivery; concurrent throughput and acquisition age require device
-measurements. These changes add no camera task or image-buffer allocation.
+measurements. The two capture buffers are resized when the sensor mode changes;
+the resize scratch remains 1024×768 RGB565 and JPEG storage remains 256 KiB.
+Status `camera_capture` reports counter, actual width/height, `exposure_us`,
+`gain_x16` (16 = unity gain, not calibrated ISO), `settle_ms`, and `settled`.
+The settling flag describes sensor settings, not a guarantee of image quality.
 
 The native `camera_profiles_and_snapshots` test runs production `camera.c`
 against virtual sensor/encoder/scheduler I/O. It covers independent profiles,
-zero-FPS snapshots, preview cadence, cancellation and session fencing. It does
+zero-FPS snapshots, settling, changing illumination, native mode selection,
+preview resumption, cancellation, session fencing, and pixel orientation across
+native/downsampled images and mode switches. It does
 not establish physical sensor operation, image quality or encoding latency.
+
+Physical check, 2026-10-06: application `0.8.1-p4-camera-face` was flashed at
+`0x20000` with esptool hash verification, preserving NVS. Fresh stills returned
+1280×960 and forced 1920×1080 JPEGs; measured night exposures reached 177,621
+and 266,513 µs respectively. VGA preview used approximately 16–19 ms exposure
+in the tested room. A correlated still during preview arrived at native
+1280×960 after about 3 seconds, followed by resumed VGA preview about 0.1 s
+later. Camera drops remained zero during these checks. The Body Control page
+rendered the six snapshot choices and measured capture details without browser
+exceptions. Native tests cover the AUTO bright-scene selection; its automatic
+bright-scene transition and image tuning across other environments still need
+physical comparison. No gait was exercised during the camera checks.
 
 ## Command diagnostics
 
@@ -189,6 +273,7 @@ driver; they never create a second bus or write OE directly.
 | Resource | Assignment / reservation |
 | --- | --- |
 | PCA9685 | I2C controller 1, SDA GPIO2, SCL GPIO3, address `0x40`, 400 kHz; OE GPIO4 |
+| Face LCD | SPI2: SCLK20, MOSI21, CS22, DC23, RESET26; VCC and BLK on 3V3; common GND. Pins, rotation, color order and RAM offset are configurable in menuconfig. |
 | Header reference | With USB-C at top, component side facing you: GPIO2=L15, GPIO3=L14, GPIO4=L12, GND=L13, 3V3=R5. L/R are top-down guide row IDs; see the [pinout and wiring guide](../../../docs/v2-12servo/PCA9685_WIRING.md). These correspond to schematic U10 pins 15/14/12/13/36. |
 | Onboard codec/camera I2C | GPIO7/8 reserved; no competing legacy I2C driver |
 | C6 SDIO | CLK18, CMD19, D0–D3 14–17, reset54; C6 boot6 reserved |
@@ -210,6 +295,7 @@ board through DTR/RTS; wait for the `ainekio-p4>` prompt before sending commands
 | --- | --- |
 | `board` | Chip revision, flash, reset cause, pin assignment and driver state |
 | `controller` | Selected connection generation, epoch and capability readiness |
+| `face` / `face list` / `face NAME` / `face auto` | LCD driver/frame diagnostics, available expressions, manual face, return to motion-driven selection; no PWM output |
 | `gait walk <cycles> <elapsed-ms> [speed | stride rate]` | Evaluate variable walking to elapsed time; automatic Speed or independent stride/rate; no PWM or motion completion |
 | `gait <installed-finite-command> <elapsed-ms>` | Sample a complete gesture, e.g. `gait bow 2500`; holds its recorded final pose after completion; no PWM |
 | `net` | C6 network initialization, station IP and AP state |
@@ -458,6 +544,95 @@ incompatibilities. Enabled controls are not proof that every modeled pose fits
 the assembled mechanism.
 
 
+## Speaker output
+
+The onboard ES8311 output is set to 100 in `0.8.4-p4-speaker-output`.
+Earlier firmware fixed it at 55, adding 22.5 dB of attenuation relative to 100
+after the dashboard had already scaled its test tone. Body Control's **Audio →
+Test volume** slider still controls the two-second tone's PCM amplitude; 100%
+sends full-scale PCM without that extra firmware attenuation. It is a test-tone
+control, not a saved master volume setting for other audio.
+
+The codec change also raises playback of streamed speech and stored sounds.
+Start the physical speaker comparison at a low test volume and increase it as
+needed. Successful initialization or command completion alone does not establish
+audible volume, distortion, or speaker power.
+
+Installed 2026-10-06: the ESP-IDF build and dashboard speaker-volume test passed.
+The application-only write at `0x20000` passed esptool hash verification; saved
+calibration remained intact. After reconnect, a 10% dashboard tone completed
+(`done`, sequence 4) with zero reported speaker underruns and output faults.
+The owner then tested the connected speaker in Body Control and reported that
+it works. Application SHA-256:
+`0568911593943fed17d69a4feca1b3d1194366d11504a8637e8978f54f0f5f21`.
+
+## Wake-word recording
+
+`0.8.5-p4-wake-recording` sends `vad_open` as well as `wake_word` when the
+on-device detector recognizes Ainekio. The earlier P4 callback sent only
+`wake_word`, so the gateway never opened an utterance for the following PCM.
+Recording start/finish events now share the microphone PCM FIFO, preserving
+pre-roll and final samples even when the link task is delayed. Wake detection,
+speech endpoint timing and the gateway's existing WAV assembly are unchanged.
+
+In Body Control, enable **Wake word enabled**, select **Ainekio**, and **Save
+wake setting**. Then select **Microphone → Gate: Wake word → Apply microphone**
+with Microphone checked. The wake preference is saved on the robot; microphone
+capture remains session-scoped and must be enabled again after a reconnect.
+
+Regression coverage compiles the production P4 microphone callbacks and packet
+sender against queue/WebSocket shims, then passes their actual wire messages to
+the gateway assembler. Both wake and ordinary VAD preserve the full recording,
+and packets belonging to an old connection are discarded. Run it with:
+
+```bash
+PYTHONPATH=Master:Slave/software python3 -m unittest Emulator.tests.test_p4_audio_transport -v
+```
+
+This test does not establish acoustic wake-word accuracy or live MetaHuman
+transcription; those require a spoken test with the robot and its receiver.
+
+Installed 2026-10-06: ESP-IDF build, the P4 transport regression and the gateway
+WAV/utterance tests passed. The application-only flash at `0x20000` passed hash
+verification. After reboot, saved calibration remained intact, the saved Ainekio
+wake model was enabled and ready, and microphone wake mode was applied through
+Body Control. Application SHA-256:
+`9df9471fe4ee96983af01bfe8c3af62fbda8f72f23529706ebdbc72fd97d7db0`.
+
+The first live wake test exposed a separate pre-existing stack shortage: the
+P4's `p4_mic` task overflowed its 6144-byte stack in ESP-NN
+`qacc16_run_channels` during model inference. `0.8.6-p4-wake-stack` allocates
+10240 bytes for that task, including its 3840-byte PCM/pre-roll arrays. The
+`controller` USB-console command reports the microphone's minimum free stack
+in bytes so deployed inference headroom can be checked. The model, detection
+threshold, audio format and task priority are unchanged.
+
+The `0.8.6` application was installed with hash verification on 2026-10-06.
+With microphone wake mode enabled, the P4 remained on the same controller
+connection through a 60-second inference check, reported zero microphone drops,
+and measured **3712 bytes minimum free microphone stack**. Application SHA-256:
+`d4ead5303592af87635f1f1a7c9c46c3d657183e669f83a9e3627683162afbc5`.
+
+Follow-up acoustic check on 2026-10-06: direct P4 PCM capture preserved the
+16 kHz sample rate with no TCP gaps or microphone-frame counter gaps. The saved
+model recognized the captured phrases on the workstation and in two temporary
+P4 microphone-task comparisons (eight seconds of audio processed in 390/388 ms).
+Live wake mode then delivered `vad_open`, `wake_word`, PCM and `vad_close` on the
+same connection, with zero reported microphone drops. The comparison code and
+embedded test recording were removed; the exact normal `0.8.6` application hash
+above was reinstalled and wake-mode capture acknowledged after reconnect.
+No recorded speech or temporary comparison code is part of the source tree.
+
+The owner reported that live recognition needed close, loud speech; normal
+speaking-distance accuracy remains unqualified. The ES8311 input-gain API is
+still set to 30 dB and the model cutoff to 0.66. A captured eight-second speech
+segment peaked at 23.8% sample amplitude and 7.49% frame RMS, without clipping.
+Body Control's current meter displays received PCM RMS on a linear 0–1 scale,
+so even that speech uses only 7.49% of the bar. In wake mode the meter receives
+no fresh samples before detection; it is not an on-device listening indicator.
+These measurements do not establish live MetaHuman transcription or justify
+claiming reliable recognition across a room.
+
 ## Optional voice/wake asset layout
 
 The default partition table retains the factory layout. The optional
@@ -492,3 +667,16 @@ The connected board now uses the full layout, with the separate LittleFS image
 installed at `0x1020000`; normal flash arguments still omit that image.
 Current implementation/review and deployment status is tracked in
 [FIRMWARE_DESIGN.md](../../../docs/v2-12servo/FIRMWARE_DESIGN.md).
+
+## Saved robot speaker volume
+
+Body Control's **Audio → Robot speaker volume** sends a `speaker` command with
+`volume_percent` (0–100). **Save volume on robot** persists the value under
+`p4_media/spk_volume` in NVS and applies it to the shared speaker output path for
+streamed TTS, test tones and local audio assets. It survives reboot, reconnect
+and sleep; 0 mutes and 100 leaves PCM unchanged. An unset value defaults to 100
+so installing this firmware preserves the previous full output. The codec stays
+at unity gain; the master percentage scales each PCM frame once at playback.
+Repeated saves of the same value do not rewrite NVS. Failed saves leave the
+previous volume active. Heartbeat `audio.speaker_volume_percent` reports the
+confirmed value; older bodies without that field do not expose this control.

@@ -1,0 +1,34 @@
+Native build: successful (CMake Release, assertions enabled).
+
+gestures: all twelve joints at 62517 times; maximum numeric errors: {'position': 0.4936863276350323, 'velocity': 334.859155629857, 'acceleration': 164241.54150975152}
+
+Internal ctest changing into directory: /tmp/ainekio-motion-remap/build
+Test project /tmp/ainekio-motion-remap/build
+    Start  1: v2_limits
+1/7 Test  #1: v2_limits ........................   Passed    0.19 sec
+    Start  2: v2_direct_geometry
+2/7 Test  #2: v2_direct_geometry ...............   Passed    0.00 sec
+    Start  3: v2_motion
+3/7 Test  #3: v2_motion ........................   Passed    0.03 sec
+    Start  8: v2_gait_timing
+4/7 Test  #8: v2_gait_timing ...................   Passed    0.12 sec
+    Start 11: v2_clips
+5/7 Test #11: v2_clips .........................   Passed    0.00 sec
+    Start 13: v2_upright
+6/7 Test #13: v2_upright .......................***Failed    2.57 sec
+Traceback (most recent call last):
+  File "/tmp/ainekio-motion-remap/candidate/Slave/software/models/v2-12servo/tests/test_upright.py", line 77, in <module>
+    assert min(rows[-1]['arm_reach_mm'][2:]) > 90
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+    Start 14: v2_clip_compiler
+7/7 Test #14: v2_clip_compiler .................   Passed    1.92 sec
+
+86% tests passed, 1 tests failed out of 7
+
+Total Test time (real) =   4.84 sec
+
+The following tests FAILED:
+	 13 - v2_upright (Failed)
+Errors while running CTest

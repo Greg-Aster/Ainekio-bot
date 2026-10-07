@@ -119,6 +119,26 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
 
 .control-section:nth-child(odd) { border-right: 1px solid var(--line); }
 .primary-view-container { grid-column: 1 / -1; }
+.faces-section { grid-column: 1 / -1; border-right: 0 !important; }
+.faces-workspace { display: grid; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.face-viewer { min-width: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--dark); }
+.face-viewer img { display: block; width: 100%; height: auto; aspect-ratio: 320 / 170; background: #000; }
+.face-viewer p { margin: 0; padding: .65rem .85rem; overflow-wrap: anywhere; }
+#face-preview-name { font-weight: 700; }
+.face-browser { min-width: 0; }
+.face-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .65fr); gap: .75rem; margin-bottom: .85rem; }
+.face-filters label { display: grid; gap: .4rem; min-width: 0; }
+.face-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: .6rem; max-height: 28rem; overflow-y: auto; padding: 3px; }
+.face-card { min-width: 0; padding: .35rem; text-align: left; font-size: .8rem; }
+.face-card img { display: block; width: 100%; height: auto; aspect-ratio: 320 / 170; background: #000; border-radius: 3px; }
+.face-card span { display: block; padding: .5rem .2rem .2rem; overflow-wrap: anywhere; }
+.face-card[aria-pressed="true"] { border-color: var(--blue); background: #263f4d; }
+@media (max-width: 700px) {
+  .faces-workspace { grid-template-columns: minmax(0, 1fr); }
+  .face-viewer { max-width: 320px; width: 100%; justify-self: center; }
+  .face-filters { grid-template-columns: minmax(0, 1fr); }
+  .face-library { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+}
 .primary-view-section { width: 100%; padding-inline: 0; border-right: 0 !important; }
 .primary-view-section .section-heading { padding-inline: 1.25rem; }
 body[data-dashboard-primary="camera"] [data-dashboard-panel="simulator"],
@@ -226,6 +246,12 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .speaker-test-help { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 0.75rem; }
 .switch-row { display: flex !important; min-height: 42px; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .switch-row input { width: 20px; min-height: 20px; accent-color: var(--blue); }
+.audio-settings-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.audio-settings-form .audio-adjustment { min-width: 0; }
+.audio-settings-form input[type="range"] { padding-inline: 0; accent-color: var(--blue); }
+.audio-help { grid-column: 1 / -1; margin: 0.35rem 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+.audio-adjustment .speaker-test-volume-heading { flex-wrap: wrap; gap: 0.3rem; }
+#microphone-level.clipping { accent-color: var(--red); }
 .meter-label { display: block; margin-top: 1rem; }
 progress { width: 100%; height: 14px; margin-top: 0.35rem; accent-color: var(--green); }
 .calibration-section { grid-column: 1 / -1; }

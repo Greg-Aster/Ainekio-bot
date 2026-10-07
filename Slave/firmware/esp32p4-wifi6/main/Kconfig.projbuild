@@ -1,0 +1,39 @@
+menu "Ainekio wide face LCD"
+config AINEKIO_LCD_ENABLED
+    bool "Use the 1.9-inch ST7789 SPI LCD"
+    default y
+config AINEKIO_LCD_SCLK
+    int "LCD SCL / SCK GPIO"
+    default 20
+config AINEKIO_LCD_MOSI
+    int "LCD SDA / DIN GPIO (SPI, not I2C)"
+    default 21
+config AINEKIO_LCD_CS
+    int "LCD CS GPIO"
+    default 22
+config AINEKIO_LCD_DC
+    int "LCD DC GPIO"
+    default 23
+config AINEKIO_LCD_RESET
+    int "LCD RES / RST GPIO"
+    default 26
+config AINEKIO_LCD_SPI_HZ
+    int "LCD SPI clock in Hz"
+    default 40000000
+config AINEKIO_LCD_FPS
+    int "Face rendering frames per second"
+    range 1 120
+    default 30
+config AINEKIO_LCD_Y_GAP
+    int "Landscape row offset in ST7789 RAM"
+    default 35
+config AINEKIO_LCD_ROTATE_180
+    bool "Rotate the landscape screen 180 degrees"
+    default y
+config AINEKIO_LCD_BGR
+    bool "Panel uses BGR color order"
+    default n
+config AINEKIO_LCD_INVERT
+    bool "Panel requires inverted pixel drive"
+    default y
+endmenu

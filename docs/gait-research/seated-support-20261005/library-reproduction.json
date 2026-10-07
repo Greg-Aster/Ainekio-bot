@@ -1,0 +1,102 @@
+{
+  "bow": {
+    "samples": 1021,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "celebrate": {
+    "samples": 1501,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "crouch": {
+    "samples": 481,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "curious": {
+    "samples": 1171,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "cute": {
+    "samples": 1621,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "dance": {
+    "samples": 1501,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "dead": {
+    "samples": 841,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "freaky": {
+    "samples": 1165,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "lay_down": {
+    "samples": 841,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "nod": {
+    "samples": 1021,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "point": {
+    "samples": 1321,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "pushup": {
+    "samples": 1741,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "rest": {
+    "samples": 601,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "sad": {
+    "samples": 1057,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "shake": {
+    "samples": 841,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "shrug": {
+    "samples": 1681,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "stretch": {
+    "samples": 805,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "surprised": {
+    "samples": 1435,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "swim": {
+    "samples": 2821,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  },
+  "worm": {
+    "samples": 2401,
+    "maximum_joint_difference_rad": 0.0,
+    "maximum_body_translation_difference_mm": 0.0
+  }
+}

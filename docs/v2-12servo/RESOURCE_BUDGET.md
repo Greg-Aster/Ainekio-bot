@@ -1,6 +1,11 @@
 # Final robot resource budget — Ainekio / MetaHuman OS
 
 Audited 2026-09-28. **Design reference, not completed-robot qualification.**
+Camera source update 2026-10-06: adaptive still capture also supports native
+1280×960 and cropped 1920×1080. The 1080p path uses two RGB565 captures, the
+existing 1024×768 resize scratch, and one 256 KiB JPEG buffer: **10,129,408 B /
+9.660 MiB**, before compressed copies, wake, ISP/driver and other allocations.
+Historical throughput/combined-load results below do not qualify this mode.
 Scope: twelve servos, P4 / C6, camera, audio, LCD, IMU, storage, Q6A, gateway,
 MetaHuman services and remote LLM boundary. This supersedes the earlier partial
 budgets and withdrawn invented CPU / RAM / power allowances.
@@ -215,9 +220,9 @@ Flash is partitioned storage, not extra RAM. The default
 | Body output | 12 KiB | Core 1, priority 10, 20 ms targets |
 | Body control / link / WebSocket | 12 / 14 / 16 KiB | Controller active; WebSocket also configures 1,024 B buffer |
 | Network / storage / system | 8 / 6 / 4 KiB | Wi-Fi / SD / state workers |
-| Camera / mic / speaker | 6 / 6 / 4 KiB | Media initialized |
+| Camera / mic / speaker | 6 / 10 / 4 KiB | Media initialized; P4 wake inference overflowed the former 6 KiB mic stack |
 | Console | 12 KiB | Existing firmware |
-| Explicit stack subtotal | **103 KiB** | Excludes SDK / Hosted / lwIP / TLS tasks, TCBs, transient main and optional HTTP |
+| Explicit stack subtotal | **107 KiB** | Excludes SDK / Hosted / lwIP / TLS tasks, TCBs, transient main and optional HTTP |
 | Setup HTTP / transient main | 6 / 12 KiB | Additional while alive |
 | Speaker queue | 32,200 B | 50 × (640 PCM + 4 generation); RTOS overhead extra |
 | Mic queued payload | 0–5,160 B | Eight × (640 PCM + 5 header); producer / in-flight extra |
@@ -271,8 +276,14 @@ Increasing it changes every copy, queue, gateway limit and bandwidth calculation
 
 ## 5. Camera throughput and storage
 
-Current source selects 1280 × 960 RAW10 / 45 fps capture into RGB565; emits QVGA / VGA / XGA,
-default 2 fps / max 15 fps, CPU resize, hardware JPEG quality 75 / YUV420. H.264 is disabled.
+Preview selects 1280 × 960 RAW10 / 45 fps capture into RGB565 and emits QVGA / VGA,
+default 2 fps / max 15 fps. Stills also support XGA, native 1280×960, and cropped
+1920×1080 RAW10 / 30 fps, with automatic long-exposure capture in dim light.
+Native stills skip CPU resizing but rotate 180 degrees in place in the dequeued
+RGB565 buffer for the installed mounting; preview combines rotation with resizing.
+No extra frame allocation is needed. Output uses hardware JPEG quality 75 / YUV420.
+The sensor rates are nominal: longer night exposures lower acquisition rate.
+H.264 is disabled.
 These are software choices, not sensor maxima.
 [Camera source](../../Slave/firmware/esp32p4-wifi6/components/ainekio_p4_media/camera.c).
 
@@ -369,7 +380,7 @@ a 96k/24-bit mono block is **5,760 B**, so it requires smaller DMA blocks and
 an adjusted descriptor count. Slot padding can increase the allocation.
 [IDF I2S limits](https://docs.espressif.com/projects/esp-idf/en/v5.5.4/esp32p4/api-reference/peripherals/i2s.html).
 
-Six mic input / pre-roll arrays currently live on its 6 KiB stack. At 48k / 16-bit
+Six mic input / pre-roll arrays currently live on its 10 KiB stack. At 48k / 16-bit
 they alone need **11,520 B**; even 24k / 16 needs 5,760 B before call frames.
 Increasing constants without changing ownership is not viable.
 Wake / VAD expects 16 kHz; higher capture requires a compatible downsampled stream.

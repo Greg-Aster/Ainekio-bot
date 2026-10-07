@@ -39,6 +39,12 @@ int main(void)
     assert(ainekio_control_decode_for_body(camera_json, strlen(camera_json), &camera_message) == AINEKIO_DECODE_OK);
     assert(!camera_message.command.data.camera.enabled && camera_message.command.data.camera.fps == 0);
     assert(!camera_message.command.data.camera.has_snapshot_resolution);
+    const char *still_names[] = {"960P", "FHD", "AUTO"};
+    for (unsigned i = 0; i < 3; ++i) {
+        snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":4,\"on\":false,\"fps\":0,\"res\":\"VGA\",\"snapshot_res\":\"%s\"}", still_names[i]);
+        assert(ainekio_control_decode_for_body(output, strlen(output), &camera_message) == AINEKIO_DECODE_OK);
+        assert(camera_message.command.data.camera.snapshot_resolution == AINEKIO_CAMERA_960P + i);
+    }
 
     const char *features[] = {"motion_plan_v1"};
     ainekio_hello_t hello = {.firmware="0.1.0\"test", .robot_id="ainekio-01", .auth_token="token\\value",
@@ -58,6 +64,8 @@ int main(void)
     valid(output, length, AINEKIO_MESSAGE_DONE);
     length = ainekio_encode_cancelled(5U, AINEKIO_CANCEL_STOP, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_CANCELLED);
+    const ainekio_camera_capture_t capture = {.counter=1, .width=1280, .height=960,
+        .exposure_us=80000, .gain_x16=64, .settle_ms=900, .settled=true};
     const ainekio_status_t status = {
         .battery_voltage = 7.42F,
         .rssi = -52,
@@ -67,6 +75,7 @@ int main(void)
         .sd_available = true,
         .camera_ready = true,
         .camera_drops = 4U,
+        .camera_capture = &capture,
         .microphone_drops = 2U,
         .wake_enabled = false,
         .wake_ready = false,
@@ -78,6 +87,8 @@ int main(void)
     assert(strstr(output, "\"camera_ready\":true") != NULL);
     assert(strstr(output, "\"wake_model\":\"ainekio\"") != NULL);
     assert(strstr(output, "\"wake_ready\":false") != NULL);
+    assert(strstr(output, "\"exposure_us\":80000") != NULL);
+    assert(strstr(output, "\"settled\":true") != NULL);
     length = ainekio_encode_event(
         AINEKIO_EVENT_LITTLEFS_FAIL,
         false,
@@ -120,6 +131,11 @@ int main(void)
     assert(strstr(output, "\"origin\":\"action\"") != NULL);
     assert(strstr(output, "\"origin_id\":4") != NULL);
     assert(strstr(output, "\"fps\":0") != NULL);
+    for (unsigned i = AINEKIO_CAMERA_960P; i <= AINEKIO_CAMERA_FHD; ++i) {
+        length = ainekio_encode_camera_meta(i, 0, 3, AINEKIO_CAMERA_ORIGIN_REQUEST, 2, output, sizeof(output));
+        valid(output, length, AINEKIO_MESSAGE_CAMERA_META);
+    }
+    assert(ainekio_encode_camera_meta(AINEKIO_CAMERA_AUTO, 0, 3, AINEKIO_CAMERA_ORIGIN_REQUEST, 2, output, sizeof(output)) == 0);
     length = ainekio_encode_ping(false, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_PING);
     length = ainekio_encode_ping(true, output, sizeof(output));

@@ -1,0 +1,18 @@
+{
+  "seated_joint_min_deg": [
+    -79.70005318809737,
+    -38.224137800366634,
+    -165.255963774845
+  ],
+  "seated_joint_max_deg": [
+    8.519627823467708,
+    57.90839683979881,
+    40.21656010286003
+  ],
+  "upright_minimum_input_toggle_clearance_deg": 4.523455546970338e-15,
+  "input_toggle_witness_time_and_cad_leg": [
+    16.116666666666667,
+    "RL"
+  ],
+  "scope": "Reported geometric extrema. No new runtime limits, stops or electrical calibration changes."
+}

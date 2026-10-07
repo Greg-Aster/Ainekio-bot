@@ -1,0 +1,152 @@
+[
+  {
+    "geometry": [
+      35,
+      20,
+      28,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 8.674591600588144e-11
+  },
+  {
+    "geometry": [
+      35,
+      20,
+      36,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 7.693137793474136e-11
+  },
+  {
+    "geometry": [
+      35,
+      22,
+      36,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 6.439622446396953e-11
+  },
+  {
+    "geometry": [
+      35,
+      24,
+      36,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 4.402837816552818e-11
+  },
+  {
+    "geometry": [
+      35,
+      24,
+      36,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 9.65348426196222e-11
+  },
+  {
+    "geometry": [
+      35,
+      26,
+      36,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 8.890291280927443e-11
+  },
+  {
+    "geometry": [
+      35,
+      28,
+      36,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 8.141565199792922e-11
+  },
+  {
+    "geometry": [
+      35,
+      28,
+      36,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 5.758052368243227e-11
+  },
+  {
+    "geometry": [
+      35,
+      32,
+      36,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 9.192895056298056e-11
+  },
+  {
+    "geometry": [
+      35,
+      32,
+      36,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 1.0100081881958545e-10
+  },
+  {
+    "geometry": [
+      36,
+      20,
+      36,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 8.763131886802e-11
+  },
+  {
+    "geometry": [
+      40,
+      24,
+      24,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 1.0434275665716086e-10
+  },
+  {
+    "geometry": [
+      40,
+      24,
+      24,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 1.1747200434619742e-10
+  },
+  {
+    "geometry": [
+      40,
+      32,
+      36,
+      38
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 6.648649686358254e-11
+  },
+  {
+    "geometry": [
+      40,
+      32,
+      36,
+      41
+    ],
+    "poses_per_leg": 18,
+    "max_torque_difference_Nm": 6.327596779875932e-11
+  }
+]

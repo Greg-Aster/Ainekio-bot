@@ -1,0 +1,168 @@
+{
+  "samples": 61919,
+  "maximum_vertex_error_mm": 0.009166601501675219,
+  "maximum_clearance_change_mm": 0.007017337119165745,
+  "commands": [
+    {
+      "command": "sit",
+      "samples": 1201,
+      "max_sole_vertex_error_mm": 0.004489021720832169,
+      "max_sole_clearance_change_mm": 0.00391765270862976,
+      "min_closure_height_mm": 14.144509566829589
+    },
+    {
+      "command": "rest",
+      "samples": 1201,
+      "max_sole_vertex_error_mm": 0.004426234152333644,
+      "max_sole_clearance_change_mm": 0.003993029217625121,
+      "min_closure_height_mm": 20.788844105323488
+    },
+    {
+      "command": "wave",
+      "samples": 3841,
+      "max_sole_vertex_error_mm": 0.007344828097294834,
+      "max_sole_clearance_change_mm": 0.00496399520620372,
+      "min_closure_height_mm": 8.823152936655143
+    },
+    {
+      "command": "dance",
+      "samples": 3001,
+      "max_sole_vertex_error_mm": 0.006742769575154227,
+      "max_sole_clearance_change_mm": 0.004185545339950636,
+      "min_closure_height_mm": 22.190193505053887
+    },
+    {
+      "command": "swim",
+      "samples": 5641,
+      "max_sole_vertex_error_mm": 0.008678051584274475,
+      "max_sole_clearance_change_mm": 0.006142177212495881,
+      "min_closure_height_mm": 3.397128442937244
+    },
+    {
+      "command": "point",
+      "samples": 2641,
+      "max_sole_vertex_error_mm": 0.006441400373612857,
+      "max_sole_clearance_change_mm": 0.0035157746548364344,
+      "min_closure_height_mm": 8.039467266295253
+    },
+    {
+      "command": "nod",
+      "samples": 2041,
+      "max_sole_vertex_error_mm": 0.003948873211119499,
+      "max_sole_clearance_change_mm": 0.0030600296958382955,
+      "min_closure_height_mm": 9.52834055257943
+    },
+    {
+      "command": "pushup",
+      "samples": 3481,
+      "max_sole_vertex_error_mm": 0.004169703475563898,
+      "max_sole_clearance_change_mm": 0.003139974367961429,
+      "min_closure_height_mm": 2.4247773389906286
+    },
+    {
+      "command": "bow",
+      "samples": 2041,
+      "max_sole_vertex_error_mm": 0.005079438817469321,
+      "max_sole_clearance_change_mm": 0.004050001274400472,
+      "min_closure_height_mm": 10.195330485763316
+    },
+    {
+      "command": "cute",
+      "samples": 3241,
+      "max_sole_vertex_error_mm": 0.006836835714785176,
+      "max_sole_clearance_change_mm": 0.00473865154430797,
+      "min_closure_height_mm": 12.574163533924075
+    },
+    {
+      "command": "freaky",
+      "samples": 2209,
+      "max_sole_vertex_error_mm": 0.004411310300429338,
+      "max_sole_clearance_change_mm": 0.004194499825786124,
+      "min_closure_height_mm": 22.190193505055092
+    },
+    {
+      "command": "worm",
+      "samples": 4801,
+      "max_sole_vertex_error_mm": 0.005426841646731688,
+      "max_sole_clearance_change_mm": 0.004085256641296553,
+      "min_closure_height_mm": 15.273125306061498
+    },
+    {
+      "command": "shake",
+      "samples": 1681,
+      "max_sole_vertex_error_mm": 0.006724630122686539,
+      "max_sole_clearance_change_mm": 0.005546110504504043,
+      "min_closure_height_mm": 21.03133656600163
+    },
+    {
+      "command": "shrug",
+      "samples": 3361,
+      "max_sole_vertex_error_mm": 0.009005187384690267,
+      "max_sole_clearance_change_mm": 0.007017337119165745,
+      "min_closure_height_mm": 8.077459977589461
+    },
+    {
+      "command": "dead",
+      "samples": 1681,
+      "max_sole_vertex_error_mm": 0.004971870411860992,
+      "max_sole_clearance_change_mm": 0.004485800678665441,
+      "min_closure_height_mm": 8.679093490594514
+    },
+    {
+      "command": "celebrate",
+      "samples": 3001,
+      "max_sole_vertex_error_mm": 0.006836835714785176,
+      "max_sole_clearance_change_mm": 0.00473865154430797,
+      "min_closure_height_mm": 10.260570773158946
+    },
+    {
+      "command": "stretch",
+      "samples": 1609,
+      "max_sole_vertex_error_mm": 0.002360825575068958,
+      "max_sole_clearance_change_mm": 0.001972146492981608,
+      "min_closure_height_mm": 22.190193505055092
+    },
+    {
+      "command": "surprised",
+      "samples": 2869,
+      "max_sole_vertex_error_mm": 0.009166601501675219,
+      "max_sole_clearance_change_mm": 0.005687029280984746,
+      "min_closure_height_mm": 13.246573184893103
+    },
+    {
+      "command": "sad",
+      "samples": 2113,
+      "max_sole_vertex_error_mm": 0.00515885807026674,
+      "max_sole_clearance_change_mm": 0.003812272183637333,
+      "min_closure_height_mm": 22.190193505052026
+    },
+    {
+      "command": "curious",
+      "samples": 2341,
+      "max_sole_vertex_error_mm": 0.0036477481585072582,
+      "max_sole_clearance_change_mm": 0.003383451755141209,
+      "min_closure_height_mm": 22.190193505055092
+    },
+    {
+      "command": "lay_down",
+      "samples": 1681,
+      "max_sole_vertex_error_mm": 0.006225647188151936,
+      "max_sole_clearance_change_mm": 0.004920220880634929,
+      "min_closure_height_mm": 22.19023393624376
+    },
+    {
+      "command": "upright",
+      "samples": 5281,
+      "max_sole_vertex_error_mm": 0.004489021720832169,
+      "max_sole_clearance_change_mm": 0.00391765270862976,
+      "min_closure_height_mm": 11.268289040624259
+    },
+    {
+      "command": "crouch",
+      "samples": 961,
+      "max_sole_vertex_error_mm": 3.1529704940052244e-05,
+      "max_sole_clearance_change_mm": 2.7842638210984205e-05,
+      "min_closure_height_mm": 22.230155397859257
+    }
+  ]
+}

@@ -1,0 +1,5076 @@
+[
+  {
+    "crank": 20,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crab/turn_l",
+      "clip/rest",
+      "clip/worm",
+      "clip/shake",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crab/turn_l",
+      "crab/turn_r",
+      "clip/sit",
+      "clip/rest",
+      "clip/wave",
+      "clip/point",
+      "clip/freaky",
+      "clip/worm",
+      "clip/shake",
+      "clip/shrug",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crawl/back",
+      "crawl/turn_r",
+      "crab/turn_l",
+      "crab/turn_r",
+      "clip/sit",
+      "clip/rest",
+      "clip/wave",
+      "clip/point",
+      "clip/nod",
+      "clip/pushup",
+      "clip/freaky",
+      "clip/worm",
+      "clip/shake",
+      "clip/shrug",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright",
+      "clip/crouch"
+    ]
+  },
+  {
+    "crank": 20,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "walk/back",
+      "run/fwd",
+      "run/back",
+      "crawl/fwd",
+      "crawl/back",
+      "crawl/turn_l",
+      "crawl/turn_r",
+      "crab/turn_l",
+      "crab/turn_r",
+      "clip/sit",
+      "clip/rest",
+      "clip/wave",
+      "clip/point",
+      "clip/nod",
+      "clip/pushup",
+      "clip/freaky",
+      "clip/worm",
+      "clip/shake",
+      "clip/shrug",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright",
+      "clip/crouch"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crab/turn_l",
+      "clip/rest",
+      "clip/worm",
+      "clip/shake",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crab/turn_l",
+      "crab/turn_r",
+      "clip/sit",
+      "clip/rest",
+      "clip/wave",
+      "clip/point",
+      "clip/freaky",
+      "clip/worm",
+      "clip/shake",
+      "clip/shrug",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 21,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crab/turn_l",
+      "crab/turn_r",
+      "clip/sit",
+      "clip/rest",
+      "clip/wave",
+      "clip/point",
+      "clip/nod",
+      "clip/pushup",
+      "clip/freaky",
+      "clip/worm",
+      "clip/shake",
+      "clip/shrug",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/worm",
+      "clip/shake",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 22,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "crab/turn_l",
+      "clip/sit",
+      "clip/rest",
+      "clip/wave",
+      "clip/point",
+      "clip/freaky",
+      "clip/worm",
+      "clip/shake",
+      "clip/shrug",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 24,
+    "rod": 38,
+    "valid": true,
+    "score": 2.603693819128802,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.497054550853246,
+          3.295190171577523
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1530.413112393787
+        ],
+        "worst_utilization": 2.603693819128802
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.497054550853246,
+          3.295190171577523
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1530.413112393787
+        ],
+        "worst_utilization": 2.603693819128802
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.821452593949862,
+          1.8322330452854139
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1195.5943450724837
+        ],
+        "worst_utilization": 2.5979113606690984
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          2.0309006514336985,
+          1.4221578741875853
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          362.00164005279214
+        ],
+        "worst_utilization": 1.184985587809785
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.3358958212717655,
+          0.9326687867056391
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          627.65159053324
+        ],
+        "worst_utilization": 1.0460859842220667
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      324.7725793795595
+    ],
+    "max_crank_span_degrees": 181.50895247764007,
+    "min_circle_margin_mm": 0.8691468645282789,
+    "min_transmission_sine": 0.08729056845393739
+  },
+  {
+    "crank": 23,
+    "pickup": 25,
+    "rod": 38,
+    "valid": true,
+    "score": 2.575613529666634,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.3387823271812858,
+          3.1234588046139855
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1525.2235679338542
+        ],
+        "worst_utilization": 2.575613529666634
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.3387823271812858,
+          3.1234588046139855
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1525.2235679338542
+        ],
+        "worst_utilization": 2.575613529666634
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.735198232502519,
+          1.730452241314371
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1200.1625388984287
+        ],
+        "worst_utilization": 2.5700316051860956
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9410456851368498,
+          1.3676568399801396
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          359.95005890053454
+        ],
+        "worst_utilization": 1.1359709330505035
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2769500610568532,
+          0.8979429591067066
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          618.7207972682678
+        ],
+        "worst_utilization": 1.0312013287804462
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      340.22055113889496
+    ],
+    "max_crank_span_degrees": 203.78575419537503,
+    "min_circle_margin_mm": 0.00773148190491213,
+    "min_transmission_sine": 0.11690830888649846
+  },
+  {
+    "crank": 23,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 23,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/shake",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 24,
+    "rod": 38,
+    "valid": true,
+    "score": 2.599672955222636,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.5966063490575984,
+          3.5032136018435196
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1504.2644791615635
+        ],
+        "worst_utilization": 2.599672955222636
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.5966063490575984,
+          3.5032136018435196
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1504.2644791615635
+        ],
+        "worst_utilization": 2.599672955222636
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.8717498920439803,
+          1.9542776053154867
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1168.7997364781083
+        ],
+        "worst_utilization": 2.593610927005671
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          2.0793867149041287,
+          1.4782018323158246
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          357.334153833314
+        ],
+        "worst_utilization": 1.2117423129417917
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.3681873974154535,
+          0.9682229192153865
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          621.4955761748913
+        ],
+        "worst_utilization": 1.0358259602914854
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      314.2605904235722
+    ],
+    "max_crank_span_degrees": 170.32500000000002,
+    "min_circle_margin_mm": 1.869146864528279,
+    "min_transmission_sine": 0.05023809056028835
+  },
+  {
+    "crank": 24,
+    "pickup": 25,
+    "rod": 38,
+    "valid": true,
+    "score": 2.569685343676772,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.4318331659031984,
+          3.317960929707554
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1498.8157410492347
+        ],
+        "worst_utilization": 2.569685343676772
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.4318331659031984,
+          3.317960929707554
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1498.8157410492347
+        ],
+        "worst_utilization": 2.569685343676772
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.7841684877549315,
+          1.8437467468385795
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1171.7824557396145
+        ],
+        "worst_utilization": 2.5638250275882335
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9889776934997894,
+          1.4228431714474317
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          355.23960760022794
+        ],
+        "worst_utilization": 1.1623414070228302
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.3087592869185323,
+          0.9329660074177045
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          612.8247492713515
+        ],
+        "worst_utilization": 1.021374582118919
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      328.7711098664081
+    ],
+    "max_crank_span_degrees": 179.47132769927202,
+    "min_circle_margin_mm": 1.0077314819049121,
+    "min_transmission_sine": 0.0787221230212711
+  },
+  {
+    "crank": 24,
+    "pickup": 26,
+    "rod": 38,
+    "valid": true,
+    "score": 2.5424512055142623,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.283558160481938,
+          3.1487414377095586
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1493.793864025946
+        ],
+        "worst_utilization": 2.5424512055142623
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.283558160481938,
+          3.1487414377095586
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1493.793864025946
+        ],
+        "worst_utilization": 2.5424512055142623
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.702631549141682,
+          1.742871959821153
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1176.0551008062678
+        ],
+        "worst_utilization": 2.536780717479943
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9044147877757074,
+          1.3703057165378554
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          353.32358225323867
+        ],
+        "worst_utilization": 1.1160164205678376
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2530482090348523,
+          0.8994804855523992
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          604.5090777345562
+        ],
+        "worst_utilization": 1.0075151295575937
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      343.72342476003035
+    ],
+    "max_crank_span_degrees": 195.5203206810476,
+    "min_circle_margin_mm": 0.1645397474803918,
+    "min_transmission_sine": 0.10953937825583576
+  },
+  {
+    "crank": 24,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 24,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/dead",
+      "clip/stretch",
+      "clip/sad",
+      "clip/lay_down",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 24,
+    "rod": 38,
+    "valid": true,
+    "score": 2.599060651861729,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.696016922242256,
+          3.7181013780602457
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1480.5787853192226
+        ],
+        "worst_utilization": 2.599060651861729
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.696016922242256,
+          3.7181013780602457
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1480.5787853192226
+        ],
+        "worst_utilization": 2.599060651861729
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.9214891453812972,
+          2.0820387940779477
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1145.1804643270254
+        ],
+        "worst_utilization": 2.5930085637361664
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          2.126682122032459,
+          1.5330623712292577
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          353.0801451700891
+        ],
+        "worst_utilization": 1.2379081666095604
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.399781316567318,
+          1.0194445841785211
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          615.8673778379298
+        ],
+        "worst_utilization": 1.026445629729883
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      304.789881648538
+    ],
+    "max_crank_span_degrees": 169.1171013181014,
+    "min_circle_margin_mm": 2.869146864528279,
+    "min_transmission_sine": 0.013273271815875527
+  },
+  {
+    "crank": 25,
+    "pickup": 25,
+    "rod": 38,
+    "valid": true,
+    "score": 2.5673879942114244,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.525365656008821,
+          3.518568046404609
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1475.0026804145084
+        ],
+        "worst_utilization": 2.5673879942114244
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.525365656008821,
+          3.518568046404609
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1475.0026804145084
+        ],
+        "worst_utilization": 2.5673879942114244
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.8324680328141867,
+          1.962148614592649
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1147.0135749006674
+        ],
+        "worst_utilization": 2.561266134638143
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          2.0355664327560263,
+          1.4766861783720935
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          350.9673069305054
+        ],
+        "worst_utilization": 1.188045314362797
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.3397803395668773,
+          0.967121249996866
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          607.4540372928727
+        ],
+        "worst_utilization": 1.0124233954881212
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      318.5346018722441
+    ],
+    "max_crank_span_degrees": 168.8254950632312,
+    "min_circle_margin_mm": 2.007731481904912,
+    "min_transmission_sine": 0.0406507506324994
+  },
+  {
+    "crank": 25,
+    "pickup": 26,
+    "rod": 38,
+    "valid": true,
+    "score": 2.5384399513656533,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.371794499365241,
+          3.3364936453187384
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1469.7512814116915
+        ],
+        "worst_utilization": 2.5384399513656533
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.371794499365241,
+          3.3364936453187384
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1469.7512814116915
+        ],
+        "worst_utilization": 2.5384399513656533
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.7497365619159364,
+          1.8528562093250116
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1149.8317630946399
+        ],
+        "worst_utilization": 2.5325094608951533
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9502145770619412,
+          1.42341980345242
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          349.0072425068214
+        ],
+        "worst_utilization": 1.1413966467701493
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2836626166168585,
+          0.9331879979709546
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          599.1712235017977
+        ],
+        "worst_utilization": 0.9986187058363295
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      332.57733129343984
+    ],
+    "max_crank_span_degrees": 177.60466311378335,
+    "min_circle_margin_mm": 1.1645397474803918,
+    "min_transmission_sine": 0.0703190078056159
+  },
+  {
+    "crank": 25,
+    "pickup": 27,
+    "rod": 38,
+    "valid": true,
+    "score": 2.5120102744329205,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.232368888784276,
+          3.169944440101435
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1464.8874165306722
+        ],
+        "worst_utilization": 2.5120102744329205
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.232368888784276,
+          3.169944440101435
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1464.8874165306722
+        ],
+        "worst_utilization": 2.5120102744329205
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.672464587254935,
+          1.7530328473771934
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1153.83810917779
+        ],
+        "worst_utilization": 2.5062600384767686
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.8716227829428729,
+          1.372712573243631
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          347.2104898175948
+        ],
+        "worst_utilization": 1.0975042472942969
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2308768998309882,
+          0.900860118602306
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          591.6399795268801
+        ],
+        "worst_utilization": 0.9860666325448002
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      347.0668161311929
+    ],
+    "max_crank_span_degrees": 191.22294634385128,
+    "min_circle_margin_mm": 0.3430269535418393,
+    "min_transmission_sine": 0.10233176435372572
+  },
+  {
+    "crank": 25,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 25,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "run/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 25,
+    "rod": 38,
+    "valid": true,
+    "score": 2.568081109842767,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.620752488363971,
+          3.7260417046424954
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1453.3583875981246
+        ],
+        "worst_utilization": 2.568081109842767
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.620752488363971,
+          3.7260417046424954
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1453.3583875981246
+        ],
+        "worst_utilization": 2.568081109842767
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.8802264224522451,
+          2.0862614304450653
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1125.1084632636
+        ],
+        "worst_utilization": 2.5617100365981917
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          2.080999461087191,
+          1.529380891851811
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          347.06488673797185
+        ],
+        "worst_utilization": 1.2131751512488713
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.370123646037005,
+          1.0169970264905344
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          602.5299032209055
+        ],
+        "worst_utilization": 1.0042165053681757
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      309.298504625009
+    ],
+    "max_crank_span_degrees": 166.60474034131255,
+    "min_circle_margin_mm": 3.007731481904912,
+    "min_transmission_sine": 0.002669459119001743
+  },
+  {
+    "crank": 26,
+    "pickup": 26,
+    "rod": 38,
+    "valid": true,
+    "score": 2.537609073672364,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.461520715127903,
+          3.5303574072747885
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1447.9942615295113
+        ],
+        "worst_utilization": 2.537609073672364
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.461520715127903,
+          3.5303574072747885
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1447.9942615295113
+        ],
+        "worst_utilization": 2.537609073672364
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.7961915659785206,
+          1.9679404353949586
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1126.8639752981096
+        ],
+        "worst_utilization": 2.5314329687999964
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9950511380016929,
+          1.4752301637863503
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          345.08383570514917
+        ],
+        "worst_utilization": 1.166128890939504
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.3135109617568599,
+          0.9660520493750148
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          594.4848513426762
+        ],
+        "worst_utilization": 0.990808085571127
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      322.59785503492236
+    ],
+    "max_crank_span_degrees": 167.44581454311273,
+    "min_circle_margin_mm": 2.164539747480392,
+    "min_transmission_sine": 0.031209064795277033
+  },
+  {
+    "crank": 26,
+    "pickup": 27,
+    "rod": 38,
+    "valid": true,
+    "score": 2.5096334832539,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.3161105421314425,
+          3.3515375601707738
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1442.9263870128032
+        ],
+        "worst_utilization": 2.5096334832539
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.3161105421314425,
+          3.3515375601707738
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1442.9263870128032
+        ],
+        "worst_utilization": 2.5096334832539
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.7178416513241779,
+          1.859988347806506
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1129.5314302981567
+        ],
+        "worst_utilization": 2.5036394231971575
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9142672168976345,
+          1.4239059148454667
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          343.2428021746381
+        ],
+        "worst_utilization": 1.1219670765872003
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2603843115515434,
+          0.9333487906220332
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          586.8853547582193
+        ],
+        "worst_utilization": 0.9781422579303655
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      336.20385708995485
+    ],
+    "max_crank_span_degrees": 175.88654537962125,
+    "min_circle_margin_mm": 1.3430269535418393,
+    "min_transmission_sine": 0.062061711743611386
+  },
+  {
+    "crank": 26,
+    "pickup": 28,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4839683466021314,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.184788389200908,
+          3.1877525353718275
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1438.2115664368316
+        ],
+        "worst_utilization": 2.4839683466021314
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.184788389200908,
+          3.1877525353718275
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1438.2115664368316
+        ],
+        "worst_utilization": 2.4839683466021314
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.6461137197457465,
+          1.7613178277765895
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1133.2969674470803
+        ],
+        "worst_utilization": 2.478145927031939
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.8410960327149568,
+          1.3749083003697185
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          341.55170555172606
+        ],
+        "worst_utilization": 1.0815909896485896
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2102550325375112,
+          0.9021035257019104
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          579.7451145671786
+        ],
+        "worst_utilization": 0.9662418576119642
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      350.2600261463541
+    ],
+    "max_crank_span_degrees": 187.9027427772261,
+    "min_circle_margin_mm": 0.5474519448347017,
+    "min_transmission_sine": 0.09526882241721868
+  },
+  {
+    "crank": 26,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 26,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "walk/fwd",
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 27,
+    "rod": 38,
+    "valid": true,
+    "score": 2.5100549489267863,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.4024726258213436,
+          3.5392298832410938
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1422.988158417437
+        ],
+        "worst_utilization": 2.5100549489267863
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.4024726258213436,
+          3.5392298832410938
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1422.988158417437
+        ],
+        "worst_utilization": 2.5100549489267863
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.762588291026091,
+          1.9720305179004978
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1108.1723432240476
+        ],
+        "worst_utilization": 2.5038294415231417
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9574804749187222,
+          1.4738331365476731
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          339.629046821749
+        ],
+        "worst_utilization": 1.1457996305361724
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2891467222772415,
+          0.9650171910027048
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          582.5274416492196
+        ],
+        "worst_utilization": 0.970879069415366
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      326.4652248245297
+    ],
+    "max_crank_span_degrees": 166.17089471246396,
+    "min_circle_margin_mm": 2.3430269535418393,
+    "min_transmission_sine": 0.021892543086254674
+  },
+  {
+    "crank": 27,
+    "pickup": 28,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4829906595033213,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.264324729550714,
+          3.3636908904424248
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1418.0913967367317
+        ],
+        "worst_utilization": 2.4829906595033213
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.264324729550714,
+          3.3636908904424248
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1418.0913967367317
+        ],
+        "worst_utilization": 2.4829906595033213
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.688377857372855,
+          1.8654845280761718
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1110.7014146575025
+        ],
+        "worst_utilization": 2.476938747964286
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.8822357584667602,
+          1.4243162063702344
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          337.8940163987864
+        ],
+        "worst_utilization": 1.1038941397866786
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.238733792104883,
+          0.9334596164317673
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          575.5653472162162
+        ],
+        "worst_utilization": 0.9592755786936936
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      339.66241926139975
+    ],
+    "max_crank_span_degrees": 174.29852966532889,
+    "min_circle_margin_mm": 1.5474519448347017,
+    "min_transmission_sine": 0.05393271902309489
+  },
+  {
+    "crank": 27,
+    "pickup": 29,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4580521097814536,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.140448429395933,
+          3.2027170591806446
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1413.5173013317387
+        ],
+        "worst_utilization": 2.4580521097814536
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.140448429395933,
+          3.2027170591806446
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1413.5173013317387
+        ],
+        "worst_utilization": 2.4580521097814536
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.6222360164844896,
+          1.7680355563631422
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1114.248455338472
+        ],
+        "worst_utilization": 2.4521640447943094
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.812608191406502,
+          1.3769188335174736
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          336.2970895573144
+        ],
+        "worst_utilization": 1.0670511720553792
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1910258825088833,
+          0.9032287215689954
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          568.7170127140572
+        ],
+        "worst_utilization": 0.9478616878567621
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      353.3119194153255
+    ],
+    "max_crank_span_degrees": 185.12309028017194,
+    "min_circle_margin_mm": 0.7830697330079595,
+    "min_transmission_sine": 0.08833568351131091
+  },
+  {
+    "crank": 27,
+    "pickup": 30,
+    "rod": 38,
+    "valid": true,
+    "score": 2.435116452887997,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0255069185805574,
+          3.054791179548834
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1409.3234540444905
+        ],
+        "worst_utilization": 2.435116452887997
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0255069185805574,
+          3.054791179548834
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1409.3234540444905
+        ],
+        "worst_utilization": 2.435116452887997
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.560057776614163,
+          1.6787617964259727
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1119.037658572095
+        ],
+        "worst_utilization": 2.429384627770704
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.746289533872526,
+          1.3312191209692985
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          334.8499721003341
+        ],
+        "worst_utilization": 1.0322790809155404
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1456294932016384,
+          0.8740564131751571
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          561.9810386738848
+        ],
+        "worst_utilization": 0.9366350644564746
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      367.5889981095929
+    ],
+    "max_crank_span_degrees": 205.10446145490457,
+    "min_circle_margin_mm": 0.05635176529402841,
+    "min_transmission_sine": 0.12509601425925573
+  },
+  {
+    "crank": 27,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 27,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/rest",
+      "clip/stretch",
+      "clip/sad",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 28,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4844849911983453,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.3475683944286616,
+          3.545703192618714
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1399.7693242556857
+        ],
+        "worst_utilization": 2.4844849911983453
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.3475683944286616,
+          3.545703192618714
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1399.7693242556857
+        ],
+        "worst_utilization": 2.4844849911983453
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.7313732271117632,
+          1.9747209181542924
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1090.785267611657
+        ],
+        "worst_utilization": 2.4782143063184523
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.9225446377723603,
+          1.4724937259977624
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          334.55640292626214
+        ],
+        "worst_utilization": 1.126891148543565
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2664876221553174,
+          0.9640175349079476
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          571.725243302733
+        ],
+        "worst_utilization": 0.9528754055045551
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      330.1503047270401
+    ],
+    "max_crank_span_degrees": 164.98823488340034,
+    "min_circle_margin_mm": 2.5474519448347017,
+    "min_transmission_sine": 0.012682509864550837
+  },
+  {
+    "crank": 28,
+    "pickup": 29,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4582761870509304,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.2168953172891346,
+          3.373435775929903
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1395.0324828926725
+        ],
+        "worst_utilization": 2.4582761870509304
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.2168953172891346,
+          3.373435775929903
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1395.0324828926725
+        ],
+        "worst_utilization": 2.4582761870509304
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.6630398431039377,
+          1.8696202257366015
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1093.1870265374962
+        ],
+        "worst_utilization": 2.4521714066094504
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.852362082599904,
+          1.4246626736390648
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          332.9163023839394
+        ],
+        "worst_utilization": 1.088332905261085
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.218546190425919,
+          0.9335295241695706
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          565.0436157002465
+        ],
+        "worst_utilization": 0.9417393595004109
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      342.9638930165835
+    ],
+    "max_crank_span_degrees": 172.82526258819527,
+    "min_circle_margin_mm": 1.7830697330079595,
+    "min_transmission_sine": 0.045916164351740556
+  },
+  {
+    "crank": 28,
+    "pickup": 30,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4340283168849295,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.099029172353543,
+          3.215286014758916
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1390.5913990099532
+        ],
+        "worst_utilization": 2.4340283168849295
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.099029172353543,
+          3.215286014758916
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1390.5913990099532
+        ],
+        "worst_utilization": 2.4340283168849295
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5999141138066106,
+          1.7734370312227432
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1096.5351840684864
+        ],
+        "worst_utilization": 2.428080295518819
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7859620150452271,
+          1.3787660971166613
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          331.40377875555384
+        ],
+        "worst_utilization": 1.0534324786821296
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1730531410760767,
+          0.9042507897546677
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          558.4635633077376
+        ],
+        "worst_utilization": 0.930772605512896
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      356.23087531641596
+    ],
+    "max_crank_span_degrees": 182.70813934025853,
+    "min_circle_margin_mm": 1.0563517652940284,
+    "min_transmission_sine": 0.0815189649888248
+  },
+  {
+    "crank": 28,
+    "pickup": 31,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4116278428686404,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.9890883087424513,
+          3.069805647365022
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1386.4983478369638
+        ],
+        "worst_utilization": 2.4116278428686404
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.9890883087424513,
+          3.069805647365022
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1386.4983478369638
+        ],
+        "worst_utilization": 2.4116278428686404
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.540426030310844,
+          1.6852762994366128
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1101.0358558634605
+        ],
+        "worst_utilization": 2.405829363467871
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7225529989465864,
+          1.3344144520676244
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          330.0297931067516
+        ],
+        "worst_utilization": 1.0201661371006443
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1296528566591109,
+          0.8759336372379348
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          551.9831021486691
+        ],
+        "worst_utilization": 0.9199718369144485
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      370.1211646713743
+    ],
+    "max_crank_span_degrees": 196.60290582970995,
+    "min_circle_margin_mm": 0.37521548609533717,
+    "min_transmission_sine": 0.11946603833022412
+  },
+  {
+    "crank": 28,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 33,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 28,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 29,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4606921029947455,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.296386804709801,
+          3.5501943981364006
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1378.152485456045
+        ],
+        "worst_utilization": 2.4606921029947455
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.296386804709801,
+          3.5501943981364006
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1378.152485456045
+        ],
+        "worst_utilization": 2.4606921029947455
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.7035121146454035,
+          1.9762554115654536
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1074.5702163000817
+        ],
+        "worst_utilization": 2.4543799482422832
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.8910399306503851,
+          1.4712101007323997
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          329.82602684907937
+        ],
+        "worst_utilization": 1.1092595278371138
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.2453607065543186,
+          0.9630532258115005
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          561.6612963030186
+        ],
+        "worst_utilization": 0.936102160505031
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      333.66551980957155
+    ],
+    "max_crank_span_degrees": 163.8873527828944,
+    "min_circle_margin_mm": 2.7830697330079595,
+    "min_transmission_sine": 0.0035617689444040466
+  },
+  {
+    "crank": 29,
+    "pickup": 30,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4352877432380327,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.1733246138100406,
+          3.381164066697494
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1373.5654363358058
+        ],
+        "worst_utilization": 2.4352877432380327
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.1733246138100406,
+          3.381164066697494
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1373.5654363358058
+        ],
+        "worst_utilization": 2.4352877432380327
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.6393562905113217,
+          1.8726195652971134
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1076.8546057008018
+        ],
+        "worst_utilization": 2.4291344613703485
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.8244220591738527,
+          1.4249551693877254
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          328.27137494104426
+        ],
+        "worst_utilization": 1.0740125265109206
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.199678159894349,
+          0.9335658483608857
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          555.2379354863548
+        ],
+        "worst_utilization": 0.9253965591439246
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      346.1183388268719
+    ],
+    "max_crank_span_degrees": 171.45383535441363,
+    "min_circle_margin_mm": 2.0563517652940284,
+    "min_transmission_sine": 0.037997551972311666
+  },
+  {
+    "crank": 29,
+    "pickup": 31,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4116966924901595,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0602514881000005,
+          3.2258264209511127
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1369.2502114576032
+        ],
+        "worst_utilization": 2.4116966924901595
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0602514881000005,
+          3.2258264209511127
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1369.2502114576032
+        ],
+        "worst_utilization": 2.4116966924901595
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5790010487490531,
+          1.7777279783497473
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1080.021189555828
+        ],
+        "worst_utilization": 2.405693695160051
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7609848446960505,
+          1.3804687420523896
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          326.83488950119636
+        ],
+        "worst_utilization": 1.0406504653625672
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1562177014785524,
+          0.9051824422082656
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          548.9053482763393
+        ],
+        "worst_utilization": 0.9148422471272322
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      359.0247706639118
+    ],
+    "max_crank_span_degrees": 180.5642265070608,
+    "min_circle_margin_mm": 1.3752154860953372,
+    "min_transmission_sine": 0.07480653471615113
+  },
+  {
+    "crank": 29,
+    "pickup": 32,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3898136191784523,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.954919120856262,
+          3.0827959763540815
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1365.254415703825
+        ],
+        "worst_utilization": 2.3898136191784523
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.954919120856262,
+          3.0827959763540815
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1365.254415703825
+        ],
+        "worst_utilization": 2.3898136191784523
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5219934282319183,
+          1.6907098529698303
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1084.2600771029001
+        ],
+        "worst_utilization": 2.3839540613606203
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7002573279270123,
+          1.3373897653830829
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          325.5268400594212
+        ],
+        "worst_utilization": 1.0087733759440545
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1146563645701326,
+          0.8776732809073462
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          542.6610460294887
+        ],
+        "worst_utilization": 0.9044350767158146
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      372.5497305405771
+    ],
+    "max_crank_span_degrees": 191.91655204299946,
+    "min_circle_margin_mm": 0.7492193742834985,
+    "min_transmission_sine": 0.1139429431387714
+  },
+  {
+    "crank": 29,
+    "pickup": 33,
+    "rod": 38,
+    "valid": true,
+    "score": 2.369568168959133,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.85509704749179,
+          2.9508484712478906
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1361.6322383537724
+        ],
+        "worst_utilization": 2.369568168959133
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.85509704749179,
+          2.9508484712478906
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1361.6322383537724
+        ],
+        "worst_utilization": 2.369568168959133
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.4679280872249845,
+          1.6107936842177348
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1089.824837421504
+        ],
+        "worst_utilization": 2.363846923204594
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.6417978621936695,
+          1.2953707296208763
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          324.3602179914655
+        ],
+        "worst_utilization": 0.9781547956864585
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.0746924102699256,
+          0.8508167534974593
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          536.5012679962364
+        ],
+        "worst_utilization": 0.8941687799937273
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      386.90824634947177
+    ],
+    "max_crank_span_degrees": 208.02705722324708,
+    "min_circle_margin_mm": 0.18963875421100518,
+    "min_transmission_sine": 0.15530977747773625
+  },
+  {
+    "crank": 29,
+    "pickup": 34,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 35,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 29,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 30,
+    "pickup": 31,
+    "rod": 38,
+    "valid": true,
+    "score": 2.4138503887188856,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.1324962868226987,
+          3.387196627891969
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1353.5307033214744
+        ],
+        "worst_utilization": 2.4138503887188856
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.1324962868226987,
+          3.387196627891969
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1353.5307033214744
+        ],
+        "worst_utilization": 2.4138503887188856
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.6171704548269177,
+          1.8746662282934665
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1061.5880555538806
+        ],
+        "worst_utilization": 2.407652454649749
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7982340077210806,
+          1.425201835541378
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          323.9261522032065
+        ],
+        "worst_utilization": 1.0605747639311238
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1820044774175298,
+          0.9335745666636954
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          546.0770797321065
+        ],
+        "worst_utilization": 0.9101284662201775
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      349.1350531721858
+    ],
+    "max_crank_span_degrees": 170.17329776978048,
+    "min_circle_margin_mm": 2.375215486095337,
+    "min_transmission_sine": 0.030163523657467578
+  },
+  {
+    "crank": 30,
+    "pickup": 32,
+    "rod": 38,
+    "valid": true,
+    "score": 2.390884297177852,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0238706841293124,
+          3.2346411659875707
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1349.334702543948
+        ],
+        "worst_utilization": 2.390884297177852
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0238706841293124,
+          3.2346411659875707
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1349.334702543948
+        ],
+        "worst_utilization": 2.390884297177852
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.559367763137061,
+          1.7810782147734894
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1064.5883996845237
+        ],
+        "worst_utilization": 2.3848307083974616
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7375249025908197,
+          1.382042727661685
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          322.5584921914661
+        ],
+        "worst_utilization": 1.0286306457376282
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1404150323389328,
+          0.9060344573036713
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          539.97351544564
+        ],
+        "worst_utilization": 0.8999558590760667
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      361.7009821777101
+    ],
+    "max_crank_span_degrees": 178.63349982636063,
+    "min_circle_margin_mm": 1.7492193742834985,
+    "min_transmission_sine": 0.06818731701372435
+  },
+  {
+    "crank": 30,
+    "pickup": 33,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3695007239171213,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.9227974365887754,
+          3.0940473484359794
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1345.4326279047098
+        ],
+        "worst_utilization": 2.3695007239171213
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.9227974365887754,
+          3.0940473484359794
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1345.4326279047098
+        ],
+        "worst_utilization": 2.3695007239171213
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5046536369287613,
+          1.6952192526000691
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1068.5889940890459
+        ],
+        "worst_utilization": 2.363584989003562
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.6792755146746543,
+          1.340166978053436
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          321.31017633964046
+        ],
+        "worst_utilization": 0.9980387815648066
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1005526394904634,
+          0.8792897525343671
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          533.9481882622424
+        ],
+        "worst_utilization": 0.8899136471037373
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      374.88026108872106
+    ],
+    "max_crank_span_degrees": 188.38996797988347,
+    "min_circle_margin_mm": 1.1896387542110052,
+    "min_transmission_sine": 0.10851754136838838
+  },
+  {
+    "crank": 30,
+    "pickup": 34,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3496324976104996,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.8268184754526544,
+          2.964238504331101
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1341.8738359579766
+        ],
+        "worst_utilization": 2.3496324976104996
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.8268184754526544,
+          2.964238504331101
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1341.8738359579766
+        ],
+        "worst_utilization": 2.3496324976104996
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.452657793703403,
+          1.6163359012811052
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1073.8235318138243
+        ],
+        "worst_utilization": 2.3438496821509025
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.6230795756977219,
+          1.2992491572239648
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          320.1933440308431
+        ],
+        "worst_utilization": 0.9685911119098249
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.0621400127343374,
+          0.8531327513222733
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          527.9968894015951
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      388.8819146808555
+    ],
+    "max_crank_span_degrees": 199.61217935235777,
+    "min_circle_margin_mm": 0.7092848419309927,
+    "min_transmission_sine": 0.15103059418396833
+  },
+  {
+    "crank": 30,
+    "pickup": 35,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3312451631041053,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.735602185104747,
+          2.8441687896099705
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1338.715702087194
+        ],
+        "worst_utilization": 2.3312451631041053
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.735602185104747,
+          2.8441687896099705
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1338.715702087194
+        ],
+        "worst_utilization": 2.3312451631041053
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.4030437583087074,
+          1.543757544158399
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1080.6114883204582
+        ],
+        "worst_utilization": 2.3255919294967278
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.5685440134252406,
+          1.2589650883742827
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          319.22355796879197
+        ],
+        "worst_utilization": 0.9400892200927811
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.0249102017479823,
+          0.8273559783766439
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          522.114009335099
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      403.987299995268
+    ],
+    "max_crank_span_degrees": 212.6128598591177,
+    "min_circle_margin_mm": 0.3218882762796742,
+    "min_transmission_sine": 0.19553978460221805
+  },
+  {
+    "crank": 30,
+    "pickup": 36,
+    "rod": 38,
+    "valid": false,
+    "reason": "unreachable",
+    "failed_groups": [
+      "clip/stretch"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 31,
+    "pickup": 32,
+    "rod": 38,
+    "valid": true,
+    "score": 2.393812080685115,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.094159726656261,
+          3.391797980014474
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1334.789389173722
+        ],
+        "worst_utilization": 2.393812080685115
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.094159726656261,
+          3.391797980014474
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1334.789389173722
+        ],
+        "worst_utilization": 2.393812080685115
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5963447616319468,
+          1.8759117424291611
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1047.286042598951
+        ],
+        "worst_utilization": 2.3875729039756237
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.773638290230959,
+          1.425409438219541
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          319.85188519256974
+        ],
+        "worst_utilization": 1.047940659721927
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1654152691162276,
+          0.9335605751741602
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          537.4990284224957
+        ],
+        "worst_utilization": 0.8958317140374928
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      352.0226226365038
+    ],
+    "max_crank_span_degrees": 168.97428715560545,
+    "min_circle_margin_mm": 2.7492193742834985,
+    "min_transmission_sine": 0.022401664637510258
+  },
+  {
+    "crank": 31,
+    "pickup": 33,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3714410112189745,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.989671358630459,
+          3.241981878675149
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1330.7064536513105
+        ],
+        "worst_utilization": 2.3714410112189745
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.989671358630459,
+          3.241981878675149
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1330.7064536513105
+        ],
+        "worst_utilization": 2.3714410112189745
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5409004639756783,
+          1.783628814893154
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1050.1337794998026
+        ],
+        "worst_utilization": 2.3653407108379176
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7154482361051613,
+          1.3835017848669475
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          318.54679282841005
+        ],
+        "worst_utilization": 1.0173070755710483
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.125553017332401,
+          0.906816025721864
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          531.6080679105755
+        ],
+        "worst_utilization": 0.8860134465176259
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      364.2664010723726
+    ],
+    "max_crank_span_degrees": 176.87676846244256,
+    "min_circle_margin_mm": 2.189638754211005,
+    "min_transmission_sine": 0.06165113127113577
+  },
+  {
+    "crank": 31,
+    "pickup": 34,
+    "rod": 38,
+    "valid": true,
+    "score": 2.350539180082635,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.892544771834402,
+          3.103798339822606
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1326.8946174756309
+        ],
+        "worst_utilization": 2.350539180082635
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.892544771834402,
+          3.103798339822606
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1326.8946174756309
+        ],
+        "worst_utilization": 2.350539180082635
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.4883124982915243,
+          1.698935602012001
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1053.9167998273351
+        ],
+        "worst_utilization": 2.344571599463303
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.659495011454998,
+          1.3427651945669012
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          317.3528305584594
+        ],
+        "worst_utilization": 0.9879072114307821
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.0872643732918488,
+          0.8807955337305905
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          525.7863846547172
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      377.11804054029
+    ],
+    "max_crank_span_degrees": 185.49464662858946,
+    "min_circle_margin_mm": 1.7092848419309927,
+    "min_transmission_sine": 0.10318146676932098
+  },
+  {
+    "crank": 31,
+    "pickup": 35,
+    "rod": 38,
+    "valid": true,
+    "score": 2.331042356700193,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.8001652515035573,
+          2.976114387701422
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1323.398959600899
+        ],
+        "worst_utilization": 2.331042356700193
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.8001652515035573,
+          2.976114387701422
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1323.398959600899
+        ],
+        "worst_utilization": 2.331042356700193
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.4382413197978754,
+          1.6210951233436222
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1058.851131798112
+        ],
+        "worst_utilization": 2.3252027567282907
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.605403367208234,
+          1.3028939958707026
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          316.28135302656045
+        ],
+        "worst_utilization": 0.9595491422328892
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.050293489474007,
+          0.8553038484752845
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          520.0293863752751
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      390.78091337433546
+    ],
+    "max_crank_span_degrees": 194.5460418435142,
+    "min_circle_margin_mm": 1.3218882762796742,
+    "min_transmission_sine": 0.14684122694617263
+  },
+  {
+    "crank": 31,
+    "pickup": 36,
+    "rod": 38,
+    "valid": true,
+    "score": 2.312915293124079,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.712282086710996,
+          2.8579210849048065
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1320.2717340594022
+        ],
+        "worst_utilization": 2.312915293124079
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.712282086710996,
+          2.8579210849048065
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1320.2717340594022
+        ],
+        "worst_utilization": 2.312915293124079
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.390376877938291,
+          1.5494506816836882
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1065.2308564329412
+        ],
+        "worst_utilization": 2.307200383163602
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.5528075974748135,
+          1.2635818554849565
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          315.3468750703786
+        ],
+        "worst_utilization": 0.9320485551920688
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.0143923339865797,
+          0.8301447193758911
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          514.4606409992126
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      405.52873056205306
+    ],
+    "max_crank_span_degrees": 203.50684756284977,
+    "min_circle_margin_mm": 0.9382694595786916,
+    "min_transmission_sine": 0.19241310689163293
+  },
+  {
+    "crank": 32,
+    "pickup": 24,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/swim",
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 25,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 26,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 27,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 28,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 29,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/pushup",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 30,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod",
+      "clip/upright"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 31,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 32,
+    "rod": 38,
+    "valid": false,
+    "reason": "assembly branch changed",
+    "failed_groups": [
+      "clip/nod"
+    ]
+  },
+  {
+    "crank": 32,
+    "pickup": 33,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3750400413251818,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0580939039977237,
+          3.3951875310852717
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1317.2200157133448
+        ],
+        "worst_utilization": 2.3750400413251818
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          3.0580939039977237,
+          3.3951875310852717
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1317.2200157133448
+        ],
+        "worst_utilization": 2.3750400413251818
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5767579669007712,
+          1.8764818530767169
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1033.8597164245657
+        ],
+        "worst_utilization": 2.3687626561635455
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.7504940713524637,
+          1.4255836296519602
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          316.0234589530006
+        ],
+        "worst_utilization": 1.0360403722762572
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.149813730061487,
+          0.9335279022593447
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          529.4495183060089
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      354.78897814028784
+    ],
+    "max_crank_span_degrees": 167.84874092430593,
+    "min_circle_margin_mm": 3.189638754211005,
+    "min_transmission_sine": 0.014700339069495064
+  },
+  {
+    "crank": 32,
+    "pickup": 34,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3532358861883034,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.9574631490063474,
+          3.2480588696340913
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1313.2444236553567
+        ],
+        "worst_utilization": 2.3532358861883034
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.9574631490063474,
+          3.2480588696340913
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1313.2444236553567
+        ],
+        "worst_utilization": 2.3532358861883034
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.5234984362010549,
+          1.785497656481936
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1036.56700702232
+        ],
+        "worst_utilization": 2.3470923238611228
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.6946361816197835,
+          1.3848577876578532
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          314.7754738425053
+        ],
+        "worst_utilization": 1.006621169873738
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.1115501674610608,
+          0.9075350257936121
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          523.7564770418716
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      366.7274547489375
+    ],
+    "max_crank_span_degrees": 175.2657644277875,
+    "min_circle_margin_mm": 2.7092848419309927,
+    "min_transmission_sine": 0.055188556365790856
+  },
+  {
+    "crank": 32,
+    "pickup": 35,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3327983633221754,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.864002777537366,
+          3.1122497274105467
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1309.5194256929365
+        ],
+        "worst_utilization": 2.3327983633221754
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.864002777537366,
+          3.1122497274105467
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1309.5194256929365
+        ],
+        "worst_utilization": 2.3327983633221754
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.4728863410018487,
+          1.7019691457514767
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1040.150800182829
+        ],
+        "worst_utilization": 2.3267827835823907
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.6408157351006887,
+          1.3452011433752478
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          313.63117166844904
+        ],
+        "worst_utilization": 0.9783294777013836
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.0747229199026678,
+          0.8822014889847907
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          518.1246983355345
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      379.2680651041799
+    ],
+    "max_crank_span_degrees": 183.0137746637633,
+    "min_circle_margin_mm": 2.321888276279674,
+    "min_transmission_sine": 0.09792706109205651
+  },
+  {
+    "crank": 32,
+    "pickup": 36,
+    "rod": 38,
+    "valid": true,
+    "score": 2.3136659576263723,
+    "worst_group": "walk/fwd",
+    "worst_time": 25.725,
+    "worst_joint": "crank",
+    "metrics": {
+      "all_gaits": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.7750716773379183,
+          2.9866672749029783
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          1096.2442851530989,
+          1306.0862987945036
+        ],
+        "worst_utilization": 2.3136659576263723
+      },
+      "walk": {
+        "peak_torque_kgcm": [
+          2.570069500095483,
+          2.7750716773379183,
+          2.9866672749029783
+        ],
+        "peak_speed_deg_s": [
+          67.52979164902496,
+          1096.2442851530989,
+          1306.0862987945036
+        ],
+        "worst_utilization": 2.3136659576263723
+      },
+      "run": {
+        "peak_torque_kgcm": [
+          1.3066134124308713,
+          1.424609205172746,
+          1.6251743130071918
+        ],
+        "peak_speed_deg_s": [
+          48.57102475959779,
+          832.4762995341342,
+          1044.8113589509942
+        ],
+        "worst_utilization": 2.3077738157473204
+      },
+      "crawl": {
+        "peak_torque_kgcm": [
+          1.2414997538809913,
+          1.5886848062053334,
+          1.3063257725011452
+        ],
+        "peak_speed_deg_s": [
+          82.50074847533537,
+          248.213063702721,
+          312.60118355589617
+        ],
+        "worst_utilization": 0.9509875805040957
+      },
+      "crab": {
+        "peak_torque_kgcm": [
+          1.4391389566603152,
+          1.039095023111301,
+          0.8573432270789323
+        ],
+        "peak_speed_deg_s": [
+          209.92737434113366,
+          531.5075040726275,
+          512.5492618899923
+        ],
+        "worst_utilization": 0.8858458401210458
+      }
+    },
+    "peak_clip_speed_deg_s": [
+      207.08218468737837,
+      308.6229929197178,
+      392.60884737590067
+    ],
+    "max_crank_span_degrees": 190.72294606291018,
+    "min_circle_margin_mm": 1.9382694595786916,
+    "min_transmission_sine": 0.14273535925803035
+  }
+]

@@ -114,6 +114,7 @@ static void reset(void)
 {
     free(requests);free(results);free(events);requests=results=events=NULL;
     body=(body_state_t){0};motion_status=(ainekio_p4_body_status_t){0};
+    ainekio_p4_body_listen(false);
     memset(commanded,0,sizeof(commanded));driver=(ainekio_pca9685_t){.state={.generation=1,.ready=true}};
     system_state=AINEKIO_STATE_IDLE;
     saved_motion_rate=1.F;
@@ -617,8 +618,103 @@ static void motion_speed(void)
     puts("Named motion speed: every clip at 0.25x through 12x, configured joint limit and coordinated retiming, requested and retimed source parity, scaled entry, exact completion and V1 rejection passed.");
 }
 
+static void face_playback_clock(void)
+{
+    reset();
+    ainekio_command_t c=command(83,AINEKIO_INTENT_EMOTE);
+    strcpy(c.data.intent.data.asset,"wave");c.data.intent.playback_rate=.5F;
+    assert(execute(&c)==ESP_OK);
+    assert(ainekio_p4_body_status().face_entering);
+    assert(ainekio_p4_body_status().face_elapsed_us==0);
+    while(body.motion.entering||body.ramping)advance(20);
+    advance(200);
+    ainekio_p4_body_status_t status=ainekio_p4_body_status();
+    assert(!strcmp(status.face_command,"wave")&&status.face_is_clip);
+    assert(status.face_elapsed_us==(uint64_t)((float)(clock_us-body.motion.started)*body.motion.playback_rate));
+    assert(status.face_elapsed_us<=100001); /* 0.5x body clock, not 200 ms wall time */
+    uint32_t revision=status.face_revision;
+    finish_motion(false,ESP_OK);
+    ainekio_p4_body_status_t status_after=ainekio_p4_body_status();
+    assert(!status_after.face_command&&status_after.face_revision!=revision);
+    puts("Presentation follows the body sample clock and cancellation without display I/O in the output task.");
+}
+
+static void listening_feedback(void)
+{
+    reset();assert(ainekio_v2_joint_speed_set(1000));
+    ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK);assert(finish(10000).completed);
+    const ainekio_v2_frame_t original=body.pose;
+    uint16_t pulses[12];memcpy(pulses,last_written,sizeof pulses);
+    const uint32_t face_revision=body.motion.face_revision;
+    ainekio_p4_body_listen(true);advance(400);
+    assert(body.listen.active && body.listen.engaged);
+    for(unsigned i=0;i<12;i++) {
+        assert(body.pose.position[i]==original.position[i]+((i==6||i==9)?600.F:0.F));
+        if(i!=6&&i!=9)assert(last_written[i]==pulses[i]);
+    }
+    assert(body.motion.face_revision==face_revision && !body.motion.kind);
+    advance(400);assert(body.listen.active); /* Hold for the utterance. */
+    ainekio_p4_body_listen(false);advance(400);
+    assert(!body.listen.active && !memcmp(pulses,last_written,sizeof pulses));
+    assert(!memcmp(original.position,body.pose.position,sizeof original.position));
+    ainekio_p4_body_event_t e;assert(!ainekio_p4_body_event(&e));
+    /* Closing early reverses smoothly from the last written pose. */
+    ainekio_p4_body_listen(true);advance(100);
+    uint16_t middle[12];memcpy(middle,last_written,sizeof middle);
+    ainekio_p4_body_listen(false);advance(20);
+    assert(!memcmp(middle,last_written,sizeof middle));
+    advance(400);assert(!memcmp(pulses,last_written,sizeof pulses));
+    /* The configured joint limit, including low values, controls both ramps. */
+    assert(ainekio_v2_joint_speed_set(5));
+    ainekio_p4_body_listen(true);advance(20);
+    assert(body.listen.duration>=2250000);
+    float previous=body.pose.position[6];
+    for(unsigned n=0;n<120;n++) {
+        advance(20);assert(fabsf(body.pose.position[6]-previous)<=10.01F);previous=body.pose.position[6];
+    }
+    assert(body.pose.position[6]==original.position[6]+600.F);
+    ainekio_p4_body_listen(false);advance(2400);
+    assert(!memcmp(pulses,last_written,sizeof pulses));
+    assert(ainekio_v2_joint_speed_set(1000));
+    /* A command takes over from the actual gesture pose, without a snap. */
+    ainekio_p4_body_listen(true);advance(400);
+    ainekio_v2_frame_t cue=body.pose;
+    c.sequence=2;assert(execute(&c)==ESP_OK);
+    assert(!body.listen.active && !memcmp(cue.position,body.motion.entry_from.position,sizeof cue.position));
+    ainekio_p4_body_listen(false);assert(finish(10000).completed);
+    /* Wake feedback never interrupts a continuous gait or acquires its seq. */
+    c=command(3,AINEKIO_INTENT_WALK);c.data.intent.data.walk.controls=1;c.data.intent.data.walk.speed_percent=50;
+    assert(execute(&c)==ESP_OK);advance(1500);
+    ainekio_p4_body_listen(true);advance(1000);
+    assert(body.motion.kind==MOTION_WALK && body.motion.sequence==3 && !body.listen.active);
+    ainekio_pca_disarm(&driver);advance(20);
+    const unsigned stopped_writes=writes;advance(400);
+    assert(!body.active && !body.listen.active && writes==stopped_writes && !listen_requested);
+    /* Current calibration owns manual targets and cancels gesture restoration. */
+    reset();ainekio_p4_body_listen(true);advance(400);
+    assert(ainekio_p4_body_move(driver.state.generation,6,1700)==ESP_OK);
+    ainekio_p4_body_listen(false);advance(400);assert(last_written[6]==1700);
+    /* Sample every retained gesture pose with the actual calibrated mapper. */
+    for(size_t clip=0;clip<ainekio_v2_clip_count;clip++) {
+        reset();assert(ainekio_p4_joint_defaults(mapped_joints));
+        ainekio_v2_frame_t frame;assert(ainekio_v2_clip_sample(clip,ainekio_v2_clips[clip].duration_us,&frame));
+        assert(ainekio_p4_frame_pulses(&frame,body.pulses));
+        ainekio_p4_calibration_t calibration=ainekio_p4_calibration();retain_pose(&frame,&calibration);
+        memcpy(pulses,body.pulses,sizeof pulses);
+        ainekio_p4_body_listen(true);advance(400);
+        assert(body.active && body.listen.active && !driver.state.fault);
+        for(unsigned i=0;i<12;i++)assert(!last_written[i] || (last_written[i]>=400 && last_written[i]<=2900));
+        ainekio_p4_body_listen(false);advance(400);
+        assert(!memcmp(pulses,last_written,sizeof pulses));
+    }
+    puts("Listening cue: exact restoration, early close, saved speed limit, motion/calibration priority, Stop and all retained clip poses pass.");
+}
+
 int main(void)
 {
+    listening_feedback();
+    face_playback_clock();
     entry_endpoint_precision();
     motion_speed();
     retired_turns_preserve_active_gait();

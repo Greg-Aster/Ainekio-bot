@@ -1,0 +1,38 @@
+[
+  {
+    "crank": 24,
+    "pickup": 24,
+    "samples": 1349,
+    "contact_counts": {
+      "0-5": 32
+    },
+    "new_contacts_vs_original": []
+  },
+  {
+    "crank": 32,
+    "pickup": 36,
+    "samples": 1349,
+    "contact_counts": {
+      "0-5": 21
+    },
+    "new_contacts_vs_original": []
+  },
+  {
+    "crank": 28,
+    "pickup": 30,
+    "samples": 1349,
+    "contact_counts": {
+      "0-5": 26
+    },
+    "new_contacts_vs_original": []
+  },
+  {
+    "crank": 26,
+    "pickup": 28,
+    "samples": 1349,
+    "contact_counts": {
+      "0-5": 31
+    },
+    "new_contacts_vs_original": []
+  }
+]

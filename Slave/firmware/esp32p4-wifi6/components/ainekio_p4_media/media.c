@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 #include <stdatomic.h>
 #include "ainekio/p4_assets.h"
 #include "ainekio/platform/wake_word_service.h"
@@ -21,6 +22,9 @@
 #define PCM_QUEUE_FRAMES 50U
 #define AMP_PIN 53
 #define FRAME_SAMPLES (AINEKIO_AUDIO_PAYLOAD_BYTES / sizeof(int16_t))
+/* PCM/pre-roll use 3840 bytes before inference. The P4 ESP-NN convolution
+ * overflowed this task's former 6144-byte stack with the installed model. */
+#define MICROPHONE_STACK_BYTES 10240U
 
 typedef struct {
     uint32_t generation;
@@ -31,6 +35,7 @@ static ainekio_p4_media_callbacks_t callbacks;
 static i2c_master_bus_handle_t media_bus;
 static i2s_chan_handle_t rx, tx;
 static esp_codec_dev_handle_t codec;
+static TaskHandle_t microphone_handle;
 static const audio_codec_data_if_t *codec_data;
 static const audio_codec_ctrl_if_t *codec_control;
 static const audio_codec_gpio_if_t *codec_gpio;
@@ -45,12 +50,48 @@ static FILE *asset_file;
 static uint32_t asset_remaining;
 static atomic_bool audio_tasks_started;
 static bool suspended, microphone_enabled, ending, buffering, dma_dirty;
+static bool microphone_settings_saved;
+static bool speaker_volume_saved;
 static ainekio_microphone_gate_t microphone_gate = AINEKIO_MIC_GATE_VAD;
 static uint32_t sequence, generation;
 static uint32_t microphone_epoch;
 static uint64_t session, audio_session;
 static int64_t last_speaker_input, microphone_after;
-static esp_err_t configure_wake(bool enabled, const char *model, bool save);
+static int wake_cutoff = -1; /* No override: use the installed model's manifest. */
+static int64_t microphone_sample_at;
+static esp_err_t configure_wake(bool enabled, const char *model, bool save, const float *threshold);
+
+static void load_input_settings(void)
+{
+    status.microphone_gain_db = 30; /* Preserve the existing input gain. */
+    nvs_handle_t handle;
+    if (nvs_open("p4_media", NVS_READONLY, &handle) != ESP_OK) return;
+    uint8_t gain;
+    if (nvs_get_u8(handle, "mic_gain", &gain) == ESP_OK && gain <= 42 && gain % 6 == 0)
+        status.microphone_gain_db = gain;
+    uint8_t saved[3];
+    size_t size = sizeof(saved);
+    if (nvs_get_blob(handle, "mic_v1", saved, &size) == ESP_OK && size == sizeof(saved) &&
+        saved[0] == 1 && saved[1] <= 1 && saved[2] <= AINEKIO_MIC_GATE_WAKE) {
+        microphone_enabled = saved[1] != 0;
+        microphone_gate = saved[2];
+        microphone_settings_saved = true;
+    }
+    nvs_close(handle);
+}
+
+static void load_speaker_volume(void)
+{
+    status.speaker_volume_percent = 100; /* Preserve existing full output. */
+    nvs_handle_t handle;
+    if (nvs_open("p4_media", NVS_READONLY, &handle) != ESP_OK) return;
+    uint8_t volume;
+    if (nvs_get_u8(handle, "spk_volume", &volume) == ESP_OK && volume <= 100) {
+        status.speaker_volume_percent = volume;
+        speaker_volume_saved = true;
+    }
+    nvs_close(handle);
+}
 
 static void load_wake(void)
 {
@@ -62,6 +103,8 @@ static void load_wake(void)
     esp_err_t result = nvs_open("p4_media", NVS_READONLY, &handle);
     if (result == ESP_OK) {
         result = nvs_get_blob(handle, "wake_v1", saved, &size);
+        uint8_t cutoff;
+        if (nvs_get_u8(handle, "wake_cutoff", &cutoff) == ESP_OK) wake_cutoff = cutoff;
         nvs_close(handle);
     }
     if (result == ESP_OK && size == sizeof(saved) && saved[0] == 1 && saved[1] <= 1 &&
@@ -71,7 +114,7 @@ static void load_wake(void)
     } else if (result != ESP_ERR_NVS_NOT_FOUND) {
         ESP_LOGW("p4_media", "invalid wake settings; wake disabled");
     }
-    result = configure_wake(enabled, model, false);
+    result = configure_wake(enabled, model, false, NULL);
     if (result != ESP_OK) ESP_LOGW("p4_media", "saved wake model unavailable: %s", esp_err_to_name(result));
 }
 
@@ -90,11 +133,41 @@ static void audio_finish(esp_err_t result)
     gpio_set_level(AMP_PIN, 0);
     dma_dirty = true;
     microphone_after = esp_timer_get_time() + 800000;
+    ++microphone_epoch;
     xQueueReset(speaker_queue);
     /* Caller releases the lock before delivering the callback. */
     xSemaphoreGive(mutex);
     if (finished && callbacks.audio_done)
         callbacks.audio_done(callbacks.context, finished_session, finished, result);
+}
+
+/* Called with mutex held; always releases it. Only the speaker task writes or
+ * resets TX, so cancellation can mute/invalidate an in-flight DMA write without
+ * touching the driver. The next generation clears DMA before unmuting. */
+static void speaker_write_frame(audio_frame_t *frame)
+{
+    /* Both streamed speech and local assets use this final output path. Scale
+     * once, at playback, so a volume change also affects already queued audio. */
+    const unsigned volume = status.speaker_volume_percent;
+    if (volume != 100) {
+        for (size_t offset = 0; offset < sizeof(frame->pcm); offset += sizeof(int16_t)) {
+            int16_t sample;
+            memcpy(&sample, frame->pcm + offset, sizeof(sample));
+            sample = (int16_t)((int32_t)sample * (int32_t)volume / 100);
+            memcpy(frame->pcm + offset, &sample, sizeof(sample));
+        }
+    }
+    gpio_set_level(AMP_PIN, 1);
+    xSemaphoreGive(mutex);
+    size_t written = 0;
+    /* Incoming WebSocket PCM and heartbeat callbacks also need mutex. Never
+     * hold it while waiting for a DMA buffer to become available. */
+    const esp_err_t result = i2s_channel_write(tx, frame->pcm, sizeof(frame->pcm), &written, 60);
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    if (status.speaker_busy && generation == frame->generation &&
+        (result != ESP_OK || written != sizeof(frame->pcm)))
+        audio_finish(result == ESP_OK ? ESP_FAIL : result);
+    else xSemaphoreGive(mutex);
 }
 
 static void speaker_task(void *unused)
@@ -139,14 +212,8 @@ static void speaker_task(void *unused)
                 asset_file = NULL;
                 ending = true;
             }
-            gpio_set_level(AMP_PIN, 1);
-            size_t written = 0;
-            esp_err_t write_result = i2s_channel_write(tx, frame.pcm, sizeof(frame.pcm), &written, 60);
-            if (write_result != ESP_OK || written != sizeof(frame.pcm)) {
-                audio_finish(write_result == ESP_OK ? ESP_FAIL : write_result);
-                continue;
-            }
-            xSemaphoreGive(mutex);
+            frame.generation = generation;
+            speaker_write_frame(&frame);
             continue;
         }
         const UBaseType_t queued = uxQueueMessagesWaiting(speaker_queue);
@@ -177,14 +244,7 @@ static void speaker_task(void *unused)
             xSemaphoreGive(mutex);
             continue;
         }
-        gpio_set_level(AMP_PIN, 1);
-        size_t written = 0;
-        esp_err_t result = i2s_channel_write(tx, frame.pcm, sizeof(frame.pcm), &written, 60);
-        if (result != ESP_OK || written != sizeof(frame.pcm)) {
-            audio_finish(result == ESP_OK ? ESP_FAIL : result);
-            continue;
-        }
-        xSemaphoreGive(mutex);
+        speaker_write_frame(&frame);
     }
 }
 
@@ -204,6 +264,7 @@ static void microphone_task(void *unused)
     for (;;) {
         xSemaphoreTake(mutex, portMAX_DELAY);
         const uint64_t capture_session = session;
+        const uint32_t capture_epoch = microphone_epoch;
         xSemaphoreGive(mutex);
         size_t received = 0;
         esp_err_t result = i2s_channel_read(rx, pcm, sizeof(pcm), &received, 40);
@@ -214,18 +275,36 @@ static void microphone_task(void *unused)
             vTaskDelay(pdMS_TO_TICKS(5));
             continue;
         }
+        /* Measure every captured frame before VAD/wake gating. Only scalar
+         * levels leave the robot until the selected gate opens. Fast attack and
+         * a one-second decay keep speech visible at dashboard refresh speed. */
+        double squares = 0;
+        int peak = 0;
+        for (size_t i = 0; i < FRAME_SAMPLES; ++i) {
+            const int sample = pcm[i];
+            squares += (double)sample * sample;
+            const int magnitude = sample < 0 ? -sample : sample;
+            if (magnitude > peak) peak = magnitude;
+        }
+        const float rms = (float)(sqrt(squares / FRAME_SAMPLES) / 32768.0);
         xSemaphoreTake(mutex, portMAX_DELAY);
-        const bool enabled = microphone_enabled && !suspended && !status.speaker_busy &&
+        const bool enabled = microphone_enabled && session && !suspended && !status.speaker_busy &&
                              esp_timer_get_time() >= microphone_after;
         const ainekio_microphone_gate_t gate = microphone_gate;
         const uint64_t frame_session = session;
         const bool wake_enabled = status.wake_enabled;
         const uint32_t current_epoch = microphone_epoch;
+        status.microphone_rms = enabled ? fmaxf(rms, status.microphone_rms * 0.98f) : 0;
+        status.microphone_peak = enabled ? fmaxf(peak / 32768.0f, status.microphone_peak * 0.98f) : 0;
+        microphone_sample_at = esp_timer_get_time();
         xSemaphoreGive(mutex);
-        if (!enabled || !frame_session || capture_session != frame_session ||
+        if (!enabled || !frame_session || capture_session != frame_session || capture_epoch != current_epoch ||
             previous_session != frame_session || previous_epoch != current_epoch) {
             const bool reset_gate = was_open || wake_latched || previous_session != frame_session ||
                                     previous_epoch != current_epoch;
+            xSemaphoreTake(mutex, portMAX_DELAY);
+            status.utterance_open = false;
+            xSemaphoreGive(mutex);
             if (was_open && frame_session && previous_session == frame_session && callbacks.gate)
                 callbacks.gate(callbacks.context, frame_session, false, false);
             pre_count = pre_next = 0;
@@ -274,6 +353,16 @@ static void microphone_task(void *unused)
             if (wake) ainekio_wake_word_reset(wake);
             xSemaphoreGive(wake_mutex);
         }
+        /* Inference runs outside the media mutex. Playback/configuration may
+         * begin during it: discard that result and its PCM before callbacks.
+         * Serialize the nonblocking FIFO writes with the speaker-start boundary. */
+        xSemaphoreTake(mutex, portMAX_DELAY);
+        if (!microphone_enabled || suspended || status.speaker_busy ||
+            esp_timer_get_time() < microphone_after || session != frame_session || microphone_epoch != current_epoch) {
+            xSemaphoreGive(mutex);
+            continue;
+        }
+        status.utterance_open = open;
         if (open != was_open && callbacks.gate)
             callbacks.gate(callbacks.context, frame_session, open, detected);
         if (open && callbacks.microphone) {
@@ -291,6 +380,7 @@ static void microphone_task(void *unused)
             if (pre_count < 5) ++pre_count;
         }
         was_open = open;
+        xSemaphoreGive(mutex);
     }
 }
 
@@ -333,14 +423,16 @@ static esp_err_t audio_start(void)
     esp_codec_dev_sample_info_t sample = {.sample_rate = 16000, .channel = 1,
         .channel_mask = ESP_CODEC_DEV_MAKE_CHANNEL_MASK(0), .bits_per_sample = 16};
     if (esp_codec_dev_open(codec, &sample) != ESP_CODEC_DEV_OK) return ESP_FAIL;
-    if (esp_codec_dev_set_out_vol(codec, 55) != ESP_CODEC_DEV_OK ||
-        esp_codec_dev_set_in_gain(codec, 30.0f) != ESP_CODEC_DEV_OK) return ESP_FAIL;
+    /* Keep codec gain at unity. The saved master volume is applied to PCM in
+     * speaker_write_frame; codec volume 55 would add another -22.5 dB. */
+    if (esp_codec_dev_set_out_vol(codec, 100) != ESP_CODEC_DEV_OK ||
+        esp_codec_dev_set_in_gain(codec, status.microphone_gain_db) != ESP_CODEC_DEV_OK) return ESP_FAIL;
     vad = vad_create(VAD_MODE_3);
     status.vad_ready = vad != NULL;
     TaskHandle_t speaker_handle = NULL;
     if (xTaskCreate(speaker_task, "p4_speaker", 4096, NULL, 3, &speaker_handle) != pdPASS)
         return ESP_ERR_NO_MEM;
-    if (xTaskCreate(microphone_task, "p4_mic", 6144, NULL, 3, NULL) != pdPASS) {
+    if (xTaskCreate(microphone_task, "p4_mic", MICROPHONE_STACK_BYTES, NULL, 3, &microphone_handle) != pdPASS) {
         vTaskDelete(speaker_handle);
         return ESP_ERR_NO_MEM;
     }
@@ -392,6 +484,8 @@ esp_err_t ainekio_p4_media_start(const ainekio_p4_media_callbacks_t *configurati
         speaker_queue = NULL;
         return result;
     }
+    load_input_settings();
+    load_speaker_volume();
     result = audio_start();
     if (result != ESP_OK) audio_cleanup();
     ESP_LOGI("p4_media", "ES8311 audio: %s", esp_err_to_name(result));
@@ -401,31 +495,91 @@ esp_err_t ainekio_p4_media_start(const ainekio_p4_media_callbacks_t *configurati
     return ESP_OK;
 }
 
+uint32_t ainekio_p4_media_microphone_stack_free(void)
+{
+    return microphone_handle ? uxTaskGetStackHighWaterMark(microphone_handle) : 0;
+}
+
 ainekio_p4_media_status_t ainekio_p4_media_status(void)
 {
     ainekio_p4_media_status_t result = {.wake_model = AINEKIO_DEFAULT_WAKE_MODEL};
     if (!mutex) return result;
     xSemaphoreTake(mutex, portMAX_DELAY);
     result = status;
+    result.microphone_enabled = microphone_enabled;
+    result.microphone_gate = microphone_gate;
+    const int64_t now = esp_timer_get_time();
+    result.microphone_listening = microphone_enabled && session && status.microphone_ready && !suspended &&
+        !status.speaker_busy && now >= microphone_after && microphone_sample_at && now - microphone_sample_at < 250000;
+    if (!result.microphone_listening) {
+        result.microphone_rms = result.microphone_peak = 0;
+        result.utterance_open = false;
+    }
     xSemaphoreGive(mutex);
     result.camera_ready = p4_camera_ready();
     result.camera_failures = p4_camera_failures();
     return result;
 }
 
-esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t gate)
+esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t gate, const uint8_t *gain_db)
 {
     if (!mutex) return ESP_ERR_INVALID_STATE;
     if (gate < AINEKIO_MIC_GATE_OPEN || gate > AINEKIO_MIC_GATE_WAKE) return ESP_ERR_INVALID_ARG;
+    if (gain_db && (*gain_db > 42 || *gain_db % 6)) return ESP_ERR_INVALID_ARG;
     xSemaphoreTake(mutex, portMAX_DELAY);
     esp_err_t result = !status.microphone_ready || suspended || !session ? ESP_ERR_INVALID_STATE : ESP_OK;
     if (enabled && ((gate == AINEKIO_MIC_GATE_WAKE && (!status.wake_ready || !status.wake_enabled)) ||
                     (gate != AINEKIO_MIC_GATE_OPEN && !vad)))
         result = ESP_ERR_NOT_SUPPORTED;
+    const uint8_t next_gain = gain_db ? *gain_db : status.microphone_gain_db;
+    const bool gain_changed = next_gain != status.microphone_gain_db;
+    if (result == ESP_OK && (!microphone_settings_saved || microphone_enabled != enabled ||
+                            microphone_gate != gate || gain_changed)) {
+        if (gain_changed && esp_codec_dev_set_in_gain(codec, next_gain) != ESP_CODEC_DEV_OK) result = ESP_FAIL;
+        if (result == ESP_OK) {
+            nvs_handle_t handle;
+            result = nvs_open("p4_media", NVS_READWRITE, &handle);
+            if (result == ESP_OK) {
+                const uint8_t saved[3] = {1, enabled ? 1 : 0, (uint8_t)gate};
+                result = nvs_set_blob(handle, "mic_v1", saved, sizeof(saved));
+                if (result == ESP_OK && gain_changed) result = nvs_set_u8(handle, "mic_gain", next_gain);
+                if (result == ESP_OK) result = nvs_commit(handle);
+                nvs_close(handle);
+            }
+            if (result == ESP_OK) {
+                status.microphone_gain_db = next_gain;
+                microphone_settings_saved = true;
+            } else if (gain_changed) (void)esp_codec_dev_set_in_gain(codec, status.microphone_gain_db);
+        }
+    }
     if (result == ESP_OK) {
+        status.microphone_rms = status.microphone_peak = 0;
         microphone_enabled = enabled;
         microphone_gate = gate;
         ++microphone_epoch;
+    }
+    xSemaphoreGive(mutex);
+    return result;
+}
+
+esp_err_t ainekio_p4_media_speaker_volume(uint8_t volume_percent)
+{
+    if (volume_percent > 100) return ESP_ERR_INVALID_ARG;
+    if (!mutex) return ESP_ERR_INVALID_STATE;
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    esp_err_t result = ESP_OK;
+    if (!speaker_volume_saved || volume_percent != status.speaker_volume_percent) {
+        nvs_handle_t handle;
+        result = nvs_open("p4_media", NVS_READWRITE, &handle);
+        if (result == ESP_OK) {
+            result = nvs_set_u8(handle, "spk_volume", volume_percent);
+            if (result == ESP_OK) result = nvs_commit(handle);
+            nvs_close(handle);
+        }
+        if (result == ESP_OK) {
+            status.speaker_volume_percent = volume_percent;
+            speaker_volume_saved = true;
+        }
     }
     xSemaphoreGive(mutex);
     return result;
@@ -443,6 +597,7 @@ esp_err_t ainekio_p4_media_tts_start(uint32_t id)
         audio_session = session;
         ++generation;
         status.speaker_busy = true;
+        ++microphone_epoch; /* Flush wake history and pre-roll, even before detection. */
         ending = false;
         buffering = true;
         last_speaker_input = esp_timer_get_time();
@@ -469,6 +624,7 @@ esp_err_t ainekio_p4_media_say(uint32_t id, const char *name)
             audio_session = session;
             ++generation;
             status.speaker_busy = true;
+            ++microphone_epoch;
             ending = buffering = false;
             last_speaker_input = esp_timer_get_time();
             xQueueReset(speaker_queue);
@@ -478,8 +634,10 @@ esp_err_t ainekio_p4_media_say(uint32_t id, const char *name)
     return result;
 }
 
-static esp_err_t configure_wake(bool enabled, const char *model, bool save)
+static esp_err_t configure_wake(bool enabled, const char *model, bool save, const float *threshold)
 {
+    if (threshold && (!isfinite(*threshold) || *threshold < 0 || *threshold > 1)) return ESP_ERR_INVALID_ARG;
+    const int requested_cutoff = threshold ? (int)lroundf(*threshold * 255.F) : wake_cutoff;
     if (!model || !ainekio_asset_name_valid(model) || strlen(model) > 32) return ESP_ERR_INVALID_ARG;
     if (!mutex || !wake_mutex) return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(wake_mutex, portMAX_DELAY);
@@ -498,11 +656,15 @@ static esp_err_t configure_wake(bool enabled, const char *model, bool save)
         result = nvs_open("p4_media", NVS_READWRITE, &handle);
         if (result == ESP_OK) {
             result = nvs_set_blob(handle, "wake_v1", stored, sizeof(stored));
+            if (result == ESP_OK && threshold) result = nvs_set_u8(handle, "wake_cutoff", (uint8_t)requested_cutoff);
             if (result == ESP_OK) result = nvs_commit(handle);
             nvs_close(handle);
         }
     }
+    if (result == ESP_OK) wake_cutoff = requested_cutoff;
+    if (wake && wake_cutoff >= 0) ainekio_wake_word_set_cutoff(wake, (uint8_t)wake_cutoff);
     xSemaphoreTake(mutex, portMAX_DELAY);
+    status.wake_threshold = ainekio_wake_word_cutoff(wake) / 255.F;
     status.wake_ready = status.microphone_ready && status.vad_ready && wake && ainekio_wake_word_ready(wake);
     status.wake_enabled = enabled && status.wake_ready && result == ESP_OK;
     ++microphone_epoch;
@@ -512,9 +674,9 @@ static esp_err_t configure_wake(bool enabled, const char *model, bool save)
     return result;
 }
 
-esp_err_t ainekio_p4_media_wake_configure(bool enabled, const char *model)
+esp_err_t ainekio_p4_media_wake_configure(bool enabled, const char *model, const float *threshold)
 {
-    return configure_wake(enabled, model, true);
+    return configure_wake(enabled, model, true, threshold);
 }
 
 esp_err_t ainekio_p4_media_tts_push(const uint8_t pcm[AINEKIO_AUDIO_PAYLOAD_BYTES])
@@ -564,6 +726,7 @@ uint32_t ainekio_p4_media_audio_cancel(void)
     ++generation;
     xQueueReset(speaker_queue);
     microphone_after = esp_timer_get_time() + 800000;
+    ++microphone_epoch;
     xSemaphoreGive(mutex);
     return cancelled;
 }
@@ -573,7 +736,7 @@ void ainekio_p4_media_disconnect(void)
     ainekio_p4_media_audio_cancel();
     if (mutex) {
         xSemaphoreTake(mutex, portMAX_DELAY);
-        microphone_enabled = false;
+        /* The connection owns capture availability, not the saved preference. */
         session = 0;
         xSemaphoreGive(mutex);
     }
@@ -597,7 +760,6 @@ esp_err_t ainekio_p4_media_suspend(bool paused)
     if (paused) ainekio_p4_media_audio_cancel();
     xSemaphoreTake(mutex, portMAX_DELAY);
     suspended = paused;
-    if (paused) microphone_enabled = false;
     xSemaphoreGive(mutex);
     return p4_camera_suspend(paused);
 }

@@ -1,0 +1,762 @@
+{
+  "bow": {
+    "command": "bow",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1021,
+    "duration_s": 8.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -6.497202775790356e-11,
+    "minimum_body_ground_clearance_mm": 2.024064957795005,
+    "minimum_closure_triangle_height_mm": 10.19600050566945,
+    "minimum_input_toggle_clearance_deg": 41.782875156871626,
+    "input_toggle_witness_time_and_cad_leg": [
+      1.8,
+      "FL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.3052419880617732,
+    "peak_joint_speed_deg_s": 156.62903855832454,
+    "joint_min_deg": [
+      -4.445633026523221e-06,
+      -5.313566002602407,
+      -21.246580500762693
+    ],
+    "joint_max_deg": [
+      5.020669819411495e-06,
+      119.99999999999999,
+      78.61253243135393
+    ],
+    "maximum_body_translation_difference_mm": 5.0000000000001155,
+    "maximum_foot_xy_difference_mm": 2.3875927630021317e-12,
+    "maximum_sole_height_difference_mm": 2.2026824808563106e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve carrier and sole orientation of front support, retain all foot paths and torso rotation. Introduce the root correction within the existing entry/recovery phases.",
+    "motion_end_s": 8.0
+  },
+  "celebrate": {
+    "command": "celebrate",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1501,
+    "duration_s": 12.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -2.008171406941983e-12,
+    "minimum_body_ground_clearance_mm": 0.0,
+    "minimum_closure_triangle_height_mm": 10.260571180224995,
+    "minimum_input_toggle_clearance_deg": 19.919424252516585,
+    "input_toggle_witness_time_and_cad_leg": [
+      6.4,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.3712962220761122,
+    "peak_joint_speed_deg_s": 284.0236894675616,
+    "joint_min_deg": [
+      -73.5158165421692,
+      -31.503686363688107,
+      -50.98819219878682
+    ],
+    "joint_max_deg": [
+      5.020669840845745e-06,
+      30.952242741196958,
+      -21.076221504982705
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 3.1915947235188003e-12,
+    "maximum_sole_height_difference_mm": 2.355449169044732e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 12.0
+  },
+  "crouch": {
+    "command": "crouch",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 481,
+    "duration_s": 4.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": 0.12711264544851986,
+    "minimum_body_ground_clearance_mm": 14.250007629394531,
+    "minimum_closure_triangle_height_mm": 22.230155457924564,
+    "minimum_input_toggle_clearance_deg": 75.01013996259164,
+    "input_toggle_witness_time_and_cad_leg": [
+      0.0,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.37933504612415225,
+    "peak_joint_speed_deg_s": 45.517746666797954,
+    "joint_min_deg": [
+      -1.2576155441551274e-05,
+      -50.30590052027465,
+      -41.47837279165341
+    ],
+    "joint_max_deg": [
+      1.2572408391914405e-05,
+      0.7727812630735832,
+      -20.751316811792638
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 3.9928871864323875e-05,
+    "maximum_sole_height_difference_mm": 0.02357567069002897,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Native IK applied to the original Crouch planner targets and body trajectory, including the unchanged -35 mm terminal depth. Entry matches native Stand without retaining the previous geometry solver residual.",
+    "motion_end_s": 2.0
+  },
+  "curious": {
+    "command": "curious",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1171,
+    "duration_s": 9.75,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -2.8258284601179184e-11,
+    "minimum_body_ground_clearance_mm": 23.671458894283973,
+    "minimum_closure_triangle_height_mm": 22.190193505055092,
+    "minimum_input_toggle_clearance_deg": 70.51696369953464,
+    "input_toggle_witness_time_and_cad_leg": [
+      2.0,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.3972221595006782,
+    "peak_joint_speed_deg_s": 47.65824667333149,
+    "joint_min_deg": [
+      -10.366948284596946,
+      -33.21044021982463,
+      -47.40664725407411
+    ],
+    "joint_max_deg": [
+      13.1071066149206,
+      10.393331530179276,
+      -0.004335603566267332
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 1.7342483669108272e-12,
+    "maximum_sole_height_difference_mm": 2.6147972675971687e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 9.25
+  },
+  "cute": {
+    "command": "cute",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1621,
+    "duration_s": 13.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -2.008171406941983e-12,
+    "minimum_body_ground_clearance_mm": 0.0,
+    "minimum_closure_triangle_height_mm": 12.574163690156144,
+    "minimum_input_toggle_clearance_deg": 25.576475241139697,
+    "input_toggle_witness_time_and_cad_leg": [
+      7.05,
+      "FL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.3712962220761122,
+    "peak_joint_speed_deg_s": 284.0236894675577,
+    "joint_min_deg": [
+      -72.49845392866473,
+      -31.503686363688107,
+      -53.214713088192944
+    ],
+    "joint_max_deg": [
+      5.020669840845745e-06,
+      28.589490041946906,
+      -21.076221504982513
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 2.623740989030073e-12,
+    "maximum_sole_height_difference_mm": 2.284394895468722e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 13.0
+  },
+  "dance": {
+    "command": "dance",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1501,
+    "duration_s": 12.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -1.375610736431554e-11,
+    "minimum_body_ground_clearance_mm": 26.612037239772118,
+    "minimum_closure_triangle_height_mm": 22.190193505053887,
+    "minimum_input_toggle_clearance_deg": 74.8436286907644,
+    "input_toggle_witness_time_and_cad_leg": [
+      12.0,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.8871958050165937,
+    "peak_joint_speed_deg_s": 106.33045961346951,
+    "joint_min_deg": [
+      -17.404909997549975,
+      -38.14965809981224,
+      -40.389681804810934
+    ],
+    "joint_max_deg": [
+      17.678209014310138,
+      0.9367013865132671,
+      -12.134638575500205
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 1.8479029617038378e-12,
+    "maximum_sole_height_difference_mm": 2.6503244043851737e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 12.0
+  },
+  "dead": {
+    "command": "dead",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 841,
+    "duration_s": 7.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -0.24011874355034202,
+    "minimum_body_ground_clearance_mm": 0.14999922979649227,
+    "minimum_closure_triangle_height_mm": 8.679094643282248,
+    "minimum_input_toggle_clearance_deg": 54.70207832542069,
+    "input_toggle_witness_time_and_cad_leg": [
+      0.775,
+      "RR"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.6107311388948604,
+    "peak_joint_speed_deg_s": 312.2543514855569,
+    "joint_min_deg": [
+      -35.82471333067553,
+      0.9364806392024816,
+      -21.246558684222308
+    ],
+    "joint_max_deg": [
+      6.641671323267184e-06,
+      98.62724750701307,
+      65.62238313095668
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 7.158125719680242,
+    "maximum_sole_height_difference_mm": 1.3500311979441904e-13,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Retain body collapse, supporting boot orientation and rear foot paths. Adjust the front sliding destinations during the existing collapse phase.",
+    "motion_end_s": 7.0
+  },
+  "freaky": {
+    "command": "freaky",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1165,
+    "duration_s": 9.7,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -4.817479748453479e-12,
+    "minimum_body_ground_clearance_mm": 13.674611851521348,
+    "minimum_closure_triangle_height_mm": 22.190193505055092,
+    "minimum_input_toggle_clearance_deg": 57.064690162145304,
+    "input_toggle_witness_time_and_cad_leg": [
+      3.6,
+      "RR"
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.2097648937563386,
+    "peak_joint_speed_deg_s": 145.15566206205605,
+    "joint_min_deg": [
+      -70.62465316550733,
+      -50.67855170134122,
+      -63.469737485032944
+    ],
+    "joint_max_deg": [
+      6.052699220715316,
+      0.9367013865083976,
+      -17.178107305827936
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 2.584071123783164e-12,
+    "maximum_sole_height_difference_mm": 2.6147972675971687e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 9.2
+  },
+  "lay_down": {
+    "command": "lay_down",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 841,
+    "duration_s": 7.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -0.06685800496064331,
+    "minimum_body_ground_clearance_mm": 0.14999922979689018,
+    "minimum_closure_triangle_height_mm": 22.19023393624376,
+    "minimum_input_toggle_clearance_deg": 60.26116370529571,
+    "input_toggle_witness_time_and_cad_leg": [
+      0.9666666666666667,
+      "FR"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.0101270475059754,
+    "peak_joint_speed_deg_s": 240.38579262686147,
+    "joint_min_deg": [
+      -32.51912379466161,
+      0.9364806392024523,
+      -21.24655872064736
+    ],
+    "joint_max_deg": [
+      1.0809852793159889e-07,
+      33.34056357570291,
+      50.914462118477985
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 8.456354150218794e-13,
+    "maximum_sole_height_difference_mm": 8.526512829121202e-13,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 7.0
+  },
+  "nod": {
+    "command": "nod",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1021,
+    "duration_s": 8.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -9.914194096438678e-05,
+    "minimum_body_ground_clearance_mm": 12.997032571735694,
+    "minimum_closure_triangle_height_mm": 9.528345766075859,
+    "minimum_input_toggle_clearance_deg": 14.674278013804363,
+    "input_toggle_witness_time_and_cad_leg": [
+      6.008333333333334,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.1061474280582333,
+    "peak_joint_speed_deg_s": 250.18276767226462,
+    "joint_min_deg": [
+      -3.3133887432797313,
+      -43.11539957031739,
+      -55.775614597704205
+    ],
+    "joint_max_deg": [
+      4.2794240365325695,
+      33.74953584899965,
+      -2.285842493951024
+    ],
+    "maximum_body_translation_difference_mm": 5.000000000000096,
+    "maximum_foot_xy_difference_mm": 1.8545165403338615e-12,
+    "maximum_sole_height_difference_mm": 3.339550858072471e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve carrier and sole orientation of front support, retain all foot paths and torso rotation. Introduce the root correction within the existing entry/recovery phases.",
+    "motion_end_s": 8.0
+  },
+  "point": {
+    "command": "point",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1321,
+    "duration_s": 11.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -4.213518423057394e-12,
+    "minimum_body_ground_clearance_mm": 19.684381620581373,
+    "minimum_closure_triangle_height_mm": 8.039467266295249,
+    "minimum_input_toggle_clearance_deg": 36.31773129660382,
+    "input_toggle_witness_time_and_cad_leg": [
+      8.141666666666667,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.192781370372902,
+    "peak_joint_speed_deg_s": 143.10181209136354,
+    "joint_min_deg": [
+      -24.44477529315137,
+      -45.47518045803089,
+      -32.016666873517124
+    ],
+    "joint_max_deg": [
+      9.963091737894636,
+      118.01386799026467,
+      63.87100372662814
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 4.772321337918883,
+    "maximum_sole_height_difference_mm": 4.156251767170659,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original carrier and boot orientation at full extension; join the exact remapped lift within the existing extension/retraction phases.",
+    "motion_end_s": 10.4
+  },
+  "pushup": {
+    "command": "pushup",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1741,
+    "duration_s": 14.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -8.756000310938816e-05,
+    "minimum_body_ground_clearance_mm": 0.0783612744672535,
+    "minimum_closure_triangle_height_mm": 2.4247773389905505,
+    "minimum_input_toggle_clearance_deg": 7.100776112403852,
+    "input_toggle_witness_time_and_cad_leg": [
+      6.058333333333334,
+      "RR"
+    ],
+    "maximum_adjacent_joint_step_degrees": 1.0943946051945557,
+    "peak_joint_speed_deg_s": 128.60202390996537,
+    "joint_min_deg": [
+      -2.3538165510393846e-05,
+      -55.76262921854279,
+      -62.21158685468851
+    ],
+    "joint_max_deg": [
+      3.011368248796205e-05,
+      45.536837526161264,
+      -19.26683371050154
+    ],
+    "maximum_body_translation_difference_mm": 4.7671596872098485,
+    "maximum_foot_xy_difference_mm": 2.6388317457857965e-12,
+    "maximum_sole_height_difference_mm": 3.5456082514429e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Retain all foot paths and torso rotations. Refit root translation from the shortened front support; smoothly reduce the downward correction using the recorded chassis clearance. Existing entry and recovery phase timing is unchanged.",
+    "motion_end_s": 14.0
+  },
+  "rest": {
+    "command": "rest",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 601,
+    "duration_s": 5.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -7.780442956573097e-12,
+    "minimum_body_ground_clearance_mm": 7.09759667927301e-07,
+    "minimum_closure_triangle_height_mm": 20.788844240666826,
+    "minimum_input_toggle_clearance_deg": 51.73661552717835,
+    "input_toggle_witness_time_and_cad_leg": [
+      2.341666666666667,
+      "FL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.100561926237683,
+    "peak_joint_speed_deg_s": 251.25827176356285,
+    "joint_min_deg": [
+      -0.0001766891506149351,
+      -26.50605745843802,
+      -21.96137597011427
+    ],
+    "joint_max_deg": [
+      1.6464339213718192e-06,
+      21.271344925851377,
+      22.503092828452502
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 5.0175348750549755,
+    "maximum_sole_height_difference_mm": 2.6290081223123707e-13,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 3.0
+  },
+  "sad": {
+    "command": "sad",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1057,
+    "duration_s": 8.8,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -3.7701397559430916e-11,
+    "minimum_body_ground_clearance_mm": 9.173404805985435,
+    "minimum_closure_triangle_height_mm": 22.19019350505203,
+    "minimum_input_toggle_clearance_deg": 60.573042487587905,
+    "input_toggle_witness_time_and_cad_leg": [
+      5.3,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.47632286920350203,
+    "peak_joint_speed_deg_s": 57.141196486289616,
+    "joint_min_deg": [
+      -4.417435289916145,
+      -17.55690103870087,
+      -21.763617501575826
+    ],
+    "joint_max_deg": [
+      4.357930189457049,
+      4.652126258540228,
+      13.370711850461419
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 2.0345854943492537e-12,
+    "maximum_sole_height_difference_mm": 2.0889956431346945e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 8.3
+  },
+  "shake": {
+    "command": "shake",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 841,
+    "duration_s": 7.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -5.290701210469706e-11,
+    "minimum_body_ground_clearance_mm": 5.430423319110053,
+    "minimum_closure_triangle_height_mm": 21.031336688522554,
+    "minimum_input_toggle_clearance_deg": 74.37397116351463,
+    "input_toggle_witness_time_and_cad_leg": [
+      2.45,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.915729014376401,
+    "peak_joint_speed_deg_s": 109.86988690352555,
+    "joint_min_deg": [
+      -6.5860506698234855e-06,
+      -46.52514695415922,
+      -33.62340536948371
+    ],
+    "joint_max_deg": [
+      1.0661244333756496e-05,
+      18.608081822833057,
+      3.2554790302041594
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 2.9564043015729666e-12,
+    "maximum_sole_height_difference_mm": 3.701927653310122e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 6.5
+  },
+  "shrug": {
+    "command": "shrug",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1681,
+    "duration_s": 14.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -0.0031963455128511953,
+    "minimum_body_ground_clearance_mm": 0.23476164110048447,
+    "minimum_closure_triangle_height_mm": 8.077459977589442,
+    "minimum_input_toggle_clearance_deg": 11.615408667204571,
+    "input_toggle_witness_time_and_cad_leg": [
+      3.091666666666667,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 8.268107355980316,
+    "peak_joint_speed_deg_s": 771.5789656075762,
+    "joint_min_deg": [
+      -59.251485877517695,
+      -51.16444383974145,
+      -81.41075430237026
+    ],
+    "joint_max_deg": [
+      4.76947036079522,
+      45.07615827267074,
+      0.4303237359624695
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 3.218758592993254e-12,
+    "maximum_sole_height_difference_mm": 2.3447910280083306e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 14.0
+  },
+  "stretch": {
+    "command": "stretch",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 805,
+    "duration_s": 6.7,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -9.027445457832073e-11,
+    "minimum_body_ground_clearance_mm": 8.052878164559562,
+    "minimum_closure_triangle_height_mm": 22.190193505055092,
+    "minimum_input_toggle_clearance_deg": 41.523010748926446,
+    "input_toggle_witness_time_and_cad_leg": [
+      3.2,
+      "RR"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.9833647107488123,
+    "peak_joint_speed_deg_s": 117.98090652981014,
+    "joint_min_deg": [
+      -4.34628169542364e-06,
+      -7.58572886487349,
+      -21.411483300722157
+    ],
+    "joint_max_deg": [
+      1.0202773276466766e-05,
+      16.869078721346145,
+      49.53582689856341
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 1.4497857983834421e-12,
+    "maximum_sole_height_difference_mm": 2.6787461138155777e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 6.2
+  },
+  "surprised": {
+    "command": "surprised",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1435,
+    "duration_s": 11.95,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -1.8562928971732617e-12,
+    "minimum_body_ground_clearance_mm": 0.0,
+    "minimum_closure_triangle_height_mm": 13.24657320062496,
+    "minimum_input_toggle_clearance_deg": 41.03679326231435,
+    "input_toggle_witness_time_and_cad_leg": [
+      0.675,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.632496470198838,
+    "peak_joint_speed_deg_s": 315.2384365848668,
+    "joint_min_deg": [
+      -83.36497780351192,
+      -31.80158052870006,
+      -36.111187145173346
+    ],
+    "joint_max_deg": [
+      5.020669840845745e-06,
+      28.589490041947503,
+      -21.075495618092013
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 3.4954080877721602e-12,
+    "maximum_sole_height_difference_mm": 2.419398015263141e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 11.45
+  },
+  "swim": {
+    "command": "swim",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 2821,
+    "duration_s": 23.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -4.781952611665474e-12,
+    "minimum_body_ground_clearance_mm": 0.0,
+    "minimum_closure_triangle_height_mm": 3.3975410463905447,
+    "minimum_input_toggle_clearance_deg": 10.873613638814158,
+    "input_toggle_witness_time_and_cad_leg": [
+      14.983333333333333,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.3712962220761122,
+    "peak_joint_speed_deg_s": 284.0236894675577,
+    "joint_min_deg": [
+      -72.68020762993889,
+      -32.787839790324696,
+      -56.9511796810008
+    ],
+    "joint_max_deg": [
+      5.020669840845745e-06,
+      46.78326343929292,
+      -15.612661237389275
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 3.088434302118486e-12,
+    "maximum_sole_height_difference_mm": 2.177813485104707e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 22.8
+  },
+  "worm": {
+    "command": "worm",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 2401,
+    "duration_s": 20.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -0.0011692967173431157,
+    "minimum_body_ground_clearance_mm": 3.2048940429429322,
+    "minimum_closure_triangle_height_mm": 15.27313030993342,
+    "minimum_input_toggle_clearance_deg": 41.92853632771123,
+    "input_toggle_witness_time_and_cad_leg": [
+      16.208333333333332,
+      "RL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 0.44902867638751465,
+    "peak_joint_speed_deg_s": 52.18728922108387,
+    "joint_min_deg": [
+      -2.1289771342221387e-05,
+      -50.797318898221846,
+      -47.83715523226325
+    ],
+    "joint_max_deg": [
+      3.7599347884564346e-05,
+      32.97095829020448,
+      -5.873387960762006
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 2.688894999986612e-12,
+    "maximum_sole_height_difference_mm": 3.360867140145274e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 20.0
+  }
+}

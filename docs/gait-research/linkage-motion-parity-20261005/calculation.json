@@ -1,0 +1,3343 @@
+{
+  "schema": "ainekio.linkage-motion-parity-study.v1",
+  "status": "Host kinematic comparison; collision correction deferred by owner; not hardware qualification",
+  "dimensions_mm": {
+    "carrier": 35.0,
+    "crank": 20.0,
+    "pickup": 28.0,
+    "rod": 38.0,
+    "lower_leg": 55.0
+  },
+  "source_sha256": {
+    "geometry.json": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+    "motion.c": "dd018e96178f469b9c42c95e079627e6c4852b0e5fb11f313287952d9a4f68fa",
+    "walk_kinematics.c": "384e31538657a8825ff0aec0d1d86d50243e940e9442855ace575660f1f279c9",
+    "servo_profile.json": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
+    "motions/locomotion/config.json": "163e8cda0a2845f568a0624452292138cc4cd4d073c859494bce272f1c4f2334",
+    "motions/locomotion/crab.json": "9a68471b894bc0f7ddfad2cd89ac4bdb925169c147fe24e75d4698eead4abf4e",
+    "motions/run/config.json": "00da71746733c1c60828cbfc143fcba00585d8cc818df51a169ce680bcef1f4c"
+  },
+  "candidate_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "binaries_sha256": {
+    "baseline": "371ed9774c955b31aada3fce6fd81fc79c34564e39868ab74565b4702f6b4e5c",
+    "candidate": "51888634b8e0455352a0193eab10ceff156ad333cb27c4367079cea200afe67f"
+  },
+  "angle_zero_policy": "Retain existing motor-angle coordinate zero, including theta=2.484925850946935 radians. CAD neutral changed; it does not silently reindex a physical servo.",
+  "clock_scope": "1,000,000 degrees/s in both host samplers releases the existing common speed clock to compare identical phase/time targets. No device settings changed.",
+  "duration_seconds_per_case": 30,
+  "sample_hz": 100,
+  "existing_reference_mapping_only": true,
+  "hardware_qualified": false,
+  "cases": [
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.020993003295700814,
+          -12.178705403356787,
+          -21.511243658868086
+        ],
+        [
+          0.020927004258288032,
+          -6.3322410587408795,
+          -19.72941122894322
+        ]
+      ],
+      "reference_pulse_range_us": [
+        707.6810510738135,
+        2592.3187971445736
+      ],
+      "independent_fk_xy_error_mm": 5.8165518332486954e-05,
+      "independent_full_sole_error_mm": [
+        0.14631737572764691,
+        0.15126610695288534
+      ],
+      "absolute_crank_range_deg": [
+        120.86452000334599,
+        122.64635243327085
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 20,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.4211922863075857,
+          -17.81496384608869,
+          -35.707621094006896
+        ],
+        [
+          0.4180594439537707,
+          7.053345110576303,
+          -0.5115265273207605
+        ]
+      ],
+      "reference_pulse_range_us": [
+        645.0559572656812,
+        2654.9435873882067
+      ],
+      "independent_fk_xy_error_mm": 5.795241231965065e-05,
+      "independent_full_sole_error_mm": [
+        0.10661779815217898,
+        0.15100943540161893
+      ],
+      "absolute_crank_range_deg": [
+        106.66814256820717,
+        141.8642371348933
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -1.0604061852714615,
+          -29.291197953729192,
+          -57.36680665014448
+        ],
+        [
+          1.0446218315465003,
+          30.90515799420936,
+          25.18431448878438
+        ]
+      ],
+      "reference_pulse_range_us": [
+        517.5422449585645,
+        2782.4574514769365
+      ],
+      "independent_fk_xy_error_mm": 5.3675514820383796e-05,
+      "independent_full_sole_error_mm": [
+        0.10544577424828105,
+        0.15102529588086355
+      ],
+      "absolute_crank_range_deg": [
+        85.00895701206959,
+        167.56007815099844
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -2.156242909651426,
+          -42.20360227769753,
+          -90.41197219417984
+        ],
+        [
+          2.0879563858715637,
+          79.53163794074253,
+          45.98146186990095
+        ]
+      ],
+      "reference_pulse_range_us": [
+        167.42253117577957,
+        3132.5774688242204
+      ],
+      "independent_fk_xy_error_mm": 4.4610663238131565e-05,
+      "independent_full_sole_error_mm": [
+        0.0841379039045882,
+        0.1510339730589081
+      ],
+      "absolute_crank_range_deg": [
+        51.96379146803423,
+        188.35722553211502
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 101,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -6.355969135923266,
+          -33.24597310581747,
+          -86.09328456352955
+        ],
+        [
+          6.773302231938073,
+          59.906790077875634,
+          54.14739015478728
+        ]
+      ],
+      "reference_pulse_range_us": [
+        227.76323026781165,
+        3084.592050705884
+      ],
+      "independent_fk_xy_error_mm": 4.872476877437748e-05,
+      "independent_full_sole_error_mm": [
+        0.07573490453277865,
+        0.15104852265777424
+      ],
+      "absolute_crank_range_deg": [
+        56.28247909868452,
+        196.52315381700134
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 150,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -7.072299739315951,
+          -35.433901263004174,
+          -92.09175476795492
+        ],
+        [
+          7.611383518622858,
+          67.90742095485435,
+          56.923097071212545
+        ]
+      ],
+      "reference_pulse_range_us": [
+        162.8270281198685,
+        3151.2417196439437
+      ],
+      "independent_fk_xy_error_mm": 5.605668440722411e-05,
+      "independent_full_sole_error_mm": [
+        0.07671912545372095,
+        0.15104436974434265
+      ],
+      "absolute_crank_range_deg": [
+        50.284008894259145,
+        199.2988607334266
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "fwd",
+      "speed_percent": 200,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -7.823490774418283,
+          -37.924898574045706,
+          -97.98463707841161
+        ],
+        [
+          8.51857009794064,
+          76.64108139375561,
+          59.165748703864324
+        ]
+      ],
+      "reference_pulse_range_us": [
+        94.2851691064318,
+        3216.718189760129
+      ],
+      "independent_fk_xy_error_mm": 4.953767270876597e-05,
+      "independent_full_sole_error_mm": [
+        0.06763945944872063,
+        0.15121711418257178
+      ],
+      "absolute_crank_range_deg": [
+        44.39112658380246,
+        201.5415123660784
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.02099196609409663,
+          -12.33905092434099,
+          -21.52038245195356
+        ],
+        [
+          0.020930791211318498,
+          -6.3447403049289965,
+          -19.733536663208287
+        ]
+      ],
+      "reference_pulse_range_us": [
+        705.899434173989,
+        2593.9943184385215
+      ],
+      "independent_fk_xy_error_mm": 6.0691094958542635e-05,
+      "independent_full_sole_error_mm": [
+        0.14600933523651438,
+        0.15130776377140887
+      ],
+      "absolute_crank_range_deg": [
+        120.8553812102605,
+        122.64222699900579
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 20,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.42069037412511406,
+          -17.762521653651124,
+          -35.800689251613484
+        ],
+        [
+          0.41803801957154757,
+          6.9114820815134035,
+          -0.622148271118032
+        ]
+      ],
+      "reference_pulse_range_us": [
+        645.6386482927653,
+        2652.4417649864326
+      ],
+      "independent_fk_xy_error_mm": 5.376421022162958e-05,
+      "independent_full_sole_error_mm": [
+        0.10654054131403257,
+        0.15121089059205728
+      ],
+      "absolute_crank_range_deg": [
+        106.57507441060059,
+        141.75361539109605
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -1.057664611373853,
+          -28.433216910903656,
+          -57.410123710185516
+        ],
+        [
+          1.0442358191369623,
+          30.67694771363057,
+          25.084265877841506
+        ]
+      ],
+      "reference_pulse_range_us": [
+        528.5705719564683,
+        2772.924632343374
+      ],
+      "independent_fk_xy_error_mm": 4.793897024057969e-05,
+      "independent_full_sole_error_mm": [
+        0.10536001117099492,
+        0.15135983778906592
+      ],
+      "absolute_crank_range_deg": [
+        84.96563995202855,
+        167.4600295400556
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -2.1357023963820616,
+          -40.27541255426594,
+          -90.71104568785076
+        ],
+        [
+          2.085517794897891,
+          78.73465731751024,
+          45.05905848288361
+        ]
+      ],
+      "reference_pulse_range_us": [
+        164.91759723693565,
+        3135.900507642786
+      ],
+      "independent_fk_xy_error_mm": 5.0401713423298133e-05,
+      "independent_full_sole_error_mm": [
+        0.08411740961555614,
+        0.15102074276341138
+      ],
+      "absolute_crank_range_deg": [
+        51.66471797436331,
+        187.43482214509768
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 101,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.4337197336995412,
+          -31.77215488667015,
+          -69.22614606839383
+        ],
+        [
+          0.43685110862937465,
+          55.23761811992665,
+          32.04135996265402
+        ]
+      ],
+      "reference_pulse_range_us": [
+        402.82059924006853,
+        2871.602694942204
+      ],
+      "independent_fk_xy_error_mm": 5.4008321399123815e-05,
+      "independent_full_sole_error_mm": [
+        0.10731969666486663,
+        0.15102001769842954
+      ],
+      "absolute_crank_range_deg": [
+        73.14961759382024,
+        174.41712362486808
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 150,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.47675814304159925,
+          -33.89566069966505,
+          -73.9375559164806
+        ],
+        [
+          0.48044815274070957,
+          61.8441800661178,
+          34.49171764812407
+        ]
+      ],
+      "reference_pulse_range_us": [
+        350.4716009279933,
+        2921.1907031144247
+      ],
+      "independent_fk_xy_error_mm": 4.7641057577152424e-05,
+      "independent_full_sole_error_mm": [
+        0.10820185520736914,
+        0.1510095959823481
+      ],
+      "absolute_crank_range_deg": [
+        68.43820774573346,
+        176.86748131033815
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "back",
+      "speed_percent": 200,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.5205883740800054,
+          -36.025450286616916,
+          -78.44168318359498
+        ],
+        [
+          0.5251667352584874,
+          68.7308139194528,
+          36.489397716177685
+        ]
+      ],
+      "reference_pulse_range_us": [
+        300.4257424045002,
+        2968.5547258020806
+      ],
+      "independent_fk_xy_error_mm": 4.681588163180095e-05,
+      "independent_full_sole_error_mm": [
+        0.10849112408219952,
+        0.1510109102469812
+      ],
+      "absolute_crank_range_deg": [
+        63.934080478619094,
+        178.86516137839175
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.05415305144780045,
+          -12.247403446068782,
+          -21.126266876445957
+        ],
+        [
+          0.0348862417276427,
+          -6.916290534698044,
+          -20.684025788113754
+        ]
+      ],
+      "reference_pulse_range_us": [
+        706.9177394881247,
+        2593.079831999703
+      ],
+      "independent_fk_xy_error_mm": 5.544630884202206e-05,
+      "independent_full_sole_error_mm": [
+        0.1448492706383565,
+        0.15137365181724594
+      ],
+      "absolute_crank_range_deg": [
+        121.24949678576812,
+        121.69173787410031
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 20,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -1.0818094368111437,
+          -13.515482706971005,
+          -22.27761820445689
+        ],
+        [
+          0.7002529250188553,
+          -5.807095134238275,
+          -19.26874229018495
+        ]
+      ],
+      "reference_pulse_range_us": [
+        692.8279699225444,
+        2607.069121893726
+      ],
+      "independent_fk_xy_error_mm": 7.21173359892191e-05,
+      "independent_full_sole_error_mm": [
+        0.10109388400063324,
+        0.15150508334576074
+      ],
+      "absolute_crank_range_deg": [
+        120.09814545775718,
+        123.10702137202912
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -2.7008599959483837,
+          -15.665120823683319,
+          -24.519231648584686
+        ],
+        [
+          1.7618282999418784,
+          -4.015550175321745,
+          -16.9981825043613
+        ]
+      ],
+      "reference_pulse_range_us": [
+        668.9431019590743,
+        2630.399378497251
+      ],
+      "independent_fk_xy_error_mm": 6.236621305788503e-05,
+      "independent_full_sole_error_mm": [
+        0.07983244324468453,
+        0.15145576504584568
+      ],
+      "absolute_crank_range_deg": [
+        117.85653201362939,
+        125.37758115785277
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -5.3928454417382214,
+          -19.534778158356776,
+          -28.29888758053112
+        ],
+        [
+          3.5627530295757643,
+          -0.9408722185476412,
+          -13.14815513341007
+        ]
+      ],
+      "reference_pulse_range_us": [
+        625.9469093515914,
+        2670.9810233417284
+      ],
+      "independent_fk_xy_error_mm": 5.20233865870523e-05,
+      "independent_full_sole_error_mm": [
+        0.07697629083777002,
+        0.1513880149689868
+      ],
+      "absolute_crank_range_deg": [
+        114.07687608168295,
+        129.227608528804
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 101,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.374876083294533,
+          -20.64428774750007,
+          -30.39299625929397
+        ],
+        [
+          3.7746246438556823,
+          9.168162922907332,
+          -10.630629367610164
+        ]
+      ],
+      "reference_pulse_range_us": [
+        613.6190250277771,
+        2686.0259569170576
+      ],
+      "independent_fk_xy_error_mm": 7.630329403696123e-05,
+      "independent_full_sole_error_mm": [
+        0.07537774335983727,
+        0.15145772826079407
+      ],
+      "absolute_crank_range_deg": [
+        111.9827674029201,
+        131.7451342946039
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 150,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.6959003103736197,
+          -22.187691933857426,
+          -31.341361195370443
+        ],
+        [
+          4.143198726943409,
+          10.251157717694706,
+          -9.649773221674462
+        ]
+      ],
+      "reference_pulse_range_us": [
+        596.4700896238064,
+        2703.117670514186
+      ],
+      "independent_fk_xy_error_mm": 7.764718160885309e-05,
+      "independent_full_sole_error_mm": [
+        0.07708669885396136,
+        0.15142190068786165
+      ],
+      "absolute_crank_range_deg": [
+        111.03440246684363,
+        132.72599044053962
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_l",
+      "speed_percent": 200,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -4.002231306441597,
+          -23.792021407623157,
+          -32.30794907612263
+        ],
+        [
+          4.561946952789552,
+          11.392550629905218,
+          -8.593361523140695
+        ]
+      ],
+      "reference_pulse_range_us": [
+        578.6442065819649,
+        2719.953935036756
+      ],
+      "independent_fk_xy_error_mm": 0.00010976346019475614,
+      "independent_full_sole_error_mm": [
+        0.08630238872925844,
+        0.15129858197069135
+      ],
+      "absolute_crank_range_deg": [
+        110.06781458609143,
+        133.78240213907338
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.054167792383397896,
+          -12.247348804516255,
+          -21.13346589587776
+        ],
+        [
+          0.0348733750919782,
+          -6.91631785544566,
+          -20.684025788113754
+        ]
+      ],
+      "reference_pulse_range_us": [
+        706.919864435798,
+        2593.081653383514
+      ],
+      "independent_fk_xy_error_mm": 5.750564295681215e-05,
+      "independent_full_sole_error_mm": [
+        0.1448550375328002,
+        0.1513545337675799
+      ],
+      "absolute_crank_range_deg": [
+        121.2422977663363,
+        121.69173787410031
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 20,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -1.0818241644047883,
+          -13.515441725820933,
+          -22.26865699631686
+        ],
+        [
+          0.7002397448868122,
+          -5.807136115388348,
+          -19.268933535475554
+        ]
+      ],
+      "reference_pulse_range_us": [
+        693.0501787436665,
+        2607.1715747313438
+      ],
+      "independent_fk_xy_error_mm": 5.750690682759796e-05,
+      "independent_full_sole_error_mm": [
+        0.10074328971165936,
+        0.15147023884291855
+      ],
+      "absolute_crank_range_deg": [
+        120.1071066658972,
+        123.10683012673852
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -2.700871308450009,
+          -15.665066182188086,
+          -24.504942892826136
+        ],
+        [
+          1.761810263975333,
+          -4.015604816834165,
+          -16.990409749114974
+        ]
+      ],
+      "reference_pulse_range_us": [
+        669.9255867253513,
+        2631.056290913201
+      ],
+      "independent_fk_xy_error_mm": 5.9502118077148225e-05,
+      "independent_full_sole_error_mm": [
+        0.07988673944821778,
+        0.15147780200073413
+      ],
+      "absolute_crank_range_deg": [
+        117.87082076938793,
+        125.3853539130991
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -5.392853979474,
+          -19.534737177206708,
+          -28.264436106328592
+        ],
+        [
+          3.5627466262739302,
+          -0.940899539306716,
+          -13.141447887664533
+        ]
+      ],
+      "reference_pulse_range_us": [
+        629.5567402190787,
+        2674.052635302297
+      ],
+      "independent_fk_xy_error_mm": 5.956276176277697e-05,
+      "independent_full_sole_error_mm": [
+        0.07756866428258036,
+        0.15103408022405063
+      ],
+      "absolute_crank_range_deg": [
+        114.11132755588548,
+        129.23431577454954
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 101,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.5211672093718893,
+          -20.64423310600484,
+          -31.738509374837413
+        ],
+        [
+          3.6872490220148495,
+          9.150691298991584,
+          -11.155420122279173
+        ]
+      ],
+      "reference_pulse_range_us": [
+        613.9735877368307,
+        2686.3803678444983
+      ],
+      "independent_fk_xy_error_mm": 7.975347014665957e-05,
+      "independent_full_sole_error_mm": [
+        0.0753580888400478,
+        0.15148447802049958
+      ],
+      "absolute_crank_range_deg": [
+        110.63725428737666,
+        131.2203435399349
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 150,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.865305223487951,
+          -22.187650952707354,
+          -32.8865344007232
+        ],
+        [
+          4.062452230579492,
+          10.234410093848604,
+          -10.181981561813494
+        ]
+      ],
+      "reference_pulse_range_us": [
+        596.8821777035645,
+        2703.5294550300814
+      ],
+      "independent_fk_xy_error_mm": 7.223821405766273e-05,
+      "independent_full_sole_error_mm": [
+        0.07539107641974852,
+        0.1513556578953299
+      ],
+      "absolute_crank_range_deg": [
+        109.48922926149086,
+        132.19378210040057
+      ]
+    },
+    {
+      "gait": "walk",
+      "direction": "turn_r",
+      "speed_percent": 200,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -4.231060999769453,
+          -23.791980426473085,
+          -34.09004105323579
+        ],
+        [
+          4.441371062051726,
+          11.360202854013941,
+          -9.201125415820496
+        ]
+      ],
+      "reference_pulse_range_us": [
+        580.0456096177688,
+        2721.355338071923
+      ],
+      "independent_fk_xy_error_mm": 0.00011502091067683295,
+      "independent_full_sole_error_mm": [
+        0.07577708465941146,
+        0.15141491119631212
+      ],
+      "absolute_crank_range_deg": [
+        108.28572260897829,
+        133.17463824639358
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "fwd",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.11152791780151314,
+          -12.397531004006973,
+          -22.110579098129605
+        ],
+        [
+          0.11162641526541776,
+          -5.968629108116183,
+          -18.92312105779529
+        ]
+      ],
+      "reference_pulse_range_us": [
+        705.2496555110337,
+        2594.7498891428545
+      ],
+      "independent_fk_xy_error_mm": 4.833176628693536e-05,
+      "independent_full_sole_error_mm": [
+        0.13530211245764573,
+        0.15123119867569024
+      ],
+      "absolute_crank_range_deg": [
+        120.26518456408446,
+        123.45264260441878
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "fwd",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -6.340731410795121,
+          -32.25638797806783,
+          -84.3254130398762
+        ],
+        [
+          6.751691940322951,
+          59.784707276732796,
+          53.99081489823455
+        ]
+      ],
+      "reference_pulse_range_us": [
+        235.0509662235978,
+        3064.9490337764023
+      ],
+      "independent_fk_xy_error_mm": 5.539011297628349e-05,
+      "independent_full_sole_error_mm": [
+        0.06153029331159132,
+        0.1510394517170024
+      ],
+      "absolute_crank_range_deg": [
+        58.050350622337874,
+        196.3665785604486
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "fwd",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -6.341109632496985,
+          -32.24720820383228,
+          -84.02429049042057
+        ],
+        [
+          6.751133145471558,
+          59.72024395162011,
+          53.991361313358745
+        ]
+      ],
+      "reference_pulse_range_us": [
+        238.39700000298927,
+        3061.6032276713395
+      ],
+      "independent_fk_xy_error_mm": 4.4425511902090875e-05,
+      "independent_full_sole_error_mm": [
+        0.04919515079018222,
+        0.15103515131872572
+      ],
+      "absolute_crank_range_deg": [
+        58.3514731717935,
+        196.3671249755728
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "back",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -9.061454636784706e-06,
+          -11.879119645997521,
+          -21.882396138355723
+        ],
+        [
+          9.2801025553731e-06,
+          -0.90374331021934,
+          -19.55782321661959
+        ]
+      ],
+      "reference_pulse_range_us": [
+        711.0097817111387,
+        2588.989914724999
+      ],
+      "independent_fk_xy_error_mm": 5.4352016626069144e-05,
+      "independent_full_sole_error_mm": [
+        0.13336630877564365,
+        0.15112795592581119
+      ],
+      "absolute_crank_range_deg": [
+        120.49336752385835,
+        122.81794044559447
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "back",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -1.0067972258885335e-05,
+          -28.58013427999433,
+          -66.91058216640685
+        ],
+        [
+          1.0185793438909118e-05,
+          53.75518020207044,
+          31.979328184594785
+        ]
+      ],
+      "reference_pulse_range_us": [
+        428.54923882281,
+        2871.450912960076
+      ],
+      "independent_fk_xy_error_mm": 4.894069024885539e-05,
+      "independent_full_sole_error_mm": [
+        0.1141857381984579,
+        0.151014951022161
+      ],
+      "absolute_crank_range_deg": [
+        75.46518149580722,
+        174.35509184680885
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "back",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -1.0285209130705799e-05,
+          -28.58391820477096,
+          -66.71960324674505
+        ],
+        [
+          1.0295386905689918e-05,
+          53.54071909235587,
+          31.956815881111016
+        ]
+      ],
+      "reference_pulse_range_us": [
+        430.671302710495,
+        2869.3289249638337
+      ],
+      "independent_fk_xy_error_mm": 5.0810725333860773e-05,
+      "independent_full_sole_error_mm": [
+        0.10939038642678867,
+        0.15100323086410228
+      ],
+      "absolute_crank_range_deg": [
+        75.65616041546902,
+        174.3325795433251
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_l",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.0708125064882609,
+          -11.740043334108154,
+          -21.13406695249719
+        ],
+        [
+          0.07093974544202634,
+          -1.6088373986177382,
+          -20.582092044897845
+        ]
+      ],
+      "reference_pulse_range_us": [
+        712.7045793170332,
+        2587.444925934535
+      ],
+      "independent_fk_xy_error_mm": 6.882458223600452e-05,
+      "independent_full_sole_error_mm": [
+        0.13181724089423572,
+        0.1508649007150593
+      ],
+      "absolute_crank_range_deg": [
+        121.24169670971688,
+        121.79367161731622
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_l",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.369611288105029,
+          -20.61275959426645,
+          -30.3737965975329
+        ],
+        [
+          3.6762733349070382,
+          9.12946307104682,
+          -11.175965331304361
+        ]
+      ],
+      "reference_pulse_range_us": [
+        613.9693378414838,
+        2685.6744298479007
+      ],
+      "independent_fk_xy_error_mm": 5.757017379437457e-05,
+      "independent_full_sole_error_mm": [
+        0.07807602446992945,
+        0.1513322439131528
+      ],
+      "absolute_crank_range_deg": [
+        112.00196706468117,
+        131.19979833090972
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_l",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.366072182900128,
+          -20.590862007804567,
+          -30.373830748453095
+        ],
+        [
+          3.663969602888875,
+          9.128001410562366,
+          -11.177317708798352
+        ]
+      ],
+      "reference_pulse_range_us": [
+        614.212644357727,
+        2685.6159937849725
+      ],
+      "independent_fk_xy_error_mm": 6.770553508061994e-05,
+      "independent_full_sole_error_mm": [
+        0.07505408164497951,
+        0.1509996302605643
+      ],
+      "absolute_crank_range_deg": [
+        112.00193291376098,
+        131.19844595341573
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_r",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.07079878607936232,
+          -11.74007065485577,
+          -21.13405329215203
+        ],
+        [
+          0.07092599168240044,
+          -1.6088100778586634,
+          -20.582064724150232
+        ]
+      ],
+      "reference_pulse_range_us": [
+        712.5547705016025,
+        2587.295268900717
+      ],
+      "independent_fk_xy_error_mm": 5.884278940726517e-05,
+      "independent_full_sole_error_mm": [
+        0.13180411281332002,
+        0.15085865898354722
+      ],
+      "absolute_crank_range_deg": [
+        121.24171037006204,
+        121.79369893806384
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_r",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.369622814050622,
+          -20.61274593392129,
+          -30.3737624466127
+        ],
+        [
+          3.676286568398641,
+          9.129476731449275,
+          -11.175965331304361
+        ]
+      ],
+      "reference_pulse_range_us": [
+        614.3252665882367,
+        2686.0305103769033
+      ],
+      "independent_fk_xy_error_mm": 6.108698870121998e-05,
+      "independent_full_sole_error_mm": [
+        0.07805803997165128,
+        0.15135286419307192
+      ],
+      "absolute_crank_range_deg": [
+        112.00200121560137,
+        131.19979833090972
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_r",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -3.3660832819577857,
+          -20.59083468705695,
+          -30.373830748453095
+        ],
+        [
+          3.6639824094925424,
+          9.12804239171244,
+          -11.177358689891127
+        ]
+      ],
+      "reference_pulse_range_us": [
+        614.3835508689154,
+        2685.7870520784104
+      ],
+      "independent_fk_xy_error_mm": 5.857263035835558e-05,
+      "independent_full_sole_error_mm": [
+        0.07508062622749734,
+        0.15101878968957294
+      ],
+      "absolute_crank_range_deg": [
+        112.00193291376098,
+        131.19840497232295
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.01709928520564151,
+          -29.370482789608655,
+          -26.7189213915447
+        ],
+        [
+          0.01705250274536549,
+          0.7727676026966527,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.6613023376817,
+        2783.338394098456
+      ],
+      "independent_fk_xy_error_mm": 4.8280011135659606e-05,
+      "independent_full_sole_error_mm": [
+        0.12711784826524308,
+        0.15089484780171603
+      ],
+      "absolute_crank_range_deg": [
+        115.65684227066937,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.8639376080685198,
+          -45.99189839898518,
+          -54.147847777438756
+        ],
+        [
+          0.8525348740529985,
+          0.7727676026966527,
+          -12.084844943782862
+        ]
+      ],
+      "reference_pulse_range_us": [
+        331.9789066779425,
+        2968.020789758195
+      ],
+      "independent_fk_xy_error_mm": 4.8280011135659606e-05,
+      "independent_full_sole_error_mm": [
+        0.0920087128892968,
+        0.1514028624654955
+      ],
+      "absolute_crank_range_deg": [
+        88.22791588477531,
+        130.29091871843121
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.8637157869997687,
+          -45.97498685059609,
+          -54.12640781362835
+        ],
+        [
+          0.8525246287654807,
+          0.7727676026966527,
+          -12.08185332091627
+        ]
+      ],
+      "reference_pulse_range_us": [
+        332.1668127711546,
+        2967.8325801011206
+      ],
+      "independent_fk_xy_error_mm": 4.8280011135659606e-05,
+      "independent_full_sole_error_mm": [
+        0.10197631762472525,
+        0.15101282392853932
+      ],
+      "absolute_crank_range_deg": [
+        88.24935584858572,
+        130.2939103412978
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.017095584963986464,
+          -29.386328828439662,
+          -26.74450728013791
+        ],
+        [
+          0.01705270118104724,
+          0.7727676026966527,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.4852352395594,
+        2783.4296150693453
+      ],
+      "independent_fk_xy_error_mm": 4.8280011135659606e-05,
+      "independent_full_sole_error_mm": [
+        0.12711784826524308,
+        0.15089484780171603
+      ],
+      "absolute_crank_range_deg": [
+        115.63125638207616,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.8606868649072986,
+          -45.324944086914904,
+          -53.75568563610187
+        ],
+        [
+          0.8520816803308994,
+          0.7727676026966527,
+          -12.384621946490029
+        ]
+      ],
+      "reference_pulse_range_us": [
+        340.07404688236716,
+        2960.61048985461
+      ],
+      "independent_fk_xy_error_mm": 5.059072793756059e-05,
+      "independent_full_sole_error_mm": [
+        0.09613382132990411,
+        0.15131851401862456
+      ],
+      "absolute_crank_range_deg": [
+        88.6200780261122,
+        129.99114171572404
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.8606855308896642,
+          -45.31275902941031,
+          -53.73654744600861
+        ],
+        [
+          0.8518622071400602,
+          0.7727676026966527,
+          -12.423676968126841
+        ]
+      ],
+      "reference_pulse_range_us": [
+        340.2862380922104,
+        2960.475100326781
+      ],
+      "independent_fk_xy_error_mm": 5.218781480920143e-05,
+      "independent_full_sole_error_mm": [
+        0.09738164591697718,
+        0.1511247565233873
+      ],
+      "absolute_crank_range_deg": [
+        88.63921621620545,
+        129.95208669408723
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.11110566003200754,
+          -29.29480429361767,
+          -26.569135343037647
+        ],
+        [
+          0.09762672860223945,
+          0.7727676026966527,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        517.9538776928475,
+        2782.497825484641
+      ],
+      "independent_fk_xy_error_mm": 5.5401067250215874e-05,
+      "independent_full_sole_error_mm": [
+        0.12711784826524308,
+        0.15100214007534352
+      ],
+      "absolute_crank_range_deg": [
+        115.80662831917643,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -5.369540836287117,
+          -39.68293462489049,
+          -39.93199064283284
+        ],
+        [
+          5.224560679642827,
+          0.7727676026966527,
+          -13.993459345102039
+        ]
+      ],
+      "reference_pulse_range_us": [
+        402.0785041678834,
+        2879.2170986815645
+      ],
+      "independent_fk_xy_error_mm": 5.1337259264983004e-05,
+      "independent_full_sole_error_mm": [
+        0.08878447197918997,
+        0.151014712886699
+      ],
+      "absolute_crank_range_deg": [
+        102.44377301938124,
+        128.38230431711202
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -5.361883340456615,
+          -39.674820360155735,
+          -39.92697045378255
+        ],
+        [
+          5.22475790135879,
+          0.7727676026966527,
+          -14.001792175875018
+        ]
+      ],
+      "reference_pulse_range_us": [
+        402.1686626649363,
+        2879.2480622057146
+      ],
+      "independent_fk_xy_error_mm": 5.645976776236239e-05,
+      "independent_full_sole_error_mm": [
+        0.08845230987900776,
+        0.1510309650832724
+      ],
+      "absolute_crank_range_deg": [
+        102.44879320843151,
+        128.37397148633906
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -0.11112354925833222,
+          -29.23801810081952,
+          -26.52320915105501
+        ],
+        [
+          0.09129676407756541,
+          0.7727676026966527,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        518.1331322131165,
+        2781.8658053130466
+      ],
+      "independent_fk_xy_error_mm": 4.9276482087634577e-05,
+      "independent_full_sole_error_mm": [
+        0.12711784826524308,
+        0.15099180131241863
+      ],
+      "absolute_crank_range_deg": [
+        115.85255451115906,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -5.369553216002849,
+          -37.46050035200603,
+          -36.91769155829707
+        ],
+        [
+          4.81344860529347,
+          0.7727676026966527,
+          -11.28160103705405
+        ]
+      ],
+      "reference_pulse_range_us": [
+        426.7722183110441,
+        2868.5717176230796
+      ],
+      "independent_fk_xy_error_mm": 5.2266469616313316e-05,
+      "independent_full_sole_error_mm": [
+        0.08879346438003542,
+        0.15102136209225847
+      ],
+      "absolute_crank_range_deg": [
+        105.458072103917,
+        131.09416262516
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -5.3618944395142725,
+          -37.463696880565685,
+          -36.91296506741257
+        ],
+        [
+          4.80846171342762,
+          0.7727676026966527,
+          -11.282803150350212
+        ]
+      ],
+      "reference_pulse_range_us": [
+        426.73670132704797,
+        2868.5717176230796
+      ],
+      "independent_fk_xy_error_mm": 6.504838682985792e-05,
+      "independent_full_sole_error_mm": [
+        0.08805682715821533,
+        0.15102331475872433
+      ],
+      "absolute_crank_range_deg": [
+        105.4627985948015,
+        131.09296051186385
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -25.59351795219045,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          -0.8515743253381448,
+          -20.26194741811094
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 5.4529991132312716e-05,
+      "independent_full_sole_error_mm": [
+        0.08148955980163208,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        122.11381624410313
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -27.805510573346922,
+          -29.357655694334554,
+          -51.55495087415881
+        ],
+        [
+          9.476309701450952e-06,
+          20.34783021674548,
+          7.7600784443530335
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.5086336015742745e-05,
+      "independent_full_sole_error_mm": [
+        0.08163120684255176,
+        0.15141253084208728
+      ],
+      "absolute_crank_range_deg": [
+        90.82081278805526,
+        150.1358421065671
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -27.80453044120392,
+          -29.357655694334554,
+          -51.53909117492534
+        ],
+        [
+          9.476309701450952e-06,
+          20.35795255708889,
+          7.734670140647972
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.1291669937493225e-05,
+      "independent_full_sole_error_mm": [
+        0.0819009251222873,
+        0.1510381774027394
+      ],
+      "absolute_crank_range_deg": [
+        90.83667248728872,
+        150.11043380286205
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -25.59353161253561,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          -0.8512874573965068,
+          -20.286126287829518
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.807864059586109e-05,
+      "independent_full_sole_error_mm": [
+        0.08162977231283719,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        122.08963737438455
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -27.805797441340122,
+          -29.357655694334554,
+          -51.59386246188496
+        ],
+        [
+          9.476309701450952e-06,
+          20.334811876180776,
+          7.608243339144552
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.250950675555032e-05,
+      "independent_full_sole_error_mm": [
+        0.08196001161537936,
+        0.1515027858566107
+      ],
+      "absolute_crank_range_deg": [
+        90.78190120032912,
+        149.98400700135863
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -27.80188032782576,
+          -29.357655694334554,
+          -51.59144457489019
+        ],
+        [
+          9.476309701450952e-06,
+          20.308174138431937,
+          7.5992548101996125
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.1291669937493225e-05,
+      "independent_full_sole_error_mm": [
+        0.08208711289571724,
+        0.15101839216169566
+      ],
+      "absolute_crank_range_deg": [
+        90.78431908732388,
+        149.9750184724137
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -25.63557825709631,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          -0.5451173976588407,
+          -20.185558582452764
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 5.198051498211953e-05,
+      "independent_full_sole_error_mm": [
+        0.08135649661434385,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        122.19020507976131
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -33.122869191266965,
+          -39.32669927858575,
+          -59.29105535460092
+        ],
+        [
+          9.476309701450952e-06,
+          34.51918866899031,
+          15.613293348267637
+        ]
+      ],
+      "reference_pulse_range_us": [
+        406.0412281422263,
+        2893.9633253176194
+      ],
+      "independent_fk_xy_error_mm": 6.824460884047312e-05,
+      "independent_full_sole_error_mm": [
+        0.08183646961860447,
+        0.15104110692517025
+      ],
+      "absolute_crank_range_deg": [
+        83.08470830761314,
+        157.9890570104817
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -33.12136996474738,
+          -39.32246456127292,
+          -59.28786565615654
+        ],
+        [
+          9.476309701450952e-06,
+          34.505241422662905,
+          15.620820216728125
+        ]
+      ],
+      "reference_pulse_range_us": [
+        406.0837270969675,
+        2893.872559692205
+      ],
+      "independent_fk_xy_error_mm": 7.45646635369468e-05,
+      "independent_full_sole_error_mm": [
+        0.08149008189463913,
+        0.15104246342194472
+      ],
+      "absolute_crank_range_deg": [
+        83.08789800605753,
+        157.9965838789422
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -25.628546577322435,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          -0.5451447184156237,
+          -20.19561262089849
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.961471717024324e-05,
+      "independent_full_sole_error_mm": [
+        0.08137130866618136,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        122.18015104131558
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -33.20037134780588,
+          -39.52103182083383,
+          -59.287742712591744
+        ],
+        [
+          9.476309701450952e-06,
+          34.50280304515039,
+          15.616735763613132
+        ]
+      ],
+      "reference_pulse_range_us": [
+        403.87742421295746,
+        2893.9587718577736
+      ],
+      "independent_fk_xy_error_mm": 5.195126578172449e-05,
+      "independent_full_sole_error_mm": [
+        0.0823288255317749,
+        0.15104277989921
+      ],
+      "absolute_crank_range_deg": [
+        83.08802094962232,
+        157.9924994258272
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -33.19556630973617,
+          -39.52573099097071,
+          -59.2840475805743
+        ],
+        [
+          9.476309701450952e-06,
+          34.49466828984059,
+          15.626830783208927
+        ]
+      ],
+      "reference_pulse_range_us": [
+        403.82521121143657,
+        2893.915665775308
+      ],
+      "independent_fk_xy_error_mm": 7.462207981578928e-05,
+      "independent_full_sole_error_mm": [
+        0.08137263680187168,
+        0.15103862731114504
+      ],
+      "absolute_crank_range_deg": [
+        83.09171608163976,
+        158.002594445423
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -25.641838125477886,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          -0.979230560925448,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.570526588310031e-05,
+      "independent_full_sole_error_mm": [
+        0.084899382853596,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -32.56009233951957,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          11.933091800817229,
+          -20.751289491031617
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.3725943541517154e-05,
+      "independent_full_sole_error_mm": [
+        0.08220247650027801,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        121.62447417118246
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -32.55947762249769,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          11.93649323501265,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.26036113765349e-05,
+      "independent_full_sole_error_mm": [
+        0.08191825599034175,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed_percent": 1,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -25.63048976614834,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          -0.9792169005459107,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.1291669937493225e-05,
+      "independent_full_sole_error_mm": [
+        0.08493660251554047,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        121.62444685043484
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed_percent": 50,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -32.65465630858811,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          11.938077838890019,
+          -20.751289491031617
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 4.6217633475009734e-05,
+      "independent_full_sole_error_mm": [
+        0.08222804265592742,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        121.62447417118246
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed_percent": 100,
+      "returncodes": [
+        0,
+        0
+      ],
+      "errors": [
+        "",
+        ""
+      ],
+      "samples": 3001,
+      "target_max_absolute_difference": {
+        "phase": 0.0,
+        "body": 0.0,
+        "euler": 0.0,
+        "feet": 0.0,
+        "grounded": 0.0,
+        "run_blend": 0.0
+      },
+      "axis_min_max_deg": [
+        [
+          -32.64545604377753,
+          -29.357655694334554,
+          -26.54088568060653
+        ],
+        [
+          9.476309701450952e-06,
+          11.936506895415103,
+          -20.75131681177923
+        ]
+      ],
+      "reference_pulse_range_us": [
+        516.803825618505,
+        2783.194960125409
+      ],
+      "independent_fk_xy_error_mm": 5.3343026408469996e-05,
+      "independent_full_sole_error_mm": [
+        0.08196584808780472,
+        0.15100871549580752
+      ],
+      "absolute_crank_range_deg": [
+        115.83487798160755,
+        121.62444685043484
+      ]
+    }
+  ],
+  "overall_axis_min_max_deg": [
+    [
+      -33.20037134780588,
+      -45.99189839898518,
+      -97.98463707841161
+    ],
+    [
+      8.51857009794064,
+      79.53163794074253,
+      59.165748703864324
+    ]
+  ],
+  "case_count": 70,
+  "successful_cases": 70,
+  "reference_pulse_range_us": [
+    94.2851691064318,
+    3216.718189760129
+  ],
+  "maximum_target_difference": 0.0,
+  "maximum_independent_fk_xy_error_mm": 0.00011502091067683295
+}

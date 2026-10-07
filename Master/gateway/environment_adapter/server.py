@@ -47,7 +47,7 @@ ADAPTER_PROTOCOL_VERSION = 1
 # A raw JPEG may be 256 KiB. Its base64 data URL needs roughly one third more
 # room while remaining below the gateway's 512 KiB bridge-frame ceiling.
 MAX_ADAPTER_JSON_MESSAGE_BYTES = 384 * 1024
-MAX_ADAPTER_BINARY_MESSAGE_BYTES = 512 * 1024
+MAX_AUDIO_UTTERANCE_MESSAGE_BYTES = 512 * 1024
 AUDIO_UTTERANCE_MAGIC = b"AIKAUD01"
 AUDIO_UTTERANCE_HEADER_BYTES = len(AUDIO_UTTERANCE_MAGIC) + 4
 MICROPHONE_LEVEL_INTERVAL_SECONDS = 0.1
@@ -95,7 +95,7 @@ def encode_audio_utterance_message(
         + metadata
         + wav
     )
-    if len(encoded) > MAX_ADAPTER_BINARY_MESSAGE_BYTES:
+    if len(encoded) > MAX_AUDIO_UTTERANCE_MESSAGE_BYTES:
         raise GatewayError("audio utterance exceeds its bridge size limit")
     return encoded
 
@@ -146,6 +146,7 @@ class EnvironmentAdapter:
         self._active_action_ids: set[str] = set()
         self._walk_update_task: asyncio.Task[None] | None = None
         self._bridge_ready = False
+        self._speech_settings_requests: dict[str, asyncio.Future[dict[str, object]]] = {}
         self._audio_utterances = AudioUtterancePlugin(
             gateway,
             self._handle_gateway_utterance,
@@ -155,6 +156,42 @@ class EnvironmentAdapter:
         gateway.subscribe_events(self._handle_gateway_event)
         gateway.subscribe_frames(self._handle_gateway_frame)
         gateway.subscribe_transcripts(self._handle_gateway_transcript)
+
+    async def speech_output_settings(self, output_target: str | None = None) -> dict[str, object]:
+        """Read/change MetaHuman's saved voice output through its existing bridge."""
+        if output_target is not None and output_target not in {"local", "robot"}:
+            raise ValueError("outputTarget must be local or robot")
+        if not self._bridge_ready or self._websocket is None:
+            raise GatewayError("Connect MetaHuman Environment Mode to choose speech output")
+        request_id = str(uuid4())
+        future = asyncio.get_running_loop().create_future()
+        self._speech_settings_requests[request_id] = future
+        message = {"type": "speech.settings", "version": ADAPTER_PROTOCOL_VERSION,
+                   "requestId": request_id}
+        if output_target is not None:
+            message["outputTarget"] = output_target
+        try:
+            if not await self._send(message):
+                raise GatewayError("MetaHuman Environment Bridge disconnected")
+            try:
+                result = await asyncio.wait_for(future, timeout=5.0)
+            except asyncio.TimeoutError as exc:
+                raise GatewayError("MetaHuman did not return speech settings; check its bridge version and connection") from exc
+            if result.get("error"):
+                raise GatewayError(str(result["error"]))
+            if result.get("outputTarget") not in {"local", "robot"}:
+                raise GatewayError("MetaHuman returned invalid speech settings")
+            return {key: result[key] for key in ("outputTarget", "username", "provider", "speechDisabled") if key in result}
+        finally:
+            self._speech_settings_requests.pop(request_id, None)
+            if not future.done():
+                future.cancel()
+
+    def _disconnect_speech_settings(self) -> None:
+        for future in self._speech_settings_requests.values():
+            if not future.done():
+                future.set_result({"error": "MetaHuman Environment Bridge disconnected"})
+        self._speech_settings_requests.clear()
 
     async def handler(self, websocket: Any) -> None:
         try:
@@ -175,6 +212,7 @@ class EnvironmentAdapter:
             return
 
         previous = self._websocket
+        self._disconnect_speech_settings()
         previous_camera_task = self._camera_delivery_task
         previous_microphone_level_task = self._microphone_level_task
         self._websocket = websocket
@@ -217,7 +255,6 @@ class EnvironmentAdapter:
                         speech = parse_speech_audio_message(
                             raw,
                             expected_session_id=self.config.session_id,
-                            max_message_bytes=MAX_ADAPTER_BINARY_MESSAGE_BYTES,
                         )
                     except ValueError:
                         await websocket.close(
@@ -241,6 +278,12 @@ class EnvironmentAdapter:
                     await self._send_feedback(accepted)
                     continue
                 message = self._decode_message(raw)
+                if message.get("type") == "speech.settings.result":
+                    request_id = message.get("requestId")
+                    future = self._speech_settings_requests.get(request_id) if isinstance(request_id, str) else None
+                    if self._websocket is websocket and future is not None and not future.done():
+                        future.set_result(message)
+                    continue
                 if message.get("type") == "environment.feedback.ack":
                     feedback_id = message.get("feedbackId")
                     if isinstance(feedback_id, str):
@@ -299,6 +342,7 @@ class EnvironmentAdapter:
         finally:
             if self._websocket is websocket:
                 self._bridge_ready = False
+                self._disconnect_speech_settings()
                 self._websocket = None
                 if self._camera_delivery_task is not None:
                     self._camera_delivery_task.cancel()
@@ -440,15 +484,19 @@ class EnvironmentAdapter:
             )
         else:
             try:
-                await asyncio.to_thread(self.receipts.begin, speech.action_id, {"robotId": robot_id})
+                epoch = robot["epoch"]
                 sequence = await self.gateway.tts_speak(
                     paced_speaker_frames(speech.pcm),
-                    robot_id=self.config.robot_id,
+                    robot_id=robot_id,
                     received_at=self.clock(),
+                    on_sequence=lambda assigned: self.receipts.dispatch(speech.action_id,
+                        {"robotId": robot_id, "epoch": epoch, "sequence": assigned,
+                         "gatewayInstance": self.gateway.instance_id, "kind": "speech"}),
                 )
                 terminal = await self.gateway.wait_terminal(
                     sequence,
-                    robot_id=self.config.robot_id,
+                    robot_id=robot_id,
+                    epoch=epoch,
                     timeout=max(5.0, speech.duration_ms / 1_000 + 5.0),
                 )
                 terminal_type = str(terminal.get("t"))
@@ -464,6 +512,7 @@ class EnvironmentAdapter:
                     command="speak",
                     sequence=sequence,
                     robot_id=robot_id,
+                    epoch=epoch,
                 )
             except (GatewayError, TimeoutError, ConnectionClosed, OSError) as error:
                 feedback = self._feedback(
@@ -662,6 +711,7 @@ class EnvironmentAdapter:
             sequence = await self._dispatch(
                 translated,
                 accepted_at,
+                robot_id=robot_id,
                 on_sequence=remember_sequence,
             )
             if action_context_key is None:
@@ -778,11 +828,12 @@ class EnvironmentAdapter:
         action: BridgeAction,
         received_at: float,
         *,
+        robot_id: str | None = None,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         if action.kind == "stop":
             return await self.gateway.estop(
-                robot_id=self.config.robot_id,
+                robot_id=robot_id,
                 received_at=received_at,
                 on_sequence=on_sequence,
             )
@@ -790,7 +841,7 @@ class EnvironmentAdapter:
             return await self.gateway.queue_intent(
                 action.name,
                 action.params,
-                robot_id=self.config.robot_id,
+                robot_id=robot_id,
                 received_at=received_at,
                 on_sequence=on_sequence,
             )
@@ -804,13 +855,13 @@ class EnvironmentAdapter:
             return await self.gateway.queue_motion_plan(
                 frames,
                 end=end,
-                robot_id=self.config.robot_id,
+                robot_id=robot_id,
                 received_at=received_at,
                 on_sequence=on_sequence,
             )
         if action.kind == "snapshot":
             return await self.gateway.request_snap(
-                robot_id=self.config.robot_id,
+                robot_id=robot_id,
                 on_sequence=on_sequence,
             )
         raise GatewayError("unsupported translated environment action")
@@ -1354,7 +1405,6 @@ class EnvironmentAdapter:
             observation["text"] = text
         if visual:
             observation["visual"] = visual
-            observation["visuals"] = [visual]
         if metadata:
             observation["metadata"] = dict(metadata)
         if feedback:
@@ -1375,15 +1425,11 @@ class EnvironmentAdapter:
                 self.config.robot_id,
                 robot if isinstance(robot, Mapping) and robot.get("connected") is True else None,
             )
-        if len(robots) != 1:
+        connected = [(robot_id, robot) for robot_id, robot in robots.items()
+                     if isinstance(robot_id, str) and isinstance(robot, Mapping) and robot.get("connected") is True]
+        if len(connected) != 1:
             return None, None
-        robot_id, robot = next(iter(robots.items()))
-        if not isinstance(robot_id, str) or not isinstance(robot, Mapping):
-            return None, None
-        return (
-            robot_id,
-            robot if robot.get("connected") is True else None,
-        )
+        return connected[0]
 
     def _camera_ready(self) -> bool:
         _, robot = self._selected_robot()
@@ -1500,9 +1546,14 @@ class EnvironmentAdapter:
             else:
                 try:
                     if row["wire"] is not None:
-                        sequence = await self.gateway.estop(robot_id=self.config.robot_id, received_at=self.clock(),
-                            on_sequence=lambda _: self.receipts.cancellation_dispatch(action_id))
-                        terminal = await self.gateway.wait_terminal(sequence, robot_id=self.config.robot_id, timeout=None)
+                        robot_id = json.loads(row["wire"])["robotId"]
+                        if json.loads(row["payload"]).get("type") == "speechAudio":
+                            sequence = await self.gateway.cancel_speech(robot_id=robot_id,
+                                on_sequence=lambda _: self.receipts.cancellation_dispatch(action_id))
+                        else:
+                            sequence = await self.gateway.estop(robot_id=robot_id, received_at=self.clock(),
+                                on_sequence=lambda _: self.receipts.cancellation_dispatch(action_id))
+                        terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, timeout=None)
                         if terminal.get("t") not in {"ack", "done"}:
                             raise GatewayError("stop did not reach its terminal acknowledgement")
                     feedback = self._feedback(action_id, "cancelled", str(request.get("reason") or "cancelled by Coordinator"))
@@ -1554,6 +1605,13 @@ class EnvironmentAdapter:
         websocket = self._websocket
         if websocket is None or websocket.closed:
             return False
+        # Older durable receipts duplicated a single image in both fields.
+        # Preserve every distinct frame, but send that image only once on replay.
+        observation = message.get("observation")
+        if isinstance(observation, dict) and observation.get("visual") and observation.get("visuals") == [observation["visual"]]:
+            message = {**message, "observation": {
+                key: value for key, value in observation.items() if key != "visuals"
+            }}
         encoded = json.dumps(message, separators=(",", ":"))
         if len(encoded.encode("utf-8")) > MAX_ADAPTER_JSON_MESSAGE_BYTES:
             raise GatewayError("environment adapter message exceeds its size limit")

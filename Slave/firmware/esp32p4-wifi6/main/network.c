@@ -27,6 +27,25 @@
 
 static atomic_bool online, manual_ap, retry, lost, initialized, ap_running;
 static atomic_bool maintenance;
+static atomic_bool portal_ready;
+static atomic_int wifi_issue;
+static portMUX_TYPE display_lock = portMUX_INITIALIZER_UNLOCKED;
+static ainekio_connection_network_t display_status;
+
+ainekio_connection_network_t ainekio_p4_network_display_status(void)
+{
+    portENTER_CRITICAL(&display_lock);
+    ainekio_connection_network_t status = display_status;
+    portEXIT_CRITICAL(&display_lock);
+    return status;
+}
+
+static void publish_display_status(const ainekio_connection_network_t *status)
+{
+    portENTER_CRITICAL(&display_lock);
+    display_status = *status;
+    portEXIT_CRITICAL(&display_lock);
+}
 #ifdef AINEKIO_C6_IMAGE_INCLUDED
 static atomic_bool update_c6;
 extern const uint8_t c6_firmware_start[] asm("_binary_c6_firmware_start");
@@ -99,12 +118,17 @@ static void event(void *arg, esp_event_base_t base, int32_t id, void *data)
         const bool was_online = atomic_exchange(&online, false);
         atomic_fetch_add(&network_generation, 1);
         atomic_store(&lost, true);
+        const unsigned reason = ((wifi_event_sta_disconnected_t *)data)->reason;
+        atomic_store(&wifi_issue, reason == WIFI_REASON_NO_AP_FOUND ? AINEKIO_SCREEN_WIFI_NOT_FOUND :
+            reason == WIFI_REASON_AUTH_FAIL || reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT ?
+            AINEKIO_SCREEN_WIFI_REJECTED : AINEKIO_SCREEN_WIFI_LOST);
         /* No motion queue, RPC or I2C is involved in loss handling. */
         if (was_online) ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
         ESP_LOGI("network", "Station disconnected reason=%u", ((wifi_event_sta_disconnected_t *)data)->reason);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         atomic_fetch_add(&network_generation, 1);
         atomic_store(&online, true);
+        atomic_store(&wifi_issue, AINEKIO_SCREEN_WIFI_UNKNOWN);
         const ip_event_got_ip_t *ip = data;
         ESP_LOGI("network", "Station IPv4=" IPSTR, IP2STR(&ip->ip_info.ip));
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_AP_STACONNECTED) {
@@ -121,9 +145,45 @@ static esp_err_t setup_ap(bool enable)
     if (result == ESP_OK) {
         atomic_store(&ap_running, enable);
         result = enable ? ainekio_p4_portal_start() : ainekio_p4_portal_stop();
+        atomic_store(&portal_ready, enable && result == ESP_OK);
         if (result != ESP_OK) ESP_LOGE("network", "Setup portal: %s", esp_err_to_name(result));
     }
     return result;
+}
+
+static void update_display_status(const ainekio_provisioning_t *provision, uint64_t now_ms)
+{
+    const int index = ainekio_p4_network_index();
+    ainekio_connection_network_t status = {
+        .wifi_online = ainekio_p4_network_online(),
+        .has_saved_wifi = provision->has_active_wifi,
+        .portal_ready = atomic_load(&portal_ready),
+        .wifi_issue = atomic_load(&wifi_issue),
+    };
+    uint64_t deadline = 0;
+    if (provision->setup_ap_running || ainekio_p4_network_setup_active())
+        status.phase = AINEKIO_SCREEN_SETUP;
+    else if (status.wifi_online) status.phase = AINEKIO_SCREEN_WIFI_ONLINE;
+    else if (provision->state == AINEKIO_PROVISION_STATE_AUTOMATIC_RETRY) {
+        status.phase = AINEKIO_SCREEN_RETRY;
+        deadline = provision->state_started_ms + AINEKIO_SETUP_AP_OFF_MS;
+    } else {
+        status.phase = AINEKIO_SCREEN_SEARCHING;
+        deadline = provision->state_started_ms + AINEKIO_WIFI_CONNECT_TIMEOUT_MS;
+    }
+    if (deadline > now_ms) status.seconds_remaining = (deadline - now_ms + 999) / 1000;
+    if (index >= 0) snprintf(status.ssid, sizeof(status.ssid), "%s",
+        ainekio_p4_boot_settings()->networks[index].ssid);
+    snprintf(status.setup_ssid, sizeof(status.setup_ssid), "%s", ap_name);
+    snprintf(status.setup_password, sizeof(status.setup_password), "%s", ap_key);
+    esp_netif_ip_info_t ip;
+    if (status.wifi_online && esp_netif_get_ip_info(station, &ip) == ESP_OK)
+        snprintf(status.address, sizeof(status.address), IPSTR, IP2STR(&ip.ip));
+    esp_netif_t *ap = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (status.portal_ready && ap && esp_netif_get_ip_info(ap, &ip) == ESP_OK)
+        snprintf(status.setup_address, sizeof(status.setup_address), IPSTR, IP2STR(&ip.ip));
+    else status.portal_ready = false;
+    publish_display_status(&status);
 }
 
 static void network_task(void *arg)
@@ -165,8 +225,12 @@ static void network_task(void *arg)
     if (result != ESP_OK) goto failed;
     atomic_store(&initialized, true);
     atomic_store(&ap_running, !has_wifi);
-    if (!has_wifi && ainekio_p4_portal_start() != ESP_OK)
-        ESP_LOGE("network", "Setup portal unavailable; serial configuration remains available");
+    if (!has_wifi) {
+        const esp_err_t portal = ainekio_p4_portal_start();
+        atomic_store(&portal_ready, portal == ESP_OK);
+        if (portal != ESP_OK)
+            ESP_LOGE("network", "Setup portal unavailable; serial configuration remains available");
+    }
     /* SDMMC initialization is not thread-safe. Hosted has finished claiming
      * slot 1 before the independent removable-card task may claim slot 0. */
     if (ainekio_p4_storage_start() != ESP_OK) ESP_LOGE("network", "Storage task could not start");
@@ -227,9 +291,11 @@ static void network_task(void *arg)
             last_connect_ms = now_ms;
             if (result != ESP_OK) ESP_LOGW("network", "Station connect: %s", esp_err_to_name(result));
         }
+        update_display_status(&provision, now_ms);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 failed:
+    publish_display_status(&(ainekio_connection_network_t){.phase=AINEKIO_SCREEN_WIFI_FAILED});
     ESP_LOGE("network", "Network initialization failed: %s; outputs disabled, console available", esp_err_to_name(result));
     vTaskDelete(NULL);
 }

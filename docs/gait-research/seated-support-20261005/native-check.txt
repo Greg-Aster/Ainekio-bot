@@ -1,0 +1,1 @@
+gestures: all twelve joints at 10373 times; maximum numeric errors: {'position': 0.48888666056973307, 'velocity': 187.27163801126528, 'acceleration': 109900.07017079124}

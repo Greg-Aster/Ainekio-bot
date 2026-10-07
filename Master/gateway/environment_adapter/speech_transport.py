@@ -11,7 +11,6 @@ from dataclasses import dataclass
 SPEECH_AUDIO_MAGIC = b"AIKSPK01"
 SPEECH_AUDIO_HEADER_BYTES = len(SPEECH_AUDIO_MAGIC) + 4
 MAX_METADATA_BYTES = 4 * 1024
-MAX_PCM_BYTES = 480_000
 PCM_FRAME_BYTES = 640
 PCM_FRAME_SECONDS = 0.020
 _IDENTIFIER = re.compile(r"^[a-zA-Z0-9_-]{1,160}$")
@@ -30,11 +29,9 @@ def parse_speech_audio_message(
     raw: bytes,
     *,
     expected_session_id: str,
-    max_message_bytes: int,
 ) -> SpeechAudioMessage:
     if (
         len(raw) < SPEECH_AUDIO_HEADER_BYTES
-        or len(raw) > max_message_bytes
         or not raw.startswith(SPEECH_AUDIO_MAGIC)
     ):
         raise ValueError("invalid robot speech frame")
@@ -69,10 +66,9 @@ def parse_speech_audio_message(
         or metadata.get("channels") != 1
         or metadata.get("frameBytes") != PCM_FRAME_BYTES
         or type(duration_ms) is not int
-        or not 1 <= duration_ms <= 15_000
+        or duration_ms <= 0
         or metadata.get("pcmBytes") != len(pcm)
         or len(pcm) == 0
-        or len(pcm) > MAX_PCM_BYTES
         or len(pcm) % PCM_FRAME_BYTES
     ):
         raise ValueError("unsupported robot speech payload")

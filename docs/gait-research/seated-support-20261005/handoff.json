@@ -1,0 +1,42 @@
+{
+  "schema": "ainekio.seated-remap-candidate.v1",
+  "candidate_archive": "seated-support-candidate.zip",
+  "candidate_archive_sha256": "31d4101f217fedcc3d40fd7fc9d6b84d0d9b8f15c9c812a63c6d13dd17187eb8",
+  "baseline_commit": "13fc3e4",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "source_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "remapped_named_motions": [
+    "sit",
+    "wave",
+    "upright"
+  ],
+  "unmigrated_named_motion_count": 20,
+  "blender_scene": "Seated Support - 35-20-28",
+  "firmware_flashed": false,
+  "hardware_qualified": false,
+  "runtime_limits_added": false,
+  "calibration_changed": false,
+  "changed_files_sha256": {
+    "Slave/software/models/v2-12servo/motions/gestures/sit/source.json": "9a3c3a415ec4ed1a0d59c2178b00cfea773fd6f9551b52b3156f801c54aaa42a",
+    "Slave/software/models/v2-12servo/motions/gestures/sit/validation.json": "8d756e00bad28f86b99bab45b7f9e3b739abf9e4dce3873daab9a5ec47c65166",
+    "Slave/software/models/v2-12servo/motions/gestures/sit/posture.json": "2b8b0f5b8f840d66ee9af9fcecbc0f895a4f70c3fd3b1434842d4d76c7910938",
+    "Slave/software/models/v2-12servo/motions/gestures/sit/manifest.json": "950b9af250e898ac96a12d482156681e1d4d027e1ca138dbda3ec94e0170810c",
+    "Slave/software/models/v2-12servo/motions/gestures/sit/schema.json": "de65e503d86ac78a4ba2e004bf92f1495dbe67b2bd61a9af25f0e2976f9fc3c1",
+    "Slave/software/models/v2-12servo/motions/gestures/sit/execution-contract.json": "22d8d6fe91942070cf074d8d00601ea49b5d33ba68341624d9459268f3fa5a34",
+    "Slave/software/models/v2-12servo/motions/gestures/wave/source.json": "fc3b062297a9aae16514f29f9834573ca242c724d41783d670f47beab052e65e",
+    "Slave/software/models/v2-12servo/motions/gestures/wave/validation.json": "0744d12b68555ec731ab4a33177b4041a551e8ed0c9d12788345fcbab4b9f68d",
+    "Slave/software/models/v2-12servo/motions/gestures/wave/posture.json": "07ae433f6394569b91581ccaede472fb1b90e1376e635f1968dc5851cf410685",
+    "Slave/software/models/v2-12servo/motions/gestures/wave/manifest.json": "d8da09f2bdf3c4ee42622d72cad915f633ee7e6a70a45b13d2b85ede80b346cb",
+    "Slave/software/models/v2-12servo/motions/gestures/wave/schema.json": "e2786dceb0d30163fdd7f2315c041d695fc8eae660384106afc4bb67aa312ae7",
+    "Slave/software/models/v2-12servo/motions/gestures/wave/execution-contract.json": "4ed67645118b849330457e70cb8084184db59601e39050e98fff7787fd0b61a0",
+    "Slave/software/models/v2-12servo/motions/gestures/upright/source.json": "0d8a382d6fff8cf569c62a1569ffed7bb50d5f2b509e8e9277a159135ad07aa0",
+    "Slave/software/models/v2-12servo/motions/gestures/upright/validation.json": "d0afcb0ae8e8b9f42cf769cb074c1e89439a3b2a1279aacc9527c0675b636dfa",
+    "Slave/software/models/v2-12servo/motions/gestures/upright/posture.json": "b9f95fbd911c2372fab5ca3b0141528df207db21a1b64bb307c47faef909d625",
+    "Slave/software/models/v2-12servo/motions/gestures/upright/manifest.json": "d3a1dfb9a0527a2659ce71b5c28b29a57ed799962313f2d4e88fa49b6312c383",
+    "Slave/software/models/v2-12servo/motions/gestures/upright/schema.json": "66704244a0604aa03f8b7473688dfe98b8342318135c38becb14c9ad5a67922e",
+    "Slave/software/models/v2-12servo/motions/gestures/upright/execution-contract.json": "3ad38ea0ba1d83f627d3fea00cf37f13a27761ec3927de58f639046296dc58dc",
+    "Slave/software/models/v2-12servo/motions/gestures/catalog.json": "6c98ea449f78da11b26e8271671eaba9e93410b9651b55b3a255fcc2fb9f8833",
+    "Slave/software/models/v2-12servo/tools/align_blender_angle_references.py": "6d1c1f1a493785e94b590724686e4b47fbf4281117956a59d6b67680730baf50",
+    "candidate-status.txt": "51b7661d306e4e9972f202a97ee13ef19985b6b226ceda26626af9072e29e42c"
+  }
+}

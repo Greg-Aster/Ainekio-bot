@@ -16,8 +16,8 @@ from gateway.environment_adapter.speech_transport import (
 )
 
 
-def speech_packet(*, session_id: str = "ainekio-01") -> bytes:
-    pcm = bytes(640)
+def speech_packet(*, session_id: str = "ainekio-01", duration_ms: int = 20) -> bytes:
+    pcm = bytes(duration_ms * 32)
     metadata = json.dumps(
         {
             "type": "audio.speech",
@@ -29,7 +29,7 @@ def speech_packet(*, session_id: str = "ainekio-01") -> bytes:
             "sampleRateHz": 16000,
             "channels": 1,
             "frameBytes": 640,
-            "durationMs": 20,
+            "durationMs": duration_ms,
             "pcmBytes": len(pcm),
         },
         separators=(",", ":"),
@@ -66,12 +66,15 @@ class FakeGateway:
             "robots": {
                 "ainekio-body": {
                     "connected": True,
+                    "epoch": 3,
                     "status": {},
                 }
             }
         }
 
     async def tts_speak(self, frames: object, **_kwargs: object) -> int:
+        async with _kwargs["on_sequence"](7):
+            pass
         self.frames = [frame async for frame in frames]  # type: ignore[union-attr]
         return 7
 
@@ -80,11 +83,19 @@ class FakeGateway:
 
 
 class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
-    def test_binary_contract_is_bounded_and_session_authenticated(self) -> None:
+    def test_long_reply_keeps_every_audio_frame(self) -> None:
+        # Exceeds the former duration, PCM and outer WebSocket cutoffs.
+        parsed = parse_speech_audio_message(
+            speech_packet(duration_ms=180_000),
+            expected_session_id="ainekio-01",
+        )
+        self.assertEqual(parsed.duration_ms, 180_000)
+        self.assertEqual(parsed.pcm, bytes(180_000 * 32))
+
+    def test_binary_contract_is_session_authenticated(self) -> None:
         parsed = parse_speech_audio_message(
             speech_packet(),
             expected_session_id="ainekio-01",
-            max_message_bytes=512 * 1024,
         )
         self.assertEqual(parsed.action_id, "speech-action-1")
         self.assertEqual(len(parsed.pcm), 640)
@@ -92,8 +103,25 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
             parse_speech_audio_message(
                 speech_packet(session_id="wrong-session"),
                 expected_session_id="ainekio-01",
-                max_message_bytes=512 * 1024,
             )
+
+    async def test_duplicate_saved_image_does_not_block_the_speech_connection(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"))
+        adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+        visual = {"dataUrl": "data:image/jpeg;base64," + base64.b64encode(bytes(256 * 1024)).decode()}
+        observation = adapter._observation(visual=visual)
+        self.assertNotIn("visuals", observation)
+        # Exercise an already-persisted receipt from before the correction.
+        envelope = {"type": "environment.observation", "observation": {
+            "id": "saved-camera", "visual": visual, "visuals": [visual],
+        }}
+        adapter.receipts.queue("saved-camera", None, envelope)
+        await adapter._replay_pending_feedback()
+        delivered = json.loads(adapter._websocket.sent[0])["observation"]
+        self.assertEqual(delivered["visual"], visual)
+        self.assertNotIn("visuals", delivered)
+        self.assertEqual(envelope["observation"]["visuals"], [visual])
 
     async def test_adapter_reuses_gateway_speaker_and_reports_completion(self) -> None:
         gateway = FakeGateway()
@@ -119,6 +147,41 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
         feedback = json.loads(websocket.sent[0])["feedback"]
         self.assertEqual(feedback["actionId"], "speech-action-1")
         self.assertEqual(feedback["type"], "completed")
+        wire = json.loads(adapter.receipts.action(speech.action_id)["wire"])
+        self.assertEqual(wire, {"robotId": "ainekio-body", "epoch": 3, "sequence": 7,
+                                "gatewayInstance": "fixture-gateway", "kind": "speech"})
+
+    async def test_cancel_before_receipt_survives_reconnect_and_blocks_late_speech(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"))
+        adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+        lease = {"bodyId": "ainekio-01", "executionId": "fixture-execution", "generation": 1}
+        await adapter._cancel_action({"actionId": "lost-speech", "cancellationId": "cancel-lost", "bodyLease": lease})
+        feedback = json.loads(adapter.receipts.action("lost-speech")["result"])
+        self.assertEqual(feedback["type"], "cancelled")
+        adapter._websocket = FakeWebSocket()
+        await adapter._recover_action_receipts()
+        await adapter._replay_pending_feedback()
+        self.assertTrue(any(json.loads(value).get("feedback", {}).get("id") == feedback["id"]
+                            for value in adapter._websocket.sent))
+        from gateway.environment_adapter.action_receipts import ActionConflictError
+        with self.assertRaises(ActionConflictError):
+            adapter.receipts.receive({"id": "lost-speech", "type": "speechAudio"},
+                adapter._feedback("lost-speech", "accepted", "accepted"))
+        self.assertEqual(adapter.gateway.frames, [])
+
+    async def test_saved_speech_recovers_its_result_without_replaying_audio(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(),
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"))
+        for restarted in (False, True):
+            action_id = f"saved-speech-{restarted}"
+            adapter.receipts.receive({"id": action_id, "type": "speechAudio"},
+                adapter._feedback(action_id, "accepted", "accepted"))
+            adapter.receipts.begin(action_id, {"robotId": "ainekio-body", "epoch": 3, "sequence": 7,
+                "gatewayInstance": "previous-gateway" if restarted else "fixture-gateway", "kind": "speech"})
+            feedback = await adapter._resume_action_receipt(adapter.receipts.action(action_id))
+            self.assertEqual(feedback["type"], "cancelled" if restarted else "completed")
+            self.assertEqual(adapter.gateway.frames, [])
 
 
 if __name__ == "__main__":

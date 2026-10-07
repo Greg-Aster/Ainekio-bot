@@ -52,6 +52,9 @@
       "$ref": "#/$defs/mic"
     },
     {
+      "$ref": "#/$defs/speaker"
+    },
+    {
       "$ref": "#/$defs/wake"
     },
     {
@@ -683,7 +686,20 @@
       "enum": [
         "QVGA",
         "VGA",
-        "XGA"
+        "XGA",
+        "960P",
+        "FHD"
+      ]
+    },
+    "cameraSnapshotResolution": {
+      "type": "string",
+      "enum": [
+        "QVGA",
+        "VGA",
+        "XGA",
+        "960P",
+        "FHD",
+        "AUTO"
       ]
     },
     "cameraStreamResolution": {
@@ -1394,7 +1410,7 @@
           "$ref": "#/$defs/cameraStreamResolution"
         },
         "snapshot_res": {
-          "$ref": "#/$defs/cameraResolution"
+          "$ref": "#/$defs/cameraSnapshotResolution"
         }
       }
     },
@@ -1414,6 +1430,30 @@
           "$ref": "#/$defs/sequence"
         }
       }
+    },
+    "speaker": {
+      "x-ainekio-message-type": "speaker",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "volume_percent"
+      ],
+      "properties": {
+        "t": {
+          "const": "speaker"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "volume_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": true
     },
     "mic": {
       "x-ainekio-message-type": "mic",
@@ -1442,6 +1482,19 @@
             "vad",
             "wake"
           ]
+        },
+        "gain_db": {
+          "type": "integer",
+          "enum": [
+            0,
+            6,
+            12,
+            18,
+            24,
+            30,
+            36,
+            42
+          ]
         }
       }
     },
@@ -1467,6 +1520,11 @@
         },
         "model": {
           "$ref": "#/$defs/assetName"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     },
@@ -1556,7 +1614,10 @@
         "t": {
           "const": "ping"
         },
-        "seq": false
+        "seq": false,
+        "audio": {
+          "$ref": "#/$defs/audioInput"
+        }
       }
     },
     "mode": {
@@ -1942,6 +2003,47 @@
           "type": "integer",
           "minimum": 0
         },
+        "camera_capture": {
+          "type": "object",
+          "required": [
+            "counter",
+            "width",
+            "height",
+            "exposure_us",
+            "gain_x16",
+            "settle_ms",
+            "settled"
+          ],
+          "properties": {
+            "counter": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "exposure_us": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gain_x16": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "settle_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "settled": {
+              "type": "boolean"
+            }
+          }
+        },
         "spk_underruns": {
           "type": "integer",
           "minimum": 0
@@ -2051,7 +2153,77 @@
         "t": {
           "const": "pong"
         },
-        "seq": false
+        "seq": false,
+        "audio": {
+          "$ref": "#/$defs/audioInput"
+        }
+      }
+    },
+    "audioInput": {
+      "type": "object",
+      "required": [
+        "on",
+        "listening",
+        "wake_enabled",
+        "gate",
+        "gain_db",
+        "wake_threshold",
+        "rms",
+        "peak"
+      ],
+      "properties": {
+        "speaker_volume_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "on": {
+          "type": "boolean"
+        },
+        "listening": {
+          "type": "boolean"
+        },
+        "wake_enabled": {
+          "type": "boolean"
+        },
+        "gate": {
+          "type": "string",
+          "enum": [
+            "open",
+            "vad",
+            "wake"
+          ]
+        },
+        "gain_db": {
+          "type": "integer",
+          "enum": [
+            0,
+            6,
+            12,
+            18,
+            24,
+            30,
+            36,
+            42
+          ]
+        },
+        "wake_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "peak": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "capturing": {
+          "type": "boolean"
+        },
+        "speaker_busy": {
+          "type": "boolean"
+        }
       }
     }
   }

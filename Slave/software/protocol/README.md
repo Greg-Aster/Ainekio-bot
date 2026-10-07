@@ -201,6 +201,37 @@ destroy the authenticated session. A real WebSocket, gateway, or Wi-Fi failure
 enters FAILSAFE/offline and starts reconnection. This keeps the home companion
 connected while preserving an action-level actuator guard.
 
+Bodies advertising `audio_input_v1` accept saved microphone gain and wake
+threshold adjustments on the existing commands:
+
+```json
+{"t":"mic","seq":40,"on":true,"gate":"wake","gain_db":36}
+{"t":"wake","seq":41,"enabled":true,"model":"ainekio","threshold":0.4}
+```
+
+`gain_db` selects ES8311 input gain from 0 through 42 dB in 6 dB steps. It is
+stored on the robot; `on` and `gate` remain connection-scoped. `threshold` is
+0..1 and is saved independently of the model manifest, quantized to 0..255.
+Omitting either field preserves its saved value. With no saved override, P4
+keeps its previous 30 dB gain and the installed model's threshold. Body Control
+shows sensitivity as `100 * (1 - threshold)`: higher sensitivity triggers more
+easily; threshold 1 (sensitivity 0) cannot be exceeded by the model.
+
+These bodies include optional `audio` telemetry on their existing ping/pong:
+
+```json
+{"t":"ping","clock_ms":12000,"audio":{"on":true,"listening":true,"gate":"wake","gain_db":36,"wake_enabled":true,"wake_threshold":0.4,"rms":0.08,"peak":0.24}}
+```
+
+Levels are normalized 0..1 and measured before VAD/wake gating, with fast attack
+and approximately one-second decay for display. No extra pre-wake PCM is sent.
+`listening` reports active microphone monitoring (false during speaker
+playback/cooldown or when off); levels are zero when not listening. Optional
+`capturing` reports an open utterance and `speaker_busy` reports playback. These
+are distinct: waiting for the wake word is listening but is not yet capturing. The dashboard uses a −60..0 dBFS
+scale and discards stale display readings. The gateway keeps these scalar
+readings separate from the existing PCM utterance/recording boundary.
+
 Wake-word preferences use a separate persistent command from the session-only
 microphone stream command:
 
@@ -242,10 +273,25 @@ the existing `cam` command:
 
 `res` selects QVGA (320×240) or VGA (640×480) preview; `fps` accepts 0–15.
 The optional `snapshot_res` selects QVGA, VGA or XGA (1024×768) for request,
-action and audio stills. Omission preserves the current still profile; its boot
-default remains VGA. Disabling the stream does not disable requested snapshots.
+action and audio stills. Omission preserves the current still profile.
+Disabling the stream does not disable requested snapshots.
 The gateway rejects `snapshot_res` before dispatch when the body has not
 advertised this feature. These profiles are runtime settings, not NVS records.
+
+Bodies additionally advertising `camera_adaptive_v1` accept `snapshot_res`
+values `960P` (1280×960 full-field), `FHD` (1920×1080 cropped), and `AUTO`.
+Adaptive P4 firmware boots with AUTO; older firmware boots with VGA. AUTO
+selects a concrete mode after metering and reports that concrete resolution
+in `cam_meta` (never AUTO). It favors binned 960p in dim light and cropped FHD
+in brighter light; select 960P for a consistent field of view. Stills allow
+longer automatic exposures and exposure settling; preview favors shorter
+exposures. The P4 README documents the selection and settling policy.
+
+Optional status `camera_capture` reports the latest emitted frame's `counter`,
+`width`, `height`, measured `exposure_us`, `gain_x16` (16 = 1×; not ISO),
+`settle_ms`, and `settled`. Preview has `settle_ms:0`; stills report whether
+settings converged before the settling budget expired. This is diagnostic
+information, not an image-quality guarantee or a robot movement condition.
 
 The P4 uses one camera task and one JPEG encoder for both outputs, at the
 existing quality 75. A queued snapshot retains the profile selected when it was
@@ -340,3 +386,13 @@ same complete `capabilities` object used in hello. The gateway replaces its
 capability snapshot after validating that status. Camera or audio readiness
 can therefore change after asynchronous initialization without reconnecting.
 This never implies that a separately deferred movement executor is ready.
+
+## Saved speaker volume (P4 body extension)
+
+A body reporting `audio.speaker_volume_percent` in ping/pong accepts
+`{"t":"speaker","seq":1,"volume_percent":50}` with the usual negotiated epoch
+and deadline. `volume_percent` is an integer from 0 (mute) to 100 (unchanged PCM).
+The command completes after the body saves and applies the value. It applies to
+both streamed speech and local audio assets, and remains set across power cycles.
+Read back the current value from heartbeat audio telemetry. Existing V1 firmware
+without that telemetry field does not implement this command.

@@ -32,6 +32,8 @@ from protocol.control_v1 import (
     CRAB_GAIT_FEATURE,
     COMMAND_DEADLINE_FEATURE,
     CAMERA_PROFILES_FEATURE,
+    CAMERA_ADAPTIVE_FEATURE,
+    AUDIO_INPUT_FEATURE,
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
     ROBOT_SETTINGS_FEATURE,
@@ -166,6 +168,8 @@ class GatewayConnection:
         self.last_command: dict[str, object] | None = None
         self.profile = service.config.profile
         self.microphone_level = 0.0
+        self.audio_input: dict[str, object] | None = None
+        self.audio_input_received_at = 0.0
         self.connected_at = service.clock()
         self.last_control_at = self.connected_at
         self.last_sent_at = self.connected_at
@@ -253,14 +257,23 @@ class GatewayConnection:
                 raise GatewayError("session sequence space exhausted")
 
             message = dict(command)
+            if message.get("t") == "speaker" and "speaker_volume_percent" not in (self.audio_input or {}):
+                raise GatewayError("body firmware does not report saved speaker volume; update the robot firmware")
             if message.get("t") == "intent" and ("forward" in message or "turn" in message):
                 if message.get("name") != "walk":
                     raise GatewayError("steering requires a walk command")
                 if self.model != "v2-12servo" or not {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE}.issubset(self.features):
                     raise GatewayError("body does not support composed steering (walk_steering_v1 required)")
+            if ((message.get("t") == "mic" and "gain_db" in message) or
+                (message.get("t") == "wake" and "threshold" in message)):
+                if AUDIO_INPUT_FEATURE not in self.features:
+                    raise GatewayError("body firmware does not support audio input adjustments")
+                validate_control_message({**message, "seq": 1})
             if message.get("t") == "cam" and "snapshot_res" in message:
                 if CAMERA_PROFILES_FEATURE not in self.features:
                     raise GatewayError("body does not support independent snapshot settings")
+                if message["snapshot_res"] in {"AUTO", "960P", "FHD"} and CAMERA_ADAPTIVE_FEATURE not in self.features:
+                    raise GatewayError("body does not support adaptive/high-resolution camera settings")
             if message.get("t") == "motion_speed" or "playback_rate" in message:
                 if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
                     raise GatewayError("body does not support saved motion speed")
@@ -328,7 +341,7 @@ class GatewayConnection:
             # rejected operator request never creates pending device work.
             capability = {
                 "cam": "camera", "snap": "camera", "mic": "microphone",
-                "wake": "wake", "tts": "speaker", "profile": "profile", "state": "power", "storage": "storage",
+                "wake": "wake", "tts": "speaker", "speaker": "speaker", "profile": "profile", "state": "power", "storage": "storage",
             }.get(message.get("t"))
             if message.get("t") == "intent":
                 capability = {"face": "display", "say": "speaker"}.get(message.get("name"))
@@ -390,11 +403,13 @@ class GatewayConnection:
         pcm_stream: Iterable[bytes] | AsyncIterable[bytes],
         *,
         received_at: float,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         async with self._speaker_lock:
             start_sequence = await self.send_command(
                 {"t": "tts", "op": "start"},
                 received_at=received_at,
+                on_sequence=on_sequence,
             )
             try:
                 await self.wait_acknowledged(
@@ -504,7 +519,7 @@ class GatewayConnection:
             return
         if not frame.known_type:
             return
-        if frame.frame_type == MIC_PCM_FRAME_TYPE:
+        if frame.frame_type == MIC_PCM_FRAME_TYPE and AUDIO_INPUT_FEATURE not in self.features:
             samples = struct.unpack("<320h", raw[5:])
             self.microphone_level = math.sqrt(
                 sum(sample * sample for sample in samples) / len(samples)
@@ -522,6 +537,10 @@ class GatewayConnection:
 
     async def _handle_control(self, message: dict[str, object]) -> None:
         message_type = message.get("t")
+        if message_type in {"ping", "pong"} and "audio" in message and AUDIO_INPUT_FEATURE in self.features:
+            self.audio_input = dict(message["audio"])
+            self.audio_input_received_at = self.service.clock()
+            self.microphone_level = float(self.audio_input["rms"]) if self.audio_input["listening"] else 0.0
         if message_type == "ping":
             await self.send_control({"t": "pong"})
             return
@@ -952,11 +971,15 @@ class GatewayService:
         on: bool,
         gate: str,
         robot_id: str | None = None,
+        gain_db: int | None = None,
     ) -> int:
-        return await self._send(
-            {"t": "mic", "on": on, "gate": gate},
-            robot_id=robot_id,
-        )
+        command = {"t": "mic", "on": on, "gate": gate}
+        if gain_db is not None:
+            command["gain_db"] = gain_db
+        return await self._send(command, robot_id=robot_id)
+
+    async def set_speaker_volume(self, *, volume_percent: int, robot_id: str | None = None) -> int:
+        return await self._send({"t": "speaker", "volume_percent": volume_percent}, robot_id=robot_id)
 
     async def set_wake_configuration(
         self,
@@ -964,11 +987,12 @@ class GatewayService:
         enabled: bool,
         model: str,
         robot_id: str | None = None,
+        threshold: float | None = None,
     ) -> int:
-        return await self._send(
-            {"t": "wake", "enabled": enabled, "model": model},
-            robot_id=robot_id,
-        )
+        command = {"t": "wake", "enabled": enabled, "model": model}
+        if threshold is not None:
+            command["threshold"] = threshold
+        return await self._send(command, robot_id=robot_id)
 
     async def set_calibration_mode(
         self,
@@ -1134,12 +1158,23 @@ class GatewayService:
         *,
         robot_id: str | None = None,
         received_at: float | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         return await connection.send_tts(
             pcm_stream,
             received_at=self.clock() if received_at is None else received_at,
+            on_sequence=on_sequence,
         )
+
+    async def cancel_speech(
+        self,
+        *,
+        robot_id: str,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
+    ) -> int:
+        return await self._send({"t": "tts", "op": "cancel"},
+            robot_id=robot_id, on_sequence=on_sequence)
 
     async def wait_terminal(
         self,
@@ -1248,7 +1283,10 @@ class GatewayService:
                     ),
                     "last_command": connection.last_command,
                     "body_clock": connection.clock_diagnostics(),
-                    "microphone_level": round(connection.microphone_level, 4),
+                    "microphone_level": round(connection.microphone_level, 6),
+                    "audio_input": connection.audio_input,
+                    "audio_input_age_ms": (round((self.clock() - connection.audio_input_received_at) * 1000)
+                                           if connection.audio_input is not None else None),
                     "status": connection.last_status,
                     "calibration": connection.last_calibration,
                     "storage": connection.last_storage,

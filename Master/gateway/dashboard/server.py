@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from gateway.security import DashboardPasswordStore, RobotTokenStore
+from gateway.environment_adapter import EnvironmentAdapter
 from gateway.hotspot import RobotHotspot
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
@@ -34,6 +35,15 @@ STATIC_FILES = {
     "/assets/dashboard.css": ("dashboard.css", "text/css; charset=utf-8", False),
     "/assets/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8", False),
 }
+# Generated from the same face definitions and C renderer used by the P4.
+# Extend the existing explicit static-file map; request paths never become
+# filesystem paths. The older monochrome body keeps its own face controls.
+for _face_file in (STATIC_ROOT / "faces").glob("*"):
+    _face_type = {".json": "application/json", ".png": "image/png", ".webp": "image/webp"}.get(_face_file.suffix)
+    if _face_type:
+        STATIC_FILES[f"/assets/faces/{_face_file.name}"] = (
+            f"faces/{_face_file.name}", _face_type, False,
+        )
 
 
 class DashboardHttpServer(ThreadingHTTPServer):
@@ -50,6 +60,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         audit_log: AuditLog | None = None,
         primary_view: str = "camera",
         hotspot: RobotHotspot | None = None,
+        environment_adapter: EnvironmentAdapter | None = None,
     ) -> None:
         if primary_view not in {"camera", "simulator"}:
             raise ValueError("primary_view must be camera or simulator")
@@ -68,6 +79,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.stop_latched = False
         self.primary_view = primary_view
         self.hotspot = hotspot if hotspot is not None else RobotHotspot()
+        self.environment_adapter = environment_adapter
         self._camera_condition = threading.Condition()
         self._camera_frames: dict[str, tuple[int, bytes]] = {}
         gateway.subscribe_frames(self._record_camera_frame)
@@ -151,12 +163,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if path == "/api/speech-output":
+            if self._require_session() is None:
+                return
+            try:
+                self._send_json(self._speech_output())
+            except GatewayError as exc:
+                self._send_json({"error": str(exc)}, status=HTTPStatus.SERVICE_UNAVAILABLE)
+            return
         if path == "/api/camera/frame":
             if self._require_session() is None:
                 return
             self._camera_frame(parsed_url.query)
             return
         self._send_json({"error": "not_found"}, status=HTTPStatus.NOT_FOUND)
+
+    def _speech_output(self, output_target: str | None = None) -> dict[str, object]:
+        adapter = self.server.environment_adapter
+        if adapter is None:
+            raise GatewayError("MetaHuman Environment Bridge is not configured")
+        return self.server.call_gateway(adapter.speech_output_settings(output_target))
 
     def _camera_frame(self, query_string: str) -> None:
         query = parse_qs(query_string, keep_blank_values=True)
@@ -261,6 +287,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _dispatch_api(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         robot_id = _optional_string(payload, "robot_id")
+        if path == "/api/speech-output":
+            target = _required_string(payload, "outputTarget")
+            if target not in {"local", "robot"}:
+                raise ValueError("outputTarget must be local or robot")
+            response = self._speech_output(target)
+            self.server.audit_log.record("speech_output_changed", output_target=target)
+            return response
         if path == "/api/settings/network":
             network = self.server.call_gateway(
                 self.server.hotspot.set_enabled(_required_bool(payload, "hotspot"))
@@ -331,21 +364,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             )
             return {"ok": True, "seq": sequence}
+        if path == "/api/speaker":
+            volume = _required_int(payload, "volume_percent")
+            if not 0 <= volume <= 100:
+                raise ValueError("volume_percent must be between 0 and 100")
+            sequence = self.server.call_gateway(
+                self.server.gateway.set_speaker_volume(volume_percent=volume, robot_id=robot_id)
+            )
+            return {"ok": True, "seq": sequence}
         if path == "/api/microphone":
+            options = {"gain_db": _required_int(payload, "gain_db")} if "gain_db" in payload else {}
             sequence = self.server.call_gateway(
                 self.server.gateway.set_microphone(
                     on=_required_bool(payload, "on"),
                     gate=_required_string(payload, "gate"),
                     robot_id=robot_id,
+                    **options,
                 )
             )
             return {"ok": True, "seq": sequence}
         if path == "/api/wake":
+            options = {"threshold": _required_number(payload, "threshold")} if "threshold" in payload else {}
             sequence = self.server.call_gateway(
                 self.server.gateway.set_wake_configuration(
                     enabled=_required_bool(payload, "enabled"),
                     model=_required_string(payload, "model"),
                     robot_id=robot_id,
+                    **options,
                 )
             )
             return {"ok": True, "seq": sequence}
@@ -638,6 +683,7 @@ def start_dashboard_server(
     audit_log: AuditLog | None = None,
     primary_view: str = "camera",
     hotspot: RobotHotspot | None = None,
+    environment_adapter: EnvironmentAdapter | None = None,
 ) -> DashboardHttpServer:
     return DashboardHttpServer(
         (host, port),
@@ -648,6 +694,7 @@ def start_dashboard_server(
         audit_log=audit_log,
         primary_view=primary_view,
         hotspot=hotspot,
+        environment_adapter=environment_adapter,
     )
 
 

@@ -1,0 +1,192 @@
+{
+  "named_library_joint_extrema": [
+    {
+      "cad_leg": "FL",
+      "axis": "h",
+      "min_deg": -72.97415477275894,
+      "max_deg": 16.696577968419216,
+      "span_deg": 89.67073274117816,
+      "minimum_witness": [
+        "celebrate",
+        4.9
+      ],
+      "maximum_witness": [
+        "dance",
+        1.95
+      ]
+    },
+    {
+      "cad_leg": "FL",
+      "axis": "alpha",
+      "min_deg": -55.7626178252906,
+      "max_deg": 55.22199783921689,
+      "span_deg": 110.98461566450749,
+      "minimum_witness": [
+        "pushup",
+        9.85
+      ],
+      "maximum_witness": [
+        "upright",
+        12.0
+      ]
+    },
+    {
+      "cad_leg": "FL",
+      "axis": "theta",
+      "min_deg": -100.52788503834604,
+      "max_deg": 50.91445529502732,
+      "span_deg": 151.44234033337335,
+      "minimum_witness": [
+        "upright",
+        20.0
+      ],
+      "maximum_witness": [
+        "lay_down",
+        0.9666666666666667
+      ]
+    },
+    {
+      "cad_leg": "FR",
+      "axis": "h",
+      "min_deg": -72.97416004367325,
+      "max_deg": 17.678209014310138,
+      "span_deg": 90.65236905798339,
+      "minimum_witness": [
+        "celebrate",
+        6.9
+      ],
+      "maximum_witness": [
+        "dance",
+        6.45
+      ]
+    },
+    {
+      "cad_leg": "FR",
+      "axis": "alpha",
+      "min_deg": -55.76262921854279,
+      "max_deg": 55.22199783921688,
+      "span_deg": 110.98462705775967,
+      "minimum_witness": [
+        "pushup",
+        5.85
+      ],
+      "maximum_witness": [
+        "upright",
+        12.0
+      ]
+    },
+    {
+      "cad_leg": "FR",
+      "axis": "theta",
+      "min_deg": -100.52788503834086,
+      "max_deg": 50.914462118477985,
+      "span_deg": 151.44234715681884,
+      "minimum_witness": [
+        "upright",
+        20.0
+      ],
+      "maximum_witness": [
+        "lay_down",
+        0.9666666666666667
+      ]
+    },
+    {
+      "cad_leg": "RL",
+      "axis": "h",
+      "min_deg": -83.36495290045777,
+      "max_deg": 13.1071066149206,
+      "span_deg": 96.47205951537836,
+      "minimum_witness": [
+        "surprised",
+        5.45
+      ],
+      "maximum_witness": [
+        "curious",
+        4.5
+      ]
+    },
+    {
+      "cad_leg": "RL",
+      "axis": "alpha",
+      "min_deg": -50.67850950617312,
+      "max_deg": 119.99999999999999,
+      "span_deg": 170.6785095061731,
+      "minimum_witness": [
+        "freaky",
+        1.5
+      ],
+      "maximum_witness": [
+        "bow",
+        2.5
+      ]
+    },
+    {
+      "cad_leg": "RL",
+      "axis": "theta",
+      "min_deg": -165.255963774845,
+      "max_deg": 78.61253243135393,
+      "span_deg": 243.86849620619893,
+      "minimum_witness": [
+        "upright",
+        19.683333333333334
+      ],
+      "maximum_witness": [
+        "bow",
+        2.5
+      ]
+    },
+    {
+      "cad_leg": "RR",
+      "axis": "h",
+      "min_deg": -83.36497780351192,
+      "max_deg": 13.107099404067952,
+      "span_deg": 96.47207720757987,
+      "minimum_witness": [
+        "surprised",
+        5.05
+      ],
+      "maximum_witness": [
+        "curious",
+        2.0
+      ]
+    },
+    {
+      "cad_leg": "RR",
+      "axis": "alpha",
+      "min_deg": -50.30581855800464,
+      "max_deg": 119.99999988468649,
+      "span_deg": 170.30581844269113,
+      "minimum_witness": [
+        "crouch",
+        2.0
+      ],
+      "maximum_witness": [
+        "bow",
+        2.5
+      ]
+    },
+    {
+      "cad_leg": "RR",
+      "axis": "theta",
+      "min_deg": -165.255963774845,
+      "max_deg": 78.61253205441709,
+      "span_deg": 243.8684958292621,
+      "minimum_witness": [
+        "upright",
+        19.683333333333334
+      ],
+      "maximum_witness": [
+        "bow",
+        2.5
+      ]
+    }
+  ],
+  "provisional_us_per_degree": 11.11111111111111,
+  "span_degrees_for_400_to_2900_us": 225.0,
+  "pulse_span_with_unchanged_provisional_profile_us": [
+    -664.1773752760555,
+    2176.333333333333
+  ],
+  "hardware_qualified": false,
+  "scope": "Reference profile screening only. No measured servo angular conversion, mounting change or saved calibration update."
+}

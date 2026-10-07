@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include "connection_screen.h"
+
+ainekio_connection_network_t ainekio_p4_network_display_status(void);
 
 int ainekio_p4_network_index(void);
 uint32_t ainekio_p4_network_generation(void);

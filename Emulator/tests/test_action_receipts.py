@@ -401,7 +401,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                     await adapter._process_environment_action(original)
                     expected = "outcome_unknown"
                 else:
-                    adapter.receipts.begin("transport", {"sequence": 9, "kind": "intent"})
+                    adapter.receipts.begin("transport", {"robotId": "body", "sequence": 9, "kind": "intent"})
                     await adapter._cancel_action({"cancellationId": "transport:cancel", "actionId": "transport",
                         "bodyLease": original["bodyLease"]})
                     expected = "cancelled"
@@ -441,7 +441,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
         adapter._websocket, adapter._bridge_ready = socket, True
         original = action("race")
         adapter.receipts.receive(original, accepted("race"))
-        adapter.receipts.begin("race", {"sequence": 1, "kind": "intent"})
+        adapter.receipts.begin("race", {"robotId": "test-body", "sequence": 1, "kind": "intent"})
         ready, release = asyncio.Event(), asyncio.Event()
         send = adapter._send_feedback
 

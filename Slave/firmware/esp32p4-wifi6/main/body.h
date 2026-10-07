@@ -18,6 +18,9 @@ esp_err_t ainekio_p4_body_home(uint64_t generation,
     const uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS]);
 esp_err_t ainekio_p4_body_move(uint64_t generation, uint8_t channel, uint16_t pulse);
 void ainekio_p4_body_pulses(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS]);
+/* Nonblocking audio cue. The existing output owner performs it while holding a
+ * pose; commanded motion owns the joints until it completes. Never arms PWM. */
+void ainekio_p4_body_listen(bool active);
 
 typedef struct {
     uint64_t connection;
@@ -29,8 +32,15 @@ typedef struct {
 typedef struct {
     uint64_t connection;
     uint32_t sequence;
-    bool moving, speed_limited, automatic_run;
+    bool moving, speed_limited, automatic_run, listening_feedback;
     float gait_cycles_s, gait_requested_cycles_s, stride_percent, requested_stride_percent;
+    /* Read-only presentation of the last successful motion sample. Display
+     * tasks consume this; the output owner never renders or transfers pixels. */
+    const char *face_command;
+    uint64_t face_elapsed_us;
+    uint32_t face_revision;
+    bool face_is_clip, face_entering;
+    size_t face_clip;
 } ainekio_p4_body_status_t;
 
 bool ainekio_p4_body_supports(const ainekio_command_t *command);
