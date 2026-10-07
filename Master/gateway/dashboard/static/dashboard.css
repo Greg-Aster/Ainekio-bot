@@ -78,8 +78,8 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
 .header-actions select { width: auto; min-width: 160px; min-height: 38px; }
 .icon-button { width: 40px; height: 40px; min-height: 40px; padding: 0; font-size: 1.3rem; }
 
-.connection-state { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.78rem; font-weight: 800; }
-.connection-state::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #7d858d; }
+.connection-state { display: inline-flex; align-items: center; gap: 0.45rem; max-width: 20rem; min-width: 0; overflow-wrap: anywhere; font-size: 0.78rem; font-weight: 800; }
+.connection-state::before { content: ""; width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: #7d858d; }
 .connection-state.online::before { background: #55ca86; }
 .connection-state.stale::before { background: #e3a43b; }
 

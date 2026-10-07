@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 import tempfile
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -87,6 +89,30 @@ class RobotHotspotTests(unittest.IsolatedAsyncioTestCase):
         await self.hotspot.set_enabled(False)
         self.execute.assert_not_awaited()
         self.assertEqual(self.env_file.read_text(), "SECRET='unchanged'\nAINEKIO_HOTSPOT=0\n")
+
+    def test_active_network_names_distinguish_hotspot_and_uplink_and_are_cached(self):
+        addresses = json.dumps([
+            {"ifname": "aineap0", "addr_info": [{"local": "10.42.77.1"}]},
+            {"ifname": "wlan0", "addr_info": [{"local": "192.168.0.88"}, {"local": "fe80::1234"}]},
+            {"ifname": "lo", "addr_info": [{"local": "127.0.0.1"}]},
+        ])
+        wireless = "phy#0\n\tInterface aineap0\n\t\tssid Ainekio-Robot\n\tInterface wlan0\n\t\tssid Home: Wi-Fi\n"
+        results = [subprocess.CompletedProcess([], 0, addresses), subprocess.CompletedProcess([], 0, wireless)]
+        with patch("gateway.hotspot.subprocess.run", side_effect=results) as execute:
+            names = self.hotspot.connection_networks()
+            self.assertEqual(names, {
+                "10.42.77.1": "Ainekio-Robot", "192.168.0.88": "Home: Wi-Fi", "fe80::1234": "Home: Wi-Fi",
+            })
+            self.assertEqual(self.hotspot.connection_networks(), names)
+            self.assertEqual(execute.call_count, 2)
+        self.execute.assert_not_awaited()
+
+    def test_network_inspection_failure_does_not_reuse_an_old_name(self):
+        self.hotspot._network_cache = {"10.42.77.1": "Old network"}
+        for failure in (FileNotFoundError(), subprocess.TimeoutExpired("ip", 1)):
+            self.hotspot._network_cache_until = 0
+            with patch("gateway.hotspot.subprocess.run", side_effect=failure):
+                self.assertEqual(self.hotspot.connection_networks(), {})
 
 
 if __name__ == "__main__":

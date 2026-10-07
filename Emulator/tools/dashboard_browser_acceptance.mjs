@@ -44,6 +44,7 @@ const statusPayload = {
   robots: {
     "ainekio-emulator-01": {
       connected: true,
+      connection_ssid: "Ainekio-Robot",
       epoch: 7,
       next_sequence: 20,
       pending: 0,
@@ -328,7 +329,16 @@ try {
     `,
   });
   await client.send("Page.navigate", { url: `http://127.0.0.1:${webPort}/` });
-  await waitFor(client, `document.readyState === "complete" && document.querySelector("#connection-state")?.textContent === "Online"`);
+  await waitFor(client, `document.readyState === "complete" && document.querySelector("#connection-state")?.textContent === "Online · Ainekio-Robot"`);
+  statusPayload.robots["ainekio-emulator-01"].connection_ssid = "CenturyLink3059";
+  await waitFor(client, `document.querySelector("#connection-state").textContent === "Online · CenturyLink3059"`);
+  statusPayload.robots["ainekio-emulator-01"].connection_state = "stale";
+  await waitFor(client, `document.querySelector("#connection-state").textContent === "Stale · CenturyLink3059" && document.querySelector("#connection-state").classList.contains("stale")`);
+  statusPayload.robots["ainekio-emulator-01"].connection_state = "online";
+  delete statusPayload.robots["ainekio-emulator-01"].connection_ssid;
+  await waitFor(client, `document.querySelector("#connection-state").textContent === "Online"`);
+  statusPayload.robots["ainekio-emulator-01"].connection_ssid = "Ainekio-Robot";
+  await waitFor(client, `document.querySelector("#connection-state").textContent === "Online · Ainekio-Robot"`);
   assert(await evaluate(client, `document.querySelector('#servo-form').elements.id.options.length === 8 && document.querySelector('#calibration-settings').hidden`), "V1 calibration was changed by the V2 UI");
 
   const emotes = await evaluate(
@@ -652,6 +662,7 @@ try {
   console.log(JSON.stringify({
     result: "passed",
     checks: [
+      "connection-header-network-and-stale-state",
       "saved-motion-speed-default-preview-readback",
       "full-emote-catalog",
       "visible-semantic-sit",
