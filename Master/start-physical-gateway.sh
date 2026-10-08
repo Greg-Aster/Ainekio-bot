@@ -10,6 +10,9 @@ case "${1:-}" in
     echo "Usage: $0 [--check | --install-service | --export-pairing FILE | --import-pairing FILE | gateway arguments]"
     echo "--check validates local prerequisites without starting services or printing credentials."
     echo "--install-service installs the existing user service for this checkout; it does not start or enable it."
+    echo "Interactive starts offer local, LAN / Wi-Fi, or Cloudflare access (10-second saved-choice timeout)."
+    echo "Set AINEKIO_DASHBOARD_CONNECTION=local|lan|cloudflare to select without prompting."
+    echo "Cloudflare uses AINEKIO_DASHBOARD_PUBLIC_URL and your existing running tunnel."
     echo "Python defaults to .venv/bin/python3; override with AINEKIO_PYTHON."
     echo "Pairing export/import shares the existing robot token and dashboard password; it starts no services."
     exit 0
@@ -187,6 +190,15 @@ if [[ -z "$advertised_host" && -n "$lan_addresses" ]]; then
   advertised_host="${lan_addresses%% *}"
 fi
 
+# Resolve and persist dashboard access only after prerequisite/duplicate checks.
+# Prompts use stderr; stdout returns values as data, never shell code.
+connection_config="$("$GATEWAY_PYTHON" -m gateway.launch_connection \
+  --data-dir "$DATA_DIR" --port "$DASHBOARD_PORT" --lan-addresses "$lan_addresses")"
+mapfile -t connection_values <<< "$connection_config"
+DASHBOARD_CONNECTION="${connection_values[0]}"
+DASHBOARD_HOST="${connection_values[1]}"
+DASHBOARD_URL="${connection_values[2]}"
+
 echo "Starting the physical Ainekio gateway."
 echo "  Gateway bind:       ${GATEWAY_HOST}:${GATEWAY_PORT}"
 if [[ -n "$advertised_host" ]]; then
@@ -195,7 +207,9 @@ if [[ -n "$advertised_host" ]]; then
 else
   echo "  Robot setup URL:    unavailable; set AINEKIO_GATEWAY_ADVERTISED_HOST"
 fi
-echo "  Local dashboard:    http://${DASHBOARD_HOST}:${DASHBOARD_PORT}/"
+echo "  Dashboard access:   ${DASHBOARD_CONNECTION} (saved for next start)"
+echo "  Open Body Control:  ${DASHBOARD_URL}"
+echo "  Dashboard bind:     ${DASHBOARD_HOST}:${DASHBOARD_PORT}"
 if [[ -n "$lan_addresses" ]]; then
   echo "  Brain LAN addresses: ${lan_addresses}"
 fi

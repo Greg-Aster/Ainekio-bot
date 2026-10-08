@@ -746,3 +746,70 @@ unbounded burst into the controller's playback queue.
 ### V2 mounting references
 
 Current P4 calibration readback separates saved per-joint mappings from recommended mounting offsets, reports `servo_profile_id` and `profile_confirmed`, and labels shaft travel unmeasured. The observed 300–2900 µs span has arithmetic midpoint 1600 µs; the selected mounting reference is 1300 µs. The panel shows the recommended model offset without overwriting restored drafts or transmitting settings automatically. Review the mapping and Save before semantic motion; after outputs are disabled, establish a known reference with Calibration Home/Move. See the [assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).
+
+### Physical gateway startup connection choice
+
+Running `Master/start-physical-gateway.sh` in a terminal asks how you will open
+Body Control: **This computer**, **LAN / Wi-Fi**, or **Cloudflare**. Press 1, 2 or
+3 and Enter, or press Enter to keep the saved choice. After 10 seconds without
+input, it uses the saved choice automatically. The first start defaults to
+**This computer**. Noninteractive/service starts use the saved choice immediately.
+
+The startup choice is stored on the gateway machine in
+`build/gateway/physical/dashboard-connection.json` (or under the configured
+`AINEKIO_GATEWAY_DATA_DIR`) and survives closing the program and rebooting.
+
+- **This computer** binds the dashboard to loopback and prints its local address.
+- **LAN / Wi-Fi** binds the dashboard to `0.0.0.0` and prints a LAN address.
+  Existing dashboard login still applies. It uses the computer's current network;
+  it does not select an SSID or change the robot's saved Wi-Fi settings.
+- **Cloudflare** binds the dashboard to loopback and prints its configured public
+  address. The existing tunnel must already be running and route that address
+  to the dashboard port. This launcher does not create or manage another tunnel.
+  Choosing Local or LAN does not disable an independently running tunnel.
+
+Configuration:
+
+```bash
+# Supply your own already-configured dashboard hostname; saved after selection.
+AINEKIO_DASHBOARD_PUBLIC_URL=https://body.example.com Master/start-physical-gateway.sh
+# Override the saved choice without prompting (also accepts lan or cloudflare).
+AINEKIO_DASHBOARD_CONNECTION=local Master/start-physical-gateway.sh
+# Optional timeout in seconds; default is 10.
+AINEKIO_DASHBOARD_CHOICE_TIMEOUT=5 Master/start-physical-gateway.sh
+```
+
+Explicit `AINEKIO_DASHBOARD_HOST` still overrides the selected listen address;
+check the printed bind address when using it. Prerequisite checks, pairing
+transfer and service installation do not prompt or rewrite the startup choice.
+No automatic browser opening or remote gateway startup is performed.
+
+The browser **Settings → Connections** controls remain available. Their saved
+addresses belong to each browser and dashboard origin; they do not overwrite
+this machine's startup default. Clicking **Save and open** persists those browser
+settings, while merely changing the dropdown does not.
+
+### Saved dashboard connections and desktop bridge settings
+
+In Body Control **Settings → Connections**, save dashboard addresses for a local
+or forwarded port, LAN/Wi-Fi, and Cloudflare. Each slot can point to any configured
+machine; none assumes a Q6A. Opening a destination uses a new tab and its normal
+login. Saved addresses belong to this browser and this dashboard origin. On
+another device or dashboard origin, configure them there too. These are address
+bookmarks, not gateway failover or task migration.
+
+A local address means the device running the browser. A LAN dashboard must be
+reachable or already forwarded. A Cloudflare dashboard address needs its own
+configured route; the existing `/robot` HTTP relay and Environment Bridge TCP
+route do not expose the dashboard. The selector does not change listeners,
+install services, create tunnels or select Wi-Fi networks.
+
+Save the stationary desktop's existing MetaHuman web address and use **Open
+desktop bridge settings**. This opens `/monitor#body-connection` on that host,
+where the MetaHuman owner chooses **This computer**, **LAN / Wi-Fi via SSH**, or
+**Remote via Cloudflare**. The desktop's own authentication and bridge lifecycle
+remain authoritative; Body Control never receives its credentials. This page
+can be reached even while the robot bridge is disconnected. MetaHuman needs the
+paired connection-selector source update; older versions open Agent Monitor
+without the new selector. Its local option means the MetaHuman host, while its
+SSH destination can be any configured machine running Body Control.

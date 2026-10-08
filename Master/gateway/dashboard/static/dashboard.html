@@ -38,6 +38,27 @@
         <button id="settings-close-button" type="button">Close settings</button>
       </div>
       <div class="settings-grid">
+        <section class="settings-card" aria-labelledby="connections-title">
+          <h3 id="connections-title">Connections</h3>
+          <p class="muted">Current Body Control: <span id="body-current-address"></span></p>
+          <form id="body-connection-form" class="password-form">
+            <label>Open Body Control through<select id="body-connection-route">
+              <option value="local">Local / forwarded port</option>
+              <option value="lan">LAN / Wi-Fi</option>
+              <option value="cloudflare">Cloudflare</option>
+            </select></label>
+            <label>Dashboard address<input id="body-connection-address" type="url" placeholder="https://your-body-control-host" required></label>
+            <p class="muted">Use any configured machine's dashboard address. A localhost address refers to this browser's device and needs Body Control or an existing forward there. LAN needs a reachable dashboard; Cloudflare needs its dashboard route configured separately from the robot and MetaHuman bridge routes.</p>
+            <button type="submit">Save and open Body Control</button>
+          </form>
+          <form id="desktop-connection-form" class="password-form">
+            <label>Stationary desktop MetaHuman address<input id="desktop-connection-address" type="url" placeholder="https://your-metahuman-host" required></label>
+            <p class="muted">Open the desktop's connection selector to choose local, LAN / Wi-Fi via SSH, or Cloudflare for its robot bridge. Sign in there as the MetaHuman owner. Its local option refers to the desktop, not this browser.</p>
+            <button type="submit">Save and open desktop bridge settings</button>
+          </form>
+          <p class="muted">Addresses are saved in this browser for this Body Control site. Opens a new tab and keeps this dashboard available. This does not start servers, create tunnels, change Wi-Fi, or move tasks between machines.</p>
+          <p id="connections-result" role="status" aria-live="polite"></p>
+        </section>
         <section class="settings-card" aria-labelledby="password-title">
           <h3 id="password-title">Body Control password</h3>
           <p class="muted">Choose the password you use to sign in. It stays the same across restarts.</p>
