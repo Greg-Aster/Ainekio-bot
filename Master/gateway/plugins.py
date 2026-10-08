@@ -343,6 +343,7 @@ class CameraAnalysis:
     completed_at: float
     result: object
     error: str | None = None
+    processing: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -385,6 +386,13 @@ class CameraFramePlugin:
         self.dropped_frames = 0
         self.stale_frames = 0
         self.errors = 0
+        self.received_frames = 0
+        self.processed_frames = 0
+        self.fresh_results = 0
+        self._started_at: float | None = None
+        self._last_received_at: float | None = None
+        self._last_queue_wait_ms: float | None = None
+        self._last_inference_ms: float | None = None
         self._queue: asyncio.Queue[_CameraInput] = asyncio.Queue(maxsize=1)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ainekio-camera")
         self._worker: asyncio.Task[None] | None = None
@@ -408,6 +416,9 @@ class CameraFramePlugin:
         ):
             return
         item = _CameraInput(robot_id, epoch, counter, received_at, payload)
+        self.received_frames += 1
+        if self._started_at is None:
+            self._started_at = self.gateway.clock()
         if self._queue.full():
             self._queue.get_nowait()
             self._queue.task_done()
@@ -435,6 +446,19 @@ class CameraFramePlugin:
             result = await asyncio.get_running_loop().run_in_executor(self._executor, callback, argument)
         return await result if inspect.isawaitable(result) else result
 
+    def metrics(self) -> dict[str, object]:
+        """Host-receipt age and throughput since the first frame, not capture latency."""
+        now = self.gateway.clock()
+        elapsed = now - self._started_at if self._started_at is not None else 0
+        return {"receivedFrames": self.received_frames, "processedFrames": self.processed_frames,
+            "freshResults": self.fresh_results, "droppedFrames": self.dropped_frames,
+            "staleFrames": self.stale_frames, "errors": self.errors,
+            "queueDepth": self._queue.qsize(), "queueWaitMs": self._last_queue_wait_ms,
+            "inferenceMs": self._last_inference_ms,
+            "observationAgeMs": (now - self._last_received_at) * 1000 if self._last_received_at is not None else None,
+            "processedFps": self.processed_frames / elapsed if elapsed > 0 else 0,
+            "freshFps": self.fresh_results / elapsed if elapsed > 0 else 0}
+
     async def _consume_frames(self) -> None:
         while True:
             frame = await self._queue.get()
@@ -442,10 +466,14 @@ class CameraFramePlugin:
                 if not self._fresh(frame):
                     self.stale_frames += 1
                     continue
+                started_at = self.gateway.clock()
+                self._last_queue_wait_ms = (started_at - frame.received_at) * 1000
                 try:
                     result = await self._call(self.consume, frame.payload)
                 except Exception as error:
                     self.errors += 1
+                    self.processed_frames += 1
+                    self._last_inference_ms = (self.gateway.clock() - started_at) * 1000
                     reason = f"{type(error).__name__}: {error}"[:240]
                     logging.getLogger(__name__).warning("Camera processing failed (%s)", reason)
                     # A timed-out frame is not a fresh observation, but its
@@ -453,16 +481,20 @@ class CameraFramePlugin:
                     if self._current(frame) and self.observe is not None:
                         await self._call(self.observe, CameraAnalysis(
                             frame.robot_id, frame.epoch, frame.counter, frame.received_at,
-                            self.gateway.clock(), None, error=reason,
+                            self.gateway.clock(), None, error=reason, processing=self.metrics(),
                         ))
                     continue
+                self.processed_frames += 1
+                self._last_inference_ms = (self.gateway.clock() - started_at) * 1000
                 if not self._fresh(frame):
                     self.stale_frames += 1
                     continue
+                self.fresh_results += 1
+                self._last_received_at = frame.received_at
                 if self.observe is not None:
                     await self._call(self.observe, CameraAnalysis(
                         frame.robot_id, frame.epoch, frame.counter, frame.received_at,
-                        self.gateway.clock(), result,
+                        self.gateway.clock(), result, processing=self.metrics(),
                     ))
             except Exception as error:
                 self.errors += 1

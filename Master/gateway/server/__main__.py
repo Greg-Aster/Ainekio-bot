@@ -144,6 +144,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--vision-url", default=os.environ.get("AINEKIO_VISION_URL"),
                         help="Configured Chat Completions endpoint (remote requires authenticated HTTPS); disabled when omitted")
     parser.add_argument("--vision-model", default=os.environ.get("AINEKIO_VISION_MODEL"))
+    parser.add_argument("--vision-yolo-weights", help="Explicit local YOLO .pt file; optional offline detector instead of the configured URL")
+    parser.add_argument("--vision-yolo-device", default="cpu")
+    parser.add_argument("--vision-yolo-image-size", type=int, default=640)
     parser.add_argument("--vision-timeout-s", type=float, default=2.0)
     parser.add_argument("--vision-max-frame-age-s", type=float, default=1.0)
     parser.add_argument(
@@ -238,14 +241,20 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
 
 async def _run_production(args: argparse.Namespace) -> None:
     adapter_token = os.environ.get("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN", "").strip()
+    yolo_weights = getattr(args, "vision_yolo_weights", None)
+    if yolo_weights and (args.vision_url or args.vision_model):
+        raise ValueError("select local YOLO weights or a vision URL/model, not both")
     if bool(args.vision_url) != bool(args.vision_model):
         raise ValueError("vision requires both --vision-url and --vision-model")
-    if args.vision_url and not adapter_token:
+    if (args.vision_url or yolo_weights) and not adapter_token:
         raise ValueError("recognition requires the authenticated Environment Bridge")
-    if args.vision_url and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
+    if (args.vision_url or yolo_weights) and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
         raise ValueError("vision frame age must be between 0.1 and 30 seconds")
     backend = VisionBackend(args.vision_url, args.vision_model,
         timeout_s=args.vision_timeout_s, api_key=os.environ.get("AINEKIO_VISION_API_KEY", "")) if args.vision_url else None
+    if yolo_weights:
+        from gateway.yolo_backend import YoloBackend
+        backend = YoloBackend(yolo_weights, device=args.vision_yolo_device, image_size=args.vision_yolo_image_size)
 
     args.data_dir.mkdir(parents=True, exist_ok=True)
     password_store = DashboardPasswordStore(args.data_dir / "dashboard-auth.json")

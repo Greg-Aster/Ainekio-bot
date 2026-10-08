@@ -295,3 +295,26 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         for value in (0, -1, float("inf"), float("nan")):
             with self.assertRaises(ValueError):
                 CameraFramePlugin(self.gateway, lambda payload: None, max_frame_age_s=value)
+
+    async def test_metrics_distinguish_processing_throughput_from_fresh_publication(self) -> None:
+        observed = []
+
+        async def consume(payload):
+            self.now += 0.25 if payload == b"1" else 1.1
+            return "candidate"
+
+        plugin = self.plugin(consume, observe=observed.append)
+        await self.frame(1)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        self.assertAlmostEqual(observed[0].processing["inferenceMs"], 250)
+        self.assertAlmostEqual(observed[0].processing["observationAgeMs"], 250)
+        await self.frame(2)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        metrics = plugin.metrics()
+        self.assertEqual(len(observed), 1, "Expired inference cannot publish an observation")
+        self.assertEqual((metrics["receivedFrames"], metrics["processedFrames"], metrics["freshResults"]), (2, 2, 1))
+        self.assertEqual(metrics["staleFrames"], 1)
+        self.assertAlmostEqual(metrics["observationAgeMs"], 1350)
+        self.assertAlmostEqual(metrics["processedFps"], 2 / 1.35)
+        self.assertAlmostEqual(metrics["freshFps"], 1 / 1.35)
+        self.assertEqual(metrics["queueDepth"], 0)

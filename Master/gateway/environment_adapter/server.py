@@ -1284,6 +1284,7 @@ class EnvironmentAdapter:
             await self._send_observation(metadata={"recognitionFailure": {
                 "robotId": robot_id, "epoch": analysis.epoch, "frameCounter": analysis.counter,
                 "gatewayInstance": self.gateway.instance_id, "reason": analysis.error,
+                **({"processing": analysis.processing} if analysis.processing is not None else {}),
             }})
             return
         if not 0 <= age < max_frame_age_s:
@@ -1297,7 +1298,8 @@ class EnvironmentAdapter:
             "timeBasis": "gateway_receipt", "observedAt": (now - timedelta(seconds=age)).isoformat(),
             "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat(),
             **analysis.result.message()}
-        await self._send_telemetry("vision.recognition", {"perception": perception})
+        await self._send_telemetry("vision.recognition", {"perception": perception,
+            **({"processing": analysis.processing} if analysis.processing is not None else {})})
 
     async def _send_observation(
         self,

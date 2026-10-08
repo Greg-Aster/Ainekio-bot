@@ -577,6 +577,33 @@ The frame-age limit must be 0.1–30 seconds and includes inference time; choose
 for the consumer's freshness needs. The URL and model must both be configured,
 and the authenticated Environment Bridge must be enabled. Omission disables
 recognition while leaving preview and correlated stills available.
+
+An optional local detector uses `--vision-yolo-weights /absolute/path/to/existing.pt`
+instead of the URL/model pair. `--vision-yolo-device` defaults to `cpu` and
+`--vision-yolo-image-size` to 640. It uses the same camera worker, freshness limit,
+`RecognitionResult`, authenticated bridge and behavior owner. Ultralytics must
+already be installed in the explicitly selected Python environment; the gateway
+does not install packages or resolve a model name into downloaded weights. Only
+detection/segmentation checkpoints are accepted. Labels come from that checkpoint's
+class map, and segmentation supplies boxes, not distance estimates. The model
+identity includes the weights SHA256. This option does not enable camera capture.
+
+The evaluated desktop checkpoint `person_yolov8m-seg.pt` supports **person only**,
+not the general COCO class set or personal identity. Offline evaluation used
+Ultralytics 8.4.36, PyTorch 2.11.0+cu130, OpenCV 4.13.0, Python 3.12.3, and an
+i9-9900K with four CPU threads (GPU unused). On the packaged public bus image,
+ten warm predictions measured median 210 ms, maximum 247 ms and 4.64 serial fps;
+peak process RSS was about 1.02 GiB. Cold library import took 68.6 seconds with
+observed filesystem waits; first prediction took 496 ms. These are desktop
+measurements, not Q6A performance, accuracy qualification or response guarantees.
+The recorded-image trial requires a preexisting isolated `YOLO_CONFIG_DIR` and
+sets `YOLO_OFFLINE=true`, `YOLO_AUTOINSTALL=false`, and `OMP_NUM_THREADS=4`.
+
+Do not activate this option on a live installation or direct its frames to a
+new inference endpoint without operator approval. For the intended split, one
+Q6A Core/Coordinator and gateway keep task ownership while an explicitly approved
+desktop endpoint supplies inference. The existing remote provider contract is
+retained; no second scheduler, takeover or desktop controller is introduced.
 `AINEKIO_VISION_API_KEY` supplies a Bearer authorization header; it is required
 for a remote service and optional for a loopback service. Remote endpoints must
 use HTTPS with normal certificate and hostname verification. Private certificate
@@ -609,6 +636,34 @@ gateway instance, frame counter, backend/model, receipt-based `observedAt` and
 explicitly excludes unmeasured sensor/transport age. Results expire from frame
 receipt, not inference completion. Recognition metadata has no image data and
 is not replayed after bridge reconnection.
+
+Recognition telemetry also carries optional `processing` diagnostics outside
+the unchanged perception-v1 payload. `CameraFramePlugin.metrics()` reports input,
+completed processing attempts, fresh results, drops, stale frames and errors;
+queue depth; latest queue/inference durations; age since host receipt of the last
+fresh processed result; and processing/fresh-result rates since the first frame.
+Failed attempts count as processed but not fresh. Fresh-result counts describe
+the camera worker, not confirmed bridge admission; they include the current result.
+These counters cover the worker, including all robot streams it subscribes to. Host-receipt age excludes
+unknown camera exposure and transport delay, and changes continuously even when
+no new frame arrives. No diagnostic count establishes a fresh observation.
+
+The opt-in paired test `perception-gateway.spec.ts` in Core launches
+`Emulator.tests.perception_harness`. It reuses the existing in-memory body and
+gateway receipt owners, rejects all Python socket connects/binds/listens, and
+accepts only explicit local weights and a recorded image. Commands cannot reach
+a physical robot through this test path. It exercises real detector output and
+Core behavior while instruction and conversation inference are deliberately
+pending. The paired Core command `tests/run-visual-control.sh GATEWAY PYTHON
+WEIGHTS BUS_JPEG OUTPUT` produces an HTML frame/steering report and correlated
+JSON traces. It translates one person cropped from the packaged public photo,
+runs actual recognition, includes target loss and expired input, and checks
+confirmed cancellation versus a missing original receipt using the production
+confirmation budget. Fresh target loss returns to the selected base motion;
+expired required feedback requests cancellation. Task selection is scripted,
+so this does not qualify unresolved language-model interpretation failures,
+natural video accuracy or physical rest. No image is sent to an LLM. See Core's
+`docs/technical/visual-control-demo.md` for exact setup and remaining gates.
 
 MetaHuman's existing Environment Bridge coalesces recognition delivery to one
 active and one newest pending result, independently of control receipts. Core
