@@ -651,6 +651,18 @@ A correlated terminal receipt establishes commanded execution outcome, not sense
 physical rest or measured servo position. Emergency Stop still sends the existing
 P4 output-disable command and can interrupt speech.
 
+Stage 2 instruction interpretation (software only) runs as finite Coordinator work
+alongside the same MetaHuman execution. The approved pending-turn policy combines
+all unanswered messages in order and attributes the response to the newest turn.
+An interpretation-origin body command carries `metadata.interpretationBody`
+(session, gateway instance, robot, epoch, last body sequence). The adapter checks
+that fence under the existing wire-send lock; manual commands and reconnects
+invalidate late proposals. Emergency Stop remains independent of interpretation.
+Owned cancellation records its Stop dispatch fence in `data.cancellationBody`,
+including unknown results, so MetaHuman can distinguish its cleanup from a later
+manual takeover. That ownership evidence never substitutes for the original
+command's terminal receipt or proves physical rest. No firmware change is needed.
+
 Before deployment, identify the actual MetaHuman/gateway/P4 versions and reconcile
 old active executions. Supervised checks must cover normal Finish with speech,
 required-feedback expiry, Stop plus original cancellation receipt, missing/late

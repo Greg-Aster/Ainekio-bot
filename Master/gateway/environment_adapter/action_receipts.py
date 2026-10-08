@@ -144,12 +144,15 @@ class ActionReceipts:
             self._lock.release()
 
     @asynccontextmanager
-    async def dispatch(self, action_id: str, wire: Mapping[str, object]) -> AsyncIterator[None]:
+    async def dispatch(self, action_id: str, wire: Mapping[str, object],
+        before_send: Callable[[], None] | None = None) -> AsyncIterator[None]:
         # This commit precedes any physical send, so a crash can never replay a
         # possibly accepted action. The following transaction fences the actual
         # bounded socket send, not merely preparation before an await.
         await asyncio.to_thread(self.begin, action_id, wire)
         async with self._wire_guard(action_id, "started"):
+            if before_send is not None:
+                before_send()
             yield
 
     def _prepare_walk_update(self, action_id: str, lease: object, context: Mapping[str, object],
@@ -188,10 +191,17 @@ class ActionReceipts:
             yield
 
     @asynccontextmanager
-    async def cancellation_dispatch(self, action_id: str, before_send: Callable[[], None] | None = None) -> AsyncIterator[None]:
+    async def cancellation_dispatch(self, action_id: str, before_send: Callable[[], None] | None = None,
+        sequence: int | None = None) -> AsyncIterator[None]:
         async with self._wire_guard(action_id, "cancelling"):
             if before_send is not None:
                 before_send()
+            if sequence is not None:
+                row = self._action(action_id)
+                wire, payload = json.loads(row["wire"]), json.loads(row["payload"])
+                wire["cancellationBody"] = [payload.get("sessionId"), wire.get("gatewayInstance"),
+                    wire.get("robotId"), wire.get("epoch"), sequence]
+                self.db.execute("UPDATE actions SET wire=?,updated=? WHERE id=?", (encoded(wire), time(), action_id))
             yield
 
     @asynccontextmanager
@@ -221,6 +231,9 @@ class ActionReceipts:
         with self.transaction():
             row = self._action(str(feedback.get("actionId", "")))
             if row and feedback["type"] != "accepted":
+                wire = json.loads(row["wire"]) if row["wire"] else {}
+                if "cancellationBody" in wire:
+                    feedback = {**feedback, "data": {**feedback.get("data", {}), "cancellationBody": wire["cancellationBody"]}}
                 previous = json.loads(row["result"]) if row["result"] else None
                 if previous and (row["state"] == "terminal" or previous["id"] == feedback["id"]):
                     # Natural completion and cancellation can race. The first

@@ -77,6 +77,45 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         await self.connection._handle_control({"t": "ack", "seq": command["seq"]})
         await asyncio.wait_for(self.adapter._walk_update_task, 1)
 
+    async def test_interpreted_command_preserves_current_dispatch_owner(self) -> None:
+        fence = [self.adapter.config.session_id, self.gateway.instance_id, "robot", 7, None]
+        await self.start(metadata={"interpretationBody": fence})
+        self.assertEqual(len(self.body.sent), 1)
+        self.assertEqual(self.connection.body_command_sequence, 1)
+
+    async def test_manual_takeover_while_interpreted_command_waits_for_send_lock(self) -> None:
+        self.original["metadata"] = {"interpretationBody": [
+            self.adapter.config.session_id, self.gateway.instance_id, "robot", 7, None]}
+        self.adapter.receipts.receive(self.original, accepted(self.original["id"]))
+        async with self.connection._send_lock:
+            task = asyncio.create_task(self.adapter._process_environment_action(self.original))
+            self.tasks.append(task)
+            await asyncio.sleep(0.02)
+            self.connection.body_command_sequence = 999  # Manual wire command won the lock.
+        await asyncio.wait_for(task, 1)
+        self.assertEqual(self.body.sent, [])
+        result = json.loads(self.adapter.receipts.action(self.original["id"])["result"])
+        self.assertIn("ended body owner or session", result["message"])
+        self.assertNotEqual(result["type"], "completed")
+
+    async def test_late_interpreted_stop_is_fenced_but_emergency_stop_remains_available(self) -> None:
+        self.connection.body_command_sequence = 999
+        stop = {**self.original, "type": "stop", "metadata": {"interpretationBody": [
+            self.adapter.config.session_id, self.gateway.instance_id, "robot", 7, None]}}
+        self.adapter.receipts.receive(stop, accepted(stop["id"]))
+        await self.adapter._process_environment_action(stop)
+        self.assertEqual(self.body.sent, [], "An obsolete LLM Stop cannot interrupt manual control")
+        await self.gateway.estop(robot_id="robot", received_at=self.now)
+        self.assertEqual(json.loads(self.body.sent[0])["t"], "stop", "Emergency Stop does not depend on inference")
+
+    async def test_reconnected_body_rejects_interpreted_command_from_old_epoch(self) -> None:
+        self.original["metadata"] = {"interpretationBody": [
+            self.adapter.config.session_id, self.gateway.instance_id, "robot", 6, None]}
+        self.adapter.receipts.receive(self.original, accepted(self.original["id"]))
+        await self.adapter._process_environment_action(self.original)
+        self.assertEqual(self.body.sent, [])
+        self.assertNotEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "completed")
+
     async def test_steering_updates_keep_original_action_and_sequence(self) -> None:
         await self.start(forward=70, turn=20)
         self.assertEqual(json.loads(self.body.sent[0])["forward"], 70)
@@ -126,7 +165,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.connection.completed[speech]["t"], "cancelled")
 
     async def test_stop_ack_without_original_terminal_is_bounded_unknown_then_late_receipt_reconciles(self) -> None:
-        await self.start()
+        await self.start(sessionId=self.adapter.config.session_id)
         with patch("gateway.environment_adapter.server.CANCELLATION_TIMEOUT_SECONDS", 0.03):
             cancel = asyncio.create_task(self.adapter._cancel_action({"actionId": self.original["id"],
                 "cancellationId": "missing-terminal", "bodyLease": self.original["bodyLease"]}))
@@ -134,7 +173,10 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
             stop = await self.sent(2)
             await self.connection._handle_control({"t": "ack", "seq": stop["seq"]})
             await asyncio.wait_for(cancel, 1)
-        self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "outcome_unknown")
+        unknown = json.loads(self.adapter.receipts.action(self.original["id"])["result"])
+        self.assertEqual(unknown["type"], "outcome_unknown")
+        self.assertEqual(unknown["data"]["cancellationBody"], [self.original["sessionId"],
+            self.gateway.instance_id, "robot", 7, stop["seq"]])
         self.assertFalse(self.tasks[0].done())
         await self.connection._handle_control({"t": "cancelled", "seq": 1, "code": "stop"})
         await self.tasks[0]
