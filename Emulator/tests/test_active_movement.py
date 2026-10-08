@@ -6,10 +6,12 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import websockets
 
+from gateway.dashboard.server import DashboardHandler
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.action_receipts import ActionConflictError, ActionReceipts
 from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
@@ -25,7 +27,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.body = FakeWebSocket()
         self.connection = GatewayConnection(self.gateway, self.body, "robot", 7,
             (BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE, WALK_STEERING_FEATURE), model="v2-12servo",
-            capabilities={"motion": True, "camera": False, "commands": ["walk", "left", "run", "stop"]})
+            capabilities={"motion": True, "camera": False, "commands": ["walk", "left", "run", "stop", "wave"]})
         self.connection.observe_body_clock({"clock_ms": 20000})
         self.gateway._connections["robot"] = self.connection
         self.adapter = EnvironmentAdapter(self.gateway, EnvironmentAdapterConfig(
@@ -76,6 +78,101 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         command = await self.sent(count)
         await self.connection._handle_control({"t": "ack", "seq": command["seq"]})
         await asyncio.wait_for(self.adapter._walk_update_task, 1)
+
+    def interpretation_body(self, sequence=None) -> list:
+        return [self.adapter.config.session_id, self.gateway.instance_id, "robot", 7, sequence]
+
+    async def complete_interpreted(self, identifier: str, command: str, fence: list) -> dict:
+        payload = {**action(identifier), "sessionId": self.adapter.config.session_id,
+            "command": command, "metadata": {"interpretationBody": fence}}
+        if command == "stop":
+            payload["type"] = "stop"
+        self.adapter.receipts.receive(payload, accepted(identifier))
+        count = len(self.body.sent) + 1
+        task = asyncio.create_task(self.adapter._process_environment_action(payload))
+        self.tasks.append(task)
+        wire = await self.sent(count)
+        await self.connection._handle_control({"t": "ack", "seq": wire["seq"]})
+        if command != "stop":
+            await self.connection._handle_control({"t": "done", "seq": wire["seq"]})
+        await asyncio.wait_for(task, 10)
+        return json.loads(self.adapter.receipts.action(identifier)["result"])
+
+    async def manual_walk(self) -> int:
+        # Exercise the actual dashboard route and service send, without opening
+        # a listening port or assigning the ownership marker in the fixture.
+        loop = asyncio.get_running_loop()
+        handler = DashboardHandler.__new__(DashboardHandler)
+        handler.server = SimpleNamespace(gateway=self.gateway, stop_latched=False,
+            audit_log=SimpleNamespace(record=lambda *args, **kwargs: None),
+            call_gateway=lambda operation: asyncio.run_coroutine_threadsafe(operation, loop).result(1))
+        result = await asyncio.to_thread(handler._dispatch_api, "/api/intent", {
+            "robot_id": "robot", "name": "walk", "params": {"dir": "fwd", "steps": 0, "speed": 40}})
+        await self.connection._handle_control({"t": "ack", "seq": result["seq"]})
+        return result["seq"]
+
+    async def test_program_wave_then_manual_takeover_rejects_old_stop_and_walk(self) -> None:
+        wave = await self.complete_interpreted("program-wave", "wave", self.interpretation_body())
+        self.assertEqual(wave["type"], "completed")
+        fence = wave["data"].get("interpretationBody")
+        self.assertEqual(fence, self.interpretation_body(1), "Correlated completion advances program ownership")
+        manual = await self.manual_walk()
+        for command in ("stop", "walk"):
+            payload = {**action("old-" + command), "command": command,
+                "sessionId": self.adapter.config.session_id, "metadata": {"interpretationBody": fence}}
+            if command == "stop":
+                payload["type"] = "stop"
+            self.adapter.receipts.receive(payload, accepted(payload["id"]))
+            await self.adapter._process_environment_action(payload)
+            result = json.loads(self.adapter.receipts.action(payload["id"])["result"])
+            self.assertNotEqual(result["type"], "completed")
+            self.assertIn("ended body owner or session", result["message"])
+            self.assertNotIn("interpretationBody", result.get("data", {}), "Rejected admission cannot claim ownership")
+        self.assertEqual(len(self.body.sent), 2, "No old Stop or movement may reach the simulated body")
+        self.assertEqual(self.connection.body_command_sequence, manual)
+
+    async def test_late_program_receipt_does_not_adopt_manual_dispatch_owner(self) -> None:
+        await self.start(sessionId=self.adapter.config.session_id,
+            metadata={"interpretationBody": self.interpretation_body()})
+        await self.manual_walk()
+        await self.connection._handle_control({"t": "cancelled", "seq": 1, "code": "replaced"})
+        await self.tasks[0]
+        result = json.loads(self.adapter.receipts.action(self.original["id"])["result"])
+        self.assertEqual(result["data"]["interpretationBody"], self.interpretation_body(1))
+        self.assertEqual(self.connection.body_command_sequence, 2)
+
+    async def test_program_ordinary_multistep_advances_correlated_dispatch_owner(self) -> None:
+        fence = self.interpretation_body()
+        for index, command in enumerate(("wave", "walk", "stop"), 1):
+            result = await self.complete_interpreted("program-" + str(index), command, fence)
+            self.assertEqual(result["type"], "completed")
+            fence = result["data"].get("interpretationBody")
+            self.assertEqual(fence, self.interpretation_body(index))
+        self.assertEqual(len(self.body.sent), 3)
+
+    async def test_program_receipt_recovery_keeps_owned_fence_after_manual_takeover_and_reconnect(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.adapter.receipts.close()
+            receipt_path = str(Path(directory) / "receipts.sqlite")
+            self.adapter.receipts = ActionReceipts(receipt_path)
+            wave = await self.complete_interpreted("program-wave", "wave", self.interpretation_body())
+            fence = wave["data"].get("interpretationBody")
+            self.assertEqual(fence, self.interpretation_body(1))
+            await self.manual_walk()
+            self.adapter.receipts.close()
+            self.adapter.receipts = ActionReceipts(receipt_path)
+            # Adapter receipt recovery / bridge reconnect must replay its own
+            # recorded dispatch, never adopt the current manual body's sequence.
+            await self.adapter._recover_action_receipts()
+            saved = json.loads(self.adapter.receipts.action("program-wave")["result"])
+            self.assertEqual(saved["data"]["interpretationBody"], fence)
+            for epoch in (7, 8):
+                self.connection.epoch = epoch
+                payload = {**action("old-after-recovery-" + str(epoch)), "type": "stop",
+                    "sessionId": self.adapter.config.session_id, "metadata": {"interpretationBody": fence}}
+                self.adapter.receipts.receive(payload, accepted(payload["id"]))
+                await self.adapter._process_environment_action(payload)
+                self.assertEqual(len(self.body.sent), 2)
 
     async def test_interpreted_command_preserves_current_dispatch_owner(self) -> None:
         fence = [self.adapter.config.session_id, self.gateway.instance_id, "robot", 7, None]
@@ -177,6 +274,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(unknown["type"], "outcome_unknown")
         self.assertEqual(unknown["data"]["cancellationBody"], [self.original["sessionId"],
             self.gateway.instance_id, "robot", 7, stop["seq"]])
+        self.assertEqual(unknown["data"]["interpretationBody"], unknown["data"]["cancellationBody"])
         self.assertFalse(self.tasks[0].done())
         await self.connection._handle_control({"t": "cancelled", "seq": 1, "code": "stop"})
         await self.tasks[0]

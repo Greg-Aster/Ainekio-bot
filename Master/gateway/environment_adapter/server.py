@@ -692,7 +692,8 @@ class EnvironmentAdapter:
             if receipt is not None:
                 return self.receipts.dispatch(action_id, {"sequence": assigned_sequence, "robotId": robot_id,
                     "epoch": robot_epoch, "kind": translated.kind, "gatewayInstance": self.gateway.instance_id},
-                    check_interpretation_owner)
+                    check_interpretation_owner, body_command=(translated.kind in {"stop", "motion_plan"}
+                        or translated.kind == "intent" and translated.name not in {"face", "say"}))
 
         if translated.kind == "motion_plan":
             frames = translated.params.get("frames")

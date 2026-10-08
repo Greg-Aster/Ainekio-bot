@@ -145,7 +145,7 @@ class ActionReceipts:
 
     @asynccontextmanager
     async def dispatch(self, action_id: str, wire: Mapping[str, object],
-        before_send: Callable[[], None] | None = None) -> AsyncIterator[None]:
+        before_send: Callable[[], None] | None = None, *, body_command: bool = False) -> AsyncIterator[None]:
         # This commit precedes any physical send, so a crash can never replay a
         # possibly accepted action. The following transaction fences the actual
         # bounded socket send, not merely preparation before an await.
@@ -153,6 +153,16 @@ class ActionReceipts:
         async with self._wire_guard(action_id, "started"):
             if before_send is not None:
                 before_send()
+            if body_command:
+                row = self._action(action_id)
+                saved, payload = json.loads(row["wire"]), json.loads(row["payload"])
+                if isinstance(payload.get("sessionId"), str):
+                    # Capture only this admitted dispatch, while both the wire
+                    # lock and receipt guard are held. Never sample a newer
+                    # manual command when its delayed terminal receipt arrives.
+                    saved["interpretationBody"] = [payload["sessionId"], saved.get("gatewayInstance"),
+                        saved.get("robotId"), saved.get("epoch"), saved.get("sequence")]
+                    self.db.execute("UPDATE actions SET wire=?,updated=? WHERE id=?", (encoded(saved), time(), action_id))
             yield
 
     def _prepare_walk_update(self, action_id: str, lease: object, context: Mapping[str, object],
@@ -201,6 +211,7 @@ class ActionReceipts:
                 wire, payload = json.loads(row["wire"]), json.loads(row["payload"])
                 wire["cancellationBody"] = [payload.get("sessionId"), wire.get("gatewayInstance"),
                     wire.get("robotId"), wire.get("epoch"), sequence]
+                wire["interpretationBody"] = wire["cancellationBody"]
                 self.db.execute("UPDATE actions SET wire=?,updated=? WHERE id=?", (encoded(wire), time(), action_id))
             yield
 
@@ -232,8 +243,9 @@ class ActionReceipts:
             row = self._action(str(feedback.get("actionId", "")))
             if row and feedback["type"] != "accepted":
                 wire = json.loads(row["wire"]) if row["wire"] else {}
-                if "cancellationBody" in wire:
-                    feedback = {**feedback, "data": {**feedback.get("data", {}), "cancellationBody": wire["cancellationBody"]}}
+                for evidence in ("cancellationBody", "interpretationBody"):
+                    if evidence in wire:
+                        feedback = {**feedback, "data": {**feedback.get("data", {}), evidence: wire[evidence]}}
                 previous = json.loads(row["result"]) if row["result"] else None
                 if previous and (row["state"] == "terminal" or previous["id"] == feedback["id"]):
                     # Natural completion and cancellation can race. The first
