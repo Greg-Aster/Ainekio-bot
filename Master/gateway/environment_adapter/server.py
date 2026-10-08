@@ -664,6 +664,17 @@ class EnvironmentAdapter:
         action_context_key: tuple[str, int, int] | None = None
         recorded_sequence: int | None = None
         receipt = await asyncio.to_thread(self.receipts.action, action_id) if isinstance(action_id, str) else None
+        def check_interpretation_owner():
+            metadata = action.get("metadata")
+            fence = metadata.get("interpretationBody") if isinstance(metadata, Mapping) else None
+            if fence is None or translated.kind in {"snapshot", "speech"}:
+                return
+            current = self.gateway.status().get("robots", {}).get(robot_id, {})
+            expected = [self.config.session_id, self.gateway.instance_id, robot_id,
+                current.get("epoch"), current.get("body_command_sequence")]
+            if fence != expected:
+                raise GatewayError("instruction interpretation belongs to an ended body owner or session")
+
         def remember_sequence(assigned_sequence: int):
             nonlocal action_context_key, recorded_sequence
             if recorded_sequence == assigned_sequence:
@@ -680,7 +691,8 @@ class EnvironmentAdapter:
                 self._remember_bounded(self._robot_action_contexts, action_context_key, snapshot_context)
             if receipt is not None:
                 return self.receipts.dispatch(action_id, {"sequence": assigned_sequence, "robotId": robot_id,
-                    "epoch": robot_epoch, "kind": translated.kind, "gatewayInstance": self.gateway.instance_id})
+                    "epoch": robot_epoch, "kind": translated.kind, "gatewayInstance": self.gateway.instance_id},
+                    check_interpretation_owner)
 
         if translated.kind == "motion_plan":
             frames = translated.params.get("frames")
@@ -1582,7 +1594,8 @@ class EnvironmentAdapter:
                         async with asyncio.timeout(CANCELLATION_TIMEOUT_SECONDS):
                             # The receipt owner and the wire fence are checked while
                             # holding the same send lock as dashboard/manual commands.
-                            guard = lambda _: self.receipts.cancellation_dispatch(action_id, before_send)
+                            guard = lambda sequence: self.receipts.cancellation_dispatch(action_id, before_send,
+                                sequence=None if speech else sequence)
                             if speech:
                                 await self.gateway.cancel_speech(robot_id=robot_id, on_sequence=guard)
                             elif wire.get("kind") != "snapshot":
