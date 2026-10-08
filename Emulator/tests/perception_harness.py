@@ -46,18 +46,27 @@ class PerceptionBody(ProgramBody):
         assert self.fixture.connection.websocket is self.fixture.body
         import cv2
         self.cv2 = cv2
-        self.image = cv2.imread(str(Path(os.environ["AINEKIO_RECORDED_IMAGE"]).resolve(strict=True)))
-        if self.image is None:
-            raise ValueError("Recorded image could not be decoded")
+        self.video = None
+        video_path = os.environ.get('AINEKIO_RECORDED_VIDEO')
+        self.source = Path(video_path or os.environ['AINEKIO_RECORDED_IMAGE']).resolve(strict=True)
+        if video_path:
+            self.video = cv2.VideoCapture(str(self.source))
+            if not self.video.isOpened():
+                raise ValueError('Recorded video could not be decoded')
+            self.video_fps = self.video.get(cv2.CAP_PROP_FPS)
+            self.video_frames = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        else:
+            self.image = cv2.imread(str(self.source))
+            if self.image is None or self.image.shape[:2] != (1080, 810):
+                raise ValueError('Photo replay requires the documented Ultralytics bus.jpg fixture')
         # Any library diagnostic stays off the JSON-lines channel.
         with contextlib.redirect_stdout(sys.stderr):
             backend = YoloBackend(os.environ["AINEKIO_YOLO_WEIGHTS"], device="cpu")
         self.backend = backend
         # Explicitly crop the one central person from the packaged public photo.
         # This edits pixels only. All detections/boxes still come from YOLO.
-        self.target = self.image[390:870, 220:350]
-        if self.image.shape[:2] != (1080, 810):
-            raise ValueError('This replay requires the documented Ultralytics bus.jpg fixture')
+        if self.video is None:
+            self.target = self.image[390:870, 220:350]
         self.artifacts = Path(os.environ['AINEKIO_PERCEPTION_ARTIFACTS'])
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.frames = {}
@@ -71,13 +80,14 @@ class PerceptionBody(ProgramBody):
             await self.fixture.adapter.publish_camera_analysis(analysis, max_frame_age_s=1)
             if analysis.result:
                 annotated = self.frames.pop(analysis.counter).copy()
+                h, w = annotated.shape[:2]
                 for obj in analysis.result.objects:
                     if obj.box:
                         x, y, width, height = obj.box
-                        self.cv2.rectangle(annotated, (int(x*640), int(y*480)),
-                            (int((x+width)*640), int((y+height)*480)), (0, 255, 0), 2)
+                        self.cv2.rectangle(annotated, (int(x*w), int(y*h)),
+                            (int((x+width)*w), int((y+height)*h)), (0, 255, 0), 2)
                         self.cv2.putText(annotated, f'{obj.label} {obj.score:.2f}',
-                            (int(x*640), max(20, int(y*480)-5)), self.cv2.FONT_HERSHEY_SIMPLEX, .5, (0,255,0), 1)
+                            (int(x*w), max(20, int(y*h)-5)), self.cv2.FONT_HERSHEY_SIMPLEX, .5, (0,255,0), 1)
                 self.cv2.imwrite(str(self.artifacts / f'{analysis.counter:03}-detected.jpg'), annotated)
 
         self.camera = CameraFramePlugin(self.fixture.gateway, backend, observe=observe, max_frame_age_s=1)
@@ -88,11 +98,20 @@ class PerceptionBody(ProgramBody):
         self.fixture.connection.observe_body_clock({"clock_ms": 20000 + int((monotonic() - self.started) * 1000)})
         if request["op"] == "frame":
             import numpy as np
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            resized = self.cv2.resize(self.target, (130, 360))
-            offset = {"left": 30, "center": 255, "right": 480, "lost": None}[request["position"]]
-            if offset is not None:
-                frame[60:420, offset:offset + 130] = resized
+            if self.video is not None:
+                index = request['videoFrame']
+                if type(index) is not int or not 0 <= index < self.video_frames:
+                    raise ValueError('Video frame is outside the recording')
+                self.video.set(self.cv2.CAP_PROP_POS_FRAMES, index)
+                ok, frame = self.video.read()
+                if not ok:
+                    raise ValueError('Recorded frame could not be decoded')
+            else:
+                frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                resized = self.cv2.resize(self.target, (130, 360))
+                offset = {"left": 30, "center": 255, "right": 480, "lost": None}[request["position"]]
+                if offset is not None:
+                    frame[60:420, offset:offset + 130] = resized
             self.frames = {request['counter']: frame}
             self.cv2.imwrite(str(self.artifacts / f"{request['counter']:03}-input.jpg"), frame)
             ok, encoded = self.cv2.imencode(".jpg", frame)
@@ -128,7 +147,8 @@ async def main():
     body = PerceptionBody()
     import torch, ultralytics
     print(json.dumps({"ready": body.snapshot(), "classes": body.backend.classes,
-        "model": body.backend.model, "imageSha256": hashlib.sha256(Path(os.environ['AINEKIO_RECORDED_IMAGE']).read_bytes()).hexdigest(),
+        "model": body.backend.model, "sourceSha256": hashlib.sha256(body.source.read_bytes()).hexdigest(),
+        "video": {"fps": body.video_fps, "frames": body.video_frames} if body.video is not None else None,
         "versions": {"python": sys.version.split()[0], "torch": torch.__version__, "ultralytics": ultralytics.__version__, "opencv": body.cv2.__version__},
         "device": "cpu", "threads": torch.get_num_threads(), "physicalDestination": False}), flush=True)
     try:
@@ -142,6 +162,8 @@ async def main():
             print(json.dumps(response), flush=True)
     finally:
         await body.camera.aclose()
+        if body.video is not None:
+            body.video.release()
         await body.fixture.asyncTearDown()
 
 
