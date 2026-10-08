@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import os
+import json
+import pty
+import shlex
 from pathlib import Path
 import shutil
 import subprocess
@@ -56,6 +59,104 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         for secret in ("fixture-environment-secret", "fixture-robot-secret"):
             self.assertNotIn(secret, result.stdout + result.stderr)
         return result
+
+    def prepare_start(self):
+        """Only the real gateway subprocess is replaced; no listener can start."""
+        self.env.update({"AINEKIO_LOCAL_DISCOVERY": "0", "AINEKIO_HOTSPOT": "0"})
+        self.gateway_args = self.root / "gateway-args"
+        wrapper = self.root / ".venv/bin/python3"
+        wrapper.write_text(
+            '#!/bin/sh\nif [ "$1" = "-m" ] && [ "$2" = "gateway.server" ]; then\n'
+            + 'printf "%s\\n" "$@" > ' + shlex.quote(str(self.gateway_args)) + '\nexit 0\nfi\n'
+            + 'exec ' + shlex.quote(sys.executable) + ' "$@"\n')
+        for name, body in [("ss", "exit 0"), ("hostname", "echo 192.0.2.20"),
+                           ("ip", "echo '1.1.1.1 via 192.0.2.1 dev test src 192.0.2.20'")]:
+            exe = self.bin / name
+            exe.write_text('#!/bin/sh\n' + body + '\n')
+            exe.chmod(0o755)
+        return self.root / "build/gateway/physical/dashboard-connection.json"
+
+    def interactive_start(self, answer=None):
+        master, slave = pty.openpty()
+        try:
+            child = subprocess.Popen(["bash", str(self.root / "Master/start-physical-gateway.sh")],
+                                     env=self.env, stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if answer is not None:
+                os.write(master, answer.encode())
+            try:
+                stdout, stderr = child.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.communicate()
+                raise
+            self.assertFalse(self.marker.exists())
+            return subprocess.CompletedProcess(child.args, child.returncode, stdout, stderr)
+        finally:
+            os.close(master)
+            os.close(slave)
+
+    def test_interactive_lan_choice_persists_and_reaches_gateway(self):
+        setting = self.prepare_start()
+        result = self.interactive_start("2\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("How will you open Body Control?", result.stderr)
+        self.assertIn("http://192.0.2.20:8791/", result.stdout)
+        self.assertEqual(json.loads(setting.read_text())["mode"], "lan")
+        args = self.gateway_args.read_text().splitlines()
+        self.assertEqual(args[args.index("--dashboard-host") + 1], "0.0.0.0")
+        # Service launches must immediately reuse the same choice, with no prompt.
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Choose 1", result.stderr)
+        self.assertIn("Dashboard access:   lan", result.stdout)
+
+    def test_timeout_and_enter_reuse_saved_cloudflare_without_starting_a_tunnel(self):
+        setting = self.prepare_start()
+        self.env["AINEKIO_DASHBOARD_PUBLIC_URL"] = "https://another-machine.example/"
+        result = self.interactive_start("3\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        del self.env["AINEKIO_DASHBOARD_PUBLIC_URL"]
+        saved = setting.read_text()
+        self.env["AINEKIO_DASHBOARD_CHOICE_TIMEOUT"] = "0.15"
+        result = self.interactive_start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Cloudflare [saved/default]", result.stderr)
+        self.assertIn("https://another-machine.example/", result.stdout)
+        self.assertEqual(setting.read_text(), saved)
+        self.env["AINEKIO_DASHBOARD_CHOICE_TIMEOUT"] = "10"
+        result = self.interactive_start("\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(setting.read_text(), saved)
+        args = self.gateway_args.read_text().splitlines()
+        self.assertEqual(args[args.index("--dashboard-host") + 1], "127.0.0.1")
+
+    def test_explicit_choice_bypasses_prompt_and_preserves_host_override(self):
+        setting = self.prepare_start()
+        self.env.update({"AINEKIO_DASHBOARD_CONNECTION": "local", "AINEKIO_DASHBOARD_HOST": "192.0.2.20"})
+        result = self.interactive_start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Choose 1", result.stderr)
+        args = self.gateway_args.read_text().splitlines()
+        self.assertEqual(args[args.index("--dashboard-host") + 1], "192.0.2.20")
+        self.assertEqual(json.loads(setting.read_text())["mode"], "local")
+
+    def test_missing_cloudflare_address_or_invalid_input_does_not_save_or_launch(self):
+        setting = self.prepare_start()
+        for answer in ("3\n", "wrong\n"):
+            result = self.interactive_start(answer)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(setting.exists())
+            self.assertFalse(self.gateway_args.exists())
+
+    def test_check_does_not_prompt_or_rewrite_saved_connection(self):
+        setting = self.prepare_start()
+        setting.parent.mkdir(parents=True)
+        setting.write_text('{"mode":"lan"}')
+        result = self.run_launcher("--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Choose 1", result.stderr)
+        self.assertEqual(setting.read_text(), '{"mode":"lan"}')
+        self.assertFalse(self.gateway_args.exists())
 
     def test_check_uses_repo_venv_without_starting_or_writing_runtime(self):
         result = self.run_launcher("--check")

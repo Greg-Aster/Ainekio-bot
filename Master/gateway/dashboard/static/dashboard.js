@@ -1410,6 +1410,52 @@
     });
   }
 
+  function setupConnections() {
+    const saved = readLocal("ainekio-connections-v1", {});
+    const addresses = { local: saved.local || "", lan: saved.lan || "", cloudflare: saved.cloudflare || "" };
+    const route = byId("body-connection-route");
+    const address = byId("body-connection-address");
+    const desktop = byId("desktop-connection-address");
+    const result = byId("connections-result");
+    route.value = Object.hasOwn(addresses, saved.route) ? saved.route : "local";
+    address.value = addresses[route.value];
+    desktop.value = saved.desktop || "";
+    text("body-current-address", window.location.origin);
+    let previousRoute = route.value;
+    route.addEventListener("change", () => {
+      addresses[previousRoute] = address.value;
+      address.value = addresses[route.value];
+      previousRoute = route.value;
+    });
+    function httpAddress(value) {
+      const url = new URL(value.trim());
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+        throw new Error("Enter an HTTP or HTTPS address without embedded credentials.");
+      }
+      return url;
+    }
+    function saveAndOpen(kind) {
+      result.classList.remove("form-error");
+      try {
+        const target = httpAddress(kind === "body" ? address.value : desktop.value);
+        if (kind === "body") addresses[route.value] = target.href;
+        else desktop.value = target.origin;
+        // Persist addresses only, never authentication or live connection state.
+        localStorage.setItem("ainekio-connections-v1", JSON.stringify({
+          ...addresses, route: route.value, desktop: desktop.value,
+        }));
+        const href = kind === "body" ? target.href : new URL("/monitor#body-connection", target).href;
+        window.open(href, "_blank", "noopener,noreferrer");
+        result.textContent = "Address saved. Requested a new tab; allow pop-ups for this site if it did not open. Sign in at the destination as needed.";
+      } catch (error) {
+        result.textContent = error.message;
+        result.classList.add("form-error");
+      }
+    }
+    byId("body-connection-form").addEventListener("submit", (event) => { event.preventDefault(); saveAndOpen("body"); });
+    byId("desktop-connection-form").addEventListener("submit", (event) => { event.preventDefault(); saveAndOpen("desktop"); });
+  }
+
   function setupSecurity() {
     const settings = byId("settings-panel");
     const settingsButton = byId("settings-button");
@@ -1955,6 +2001,7 @@
     setupForms();
     setupSpeechOutput();
     setupSecurity();
+    setupConnections();
     setupHostNetwork();
     setupRobotSettings();
     setupFaceLibrary();
