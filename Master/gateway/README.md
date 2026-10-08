@@ -656,8 +656,15 @@ alongside the same MetaHuman execution. The approved pending-turn policy combine
 all unanswered messages in order and attributes the response to the newest turn.
 An interpretation-origin body command carries `metadata.interpretationBody`
 (session, gateway instance, robot, epoch, last body sequence). The adapter checks
-that fence under the existing wire-send lock; manual commands and reconnects
-invalidate late proposals. Emergency Stop remains independent of interpretation.
+that fence under the existing wire-send lock; manual commands and body-session changes
+invalidate late proposals. Every body command in an interpreted program keeps
+this check. Admitted body dispatches persist `data.interpretationBody` in their
+correlated receipt; Core advances its expected ownership from that receipt, never
+from a newer live status snapshot. Steering updates keep the original action's
+owner, and owned cancellation advances it to the Stop dispatch. Failed admission
+cannot mint successor ownership. Stored receipt replay keeps the same evidence
+across adapter recovery; a different gateway session or robot epoch invalidates
+old commands. Emergency Stop remains independent of interpretation.
 Owned cancellation records its Stop dispatch fence in `data.cancellationBody`,
 including unknown results, so MetaHuman can distinguish its cleanup from a later
 manual takeover. That ownership evidence never substitutes for the original
