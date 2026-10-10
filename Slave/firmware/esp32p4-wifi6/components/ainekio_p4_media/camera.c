@@ -163,14 +163,18 @@ static int exposure_profile(capture_device_t *device, bool still)
 {
     uint32_t mode, manual;
     if (read_register(device->fd, 0x3a00, &mode) || read_register(device->fd, 0x3503, &manual)) return -1;
-    /* Datasheet section 4.6: sensor AEC/AGC remains automatic. Stills can use
-     * the full eight-frame night integration range; preview uses one frame.
-     * Gain ceiling, brightness target, banding detection and ISP tuning stay
-     * with the vendor configuration. No software ISO/exposure feedback loop. */
-    const unsigned lines = device->vts * (still ? 8U : 1U) - 4U;
+    /* Keep sensor AEC, AGC and frame length automatic (datasheet 4.6).
+     * Preview previously allowed only one frame while AGC could reach 64x.
+     * Allow a 1/15 s preview shutter and automatic 1..32x gain (ISO 100..3200
+     * on the published OV5647 scale). These are ceilings, not fixed settings.
+     * Stills retain their eight-frame integration range. No host AE loop. */
+    const unsigned preview_lines = (uint64_t)66667U * device->pclk /
+                                   ((uint64_t)device->hts * 1000000ULL);
+    const unsigned lines = still ? device->vts * 8U - 4U : preview_lines;
     if (write_register(device->fd, 0x3503, manual & ~7U) ||
+        write_word(device->fd, 0x3a18, 32U * 16U) ||
         write_word(device->fd, 0x3a02, lines) || write_word(device->fd, 0x3a14, lines) ||
-        write_register(device->fd, 0x3a00, still ? (mode | 4U) : (mode & ~4U))) return -1;
+        write_register(device->fd, 0x3a00, (mode | 4U) & ~1U)) return -1;
     device->still = still;
     return 0;
 }
@@ -493,7 +497,8 @@ esp_err_t ainekio_p4_media_camera_configure(bool stream, uint8_t rate, ainekio_c
 
 esp_err_t ainekio_p4_media_snapshot(ainekio_camera_origin_t origin, uint32_t id)
 {
-    if (origin < AINEKIO_CAMERA_ORIGIN_REQUEST || origin > AINEKIO_CAMERA_ORIGIN_AUDIO || !id)
+    if (origin < AINEKIO_CAMERA_ORIGIN_REQUEST || origin > AINEKIO_CAMERA_ORIGIN_AUDIO ||
+        (origin != AINEKIO_CAMERA_ORIGIN_AUDIO && !id))
         return ESP_ERR_INVALID_ARG;
     if (!p4_camera_ready()) return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(state_lock, portMAX_DELAY);

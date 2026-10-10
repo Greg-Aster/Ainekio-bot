@@ -343,6 +343,7 @@ class CameraAnalysis:
     completed_at: float
     result: object
     error: str | None = None
+    processing: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -385,15 +386,36 @@ class CameraFramePlugin:
         self.dropped_frames = 0
         self.stale_frames = 0
         self.errors = 0
+        self.received_frames = 0
+        self.processed_frames = 0
+        self.fresh_results = 0
+        self._started_at: float | None = None
+        self._last_received_at: float | None = None
+        self._last_queue_wait_ms: float | None = None
+        self._last_inference_ms: float | None = None
         self._queue: asyncio.Queue[_CameraInput] = asyncio.Queue(maxsize=1)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ainekio-camera")
         self._worker: asyncio.Task[None] | None = None
         self._close_task: asyncio.Task[None] | None = None
         self._closed = False
+        self.enabled = True
+        self._generation = 0
+        self._latest_analysis: CameraAnalysis | None = None
         gateway.subscribe_frames(self._handle_frame)
 
+    def set_enabled(self, enabled: bool) -> None:
+        if self.enabled == enabled:
+            return
+        self.enabled = enabled
+        self._generation += 1
+        self._last_received_at = None
+        self._latest_analysis = None
+        while not self._queue.empty():
+            self._queue.get_nowait()
+            self._queue.task_done()
+
     async def _handle_frame(self, frame: dict[str, object]) -> None:
-        if self._closed or frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
+        if self._closed or not self.enabled or frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
             return
         payload = frame.get("payload")
         robot_id, epoch, counter = frame.get("robot_id"), frame.get("epoch"), frame.get("counter")
@@ -408,6 +430,9 @@ class CameraFramePlugin:
         ):
             return
         item = _CameraInput(robot_id, epoch, counter, received_at, payload)
+        self.received_frames += 1
+        if self._started_at is None:
+            self._started_at = self.gateway.clock()
         if self._queue.full():
             self._queue.get_nowait()
             self._queue.task_done()
@@ -419,7 +444,7 @@ class CameraFramePlugin:
     def _current(self, frame: _CameraInput) -> bool:
         robot = self.gateway.status()["robots"].get(frame.robot_id)
         return (
-            not self._closed and robot is not None
+            not self._closed and self.enabled and robot is not None
             and robot.get("epoch") == frame.epoch
             and robot.get("connection_state") == "online"
         )
@@ -435,34 +460,89 @@ class CameraFramePlugin:
             result = await asyncio.get_running_loop().run_in_executor(self._executor, callback, argument)
         return await result if inspect.isawaitable(result) else result
 
+    def metrics(self) -> dict[str, object]:
+        """Host-receipt age and throughput since the first frame, not capture latency."""
+        now = self.gateway.clock()
+        elapsed = now - self._started_at if self._started_at is not None else 0
+        return {"receivedFrames": self.received_frames, "processedFrames": self.processed_frames,
+            "freshResults": self.fresh_results, "droppedFrames": self.dropped_frames,
+            "staleFrames": self.stale_frames, "errors": self.errors,
+            "queueDepth": self._queue.qsize(), "queueWaitMs": self._last_queue_wait_ms,
+            "inferenceMs": self._last_inference_ms,
+            "observationAgeMs": (now - self._last_received_at) * 1000 if self._last_received_at is not None else None,
+            "processedFps": self.processed_frames / elapsed if elapsed > 0 else 0,
+            "freshFps": self.fresh_results / elapsed if elapsed > 0 else 0}
+
+    def identity_status(self) -> dict[str, object]:
+        status = getattr(self.consume, "status", None)
+        result = status() if status else {"configured": False}
+        analysis = self._latest_analysis
+        if analysis is not None:
+            robot = self.gateway.status()["robots"].get(analysis.robot_id, {})
+            if (self.enabled and robot.get("epoch") == analysis.epoch and robot.get("connection_state") == "online"
+                    and 0 <= self.gateway.clock() - analysis.received_at <= self.max_frame_age_s):
+                result["observation"] = {"robotId": analysis.robot_id, "frameCounter": analysis.counter,
+                    "ageMs": (self.gateway.clock() - analysis.received_at) * 1000,
+                    "objects": analysis.result.message()["objects"]}
+        return result
+
+    async def enroll_person(self, payload: dict[str, object]) -> object:
+        enroll = getattr(self.consume, "enroll", None)
+        if enroll is None:
+            raise ValueError("Named-person recognition is not configured")
+        return await self._call(enroll, payload)
+
+    async def forget_person(self, person_id: str) -> dict[str, object]:
+        gallery = getattr(self.consume, "gallery", None)
+        if gallery is None:
+            raise ValueError("Named-person recognition is not configured")
+        await self._call(gallery.forget, person_id)
+        self._latest_analysis = None
+        return {"ok": True, "people": gallery.list()}
+
     async def _consume_frames(self) -> None:
         while True:
             frame = await self._queue.get()
+            generation = self._generation
             try:
                 if not self._fresh(frame):
                     self.stale_frames += 1
                     continue
+                started_at = self.gateway.clock()
+                self._last_queue_wait_ms = (started_at - frame.received_at) * 1000
                 try:
                     result = await self._call(self.consume, frame.payload)
                 except Exception as error:
                     self.errors += 1
+                    self.processed_frames += 1
+                    self._last_inference_ms = (self.gateway.clock() - started_at) * 1000
                     reason = f"{type(error).__name__}: {error}"[:240]
                     logging.getLogger(__name__).warning("Camera processing failed (%s)", reason)
                     # A timed-out frame is not a fresh observation, but its
                     # failure still belongs to the current connected body.
-                    if self._current(frame) and self.observe is not None:
+                    if generation == self._generation and self._current(frame) and self.observe is not None:
                         await self._call(self.observe, CameraAnalysis(
                             frame.robot_id, frame.epoch, frame.counter, frame.received_at,
-                            self.gateway.clock(), None, error=reason,
+                            self.gateway.clock(), None, error=reason, processing=self.metrics(),
                         ))
                     continue
-                if not self._fresh(frame):
+                self.processed_frames += 1
+                self._last_inference_ms = (self.gateway.clock() - started_at) * 1000
+                if generation != self._generation or not self._fresh(frame):
                     self.stale_frames += 1
                     continue
+                finalize = getattr(self.consume, "finalize_frame", None)
+                if finalize is not None:
+                    result = finalize(result, (frame.robot_id, frame.epoch, generation), frame.counter, frame.received_at)
+                self.fresh_results += 1
+                self._last_received_at = frame.received_at
+                if finalize is not None:
+                    self._latest_analysis = CameraAnalysis(frame.robot_id, frame.epoch, frame.counter,
+                        frame.received_at, self.gateway.clock(), result)
                 if self.observe is not None:
                     await self._call(self.observe, CameraAnalysis(
                         frame.robot_id, frame.epoch, frame.counter, frame.received_at,
-                        self.gateway.clock(), result,
+                        self.gateway.clock(), result, processing=self.metrics(),
                     ))
             except Exception as error:
                 self.errors += 1

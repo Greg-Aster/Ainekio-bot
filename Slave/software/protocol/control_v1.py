@@ -17,13 +17,15 @@ from protocol.binary_helpers import (
 PROTOCOL_VERSION = 1
 MAX_SEQUENCE = (1 << 31) - 1
 MAX_AUTH_CHARS = 128
-MAX_FEATURES = 16
+MAX_FEATURES = 32
 MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
 CAMERA_PROFILES_FEATURE = "camera_profiles_v1"
 CAMERA_ADAPTIVE_FEATURE = "camera_adaptive_v1"
+CAMERA_CONTROLS_FEATURE = "camera_controls_v1"
 AUDIO_INPUT_FEATURE = "audio_input_v1"
+FACE_FEEDBACK_FEATURE = "face_feedback_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
 MAX_CALIBRATION_PULSE_US = (1 << 16) - 1  # Wire representation, not a servo travel limit.
 ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
@@ -57,7 +59,7 @@ WALK_DIRECTIONS = frozenset({"fwd", "back", "turn_l", "turn_r", "side_l", "side_
 PROFILES = frozenset({"home", "tether"})
 CAMERA_RESOLUTIONS = frozenset({"QVGA", "VGA", "XGA", "960P", "FHD"})
 CAMERA_SNAPSHOT_RESOLUTIONS = CAMERA_RESOLUTIONS | {"AUTO"}
-CAMERA_STREAM_RESOLUTIONS = frozenset({"QVGA", "VGA"})
+CAMERA_STREAM_RESOLUTIONS = CAMERA_RESOLUTIONS
 CAMERA_ORIGINS = frozenset({"request", "action", "audio"})
 MIC_GATES = frozenset({"open", "vad", "wake"})
 BODY_STATES = frozenset({"active", "idle", "dozing", "deep-sleep", "failsafe"})
@@ -314,7 +316,18 @@ def _validate_intent(message: Mapping[str, object]) -> None:
     elif name == "emote":
         _asset(message, "asset")
     elif name == "face":
-        _asset(message, "expr")
+        if "release" in message:
+            _boolean(message, "release")
+        if message.get("release") is not True or "expr" in message:
+            _asset(message, "expr")
+        if message.get("release") is True or "token" in message:
+            _asset(message, "token")
+        if "if_token" in message:
+            _asset(message, "if_token")
+        if "background" in message:
+            _boolean(message, "background")
+        if "timeout_ms" in message:
+            _integer(message, "timeout_ms", minimum=0, maximum=0xFFFFFFFF)
     elif name == "say":
         _asset(message, "asset")
 
@@ -372,6 +385,12 @@ def _validate_cam(message: Mapping[str, object]) -> None:
     _string(message, "res", allowed=CAMERA_STREAM_RESOLUTIONS)
     if "snapshot_res" in message:
         _string(message, "snapshot_res", allowed=CAMERA_SNAPSHOT_RESOLUTIONS)
+    if any(key in message for key in ("exposure_us", "gain_x16", "jpeg_quality")):
+        exposure = _integer(message, "exposure_us", minimum=0, maximum=1000000)
+        gain = _integer(message, "gain_x16", minimum=0, maximum=1023)
+        _integer(message, "jpeg_quality", minimum=1, maximum=100)
+        if (exposure and exposure < 100) or (gain and gain < 16):
+            _fail("range:camera_controls")
 
 
 def _validate_snap(message: Mapping[str, object]) -> None:

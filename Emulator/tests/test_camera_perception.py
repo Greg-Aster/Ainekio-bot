@@ -16,6 +16,35 @@ class Socket:
 
 
 class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_identity_commits_only_fresh_current_generation_on_existing_camera_worker(self):
+        started, release = threading.Event(), threading.Event()
+        commits = []
+        class Backend:
+            def __call__(self, jpeg):
+                started.set()
+                release.wait(2)
+                return jpeg
+
+            def finalize_frame(self, result, source, counter, received_at):
+                commits.append((result, source, counter, received_at))
+                from gateway.perception import RecognitionResult
+                return RecognitionResult("fixture", "fixture", "", (), ())
+
+        plugin = self.plugin(Backend())
+        await self.frame(1)
+        await asyncio.to_thread(started.wait, 1)
+        plugin.set_enabled(False)
+        plugin.set_enabled(True)
+        release.set()
+        await asyncio.wait_for(plugin._queue.join(), 2)
+        self.assertEqual(commits, [], "discarded native inference must not update identity tracks")
+        await self.frame(2)
+        await asyncio.wait_for(plugin._queue.join(), 2)
+        self.assertEqual(commits[0][1:], (("robot", 1, 2), 2, 10.0))
+        self.assertEqual(plugin.identity_status()["observation"]["frameCounter"], 2)
+        self.now += 2
+        self.assertNotIn("observation", plugin.identity_status(), "stale names must disappear from the UI")
+
     def setUp(self) -> None:
         self.now = 10.0
         self.gateway = GatewayService(
@@ -295,3 +324,49 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         for value in (0, -1, float("inf"), float("nan")):
             with self.assertRaises(ValueError):
                 CameraFramePlugin(self.gateway, lambda payload: None, max_frame_age_s=value)
+
+    async def test_metrics_distinguish_processing_throughput_from_fresh_publication(self) -> None:
+        observed = []
+
+        async def consume(payload):
+            self.now += 0.25 if payload == b"1" else 1.1
+            return "candidate"
+
+        plugin = self.plugin(consume, observe=observed.append)
+        await self.frame(1)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        self.assertAlmostEqual(observed[0].processing["inferenceMs"], 250)
+        self.assertAlmostEqual(observed[0].processing["observationAgeMs"], 250)
+        await self.frame(2)
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        metrics = plugin.metrics()
+        self.assertEqual(len(observed), 1, "Expired inference cannot publish an observation")
+        self.assertEqual((metrics["receivedFrames"], metrics["processedFrames"], metrics["freshResults"]), (2, 2, 1))
+        self.assertEqual(metrics["staleFrames"], 1)
+        self.assertAlmostEqual(metrics["observationAgeMs"], 1350)
+        self.assertAlmostEqual(metrics["processedFps"], 2 / 1.35)
+        self.assertAlmostEqual(metrics["freshFps"], 1 / 1.35)
+        self.assertEqual(metrics["queueDepth"], 0)
+
+    async def test_switch_off_discards_queued_and_inflight_results_even_after_reenable(self) -> None:
+        started, release = asyncio.Event(), asyncio.Event()
+        observed, processed = [], []
+        async def consume(payload):
+            processed.append(payload)
+            if payload == b"1":
+                started.set()
+                await release.wait()
+            return payload
+        plugin = self.plugin(consume, observe=observed.append)
+        await self.frame(1)
+        await asyncio.wait_for(started.wait(), 1)
+        await self.frame(2)
+        plugin.set_enabled(False)
+        await self.frame(3)
+        self.assertEqual(plugin.metrics()["queueDepth"], 0)
+        plugin.set_enabled(True)
+        await self.frame(4)
+        release.set()
+        await asyncio.wait_for(plugin._queue.join(), 1)
+        self.assertEqual(processed, [b"1", b"4"])
+        self.assertEqual([event.counter for event in observed], [4])

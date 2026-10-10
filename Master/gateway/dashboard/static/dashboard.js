@@ -93,6 +93,13 @@
   let cameraFrameRobotId = null;
   let cameraObjectUrl = null;
   let cameraProfileSession = null;
+  let cameraSettingsRobotId = null;
+  let recognitionEdited = false;
+  let recognitionSaving = false;
+  let behaviorEdited = false;
+  let behaviorBusy = false;
+  let behaviorRevision = 0;
+  let behaviorReadAt = 0;
   let keyMappings = loadKeyMappings();
 
   const byId = (id) => document.getElementById(id);
@@ -1258,7 +1265,12 @@
       const values = new FormData(form);
       const payload = { on: form.elements.on.checked, fps: Number(values.get("fps")), res: values.get("res") };
       if (!form.elements.snapshot_res.disabled) payload.snapshot_res = values.get("snapshot_res");
-      command("/api/camera", payload, "Camera settings applied");
+      if (!form.querySelector("fieldset[data-camera-controls]").disabled) {
+        payload.exposure_us = Math.round(Number(values.get("exposure_ms")) * 1000);
+        payload.gain_x16 = Math.round(Number(values.get("sensor_gain")) * 16);
+        payload.jpeg_quality = Number(values.get("jpeg_quality"));
+      }
+      command("/api/camera", payload, "Camera request sent and settings saved");
     });
     Object.entries(audioForms).forEach(([kind, state]) => {
       byId(`${kind}-form`).addEventListener("input", () => {
@@ -1698,10 +1710,42 @@
   }
 
   function renderStatus(payload) {
+    const recognition = payload.recognition;
+    const recognitionStatus = byId("camera-recognition-status");
+    byId("recognition-enabled").disabled = !recognition?.configured || recognitionSaving;
+    byId("recognition-form").querySelector("button").disabled = !recognition?.configured || recognitionSaving;
+    if (!recognitionEdited && !recognitionSaving) byId("recognition-enabled").checked = Boolean(recognition?.enabled);
+    if (!recognition?.configured) {
+      recognitionStatus.textContent = "Recognition: not configured";
+    } else if (!recognition.enabled) {
+      recognitionStatus.textContent = "Recognition: off · saved";
+    } else {
+      const age = recognition.observationAgeMs;
+      const freshness = age == null ? "waiting for a usable frame" : age <= recognition.maxAgeMs ? "fresh" : "expired";
+      recognitionStatus.textContent = `Recognition: ${freshness} · ${Number(recognition.freshFps).toFixed(1)} results/s` +
+        (age == null ? "" : ` · observation age ${Math.round(age)} ms`) +
+        ` · ${recognition.receivedFrames} frames received · ${recognition.errors} errors`;
+    }
     const robots = payload.robots || {};
     const robotIds = Object.keys(robots).sort();
     updateRobotSelect(robotIds);
     const entry = selectedRobotId ? robots[selectedRobotId] : null;
+    renderPeople(payload.person_recognition);
+    if (cameraSettingsRobotId !== selectedRobotId) {
+      const saved = payload.camera_settings?.[selectedRobotId];
+      if (saved) {
+        const form = byId("camera-form");
+        form.elements.on.checked = saved.on;
+        form.elements.fps.value = saved.fps;
+        form.elements.res.value = saved.resolution;
+        if (saved.snapshot_resolution) form.elements.snapshot_res.value = saved.snapshot_resolution;
+        form.elements.exposure_ms.value = (saved.exposure_us || 0) / 1000;
+        form.elements.sensor_gain.value = (saved.gain_x16 || 0) / 16;
+        form.elements.jpeg_quality.value = saved.jpeg_quality || 75;
+      }
+      cameraSettingsRobotId = selectedRobotId;
+    }
+    if (Date.now() - behaviorReadAt > 5000) void refreshBehaviorControl();
     const status = entry && entry.status;
     const legacyBody = entry && (!entry.model || entry.model === "v1-8servo");
     availableBodyCommands = !entry || entry.connection_state === "stale" ? [] :
@@ -1798,19 +1842,25 @@
     document.querySelector("[data-camera-profiles]").hidden = !cameraProfiles;
     byId("camera-form").elements.snapshot_res.disabled = !cameraProfiles || !capability("camera");
     const adaptiveCamera = Boolean(entry && (entry.features || []).includes("camera_adaptive_v1"));
+    const cameraControls = Boolean(entry && (entry.features || []).includes("camera_controls_v1"));
+    document.querySelectorAll("[data-camera-controls]").forEach(control => {
+      control.hidden = !cameraControls;
+      control.disabled = !cameraControls || !capability("camera");
+    });
     document.querySelectorAll("[data-camera-adaptive]").forEach((option) => {
       option.hidden = !adaptiveCamera;
       option.disabled = !adaptiveCamera;
     });
     const cameraSession = entry ? `${selectedRobotId}:${entry.epoch}:${adaptiveCamera}` : null;
     if (cameraSession !== cameraProfileSession) {
-      byId("camera-form").elements.snapshot_res.value = adaptiveCamera ? "AUTO" : "VGA";
+      byId("camera-form").elements.snapshot_res.value = payload.camera_settings?.[selectedRobotId]?.snapshot_resolution || (adaptiveCamera ? "AUTO" : "VGA");
       cameraProfileSession = cameraSession;
     }
     byId("camera-adaptive-help").hidden = !adaptiveCamera;
     const capture = status && status.camera_capture;
     text("camera-capture-status", capture ?
-      `Last capture: ${capture.width} × ${capture.height}, ${(capture.exposure_us / 1000).toFixed(1)} ms exposure, ${(capture.gain_x16 / 16).toFixed(1)}× gain.` +
+      `Last capture: ${capture.width} × ${capture.height}, ${(capture.exposure_us / 1000).toFixed(1)} ms exposure, ISO ≈${Math.round(capture.gain_x16 * 100 / 16)} (OV5647 scale; ${(capture.gain_x16 / 16).toFixed(1)}× gain).` +
+      (adaptiveCamera && !cameraControls ? " Exposure and ISO automatic." : "") +
       (capture.settle_ms ? ` ${capture.settled ? "Exposure settled" : "Exposure still adjusting"} after ${(capture.settle_ms / 1000).toFixed(1)} s.` : "") : "");
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
@@ -1970,9 +2020,143 @@
     window.addEventListener("beforeunload", () => window.clearInterval(timer));
   }
 
+  function renderBehaviorControl(settings) {
+    byId("behavior-control-enabled").checked = settings.enabled;
+    byId("behavior-control-enabled").disabled = false;
+    byId("behavior-control-form").querySelector("button").disabled = false;
+    const pending = settings.unresolvedActions?.length || 0;
+    const tasks = (settings.executions || []).filter(task => ["running", "waiting"].includes(task.status));
+    text("behavior-control-status", `MetaHuman connected · ${settings.enabled ? "On" : "Off"} · saved` +
+      (pending ? ` · ${pending} command outcomes unresolved` : "") +
+      (tasks.length ? ` · ${tasks.map(task => task.objective).join("; ")}` : " · no active robot task"));
+  }
+
+  async function refreshBehaviorControl() {
+    if (behaviorBusy || behaviorEdited) return;
+    behaviorBusy = true;
+    behaviorReadAt = Date.now();
+    const revision = behaviorRevision;
+    try {
+      const settings = await request("/api/behavior-control", {method: "POST", body: "{}"});
+      if (revision === behaviorRevision) renderBehaviorControl(settings);
+    } catch (error) {
+      if (revision === behaviorRevision) {
+        text("behavior-control-status", `MetaHuman control unavailable: ${error.message}`);
+        byId("behavior-control-enabled").disabled = true;
+        byId("behavior-control-form").querySelector("button").disabled = true;
+      }
+    } finally { behaviorBusy = false; }
+  }
+
+  let personEnrollmentBusy = false;
+  let enrolledPeopleSignature = "";
+
+  function renderPeople(status) {
+    const configured = status?.configured === true;
+    byId("person-enrollment-form").querySelector("button").disabled = !configured || personEnrollmentBusy;
+    text("person-recognition-status", configured ? "Local face recognition ready" : "Named-person models are not configured on this host.");
+    const people = status?.people || [];
+    const signature = JSON.stringify(people);
+    if (signature !== enrolledPeopleSignature) {
+      enrolledPeopleSignature = signature;
+      const list = byId("enrolled-people");
+      list.replaceChildren();
+      for (const person of people) {
+        const item = document.createElement("li");
+        item.append(document.createTextNode(`${person.name} · ${person.samples}/4 samples `));
+        const forget = document.createElement("button");
+        forget.type = "button";
+        forget.textContent = "Forget";
+        forget.addEventListener("click", async () => {
+          if (!window.confirm(`Delete saved face features for ${person.name}?`)) return;
+          forget.disabled = true;
+          try {
+            await request("/api/people/forget", {method: "POST", body: JSON.stringify({personId: person.personId})});
+            text("person-enrollment-result", "Person forgotten.");
+          } catch (error) { text("person-enrollment-result", error.message); }
+          finally { forget.disabled = false; void refreshStatus(); }
+        });
+        item.append(forget);
+        list.append(item);
+      }
+    }
+    const observation = status?.observation;
+    if (!observation || observation.robotId !== selectedRobotId) {
+      text("visible-people", "No fresh person observations.");
+      return;
+    }
+    const visible = observation.objects.filter(item => item.label === "person").map(item => {
+      const identity = item.identity;
+      return !identity || identity.state === "unknown" ? "Unknown person" :
+        `${identity.name} · ${identity.state === "face_match" ? "face match" : `tracked, face last seen ${Math.round(identity.faceAgeMs)} ms ago`}`;
+    });
+    text("visible-people", `Frame ${observation.frameCounter} · ${Math.round(observation.ageMs)} ms old: ${visible.join("; ") || "No people detected"}`);
+  }
+
+  function setupSensingControls() {
+    byId("person-enrollment-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (personEnrollmentBusy) return;
+      const form = event.currentTarget;
+      const file = form.elements.photo.files[0];
+      if (!file || file.size > 256 * 1024) { text("person-enrollment-result", "Choose a JPEG photo under 256 KB."); return; }
+      personEnrollmentBusy = true;
+      form.querySelector("button").disabled = true;
+      text("person-enrollment-result", "Processing face on the Body Control host…");
+      try {
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(",")[1]);
+          reader.onerror = () => reject(new Error("Cannot read this photo"));
+          reader.readAsDataURL(file);
+        });
+        await request("/api/people/enroll", {method: "POST", body: JSON.stringify({name: form.elements.person_name.value, jpeg: data})});
+        form.elements.photo.value = "";
+        text("person-enrollment-result", "Face sample saved. Add another angle, or view recognition when the camera is connected.");
+      } catch (error) { text("person-enrollment-result", error.message); }
+      finally { personEnrollmentBusy = false; void refreshStatus(); }
+    });
+    byId("recognition-enabled").addEventListener("change", () => { recognitionEdited = true; });
+    byId("recognition-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (recognitionSaving) return;
+      recognitionSaving = true;
+      const enabled = byId("recognition-enabled").checked;
+      try {
+        await request("/api/recognition", {method: "POST", body: JSON.stringify({enabled})});
+        recognitionEdited = false;
+        showResult(`Recognition ${enabled ? "on" : "off"}; saved`);
+      } catch (error) { showResult(error.message, true); }
+      finally { recognitionSaving = false; void refreshStatus(); }
+    });
+    byId("behavior-control-enabled").addEventListener("change", () => {
+      behaviorEdited = true;
+      behaviorRevision++;
+      text("behavior-control-status", "Unsaved robot control selection.");
+    });
+    byId("behavior-control-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (behaviorBusy) return;
+      behaviorBusy = true;
+      behaviorRevision++;
+      const enabled = byId("behavior-control-enabled").checked;
+      byId("behavior-control-enabled").disabled = true;
+      byId("behavior-control-form").querySelector("button").disabled = true;
+      try {
+        const settings = await request("/api/behavior-control", {method: "POST", body: JSON.stringify({enabled})});
+        behaviorEdited = false;
+        renderBehaviorControl(settings);
+      } catch (error) {
+        text("behavior-control-status", `${error.message}. The result is unconfirmed; reading current state.`);
+        behaviorEdited = false;
+      } finally { behaviorBusy = false; behaviorReadAt = 0; }
+    });
+  }
+
   async function setupDashboard() {
     const session = await request("/api/session");
     csrfToken = session.csrf;
+    setupSensingControls();
     setupPrimaryView();
     byId("robot-select").addEventListener("change", (event) => {
       availableBodyCommands = [];

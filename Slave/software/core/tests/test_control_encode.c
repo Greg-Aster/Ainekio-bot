@@ -39,6 +39,28 @@ int main(void)
     assert(ainekio_control_decode_for_body(camera_json, strlen(camera_json), &camera_message) == AINEKIO_DECODE_OK);
     assert(!camera_message.command.data.camera.enabled && camera_message.command.data.camera.fps == 0);
     assert(!camera_message.command.data.camera.has_snapshot_resolution);
+    assert(!camera_message.command.data.camera.has_controls);
+    const char *stream_names[] = {"XGA", "960P", "FHD"};
+    for (unsigned i = 0; i < 3; ++i) {
+        snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":4,\"on\":true,\"fps\":3,\"res\":\"%s\",\"exposure_us\":50000,\"gain_x16\":64,\"jpeg_quality\":85}", stream_names[i]);
+        assert(ainekio_control_decode_for_body(output, strlen(output), &camera_message) == AINEKIO_DECODE_OK);
+        assert(camera_message.command.data.camera.resolution == AINEKIO_CAMERA_XGA + i);
+        assert(camera_message.command.data.camera.has_controls);
+        assert(camera_message.command.data.camera.controls.exposure_us == 50000);
+        assert(camera_message.command.data.camera.controls.gain_x16 == 64);
+        assert(camera_message.command.data.camera.controls.jpeg_quality == 85);
+    }
+    camera_json = "{\"t\":\"cam\",\"seq\":5,\"on\":true,\"fps\":3,\"res\":\"960P\",\"exposure_us\":0,\"gain_x16\":0,\"jpeg_quality\":75}";
+    assert(ainekio_control_decode_for_body(camera_json, strlen(camera_json), &camera_message) == AINEKIO_DECODE_OK);
+    assert(camera_message.command.data.camera.controls.exposure_us == 0 && camera_message.command.data.camera.controls.gain_x16 == 0);
+    const char *invalid_camera_controls[] = {
+        "\"exposure_us\":50000", "\"exposure_us\":99,\"gain_x16\":64,\"jpeg_quality\":75",
+        "\"exposure_us\":50000,\"gain_x16\":1,\"jpeg_quality\":75",
+        "\"exposure_us\":50000,\"gain_x16\":64,\"jpeg_quality\":101"};
+    for (unsigned i = 0; i < 4; ++i) {
+        snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":6,\"on\":true,\"fps\":3,\"res\":\"960P\",%s}", invalid_camera_controls[i]);
+        assert(ainekio_control_decode_for_body(output, strlen(output), &camera_message) != AINEKIO_DECODE_OK);
+    }
     const char *still_names[] = {"960P", "FHD", "AUTO"};
     for (unsigned i = 0; i < 3; ++i) {
         snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":4,\"on\":false,\"fps\":0,\"res\":\"VGA\",\"snapshot_res\":\"%s\"}", still_names[i]);

@@ -287,6 +287,24 @@ in brighter light; select 960P for a consistent field of view. Stills allow
 longer automatic exposures and exposure settling; preview favors shorter
 exposures. The P4 README documents the selection and settling policy.
 
+Bodies advertising `camera_controls_v1` additionally accept stream `res` values
+`XGA`, `960P` and `FHD`, and this optional complete group:
+
+```json
+{"t":"cam","seq":75,"on":true,"fps":3,"res":"960P","snapshot_res":"AUTO","exposure_us":50000,"gain_x16":64,"jpeg_quality":75}
+```
+
+`exposure_us:0` selects automatic exposure; manual range is 100–1,000,000 µs.
+`gain_x16:0` selects automatic gain; manual range is 16–1023 (1–63.9375×).
+`jpeg_quality` is 1–100. All three fields must be supplied together; omission
+preserves their previous values. This is sensor gain, not calibrated ISO.
+The gateway uses existing feature negotiation before sending upgraded controls.
+Automatic preview now permits the same night integration range as stills;
+manual shutter extends frame timing when necessary. Delivered FPS may be lower
+than requested. No change to movement ownership or stopping policy is involved.
+The existing 256 KiB JPEG capacity still applies; oversize encoding reports an
+error instead of silently changing resolution or quality.
+
 Optional status `camera_capture` reports the latest emitted frame's `counter`,
 `width`, `height`, measured `exposure_us`, `gain_x16` (16 = 1×; not ISO),
 `settle_ms`, and `settled`. Preview has `settle_ms:0`; stills report whether
@@ -396,3 +414,23 @@ The command completes after the body saves and applies the value. It applies to
 both streamed speech and local audio assets, and remains set across power cycles.
 Read back the current value from heartbeat audio telemetry. Existing V1 firmware
 without that telemetry field does not implement this command.
+
+## Timed display expressions
+
+`face_feedback_v1` extends the existing `intent` / `face` command. `expr` remains
+an identifier from the same face library used by Body Control and motion cues.
+Optional `token` and `if_token` are 1–32 lowercase alphanumeric/underscore
+identifiers. `timeout_ms` is an unsigned 32-bit duration measured on the robot;
+zero retains an untimed selection. `background:true` yields to actual motion and
+speech while preserving the expression between activities. Each set replaces
+the single active selection immediately; receipt completion means applied, not
+that its display timeout has elapsed.
+
+`release:true` with `token` releases only the matching selection and needs no
+`expr`. `if_token` makes a set conditional on the currently active token, so an
+old request's failure indication cannot replace a newer face. Expiry/release
+returns to the underlying motion/default face. Listening and connection screens
+retain their existing renderer ownership. These operations never send Stop or
+change body outputs. Untimed legacy `face` requests retain their existing
+clear-on-next-motion behavior. Gateways reject extension fields unless the body
+advertises this feature. The hello feature array now permits 32 entries.

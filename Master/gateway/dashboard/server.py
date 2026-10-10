@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from gateway.security import DashboardPasswordStore, RobotTokenStore
+from gateway.security import DashboardPasswordStore, RobotTokenStore, _atomic_secure_json, _read_json
 from gateway.environment_adapter import EnvironmentAdapter
 from gateway.hotspot import RobotHotspot
 from gateway.server.service import GatewayError, GatewayService
@@ -66,6 +66,10 @@ class DashboardHttpServer(ThreadingHTTPServer):
             raise ValueError("primary_view must be camera or simulator")
         super().__init__(server_address, DashboardHandler)
         self.gateway = gateway
+        self.camera_recognition = None
+        self.control_settings_path = password_store.path.with_name("sensing-controls.json")
+        self.control_settings = (_read_json(self.control_settings_path)
+            if self.control_settings_path.exists() else {"recognition": True, "cameras": {}})
         self.event_loop = event_loop
         self.password_store = password_store
         self.token_store = token_store
@@ -87,6 +91,37 @@ class DashboardHttpServer(ThreadingHTTPServer):
     def call_gateway(self, awaitable: Any, *, timeout: float = 10.0) -> object:
         future = asyncio.run_coroutine_threadsafe(awaitable, self.event_loop)
         return future.result(timeout=timeout)
+
+    async def set_recognition(self, enabled: bool) -> dict[str, object]:
+        if self.camera_recognition is None:
+            raise GatewayError("Recognition backend is not configured")
+        settings = {**self.control_settings, "recognition": enabled}
+        _atomic_secure_json(self.control_settings_path, settings)
+        self.control_settings = settings
+        self.camera_recognition.set_enabled(enabled)
+        return {"ok": True, "enabled": enabled}
+
+    async def person_status(self) -> dict[str, object]:
+        status = getattr(self.camera_recognition, "identity_status", None)
+        return status() if status else {"configured": False}
+
+    async def set_saved_camera(self, robot_id: str, settings: dict[str, object]) -> dict[str, object]:
+        sequence = await self.gateway.set_camera(robot_id=robot_id, **settings)
+        saved = {**self.control_settings, "cameras": {**self.control_settings["cameras"], robot_id: settings}}
+        _atomic_secure_json(self.control_settings_path, saved)
+        self.control_settings = saved
+        return {"ok": True, "seq": sequence, "saved": True}
+
+    async def restore_camera(self, event: dict[str, object]) -> None:
+        if event.get("t") != "connection" or event.get("status") != "connected":
+            return
+        robot_id = event.get("robot_id")
+        settings = self.control_settings["cameras"].get(robot_id)
+        if settings is not None:
+            try:
+                await self.gateway.set_camera(robot_id=robot_id, **settings)
+            except (GatewayError, ValueError) as error:
+                self.audit_log.record("camera_settings_restore_failed", robot_id=robot_id, error=str(error))
 
     def _record_camera_frame(self, frame: dict[str, object]) -> None:
         if frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
@@ -168,6 +203,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "audit": self.server.audit_log.entries(),
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
                     "host_network": self.server.hotspot.snapshot(),
+                    "camera_settings": self.server.control_settings["cameras"],
+                    "person_recognition": self.server.call_gateway(self.server.person_status()),
+                    "recognition": ({"configured": True, "enabled": self.server.camera_recognition.enabled,
+                        "maxAgeMs": self.server.camera_recognition.max_frame_age_s * 1000,
+                        **self.server.camera_recognition.metrics()}
+                        if self.server.camera_recognition is not None else {"configured": False, "enabled": False}),
                 }
             )
             return
@@ -295,6 +336,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _dispatch_api(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         robot_id = _optional_string(payload, "robot_id")
+        if path in {"/api/people/enroll", "/api/people/forget"}:
+            camera = self.server.camera_recognition
+            if camera is None:
+                raise GatewayError("Named-person recognition is not configured")
+            if path.endswith("/enroll"):
+                return self.server.call_gateway(camera.enroll_person(payload), timeout=30)
+            return self.server.call_gateway(camera.forget_person(_required_string(payload, "personId")))
+        if path == "/api/recognition":
+            return self.server.call_gateway(self.server.set_recognition(_required_bool(payload, "enabled")))
+        if path == "/api/behavior-control":
+            adapter = self.server.environment_adapter
+            if adapter is None:
+                raise GatewayError("MetaHuman Environment Bridge is not configured")
+            enabled = _required_bool(payload, "enabled") if "enabled" in payload else None
+            return self.server.call_gateway(adapter.behavior_settings(enabled))
         if path == "/api/speech-output":
             target = _required_string(payload, "outputTarget")
             if target not in {"local", "robot"}:
@@ -362,16 +418,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return {"ok": True, "seq": sequence}
         if path == "/api/camera":
             options = {"snapshot_resolution": _required_string(payload, "snapshot_res")} if "snapshot_res" in payload else {}
-            sequence = self.server.call_gateway(
-                self.server.gateway.set_camera(
-                    on=_required_bool(payload, "on"),
-                    fps=_required_int(payload, "fps"),
-                    resolution=_required_string(payload, "res"),
-                    robot_id=robot_id,
-                    **options,
-                )
-            )
-            return {"ok": True, "seq": sequence}
+            for key in ("exposure_us", "gain_x16", "jpeg_quality"):
+                if key in payload:
+                    options[key] = _required_int(payload, key)
+            return self.server.call_gateway(self.server.set_saved_camera(_required_string(payload, "robot_id"), {
+                "on": _required_bool(payload, "on"), "fps": _required_int(payload, "fps"),
+                "resolution": _required_string(payload, "res"), **options}))
         if path == "/api/speaker":
             volume = _required_int(payload, "volume_percent")
             if not 0 <= volume <= 100:
@@ -609,7 +661,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except ValueError:
             self._send_json({"error": "invalid_content_length"}, status=HTTPStatus.BAD_REQUEST)
             return None
-        if length <= 0 or length > MAX_REQUEST_BODY_BYTES:
+        from protocol.binary_helpers import MAX_JPEG_BYTES
+        limit = (MAX_JPEG_BYTES * 4 // 3 + 4096) if urlsplit(self.path).path == "/api/people/enroll" else MAX_REQUEST_BODY_BYTES
+        if length <= 0 or length > limit:
             self._send_json({"error": "invalid_body_size"}, status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             return None
         try:
@@ -645,8 +699,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         for name, value in (extra_headers or {}).items():
             self.send_header(name, value)
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def _send_json(
         self,
@@ -662,8 +719,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         for name, value in (extra_headers or {}).items():
             self.send_header(name, value)
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def _security_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")

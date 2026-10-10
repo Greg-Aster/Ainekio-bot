@@ -34,6 +34,7 @@ class RecognizedObject:
     label: str
     score: float | None = None
     box: tuple[float, float, float, float] | None = None
+    identity: dict[str, object] | None = None
 
     def message(self) -> dict[str, object]:
         result: dict[str, object] = {"label": self.label}
@@ -41,7 +42,32 @@ class RecognizedObject:
             result["score"] = self.score
         if self.box is not None:
             result["box"] = dict(zip(("x", "y", "width", "height"), self.box))
+        if self.identity is not None:
+            result["identity"] = dict(self.identity)
         return result
+
+
+def parse_person_identity(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping) or value.get("state") not in {"unknown", "face_match", "tracked"}:
+        raise ValueError("person identity requires an estimate state")
+    state = value["state"]
+    fields = {"trackId", "state"} if state == "unknown" else {"trackId", "state", "personId", "name", "faceAgeMs"}
+    if state == "face_match":
+        fields.add("similarity")
+    if set(value) != fields:
+        raise ValueError("person identity fields do not match its evidence state")
+    result = {"trackId": _text(value["trackId"], "track id", 80), "state": state}
+    if state != "unknown":
+        age = value["faceAgeMs"]
+        if type(age) not in (int, float) or not math.isfinite(age) or not 0 <= age <= 3000 or (state == "face_match" and age != 0):
+            raise ValueError("person face age must describe current or recent evidence")
+        result.update(personId=_text(value["personId"], "person id", 80), name=_text(value["name"], "person name", 80), faceAgeMs=age)
+    if state == "face_match":
+        score = value["similarity"]
+        if type(score) not in (int, float) or not math.isfinite(score) or not -1 <= score <= 1:
+            raise ValueError("face similarity must be a finite cosine score")
+        result["similarity"] = score
+    return result
 
 
 @dataclass(frozen=True)
@@ -69,7 +95,7 @@ def parse_recognition(value: object, *, backend: str, model: str) -> Recognition
         raise ValueError("recognition uncertainties exceed their bounded list")
     parsed = []
     for item in objects:
-        if not isinstance(item, Mapping) or not set(item).issubset({"label", "score", "box"}):
+        if not isinstance(item, Mapping) or not set(item).issubset({"label", "score", "box", "identity"}):
             raise ValueError("recognition object contains unsupported fields")
         label = _text(item.get("label"), "object label", 80)
         score = _unit(item["score"], "object score") if "score" in item else None
@@ -82,7 +108,10 @@ def parse_recognition(value: object, *, backend: str, model: str) -> Recognition
             x, y, width, height = box
             if width <= 0 or height <= 0 or x + width > 1.000001 or y + height > 1.000001:
                 raise ValueError("object box must have visible area within the frame")
-        parsed.append(RecognizedObject(label, score, box))
+        identity = parse_person_identity(item["identity"]) if "identity" in item else None
+        if identity is not None and (label != "person" or box is None):
+            raise ValueError("person identity requires a localized person")
+        parsed.append(RecognizedObject(label, score, box, identity))
     return RecognitionResult(_text(backend, "backend", 80), _text(model, "model", 160),
         _text(value["summary"], "summary", 1000, empty=True), tuple(parsed),
         tuple(_text(item, "uncertainty", 240) for item in uncertainties))

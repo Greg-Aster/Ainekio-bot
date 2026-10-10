@@ -122,6 +122,12 @@ typedef enum {
 } ainekio_camera_resolution_t;
 
 typedef struct {
+    uint32_t exposure_us; /* zero selects sensor automatic exposure */
+    uint16_t gain_x16;    /* zero selects automatic gain; 16 = 1x */
+    uint8_t jpeg_quality;
+} ainekio_camera_controls_t;
+
+typedef struct {
     uint32_t counter, width, height, exposure_us, gain_x16, settle_ms;
     bool settled;
 } ainekio_camera_capture_t;
@@ -192,6 +198,15 @@ typedef struct {
 } ainekio_motion_plan_t;
 
 typedef struct {
+    char expression[AINEKIO_ASSET_NAME_MAX + 1U];
+    char token[AINEKIO_ASSET_NAME_MAX + 1U];
+    char if_token[AINEKIO_ASSET_NAME_MAX + 1U];
+    uint32_t timeout_ms; /* zero disables expiry */
+    bool release;
+    bool background; /* yield to actual speech and movement */
+} ainekio_face_selection_t;
+
+typedef struct {
     ainekio_intent_kind_t kind;
     float playback_rate; /* 0 uses the saved body setting; named motions only. */
     union {
@@ -213,6 +228,7 @@ typedef struct {
             uint32_t update_sequence; /* active walk sequence; zero starts a walk */
         } walk;
         char asset[AINEKIO_ASSET_NAME_MAX + 1U];
+        ainekio_face_selection_t face;
     } data;
 } ainekio_intent_t;
 
@@ -249,6 +265,8 @@ typedef struct {
             ainekio_camera_resolution_t resolution;
             bool has_snapshot_resolution;
             ainekio_camera_resolution_t snapshot_resolution;
+            bool has_controls;
+            ainekio_camera_controls_t controls;
         } camera;
         struct {
             bool enabled;

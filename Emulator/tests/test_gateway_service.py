@@ -151,6 +151,34 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("snapshot_res", socket.sent[-1])
         await connection._handle_control({"t": "ack", "seq": sequence})
 
+    async def test_hd_camera_controls_negotiate_and_preserve_exact_manual_values(self):
+        class Socket:
+            closed = False
+            def __init__(self): self.sent = []
+            async def send(self, raw): self.sent.append(json.loads(raw))
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo", capabilities={"camera": True})
+        service._connections["robot"] = connection
+        settings = dict(on=True, fps=3, resolution="960P", exposure_us=50000, gain_x16=64, jpeg_quality=85, robot_id="robot")
+        with self.assertRaisesRegex(GatewayError, "camera_controls_v1"):
+            await service.set_camera(**settings)
+        self.assertEqual(socket.sent, [])
+        connection.features = ("camera_controls_v1",)
+        for resolution in ("XGA", "960P", "FHD"):
+            sequence = await service.set_camera(**{**settings, "resolution": resolution})
+            self.assertEqual(socket.sent[-1], {"t": "cam", "seq": sequence, "on": True, "fps": 3, "res": resolution,
+                "exposure_us": 50000, "gain_x16": 64, "jpeg_quality": 85})
+            await connection._handle_control({"t": "ack", "seq": sequence})
+        before = len(socket.sent)
+        for changes in ({"exposure_us": 99}, {"gain_x16": 1}, {"jpeg_quality": 101}, {"gain_x16": None}):
+            with self.assertRaises(ValueError):
+                await service.set_camera(**{**settings, **changes})
+        self.assertEqual(len(socket.sent), before)
+        sequence = await service.set_camera(**{**settings, "exposure_us": 0, "gain_x16": 0})
+        self.assertEqual(socket.sent[-1]["gain_x16"], 0)
+        await connection._handle_control({"t": "ack", "seq": sequence})
+
     def test_gateway_liveness_defaults_match_physical_body_contract(self) -> None:
         config = GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
         self.assertEqual(config.ping_interval_s, 1.0)

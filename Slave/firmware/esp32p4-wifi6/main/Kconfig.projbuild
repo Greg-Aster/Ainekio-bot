@@ -1,6 +1,14 @@
-menu "Ainekio wide face LCD"
+menu "Ainekio face display"
+choice AINEKIO_DISPLAY_PANEL
+    prompt "Connected face display"
+    default AINEKIO_DISPLAY_SSD1306
+config AINEKIO_DISPLAY_SSD1306
+    bool "0.96-inch SSD1306 I2C OLED (current assembly)"
+config AINEKIO_DISPLAY_ST7789
+    bool "1.9-inch ST7789 SPI LCD"
+endchoice
 config AINEKIO_LCD_ENABLED
-    bool "Use the 1.9-inch ST7789 SPI LCD"
+    bool "Enable the selected face display"
     default y
 config AINEKIO_LCD_SCLK
     int "LCD SCL / SCK GPIO"
@@ -23,7 +31,7 @@ config AINEKIO_LCD_SPI_HZ
 config AINEKIO_LCD_FPS
     int "Face rendering frames per second"
     range 1 120
-    default 30
+    default 15
 config AINEKIO_LCD_Y_GAP
     int "Landscape row offset in ST7789 RAM"
     default 35

@@ -1,6 +1,8 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "camera_hd_manual_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000, "gain_x16": 64, "jpeg_quality": 85}},
+    {"name": "camera_fhd_auto_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "FHD", "exposure_us": 0, "gain_x16": 0, "jpeg_quality": 75}},
     {"name": "speaker_volume_0", "message": {"t": "speaker", "seq": 1, "volume_percent": 0}, "receiver": "body"},
     {"name": "speaker_volume_37", "message": {"t": "speaker", "seq": 1, "volume_percent": 37}, "receiver": "body"},
     {"name": "speaker_volume_100", "message": {"t": "speaker", "seq": 1, "volume_percent": 100}, "receiver": "body"},

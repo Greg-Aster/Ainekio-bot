@@ -22,11 +22,15 @@ catalog=[]
 for line in subprocess.check_output([args.renderer,'--list'],text=True).splitlines():
     name,period=line.split();period=int(period)
     images=[]
-    step=50
-    for t in range(0,period,step):
+    # Match the firmware's 15 fps integer-millisecond display interval.
+    step=1000//15
+    times=range(0,period,step)
+    for t in times:
         data=subprocess.check_output([args.renderer,name,str(t)])
         images.append(Image.open(io.BytesIO(data)).convert('RGB'))
-    images[0].save(args.out/(name+'.webp'),save_all=True,append_images=images[1:],duration=step,loop=0,lossless=True)
+    # Preserve the exact expression period through the final partial interval.
+    durations=[min(step,period-t) for t in times]
+    images[0].save(args.out/(name+'.webp'),save_all=True,append_images=images[1:],duration=durations,loop=0,lossless=True)
     images[0].save(args.out/(name+'.png'))
     emotions={'default','idle','stand','neutral','idle_blink','happy','sad','angry',
               'surprised','sleepy','love','excited','confused','thinking','bored','listening','curious'}

@@ -146,6 +146,20 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_people_enrollment_uses_authenticated_owner_without_robot_commands(self) -> None:
+        cookie, csrf = await self._login()
+        camera = SimpleNamespace(enroll_person=AsyncMock(return_value={"ok": True, "people": []}),
+            forget_person=AsyncMock(return_value={"ok": True, "people": []}))
+        self.server.camera_recognition = camera
+        payload = {"name": "Alice", "jpeg": "a" * 20000}
+        self.assertEqual((await self._request("POST", "/api/people/enroll", payload))[0], 401)
+        self.assertEqual((await self._request("POST", "/api/people/enroll", payload, cookie=cookie))[0], 403)
+        self.assertEqual((await self._request("POST", "/api/people/enroll", payload, cookie=cookie, csrf=csrf))[0], 200)
+        camera.enroll_person.assert_awaited_once_with(payload)
+        self.assertEqual((await self._request("POST", "/api/people/forget", {"personId": "alice"}, cookie=cookie, csrf=csrf))[0], 200)
+        camera.forget_person.assert_awaited_once_with("alice")
+        self.assertEqual(self.gateway.calls, [])
+
     async def test_speaker_volume_uses_robot_owner_and_existing_auth(self) -> None:
         status, _, _ = await self._request("POST", "/api/speaker", {"volume_percent": 37})
         self.assertEqual(status, 401)
@@ -788,13 +802,55 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('id="speaker-test-volume"', html)
         self.assertIn('name="volume_percent"', html)
         self.assertLess(
-            html.index('id="camera-form"'),
+            html.index('data-dashboard-panel="camera"'),
             html.index('data-dashboard-panel="simulator"'),
         )
+        controls = html[html.index('aria-labelledby="sensing-control-title"'):html.index('aria-labelledby="motion-title"')]
+        for form in ("camera-form", "recognition-form", "behavior-control-form"):
+            self.assertIn(f'id="{form}"', controls)
         self.assertIn('data-dashboard-panel="simulator"', html)
         self.assertIn('data-intent="sit">Sit · bored</button>', html)
         self.assertIn('data-emote="number_one">#1 · hydrant</button>', html)
         self.assertIn('data-emote="number_two">#2 · squat</button>', html)
+
+    async def test_hd_exposure_settings_are_saved_and_restored_through_camera_owner(self):
+        cookie, csrf = await self._login()
+        payload = {"robot_id": "robot", "on": True, "fps": 3, "res": "960P", "snapshot_res": "AUTO",
+            "exposure_us": 50000, "gain_x16": 64, "jpeg_quality": 85}
+        status, _, _ = await self._request("POST", "/api/camera", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        saved = self.server.control_settings["cameras"]["robot"]
+        self.assertEqual(saved["gain_x16"], 64)
+        self.assertEqual(saved["exposure_us"], 50000)
+        self.assertEqual(saved["resolution"], "960P")
+        await self.server.restore_camera({"t": "connection", "status": "connected", "robot_id": "robot"})
+        self.assertEqual(self.gateway.calls[-1], ("camera", {"robot_id": "robot", **saved}))
+        self.assertTrue(all(call[0] == "camera" for call in self.gateway.calls))
+
+    async def test_recognition_switch_and_camera_choices_persist_without_movement(self) -> None:
+        cookie, csrf = await self._login()
+        plugin = SimpleNamespace(enabled=True, max_frame_age_s=1, metrics=lambda: {})
+        plugin.set_enabled = lambda value: setattr(plugin, "enabled", value)
+        self.server.camera_recognition = plugin
+        self.assertEqual((await self._request("POST", "/api/recognition", {"enabled": False}, cookie=cookie))[0], 403)
+        self.assertEqual((await self._request("POST", "/api/recognition", {"enabled": False}, cookie=cookie, csrf=csrf))[0], 200)
+        self.assertFalse(plugin.enabled)
+        self.assertEqual(self.gateway.calls, [])
+        response = await self._request("POST", "/api/camera", {"robot_id": "robot-1", "on": False,
+            "fps": 2, "res": "QVGA"}, cookie=cookie, csrf=csrf)
+        self.assertEqual(response[0], 200)
+        self.assertTrue(response[1]["saved"])
+        reloaded = start_dashboard_server("127.0.0.1", 0, gateway=self.gateway,
+            event_loop=asyncio.get_running_loop(), password_store=self.password_store, token_store=self.token_store)
+        try:
+            self.assertFalse(reloaded.control_settings["recognition"])
+            self.assertFalse(reloaded.control_settings["cameras"]["robot-1"]["on"])
+            before = len(self.gateway.calls)
+            await reloaded.restore_camera({"t": "connection", "status": "connected", "robot_id": "robot-1"})
+            self.assertEqual(len(self.gateway.calls), before + 1)
+            self.assertEqual(self.gateway.calls[-1][0], "camera")
+        finally:
+            reloaded.server_close()
 
         status, body, _headers = await self._raw_request(
             "GET",

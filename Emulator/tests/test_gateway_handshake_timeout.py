@@ -17,7 +17,7 @@ class GatewayHandshakeTimeoutTests(unittest.IsolatedAsyncioTestCase):
             except websockets.exceptions.ConnectionClosed:
                 pass
 
-        async with websockets.serve(
+        async with gateway_main.serve(
             receive, "127.0.0.1", 0,
             create_protocol=gateway_main.BoundedHandshakeProtocol,
             max_size=gateway_main.MAX_WEBSOCKET_MESSAGE_BYTES,
@@ -40,7 +40,7 @@ class GatewayHandshakeTimeoutTests(unittest.IsolatedAsyncioTestCase):
         original_timeout = gateway_main.WEBSOCKET_OPEN_TIMEOUT_SECONDS
         gateway_main.WEBSOCKET_OPEN_TIMEOUT_SECONDS = 0.05
         try:
-            async with websockets.serve(
+            async with gateway_main.serve(
                 lambda _websocket, _path: asyncio.Future(),
                 "127.0.0.1",
                 0,

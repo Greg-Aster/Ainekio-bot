@@ -22,7 +22,7 @@ from gateway.plugins import (
 )
 from gateway.perception import RecognitionResult
 from gateway.server.service import ActionExpiredError, GatewayError, GatewayService
-from gateway.body_capabilities import body_commands
+from gateway.body_capabilities import body_commands, expression_library
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
 from websockets.exceptions import ConnectionClosed
@@ -147,7 +147,7 @@ class EnvironmentAdapter:
         self._active_action_ids: set[str] = set()
         self._walk_update_task: asyncio.Task[None] | None = None
         self._bridge_ready = False
-        self._speech_settings_requests: dict[str, asyncio.Future[dict[str, object]]] = {}
+        self._settings_requests: dict[str, asyncio.Future[dict[str, object]]] = {}
         self._audio_utterances = AudioUtterancePlugin(
             gateway,
             self._handle_gateway_utterance,
@@ -158,41 +158,49 @@ class EnvironmentAdapter:
         gateway.subscribe_frames(self._handle_gateway_frame)
         gateway.subscribe_transcripts(self._handle_gateway_transcript)
 
-    async def speech_output_settings(self, output_target: str | None = None) -> dict[str, object]:
-        """Read/change MetaHuman's saved voice output through its existing bridge."""
-        if output_target is not None and output_target not in {"local", "robot"}:
-            raise ValueError("outputTarget must be local or robot")
+    async def _request_settings(self, kind: str, values: dict[str, object]) -> dict[str, object]:
         if not self._bridge_ready or self._websocket is None:
-            raise GatewayError("Connect MetaHuman Environment Mode to choose speech output")
+            raise GatewayError("MetaHuman Environment Bridge is disconnected")
         request_id = str(uuid4())
         future = asyncio.get_running_loop().create_future()
-        self._speech_settings_requests[request_id] = future
-        message = {"type": "speech.settings", "version": ADAPTER_PROTOCOL_VERSION,
-                   "requestId": request_id}
-        if output_target is not None:
-            message["outputTarget"] = output_target
+        self._settings_requests[request_id] = future
         try:
-            if not await self._send(message):
+            if not await self._send({"type": kind, "version": ADAPTER_PROTOCOL_VERSION,
+                    "requestId": request_id, **values}):
                 raise GatewayError("MetaHuman Environment Bridge disconnected")
             try:
                 result = await asyncio.wait_for(future, timeout=5.0)
             except asyncio.TimeoutError as exc:
-                raise GatewayError("MetaHuman did not return speech settings; check its bridge version and connection") from exc
+                raise GatewayError("MetaHuman settings request unconfirmed; refresh its state before retrying") from exc
             if result.get("error"):
                 raise GatewayError(str(result["error"]))
-            if result.get("outputTarget") not in {"local", "robot"}:
-                raise GatewayError("MetaHuman returned invalid speech settings")
-            return {key: result[key] for key in ("outputTarget", "username", "provider", "speechDisabled") if key in result}
+            if result.get("type") != kind + ".result":
+                raise GatewayError("MetaHuman returned mismatched settings")
+            return result
         finally:
-            self._speech_settings_requests.pop(request_id, None)
+            self._settings_requests.pop(request_id, None)
             if not future.done():
                 future.cancel()
 
-    def _disconnect_speech_settings(self) -> None:
-        for future in self._speech_settings_requests.values():
+    async def speech_output_settings(self, output_target: str | None = None) -> dict[str, object]:
+        if output_target is not None and output_target not in {"local", "robot"}:
+            raise ValueError("outputTarget must be local or robot")
+        result = await self._request_settings("speech.settings", {} if output_target is None else {"outputTarget": output_target})
+        if result.get("outputTarget") not in {"local", "robot"}:
+            raise GatewayError("MetaHuman returned invalid speech settings")
+        return {key: result[key] for key in ("outputTarget", "username", "provider", "speechDisabled") if key in result}
+
+    async def behavior_settings(self, enabled: bool | None = None) -> dict[str, object]:
+        result = await self._request_settings("behavior.settings", {} if enabled is None else {"enabled": enabled})
+        if type(result.get("enabled")) is not bool:
+            raise GatewayError("MetaHuman returned invalid behavior settings")
+        return {key: result[key] for key in ("enabled", "username", "executions", "unresolvedActions") if key in result}
+
+    def _disconnect_settings(self) -> None:
+        for future in self._settings_requests.values():
             if not future.done():
                 future.set_result({"error": "MetaHuman Environment Bridge disconnected"})
-        self._speech_settings_requests.clear()
+        self._settings_requests.clear()
 
     async def handler(self, websocket: Any) -> None:
         try:
@@ -213,7 +221,7 @@ class EnvironmentAdapter:
             return
 
         previous = self._websocket
-        self._disconnect_speech_settings()
+        self._disconnect_settings()
         previous_camera_task = self._camera_delivery_task
         previous_microphone_level_task = self._microphone_level_task
         self._websocket = websocket
@@ -279,9 +287,9 @@ class EnvironmentAdapter:
                     await self._send_feedback(accepted)
                     continue
                 message = self._decode_message(raw)
-                if message.get("type") == "speech.settings.result":
+                if message.get("type") in {"speech.settings.result", "behavior.settings.result"}:
                     request_id = message.get("requestId")
-                    future = self._speech_settings_requests.get(request_id) if isinstance(request_id, str) else None
+                    future = self._settings_requests.get(request_id) if isinstance(request_id, str) else None
                     if self._websocket is websocket and future is not None and not future.done():
                         future.set_result(message)
                     continue
@@ -343,7 +351,7 @@ class EnvironmentAdapter:
         finally:
             if self._websocket is websocket:
                 self._bridge_ready = False
-                self._disconnect_speech_settings()
+                self._disconnect_settings()
                 self._websocket = None
                 if self._camera_delivery_task is not None:
                     self._camera_delivery_task.cancel()
@@ -535,6 +543,7 @@ class EnvironmentAdapter:
             isinstance(action_id, str)
             and translated is not None
             and translated.kind in {"intent", "motion_plan", "snapshot"}
+            and translated.name != "face"
         ):
             visual_future = asyncio.get_running_loop().create_future()
             self._remember_action_visual(action_id, visual_future)
@@ -667,7 +676,7 @@ class EnvironmentAdapter:
         def check_interpretation_owner():
             metadata = action.get("metadata")
             fence = metadata.get("interpretationBody") if isinstance(metadata, Mapping) else None
-            if fence is None or translated.kind in {"snapshot", "speech"}:
+            if fence is None or translated.kind in {"snapshot", "speech"} or translated.name == "face":
                 return
             current = self.gateway.status().get("robots", {}).get(robot_id, {})
             expected = [self.config.session_id, self.gateway.instance_id, robot_id,
@@ -1214,13 +1223,15 @@ class EnvironmentAdapter:
             self._resolve_action_visual(snapshot_context, None)
             return
         visual = {
-            "id": f"ainekio-camera-{frame.get('counter', int(self.clock() * 1000))}",
+            "id": f"ainekio-camera-{self.gateway.instance_id}-{frame.get('robot_id')}-{frame.get('epoch')}-{frame.get('counter')}",
             "timestamp": self.utcnow().isoformat(),
             "mimeType": "image/jpeg",
             "dataUrl": f"data:image/jpeg;base64,{base64.b64encode(payload).decode('ascii')}",
             "source": "robot-camera",
             "metadata": {
                 "robotId": frame.get("robot_id"),
+                "gatewayInstance": self.gateway.instance_id,
+                "epoch": frame.get("epoch"),
                 "counter": frame.get("counter"),
                 "bytes": len(payload),
                 **{
@@ -1284,6 +1295,7 @@ class EnvironmentAdapter:
             await self._send_observation(metadata={"recognitionFailure": {
                 "robotId": robot_id, "epoch": analysis.epoch, "frameCounter": analysis.counter,
                 "gatewayInstance": self.gateway.instance_id, "reason": analysis.error,
+                **({"processing": analysis.processing} if analysis.processing is not None else {}),
             }})
             return
         if not 0 <= age < max_frame_age_s:
@@ -1297,7 +1309,8 @@ class EnvironmentAdapter:
             "timeBasis": "gateway_receipt", "observedAt": (now - timedelta(seconds=age)).isoformat(),
             "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat(),
             **analysis.result.message()}
-        await self._send_telemetry("vision.recognition", {"perception": perception})
+        await self._send_telemetry("vision.recognition", {"perception": perception,
+            **({"processing": analysis.processing} if analysis.processing is not None else {})})
 
     async def _send_observation(
         self,
@@ -1387,6 +1400,10 @@ class EnvironmentAdapter:
         if self._last_audio_result is not None:
             state["lastAudioResult"] = dict(self._last_audio_result)
         actions = ["sendText"]
+        expressions = expression_library(robot) if body_authenticated else []
+        expression_feedback = bool(expressions and robot and "face_feedback_v1" in robot.get("features", []))
+        if expression_feedback:
+            actions.append("faceExpression")
         robot_commands: list[str] = []
         if motion_ready:
             actions.extend(["robotCommand", "move", "stop"])
@@ -1404,6 +1421,8 @@ class EnvironmentAdapter:
             "timestamp": self.utcnow().isoformat(),
             "capabilities": {
                 "actions": actions,
+                "expressionLibrary": expressions,
+                "expressionFeedback": expression_feedback,
                 "robotCommands": robot_commands,
                 "robotCommandDescriptions": {
                     command: (V2_COMMAND_DESCRIPTIONS.get(command, ROBOT_COMMAND_DESCRIPTIONS[command]) if robot and robot.get("model") == "v2-12servo" else ROBOT_COMMAND_DESCRIPTIONS[command])
@@ -1599,7 +1618,7 @@ class EnvironmentAdapter:
                                 sequence=None if speech else sequence)
                             if speech:
                                 await self.gateway.cancel_speech(robot_id=robot_id, on_sequence=guard)
-                            elif wire.get("kind") != "snapshot":
+                            elif wire.get("kind") != "snapshot" and json.loads(row["payload"]).get("type") != "faceExpression":
                                 await self.gateway.estop(robot_id=robot_id, received_at=self.clock(), on_sequence=guard)
                             terminal = await self.gateway.wait_terminal(original, robot_id=robot_id, epoch=epoch, timeout=None)
                             feedback = self._terminal_feedback(action_id, terminal,

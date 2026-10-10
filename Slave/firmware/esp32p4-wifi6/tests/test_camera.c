@@ -165,7 +165,11 @@ int ioctl(int fd, unsigned long operation, ...)
         esp_cam_sensor_reg_val_t *reg = (void *)controls->controls->p_u8;
         assert(reg->regaddr < 65536);
         if (operation == VIDIOC_G_EXT_CTRLS) reg->value = sensor_regs[reg->regaddr];
-        else sensor_regs[reg->regaddr] = reg->value;
+        else {
+            assert(reg->regaddr < 0x3500 || reg->regaddr > 0x3502);
+            assert(reg->regaddr != 0x350a && reg->regaddr != 0x350b);
+            sensor_regs[reg->regaddr] = reg->value;
+        }
     } else if (operation == VIDIOC_QUERYBUF) {
         struct v4l2_buffer *buffer = argument;
         buffer->length = sensor_width * sensor_height * 2U;
@@ -234,7 +238,19 @@ static void frame_received(void *context, uint64_t session, ainekio_camera_origi
     assert(jpeg && length == 4 && received_frames < 16);
     const unsigned widths[] = {320, 640, 1024, 1280, 1920}, heights[] = {240, 480, 768, 960, 1080};
     assert(jpeg_width == widths[resolution] && jpeg_height == heights[resolution]);
-    assert((sensor_regs[0x3a00] & 4) == (origin == AINEKIO_CAMERA_ORIGIN_NONE ? 0 : 4));
+    assert((sensor_regs[0x3503] & 7U) == 0); /* shutter, gain and VTS stay automatic */
+    assert((sensor_regs[0x3a00] & 5U) == 4U); /* night integration, not frozen */
+    assert(((sensor_regs[0x3a18] << 8) | sensor_regs[0x3a19]) == 512);
+    const unsigned maximum_lines = (sensor_regs[0x3a02] << 8) | sensor_regs[0x3a03];
+    assert(maximum_lines == ((sensor_regs[0x3a14] << 8) | sensor_regs[0x3a15]));
+    if (origin == AINEKIO_CAMERA_ORIGIN_NONE) {
+        const unsigned hts = sensor_width == 1280 ? 1796 : 2271;
+        const unsigned pclk = sensor_width == 1280 ? 88333333 : 81666700;
+        const unsigned maximum_us = (uint64_t)maximum_lines * hts * 1000000ULL / pclk;
+        assert(maximum_us >= 66630 && maximum_us <= 66667);
+    } else {
+        assert(maximum_lines == (sensor_width == 1280 ? 1093U : 1199U) * 8U - 4U);
+    }
     captures[received_frames] = ainekio_p4_media_camera_capture();
     frames[received_frames].session = session;
     frames[received_frames].origin = origin;
@@ -283,6 +299,13 @@ int main(void)
     assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 2) == ESP_OK);
     capture(1); /* Must finish the iteration without a zero-FPS division. */
     assert(frames[0].resolution == AINEKIO_CAMERA_XGA);
+
+    assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 0) == ESP_ERR_INVALID_ARG);
+    assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_AUDIO, 0) == ESP_OK);
+    capture(1);
+    assert(frames[0].origin == AINEKIO_CAMERA_ORIGIN_AUDIO && frames[0].id == 0);
+    assert(frames[0].resolution == xga && frames[0].session == 7);
+
 
     configure(true, 5, NULL);
     for (unsigned i = 0; i < 3; ++i)
@@ -344,5 +367,12 @@ int main(void)
     capture(1);
     assert(frames[0].resolution == native && !captures[0].settled && captures[0].settle_ms == 4000);
     changing_light = false;
+    configure(true, 5, NULL);
+    sensor_gain = 32; capture(1);
+    const unsigned bright_exposure = captures[0].exposure_us;
+    assert(captures[0].gain_x16 == 32);
+    changing_light = true; sensor_gain = 512; capture(2);
+    assert(captures[0].gain_x16 == 512 && captures[1].gain_x16 == 512);
+    assert(captures[0].exposure_us != bright_exposure || captures[1].exposure_us != bright_exposure);
     return 0;
 }

@@ -117,7 +117,7 @@
     "name": "confused",
     "label": "Confused",
     "group": "Expressions",
-    "period_ms": 2800
+    "period_ms": 4200
   },
   {
     "name": "talk_confused",
@@ -129,7 +129,7 @@
     "name": "thinking",
     "label": "Thinking",
     "group": "Expressions",
-    "period_ms": 3600
+    "period_ms": 7200
   },
   {
     "name": "talk_thinking",
@@ -147,7 +147,7 @@
     "name": "listening",
     "label": "Listening",
     "group": "Expressions",
-    "period_ms": 1800
+    "period_ms": 2400
   },
   {
     "name": "walk",
@@ -321,7 +321,7 @@
     "name": "curious",
     "label": "Curious",
     "group": "Expressions",
-    "period_ms": 2400
+    "period_ms": 4800
   },
   {
     "name": "turn_left_90",

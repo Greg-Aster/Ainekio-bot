@@ -153,39 +153,12 @@
             </div>
             <button id="snapshot-button" type="button" title="Capture a fresh image using the applied snapshot settings">Snapshot</button>
           </div>
-          <div class="camera-workspace">
+          <div class="camera-preview">
             <div class="camera-stage">
               <img id="camera-view" class="camera-frame" alt="Live view from the selected Ainekio robot" hidden>
               <p id="camera-view-message" class="camera-view-message">Waiting for camera frames. Turn on the camera if needed.</p>
             </div>
-            <form id="camera-form" class="camera-controls">
-              <label class="switch-row">
-                <span>Camera</span>
-                <input name="on" type="checkbox">
-              </label>
-              <label>Stream resolution
-                <select name="res">
-                  <option value="QVGA">QVGA</option>
-                  <option value="VGA">VGA</option>
-                </select>
-              </label>
-              <label data-camera-profiles hidden>Snapshot resolution
-                <select name="snapshot_res" disabled>
-                  <option value="QVGA">QVGA</option>
-                  <option value="VGA" selected>VGA</option>
-                  <option value="XGA">XGA</option>
-                  <option value="AUTO" data-camera-adaptive hidden disabled>Auto · 960p / 1080p</option>
-                  <option value="960P" data-camera-adaptive hidden disabled>1280 × 960 · full view</option>
-                  <option value="FHD" data-camera-adaptive hidden disabled>1920 × 1080 · cropped</option>
-                </select>
-              </label>
-              <label>Frame rate
-                <input name="fps" type="number" min="0" max="15" value="1">
-              </label>
-              <button type="submit">Apply camera</button>
-              <p class="field-help" id="camera-adaptive-help" hidden>Auto uses the full view at 960p in dim light, or a cropped 1080p view in brighter light. Photos allow longer exposure and may take several seconds; preview favors shorter exposure.</p>
-              <p class="field-help" id="camera-capture-status" aria-live="polite"></p>
-            </form>
+
           </div>
         </section>
 
@@ -205,6 +178,91 @@
           ></iframe>
         </section>
       </div>
+
+      <section class="control-section sensing-control-section" aria-labelledby="sensing-control-title">
+        <div class="section-heading"><div><p class="section-kicker">On / Off</p><h2 id="sensing-control-title">Vision and robot control</h2></div></div>
+        <p class="muted">Choices are saved. Camera settings return when that robot reconnects. Recognition and MetaHuman control are separate from manual movement.</p>
+        <div class="sensing-controls-grid">
+          <div><h3>Camera</h3>
+            <form id="camera-form" class="camera-controls">
+              <label class="switch-row">
+                <span>Camera on</span>
+                <input name="on" type="checkbox">
+              </label>
+              <label>Stream resolution
+                <select name="res">
+                  <option value="QVGA">QVGA</option>
+                  <option value="VGA">VGA</option>
+                  <option value="XGA" data-camera-controls hidden disabled>1024 × 768</option>
+                  <option value="960P" data-camera-controls hidden disabled>1280 × 960 · full view</option>
+                  <option value="FHD" data-camera-controls hidden disabled>1920 × 1080 · cropped</option>
+                </select>
+              </label>
+              <label data-camera-profiles hidden>Snapshot resolution
+                <select name="snapshot_res" disabled>
+                  <option value="QVGA">QVGA</option>
+                  <option value="VGA" selected>VGA</option>
+                  <option value="XGA">XGA</option>
+                  <option value="AUTO" data-camera-adaptive hidden disabled>Auto · 960p / 1080p</option>
+                  <option value="960P" data-camera-adaptive hidden disabled>1280 × 960 · full view</option>
+                  <option value="FHD" data-camera-adaptive hidden disabled>1920 × 1080 · cropped</option>
+                </select>
+              </label>
+              <label>Frame rate
+                <input name="fps" type="number" min="0" max="15" value="1">
+              </label>
+              <fieldset data-camera-controls hidden disabled>
+                <legend>Exposure, gain and JPEG quality</legend>
+                <label>Exposure (ms; 0 = Auto)
+                  <input name="exposure_ms" type="number" min="0" max="1000" step="0.1" value="0">
+                </label>
+                <label>Sensor gain (×; 0 = Auto)
+                  <input name="sensor_gain" type="number" min="0" max="63.9375" step="0.0625" value="0">
+                </label>
+                <label>JPEG quality (1–100)
+                  <input name="jpeg_quality" type="number" min="1" max="100" step="1" value="75">
+                </label>
+                <p class="field-help">Gain is amplification, not calibrated ISO. Manual gain starts at 1×. Longer exposure collects more light but can blur motion and reduce delivered FPS. Auto allows longer exposure in dim light. Higher JPEG quality uses more bandwidth; images exceeding 256 KiB report a camera error. These settings apply to preview and snapshots and are saved with this robot's camera settings.</p>
+              </fieldset>
+              <button type="submit">Save camera setting</button>
+              <p class="field-help" id="camera-adaptive-help" hidden>Auto snapshot resolution uses the full view at 960p in dim light, or a cropped 1080p view in brighter light. Photos wait for exposure to settle and may take several seconds.</p>
+              <p class="field-help" id="camera-capture-status" aria-live="polite"></p>
+
+            </form>
+          <p class="muted">Controls the robot camera stream; snapshots remain separate.</p></div>
+          <div><h3>Recognition</h3>
+            <form id="recognition-form">
+              <label class="switch-row"><span>Recognition on</span><input id="recognition-enabled" type="checkbox"></label>
+              <button type="submit">Save recognition setting</button>
+            </form>
+            <p id="camera-recognition-status" class="field-help" role="status">Checking recognition…</p>
+            <details id="person-recognition-controls">
+              <summary>Named people</summary>
+              <p id="person-recognition-status" role="status">Checking face recognition…</p>
+              <form id="person-enrollment-form">
+                <label>Name <input name="person_name" maxlength="80" required autocomplete="off"></label>
+                <label>Photo <input name="photo" type="file" accept="image/jpeg" required></label>
+                <button type="submit" disabled>Add face sample</button>
+              </form>
+              <p class="field-help">Add up to four different, clear single-face JPEG photos per person. Photos are processed on this Body Control host and discarded; face features and names are saved locally. Use photos of people who agree to be enrolled.</p>
+              <p id="person-enrollment-result" role="status"></p>
+              <ul id="enrolled-people"></ul>
+              <p id="visible-people" role="status">No fresh person observations.</p>
+              <p class="field-help">Face match is an estimate. Tracked means brief visual continuity without a fresh face match. Unknown means no usable identity. This is not identity verification; occlusion, similar clothing, photos and lookalikes can defeat it. Enrollment does not start movement.</p>
+            </details>
+            <p class="muted">Analyses incoming frames. Off stops recognition and discards pending results; camera preview stays available. A vision-dependent task may cancel when its required observations expire.</p>
+          </div>
+          <div><h3>MetaHuman robot control</h3>
+            <form id="behavior-control-form">
+              <label class="switch-row"><span>Robot control on</span><input id="behavior-control-enabled" type="checkbox" disabled></label>
+              <button type="submit" disabled>Save robot control setting</button>
+            </form>
+            <p id="behavior-control-status" class="field-help" role="status">Checking MetaHuman connection…</p>
+            <p class="muted">Off blocks MetaHuman robot commands and requests cancellation of its current robot tasks. On permits new instructions; it does not restart cancelled movement or change Reactive mode. Manual controls and SIGNAL STOP remain available.</p>
+            <p class="muted">A cancellation request is not confirmation of physical rest.</p>
+          </div>
+        </div>
+      </section>
 
       <section class="control-section motion-section" aria-labelledby="motion-title">
         <div class="section-heading">
