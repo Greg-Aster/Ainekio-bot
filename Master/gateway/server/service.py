@@ -19,6 +19,7 @@ from gateway.security import RobotTokenStore
 
 from protocol.binary_helpers import (
     MAX_JPEG_BYTES,
+    CAMERA_JPEG_FRAME_TYPE,
     MIC_PCM_FRAME_TYPE,
     SPEAKER_PCM_FRAME_TYPE,
     encode_binary_frame,
@@ -171,7 +172,12 @@ class GatewayConnection:
         self.mode = "normal"
         self.last_command: dict[str, object] | None = None
         # Dispatch fence, not physical position or motion-completion state.
+        self.camera_frames_received = 0
+        self.camera_received_at: float | None = None
+        self.camera_frame_counter: int | None = None
         self.body_command_sequence: int | None = None
+        self.body_command_source: str | None = None
+        self.body_command: dict[str, object] | None = None
         self.speech_command_sequence: int | None = None
         self.profile = service.config.profile
         self.microphone_level = 0.0
@@ -407,6 +413,8 @@ class GatewayConnection:
                         # Adapter updates retain the original owner. Unguarded dashboard
                         # updates are manual takeover, even before any device receipt.
                         self.body_command_sequence = (message["update"] if "update" in message and on_sequence is not None else sequence)
+                        self.body_command_source = "coordinator" if on_sequence is not None else "manual"
+                        self.body_command = dict(message)
                     await asyncio.wait_for(self.websocket.send(json.dumps(message, separators=(",", ":"))), timeout=5.0)
             except Exception:
                 self.pending.pop(sequence, None)
@@ -547,6 +555,10 @@ class GatewayConnection:
             self.microphone_level = math.sqrt(
                 sum(sample * sample for sample in samples) / len(samples)
             ) / 32768.0
+        if frame.frame_type == CAMERA_JPEG_FRAME_TYPE:
+            self.camera_frames_received += 1
+            self.camera_received_at = self.service.clock()
+            self.camera_frame_counter = frame.counter
         await self.service._publish_frame(
             {
                 "robot_id": self.robot_id,
@@ -1284,6 +1296,12 @@ class GatewayService:
                     "capabilities": connection.capabilities,
                     "robot_commands": body_commands(connection.model, connection.features, connection.capabilities),
                     "body_command_sequence": connection.body_command_sequence,
+                    "camera_frames": {"received": connection.camera_frames_received,
+                        "counter": connection.camera_frame_counter,
+                        "age_ms": (max(0.0, now - connection.camera_received_at) * 1000
+                                   if connection.camera_received_at is not None else None)},
+                    "body_command_source": connection.body_command_source,
+                    "body_command": connection.body_command,
                     "active_speech_sequence": connection.speech_command_sequence,
                     "active_walk_sequence": next((seq for seq, item in connection.pending.items()
                         if not item.future.done() and item.command.get("name") == "walk" and "update" not in item.command), None),

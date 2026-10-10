@@ -324,6 +324,7 @@ async def _run_production(args: argparse.Namespace) -> None:
 
     camera = CameraFramePlugin(service, backend, observe=publish_recognition,
         max_frame_age_s=args.vision_max_frame_age_s) if backend else None
+    adapter.recognition_status = camera.metrics if camera is not None else None
     dashboard.camera_recognition = camera
     if camera is not None:
         camera.set_enabled(dashboard.control_settings["recognition"])
