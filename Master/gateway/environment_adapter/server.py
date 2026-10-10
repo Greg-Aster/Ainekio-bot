@@ -115,6 +115,7 @@ class EnvironmentAdapter:
         self.clock = clock
         self.utcnow = utcnow
         self.receipts = ActionReceipts(config.receipt_path)
+        self.recognition_status: Callable[[], dict[str, object]] | None = None
         self._websocket: Any | None = None
         self._send_lock = asyncio.Lock()
         self._cancelling_actions: set[str] = set()
@@ -1379,6 +1380,8 @@ class EnvironmentAdapter:
                 "speakerReady": speaker_ready,
             },
             "gateway": gateway_status,
+            "recognition": ({**self.recognition_status(), "reportedAt": self.utcnow().isoformat()}
+                            if self.recognition_status is not None else None),
             "freestyleMovement": self._motion_plan_support_status(gateway_status),
             "activeMovementUpdates": {
                 "version": 1,

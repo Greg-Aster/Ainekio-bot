@@ -464,7 +464,8 @@ class CameraFramePlugin:
         """Host-receipt age and throughput since the first frame, not capture latency."""
         now = self.gateway.clock()
         elapsed = now - self._started_at if self._started_at is not None else 0
-        return {"receivedFrames": self.received_frames, "processedFrames": self.processed_frames,
+        return {"enabled": self.enabled, "maxFrameAgeMs": self.max_frame_age_s * 1000,
+            "receivedFrames": self.received_frames, "processedFrames": self.processed_frames,
             "freshResults": self.fresh_results, "droppedFrames": self.dropped_frames,
             "staleFrames": self.stale_frames, "errors": self.errors,
             "queueDepth": self._queue.qsize(), "queueWaitMs": self._last_queue_wait_ms,

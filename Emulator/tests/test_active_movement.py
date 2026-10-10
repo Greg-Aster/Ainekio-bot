@@ -111,12 +111,24 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         await self.connection._handle_control({"t": "ack", "seq": result["seq"]})
         return result["seq"]
 
+    async def test_camera_receipt_status_is_independent_of_recognition_results(self) -> None:
+        from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, encode_binary_frame
+        self.assertIsNone(self.gateway.status()["robots"]["robot"]["camera_frames"]["age_ms"])
+        await self.connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 1, b"\xff\xd8frame\xff\xd9"))
+        self.now += 0.25
+        camera = self.gateway.status()["robots"]["robot"]["camera_frames"]
+        self.assertEqual(camera["received"], 1)
+        self.assertEqual(camera["counter"], 1)
+        self.assertEqual(camera["age_ms"], 250)
+
     async def test_program_wave_then_manual_takeover_rejects_old_stop_and_walk(self) -> None:
         wave = await self.complete_interpreted("program-wave", "wave", self.interpretation_body())
         self.assertEqual(wave["type"], "completed")
         fence = wave["data"].get("interpretationBody")
         self.assertEqual(fence, self.interpretation_body(1), "Correlated completion advances program ownership")
+        self.assertEqual(self.gateway.status()["robots"]["robot"]["body_command_source"], "coordinator")
         manual = await self.manual_walk()
+        self.assertEqual(self.gateway.status()["robots"]["robot"]["body_command_source"], "manual")
         for command in ("stop", "walk"):
             payload = {**action("old-" + command), "command": command,
                 "sessionId": self.adapter.config.session_id, "metadata": {"interpretationBody": fence}}

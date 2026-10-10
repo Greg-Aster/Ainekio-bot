@@ -273,6 +273,14 @@ class RecognitionBackendTests(unittest.IsolatedAsyncioTestCase):
 
         plugin = CameraFramePlugin(service, VisionBackend(self.endpoint, "fixture-vision"), observe=observe)
         self.addAsyncCleanup(plugin.aclose)
+        adapter.recognition_status = plugin.metrics
+        health = adapter._observation()["state"]["recognition"]
+        self.assertTrue(health["enabled"])
+        self.assertEqual(health["maxFrameAgeMs"], 1000)
+        self.assertIn("reportedAt", health)
+        plugin.set_enabled(False)
+        self.assertFalse(adapter._observation()["state"]["recognition"]["enabled"])
+        plugin.set_enabled(True)
         await service._publish_frame({"robot_id": "robot", "epoch": 1, "counter": 7,
             "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": JPEG, "received_at": now})
         await asyncio.wait_for(plugin._queue.join(), 2)
