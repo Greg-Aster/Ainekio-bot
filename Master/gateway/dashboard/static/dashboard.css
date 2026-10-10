@@ -380,3 +380,7 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .host-network-toggle input:checked::before { transform: translateX(1.4rem); }
 .settings-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 #robot-settings-editor form { margin: 1rem 0; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+
+.sensing-controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
+.sensing-control-section { grid-column: 1 / -1; }
+.sensing-controls-grid form { display: grid; gap: .75rem; }

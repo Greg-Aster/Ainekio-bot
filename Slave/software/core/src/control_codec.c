@@ -837,7 +837,22 @@ static ainekio_decode_result_t decode_intent(
         return asset_string(parser, root, "asset", intent->data.asset);
     } else if (strcmp(name, "face") == 0) {
         intent->kind = AINEKIO_INTENT_FACE;
-        return asset_string(parser, root, "expr", intent->data.asset);
+        ainekio_face_selection_t *face = &intent->data.face;
+        ainekio_decode_result_t result = optional_boolean(parser, root, "release", false, &face->release);
+        if (result == AINEKIO_DECODE_OK)
+            result = optional_boolean(parser, root, "background", false, &face->background);
+        if (result == AINEKIO_DECODE_OK && (!face->release || object_get(parser, root, "expr") >= 0))
+            result = asset_string(parser, root, "expr", face->expression);
+        if (result == AINEKIO_DECODE_OK && (face->release || object_get(parser, root, "token") >= 0))
+            result = asset_string(parser, root, "token", face->token);
+        if (result == AINEKIO_DECODE_OK && object_get(parser, root, "if_token") >= 0)
+            result = asset_string(parser, root, "if_token", face->if_token);
+        if (result == AINEKIO_DECODE_OK && object_get(parser, root, "timeout_ms") >= 0) {
+            int64_t timeout = 0;
+            result = required_integer(parser, root, "timeout_ms", 0, UINT32_MAX, &timeout);
+            face->timeout_ms = (uint32_t)timeout;
+        }
+        return result;
     } else if (strcmp(name, "say") == 0) {
         intent->kind = AINEKIO_INTENT_SAY;
         return asset_string(parser, root, "asset", intent->data.asset);
@@ -1028,10 +1043,27 @@ static ainekio_decode_result_t decode_camera(
         message->command.data.camera.resolution = AINEKIO_CAMERA_QVGA;
     } else if (strcmp(resolution, "VGA") == 0) {
         message->command.data.camera.resolution = AINEKIO_CAMERA_VGA;
+    } else if (strcmp(resolution, "XGA") == 0) {
+        message->command.data.camera.resolution = AINEKIO_CAMERA_XGA;
+    } else if (strcmp(resolution, "960P") == 0) {
+        message->command.data.camera.resolution = AINEKIO_CAMERA_960P;
+    } else if (strcmp(resolution, "FHD") == 0) {
+        message->command.data.camera.resolution = AINEKIO_CAMERA_FHD;
     } else {
         return AINEKIO_DECODE_VALUE;
     }
     message->command.data.camera.fps = (uint8_t)fps;
+    if (object_get(parser, root, "exposure_us") >= 0 || object_get(parser, root, "gain_x16") >= 0 ||
+        object_get(parser, root, "jpeg_quality") >= 0) {
+        int64_t exposure, gain, quality;
+        result = required_integer(parser, root, "exposure_us", 0, 1000000, &exposure);
+        if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "gain_x16", 0, 1023, &gain);
+        if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "jpeg_quality", 1, 100, &quality);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if ((exposure && exposure < 100) || (gain && gain < 16)) return AINEKIO_DECODE_VALUE;
+        message->command.data.camera.has_controls = true;
+        message->command.data.camera.controls = (ainekio_camera_controls_t){(uint32_t)exposure, (uint16_t)gain, (uint8_t)quality};
+    }
     if (object_get(parser, root, "snapshot_res") >= 0) {
         result = required_string(parser, root, "snapshot_res", resolution, sizeof(resolution), 3U, 4U);
         if (result != AINEKIO_DECODE_OK) return result;

@@ -20,13 +20,19 @@ pulses; updating geometric source alone does not change those home settings.
 The current source integrates twelve-joint operator calibration, provisioning,
 profiles/power states, removable storage, OV5647 camera, onboard ES8311 audio,
 VAD and the shared wake-word engine. Readiness comes from the actual driver and
-asset state. The selected **1.9-inch ST7789 SPI LCD** now has a landscape
-320×170 RGB565 face renderer, motion cues and the existing Body Control `face`
-command. See the [LCD wiring and expression guide](../../../docs/v2-12servo/LCD_FACE.md).
-Touch is not part of this selected module. The LCD is installed, and the owner
-has confirmed its orientation on the robot.
+asset state. The current assembly uses a **0.96-inch SSD1306 I2C OLED** on
+GPIO20 (SCL) and GPIO21 (SDA), selected by default in `sdkconfig.defaults`.
+It renders the same face choices and connection guidance in 128×64 monochrome.
+The temporary OLED implementation is isolated in `main/display_ssd1306.c`;
+normal firmware builds with the current configuration include it, so flashing
+other P4 changes retains the working display. Existing local `sdkconfig` files
+can retain an older panel choice; confirm `CONFIG_AINEKIO_DISPLAY_SSD1306=y`
+before building or flashing this assembly. The 1.9-inch ST7789 RGB565 LCD remains selectable with
+`CONFIG_AINEKIO_DISPLAY_ST7789` when its replacement arrives. Its wiring and
+expression guide is [here](../../../docs/v2-12servo/LCD_FACE.md). A build
+selects one display driver, and the OLED source can be removed when retired.
 
-While a microphone utterance is open (wake, VAD or Open gate), the LCD overlays
+While a microphone utterance is open (wake, VAD or Open gate), the display overlays
 its animated Listening expression. It restores the underlying manual/motion face
 when capture closes, including when speaker playback interrupts capture.
 The sole body output owner also moves the physical front shoulders (model joints
@@ -200,6 +206,68 @@ exceptions. Native tests cover the AUTO bright-scene selection; its automatic
 bright-scene transition and image tuning across other environments still need
 physical comparison. No gait was exercised during the camera checks.
 
+Camera rollback, 2026-10-09: `0.8.14-p4-camera-revert` restores the
+pre-controls camera implementation: one-frame automatic preview exposure,
+original preview resolutions and JPEG quality 75. It retains the separate
+wake-audio snapshot correlation fix and the current full robot application,
+including the SSD1306 OLED driver. It does not advertise `camera_controls_v1`;
+Body Control hides the experimental manual controls for this firmware.
+The previous `0.8.13-p4-camera-controls` trial is withdrawn because long preview
+exposure caused motion blur and automatic exposure showed brightness alternation.
+The gateway/protocol support remains compatible with other capable firmware.
+
+### OV5647 automatic exposure and ISO
+
+`0.8.16-p4-iso3200` raises the automatic gain ceiling to 32x (ISO 3200
+on the same OV5647 scale), as requested. Preview shutter remains capped at
+approximately 66.7 ms; shutter and gain both remain automatic. This changes
+the ceiling, not a fixed ISO. Other camera and robot functions are preserved.
+
+
+The published Raspberry Pi V1/OV5647 ISO convention is ISO 100/200/400/800
+for overall gains 1/2/4/8. It prefers analogue gain over digital gain. The
+[PiCamera ISO documentation](https://picamera.readthedocs.io/en/release-1.13/api_camera.html#picamera.PiCamera.iso)
+distinguishes this convention from the standards-calibrated V2 sensor mapping;
+it does not establish absolute ISO calibration for this P4/module/lens assembly.
+The [Raspberry Pi OV5647 helper](https://github.com/raspberrypi/libcamera/blob/main/src/ipa/rpi/cam_helper/cam_helper_ov5647.cpp)
+confirms sensor register gain code = analogue gain × 16 and explicitly accounts
+for two unreliable startup/mode-switch frames.
+
+[Raspberry Pi's OV5647 tuning](https://github.com/raspberrypi/libcamera/blob/main/src/ipa/rpi/vc4/data/ov5647.json)
+provides exposure-mode curves, noise calibration, black level, white balance,
+colour matrices, lens shading and gamma. Its primary normal exposure curve uses
+1–8× gains; using the register's entire 1–63.9375× numerical range is not an
+image-quality qualification. These parameters target Raspberry Pi's ISP and
+must be translated and measured on P4, not copied as a drop-in configuration.
+[Espressif esp_ipa](https://github.com/espressif/esp-video-components/blob/master/esp_ipa/README.md)
+is the existing P4 owner for noise, enhancement, colour and exposure algorithms.
+[OmniVision's OV5647 datasheet, section 4.6](https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/source/OV5647DS.pdf)
+documents exposure convergence, night integration and 50/60 Hz anti-banding.
+`0.8.15-p4-auto-iso` keeps the sensor's AEC, AGC and frame-length control
+fully automatic. Preview permits exposure up to approximately 66.7 ms instead
+of one frame; stills keep their eight-frame range. The automatic gain ceiling
+is 8x (ISO 800 on the documented OV5647 scale), rather than 63.9375x.
+These limits do not fix either shutter or gain: the sensor meters the scene.
+Body Control displays measured exposure and ISO-equivalent gain. This is the
+published sensor convention, not a new absolute ISO calibration. Dim scenes
+can remain dark at these limits, and longer exposures can blur motion.
+The firmware retains the entire robot application and SSD1306 OLED. It does
+not re-enable the withdrawn manual-controls trial. Native tests verify the
+control registers and changing readback; real image quality requires a
+lighting comparison on the actual module.
+
+Initial USB-powered check of `0.8.15-p4-auto-iso`: application-only flash verified,
+SSD1306 reports `driver_ready=1`, saved calibration remains present, and camera
+reports zero drops. Twenty VGA preview frames delivered 0.92 fps at the saved
+1 fps setting; the longest observed delivery gap was 2.08 s. The dim scene
+reached both configured ceilings: 66,567 us and gain code 128 (8x/ISO 800).
+It remained underexposed, so this is **not** evidence of qualified image quality
+or measured adaptation to changing illumination. The initial post-reboot camera
+restore was rejected as stale; reapplying the same saved camera setting started
+the stream. No motion command was used. An illumination-change check remains
+necessary; the software tests only establish automatic control configuration
+and preservation of changing sensor readback.
+
 ## Command diagnostics
 
 Body Control saves command results (including the robot's rejection code and
@@ -273,7 +341,7 @@ driver; they never create a second bus or write OE directly.
 | Resource | Assignment / reservation |
 | --- | --- |
 | PCA9685 | I2C controller 1, SDA GPIO2, SCL GPIO3, address `0x40`, 400 kHz; OE GPIO4 |
-| Face LCD | SPI2: SCLK20, MOSI21, CS22, DC23, RESET26; VCC and BLK on 3V3; common GND. Pins, rotation, color order and RAM offset are configurable in menuconfig. |
+| Face display | Current OLED: SDA GPIO21, SCL GPIO20, VCC 3V3, common GND. Alternative ST7789 LCD: SPI2 SCLK20, MOSI21, CS22, DC23, RESET26; VCC and BLK on 3V3. Select the connected panel in menuconfig. |
 | Header reference | With USB-C at top, component side facing you: GPIO2=L15, GPIO3=L14, GPIO4=L12, GND=L13, 3V3=R5. L/R are top-down guide row IDs; see the [pinout and wiring guide](../../../docs/v2-12servo/PCA9685_WIRING.md). These correspond to schematic U10 pins 15/14/12/13/36. |
 | Onboard codec/camera I2C | GPIO7/8 reserved; no competing legacy I2C driver |
 | C6 SDIO | CLK18, CMD19, D0–D3 14–17, reset54; C6 boot6 reserved |
@@ -295,7 +363,7 @@ board through DTR/RTS; wait for the `ainekio-p4>` prompt before sending commands
 | --- | --- |
 | `board` | Chip revision, flash, reset cause, pin assignment and driver state |
 | `controller` | Selected connection generation, epoch and capability readiness |
-| `face` / `face list` / `face NAME` / `face auto` | LCD driver/frame diagnostics, available expressions, manual face, return to motion-driven selection; no PWM output |
+| `face` / `face list` / `face NAME` / `face auto` | Display driver/frame diagnostics, available expressions, manual face, return to motion-driven selection; no PWM output |
 | `gait walk <cycles> <elapsed-ms> [speed | stride rate]` | Evaluate variable walking to elapsed time; automatic Speed or independent stride/rate; no PWM or motion completion |
 | `gait <installed-finite-command> <elapsed-ms>` | Sample a complete gesture, e.g. `gait bow 2500`; holds its recorded final pose after completion; no PWM |
 | `net` | C6 network initialization, station IP and AP state |
@@ -574,6 +642,18 @@ on-device detector recognizes Ainekio. The earlier P4 callback sent only
 Recording start/finish events now share the microphone PCM FIFO, preserving
 pre-roll and final samples even when the link task is delayed. Wake detection,
 speech endpoint timing and the gateway's existing WAV assembly are unchanged.
+
+Wake-triggered utterances lasting at least 300 ms now queue one still when the
+recording closes, matching the S3 speech-photo behavior. The recording boundaries
+and camera metadata share the first PCM counter as `origin_id` (including zero),
+so Body Control correlates the photo with the same utterance it forwards to
+MetaHuman. Capture runs on the existing camera task using the configured still
+profile, independently of microphone delivery and transcription. Ordinary VAD/Open
+recordings do not request this automatic still. Missing/unavailable photos remain
+missing evidence; they do not hold transcription for an image timeout.
+
+This source change requires a P4 application flash and a live wake-word/photo
+check. It does not add continuous hazard detection or autonomous avoidance.
 
 In Body Control, enable **Wake word enabled**, select **Ainekio**, and **Save
 wake setting**. Then select **Microphone → Gate: Wake word → Apply microphone**

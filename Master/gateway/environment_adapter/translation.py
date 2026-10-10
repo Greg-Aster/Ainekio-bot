@@ -161,6 +161,16 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
     if "continuous" in action and type(action["continuous"]) is not bool:
         raise ProtocolValidationError("type:continuous")
     action_type = _normalized(action.get("type"))
+    if action_type == "faceexpression":
+        expression = action.get("expression")
+        if action.get("displayRelease") is not True and (not isinstance(expression, str) or not expression.strip()):
+            return None
+        params = {"expr": expression.strip()} if isinstance(expression, str) and expression.strip() else {}
+        for source, target in (("displayToken", "token"), ("displayIfToken", "if_token"), ("displayTimeoutMs", "timeout_ms"),
+                               ("displayBackground", "background"), ("displayRelease", "release")):
+            if source in action and action[source] is not None:
+                params[target] = action[source]
+        return BridgeAction("intent", "face", params)
     if action_type == "captureimage":
         return BridgeAction("snapshot", "captureImage")
     if action_type == "sendtext":

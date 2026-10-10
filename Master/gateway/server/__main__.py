@@ -15,6 +15,7 @@ from pathlib import Path
 from time import monotonic
 
 import websockets
+from websockets.legacy.server import serve
 
 from gateway.dashboard.auth import AuditLog
 from gateway.dashboard.server import start_dashboard_server
@@ -144,6 +145,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--vision-url", default=os.environ.get("AINEKIO_VISION_URL"),
                         help="Configured Chat Completions endpoint (remote requires authenticated HTTPS); disabled when omitted")
     parser.add_argument("--vision-model", default=os.environ.get("AINEKIO_VISION_MODEL"))
+    parser.add_argument("--vision-yolo-weights", default=os.environ.get("AINEKIO_VISION_YOLO_WEIGHTS"), help="Explicit local YOLO .pt file; optional offline detector instead of the configured URL")
+    parser.add_argument("--vision-yolo-device", default=os.environ.get("AINEKIO_VISION_YOLO_DEVICE", "cpu"))
+    parser.add_argument("--vision-yolo-image-size", type=int, default=os.environ.get("AINEKIO_VISION_YOLO_IMAGE_SIZE", "640"))
+    parser.add_argument("--vision-face-detector", default=os.environ.get("AINEKIO_VISION_FACE_DETECTOR"), help="Local YuNet ONNX file for enrolled people")
+    parser.add_argument("--vision-face-recognizer", default=os.environ.get("AINEKIO_VISION_FACE_RECOGNIZER"), help="Local SFace ONNX file; no automatic downloads")
     parser.add_argument("--vision-timeout-s", type=float, default=2.0)
     parser.add_argument("--vision-max-frame-age-s", type=float, default=1.0)
     parser.add_argument(
@@ -217,7 +223,7 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
         GatewayStubConfig(auth_token=token, profile=args.profile),
         build_phase_one_commands(names),
     )
-    async with websockets.serve(
+    async with serve(
         stub.handler,
         args.host,
         args.port,
@@ -238,16 +244,29 @@ async def _run_stub(args: argparse.Namespace, token: str) -> None:
 
 async def _run_production(args: argparse.Namespace) -> None:
     adapter_token = os.environ.get("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN", "").strip()
+    yolo_weights = getattr(args, "vision_yolo_weights", None)
+    if yolo_weights and (args.vision_url or args.vision_model):
+        raise ValueError("select local YOLO weights or a vision URL/model, not both")
     if bool(args.vision_url) != bool(args.vision_model):
         raise ValueError("vision requires both --vision-url and --vision-model")
-    if args.vision_url and not adapter_token:
+    if (args.vision_url or yolo_weights) and not adapter_token:
         raise ValueError("recognition requires the authenticated Environment Bridge")
-    if args.vision_url and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
+    if (args.vision_url or yolo_weights) and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
         raise ValueError("vision frame age must be between 0.1 and 30 seconds")
     backend = VisionBackend(args.vision_url, args.vision_model,
         timeout_s=args.vision_timeout_s, api_key=os.environ.get("AINEKIO_VISION_API_KEY", "")) if args.vision_url else None
+    if yolo_weights:
+        from gateway.yolo_backend import YoloBackend
+        backend = YoloBackend(yolo_weights, device=args.vision_yolo_device, image_size=args.vision_yolo_image_size)
 
     args.data_dir.mkdir(parents=True, exist_ok=True)
+    face_detector, face_recognizer = getattr(args, "vision_face_detector", None), getattr(args, "vision_face_recognizer", None)
+    if face_detector or face_recognizer:
+        if not (yolo_weights and face_detector and face_recognizer):
+            raise ValueError("Named people require local YOLO, YuNet and SFace model paths")
+        from gateway.person_identity import FaceGallery, LocalFaces, PersonIdentityBackend
+        faces = LocalFaces(face_detector, face_recognizer)
+        backend = PersonIdentityBackend(backend, faces, FaceGallery(args.data_dir / "known-people.json", faces.model_hash))
     password_store = DashboardPasswordStore(args.data_dir / "dashboard-auth.json")
     password_store.initialize(
         output=sys.stdout,
@@ -305,6 +324,10 @@ async def _run_production(args: argparse.Namespace) -> None:
 
     camera = CameraFramePlugin(service, backend, observe=publish_recognition,
         max_frame_age_s=args.vision_max_frame_age_s) if backend else None
+    dashboard.camera_recognition = camera
+    if camera is not None:
+        camera.set_enabled(dashboard.control_settings["recognition"])
+    service.subscribe_events(dashboard.restore_camera)
 
     async def route(websocket: object, path: str) -> None:
         if path == "/robot":
@@ -332,7 +355,7 @@ async def _run_production(args: argparse.Namespace) -> None:
     previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: loop.call_soon_threadsafe(request_stop))
     try:
         await hotspot.start()
-        async with websockets.serve(
+        async with serve(
             route,
             args.host,
             args.port,

@@ -75,6 +75,15 @@ static uint64_t link_generation;
 static char receive_text[4097];
 static size_t receive_used, frame_received;
 static uint8_t receive_opcode;
+typedef struct {
+    bool active, ready;
+    uint32_t network_generation;
+    esp_err_t result;
+    size_t count;
+    char endpoints[AINEKIO_DISCOVERY_MAX_RESULTS][AINEKIO_DISCOVERY_ENDPOINT_CAPACITY];
+} gateway_discovery_t;
+static portMUX_TYPE discovery_lock = portMUX_INITIALIZER_UNLOCKED;
+static gateway_discovery_t discovery;
 
 static void cancel_audio(uint64_t connection, ainekio_cancel_code_t code);
 static void telemetry(uint64_t connection);
@@ -243,7 +252,7 @@ static ainekio_capabilities_t capabilities(const ainekio_p4_media_status_t *medi
         .microphone=media->microphone_ready, .speaker=media->speaker_ready, .wake=media->wake_ready,
         .profile=true, .power=true, .storage=true, .display=ainekio_p4_display_ready(),
         .motion_reason=!calibration->valid ? "Joint calibration is invalid." : !calibration->profile_confirmed ? "Review and Save joint calibration for the current servo profile." : NULL,
-        .display_reason=ainekio_p4_display_ready() ? NULL : "LCD driver is unavailable.",
+        .display_reason=ainekio_p4_display_ready() ? NULL : "Display driver is unavailable.",
         .camera_reason=media->camera_ready ? NULL : "OV5647 camera is not ready.",
         .microphone_reason=media->microphone_ready ? NULL : "Onboard audio input is not ready.",
         .speaker_reason=media->speaker_ready ? NULL : "Onboard audio output is not ready."};
@@ -256,7 +265,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1"};
+    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -427,6 +436,19 @@ static void gate_event(void *context, uint64_t session, bool open, bool wake_wor
 {
     (void)context;
     if (!current_connection(session)) return;
+    /* The microphone task owns these boundaries. As on S3, the first PCM
+     * counter identifies the recording and its independently delivered still. */
+    static uint64_t utterance_session, utterance_started_us;
+    static uint32_t utterance_id;
+    static bool utterance_open, utterance_wake_triggered;
+    if (open) {
+        utterance_session = session;
+        utterance_started_us = now_us();
+        utterance_id = atomic_load(&microphone_counter);
+        utterance_open = true;
+        utterance_wake_triggered = wake_word;
+    }
+    const bool correlated = utterance_open && utterance_session == session;
     enter();
     const bool normal = admission.core.mode == AINEKIO_MODE_NORMAL;
     leave();
@@ -435,18 +457,30 @@ static void gate_event(void *context, uint64_t session, bool open, bool wake_wor
      * must follow the last sample, even while the link task is delayed. */
     packet_t packet = {.connection=session, .wake_word=wake_word};
     ainekio_encode_event(open ? AINEKIO_EVENT_VAD_OPEN : AINEKIO_EVENT_VAD_CLOSE,
-        false, 0, packet.metadata, sizeof(packet.metadata));
+        correlated, utterance_id, packet.metadata, sizeof(packet.metadata));
     if (xQueueSend(audio_packets, &packet, 0) != pdTRUE) fail_link();
+    if (!open && correlated) {
+        const bool snapshot_due = utterance_wake_triggered &&
+            now_us() - utterance_started_us >= UINT64_C(300000); /* S3 speech threshold. */
+        utterance_open = false;
+        if (snapshot_due) {
+            const esp_err_t result = ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_AUDIO, utterance_id);
+            if (result != ESP_OK)
+                ESP_LOGW("controller", "Wake speech snapshot enqueue failed: %s", esp_err_to_name(result));
+        }
+    }
 }
 
 static void camera_failed(void *context, uint64_t session, ainekio_camera_origin_t origin,
                           uint32_t origin_id, esp_err_t result)
 {
-    (void)context; (void)result;
+    (void)context;
     if (origin == AINEKIO_CAMERA_ORIGIN_REQUEST) {
         char text[192];
         ainekio_encode_nak(true, origin_id, AINEKIO_NAK_BUSY, "camera capture or transmit queue failed", text, sizeof(text));
         media_event(session, origin_id, text);
+    } else if (origin == AINEKIO_CAMERA_ORIGIN_AUDIO) {
+        ESP_LOGW("controller", "Wake speech snapshot %" PRIu32 " failed: %s", origin_id, esp_err_to_name(result));
     }
 }
 
@@ -557,6 +591,65 @@ static void send_packet(esp_websocket_client_handle_t client, packet_t *packet)
     free(packet->bytes);
 }
 
+static void discovery_task(void *arg)
+{
+    (void)arg;
+    char endpoints[AINEKIO_DISCOVERY_MAX_RESULTS][AINEKIO_DISCOVERY_ENDPOINT_CAPACITY] = {{0}};
+    size_t count = 0;
+    const esp_err_t result = ainekio_local_gateways_discover(endpoints,
+        AINEKIO_DISCOVERY_MAX_RESULTS, &count);
+    portENTER_CRITICAL(&discovery_lock);
+    memcpy(discovery.endpoints, endpoints, sizeof(endpoints));
+    discovery.result = result;
+    discovery.count = count;
+    discovery.ready = true;
+    discovery.active = false;
+    portEXIT_CRITICAL(&discovery_lock);
+    vTaskDelete(NULL);
+}
+
+static void request_discovery(uint32_t network_generation)
+{
+    bool start = false;
+    portENTER_CRITICAL(&discovery_lock);
+    if (!discovery.active && !discovery.ready) {
+        discovery.active = true;
+        discovery.network_generation = network_generation;
+        start = true;
+    }
+    portEXIT_CRITICAL(&discovery_lock);
+    if (!start) return;
+    if (xTaskCreate(discovery_task, "gateway_discovery", 12288, NULL, 4, NULL) != pdPASS) {
+        portENTER_CRITICAL(&discovery_lock);
+        discovery.active = false;
+        portEXIT_CRITICAL(&discovery_lock);
+        ESP_LOGW("controller", "Local gateway discovery task could not start");
+    }
+}
+
+static void collect_discovery(ainekio_p4_gateway_selection_t *selection,
+                              const ainekio_p4_robot_settings_t *settings,
+                              uint32_t network_generation)
+{
+    esp_err_t result = ESP_OK;
+    size_t count = 0;
+    bool ready = false, current = false;
+    portENTER_CRITICAL(&discovery_lock);
+    if (discovery.ready) {
+        ready = true;
+        current = discovery.network_generation == network_generation;
+        result = discovery.result;
+        count = discovery.count;
+        if (current) memcpy(selection->discovered, discovery.endpoints, sizeof(discovery.endpoints));
+        discovery.ready = false;
+    }
+    portEXIT_CRITICAL(&discovery_lock);
+    if (!ready || !current) return;
+    if (result != ESP_OK)
+        ESP_LOGW("controller", "Local gateway discovery: %s", esp_err_to_name(result));
+    ainekio_p4_gateway_discovered(selection, settings, result == ESP_OK ? count : 0);
+}
+
 static void link_task(void *arg)
 {
     (void)arg;
@@ -574,15 +667,10 @@ static void link_task(void *arg)
             ainekio_p4_gateway_select_network(&selection, settings, network);
             selected_network_generation = network_generation;
         }
+        collect_discovery(&selection, settings, network_generation);
         if (selection.needs_discovery) {
-            size_t count = 0;
-            const esp_err_t discovered = ainekio_local_gateways_discover(selection.discovered,
-                AINEKIO_DISCOVERY_MAX_RESULTS, &count);
-            if (discovered != ESP_OK)
-                ESP_LOGW("controller", "Local gateway discovery: %s", esp_err_to_name(discovered));
-            ainekio_p4_gateway_discovered(&selection, settings, discovered == ESP_OK ? count : 0);
-            if (atomic_load(&quiesced) || !ainekio_p4_network_online() ||
-                network_generation != ainekio_p4_network_generation()) continue;
+            request_discovery(network_generation);
+            selection.needs_discovery = false;
         }
         const char *endpoint = ainekio_p4_gateway_endpoint(&selection, settings);
         if (!endpoint[0]) {
@@ -896,7 +984,7 @@ static esp_err_t apply(const request_t *request)
             command->data.wake.has_threshold ? &command->data.wake.threshold : NULL);
     case AINEKIO_COMMAND_INTENT:
         if (command->data.intent.kind == AINEKIO_INTENT_FACE)
-            return ainekio_p4_display_expression(command->data.intent.data.asset);
+            return ainekio_p4_display_select(&command->data.intent.data.face);
         if (command->data.intent.kind == AINEKIO_INTENT_SAY)
             return ainekio_p4_media_say(command->sequence, command->data.intent.data.asset);
         return ainekio_p4_body_execute(request->output_generation, request->connection, command);
@@ -922,6 +1010,7 @@ static esp_err_t apply(const request_t *request)
         return ainekio_p4_media_speaker_volume(command->data.speaker_volume_percent);
     case AINEKIO_COMMAND_CAMERA:
         {
+            if (command->data.camera.has_controls) return ESP_ERR_INVALID_ARG;
             esp_err_t result = ainekio_p4_media_camera_configure(command->data.camera.enabled,
                 command->data.camera.fps, command->data.camera.resolution,
                 command->data.camera.has_snapshot_resolution ? &command->data.camera.snapshot_resolution : NULL);

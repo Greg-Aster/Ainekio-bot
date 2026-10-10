@@ -7,6 +7,34 @@
 
 int main(void)
 {
+    /* Replacement owns one deadline; no timer from the previous face survives. */
+    ainekio_p4_face_selection_t selection={0};
+    ainekio_face_selection_t thinking={.expression="thinking",.token="first",.timeout_ms=1000,.background=true};
+    ainekio_face_selection_t happy={.expression="happy",.token="second",.timeout_ms=5000};
+    ainekio_p4_face_sample_t base={.elapsed_ms=500};
+    assert(ainekio_face_find("stand",&base.face));
+    assert(ainekio_p4_face_select(&selection,&thinking,1,100));
+    assert(!strcmp(ainekio_face_name(ainekio_p4_face_selected(&selection,base,1,false,false,200).face),"thinking"));
+    assert(ainekio_p4_face_selected(&selection,base,2,true,false,300).face==base.face);
+    assert(ainekio_p4_face_selected(&selection,base,2,false,true,400).face==base.face);
+    assert(!strcmp(ainekio_face_name(ainekio_p4_face_selected(&selection,base,2,false,false,500).face),"thinking"));
+    assert(ainekio_p4_face_select(&selection,&happy,2,600));
+    ainekio_face_selection_t release={.token="first",.release=true};
+    assert(ainekio_p4_face_select(&selection,&release,2,700));
+    assert(!strcmp(ainekio_face_name(ainekio_p4_face_selected(&selection,base,2,false,false,1100).face),"happy"));
+    ainekio_face_selection_t error={.expression="confused",.token="first",.if_token="first",.timeout_ms=5000};
+    assert(ainekio_p4_face_select(&selection,&error,2,1200));
+    assert(!strcmp(ainekio_face_name(selection.face),"happy"));
+    assert(ainekio_p4_face_selected(&selection,base,2,false,false,5600).face==base.face);
+    assert(!selection.active);
+    assert(ainekio_p4_face_select(&selection,&thinking,2,6000));
+    assert(ainekio_p4_face_select(&selection,&release,2,6100));
+    assert(ainekio_p4_face_selected(&selection,base,2,false,false,6200).face==base.face);
+    /* Timed feedback must not narrow the legacy library's manual face behavior. */
+    happy=(ainekio_face_selection_t){.expression="happy"};
+    assert(ainekio_p4_face_select(&selection,&happy,3,7000));
+    assert(!strcmp(ainekio_face_name(ainekio_p4_face_selected(&selection,base,3,false,false,99000).face),"happy"));
+    assert(ainekio_p4_face_selected(&selection,base,4,true,false,100000).face==base.face);
     ainekio_p4_body_status_t body={0};
     ainekio_p4_face_sample_t sample=ainekio_p4_face_sample(&body,520);
     assert(!strcmp(ainekio_face_name(sample.face),"default")&&sample.elapsed_ms==520);

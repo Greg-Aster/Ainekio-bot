@@ -577,6 +577,110 @@ The frame-age limit must be 0.1–30 seconds and includes inference time; choose
 for the consumer's freshness needs. The URL and model must both be configured,
 and the authenticated Environment Bridge must be enabled. Omission disables
 recognition while leaving preview and correlated stills available.
+
+An optional local detector uses `--vision-yolo-weights /absolute/path/to/existing.pt`
+instead of the URL/model pair. `--vision-yolo-device` defaults to `cpu` and
+`--vision-yolo-image-size` to 640. It uses the same camera worker, freshness limit,
+`RecognitionResult`, authenticated bridge and behavior owner. Ultralytics must
+already be installed in the explicitly selected Python environment; the gateway
+does not install packages or resolve a model name into downloaded weights. Only
+detection/segmentation checkpoints are accepted. Labels come from that checkpoint's
+class map, and segmentation supplies boxes, not distance estimates. The model
+identity includes the weights SHA256. This option does not enable camera capture.
+
+To retain the local detector across normal launcher restarts, set
+`AINEKIO_VISION_YOLO_WEIGHTS`, `AINEKIO_VISION_YOLO_DEVICE` and
+`AINEKIO_VISION_YOLO_IMAGE_SIZE` in the existing ignored `.env`. Command-line
+options override these values. `AINEKIO_PYTHON` selects the existing interpreter
+with Ultralytics installed. Body Control's camera panel reports whether recognition
+is configured, observation age, fresh-result rate, received frames and errors.
+These ages start at gateway receipt, not camera exposure.
+
+Body Control's **Vision and robot control** section separates three saved choices:
+camera settings are stored per robot in the gateway data directory and reapplied
+on that robot's next connection; recognition can be switched off without stopping
+preview (queued and late inference results are discarded); MetaHuman robot control
+uses Core's existing saved Environment Bridge setting over the authenticated bridge.
+Switching robot control off cancels the active owner's robot executions through
+the Coordinator and keeps unresolved command receipts available for reconciliation.
+Switching it on permits new instructions, without restarting cancelled executions
+or changing the configured Reactive/Semi/Full mode. Manual controls remain independent.
+An off setting or cancellation request does not establish physical rest.
+
+### Named people (optional local models)
+
+The existing camera worker can combine YOLO person boxes with OpenCV YuNet face
+detection and SFace embeddings. Explicit local paths select the additional models:
+`AINEKIO_VISION_FACE_DETECTOR=/absolute/path/face_detection_yunet_2023mar.onnx`
+and `AINEKIO_VISION_FACE_RECOGNIZER=/absolute/path/face_recognition_sface_2021dec.onnx`.
+Both are required alongside the existing YOLO configuration. Nothing downloads
+automatically, changes the selected detector, starts capture, or issues commands.
+OpenCV must provide `FaceDetectorYN` and `FaceRecognizerSF` in the selected Python.
+Model sources and licenses: [OpenCV YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+and [OpenCV SFace](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface).
+
+In **Vision and robot control → Recognition → Named people**, enter a name and
+upload a clear single-face JPEG of at most 256 KiB. Add different views using the
+same name, up to four samples per person and 16 people. The authenticated gateway
+processes the selected file on its host; it discards the photo and stores names,
+stable person IDs and embeddings in owner-only `known-people.json` alongside its
+existing private settings. Do not commit or publish that file. **Forget** removes
+the enrolled features and invalidates inherited names. Enrollment persists across
+restarts, but live track IDs do not. Changing the recognition model requires
+explicit re-enrollment, not reinterpretation of old features.
+
+Fresh typed observations retain `label: person` and add an optional `identity`:
+`trackId`, and `state` (`unknown`, `face_match`, or `tracked`). Named estimates
+carry `personId`, `name`, and `faceAgeMs`; a fresh face match also carries cosine
+`similarity`, not a probability. The paired Core perception validator must support
+these fields before enabling the face models. The composite observation model
+hash binds YOLO, YuNet and SFace; dashboard status exposes the two face model hashes.
+
+Matching uses SFace's reference cosine threshold 0.363 with a 0.08 separation
+from the next enrolled person. These are starting parameters, not measured
+accuracy on this robot. Tracking accepts mutually unambiguous box overlap and
+color continuity, for gaps no longer than 1.5 seconds and up to 3 seconds after a
+face match. Fresh unmatched faces, ambiguous crossings and simultaneous duplicate
+identity matches lose the name. Missing detections emit no visible track. Reconnect,
+recognition off/on, and gallery changes reset continuity; stale or discarded
+inference never commits tracking state. Reappearance can be named again by a fresh
+face match, with a new track ID.
+
+**Limit:** short box/color association is not robust body re-identification.
+Similarly clothed people replacing each other without a visible face can still
+produce an incorrect `tracked` estimate. Small/turned/occluded faces, lookalikes,
+photos and displays can defeat recognition; there is no liveness verification.
+The UI separates these estimates from fresh matches and hides expired results.
+This addition does not change behavior selection, automatic stopping, manual
+ownership, or the existing single-person loss policy. Named-person following in
+crowds is not qualified by these observations or by deterministic tests.
+
+Focused software checks (no body connection, synthetic face embeddings):
+```sh
+PYTHONPATH=Master:Slave/software:Emulator/tests python3 -B -m unittest \
+  Emulator.tests.test_person_identity Emulator.tests.test_camera_perception \
+  Emulator.tests.test_gateway_dashboard Emulator.tests.test_yolo_backend
+```
+Qualification still requires approved model files, actual face inference, enrolled
+person recordings including crossings/occlusion/replacement, and measured latency.
+Do not interpret synthetic matching/ownership tests as recognition accuracy.
+
+The evaluated desktop checkpoint `person_yolov8m-seg.pt` supports **person only**,
+not the general COCO class set or personal identity. Offline evaluation used
+Ultralytics 8.4.36, PyTorch 2.11.0+cu130, OpenCV 4.13.0, Python 3.12.3, and an
+i9-9900K with four CPU threads (GPU unused). On the packaged public bus image,
+ten warm predictions measured median 210 ms, maximum 247 ms and 4.64 serial fps;
+peak process RSS was about 1.02 GiB. Cold library import took 68.6 seconds with
+observed filesystem waits; first prediction took 496 ms. These are desktop
+measurements, not Q6A performance, accuracy qualification or response guarantees.
+The recorded-image trial requires a preexisting isolated `YOLO_CONFIG_DIR` and
+sets `YOLO_OFFLINE=true`, `YOLO_AUTOINSTALL=false`, and `OMP_NUM_THREADS=4`.
+
+Do not activate this option on a live installation or direct its frames to a
+new inference endpoint without operator approval. For the intended split, one
+Q6A Core/Coordinator and gateway keep task ownership while an explicitly approved
+desktop endpoint supplies inference. The existing remote provider contract is
+retained; no second scheduler, takeover or desktop controller is introduced.
 `AINEKIO_VISION_API_KEY` supplies a Bearer authorization header; it is required
 for a remote service and optional for a loopback service. Remote endpoints must
 use HTTPS with normal certificate and hostname verification. Private certificate
@@ -609,6 +713,34 @@ gateway instance, frame counter, backend/model, receipt-based `observedAt` and
 explicitly excludes unmeasured sensor/transport age. Results expire from frame
 receipt, not inference completion. Recognition metadata has no image data and
 is not replayed after bridge reconnection.
+
+Recognition telemetry also carries optional `processing` diagnostics outside
+the unchanged perception-v1 payload. `CameraFramePlugin.metrics()` reports input,
+completed processing attempts, fresh results, drops, stale frames and errors;
+queue depth; latest queue/inference durations; age since host receipt of the last
+fresh processed result; and processing/fresh-result rates since the first frame.
+Failed attempts count as processed but not fresh. Fresh-result counts describe
+the camera worker, not confirmed bridge admission; they include the current result.
+These counters cover the worker, including all robot streams it subscribes to. Host-receipt age excludes
+unknown camera exposure and transport delay, and changes continuously even when
+no new frame arrives. No diagnostic count establishes a fresh observation.
+
+The opt-in paired test `perception-gateway.spec.ts` in Core launches
+`Emulator.tests.perception_harness`. It reuses the existing in-memory body and
+gateway receipt owners, rejects all Python socket connects/binds/listens, and
+accepts only explicit local weights and a recorded image. Commands cannot reach
+a physical robot through this test path. It exercises real detector output and
+Core behavior while instruction and conversation inference are deliberately
+pending. The paired Core command `tests/run-visual-control.sh GATEWAY PYTHON
+WEIGHTS BUS_JPEG OUTPUT` produces an HTML frame/steering report and correlated
+JSON traces. It translates one person cropped from the packaged public photo,
+runs actual recognition, includes target loss and expired input, and checks
+confirmed cancellation versus a missing original receipt using the production
+confirmation budget. Fresh target loss returns to the selected base motion;
+expired required feedback requests cancellation. Task selection is scripted,
+so this does not qualify unresolved language-model interpretation failures,
+natural video accuracy or physical rest. No image is sent to an LLM. See Core's
+`docs/technical/visual-control-demo.md` for exact setup and remaining gates.
 
 MetaHuman's existing Environment Bridge coalesces recognition delivery to one
 active and one newest pending result, independently of control receipts. Core

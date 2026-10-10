@@ -706,7 +706,10 @@
       "type": "string",
       "enum": [
         "QVGA",
-        "VGA"
+        "VGA",
+        "XGA",
+        "960P",
+        "FHD"
       ]
     },
     "hello": {
@@ -747,7 +750,7 @@
         },
         "features": {
           "type": "array",
-          "maxItems": 16,
+          "maxItems": 32,
           "items": {
             "$ref": "#/$defs/featureName"
           },
@@ -1222,8 +1225,7 @@
           "required": [
             "t",
             "seq",
-            "name",
-            "expr"
+            "name"
           ],
           "properties": {
             "t": {
@@ -1237,8 +1239,48 @@
             },
             "expr": {
               "$ref": "#/$defs/assetName"
+            },
+            "token": {
+              "$ref": "#/$defs/assetName"
+            },
+            "if_token": {
+              "$ref": "#/$defs/assetName"
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "background": {
+              "type": "boolean"
+            },
+            "release": {
+              "type": "boolean"
             }
-          }
+          },
+          "oneOf": [
+            {
+              "required": [
+                "expr"
+              ],
+              "properties": {
+                "release": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "required": [
+                "release",
+                "token"
+              ],
+              "properties": {
+                "release": {
+                  "const": true
+                }
+              }
+            }
+          ]
         },
         {
           "type": "object",
@@ -1411,8 +1453,81 @@
         },
         "snapshot_res": {
           "$ref": "#/$defs/cameraSnapshotResolution"
+        },
+        "exposure_us": {
+          "type": "integer",
+          "anyOf": [
+            {
+              "const": 0
+            },
+            {
+              "minimum": 100,
+              "maximum": 1000000
+            }
+          ]
+        },
+        "gain_x16": {
+          "type": "integer",
+          "anyOf": [
+            {
+              "const": 0
+            },
+            {
+              "minimum": 16,
+              "maximum": 1023
+            }
+          ]
+        },
+        "jpeg_quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "exposure_us"
+            ]
+          },
+          "then": {
+            "required": [
+              "exposure_us",
+              "gain_x16",
+              "jpeg_quality"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "gain_x16"
+            ]
+          },
+          "then": {
+            "required": [
+              "exposure_us",
+              "gain_x16",
+              "jpeg_quality"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "jpeg_quality"
+            ]
+          },
+          "then": {
+            "required": [
+              "exposure_us",
+              "gain_x16",
+              "jpeg_quality"
+            ]
+          }
+        }
+      ]
     },
     "snap": {
       "x-ainekio-message-type": "snap",
@@ -2172,7 +2287,11 @@
         "peak"
       ],
       "properties": {
-        "speaker_volume_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "speaker_volume_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
         "on": {
           "type": "boolean"
         },

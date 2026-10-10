@@ -3,6 +3,34 @@
 #include "ainekio/v2_motion.h"
 #include <string.h>
 
+bool ainekio_p4_face_select(ainekio_p4_face_selection_t *selection,
+    const ainekio_face_selection_t *request, uint32_t revision, uint64_t now_ms)
+{
+    if (selection->expires_ms && now_ms>=selection->expires_ms) selection->active=false;
+    if (request->if_token[0] && (!selection->active || strcmp(selection->token, request->if_token))) return true;
+    if (request->release) {
+        if (request->token[0] && !strcmp(selection->token, request->token)) selection->active=false;
+        return true;
+    }
+    size_t face;
+    if (!ainekio_face_find(request->expression, &face)) return false;
+    *selection=(ainekio_p4_face_selection_t){.face=face, .revision=revision,
+        .started_ms=now_ms, .expires_ms=request->timeout_ms ? now_ms+request->timeout_ms : 0,
+        .active=true, .background=request->background,
+        .legacy=!request->token[0] && !request->timeout_ms && !request->background};
+    memcpy(selection->token, request->token, sizeof(selection->token));
+    return true;
+}
+
+ainekio_p4_face_sample_t ainekio_p4_face_selected(ainekio_p4_face_selection_t *selection,
+    ainekio_p4_face_sample_t underlying, uint32_t revision, bool moving, bool talking, uint64_t now_ms)
+{
+    if ((selection->expires_ms && now_ms>=selection->expires_ms) ||
+        (selection->legacy && selection->revision!=revision)) selection->active=false;
+    if (!selection->active || (selection->background && (moving || talking))) return underlying;
+    return (ainekio_p4_face_sample_t){.face=selection->face, .elapsed_ms=now_ms-selection->started_ms};
+}
+
 ainekio_p4_face_sample_t ainekio_p4_face_sample(const ainekio_p4_body_status_t *body,
                                               uint64_t idle_ms)
 {

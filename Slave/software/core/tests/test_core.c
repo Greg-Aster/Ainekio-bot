@@ -287,8 +287,27 @@ static void test_audio_adjustment_decode_preserves_optional_settings(void)
     assert(ainekio_control_decode(speaker, strlen(speaker), &m) != AINEKIO_DECODE_OK);
 }
 
+static void test_face_feedback_decode(void)
+{
+    ainekio_control_message_t m;
+    const char *set="{\"t\":\"intent\",\"name\":\"face\",\"seq\":1,\"expr\":\"thinking\",\"token\":\"turn1\",\"timeout_ms\":60000,\"background\":true}";
+    assert(ainekio_control_decode_for_body(set,strlen(set),&m)==AINEKIO_DECODE_OK);
+    const ainekio_face_selection_t *face=&m.command.data.intent.data.face;
+    assert(!strcmp(face->expression,"thinking") && !strcmp(face->token,"turn1"));
+    assert(face->timeout_ms==60000 && face->background && !face->release);
+    const char *off="{\"t\":\"intent\",\"name\":\"face\",\"seq\":2,\"release\":true,\"token\":\"turn1\"}";
+    assert(ainekio_control_decode_for_body(off,strlen(off),&m)==AINEKIO_DECODE_OK);
+    assert(face->release && !strcmp(face->token,"turn1") && !face->expression[0]);
+    const char *invalid="{\"t\":\"intent\",\"name\":\"face\",\"seq\":3,\"release\":true}";
+    assert(ainekio_control_decode_for_body(invalid,strlen(invalid),&m)!=AINEKIO_DECODE_OK);
+    const char *legacy="{\"t\":\"intent\",\"name\":\"face\",\"seq\":4,\"expr\":\"bow\"}";
+    assert(ainekio_control_decode_for_body(legacy,strlen(legacy),&m)==AINEKIO_DECODE_OK);
+    assert(!strcmp(m.command.data.intent.data.asset,"bow") && !face->timeout_ms && !face->token[0]);
+}
+
 int main(void)
 {
+    test_face_feedback_decode();
     test_audio_adjustment_decode_preserves_optional_settings();
     test_initial_state_is_safe();
     test_stop_holds_neutral_and_explicit_detach_releases_outputs();

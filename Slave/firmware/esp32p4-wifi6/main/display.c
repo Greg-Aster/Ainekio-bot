@@ -24,7 +24,7 @@
 static atomic_bool ready;
 static atomic_uint shown_face, frames, render_max_us;
 static portMUX_TYPE selection_lock=portMUX_INITIALIZER_UNLOCKED;
-static struct { size_t face; uint32_t revision; uint64_t started_ms; bool manual; } selection;
+static ainekio_p4_face_selection_t selection;
 #if CONFIG_AINEKIO_LCD_ENABLED
 static esp_lcd_panel_handle_t panel;
 static esp_lcd_panel_io_handle_t io;
@@ -37,19 +37,23 @@ bool ainekio_p4_display_ready(void){return atomic_load(&ready);}
 const char *ainekio_p4_display_face(void){return ainekio_face_name(atomic_load(&shown_face));}
 void ainekio_p4_display_restore(void)
 {
-    portENTER_CRITICAL(&selection_lock);selection.manual=false;portEXIT_CRITICAL(&selection_lock);
+    portENTER_CRITICAL(&selection_lock);selection.active=false;portEXIT_CRITICAL(&selection_lock);
 }
 esp_err_t ainekio_p4_display_expression(const char *name)
 {
-    size_t face;
-    if(!ainekio_face_find(name,&face))return ESP_ERR_NOT_FOUND;
+    if(!name || strlen(name)>AINEKIO_ASSET_NAME_MAX)return ESP_ERR_INVALID_ARG;
+    ainekio_face_selection_t request={0};
+    strcpy(request.expression,name);
+    return ainekio_p4_display_select(&request);
+}
+esp_err_t ainekio_p4_display_select(const ainekio_face_selection_t *request)
+{
     if(!atomic_load(&ready))return ESP_ERR_INVALID_STATE;
     const ainekio_p4_body_status_t body=ainekio_p4_body_status();
     portENTER_CRITICAL(&selection_lock);
-    selection.face=face;selection.revision=body.face_revision;
-    selection.started_ms=esp_timer_get_time()/1000;selection.manual=true;
+    const bool found=ainekio_p4_face_select(&selection,request,body.face_revision,esp_timer_get_time()/1000);
     portEXIT_CRITICAL(&selection_lock);
-    return ESP_OK;
+    return found ? ESP_OK : ESP_ERR_NOT_FOUND;
 }
 #if CONFIG_AINEKIO_LCD_ENABLED
 static bool transferred_callback(esp_lcd_panel_io_handle_t handle,
@@ -93,12 +97,11 @@ static void display_task(void *unused)
             was_moving=body.moving;held_revision=body.face_revision;
             ainekio_p4_face_sample_t sample=ainekio_p4_face_sample(&body,
                 body.face_command ? now-held_since : now);
-            portENTER_CRITICAL(&selection_lock);
-            if(selection.manual&&selection.revision!=body.face_revision)selection.manual=false;
-            if(selection.manual){sample.face=selection.face;sample.elapsed_ms=now-selection.started_ms;}
-            portEXIT_CRITICAL(&selection_lock);
             const ainekio_p4_media_status_t media=ainekio_p4_media_status();
             const bool talking=media.speaker_busy;
+            portENTER_CRITICAL(&selection_lock);
+            sample=ainekio_p4_face_selected(&selection,sample,body.face_revision,body.moving,talking,now);
+            portEXIT_CRITICAL(&selection_lock);
             if(media.utterance_open && !was_listening)listening_since=now;
             was_listening=media.utterance_open;
             sample=ainekio_p4_face_listen(sample,media.utterance_open,now-listening_since);

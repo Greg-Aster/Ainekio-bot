@@ -178,12 +178,24 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
     async def test_speech_settings_roundtrip_errors_and_disconnect(self) -> None:
         adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(
             receipt_path=":memory:", token="adapter-secret"))
-        with self.assertRaisesRegex(GatewayError, "Connect MetaHuman"):
+        with self.assertRaisesRegex(GatewayError, "MetaHuman Environment Bridge is disconnected"):
             await adapter.speech_output_settings()
         async with websockets.serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
             async with websockets.connect(f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}") as ws:
                 await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "adapter-secret"}))
                 self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
+                for enabled in (None, False, True):
+                    request = asyncio.create_task(adapter.behavior_settings(enabled))
+                    message = json.loads(await ws.recv())
+                    self.assertEqual(message["type"], "behavior.settings")
+                    self.assertEqual(message.get("enabled"), enabled)
+                    await ws.send(json.dumps({"type": "behavior.settings.result", "requestId": "unrelated", "enabled": True}))
+                    self.assertFalse(request.done())
+                    await ws.send(json.dumps({"type": "behavior.settings.result", "requestId": message["requestId"],
+                        "enabled": enabled or False, "unresolvedActions": [{"id": "waiting-for-terminal"}]}))
+                    result = await request
+                    self.assertEqual(result["enabled"], enabled or False)
+                    self.assertEqual(result["unresolvedActions"], [{"id": "waiting-for-terminal"}])
                 for target in (None, "robot", "local"):
                     request = asyncio.create_task(adapter.speech_output_settings(target))
                     message = json.loads(await ws.recv())
@@ -206,7 +218,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 await ws.close()
                 with self.assertRaisesRegex(GatewayError, "disconnected"):
                     await request
-        self.assertFalse(adapter._speech_settings_requests)
+        self.assertFalse(adapter._settings_requests)
 
     async def test_cancel_after_switch_stays_addressed_to_original_robot(self) -> None:
         class PendingSpeechGateway(FakeGateway):
@@ -889,6 +901,25 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         visual = message["observation"]["visual"]
         self.assertEqual(visual["mimeType"], "image/jpeg")
         self.assertEqual(visual["dataUrl"], "data:image/jpeg;base64,/9j/2Q==")
+
+    async def test_camera_identity_survives_counter_restart_and_robot_selection(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="fixture"))
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket
+        for instance, robot, epoch in [
+            ("first", "test-body", 1), ("first", "test-body", 2),
+            ("second", "test-body", 1), ("second", "other-body", 1),
+        ]:
+            gateway.instance_id = instance
+            await adapter._deliver_camera_frame({"robot_id": robot, "epoch": epoch,
+                "counter": 4, "payload": b"\xff\xd8\xff\xd9"}, {})
+        frames = [json.loads(message)["observation"]["visual"] for message in websocket.sent]
+        self.assertEqual(len({frame["id"] for frame in frames}), 4)
+        self.assertNotIn("ainekio-camera-4", {frame["id"] for frame in frames})
+        self.assertEqual(frames[1]["metadata"]["epoch"], 2)
+        self.assertEqual(frames[2]["metadata"]["gatewayInstance"], "second")
+        self.assertEqual(gateway.calls, [])
 
     async def test_continuous_camera_frame_stays_out_of_llm_observations(self) -> None:
         gateway = FakeGateway()

@@ -33,7 +33,9 @@ from protocol.control_v1 import (
     COMMAND_DEADLINE_FEATURE,
     CAMERA_PROFILES_FEATURE,
     CAMERA_ADAPTIVE_FEATURE,
+    CAMERA_CONTROLS_FEATURE,
     AUDIO_INPUT_FEATURE,
+    FACE_FEEDBACK_FEATURE,
     BODY_CALIBRATION_FEATURE,
     STORAGE_CONTROL_FEATURE,
     ROBOT_SETTINGS_FEATURE,
@@ -279,6 +281,10 @@ class GatewayConnection:
                     raise GatewayError("body does not support independent snapshot settings")
                 if message["snapshot_res"] in {"AUTO", "960P", "FHD"} and CAMERA_ADAPTIVE_FEATURE not in self.features:
                     raise GatewayError("body does not support adaptive/high-resolution camera settings")
+            if message.get("t") == "cam" and (message.get("res") not in {"QVGA", "VGA"} or
+                    any(key in message for key in ("exposure_us", "gain_x16", "jpeg_quality"))):
+                if CAMERA_CONTROLS_FEATURE not in self.features:
+                    raise GatewayError("body firmware needs camera_controls_v1 for HD streaming and exposure/gain controls")
             if message.get("t") == "motion_speed" or "playback_rate" in message:
                 if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
                     raise GatewayError("body does not support saved motion speed")
@@ -350,6 +356,10 @@ class GatewayConnection:
             }.get(message.get("t"))
             if message.get("t") == "intent":
                 capability = {"face": "display", "say": "speaker"}.get(message.get("name"))
+                if message.get("name") == "face" and any(
+                    key in message for key in ("token", "if_token", "timeout_ms", "background", "release")
+                ) and FACE_FEEDBACK_FEATURE not in self.features:
+                    raise GatewayError("Timed/releasable expressions require face_feedback_v1 firmware")
             if self.model != "v1-8servo" and capability and (
                 self.capabilities is None or self.capabilities.get(capability) is not True
             ):
@@ -964,10 +974,16 @@ class GatewayService:
         resolution: str,
         robot_id: str | None = None,
         snapshot_resolution: str | None = None,
+        exposure_us: int | None = None,
+        gain_x16: int | None = None,
+        jpeg_quality: int | None = None,
     ) -> int:
         command: dict[str, object] = {"t": "cam", "on": on, "fps": fps, "res": resolution}
         if snapshot_resolution is not None:
             command["snapshot_res"] = snapshot_resolution
+        for key, value in (("exposure_us", exposure_us), ("gain_x16", gain_x16), ("jpeg_quality", jpeg_quality)):
+            if value is not None:
+                command[key] = value
         return await self._send(
             command,
             robot_id=robot_id,

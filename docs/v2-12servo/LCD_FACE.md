@@ -21,6 +21,24 @@ renderer are editable; they impose no restriction on future artwork.
 * [Expression sheet](face-preview/contact-sheet.png)
 * [Resting face](face-preview/default.png)
 
+## Workflow feedback and replacement
+
+The `face_feedback_v1` source extension uses the existing renderer and library
+for both movement expressions and standalone expressions. There is one active
+manual/feedback selection: a new set replaces it. A configurable robot-local
+timeout returns to the underlying face even if MetaHuman stops responding.
+Release messages identify their own selection; obsolete release or conditional
+error messages cannot clear/replace a newer one.
+
+Listening follows the actual microphone capture state. Background processing
+faces yield to actual speaker playback and motion cues, then reappear between
+activities until released or expired. Existing network/gateway connection pages
+retain priority. MetaHuman's graph dropdowns select processing and failure faces
+from Body Control's generated catalog. See the
+[wire contract](../../Slave/software/protocol/README.md#timed-display-expressions).
+This extension requires updated P4 firmware; source/native tests alone do not
+establish that it is running on a robot.
+
 ## Connections
 
 ![P4 to LCD pinout and wiring diagram](LCD_Wiring.png)
@@ -169,14 +187,55 @@ See [Espressif's SPI LCD documentation](https://docs.espressif.com/projects/esp-
 
 Under `idf.py menuconfig` → **Ainekio wide face LCD**, configure the five GPIOs,
 SPI frequency, frame rate, landscape row offset, 180-degree rotation, RGB/BGR
-order, and inversion. Initial settings are 40 MHz, 30 fps, row offset 35,
+order, and inversion. Selected settings are 40 MHz, 15 fps, row offset 35,
 RGB, inversion and 180-degree rotation enabled. These are a selected panel profile, not measured
 throughput or visual qualification of the delivered module.
+
+The 15 fps target is the owner's deliberately stepped, low-fi animation style.
+It samples the same time-based expressions less often; sequence lengths, gaze
+pauses, blinks and motion timing are retained. Both generated preview libraries
+use the same 66 ms frame interval as the firmware's integer-millisecond scheduler.
+The profile is saved in `sdkconfig.defaults` and the Kconfig default; existing
+builds keep their own `sdkconfig` value until changed (the local build is set
+to 15). This targets half as many redraws/transfers as the previous 30 fps
+setting. It does not establish measured P4 CPU usage.
 
 `Slave/software/faces/faces.def` owns the expression recipes.
 `Slave/software/faces/face.c` owns the geometry, colors and animation.
 `main/face_timeline.c` resolves compiled motion cues. The same C renderer
 produces the gallery, so previews do not use separately recreated browser art.
+
+The Thinking expression has a 7.2-second sequence: look upward, pause, look
+across, narrow one eye, settle, and blink. Its three dots pulse in a traveling
+wave every 1.8 seconds. Listening uses a distinct 2.4-second attentive pulse
+with gently changing eye height and faster dots. Curious and Confused hold
+their questioning tilt before settling and blinking (4.8 and 4.2 seconds).
+Sparkles grow and shrink smoothly; sleep symbols drift with the breath; music
+notes sway. The resting identity and its existing blink remain unchanged.
+These animations are sampled directly from elapsed time without allocating
+frame sequences on the P4. Listening animation is not a microphone level
+meter, and Thinking animation alone does not establish remote task progress.
+
+Each expression also has a soft colored halo around its eyes and curved side
+lights. The halo breathes with the expression's period; Thinking passes the
+pulse from left to right twice per sequence. Still expressions remain still.
+Stroke centers stay sharp, and small symbols and voice bars use tighter glows
+so they remain distinct. This is a distance-based stroke effect: the renderer
+samples glow width (12–16 pixels) and strength once per face side and shades
+only each stroke's bounds. There is no full-screen blur, extra framebuffer,
+heap allocation, or stored animation sequence on the P4.
+
+The halo renderer passes the 59-face native bounds/rendering tests under
+AddressSanitizer and UndefinedBehaviorSanitizer and cross-compiles with the P4
+firmware flags. Its pixel-loop optimization matches the initial halo renderer
+on 590 sampled frames including speech. A five-expression desktop benchmark
+measured roughly 20% less rendering time than the preceding narrow-glow
+renderer; this is **not a P4 timing measurement**. The P4 renderer object grew
+by 556 bytes (code/constants), with no static RAM increase. Device frame timing
+and LCD appearance still need checking after installation.
+
+The [interactive face library](face-preview/index.html) includes animated WebP
+previews, PNG stills, and an updated [contact sheet](face-preview/contact-sheet.png).
 Body Control's generated catalog and previews are in
 `Master/gateway/dashboard/static/faces/`. Regenerate after editing the library:
 

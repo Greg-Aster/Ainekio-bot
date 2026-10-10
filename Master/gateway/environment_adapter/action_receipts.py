@@ -72,13 +72,14 @@ class ActionReceipts:
             return
         if not isinstance(lease, dict) or not isinstance(lease.get("bodyId"), str) or not isinstance(lease.get("executionId"), str) or type(lease.get("generation")) is not int or lease["generation"] < 1:
             raise GatewayError("physical action requires a Coordinator body lease")
-        current = self.db.execute("SELECT * FROM body_owner WHERE body_id=?", (lease["bodyId"],)).fetchone()
+        owner_key = encoded([lease["bodyId"], "display"]) if action.get("type") == "faceExpression" else lease["bodyId"]
+        current = self.db.execute("SELECT * FROM body_owner WHERE body_id=?", (owner_key,)).fetchone()
         if current and (lease["generation"] < current["generation"] or (lease["generation"] == current["generation"] and lease["executionId"] != current["execution_id"])):
             raise GatewayError("stale body ownership")
         if not advance and (not current or current["generation"] != lease["generation"] or current["execution_id"] != lease["executionId"]):
             raise GatewayError("body ownership changed before dispatch")
         if advance:
-            self.db.execute("INSERT INTO body_owner VALUES (?,?,?) ON CONFLICT(body_id) DO UPDATE SET generation=excluded.generation, execution_id=excluded.execution_id", (lease["bodyId"], lease["generation"], lease["executionId"]))
+            self.db.execute("INSERT INTO body_owner VALUES (?,?,?) ON CONFLICT(body_id) DO UPDATE SET generation=excluded.generation, execution_id=excluded.execution_id", (owner_key, lease["generation"], lease["executionId"]))
 
     def receive(self, action: dict[str, Any], accepted: Mapping[str, object]) -> dict[str, Any]:
         payload = {key: value for key, value in action.items() if key != "timing"}

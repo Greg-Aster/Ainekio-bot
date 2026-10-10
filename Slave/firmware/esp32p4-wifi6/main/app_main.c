@@ -86,7 +86,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_console_cmd_register(&system));
     const esp_console_cmd_t gait = {.command="gait", .help="Inspect installed geometric gait; no PWM output", .func=ainekio_p4_gait_command};
     ESP_ERROR_CHECK(esp_console_cmd_register(&gait));
-    const esp_console_cmd_t face = {.command="face", .help="LCD status; face list / NAME / auto", .func=ainekio_p4_display_command};
+    const esp_console_cmd_t face = {.command="face", .help="Display status; face list / NAME / auto", .func=ainekio_p4_display_command};
     ESP_ERROR_CHECK(esp_console_cmd_register(&face));
     ESP_ERROR_CHECK(esp_console_cmd_register(&home));
     ESP_ERROR_CHECK(esp_console_start_repl(repl));

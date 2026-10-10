@@ -5,11 +5,23 @@ Legacy eight-servo bodies retain their existing contract. New bodies must declar
 their subset; a model name alone never grants the legacy motion set.
 """
 from collections.abc import Mapping, Sequence
+import json
+from pathlib import Path
 
 from protocol.control_v1 import BODY_COMMANDS_FEATURE
 
 CRAB_DIRECTIONS = {"crab":"side_l", "crab_right":"side_r", "crab_forward":"fwd",
                    "crab_backward":"back", "crab_turn_left":"turn_l", "crab_turn_right":"turn_r"}
+
+
+def expression_library(robot: Mapping[str, object] | None) -> list[dict[str, str]]:
+    """The same generated face catalog used by Body Control, for its color display."""
+    capabilities = robot.get("capabilities") if robot else None
+    if (not robot or robot.get("model") != "v2-12servo"
+        or not isinstance(capabilities, Mapping) or capabilities.get("display") is not True):
+        return []
+    catalog = json.loads((Path(__file__).parent / "dashboard/static/faces/catalog.json").read_text())
+    return [{key: face[key] for key in ("name", "label", "group")} for face in catalog]
 
 
 def body_commands(

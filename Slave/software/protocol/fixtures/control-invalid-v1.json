@@ -1,6 +1,8 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "camera_partial_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000}, "reason": "missing:gain_x16"},
+    {"name": "camera_sub_unity_gain", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 0, "gain_x16": 1, "jpeg_quality": 75}, "reason": "range:camera_controls"},
     {"name": "speaker_invalid_-1", "message": {"t": "speaker", "seq": 1, "volume_percent": -1}, "reason": "range:volume_percent"},
     {"name": "speaker_invalid_101", "message": {"t": "speaker", "seq": 1, "volume_percent": 101}, "reason": "range:volume_percent"},
     {"name": "speaker_invalid_1.5", "message": {"t": "speaker", "seq": 1, "volume_percent": 1.5}, "reason": "type:volume_percent"},
@@ -94,8 +96,8 @@
       "reason": "range:fps"
     },
     {
-      "name": "cam_xga_stream_rejected",
-      "message": {"t": "cam", "seq": 6, "on": true, "fps": 1, "res": "XGA"},
+      "name": "cam_auto_stream_rejected",
+      "message": {"t": "cam", "seq": 6, "on": true, "fps": 1, "res": "AUTO"},
       "reason": "value:res"
     },
     {"name": "snap_missing_seq", "message": {"t": "snap"}, "reason": "missing:seq"},
