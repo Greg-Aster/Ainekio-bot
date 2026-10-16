@@ -192,14 +192,15 @@ static void test_recommended_mounting_home_matches_inversion(void)
     }
 }
 
-static void test_walk_400us_endpoint(void)
+static void test_installed_walk_mapping(void)
 {
-    /* Owner's saved calibration, not the electrical defaults. Exercise the
+    /* Photo-derived reindexed crank profile, not device calibration proof. Exercise the
      * production command -> planner -> mapper path, including speed updates. */
-    const uint16_t home[12]={1600,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
+    const uint16_t home[12]={1600,2444,2800,1670,856,500,1670,2444,2800,1760,856,500};
     ainekio_p4_joint_config_t joints[12];
     assert(ainekio_p4_joint_defaults(joints));
-    for(unsigned i=0;i<12;i++) {joints[i].home_us=home[i];joints[i].invert=(i/3)%2==0;}
+    for(unsigned i=0;i<12;i++) {joints[i].home_us=home[i];joints[i].invert=i%3==0?(i==3||i==6):(i/3)%2==0;}
+    for(unsigned i=2;i<12;i+=3)joints[i].home_cd=-11768;
     assert(ainekio_v2_joint_speed_set(1000.F));
     for(unsigned dir=0;dir<4;dir++)for(unsigned mode=0;mode<3;mode++) {
         ainekio_v2_walk_state_t state={0};
@@ -230,7 +231,9 @@ static void test_walk_400us_endpoint(void)
             }
         }
         assert(state.complete);
-        if(dir==AINEKIO_WALK_FORWARD)assert(low<=420&&high>=2880);
+        /* Every requested pose must fit the reindexed mapping, including
+         * updates and Finish. Full-stroke endpoints have a separate test. */
+        assert(low<high);
     }
     /* Finish can begin anywhere in the cycle. Check its committed foot
      * landings as well as the steady stroke at all supported tick intervals. */
@@ -244,7 +247,10 @@ static void test_walk_400us_endpoint(void)
         for(uint64_t now=intervals[interval];now<40000000&&!state.complete;now+=intervals[interval]) {
             assert(ainekio_v2_walk_tick(&state,now));
             uint16_t pulses[12];assert(ainekio_p4_joint_map_frame(joints,&state.pose.frame,pulses));
-            for(unsigned i=0;i<12;i++)assert(pulses[i]>=400&&pulses[i]<=2900);
+            for(unsigned i=0;i<12;i++){
+                if(pulses[i]<400||pulses[i]>2900)fprintf(stderr,"Finish mapping interval=%u stop=%u time=%llu phase=%g joint=%u pulse=%u\n",intervals[interval],stop,(unsigned long long)now,state.phase,i,pulses[i]);
+                assert(pulses[i]>=400&&pulses[i]<=2900);
+            }
             if(!state.stopping&&state.phase>=7.+stop/32.) {
                 c.sequence=2;c.data.intent.data.walk.update_sequence=1;
                 c.data.intent.data.walk.speed_percent=0;
@@ -258,7 +264,7 @@ static void test_walk_400us_endpoint(void)
 
 int main(void)
 {
-    test_walk_400us_endpoint();
+    test_installed_walk_mapping();
     test_recommended_mounting_home_matches_inversion();
     test_manual_pulse_reference_is_literal();
     test_defaults_home_and_full_nominal_span();

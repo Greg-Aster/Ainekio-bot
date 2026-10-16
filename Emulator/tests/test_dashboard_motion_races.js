@@ -13,18 +13,21 @@ function node(id) {
   return nodes.get(id);
 }
 const requests = [];
-const context = { console, URLSearchParams, AbortController, navigator:{getGamepads(){return [];}}, localStorage:{getItem(){return null;}},
+const windowListeners = new Map();
+let gamepads = [];
+const context = { console, URLSearchParams, AbortController, navigator:{getGamepads(){return gamepads;}}, localStorage:{getItem(){return null;}},
   document:{getElementById:node, querySelector:node, querySelectorAll(){return [];}},
-  window:{addEventListener(){},clearTimeout(){}},
+  window:{addEventListener(type,fn){windowListeners.set(type,fn);},clearTimeout(){}},
   fetch(url,opts){return new Promise((resolve,reject)=>requests.push({url,body:JSON.parse(opts.body),resolve:(seq)=>resolve({ok:true,status:200,json:async()=>typeof seq === "object" ? seq : ({seq})}),reject}));}
 };
 let source=fs.readFileSync(path.join(__dirname,'../../Master/gateway/dashboard/static/dashboard.js'),'utf8');
 source=source.replace('  if (!setupLogin()) {', `
   globalThis.motionTest = {
-    select(id) { selectedRobotId=id; variableWalking=directionalWalking=true; availableBodyCommands=null; resetWalking(); updateMotionSpeed(null); },
+    select(id) { selectedRobotId=id; variableWalking=directionalWalking=true; steeringSupported=false; availableBodyCommands=null; resetWalking(); updateMotionSpeed(null); updateBalance(null); },
+    steering() { steeringSupported=true; setSteeringVector(100,0); },
     state() { return {activeWalkSequence,heldRequestPending,walkRequestPending,activeWalkProfile}; },
     range(supported,crab=false) { runningSupported=supported; crabSupported=crab; updateSpeedRange(); },
-    beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus,updateMotionSpeed,operateMotionSpeed,sendNamedMotion
+    updateBalance,operateBalance,beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus,updateMotionSpeed,operateMotionSpeed,sendNamedMotion,pollGamepad
   };
   if (false) {`);
 vm.createContext(context);vm.runInContext(source,context);
@@ -260,6 +263,137 @@ async function run() {
   assert.equal(node('joint-speed-limit').disabled,true);
   assert.match(node('joint-speed-status').textContent,/firmware update/);
   console.log('Joint speed setting, uncapped values, explicit save, edit preservation, active feedback and robot-selection races passed.');
+
+  const tick=()=>new Promise(resolve=>setImmediate(resolve));
+  const key=(type,code)=>windowListeners.get(type)({code,repeat:false,target:{tagName:'BODY'},preventDefault(){}});
+  api.select('steering');api.steering();node('walk-gait').value='walk';node('walk-mode').value='auto';node('walk-speed').value='50';
+  const vectorStart=api.applyWalking();requests.at(-1).resolve(3000);await vectorStart;
+  node('walk-turn').value='40';const curve=node('walk-turn').fire('input');
+  assert.equal(requests.at(-1).body.params.forward,100);assert.equal(requests.at(-1).body.params.turn,40);
+  assert.equal(requests.at(-1).body.params.update,3000);
+  const curveRequest=requests.at(-1),curveCount=requests.length;
+  node('walk-turn').value='-70';await node('walk-turn').fire('input');
+  node('walk-forward').value='-30';await node('walk-forward').fire('input');
+  assert.equal(requests.length,curveCount,'rapid steering edits coalesce behind the outstanding request');
+  curveRequest.resolve(3001);await curve;
+  assert.equal(requests.at(-1).body.params.forward,-30);assert.equal(requests.at(-1).body.params.turn,-70);
+  assert.equal(requests.at(-1).body.params.update,3000);requests.at(-1).resolve(3002);await tick();
+  node('walk-direction').value='turn_l';const preset=node('walk-direction').fire('change');
+  assert.equal(requests.at(-1).body.params.dir,'fwd','updates retain the original protocol direction');
+  assert.equal(requests.at(-1).body.params.forward,0);assert.equal(requests.at(-1).body.params.turn,100);
+  requests.at(-1).resolve(3003);await preset;
+
+  api.select('keyboard-steering');api.steering();node('walk-direction').value='fwd';
+  const keyboardBase=requests.length;
+  key('keydown','ArrowUp');const keyStart=requests.at(-1);
+  key('keydown','ArrowLeft');assert.equal(requests.length,keyboardBase+1);
+  keyStart.resolve(3100);await tick();
+  assert.equal(requests.at(-1).body.params.update,3100);assert.equal(requests.at(-1).body.params.turn,100);
+  assert.equal(requests.at(-1).body.params.forward,100);requests.at(-1).resolve(3101);await tick();
+  key('keyup','ArrowLeft');assert.equal(requests.at(-1).body.params.forward,100);assert.equal(requests.at(-1).body.params.turn,0);
+  requests.at(-1).resolve(3102);await tick();
+  key('keyup','ArrowUp');assert.equal(requests.at(-1).body.params.speed,0);assert.equal(requests.at(-1).body.params.update,3100);
+  requests.at(-1).resolve(3103);await tick();
+  assert.ok(requests.slice(keyboardBase).every(r=>r.url==='/api/intent'),'changing held direction does not issue stop/start');
+
+  api.select('released-before-ack');api.steering();
+  key('keydown','ArrowUp');const releasedStart=requests.at(-1);
+  key('keydown','ArrowRight');key('keyup','ArrowRight');key('keyup','ArrowUp');
+  const releaseStop=requests.at(-1);assert.equal(releaseStop.url,'/api/stop');
+  releasedStart.resolve(3200);releaseStop.resolve(3201);await tick();
+  assert.equal(api.state().activeWalkSequence,null,'late held start cannot restore released steering');
+  assert.equal(requests.at(-1).url,'/api/stop');requests.at(-1).resolve(3202);await tick();
+
+  api.select('gamepad-steering');api.steering();
+  gamepads=[{axes:[.65,-.9],buttons:[]}];api.pollGamepad();
+  assert.equal(requests.at(-1).body.params.forward,90);assert.equal(requests.at(-1).body.params.turn,-65);
+  requests.at(-1).resolve(3300);await tick();
+  gamepads[0].axes=[-.8,.7];api.pollGamepad();
+  assert.equal(requests.at(-1).body.params.update,3300);assert.equal(requests.at(-1).body.params.forward,-70);assert.equal(requests.at(-1).body.params.turn,80);
+  requests.at(-1).resolve(3301);await tick();
+  gamepads[0].axes=[0,0];api.pollGamepad();assert.equal(requests.at(-1).body.params.speed,0);
+  requests.at(-1).resolve(3302);await tick();gamepads=[];
+
+  api.select('legacy-direction');node('walk-gait').value='walk';
+  const legacyStart=api.beginHeldMotion('turn_r');assert.equal(requests.at(-1).body.params.forward,undefined);
+  assert.equal(requests.at(-1).body.params.dir,'turn_r');requests.at(-1).resolve(3400);await legacyStart;
+  api.select('balance-old');
+  const balanceEntry={model:'v2-12servo',epoch:1,features:['balance_control_v1']};
+  api.updateBalance(balanceEntry);const oldBalance=requests.at(-1);
+  api.select('balance-new');api.updateBalance(balanceEntry);const newBalance=requests.at(-1);
+  oldBalance.resolve({seq:3500,balance:{seq:3500,enabled:false,saved:true,active:false}});await tick();
+  assert.equal(node('balance-enabled').value,'','old robot reply cannot change selected robot setting');
+  newBalance.resolve({seq:3501,balance:{seq:3501,enabled:true,saved:false,active:false}});await tick();
+  assert.equal(node('balance-enabled').value,'true');
+  const balanceWalk=api.beginHeldMotion('fwd');requests.at(-1).resolve(3502);await balanceWalk;
+  node('balance-enabled').value='false';node('balance-enabled').fire('change');
+  const countBeforeSave=requests.length;const saveBalance=api.operateBalance('save');
+  assert.equal(requests.at(-1).url,'/api/balance');
+  assert.deepEqual(requests.at(-1).body,{op:'save',robot_id:'balance-new',enabled:false});
+  requests.at(-1).resolve({seq:3503,balance:{seq:3503,enabled:false,saved:true,active:false}});await saveBalance;
+  assert.equal(requests.length,countBeforeSave+1,'saving balance does not send a Stop or movement command');
+  assert.equal(api.state().activeWalkSequence,3502);
+  assert.equal(node('balance-enabled').value,'false');
+  api.updateBalance({...balanceEntry,status:{balance:{active:false}}});
+  assert.match(node('balance-active').textContent,/inactive/);
+  api.select('tunable-balance');
+  const tunedEntry={...balanceEntry,features:['balance_control_v1','balance_tuning_v1']};
+  api.updateBalance(tunedEntry);
+  const tuning={strength:1,damping:1,roll_deg:0,pitch_deg:0,tuning_saved:false};
+  requests.at(-1).resolve({seq:3600,balance:{seq:3600,enabled:false,saved:true,active:false,...tuning}});await tick();
+  node('balance-strength').value='1.75';node('balance-strength').fire('input');
+  node('balance-pitch_deg').value='3';node('balance-pitch_deg').fire('input');
+  api.updateBalance(tunedEntry);assert.equal(node('balance-strength').value,'1.75','polling preserves unsaved tuning');
+  const saveTuned=api.operateBalance('save');
+  assert.deepEqual(requests.at(-1).body,{op:'save',robot_id:'tunable-balance',enabled:false,strength:1.75,damping:1,roll_deg:0,pitch_deg:3});
+  requests.at(-1).resolve({seq:3601,balance:{seq:3601,enabled:false,saved:true,active:false,...tuning,strength:1.75,pitch_deg:3,tuning_saved:true}});await saveTuned;
+  assert.equal(node('balance-strength').value,'1.75');assert.equal(node('balance-save').disabled,true);
+  const countBeforeDefaults=requests.length;node('balance-defaults').fire('click');
+  assert.equal(node('balance-enabled').value,'false','default response does not turn leveling on');
+  assert.equal(node('balance-strength').value,'1');assert.equal(node('balance-pitch_deg').value,'0');
+  assert.equal(node('balance-save').disabled,false);assert.equal(requests.length,countBeforeDefaults,'defaults require explicit save');
+  console.log('Self-leveling tuning readback, edit preservation and explicit defaults passed.');
+  const roll=-2*Math.PI/180,pitch=-3*Math.PI/180;
+  const orientation=[Math.cos(roll/2)*Math.cos(pitch/2),Math.sin(roll/2)*Math.cos(pitch/2),
+    Math.cos(roll/2)*Math.sin(pitch/2),-Math.sin(roll/2)*Math.sin(pitch/2)];
+  const feedbackEntry={...tunedEntry,features:[...tunedEntry.features,'balance_feedback_v1'],status:{
+    imu:{available:true,fresh:true,received_at:new Date().toISOString(),calibration_applied:true,orientation_wxyz:orientation},
+    balance:{active:false,roll_rad:0,pitch_rad:0,roll_correction_rad:.1,pitch_correction_rad:.2,
+      legs_valid:true,extension_mm:[-1,-2,3,4],joint_delta_deg:[0,10,11,0,20,21,0,30,31,0,40,41]}}};
+  api.updateBalance(feedbackEntry);
+  assert.match(node('balance-tilt').textContent,/-2.00°/,'fresh IMU is displayed even while cached balance angles are zero');
+  assert.match(node('balance-tilt').textContent,/\+3.00°/,'pitch uses nose-up sign');
+  assert.match(node('balance-correction').textContent,/-11.46°/);
+  assert.equal(node('balance-leg-0').textContent,'1.00 mm shorter');
+  assert.equal(node('balance-leg-2').textContent,'3.00 mm longer');
+  assert.equal(node('balance-carrier-0').textContent,'+30.00°','front left is model joint 7');
+  assert.equal(node('balance-crank-3').textContent,'+21.00°','rear right is model joint 5');
+  const beforeReference=requests.length;
+  node('balance-reference').fire('click');
+  assert.equal(Number(node('balance-roll_deg').value),-2);
+  assert.equal(Number(node('balance-pitch_deg').value),3);
+  assert.equal(node('balance-enabled').value,'false');
+  assert.equal(requests.length,beforeReference,'capturing reference is a draft until explicit save');
+  const referenceSave=api.operateBalance('save');
+  assert.deepEqual(requests.at(-1).body,{op:'save',robot_id:'tunable-balance',enabled:false,strength:1,damping:1,roll_deg:-2,pitch_deg:3});
+  requests.at(-1).resolve({seq:3700,balance:{seq:3700,enabled:false,saved:true,active:false,...tuning,roll_deg:-2,pitch_deg:3,tuning_saved:true}});await referenceSave;
+  api.updateBalance(feedbackEntry);
+  assert.match(node('balance-error').textContent,/roll [+-]0.00° · pitch [+-]0.00°/);
+  const gyroRequest=node('balance-gyro-calibrate').fire('click');
+  assert.deepEqual(requests.at(-1).body,{op:'calibrate_gyro',robot_id:'tunable-balance'});
+  requests.at(-1).resolve({seq:3701,balance:{seq:3701,enabled:false,saved:true,active:false,...tuning}});await gyroRequest;
+  assert.equal(requests.length,beforeReference+2,'only explicit save and gyro sampling commands, no motion or Stop');
+  const staleEntry={...feedbackEntry,status:{...feedbackEntry.status,imu:{...feedbackEntry.status.imu,received_at:'2000-01-01T00:00:00Z'}}};
+  api.updateBalance(staleEntry);
+  assert.equal(node('balance-reference').disabled,true);
+  assert.match(node('balance-sensor').textContent,/stale/);
+  assert.equal(node('balance-tilt').textContent,'');
+  api.select('other-feedback-robot');
+  assert.equal(node('balance-reference').disabled,true);
+  assert.equal(node('balance-leg-0').textContent,'—');
+  console.log('Live IMU signs, physical leg order, zero-reference save, stale samples and explicit gyro calibration passed.');
+  console.log('Self-leveling readback, selected robot races and saving without interrupting Walk passed.');
+  console.log('Combined steering, direction presets, coalesced updates, two-key driving, gamepad curves, release-before-ACK and legacy controls passed.');
 
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

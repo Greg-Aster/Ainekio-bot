@@ -1,5 +1,5 @@
 {
-  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
   "gait": "bound",
   "base_cycle_seconds": 1.2,
   "ground_contact_fraction": 0.42,
@@ -9,22 +9,22 @@
     "FL": 0.5,
     "FR": 0.5
   },
-  "sweep_mm": 80,
-  "rearward_bias_mm": -8,
-  "lift_mm": 14,
-  "minimum_lift_mm": 4,
-  "bob_mm": 3,
-  "pitch_deg": 4,
+  "sweep_mm": 44,
+  "rearward_bias_mm": 0,
+  "lift_mm": 12,
+  "minimum_lift_mm": 5,
+  "bob_mm": 0,
+  "pitch_deg": 0,
   "turn_degrees_per_cycle": 20,
   "hardware_qualified": false,
-  "dynamics_scope": "Kinematic paired-leg bounding reference. No measured force, contact or attitude feedback; airborne physical operation unqualified.",
+  "dynamics_scope": "Kinematic front/rear paired bound with original 42 percent stance and flight timing. Upright centered trajectory; scheduled contacts and body pose are not measured ground forces or tracking.",
   "research_sources": [
     "https://journals.sagepub.com/doi/10.1177/0278364917694244"
   ],
   "automatic_speed_threshold_percent": 100,
   "maximum_speed_percent": 200,
   "transition_cycles": 6,
-  "body_z_mm": -4,
+  "body_z_mm": 5,
   "research_angle_bounds_deg": [
     [
       -110,
@@ -40,17 +40,18 @@
     ]
   ],
   "forward": {
-    "sweep_mm": 96,
-    "rearward_bias_mm": -8,
-    "body_z_mm": -8,
-    "lane_offset_mm": 8,
+    "sweep_mm": 44,
+    "rearward_bias_mm": 0,
+    "body_z_mm": 5,
+    "lane_offset_mm": 0,
     "lane_assignment": "physical_front_inside_rear_outside",
     "pitch_bias_deg": 0,
-    "pitch_deg": 5.5,
+    "pitch_deg": 0,
     "pitch_phase_cycles": 0.25
   },
   "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
-  "search_bounds_basis": "Recalculated Run with forward-biased foot placement and a quicker fore/aft return during flight; preserve 96 mm approved Walk and bound calculated servo commands to 400-2900 us with the saved mounting calibration. Physical tracking remains unmeasured.",
-  "initial_sweep_mm": 80,
-  "swing_ramp_fraction": 0.05
+  "search_bounds_basis": "Installed geometry, saved horn references and existing 400\u20132900 us calibration review window. Preserve original shaft locations and mounting calibration.",
+  "initial_sweep_mm": 37,
+  "swing_ramp_fraction": 0.05,
+  "calibrated_revision": "Installed 35/20/28/38/55 mm linkage and bare Part027. 37 to 44 mm centered stroke, body Z +5 mm, 5 to 12 mm lift; existing front/rear paired timing and flight retained. Native verification is not physical loaded bounding qualification."
 }

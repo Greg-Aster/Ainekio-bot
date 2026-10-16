@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import json
+import asyncio
+import tempfile
+import threading
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
 import base64
 import struct
 import unittest
@@ -13,6 +18,7 @@ from gateway.environment_adapter.speech_transport import (
     SPEECH_AUDIO_MAGIC,
     SpeechAudioMessage,
     parse_speech_audio_message,
+    play_computer_speech,
 )
 
 
@@ -117,7 +123,7 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
             "id": "saved-camera", "visual": visual, "visuals": [visual],
         }}
         adapter.receipts.queue("saved-camera", None, envelope)
-        await adapter._replay_pending_feedback()
+        await adapter._replay_pending_feedback(adapter._websocket)
         delivered = json.loads(adapter._websocket.sent[0])["observation"]
         self.assertEqual(delivered["visual"], visual)
         self.assertNotIn("visuals", delivered)
@@ -161,13 +167,114 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(feedback["type"], "cancelled")
         adapter._websocket = FakeWebSocket()
         await adapter._recover_action_receipts()
-        await adapter._replay_pending_feedback()
+        await adapter._replay_pending_feedback(adapter._websocket)
         self.assertTrue(any(json.loads(value).get("feedback", {}).get("id") == feedback["id"]
                             for value in adapter._websocket.sent))
         from gateway.environment_adapter.action_receipts import ActionConflictError
         with self.assertRaises(ActionConflictError):
             adapter.receipts.receive({"id": "lost-speech", "type": "speechAudio"},
                 adapter._feedback("lost-speech", "accepted", "accepted"))
+        self.assertEqual(adapter.gateway.frames, [])
+
+    async def test_computer_process_streams_pcm_and_is_reaped_on_cancellation(self) -> None:
+        started, stopped = threading.Event(), threading.Event()
+        process = Mock(returncode=None)
+        captured = []
+        def communicate(pcm):
+            captured.append(pcm)
+            started.set()
+            stopped.wait()
+            return None, b''
+        def terminate():
+            process.returncode = -15
+            stopped.set()
+        process.communicate.side_effect = communicate
+        process.poll.side_effect = lambda: process.returncode
+        process.terminate.side_effect = terminate
+        with patch('gateway.environment_adapter.speech_transport.subprocess.Popen', return_value=process) as spawn:
+            playback = asyncio.create_task(play_computer_speech(bytes(640)))
+            await asyncio.to_thread(started.wait)
+            playback.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await playback
+        process.terminate.assert_called_once()
+        self.assertEqual(captured, [bytes(640)])
+        self.assertIn('--rate=16000', spawn.call_args.args[0])
+        self.assertIn('--channels=1', spawn.call_args.args[0])
+
+    async def test_computer_target_persists_without_metahuman_connection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = EnvironmentAdapterConfig(receipt_path=str(Path(directory) / 'receipts.sqlite'), token='adapter-secret')
+            adapter = EnvironmentAdapter(FakeGateway(), config)
+            self.assertEqual(await adapter.speech_output_settings(), {'playbackTarget': 'robot'})
+            await adapter.speech_output_settings('computer')
+            adapter.receipts.close()
+            restored = EnvironmentAdapter(FakeGateway(), config)
+            self.assertEqual(await restored.speech_output_settings(), {'playbackTarget': 'computer'})
+            restored.receipts.close()
+
+    async def test_computer_playback_uses_same_receipt_without_robot_audio(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(receipt_path=':memory:', token='adapter-secret'))
+        await adapter.speech_output_settings('computer')
+        adapter.gateway.status = lambda: {'robots': {}}
+        self.assertTrue(adapter._observation()['state']['body']['speakerReady'])
+        speech = SpeechAudioMessage('ainekio-01', 'host-speech', 'utterance', 20, bytes(640))
+        adapter.receipts.receive({'id': speech.action_id, 'type': 'speechAudio'}, adapter._feedback(speech.action_id, 'accepted', 'accepted'))
+        with patch('gateway.environment_adapter.server.play_computer_speech', new_callable=AsyncMock) as play:
+            await adapter._process_speech_audio(speech)
+        play.assert_awaited_once_with(speech.pcm)
+        self.assertEqual(adapter.gateway.frames, [])
+        row = adapter.receipts.action(speech.action_id)
+        self.assertEqual(json.loads(row['result'])['type'], 'completed')
+        self.assertEqual(json.loads(row['wire'])['kind'], 'computer-speech')
+
+    async def test_computer_cancellation_waits_for_playback_owner(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(receipt_path=':memory:', token='adapter-secret'))
+        await adapter.speech_output_settings('computer')
+        speech = SpeechAudioMessage('ainekio-01', 'cancel-host', 'utterance', 20, bytes(640))
+        adapter.receipts.receive({'id': speech.action_id, 'type': 'speechAudio'}, adapter._feedback(speech.action_id, 'accepted', 'accepted'))
+        started = asyncio.Event()
+        async def play(_pcm):
+            started.set()
+            await asyncio.Future()
+        with patch('gateway.environment_adapter.server.play_computer_speech', side_effect=play):
+            task = asyncio.create_task(adapter._process_speech_audio(speech))
+            await started.wait()
+            await adapter._cancel_action({'actionId': speech.action_id, 'cancellationId': 'cancel-host'})
+            await task
+        self.assertEqual(json.loads(adapter.receipts.action(speech.action_id)['result'])['type'], 'cancelled')
+        self.assertEqual(adapter.gateway.frames, [])
+
+    async def test_new_computer_speech_interrupts_previous_playback(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(receipt_path=':memory:', token='adapter-secret'))
+        await adapter.speech_output_settings('computer')
+        started = asyncio.Event()
+        async def play(pcm):
+            if pcm == b'old':
+                started.set()
+                await asyncio.Future()
+        messages = [SpeechAudioMessage('ainekio-01', name, name, 20, name.encode()) for name in ['old', 'new']]
+        for message in messages:
+            adapter.receipts.receive({'id': message.action_id, 'type': 'speechAudio'},
+                adapter._feedback(message.action_id, 'accepted', 'accepted'))
+        with patch('gateway.environment_adapter.server.play_computer_speech', side_effect=play):
+            old = asyncio.create_task(adapter._process_speech_audio(messages[0]))
+            await started.wait()
+            await asyncio.wait_for(adapter._process_speech_audio(messages[1]), 1)
+            await old
+        self.assertEqual(json.loads(adapter.receipts.action('old')['result'])['type'], 'cancelled')
+        self.assertEqual(json.loads(adapter.receipts.action('new')['result'])['type'], 'completed')
+
+    async def test_computer_failure_reports_error_and_recovery_never_replays(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(receipt_path=':memory:', token='adapter-secret'))
+        await adapter.speech_output_settings('computer')
+        speech = SpeechAudioMessage('ainekio-01', 'failed-host', 'utterance', 20, bytes(640))
+        adapter.receipts.receive({'id': speech.action_id, 'type': 'speechAudio'}, adapter._feedback(speech.action_id, 'accepted', 'accepted'))
+        with patch('gateway.environment_adapter.server.play_computer_speech', side_effect=FileNotFoundError('paplay unavailable')):
+            await adapter._process_speech_audio(speech)
+        self.assertEqual(json.loads(adapter.receipts.action(speech.action_id)['result'])['type'], 'rejected')
+        result = await adapter._resume_action_receipt(adapter.receipts.action(speech.action_id))
+        self.assertEqual(result['type'], 'outcome_unknown')
         self.assertEqual(adapter.gateway.frames, [])
 
     async def test_saved_speech_recovers_its_result_without_replaying_audio(self) -> None:
@@ -180,7 +287,11 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
             adapter.receipts.begin(action_id, {"robotId": "ainekio-body", "epoch": 3, "sequence": 7,
                 "gatewayInstance": "previous-gateway" if restarted else "fixture-gateway", "kind": "speech"})
             feedback = await adapter._resume_action_receipt(adapter.receipts.action(action_id))
-            self.assertEqual(feedback["type"], "cancelled" if restarted else "completed")
+            self.assertEqual(feedback["type"], "outcome_unknown" if restarted else "completed")
+            if restarted:
+                self.assertTrue(feedback['data']['executionEnded'])
+                self.assertTrue(feedback['data']['earlierEffectUnknown'])
+                self.assertEqual(feedback['data']['sessionReplacement']['previous']['gatewayInstance'], 'previous-gateway')
             self.assertEqual(adapter.gateway.frames, [])
 
 

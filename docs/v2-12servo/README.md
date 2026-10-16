@@ -22,7 +22,9 @@ do not supply those values.
 
 ## Wiring Guides
 
-- [P4 pinout image](ESP32P4_Pinout.png)
+- [Combined assembly image: P4 + LCD + servo board + IMU](Assembly_Reference.png)
+- [Combined connection table and resolved pin conflicts](ASSEMBLY_REFERENCE.md)
+- [Historical servo bring-up P4 pinout image](ESP32P4_Pinout.png)
 - [PCA9685 connection image](PCA9685_Wiring.png)
 - [Wiring table, sources and servo power](PCA9685_WIRING.md)
 
@@ -40,13 +42,17 @@ exports.
 
 ## Software Status
 
+The [gait research journal](GAIT_RESEARCH_JOURNAL.md) tracks the October 2026
+locomotion investigation, implementation changes, repeatable offline results
+and physical measurements still needed.
+
 The [firmware review and implementation design](FIRMWARE_DESIGN.md) records the
 V1 source findings, P4 platform research, and recommended implementation stages.
 It specifies proposed timing/fault contracts and starts with P4/C6/output-disable
 hardware checks, followed by supported motion before complete media integration.
 It develops the [approved code boundaries](../ROBOT_MODELS.md).
 The [native P4 target](../../Slave/firmware/esp32p4-wifi6/README.md) now contains
-the PCA9685 driver, automatic startup home, matched C6 networking and shared
+the PCA9685 driver, staged crouch/shoulder/Stand startup, matched C6 networking and shared
 command admission. Normal power-on starts channels 0–11 at saved pulses,
 200 ms apart; the current source default is the 1300 µs selected assembly reference. The laying pose is
 updated in both Blender and the exported rest source: the chassis base

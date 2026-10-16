@@ -36,9 +36,10 @@ def distances(points, compact):
 def generate(root):
     geometry = root/'geometry.json'; contacts = root/'motions/locomotion/contact-hulls.json'
     cfg = json.loads(geometry.read_text()); full = json.loads(contacts.read_text())
+    bare = json.loads((root/'motions/locomotion/walk-contact.json').read_text())
     profiles, certificates = {}, {}
     for kind in ('walk','crawl'):
-        points = np.unique(np.concatenate([np.asarray(cfg['legs'][leg]['sole_hull_local_mm'] if kind == 'walk' else full['soles'][leg]) for leg in cfg['leg_order']]), axis=0)
+        points = np.unique(np.concatenate([np.asarray(bare['sole_hull_local_mm'] if kind == 'walk' else full['soles'][leg]) for leg in cfg['leg_order']]), axis=0)
         chosen = list(ConvexHull(points).vertices[::max(1, len(ConvexHull(points).vertices)//12)])
         while True:
             error = distances(points, points[chosen]); worst = int(error.argmax())
@@ -48,7 +49,7 @@ def generate(root):
         # Float storage introduces < 0.00002 mm at this robot's scale.
         certificates[kind] = dict(original_vertices=len(points), compact_vertices=len(chosen), directed_hausdorff_mm=float(error.max()))
         assert len(chosen) <= 128, certificates[kind]
-    return dict(schema='ainekio.compact-sole.v1', geometry_sha256=hashlib.sha256(geometry.read_bytes()).hexdigest(), contact_source_sha256=hashlib.sha256(contacts.read_bytes()).hexdigest(), support_allowance_mm=.151, maximum_support_error_mm=.15, certificates=certificates, profiles=profiles)
+    return dict(walk_contact_sha256=hashlib.sha256((root/'motions/locomotion/walk-contact.json').read_bytes()).hexdigest(), schema='ainekio.compact-sole.v1', geometry_sha256=hashlib.sha256(geometry.read_bytes()).hexdigest(), contact_source_sha256=hashlib.sha256(contacts.read_bytes()).hexdigest(), support_allowance_mm=.151, maximum_support_error_mm=.15, certificates=certificates, profiles=profiles)
 
 
 if __name__ == '__main__':

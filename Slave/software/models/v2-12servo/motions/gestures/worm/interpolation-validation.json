@@ -1,33 +1,10 @@
 {
   "command": "worm",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef",
-  "samples": 2401,
-  "hardware_qualified": false,
-  "collision_checked": false,
-  "interpolators": {
-    "source": {
-      "poses": 2401,
-      "minimum_sole_z_mm": -0.0011692967169736335,
-      "minimum_body_z_mm": 3.2048940429429393,
-      "minimum_closure_height_mm": 12.830566274784287,
-      "maximum_interpolated_target_error_mm": 0.0
-    },
-    "native_monotone_cubic_midpoints": {
-      "poses": 2400,
-      "minimum_sole_z_mm": -0.020118893627881107,
-      "minimum_body_z_mm": 3.204897808581343,
-      "minimum_closure_height_mm": 12.830673006510251,
-      "maximum_interpolated_target_error_mm": 0.020320172735157627
-    },
-    "blender_linear_midpoints": {
-      "poses": 2400,
-      "minimum_sole_z_mm": -0.001139697685566432,
-      "minimum_body_z_mm": 3.204897808581343,
-      "minimum_closure_height_mm": 12.8307909439037,
-      "maximum_interpolated_target_error_mm": 0.00028036595512048734
-    }
-  },
-  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
-  "superseded_source_sha256": "1dc0357a602d28f545023a12f93f8890f297adbfcb471d5cd1c5f4d00b23d4ef"
+  "samples": 1537,
+  "max_sole_vertex_error_mm": 0.005001553855708487,
+  "max_sole_clearance_change_mm": 0.004656532909905309,
+  "min_closure_height_mm": 8.69774471228202,
+  "source_sha256": "7fd9041c9604911e56b5c3095f7849127a74ebbfc29ad89e57c11443e5ed6060",
+  "status": "passed_offline_compiled_comparison",
+  "hardware_qualified": false
 }

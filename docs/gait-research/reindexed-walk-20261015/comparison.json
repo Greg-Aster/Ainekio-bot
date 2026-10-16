@@ -1,0 +1,416 @@
+{
+  "schema": "ainekio.reindexed-walk.offline.v1",
+  "hardware_qualified": false,
+  "deployed": true,
+  "photo_reference": {
+    "source_photo": "/home/greggles/Downloads/20261015_172238.jpg",
+    "landmarks_px": [
+      [
+        718.0,
+        724.0
+      ],
+      [
+        864.0,
+        580.0
+      ],
+      [
+        1170.0,
+        749.0
+      ],
+      [
+        642.0,
+        486.0
+      ],
+      [
+        1130.0,
+        394.0
+      ]
+    ],
+    "photo_residual_px": 12.058197831990078,
+    "crank_home_degrees": -117.68318820137266,
+    "carrier_home_degrees": -30.869999999999997,
+    "home_pulse_us": 2800,
+    "walking_other_endpoint_us": 1600,
+    "crank_other_endpoint_degrees": -9.683188201372658,
+    "homography": [
+      [
+        -11.361434783814415,
+        -0.8467857502042206,
+        1544.4515495334408
+      ],
+      [
+        1.0456982857178674,
+        -13.240600167835844,
+        1637.5357679817441
+      ],
+      [
+        0.0023551558027157357,
+        -0.0009148988636934225,
+        1.0
+      ]
+    ],
+    "evidence": "Photo-estimated mounting reference; not a measured shaft calibration"
+  },
+  "mapping_assumption": "Crank mounting references saved and verified after reboot: left Home 2800 us, right Home 500 us, crank home_cd -11768. Physical crank angle remains photo-estimated and mirrored horn placement owner-confirmed, not measured. Carrier horns stayed mounted; owner changed carrier Home pulses to 2800/500 us. Carrier home_cd -3087 preserves the original physical mapping with these new Home values. Shoulders, inversion, channel and scale unchanged. Physical walking qualification pending.",
+  "walk_profile": {
+    "body_z_mm": 5,
+    "stance_sweep_mm": 61.94505422059417,
+    "rearward_bias_mm": 23.041079405021794,
+    "lift_mm": 10,
+    "body_motion_scale": 0,
+    "stroke_basis": "Owner-reindexed cranks: left Home 2800 us, full Walk opposite endpoint 1600 us; mirrored right 500/1700 us. Photo-estimated mounting angle -117.68 degrees at Home, not measured calibration. Carrier calibration unchanged. Fit uses those crank endpoints, rearward foot placement, and variable body height. Authored reversal landmarks are emitted at production cadence. Requires corresponding mounting calibration; saved robot calibration is not overwritten.",
+    "transition_cycles": 2,
+    "ground_contact_fraction": 0.78,
+    "support_x_mean_mm": 0,
+    "support_x_mm": 4,
+    "support_y_mm": 5,
+    "support_x_mean_full_stride_mm": 0,
+    "minimum_lift_mm": 6,
+    "support_phase_cycles": 0,
+    "body_z_full_stride_mm": -1.3223185985845165,
+    "body_height_coefficients_mm": [
+      -5.755500565571178,
+      1.5838630594194612,
+      -1.32619395668322,
+      -1.304375040929981
+    ],
+    "backward_body_z_full_stride_mm": -3.9091947681820205,
+    "backward_body_height_coefficients_mm": [
+      -4.878419243837693,
+      -4.1228930765910565,
+      2.1708468546534063,
+      -3.25892069307099
+    ],
+    "run_transition_body_x_mm": -4.0,
+    "height_rephase_gain": 1.55,
+    "run_transition_backward_body_x_mm": -1.0,
+    "full_stride_key_phases": [
+      0.03328125,
+      0.2476875,
+      0.2829375,
+      0.49628125,
+      0.5333125,
+      0.74771875,
+      0.7829375000000001,
+      0.99628125
+    ],
+    "backward_full_stride_key_phases": [
+      0.03175,
+      0.2475,
+      0.28334375,
+      0.4980625,
+      0.5317500000000001,
+      0.7475,
+      0.78334375,
+      0.9980625000000001
+    ],
+    "crank_mounting_reference": {
+      "model_degrees_at_home": -117.68,
+      "left_home_us": 2800,
+      "left_other_endpoint_us": 1600,
+      "right_home_us": 500,
+      "right_other_endpoint_us": 1700,
+      "us_per_degree": 11.11111111111111,
+      "evidence": "Photo-derived provisional angle; other legs assumed physically mirrored; no shaft-angle measurement."
+    }
+  },
+  "results": [
+    {
+      "direction": "fwd",
+      "speed": 50,
+      "planted_sweep_mm": 30.972527110297086,
+      "pulse_min": [
+        1462.0,
+        2257.0,
+        1682.0,
+        1631.0,
+        640.0,
+        1091.0,
+        1632.0,
+        2340.0,
+        1695.0,
+        1722.0,
+        717.0,
+        1104.0
+      ],
+      "pulse_max": [
+        1539.0,
+        2660.0,
+        2209.0,
+        1708.0,
+        1043.0,
+        1618.0,
+        1708.0,
+        2583.0,
+        2196.0,
+        1798.0,
+        960.0,
+        1605.0
+      ],
+      "carrier_spans_deg": [
+        21.87888671874736,
+        21.87885864255489,
+        36.19829589844362,
+        36.19832275389221
+      ],
+      "crank_spans_deg": [
+        45.07558959932885,
+        45.07559448264813,
+        47.37113159160448,
+        47.37108032225236
+      ],
+      "body_z_range_mm": [
+        -0.45948481976,
+        5.66450218482
+      ],
+      "cycles_per_second": 2.2713418003499997,
+      "model_progress_mm_s": 90.74640483099999,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.03991240223065727,
+        0.025757545745538613
+      ],
+      "hardware_qualified": false
+    },
+    {
+      "direction": "fwd",
+      "speed": 100,
+      "planted_sweep_mm": 61.94505422059417,
+      "pulse_min": [
+        1459.0,
+        2261.0,
+        1600.0,
+        1628.0,
+        417.0,
+        500.0,
+        1629.0,
+        2303.0,
+        1602.0,
+        1718.0,
+        540.0,
+        538.0
+      ],
+      "pulse_max": [
+        1542.0,
+        2883.0,
+        2800.0,
+        1711.0,
+        1039.0,
+        1700.0,
+        1712.0,
+        2760.0,
+        2762.0,
+        1801.0,
+        997.0,
+        1698.0
+      ],
+      "carrier_spans_deg": [
+        41.0875231933791,
+        41.087508544968216,
+        55.95433227536216,
+        55.95475585939317
+      ],
+      "crank_spans_deg": [
+        104.44563476564724,
+        104.44564086925202,
+        108.0076672364238,
+        108.00761840838753
+      ],
+      "body_z_range_mm": [
+        -6.03498140106,
+        6.32900436965
+      ],
+      "cycles_per_second": 1.087772317,
+      "model_progress_mm_s": 86.42218035816667,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.04302356216575893,
+        0.028590770841589185
+      ],
+      "hardware_qualified": false
+    },
+    {
+      "direction": "back",
+      "speed": 50,
+      "planted_sweep_mm": 30.972527110297086,
+      "pulse_min": [
+        1461.0,
+        2321.0,
+        1679.0,
+        1632.0,
+        656.0,
+        1101.0,
+        1632.0,
+        2296.0,
+        1693.0,
+        1723.0,
+        631.0,
+        1087.0
+      ],
+      "pulse_max": [
+        1538.0,
+        2644.0,
+        2199.0,
+        1709.0,
+        979.0,
+        1621.0,
+        1707.0,
+        2669.0,
+        2213.0,
+        1798.0,
+        1004.0,
+        1607.0
+      ],
+      "carrier_spans_deg": [
+        33.57528564455092,
+        33.57523071285256,
+        29.0820312500354,
+        29.082004394529516
+      ],
+      "crank_spans_deg": [
+        46.813939209142106,
+        46.81396728527728,
+        46.8465808102812,
+        46.84660156235418
+      ],
+      "body_z_range_mm": [
+        -2.60953096796,
+        5.18610751906
+      ],
+      "cycles_per_second": 2.2739107748166667,
+      "model_progress_mm_s": 89.36626549316667,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.04033697137162946,
+        0.027533089406363027
+      ],
+      "hardware_qualified": false
+    },
+    {
+      "direction": "back",
+      "speed": 100,
+      "planted_sweep_mm": 61.94505422059417,
+      "pulse_min": [
+        1456.0,
+        2348.0,
+        1600.0,
+        1628.0,
+        415.0,
+        500.0,
+        1627.0,
+        2233.0,
+        1600.0,
+        1720.0,
+        412.0,
+        607.0
+      ],
+      "pulse_max": [
+        1542.0,
+        2885.0,
+        2800.0,
+        1714.0,
+        952.0,
+        1700.0,
+        1710.0,
+        2888.0,
+        2693.0,
+        1803.0,
+        1067.0,
+        1700.0
+      ],
+      "carrier_spans_deg": [
+        59.01381958012049,
+        59.01384643551177,
+        48.34121093753038,
+        48.3412127685889
+      ],
+      "crank_spans_deg": [
+        98.39545776372397,
+        98.39541870118039,
+        108.0154937743016,
+        108.01552856424166
+      ],
+      "body_z_range_mm": [
+        -11.2728257421,
+        6.00973845578
+      ],
+      "cycles_per_second": 1.0439986195,
+      "model_progress_mm_s": 83.99804629033336,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.04489912285179292,
+        0.031441200795258036
+      ],
+      "hardware_qualified": false
+    }
+  ],
+  "validation": {
+    "native_tests_passed": 51,
+    "native_tests_total": 51,
+    "elapsed_seconds": 21.74,
+    "endpoint_test": "Production planner and pulse mapper emit rear-left 1600 and 2800 us at 25,50,100 Hz in forward and backward Walk. All cranks stay within corresponding full Walk range in these tests. Entry/Finish and integer Walk gains 1-100 also tested against upper housing endpoint.",
+    "other_motion_scope": "Run, Crawl and gesture source paths unchanged. Passing old-mapping gesture tests does not qualify the reindexed hardware."
+  },
+  "source_sha256": {
+    "Slave/software/models/v2-12servo/motion.c": "0c9377187a9b0649194a80708ede333dc2da163c1a89b9f2214aecd6cda4a33a",
+    "Slave/software/models/v2-12servo/tools/compile_walk.py": "1dd1029fa46229464e41ada44de89e541064737af1b81585ef3310ab5ae5c371",
+    "Slave/software/models/v2-12servo/motions/locomotion/config.json": "5d3be1ffec64b5a00102c173bf2a58e02fa25a412ae5afb167a623cda8a62a67",
+    "Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c": "e0e185d9c77c87bd35f5ae14b9bceb1ae439fb001ec9ab988e7087f17529b8bb"
+  },
+  "artifact": {
+    "version": "0.8.59-p4-reindexed-walk",
+    "image": "/tmp/ainekio-0.8.59-p4-reindexed-walk.bin",
+    "image_size": 2844032,
+    "image_sha256": "7b5f88d0c06a8a6d82540073456fd62b8f0d6f2244a0e5939a5ff0f906c81d32",
+    "built_utc": "2026-10-16T00:53:27.842126+00:00",
+    "native_tests": "51/51 passed, 21.74 seconds",
+    "deployed": true,
+    "calibration_applied": true,
+    "requires_mounting_reference": {
+      "left_crank_home_us": 2800,
+      "right_crank_home_us": 500,
+      "crank_home_cd": -11768,
+      "evidence": "Photo-estimated; other cranks assumed mirrored to rear-left; carriers unchanged"
+    },
+    "source_sha256": {
+      "Slave/software/models/v2-12servo/motion.c": "0c9377187a9b0649194a80708ede333dc2da163c1a89b9f2214aecd6cda4a33a",
+      "Slave/software/models/v2-12servo/tools/compile_walk.py": "1dd1029fa46229464e41ada44de89e541064737af1b81585ef3310ab5ae5c371",
+      "Slave/software/models/v2-12servo/motions/locomotion/config.json": "5d3be1ffec64b5a00102c173bf2a58e02fa25a412ae5afb167a623cda8a62a67",
+      "Slave/software/models/v2-12servo/motions/walk/manifest.json": "4a89bd67038ab465af8732ba22f1805efbb2b01c2a27aac69106aae2aa05f6f1",
+      "Slave/firmware/esp32p4-wifi6/CMakeLists.txt": "9f9ed7986b783a4e929d508978203ff81a8d0fcbb366c67b7bcb3723afa5f667"
+    },
+    "deployment": {
+      "verified_utc": "2026-10-16T01:01:50.380621+00:00",
+      "firmware": {
+        "state": "idle",
+        "received": 0,
+        "size": 0,
+        "running": "ota_1",
+        "boot": "ota_1",
+        "ota_layout": true,
+        "pending_verify": false,
+        "error": "ESP_OK",
+        "version": "0.8.59-p4-reindexed-walk"
+      },
+      "calibration_persisted": true,
+      "connected": true,
+      "state": "active",
+      "output_armed": true
+    }
+  },
+  "calibration_applied": true,
+  "deployment": {
+    "verified_utc": "2026-10-16T01:01:50.380621+00:00",
+    "firmware": {
+      "state": "idle",
+      "received": 0,
+      "size": 0,
+      "running": "ota_1",
+      "boot": "ota_1",
+      "ota_layout": true,
+      "pending_verify": false,
+      "error": "ESP_OK",
+      "version": "0.8.59-p4-reindexed-walk"
+    },
+    "calibration_persisted": true,
+    "connected": true,
+    "state": "active",
+    "output_armed": true
+  }
+}

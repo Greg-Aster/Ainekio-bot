@@ -1,0 +1,14 @@
+{
+  "dimensions": [
+    21.61000000401723,
+    80.6576033279106,
+    35.81099958345294,
+    51.19062517921359,
+    24.830675446624806,
+    73.88341328043715,
+    -12.5,
+    11.5
+  ],
+  "score": 0.3770510679110366,
+  "scope": "Local search on fixed motor pivots, 82 mm stroke; 45-degree loaded leg angle and 600 deg/s comparison criteria, not firmware limits."
+}

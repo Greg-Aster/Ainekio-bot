@@ -10,6 +10,7 @@
   <body class="dashboard-page" data-dashboard-primary="camera">
     <header class="app-header">
       <div class="brand-block">
+        <button id="tools-toggle" type="button" aria-expanded="true" aria-controls="tool-sidebar"><span aria-hidden="true">☰</span> Tools</button>
         <div class="brand-mark" aria-hidden="true">A</div>
         <div>
           <p class="product-name">Ainekio</p>
@@ -32,119 +33,45 @@
       <p id="command-result" class="command-result" role="status">Ready</p>
     </div>
 
-    <section id="settings-panel" class="control-section settings-panel" aria-labelledby="settings-title" hidden>
-      <div class="section-heading">
-        <h2 id="settings-title">Settings</h2>
-        <button id="settings-close-button" type="button">Close settings</button>
-      </div>
-      <div class="settings-grid">
-        <section class="settings-card" aria-labelledby="connections-title">
-          <h3 id="connections-title">Connections</h3>
-          <p class="muted">Current Body Control: <span id="body-current-address"></span></p>
-          <form id="body-connection-form" class="password-form">
-            <label>Open Body Control through<select id="body-connection-route">
-              <option value="local">Local / forwarded port</option>
-              <option value="lan">LAN / Wi-Fi</option>
-              <option value="cloudflare">Cloudflare</option>
-            </select></label>
-            <label>Dashboard address<input id="body-connection-address" type="url" placeholder="https://your-body-control-host" required></label>
-            <p class="muted">Use any configured machine's dashboard address. A localhost address refers to this browser's device and needs Body Control or an existing forward there. LAN needs a reachable dashboard; Cloudflare needs its dashboard route configured separately from the robot and MetaHuman bridge routes.</p>
-            <button type="submit">Save and open Body Control</button>
-          </form>
-          <form id="desktop-connection-form" class="password-form">
-            <label>Stationary desktop MetaHuman address<input id="desktop-connection-address" type="url" placeholder="https://your-metahuman-host" required></label>
-            <p class="muted">Open the desktop's connection selector to choose local, LAN / Wi-Fi via SSH, or Cloudflare for its robot bridge. Sign in there as the MetaHuman owner. Its local option refers to the desktop, not this browser.</p>
-            <button type="submit">Save and open desktop bridge settings</button>
-          </form>
-          <p class="muted">Addresses are saved in this browser for this Body Control site. Opens a new tab and keeps this dashboard available. This does not start servers, create tunnels, change Wi-Fi, or move tasks between machines.</p>
-          <p id="connections-result" role="status" aria-live="polite"></p>
-        </section>
-        <section class="settings-card" aria-labelledby="password-title">
-          <h3 id="password-title">Body Control password</h3>
-          <p class="muted">Choose the password you use to sign in. It stays the same across restarts.</p>
-          <form id="password-form" class="password-form">
-            <label>Current password<input name="current_password" type="password" autocomplete="current-password"></label>
-            <label>New password<input name="new_password" type="password" autocomplete="new-password"></label>
-            <label>Confirm new password<input name="confirm_password" type="password" autocomplete="new-password"></label>
-            <p class="muted">Choose your own password, or leave both new password fields blank to sign in with an empty password. Other browsers will be signed out; this browser stays signed in.</p>
-            <button type="submit">Change password</button>
-            <p id="password-result" role="status" aria-live="polite" hidden></p>
-          </form>
-        </section>
-      <section class="settings-card security-section" aria-labelledby="security-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Access</p>
-            <h3 id="security-title">Robot pairing</h3>
-          </div>
-        </div>
-        <p class="muted">Pairing tokens let a robot connect to Body Control. Generating a replacement changes the server token; you must also update the robot through its setup or serial configuration.</p>
-        <form id="token-form" class="inline-form">
-          <label for="token-robot-id">Robot ID</label>
-          <div class="input-with-actions">
-            <input id="token-robot-id" name="robot_id" maxlength="64" placeholder="Robot ID" required>
-            <button type="submit" name="action" value="generate">Generate</button>
-            <button type="submit" name="action" value="revoke" class="danger-command">Revoke</button>
-          </div>
-        </form>
-        <div id="token-result" class="token-result" hidden>
-          <span>New token</span>
-          <code id="token-value"></code>
-          <button id="token-dismiss-button" type="button">Dismiss</button>
-        </div>
-        <p class="stored-token-label">Configured robots</p>
-        <div id="token-robot-list" class="tag-list"></div>
-      </section>
-        <section class="settings-card" aria-labelledby="host-network-title">
-          <h3 id="host-network-title">Robot connection mode</h3>
-          <p class="muted">Use this computer’s existing Wi-Fi network, or its configured robot hotspot.</p>
-          <label class="host-network-toggle">
-            <span>Wi-Fi network</span>
-            <input id="host-hotspot-toggle" type="checkbox" role="switch" aria-label="Use this computer’s robot hotspot">
-            <span>Robot hotspot</span>
-          </label>
-          <p id="host-network-state" class="muted" role="status"></p>
-          <p class="muted">Switches immediately and remembers your choice. The robot uses its saved Wi-Fi connections.</p>
-          <p id="host-network-result" role="status" aria-live="polite" hidden></p>
-        </section>
-        <section class="settings-card settings-network" aria-labelledby="network-settings-title">
-          <h3 id="network-settings-title">Robot Wi-Fi and pairing</h3>
-          <p id="robot-settings-availability" class="muted">Connect a robot to read its settings.</p>
-          <button id="robot-settings-read" type="button" disabled>Read from robot</button>
-          <p id="robot-settings-result" role="status" aria-live="polite"></p>
-          <div id="robot-settings-editor" hidden>
-            <p id="robot-settings-state" class="muted"></p>
-            <form id="robot-network-form" class="password-form">
-              <label>Saved connection slot<select name="index" id="robot-network-index">
-                <option value="0">1 — first choice</option><option value="1">2</option><option value="2">3</option><option value="3">4</option>
-              </select></label>
-              <label>Network name (SSID)<input name="ssid" autocomplete="off" required></label>
-              <label>Body Control address<input name="endpoint" placeholder="ws://computer:8790/robot or wss://tunnel-host/robot" required></label>
-              <p id="robot-gateway-help" class="muted"></p>
-              <label class="settings-check"><input name="change_wifi_password" type="checkbox"> Set Wi-Fi password</label>
-              <label>Wi-Fi password<input name="wifi_password" type="password" autocomplete="new-password"></label>
-              <p class="muted">Unchecked keeps a saved network's password. For a new network, check the box and enter its password, or leave it blank for an open network.</p>
-              <div class="settings-actions"><button type="submit">Save connection</button><button id="robot-network-remove" type="button">Remove this connection</button></div>
-            </form>
-            <form id="robot-security-form" class="password-form">
-              <label class="settings-check"><input name="change_setup_password" type="checkbox"> Change the robot setup hotspot password</label>
-              <label>New setup hotspot password<input name="setup_password" type="password" autocomplete="new-password"></label>
-              <p class="muted">Wi-Fi passwords use 8–63 ASCII characters. A blank password makes the selected hotspot open. These are Wi-Fi requirements, separate from your Body Control login.</p>
-              <label class="settings-check"><input name="change_robot_token" type="checkbox"> Change robot pairing token</label>
-              <label>New pairing token<input name="robot_token" type="password" autocomplete="new-password"></label>
-              <p class="muted">This server will accept the new token when the robot reconnects. Other Body Control servers must also be given the same token.</p>
-              <button type="submit">Save robot credentials</button>
-            </form>
-            <p class="muted">Saving stops motion and keeps the current connection. Restart to apply saved settings. The robot tries occupied slots in order and keeps a working connection; if no saved network connects, its setup page becomes available.</p>
-            <button id="robot-settings-apply" type="button">Restart robot to apply</button>
-          </div>
-          <p>For recovery, join the robot’s <strong>Ainekio-P4-…</strong> setup network and open <a href="http://192.168.4.1/" target="_blank" rel="noopener noreferrer">the robot setup page</a>.</p>
-        </section>
-      </div>
-    </section>
-
-    <main class="dashboard-grid">
-      <div class="primary-view-container">
+    <div class="dashboard-shell">
+<aside id="tool-sidebar" class="tool-sidebar" aria-label="Body Control tools">
+<p class="sidebar-heading">Tools</p>
+<nav aria-label="Robot functions">
+<details class="navigation-group" data-navigation-group="operate" open><summary>Operate</summary><ul>
+<li><button type="button" data-workspace="overview">Overview</button></li>
+<li><button type="button" data-workspace="motion">Movement</button></li>
+<li><button type="button" data-workspace="poses">Poses and emotes</button></li>
+<li><button type="button" data-workspace="faces">Faces and assets</button></li>
+<li><button type="button" data-workspace="mode">Mode and power</button></li>
+<li><button type="button" data-workspace="balance">Self-leveling</button></li>
+<li><button type="button" data-workspace="speeds">Motion speeds</button></li>
+</ul></details>
+<details class="navigation-group" data-navigation-group="perception"><summary>Perception</summary><ul>
+<li><button type="button" data-workspace="camera">Camera settings</button></li>
+<li><button type="button" data-workspace="recognition">Recognition</button></li>
+<li><button type="button" data-workspace="audio">Audio and wake word</button></li>
+<li><button type="button" data-workspace="events">Body events</button></li>
+<li><button type="button" data-workspace="metahuman">MetaHuman control</button></li>
+</ul></details>
+<details class="navigation-group" data-navigation-group="storage"><summary>Recordings</summary><ul>
+<li><button type="button" data-workspace="recordings">Video and SD card</button></li>
+</ul></details>
+<details class="navigation-group" data-navigation-group="maintenance"><summary>Maintenance</summary><ul>
+<li><button type="button" data-workspace="calibration">Joint calibration</button></li>
+<li><button type="button" data-workspace="controllers">Controller mappings</button></li>
+<li><button type="button" data-workspace="firmware">Firmware updates</button></li>
+<li><button type="button" data-workspace="logs">Robot logs</button></li>
+<li><button type="button" data-workspace="audit">Audit log</button></li>
+</ul></details>
+<details class="navigation-group" data-navigation-group="settings"><summary>Settings</summary><ul>
+<li><button type="button" data-workspace="connections">Connections</button></li>
+<li><button type="button" data-workspace="network">Robot Wi-Fi</button></li>
+<li><button type="button" data-workspace="pairing">Robot pairing</button></li>
+<li><button type="button" data-workspace="account">Password</button></li>
+</ul></details>
+</nav></aside>
+<main class="dashboard-grid">
+<div class="primary-view-container">
         <section class="control-section primary-view-section camera-view-section" data-dashboard-panel="camera" aria-labelledby="camera-view-title">
           <div class="section-heading">
             <div>
@@ -153,13 +80,22 @@
             </div>
             <button id="snapshot-button" type="button" title="Capture a fresh image using the applied snapshot settings">Snapshot</button>
           </div>
+          <label class="switch-row camera-recognition-toggle">
+            <span>Show detections on their source image</span>
+            <input id="camera-show-detections" type="checkbox">
+          </label>
           <div class="camera-preview">
             <div class="camera-stage">
-              <img id="camera-view" class="camera-frame" alt="Live view from the selected Ainekio robot" hidden>
+              <div id="camera-image-plane" class="camera-image-plane" hidden>
+                <img id="camera-view" class="camera-frame" alt="Live view from the selected Ainekio robot" hidden>
+                <div id="camera-detections" class="camera-detections" aria-label="Objects detected in this image"></div>
+              </div>
               <p id="camera-view-message" class="camera-view-message">Waiting for camera frames. Turn on the camera if needed.</p>
             </div>
 
           </div>
+          <p id="camera-detection-status" class="muted camera-detection-status" aria-live="polite">Live camera view.</p>
+
         </section>
 
         <section class="control-section primary-view-section simulator-section" data-dashboard-panel="simulator" aria-labelledby="simulator-title">
@@ -178,12 +114,266 @@
           ></iframe>
         </section>
       </div>
+<div id="tool-workspace" class="tool-workspace" tabindex="-1">
+<section class="control-section status-section" aria-labelledby="status-title" data-workspace-panel="overview">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Telemetry</p>
+            <h2 id="status-title">Robot status</h2>
+          </div>
+          <span id="body-state" class="state-chip">Unknown</span>
+        </div>
+        <dl class="telemetry-grid">
+          <div><dt>Battery</dt><dd id="status-battery">--</dd></div>
+          <div><dt>Signal</dt><dd id="status-rssi">--</dd></div>
+          <div><dt>Free heap</dt><dd id="status-heap">--</dd></div>
+          <div><dt>Uptime</dt><dd id="status-uptime">--</dd></div>
+          <div><dt>SD card</dt><dd id="status-sd">--</dd></div>
+          <div><dt>Epoch / next</dt><dd id="status-session">--</dd></div>
+          <div><dt>Heartbeat age</dt><dd id="status-heartbeat">--</dd></div>
+          <div><dt>Profile caps</dt><dd id="status-caps">--</dd></div>
+          <div><dt>Camera drops</dt><dd id="status-camera-drops">--</dd></div>
+          <div><dt>Audio faults</dt><dd id="status-audio-faults">--</dd></div>
+          <div><dt>Wake word</dt><dd id="status-wake">--</dd></div>
+          <div><dt>Lifecycle</dt><dd id="status-lifecycle">--</dd></div>
+          <div><dt>Last command</dt><dd id="status-command">--</dd></div>
+          <div><dt>Face</dt><dd id="status-face">--</dd></div>
+        </dl>
+      </section>
 
-      <section class="control-section sensing-control-section" aria-labelledby="sensing-control-title">
-        <div class="section-heading"><div><p class="section-kicker">On / Off</p><h2 id="sensing-control-title">Vision and robot control</h2></div></div>
-        <p class="muted">Choices are saved. Camera settings return when that robot reconnects. Recognition and MetaHuman control are separate from manual movement.</p>
-        <div class="sensing-controls-grid">
-          <div><h3>Camera</h3>
+<section class="control-section motion-section" aria-labelledby="motion-title" data-workspace-panel="motion">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Movement</p>
+            <h2 id="motion-title">Body motion</h2>
+          </div>
+          <div class="command-row compact">
+            <button type="button" data-intent="stand">Stand</button>
+            <button type="button" data-intent="neutral">Neutral</button>
+          </div>
+        </div>
+        <p id="motion-availability" role="status">Connect a robot to use its motions.</p>
+        <form id="walk-controls" class="walk-controls" hidden>
+          <fieldset id="walk-fields">
+            <legend>Walk, Run and Crawl</legend>
+            <div id="locomotion-options" hidden>
+              <label>Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="crab">Crab (wide stance)</option><option value="run">Run (bounding)</option></select></label>
+              <label>Direction <select id="walk-direction"><option value="fwd">Forward</option><option value="back">Backward</option><option value="turn_l">Turn left</option><option value="turn_r">Turn right</option><option value="side_l">Sideways left (Crab)</option><option value="side_r">Sideways right (Crab)</option></select></label>
+              <label><input id="walk-continuous" type="checkbox" checked> Continue until Finish</label>
+            </div>
+            <div id="walk-steering" hidden>
+              <label>Forward / backward <input id="walk-forward" type="range" min="-100" max="100" step="1" value="100"><output id="walk-forward-value">100%</output></label>
+              <label>Turn (positive = left) <input id="walk-turn" type="range" min="-100" max="100" step="1" value="0"><output id="walk-turn-value">0%</output></label>
+              <p>Combine travel and turning while moving. Hold two direction keys or use both controller axes to follow a curve. Direction presets replace both values.</p>
+            </div>
+            <label>Control mode <select id="walk-mode"><option value="auto">Speed / stride</option><option value="manual">Direct stride</option></select></label>
+            <label id="walk-speed-field">Speed <input id="walk-speed" type="range" min="0" max="100" step="1" value="50"><output id="walk-speed-value">50%</output></label>
+            <div id="walk-advanced" hidden>
+              <label>Stride % <input id="walk-stride" disabled type="number" min="1" max="100" step="1" value="100" required></label>
+            </div>
+            <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
+            <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
+            <p>Walk, Run, Crawl and Crab use fast coordinated strokes. Speed selects stride distance; shorter strokes finish sooner. The reindexed-crank Walk profile uses about 62 mm at full stride and 31 mm at 50%. Its body rises and falls through the stride. Above 100%, the Walk control transitions into bounding Run, reaching full Run stride at 200%. Direct stride selects 1–100% of the chosen gait’s range. These controls set movement distance, not motor power. Changes apply while moving; Finish settles the feet. Finish before selecting a different gait. Direction changes while moving are available when the steering controls are shown.</p>
+            <button id="walk-apply" type="submit">Walk</button>
+            <button id="walk-finish" type="button">Finish</button>
+          </fieldset>
+        </form>
+        <div class="motion-pad" aria-label="Held movement controls">
+          <button class="motion-key forward" type="button" data-held-direction="fwd" aria-label="Walk forward">&#x25b2;</button>
+          <button class="motion-key left" type="button" data-held-direction="turn_l" aria-label="Turn left">&#x25c0;</button>
+          <button class="motion-key center" type="button" data-intent="neutral" aria-label="Neutral">&#x25a0;</button>
+          <button class="motion-key right" type="button" data-held-direction="turn_r" aria-label="Turn right">&#x25b6;</button>
+          <button class="motion-key backward" type="button" data-held-direction="back" aria-label="Walk backward">&#x25bc;</button>
+        </div>
+      </section>
+
+<section class="control-section workspace-section" data-workspace-panel="poses" aria-labelledby="poses-title"><div class="section-heading"><h2 id="poses-title">Poses and emotes</h2></div>
+<div class="emote-group">
+          <span class="field-label">Named poses and emotes</span>
+
+          <div id="motion-catalog" class="emote-grid">
+            <button type="button" data-intent="sit">Sit · bored</button>
+            <button type="button" data-emote="rest">Rest</button>
+            <button type="button" data-emote="crouch" data-requires-declaration>Crouch</button>
+            <button type="button" data-emote="wave">Wave</button>
+            <button type="button" data-emote="dance">Dance</button>
+            <button type="button" data-emote="swim">Swim</button>
+            <button type="button" data-emote="point">Point</button>
+            <button type="button" data-emote="pushup">Pushup</button>
+            <button type="button" data-emote="bow">Bow</button>
+            <button type="button" data-emote="cute">Cute</button>
+            <button type="button" data-emote="freaky">Freaky</button>
+            <button type="button" data-emote="worm">Worm</button>
+            <button type="button" data-emote="shake">Shake</button>
+            <button type="button" data-emote="shrug">Shrug</button>
+            <button type="button" data-emote="dead">Play Dead</button>
+            <button type="button" data-emote="lay_down" data-requires-declaration>Lay Down</button>
+            <button type="button" data-emote="crab">Crab</button>
+            <button type="button" data-emote="nod">Nod</button>
+            <button type="button" data-emote="celebrate">Celebrate</button>
+            <button type="button" data-emote="stretch">Stretch</button>
+            <button type="button" data-emote="macarena">Macarena</button>
+            <button type="button" data-emote="salsa">Salsa</button>
+            <button type="button" data-emote="surprised">Surprised</button>
+            <button type="button" data-emote="sad">Sad</button>
+            <button type="button" data-emote="curious">Curious / look around</button>
+            <button type="button" data-emote="turn_left_45">Turn left 45°</button>
+            <button type="button" data-emote="turn_right_45">Turn right 45°</button>
+            <button type="button" data-emote="turn_left_90">Turn left 90° / quarter</button>
+            <button type="button" data-emote="turn_right_90">Turn right 90° / quarter</button>
+            <button type="button" data-emote="turn_left_180">Turn left 180° / half</button>
+            <button type="button" data-emote="turn_right_180">Turn right 180° / half</button>
+            <button type="button" data-emote="walk_slow">Walk slow</button>
+            <button type="button" data-emote="run">Run</button>
+            <button type="button" data-emote="number_one">#1 · hydrant</button>
+            <button type="button" data-emote="number_two">#2 · squat</button>
+          </div>
+        </div>
+</section>
+
+<section class="control-section faces-section" aria-labelledby="faces-title" data-workspace-panel="faces">
+      <div id="faces-section">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Expression library</p>
+            <h2 id="faces-title">Faces</h2>
+          </div>
+          <span id="face-count" class="muted">Expression previews</span>
+        </div>
+        <p class="muted">Select an expression to display it without moving the robot. The next motion can change the face.</p>
+        <div class="faces-workspace">
+          <div class="face-viewer">
+            <img id="face-preview" src="/assets/faces/default.webp" alt="Resting expression preview" width="320" height="170">
+            <p id="face-preview-name">Default</p>
+            <p id="face-library-status" class="field-help" role="status" aria-live="polite">Loading expressions…</p>
+          </div>
+          <div class="face-browser">
+            <div class="face-filters">
+              <label>Find a face<input id="face-search" type="search" placeholder="Happy, curious, love…"></label>
+              <label>Collection<select id="face-group"><option value="">All expressions</option><option>Expressions</option><option>Speaking</option><option>Motion faces</option></select></label>
+            </div>
+            <div id="face-library" class="face-library" role="group" aria-label="Select an LCD expression"></div>
+            <p id="face-empty" class="muted" hidden>No matching expressions.</p>
+          </div>
+        </div>
+      </div>
+      <form id="asset-intent-form" class="inline-form">
+          <label for="asset-name">Face or sound asset</label>
+          <div class="input-with-actions">
+            <input id="asset-name" name="asset" pattern="[a-z0-9_]{1,32}" maxlength="32" value="default" required>
+            <button type="submit" name="intent" value="face">Face</button>
+            <button type="submit" name="intent" value="say">Play</button>
+          </div>
+        </form>
+</section>
+
+<section class="control-section" aria-labelledby="behavior-title" data-workspace-panel="mode">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Behavior</p>
+            <h2 id="behavior-title">Operating mode</h2>
+          </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Connection and power profile</span>
+          <div class="segmented-control" role="group" aria-label="Profile">
+            <button type="button" data-profile="home">Home</button>
+            <button type="button" data-profile="tether">Tether</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Power state</span>
+          <div class="command-row">
+            <button type="button" data-state="idle">Idle</button>
+            <button type="button" data-state="doze">Doze</button>
+            <button type="button" data-state="sleep">Sleep 60s</button>
+          </div>
+        </div>
+
+
+
+      </section>
+
+<section class="control-section workspace-section" data-workspace-panel="balance" aria-labelledby="balance-title"><div class="section-heading"><h2 id="balance-title">Self-leveling</h2></div>
+<div id="balance-controls" class="field-group" hidden>
+          <label for="balance-enabled">Self-leveling</label>
+          <div class="input-with-actions">
+            <select id="balance-enabled" aria-describedby="balance-help balance-status" disabled>
+              <option value="">Read from robot</option>
+              <option value="true">On</option>
+              <option value="false">Off</option>
+            </select>
+            <button id="balance-save" type="button" disabled>Save on robot</button>
+            <button id="balance-read" type="button" disabled>Read from robot</button>
+          </div>
+          <p id="balance-help" class="muted">Uses IMU tilt to adjust Stand and walking. Off smoothly removes the correction while the current motion continues. Saved on the robot across restarts.</p>
+          <div id="balance-tuning-controls" class="field-group" hidden>
+            <label>Response strength (×)<input id="balance-strength" type="number" min="0" step="any" required disabled></label>
+            <label>Damping (×)<input id="balance-damping" type="number" min="0" step="any" required disabled></label>
+            <label>Roll target (° · positive raises left side)<input id="balance-roll_deg" type="number" step="any" required disabled></label>
+            <label>Pitch target (° · positive raises nose)<input id="balance-pitch_deg" type="number" step="any" required disabled></label>
+            <button id="balance-defaults" type="button" disabled>Use default response</button>
+            <p class="muted">1× keeps the original response. Higher strength corrects tilt more aggressively; higher damping resists rocking. 0° targets the normal body angle. Save on robot applies all fields together. These controls do not change sensor calibration or motor torque.</p>
+          </div>
+          <p id="balance-tuning-status" class="muted"></p>
+          <p id="balance-status" class="muted" role="status">Connect a robot to read self-leveling.</p>
+          <p id="balance-active" class="muted" role="status"></p>
+          <div class="field-group" aria-labelledby="balance-feedback-title">
+            <h3 id="balance-feedback-title">Live leveling feedback</h3>
+            <p id="balance-sensor" role="status">Waiting for an IMU sample.</p>
+            <p id="balance-tilt"></p>
+            <p id="balance-error"></p>
+            <p id="balance-correction"></p>
+            <div class="table-scroll"><table>
+              <caption>Commanded adjustments relative to the current motion</caption>
+              <thead><tr><th>Leg</th><th>Extension</th><th>Carrier change</th><th>Crank change</th></tr></thead>
+              <tbody>
+                <tr><th>Front left</th><td id="balance-leg-0"></td><td id="balance-carrier-0"></td><td id="balance-crank-0"></td></tr>
+                <tr><th>Front right</th><td id="balance-leg-1"></td><td id="balance-carrier-1"></td><td id="balance-crank-1"></td></tr>
+                <tr><th>Rear left</th><td id="balance-leg-2"></td><td id="balance-carrier-2"></td><td id="balance-crank-2"></td></tr>
+                <tr><th>Rear right</th><td id="balance-leg-3"></td><td id="balance-carrier-3"></td><td id="balance-crank-3"></td></tr>
+              </tbody>
+            </table></div>
+            <p id="balance-leg-help" class="muted">Positive extension moves the modeled foot down relative to the frame. Joint changes use the leg model's angles; saved servo inversions are applied afterward. These are commands, not measured servo positions or foot contact.</p>
+          </div>
+          <div class="field-group">
+            <h3>Level reference and gyro calibration</h3>
+            <button id="balance-reference" type="button" disabled>Use current pose as level reference</button>
+            <p class="muted">Place the body at the angle you want it to hold. This copies the measured roll and pitch into the target fields above; Save on robot applies them. It does not change the sensor axes or gyro bias.</p>
+            <p id="balance-reference-status" class="muted" role="status"></p>
+            <button id="balance-gyro-calibrate" type="button" disabled>Calibrate stationary gyro bias</button>
+            <p class="muted">Keep the whole robot completely still, including its legs. Any resting angle is fine. This measures 256 sensor samples, saves the gyro bias and applies it without a restart. Movement during sampling contaminates the result; repeat while still. Calibration does not switch self-leveling or move the robot.</p>
+            <p id="balance-gyro-status" class="muted" role="status"></p>
+          </div>
+        </div>
+</section>
+
+<section class="control-section workspace-section" data-workspace-panel="speeds" aria-labelledby="speeds-title"><div class="section-heading"><h2 id="speeds-title">Motion speeds</h2></div>
+<div id="motion-speed-controls" class="field-group" hidden>
+            <div id="joint-speed-controls" class="field-group">
+              <label for="joint-speed-limit">Joint speed limit (°/s) · all automatic movement</label>
+              <div class="input-with-actions">
+                <input id="joint-speed-limit" type="number" step="any" aria-describedby="joint-speed-help joint-speed-status" disabled required>
+                <button id="joint-speed-save" type="button" disabled>Save limit on robot</button>
+              </div>
+              <p id="joint-speed-help" class="muted">One maximum commanded joint speed for walking, named motions and entry transitions. Motions slow together to preserve their path and stride. If Run cannot reach its requested cadence, this limit is controlling its timing. Enter any positive value; there is no fixed maximum. Saving stops motion; start it again to resume.</p>
+              <p id="joint-speed-status" class="muted" role="status">Read from robot to load its limit.</p>
+              <p id="joint-speed-active" class="muted" role="status"></p>
+              <p id="run-cadence-status" class="muted" role="status"></p>
+            </div>
+            <label for="motion-speed">Named motion speed (×)</label>
+            <div class="input-with-actions">
+              <input id="motion-speed" type="number" step="any" value="2" aria-describedby="motion-speed-help motion-speed-status" disabled required>
+              <button id="motion-speed-save" type="button" disabled>Save on robot</button>
+              <button id="motion-speed-read" type="button" disabled>Read from robot</button>
+            </div>
+            <p id="motion-speed-help" class="muted">2× plays a motion in half the time. Changes apply to the next named motion, including its entry pose. Walking uses its own Speed control. Saving stops the robot; start a motion to resume.</p>
+            <p id="motion-speed-status" class="muted" role="status">Connect a robot to read its motion speed.</p>
+          </div>
+</section>
+
+<section class="control-section workspace-section" data-workspace-panel="camera" aria-labelledby="camera-title"><div class="section-heading"><h2 id="camera-title">Camera settings</h2></div>
+<div>
             <form id="camera-form" class="camera-controls">
               <label class="switch-row">
                 <span>Camera on</span>
@@ -229,8 +419,36 @@
               <p class="field-help" id="camera-capture-status" aria-live="polite"></p>
 
             </form>
+          <details><summary>Metric ground-plane calibration</summary>
+          <p>Measure the checkerboard square size. Capture at least three distinct tilted views at the same resolution and crop. Fit intrinsics, then place the board flat on the actual floor and set the reference. Displacement follows retained floor points; this is not depth or general visual-inertial navigation. Unknown metric uncertainty is reported as unknown.</p>
+          <form id="ground-calibration-form">
+            <label>Inner columns <input name="columns" type="number" min="2" required></label>
+            <label>Inner rows <input name="rows" type="number" min="2" required></label>
+            <label>Measured square side (metres) <input name="squareMetres" type="number" step="any" required></label>
+            <label>Lens / crop / rotation identity <input name="geometryId" placeholder="Identify the measured optical configuration" required></label>
+            <label>Measured camera-to-body transform (4×4 JSON; metres)<textarea name="cameraToBody" placeholder="No default transform: camera x right/y down/z forward; body x forward/y left/z up"></textarea></label>
+            <button type="submit" value="status" formnovalidate>Read calibration status</button>
+            <button type="submit" value="resetSamples" formnovalidate>Start new capture set</button>
+            <button type="submit" value="capture">Capture checkerboard view</button>
+            <button type="submit" value="fit">Fit and save calibration</button>
+            <button type="submit" value="reference">Set measured floor reference</button>
+          </form><pre id="ground-calibration-status" aria-live="polite"></pre></details>
           <p class="muted">Controls the robot camera stream; snapshots remain separate.</p></div>
-          <div><h3>Recognition</h3>
+</section>
+
+<section class="control-section workspace-section" data-workspace-panel="recognition" aria-labelledby="recognition-title"><div class="section-heading"><h2 id="recognition-title">Recognition</h2></div>
+<form id="vision-target-form" class="vision-target-controls">
+            <label for="vision-target-text">Find an object</label>
+            <div class="button-row">
+              <input id="vision-target-text" type="text" placeholder="keys, cup, backpack" autocomplete="off">
+              <button id="vision-target-search" type="submit">Search</button>
+              <button id="vision-target-release" type="button">Release target</button>
+            </div>
+            <p id="vision-target-status" class="muted" aria-live="polite">Target selection is not configured.</p>
+            <p id="vision-target-result" class="muted" aria-live="polite"></p>
+            <p class="muted">With detections shown, select an object's label to use its image as a visual reference.</p>
+          </form>
+<div>
             <form id="recognition-form">
               <label class="switch-row"><span>Recognition on</span><input id="recognition-enabled" type="checkbox"></label>
               <button type="submit">Save recognition setting</button>
@@ -252,7 +470,36 @@
             </details>
             <p class="muted">Analyses incoming frames. Off stops recognition and discards pending results; camera preview stays available. A vision-dependent task may cancel when its required observations expire.</p>
           </div>
-          <div><h3>MetaHuman robot control</h3>
+</section>
+
+<section class="control-section workspace-section" data-workspace-panel="events" aria-labelledby="events-title"><div class="section-heading"><h2 id="events-title">Body events</h2></div>
+<div>
+            <p class="muted">The selected robot reports measurements to the Event Trigger workflow in MetaHuman. Its LLM chooses a response and delegates it to Environment Mode.</p>
+            <form id="body-events-form">
+              <label class="switch-row"><span>Boot, wake and good morning</span><input type="checkbox" name="wake_enabled"></label>
+              <label class="switch-row"><span>Tipped over</span><input type="checkbox" name="tip_enabled"></label>
+              <label class="switch-row"><span>Rapid movement</span><input type="checkbox" name="rapid_enabled"></label>
+              <label>Tilt trigger (degrees)<input type="number" name="tip_degrees" min="0" step="0.1" required></label>
+              <label>Tilt clears below (degrees)<input type="number" name="tip_clear_degrees" min="0" step="0.1" required></label>
+              <label>Tilt duration (ms)<input type="number" name="tip_hold_ms" min="0" step="1" required></label>
+              <label>Acceleration change trigger (g)<input type="number" name="rapid_accel_g" min="0" step="0.01" required></label>
+              <label>Acceleration clears below (g)<input type="number" name="rapid_clear_accel_g" min="0" step="0.01" required></label>
+              <label>Rapid movement cooldown (seconds)<input type="number" name="rapid_cooldown_s" min="0" step="0.1" required></label>
+              <p class="field-help">Minimum time between rapid-movement events. Events during cooldown are not queued. Set to 0 to disable cooldown.</p>
+              <label>Rotation trigger (degrees/s)<input type="number" name="rapid_rotation_dps" min="0" step="1" required></label>
+              <label>Rotation clears below (degrees/s)<input type="number" name="rapid_clear_rotation_dps" min="0" step="1" required></label>
+              <button type="submit">Save body event settings</button>
+            </form>
+            <button id="body-events-good-morning" type="button">Good morning</button>
+            <p id="body-events-result" class="field-help" role="status">Select a robot to configure events.</p>
+            <p class="muted">Acceleration change measures the difference from gravity. Thresholds control reporting, not movement. Response prompts are edited in MetaHuman’s Event Trigger workflow.</p>
+            <pre id="body-events-imu" class="controller-logs">No IMU measurement received.</pre>
+            <details><summary>Recent body events</summary><pre id="body-events-recent" class="controller-logs">No events.</pre></details>
+          </div>
+</section>
+
+<section class="control-section workspace-section" data-workspace-panel="metahuman" aria-labelledby="metahuman-title"><div class="section-heading"><h2 id="metahuman-title">MetaHuman control</h2></div>
+<div>
             <form id="behavior-control-form">
               <label class="switch-row"><span>Robot control on</span><input id="behavior-control-enabled" type="checkbox" disabled></label>
               <button type="submit" disabled>Save robot control setting</button>
@@ -261,197 +508,9 @@
             <p class="muted">Off blocks MetaHuman robot commands and requests cancellation of its current robot tasks. On permits new instructions; it does not restart cancelled movement or change Reactive mode. Manual controls and SIGNAL STOP remain available.</p>
             <p class="muted">A cancellation request is not confirmation of physical rest.</p>
           </div>
-        </div>
-      </section>
+</section>
 
-      <section class="control-section motion-section" aria-labelledby="motion-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Movement</p>
-            <h2 id="motion-title">Body motion</h2>
-          </div>
-          <div class="command-row compact">
-            <button type="button" data-intent="stand">Stand</button>
-            <button type="button" data-intent="neutral">Neutral</button>
-          </div>
-        </div>
-        <p id="motion-availability" role="status">Connect a robot to use its motions.</p>
-        <form id="walk-controls" class="walk-controls" hidden>
-          <fieldset id="walk-fields">
-            <legend>Walk, Run and Crawl</legend>
-            <div id="locomotion-options" hidden>
-              <label>Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="crab">Crab (wide stance)</option><option value="run">Run (advanced tuning)</option></select></label>
-              <label>Direction <select id="walk-direction"><option value="fwd">Forward</option><option value="back">Backward</option><option value="turn_l">Turn left</option><option value="turn_r">Turn right</option><option value="side_l">Sideways left (Crab)</option><option value="side_r">Sideways right (Crab)</option></select></label>
-              <label><input id="walk-continuous" type="checkbox" checked> Continue until Finish</label>
-            </div>
-            <label>Control mode <select id="walk-mode"><option value="auto">Automatic Speed</option><option value="manual">Advanced</option></select></label>
-            <label id="walk-speed-field">Speed <input id="walk-speed" type="range" min="0" max="100" step="1" value="50"><output id="walk-speed-value">50%</output></label>
-            <div id="walk-advanced" hidden>
-              <label>Stride % <input id="walk-stride" disabled type="number" min="1" max="100" step="1" value="100" required></label>
-              <label>Motion rate <input id="walk-rate" disabled type="number" min="0.25" max="3" step="0.05" value="1" required></label>
-            </div>
-            <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
-            <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
-            <p>Walk stride and cadence increase together through 100%. Full Walk uses a 96 mm stance sweep; 50% uses 48 mm. Above 100%, Run increases stride, leg lift, body bounding and requested cadence together. The saved joint speed limit slows the whole motion when needed, preserving its stride. Changes apply smoothly while moving. Finish settles the feet; Crawl remains crouched. Speed can cross between Walk and Run while moving. Finish before changing the selected gait or direction.</p>
-            <button id="walk-apply" type="submit">Walk</button>
-            <button id="walk-finish" type="button">Finish</button>
-          </fieldset>
-        </form>
-        <div class="motion-pad" aria-label="Held movement controls">
-          <button class="motion-key forward" type="button" data-held-direction="fwd" aria-label="Walk forward">&#x25b2;</button>
-          <button class="motion-key left" type="button" data-held-direction="turn_l" aria-label="Turn left">&#x25c0;</button>
-          <button class="motion-key center" type="button" data-intent="neutral" aria-label="Neutral">&#x25a0;</button>
-          <button class="motion-key right" type="button" data-held-direction="turn_r" aria-label="Turn right">&#x25b6;</button>
-          <button class="motion-key backward" type="button" data-held-direction="back" aria-label="Walk backward">&#x25bc;</button>
-        </div>
-      </section>
-
-      <section class="control-section status-section" aria-labelledby="status-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Telemetry</p>
-            <h2 id="status-title">Robot status</h2>
-          </div>
-          <span id="body-state" class="state-chip">Unknown</span>
-        </div>
-        <dl class="telemetry-grid">
-          <div><dt>Battery</dt><dd id="status-battery">--</dd></div>
-          <div><dt>Signal</dt><dd id="status-rssi">--</dd></div>
-          <div><dt>Free heap</dt><dd id="status-heap">--</dd></div>
-          <div><dt>Uptime</dt><dd id="status-uptime">--</dd></div>
-          <div><dt>SD card</dt><dd id="status-sd">--</dd></div>
-          <div><dt>Epoch / next</dt><dd id="status-session">--</dd></div>
-          <div><dt>Heartbeat age</dt><dd id="status-heartbeat">--</dd></div>
-          <div><dt>Profile caps</dt><dd id="status-caps">--</dd></div>
-          <div><dt>Camera drops</dt><dd id="status-camera-drops">--</dd></div>
-          <div><dt>Audio faults</dt><dd id="status-audio-faults">--</dd></div>
-          <div><dt>Wake word</dt><dd id="status-wake">--</dd></div>
-          <div><dt>Lifecycle</dt><dd id="status-lifecycle">--</dd></div>
-          <div><dt>Last command</dt><dd id="status-command">--</dd></div>
-          <div><dt>Face</dt><dd id="status-face">--</dd></div>
-        </dl>
-      </section>
-
-      <section id="faces-section" class="control-section faces-section" aria-labelledby="faces-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Expression library</p>
-            <h2 id="faces-title">Faces</h2>
-          </div>
-          <span id="face-count" class="muted">Expression previews</span>
-        </div>
-        <p class="muted">Select an expression to display it without moving the robot. The next motion can change the face.</p>
-        <div class="faces-workspace">
-          <div class="face-viewer">
-            <img id="face-preview" src="/assets/faces/default.webp" alt="Resting expression preview" width="320" height="170">
-            <p id="face-preview-name">Default</p>
-            <p id="face-library-status" class="field-help" role="status" aria-live="polite">Loading expressions…</p>
-          </div>
-          <div class="face-browser">
-            <div class="face-filters">
-              <label>Find a face<input id="face-search" type="search" placeholder="Happy, curious, love…"></label>
-              <label>Collection<select id="face-group"><option value="">All expressions</option><option>Expressions</option><option>Speaking</option><option>Motion faces</option></select></label>
-            </div>
-            <div id="face-library" class="face-library" role="group" aria-label="Select an LCD expression"></div>
-            <p id="face-empty" class="muted" hidden>No matching expressions.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="control-section" aria-labelledby="behavior-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Behavior</p>
-            <h2 id="behavior-title">Operating mode</h2>
-          </div>
-        </div>
-        <div class="field-group">
-          <span class="field-label">Connection and power profile</span>
-          <div class="segmented-control" role="group" aria-label="Profile">
-            <button type="button" data-profile="home">Home</button>
-            <button type="button" data-profile="tether">Tether</button>
-          </div>
-        </div>
-        <div class="field-group">
-          <span class="field-label">Power state</span>
-          <div class="command-row">
-            <button type="button" data-state="idle">Idle</button>
-            <button type="button" data-state="doze">Doze</button>
-            <button type="button" data-state="sleep">Sleep 60s</button>
-          </div>
-        </div>
-        <form id="asset-intent-form" class="inline-form">
-          <label for="asset-name">Face or sound asset</label>
-          <div class="input-with-actions">
-            <input id="asset-name" name="asset" pattern="[a-z0-9_]{1,32}" maxlength="32" value="default" required>
-            <button type="submit" name="intent" value="face">Face</button>
-            <button type="submit" name="intent" value="say">Play</button>
-          </div>
-        </form>
-        <div class="emote-group">
-          <span class="field-label">Named poses and emotes</span>
-          <div id="motion-speed-controls" class="field-group" hidden>
-            <div id="joint-speed-controls" class="field-group">
-              <label for="joint-speed-limit">Joint speed limit (°/s) · all automatic movement</label>
-              <div class="input-with-actions">
-                <input id="joint-speed-limit" type="number" step="any" aria-describedby="joint-speed-help joint-speed-status" disabled required>
-                <button id="joint-speed-save" type="button" disabled>Save limit on robot</button>
-              </div>
-              <p id="joint-speed-help" class="muted">One maximum commanded joint speed for walking, named motions and entry transitions. Motions slow together to preserve their path and stride. If Run cannot reach its requested cadence, this limit is controlling its timing. Enter any positive value; there is no fixed maximum. Saving stops motion; start it again to resume.</p>
-              <p id="joint-speed-status" class="muted" role="status">Read from robot to load its limit.</p>
-              <p id="joint-speed-active" class="muted" role="status"></p>
-              <p id="run-cadence-status" class="muted" role="status"></p>
-            </div>
-            <label for="motion-speed">Named motion speed (×)</label>
-            <div class="input-with-actions">
-              <input id="motion-speed" type="number" step="any" value="2" aria-describedby="motion-speed-help motion-speed-status" disabled required>
-              <button id="motion-speed-save" type="button" disabled>Save on robot</button>
-              <button id="motion-speed-read" type="button" disabled>Read from robot</button>
-            </div>
-            <p id="motion-speed-help" class="muted">2× plays a motion in half the time. Changes apply to the next named motion, including its entry pose. Walking uses its own Speed control. Saving stops the robot; start a motion to resume.</p>
-            <p id="motion-speed-status" class="muted" role="status">Connect a robot to read its motion speed.</p>
-          </div>
-          <div id="motion-catalog" class="emote-grid">
-            <button type="button" data-intent="sit">Sit · bored</button>
-            <button type="button" data-emote="rest">Rest</button>
-            <button type="button" data-emote="crouch" data-requires-declaration>Crouch</button>
-            <button type="button" data-emote="wave">Wave</button>
-            <button type="button" data-emote="dance">Dance</button>
-            <button type="button" data-emote="swim">Swim</button>
-            <button type="button" data-emote="point">Point</button>
-            <button type="button" data-emote="pushup">Pushup</button>
-            <button type="button" data-emote="bow">Bow</button>
-            <button type="button" data-emote="cute">Cute</button>
-            <button type="button" data-emote="freaky">Freaky</button>
-            <button type="button" data-emote="worm">Worm</button>
-            <button type="button" data-emote="shake">Shake</button>
-            <button type="button" data-emote="shrug">Shrug</button>
-            <button type="button" data-emote="dead">Play Dead</button>
-            <button type="button" data-emote="lay_down" data-requires-declaration>Lay Down</button>
-            <button type="button" data-emote="crab">Crab</button>
-            <button type="button" data-emote="nod">Nod</button>
-            <button type="button" data-emote="celebrate">Celebrate</button>
-            <button type="button" data-emote="stretch">Stretch</button>
-            <button type="button" data-emote="macarena">Macarena</button>
-            <button type="button" data-emote="salsa">Salsa</button>
-            <button type="button" data-emote="surprised">Surprised</button>
-            <button type="button" data-emote="sad">Sad</button>
-            <button type="button" data-emote="curious">Curious / look around</button>
-            <button type="button" data-emote="turn_left_45">Turn left 45°</button>
-            <button type="button" data-emote="turn_right_45">Turn right 45°</button>
-            <button type="button" data-emote="turn_left_90">Turn left 90° / quarter</button>
-            <button type="button" data-emote="turn_right_90">Turn right 90° / quarter</button>
-            <button type="button" data-emote="turn_left_180">Turn left 180° / half</button>
-            <button type="button" data-emote="turn_right_180">Turn right 180° / half</button>
-            <button type="button" data-emote="walk_slow">Walk slow</button>
-            <button type="button" data-emote="run">Run</button>
-            <button type="button" data-emote="number_one">#1 · hydrant</button>
-            <button type="button" data-emote="number_two">#2 · squat</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="control-section" aria-labelledby="media-title">
+<section class="control-section" aria-labelledby="media-title" data-workspace-panel="audio">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Media</p>
@@ -460,15 +519,15 @@
         </div>
         <form id="speech-output-form" class="settings-form audio-settings-form">
           <label for="speech-output">Speech output
-            <select id="speech-output" name="outputTarget" disabled aria-describedby="speech-output-help speech-output-state">
+            <select id="speech-output" name="playbackTarget" disabled aria-describedby="speech-output-help speech-output-state">
               <option value="" disabled selected>Loading setting…</option>
-              <option value="local">Computer</option>
+              <option value="computer">Body Control computer</option>
               <option value="robot">Robot speaker</option>
             </select>
           </label>
           <button type="submit" disabled>Save speech output</button>
-          <p id="speech-output-help" class="audio-help">Choose where MetaHuman speaks its robot conversation replies. Computer plays through the MetaHuman browser; Robot speaker uses the connected V1 or V2. Saved with your MetaHuman voice settings.</p>
-          <p id="speech-output-state" class="audio-help" role="status">Reading MetaHuman settings…</p>
+          <p id="speech-output-help" class="audio-help">Choose the speaker for speech sent to Body Control. Computer uses this gateway machine’s default audio device; Robot uses the connected V1 or V2. Saved on Body Control. Select Body Control in MetaHuman’s audio control to use this destination.</p>
+          <p id="speech-output-state" class="audio-help" role="status">Reading Body Control settings…</p>
         </form>
         <form id="speaker-form" class="settings-form audio-settings-form">
           <label class="audio-adjustment" for="speaker-volume">
@@ -546,7 +605,36 @@
         <p id="microphone-level-help" class="audio-help">Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping.</p>
       </section>
 
-      <section class="control-section calibration-section" aria-labelledby="calibration-title">
+<section class="control-section sd-section" aria-labelledby="sd-title" data-workspace-panel="recordings">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Storage</p>
+            <h2 id="sd-title">SD card</h2>
+          </div>
+          <span id="sd-state" class="state-chip">Unavailable</span>
+        </div>
+        <p id="storage-details" role="status">Connect a robot to read storage status.</p>
+        <div class="command-row">
+          <button id="storage-read-button" type="button" disabled>Read storage status</button>
+          <button id="storage-retry-button" type="button" disabled>Retry mount</button>
+          <button id="storage-clear-button" type="button" class="danger-command" disabled>Clear logs and captures</button>
+        </div>
+        <h3>Video recording</h3>
+        <p>Records the live camera preview while streaming continues. Enable preview in Perception → Camera settings using your current resolution and frame rate.</p>
+        <p id="recording-details" role="status">Connect a robot to read recording status.</p>
+        <div class="command-row">
+          <button id="recording-start-button" type="button" disabled>Start recording</button>
+          <button id="recording-stop-button" type="button" disabled>Stop recording</button>
+          <button id="recordings-refresh-button" type="button" disabled>Refresh recordings</button>
+        </div>
+        <label for="recordings-select">Recordings on the robot</label>
+        <select id="recordings-select" disabled><option value="">Refresh to list recordings</option></select>
+        <button id="recording-download-button" type="button" disabled>Download selected clip</button>
+        <p id="recordings-details" role="status"></p>
+        <p>Clips stay on the internal card after download until reused by rolling recording. Near capacity, the oldest completed clip is automatically overwritten; no review is needed. The active recording and clips currently being downloaded are not reused. Unfinished files may need recovery. Stop recording to finalize the active clip. “Clear logs and captures” does not delete video.</p>
+      </section>
+
+<section class="control-section calibration-section" aria-labelledby="calibration-title" data-workspace-panel="calibration">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Service</p>
@@ -636,7 +724,7 @@
         </form>
       </section>
 
-      <section class="control-section controller-section" aria-labelledby="controller-title">
+<section class="control-section controller-section" aria-labelledby="controller-title" data-workspace-panel="controllers">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Input</p>
@@ -652,25 +740,32 @@
         </form>
       </section>
 
-      <section class="control-section sd-section" aria-labelledby="sd-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Storage</p>
-            <h2 id="sd-title">SD card</h2>
-          </div>
-          <span id="sd-state" class="state-chip">Unavailable</span>
-        </div>
-        <p id="storage-details" role="status">Connect a robot to read storage status.</p>
+<section class="control-section" aria-labelledby="firmware-title" data-workspace-panel="firmware">
+        <div class="section-heading"><h2 id="firmware-title">Robot firmware</h2></div>
+        <p id="firmware-details" role="status">Connect a robot to read firmware status.</p>
+        <p>Upload a P4 application .bin over Wi-Fi. Upload finishes recording and enters Doze. Choose when to activate it after validation. The robot screen shows flash progress. C6 Wi-Fi firmware is separate.</p>
+        <label for="firmware-file">P4 application firmware</label>
+        <input id="firmware-file" type="file" accept=".bin,application/octet-stream">
         <div class="command-row">
-          <button id="storage-read-button" type="button" disabled>Read storage status</button>
-          <button id="storage-retry-button" type="button" disabled>Retry mount</button>
-          <button id="storage-clear-button" type="button" class="danger-command" disabled>Clear logs and captures</button>
+          <button id="firmware-upload-button" type="button" disabled>Upload firmware</button>
+          <button id="firmware-next-boot-button" type="button" disabled>Activate on next boot</button>
+          <button id="firmware-restart-button" type="button" disabled>Activate and restart</button>
         </div>
+        <progress id="firmware-upload-progress" max="100" value="0" hidden aria-label="Firmware upload progress"></progress>
+        <p id="firmware-operation" role="status"></p>
       </section>
 
+<section class="control-section" aria-labelledby="controller-logs-title" data-workspace-panel="logs">
+        <div class="section-heading"><h2 id="controller-logs-title">Robot logs</h2></div>
+        <p>Read startup, network and update diagnostics over Wi-Fi. Includes the previous warm-reset boot; power loss clears retained logs.</p>
+        <div class="command-row">
+          <button id="controller-logs-read-button" type="button" disabled>Read robot logs</button>
+          <button id="controller-logs-download-button" type="button" disabled>Download robot logs</button>
+        </div>
+        <pre id="controller-logs-output" class="controller-logs" role="status">Read logs from the selected robot.</pre>
+      </section>
 
-
-      <section class="control-section audit-section" aria-labelledby="audit-title">
+<section class="control-section audit-section" aria-labelledby="audit-title" data-workspace-panel="audit">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Operations</p>
@@ -684,6 +779,119 @@
           </table>
         </div>
       </section>
-    </main>
+
+<section id="settings-panel" class="control-section settings-panel" aria-labelledby="settings-title" data-workspace-panel="connections network pairing account">
+      <div class="section-heading">
+        <h2 id="settings-title">Settings</h2>
+        <button id="settings-close-button" type="button">Close settings</button>
+      </div>
+      <div class="settings-grid">
+        <section class="settings-card" aria-labelledby="connections-title" data-workspace-panel="connections">
+          <h3 id="connections-title">Connections</h3>
+          <p class="muted">Current Body Control: <span id="body-current-address"></span></p>
+          <form id="body-connection-form" class="password-form">
+            <label>Open Body Control through<select id="body-connection-route">
+              <option value="local">Local / forwarded port</option>
+              <option value="lan">LAN / Wi-Fi</option>
+              <option value="cloudflare">Cloudflare</option>
+            </select></label>
+            <label>Dashboard address<input id="body-connection-address" type="url" placeholder="https://your-body-control-host" required></label>
+            <p class="muted">Use any configured machine's dashboard address. A localhost address refers to this browser's device and needs Body Control or an existing forward there. LAN needs a reachable dashboard; Cloudflare needs its dashboard route configured separately from the robot and MetaHuman bridge routes.</p>
+            <button type="submit">Save and open Body Control</button>
+          </form>
+          <form id="desktop-connection-form" class="password-form">
+            <label>Stationary desktop MetaHuman address<input id="desktop-connection-address" type="url" placeholder="https://your-metahuman-host" required></label>
+            <p class="muted">Open the desktop's connection selector to choose local, LAN / Wi-Fi via SSH, or Cloudflare for its robot bridge. Sign in there as the MetaHuman owner. Its local option refers to the desktop, not this browser.</p>
+            <button type="submit">Save and open desktop bridge settings</button>
+          </form>
+          <p class="muted">Addresses are saved in this browser for this Body Control site. Opens a new tab and keeps this dashboard available. This does not start servers, create tunnels, change Wi-Fi, or move tasks between machines.</p>
+          <p id="connections-result" role="status" aria-live="polite"></p>
+        </section>
+        <section class="settings-card" aria-labelledby="password-title" data-workspace-panel="account">
+          <h3 id="password-title">Body Control password</h3>
+          <p class="muted">Choose the password you use to sign in. It stays the same across restarts.</p>
+          <form id="password-form" class="password-form">
+            <label>Current password<input name="current_password" type="password" autocomplete="current-password"></label>
+            <label>New password<input name="new_password" type="password" autocomplete="new-password"></label>
+            <label>Confirm new password<input name="confirm_password" type="password" autocomplete="new-password"></label>
+            <p class="muted">Choose your own password, or leave both new password fields blank to sign in with an empty password. Other browsers will be signed out; this browser stays signed in.</p>
+            <button type="submit">Change password</button>
+            <p id="password-result" role="status" aria-live="polite" hidden></p>
+          </form>
+        </section>
+      <section class="settings-card security-section" aria-labelledby="security-title" data-workspace-panel="pairing">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Access</p>
+            <h3 id="security-title">Robot pairing</h3>
+          </div>
+        </div>
+        <p class="muted">Pairing tokens let a robot connect to Body Control. Generating a replacement changes the server token; you must also update the robot through its setup or serial configuration.</p>
+        <form id="token-form" class="inline-form">
+          <label for="token-robot-id">Robot ID</label>
+          <div class="input-with-actions">
+            <input id="token-robot-id" name="robot_id" maxlength="64" placeholder="Robot ID" required>
+            <button type="submit" name="action" value="generate">Generate</button>
+            <button type="submit" name="action" value="revoke" class="danger-command">Revoke</button>
+          </div>
+        </form>
+        <div id="token-result" class="token-result" hidden>
+          <span>New token</span>
+          <code id="token-value"></code>
+          <button id="token-dismiss-button" type="button">Dismiss</button>
+        </div>
+        <p class="stored-token-label">Configured robots</p>
+        <div id="token-robot-list" class="tag-list"></div>
+      </section>
+        <section class="settings-card" aria-labelledby="host-network-title" data-workspace-panel="network">
+          <h3 id="host-network-title">Robot connection mode</h3>
+          <p class="muted">Use this computer’s existing Wi-Fi network, or its configured robot hotspot.</p>
+          <label class="host-network-toggle">
+            <span>Wi-Fi network</span>
+            <input id="host-hotspot-toggle" type="checkbox" role="switch" aria-label="Use this computer’s robot hotspot">
+            <span>Robot hotspot</span>
+          </label>
+          <p id="host-network-state" class="muted" role="status"></p>
+          <p class="muted">Switches immediately and remembers your choice. The robot uses its saved Wi-Fi connections.</p>
+          <p id="host-network-result" role="status" aria-live="polite" hidden></p>
+        </section>
+        <section class="settings-card settings-network" aria-labelledby="network-settings-title" data-workspace-panel="network">
+          <h3 id="network-settings-title">Robot Wi-Fi and pairing</h3>
+          <p id="robot-settings-availability" class="muted">Connect a robot to read its settings.</p>
+          <button id="robot-settings-read" type="button" disabled>Read from robot</button>
+          <p id="robot-settings-result" role="status" aria-live="polite"></p>
+          <div id="robot-settings-editor" hidden>
+            <p id="robot-settings-state" class="muted"></p>
+            <form id="robot-network-form" class="password-form">
+              <label>Saved connection slot<select name="index" id="robot-network-index">
+                <option value="0">1 — first choice</option><option value="1">2</option><option value="2">3</option><option value="3">4</option>
+              </select></label>
+              <label>Network name (SSID)<input name="ssid" autocomplete="off" required></label>
+              <label>Body Control address<input name="endpoint" placeholder="ws://computer:8790/robot or wss://tunnel-host/robot" required></label>
+              <p id="robot-gateway-help" class="muted"></p>
+              <label class="settings-check"><input name="change_wifi_password" type="checkbox"> Set Wi-Fi password</label>
+              <label>Wi-Fi password<input name="wifi_password" type="password" autocomplete="new-password"></label>
+              <p class="muted">Unchecked keeps a saved network's password. For a new network, check the box and enter its password, or leave it blank for an open network.</p>
+              <div class="settings-actions"><button type="submit">Save connection</button><button id="robot-network-remove" type="button">Remove this connection</button></div>
+            </form>
+            <form id="robot-security-form" class="password-form">
+              <label class="settings-check"><input name="change_setup_password" type="checkbox"> Change the robot setup hotspot password</label>
+              <label>New setup hotspot password<input name="setup_password" type="password" autocomplete="new-password"></label>
+              <p class="muted">Wi-Fi passwords use 8–63 ASCII characters. A blank password makes the selected hotspot open. These are Wi-Fi requirements, separate from your Body Control login.</p>
+              <label class="settings-check"><input name="change_robot_token" type="checkbox"> Change robot pairing token</label>
+              <label>New pairing token<input name="robot_token" type="password" autocomplete="new-password"></label>
+              <p class="muted">This server will accept the new token when the robot reconnects. Other Body Control servers must also be given the same token.</p>
+              <button type="submit">Save robot credentials</button>
+            </form>
+            <p class="muted">Saving stops motion and keeps the current connection. Restart to apply saved settings. The robot tries occupied slots in order and keeps a working connection; if no saved network connects, its setup page becomes available.</p>
+            <button id="robot-settings-apply" type="button">Restart robot to apply</button>
+          </div>
+          <p>For recovery, join the robot’s <strong>Ainekio-P4-…</strong> setup network and open <a href="http://192.168.4.1/" target="_blank" rel="noopener noreferrer">the robot setup page</a>.</p>
+        </section>
+      </div>
+    </section>
+</div>
+</main>
+</div>
   </body>
 </html>

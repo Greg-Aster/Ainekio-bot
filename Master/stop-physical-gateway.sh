@@ -98,7 +98,7 @@ fi
 while IFS= read -r candidate; do
   [[ -n "$candidate" && "$candidate" != "$$" ]] || continue
   add_gateway_pid "$candidate"
-done < <(pgrep -f 'python3 -m gateway\.server' 2>/dev/null || true)
+done < <(pgrep -f ' -m gateway\.server( |$)' 2>/dev/null || true)
 
 if (( ${#gateway_pids[@]} == 0 )); then
   rm -f "$PID_FILE"

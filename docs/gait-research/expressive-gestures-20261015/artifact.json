@@ -1,0 +1,29 @@
+{
+  "version": "0.8.53-p4-emotes",
+  "image_bytes": 2905072,
+  "image_sha256": "a8f6287bafd31e5b8a134b78a0d7cf579d2d18edba500c31a98567eb057fc5b3",
+  "sources": {
+    "point": "9b5a3d3c4920f57ec793fa7c6c9f0c388ba32c9b1a74acc21473f56596482652",
+    "pushup": "a0aa10082b57da16ed0763b27e9dfd567fa8a078af87aa7968768a7c6c4e0ee8",
+    "bow": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf",
+    "wave": "e117471c079df2cd697a30b769e96138a374f9ce42e17980bb69720b1233e61e"
+  },
+  "deployed": true,
+  "live_verification": {
+    "version": "0.8.53-p4-emotes",
+    "running": "ota_1",
+    "boot": "ota_1",
+    "pending_verify": false,
+    "error": "ESP_OK",
+    "epoch": 15,
+    "state": "active",
+    "output_armed": true,
+    "self_leveling_enabled": false
+  },
+  "gestures_executed_by_this_task": false,
+  "additional_status_observation": {
+    "storage_mounted": false,
+    "storage_error": "ESP_ERR_NO_MEM",
+    "cause_not_determined": true
+  }
+}

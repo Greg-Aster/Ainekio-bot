@@ -1,0 +1,86 @@
+[
+  {
+    "geometry": [
+      55,
+      35,
+      38,
+      28,
+      20
+    ],
+    "body_clearance": 43,
+    "stance_closed": false,
+    "old_index_stance_fits": false,
+    "full_geometric_closure": false,
+    "minimum_effective_support_margin": 2.646390165571905,
+    "minimum_weight_fraction": 0.0,
+    "equilibrium_error": 1.3596111614333495e-07,
+    "peak_joint_torque_Nm": [
+      0.10572558100603252,
+      0.14102316673362414,
+      0.08422445517396733
+    ],
+    "peak_joint_speed_deg_s": [
+      44.3999418680433,
+      598.0063067124779,
+      1284.3076468097656
+    ],
+    "mass_kg": 0.566,
+    "scope": "Existing body-shift trajectory reused, assumed centred COM, point-body forces, no leg inertia; fixed reference mass for redesigned legs"
+  },
+  {
+    "geometry": [
+      81,
+      22,
+      25,
+      51,
+      36
+    ],
+    "body_clearance": 74,
+    "stance_closed": false,
+    "old_index_stance_fits": false,
+    "full_geometric_closure": false,
+    "minimum_effective_support_margin": 2.653202350543891,
+    "minimum_weight_fraction": 0.0,
+    "equilibrium_error": 8.321666911115244e-08,
+    "peak_joint_torque_Nm": [
+      0.10560572786995406,
+      0.06205325216702641,
+      0.058546298887838126
+    ],
+    "peak_joint_speed_deg_s": [
+      30.47019530595188,
+      802.6569995232425,
+      1448.2577074671008
+    ],
+    "mass_kg": 0.566,
+    "scope": "Existing body-shift trajectory reused, assumed centred COM, point-body forces, no leg inertia; fixed reference mass for redesigned legs"
+  },
+  {
+    "geometry": [
+      72,
+      26,
+      26,
+      43,
+      28
+    ],
+    "body_clearance": 64,
+    "stance_closed": true,
+    "old_index_stance_fits": false,
+    "full_geometric_closure": true,
+    "minimum_effective_support_margin": 2.6939312507984514,
+    "minimum_weight_fraction": 0.0,
+    "equilibrium_error": 4.6913584128560615e-12,
+    "peak_joint_torque_Nm": [
+      0.10568691199529637,
+      0.07725155355466712,
+      0.06061610386618288
+    ],
+    "peak_joint_speed_deg_s": [
+      33.89801426199489,
+      606.4410988297172,
+      875.8930629758044
+    ],
+    "mass_kg": 0.566,
+    "scope": "Existing body-shift trajectory reused, assumed centred COM, point-body forces, no leg inertia; fixed reference mass for redesigned legs"
+  }
+]

@@ -1,0 +1,253 @@
+{
+  "point": {
+    "source_sha256": "fdb54fa5dc140657b72870fdd9e5a9e46178169f27bcd0583db7d64472a1f159",
+    "validation": {
+      "min_sole_z_mm": -2.2902142404745973e-09,
+      "min_body_z_mm": 1.0000000021845992,
+      "minimum_closure_height_mm": 11.265090555597158,
+      "maximum_adjacent_joint_step_degrees": 3.392933573975009,
+      "maximum_planted_target_error_mm": 1.9669244011311093e-10,
+      "hardware_qualified": false,
+      "command": "point",
+      "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+      "samples": 733,
+      "sample_hz": 120,
+      "duration_s": 6.1,
+      "motion_end_s": 5.9,
+      "peak_joint_speed_deg_s": 407.15202887699195,
+      "joint_min_deg": [
+        [
+          -1.7021328933208431e-06,
+          -28.756486851179996,
+          -21.664650100860804
+        ],
+        [
+          -8.393867360738013e-06,
+          -32.73332906862778,
+          -32.019982482630155
+        ],
+        [
+          -54.882981602214706,
+          -18.84378232264318,
+          -66.00373618043069
+        ],
+        [
+          -4.036697368960207e-07,
+          1.3550895463719548,
+          -66.00371459816432
+        ]
+      ],
+      "joint_max_deg": [
+        [
+          1.5392621953420452e-06,
+          11.987723606044286,
+          5.360646137095804
+        ],
+        [
+          2.754747850365362e-06,
+          3.6573031167529217,
+          -4.839203012246294
+        ],
+        [
+          8.191604122273917,
+          111.51190679154384,
+          70.43241105165393
+        ],
+        [
+          1.5614616252700814e-06,
+          13.949426269114186,
+          -21.662391475886732
+        ]
+      ],
+      "minimum_support_margin_mm": -13.48519996269114,
+      "mapped_pulse_min_us": 438.62540420176003,
+      "mapped_pulse_max_us": 2861.3748356011906,
+      "reviewed_pulse_window_us": [
+        400,
+        2900
+      ],
+      "collision_checked": false
+    },
+    "compiled_comparison": {
+      "command": "point",
+      "samples": 1465,
+      "max_sole_vertex_error_mm": 0.007806555615807825,
+      "max_sole_clearance_change_mm": 0.006787716582948633,
+      "min_closure_height_mm": 11.265090554155586,
+      "source_sha256": "fdb54fa5dc140657b72870fdd9e5a9e46178169f27bcd0583db7d64472a1f159",
+      "status": "passed_offline_compiled_comparison",
+      "hardware_qualified": false
+    },
+    "minimum_held_support_margin_mm": 19.323120109372994
+  },
+  "pushup": {
+    "source_sha256": "919023260bb800901cae13e969c0f2b1363322a2a2a8572a16c80674db13a5bb",
+    "validation": {
+      "min_sole_z_mm": -1.9731771772057982e-11,
+      "min_body_z_mm": 3.0000000000000284,
+      "minimum_closure_height_mm": 9.211734116576121,
+      "maximum_adjacent_joint_step_degrees": 1.0457561308253818,
+      "maximum_planted_target_error_mm": 7.118927669580444e-11,
+      "hardware_qualified": false,
+      "command": "pushup",
+      "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+      "samples": 1705,
+      "sample_hz": 120,
+      "duration_s": 14.2,
+      "motion_end_s": 14.0,
+      "peak_joint_speed_deg_s": 125.47592701170814,
+      "joint_min_deg": [
+        [
+          -4.0367016388714046e-07,
+          -36.51161908407831,
+          -27.64526702267438
+        ],
+        [
+          -8.073408385072388e-07,
+          -36.51166179922857,
+          -27.645303915107128
+        ],
+        [
+          -2.9689556570915895e-06,
+          -8.627489553513689,
+          -46.056586527722985
+        ],
+        [
+          -2.1738980440832834e-06,
+          -8.627517922353043,
+          -46.0565725298492
+        ]
+      ],
+      "joint_max_deg": [
+        [
+          1.1271389124838182e-05,
+          3.6573231242197926,
+          30.225676778830348
+        ],
+        [
+          1.993623870862461e-05,
+          3.657303116753503,
+          30.22566319489374
+        ],
+        [
+          8.36973348886404e-07,
+          34.18760186228536,
+          31.56715014693092
+        ],
+        [
+          1.0112389295459002e-05,
+          34.18754923229748,
+          31.56714894362191
+        ]
+      ],
+      "minimum_support_margin_mm": 44.48819756290248,
+      "mapped_pulse_min_us": 437.31488486903055,
+      "mapped_pulse_max_us": 2862.684640518207,
+      "reviewed_pulse_window_us": [
+        400,
+        2900
+      ],
+      "collision_checked": false,
+      "press_front_clearance_low_high_mm": [
+        3.0000000000000284,
+        44.7287257053615
+      ],
+      "press_rear_clearance_low_high_mm": [
+        8.0,
+        8.0
+      ]
+    },
+    "compiled_comparison": {
+      "command": "pushup",
+      "samples": 3409,
+      "max_sole_vertex_error_mm": 0.007130840818179999,
+      "max_sole_clearance_change_mm": 0.006573674813893149,
+      "min_closure_height_mm": 9.21173382374824,
+      "source_sha256": "919023260bb800901cae13e969c0f2b1363322a2a2a8572a16c80674db13a5bb",
+      "status": "passed_offline_compiled_comparison",
+      "hardware_qualified": false
+    },
+    "minimum_held_support_margin_mm": null
+  },
+  "worm": {
+    "source_sha256": "7fd9041c9604911e56b5c3095f7849127a74ebbfc29ad89e57c11443e5ed6060",
+    "validation": {
+      "min_sole_z_mm": -8.927614203457779e-10,
+      "min_body_z_mm": 4.0,
+      "minimum_closure_height_mm": 8.699383070095346,
+      "maximum_adjacent_joint_step_degrees": 3.490872891959377,
+      "maximum_planted_target_error_mm": 8.927614203457779e-10,
+      "hardware_qualified": false,
+      "command": "worm",
+      "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+      "samples": 769,
+      "sample_hz": 120,
+      "duration_s": 6.4,
+      "motion_end_s": 6.2,
+      "peak_joint_speed_deg_s": 417.83247227734256,
+      "joint_min_deg": [
+        [
+          -4.0367016388714046e-07,
+          -25.66658920196131,
+          -21.662389980454424
+        ],
+        [
+          -9.621244319963999e-07,
+          -25.666626514655665,
+          -21.662385469926082
+        ],
+        [
+          -3.328421648307617e-06,
+          -21.67389075073765,
+          -32.31738787973964
+        ],
+        [
+          -1.910669211215953e-06,
+          -21.673933852963078,
+          -32.317376599466556
+        ]
+      ],
+      "joint_max_deg": [
+        [
+          1.2506701826977815e-05,
+          60.93591183073752,
+          17.8717304106257
+        ],
+        [
+          2.2745230866014707e-05,
+          60.93588186495907,
+          17.87173766050878
+        ],
+        [
+          1.0150898900968e-06,
+          29.777788779593976,
+          42.50249318044968
+        ],
+        [
+          9.517451557120259e-06,
+          29.777748034140124,
+          42.50251782495786
+        ]
+      ],
+      "minimum_support_margin_mm": 42.55745399317507,
+      "mapped_pulse_min_us": 557.8152723231156,
+      "mapped_pulse_max_us": 2742.1843130914076,
+      "reviewed_pulse_window_us": [
+        400,
+        2900
+      ],
+      "collision_checked": false
+    },
+    "compiled_comparison": {
+      "command": "worm",
+      "samples": 1537,
+      "max_sole_vertex_error_mm": 0.005001553855708487,
+      "max_sole_clearance_change_mm": 0.004656532909905309,
+      "min_closure_height_mm": 8.69774471228202,
+      "source_sha256": "7fd9041c9604911e56b5c3095f7849127a74ebbfc29ad89e57c11443e5ed6060",
+      "status": "passed_offline_compiled_comparison",
+      "hardware_qualified": false
+    },
+    "minimum_held_support_margin_mm": null
+  }
+}

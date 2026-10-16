@@ -1,7 +1,7 @@
 {
   "schema": "ainekio-motion-execution-contract-1",
   "command": "bow",
-  "gait_id": "bow_upright_24_38_20260921",
+  "gait_id": "bow_expressive_bare_20261015",
   "wire": {
     "t": "intent",
     "name": "emote",
@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/bow/source.json",
-      "sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5"
+      "sha256": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/bow/manifest.json",
-      "sha256": "db7aa4cb736cfe49cc7502d7cb20e335730061dda00334c8fef1a1b2e82dc18a"
+      "sha256": "432986b7f40e76c41b38ef7b6f981fad988c9e3e7dbfd3de341d213d204a4d79"
     }
   ],
   "source_units": {
@@ -49,13 +49,13 @@
       "section": "clip",
       "source_interval_s": [
         0.0,
-        1.0
+        0.4
       ],
       "source_sample_indices_inclusive": [
         0,
-        120
+        48
       ],
-      "demonstration_duration_s": 1.0,
+      "demonstration_duration_s": 0.4,
       "supporting_legs_throughout": [
         "FL",
         "FR",
@@ -70,18 +70,6 @@
           true
         ]
       ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "contact_motion_models": [
-        [
-          "rolling",
-          "rolling",
-          "rolling",
-          "rolling"
-        ]
-      ],
       "moving_joint_indices": [
         1,
         2,
@@ -92,49 +80,49 @@
         10,
         11
       ],
+      "coordination": "whole_body_shared_clock",
       "reference_peak_speed_rad_s": [
-        0.0,
-        0.16538524109296743,
-        0.15787518808884035,
-        0.0,
-        0.16538524109296743,
-        0.1578752061486669,
-        0.0,
-        0.1653852845592495,
-        0.15787536066534924,
-        0.0,
-        0.1653852845592495,
-        0.15787536066534924
+        8.488420947202198e-06,
+        0.5355916453009826,
+        0.6496995283642326,
+        8.979816321101808e-07,
+        0.5355916045696776,
+        0.649699350834485,
+        1.0025128703303523e-05,
+        0.5355914652634222,
+        0.6497000379466022,
+        2.4352955364787165e-06,
+        0.5355914930990504,
+        0.649699692393213
       ],
       "reference_peak_acceleration_rad_s2": [
-        0.0,
-        0.573304630396342,
-        0.5562817716950013,
-        0.0,
-        0.5733046303828748,
-        0.5562818368662541,
-        0.0,
-        0.5733047410413413,
-        0.5562823446066202,
-        0.0,
-        0.5733047410413413,
-        0.5562823446066202
-      ],
-      "current_geometry_note": "Braces before the two front hands extend forward into a held bow."
+        0.0005093642398613324,
+        4.76080371637856,
+        5.1129075245455295,
+        5.418374305768442e-05,
+        4.760803238210955,
+        5.1129063848908585,
+        0.0006015107982769037,
+        4.760802557811491,
+        5.112911359214912,
+        0.00014602053429038474,
+        4.760802538797353,
+        5.112908833015462
+      ]
     },
     {
       "id": "p001_stretch_front_into_bow",
       "name": "stretch_front_into_bow",
       "section": "clip",
       "source_interval_s": [
-        1.0,
-        2.5
+        0.4,
+        1.05
       ],
       "source_sample_indices_inclusive": [
-        120,
-        300
+        48,
+        126
       ],
-      "demonstration_duration_s": 1.5,
+      "demonstration_duration_s": 0.65,
       "supporting_legs_throughout": [
         "FL",
         "FR",
@@ -149,24 +137,6 @@
           true
         ]
       ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "contact_motion_models": [
-        [
-          "rolling",
-          "rolling",
-          "intentional_slide",
-          "intentional_slide"
-        ],
-        [
-          "rolling",
-          "rolling",
-          "rolling",
-          "rolling"
-        ]
-      ],
       "moving_joint_indices": [
         1,
         2,
@@ -177,33 +147,34 @@
         10,
         11
       ],
+      "coordination": "whole_body_shared_clock",
       "reference_peak_speed_rad_s": [
-        0.0,
-        0.6163111979710213,
-        0.29669444422282126,
-        0.0,
-        0.6163111979709578,
-        0.2966944739102259,
-        0.0,
-        0.8563034183594884,
-        0.9192740596164404,
-        0.0,
-        0.8563034183594884,
-        0.9192740596164404
+        2.2087190912100078e-07,
+        4.526821500399181,
+        2.1227199558819794,
+        6.578392234785416e-07,
+        4.526819638195536,
+        2.1227203358890856,
+        2.4224138310369845e-07,
+        6.451327930050184,
+        4.40188857058552,
+        1.8430600422048024e-07,
+        6.4513311937547435,
+        4.401888483003858
       ],
       "reference_peak_acceleration_rad_s2": [
-        0.0,
-        1.3739730077353418,
-        0.7567865683353983,
-        0.0,
-        1.373973007729313,
-        0.7567866489524516,
-        0.0,
-        2.154176705582088,
-        2.429476567804091,
-        0.0,
-        2.154176705582088,
-        2.429476567804091
+        2.10421405437044e-06,
+        87.24540197685822,
+        26.671794507525476,
+        6.641566345519096e-06,
+        87.24529969483976,
+        26.67171942266331,
+        1.616870484048283e-06,
+        32.04864228634064,
+        26.87975260175195,
+        2.2686017294197074e-06,
+        32.0485910807121,
+        26.879902409461387
       ]
     },
     {
@@ -211,14 +182,14 @@
       "name": "hold_bow",
       "section": "clip",
       "source_interval_s": [
-        2.5,
-        5.5
+        1.05,
+        6.05
       ],
       "source_sample_indices_inclusive": [
-        300,
-        660
+        126,
+        726
       ],
-      "demonstration_duration_s": 3.0,
+      "demonstration_duration_s": 5.0,
       "supporting_legs_throughout": [
         "FL",
         "FR",
@@ -233,46 +204,35 @@
           true
         ]
       ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "contact_motion_models": [
-        [
-          "rolling",
-          "rolling",
-          "rolling",
-          "rolling"
-        ]
-      ],
       "moving_joint_indices": [],
+      "coordination": "whole_body_shared_clock",
       "reference_peak_speed_rad_s": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
+        2.748993083303144e-10,
+        0.0036362590516197946,
+        0.0006304198160667074,
+        8.997972042961872e-10,
+        0.003636259042189005,
+        0.0006304191668277115,
+        2.6159462138215473e-11,
+        0.0023325684697361737,
+        0.002805483858385749,
+        3.945777632039481e-10,
+        0.0023325697315801364,
+        0.002805483535710529
       ],
       "reference_peak_acceleration_rad_s2": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
+        1.3191356738941455e-07,
+        1.7324922075037108,
+        0.30085805862172244,
+        4.272749246568661e-07,
+        1.7324922070911408,
+        0.3008577480368646,
+        1.3085864659349e-08,
+        1.1115808861740462,
+        1.3367342913996438,
+        1.876557627277229e-07,
+        1.1115814517248523,
+        1.3367341900886842
       ]
     },
     {
@@ -280,14 +240,14 @@
       "name": "raise_front",
       "section": "clip",
       "source_interval_s": [
-        5.5,
-        7.0
+        6.05,
+        6.7
       ],
       "source_sample_indices_inclusive": [
-        660,
-        840
+        726,
+        804
       ],
-      "demonstration_duration_s": 1.5,
+      "demonstration_duration_s": 0.6500000000000004,
       "supporting_legs_throughout": [
         "FL",
         "FR",
@@ -302,24 +262,6 @@
           true
         ]
       ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "contact_motion_models": [
-        [
-          "rolling",
-          "rolling",
-          "intentional_slide",
-          "intentional_slide"
-        ],
-        [
-          "rolling",
-          "rolling",
-          "rolling",
-          "rolling"
-        ]
-      ],
       "moving_joint_indices": [
         1,
         2,
@@ -330,33 +272,34 @@
         10,
         11
       ],
+      "coordination": "whole_body_shared_clock",
       "reference_peak_speed_rad_s": [
-        0.0,
-        0.6163111979710213,
-        0.2966944442228212,
-        0.0,
-        0.6163111979709578,
-        0.29669447391022585,
-        0.0,
-        0.8563034183594884,
-        0.9192740596164404,
-        0.0,
-        0.8563034183594884,
-        0.9192740596164404
+        2.2087190912100078e-07,
+        4.526821500399181,
+        2.1227199558819794,
+        6.578392234785416e-07,
+        4.526819638195536,
+        2.1227203358890856,
+        2.4224138310369845e-07,
+        6.451327930050184,
+        4.40188857058552,
+        1.8430600422048024e-07,
+        6.4513311937547435,
+        4.401888483003858
       ],
       "reference_peak_acceleration_rad_s2": [
-        0.0,
-        1.37397300773538,
-        0.7567865683353983,
-        0.0,
-        1.3739730077293797,
-        0.7567866489524372,
-        0.0,
-        2.154176705582145,
-        2.429476567804149,
-        0.0,
-        2.154176705582145,
-        2.429476567804149
+        2.10421405437044e-06,
+        87.24540197685822,
+        26.671794507525476,
+        6.641566345519096e-06,
+        87.24529969483976,
+        26.67171942266331,
+        1.616870484048283e-06,
+        32.04864228634064,
+        26.87975260175195,
+        2.2686017294197074e-06,
+        32.0485910807121,
+        26.879902409461387
       ]
     },
     {
@@ -364,14 +307,14 @@
       "name": "return_to_standing",
       "section": "clip",
       "source_interval_s": [
-        7.0,
-        8.0
+        6.7,
+        7.1
       ],
       "source_sample_indices_inclusive": [
-        840,
-        960
+        804,
+        852
       ],
-      "demonstration_duration_s": 1.0,
+      "demonstration_duration_s": 0.39999999999999947,
       "supporting_legs_throughout": [
         "FL",
         "FR",
@@ -384,18 +327,6 @@
           true,
           true,
           true
-        ]
-      ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "contact_motion_models": [
-        [
-          "rolling",
-          "rolling",
-          "rolling",
-          "rolling"
         ]
       ],
       "moving_joint_indices": [
@@ -408,33 +339,34 @@
         10,
         11
       ],
+      "coordination": "whole_body_shared_clock",
       "reference_peak_speed_rad_s": [
-        0.0,
-        0.16538524109296743,
-        0.15787518808884035,
-        0.0,
-        0.16538524109296743,
-        0.15787520614866685,
-        0.0,
-        0.1653852845592495,
-        0.15787536066534924,
-        0.0,
-        0.1653852845592495,
-        0.15787536066534924
+        4.244210473601099e-06,
+        0.5355916453009826,
+        0.6496995283642326,
+        4.489908160550904e-07,
+        0.5355916045696776,
+        0.649699350834485,
+        5.012564351651761e-06,
+        0.5355914652634222,
+        0.6497000379466022,
+        1.2184577507255103e-06,
+        0.5355914930990504,
+        0.649699692393213
       ],
       "reference_peak_acceleration_rad_s2": [
-        0.0,
-        0.5733046303963516,
-        0.5562817716949966,
-        0.0,
-        0.5733046303828843,
-        0.5562818368662422,
-        0.0,
-        0.5733047410413366,
-        0.5562823446066154,
-        0.0,
-        0.5733047410413366,
-        0.5562823446066154
+        0.00025475776144935294,
+        4.76080371637856,
+        5.1129075245455295,
+        2.7485798815584838e-05,
+        4.760803238210955,
+        5.1129063848908585,
+        0.0003007595886064988,
+        4.760802557811491,
+        5.112911359214912,
+        7.310746504353062e-05,
+        4.760802538797353,
+        5.112908833015462
       ]
     },
     {
@@ -442,14 +374,14 @@
       "name": "hold_standing",
       "section": "clip",
       "source_interval_s": [
-        8.0,
-        8.5
+        7.1,
+        7.3
       ],
       "source_sample_indices_inclusive": [
-        960,
-        1020
+        852,
+        876
       ],
-      "demonstration_duration_s": 0.5,
+      "demonstration_duration_s": 0.20000000000000018,
       "supporting_legs_throughout": [
         "FL",
         "FR",
@@ -464,46 +396,35 @@
           true
         ]
       ],
-      "support_sources": [
-        "feet"
-      ],
-      "coordination": "whole_body_shared_clock",
-      "contact_motion_models": [
-        [
-          "rolling",
-          "rolling",
-          "rolling",
-          "rolling"
-        ]
-      ],
       "moving_joint_indices": [],
+      "coordination": "whole_body_shared_clock",
       "reference_peak_speed_rad_s": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
+        4.244210473601099e-06,
+        0.000751561432559833,
+        0.0007175927317693009,
+        4.489908160550904e-07,
+        0.0007449099665726711,
+        0.0007330803990213131,
+        5.012564351651761e-06,
+        0.0007585763267661805,
+        0.0007188105347011309,
+        1.2176477682393582e-06,
+        0.0007596040863269704,
+        0.0007127599565392995
       ],
       "reference_peak_acceleration_rad_s2": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
+        0.00025465262841606594,
+        0.349908015548539,
+        0.33458934700638654,
+        2.6939448963305424e-05,
+        0.3495088916850797,
+        0.33551850306428044,
+        0.0003007538610991057,
+        0.35032884922144847,
+        0.3346626602882319,
+        7.310746504353062e-05,
+        0.3503905046047473,
+        0.33429945453935517
       ]
     }
   ],
@@ -525,23 +446,23 @@
     "demonstration": {
       "status": "recorded_kinematic_timing",
       "duration_s": {
-        "p000_brace_stance": 1.0,
-        "p001_stretch_front_into_bow": 1.5,
-        "p002_hold_bow": 3.0,
-        "p003_raise_front": 1.5,
-        "p004_return_to_standing": 1.0,
-        "p005_hold_standing": 0.5
+        "p000_brace_stance": 0.4,
+        "p001_stretch_front_into_bow": 0.65,
+        "p002_hold_bow": 5.0,
+        "p003_raise_front": 0.6500000000000004,
+        "p004_return_to_standing": 0.39999999999999947,
+        "p005_hold_standing": 0.20000000000000018
       }
     },
     "research_candidate": {
       "status": "offline_unvalidated",
       "duration_s": {
-        "p000_brace_stance": 1.0,
-        "p001_stretch_front_into_bow": 1.5,
-        "p002_hold_bow": 3.0,
-        "p003_raise_front": 1.5,
-        "p004_return_to_standing": 1.0,
-        "p005_hold_standing": 0.5
+        "p000_brace_stance": 0.4,
+        "p001_stretch_front_into_bow": 0.65,
+        "p002_hold_bow": 5.0,
+        "p003_raise_front": 0.6500000000000004,
+        "p004_return_to_standing": 0.39999999999999947,
+        "p005_hold_standing": 0.20000000000000018
       }
     },
     "operating": {
@@ -573,7 +494,7 @@
       "fps": 1
     },
     {
-      "time_s": 8.0,
+      "time_s": 7.1,
       "name": "stand",
       "mode": "once",
       "fps": 1
@@ -582,24 +503,24 @@
   "entry": {
     "joint_angles_rad": [
       [
-        -3.4279175756615554e-09,
-        0.03352514669016316,
-        0.007738809518691742
+        -7.045333538941194e-09,
+        0.06383233032685971,
+        -0.3780800290099412
       ],
       [
-        -6.855835318943024e-09,
-        0.03352477345347081,
-        0.007738730184252423
+        -1.4090725525496137e-08,
+        0.06383198113078883,
+        -0.3780799502863873
       ],
       [
-        1.9847632452160202e-09,
-        0.03352559296754421,
-        0.007738898994546462
+        4.079183809097089e-09,
+        0.06383285072936315,
+        -0.3780801595390931
       ],
       [
-        -3.4280487131336387e-09,
-        0.03352525226236473,
-        0.007738824207827111
+        -7.045472570232577e-09,
+        0.06383233697363948,
+        -0.3780800551101936
       ]
     ],
     "contact_active": [
@@ -608,30 +529,41 @@
       true,
       true
     ],
-    "arbitrary_pose_entry_verified": false
+    "arbitrary_pose_entry_verified": false,
+    "body_position_world_mm": [
+      0.0,
+      0.0,
+      63.0
+    ],
+    "body_orientation_world_quaternion_wxyz": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ]
   },
   "completion": {
     "behavior": "Hold the front-leg stretch bow, reverse the reach and body shift, then return to exact standing and hold.",
     "joint_angles_rad": [
       [
-        -3.427958867362899e-09,
-        0.03352514669021242,
-        0.007738809518703035
+        -7.045333538941194e-09,
+        0.06383233032685971,
+        -0.3780800290099412
       ],
       [
-        -6.8558411791990795e-09,
-        0.033524773453467355,
-        0.007738730184251282
+        -1.4090725525496137e-08,
+        0.06383198113078883,
+        -0.3780799502863873
       ],
       [
-        1.9847264133372035e-09,
-        0.033525592967578455,
-        0.007738898994553826
+        4.079183809097089e-09,
+        0.06383285072936315,
+        -0.3780801595390931
       ],
       [
-        -3.4279778641785868e-09,
-        0.033525252262272265,
-        0.00773882420780645
+        -7.045472570232577e-09,
+        0.06383233697363948,
+        -0.3780800551101936
       ]
     ],
     "contacts": [
@@ -644,12 +576,10 @@
   "source_qualification": {
     "hardware_qualified": false,
     "collision_checked": false,
-    "measured_mass_balance_verified": false,
-    "source_acceleration_continuous": false,
-    "minimum_assumed_support_margin_mm": 49.26986684948603
+    "calibration_qualified": false
   },
   "body_support_required": false,
   "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded path and raise the front through the braced stance before standing; never seek directly to the last row.",
   "hardware_ready": false,
-  "geometry_id": "upright-24-38-24-55-visible-20260929"
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005"
 }

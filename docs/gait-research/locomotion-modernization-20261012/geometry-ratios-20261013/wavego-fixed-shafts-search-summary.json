@@ -1,0 +1,204 @@
+{
+  "source": "Slave/software/models/v2-12servo/geometry.json",
+  "sourceSha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "wavegoSource": "https://github.com/waveshare/WAVEGO/blob/main/Arduino/WAVEGO/ServoCtrl.h",
+  "phi": 23.283758758458244,
+  "force": 1.8501879666666665,
+  "path": {
+    "stroke": 50,
+    "center": 0,
+    "lift": 12,
+    "period": 1.8,
+    "duty": 0.8,
+    "mass": 566,
+    "supports": 3,
+    "push": 0,
+    "travel": 230
+  },
+  "heights": [
+    60,
+    65,
+    70
+  ],
+  "shaftOffset": [
+    -12.500072202896149,
+    11.500026466861769
+  ],
+  "scope": "Planar point-foot external-load calculation; no collision, motor, dynamic or whole-body qualification. Peak includes +/-25% horizontal force. RMS uses vertical support only. Rise is centred 40..70 mm. Search minima are not universal optima.",
+  "tried": 61864,
+  "feasible": 16650,
+  "bounds": {
+    "leg": [
+      45,
+      50,
+      55
+    ],
+    "matchedDrivenArms": [
+      20,
+      40,
+      2
+    ],
+    "rod": [
+      20,
+      56,
+      2
+    ],
+    "pickup": [
+      20,
+      44,
+      2
+    ],
+    "footBend": [
+      -23.283758758458244,
+      23.283758758458244
+    ],
+    "kneeBranches": [
+      -1,
+      1
+    ],
+    "crankBranches": [
+      -1,
+      1
+    ],
+    "condition": "pickup < leg*cos(bend)"
+  },
+  "bestTorqueByLeg": [
+    {
+      "g": {
+        "carrier": 30,
+        "crank": 30,
+        "rod": 56,
+        "pickup": 38,
+        "leg": 45,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "peak": [
+        0.058339932181025275,
+        0.05698500110501674
+      ],
+      "rms": [
+        0.027504528266193297,
+        0.025185406543133577
+      ],
+      "speed": [
+        467.36237713549804,
+        452.04034878342463
+      ],
+      "excursion": [
+        67.33273785848762,
+        64.00951481973864
+      ],
+      "worstTorque": 0.058339932181025275,
+      "worstSpeed": 467.36237713549804,
+      "rmsImbalance": 0.08431781489269269,
+      "speedImbalance": 0.03278404317862161
+    },
+    {
+      "g": {
+        "carrier": 26,
+        "crank": 26,
+        "rod": 56,
+        "pickup": 36,
+        "leg": 50,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "peak": [
+        0.055210455194596705,
+        0.054715555436833214
+      ],
+      "rms": [
+        0.02654642441472645,
+        0.0241618520461703
+      ],
+      "speed": [
+        507.79497991513665,
+        498.71519037636983
+      ],
+      "excursion": [
+        68.23208569648263,
+        63.11641094430161
+      ],
+      "worstTorque": 0.055210455194596705,
+      "worstSpeed": 507.79497991513665,
+      "rmsImbalance": 0.08982649909090293,
+      "speedImbalance": 0.017880817845588478
+    },
+    {
+      "g": {
+        "carrier": 20,
+        "crank": 20,
+        "rod": 44,
+        "pickup": 32,
+        "leg": 55,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "peak": [
+        0.04965899805463593,
+        0.05190771760148022
+      ],
+      "rms": [
+        0.021724490098249113,
+        0.02011661647992295
+      ],
+      "speed": [
+        621.3444217504051,
+        534.3667623759566
+      ],
+      "excursion": [
+        83.82758296753725,
+        79.56505596695357
+      ],
+      "worstTorque": 0.05190771760148022,
+      "worstSpeed": 621.3444217504051,
+      "rmsImbalance": 0.07401203025040162,
+      "speedImbalance": 0.13998300512527587
+    }
+  ],
+  "selected": {
+    "g": {
+      "carrier": 30,
+      "crank": 30,
+      "rod": 52,
+      "pickup": 40,
+      "leg": 50,
+      "shaftX": -12.500072202896149,
+      "shaftZ": 11.500026466861769,
+      "footAngle": 203.28375875845825,
+      "kneeBranch": 1,
+      "crankBranch": -1
+    },
+    "peak": [
+      0.06134627586853023,
+      0.06132788060994904
+    ],
+    "rms": [
+      0.032991995192887175,
+      0.029574700260952408
+    ],
+    "speed": [
+      453.6780505542801,
+      425.811022596163
+    ],
+    "excursion": [
+      57.62316506558143,
+      58.03437082582319
+    ],
+    "worstTorque": 0.06134627586853023,
+    "worstSpeed": 453.6780505542801,
+    "rmsImbalance": 0.10357951715122429,
+    "speedImbalance": 0.06142467753084068
+  },
+  "selection": "30 mm equal arms selected for range/return-speed compromise, not minimum static torque. 26 mm arms lower torque but raise peak joint speed and lose 60 mm stroke at 70 mm shaft height. 52 mm rod gives closely matched peak torques; 50 mm leg follows owner target."
+}

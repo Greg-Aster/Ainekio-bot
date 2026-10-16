@@ -287,6 +287,35 @@ static void test_audio_adjustment_decode_preserves_optional_settings(void)
     assert(ainekio_control_decode(speaker, strlen(speaker), &m) != AINEKIO_DECODE_OK);
 }
 
+static void test_balance_setting_decode(void)
+{
+    ainekio_control_message_t m;
+    const char *get="{\"t\":\"balance\",\"seq\":6,\"op\":\"get\"}";
+    assert(ainekio_control_decode_for_body(get,strlen(get),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.kind==AINEKIO_COMMAND_BALANCE && !m.command.data.balance.save);
+    assert(ainekio_control_decode(get,strlen(get),&m)!=AINEKIO_DECODE_OK);
+    const char *gyro="{\"t\":\"balance\",\"seq\":9,\"op\":\"calibrate_gyro\"}";
+    assert(ainekio_control_decode_for_body(gyro,strlen(gyro),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.balance.calibrate_gyro && !m.command.data.balance.save);
+    gyro="{\"t\":\"balance\",\"seq\":9,\"op\":\"calibrate_gyro\",\"enabled\":true}";
+    assert(ainekio_control_decode_for_body(gyro,strlen(gyro),&m)!=AINEKIO_DECODE_OK);
+    const char *off="{\"t\":\"balance\",\"seq\":7,\"op\":\"save\",\"enabled\":false}";
+    assert(ainekio_control_decode_for_body(off,strlen(off),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.balance.save && !m.command.data.balance.enabled);
+    const char *on="{\"t\":\"balance\",\"seq\":8,\"op\":\"save\",\"enabled\":true}";
+    assert(ainekio_control_decode_for_body(on,strlen(on),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.balance.save && m.command.data.balance.enabled);
+    const char *tuned="{\"t\":\"balance\",\"seq\":10,\"op\":\"save\",\"enabled\":false,\"strength\":1.5,\"damping\":0,\"roll_deg\":-2,\"pitch_deg\":3}";
+    assert(ainekio_control_decode_for_body(tuned,strlen(tuned),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.balance.has_tuning && m.command.data.balance.strength==1.5F &&
+        m.command.data.balance.damping==0.F && m.command.data.balance.roll_deg==-2.F && m.command.data.balance.pitch_deg==3.F);
+    const char *invalid[]={
+        "{\"t\":\"balance\",\"seq\":9,\"op\":\"save\"}",
+        "{\"t\":\"balance\",\"seq\":9,\"op\":\"get\",\"enabled\":false}",
+        "{\"t\":\"balance\",\"seq\":9,\"op\":\"save\",\"enabled\":0}"};
+    for(unsigned i=0;i<3;i++)assert(ainekio_control_decode_for_body(invalid[i],strlen(invalid[i]),&m)!=AINEKIO_DECODE_OK);
+}
+
 static void test_face_feedback_decode(void)
 {
     ainekio_control_message_t m;
@@ -307,6 +336,7 @@ static void test_face_feedback_decode(void)
 
 int main(void)
 {
+    test_balance_setting_decode();
     test_face_feedback_decode();
     test_audio_adjustment_decode_preserves_optional_settings();
     test_initial_state_is_safe();

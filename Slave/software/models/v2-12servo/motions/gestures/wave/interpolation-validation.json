@@ -1,31 +1,11 @@
 {
   "command": "wave",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "9de8eac1baa1f0f51c8a9d6807a3d5f0d4f40348b1d99c401beb47d7e7f3bc4c",
-  "samples": 1921,
+  "samples": 1489,
+  "max_sole_vertex_error_mm": 0.007806555615722541,
+  "max_sole_clearance_change_mm": 0.006968948402516162,
+  "min_closure_height_mm": 13.422079401425677,
+  "status": "passed_compiled_vs_source_full_bare_hull",
+  "source_sha256": "e117471c079df2cd697a30b769e96138a374f9ce42e17980bb69720b1233e61e",
   "hardware_qualified": false,
-  "collision_checked": false,
-  "interpolators": {
-    "source": {
-      "poses": 1921,
-      "minimum_sole_z_mm": -2.361936424222222e-09,
-      "minimum_body_z_mm": 0.5435354083108006,
-      "minimum_closure_height_mm": 8.477181439116967,
-      "maximum_interpolated_target_error_mm": 6.580229694463924e-08
-    },
-    "native_monotone_cubic_midpoints": {
-      "poses": 1920,
-      "minimum_sole_z_mm": -0.0006302147595178553,
-      "minimum_body_z_mm": 0.5435354083108006,
-      "minimum_closure_height_mm": 8.477182974185919,
-      "maximum_interpolated_target_error_mm": 0.03067018228588836
-    },
-    "blender_linear_midpoints": {
-      "poses": 1920,
-      "minimum_sole_z_mm": -8.080814474098474e-05,
-      "minimum_body_z_mm": 0.5435354083108006,
-      "minimum_closure_height_mm": 8.4771841668592,
-      "maximum_interpolated_target_error_mm": 0.03073091122223559
-    }
-  }
+  "scope": "All source knots and one off-grid point per interval; compare compiled C playback to independent source interpolation under the complete body rotation. Does not establish hardware collision clearance."
 }

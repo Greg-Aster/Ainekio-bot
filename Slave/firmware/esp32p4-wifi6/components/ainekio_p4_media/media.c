@@ -484,6 +484,10 @@ esp_err_t ainekio_p4_media_start(const ainekio_p4_media_callbacks_t *configurati
         speaker_queue = NULL;
         return result;
     }
+    /* Create the IMU device before camera/audio device registration. Its
+     * acquisition task starts from app_main after media initialization. */
+    result=p4_imu_prepare(media_bus);
+    ESP_LOGI("p4_media", "LSM6DS3 prepare: %s", esp_err_to_name(result));
     load_input_settings();
     load_speaker_volume();
     result = audio_start();

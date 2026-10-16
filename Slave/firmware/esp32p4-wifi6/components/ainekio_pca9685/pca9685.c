@@ -62,13 +62,6 @@ static ainekio_pca_result_t begin(ainekio_pca9685_t *d, uint64_t expected, bool 
     else if (!recovery && (!d->state.ready || d->state.fault != AINEKIO_PCA_FAULT_NONE))
         result = AINEKIO_PCA_DISARMED;
     else if (!recovery && d->state.armed == arm) result = AINEKIO_PCA_DISARMED;
-    else if (!recovery && !arm &&
-             d->port.now_us(d->port.context) - d->state.last_frame_us >= AINEKIO_PCA_PROGRESS_LIMIT_US) {
-        /* A resumed writer must not hide a missed deadline before the next
-         * supervisor tick. Recovery always requires a separate request. */
-        disable_locked(d, AINEKIO_PCA_FAULT_PROGRESS);
-        result = AINEKIO_PCA_DEADLINE;
-    }
     if (result == AINEKIO_PCA_OK) {
         d->state.in_flight = true;
         *generation = d->state.generation;
@@ -89,7 +82,7 @@ static ainekio_pca_result_t transfer(ainekio_pca9685_t *d, uint64_t generation,
     d->state.io_started_us = started;
     d->state.io_pending = true;
     unlock(d);
-    const bool ok = read
+    const ainekio_pca_bus_result_t bus_result = read
         ? d->port.read(d->port.context, reg, bytes, count, 5U)
         : d->port.write(d->port.context, reg, bytes, count, 5U);
     lock(d);
@@ -97,17 +90,18 @@ static ainekio_pca_result_t transfer(ainekio_pca9685_t *d, uint64_t generation,
     const uint64_t elapsed = d->port.now_us(d->port.context) - started;
     ainekio_pca_result_t result = AINEKIO_PCA_OK;
     if (generation != d->state.generation) result = AINEKIO_PCA_STALE;
-    else if (elapsed > AINEKIO_PCA_IO_BUDGET_US) {
-        disable_locked(d, AINEKIO_PCA_FAULT_DEADLINE);
-        result = AINEKIO_PCA_DEADLINE;
-    } else if (!ok) {
+    else if (bus_result == AINEKIO_PCA_BUS_TIMEOUT) {
+        /* Release the bus call without changing OE, generation or the last
+         * completed frame. A later ordinary write can resume directly. */
+        result = AINEKIO_PCA_TIMEOUT;
+    } else if (bus_result != AINEKIO_PCA_BUS_OK) {
         disable_locked(d, AINEKIO_PCA_FAULT_IO);
         result = AINEKIO_PCA_IO;
     }
     d->state.last_io_us = elapsed;
     if (elapsed > d->state.max_io_us) d->state.max_io_us = elapsed;
     ++d->state.io_transfers;
-    if (!ok) ++d->state.io_failures;
+    if (bus_result != AINEKIO_PCA_BUS_OK) ++d->state.io_failures;
     unlock(d);
     return result;
 }
@@ -118,11 +112,6 @@ static ainekio_pca_result_t finish(ainekio_pca9685_t *d, uint64_t generation,
     lock(d);
     if (result == AINEKIO_PCA_OK && generation != d->state.generation)
         result = AINEKIO_PCA_STALE;
-    if (result == AINEKIO_PCA_OK && !recovery && !arm &&
-        d->port.now_us(d->port.context) - d->state.last_frame_us >= AINEKIO_PCA_PROGRESS_LIMIT_US) {
-        disable_locked(d, AINEKIO_PCA_FAULT_PROGRESS);
-        result = AINEKIO_PCA_DEADLINE;
-    }
     if (result == AINEKIO_PCA_OK) {
         if (recovery) {
             d->state.ready = true;
@@ -243,8 +232,15 @@ static ainekio_pca_result_t frame(ainekio_pca9685_t *d, uint64_t expected,
         }
         const uint64_t ticks = pulse_ticks(d, pulses[i]);
         if (ticks == 0 || ticks >= 4096U) return AINEKIO_PCA_INVALID;
-        bytes[4U * i + 2U] = (uint8_t)ticks;
-        bytes[4U * i + 3U] = (uint8_t)(ticks >> 8U);
+        /* Spread the twelve body signal pulses across the PWM period. Keep
+         * pulse width exact even when OFF wraps through counter zero. This
+         * changes signal phase, not joint targets, frame cadence or I2C order. */
+        const uint16_t on = (uint16_t)(4096U * i / AINEKIO_PCA_BODY_CHANNELS);
+        const uint16_t off = (uint16_t)((on + ticks) & 0x0fffU);
+        bytes[4U * i] = (uint8_t)on;
+        bytes[4U * i + 1U] = (uint8_t)(on >> 8U);
+        bytes[4U * i + 2U] = (uint8_t)off;
+        bytes[4U * i + 3U] = (uint8_t)(off >> 8U);
     }
     uint64_t generation = 0;
     ainekio_pca_result_t result = begin(d, expected, false, arm, &generation);
@@ -258,15 +254,3 @@ ainekio_pca_result_t ainekio_pca_arm(ainekio_pca9685_t *d, uint64_t generation,
 
 ainekio_pca_result_t ainekio_pca_write_frame(ainekio_pca9685_t *d, uint64_t generation,
     const uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS]) { return frame(d, generation, pulses, false); }
-
-void ainekio_pca_supervise(ainekio_pca9685_t *d)
-{
-    lock(d);
-    const uint64_t now = d->port.now_us(d->port.context);
-    if (d->state.io_pending && d->state.fault == AINEKIO_PCA_FAULT_NONE &&
-        now - d->state.io_started_us >= AINEKIO_PCA_IO_BUDGET_US)
-        disable_locked(d, AINEKIO_PCA_FAULT_DEADLINE);
-    else if (d->state.armed && now - d->state.last_frame_us >= AINEKIO_PCA_PROGRESS_LIMIT_US)
-        disable_locked(d, AINEKIO_PCA_FAULT_PROGRESS);
-    unlock(d);
-}

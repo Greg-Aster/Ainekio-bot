@@ -1,0 +1,6 @@
+{
+  "geometry": "compact60",
+  "point_jacobian_max_error_mm_per_rad": 2.8711411914628115e-08,
+  "checks": 18,
+  "scope": "Independent finite difference of closed-chain linkage pickup, foot and centre points; not contact dynamics or hardware proof."
+}

@@ -1,6 +1,9 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "lateral_out_of_range", "reason": "range:walk.lateral", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "forward": 0, "turn": 0, "lateral": 101}},
+    {"name": "lateral_without_paired_steering", "reason": "type:walk.forward", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "lateral": 50}},
+
     {"name": "camera_partial_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000}, "reason": "missing:gain_x16"},
     {"name": "camera_sub_unity_gain", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 0, "gain_x16": 1, "jpeg_quality": 75}, "reason": "range:camera_controls"},
     {"name": "speaker_invalid_-1", "message": {"t": "speaker", "seq": 1, "volume_percent": -1}, "reason": "range:volume_percent"},
@@ -160,6 +163,14 @@
     },
     {"name": "pong_with_seq", "message": {"t": "pong", "seq": 16}, "reason": "unexpected:seq"},
     {"name": "unknown_message_type", "message": {"t": "dance", "seq": 17}, "reason": "value:t"},
-    {"name": "message_not_object", "message": ["stop"], "reason": "type:message"}
+    {"name": "message_not_object", "message": ["stop"], "reason": "type:message"},
+    {"name": "balance_save_missing", "message": {"t": "balance", "seq": 4, "op": "save"}, "reason": "missing:enabled", "receiver": "body"},
+    {"name": "balance_get_value", "message": {"t": "balance", "seq": 5, "op": "get", "enabled": false}, "reason": "unexpected enabled setting", "receiver": "body"},
+    {"name": "balance_non_boolean", "message": {"t": "balance", "seq": 6, "op": "save", "enabled": 0}, "reason": "type:enabled", "receiver": "body"},
+    {"name": "balance_status_missing_active", "message": {"t": "balance_status", "seq": 7, "enabled": true, "saved": true}, "receiver": "gateway", "reason": "missing:active"},
+    {"name": "balance_tuning_missing_damping", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": 1.75, "roll_deg": -2, "pitch_deg": 3}, "reason": "missing:damping"},
+    {"name": "balance_tuning_negative_strength", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": -1, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3}, "reason": "range:strength"},
+    {"name": "balance_tuning_boolean_pitch", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": true}, "reason": "type:pitch_deg"},
+    {"name": "balance_tuning_get_values", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "get", "enabled": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3}, "reason": "unexpected enabled setting"}
   ]
 }

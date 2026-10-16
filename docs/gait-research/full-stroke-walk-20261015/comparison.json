@@ -1,0 +1,309 @@
+{
+  "schema": "ainekio.full-stroke-walk.offline.v1",
+  "hardware_qualified": false,
+  "geometry_mm": {
+    "carrier": 35,
+    "crank": 20,
+    "pickup": 28,
+    "rod": 38,
+    "leg": 55
+  },
+  "contact": "bare Part027",
+  "sample_hz": 50,
+  "steady_sample_seconds": [
+    10,
+    16
+  ],
+  "joint_span_order": "physical front-left, front-right, rear-left, rear-right (native CAD RL,RR,FL,FR)",
+  "pulse_order": "model CAD FL,FR,RL,RR; physical rear-left,rear-right,front-left,front-right",
+  "moment_arm_scope": "Planar linkage Jacobian at the modeled lowest bare-sole vertex, with shoulder-roll projection; maximum across planned grounded contacts. Nm per newton of vertical foot force. Not measured force, current or stall margin.",
+  "walk_profile": {
+    "body_z_mm": 5,
+    "stance_sweep_mm": 88.0,
+    "rearward_bias_mm": -17.7,
+    "lift_mm": 10,
+    "body_motion_scale": 0,
+    "stroke_basis": "Installed 35/20/28/38/55 mm bare Part027 linkage, fixed shafts. 88 mm stance sweep with jointly fitted fore/aft placement and direction-specific varying body height. Existing pulse review window and linkage transmission criteria retained. Owner examples 2900/1400 us are not mandatory endpoints; body height may vary. 89 mm with this profile fails loaded transmission checks. This is the largest passing whole-millimeter candidate in this search, not proof of an absolute mechanical maximum or physical qualification.",
+    "transition_cycles": 2,
+    "ground_contact_fraction": 0.78,
+    "support_x_mean_mm": 9,
+    "support_x_mm": 4,
+    "support_y_mm": 5,
+    "support_x_mean_full_stride_mm": 0,
+    "minimum_lift_mm": 6,
+    "support_phase_cycles": 0,
+    "body_z_full_stride_mm": -15.310921722621375,
+    "body_height_coefficients_mm": [
+      1.0840762345072221,
+      0.7670887274484093,
+      2.4769186099292133,
+      -1.1703090494452
+    ],
+    "backward_body_z_full_stride_mm": -13.571596020572933,
+    "backward_body_height_coefficients_mm": [
+      2.2046701156091917,
+      1.437063657516095,
+      -3.6125016490083377,
+      -2.5010631680754263
+    ],
+    "run_transition_body_x_mm": -4.0,
+    "height_rephase_gain": 1.55,
+    "run_transition_backward_body_x_mm": -1.0
+  },
+  "source_sha256": {
+    "Slave/software/models/v2-12servo/motion.c": "6326d0b7b6aa4330743c64e5cad784167edfe8f345af003bd45c716b70f77540",
+    "Slave/software/models/v2-12servo/geometry.json": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+    "Slave/software/models/v2-12servo/motions/locomotion/config.json": "89aefb3aa6d00bcbf65a2a88f74d29306749aef701bf8b25f4414286086e94cc",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk-contact.json": "fbcae38d154a461dc9310002cbd49ea97531994fd51fbb1ed96a8b9a14bdb044"
+  },
+  "results": [
+    {
+      "direction": "fwd",
+      "speed": 50,
+      "planted_sweep_mm": 44.0,
+      "pulse_min": [
+        1459.0,
+        2125.0,
+        1991.0,
+        1628.0,
+        654.0,
+        556.0,
+        1628.0,
+        2151.0,
+        1980.0,
+        1719.0,
+        671.0,
+        609.0
+      ],
+      "pulse_max": [
+        1542.0,
+        2646.0,
+        2721.0,
+        1711.0,
+        1175.0,
+        1304.0,
+        1711.0,
+        2629.0,
+        2687.0,
+        1802.0,
+        1135.0,
+        1321.0
+      ],
+      "carrier_spans_deg": [
+        42.966358642594756,
+        41.6977331543266,
+        46.83611206051428,
+        46.88415405276543
+      ],
+      "crank_spans_deg": [
+        63.679910888676886,
+        64.08023071285999,
+        65.67644531249306,
+        67.38451904293305
+      ],
+      "body_z_range_mm": [
+        -6.59858864351,
+        -3.12860503717
+      ],
+      "cycles_per_second": 1.7531170783666667,
+      "model_progress_mm_s": 98.74947492366665,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.04377770312019826,
+        0.03495994695603512
+      ],
+      "hardware_qualified": false
+    },
+    {
+      "direction": "fwd",
+      "speed": 100,
+      "planted_sweep_mm": 88.0,
+      "pulse_min": [
+        1450.0,
+        1580.0,
+        1584.0,
+        1620.0,
+        428.0,
+        416.0,
+        1620.0,
+        1584.0,
+        1543.0,
+        1711.0,
+        449.0,
+        479.0
+      ],
+      "pulse_max": [
+        1550.0,
+        2872.0,
+        2884.0,
+        1720.0,
+        1720.0,
+        1716.0,
+        1719.0,
+        2851.0,
+        2821.0,
+        1810.0,
+        1716.0,
+        1757.0
+      ],
+      "carrier_spans_deg": [
+        113.95827392569606,
+        113.9614770508334,
+        116.21839843761411,
+        116.216462402109
+      ],
+      "crank_spans_deg": [
+        115.01271972639358,
+        115.01485351564611,
+        116.9752099606495,
+        116.97247070305981
+      ],
+      "body_z_range_mm": [
+        -18.1780546572,
+        -11.2822906052
+      ],
+      "cycles_per_second": 0.8058083198166667,
+      "model_progress_mm_s": 91.79175822066667,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.05101453792227885,
+        0.04918144639666993
+      ],
+      "hardware_qualified": false
+    },
+    {
+      "direction": "back",
+      "speed": 50,
+      "planted_sweep_mm": 44.0,
+      "pulse_min": [
+        1458.0,
+        2161.0,
+        2000.0,
+        1628.0,
+        662.0,
+        580.0,
+        1628.0,
+        2123.0,
+        1952.0,
+        1719.0,
+        634.0,
+        582.0
+      ],
+      "pulse_max": [
+        1542.0,
+        2638.0,
+        2720.0,
+        1712.0,
+        1139.0,
+        1300.0,
+        1711.0,
+        2666.0,
+        2718.0,
+        1802.0,
+        1177.0,
+        1348.0
+      ],
+      "carrier_spans_deg": [
+        48.8691162109607,
+        48.86900756836516,
+        42.98179321293111,
+        42.9817810058361
+      ],
+      "crank_spans_deg": [
+        68.92666992187148,
+        68.92643798826954,
+        64.81093139649477,
+        64.8110461425805
+      ],
+      "body_z_range_mm": [
+        -7.65153200643,
+        -1.37759085725
+      ],
+      "cycles_per_second": 1.8158855939666665,
+      "model_progress_mm_s": 102.60229654666666,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.044575063846730587,
+        0.034981967449944466
+      ],
+      "hardware_qualified": false
+    },
+    {
+      "direction": "back",
+      "speed": 100,
+      "planted_sweep_mm": 88.0,
+      "pulse_min": [
+        1450.0,
+        1609.0,
+        1589.0,
+        1619.0,
+        414.0,
+        427.0,
+        1619.0,
+        1611.0,
+        1546.0,
+        1711.0,
+        414.0,
+        457.0
+      ],
+      "pulse_max": [
+        1552.0,
+        2885.0,
+        2848.0,
+        1720.0,
+        1650.0,
+        1712.0,
+        1719.0,
+        2880.0,
+        2856.0,
+        1811.0,
+        1744.0,
+        1756.0
+      ],
+      "carrier_spans_deg": [
+        114.16863037092293,
+        119.68016601567773,
+        114.84822265635827,
+        111.22741210936326
+      ],
+      "crank_spans_deg": [
+        117.88014648445738,
+        116.89080078110261,
+        113.3061279298048,
+        115.66183593767892
+      ],
+      "body_z_range_mm": [
+        -20.302532239,
+        -7.752290925
+      ],
+      "cycles_per_second": 0.8459533608666666,
+      "model_progress_mm_s": 95.45274850933335,
+      "peak_planted_vertical_force_moment_arm_Nm_per_N": [
+        0.052567017136791426,
+        0.04679594819818242
+      ],
+      "hardware_qualified": false
+    }
+  ],
+  "validation": {
+    "native_tests_passed": 51,
+    "native_tests_total": 51,
+    "calibrated_test_pulse_range_us": [
+      401,
+      2896
+    ],
+    "firmware_version": "0.8.58-p4-full-stroke",
+    "image_sha256": "2fbc8f7090c8f1f4163ef0cecfe646b61f22e287d59653b7d52f417862d48d63",
+    "deployed": true,
+    "deployment_receipt": {
+      "verified_utc": "2026-10-16T00:05:34.851884+00:00",
+      "version": "0.8.58-p4-full-stroke",
+      "running": "ota_0",
+      "boot": "ota_0",
+      "pending_verify": false,
+      "error": "ESP_OK",
+      "connected": true,
+      "state": "active",
+      "output_armed": true,
+      "balance_enabled": false,
+      "physical_walk_tested": false
+    }
+  }
+}

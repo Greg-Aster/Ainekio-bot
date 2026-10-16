@@ -1,6 +1,8 @@
 {
   "protocol": 1,
   "cases": [
+    {"name": "crab_lateral_update", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "forward": 25, "turn": 0, "lateral": -80, "update": 50}},
+
     {"name": "camera_hd_manual_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000, "gain_x16": 64, "jpeg_quality": 85}},
     {"name": "camera_fhd_auto_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "FHD", "exposure_us": 0, "gain_x16": 0, "jpeg_quality": 75}},
     {"name": "speaker_volume_0", "message": {"t": "speaker", "seq": 1, "volume_percent": 0}, "receiver": "body"},
@@ -139,6 +141,13 @@
     {
       "name": "forward_compatible_extra_field",
       "message": {"t": "stop", "seq": 24, "future_field": "ignored"}
-    }
+    },
+    {"name": "balance_calibrate_gyro", "message": {"t": "balance", "seq": 9, "op": "calibrate_gyro"}, "receiver": "body"},
+    {"name": "balance_get", "message": {"t": "balance", "seq": 1, "op": "get"}, "receiver": "body"},
+    {"name": "balance_off", "message": {"t": "balance", "seq": 2, "op": "save", "enabled": false}, "receiver": "body"},
+    {"name": "balance_on", "message": {"t": "balance", "seq": 3, "op": "save", "enabled": true}, "receiver": "body"},
+    {"name": "balance_status", "message": {"t": "balance_status", "seq": 3, "enabled": true, "saved": true, "active": false}, "receiver": "gateway"},
+    {"name": "balance_tuning_save", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3}},
+    {"name": "balance_tuning_status", "receiver": "gateway", "message": {"t": "balance_status", "seq": 8, "enabled": false, "saved": true, "active": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3, "tuning_saved": true}}
   ]
 }

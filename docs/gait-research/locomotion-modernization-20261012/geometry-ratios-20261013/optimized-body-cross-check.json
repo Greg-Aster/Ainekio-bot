@@ -1,0 +1,113 @@
+[
+  {
+    "name": "compact60",
+    "dimensions": [
+      45,
+      55,
+      20,
+      18.3,
+      26.5,
+      68.1,
+      -10.9,
+      -27.3
+    ],
+    "stride": 60,
+    "body_plan_success": true,
+    "body_plan_max_residual": 7.958078640513122e-13,
+    "stance_closed": true,
+    "all_cycle_closed": true,
+    "minimum_loaded_sagittal_angle": 45.37468871582258,
+    "minimum_support_margin": 2.404521383845829,
+    "minimum_reaction_fraction": 0.0,
+    "body_shift_extent": [
+      7.09374777591527,
+      8.352613577584913
+    ],
+    "peak_speed_deg_s": [
+      28.058893924093965,
+      531.554300291835,
+      935.5095171639551
+    ],
+    "point_body_torque_Nm": [
+      0.10264103032408417,
+      0.05105697854859285,
+      0.10138822993909895
+    ],
+    "force_equilibrium_error": 1.0247448389844038e-07,
+    "scope": "Independent actual foot mesh and body shift. Point body load only in this cross-check; dynamic optimizer supplies separate link inertia estimate. Not physical qualification."
+  },
+  {
+    "name": "medium82",
+    "dimensions": [
+      60,
+      55,
+      20.1,
+      13.9,
+      30.3,
+      84,
+      -5.3,
+      -39.2
+    ],
+    "stride": 82,
+    "body_plan_success": true,
+    "body_plan_max_residual": 1.2292389328649733e-12,
+    "stance_closed": true,
+    "all_cycle_closed": true,
+    "minimum_loaded_sagittal_angle": 44.23253831726406,
+    "minimum_support_margin": 2.355759092028361,
+    "minimum_reaction_fraction": 0.0,
+    "body_shift_extent": [
+      7.785835606720445,
+      9.119565781111213
+    ],
+    "peak_speed_deg_s": [
+      25.8231981674997,
+      574.8680991208895,
+      1216.8333387600828
+    ],
+    "point_body_torque_Nm": [
+      0.10338689408735598,
+      0.10205880462137919,
+      0.14541513161173542
+    ],
+    "force_equilibrium_error": 6.743053276858646e-08,
+    "scope": "Independent actual foot mesh and body shift. Point body load only in this cross-check; dynamic optimizer supplies separate link inertia estimate. Not physical qualification."
+  },
+  {
+    "name": "unrestricted82",
+    "dimensions": [
+      113,
+      53,
+      20.1,
+      14.5,
+      63.2,
+      135.4,
+      -9.2,
+      -59.3
+    ],
+    "stride": 82,
+    "body_plan_success": true,
+    "body_plan_max_residual": 1.7692514120426495e-12,
+    "stance_closed": true,
+    "all_cycle_closed": true,
+    "minimum_loaded_sagittal_angle": 44.3141001935506,
+    "minimum_support_margin": 2.0120039377022607,
+    "minimum_reaction_fraction": 0.0,
+    "body_shift_extent": [
+      6.1574957897201,
+      6.351336723110794
+    ],
+    "peak_speed_deg_s": [
+      12.951113806123569,
+      319.10131263151317,
+      453.62977669664696
+    ],
+    "point_body_torque_Nm": [
+      0.10288316894160603,
+      0.09487233498398864,
+      0.11282974603396546
+    ],
+    "force_equilibrium_error": 4.536110598252208e-09,
+    "scope": "Independent actual foot mesh and body shift. Point body load only in this cross-check; dynamic optimizer supplies separate link inertia estimate. Not physical qualification."
+  }
+]

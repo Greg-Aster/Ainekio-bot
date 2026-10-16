@@ -22,7 +22,7 @@ def compile_walk(root,out):
     low=json.loads((root/'motions/locomotion/config.json').read_text())
     contacts=json.loads((root/'motions/locomotion/contact-hulls.json').read_text())
     sole=json.loads((root/'motions/locomotion/sole-profile.json').read_text())
-    if sole['geometry_sha256']!=digest(root/'geometry.json') or sole['contact_source_sha256']!=digest(root/'motions/locomotion/contact-hulls.json'):raise ValueError('compact sole provenance')
+    if sole['geometry_sha256']!=digest(root/'geometry.json') or sole['contact_source_sha256']!=digest(root/'motions/locomotion/contact-hulls.json') or sole['walk_contact_sha256']!=digest(root/'motions/locomotion/walk-contact.json'):raise ValueError('compact sole provenance')
     if low['geometry_sha256']!=digest(root/'geometry.json') or low['hardware_qualified'] is not False:raise ValueError('locomotion geometry provenance')
     if contacts['source_sha256']!=digest(root/'motions/gestures/sit/posture-hulls.npz'):raise ValueError('locomotion hull provenance')
     if cfg['leg_order']!=['RL','RR','FL','FR'] or cfg['joint_order']!=['h_Part002','alpha_Part006','theta_Part005']:
@@ -41,24 +41,37 @@ def compile_walk(root,out):
       'extern const float v2_walk_pivot[3];','extern const double v2_walk_stance[4][2],v2_walk_offsets[4];']
     for key,value in {'O_X':p['O'][0],'O_Z':p['O'][1],'C_X':p['C_new'][0],'C_Z':p['C_new'][1],'PRIMARY':p['primary_length'],'INPUT':p['input_length'],'ROD':p['rod_length'],'PICKUP':p['pickup_length'],'ALPHA_ZERO':p['alpha_neutral'],'THETA_ZERO':p['new_theta_neutral'],'BETA_ZERO':p['beta_neutral'],'BRANCH':p['assembly_branch'],'BETA_C':math.cos(p['beta_neutral']),'BETA_S':math.sin(p['beta_neutral'])}.items():header.append(f'#define V2_{key} ({value:.9e}f)')
     for key,value in {'PERIOD':cfg['gait_controls']['base_cycle_seconds'],'DUTY':cfg['ground_contact_fraction'],'SWEEP':cfg['continuous_walk']['stance_sweep_100_mm'],'BIAS':cfg['continuous_walk']['rearward_bias_100_mm'],'SWAY':cfg['continuous_walk']['lateral_sway_mm'],'BOB':cfg['continuous_walk']['body_bob_mm'],'ROLL':math.radians(cfg['continuous_walk']['roll_deg']),'PITCH':math.radians(cfg['continuous_walk']['pitch_deg']),'STAND_BODY_Z':cfg['body_translation_z_mm'],'BODY_Z':low['walk']['body_z_mm'],'MIN_LIFT':cfg['continuous_walk']['minimum_lift_mm'],'LIFT':cfg['sole_clearance_mm']}.items():header.append(f'#define V2_{key} ({value:.17e})')
-    for key,field in {"WALK_SWEEP":"stance_sweep_mm","WALK_BIAS":"rearward_bias_mm","WALK_LIFT":"lift_mm","WALK_BODY_SCALE":"body_motion_scale","WALK_TRANSITION":"transition_cycles"}.items():
+    for key,field in {"WALK_SWEEP":"stance_sweep_mm","WALK_BIAS":"rearward_bias_mm","WALK_LIFT":"lift_mm","WALK_MIN_LIFT":"minimum_lift_mm","WALK_SUPPORT_PHASE":"support_phase_cycles","WALK_BODY_SCALE":"body_motion_scale","WALK_TRANSITION":"transition_cycles","WALK_DUTY":"ground_contact_fraction","WALK_SUPPORT_X_MEAN":"support_x_mean_mm","WALK_SUPPORT_X_MEAN_FULL":"support_x_mean_full_stride_mm","WALK_SUPPORT_X":"support_x_mm","WALK_SUPPORT_Y":"support_y_mm"}.items():
         header.append(f"#define V2_{key} ({low['walk'][field]:.17e})")
+    for name,field in [('v2_walk_key_phases','full_stride_key_phases'),('v2_walk_back_key_phases','backward_full_stride_key_phases')]:
+        header.append('static const double '+name+'[8] = '+array(low['walk'][field],False)+';')
     run=json.loads((root/'motions/run/config.json').read_text())
     if run['geometry_sha256']!=digest(root/'geometry.json') or run['hardware_qualified'] is not False:raise ValueError('run geometry provenance')
     if run['mounting_profile_sha256']!=digest(root/'servo_profile.json'):raise ValueError('Run mounting profile changed; revalidate reach')
     if run['forward']['lane_assignment']!='physical_front_inside_rear_outside' or not 0<=run['forward']['lane_offset_mm']<=20:raise ValueError('unsupported Run lane assignment')
     if not 0<run['ground_contact_fraction']<.5 or [run['phase_offsets'][l] for l in cfg['leg_order']]!=[0,0,.5,.5]:raise ValueError('run must alternate front/rear pairs with flight')
     for key,value in {'RUN_FORWARD_PITCH':math.radians(run['forward']['pitch_deg']),'RUN_FORWARD_PITCH_PHASE':2*math.pi*run['forward']['pitch_phase_cycles'],'RUN_START_SWEEP':run['initial_sweep_mm'],'RUN_SWING_RAMP':run['swing_ramp_fraction'],'RUN_FORWARD_PITCH_BIAS':math.radians(run['forward']['pitch_bias_deg']),'RUN_FORWARD_LANE':run['forward']['lane_offset_mm'],'RUN_FORWARD_SWEEP':run['forward']['sweep_mm'],'RUN_FORWARD_BIAS':run['forward']['rearward_bias_mm'],'RUN_FORWARD_BODY_Z':run['forward']['body_z_mm'],'RUN_TRANSITION':run['transition_cycles'],'RUN_PERIOD':run['base_cycle_seconds'],'RUN_DUTY':run['ground_contact_fraction'],'RUN_SWEEP':run['sweep_mm'],'RUN_BIAS':run['rearward_bias_mm'],'RUN_LIFT':run['lift_mm'],'RUN_MIN_LIFT':run['minimum_lift_mm'],'RUN_BODY_Z':run['body_z_mm'],'RUN_BOB':run['bob_mm'],'RUN_PITCH':math.radians(run['pitch_deg']),'RUN_TURN':math.radians(run['turn_degrees_per_cycle'])}.items():header.append(f'#define V2_{key} ({value:.17e})')
+    header.append(f"#define V2_WALK_BODY_Z_FULL ({low['walk'].get('body_z_full_stride_mm',low['walk']['body_z_mm']):.17e})")
+    height=low['walk'].get('body_height_coefficients_mm',[0.,0.,0.,0.])
+    header.append('static const double v2_walk_height[4] = '+array(height,False)+';')
+    header.append(f"#define V2_WALK_BACK_BODY_Z_FULL ({low['walk']['backward_body_z_full_stride_mm']:.17e})")
+    header.append('static const double v2_walk_back_height[4] = '+array(low['walk']['backward_body_height_coefficients_mm'],False)+';')
+    header.append(f"#define V2_WALK_RUN_TRANSFER_X ({low['walk']['run_transition_body_x_mm']:.17e})")
+    header.append(f"#define V2_WALK_HEIGHT_REPHASE_GAIN ({low['walk']['height_rephase_gain']:.17e})")
+    header.append(f"#define V2_WALK_RUN_BACK_TRANSFER_X ({low['walk']['run_transition_backward_body_x_mm']:.17e})")
     for key,value in low['leverage_validation'].items():
         if key!='scope':header.append(f'#define V2_CHECK_{key.upper()} ({value:.17e})')
     crawl=low['crawl']
     crab=json.loads((root/'motions/locomotion/crab.json').read_text())
     if crab['geometry_sha256']!=digest(root/'geometry.json') or crab['hardware_qualified'] is not False:raise ValueError('Crab geometry provenance')
-    for key,field in {'STARTUP_CYCLES':'startup_cycles','BODY_Z':'body_z_mm','ENTRY':'entry_seconds','WIDTH':'stance_half_width_mm','PERIOD':'period_seconds','SWEEP':'sweep_mm','SIDE_SWEEP':'side_sweep_mm','LIFT':'lift_mm','MIN_LIFT':'minimum_lift_mm'}.items():
+    for key,field in {'DUTY':'ground_contact_fraction','STARTUP_CYCLES':'startup_cycles','BODY_Z':'body_z_mm','ENTRY':'entry_seconds','WIDTH':'stance_half_width_mm','PERIOD':'period_seconds','SWEEP':'sweep_mm','SIDE_SWEEP':'side_sweep_mm','LIFT':'lift_mm','MIN_LIFT':'minimum_lift_mm'}.items():
         header.append(f'#define V2_CRAB_{key} ({crab[field]:.17e})')
     header.append(f"#define V2_CRAB_TURN ({math.radians(crab['turn_degrees_per_cycle']):.17e})")
     header.append('static const double v2_crab_offsets[4] = {'+','.join(map(str,crab['phase_offsets']))+'};')
-    for key,value in {'WALK_TURN':math.radians(low['walk_turn_degrees_per_cycle']),'CRAWL_TURN':math.radians(crawl['turn_degrees_per_cycle']),'CRAWL_BODY_Z':crawl['body_z_mm'],'CRAWL_ENTRY':crawl['entry_seconds'],'CRAWL_SWEEP':crawl['sweep_mm'],'CRAWL_BIAS':crawl['rearward_bias_mm'],'CRAWL_LIFT':crawl['lift_mm'],'CRAWL_MIN_LIFT':crawl['minimum_lift_mm'],'CRAWL_SWAY':crawl['sway_mm'],'CRAWL_BOB':crawl['bob_mm'],'CRAWL_ROLL':math.radians(crawl['roll_deg']),'CRAWL_PITCH':math.radians(crawl['pitch_deg'])}.items():header.append(f'#define V2_{key} ({value:.17e})')
+    for key,value in {'WALK_TURN':math.radians(low['walk_turn_degrees_per_cycle']),'CRAWL_DUTY':crawl['ground_contact_fraction'],'CRAWL_TURN':math.radians(crawl['turn_degrees_per_cycle']),'CRAWL_BODY_Z':crawl['body_z_mm'],'CRAWL_ENTRY':crawl['entry_seconds'],'CRAWL_SWEEP':crawl['sweep_mm'],'CRAWL_BIAS':crawl['rearward_bias_mm'],'CRAWL_LIFT':crawl['lift_mm'],'CRAWL_MIN_LIFT':crawl['minimum_lift_mm'],'CRAWL_SWAY':crawl['sway_mm'],'CRAWL_BOB':crawl['bob_mm'],'CRAWL_ROLL':math.radians(crawl['roll_deg']),'CRAWL_PITCH':math.radians(crawl['pitch_deg'])}.items():header.append(f'#define V2_{key} ({value:.17e})')
+    for kind,settings in [('crawl',crawl),('crab',crab)]:
+        directions=['fwd','back','turn_l','turn_r']+(['side_l','side_r'] if kind=='crab' else [])
+        header.append('static const double v2_'+kind+'_support[][5] = '+array([settings['support_coefficients_mm'][d] for d in directions],False)+';')
     code=['#include "walk_data.h"',f'const char ainekio_v2_walk_id[] = {json.dumps(manifest["gait_id"])};',
           'const bool ainekio_v2_walk_hardware_qualified = false;',f'const char ainekio_v2_walk_geometry_id[] = {json.dumps(manifest["geometry_id"])};',
           'const ainekio_v2_joint_t ainekio_v2_joints[AINEKIO_V2_JOINT_COUNT] = {']

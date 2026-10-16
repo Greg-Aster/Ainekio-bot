@@ -19,11 +19,12 @@ def main(root, binary):
     ref=importlib.util.module_from_spec(spec);spec.loader.exec_module(ref)
     cfg=json.loads((root/'geometry.json').read_text());contact=json.loads((root/'motions/locomotion/contact-hulls.json').read_text())
     profile=json.loads((root/'motions/locomotion/sole-profile.json').read_text());m=ref.Mechanism(cfg);limits=Limits(root)
+    bare=json.loads((root/'motions/locomotion/walk-contact.json').read_text())['sole_hull_local_mm']
     bounds={}
     for gait in ('walk','crawl'):
         compact=np.array(profile['profiles'][gait]);maximum=0.
         for leg in cfg['leg_order']:
-            original=np.array(cfg['legs'][leg]['sole_hull_local_mm'] if gait=='walk' else contact['soles'][leg])
+            original=np.array(bare if gait=='walk' else contact['soles'][leg])
             maximum=max(maximum,float(distances(original,compact).max()))
         assert maximum<profile['support_allowance_mm']-.0001
         bounds[gait]=maximum
@@ -33,8 +34,7 @@ def main(root, binary):
     leverage={};envelope_conflicts={}
     xy=0.;zlow=math.inf;zhigh=-math.inf;step=0.;count=0
     for gait in ('walk','crawl','run','crab'):
-        m.hulls={leg:np.asarray(contact['soles'][leg] if gait=='crawl' else cfg['legs'][leg]['sole_hull_local_mm']) for leg in cfg['leg_order']}
-        if gait=='crab':m.hulls={leg:reviewed['sole_'+leg] for leg in cfg['leg_order']}
+        m.hulls={leg:np.asarray(bare) for leg in cfg['leg_order']}
         for direction in (('fwd','back','turn_l','turn_r','side_l','side_r') if gait=='crab' else ('fwd','back','turn_l','turn_r')):
             for hz in (25,50):
                 initial=dict(t='intent',seq=1,name='walk',dir=direction,gait=gait,steps=0,speed=100)

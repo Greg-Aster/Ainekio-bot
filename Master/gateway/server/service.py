@@ -14,8 +14,10 @@ from dataclasses import dataclass, field
 from time import monotonic
 from typing import Any, AsyncContextManager
 from uuid import uuid4
+from datetime import datetime, timezone
 
 from gateway.security import RobotTokenStore
+from gateway.body_events import BodyEvents
 
 from protocol.binary_helpers import (
     MAX_JPEG_BYTES,
@@ -29,6 +31,7 @@ from protocol.control_v1 import (
     WALK_CONTROLS_FEATURE,
     LOCOMOTION_FEATURE,
     WALK_STEERING_FEATURE,
+    WALK_LATERAL_FEATURE,
     RUN_GAIT_FEATURE,
     CRAB_GAIT_FEATURE,
     COMMAND_DEADLINE_FEATURE,
@@ -42,6 +45,9 @@ from protocol.control_v1 import (
     ROBOT_SETTINGS_FEATURE,
     GATEWAY_SWITCHING_FEATURE,
     MOTION_SPEED_FEATURE,
+    BALANCE_CONTROL_FEATURE,
+    BALANCE_TUNING_FEATURE,
+    BALANCE_TUNING_FIELDS,
     JOINT_SPEED_LIMIT_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
@@ -59,7 +65,7 @@ from websockets.exceptions import ConnectionClosed
 MAX_WEBSOCKET_MESSAGE_BYTES = MAX_JPEG_BYTES + 5
 DEFAULT_PING_INTERVAL_SECONDS = 1.0
 CONTROL_STALE_SECONDS = 4.0
-BODY_CLOCK_FRESHNESS_SECONDS = 1.0
+BODY_CLOCK_GAP_LOG_SECONDS = 1.0
 TTS_START_ACK_TIMEOUT_SECONDS = 2.0
 SPEAKER_FRAME_SECONDS = 0.020
 SPEAKER_PREBUFFER_FRAMES = 5
@@ -167,6 +173,7 @@ class GatewayConnection:
         self.last_status: dict[str, object] | None = None
         self.last_calibration: dict[str, object] | None = None
         self.last_storage: dict[str, object] | None = None
+        self.last_balance: dict[str, object] | None = None
         self.last_motion_speed: dict[str, object] | None = None
         self.last_robot_settings: dict[str, object] | None = None
         self.mode = "normal"
@@ -193,6 +200,7 @@ class GatewayConnection:
         self.close_reason: str | None = None
         self._send_lock = asyncio.Lock()
         self._speaker_lock = asyncio.Lock()
+        self._speaker_task: asyncio.Task[Any] | None = None
         self._cancel_code = "disconnect"
 
     def observe_body_clock(self, message: Mapping[str, object]) -> None:
@@ -204,7 +212,7 @@ class GatewayConnection:
             if self.body_clock_ms is not None:
                 gap_ms = round((now - self.body_clock_received_at) * 1000)
                 self.body_clock_max_gap_ms = max(self.body_clock_max_gap_ms, gap_ms)
-                if gap_ms >= BODY_CLOCK_FRESHNESS_SECONDS * 1000:
+                if gap_ms >= BODY_CLOCK_GAP_LOG_SECONDS * 1000:
                     self.service._record_diagnostic({
                         "event": "body_clock_gap", "robot_id": self.robot_id,
                         "epoch": self.epoch, "clock_gap_ms": gap_ms,
@@ -226,8 +234,8 @@ class GatewayConnection:
 
     def _deadline(self, received_at: float, validity_ms: int) -> int:
         now = self.service.clock()
-        if self.body_clock_ms is None or now - self.body_clock_received_at >= BODY_CLOCK_FRESHNESS_SECONDS:
-            raise ActionExpiredError("fresh body clock required before dispatch")
+        if self.body_clock_ms is None:
+            raise ActionExpiredError("body clock missing from authenticated session")
         age_ms = (now - received_at) * 1000.0
         remaining = min(1000, math.floor(validity_ms - age_ms)) - 5
         if remaining <= 0:
@@ -272,11 +280,13 @@ class GatewayConnection:
             message = dict(command)
             if message.get("t") == "speaker" and "speaker_volume_percent" not in (self.audio_input or {}):
                 raise GatewayError("body firmware does not report saved speaker volume; update the robot firmware")
-            if message.get("t") == "intent" and ("forward" in message or "turn" in message):
+            if message.get("t") == "intent" and ("forward" in message or "turn" in message or "lateral" in message):
                 if message.get("name") != "walk":
                     raise GatewayError("steering requires a walk command")
                 if self.model != "v2-12servo" or not {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE}.issubset(self.features):
                     raise GatewayError("body does not support composed steering (walk_steering_v1 required)")
+            if "lateral" in message and WALK_LATERAL_FEATURE not in self.features:
+                raise GatewayError("body does not support lateral steering (walk_lateral_v1 required)")
             if ((message.get("t") == "mic" and "gain_db" in message) or
                 (message.get("t") == "wake" and "threshold" in message)):
                 if AUDIO_INPUT_FEATURE not in self.features:
@@ -291,6 +301,14 @@ class GatewayConnection:
                     any(key in message for key in ("exposure_us", "gain_x16", "jpeg_quality"))):
                 if CAMERA_CONTROLS_FEATURE not in self.features:
                     raise GatewayError("body firmware needs camera_controls_v1 for HD streaming and exposure/gain controls")
+            if message.get("t") == "balance":
+                if self.model != "v2-12servo" or BALANCE_CONTROL_FEATURE not in self.features:
+                    raise GatewayError("Update the P4 firmware to configure self-leveling")
+                if BALANCE_TUNING_FIELDS.intersection(message) and BALANCE_TUNING_FEATURE not in self.features:
+                    raise GatewayError("Update the P4 firmware to tune self-leveling response")
+                if message.get("op") == "calibrate_gyro" and "balance_feedback_v1" not in self.features:
+                    raise GatewayError("Update the P4 firmware for stationary gyro calibration")
+                validate_control_message({**message, "seq": 1})
             if message.get("t") == "motion_speed" or "playback_rate" in message:
                 if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
                     raise GatewayError("body does not support saved motion speed")
@@ -309,7 +327,7 @@ class GatewayConnection:
                 message = {"t":"intent", "name":"walk", "dir":CRAB_DIRECTIONS[message["asset"]], "steps":0, "gait":"crab", "speed":50}
             if message.get("t") == "intent" and message.get("name") == "walk" and (
                 message.get("steps") == 0 or any(key in message for key in
-                    ("speed", "stride", "rate", "forward", "turn", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
+                    ("speed", "stride", "rate", "forward", "turn", "lateral", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
             ):
                 if self.model != "v2-12servo" or not {WALK_CONTROLS_FEATURE, LOCOMOTION_FEATURE}.intersection(self.features):
                     raise GatewayError("body does not support variable walking controls")
@@ -436,6 +454,13 @@ class GatewayConnection:
         received_at: float,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
+        current = asyncio.current_task()
+        previous = self._speaker_task
+        self._speaker_task = current
+        if previous is not None and previous is not current and not previous.done():
+            previous.cancel()
+        # Serialize only the sender handoff: the previous producer is cancelled,
+        # so this never waits for its audio duration or a terminal receipt.
         async with self._speaker_lock:
             start_sequence = await self.send_command(
                 {"t": "tts", "op": "start"},
@@ -515,6 +540,9 @@ class GatewayConnection:
     async def run(self) -> None:
         while True:
             now = self.service.clock()
+            if now - self.last_control_at >= CONTROL_STALE_SECONDS:
+                await self.close(1001, "control heartbeat lost", cancel_code="disconnect")
+                return
             if now - self.last_sent_at >= self.service.config.ping_interval_s:
                 await self.send_control({"t": "ping"})
                 self.json_pings_sent += 1
@@ -539,7 +567,7 @@ class GatewayConnection:
             self.last_control_at = self.service.clock()
             self.control_frames_received += 1
             self.last_control_type = str(message.get("t"))
-            if message.get("t") in {"ping", "pong"}:
+            if message.get("t") in {"ping", "pong", "status"}:
                 self.observe_body_clock(message)
             await self._handle_control(message)
 
@@ -581,15 +609,33 @@ class GatewayConnection:
             return
         if message_type == "status":
             validate_control_message(message)
-            self.last_status = dict(message)
+            imu = (self.last_status or {}).get("imu")
+            self.last_status = {**message, "status_received_at": datetime.now(timezone.utc).isoformat()}
+            if imu is not None:
+                self.last_status["imu"] = imu
             if BODY_CAPABILITIES_FEATURE in self.features and "capabilities" in message:
                 self.capabilities = dict(message["capabilities"])
             if message.get("mode") in {"normal", "calibrate"}:
                 self.mode = str(message["mode"])
             await self.service._publish_event(
                 {"robot_id": self.robot_id, "epoch": self.epoch, **message,
+                 "status_received_at": self.last_status["status_received_at"],
                  **self.clock_diagnostics()}
             )
+            return
+        if message_type == "event" and message.get("name") == "imu":
+            imu = {**message["data"], "received_at": datetime.now(timezone.utc).isoformat()}
+            self.last_status = {**(self.last_status or {}), "imu": imu}
+            await self.service._publish_event({"t": "imu", "robot_id": self.robot_id,
+                "epoch": self.epoch, "imu": imu})
+            for event in self.service.body_events.observe(self.robot_id, self.epoch, imu):
+                await self.service._publish_event(event)
+            return
+        if message_type == "event" and message.get("name") in {"boot", "wake"}:
+            event = self.service.body_events.wake(self.robot_id, self.epoch,
+                str(message.get("reason", message["name"])), message.get("event_id"), message.get("clock_us"))
+            if event is not None:
+                await self.service._publish_event(event)
             return
         if message_type in {"event", "cam_meta"}:
             await self.service._publish_event(
@@ -610,6 +656,13 @@ class GatewayConnection:
                 return
             validate_control_message(message)
             self.last_calibration = dict(message)
+            self._finish_pending(sequence, message)
+            return
+        if message_type == "balance_status":
+            if pending.command.get("t") != "balance" or not pending.acknowledged:
+                return
+            validate_control_message(message)
+            self.last_balance = dict(message)
             self._finish_pending(sequence, message)
             return
         if message_type == "motion_speed_status":
@@ -745,6 +798,7 @@ class GatewayService:
         )
         self.clock = self.clock_source.monotonic
         self.instance_id = uuid4().hex
+        self.body_events = BodyEvents()
         self._tokens = dict(config.tokens)
         self.token_store = token_store
         self._connections: dict[str, GatewayConnection] = {}
@@ -807,35 +861,45 @@ class GatewayService:
                 hello.get("capabilities") if BODY_CAPABILITIES_FEATURE in features else None,
             )
             connection.observe_body_clock(hello)
+            await connection.send_control(
+                {
+                    "t": "welcome",
+                    "ver": PROTOCOL_VERSION,
+                    "epoch": epoch,
+                    "profile": self.config.profile,
+                    **({COMMAND_DEADLINE_FEATURE: True} if COMMAND_DEADLINE_FEATURE in features else {}),
+                }
+            )
             self._connections[robot_id] = connection
-        if previous is not None:
-            await previous.close(4000, "new authenticated connection", cancel_code="reconnect")
 
-        await connection.send_control(
-            {
-                "t": "welcome",
-                "ver": PROTOCOL_VERSION,
-                "epoch": epoch,
-                "profile": self.config.profile,
-                **({COMMAND_DEADLINE_FEATURE: True} if COMMAND_DEADLINE_FEATURE in features else {}),
-            }
-        )
-        await self._publish_event(
-            {
-                "t": "connection",
-                "status": "connected",
-                "robot_id": robot_id,
-                "epoch": epoch,
-                "features": list(connection.features),
-                "transport": connection.transport,
-            }
-        )
+        async def receive() -> None:
+            try:
+                await connection.run()
+            except ConnectionClosed as error:
+                if connection.close_code is None:
+                    connection.close_code = error.code
+                    connection.close_reason = error.reason
+            finally:
+                connection.cancel_pending()
+
         try:
-            await connection.run()
-        except ConnectionClosed as error:
-            if connection.close_code is None:
-                connection.close_code = error.code
-                connection.close_reason = error.reason
+            # The replacement epoch owns dispatch immediately after welcome.
+            # Its reader must run during old-socket teardown and callbacks that
+            # may issue commands and await their receipts on this connection.
+            async with asyncio.TaskGroup() as tasks:
+                if previous is not None:
+                    tasks.create_task(previous.close(4000, "new authenticated connection", cancel_code="reconnect"))
+                tasks.create_task(receive())
+                await self._publish_event(
+                    {
+                        "t": "connection",
+                        "status": "connected",
+                        "robot_id": robot_id,
+                        "epoch": epoch,
+                        "features": list(connection.features),
+                        "transport": connection.transport,
+                    }
+                )
         finally:
             connection.cancel_pending()
             async with self._lock:
@@ -1079,6 +1143,24 @@ class GatewayService:
             raise GatewayError("calibration readback timed out; refresh from the body before continuing") from error
         if result.get("t") != "calibration_status":
             raise GatewayError(str(result.get("msg") or result.get("code") or "calibration did not complete"))
+        return result
+
+    async def body_balance(self, operation: str, values: Mapping[str, object] | None = None,
+                           *, robot_id: str | None = None) -> dict[str, object]:
+        connection = self._connection(robot_id)
+        fields = dict(values or {})
+        if set(fields) - {"enabled", *BALANCE_TUNING_FIELDS}:
+            raise GatewayError("unknown self-leveling fields")
+        sequence = await connection.send_command(
+            {**fields, "t": "balance", "op": operation}, received_at=self.clock())
+        try:
+            result = await connection.wait_terminal(sequence, timeout=5.0)
+        except TimeoutError as error:
+            connection.last_balance = None
+            connection._finish_pending(sequence, {"t": "cancelled", "seq": sequence, "code": "disconnect"})
+            raise GatewayError("self-leveling readback timed out; read from robot again") from error
+        if result.get("t") != "balance_status":
+            raise GatewayError(str(result.get("msg") or result.get("code") or "self-leveling setting did not complete"))
         return result
 
     async def body_motion_speed(self, operation: str, values: Mapping[str, object] | None = None,
@@ -1336,6 +1418,7 @@ class GatewayService:
                     "calibration": connection.last_calibration,
                     "storage": connection.last_storage,
                     "motion_speed": connection.last_motion_speed,
+                    "balance_settings": connection.last_balance,
                 }
                 for robot_id, connection in self._connections.items()
             }
@@ -1347,6 +1430,14 @@ class GatewayService:
     async def status_snapshot(self) -> dict[str, object]:
         async with self._lock:
             return self.status()
+
+    async def maintenance_address(self, robot_id: str) -> str:
+        """Resolve HTTP maintenance from the selected authenticated LAN peer."""
+        connection = self._connection(robot_id)
+        peer = getattr(connection.websocket, "remote_address", None)
+        if connection.transport != "lan" or not isinstance(peer, tuple) or not peer:
+            raise GatewayError("This robot connection does not expose its Wi-Fi maintenance address")
+        return str(peer[0])
 
     async def _send(
         self,
@@ -1435,7 +1526,7 @@ def _command_needs_done(command: Mapping[str, object]) -> bool:
     if message_type == "intent" and command.get("name") == "walk" and "update" in command:
         return False  # settings acknowledgement; original walk owns completion
     return (
-        message_type in {"intent", "motion_plan", "snap", "calibration", "storage", "motion_speed", "robot_settings"}
+        message_type in {"intent", "motion_plan", "snap", "calibration", "storage", "motion_speed", "robot_settings", "balance"}
         or (message_type == "tts" and command.get("op") == "start")
         or (message_type == "state" and command.get("name") == "sleep")
     )

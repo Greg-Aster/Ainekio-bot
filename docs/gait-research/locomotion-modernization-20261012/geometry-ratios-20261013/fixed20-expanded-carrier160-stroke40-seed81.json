@@ -1,0 +1,86 @@
+{
+  "dimensions": [
+    [
+      63.90319969442555,
+      54.99993806749967,
+      20.0,
+      10.000003759386495,
+      57.116426409828534,
+      84.99941678075209,
+      -12.922812384091351,
+      -19.169271585191098
+    ]
+  ],
+  "objective": [
+    1.3209281691196673
+  ],
+  "score": [
+    0.8816784772011728
+  ],
+  "closed": [
+    true
+  ],
+  "min_leg_angle": [
+    45.00002201985459
+  ],
+  "peak_torque_Nm": [
+    [
+      0.04230146683814057,
+      0.03330923098549073
+    ]
+  ],
+  "peak_speed_deg_s": [
+    [
+      280.5864104850408,
+      484.8247771594233
+    ]
+  ],
+  "peak_reference_utilization": [
+    [
+      0.47791187596535445,
+      0.8107618016121054
+    ]
+  ],
+  "torque_imbalance_fraction": [
+    0.21257503639429595
+  ],
+  "joint_excursions_deg": [
+    [
+      23.450508748073297,
+      29.34098658555772
+    ]
+  ],
+  "estimated_total_mass_kg": [
+    0.5729122426387313
+  ],
+  "link_mass_each_kg": [
+    [
+      0.004361829673675943,
+      0.0012898343600000002,
+      0.002411435562334994,
+      0.0037983997836719026
+    ]
+  ],
+  "static_support_rms_Nm": [
+    [
+      0.023550926297300646,
+      0.026796900451632223
+    ]
+  ],
+  "static_support_difference_rms_Nm": [
+    0.009115153309815029
+  ],
+  "static_support_peak_Nm": [
+    [
+      0.042289044945799666,
+      0.033308835705709694
+    ]
+  ],
+  "stroke_mm": 40.0,
+  "carrier_max_mm": 160.0,
+  "crank_fixed_mm": 20,
+  "global_converged": false,
+  "local_converged": true,
+  "seed": 81,
+  "scope": "Planar spherical-toe screening; 0.9-second cycle,80% stance. Fixed20 mm crank,45\u201355 mm foot,minimum20 mm carrier. Static support effort objective plus generic MG90S torque-speed proxy. Requires actual bare-foot/full-body verification."
+}

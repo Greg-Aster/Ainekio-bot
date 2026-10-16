@@ -1,0 +1,88 @@
+Create an updated engineering assembly reference image for AINEKIO, using the two supplied diagrams as visual style and P4 orientation references. Replace their partial allocations with one combined, complete reference for Waveshare ESP32-P4-WIFI6, PCA9685 servo driver, 1.9-inch ST7789 LCD, and purple LSM6DS3 sensor. Crisp high-resolution landscape infographic, light gray background, dark navy section bars, highly legible exact typography. Use spacious four-column layout with a compact board illustration and labeled connection table per column: P4 orientation/key, PCA9685, LCD, LSM6DS3. Lower wide bands show shared power and distinguish the three interfaces. Prefer exact tabular connections over confusing crossing wires. Functional board illustrations, not purported exact module terminal positions.
+
+Title: "AINEKIO · P4 ASSEMBLY REFERENCE"
+Subtitle: "1.9-inch LCD · PCA9685 servo board · LSM6DS3 gyro / accelerometer"
+Small top note: "Remove power before wiring. Match printed board labels."
+
+P4 orientation panel: portrait P4 board, USB-C at TOP, ESP32-C6 antenna at BOTTOM. Component side facing viewer. Show 20 pads on EACH side. Row numbers count down from USB-C. Label left "L1–L20", right "R1–R20". Avoid invented labels inside board; minimal USB-C and ESP32-C6 enough. Explicit text "L/R = header row, not GPIO number." Include used pins table in this panel in two narrow columns:
+LEFT:
+L12 GPIO4
+L13 GND
+L14 GPIO3
+L15 GPIO2
+L16 GPIO8 / SCL
+L17 GPIO7 / SDA
+L18 GND
+RIGHT:
+R5 3V3
+R6 GPIO20
+R7 GPIO21
+R8 GND
+R9 GPIO22
+R10 GPIO23
+R12 GPIO26
+
+PCA9685 panel, simple blue servo driver illustration, title "PCA9685 · SERVO BOARD", subtitle "I2C1 · address 0x40". Exact table columns "BOARD PIN" and "CONNECT TO":
+VCC | R5 · 3V3
+GND | L13 · GND
+SDA | L15 · GPIO2
+SCL | L14 · GPIO3
+OE | L12 · GPIO4
+V+ | Servo supply +5 V
+Below: "Servo supply − → common GND"
+"Channels 0–11: 12 servos"
+"OE HIGH disables signals, not power."
+
+LCD panel, small blue module with black display, title "1.9-INCH LCD · ST7789", subtitle "SPI · 320 × 170 landscape". Exact table:
+GND | R8 · GND
+VCC | R5 · 3V3
+SCL | R6 · GPIO20
+SDA | R7 · GPIO21
+RES | R12 · GPIO26
+DC | R10 · GPIO23
+CS | R9 · GPIO22
+BLK | R5 · 3V3
+Below: "SCL = SPI clock; SDA = SPI MOSI"
+"RES goes to GPIO26, not P4 RUN."
+No MIPI ribbon to this LCD. Do not invent a second reset connection.
+
+GYRO panel, small purple board illustration, title "LSM6DS3 · GYRO + ACCEL", subtitle "Shared I2C0 · address 0x6A". Exact table:
+3V3 | R5 · 3V3
+GND | L18 · GND
+SCL | L16 · GPIO8
+SDA | L17 · GPIO7
+CS | Local 3V3 junction
+SA0 | Local GND junction
+SCX | Local GND junction
+SDX | Local GND junction
+Below: "Leave VIN, INT1, INT2 and OCS/DCS unused."
+"CS / SA0 / SCX / SDX straps use no extra GPIO."
+"IMU acquisition firmware pending."
+
+Lower power band title "ONE SHARED 3.3 V RAIL".
+Draw clear red branch diagram with source "P4 R5 · 3V3" splitting into exactly three destinations:
+"PCA9685 VCC"
+"LCD VCC + BLK"
+"LSM6DS3 3V3 + CS"
+Text "Keep existing connections; add a shared junction."
+Separate orange +5 V arrow "Servo supply +5 V → PCA9685 V+ only".
+Separate black common-ground line with text "P4 GND = PCA GND = LCD GND = IMU GND = servo supply −".
+Text "Keep V+ separate from 3V3 / VCC."
+
+Bottom interface band, three clear cells:
+"SERVO I2C1: SDA GPIO2 · SCL GPIO3"
+"LCD SPI: SDA GPIO21 · SCL GPIO20"
+"GYRO I2C0: SDA GPIO7 · SCL GPIO8"
+Below: "GPIO7/8 remain shared with onboard camera / codec. The LCD's SDA/SCL labels are SPI signals."
+Footer: "2026-10-12 · Wiring reference checked against repository pin assignments. IMU connection and operation still require bring-up. Illustrations schematic; follow printed labels."
+
+Accuracy invariants: no swapped SDA/SCL; don't connect LCD signals to GPIO7/8; don't connect IMU signals to GPIO2/3; do not connect +5V to gyro or LCD; VIN is unused; R11 RUN not used. No disarmed-startup claim or old bench-only language. All exact tables must be complete and readable.
+
+FINAL REVISION PROMPT (built-in image_gen edit of first output):
+Edit this assembly infographic. Preserve EVERY wiring table and ALL power/interface connection text exactly; those are correct. Make only these illustration corrections:
+1. The P4 illustration at upper left currently has malformed/duplicated row labels. Remove ALL individual L1-L20 and R1-R20 labels and pads from that small illustration. Replace it with a simple clean orientation silhouette labeled "USB-C · TOP" and "C6 antenna · BOTTOM", "LEFT HEADER" on left and "RIGHT HEADER" on right. This is only an orientation icon, no connector positions are implied. Add clear text below it "Count header rows down from USB-C." Preserve the exact used-pin table below, with all L12–L18 and R5–R12 assignments unchanged.
+2. Replace the fake physical PCA9685 board illustration with a clean blue schematic block that says "PCA9685" and "16-channel PWM driver", small row of 16 abstract channel rectangles. No Waveshare logo, no invented screw-terminal sequence, no component-level pinout. Text underneath "Use channels 0–11". The table below remains unchanged.
+3. Replace the LCD illustration with a simple landscape screen icon with "1.9-inch ST7789" and "320 × 170" inside. Remove all pads and connector labels from this icon. The exact 8-row connection table stays unchanged.
+4. Replace the gyro board illustration with a simple purple schematic block labeled "LSM6DS3" and "Gyro + accelerometer". No pad-order illustration or axis glyphs. The exact connection table stays unchanged.
+All four icons are explicitly abstract; the exact connection tables below them define every wire by printed label and P4 header row. Keep the large footer statement "Illustrations schematic; follow printed labels."
+Do not change any signal, GPIO, voltage, address, ground jumper or unused pin text. Keep high resolution, all text readable, same clean four-column layout.

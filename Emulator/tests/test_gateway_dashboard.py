@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import http.client
+import io
 import json
 import struct
 import tempfile
@@ -14,6 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from gateway.dashboard.server import start_dashboard_server
+from gateway.body_events import BodyEvents
 from gateway.dashboard.auth import AuditLog
 from gateway.hotspot import RobotHotspot
 from gateway.server.service import ActionExpiredError, GatewayError
@@ -25,6 +28,7 @@ from protocol.joints_v1 import joint_contract
 class FakeGateway:
     def __init__(self) -> None:
         self.next_sequence = 1
+        self.body_events = BodyEvents()
         self.tokens: dict[str, str] = {}
         self.calls: list[tuple[str, object]] = []
         self.frame_callbacks: list[Callable[[dict[str, object]], object]] = []
@@ -116,6 +120,11 @@ class FakeGateway:
         sequence = self._record("body_calibration", (operation, values, kwargs))
         return calibration_status(sequence)
 
+    async def body_balance(self, operation, values=None, **kwargs):
+        seq = self._record("balance", (operation, values, kwargs))
+        return {"t":"balance_status", "seq":seq, "enabled":(values or {}).get("enabled",True),
+                "saved":True, "active":False}
+
     async def body_motion_speed(self, operation, values=None, **kwargs):
         seq = self._record("motion_speed", (operation, values, kwargs))
         return {"t":"motion_speed_status", "seq":seq, "rate":2, "saved":True,
@@ -130,6 +139,10 @@ class FakeGateway:
     async def body_storage(self, operation, **kwargs):
         from Emulator.tests.test_body_storage import storage_status
         return storage_status(self._record("storage", (operation, kwargs)))
+
+    async def maintenance_address(self, robot_id: str) -> str:
+        self.calls.append(("maintenance_address", robot_id))
+        return "192.0.2.23"
 
     async def revoke_token(self, robot_id: str) -> None:
         self.tokens.pop(robot_id, None)
@@ -146,6 +159,45 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_recognition_view_pairs_boxes_with_the_analyzed_frame_and_requires_login(self):
+        from gateway.plugins import CameraFramePlugin
+        from gateway.perception import RecognitionResult, RecognizedObject
+        now = 10.0
+        self.gateway.clock = lambda: now
+        self.gateway.instance_id = "test-gateway"
+        self.gateway.status = lambda: {"robots": {"ainekio-test-01": {"epoch": 3, "connection_state": "online"}}}
+        self.gateway.unsubscribe_frames = self.gateway.frame_callbacks.remove
+        result = RecognitionResult("fixture", "test-objects", "keys",
+            (RecognizedObject("keys", .9, (.2, .3, .1, .1)),), ())
+        plugin = CameraFramePlugin(self.gateway, lambda jpeg: result)
+        self.addAsyncCleanup(plugin.aclose)
+        self.server.camera_recognition = plugin
+        route = "/api/camera/frame?robot_id=ainekio-test-01&view=recognition"
+        status, _, _ = await self._request("GET", route)
+        self.assertEqual(status, 401)
+        cookie, _ = await self._login()
+        frame = {"robot_id": "ainekio-test-01", "epoch": 3, "counter": 7,
+            "frame_type": CAMERA_JPEG_FRAME_TYPE, "received_at": now, "payload": b"analyzed-image"}
+        await plugin._handle_frame(frame)
+        await plugin._queue.join()
+        self.server._record_camera_frame({**frame, "counter": 8, "payload": b"newer-unprocessed-image"})
+        status, snapshot, _ = await self._request("GET", route, cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual(base64.b64decode(snapshot["jpeg"]), b"analyzed-image")
+        self.assertEqual(snapshot["id"], "test-gateway:ainekio-test-01:3:7")
+        self.assertEqual(snapshot["observation"]["frameCounter"], 7)
+        self.assertEqual(snapshot["observation"]["objects"][0]["label"], "keys")
+        _, unchanged, _ = await self._request("GET", route + "&after_id=" + snapshot["id"], cookie=cookie)
+        self.assertNotIn("jpeg", unchanged, "unchanged images are not retransmitted")
+        self.assertEqual(unchanged["observation"], snapshot["observation"])
+        _, state, _ = await self._request("GET", "/api/status", cookie=cookie)
+        self.assertFalse(state["person_recognition"]["configured"])
+        self.assertEqual(state["recognition"]["observation"], snapshot["observation"])
+        now += 2
+        _, stale, _ = await self._request("GET", route, cookie=cookie)
+        self.assertIsNone(stale)
+        self.assertEqual(self.gateway.calls, [], "viewing recognition never moves the robot")
+
     async def test_people_enrollment_uses_authenticated_owner_without_robot_commands(self) -> None:
         cookie, csrf = await self._login()
         camera = SimpleNamespace(enroll_person=AsyncMock(return_value={"ok": True, "people": []}),
@@ -176,11 +228,11 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(status, 400)
         self.assertEqual(len(self.gateway.calls), 3)
 
-    async def test_speech_output_uses_bridge_preference_and_existing_auth(self) -> None:
-        preference = {"outputTarget": "local", "provider": "kokoro", "username": "owner", "speechDisabled": False}
+    async def test_speech_output_uses_body_control_preference_and_existing_auth(self) -> None:
+        preference = {"playbackTarget": "computer"}
         async def settings(target=None):
             if target is not None:
-                preference["outputTarget"] = target
+                preference["playbackTarget"] = target
             return dict(preference)
         bridge = SimpleNamespace(speech_output_settings=AsyncMock(side_effect=settings))
         self.server.environment_adapter = bridge
@@ -188,15 +240,15 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 401)
         cookie, csrf = await self._login()
         status, result, _ = await self._request("GET", "/api/speech-output", cookie=cookie)
-        self.assertEqual((status, result["outputTarget"]), (200, "local"))
-        status, _, _ = await self._request("POST", "/api/speech-output", {"outputTarget": "robot"}, cookie=cookie)
+        self.assertEqual((status, result["playbackTarget"]), (200, "computer"))
+        status, _, _ = await self._request("POST", "/api/speech-output", {"playbackTarget": "robot"}, cookie=cookie)
         self.assertEqual(status, 403)
-        for target in ("robot", "local"):
-            status, result, _ = await self._request("POST", "/api/speech-output", {"outputTarget": target}, cookie=cookie, csrf=csrf)
-            self.assertEqual((status, result["outputTarget"]), (200, target))
-        status, _, _ = await self._request("POST", "/api/speech-output", {"outputTarget": "invalid"}, cookie=cookie, csrf=csrf)
+        for target in ("robot", "computer"):
+            status, result, _ = await self._request("POST", "/api/speech-output", {"playbackTarget": target}, cookie=cookie, csrf=csrf)
+            self.assertEqual((status, result["playbackTarget"]), (200, target))
+        status, _, _ = await self._request("POST", "/api/speech-output", {"playbackTarget": "invalid"}, cookie=cookie, csrf=csrf)
         self.assertEqual(status, 400)
-        self.assertEqual(preference["outputTarget"], "local")
+        self.assertEqual(preference["playbackTarget"], "computer")
         bridge.speech_output_settings.side_effect = GatewayError("Bridge disconnected")
         status, result, _ = await self._request("GET", "/api/speech-output", cookie=cookie)
         self.assertEqual((status, result["error"]), (503, "Bridge disconnected"))
@@ -262,8 +314,8 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             headers: dict[str, str] = {}
             body = None
             if payload is not None:
-                body = json.dumps(payload)
-                headers["Content-Type"] = "application/json"
+                body = payload if isinstance(payload, bytes) else json.dumps(payload)
+                headers["Content-Type"] = "application/octet-stream" if isinstance(payload, bytes) else "application/json"
             if cookie:
                 headers["Cookie"] = cookie
             if csrf:
@@ -300,6 +352,65 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
+
+    async def test_robot_maintenance_authenticated_streams_and_selected_peer(self) -> None:
+        route = "/api/robot/recordings?robot_id=ainekio-test-01"
+        self.assertEqual((await self._request("GET", route))[0], 401)
+        cookie, csrf = await self._login()
+        self.assertEqual((await self._request("POST", "/api/robot/firmware?robot_id=ainekio-test-01",
+                         b"firmware", cookie=cookie))[0], 403)
+        self.token_store.set("ainekio-test-01", "private-pair-token")
+        real_connection = http.client.HTTPConnection
+        transfers = []
+        reply = {"bytes": b'{"state":"staged"}', "status": 200, "headers": {}}
+        class RobotHTTP:
+            def __init__(self): self.sent = []; self.headers = {}; transfers.append(self)
+            def request(self, method, target, body=None, headers=None):
+                self.method, self.target, self.body, self.headers = method, target, body, headers
+            def putrequest(self, method, target): self.method, self.target = method, target
+            def putheader(self, key, value): self.headers[key] = value
+            def endheaders(self): pass
+            def send(self, chunk): self.sent.append(chunk)
+            def getresponse(self):
+                stream = io.BytesIO(reply["bytes"])
+                return SimpleNamespace(status=reply["status"], read=stream.read,
+                    getheader=lambda key, default=None: reply["headers"].get(key, default))
+            def close(self): self.closed = True
+        def connection(host, *args, **kwargs):
+            return RobotHTTP() if host == "192.0.2.23" else real_connection(host, *args, **kwargs)
+        with patch("gateway.dashboard.server.http.client.HTTPConnection", side_effect=connection):
+            blob = bytes(range(256)) * 901
+            status, result, _ = await self._request("POST", "/api/robot/firmware?robot_id=ainekio-test-01",
+                blob, cookie=cookie, csrf=csrf)
+            self.assertEqual((status, result["state"]), (200, "staged"))
+            upload = transfers[-1]
+            self.assertEqual(b"".join(upload.sent), blob)
+            self.assertLessEqual(max(map(len, upload.sent)), 65536)
+            self.assertEqual(upload.headers["Authorization"], "Bearer private-pair-token")
+            self.assertEqual(upload.target, "/api/firmware")
+            self.assertTrue(upload.closed)
+            await self._request("POST", "/api/robot/recording?robot_id=ainekio-test-01",
+                {"op":"start"}, cookie=cookie, csrf=csrf)
+            self.assertEqual((transfers[-1].target, transfers[-1].body), ("/api/recording", "start"))
+            name = "video-1234abcd-00000001.avi"
+            reply.update(bytes=blob, headers={"Content-Type":"video/x-msvideo", "X-Recording-Bytes":str(len(blob))})
+            status, raw, headers = await self._raw_request("GET", route + "&name=" + name, cookie=cookie)
+            self.assertEqual((status, raw), (200, blob))
+            self.assertEqual(headers["content-length"], str(len(blob)))
+            self.assertIn(name, headers["content-disposition"])
+            self.assertEqual(transfers[-1].target, "/api/recordings?name=" + name)
+            reply.update(bytes=b"previous boot: panic\ncurrent boot: accepted\n", headers={"Content-Type":"text/plain"})
+            status, raw, headers = await self._raw_request("GET", "/api/robot/logs?robot_id=ainekio-test-01", cookie=cookie)
+            self.assertEqual((status, raw), (200, reply["bytes"]))
+            self.assertEqual(transfers[-1].target, "/api/logs")
+            self.assertEqual(headers["content-type"], "text/plain")
+            count = len(transfers)
+            self.assertEqual((await self._request("GET", route + "&name=../settings", cookie=cookie))[0], 409)
+            self.assertEqual(len(transfers), count)
+            reply.update(bytes=b'{"error":"pairing_token_required"}', status=401, headers={})
+            status, result, _ = await self._request("GET", route, cookie=cookie)
+            self.assertEqual((status, result["error"]), (502, "pairing_token_required"))
+        self.assertTrue(all(call == ("maintenance_address", "ainekio-test-01") for call in self.gateway.calls))
 
     async def test_login_survives_restart_and_logout_stays_revoked(self) -> None:
         cookie, csrf = await self._login()
@@ -461,6 +572,20 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         status, _, _ = await self._request("POST", "/api/settings/robot", {**restart, "confirmed": True}, cookie=cookie, csrf=csrf)
         self.assertEqual(status, 200)
 
+    async def test_self_leveling_save_returns_selected_robot_readback(self):
+        payload={"robot_id":"ainekio-test-01","op":"save","enabled":False}
+        status,_,_=await self._request("POST","/api/balance",payload)
+        self.assertEqual(status,401)
+        cookie,csrf=await self._login()
+        status,_,_=await self._request("POST","/api/balance",payload,cookie=cookie)
+        self.assertEqual(status,403)
+        status,response,_=await self._request("POST","/api/balance",payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(status,200)
+        self.assertFalse(response["balance"]["enabled"])
+        self.assertTrue(response["balance"]["saved"])
+        self.assertEqual(response["seq"],response["balance"]["seq"])
+        self.assertEqual(self.gateway.calls[-1],("balance",("save",{"enabled":False},{"robot_id":"ainekio-test-01"})))
+
     async def test_joint_speed_limit_save_requires_login_and_csrf_and_returns_readback(self):
         payload={"robot_id":"ainekio-test-01","op":"save","joint_speed_limit_deg_s":900}
         status,_,_=await self._request("POST","/api/motion-speed",payload)
@@ -483,6 +608,28 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 200)
         self.assertEqual(self.gateway.calls[-1], ("camera", {"robot_id": "ainekio-test-01", "on": True,
             "fps": 5, "resolution": "QVGA", "snapshot_resolution": "XGA"}))
+
+    async def test_visual_target_configuration_keeps_source_pixels_and_uses_existing_authentication(self):
+        from types import SimpleNamespace
+        import base64
+        requests = []
+        async def configure(request):
+            requests.append(request)
+            return {"operation": request["operation"], "queryId": request["requestId"], "classes": ["keys"], "tracking": True}
+        self.server.camera_recognition = SimpleNamespace(configure_vision=configure)
+        data_url = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8" + b"x" * 20000 + b"\xff\xd9").decode()
+        payload = {"operation": "select", "description": "keys", "box": {"x": .1, "y": .2, "width": .3, "height": .4},
+                   "frame": {"id": "retained-browser-frame", "dataUrl": data_url}}
+        status, _, _ = await self._request("POST", "/api/vision/target", payload)
+        self.assertEqual(status, 401)
+        cookie, csrf = await self._login()
+        status, _, _ = await self._request("POST", "/api/vision/target", payload, cookie=cookie)
+        self.assertEqual(status, 403)
+        status, response, _ = await self._request("POST", "/api/vision/target", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertEqual(requests[0]["frame"], payload["frame"])
+        self.assertEqual(response["queryId"], requests[0]["requestId"])
+        self.assertEqual(self.gateway.calls, [])
 
     async def test_login_sets_bounded_hardened_session_cookie(self) -> None:
         status, payload, headers = await self._request(
@@ -805,9 +952,11 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             html.index('data-dashboard-panel="camera"'),
             html.index('data-dashboard-panel="simulator"'),
         )
-        controls = html[html.index('aria-labelledby="sensing-control-title"'):html.index('aria-labelledby="motion-title"')]
         for form in ("camera-form", "recognition-form", "behavior-control-form"):
-            self.assertIn(f'id="{form}"', controls)
+            self.assertIn(f'id="{form}"', html)
+        for workspace in ("camera", "recognition", "events", "metahuman", "recordings", "firmware", "calibration"):
+            self.assertIn(f'data-workspace="{workspace}"', html)
+            self.assertIn(f'data-workspace-panel="{workspace}"', html)
         self.assertIn('data-dashboard-panel="simulator"', html)
         self.assertIn('data-intent="sit">Sit · bored</button>', html)
         self.assertIn('data-emote="number_one">#1 · hydrant</button>', html)
@@ -826,6 +975,28 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         await self.server.restore_camera({"t": "connection", "status": "connected", "robot_id": "robot"})
         self.assertEqual(self.gateway.calls[-1], ("camera", {"robot_id": "robot", **saved}))
         self.assertTrue(all(call[0] == "camera" for call in self.gateway.calls))
+
+    async def test_body_event_controls_are_authenticated_saved_and_applied_per_robot(self):
+        from gateway.body_events import DEFAULTS
+        cookie, csrf = await self._login()
+        settings = {**DEFAULTS, "tip_degrees": 65, "rapid_enabled": False, "rapid_cooldown_s": 2.5}
+        payload = {"robot_id": "p4", "settings": settings}
+        self.assertEqual((await self._request("POST", "/api/body-events", payload, cookie=cookie))[0], 403)
+        result = await self._request("POST", "/api/body-events", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(result[0], 200)
+        self.assertEqual(self.gateway.body_events.config("p4"), settings)
+        self.assertEqual(self.gateway.body_events.config("other"), DEFAULTS)
+        self.assertEqual(self.gateway.calls, [])
+        reloaded = start_dashboard_server("127.0.0.1", 0, gateway=self.gateway,
+            event_loop=asyncio.get_running_loop(), password_store=self.password_store, token_store=self.token_store)
+        try:
+            self.assertEqual(reloaded.control_settings["body_events"]["p4"], settings)
+            self.assertEqual(self.gateway.body_events.config("p4"), settings)
+        finally:
+            reloaded.server_close()
+        invalid = {**payload, "settings": {**settings, "tip_clear_degrees": 70}}
+        self.assertEqual((await self._request("POST", "/api/body-events", invalid, cookie=cookie, csrf=csrf))[0], 400)
+        self.assertEqual(self.gateway.body_events.config("p4"), settings)
 
     async def test_recognition_switch_and_camera_choices_persist_without_movement(self) -> None:
         cookie, csrf = await self._login()

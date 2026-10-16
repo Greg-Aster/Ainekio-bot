@@ -20,9 +20,9 @@ static void check(const char *name,const ainekio_v2_frame_t *frame)
 }
 int main(void)
 {
-    const unsigned home[12]={1600,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
+    const unsigned home[12]={1500,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
     assert(ainekio_p4_joint_defaults(joints));
-    for(unsigned i=0;i<12;i++){joints[i].home_us=home[i];joints[i].invert=(i/3)%2==0;}
+    for(unsigned i=0;i<12;i++){joints[i].home_us=home[i];joints[i].invert=i%3==0?(i==3||i==6):(i/3)%2==0;}
     for(size_t i=0;i<ainekio_v2_clip_count;i++) {
         minimum=65535;maximum=0;
         ainekio_v2_frame_t low,high,entry;

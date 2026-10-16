@@ -1,0 +1,261 @@
+{
+  "native_tests_passed": 51,
+  "native_tests_seconds": 31.77,
+  "commands": [
+    {
+      "command": "point",
+      "source_sha256": "9b5a3d3c4920f57ec793fa7c6c9f0c388ba32c9b1a74acc21473f56596482652",
+      "geometry": {
+        "min_sole_z_mm": -6.423306331271306e-12,
+        "min_body_z_mm": 22.416373463049844,
+        "minimum_closure_height_mm": 9.951886607231836,
+        "maximum_adjacent_joint_step_degrees": 2.4682240723046527,
+        "maximum_planted_target_error_mm": 8.071765478234738e-12,
+        "hardware_qualified": false,
+        "command": "point",
+        "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+        "samples": 577,
+        "sample_hz": 120,
+        "duration_s": 4.8,
+        "motion_end_s": 4.6,
+        "peak_joint_speed_deg_s": 296.09136269091573,
+        "joint_min_deg": [
+          [
+            -4.931769622181586,
+            -2.0091676003200303,
+            -21.66238998045336
+          ],
+          [
+            -8.073391028881877e-07,
+            -35.48740474913386,
+            -25.861804281283224
+          ],
+          [
+            -24.925111562375942,
+            2.5447523877131397,
+            -24.409572759309203
+          ],
+          [
+            -4.036758429495151e-07,
+            1.1868361537329297,
+            -21.662391475887667
+          ]
+        ],
+        "joint_max_deg": [
+          [
+            -4.0366787704329867e-07,
+            3.6573231242139923,
+            -13.548202877784664
+          ],
+          [
+            8.022789817209066,
+            3.6573031167529084,
+            -20.365400358403345
+          ],
+          [
+            8.191604122273917,
+            111.51190679154384,
+            70.43241105165393
+          ],
+          [
+            3.0007867396319035,
+            4.400130312205854,
+            -17.766390722053213
+          ]
+        ],
+        "minimum_support_margin_mm": 24.643554197050964,
+        "mapped_pulse_min_us": 448.69551832483506,
+        "mapped_pulse_max_us": 2479.324083100493,
+        "reviewed_pulse_window_us": [
+          400,
+          2900
+        ],
+        "collision_checked": false
+      },
+      "compiled_geometry": {
+        "command": "point",
+        "samples": 1153,
+        "max_sole_vertex_error_mm": 0.008333812130725655,
+        "max_sole_clearance_change_mm": 0.00749231235515424,
+        "min_closure_height_mm": 9.951810134038679,
+        "status": "passed_compiled_vs_source_full_bare_hull",
+        "source_sha256": "9b5a3d3c4920f57ec793fa7c6c9f0c388ba32c9b1a74acc21473f56596482652",
+        "hardware_qualified": false,
+        "scope": "All source knots and an off-grid sample per interval. Geometry/playback comparison, not loaded hardware qualification."
+      }
+    },
+    {
+      "command": "pushup",
+      "source_sha256": "a0aa10082b57da16ed0763b27e9dfd567fa8a078af87aa7968768a7c6c4e0ee8",
+      "geometry": {
+        "min_sole_z_mm": -1.651670800129068e-09,
+        "min_body_z_mm": 3.0,
+        "minimum_closure_height_mm": 12.128320404546876,
+        "maximum_adjacent_joint_step_degrees": 2.1913708776810528,
+        "maximum_planted_target_error_mm": 1.651670800129068e-09,
+        "hardware_qualified": false,
+        "command": "pushup",
+        "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+        "samples": 883,
+        "sample_hz": 120,
+        "duration_s": 7.35,
+        "motion_end_s": 7.15,
+        "peak_joint_speed_deg_s": 262.83986562552076,
+        "joint_min_deg": [
+          [
+            -4.036694321397177e-07,
+            -10.91654736121537,
+            -21.662389980454318
+          ],
+          [
+            -8.073393346304151e-07,
+            -10.916572678460865,
+            -21.662385469926143
+          ],
+          [
+            -2.547870459610152e-06,
+            -3.444461371505626,
+            -27.82156376728127
+          ],
+          [
+            -1.8983682519475542e-06,
+            -3.4444837985606997,
+            -27.821553411236685
+          ]
+        ],
+        "joint_max_deg": [
+          [
+            7.400666036360328e-06,
+            3.9015634125023997,
+            31.323094853460894
+          ],
+          [
+            1.2461224965339785e-05,
+            3.9015419706884558,
+            31.323097699257566
+          ],
+          [
+            1.1578767757062888e-06,
+            31.917321084961372,
+            38.187343584008836
+          ],
+          [
+            9.667256585217782e-06,
+            31.917281384994723,
+            38.18735374104516
+          ]
+        ],
+        "minimum_support_margin_mm": 44.323521103798164,
+        "mapped_pulse_min_us": 721.7047531400588,
+        "mapped_pulse_max_us": 2578.2949655572243,
+        "reviewed_pulse_window_us": [
+          400,
+          2900
+        ],
+        "collision_checked": false,
+        "press_front_clearance_low_high_mm": [
+          3.0,
+          48.32898999280787
+        ],
+        "press_rear_clearance_low_high_mm": [
+          17.02959320245464,
+          24.0
+        ]
+      },
+      "compiled_geometry": {
+        "command": "pushup",
+        "samples": 1765,
+        "max_sole_vertex_error_mm": 0.006818947461334024,
+        "max_sole_clearance_change_mm": 0.006234899169310637,
+        "min_closure_height_mm": 12.128319963786204,
+        "status": "passed_compiled_vs_source_full_bare_hull",
+        "source_sha256": "a0aa10082b57da16ed0763b27e9dfd567fa8a078af87aa7968768a7c6c4e0ee8",
+        "hardware_qualified": false,
+        "scope": "All source knots and an off-grid sample per interval. Geometry/playback comparison, not loaded hardware qualification."
+      }
+    },
+    {
+      "command": "bow",
+      "source_sha256": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf",
+      "geometry": {
+        "min_sole_z_mm": -1.0378187198512023e-10,
+        "min_body_z_mm": 2.0240649577950123,
+        "minimum_closure_height_mm": 7.993888688320271,
+        "maximum_adjacent_joint_step_degrees": 3.0825304142752907,
+        "maximum_planted_target_error_mm": 1.0368950142947142e-10,
+        "hardware_qualified": false,
+        "command": "bow",
+        "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+        "samples": 877,
+        "sample_hz": 120,
+        "duration_s": 7.3,
+        "motion_end_s": 7.1,
+        "peak_joint_speed_deg_s": 369.63404964324195,
+        "joint_min_deg": [
+          [
+            -4.527081159652629e-06,
+            -2.7487395611587093,
+            -21.66238998045336
+          ],
+          [
+            -3.7307266123630634e-06,
+            -2.7487525010720644,
+            -21.662385469925972
+          ],
+          [
+            2.337200161193621e-07,
+            -2.7487143208375775,
+            -21.662397459222866
+          ],
+          [
+            -1.4416618558349156e-06,
+            -2.7487449505286503,
+            -21.662391475887667
+          ]
+        ],
+        "joint_max_deg": [
+          [
+            -4.0366787704329867e-07,
+            48.8110060632319,
+            7.3172451588224945
+          ],
+          [
+            2.464590073673917e-06,
+            48.81097997161792,
+            7.317268406148738
+          ],
+          [
+            5.020366380908958e-06,
+            120.8152105789464,
+            75.71772704408806
+          ],
+          [
+            2.17477136620593e-06,
+            120.81520854483904,
+            75.71773335395889
+          ]
+        ],
+        "minimum_support_margin_mm": 51.97859064256395,
+        "mapped_pulse_min_us": 812.4583072046275,
+        "mapped_pulse_max_us": 2487.541549018563,
+        "reviewed_pulse_window_us": [
+          400,
+          2900
+        ],
+        "collision_checked": false
+      },
+      "compiled_geometry": {
+        "command": "bow",
+        "samples": 1753,
+        "max_sole_vertex_error_mm": 0.005959220228490678,
+        "max_sole_clearance_change_mm": 0.0052967124015168565,
+        "min_closure_height_mm": 7.985233173147281,
+        "status": "passed_compiled_vs_source_full_bare_hull",
+        "source_sha256": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf",
+        "hardware_qualified": false,
+        "scope": "All source knots and an off-grid sample per interval. Geometry/playback comparison, not loaded hardware qualification."
+      }
+    }
+  ],
+  "hardware_qualified": false
+}

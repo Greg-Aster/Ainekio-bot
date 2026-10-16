@@ -30,6 +30,7 @@ implementation boundary.
 | [V2 hardware record](v2-12servo/README.md) | Selected ESP32-P4-WIFI6/PCA9685 hardware, design assets, and current implementation limits |
 | [V2 firmware design](v2-12servo/FIRMWARE_DESIGN.md) | V1 review, P4/PCA9685 requirements, controller/Q6A boundaries and staged acceptance |
 | [Body Control Integration](BODY_CONTROL_INTEGRATION.md) | Selected wireless/offboard Q6A direction, USB comparison, ROS 2 role, operating targets and audit findings |
+| [Vision and target tracking audit](audits/VISION_TRACKING_INTEGRATION.md) | Current camera/YOLO/MetaHuman ownership, verified gaps and tests, and a staged integration plan using existing execution owners |
 | [Distributed robot foundation](DISTRIBUTED_ROBOT_FOUNDATION.md) | Universal P4 control, Q6A/remote/manual takeover, shared status/routing/queues, ROS comparison and migration gates before feature coding |
 | [Complete robot resource budget](v2-12servo/RESOURCE_BUDGET.md) | Power branches, P4/Q6A memory and processing, all equipment, camera/audio quality, motion timing, pins and wired/Wi-Fi comparisons; reproducible arithmetic and final qualification boundaries |
 | [Budget audit evidence](v2-12servo/BUDGET_AUDIT_EVIDENCE.md) | Repository/source identities, manufacturer references, Q6A Wi-Fi capability readback, offline Kokoro timing/RSS and exclusions of stale evidence |

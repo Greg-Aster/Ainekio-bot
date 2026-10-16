@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
+from datetime import datetime, timezone
 import os
 import sys
 from dataclasses import replace
@@ -26,6 +28,7 @@ class ProgramBody:
         self.fixture.adapter._bridge_ready = True
         self.actions: dict[str, asyncio.Task] = {}
         self.bridge_cursor = 0
+        self.measurement_counter = 0
         adapter_server.CANCELLATION_TIMEOUT_SECONDS = 0.05
 
     def snapshot(self) -> dict:
@@ -63,6 +66,26 @@ class ProgramBody:
                 for task in fixture.adapter._action_tasks - previous:
                     self.actions[payload["id"]] = task
                     await self.await_dispatch(task, before)
+        elif operation == "measurement":
+            self.measurement_counter += 1
+            measurement = request["measurement"]
+            if "yaw" in measurement:
+                yaw = measurement["yaw"]
+                angle = math.radians(yaw.get("degrees", 0))
+                await fixture.connection._handle_control({"t": "event", "name": "imu", "data": {
+                    "boot_id": yaw.get("bootId", 1), "timestamp_us": self.measurement_counter * 10000,
+                    "age_us": 0, "available": yaw.get("available", True), "fresh": yaw.get("fresh", True),
+                    "startup": False, "calibration_applied": True, "frame": "body_nominal",
+                    "orientation_wxyz": [math.cos(angle / 2), 0, 0, math.sin(angle / 2)],
+                    "acceleration_m_s2": [0, 0, 0], "angular_rate_rad_s": [0, 0, 0]}})
+            if "position" in measurement:
+                source = {"source": "fixture-camera", "robotId": fixture.connection.robot_id,
+                    "epoch": fixture.connection.epoch, "gatewayInstance": fixture.gateway.instance_id,
+                    "observedAt": datetime.now(timezone.utc).isoformat(), "available": True,
+                    "referenceId": "fixture-plane", "uncertaintyMetres": None, **measurement["position"]}
+                fixture.adapter.locomotion_measurement = lambda _robot: source
+                await fixture.adapter._handle_gateway_event({"t": "locomotion_measurement",
+                    "robot_id": fixture.connection.robot_id, "epoch": fixture.connection.epoch})
         elif operation == "manual":
             await fixture.manual_walk()
         elif operation == "complete":
@@ -93,6 +116,9 @@ class ProgramBody:
             fixture.connection.cancel_pending()
             fixture.connection.epoch += 1
             await asyncio.gather(*self.actions.values())
+            await fixture.adapter._handle_gateway_event({"t": "connection", "status": "connected",
+                "robot_id": fixture.connection.robot_id, "epoch": fixture.connection.epoch})
+            await asyncio.gather(*tuple(fixture.adapter._action_tasks))
         elif operation == "recover":
             await fixture.adapter._recover_action_receipts()
         elif operation == "state":

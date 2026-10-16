@@ -9,7 +9,7 @@ import wave
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MAX_JPEG_BYTES, MIC_PCM_FRAME_TYPE
@@ -344,6 +344,7 @@ class CameraAnalysis:
     result: object
     error: str | None = None
     processing: dict[str, object] | None = None
+    jpeg: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -370,7 +371,7 @@ class CameraFramePlugin:
     def __init__(
         self,
         gateway: GatewayService,
-        consume: CameraFunction,
+        consume: CameraFunction | None,
         *,
         observe: CameraObserver | None = None,
         robot_id: str | None = None,
@@ -398,12 +399,20 @@ class CameraFramePlugin:
         self._worker: asyncio.Task[None] | None = None
         self._close_task: asyncio.Task[None] | None = None
         self._closed = False
-        self.enabled = True
+        self.enabled = consume is not None
         self._generation = 0
         self._latest_analysis: CameraAnalysis | None = None
+        self._metric_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ainekio-ground-plane")
+        self._metric_queue = asyncio.Queue(maxsize=1)
+        self._metric_worker = None
+        self._ground_plane = None
+        self._metric_latest = {}
+        self._camera_latest = {}
         gateway.subscribe_frames(self._handle_frame)
 
     def set_enabled(self, enabled: bool) -> None:
+        if enabled and self.consume is None:
+            raise ValueError("Camera recognition is not configured")
         if self.enabled == enabled:
             return
         self.enabled = enabled
@@ -415,7 +424,7 @@ class CameraFramePlugin:
             self._queue.task_done()
 
     async def _handle_frame(self, frame: dict[str, object]) -> None:
-        if self._closed or not self.enabled or frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
+        if self._closed or frame.get("frame_type") != CAMERA_JPEG_FRAME_TYPE:
             return
         payload = frame.get("payload")
         robot_id, epoch, counter = frame.get("robot_id"), frame.get("epoch"), frame.get("counter")
@@ -430,6 +439,25 @@ class CameraFramePlugin:
         ):
             return
         item = _CameraInput(robot_id, epoch, counter, received_at, payload)
+        received_iso = (datetime.now(timezone.utc) - timedelta(seconds=self.gateway.clock() - received_at)).isoformat()
+        if self._body_current(item):
+            self._camera_latest[robot_id] = {"available": True, "source": "gateway-camera",
+                "robotId": robot_id, "epoch": epoch, "gatewayInstance": self.gateway.instance_id,
+                "referenceId": f"{self.gateway.instance_id}:{robot_id}:{epoch}",
+                "frameId": f"ainekio-camera-{self.gateway.instance_id}-{robot_id}-{epoch}-{counter}",
+                "frameCounter": counter, "observedAt": received_iso, "clock": "gateway-receipt",
+                "receivedAtMonotonic": received_at,
+                "expiresAt": (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()}
+            await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": robot_id,
+                "epoch": epoch, "measurement": {"camera": self.camera_measurement(robot_id)}})
+        if self._metric_queue.full():
+            self._metric_queue.get_nowait()
+            self._metric_queue.task_done()
+        self._metric_queue.put_nowait((item, received_iso))
+        if self._metric_worker is None:
+            self._metric_worker = asyncio.create_task(self._run_metrics())
+        if not self.enabled:
+            return
         self.received_frames += 1
         if self._started_at is None:
             self._started_at = self.gateway.clock()
@@ -441,13 +469,16 @@ class CameraFramePlugin:
         if self._worker is None:
             self._worker = asyncio.create_task(self._consume_frames())
 
-    def _current(self, frame: _CameraInput) -> bool:
+    def _body_current(self, frame: _CameraInput) -> bool:
         robot = self.gateway.status()["robots"].get(frame.robot_id)
         return (
-            not self._closed and self.enabled and robot is not None
+            not self._closed and robot is not None
             and robot.get("epoch") == frame.epoch
             and robot.get("connection_state") == "online"
         )
+
+    def _current(self, frame: _CameraInput) -> bool:
+        return self.enabled and self._body_current(frame)
 
     def _fresh(self, frame: _CameraInput) -> bool:
         age = self.gateway.clock() - frame.received_at
@@ -465,6 +496,8 @@ class CameraFramePlugin:
         now = self.gateway.clock()
         elapsed = now - self._started_at if self._started_at is not None else 0
         return {"enabled": self.enabled, "maxFrameAgeMs": self.max_frame_age_s * 1000,
+            "visionOperations": getattr(self.consume, "vision_operations", lambda: [])(),
+            "visionTarget": getattr(self.consume, "vision_target", lambda: None)(),
             "receivedFrames": self.received_frames, "processedFrames": self.processed_frames,
             "freshResults": self.fresh_results, "droppedFrames": self.dropped_frames,
             "staleFrames": self.stale_frames, "errors": self.errors,
@@ -476,22 +509,132 @@ class CameraFramePlugin:
 
     def identity_status(self) -> dict[str, object]:
         status = getattr(self.consume, "status", None)
-        result = status() if status else {"configured": False}
+        return status() if status else {"configured": False}
+
+    def current_analysis(self, robot_id: str | None = None) -> CameraAnalysis | None:
         analysis = self._latest_analysis
-        if analysis is not None:
+        if analysis is not None and (robot_id is None or analysis.robot_id == robot_id):
             robot = self.gateway.status()["robots"].get(analysis.robot_id, {})
             if (self.enabled and robot.get("epoch") == analysis.epoch and robot.get("connection_state") == "online"
                     and 0 <= self.gateway.clock() - analysis.received_at <= self.max_frame_age_s):
-                result["observation"] = {"robotId": analysis.robot_id, "frameCounter": analysis.counter,
-                    "ageMs": (self.gateway.clock() - analysis.received_at) * 1000,
-                    "objects": analysis.result.message()["objects"]}
+                return analysis
+        return None
+
+    def recognition_status(self) -> dict[str, object]:
+        analysis = self.current_analysis()
+        return {"configured": self.consume is not None, "maxAgeMs": self.max_frame_age_s * 1000,
+            **self.metrics(), "observation": self.analysis_observation(analysis) if analysis else None}
+
+    def analysis_observation(self, analysis: CameraAnalysis) -> dict[str, object]:
+        return {
+            **analysis.result.message(), "robotId": analysis.robot_id, "epoch": analysis.epoch,
+            "gatewayInstance": self.gateway.instance_id, "frameCounter": analysis.counter,
+            "ageMs": (self.gateway.clock() - analysis.received_at) * 1000,
+        }
+
+    def _metric_owner(self):
+        if self._ground_plane is None:
+            from .ground_plane import GroundPlane
+            self._ground_plane = GroundPlane(self.gateway.instance_id)
+        return self._ground_plane
+
+    async def _metric_call(self, operation, *args):
+        return await asyncio.get_running_loop().run_in_executor(
+            self._metric_executor, lambda: getattr(self._metric_owner(), operation)(*args))
+
+    async def configure_ground_plane(self, robot_id, request):
+        result = await self._metric_call("calibration", robot_id, request)
+        if result.get("measurement") and request.get("operation") != "status":
+            measurement = result["measurement"]
+            timestamp = measurement.get("observedAt")
+            if timestamp:
+                measurement["expiresAt"] = (datetime.fromisoformat(timestamp) + timedelta(seconds=self.max_frame_age_s)).isoformat()
+            self._metric_latest[robot_id] = measurement
+            await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": robot_id,
+                                               "epoch": measurement.get("epoch"), "measurement": measurement})
         return result
+
+    async def restore_ground_plane(self, calibrations):
+        await self._metric_call("restore", calibrations)
+
+    def camera_measurement(self, robot_id):
+        camera = self._camera_latest.get(robot_id)
+        if camera is None:
+            return {"available": False, "source": "gateway-camera", "robotId": robot_id,
+                "reason": "No camera observation"}
+        robot = self.gateway.status().get("robots", {}).get(robot_id, {})
+        if self._closed or robot.get("epoch") != camera["epoch"] or robot.get("connection_state") != "online":
+            return {**camera, "available": False, "reason": "Camera observation belongs to disconnected body epoch"}
+        if not 0 <= self.gateway.clock() - camera["receivedAtMonotonic"] <= self.max_frame_age_s:
+            return {**camera, "available": False, "reason": "Camera observation exceeds configured camera freshness"}
+        return dict(camera)
+
+    def locomotion_measurement(self, robot_id=None):
+        selected = robot_id or self.robot_id
+        candidates = self._camera_latest.keys() | self._metric_latest.keys()
+        if selected is None and len(candidates) == 1:
+            selected = next(iter(candidates))
+        camera = self.camera_measurement(selected)
+        measurement = self._metric_latest.get(selected)
+        if measurement is None:
+            return {"available": False, "reason": "No metric camera observation", "robotId": selected, "camera": camera}
+        measurement = {**measurement, "camera": camera}
+        robot = self.gateway.status().get("robots", {}).get(selected, {})
+        if robot.get("epoch") != measurement.get("epoch") or robot.get("connection_state") != "online":
+            return {**measurement, "available": False, "reason": "Metric observation belongs to disconnected body epoch"}
+        if self.gateway.clock() - measurement.get("receivedAtMonotonic", 0) > self.max_frame_age_s:
+            return {**measurement, "available": False, "reason": "Camera observation exceeds configured camera freshness"}
+        return measurement
+
+    async def selected_ground_range(self, frame_id, point, source_frame=None):
+        result = await self._metric_call("range", frame_id, point, source_frame)
+        if not result.get("available"):
+            return result
+        measurement = self.locomotion_measurement(result.get("robotId"))
+        if not measurement.get("available"):
+            return {**result, "available": False, "reason": measurement.get("reason")}
+        return {**result, "expiresAt": measurement.get("expiresAt")}
+
+    async def _run_metrics(self):
+        while True:
+            frame, received_iso = await self._metric_queue.get()
+            try:
+                result = await self._metric_call("process", frame.robot_id, frame.epoch, frame.counter,
+                                                frame.received_at, frame.payload, received_iso)
+                if self._body_current(frame):
+                    result["expiresAt"] = (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()
+                    self._metric_latest[frame.robot_id] = result
+                    await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
+                                                       "epoch": frame.epoch, "measurement": result})
+            except Exception as error:
+                failed = {"available": False, "robotId": frame.robot_id, "epoch": frame.epoch,
+                    "observedAt": received_iso, "frameTimestamp": received_iso, "reason": str(error)}
+                self._metric_latest[frame.robot_id] = failed
+                logging.getLogger(__name__).warning("Ground-plane measurement failed: %s", error)
+                if self._body_current(frame):
+                    await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
+                                                       "epoch": frame.epoch, "measurement": failed})
+            finally:
+                self._metric_queue.task_done()
 
     async def enroll_person(self, payload: dict[str, object]) -> object:
         enroll = getattr(self.consume, "enroll", None)
         if enroll is None:
             raise ValueError("Named-person recognition is not configured")
         return await self._call(enroll, payload)
+
+    async def configure_vision(self, request: dict[str, object]) -> object:
+        configure = getattr(self.consume, "configure_vision", None)
+        if configure is None:
+            raise ValueError("The configured recognition backend does not support target configuration")
+        self._generation += 1
+        self._latest_analysis = None
+        # Same executor as inference: no concurrent mutation of model prompts.
+        try:
+            return await self._call(configure, request)
+        finally:
+            self._generation += 1
+            self._latest_analysis = None
 
     async def forget_person(self, person_id: str) -> dict[str, object]:
         gallery = getattr(self.consume, "gallery", None)
@@ -537,9 +680,8 @@ class CameraFramePlugin:
                     result = finalize(result, (frame.robot_id, frame.epoch, generation), frame.counter, frame.received_at)
                 self.fresh_results += 1
                 self._last_received_at = frame.received_at
-                if finalize is not None:
-                    self._latest_analysis = CameraAnalysis(frame.robot_id, frame.epoch, frame.counter,
-                        frame.received_at, self.gateway.clock(), result)
+                self._latest_analysis = CameraAnalysis(frame.robot_id, frame.epoch, frame.counter,
+                    frame.received_at, self.gateway.clock(), result, jpeg=frame.payload)
                 if self.observe is not None:
                     await self._call(self.observe, CameraAnalysis(
                         frame.robot_id, frame.epoch, frame.counter, frame.received_at,
@@ -559,6 +701,10 @@ class CameraFramePlugin:
         await asyncio.shield(self._close_task)
 
     async def _finish_close(self) -> None:
+        if self._metric_worker is not None:
+            self._metric_worker.cancel()
+            await asyncio.gather(self._metric_worker, return_exceptions=True)
+        await asyncio.to_thread(self._metric_executor.shutdown, wait=True, cancel_futures=True)
         if self._worker is not None:
             self._worker.cancel()
             await asyncio.gather(self._worker, return_exceptions=True)

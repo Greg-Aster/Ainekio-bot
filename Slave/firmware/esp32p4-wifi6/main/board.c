@@ -23,6 +23,7 @@ static portMUX_TYPE gate_lock = portMUX_INITIALIZER_UNLOCKED;
 static i2c_master_bus_handle_t bus;
 static i2c_master_dev_handle_t device;
 static ainekio_pca9685_t output;
+static bool output_initialized;
 static atomic_int last_i2c_error;
 
 static void enter(void *context) { (void)context; portENTER_CRITICAL(&gate_lock); }
@@ -35,27 +36,31 @@ static void disable(void *context, bool disabled)
 static uint64_t now(void *context) { (void)context; return (uint64_t)esp_timer_get_time(); }
 static void delay(void *context, uint32_t us) { (void)context; esp_rom_delay_us(us); }
 
-static bool write_registers(void *context, uint8_t reg, const uint8_t *data,
+static ainekio_pca_bus_result_t bus_result(esp_err_t error)
+{
+    if (error != ESP_OK) atomic_store_explicit(&last_i2c_error, error, memory_order_relaxed);
+    return error == ESP_OK ? AINEKIO_PCA_BUS_OK :
+        error == ESP_ERR_TIMEOUT ? AINEKIO_PCA_BUS_TIMEOUT : AINEKIO_PCA_BUS_ERROR;
+}
+static ainekio_pca_bus_result_t write_registers(void *context, uint8_t reg, const uint8_t *data,
                             size_t length, uint32_t timeout_ms)
 {
     (void)context;
-    if (length > 64U || !device) return false;
+    if (length > 64U || !device) return AINEKIO_PCA_BUS_ERROR;
     uint8_t bytes[65];
     bytes[0] = reg;
     memcpy(bytes + 1, data, length);
     const esp_err_t error = i2c_master_transmit(device, bytes, length + 1U, (int)timeout_ms);
-    if (error != ESP_OK) atomic_store_explicit(&last_i2c_error, error, memory_order_relaxed);
-    return error == ESP_OK;
+    return bus_result(error);
 }
-static bool read_registers(void *context, uint8_t reg, uint8_t *data,
+static ainekio_pca_bus_result_t read_registers(void *context, uint8_t reg, uint8_t *data,
                            size_t length, uint32_t timeout_ms)
 {
     (void)context;
-    if (!device) return false;
+    if (!device) return AINEKIO_PCA_BUS_ERROR;
     const esp_err_t error = i2c_master_transmit_receive(device, &reg, 1U, data, length,
                                                       (int)timeout_ms);
-    if (error != ESP_OK) atomic_store_explicit(&last_i2c_error, error, memory_order_relaxed);
-    return error == ESP_OK;
+    return bus_result(error);
 }
 
 static void supervisor(void *context)
@@ -63,7 +68,6 @@ static void supervisor(void *context)
     (void)context;
     TickType_t wake = xTaskGetTickCount();
     for (;;) {
-        ainekio_pca_supervise(&output);
         ainekio_p4_controller_supervise();
         xTaskDelayUntil(&wake, pdMS_TO_TICKS(5U));
     }
@@ -110,6 +114,7 @@ esp_err_t ainekio_p4_board_init(void)
     };
     const ainekio_pca_config_t config = {.oscillator_hz = 25000000U, .frequency_hz = 50U};
     const ainekio_pca_result_t result = ainekio_pca_init(&output, &port, &config);
+    output_initialized = result == AINEKIO_PCA_OK;
     ESP_LOGI("board", "PCA initialization=%d; OE disabled until startup home", result);
     ESP_RETURN_ON_ERROR(esp_register_shutdown_handler(shutdown_outputs), "board", "shutdown gate");
     if (xTaskCreatePinnedToCore(supervisor, "output_guard", 3072, NULL,
@@ -119,6 +124,7 @@ esp_err_t ainekio_p4_board_init(void)
 }
 
 ainekio_pca9685_t *ainekio_p4_output(void) { return &output; }
+bool ainekio_p4_output_initialized(void) { return output_initialized; }
 esp_err_t ainekio_p4_i2c_error(void)
 {
     return atomic_load_explicit(&last_i2c_error, memory_order_relaxed);

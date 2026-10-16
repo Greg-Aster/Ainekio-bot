@@ -26,6 +26,18 @@ static ainekio_p4_joint_record_t committed;
 static _Atomic float motion_rate = AINEKIO_MOTION_RATE_DEFAULT;
 static atomic_bool motion_rate_saved;
 static atomic_bool joint_speed_saved;
+static atomic_bool balance_enabled = true;
+static atomic_bool balance_saved, balance_tuning_saved;
+static ainekio_v2_balance_tuning_t balance_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+typedef struct {
+    uint32_t version, enabled;
+    ainekio_v2_balance_tuning_t tuning;
+} balance_record_t;
+static bool tuning_valid(const ainekio_v2_balance_tuning_t *t)
+{
+    return isfinite(t->strength) && t->strength>=0.F && isfinite(t->damping) && t->damping>=0.F &&
+        isfinite(t->roll_deg) && isfinite(t->pitch_deg);
+}
 _Static_assert(AINEKIO_BODY_JOINT_COUNT == AINEKIO_PCA_BODY_CHANNELS, "Joint/channel count mismatch");
 
 static bool joints_valid(const ainekio_p4_joint_config_t *joints)
@@ -135,6 +147,21 @@ esp_err_t ainekio_p4_config_init(void)
     const bool limit_valid = limit_result == AINEKIO_STORE_OK && isfinite(limit) && limit > 0.F;
     ainekio_v2_joint_speed_set(limit_valid ? limit : ainekio_v2_joint_speed_default());
     atomic_store(&joint_speed_saved, limit_valid);
+    uint8_t leveling = 1;
+    const ainekio_store_result_t leveling_result = blob("balance_enable", &leveling, sizeof(leveling), false);
+    const bool leveling_valid = leveling_result == AINEKIO_STORE_OK && leveling <= 1;
+    atomic_store(&balance_enabled, leveling_valid ? leveling != 0 : true);
+    atomic_store(&balance_saved, leveling_valid);
+    /* Upgrade the original On/Off value without changing the owner's choice. */
+    balance_record_t level_config={0};
+    const bool level_config_valid=blob("balance_cfg",&level_config,sizeof(level_config),false)==AINEKIO_STORE_OK &&
+        level_config.version==1 && level_config.enabled<=1 && tuning_valid(&level_config.tuning);
+    balance_tuning=level_config_valid ? level_config.tuning : AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+    atomic_store(&balance_tuning_saved,level_config_valid);
+    if(level_config_valid) {
+        atomic_store(&balance_enabled,level_config.enabled!=0);
+        atomic_store(&balance_saved,true);
+    }
     const bool defaults_valid = ainekio_p4_joint_defaults(calibration.joints);
     const ainekio_store_result_t saved = blob("joint_mapping", &committed, sizeof(committed), false);
     if (saved == AINEKIO_STORE_OK && committed.version == 1 && joints_valid(committed.joints)) {
@@ -149,6 +176,34 @@ esp_err_t ainekio_p4_config_init(void)
     printf("configuration load=%d; configured=%d\n", result, store.has_active);
     return result == AINEKIO_CONFIG_LOAD_IO_ERROR ? ESP_FAIL : ESP_OK;
 }
+
+bool ainekio_p4_balance_enabled(void) { return atomic_load(&balance_enabled); }
+bool ainekio_p4_balance_saved(void) { return atomic_load(&balance_saved); }
+ainekio_v2_balance_tuning_t ainekio_p4_balance_tuning(void)
+{
+    xSemaphoreTake(config_lock,portMAX_DELAY);
+    const ainekio_v2_balance_tuning_t result=balance_tuning;
+    xSemaphoreGive(config_lock);
+    return result;
+}
+bool ainekio_p4_balance_tuning_saved(void) { return atomic_load(&balance_tuning_saved); }
+esp_err_t ainekio_p4_balance_configure(bool enabled,const ainekio_v2_balance_tuning_t *tuning)
+{
+    const balance_record_t record={.version=1,.enabled=enabled ? 1 : 0,
+        .tuning=tuning ? *tuning : ainekio_p4_balance_tuning()};
+    if(!tuning_valid(&record.tuning))return ESP_ERR_INVALID_ARG;
+    /* Commit the whole selection together; the output task never waits on NVS. */
+    if(blob("balance_cfg",(void *)&record,sizeof(record),true)!=AINEKIO_STORE_OK)return ESP_FAIL;
+    xSemaphoreTake(config_lock,portMAX_DELAY);
+    balance_tuning=record.tuning;
+    atomic_store(&balance_enabled,enabled);
+    atomic_store(&balance_saved,true);
+    atomic_store(&balance_tuning_saved,true);
+    xSemaphoreGive(config_lock);
+    return ESP_OK;
+}
+esp_err_t ainekio_p4_balance_save(bool enabled)
+{ return ainekio_p4_balance_configure(enabled,NULL); }
 
 bool ainekio_p4_joint_speed_saved(void) { return atomic_load(&joint_speed_saved); }
 esp_err_t ainekio_p4_joint_speed_save(float limit)

@@ -1,0 +1,182 @@
+[
+  {
+    "sweep": 48,
+    "z": 5,
+    "x": 0,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43932 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5,
+    "x": 0,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43912 blend=1 joint=11 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5,
+    "x": -0.5,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43931 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5,
+    "x": -0.5,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43931 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5,
+    "x": 0.5,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43932 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5,
+    "x": 0.5,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43912 blend=1 joint=11 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5.5,
+    "x": 0,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=100 time=2620000 phase=5.03669 blend=0 joint=5 pulse=399\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5.5,
+    "x": 0,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=100 time=3240000 phase=6.03471 blend=0 joint=5 pulse=395\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5.5,
+    "x": -0.5,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43931 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5.5,
+    "x": -0.5,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43931 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5.5,
+    "x": 0.5,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=100 time=1380000 phase=3.03945 blend=0 joint=5 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 5.5,
+    "x": 0.5,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=100 time=2000000 phase=4.03928 blend=0 joint=5 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 4.5,
+    "x": 0,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43912 blend=1 joint=11 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 4.5,
+    "x": 0,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43932 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 4.5,
+    "x": -0.5,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43912 blend=1 joint=11 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 4.5,
+    "x": -0.5,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43932 blend=1 joint=11 pulse=397\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 4.5,
+    "x": 0.5,
+    "y": 5,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43912 blend=1 joint=11 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  },
+  {
+    "sweep": 48,
+    "z": 4.5,
+    "x": 0.5,
+    "y": 6,
+    "phase": 0,
+    "passed": false,
+    "error": "Run pulse: family=4 dir=0 speed=200 time=1680000 phase=6.43912 blend=1 joint=11 pulse=398\ntest-calibration: /home/greggles/Ainekio/Slave/firmware/esp32p4-wifi6/tests/test_run_calibration.c:17: check: Assertion `pulses[i]>=400&&pulses[i]<=2900' failed.",
+    "output": ""
+  }
+]

@@ -1,0 +1,96 @@
+{
+  "stroke": 82.0,
+  "seed": 11,
+  "dimensions": [
+    71.17825483520235,
+    47.739398716662805,
+    25.630319942857597,
+    18.42498704077689,
+    49.723167131976226,
+    89.99722369684572,
+    2.0332205882296916,
+    -31.471099602320436
+  ],
+  "result": {
+    "score": [
+      0.8598475649243645
+    ],
+    "closed": [
+      true
+    ],
+    "min_leg_angle": [
+      45.00125540082045
+    ],
+    "peak_torque_Nm": [
+      [
+        0.11169748891216844,
+        0.1068003720280942
+      ]
+    ],
+    "peak_speed_deg_s": [
+      [
+        510.9598370860943,
+        487.7566293897564
+      ]
+    ],
+    "peak_reference_utilization": [
+      [
+        0.8515997284768239,
+        0.8129277156495941
+      ]
+    ],
+    "torque_imbalance_fraction": [
+      0.04384267660596209
+    ],
+    "joint_excursions_deg": [
+      [
+        44.39031632606807,
+        26.351570462654376
+      ]
+    ]
+  },
+  "generations": 240,
+  "converged": false,
+  "bounds": [
+    [
+      20,
+      80
+    ],
+    [
+      45,
+      55
+    ],
+    [
+      20,
+      70
+    ],
+    [
+      8,
+      80
+    ],
+    [
+      8,
+      100
+    ],
+    [
+      35,
+      90
+    ],
+    [
+      -45,
+      45
+    ],
+    [
+      -35,
+      40
+    ]
+  ],
+  "assumptions": {
+    "cycle_seconds": 0.9,
+    "duty": 0.8,
+    "stance_force_per_leg_N": 2.77623,
+    "reference_stall_Nm": 0.1765197,
+    "reference_no_load_deg_s": 600.0,
+    "scope": "Spherical toe planar surrogate; half body weight per loaded leg; no limb inertia. Reference motor normalization, not installed-servo qualification. Full mesh/body verification required."
+  }
+}

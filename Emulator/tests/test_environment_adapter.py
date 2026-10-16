@@ -6,7 +6,7 @@ import json
 import struct
 import unittest
 import wave
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from gateway.environment_adapter import (
     EnvironmentAdapter,
@@ -14,7 +14,7 @@ from gateway.environment_adapter import (
     translate_environment_action,
 )
 from gateway.environment_adapter.server import AUDIO_UTTERANCE_MAGIC
-from gateway.server.service import GatewayError
+from gateway.server.service import CONTROL_STALE_SECONDS, GatewayError
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 import websockets
 from websockets.exceptions import ConnectionClosedError
@@ -175,11 +175,79 @@ class BlockingWebSocket(FakeWebSocket):
 
 
 class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
-    async def test_speech_settings_roundtrip_errors_and_disconnect(self) -> None:
+    async def test_boot_event_waits_for_bridge_and_replays_with_original_identity(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        event = {"t": "event", "name": "body_event", "robot_id": "test-body", "epoch": 1,
+                 "event_id": "boot-event", "data": {"kind": "wake", "reason": "boot"}}
+        try:
+            await adapter._handle_gateway_event(event)
+            pending = adapter.receipts.pending()
+            self.assertEqual(len(pending), 1)
+            observation = pending[0]["observation"]
+            self.assertEqual(observation["state"]["bodyEvent"]["event_id"], "boot-event")
+            self.assertEqual(observation["metadata"]["perceptionEvent"], "body_event")
+            self.assertNotIn("perceptionEvent", adapter._observation().get("metadata", {}))
+            websocket = FakeWebSocket()
+            adapter._websocket = websocket
+            await adapter._replay_pending_feedback(websocket)
+            self.assertEqual(json.loads(websocket.sent[0]), pending[0])
+            self.assertEqual(len(adapter.receipts.pending()), 1)
+            adapter.receipts.acknowledge(observation["id"])
+            await adapter._replay_pending_feedback(websocket)
+            self.assertEqual(len(websocket.sent), 1)
+            self.assertEqual(adapter.receipts.pending(), [])
+            self.assertEqual(adapter.gateway.calls, [])
+        finally:
+            adapter.receipts.close()
+
+    async def test_reconnect_replay_reads_acknowledgements_and_drains_without_regeneration(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        for index in range(256):
+            observation = {"id": f"replay-{index}"}
+            adapter.receipts.queue(observation["id"], None, {"type": "environment.observation", "observation": observation})
+        acknowledged = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        acknowledge = adapter.receipts.acknowledge
+        send = adapter._send
+
+        def record_ack(identifier):
+            acknowledge(identifier)
+            if identifier == "replay-0":
+                loop.call_soon_threadsafe(acknowledged.set)
+
+        async def replay_send(message, **kwargs):
+            if message.get("observation", {}).get("id") == "replay-1":
+                await asyncio.wait_for(acknowledged.wait(), 2)
+            return await send(message, **kwargs)
+
+        adapter.receipts.acknowledge = record_ack
+        adapter._send = replay_send
+        try:
+            async with websockets.serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
+                url = f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}"
+                async with websockets.connect(url) as ws:
+                    await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "test"}))
+                    self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
+                    for index in range(256):
+                        message = json.loads(await asyncio.wait_for(ws.recv(), 3))
+                        self.assertEqual(message["observation"]["id"], f"replay-{index}")
+                        await ws.send(json.dumps({"type": "environment.observation.ack", "observationId": f"replay-{index}", "admitted": True}))
+                    async with asyncio.timeout(3):
+                        while adapter.receipts.pending():
+                            await asyncio.sleep(0.001)
+                async with websockets.connect(url) as ws:
+                    await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "test"}))
+                    self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
+                    self.assertEqual(adapter.receipts.pending(), [])
+                    self.assertEqual(adapter.gateway.calls, [])
+        finally:
+            adapter.receipts.close()
+
+    async def test_behavior_settings_roundtrip_errors_and_disconnect(self) -> None:
         adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(
             receipt_path=":memory:", token="adapter-secret"))
         with self.assertRaisesRegex(GatewayError, "MetaHuman Environment Bridge is disconnected"):
-            await adapter.speech_output_settings()
+            await adapter.behavior_settings()
         async with websockets.serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
             async with websockets.connect(f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}") as ws:
                 await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "adapter-secret"}))
@@ -196,24 +264,12 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                     result = await request
                     self.assertEqual(result["enabled"], enabled or False)
                     self.assertEqual(result["unresolvedActions"], [{"id": "waiting-for-terminal"}])
-                for target in (None, "robot", "local"):
-                    request = asyncio.create_task(adapter.speech_output_settings(target))
-                    message = json.loads(await ws.recv())
-                    self.assertEqual(message["type"], "speech.settings")
-                    self.assertEqual(message.get("outputTarget"), target)
-                    await ws.send(json.dumps({"type": "speech.settings.result", "requestId": "unrelated", "outputTarget": "robot"}))
-                    self.assertFalse(request.done())
-                    await ws.send(json.dumps({"type": "speech.settings.result", "requestId": message["requestId"],
-                                              "outputTarget": target or "local", "username": "fixture-owner"}))
-                    result = await request
-                    self.assertEqual(result["outputTarget"], target or "local")
-                    self.assertEqual(result["username"], "fixture-owner")
-                request = asyncio.create_task(adapter.speech_output_settings("robot"))
+                request = asyncio.create_task(adapter.behavior_settings(True))
                 message = json.loads(await ws.recv())
-                await ws.send(json.dumps({"type": "speech.settings.result", "requestId": message["requestId"], "error": "Sign in first"}))
+                await ws.send(json.dumps({"type": "behavior.settings.result", "requestId": message["requestId"], "error": "Sign in first"}))
                 with self.assertRaisesRegex(GatewayError, "Sign in first"):
                     await request
-                request = asyncio.create_task(adapter.speech_output_settings())
+                request = asyncio.create_task(adapter.behavior_settings())
                 await ws.recv()
                 await ws.close()
                 with self.assertRaisesRegex(GatewayError, "disconnected"):
@@ -423,7 +479,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                             "action": {
                                 "id": "action-1",
                                 "bodyLease": {"bodyId": "ainekio-01", "executionId": "test-execution", "generation": 1},
-                                "type": "move",
+                                "type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"},
                                 "direction": "forward",
                                 "createdAt": datetime.now(timezone.utc).isoformat(),
                             },
@@ -463,7 +519,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((snapshot.kind, snapshot.name), ("snapshot", "captureImage"))
 
         move = translate_environment_action(
-            {"type": "move", "direction": "backward", "units": 99}
+            {"type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"}, "direction": "backward", "units": 99}
         )
         self.assertIsNotNone(move)
         assert move is not None
@@ -471,7 +527,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(move.params, {"dir": "back", "steps": 10})
 
         for action, asset in (
-            ({"type": "move", "direction": "left"}, "turn_left_45"),
+            ({"type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"}, "direction": "left"}, "turn_left_45"),
             ({"type": "robotCommand", "command": "turn right"}, "turn_right_45"),
             ({"type": "robotCommand", "command": "turn left quarter turn"}, "turn_left_45"),
             ({"type": "robotCommand", "command": "turn right half turn"}, "turn_right_90"),
@@ -614,7 +670,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         await adapter._process_environment_action(
             {
                 "id": "move-2",
-                "type": "move",
+                "type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"},
                 "direction": "forward",
                 "createdAt": now.isoformat(),
                 "correlationId": "cycle-2",
@@ -769,7 +825,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             {
                 "id": "action-1",
                                 "bodyLease": {"bodyId": "ainekio-01", "executionId": "test-execution", "generation": 1},
-                "type": "move",
+                "type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"},
                 "direction": "forward",
                 "createdAt": "2000-01-01T00:00:00Z",
             },
@@ -792,7 +848,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             {
                 "id": "action-1",
                                 "bodyLease": {"bodyId": "ainekio-01", "executionId": "test-execution", "generation": 1},
-                "type": "move",
+                "type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"},
                 "direction": "forward",
                 "createdAt": now.isoformat(),
             },
@@ -831,7 +887,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         result = await adapter.handle_action(
             {
                 "id": "move-offline",
-                "type": "move",
+                "type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"},
                 "direction": "forward",
                 "createdAt": now.isoformat(),
             }
@@ -940,6 +996,77 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(websocket.sent, [])
+
+    async def test_selected_camera_read_returns_latest_stream_without_capture_or_observation(self) -> None:
+        gateway = FakeGateway()
+        gateway.clock = lambda: 100.0
+        now = datetime(2026, 10, 11, tzinfo=timezone.utc)
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="fixture"),
+                                     utcnow=lambda: now)
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket
+        for counter in (4, 5):
+            await adapter._handle_gateway_frame({"robot_id": "test-body", "epoch": 1,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE, "counter": counter,
+                "received_at": 98.0, "payload": b"\xff\xd8\xff\xd9"})
+        self.assertEqual(websocket.sent, [])
+        for request_id in ("read-one", "read-two"):
+            await adapter._read_camera_visual({"type": "environment.visual.read", "version": 1,
+                "requestId": request_id, "sessionId": adapter.config.session_id})
+            result = json.loads(websocket.sent[-1])
+            self.assertEqual(result["type"], "environment.visual.result")
+            self.assertEqual(result["requestId"], request_id)
+            self.assertEqual(result["visual"]["metadata"]["counter"], 5)
+            self.assertEqual(result["visual"]["timestamp"], "2026-10-10T23:59:58+00:00")
+        self.assertEqual(gateway.calls, [])
+        self.assertEqual(adapter._camera_observation_count, 0)
+
+    async def test_camera_read_preserves_missing_frame_and_selected_epoch(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="fixture"))
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket
+        request = {"type": "environment.visual.read", "version": 1,
+                   "requestId": "read", "sessionId": adapter.config.session_id}
+        await adapter._read_camera_visual(request)
+        self.assertIsNone(json.loads(websocket.sent[-1])["visual"])
+        await adapter._handle_gateway_frame({"robot_id": "test-body", "epoch": 1,
+            "frame_type": CAMERA_JPEG_FRAME_TYPE, "counter": 4, "payload": b"\xff\xd8\xff\xd9"})
+        status = gateway.status()
+        status["robots"]["test-body"]["epoch"] = 2
+        gateway.status = lambda: status
+        await adapter._read_camera_visual(request)
+        self.assertIsNone(json.loads(websocket.sent[-1])["visual"])
+        await adapter._read_camera_visual({**request, "sessionId": "other-body"})
+        self.assertIn("error", json.loads(websocket.sent[-1]))
+        self.assertEqual(gateway.calls, [])
+
+    async def test_vision_configuration_uses_existing_request_result_without_body_commands(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="fixture"))
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket
+        requests = []
+        async def configure(request):
+            requests.append(request)
+            return {"operation": request["operation"], "queryId": request["requestId"]}
+        adapter.vision_operation = configure
+        request = {"type": "environment.visual.read", "version": 1,
+            "sessionId": adapter.config.session_id, "requestId": "search-keys", "operation": "search", "labels": ["keys"]}
+        await adapter._read_camera_visual(request)
+        self.assertEqual(requests, [request])
+        reply = json.loads(websocket.sent[-1])
+        self.assertEqual(reply["type"], "environment.visual.result")
+        self.assertEqual(reply["vision"]["queryId"], "search-keys")
+        self.assertEqual(reply["requestId"], "search-keys")
+        self.assertNotIn("visual", reply)
+        self.assertEqual(gateway.calls, [])
+        async def disconnected(request):
+            adapter._websocket = FakeWebSocket()
+            return {"queryId": "search-keys"}
+        adapter.vision_operation = disconnected
+        await adapter._read_camera_visual(request)
+        self.assertEqual(adapter._websocket.sent, [], "a completed old request cannot write to a replacement bridge")
 
     async def test_camera_delivery_is_queued_outside_robot_receive_callback(self) -> None:
         gateway = FakeGateway()
@@ -1292,6 +1419,11 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 "spk_underruns": 3,
                 "mic_drops": 4,
                 "wake_ready": False,
+                "output_ready": False,
+                "output_armed": False,
+                "output_fault": 1,
+                "power_monitor_ready": False,
+                "status_received_at": "2026-10-14T23:00:00+00:00",
             }
         )
 
@@ -1300,6 +1432,9 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message["telemetry"]["kind"], "robot.status")
         self.assertTrue(message["telemetry"]["camera_ready"])
         self.assertEqual(message["telemetry"]["mic_drops"], 4)
+        for key, value in {"output_ready": False, "output_armed": False, "output_fault": 1,
+                "power_monitor_ready": False, "status_received_at": "2026-10-14T23:00:00+00:00"}.items():
+            self.assertEqual(message["telemetry"][key], value)
         self.assertNotIn("observation", message)
 
     async def test_microphone_level_telemetry_is_throttled_without_relaying_pcm(self) -> None:
@@ -1441,3 +1576,249 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_naked_gait_aliases_cannot_dispatch_but_internal_translation_remains(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        for action in [
+            {"type": "move", "direction": "forward"},
+            *[{"type": "robotCommand", "command": command} for command in
+              ("walk", "walk forward", "reverse", "turn around", "run", "walk_slow", "crawl", "crab")],
+        ]:
+            self.assertIsNotNone(translate_environment_action(action))
+            result = await adapter.handle_action({"id": "raw", **action})
+            self.assertEqual(result["type"], "rejected")
+            self.assertEqual(result["message"], "locomotion_goal_required")
+        self.assertEqual(gateway.calls, [])
+
+    async def test_yaw_unwrap_retains_sample_identity_and_resets_on_lost_evidence(self):
+        import math
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"),
+            utcnow=lambda: datetime(2026, 10, 15, tzinfo=timezone.utc))
+        self.addCleanup(adapter.receipts.close)
+        def robot(angle, timestamp, fresh=True, boot=1):
+            return {"epoch": 4, "status": {"imu": {"available": True, "fresh": fresh, "frame": "body_nominal",
+                "boot_id": boot, "timestamp_us": timestamp, "received_at": "2026-10-15T00:00:00Z",
+                "orientation_wxyz": [math.cos(math.radians(angle)/2), 0, 0, math.sin(math.radians(angle)/2)]}}}
+        first = adapter._yaw_measurement("robot", robot(170, 1))
+        next_sample = adapter._yaw_measurement("robot", robot(-170, 2))
+        self.assertAlmostEqual(next_sample["degrees"] - first["degrees"], 20)
+        self.assertEqual(first["referenceId"], next_sample["referenceId"])
+        self.assertEqual(adapter._yaw_measurement("robot", robot(-170, 2)), next_sample)
+        self.assertFalse(adapter._yaw_measurement("robot", robot(-160, 3, False))["available"])
+        self.assertNotEqual(adapter._yaw_measurement("robot", robot(-150, 4))["referenceId"], first["referenceId"])
+        self.assertNotEqual(adapter._yaw_measurement("robot", robot(-150, 5, boot=2))["referenceId"], first["referenceId"])
+        stale = adapter._yaw_measurement("robot", {**robot(-150, 6, boot=2), "connection_state": "stale"})
+        self.assertFalse(stale["available"])
+        self.assertEqual(stale["reason"], "body_connection_stale")
+        self.assertFalse(adapter._yaw_measurement("robot", None)["available"])
+
+    async def test_old_fresh_imu_expires_while_other_control_traffic_remains_online(self):
+        now = datetime(2026, 10, 15, tzinfo=timezone.utc)
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"),
+            utcnow=lambda: now)
+        self.addCleanup(adapter.receipts.close)
+        robot = {"epoch": 4, "connection_state": "online", "heartbeat_age_ms": 0,
+            "status": {"imu": {"available": True, "fresh": True, "frame": "body_nominal",
+                "boot_id": 1, "timestamp_us": 1, "received_at": now.isoformat(),
+                "orientation_wxyz": [1, 0, 0, 0]}}}
+        first = adapter._yaw_measurement("robot", robot)
+        self.assertTrue(first["available"])
+        self.assertEqual(first["expiresAt"], (now + timedelta(seconds=CONTROL_STALE_SECONDS)).isoformat())
+        now += timedelta(seconds=CONTROL_STALE_SECONDS / 2)
+        repeated = adapter._yaw_measurement("robot", robot)
+        self.assertTrue(repeated["available"])
+        self.assertEqual(repeated["expiresAt"], first["expiresAt"])
+        now += timedelta(seconds=CONTROL_STALE_SECONDS / 2)
+        expired = adapter._yaw_measurement("robot", robot)
+        self.assertFalse(expired["available"])
+        self.assertEqual(expired["reason"], "body_orientation_expired")
+        self.assertEqual(expired["expiresAt"], first["expiresAt"])
+        self.assertNotIn("robot", adapter._locomotion_yaw)
+        robot["status"]["imu"].update({"received_at": now.isoformat(), "timestamp_us": 2})
+        resumed = adapter._yaw_measurement("robot", robot)
+        self.assertTrue(resumed["available"])
+        self.assertNotEqual(resumed["referenceId"], first["referenceId"])
+        now += timedelta(seconds=CONTROL_STALE_SECONDS)
+        robot["status"]["imu"].update({"received_at": now.isoformat(), "timestamp_us": 3})
+        after_unobserved_gap = adapter._yaw_measurement("robot", robot)
+        self.assertTrue(after_unobserved_gap["available"])
+        self.assertNotEqual(after_unobserved_gap["referenceId"], resumed["referenceId"])
+        robot["status"]["imu"]["fresh"] = False
+        self.assertFalse(adapter._yaw_measurement("robot", robot)["available"])
+
+    async def test_ground_range_uses_exact_selected_point_without_motion(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        socket = FakeWebSocket()
+        adapter._websocket = socket
+        calls = []
+        async def ground_range(frame_id, point, source_frame):
+            calls.append((frame_id, point, source_frame))
+            return {"available": True, "frameId": frame_id, "groundContact": point, "rangeMetres": 1.2,
+                "source": "calibrated-ground-plane", "referenceId": "reference"}
+        adapter.selected_ground_range = ground_range
+        await adapter._read_camera_visual({"version": 1, "requestId": "read", "sessionId": adapter.config.session_id,
+            "operation": "groundRange", "frameId": "exact-frame", "groundContact": {"x": .3, "y": .8},
+            "sourceFrame": {"frameId": "exact-frame", "jpeg": "retained-jpeg", "epoch": 1}}, websocket=socket)
+        self.assertEqual(calls, [("exact-frame", {"x": .3, "y": .8}, {"frameId": "exact-frame", "jpeg": "retained-jpeg", "epoch": 1})])
+        self.assertNotIn("sourceFrame", adapter._ground_range_selection)
+        result = json.loads(socket.sent[-1])["vision"]["locomotionMeasurement"]["target"]
+        self.assertEqual(result["rangeMetres"], 1.2)
+        self.assertEqual(gateway.calls, [])
+
+    async def test_measurement_events_use_existing_telemetry_with_independent_sensor_availability(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        adapter._websocket = FakeWebSocket()
+        robot_id = adapter._selected_robot()[0]
+        adapter.locomotion_measurement = lambda _robot: {"available": False, "reason": "uncalibrated",
+            "robotId": robot_id, "source": "calibrated-ground-plane"}
+        await adapter._handle_gateway_event({"t": "locomotion_measurement", "robot_id": robot_id, "epoch": 1})
+        message = json.loads(adapter._websocket.sent[-1])
+        self.assertEqual(message["type"], "environment.telemetry")
+        measurement = message["telemetry"]["locomotionMeasurement"]
+        self.assertFalse(measurement["position"]["available"])
+        self.assertIn("yaw", measurement)
+        self.assertEqual(measurement["position"]["sessionId"], adapter.config.session_id)
+        self.assertEqual(gateway.calls, [])
+
+    async def test_measurement_from_previous_body_epoch_is_not_current_progress(self):
+        gateway = FakeGateway()
+        gateway.status = lambda: {"robots": {"robot": {"connected": True, "epoch": 8,
+            "model": "v2-12servo", "features": [], "status": {}}}}
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:", robot_id="robot"))
+        self.addCleanup(adapter.receipts.close)
+        old = {"available": True, "robotId": "robot", "epoch": 7, "referenceId": "old", "rangeMetres": 1}
+        adapter.locomotion_measurement = lambda _: old
+        adapter._ground_range_measurement = old
+        measurement = adapter._observation()["state"]["locomotionMeasurement"]
+        for field in ("position", "target"):
+            self.assertFalse(measurement[field]["available"])
+            self.assertEqual(measurement[field]["referenceId"], "old")
+            self.assertEqual(measurement[field]["reason"], "measurement_session_changed")
+        self.assertTrue(old["available"], "recorded source measurement remains unchanged")
+
+    async def test_actual_camera_metric_accessor_and_range_reach_adapter_with_provenance(self):
+        from gateway.plugins import CameraFramePlugin
+        from Emulator.tests.test_ground_plane import GroundPlaneTests
+        fixture = GroundPlaneTests()
+        fixture.setUp()
+        fixture.owner._publish('robot', fixture.identity, fixture.initial, {'ambiguous': False})
+        gateway = FakeGateway()
+        gateway.status = lambda: {"robots": {"robot": {"connected": True, "connection_state": "online", "epoch": 1,
+            "model": "v2-12servo", "features": [], "status": {}}}}
+        gateway.clock = lambda: 0.0
+        gateway.unsubscribe_frames = lambda callback: gateway.frame_callbacks.remove(callback)
+        camera = CameraFramePlugin(gateway, lambda _: None, robot_id='robot')
+        camera._ground_plane = fixture.owner
+        camera._metric_latest['robot'] = fixture.owner.measurements['robot']
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token='fixture', receipt_path=':memory:', robot_id='robot'))
+        adapter.locomotion_measurement = camera.locomotion_measurement
+        adapter.selected_ground_range = camera.selected_ground_range
+        adapter._websocket = FakeWebSocket()
+        try:
+            position = adapter._observation()['state']['locomotionMeasurement']['position']
+            self.assertTrue(position['available'])
+            self.assertEqual(position['referenceId'], 'reference')
+            self.assertEqual(position['robotId'], 'robot')
+            self.assertAlmostEqual(position['xMetres'], 0)
+            point = fixture.project(fixture.initial)[12] / [640, 480]
+            await adapter._read_camera_visual({'version': 1, 'sessionId': adapter.config.session_id,
+                'operation': 'groundRange', 'frameId': 'frame0', 'groundContact': {'x': float(point[0]), 'y': float(point[1])}})
+            target = json.loads(adapter._websocket.sent[-1])['vision']['locomotionMeasurement']['target']
+            self.assertTrue(target['available'])
+            self.assertEqual(target['referenceFrameId'], 'frame0')
+            self.assertEqual(target['groundContact'], {'x': float(point[0]), 'y': float(point[1])})
+            self.assertEqual(target['robotId'], 'robot')
+            self.assertEqual(target['sessionId'], adapter.config.session_id)
+            self.assertEqual(gateway.calls, [])
+        finally:
+            await camera.aclose()
+            adapter.receipts.close()
+
+    async def test_camera_only_frames_publish_without_recognition_or_metric_calibration(self):
+        from unittest.mock import AsyncMock
+        from gateway.plugins import CameraFramePlugin
+        gateway = FakeGateway()
+        now = 10.0
+        robot = {"connected": True, "connection_state": "online", "epoch": 1,
+            "model": "v2-12servo", "features": [], "status": {}}
+        gateway.status = lambda: {"robots": {"robot": robot}}
+        gateway.clock = lambda: now
+        gateway.unsubscribe_frames = lambda callback: gateway.frame_callbacks.remove(callback)
+        camera = CameraFramePlugin(gateway, None, robot_id="robot", max_frame_age_s=1.5)
+        camera._metric_call = AsyncMock(return_value={"available": False, "robotId": "robot", "epoch": 1,
+            "reason": "No measured calibration"})
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:", robot_id="robot"))
+        adapter.locomotion_measurement = camera.locomotion_measurement
+        adapter._websocket = FakeWebSocket()
+        published = []
+        async def publish(event):
+            published.append(event)
+            await adapter._handle_gateway_event(event)
+        gateway._publish_event = publish
+        try:
+            await camera._handle_frame({"frame_type": CAMERA_JPEG_FRAME_TYPE, "robot_id": "robot",
+                "epoch": 1, "counter": 4, "received_at": now, "payload": b"fixture-jpeg"})
+            await camera._metric_queue.join()
+            measurement = adapter._observation()["state"]["locomotionMeasurement"]
+            self.assertFalse(camera.recognition_status()["configured"])
+            self.assertFalse(measurement["position"]["available"])
+            raw = measurement["camera"]
+            self.assertTrue(raw["available"])
+            self.assertEqual(raw["frameId"], "ainekio-camera-fixture-gateway-robot-1-4")
+            self.assertEqual(raw["sessionId"], adapter.config.session_id)
+            await camera._handle_frame({"frame_type": CAMERA_JPEG_FRAME_TYPE, "robot_id": "robot",
+                "epoch": 2, "counter": 99, "received_at": now, "payload": b"old-session-jpeg"})
+            await camera._metric_queue.join()
+            self.assertEqual(camera.camera_measurement("robot")["frameId"], raw["frameId"])
+            self.assertAlmostEqual((datetime.fromisoformat(raw["expiresAt"]) - datetime.fromisoformat(raw["observedAt"])).total_seconds(), 1.5)
+            self.assertTrue(any(json.loads(value).get("telemetry", {}).get("locomotionMeasurement", {}).get("camera", {}).get("available")
+                for value in adapter._websocket.sent))
+            now += 2
+            self.assertFalse(adapter._observation()["state"]["locomotionMeasurement"]["camera"]["available"])
+            now = 10
+            robot["epoch"] = 2
+            self.assertFalse(adapter._observation()["state"]["locomotionMeasurement"]["camera"]["available"])
+            self.assertEqual(gateway.calls, [])
+        finally:
+            await camera.aclose()
+            adapter.receipts.close()
+
+    async def test_goal_crab_direction_retains_sideways_primitive_without_steering(self):
+        for direction, wire in [('left', 'side_l'), ('right', 'side_r'), ('forward', 'fwd'), ('back', 'back')]:
+            translated = translate_environment_action({'type': 'move', 'gait': 'crab', 'speed': 40, 'continuous': True,
+                'locomotionGoal': {'kind': 'distance', 'direction': direction, 'metres': 1, 'tolerance': .1}}, model='v2-12servo')
+            self.assertEqual(translated.params['dir'], wire)
+            self.assertNotIn('forward', translated.params)
+            self.assertNotIn('turn', translated.params)
+
+    async def test_incomplete_goal_cannot_disguise_raw_gait_start(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token='fixture', receipt_path=':memory:'))
+        self.addCleanup(adapter.receipts.close)
+        for goal in ({'kind': 'distance'}, {'kind': 'relativeTurn', 'degrees': 90},
+                     {'kind': 'visual', 'target': 'window'}, {'kind': 'follow'}, {'kind': ['distance']}):
+            result = await adapter.handle_action({'id': 'malformed', 'type': 'move', 'direction': 'forward', 'locomotionGoal': goal})
+            self.assertEqual(result['type'], 'rejected')
+            self.assertEqual(result['message'], 'locomotion_goal_required')
+        self.assertEqual(gateway.calls, [])
+
+    async def test_wire_goal_contract_retains_all_five_approved_variants(self):
+        from gateway.environment_adapter.translation import valid_locomotion_goal
+        target = {'frameId': 'frame', 'frameTimestamp': '2026-10-15T00:00:00Z',
+                  'box': {'x': .2, 'y': .3, 'width': .3, 'height': .4}, 'groundContact': {'x': .3, 'y': .7}}
+        goals = [
+            {'kind': 'distance', 'direction': 'left', 'metres': .5, 'tolerance': .05},
+            {'kind': 'relativeTurn', 'degrees': 450, 'tolerance': 2},
+            {'kind': 'approach', 'target': target, 'proximity': {'kind': 'metric', 'metres': .5, 'tolerance': .1}},
+            {'kind': 'follow', 'target': target, 'proximity': {'kind': 'imageRelative', 'boxHeight': .5, 'tolerance': .05}, 'endingCondition': 'until cancelled'},
+            {'kind': 'visual', 'target': 'window', 'completionCriteria': 'reduced glare'},
+        ]
+        for goal in goals:
+            self.assertTrue(valid_locomotion_goal(goal), goal)

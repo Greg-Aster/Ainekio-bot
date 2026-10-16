@@ -1,0 +1,45 @@
+{
+  "version": "0.8.41-p4-upright-walk",
+  "target": "esp32p4",
+  "image": "Slave/firmware/esp32p4-wifi6/build/ainekio_p4_body.bin",
+  "bytes": 3020752,
+  "sha256": "d8921f6df6f5a3333f89135e39a41b7cc6a529044b1f7eae2413faa90c57acfb",
+  "build": "ESP-IDF 5.5.4; established project build directory; application fits 8 MiB slot",
+  "native_tests": {
+    "passed": 51,
+    "failed": 0,
+    "extra_full_steering_calibration_tests": "passed"
+  },
+  "forward_speed_audit": {
+    "settings": 100,
+    "completed": 100,
+    "minimum_loaded_leg_degrees": 47.47576666155848,
+    "minimum_modeled_support_margin_mm": 0.6268586100476092
+  },
+  "source_sha256": {
+    "Slave/software/models/v2-12servo/motion.c": "639a290945b25ab36d1f1d9daa30da709dc4899e8c90fe1d490833b8f1738760",
+    "Slave/software/models/v2-12servo/walk_kinematics.c": "15c64f6cfe8e16192bfffca0bffdbfe95c09a48bd160258ddf81ccef4b055cd2",
+    "Slave/software/models/v2-12servo/motions/locomotion/config.json": "34780acd02c06665168a84d626357d465dbe6a21483090a468771b74745cdf67",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk-contact.json": "fbcae38d154a461dc9310002cbd49ea97531994fd51fbb1ed96a8b9a14bdb044",
+    "Slave/software/models/v2-12servo/motions/locomotion/sole-profile.json": "a9b3c2e1c716eac009d22088c3d3ea1cf3fa0bb8ace28912201e2f5b0e862379"
+  },
+  "uploaded": true,
+  "activated": true,
+  "physical_walking_qualified": false,
+  "deployment": {
+    "verified_at_utc": "2026-10-14T15:30:23.150993+00:00",
+    "transport": "Wi-Fi application OTA",
+    "previous_version": "0.8.40-p4-walk-height",
+    "running_partition": "ota_1",
+    "boot_partition": "ota_1",
+    "state": "accepted",
+    "pending_verify": false,
+    "saved_joint_calibration_unchanged": true,
+    "imu_fresh": true,
+    "imu_calibration_applied": true,
+    "output_armed": false,
+    "output_fault": 1,
+    "output_fault_name": "AINEKIO_PCA_FAULT_EMERGENCY",
+    "walking_command_sent": false
+  }
+}

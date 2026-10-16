@@ -1,14 +1,43 @@
 {
-  "description": "Two eight-second waves; 20-degree pitch each way, coordinated heave and fore-aft rock, planted feet.",
-  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
-  "contact_hulls_file": "../reviewed-hulls.npz",
-  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "body_support_scope": "Measured Blender body and lower-leg surfaces; physical balance unqualified.",
-  "calibrated_path_fit": {
-    "pulse_target_us": [
-      400,
-      2900
-    ],
-    "details": "source.json metadata.calibrated_path_fit"
-  }
+  "description": "Three brisk large front-to-rear pitch/heave waves with all four bare feet planted, then standing recovery.",
+  "mechanism_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "contact_hulls_file": "contact-hulls.npz",
+  "contact_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
+  "body_support_scope": "Complete body hull; bare Part027 contact.",
+  "angle_scope": "Firmware geometric offsets; physical calibration and assembly mounting unqualified.",
+  "schema": "ainekio.worm.expressive-bare.v1",
+  "bare_contact_source_sha256": "fbcae38d154a461dc9310002cbd49ea97531994fd51fbb1ed96a8b9a14bdb044",
+  "phases": [
+    {
+      "start": 0.0,
+      "end": 0.7,
+      "kind": "lower_into_worm"
+    },
+    {
+      "start": 0.7,
+      "end": 2.3,
+      "kind": "body_wave_1"
+    },
+    {
+      "start": 2.3,
+      "end": 3.9,
+      "kind": "body_wave_2"
+    },
+    {
+      "start": 3.9,
+      "end": 5.5,
+      "kind": "body_wave_3"
+    },
+    {
+      "start": 5.5,
+      "end": 6.2,
+      "kind": "return_to_standing"
+    },
+    {
+      "start": 6.2,
+      "end": 6.4,
+      "kind": "hold_standing"
+    }
+  ],
+  "baseline_source_archive_sha256": "40bb96ac15cb1dd369ada8b8d1733bb8e55c761a5d3061f0a19f07350b9cb3f3"
 }

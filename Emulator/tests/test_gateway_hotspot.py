@@ -31,23 +31,20 @@ class RobotHotspotTests(unittest.IsolatedAsyncioTestCase):
     def operations(self):
         return [call.args for call in self.execute.await_args_list]
 
-    async def test_live_switch_persists_and_shutdown_uses_same_owner(self):
+    async def test_live_switch_persists_without_stopping_hotspot_on_shutdown(self):
         await self.hotspot.start()
         self.execute.assert_not_awaited()
         self.assertEqual(await self.hotspot.set_enabled(True), {"hotspot": True})
         self.assertEqual(self.env_file.read_text(), "# Keep operator settings\nSECRET='unchanged'\nexport AINEKIO_HOTSPOT=1 # robot network\n")
         self.assertEqual(self.env_file.stat().st_mode & 0o777, 0o640)
-        await self.hotspot.close()
         self.assertEqual(self.operations(), [
             ("systemctl", "--no-ask-password", "start", "ainekio-hotspot-dhcp.service"),
-            ("systemctl", "--no-ask-password", "stop", "ainekio-hotspot-interface.service"),
         ])
 
     async def test_startup_and_switch_to_wifi_leave_no_second_shutdown_stop(self):
         self.hotspot = RobotHotspot(self.env_file, enabled=True)
         await self.hotspot.start()
         self.assertEqual(await self.hotspot.set_enabled(False), {"hotspot": False})
-        await self.hotspot.close()
         self.assertEqual(len(self.operations()), 2)
         self.assertIn("AINEKIO_HOTSPOT=0 # robot network", self.env_file.read_text())
 

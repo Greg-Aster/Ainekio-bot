@@ -17,8 +17,8 @@ MAX_OBJECTS = 32
 MAX_RESPONSE_BYTES = 64 * 1024
 
 
-def _text(value: object, name: str, limit: int, *, empty: bool = False) -> str:
-    if not isinstance(value, str) or len(value) > limit or (not empty and not value.strip()):
+def _text(value: object, name: str, limit: int | None, *, empty: bool = False) -> str:
+    if not isinstance(value, str) or (limit is not None and len(value) > limit) or (not empty and not value.strip()):
         raise ValueError(f"{name} requires bounded text")
     return value.strip()
 
@@ -35,6 +35,7 @@ class RecognizedObject:
     score: float | None = None
     box: tuple[float, float, float, float] | None = None
     identity: dict[str, object] | None = None
+    track_id: str | None = None
 
     def message(self) -> dict[str, object]:
         result: dict[str, object] = {"label": self.label}
@@ -44,6 +45,8 @@ class RecognizedObject:
             result["box"] = dict(zip(("x", "y", "width", "height"), self.box))
         if self.identity is not None:
             result["identity"] = dict(self.identity)
+        if self.track_id is not None:
+            result["trackId"] = self.track_id
         return result
 
 
@@ -77,11 +80,13 @@ class RecognitionResult:
     summary: str
     objects: tuple[RecognizedObject, ...]
     uncertainties: tuple[str, ...]
+    query_id: str | None = None
 
     def message(self) -> dict[str, object]:
         return {"backend": self.backend, "model": self.model, "summary": self.summary,
                 "objects": [item.message() for item in self.objects],
-                "uncertainties": list(self.uncertainties)}
+                "uncertainties": list(self.uncertainties),
+                **({"queryId": self.query_id} if self.query_id is not None else {})}
 
 
 def parse_recognition(value: object, *, backend: str, model: str) -> RecognitionResult:
@@ -95,9 +100,9 @@ def parse_recognition(value: object, *, backend: str, model: str) -> Recognition
         raise ValueError("recognition uncertainties exceed their bounded list")
     parsed = []
     for item in objects:
-        if not isinstance(item, Mapping) or not set(item).issubset({"label", "score", "box", "identity"}):
+        if not isinstance(item, Mapping) or not set(item).issubset({"label", "score", "box", "identity", "trackId"}):
             raise ValueError("recognition object contains unsupported fields")
-        label = _text(item.get("label"), "object label", 80)
+        label = _text(item.get("label"), "object label", None)
         score = _unit(item["score"], "object score") if "score" in item else None
         box = None
         if "box" in item:
@@ -111,7 +116,8 @@ def parse_recognition(value: object, *, backend: str, model: str) -> Recognition
         identity = parse_person_identity(item["identity"]) if "identity" in item else None
         if identity is not None and (label != "person" or box is None):
             raise ValueError("person identity requires a localized person")
-        parsed.append(RecognizedObject(label, score, box, identity))
+        track_id = _text(item["trackId"], "track id", 80) if "trackId" in item else None
+        parsed.append(RecognizedObject(label, score, box, identity, track_id))
     return RecognitionResult(_text(backend, "backend", 80), _text(model, "model", 160),
         _text(value["summary"], "summary", 1000, empty=True), tuple(parsed),
         tuple(_text(item, "uncertainty", 240) for item in uncertainties))

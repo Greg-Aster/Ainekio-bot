@@ -26,7 +26,7 @@
   "coordinates": "World X physical forward, Y left, Z up. Quaternion wxyz. Negative pitch about body Y raises the front.",
   "joint_zero": "Current root geometry CAD offsets; standing is the solved entry pose.",
   "interpolation": "Monotone cubic Hermite; harmonic same-sign secant tangents, zero endpoint tangents. Hold final position after duration.",
-  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "contact_model": "Bare Part027 hull minimum Z; complete body hull; assumed COM.",
   "com": {
     "mode": "assumed",
     "body_reference_mm": [
@@ -37,7 +37,7 @@
     "measured_mass_kg": null
   },
   "servo_calibration": null,
-  "wave_posture": "Reuse the corrected Sit exactly, lift and extend the front-left leg for three smooth waves, replace the foot, and reverse Sit into standing.",
+  "wave_posture": "Seated bare-Part027 Wave: sequential seating, quick front-left lift, three broad shoulder waves, foot replacement and standing recovery.",
   "body_support_scope": "Current complete body hull.",
   "joint_conventions": {
     "h_Part002": {
@@ -70,7 +70,7 @@
     },
     "provenance": "Measured rig transforms and driver expressions, verified against evaluated Blender poses; electrical horn index not calibrated"
   },
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "sample_fields": [
     "time_s",
     "phase",

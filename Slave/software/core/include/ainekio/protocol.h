@@ -7,6 +7,7 @@
 
 #define AINEKIO_PROTOCOL_VERSION 1U
 #define AINEKIO_WALK_STEERING_FEATURE "walk_steering_v1"
+#define AINEKIO_WALK_LATERAL_FEATURE "walk_lateral_v1"
 #define AINEKIO_GATEWAY_SWITCHING_FEATURE "gateway_switching_v1"
 #define AINEKIO_MOTION_RATE_DEFAULT 2.F
 #define AINEKIO_ASSET_NAME_MAX 32U
@@ -53,6 +54,7 @@ typedef enum {
     AINEKIO_COMMAND_MOTION_SPEED,
     AINEKIO_COMMAND_ROBOT_SETTINGS,
     AINEKIO_COMMAND_SPEAKER,
+    AINEKIO_COMMAND_BALANCE,
 } ainekio_command_kind_t;
 
 #define AINEKIO_NETWORK_SLOTS 4U
@@ -223,8 +225,8 @@ typedef struct {
             float speed_percent;
             float stride_percent;
             float motion_rate;
-            bool steering; /* forward/turn percentages compose in the body frame */
-            float forward, turn;
+            bool steering; /* forward/turn/lateral percentages compose in the body frame */
+            float forward, turn, lateral;
             uint32_t update_sequence; /* active walk sequence; zero starts a walk */
         } walk;
         char asset[AINEKIO_ASSET_NAME_MAX + 1U];
@@ -258,6 +260,10 @@ typedef struct {
         ainekio_storage_operation_t storage_operation;
         ainekio_robot_settings_command_t robot_settings;
         uint8_t speaker_volume_percent;
+        struct {
+            bool save, enabled, has_tuning, calibrate_gyro;
+            float strength, damping, roll_deg, pitch_deg;
+        } balance;
         struct { bool save, has_joint_speed_limit; float rate, joint_speed_limit_deg_s; } motion_speed;
         struct {
             bool enabled;

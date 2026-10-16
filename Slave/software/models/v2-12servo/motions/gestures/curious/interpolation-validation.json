@@ -1,31 +1,31 @@
 {
   "command": "curious",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "2b29b7096a63335304fce9d0fc8db5a550b9b15b25d1f9a51eeb62dc306e69cc",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "source_sha256": "249155777b35733158e35cafa23222654f8b5b455d0026a1d4f6ebf50aad4734",
   "samples": 1171,
   "hardware_qualified": false,
   "collision_checked": false,
   "interpolators": {
     "source": {
       "poses": 1171,
-      "minimum_sole_z_mm": -2.8265390028536785e-11,
+      "minimum_sole_z_mm": -2.8258284601179184e-11,
       "minimum_body_z_mm": 23.671458894283965,
-      "minimum_closure_height_mm": 18.690556090039138,
-      "maximum_interpolated_target_error_mm": 3.998934516857844e-11
+      "minimum_closure_height_mm": 22.190193505055092,
+      "maximum_interpolated_target_error_mm": 2.6147972675971687e-12
     },
     "native_monotone_cubic_midpoints": {
       "poses": 1170,
-      "minimum_sole_z_mm": -0.0010571554196232569,
+      "minimum_sole_z_mm": -0.0010647231852658479,
       "minimum_body_z_mm": 23.671458894283965,
-      "minimum_closure_height_mm": 18.69055609003934,
-      "maximum_interpolated_target_error_mm": 0.001057155419629794
+      "minimum_closure_height_mm": 22.190193505055284,
+      "maximum_interpolated_target_error_mm": 0.0015963266380758512
     },
     "blender_linear_midpoints": {
       "poses": 1170,
-      "minimum_sole_z_mm": -0.00017671091351445511,
+      "minimum_sole_z_mm": -0.00018504925009210638,
       "minimum_body_z_mm": 23.671458894283965,
-      "minimum_closure_height_mm": 18.69055609003934,
-      "maximum_interpolated_target_error_mm": 0.0008519685406020017
+      "minimum_closure_height_mm": 22.190193505055284,
+      "maximum_interpolated_target_error_mm": 0.0020469460207444
     }
   }
 }

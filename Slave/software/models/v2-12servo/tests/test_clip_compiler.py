@@ -87,22 +87,29 @@ class HandoffValidation(unittest.TestCase):
         with (self.family / "dead/reviewed.json").open("a") as handle: handle.write(" ")
         with self.assertRaisesRegex(ValueError, "reviewed recording changed"): self.load()
 
-    def test_wave_reuses_corrected_sit_and_keeps_supporting_legs_planted(self):
+    def test_wave_is_broad_seated_and_keeps_bare_supporting_feet_planted(self):
         self.use_wave()
         self.assertEqual(len(self.load()), 1)
-        sit = json.loads((self.family / "sit/source.json").read_text())["samples"]
         wave = json.loads((self.family / "wave/source.json").read_text())["samples"]
+        posture = json.loads((self.family / "wave/posture.json").read_text())
+        self.assertEqual(posture['contact_hulls_file'], 'contact-hulls.npz')
+        self.assertEqual(wave[-1]['time_s'], 6.2)
+        self.assertEqual(len(wave), 745)
         keys = ["actuator_angles_rad", "body_translation_world_mm", "body_rotation_euler_xyz_rad", "contact_active"]
-        for i in range(361):
+        for i in range(145):
             for key in keys:
-                self.assertEqual(wave[i][key], sit[i][key])
-                self.assertEqual(wave[1824-i][key], sit[i][key])
-        for row in wave[360:1465]:
+                self.assertEqual(wave[720-i][key], wave[i][key])
+        for row in wave[144:577]:
             for leg in [0, 1, 3]:
-                self.assertEqual(row["actuator_angles_rad"][leg], sit[360]["actuator_angles_rad"][leg])
+                self.assertEqual(row["actuator_angles_rad"][leg], wave[144]["actuator_angles_rad"][leg])
                 self.assertTrue(row["contact_active"][leg])
+                self.assertLess(abs(row['sole_clearance_mm'][leg]), .001)
             for key in keys[1:3]:
-                self.assertEqual(row[key], sit[360][key])
+                self.assertEqual(row[key], wave[144][key])
+        shoulders = [row['actuator_angles_rad'][2][0] for row in wave[240:481]]
+        self.assertAlmostEqual((max(shoulders)-min(shoulders))*180/3.141592653589793, 84., places=5)
+        self.assertGreater(min(row['sole_clearance_mm'][2] for row in wave[240:481]), 40.)
+        self.assertGreater(min(row['support_margin_mm'] for row in wave[145:576]), 19.)
 
     def test_wave_rejects_changed_sit_source(self):
         self.use_wave()
@@ -110,6 +117,82 @@ class HandoffValidation(unittest.TestCase):
             handle.write(" ")
         with self.assertRaisesRegex(ValueError, "seated motion dependency changed"):
             self.load()
+
+    def test_point_reaches_full_extension_promptly_and_keeps_support(self):
+        source = json.loads((MODEL/'motions/gestures/point/source.json').read_text())
+        held = [r for r in source['samples'] if r['phase']=='hold_point']
+        self.assertLessEqual(held[0]['time_s'], 2.2)
+        wave = json.loads((MODEL/'motions/gestures/wave/source.json').read_text())
+        seated = wave['samples'][144]
+        for row in held:
+            for leg in [0, 1]:  # Model FL/FR are the physical rear legs.
+                self.assertEqual(row['actuator_angles_rad'][leg], seated['actuator_angles_rad'][leg])
+            self.assertEqual(row['body_translation_world_mm'], seated['body_translation_world_mm'])
+        self.assertGreater(math.degrees(held[0]['actuator_angles_rad'][2][1]), 110.)
+        self.assertGreater(held[-1]['time_s']-held[0]['time_s'], 1.4)
+        for row in held:
+            self.assertEqual(row['contact_active'], [True, True, False, True])
+            self.assertGreater(row['support_margin_mm'], 19.)
+            for leg in [0, 1, 3]:
+                self.assertLess(abs(row['sole_clearance_mm'][leg]), .001)
+
+    def test_pushup_has_five_deep_grounded_presses(self):
+        source = json.loads((MODEL/'motions/gestures/pushup/source.json').read_text())
+        rows = source['samples']
+        bottoms = [p for p in source['phases'] if p['kind'].endswith('_bottom')]
+        self.assertEqual(len(bottoms), 5)
+        high = rows[round(source['phases'][0]['end']*120)]['front_body_clearance_mm']
+        self.assertGreater(high, 44.)
+        self.assertEqual(source['phases'][0]['kind'], 'squat_rear_legs')
+        for phase in source['phases']:
+            if phase['kind'].endswith(('_down', '_up')):
+                self.assertGreaterEqual(phase['end']-phase['start'], 1.09)
+        for row in rows:
+            if row['phase'].startswith('pushup_'):
+                self.assertAlmostEqual(row['rear_body_clearance_mm'], 8., places=6)
+        for phase in bottoms:
+            row = rows[round(phase['start']*120)]
+            self.assertGreaterEqual(row['front_body_clearance_mm'], 2.99)
+            self.assertLessEqual(row['front_body_clearance_mm'], 3.01)
+            self.assertGreater(high-row['front_body_clearance_mm'], 40.)
+        anchors = rows[0]['target_foot_reference_xy_mm']
+        for row in rows:
+            self.assertEqual(row['contact_active'], [True]*4)
+            self.assertGreater(row['support_margin_mm'], 40.)
+            for leg in range(4):
+                self.assertLess(abs(row['sole_clearance_mm'][leg]), .001)
+                for axis in range(2):
+                    self.assertLess(abs(row['foot_bolt_world_mm'][leg][axis]-anchors[leg][axis]), .001)
+
+    def test_worm_has_three_brisk_grounded_body_waves(self):
+        source = json.loads((MODEL/'motions/gestures/worm/source.json').read_text())
+        rows = source['samples']
+        self.assertEqual(len([p for p in source['phases'] if p['kind'].startswith('body_wave_')]), 3)
+        self.assertLess(rows[-1]['time_s'], 7.)
+        pitches = [math.degrees(r['body_rotation_euler_xyz_rad'][1]) for r in rows]
+        self.assertGreater(max(pitches)-min(pitches), 39.9)
+        for row in rows:
+            self.assertEqual(row['contact_active'], [True]*4)
+            self.assertGreaterEqual(row['body_ground_clearance_mm'], 3.999)
+            for leg in range(4):
+                self.assertLess(abs(row['sole_clearance_mm'][leg]), .001)
+                for axis in range(2):
+                    self.assertLess(abs(row['foot_bolt_world_mm'][leg][axis]-rows[0]['target_foot_reference_xy_mm'][leg][axis]), .001)
+
+    def test_bow_lowers_promptly_and_holds_for_five_seconds(self):
+        source = json.loads((MODEL/'motions/gestures/bow/source.json').read_text())
+        phase = next(p for p in source['phases'] if p['kind']=='hold_bow')
+        self.assertLessEqual(phase['start'], 1.05)
+        self.assertAlmostEqual(phase['end']-phase['start'], 5.)
+        rows = source['samples'][round(phase['start']*120):round(phase['end']*120)+1]
+        for row in rows:
+            self.assertEqual(row['contact_active'], [True]*4)
+            self.assertLess(row['body_ground_clearance_mm'], 2.1)
+            self.assertGreater(row['body_ground_clearance_mm'], 1.9)
+            for leg in range(4):
+                self.assertLess(abs(row['sole_clearance_mm'][leg]), .001)
+                for axis in range(3):
+                    self.assertLess(abs(row['actuator_angles_rad'][leg][axis]-rows[0]['actuator_angles_rad'][leg][axis]), 1e-6)
 
     def test_wave_rejects_changed_sit_posture(self):
         self.use_wave()

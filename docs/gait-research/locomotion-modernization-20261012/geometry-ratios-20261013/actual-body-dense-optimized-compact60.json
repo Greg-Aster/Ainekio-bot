@@ -1,0 +1,38 @@
+{
+  "valid": true,
+  "score": 0.9015502245742529,
+  "dimensions": [
+    44.999991518642524,
+    54.945767829585684,
+    21.583039807442624,
+    20.021503711334113,
+    21.481714329165115,
+    67.74725878286831,
+    -10.511586749918589,
+    -23.982851026913913
+  ],
+  "peak_torque_Nm": [
+    0.09227391604330555,
+    0.1025607550524885
+  ],
+  "peak_speed_deg_s": [
+    533.3616921235201,
+    537.3342172343877
+  ],
+  "utilization": [
+    0.8961446550556146,
+    0.8961430264755256
+  ],
+  "imbalance": 0.10029995395332608,
+  "min_angle": 44.999715889380944,
+  "ranges": [
+    5.30808502000334,
+    44.36362705454538,
+    33.899494580953615
+  ],
+  "estimated_mass_kg": 0.5644714243018761,
+  "samples": 480,
+  "converged": true,
+  "iterations": 416,
+  "scope": "Local 480 sample refinement with periodic cubic interpolated body trajectory and linearly interpolated reactions. Not global optimality or manufacturing qualification."
+}

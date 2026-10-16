@@ -159,6 +159,8 @@ class PersonEvidence:
     appearance: object
     face: object = None
     face_visible: bool = False
+    track_id: str | None = None
+    detector_continuity: bool = False
 
 
 class PersonTracker:
@@ -184,8 +186,9 @@ class PersonTracker:
         candidates = []
         for item in evidence:
             candidates.append([i for i, track in enumerate(old)
-                if overlap(item.box, track["box"]) >= .3
-                and float(np.minimum(item.appearance, track["appearance"]).sum()) >= .65])
+                if (item.track_id == track["trackId"] if item.detector_continuity or item.track_id is not None else
+                    overlap(item.box, track["box"]) >= .3
+                    and float(np.minimum(item.appearance, track["appearance"]).sum()) >= .65)])
         uses = Counter(index for choices in candidates for index in choices)
         new, identities = [], {}
         for item, choices in zip(evidence, candidates):
@@ -194,7 +197,7 @@ class PersonTracker:
             if prior and item.face_visible and (not item.face or not prior["match"]
                     or item.face["personId"] != prior["match"]["personId"]):
                 prior = None
-            track_id = prior["trackId"] if prior else str(uuid4())
+            track_id = item.track_id or (prior["trackId"] if prior else str(uuid4()))
             match = item.face
             face_at = now if match else (prior["faceAt"] if prior else None)
             if not match and not item.face_visible and prior and face_at is not None and now - face_at <= FACE_MEMORY_S:
@@ -221,6 +224,15 @@ class PersonIdentityBackend:
     def __init__(self, detector, faces: LocalFaces, gallery: FaceGallery):
         self.detector, self.faces, self.gallery = detector, faces, gallery
         self.tracker = PersonTracker()
+
+    def configure_vision(self, request):
+        return self.detector.configure_vision(request)
+
+    def vision_operations(self):
+        return getattr(self.detector, "vision_operations", lambda: [])()
+
+    def vision_target(self):
+        return getattr(self.detector, "vision_target", lambda: None)()
 
     def __call__(self, jpeg):
         """Heavy work on CameraFramePlugin's existing single inference thread."""
@@ -250,6 +262,11 @@ class PersonIdentityBackend:
     def finalize_frame(self, result, source, counter, received_at):
         """Commit only after the camera owner accepts freshness and generation."""
         recognition, evidence = result
+        finalize = getattr(self.detector, "finalize_frame", None)
+        if finalize is not None:
+            recognition = finalize(recognition, source, counter, received_at)
+            evidence = [replace(item, track_id=recognition.objects[item.index].track_id,
+                detector_continuity=bool(getattr(self.detector, "tracking_enabled", False))) for item in evidence]
         with self.gallery.lock:
             evidence = [replace(item, face=self.gallery.match(item.face) if item.face is not None else None) for item in evidence]
             identities = self.tracker.update((*source, self.gallery.revision), counter, received_at, evidence)

@@ -41,6 +41,7 @@ class P4AudioTransportTests(unittest.IsolatedAsyncioTestCase):
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,12 +50,15 @@ class P4AudioTransportTests(unittest.IsolatedAsyncioTestCase):
 #include "ainekio/control_encode.h"
 #include "ainekio/p4_media.h"
 typedef void *esp_websocket_client_handle_t;
+typedef unsigned TickType_t;
 #define pdTRUE 1
 #define pdMS_TO_TICKS(ms) (ms)
+#define LINK_SEND_TIMEOUT_MS 2000
 #define ESP_LOGW(tag, ...) ((void)(tag), (void)fprintf(stderr, __VA_ARGS__))
 '''+packet+r'''
 static packet_t queue[50];
 static unsigned queued, failures;
+static uint32_t last_media_send_us, last_media_send_bytes;
 static uint64_t clock_us;
 static esp_err_t snapshot_result = ESP_OK;
 uint64_t now_us(void) { return clock_us; }

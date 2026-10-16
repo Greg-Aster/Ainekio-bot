@@ -2,7 +2,8 @@
 #define AINEKIO_V2_WALK_H
 #include "ainekio/v2_motion.h"
 
-/* Requested stride/cadence; the common clock enforces the command-speed limit. */
+/* Advanced controls retain explicit stride/cadence. Automatic Walk traverses
+ * the coordinated joint path at the full nominal joint movement rate. */
 typedef struct { double stride_percent, motion_rate; } ainekio_v2_walk_controls_t;
 typedef struct {
     double phase, body[3], euler[3], feet[4][3], sole_height[4];
@@ -22,8 +23,9 @@ typedef struct {
     uint64_t last_us;
     uint32_t command_sequence, latest_sequence;
     double phase, body_x, body_y, body_yaw, preparation_seconds, transition_phase, transition_span, end_phase;
-    double clock_scale; /* accepted gait time / wall time, in (0,1] */
-    bool speed_flagged; /* coordinated motion timing is reduced by the limit */
+    double clock_scale; /* reference gait time / wall time */
+    bool speed_flagged; /* no speed-limit intervention */
+    bool fast_stroke; /* Semantic gaits: stride selects distance, not joint rate. */
     bool automatic_run;
     double requested_stride_percent, cycles_s, requested_cycles_s, stride_percent;
     ainekio_walk_direction_t direction;
@@ -32,7 +34,7 @@ typedef struct {
     double offset_from[4], offset_target[4];
     ainekio_v2_walk_controls_t from, target, pending;
     bool steering;
-    double forward_from, forward_target, turn_from, turn_target, steering_phase;
+    double forward_from, forward_target, turn_from, turn_target, lateral_from, lateral_target, steering_phase;
     ainekio_v2_foot_state_t feet[4];
     ainekio_v2_walk_pose_t pose;
     bool initialized, pending_update, stopping, complete, failed;
@@ -48,6 +50,14 @@ bool ainekio_v2_walk_controls_valid(ainekio_v2_walk_controls_t controls);
 bool ainekio_v2_walk_pose(double phase, ainekio_v2_walk_controls_t controls,
                          ainekio_v2_walk_pose_t *out);
 bool ainekio_v2_walk_solve(ainekio_v2_walk_pose_t *pose);
+/* Material-point anchors for contact-aware posture transitions. Source leg
+ * order, local sole coordinates. Forward chooses lowest sole points when
+ * choose_contacts is true; otherwise evaluates the supplied material points.
+ * These are modeled contacts, never measured foot contact. */
+bool ainekio_v2_contact_forward(ainekio_v2_walk_pose_t *pose,
+    double local_points[4][3], bool choose_contacts);
+bool ainekio_v2_contact_solve(ainekio_v2_walk_pose_t *pose,
+    const double local_points[4][3]);
 /* Local clock: callers supply monotonic time, never per-servo timing. */
 /* cycles == 0 runs until an explicit speed-zero update. */
 bool ainekio_v2_gait_begin(ainekio_v2_walk_state_t *state,

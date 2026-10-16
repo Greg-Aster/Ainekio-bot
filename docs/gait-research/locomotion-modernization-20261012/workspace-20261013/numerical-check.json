@@ -1,0 +1,8 @@
+{
+  "comparison": "Vectorized workspace and analytic vertical force moment arms versus independent desktop FK and central finite differences; deterministic 1000 candidate samples, installed branch only.",
+  "valid_samples": 546,
+  "max_foot_reference_x_error_mm": 1.83693793474049e-05,
+  "max_body_z_error_mm": 1.8593325961546725e-05,
+  "max_carrier_moment_arm_error_mm": 1.6659719392464467e-05,
+  "max_crank_moment_arm_error_mm": 9.517614955711906e-06
+}

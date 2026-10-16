@@ -1,31 +1,11 @@
 {
   "command": "bow",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "90df38219a01401bdfa055d644a9d097ab887ad62ac405bc7bc5abedece986f5",
-  "samples": 1021,
+  "samples": 1753,
+  "max_sole_vertex_error_mm": 0.005959220228490678,
+  "max_sole_clearance_change_mm": 0.0052967124015168565,
+  "min_closure_height_mm": 7.985233173147281,
+  "status": "passed_compiled_vs_source_full_bare_hull",
+  "source_sha256": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf",
   "hardware_qualified": false,
-  "collision_checked": false,
-  "interpolators": {
-    "source": {
-      "poses": 1021,
-      "minimum_sole_z_mm": -6.495781690318836e-11,
-      "minimum_body_z_mm": 5.262739768285016,
-      "minimum_closure_height_mm": 4.493533179854496,
-      "maximum_interpolated_target_error_mm": 9.72022462519817e-11
-    },
-    "native_monotone_cubic_midpoints": {
-      "poses": 1020,
-      "minimum_sole_z_mm": -0.007364300869511453,
-      "minimum_body_z_mm": 5.262739768285016,
-      "minimum_closure_height_mm": 4.4944689623059935,
-      "maximum_interpolated_target_error_mm": 0.008221107450552267
-    },
-    "blender_linear_midpoints": {
-      "poses": 1020,
-      "minimum_sole_z_mm": -0.0045341664295506234,
-      "minimum_body_z_mm": 5.262739768285016,
-      "minimum_closure_height_mm": 4.498301480204165,
-      "maximum_interpolated_target_error_mm": 0.00463219291839323
-    }
-  }
+  "scope": "All source knots and an off-grid sample per interval. Geometry/playback comparison, not loaded hardware qualification."
 }

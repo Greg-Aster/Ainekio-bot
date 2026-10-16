@@ -1,0 +1,39 @@
+{
+  "valid": true,
+  "score": 1.1512914550410558,
+  "dimensions": [
+    60.0,
+    54.15510352539329,
+    21.530980319281305,
+    15.135751553352705,
+    27.733194059621482,
+    84.04217885563503,
+    -3.9268130619522137,
+    -42.090747950005266
+  ],
+  "peak_torque_Nm": [
+    0.11831807848301483,
+    0.13950426287901163
+  ],
+  "peak_speed_deg_s": [
+    584.7366335594913,
+    678.796882017824
+  ],
+  "utilization": [
+    0.9771003229117793,
+    1.131407999196739
+  ],
+  "imbalance": 0.15186764876404543,
+  "min_angle": 44.995393541423695,
+  "ranges": [
+    4.90738070597198,
+    49.82089117750372,
+    36.76120441413022
+  ],
+  "estimated_mass_kg": 0.5682822974373467,
+  "name": "medium82",
+  "stride": 82,
+  "converged": true,
+  "iterations": 1024,
+  "scope": "Local minimax optimum; fixed previously solved body trajectory; actual sole mesh; uniform-link mass scenario; generic motor torque-speed proxy. Not a proven global optimum or physical qualification."
+}

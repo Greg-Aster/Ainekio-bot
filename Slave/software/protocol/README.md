@@ -49,17 +49,12 @@ No raw twelve-joint motion/calibration payload is introduced by this feature.
 ## Saved joint speed limit
 
 V2 `joint_speed_limit_v1` extends the existing motion-speed command with
-`joint_speed_limit_deg_s`: one positive finite maximum commanded joint speed
-for gaits, finite named motions and entry transitions. There is no fixed upper
-ceiling. The default is the previous nominal 545.4545 degrees/second. Automatic
-Run increases stride, leg lift, body bounding and requested cadence together as
-Speed rises through the Run range. It preserves this requested motion envelope;
-the configured limit retimes the whole motion without shortening stride.
-Committed landing targets and planted anchors are retained. Run stride changes
-use its existing three-cycle entry interpolation to coordinate body bounding
-with subsequent landings; this does not change settled cadence. Independent
-stride/rate mode, named motions and entry transitions also retime together. The old
-125% trigger and separate 1000 microseconds/second entry ceiling are removed.
+`joint_speed_limit_deg_s`, a saved commanded-speed setting used by named motions,
+entry transitions and balance corrections. P4 0.8.56 semantic gaits use fast
+coordinated angular-distance timing at the nominal 545.45 deg/s reference instead
+of this setting. Speed selects stroke distance, and the gait clock follows joint
+travel. This applies to Walk, Run, Crawl, Crab, directions and transitions. Run
+retains its front/rear bound. These are commanded positions, not motor feedback.
 Manual calibration pulses and startup Home remain direct pulse operations.
 
 ```json
@@ -76,6 +71,74 @@ limit and `speed_limited`, indicating slowed coordinated motion timing.
 and commanded and requested stride percentages. These are model command values,
 not measured shaft tracking. Gate limit writes on the advertised feature; older firmware
 continues to support rate-only commands and readback.
+
+## Saved self-leveling selection
+
+P4 `balance_control_v1` exposes an independent saved feedback switch. It defaults
+On to preserve existing behavior. Changing it never issues a motion, Stop,
+calibration command or output detach. Off removes the balance correction using
+the existing fade toward the nominal pose while the selected motion continues.
+On resumes feedback in an existing Stand hold or supported moving gait; it does
+not start Stand or change a gesture into a balancing pose.
+
+```json
+{"t":"balance","op":"get","seq":75}
+{"t":"balance","op":"save","enabled":false,"seq":76}
+{"t":"balance_status","seq":76,"enabled":false,"saved":true,"active":false}
+```
+
+Get/Save settle on matching `balance_status` after ACK. `enabled` is the selection;
+`active` reports whether feedback is currently running. `saved:false` identifies
+the default before a valid value is stored. A failed NVS commit leaves the prior
+selection intact. The setting record is separate from joint and IMU calibration.
+Regular status includes `balance.enabled` as well as `balance.active`. Body Control
+shows On/Off, explicit Save on robot and Read from robot, plus current activity.
+
+`balance_tuning_v1` adds `strength`, `damping`, `roll_deg`, `pitch_deg`, and
+`tuning_saved` to readback. Strength/damping are nonnegative multipliers with no
+application-imposed maximum; defaults are 1× each. Zero strength removes the
+attitude-error response, zero damping removes angular-rate damping. Turning
+leveling Off remains the way to fade all correction back to nominal.
+Roll/pitch targets are offsets from the nominal body attitude, in degrees:
+positive roll raises the left side; positive pitch raises the nose (the firmware
+converts the latter to negative Euler pitch in its x-forward/y-left/z-up frame).
+Both default to zero. This changes the feedback reference, not IMU calibration.
+
+`balance_feedback_v1` adds physical-leg diagnostics under status `balance`:
+`legs_valid`, `extension_mm` (front-left, front-right, rear-left, rear-right),
+and `joint_delta_deg` in model joint order. Positive extension is a downward
+shift of the modeled contact relative to the chassis. Values compare the
+successfully written pose against the nominal motion; they are not measured
+servo positions or evidence of contact. The dashboard derives live roll/pitch
+from fresh IMU quaternions even when self-leveling is Off. Its level-reference
+button copies these angles into the existing target fields for explicit Save;
+the displayed target error then reads zero at that orientation.
+
+The same feature adds `{"t":"balance","op":"calibrate_gyro","seq":78}`.
+ACK plus matching `balance_status` confirms the sampling request, not completion.
+The IMU acquisition owner collects 256 new raw samples, saves their mean as gyro
+bias in the existing IMU calibration blob, and applies it between samples without
+resetting attitude or changing the mounting rotation. The operator keeps the
+robot still; there is no automatic movement, Stop, leveling switch or reboot.
+Status `balance.gyro_calibration` reports `phase` (0 idle, 1 collecting, 2 saved
+and applied, 3 storage error), `samples`, `target`, `error`, `bias_rad_s` and
+`deviation_rad_s` in sensor axes. Deviation is sample standard deviation, not an
+automatic motion rejection threshold. A failed save retains the active bias.
+This does not calibrate accelerometer scale/bias or establish mounting-axis signs.
+
+```json
+{"t":"balance","op":"save","seq":77,"enabled":false,"strength":1.5,"damping":1,"roll_deg":0,"pitch_deg":2}
+{"t":"balance_status","seq":77,"enabled":false,"saved":true,"active":false,"strength":1.5,"damping":1,"roll_deg":0,"pitch_deg":2,"tuning_saved":true}
+```
+
+Send all four tuning values together; an enabled-only save preserves tuning.
+A single versioned NVS record commits the selection and tuning together. Upgrade
+loads the old On/Off setting with original gains until tuning is saved. Body
+Control reads confirmed settings, preserves unsaved edits during polling, and
+provides Use default response without changing On/Off or saving automatically.
+The firmware applies new tuning on subsequent output frames, preserving the
+accepted standing offset and the requested gait. Existing linkage and joint-speed
+criteria still apply; changing gain does not increase motor torque or joint travel.
 
 ## Saved named-motion speed
 
@@ -101,15 +164,17 @@ Body Control uses confirmed robot readback and explicit Save on robot.
 
 The multiplier directly scales the existing entry and clip clocks; it does not
 change the joint path or motion assets. Startup
-Home and Stop retain their existing timing. Ongoing gaits use their own requested
-cadence with the shared joint ceiling; Neutral entry also uses that ceiling. V1 and
+Home and Stop retain their existing timing. Ongoing gaits use fast coordinated
+strokes; Neutral entry still uses the saved joint-speed setting. V1 and
 older V2 firmware reject the extension at the gateway; the V1 C decoder rejects it.
 
 ## Variable forward walking
 
 `walk_controls_v1` is an optional V2 hello feature. The existing `intent: walk`
 envelope accepts `speed` (finite 0–100), or both `stride` (1–100 percent) and
-`rate` (0.25–3 multiplier). Mixing modes, incomplete advanced controls, and
+`rate` (0.25–3 legacy multiplier). On P4 0.8.56, the rate field remains accepted
+but no longer changes gait timing: direct stride also uses fast strokes.
+Mixing modes, incomplete advanced controls, and
 controls on directions other than `fwd` are rejected. A plain walk remains
 valid. V1 and bodies without this feature reject extended controls.
 
@@ -434,3 +499,12 @@ retain their existing renderer ownership. These operations never send Stop or
 change body outputs. Untimed legacy `face` requests retain their existing
 clear-on-next-motion behavior. Gateways reject extension fields unless the body
 advertises this feature. The hello feature array now permits 32 entries.
+
+`walk_lateral_v1` adds optional signed `lateral` percent (-100 to 100), positive
+left, to the existing paired `forward`/`turn` steering fields. It requires
+`walk_steering_v1` and `walk_controls_v2`; the gateway advertises the update
+control only when the connected firmware reports that feature. Existing updates
+retain the original action, direction, gait, revision and acknowledgement identity.
+The gait owner blends all three body-frame velocity components while preserving
+planted contacts; `speed: 0` still finishes the original action. This source
+extension requires rebuilt firmware and has not established physical qualification.

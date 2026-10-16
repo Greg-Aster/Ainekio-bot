@@ -1,49 +1,61 @@
 {
   "command": "run",
-  "samples": 3618,
-  "max_target_error_mm": 0.1514507817403299,
-  "foot_xy_error_mm": 6.511341234727297e-05,
+  "samples": 3753,
+  "max_target_error_mm": 0.15148971573623543,
+  "foot_xy_error_mm": 6.313666674628848e-05,
   "full_sole_height_error_mm": [
-    0.04432113445538022,
-    0.1514507817403299
+    0.048195660549652075,
+    0.15148971573623543
   ],
   "support_allowance_mm": 0.151,
-  "min_sole_z_mm": 0.04432113445538022,
-  "min_body_z_mm": 29.409873727345264,
-  "min_closure_height_mm": 10.550104262805776,
-  "maximum_adjacent_joint_step_degrees": 5.640056027910987,
+  "min_sole_z_mm": 0.048195660549652075,
+  "min_body_z_mm": 32.386997076575824,
+  "min_closure_height_mm": 8.339620892476475,
+  "maximum_adjacent_joint_step_degrees": 4.5430593453009775,
   "hardware_qualified": false,
   "collision_checked": false,
   "leverage": {
-    "checked_leg_poses": 28940,
+    "checked_leg_poses": 30020,
     "branch_reversals": 0,
-    "minimum_straightening_clearance_mm": 3.9371080750074867,
-    "stance_output_min_deg": 63.30318907898505,
-    "swing_output_min_deg": 42.19664061578729,
-    "stance_input_min_deg": 31.75965521813348,
-    "swing_input_min_deg": 26.186481864181978
+    "minimum_straightening_clearance_mm": 2.1972036986429018,
+    "stance_output_min_deg": 32.93880640797728,
+    "swing_output_min_deg": 30.005666809308433,
+    "stance_input_min_deg": 42.35922847231267,
+    "swing_input_min_deg": 38.22098999953054,
+    "below_historical_margins": {
+      "stance_output_min_deg": {
+        "measured": 32.93880640797728,
+        "historical_minimum": 45
+      },
+      "swing_output_min_deg": {
+        "measured": 30.005666809308433,
+        "historical_minimum": 35
+      },
+      "straightening_clearance_min_mm": {
+        "measured": 2.1972036986429018,
+        "historical_minimum": 3
+      }
+    }
   },
-  "flight_samples": 182,
-  "paired_samples": 883,
+  "flight_samples": 191,
+  "paired_samples": 954,
   "dynamics_scope": "Kinematic target only; no force or attitude control and no physical running qualification.",
-  "peak_sampled_joint_speed_deg_s": 676.8067233493184,
+  "peak_sampled_joint_speed_deg_s": 545.1671214361173,
   "reference_pulse_span_us": [
-    794.8855717024614,
-    2838.9775340904343
+    60.70955285348748,
+    1828.489551572938
   ],
   "modeled_envelope_conflict": true,
   "first_bound_envelope_conflict": {
-    "sample": 1517,
-    "time_s": 12.641666666666667,
-    "cad_leg": "RL",
+    "sample": 185,
+    "time_s": 1.5416666666666667,
+    "cad_leg": "FR",
     "q_deg": [
-      5.838547728490777,
-      -38.938307401623035,
-      -73.77760654665195
+      0.20649794961046752,
+      -24.972605945265855,
+      -53.398480402884346
     ]
   },
-  "mounting_profile_sha256": "9a7d0c14868d13de265ce118d85d2be7a37fd3361716bf472208ec4e2f7ec58e",
-  "source_sha256": "bb5869beeb67716234607df02bc5d9556e5b0587d4f84397be2188e172c00263",
-  "report_basis": "Historical pre-task recording and its original model/calibration; values have not been recalculated.",
-  "current_screw_qualification": "pending"
+  "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
+  "source_sha256": "0ee981960ff7eda38dbc0bdc6a3018ca9f3567f618cf66a1f9e02f5feead79ec"
 }

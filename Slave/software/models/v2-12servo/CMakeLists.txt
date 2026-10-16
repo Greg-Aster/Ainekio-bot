@@ -14,7 +14,7 @@ set(CLIP_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/clip")
 file(MAKE_DIRECTORY "${CLIP_OUTPUT}")
 set(SERVO_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/servo")
 file(MAKE_DIRECTORY "${SERVO_OUTPUT}")
-set(MOTION_SOURCES motion.c walk_kinematics.c clip.c joint_limits.c transition.c "${SERVO_OUTPUT}/servo_data.c" "${WALK_OUTPUT}/walk_data.c" "${CLIP_OUTPUT}/clip_data.c")
+set(MOTION_SOURCES motion.c walk_kinematics.c posture.c balance.c clip.c joint_limits.c transition.c "${SERVO_OUTPUT}/servo_data.c" "${WALK_OUTPUT}/walk_data.c" "${CLIP_OUTPUT}/clip_data.c")
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${MOTION_SOURCES}
         INCLUDE_DIRS "include" PRIV_INCLUDE_DIRS "${WALK_OUTPUT}" "${CLIP_OUTPUT}" "${SERVO_OUTPUT}" REQUIRES core)
@@ -23,6 +23,15 @@ else()
     target_include_directories(ainekio_v2_motion PUBLIC include PRIVATE "${WALK_OUTPUT}" "${CLIP_OUTPUT}" "${SERVO_OUTPUT}")
     target_link_libraries(ainekio_v2_motion PUBLIC ainekio_core m)
     target_compile_options(ainekio_v2_motion PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    add_executable(test_v2_posture tests/test_posture.c)
+    target_include_directories(test_v2_posture PRIVATE "${WALK_OUTPUT}")
+    target_link_libraries(test_v2_posture PRIVATE ainekio_v2_motion m)
+    target_compile_options(test_v2_posture PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    add_test(NAME v2_posture_contacts COMMAND test_v2_posture)
+    add_executable(test_v2_balance tests/test_balance.c)
+    target_link_libraries(test_v2_balance PRIVATE ainekio_v2_motion m)
+    target_compile_options(test_v2_balance PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    add_test(NAME v2_balance_feedback COMMAND test_v2_balance)
     add_executable(test_v2_limits tests/test_limits.c)
     target_link_libraries(test_v2_limits PRIVATE ainekio_v2_motion m)
     add_test(NAME v2_limits COMMAND test_v2_limits)
@@ -50,6 +59,7 @@ else()
     target_compile_options(test_v2_run PRIVATE -Wall -Wextra -Werror -Wpedantic)
     add_test(NAME v2_run COMMAND test_v2_run)
     add_executable(test_v2_gait_timing tests/test_gait_timing.c)
+    target_include_directories(test_v2_gait_timing PRIVATE "${WALK_OUTPUT}")
     target_link_libraries(test_v2_gait_timing PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_gait_timing PRIVATE -Wall -Wextra -Werror -Wpedantic)
     add_test(NAME v2_gait_timing COMMAND test_v2_gait_timing)
@@ -67,6 +77,7 @@ else()
     target_link_libraries(test_v2_clips PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_clips PRIVATE -Wall -Wextra -Werror -Wpedantic)
     add_test(NAME v2_clips COMMAND test_v2_clips)
+    add_test(NAME v2_grounded_steps COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_lay_steps.py")
     add_executable(v2_clip_sample tests/clip_sample_cli.c)
     target_link_libraries(v2_clip_sample PRIVATE ainekio_v2_motion)
     add_test(NAME v2_gesture_source COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tests/test_clip_source.py"
@@ -101,6 +112,6 @@ add_custom_command(OUTPUT "${WALK_OUTPUT}/walk_data.c" "${WALK_OUTPUT}/walk_data
     COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tools/compile_walk.py" --out "${WALK_OUTPUT}"
     DEPENDS tools/compile_walk.py model.json geometry.json motions/walk/reference.py
             motions/walk/manifest.json motions/walk/source.json
-            motions/locomotion/config.json motions/locomotion/crab.json motions/locomotion/contact-hulls.json motions/locomotion/sole-profile.json motions/run/config.json servo_profile.json
+            motions/locomotion/config.json motions/locomotion/crab.json motions/locomotion/contact-hulls.json motions/locomotion/walk-contact.json motions/locomotion/sole-profile.json motions/run/config.json servo_profile.json
             motions/gestures/sit/posture-hulls.npz
     VERBATIM)

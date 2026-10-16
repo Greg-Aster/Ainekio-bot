@@ -42,54 +42,84 @@ are front-left/front-right (CAD RL/RR). Each triple is shoulder, carrier, crank.
 
 ## Walking controls
 
-Normal Speed coordinates stride and cadence. Advanced controls remain independent.
-For Walk Speed 0<s<=100, normalized stride=s% and cadence=1+s/100.
-Both increase throughout the slider. Speed zero requests Finish. The base period
-is 1.8 seconds; advanced cadence supports 0.25–3×.
+As of P4 0.8.56, every semantic gait command uses fast coordinated strokes:
+Walk, Run, Crawl, Crab, turns, steering and transitions. Each small path segment
+is timed by its largest joint-angle change at the nominal 545.45 deg/s reference.
+Other joints follow the same clock to preserve linkage coordination. This is a
+commanded rate, not measured shaft speed, motor duty or torque.
 
-| Speed | Stride | Requested cadence | Requested cycle |
-| --- | --- | --- | --- |
-| 25% | 25% | 1.25× | 1.44 s |
-| 50% | 50% | 1.5× | 1.2 s |
-| 75% | 75% | 1.75× | 1.03 s |
-| 100% | 100% | 2× | 0.9 s |
+Speed selects stride distance. Walk/Crawl/Crab use stride=s% for 1–100;
+zero requests Finish. Walk above 100 blends into bounding Run, reaching its full
+stroke at 200. Direct stride selects 1–100% of the chosen gait's envelope.
+Shorter strokes take less time. The legacy `rate` field (0.25–3) remains accepted
+for wire compatibility but no longer changes semantic gait timing. Body Control
+therefore offers direct stride without a cadence field. The low-level
+`gait_begin` API retains reference-time sampling for offline geometry authoring.
 
-Full Walk uses a **96 mm planted foot sweep**, centered **8 mm forward** of
-its reference stance: touchdown +56 mm and stance end -40 mm. This is 2.15 times
-the previous 44.62 mm sweep. Automatic, independent and default Walk commands
-use the same full stroke; 50% gives a 48 mm sweep. Configuration lives in
-`motions/locomotion/config.json`. The original stateless geometry sampler remains
-available for comparison with the archived reference; it is not the runtime gait.
+Full Walk uses a **61.945 mm planted sweep** (30.973 mm at 50%), authored
+around the owner's reindexed crank endpoints: left **1600–2800 µs**, Home
+2800 µs; mirrored right **500–1700 µs**, Home 500 µs. The nominal 1200 µs span
+is 108 degrees at the retained scale. The carrier calibration is unchanged.
+This profile uses the original 35/20/28/38/55 mm linkage, fixed shafts and bare
+Part027 floor contact. Its reference foot offsets are about -54.01 to +7.93 mm,
+instead of the rejected 88 mm profile's -26.3 to +61.7 mm. Those offsets exclude
+body support sway; they are not distances from a measured center of mass.
 
-The body reference stays -8 mm. Full-Walk lift remains 8.85 mm, sway 1.2125 mm,
-bob 0.7275 mm, roll 1.455 degrees and pitch 0.97 degrees. The wider fore/aft path
-uses the crank and carrier together without changing saved Home references.
-With the saved mirrored calibration (carrier Home 856/2444 µs, crank Home
-723/2577 µs, 11.111111 µs/degree), steady forward Walk commands approximately
-409–2891 µs across all joints. Entry, speed changes and Finish are checked
-against 400–2900 µs in host regression tests. These are calculated commands;
-servo recalibration changes the pulse envelope, and loaded tracking is unmeasured.
+Body height varies with separate forward and backward coefficients. Foot lift
+spans 6–10 mm across Speed 1–100. The contact fraction remains 78%; quarter-cycle
+footfall offsets retain three or four planned contacts. Support sway retains
+5 mm lateral and 4 mm fore/aft amplitude, with no mean forward body shift.
+The fast angular-distance clock emits swing apices and full-stroke crank
+reversal landmarks as output frames, then continues on the next normal tick.
+It adds no dwell or pulse clamp. Previously internal integration could pass
+through a mathematical endpoint without sending it to the servo.
 
-The saved user-selected joint-speed limit retimes the whole gait when a frame
-would exceed that limit. Body motion, swings, planted anchors and transitions
-share the same clock; stride is retained. Cadence recovers at 0.5 clock fraction
-per second. Walk amplitude/rate changes use two gait cycles of interpolation;
-backward entry retains three. This establishes each foot's new landing while
-preserving planted contacts. Cadence requests still rise from 1x to 2x across
-0–100% Speed; advanced rate remains 0.25–3x.
+Curved Walk still shares stroke between translation and yaw. Run remains a
+front/rear bound, and named gesture paths are unchanged. Hardware mounting
+changes affect their electrical mapping too; unchanged path source is not a
+physical qualification of those motions after reindexing.
 
-Crawl/Crab retain stride=min(100,2*s)% and cadence=max(1,s/50). Crawl uses a
--22 mm body reference, 18 mm sweep, 4 mm rear bias and up to 4 mm lift. Full Walk
-turns retain the previous 8.73 degrees per cycle; Crawl turns use 10 degrees.
-Run retains its separate amplitude profile above 100%.
+**Mounting reference:** the new crank Home model angle is provisionally
+**-117.68 degrees**, reconstructed from the owner's photo of the rear-left
+carrier and crank at 2800 µs. This is not a measured shaft angle. The other
+cranks are assumed mounted in corresponding mirrored physical poses. Reusing
+the old -40.41-degree Home association after moving the horn would misregister
+the geometry. Firmware compilation does not overwrite the device's saved
+Home, model angle, inversion or scale. The reindexed profile and matching
+calibration must be deployed together; carrier settings remain unchanged.
 
-Crawl's body reference was raised from -35 to -22 mm to fit the mounted servo
-calibration while retaining its full sweep, lift, turning angle and speed mapping.
-The native `crawl_calibration` regression checks the production pulse mapper
-against 400–2900 µs in all four directions, through entry, speed changes and
-Finish, including advanced rate extremes and 10/20/40 ms output intervals.
-This is calculated motion with the saved mounting profile and 1000°/s joint
-limit; physical tracking remains unmeasured. No pulse clamp is added.
+Offline checks retain the existing 400–2900 µs review window and linkage
+criteria. Additional tests assert the owner-defined crank endpoints in emitted
+25/50/100 Hz frames; they are tests, not runtime stops or restrictions.
+Physical tracking, traction, load capacity and photo-reference accuracy remain
+unverified. See the [gait research journal](../../../../docs/v2-12servo/GAIT_RESEARCH_JOURNAL.md).
+
+The saved joint-speed setting still applies to posture/clip timing and balance
+corrections; semantic gaits use the fast-stroke reference regardless of this
+setting. `clock_scale` reports reference time divided by elapsed wall time;
+`speed_flagged` remains false. Requested/commanded cadence telemetry follows the
+angular-distance schedule. Walk changes stride across two cycles to coordinate
+previously planted feet with the longer stroke. It retains its
+Run-style constant-velocity foot return with short endpoint ramps. Crab stride
+changes use its existing two-cycle anchor-establishment profile so previously
+planted wide feet remain compatible with the changing travel distance. Joint
+movement keeps the fast clock during that transition.
+
+The historical forward=100, turn=100, Speed 50 → 89 → 145 failure is now an
+explicit native regression at 50 and 100 Hz, including Finish. This checks the
+planner and mapped pulses; loaded physical execution still requires a trial.
+
+Crawl/Crab use stride=s% across the whole slider. Crawl uses a
+−5 mm body reference, centered 32 mm sweep and 5–8 mm lift, with 78% stance.
+Both use the installed bare Part027 contact shape, a broad swing arch, prompt
+horizontal foot return and direction-specific body weight transfer. Full Walk
+turns retain 8.73 degrees per cycle; Crawl turns retain 10 degrees.
+
+The native `crawl_calibration` regression covers Crawl's four and Crab's six
+directions with the production pulse mapper, entry, speed changes and Finish,
+advanced rate extremes and 10/20/40 ms output intervals. Its 400–2900 µs review
+window is an offline regression check, not a runtime pulse clamp or measured
+collision boundary. Physical tracking remains unmeasured.
 
 `walk_controls_v2` negotiates directions `fwd`, `back`, `turn_l`, `turn_r`,
 `gait: "walk"|"crawl"` and `steps: 0` for ongoing operation. Finite steps 1–10
@@ -107,7 +137,9 @@ count. Their ACK completes the settings request; the original command owns motio
 completion. Updates coalesce while a transition is active. Finish reduces stride
 and completes active swings with all feet down. Emergency detach remains separate.
 A planted foot's world XY stays fixed until lift-off. Swing endpoints are fixed at
-lift-off. A reversed clock or output gap over 40 ms faults instead of replaying work.
+lift-off. A reversed clock is invalid. Scheduling gaps do not stop the gait:
+the planner integrates to the current time and emits one current frame, without
+replaying missed PWM writes.
 
 The dashboard supplies Speed, advanced stride/cadence, direction and ongoing mode.
 Environment actions accept continuous walk/backward/left/right and crawl with an
@@ -123,37 +155,30 @@ extends to 200%. **0 finishes, 1–100 walks, above 100 transitions to Run.**
 Returning to 100 or below transitions back to Walk within the same command.
 Crawl stays 0–100. The current leverage revision and its offline checks are recorded in [CONTROLLER_VALIDATION.md](CONTROLLER_VALIDATION.md).
 
-Run is a front-pair/rear-pair bound: 42% stance per pair, half a cycle apart,
-with two brief flight intervals. Body pitch replaces the walking side sway.
-Forward Run opens its planted sweep from 80 mm just above 100% Speed to 96 mm
-at 200%, biased 8 mm forward at full stride, with up to 14 mm lift. At full
-stride the shorter stance fraction advances 228.57 mm per cycle, versus Walk's
-131.43 mm; this is modeled translation, not measured speed. Backward Run and
-turns use an 80 mm maximum sweep with the same forward bias. Run's 1.2 s base
-period uses automatic rate `2+(Speed-100)/150`, requesting about 0.6 s just above
-100%, 0.514 s at 150%, and 0.45 s at 200%. The joint-speed budget can lengthen
-these periods without shrinking the planned stride.
+Run retains the front-pair/rear-pair bound: 42% stance per pair, half a cycle
+apart, with flight intervals. It now uses the installed bare-Part027 linkage's
++5 mm body reference, a centered 37–44 mm forward planted sweep,
+5–12 mm lift and unchanged foot lanes. Scripted body bob and pitch are zero.
+This removes the previous low, forward-reaching Run posture; physical loaded
+bounding remains unqualified.
 
-Forward Run uses a -8 mm body reference, 3 mm bob and 5.5° pitch oscillation
-phased a quarter cycle ahead of the former sine profile to coordinate with the
-paired stance. Backward Run and turns use a -4 mm body reference and 4° pitch.
-At full forward Run, front feet land 8 mm inward and rear feet 8 mm outward.
-The horizontal swing return uses smooth velocity ramps over its first and last
-5%, with constant velocity between them; this avoids carrying the foot beyond
-the reachable fore/aft path during the long flight. Vertical lift remains smooth.
-Servo references and the shared joint-speed control are unchanged; no pulse
-clamp is added.
+Automatic Speed above 100 progressively opens the sweep from 37 mm to 44 mm
+at 200%. Run's 1.2-second period parameterizes its reference path; angular
+travel sets the actual cadence. At full Run the 50 Hz offline sample measures
+about 3.57 cycles/s.
+Backward Run and turns also use the upright body target and centered 44 mm
+maximum sweep. No gait-speed reduction or servo calibration change is added.
 
-The transition takes six gait cycles with smooth body/contact changes. Feet
-already in stance keep their world anchors. Cyclic offsets advance the next
-step to form or separate pairs; active swings keep their landing targets.
-Run stride changes interpolate over three cycles, or the full six-cycle blend
-while changing gait. Finish also uses three cycles and reduces lift for newly
-planned swings as travel decelerates. Direct automatic-Run startup uses six cycles.
-The common clock, command sequence, controlled Finish and emergency stop remain shared.
+The existing six-cycle Walk/Run interpolation solves touchdown and liftoff on
+the changing leg schedule, retaining planted anchors and committed landings.
+Stride changes interpolate over three cycles, or the active six-cycle blend.
+Finish retains its coordinated landing behavior. See the Run configuration and
+gait research journal for current verification; archived animations remain
+historical references.
 
-Advanced `gait:"run"` accepts stride 1–100 and rate 0.25–3 independently;
-its optional explicit-gait Speed uses rate `max(2/3,Speed/75)` (0 still finishes).
+Direct `gait:"run"` accepts stride 1–100; the legacy rate field does not slow
+strokes. Explicit Run Speed 1–100 opens its initial 37 mm stroke proportionally;
+100–200 opens it to 44 mm. Zero still finishes.
 The usual dashboard choice is Walk / automatic Run. Only capable V2 bodies
 receive the extended slider; V1 retains its original `run` asset.
 
@@ -170,13 +195,17 @@ Forward, backward and turning reuse `fwd`, `back`, `turn_l`, `turn_r`.
 Semantic commands are `crab` (left), `crab_right`, `crab_forward`,
 `crab_backward`, `crab_turn_left`, `crab_turn_right`. V1 retains its finite Crab.
 
-The existing phase planner and direct linkage controller own Crab. A three-second
-entry places feet sequentially at a 190 mm stance width and body translation
-−22 mm. A startup ramp of two cycles (three backward) establishes the wide stance anchors without overextending the initially planted inside leg. Three feet support each swing. Full stride travels 48 mm per cycle
-forward/backward, 32 mm sideways, or 32.73 degrees while turning, matching the
-steady travel of the reviewed Blender drafts. Lift is up to 12 mm. The base
-period is 2.4 s; Speed 25/50/100 gives 50%/100%/100% stride and 1x/1x/2x cadence.
-Advanced stride 1–100 and cadence 0.25–3x remain available. Crab Speed is 0–100;
+The existing phase planner and direct linkage controller own Crab. Entry uses
+its three-second reference path, retimed by angular travel, to place feet sequentially at a 160 mm stance width and body translation
+−12 mm. A startup ramp of two cycles (three backward) establishes the wide
+stance anchors. The quarter-cycle wave schedule has 80% stance and three or
+four scheduled contacts. Full stride travels 50 mm per cycle forward/backward,
+40 mm sideways, or the retained 32.73 degrees while turning. Lift is 8–14 mm.
+The 2.4 s base period parameterizes the reference path. Speed 25/50/100
+selects 25%/50%/100% stride; angular travel sets cycle duration.
+The centered-COM load estimate still gives negative support margin during
+full turns, so kinematic validation must not be read as loaded stability proof.
+Direct stride 1–100 remains available. Crab Speed is 0–100;
 it never blends into Run. Finish settles the feet and holds the wide stance.
 Finish before selecting a different direction or gait; Stand uses normal entry.
 `motions/locomotion/crab.json` owns the parameters. No per-direction runtime
@@ -214,11 +243,35 @@ in [Controller validation](CONTROLLER_VALIDATION.md). Earlier deployment evidenc
 in `docs/v2-12servo/FIRMWARE_DESIGN.md` belongs to previous applications.
 
 `upright` is a separate declared V2 emote: Sit → front feet backward → supported
-push → vertical chassis over the flat rear lower legs. It holds the terminal
+push → a 60° rear-leg rise over the flat rear lower legs. It holds the terminal
 pose after 22 seconds; `stand` still means four feet. Physical balance, torque
 and a safe recovery transition remain unqualified. [Upright](motions/gestures/upright/README.md).
 
 ## Runtime representation
+
+Stationary Stand feedback uses sustained IMU roll/pitch leveling: measured
+attitude error drives the change in the accepted body-angle offset, with gyro
+rate damping. At zero error the achieved offset is retained. A persistent
+nose-up error therefore continues extending the modeled rear supports instead
+of settling at the former 40%-of-error offset. This mode runs only during
+stationary balance hold; rise, posture entry and walking retain their existing
+trajectory-relative feedback. Stop retains its commanded-pose hold semantics.
+
+Body Control exposes a saved Self-leveling On/Off setting on P4 firmware with
+`balance_control_v1`. Off smoothly removes feedback while preserving the current
+motion and enabled outputs; On resumes correction during an existing Stand hold
+or supported gait. This setting does not issue Stand or override Stop/gestures.
+Firmware with `balance_tuning_v1` also exposes saved strength/damping multipliers
+(default 1×) and roll/pitch target offsets (default 0°). Positive UI pitch raises
+the nose; positive roll raises the left side. Both stationary and moving feedback
+use the same multipliers on their respective existing gains. Saves preserve
+accepted correction and motion state; zero gains do not erase a held offset.
+
+The existing linkage-fit and joint-speed criteria reduce the next standing
+increment rather than erase an achieved offset. Only accepted increments enter
+the controller state; an unreachable demand does not build up for later release.
+Unavailable IMU data keeps the existing fade back toward the nominal pose.
+These are commanded positions, not measured servo angles, contact or torque.
 
 The P4 contains one motion implementation. Direct single-precision linkage
 geometry replaces the numerical search; a maximum of four endpoint evaluations

@@ -33,6 +33,8 @@ static void leverage_leg(const double q[3],bool grounded,double branch[2])
      * Crawl folds more tightly; zero acute angle would also be a folded toggle. */
     if(input < (grounded ? V2_CHECK_STANCE_INPUT_MIN_DEG : V2_CHECK_SWING_INPUT_MIN_DEG))
         fprintf(stderr,"Input leverage %.9g deg, grounded=%u, q=[%.9g,%.9g,%.9g]\n",input,grounded,q[0],q[1],q[2]);
+    if(output < (grounded ? V2_CHECK_STANCE_OUTPUT_MIN_DEG : V2_CHECK_SWING_OUTPUT_MIN_DEG))
+        fprintf(stderr,"Output leverage %.9g deg, grounded=%u, q=[%.9g,%.9g,%.9g]\n",output,grounded,q[0],q[1],q[2]);
     assert(output >= (grounded ? V2_CHECK_STANCE_OUTPUT_MIN_DEG : V2_CHECK_SWING_OUTPUT_MIN_DEG));
     assert(input >= (grounded ? V2_CHECK_STANCE_INPUT_MIN_DEG : V2_CHECK_SWING_INPUT_MIN_DEG));
     assert(V2_ROD+V2_PICKUP-d >= V2_CHECK_STRAIGHTENING_CLEARANCE_MIN_MM);
@@ -46,7 +48,11 @@ static void leverage_step(const ainekio_v2_walk_pose_t *old,const ainekio_v2_wal
         leverage_leg(old->joints[leg],old->grounded[leg],previous);
         leverage_leg(pose->joints[leg],pose->grounded[leg],current);
         for(unsigned j=0;j<3;j++)q[j]=(old->joints[leg][j]+pose->joints[leg][j])*.5;
-        leverage_leg(q,old->grounded[leg]||pose->grounded[leg],middle);
+        /* Across liftoff/touchdown, the interpolated joint midpoint is not
+         * an established ground contact. Check its swing transmission and
+         * closure; apply loaded transmission criteria to both actual planted
+         * endpoints, and to midpoints of an uninterrupted stance. */
+        leverage_leg(q,old->grounded[leg]&&pose->grounded[leg],middle);
         for(unsigned j=0;j<2;j++)assert(previous[j]*current[j]>0&&previous[j]*middle[j]>0);
     }
 }

@@ -1,0 +1,293 @@
+{
+  "scope": "Read-only planar static comparison at identical carrier and lower-leg poses from 8\u201312 s of a native 100% forward Walk, sampled at 100 Hz. Crank fixed at 20 mm. Torque arms use the existing sole support vertex under vertical or horizontal unit force. Three-dimensional shoulder/body rotations, dynamics, collisions, strength, servo pulse indexing and physical tracking are not qualified.",
+  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "binary_sha256": "0bda3a7ecd7c199f149472294dedfdd3f77cc27c31f5bb9d9594811b43acb197",
+  "cases": [
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 28,
+      "rod_mm": 34,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        43.87173122885027,
+        49.0219615413109
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        27.914384223342605,
+        42.21613460231835
+      ],
+      "crank_excursion_deg": [
+        100.0203681284874,
+        100.02042238581073,
+        102.41437293640887,
+        102.4144231510952
+      ],
+      "minimum_stance_transmission_deg": [
+        47.54365127152472,
+        73.40854462744275
+      ],
+      "central_difference_max_error_mm_per_rad": 3.435312834199067e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 28,
+      "rod_mm": 36,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        43.62356678042886,
+        47.477145760618356
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        27.972719757449504,
+        41.26562869760235
+      ],
+      "crank_excursion_deg": [
+        100.08987935172898,
+        100.08993374891816,
+        102.675676833689,
+        102.67572877034534
+      ],
+      "minimum_stance_transmission_deg": [
+        48.28557576192879,
+        68.4751927226949
+      ],
+      "central_difference_max_error_mm_per_rad": 3.252030467137956e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 28,
+      "rod_mm": 38,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        43.15759906026721,
+        45.45601761277952
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        28.283372649603056,
+        40.05660351846508
+      ],
+      "crank_excursion_deg": [
+        100.20889501155746,
+        100.20893599276484,
+        103.0365591768494,
+        103.03661381834462
+      ],
+      "minimum_stance_transmission_deg": [
+        49.28278596060397,
+        63.57911057925129
+      ],
+      "central_difference_max_error_mm_per_rad": 3.3848891689558513e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 28,
+      "rod_mm": 40,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        42.49405831343206,
+        43.02908571126005
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        28.84731100953438,
+        38.59097668327089
+      ],
+      "crank_excursion_deg": [
+        100.40734404198335,
+        100.40738532642861,
+        103.51070418399718,
+        103.51076257002913
+      ],
+      "minimum_stance_transmission_deg": [
+        50.52097407670941,
+        58.65341749316484
+      ],
+      "central_difference_max_error_mm_per_rad": 3.127598802166176e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 28,
+      "rod_mm": 42,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        41.642978275701324,
+        40.245737167477984
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        29.642838872326415,
+        36.85558420597697
+      ],
+      "crank_excursion_deg": [
+        100.77225336992932,
+        100.77229773088489,
+        104.12398477676625,
+        104.12404809992164
+      ],
+      "minimum_stance_transmission_deg": [
+        51.997341523523176,
+        53.6255001469525
+      ],
+      "central_difference_max_error_mm_per_rad": 3.58234117925349e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 28,
+      "rod_mm": 44,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        40.604879556080895,
+        37.13403327791298
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        30.697758590993164,
+        34.878336106378256
+      ],
+      "crank_excursion_deg": [
+        101.45436147694302,
+        101.45439878868112,
+        104.94420502623616,
+        104.94430381611036
+      ],
+      "minimum_stance_transmission_deg": [
+        53.72127426172979,
+        48.40732740717508
+      ],
+      "central_difference_max_error_mm_per_rad": 4.485662685738134e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 32,
+      "rod_mm": 38,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        37.900870198813976,
+        36.27116425817668
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        32.94473934576013,
+        37.66017481858643
+      ],
+      "crank_excursion_deg": [
+        91.46256669546874,
+        91.46257200174372,
+        94.07331965628678,
+        94.07337453891496
+      ],
+      "minimum_stance_transmission_deg": [
+        55.477062742656756,
+        68.33519519954193
+      ],
+      "central_difference_max_error_mm_per_rad": 3.724882269295904e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 32,
+      "rod_mm": 40,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        37.55791469948123,
+        34.35408172505881
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        33.47379122775448,
+        36.77115574408484
+      ],
+      "crank_excursion_deg": [
+        91.68265647429757,
+        91.68266026623621,
+        94.28439777663162,
+        94.28443550813674
+      ],
+      "minimum_stance_transmission_deg": [
+        56.79424382099476,
+        63.370644444276664
+      ],
+      "central_difference_max_error_mm_per_rad": 2.6480002190965024e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 32,
+      "rod_mm": 42,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        37.05425148883528,
+        32.329177705589636
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        34.23299056897531,
+        35.65008426622334
+      ],
+      "crank_excursion_deg": [
+        91.9873083514849,
+        91.98731016627879,
+        94.67845484181603,
+        94.67854459858052
+      ],
+      "minimum_stance_transmission_deg": [
+        58.351805583467915,
+        58.36591351624044
+      ],
+      "central_difference_max_error_mm_per_rad": 2.9295229353465402e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 34,
+      "rod_mm": 38,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        35.90314685983396,
+        32.89115962812471
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        34.79888772177647,
+        36.60717623629933
+      ],
+      "crank_excursion_deg": [
+        87.97641205972046,
+        87.97645329813818,
+        90.69774772293636,
+        90.69774838735857
+      ],
+      "minimum_stance_transmission_deg": [
+        58.662526540997355,
+        68.16677512003459
+      ],
+      "central_difference_max_error_mm_per_rad": 2.470777005214586e-08
+    },
+    {
+      "crank_mm": 20.0,
+      "pickup_mm": 34,
+      "rod_mm": 40,
+      "full_cycle_closure": true,
+      "same_assembly_branch": true,
+      "peak_stance_vertical_arms_mm": [
+        35.68804999954884,
+        31.196257315561844
+      ],
+      "peak_stance_horizontal_arms_mm": [
+        35.30994195276432,
+        35.964250381859244
+      ],
+      "crank_excursion_deg": [
+        88.11083200975757,
+        88.1108727727257,
+        90.95539262011705,
+        90.95539345871259
+      ],
+      "minimum_stance_transmission_deg": [
+        59.99002929904049,
+        63.204279087762544
+      ],
+      "central_difference_max_error_mm_per_rad": 3.455891217640783e-08
+    }
+  ]
+}

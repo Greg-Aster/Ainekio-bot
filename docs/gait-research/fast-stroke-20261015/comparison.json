@@ -1,0 +1,125 @@
+{
+  "evidence": "Native 50 Hz target sampling, 6-10 second window; not measured shaft speed or displacement. target_travel_mm_s includes support-shift endpoint effects.",
+  "cases": {
+    "1/before": {
+      "stance_median_deg_s": [
+        13.9,
+        30.5
+      ],
+      "swing_peak_deg_s": [
+        91.9,
+        51.2
+      ],
+      "maximum_joint_speed_per_frame_median": 45.604797363620264,
+      "cycles_per_second": 0.56111111111,
+      "target_travel_mm_s": 2.2625502432499998,
+      "host_seconds_for_10s": 0.013678880000952631,
+      "planned_nominal_travel_mm_s": 0.2661680911675641
+    },
+    "1/fast": {
+      "stance_median_deg_s": [
+        133.9,
+        283.3
+      ],
+      "swing_peak_deg_s": [
+        548.0,
+        363.8
+      ],
+      "maximum_joint_speed_per_frame_median": 400.2478027336527,
+      "cycles_per_second": 6.249999989625,
+      "target_travel_mm_s": 2.9647436307499992,
+      "host_seconds_for_10s": 0.02124676899984479,
+      "planned_nominal_travel_mm_s": 2.964743584822115
+    },
+    "25/before": {
+      "stance_median_deg_s": [
+        15.5,
+        34.4
+      ],
+      "swing_peak_deg_s": [
+        150.8,
+        101.1
+      ],
+      "maximum_joint_speed_per_frame_median": 69.3374023449838,
+      "cycles_per_second": 0.694444444445,
+      "target_travel_mm_s": 6.55167561485,
+      "host_seconds_for_10s": 0.007286954030860215,
+      "planned_nominal_travel_mm_s": 8.235398860405448
+    },
+    "25/fast": {
+      "stance_median_deg_s": [
+        93.1,
+        192.6
+      ],
+      "swing_peak_deg_s": [
+        557.5,
+        547.3
+      ],
+      "maximum_joint_speed_per_frame_median": 486.9700012211572,
+      "cycles_per_second": 5.041390258275,
+      "target_travel_mm_s": 58.89673626599999,
+      "host_seconds_for_10s": 0.018095222010742873,
+      "planned_nominal_travel_mm_s": 59.785717806466344
+    },
+    "50/before": {
+      "stance_median_deg_s": [
+        17.6,
+        35.1
+      ],
+      "swing_peak_deg_s": [
+        229.1,
+        184.1
+      ],
+      "maximum_joint_speed_per_frame_median": 121.58325195233121,
+      "cycles_per_second": 0.8333333333325001,
+      "target_travel_mm_s": 21.26723104725,
+      "host_seconds_for_10s": 0.008149956003762782,
+      "planned_nominal_travel_mm_s": 19.764957264937504
+    },
+    "50/fast": {
+      "stance_median_deg_s": [
+        68.6,
+        113.7
+      ],
+      "swing_peak_deg_s": [
+        555.2,
+        547.8
+      ],
+      "maximum_joint_speed_per_frame_median": 530.680664061894,
+      "cycles_per_second": 3.514734847025,
+      "target_travel_mm_s": 82.7935861305,
+      "host_seconds_for_10s": 0.015458334004506469,
+      "planned_nominal_travel_mm_s": 83.36230085892628
+    },
+    "100/before": {
+      "stance_median_deg_s": [
+        35.1,
+        75.3
+      ],
+      "swing_peak_deg_s": [
+        465.9,
+        411.8
+      ],
+      "maximum_joint_speed_per_frame_median": 318.9702148456334,
+      "cycles_per_second": 1.1111111111099998,
+      "target_travel_mm_s": 53.375523283999996,
+      "host_seconds_for_10s": 0.00760195596376434,
+      "planned_nominal_travel_mm_s": 52.70655270649999
+    },
+    "100/fast": {
+      "stance_median_deg_s": [
+        60.2,
+        103.5
+      ],
+      "swing_peak_deg_s": [
+        552.9,
+        548.1
+      ],
+      "maximum_joint_speed_per_frame_median": 544.9652709972399,
+      "cycles_per_second": 2.029717414775,
+      "target_travel_mm_s": 96.9412524825,
+      "host_seconds_for_10s": 0.012995336030144244,
+      "planned_nominal_travel_mm_s": 96.2814671111218
+    }
+  }
+}

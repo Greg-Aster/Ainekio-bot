@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.8.16-p4-iso3200")
+set(PROJECT_VER "0.8.59-p4-reindexed-walk")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/faces"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/imu"
@@ -8,6 +8,8 @@ set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../components/ainekio_discovery")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(ainekio_p4_body)
+include(cmake/idf_dw_gdma.cmake)
+include(cmake/idf_panic_log.cmake)
 
 # Asset images exist only for the explicitly selected full partition layout.
 # Building this target never changes a device's existing partition table.

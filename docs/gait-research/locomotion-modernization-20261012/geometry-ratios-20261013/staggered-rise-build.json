@@ -1,0 +1,36 @@
+{
+  "version": "0.8.43-p4-staggered-rise",
+  "image": "Slave/firmware/esp32p4-wifi6/build/ainekio_p4_body.bin",
+  "bytes": 3023680,
+  "sha256": "7696217077037f6c3aed33a6e8060f3c9d65daa43437a0e05c67fd6fcf44fd83",
+  "source_sha256": {
+    "Slave/firmware/esp32p4-wifi6/main/body.c": "51a1259e885d81b65b63f03a725dded2fe9874a99d1d57d2374a10fe8a6b96a8",
+    "Slave/software/models/v2-12servo/posture.c": "00d0b4c2d6a07a068ba5feb2acab8e59b8a17edee7a4c2975a60039a00faead3",
+    "Slave/software/models/v2-12servo/include/ainekio/v2_posture.h": "a77088b841bed3610821192e5577aaf70cdfb0f119ab2e4ff9703cd518402b0a"
+  },
+  "startup_pair_offset_ms": 100,
+  "startup_total_ms": 2500,
+  "body_and_feedback_tests": "2/2 passed",
+  "nominal_peak_joint_degrees_s": 50.66,
+  "maximum_planned_pitch_degrees": 1.284,
+  "uploaded": true,
+  "activated": true,
+  "physical_startup_qualified": false,
+  "peak_current_measured": false,
+  "deployment": {
+    "verified_at_utc": "2026-10-14T18:29:15.456480+00:00",
+    "transport": "Wi-Fi application OTA",
+    "running_partition": "ota_1",
+    "boot_partition": "ota_1",
+    "state": "idle",
+    "pending_verify": false,
+    "saved_joint_calibration_unchanged": true,
+    "imu_fresh": true,
+    "imu_calibration_applied": true,
+    "balance_active": true,
+    "output_armed": true,
+    "output_fault": 0,
+    "walking_command_sent": false,
+    "upload_attempts": 2
+  }
+}

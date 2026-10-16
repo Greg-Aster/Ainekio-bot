@@ -1,14 +1,1 @@
-{
-  "description": "Upright seated shrug with both forelegs raised out to the sides, two shoulder lifts and a small questioning tilt.",
-  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
-  "contact_hulls_file": "../reviewed-hulls.npz",
-  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "body_support_scope": "Measured Blender body and lower-leg surfaces; physical balance unqualified.",
-  "calibrated_path_fit": {
-    "pulse_target_us": [
-      400,
-      2900
-    ],
-    "details": "source.json metadata.calibrated_path_fit"
-  }
-}
+{"description":"Upright seated shrug with both forelegs raised out to the sides, two shoulder lifts and a small questioning tilt.","mechanism_geometry_sha256":"714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b","contact_hulls_file":"../reviewed-hulls.npz","contact_hulls_sha256":"0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c","body_support_scope":"Measured Blender body and lower-leg surfaces; physical balance unqualified.","linkage_remap":{"geometry_sha256":"714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b","baseline_geometry_sha256":"d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38","baseline_source_sha256":"b35378e6156b9d7cdd854c7423e6751a36c5f568679b82056ca7f4165e658a88","generator":"docs/gait-research/seated-support-20261005/library-remap.py","qualification":"Offline geometry and sampler candidate. No calibration or runtime limits changed.","policy":"Preserve original foot XY, whole-sole height, body path, timing and contacts."},"angle_scope":"Firmware geometric offsets; physical calibration and assembly mounting unqualified.","calibrated_motion_revision":{"changed_samples":847,"maximum_planted_fit_error_mm":2.0391886806692128e-05,"maximum_joint_step_degrees":6.962072529499926,"pulse_window_us":[400,2900],"baseline_source_sha256":"cd072c9c85918fccb43edaed8e2916c6edfd37daef997dbd9d1f053eac6b69ab","hardware_qualified":false,"maximum_airborne_target_change_mm":2.710823795926247}}

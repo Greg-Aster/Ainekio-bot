@@ -1,33 +1,31 @@
 {
   "command": "nod",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "source_sha256": "9ffc4025ed0fe43b1b053d4c2a94577eab08ef835fe0e0613aaea58347ed9a7b",
   "samples": 1021,
   "hardware_qualified": false,
   "collision_checked": false,
   "interpolators": {
     "source": {
       "poses": 1021,
-      "minimum_sole_z_mm": -1.1031886515411315e-10,
-      "minimum_body_z_mm": 9.956367954363103,
-      "minimum_closure_height_mm": 0.7394039167271396,
-      "maximum_interpolated_target_error_mm": 6.004086117172847e-10
+      "minimum_sole_z_mm": -9.914194096438678e-05,
+      "minimum_body_z_mm": 22.174611880600395,
+      "minimum_closure_height_mm": 9.528345766075859,
+      "maximum_interpolated_target_error_mm": 3.6284169333100635e-05
     },
     "native_monotone_cubic_midpoints": {
       "poses": 1020,
-      "minimum_sole_z_mm": -0.12617921201820081,
-      "minimum_body_z_mm": 9.956541600025833,
-      "minimum_closure_height_mm": 0.739406203407453,
-      "maximum_interpolated_target_error_mm": 0.12617921201822369
+      "minimum_sole_z_mm": -0.029832900772753135,
+      "minimum_body_z_mm": 22.17466600039944,
+      "minimum_closure_height_mm": 9.528351525772498,
+      "maximum_interpolated_target_error_mm": 0.09406601803547687
     },
     "blender_linear_midpoints": {
       "poses": 1020,
-      "minimum_sole_z_mm": -0.0032419763440998395,
-      "minimum_body_z_mm": 9.956541600025833,
-      "minimum_closure_height_mm": 0.7394079791049488,
-      "maximum_interpolated_target_error_mm": 0.010277927483642202
+      "minimum_sole_z_mm": -0.006271486737603027,
+      "minimum_body_z_mm": 22.17466600039944,
+      "minimum_closure_height_mm": 9.528350686914665,
+      "maximum_interpolated_target_error_mm": 0.011146700208485072
     }
-  },
-  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
-  "superseded_source_sha256": "e32adfb0bde5e82facd6d6304c5c9c745a935667ddda03d70834e619f4c631b1"
+  }
 }

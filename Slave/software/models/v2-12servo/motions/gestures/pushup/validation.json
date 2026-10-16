@@ -1,19 +1,75 @@
 {
-  "command": "pushup",
-  "samples": 1741,
-  "duration_s": 14.5,
-  "sample_hz": 120,
-  "min_sole_z_mm": -8.75600031449153e-05,
-  "min_body_z_mm": 0.6659257756050412,
-  "minimum_closure_height_mm": 2.0002321408134436,
-  "maximum_planted_target_error_mm": 9.364682419743531e-05,
-  "minimum_assumed_support_margin_mm": 44.65106560723378,
-  "maximum_adjacent_joint_step_degrees": 0.8899034001456354,
-  "pulse_range_us": [
-    405.0005377697653,
-    2894.9994622303093
-  ],
+  "min_sole_z_mm": -1.9731771772057982e-11,
+  "min_body_z_mm": 3.0000000000000284,
+  "minimum_closure_height_mm": 9.211734116576121,
+  "maximum_adjacent_joint_step_degrees": 1.0457561308253818,
+  "maximum_planted_target_error_mm": 7.118927669580444e-11,
   "hardware_qualified": false,
+  "command": "pushup",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "samples": 1705,
+  "sample_hz": 120,
+  "duration_s": 14.2,
+  "motion_end_s": 14.0,
+  "peak_joint_speed_deg_s": 125.47592701170814,
+  "joint_min_deg": [
+    [
+      -4.0367016388714046e-07,
+      -36.51161908407831,
+      -27.64526702267438
+    ],
+    [
+      -8.073408385072388e-07,
+      -36.51166179922857,
+      -27.645303915107128
+    ],
+    [
+      -2.9689556570915895e-06,
+      -8.627489553513689,
+      -46.056586527722985
+    ],
+    [
+      -2.1738980440832834e-06,
+      -8.627517922353043,
+      -46.0565725298492
+    ]
+  ],
+  "joint_max_deg": [
+    [
+      1.1271389124838182e-05,
+      3.6573231242197926,
+      30.225676778830348
+    ],
+    [
+      1.993623870862461e-05,
+      3.657303116753503,
+      30.22566319489374
+    ],
+    [
+      8.36973348886404e-07,
+      34.18760186228536,
+      31.56715014693092
+    ],
+    [
+      1.0112389295459002e-05,
+      34.18754923229748,
+      31.56714894362191
+    ]
+  ],
+  "minimum_support_margin_mm": 44.48819756290248,
+  "mapped_pulse_min_us": 437.31488486903055,
+  "mapped_pulse_max_us": 2862.684640518207,
+  "reviewed_pulse_window_us": [
+    400,
+    2900
+  ],
   "collision_checked": false,
-  "motion_end_s": 14.0
+  "press_front_clearance_low_high_mm": [
+    3.0000000000000284,
+    44.7287257053615
+  ],
+  "press_rear_clearance_low_high_mm": [
+    8.0,
+    8.0
+  ]
 }

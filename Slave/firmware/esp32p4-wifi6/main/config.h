@@ -2,6 +2,7 @@
 
 #include "ainekio/config_store.h"
 #include "ainekio/protocol.h"
+#include "ainekio/v2_balance.h"
 #include "esp_err.h"
 #include "joint_calibration.h"
 #include "robot_settings.h"
@@ -36,4 +37,11 @@ esp_err_t ainekio_p4_joint_speed_save(float limit);
 float ainekio_p4_motion_rate(void);
 bool ainekio_p4_motion_rate_saved(void);
 esp_err_t ainekio_p4_motion_rate_save(float rate);
+/* Independent saved feedback selection; changing it does not stop motion. */
+bool ainekio_p4_balance_enabled(void);
+bool ainekio_p4_balance_saved(void);
+esp_err_t ainekio_p4_balance_save(bool enabled);
+ainekio_v2_balance_tuning_t ainekio_p4_balance_tuning(void);
+bool ainekio_p4_balance_tuning_saved(void);
+esp_err_t ainekio_p4_balance_configure(bool enabled,const ainekio_v2_balance_tuning_t *tuning);
 int ainekio_p4_config_command(int argc, char **argv);

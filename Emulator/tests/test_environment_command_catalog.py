@@ -9,6 +9,7 @@ from gateway.environment_adapter.translation import (
     SEED_EMOTES,
     SUPPORTED_ROBOT_COMMANDS,
     translate_environment_action,
+    locomotion_commands,
 )
 
 
@@ -93,13 +94,13 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
         capabilities = adapter._observation()["capabilities"]
         self.assertEqual(
             capabilities["robotCommands"],  # type: ignore[index]
-            list(LEGACY_ROBOT_COMMANDS),
+            [name for name in LEGACY_ROBOT_COMMANDS if name not in locomotion_commands(list(LEGACY_ROBOT_COMMANDS), None)],
         )
         self.assertEqual(
             capabilities["robotCommandDescriptions"],  # type: ignore[index]
             {
                 command: ROBOT_COMMAND_DESCRIPTIONS[command]
-                for command in LEGACY_ROBOT_COMMANDS
+                for command in capabilities["robotCommands"]
             },
         )
         self.assertIn("captureImage", capabilities["actions"])  # type: ignore[index]

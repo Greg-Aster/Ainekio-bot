@@ -1,4 +1,5 @@
 #include "network.h"
+#include "logs.h"
 #include "board.h"
 #include "config.h"
 #include "controller.h"
@@ -144,7 +145,9 @@ static esp_err_t setup_ap(bool enable)
     esp_err_t result = esp_wifi_set_mode(enable ? WIFI_MODE_APSTA : WIFI_MODE_STA);
     if (result == ESP_OK) {
         atomic_store(&ap_running, enable);
-        result = enable ? ainekio_p4_portal_start() : ainekio_p4_portal_stop();
+        /* Keep the same HTTP owner for authenticated station maintenance.
+         * The setup handlers still enforce setup-AP interface admission. */
+        result = ainekio_p4_portal_start();
         atomic_store(&portal_ready, enable && result == ESP_OK);
         if (result != ESP_OK) ESP_LOGE("network", "Setup portal: %s", esp_err_to_name(result));
     }
@@ -223,11 +226,23 @@ static void network_task(void *arg)
     if (result == ESP_OK) result = esp_wifi_set_mode(has_wifi ? WIFI_MODE_STA : WIFI_MODE_APSTA);
     if (result == ESP_OK) result = esp_wifi_start();
     if (result != ESP_OK) goto failed;
+    {
+        /* Hosted forwards this to the C6. Keep command traffic awake instead
+         * of waiting for the AP's DTIM while JPEG data shares the link. */
+        const esp_err_t set_power_save = esp_wifi_set_ps(WIFI_PS_NONE);
+        wifi_ps_type_t power_save = WIFI_PS_NONE;
+        const esp_err_t query = esp_wifi_get_ps(&power_save);
+        char report[128];
+        snprintf(report, sizeof(report), "C6 Wi-Fi power_save=%d set=%s query=%s (0=none, 1=min, 2=max)",
+                 (int)power_save, esp_err_to_name(set_power_save), esp_err_to_name(query));
+        ainekio_p4_log_stage(report);
+        ESP_LOGI("network", "%s", report);
+    }
     atomic_store(&initialized, true);
     atomic_store(&ap_running, !has_wifi);
-    if (!has_wifi) {
+    {
         const esp_err_t portal = ainekio_p4_portal_start();
-        atomic_store(&portal_ready, portal == ESP_OK);
+        atomic_store(&portal_ready, !has_wifi && portal == ESP_OK);
         if (portal != ESP_OK)
             ESP_LOGE("network", "Setup portal unavailable; serial configuration remains available");
     }

@@ -1,19 +1,67 @@
 {
-  "command": "worm",
-  "samples": 2401,
-  "duration_s": 20.0,
-  "sample_hz": 120,
-  "min_sole_z_mm": -0.0011692967173573265,
-  "min_body_z_mm": 3.2048940429429393,
-  "minimum_closure_height_mm": 12.520105890117543,
-  "maximum_planted_target_error_mm": 7.303688502702244e-05,
-  "minimum_assumed_support_margin_mm": 53.44487716901355,
-  "maximum_adjacent_joint_step_degrees": 0.3363844012693858,
-  "pulse_range_us": [
-    405.0,
-    2895.0
-  ],
+  "min_sole_z_mm": -8.927614203457779e-10,
+  "min_body_z_mm": 4.0,
+  "minimum_closure_height_mm": 8.699383070095346,
+  "maximum_adjacent_joint_step_degrees": 3.490872891959377,
+  "maximum_planted_target_error_mm": 8.927614203457779e-10,
   "hardware_qualified": false,
-  "collision_checked": false,
-  "motion_end_s": 20.0
+  "command": "worm",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "samples": 769,
+  "sample_hz": 120,
+  "duration_s": 6.4,
+  "motion_end_s": 6.2,
+  "peak_joint_speed_deg_s": 417.83247227734256,
+  "joint_min_deg": [
+    [
+      -4.0367016388714046e-07,
+      -25.66658920196131,
+      -21.662389980454424
+    ],
+    [
+      -9.621244319963999e-07,
+      -25.666626514655665,
+      -21.662385469926082
+    ],
+    [
+      -3.328421648307617e-06,
+      -21.67389075073765,
+      -32.31738787973964
+    ],
+    [
+      -1.910669211215953e-06,
+      -21.673933852963078,
+      -32.317376599466556
+    ]
+  ],
+  "joint_max_deg": [
+    [
+      1.2506701826977815e-05,
+      60.93591183073752,
+      17.8717304106257
+    ],
+    [
+      2.2745230866014707e-05,
+      60.93588186495907,
+      17.87173766050878
+    ],
+    [
+      1.0150898900968e-06,
+      29.777788779593976,
+      42.50249318044968
+    ],
+    [
+      9.517451557120259e-06,
+      29.777748034140124,
+      42.50251782495786
+    ]
+  ],
+  "minimum_support_margin_mm": 42.55745399317507,
+  "mapped_pulse_min_us": 557.8152723231156,
+  "mapped_pulse_max_us": 2742.1843130914076,
+  "reviewed_pulse_window_us": [
+    400,
+    2900
+  ],
+  "collision_checked": false
 }

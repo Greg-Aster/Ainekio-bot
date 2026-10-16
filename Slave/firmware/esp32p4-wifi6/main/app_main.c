@@ -1,9 +1,13 @@
 #include "board.h"
+#include "body.h"
+#include "logs.h"
 #include "config.h"
 #include "controller.h"
 #include "network.h"
 #include "system.h"
 #include "display.h"
+#include "imu_diagnostics.h"
+#include "ainekio/p4_imu.h"
 #include "ainekio/p4_assets.h"
 
 #include <stdio.h>
@@ -30,15 +34,18 @@ static int disable_command(int argc, char **argv)
 {
     (void)argc; (void)argv;
     ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
-    puts("Outputs disabled; use home to resume.");
+    puts("Outputs disabled; use Stand to rise or Home for calibration.");
     return 0;
 }
 
 void app_main(void)
 {
+    ainekio_p4_logs_init();
+    ainekio_p4_log_stage("board initialization");
     ESP_ERROR_CHECK(ainekio_p4_board_init());
     ainekio_p4_board_identify();
     /* Do not erase an existing NVS partition on an initialization error. */
+    ainekio_p4_log_stage("NVS initialization");
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(ainekio_p4_config_init());
     ESP_ERROR_CHECK(ainekio_p4_system_start());
@@ -47,20 +54,29 @@ void app_main(void)
      * body startup when no asset partition has been installed. */
     const esp_err_t assets = ainekio_p4_assets_init();
     if (assets != ESP_OK) printf("assets unavailable: %s\n", esp_err_to_name(assets));
+    ainekio_p4_log_stage("controller tasks");
     ESP_ERROR_CHECK(ainekio_p4_controller_start());
+    ainekio_p4_log_stage("camera/audio initialization");
     const esp_err_t media = ainekio_p4_controller_media_start();
     if (media != ESP_OK) printf("media initialization: %s\n", esp_err_to_name(media));
+    ainekio_p4_log_stage("IMU initialization");
+    const esp_err_t imu_result=ainekio_p4_imu_start();
+    printf("continuous IMU acquisition: %s\n",esp_err_to_name(imu_result));
+    ainekio_p4_log_stage("display initialization");
     const esp_err_t display = ainekio_p4_display_start();
     if (display != ESP_OK) printf("display initialization: %s\n", esp_err_to_name(display));
     /* Complete one-time NVS provisioning before enabling PWM. Never retry a
      * stalled mechanism automatically following a watchdog or brownout reset. */
+    ainekio_p4_log_stage("startup crouch, shoulders, stand");
     const esp_reset_reason_t reset = esp_reset_reason();
     if (!ainekio_p4_calibration().saved) {
         puts("No saved joint mapping; startup leaves outputs disabled.");
     } else if (reset == ESP_RST_POWERON || reset == ESP_RST_EXT || reset == ESP_RST_SW ||
         reset == ESP_RST_USB || reset == ESP_RST_JTAG) {
-        if (ainekio_p4_home_command(1, NULL) != 0) puts("automatic home unavailable; outputs disabled");
-    } else printf("automatic home inhibited after reset=%d; use home to retry\n", reset);
+        const esp_err_t rise=ainekio_p4_body_startup(ainekio_pca_status(ainekio_p4_output()).generation);
+        printf("startup rise admitted: %s\n",esp_err_to_name(rise));
+    } else printf("automatic rise inhibited after reset=%d; use Stand to retry\n", reset);
+    ainekio_p4_log_stage("network task start");
     ESP_ERROR_CHECK(ainekio_p4_network_start());
     esp_console_repl_t *repl = NULL;
     const esp_console_dev_uart_config_t uart = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
@@ -80,7 +96,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_console_cmd_register(&network));
     ESP_ERROR_CHECK(esp_console_cmd_register(&configure));
     const esp_console_cmd_t controller = {.command="controller", .help="Selected controller session and readiness", .func=ainekio_p4_controller_command};
-    const esp_console_cmd_t home = {.command="home", .help="Resume saved startup home after a stop", .func=ainekio_p4_home_command};
+    const esp_console_cmd_t home = {.command="home", .help="Calibration only: move to saved joint matchmarks", .func=ainekio_p4_home_command};
     ESP_ERROR_CHECK(esp_console_cmd_register(&controller));
     const esp_console_cmd_t system = {.command="system", .help="System status; profile/state/storage/restart", .func=ainekio_p4_system_command};
     ESP_ERROR_CHECK(esp_console_cmd_register(&system));
@@ -88,6 +104,9 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_console_cmd_register(&gait));
     const esp_console_cmd_t face = {.command="face", .help="Display status; face list / NAME / auto", .func=ainekio_p4_display_command};
     ESP_ERROR_CHECK(esp_console_cmd_register(&face));
+    const esp_console_cmd_t imu = {.command="imu", .help="IMU status; sample/watch raw; body corrected; calibration show/set", .func=ainekio_p4_imu_command};
+    ESP_ERROR_CHECK(esp_console_cmd_register(&imu));
     ESP_ERROR_CHECK(esp_console_cmd_register(&home));
+    ainekio_p4_log_stage("console ready");
     ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }

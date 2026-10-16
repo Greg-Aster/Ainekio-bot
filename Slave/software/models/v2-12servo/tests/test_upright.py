@@ -67,15 +67,15 @@ for row in rows[361:]:
     assert margin > 0, 'Provisional COM is outside the supporting soles'
     assert abs(margin - row['support_margin_mm']) < .0001, 'Stored support result is stale'
 
-assert abs(math.degrees(rows[-1]['body_rotation_euler_xyz_rad'][1]) + 90) < 1e-6
+assert abs(math.degrees(rows[-1]['body_rotation_euler_xyz_rad'][1]) + 60) < 1e-6
 for i in (2, 3):
     assert np.max(np.abs(np.array(rows[-1]['actuator_angles_rad'][i]) - posture['front_extended_angles_rad_by_leg'][legs[i]])) < 1e-10
 assert all(row['actuator_angles_rad'] == rows[-1]['actuator_angles_rad'] for row in rows[2400:])
 assert not source['validation']['hardware_qualified']
-# The calibrated endpoint retains extended forelimbs with 90.34 mm modeled reach.
+# The approved supported rise holds forelimbs at 71.06 mm modeled reach.
 # Electrical extrema and entry paths are checked by test_clip_calibration.c.
-assert min(rows[-1]['arm_reach_mm'][2:]) > 90
-print(f'Upright: exact Sit prefix, grounded transfer, anchored rear XY and vertical hold pass; '
+assert all(abs(reach - 71.06000307433588) < .001 for reach in rows[-1]['arm_reach_mm'][2:])
+print(f'Upright: exact Sit prefix, grounded transfer, anchored rear XY and 60-degree hold pass; '
       f'modeled support margin {minimum_margin:.6f} mm, sole {minimum_sole:.8f} mm, '
       f'body clearance {minimum_body:.6f} mm, XY error {maximum_xy_error:.8f} mm. '
       'Loaded balance remains unqualified.')

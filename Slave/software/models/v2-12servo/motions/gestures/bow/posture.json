@@ -1,12 +1,12 @@
 {
-  "schema": "ainekio.bow.forward-forelegs.v1",
-  "description": "Follow the V1 Bow sequence: brace, extend both front hands forward with the front low and rear raised, hold for three seconds, then reverse into standing. Front lower legs lie nearly flat along the floor.",
-  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+  "schema": "ainekio.bow.expressive-bare.v1",
+  "description": "Prompt front-low/rear-high bow with forward hands, held for five seconds before rising and returning to standing.",
+  "mechanism_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
   "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "measured_date": "2026-09-29",
-  "body_support_scope": "Current complete body hull.",
-  "contact_hulls_file": "../sit/posture-hulls.npz",
-  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
+  "body_support_scope": "Complete body hull; bare Part027 contact.",
+  "contact_hulls_file": "contact-hulls.npz",
+  "contact_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
   "grounded_legs": [
     "RL",
     "RR"
@@ -30,46 +30,63 @@
   ],
   "extended_joint_offsets_rad": {
     "RL": [
-      0.0,
-      2.0943951023931953,
-      1.7679312242115577
+      1.0574104153674702e-08,
+      2.1086232110928993,
+      1.3215236390456904
     ],
     "RR": [
-      0.0,
-      2.0943951023931953,
-      1.7679312242115577
+      -2.5161746084731104e-08,
+      2.1086231755910285,
+      1.3215237491737117
     ]
   },
-  "brace_solver_seed_rad": {
-    "RL": [
-      8.718910419965412e-08,
-      -0.09515115830214846,
-      -0.0339319163247452
-    ],
-    "RR": [
-      8.718910419965412e-08,
-      -0.09515115830214846,
-      -0.0339319163247452
-    ]
-  },
-  "held_body_x_mm": -10.0,
+  "held_body_x_mm": -6.190671257045722,
   "held_body_euler_xyz_rad": [
-    0,
+    0.0,
     0.20943951023931956,
-    0
+    0.0
   ],
-  "timing_s": {
-    "brace_end": 1.0,
-    "extension_end": 2.5,
-    "hold_end": 5.5,
-    "retraction_end": 7.0
-  },
-  "posture_sample_time_s": 3.0,
+  "posture_sample_time_s": 1.05,
   "v1_reference": {
     "file": "Slave/software/assets/seed/motions-v1.json",
     "asset": "bow",
     "asset_sha256": "b7942363f893fbfbcb05e6e16cb437fd32761dbbe3a1684717d2f2ffc1d63333",
     "adaptation": "Preserve front-hand reach, front-low/rear-high posture, held bow and return; solve current linkage offsets instead of copying eight-servo electrical angles."
   },
-  "contact_motion": "Front soles slide forward during extension and back during retraction; rear foot reference XY stays at the braced stance. Sliding traction and loaded hardware remain unqualified."
+  "contact_motion": "Front soles slide forward during extension and back during retraction; rear foot reference XY stays at the braced stance. Sliding traction and loaded hardware remain unqualified.",
+  "angle_scope": "Firmware geometric offsets; physical calibration and assembly mounting unqualified.",
+  "bare_contact_source_sha256": "fbcae38d154a461dc9310002cbd49ea97531994fd51fbb1ed96a8b9a14bdb044",
+  "phases": [
+    {
+      "start": 0.0,
+      "end": 0.4,
+      "kind": "brace_stance"
+    },
+    {
+      "start": 0.4,
+      "end": 1.05,
+      "kind": "stretch_front_into_bow"
+    },
+    {
+      "start": 1.05,
+      "end": 6.05,
+      "kind": "hold_bow"
+    },
+    {
+      "start": 6.05,
+      "end": 6.7,
+      "kind": "raise_front"
+    },
+    {
+      "start": 6.7,
+      "end": 7.1,
+      "kind": "return_to_standing"
+    },
+    {
+      "start": 7.1,
+      "end": 7.3,
+      "kind": "hold_standing"
+    }
+  ],
+  "baseline_source_archive_sha256": "05ac888b04498b713e952fa03edba097edafed98a77fd3a76e20da2a6c566154"
 }

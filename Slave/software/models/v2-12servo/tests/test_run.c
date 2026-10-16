@@ -19,18 +19,38 @@ static double drift,max_step;static unsigned paired,flight;
 static void tick(ainekio_v2_walk_state_t *s,uint64_t now)
 {
     ainekio_v2_walk_pose_t old=s->pose;
+    double touchdown[4];for(unsigned i=0;i<4;i++)touchdown[i]=s->feet[i].touchdown_phase;
     if(!ainekio_v2_walk_tick(s,now)){
         fprintf(stderr,"Run solve failed dir=%u blend=%g phase=%g now=%llu\n",s->direction,s->pose.run_blend,s->phase,(unsigned long long)now);assert(false);
     }
     leverage_step(&old,&s->pose);
     for(unsigned i=0;i<4;i++){
-        if(old.grounded[i]&&s->pose.grounded[i])for(unsigned k=0;k<2;k++)drift=fmax(drift,fabs(s->pose.feet[i][k]-old.feet[i][k]));
+        if(old.grounded[i]&&!s->pose.grounded[i]) {
+            /* Newly committed touchdown must meet the FUTURE phase schedule,
+             * including an offset still moving during Walk/Run blending. */
+            double td=s->feet[i].touchdown_phase;
+            double u=fmax(0.,fmin(1.,(td-s->run_transition_phase)/V2_RUN_TRANSITION));
+            double blend=u*u*u*(10.+u*(-15.+6.*u));
+            double offset=s->offset_from[i]+(s->offset_target[i]-s->offset_from[i])*blend;
+            assert(td>s->phase && fabs(td-offset-round(td-offset))<1e-7);
+        }
+        /* A complete fast swing can occur between two 40 ms samples.
+         * Compare planted anchors only within the same contact interval. */
+        if(old.grounded[i]&&s->pose.grounded[i]&&touchdown[i]==s->feet[i].touchdown_phase)for(unsigned k=0;k<2;k++)drift=fmax(drift,fabs(s->pose.feet[i][k]-old.feet[i][k]));
         assert(s->pose.sole_height[i]>=-1e-8);
         for(unsigned j=0;j<3;j++)max_step=fmax(max_step,fabs(s->pose.joints[i][j]-old.joints[i][j]));
     }
     if(s->pose.run_blend==1. && s->phase>s->run_transition_phase+V2_RUN_TRANSITION+1. && !s->stopping){
         assert(s->pose.grounded[0]==s->pose.grounded[1]);assert(s->pose.grounded[2]==s->pose.grounded[3]);paired++;
         if(!s->pose.grounded[0]&&!s->pose.grounded[2])flight++;
+        /* Run must not recreate the low, forward-reaching crouch. These
+         * checks accompany the retained paired support/flight assertions. */
+        assert(s->pose.body[2]>=V2_RUN_FORWARD_BODY_Z-1e-6);
+        assert(fabs(s->pose.euler[1])<1e-9);
+        if(s->direction==AINEKIO_WALK_FORWARD)for(unsigned leg=0;leg<4;leg++) {
+            double relative=s->pose.feet[leg][0]-s->pose.body[0]-v2_walk_stance[leg][0];
+            assert(relative<V2_RUN_FORWARD_SWEEP*.6 && relative>-V2_RUN_FORWARD_SWEEP*.75);
+        }
     }
 }
 int main(void)
@@ -40,6 +60,8 @@ int main(void)
     for(unsigned interval=0;interval<4;interval++)for(unsigned dir=0;dir<4;dir++)for(unsigned start=0;start<4;start++){
         ainekio_v2_walk_state_t s={0};uint64_t now=0;
         ainekio_command_t c=command(1,0,dir,AINEKIO_GAIT_WALK,speeds[start]);assert(ainekio_v2_walk_accept(&s,&c,0));
+        assert(s.run_from==1. && s.run_target==1.);
+        for(unsigned leg=0;leg<4;leg++)assert(s.offset_target[leg]==(leg<2?0.:.5));
         while(s.phase<10.){now+=intervals[interval];tick(&s,now);}
         c=command(2,1,dir,AINEKIO_GAIT_WALK,75);assert(ainekio_v2_walk_accept(&s,&c,now));
         double back=s.phase;
@@ -71,6 +93,9 @@ int main(void)
         while(s.phase<5.){now+=10000;tick(&s,now);}assert(s.pose.run_blend==0.);
         for(unsigned n=0;n<8;n++){
             c=command(n+2,1,dir,AINEKIO_GAIT_WALK,n%2?85:200);assert(ainekio_v2_walk_accept(&s,&c,now));
+            assert(!s.pending_update && s.target.stride_percent==s.requested_stride_percent);
+            for(unsigned leg=0;leg<4;leg++)
+                assert(fabs(s.offset_target[leg]-s.offset_from[leg])<=.5+1e-8);
             uint64_t end=now+(stop+1)*170000;
             while(now<end){now+=10000;tick(&s,now);}
         }
@@ -94,7 +119,7 @@ int main(void)
         }
         assert(event==4);for(unsigned i=0;i<4;i++)assert(s.pose.grounded[i]);
     }
-    /* Independent stride/cadence still works on an explicit bound. */
+    /* The offline reference-time API still supports explicit cadence. */
     for(unsigned interval=0;interval<4;interval++)for(unsigned dir=0;dir<4;dir++)for(unsigned si=0;si<3;si++)for(unsigned ri=0;ri<2;ri++){
         const double strides[]={1,50,100},rates[]={.25,3};
         ainekio_v2_walk_state_t s={0};uint64_t now=0;ainekio_v2_walk_controls_t c={strides[si],rates[ri]};
@@ -105,9 +130,9 @@ int main(void)
     }
     assert(ainekio_v2_joint_speed_set(20000.F));
     /* Observe modeled translation through a steady cycle at two speeds.
-     * Speed must open the stroke as well as increase cadence. */
+     * Speed must open the stroke; angular travel determines cadence. */
     for(unsigned n=0;n<2;n++){
-        const double speed[]={150,200},sweep[]={(V2_RUN_SWEEP+V2_RUN_FORWARD_SWEEP)*.5,V2_RUN_FORWARD_SWEEP};
+        const double speed[]={150,200},sweep[]={(V2_RUN_START_SWEEP+V2_RUN_FORWARD_SWEEP)*.5,V2_RUN_FORWARD_SWEEP};
         ainekio_v2_walk_state_t state={0};uint64_t now=0;
         ainekio_command_t request=command(1,0,AINEKIO_WALK_FORWARD,AINEKIO_GAIT_WALK,speed[n]);
         assert(ainekio_v2_walk_accept(&state,&request,0));
@@ -125,29 +150,26 @@ int main(void)
         }
         double phase=state.phase,x=state.pose.body[0];
         while(state.phase<phase+1.){now+=10000;tick(&state,now);}
-        /* The restored bound advances uniformly per gait phase. Retiming
-         * changes wall-clock cadence while preserving sweep per stance. */
+        /* The bound advances uniformly per gait phase at requested cadence. */
         double normalized_progress=(state.phase-phase)/V2_RUN_DUTY;
         assert(fabs(fabs(state.pose.body[0]-x)-sweep[n]*normalized_progress)<1e-4);
     }
-    /* Speed opens stride, foot lift and body bounding together in both the
-     * Walk-to-Run family and explicit Run. A restrictive owner limit retimes
-     * the same path; with enough budget, cadence and translation increase. */
+    /* Speed opens stride and foot lift while retaining upright body attitude in both the
+     * Walk-to-Run family and explicit Run. The posture/gesture speed setting
+     * must not reduce walking cadence or translation. */
     const double cadence_speeds[]={105,125,150,175,200};
     const float limits[]={200.F,20000.F};
     for(unsigned li=0;li<2;li++)for(unsigned family=0;family<2;family++) {
       assert(ainekio_v2_joint_speed_set(limits[li]));
-      double previous_cadence=0.,previous_stride=0.,previous_lift=0.,previous_pitch=0.,previous_travel_speed=0.;
+      double previous_cadence=INFINITY,previous_stride=0.,previous_lift=0.,previous_travel_speed=0.;
       for(unsigned n=0;n<5;n++) {
         ainekio_v2_walk_state_t state={0};uint64_t now=0;
         ainekio_command_t request=command(1,0,AINEKIO_WALK_FORWARD,family?AINEKIO_GAIT_RUN:AINEKIO_GAIT_WALK,cadence_speeds[n]);
         assert(ainekio_v2_walk_accept(&state,&request,0));
         double phase_at_50=0.,x_at_50=0.,lift=0.,pitch_min=INFINITY,pitch_max=-INFINITY;bool flagged=false;
         while(now<60000000) {
-            ainekio_v2_frame_t before=state.pose.frame;
-            now+=20000;tick(&state,now);
-            for(unsigned j=0;j<12;j++)
-                assert(fabs(state.pose.frame.position[j]-before.position[j])/2.<=limits[li]+.001);
+            now+=now<50000000?20000:1000;tick(&state,now);
+            assert(state.fast_stroke && state.clock_scale>0.);
             if(now==50000000){phase_at_50=state.phase;x_at_50=state.pose.body[0];}
             if(now>=50000000) {
                 flagged|=state.speed_flagged;
@@ -156,19 +178,19 @@ int main(void)
             }
         }
         const double cadence=(state.phase-phase_at_50)/10.;
-        const double requested=(family?cadence_speeds[n]/75.:2.+(cadence_speeds[n]-100.)/150.)/1.2;
-        const double stride=100.*(V2_RUN_SWEEP+(V2_RUN_FORWARD_SWEEP-V2_RUN_SWEEP)*(cadence_speeds[n]-100.)/100.)/V2_RUN_FORWARD_SWEEP;
+        const double requested=state.requested_cycles_s;
+        const double stride=100.*(V2_RUN_START_SWEEP+(V2_RUN_FORWARD_SWEEP-V2_RUN_START_SWEEP)*(cadence_speeds[n]-100.)/100.)/V2_RUN_FORWARD_SWEEP;
         const double travel_speed=(state.pose.body[0]-x_at_50)/10.;
         assert(state.automatic_run && fabs(state.target.stride_percent-stride)<1e-9);
         assert(state.target.stride_percent==state.requested_stride_percent);
         assert(fabs(state.stride_percent-stride)<1e-9);
-        assert(stride>previous_stride && lift>previous_lift && pitch_max-pitch_min>previous_pitch);
-        if(li) {
-            assert(cadence>previous_cadence && fabs(cadence-requested)<.01);
-            assert(travel_speed>previous_travel_speed && !state.speed_flagged);
-        } else assert(cadence<requested && flagged);
+        assert(stride>previous_stride && lift>previous_lift);
+        assert(fabs(pitch_min)<1e-9 && fabs(pitch_max)<1e-9);
+        /* Longer strokes take longer at the same angular movement rate. */
+        assert(cadence<previous_cadence && cadence>0.);
+        assert(travel_speed>previous_travel_speed && !flagged);
         printf("%s Run %.0f%% at %.0f deg/s: %.4f / %.4f cycles/s, stride %.2f%%, lift %.2f mm, pitch %.2f deg\n",family?"Explicit":"Automatic",cadence_speeds[n],limits[li],cadence,requested,stride,lift,(pitch_max-pitch_min)*180./acos(-1.));
-        previous_cadence=cadence;previous_stride=stride;previous_lift=lift;previous_pitch=pitch_max-pitch_min;previous_travel_speed=travel_speed;
+        previous_cadence=cadence;previous_stride=stride;previous_lift=lift;previous_travel_speed=travel_speed;
       }
     }
     /* Increasing Speed on one ongoing command preserves its ownership and

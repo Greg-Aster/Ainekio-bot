@@ -1,33 +1,31 @@
 {
   "command": "upright",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "source_sha256": "04c7511223d4b3bdda8bf9bea2502032269d8a7fd3fa390391e4b60af4a89a73",
   "samples": 2641,
   "hardware_qualified": false,
   "collision_checked": false,
   "interpolators": {
     "source": {
       "poses": 2641,
-      "minimum_sole_z_mm": -4.766192658589574e-05,
-      "minimum_body_z_mm": 0.5435354083108006,
-      "minimum_closure_height_mm": 2.382384321067961,
-      "maximum_interpolated_target_error_mm": 6.580229694463924e-08
+      "minimum_sole_z_mm": -0.0001226563128104985,
+      "minimum_body_z_mm": 1.2450387160263663,
+      "minimum_closure_height_mm": 14.527158726555527,
+      "maximum_interpolated_target_error_mm": 0.00016744502264032235
     },
     "native_monotone_cubic_midpoints": {
       "poses": 2640,
-      "minimum_sole_z_mm": -0.0006302147595178553,
-      "minimum_body_z_mm": 0.5435354083108006,
-      "minimum_closure_height_mm": 2.382384321067961,
-      "maximum_interpolated_target_error_mm": 0.006717720627237327
+      "minimum_sole_z_mm": -0.030695544450101586,
+      "minimum_body_z_mm": 1.2632154289563289,
+      "minimum_closure_height_mm": 14.527211441448033,
+      "maximum_interpolated_target_error_mm": 0.12238697425929246
     },
     "blender_linear_midpoints": {
       "poses": 2640,
-      "minimum_sole_z_mm": -0.000215029074350781,
-      "minimum_body_z_mm": 0.5435354083108006,
-      "minimum_closure_height_mm": 2.382384321067961,
-      "maximum_interpolated_target_error_mm": 0.0022927385971485137
+      "minimum_sole_z_mm": -0.0022528783578579237,
+      "minimum_body_z_mm": 1.2632154289563289,
+      "minimum_closure_height_mm": 14.527215368256996,
+      "maximum_interpolated_target_error_mm": 0.005627147944579747
     }
-  },
-  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
-  "superseded_source_sha256": "3274f4f1b120835e10bcdffcb09ededa3c32d200da7e706918173d705f3edbdd"
+  }
 }

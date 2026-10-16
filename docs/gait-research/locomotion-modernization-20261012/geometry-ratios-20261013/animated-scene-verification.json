@@ -1,0 +1,11 @@
+{
+  "sampled_foot_poses": 96,
+  "minimum_mesh_sole_z_mm": -2.384185791015625e-05,
+  "maximum_mesh_vs_solved_sole_error_mm": 2.384185791015625e-05,
+  "scenes": [
+    "Geometry - 72 mm walking reference",
+    "Geometry - Leg dimensions and motion"
+  ],
+  "source_file_unchanged": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery2.blend",
+  "model": "72 leg /26 carrier /26 rod /43 pickup /28 crank; kinematic animation only"
+}

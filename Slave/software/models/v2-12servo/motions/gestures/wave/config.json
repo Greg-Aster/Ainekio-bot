@@ -1,7 +1,7 @@
 {
   "command": "wave",
   "sample_hz": 120,
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "retargeting": "../../retargeting.json",
   "preview_fps": 30,
   "geometric_solver_search_bounds_degrees": [

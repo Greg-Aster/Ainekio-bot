@@ -1,0 +1,11 @@
+{
+  "verified_foot_poses": 480,
+  "max_sole_error_mm": 2.2411346435546875e-05,
+  "min_sole_z_mm": -2.2411346435546875e-05,
+  "max_link_length_error_mm": 6.4683988014735405e-06,
+  "source_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery2.blend",
+  "scenes": [
+    "Geometry - Compact 55 mm walk",
+    "Geometry - Compact linkage detail"
+  ]
+}

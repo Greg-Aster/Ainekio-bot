@@ -1,0 +1,62 @@
+[
+  {
+    "dimensions": {
+      "leg": 81,
+      "carrier": 22,
+      "crank": 36,
+      "pickup": 51,
+      "rod": 25
+    },
+    "model_clearance_mm": 74,
+    "all_samples_close": true,
+    "minimum_loaded_leg_angle": 56.217475109928756,
+    "peak_vertical_torque_Nm_per_10N": [
+      0.2598595339587342,
+      0.25972792808215456
+    ],
+    "peak_joint_speed_deg_s": [
+      594.0636805446983,
+      406.90256624671093
+    ],
+    "joint_excursion_deg": [
+      83.10906244826647,
+      87.3202161017928
+    ],
+    "current_pulse_range": [
+      -76.65257421632248,
+      1383.0621121204333
+    ],
+    "current_index_fits": false,
+    "jacobian_difference_error_mm_per_rad": 3.4946872062846523e-08
+  },
+  {
+    "dimensions": {
+      "leg": 72,
+      "carrier": 26,
+      "crank": 28,
+      "pickup": 43,
+      "rod": 26
+    },
+    "model_clearance_mm": 64,
+    "all_samples_close": true,
+    "minimum_loaded_leg_angle": 48.410007644494065,
+    "peak_vertical_torque_Nm_per_10N": [
+      0.29555829721654836,
+      0.30587584746741353
+    ],
+    "peak_joint_speed_deg_s": [
+      575.0166628179593,
+      509.91509229135744
+    ],
+    "joint_excursion_deg": [
+      79.23567282997783,
+      101.67147018817153
+    ],
+    "current_pulse_range": [
+      -46.61622719853733,
+      1331.968116792803
+    ],
+    "current_index_fits": false,
+    "jacobian_difference_error_mm_per_rad": 2.355760386762995e-08
+  }
+]

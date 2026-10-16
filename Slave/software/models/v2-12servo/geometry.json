@@ -14660,24 +14660,24 @@
       69.71182170125783
     ],
     "D_neutral": [
-      28.529330774939197,
-      48.73517373473238
+      32.78664110558016,
+      51.35725473054806
     ],
     "E_neutral": [
-      10.137751013707163,
-      64.15431099614361
+      11.329798050809451,
+      69.34624820219449
     ],
     "P_old": [
       40.495568211279014,
       91.71157746070446
     ],
     "P_new": [
-      31.078985728366703,
-      95.86337418989845
+      37.58229916785718,
+      96.8199844806734
     ],
-    "input_length": 24.0,
-    "primary_length": 40.0,
-    "pickup_length": 24.0,
+    "input_length": 20.0,
+    "primary_length": 35.0,
+    "pickup_length": 28.0,
     "rod_length": 38.0,
     "old_rod_length": 40.99999999999999,
     "distal_length": 55.0,
@@ -14686,7 +14686,7 @@
     "alpha_neutral": -2.589563330529253,
     "beta_neutral": 2.4438832518166476,
     "old_rod_reference_angle": -2.4045130067927207,
-    "new_rod_neutral_angle": -2.1544604149540456,
+    "new_rod_neutral_angle": -2.333467700553633,
     "assembly_branch": 1,
     "retarget_branch": -1,
     "servo_reindex_deg": 28.817840425272014,
@@ -14694,7 +14694,7 @@
       "inclination_deg": 0.0,
       "STL_directory": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/upright-compact-STLs"
     },
-    "status": "All four legs use the refined RL24/38/24 geometry. Static registration and sampled mechanism closure verified. Physical loading and unrestricted collision range unqualified.",
+    "status": "35/20/28/38/55 mm compact linkage; motor coordinate zero retained for calibration parity.",
     "previous_unseated_C_new": [
       50.073686067289486,
       78.711878551002
@@ -14756,36 +14756,40 @@
     "leg_construction": "upright",
     "per_leg_overrides": {
       "RL": {
-        "input_length": 24.0,
+        "input_length": 20.0,
         "rod_length": 38.0,
-        "pickup_length": 24.0,
+        "pickup_length": 28.0,
         "distal_length": 55.0,
         "new_theta_neutral": 2.484925850946935,
-        "parameters_text": "COMPACT FOUR LEGS - PARAMETERS.json"
+        "parameters_text": "WIRELESS | 35-20-28-38 linkage parameters.json",
+        "primary_length": 35.0
       },
       "FL": {
-        "input_length": 24.0,
+        "input_length": 20.0,
         "rod_length": 38.0,
-        "pickup_length": 24.0,
+        "pickup_length": 28.0,
         "distal_length": 55.0,
         "new_theta_neutral": 2.484925850946935,
-        "parameters_text": "COMPACT FOUR LEGS - PARAMETERS.json"
+        "parameters_text": "WIRELESS | 35-20-28-38 linkage parameters.json",
+        "primary_length": 35.0
       },
       "FR": {
-        "input_length": 24.0,
+        "input_length": 20.0,
         "rod_length": 38.0,
-        "pickup_length": 24.0,
+        "pickup_length": 28.0,
         "distal_length": 55.0,
         "new_theta_neutral": 2.484925850946935,
-        "parameters_text": "COMPACT FOUR LEGS - PARAMETERS.json"
+        "parameters_text": "WIRELESS | 35-20-28-38 linkage parameters.json",
+        "primary_length": 35.0
       },
       "RR": {
-        "input_length": 24.0,
+        "input_length": 20.0,
         "rod_length": 38.0,
-        "pickup_length": 24.0,
+        "pickup_length": 28.0,
         "distal_length": 55.0,
         "new_theta_neutral": 2.484925850946935,
-        "parameters_text": "COMPACT FOUR LEGS - PARAMETERS.json"
+        "parameters_text": "WIRELESS | 35-20-28-38 linkage parameters.json",
+        "primary_length": 35.0
       }
     },
     "prior_defaults_before_24_38_all_legs": {
@@ -14903,12 +14907,12 @@
       110
     ],
     [
-      -39.99,
-      185.33
+      -180,
+      180
     ],
     [
-      -53.27,
-      139.36
+      -180,
+      180
     ]
   ],
   "servo_travel_supplied_deg": 234,
@@ -14952,7 +14956,7 @@
     "FL"
   ],
   "provenance": {
-    "link_lengths_and_frames": "Visible Wireless assembly measured 2026-09-29; rear shoulder and linkage frames reconciled to assembled meshes without moving the meshes.",
+    "link_lengths_and_frames": "Wireless 2026-10-05: carrier35, crank20, pickup28, rod38, distal55 mm. Existing servo pivots and body frames retained.",
     "foot_hulls": "Convex hulls of the visible lower-leg, boot and fastener meshes, measured in each passive foot frame.",
     "COM": "assumed body-fixed datum, configurable; no masses",
     "joint_bounds": "Provisional numerical envelope, not physical stops. Part009 theta lower envelope expanded from -70 to -115 degrees for the requested rear reach; linkage closure and sampled mesh intersections checked separately.",
@@ -15084,7 +15088,7 @@
     ]
   },
   "control_law": "p=stride_percent/100; stance_sweep=92*p mm; cycle_advance=stance_sweep/0.7; cycle_frequency=motion_rate/1.8 Hz; speed=cycle_advance*cycle_frequency. Rear bias=(30/92)*predicted body travel during each stance; only future footholds move when stride changes.",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "current_body_hull_local_mm": [
     [
       66.8743896484375,
@@ -16960,5 +16964,20 @@
         117.53152465820312
       ]
     ]
+  },
+  "linkage_revision": {
+    "dimensions_mm": {
+      "carrier": 35,
+      "crank": 20,
+      "pickup": 28,
+      "rod": 38,
+      "lower_leg": 55
+    },
+    "cad_scene": "Wireless",
+    "cad_parameter_text": "WIRELESS | 35-20-28-38 linkage parameters.json",
+    "cad_neutral_crank_radians": -4.036908828663838,
+    "model_crank_zero_radians": 2.484925850946935,
+    "policy": "Preserve the existing physical motor-angle datum; recalculate joint angles from the original body and foot trajectories. CAD neutral is not a new electrical zero.",
+    "mechanical_clearance": "Owner deferred crank/servo-housing interference correction until after the motion recalculation. No collision-driven stride or speed reduction."
   }
 }

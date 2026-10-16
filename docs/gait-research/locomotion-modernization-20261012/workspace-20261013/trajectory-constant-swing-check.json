@@ -1,0 +1,640 @@
+{
+  "scope": "Offline native replay of workspace-derived candidates. Reference unmirrored pulses; no physical commands or deployed settings changes. Experimental Walk swing uses the existing Run constant-speed return with short endpoint ramps. Static reach is not a qualified gait.",
+  "candidates": [
+    {
+      "name": "longest45",
+      "derived_parameters": {
+        "V2_WALK_SWEEP": 82.76477314602575,
+        "V2_BODY_Z": -4.250007629394531,
+        "V2_WALK_BIAS": -11.352328182386273
+      },
+      "cases": [
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            2526.80586413,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 0.0,
+          "body_translation_z_range_mm": [
+            -4.97741863654,
+            -3.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            389.4124825538178,
+            1672.8322172328221
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 610.8046929436821,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 4.248488614599104,
+            "stance_output_min_deg": 44.30590427052407,
+            "swing_output_min_deg": 41.845374774167844,
+            "stance_input_min_deg": 61.017718416563284,
+            "swing_input_min_deg": 60.67468575261544
+          },
+          "below_source_regression_margins": {
+            "stance_output_min_deg": {
+              "measured": 44.30590427052407,
+              "required": 45
+            }
+          },
+          "direction": "fwd",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1135,
+          "sampled_seconds": 22.68,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            -2417.36462178,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 0.0,
+          "body_translation_z_range_mm": [
+            -4.97626906648,
+            -3.52255533947
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 151,
+            "3": 611,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            391.7882500205106,
+            1672.8170508926075
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 605.2961453787946,
+          "leverage": {
+            "checked_leg_poses": 9076,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 4.602118050848169,
+            "stance_output_min_deg": 46.02298714913876,
+            "swing_output_min_deg": 43.57414021868292,
+            "stance_input_min_deg": 60.25448115800409,
+            "swing_input_min_deg": 60.036391552048464
+          },
+          "below_source_regression_margins": {},
+          "direction": "back",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 186.56863429402827,
+          "body_translation_z_range_mm": [
+            -4.97741863654,
+            -3.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            685.1611584699273,
+            1688.1614289736794
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 165.55558925533444,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 18.18586324151508,
+            "stance_output_min_deg": 82.4061079597137,
+            "swing_output_min_deg": 74.95926904993864,
+            "stance_input_min_deg": 73.35297055940325,
+            "swing_input_min_deg": 73.00327179843505
+          },
+          "below_source_regression_margins": {},
+          "direction": "turn_l",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": -186.56863429402827,
+          "body_translation_z_range_mm": [
+            -4.97741863654,
+            -3.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            684.1548439324944,
+            1688.1714489560486
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 168.3887517227386,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 18.276518540049096,
+            "stance_output_min_deg": 82.40535422255071,
+            "swing_output_min_deg": 75.05612500472303,
+            "stance_input_min_deg": 73.23072061395352,
+            "swing_input_min_deg": 73.13989200989022
+          },
+          "below_source_regression_margins": {},
+          "direction": "turn_r",
+          "returncode": 0,
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "load78at45",
+      "derived_parameters": {
+        "V2_WALK_SWEEP": 78.05768764203195,
+        "V2_BODY_Z": -4.250007629394531,
+        "V2_WALK_BIAS": -8.998785430389361
+      },
+      "cases": [
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            2383.09868672,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 0.0,
+          "body_translation_z_range_mm": [
+            -4.97741863654,
+            -3.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            389.6234595050284,
+            1672.8371501472093
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 578.0068075707122,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 6.4367522033650175,
+            "stance_output_min_deg": 53.49018350647047,
+            "swing_output_min_deg": 51.66943445341604,
+            "stance_input_min_deg": 61.012213216488824,
+            "swing_input_min_deg": 60.68275755367648
+          },
+          "below_source_regression_margins": {},
+          "direction": "fwd",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1135,
+          "sampled_seconds": 22.68,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            -2279.88170251,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 0.0,
+          "body_translation_z_range_mm": [
+            -4.97626906648,
+            -3.52255533947
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 151,
+            "3": 611,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            392.17483872691486,
+            1672.8185995431604
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 575.5158375795014,
+          "leverage": {
+            "checked_leg_poses": 9076,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 6.796121221556149,
+            "stance_output_min_deg": 54.95998776526028,
+            "swing_output_min_deg": 53.12002974856499,
+            "stance_input_min_deg": 60.25044819478468,
+            "swing_input_min_deg": 60.03612026139538
+          },
+          "below_source_regression_margins": {},
+          "direction": "back",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 186.56863429402827,
+          "body_translation_z_range_mm": [
+            -4.97741863654,
+            -3.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            685.1611584699273,
+            1688.1614289736794
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 165.55558925533444,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 18.18586324151508,
+            "stance_output_min_deg": 82.4061079597137,
+            "swing_output_min_deg": 74.95926904993864,
+            "stance_input_min_deg": 73.35297055940325,
+            "swing_input_min_deg": 73.00327179843505
+          },
+          "below_source_regression_margins": {},
+          "direction": "turn_l",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": -186.56863429402827,
+          "body_translation_z_range_mm": [
+            -4.97741863654,
+            -3.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            684.1548439324944,
+            1688.1714489560486
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 168.3887517227386,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 18.276518540049096,
+            "stance_output_min_deg": 82.40535422255071,
+            "swing_output_min_deg": 75.05612500472303,
+            "stance_input_min_deg": 73.23072061395352,
+            "swing_input_min_deg": 73.13989200989022
+          },
+          "below_source_regression_margins": {},
+          "direction": "turn_r",
+          "returncode": 0,
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "load78at40",
+      "derived_parameters": {
+        "V2_WALK_SWEEP": 78.13516441008193,
+        "V2_BODY_Z": -9.250007629394531,
+        "V2_WALK_BIAS": -9.95659067405903
+      },
+      "cases": [
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            2385.46406397,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 0.0,
+          "body_translation_z_range_mm": [
+            -9.97741863654,
+            -8.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            390.61156020498794,
+            1673.301313676346
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 635.5108532101353,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 9.091596226791566,
+            "stance_output_min_deg": 63.26903883476615,
+            "swing_output_min_deg": 61.64779652050788,
+            "stance_input_min_deg": 67.9310765383752,
+            "swing_input_min_deg": 67.63066667929459
+          },
+          "below_source_regression_margins": {},
+          "direction": "fwd",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1135,
+          "sampled_seconds": 22.68,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            -2282.14463234,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 0.0,
+          "body_translation_z_range_mm": [
+            -9.97626906648,
+            -8.52255533947
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 151,
+            "3": 611,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            389.47190519722983,
+            1673.2954084086537
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 636.166551372068,
+          "leverage": {
+            "checked_leg_poses": 9076,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 9.447845612059048,
+            "stance_output_min_deg": 64.50725679861347,
+            "swing_output_min_deg": 62.877416518014094,
+            "stance_input_min_deg": 67.19063463079549,
+            "swing_input_min_deg": 67.00392723612875
+          },
+          "below_source_regression_margins": {},
+          "direction": "back",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": 186.56863429402827,
+          "body_translation_z_range_mm": [
+            -9.97741863654,
+            -8.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            609.7086658372045,
+            1690.0724305260735
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 171.70139346921346,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 21.296992800554264,
+            "stance_output_min_deg": 74.81630399208689,
+            "swing_output_min_deg": 67.8957515510444,
+            "stance_input_min_deg": 79.13760997601759,
+            "swing_input_min_deg": 78.81410273873242
+          },
+          "below_source_regression_margins": {},
+          "direction": "turn_l",
+          "returncode": 0,
+          "error": ""
+        },
+        {
+          "samples": 1141,
+          "sampled_seconds": 22.8,
+          "finish_completed": true,
+          "final_contacts": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "target_body_translation_delta_mm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "target_yaw_change_degrees": -186.56863429402827,
+          "body_translation_z_range_mm": [
+            -9.97741863654,
+            -8.52357481519
+          ],
+          "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+          "support_sample_counts": {
+            "0": 0,
+            "1": 0,
+            "2": 155,
+            "3": 626,
+            "4": 0
+          },
+          "maximum_planted_target_xy_step_mm": 0.0,
+          "reference_unmirrored_pulse_span_us": [
+            608.6202372473003,
+            1690.0952405119951
+          ],
+          "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+          "minimum_clock_scale": 1.0,
+          "peak_sampled_joint_speed_degrees_s": 173.0018614883029,
+          "leverage": {
+            "checked_leg_poses": 9124,
+            "branch_reversals": 0,
+            "minimum_straightening_clearance_mm": 21.39097593618677,
+            "stance_output_min_deg": 74.81581607676505,
+            "swing_output_min_deg": 67.98530212075303,
+            "stance_input_min_deg": 79.02921939040198,
+            "swing_input_min_deg": 78.95033652751516
+          },
+          "below_source_regression_margins": {},
+          "direction": "turn_r",
+          "returncode": 0,
+          "error": ""
+        }
+      ]
+    }
+  ]
+}

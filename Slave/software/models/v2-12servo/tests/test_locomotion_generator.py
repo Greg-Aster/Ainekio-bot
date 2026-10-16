@@ -32,7 +32,7 @@ class LocomotionGeneration(unittest.TestCase):
         for name in (
             "model.json", "geometry.json", "servo_profile.json", "motion.c", "walk_kinematics.c",
             "motions/walk/reference.py", "motions/locomotion/config.json",
-            "motions/locomotion/contact-hulls.json", "motions/locomotion/sole-profile.json",
+            "motions/locomotion/contact-hulls.json", "motions/locomotion/sole-profile.json", "motions/locomotion/walk-contact.json",
             "motions/run/config.json", "motions/turns/sole-hulls.npz",
             "motions/gestures/catalog.json", "motions/gestures/execution-policy.json",
             "motions/gestures/sit/posture-hulls.npz", "motions/gestures/sit/sample_reference.py",
@@ -75,20 +75,35 @@ class LocomotionGeneration(unittest.TestCase):
         cfg = json.loads((MODEL / "geometry.json").read_text())
         margins = json.loads((MODEL / "motions/locomotion/config.json").read_text())["leverage_validation"]
         contact = numpy.ones((2,4), dtype=bool)
-        q = numpy.deg2rad(numpy.tile([0., 10.050314941406251, -40.41], (2,4,1)))
+        # Current compact linkage: this requires a 71.586 mm rod/pickup
+        # span, but those links total only 66 mm.
+        q = numpy.deg2rad(numpy.tile([0., 120., 0.], (2,4,1)))
         with self.assertRaisesRegex(ValueError, "impossible or straight"):
             leverage_report(cfg, q, contact, margins)
 
         # This pose closes the four-bar, but has little mechanical leverage.
         # The report must expose that geometry when measuring without floors;
         # configured regression floors still reject the weak transmission.
-        q = numpy.deg2rad(numpy.tile([0., 10.050314941406251, -35.], (2,4,1)))
+        # Construct a knee-to-crank span exactly 0.15 mm short of extension
+        # using the intersection of the carrier and span circles.
+        p = cfg['parameters']
+        origin = numpy.array(p['O'])
+        crank = numpy.array(p['C_new']) + p['input_length'] * numpy.array([
+            numpy.cos(p['new_theta_neutral']), numpy.sin(p['new_theta_neutral'])])
+        w = crank - origin
+        d = numpy.linalg.norm(w)
+        span = p['rod_length'] + p['pickup_length'] - .15
+        along = (p['primary_length'] ** 2 + d ** 2 - span ** 2) / (2 * d)
+        height = numpy.sqrt(p['primary_length'] ** 2 - along ** 2)
+        knee = (along * w + height * numpy.array([-w[1], w[0]])) / d
+        carrier = numpy.arctan2(knee[1], knee[0]) - p['alpha_neutral']
+        q = numpy.tile([0., carrier, 0.], (2,4,1))
         with self.assertRaisesRegex(ValueError, 'stance_output_min_deg'):
             leverage_report(cfg, q, contact, margins)
         measured = dict.fromkeys(margins, 0.)
         report = leverage_report(cfg, q, contact, measured)
-        self.assertAlmostEqual(report["minimum_straightening_clearance_mm"], .14861838098, places=8)
-        self.assertAlmostEqual(report["stance_output_min_deg"], 8.146626379, places=7)
+        self.assertAlmostEqual(report["minimum_straightening_clearance_mm"], .15, places=8)
+        self.assertAlmostEqual(report["stance_output_min_deg"], 7.817618057, places=7)
         self.assertEqual(report["branch_reversals"], 0)
         required = dict(measured, straightening_clearance_min_mm=.2)
         with self.assertRaisesRegex(ValueError, "straightening clearance"):

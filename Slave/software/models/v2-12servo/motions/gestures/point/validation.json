@@ -1,19 +1,67 @@
 {
-  "command": "point",
-  "samples": 1321,
-  "duration_s": 11.0,
-  "sample_hz": 120,
-  "min_sole_z_mm": -6.188827228470473e-12,
-  "min_body_z_mm": 19.68438162058138,
-  "minimum_closure_height_mm": 3.825900315528904,
-  "maximum_planted_target_error_mm": 1.4154011296341196e-11,
-  "minimum_assumed_support_margin_mm": 24.725723222569542,
-  "maximum_adjacent_joint_step_degrees": 1.2320503002270993,
-  "pulse_range_us": [
-    478.01879882951005,
-    2482.080854592495
-  ],
+  "min_sole_z_mm": -2.2902142404745973e-09,
+  "min_body_z_mm": 1.0000000021845992,
+  "minimum_closure_height_mm": 11.265090555597158,
+  "maximum_adjacent_joint_step_degrees": 3.392933573975009,
+  "maximum_planted_target_error_mm": 1.9669244011311093e-10,
   "hardware_qualified": false,
-  "collision_checked": false,
-  "motion_end_s": 10.4
+  "command": "point",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "samples": 733,
+  "sample_hz": 120,
+  "duration_s": 6.1,
+  "motion_end_s": 5.9,
+  "peak_joint_speed_deg_s": 407.15202887699195,
+  "joint_min_deg": [
+    [
+      -1.7021328933208431e-06,
+      -28.756486851179996,
+      -21.664650100860804
+    ],
+    [
+      -8.393867360738013e-06,
+      -32.73332906862778,
+      -32.019982482630155
+    ],
+    [
+      -54.882981602214706,
+      -18.84378232264318,
+      -66.00373618043069
+    ],
+    [
+      -4.036697368960207e-07,
+      1.3550895463719548,
+      -66.00371459816432
+    ]
+  ],
+  "joint_max_deg": [
+    [
+      1.5392621953420452e-06,
+      11.987723606044286,
+      5.360646137095804
+    ],
+    [
+      2.754747850365362e-06,
+      3.6573031167529217,
+      -4.839203012246294
+    ],
+    [
+      8.191604122273917,
+      111.51190679154384,
+      70.43241105165393
+    ],
+    [
+      1.5614616252700814e-06,
+      13.949426269114186,
+      -21.662391475886732
+    ]
+  ],
+  "minimum_support_margin_mm": -13.48519996269114,
+  "mapped_pulse_min_us": 438.62540420176003,
+  "mapped_pulse_max_us": 2861.3748356011906,
+  "reviewed_pulse_window_us": [
+    400,
+    2900
+  ],
+  "collision_checked": false
 }

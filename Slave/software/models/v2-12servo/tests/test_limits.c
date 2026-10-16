@@ -26,7 +26,10 @@ int main(void)
     for(unsigned j=0;j<12;j++)center.position[j]=(float)(100.*ainekio_v2_center_degrees(j));
     for(unsigned j=0;j<12;j++)assert(ainekio_v2_pulse_reference(j)==(j%3==0?1650:j%3==1?856:723));
     assert(ainekio_v2_limits_frame(&center));
-    invalid.position[1]=6000; /* Cannot close the actual rod/pickup triangle at crank zero. */
+    /* Compact 35/20/28/38 linkage: at carrier 120 degrees and crank zero,
+     * knee-to-crank distance is 71.586 mm, beyond the 66 mm rod + pickup.
+     * The old 60-degree fixture closes with this installed geometry. */
+    invalid.position[1]=12000;
     assert(!ainekio_v2_limits_frame(&invalid));
     assert(!ainekio_v2_transition(&invalid,&center,.5,&stand));
     invalid.position[1]=NAN;assert(!ainekio_v2_limits_frame(&invalid));

@@ -4,6 +4,9 @@ import asyncio
 import json
 import re
 import struct
+import subprocess
+
+from gateway.server.service import GatewayError
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
@@ -89,3 +92,21 @@ async def paced_speaker_frames(pcm: bytes) -> AsyncIterator[bytes]:
         if delay > 0:
             await asyncio.sleep(delay)
         yield pcm[offset:offset + PCM_FRAME_BYTES]
+
+
+async def play_computer_speech(pcm: bytes) -> None:
+    """Play the bridge's existing PCM format on Body Control's default speaker."""
+    process = subprocess.Popen(
+        ['paplay', '--raw', '--format=s16le', '--rate=16000', '--channels=1', '--client-name=Ainekio Body Control'],
+        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+    )
+    communication = asyncio.create_task(asyncio.to_thread(process.communicate, pcm))
+    try:
+        _, stderr = await asyncio.shield(communication)
+    except asyncio.CancelledError:
+        if process.poll() is None:
+            process.terminate()
+        await communication
+        raise
+    if process.returncode:
+        raise GatewayError(f'Body Control computer playback failed: {stderr.decode(errors="replace").strip()}')

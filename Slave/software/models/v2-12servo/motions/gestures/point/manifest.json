@@ -6,34 +6,34 @@
     "name": "emote",
     "asset": "point"
   },
-  "gait_id": "point_upright_24_38_20260921",
-  "generated_utc": "2026-09-22",
-  "duration_seconds": 11.0,
-  "motion_end_seconds": 10.4,
+  "gait_id": "point_expressive_bare_20261015",
+  "generated_utc": "2026-10-15",
+  "duration_seconds": 6.1,
+  "motion_end_seconds": 5.9,
   "source_sample_hz": 120,
-  "sample_count": 1321,
-  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
+  "sample_count": 733,
+  "entry_pose": "Bare-Part027 standing pose; existing executor owns entry interpolation.",
   "completion": "Retract front-left arm, replace its sole, undo the support crouch, and hold exact standing neutral.",
   "final_actuator_angles_rad": [
     [
-      -3.427958682014423e-09,
-      0.03352514669021188,
-      0.007738809518702306
+      -7.045373451895712e-09,
+      0.0638323303268964,
+      -0.37808002900994603
     ],
     [
-      -6.855854248336155e-09,
-      0.03352477345349806,
-      0.007738730184258506
+      -1.4090755817763138e-08,
+      0.06383198113078907,
+      -0.3780799502863877
     ],
     [
-      1.9847292486991334e-09,
-      0.03352559296755279,
-      0.007738898994547839
+      4.079115572228944e-09,
+      0.0638328507297785,
+      -0.37808015953916674
     ],
     [
-      -3.4279673981167617e-09,
-      0.033525252262341855,
-      0.0077388242078228735
+      -7.045365999494796e-09,
+      0.06383233697354572,
+      -0.3780800551101773
     ]
   ],
   "body_target": {
@@ -56,13 +56,7 @@
       "fps": 2
     },
     {
-      "time_s": 10.4,
-      "name": "stand",
-      "mode": "once",
-      "fps": 1
-    },
-    {
-      "time_s": 10.4,
+      "time_s": 5.9,
       "name": "stand",
       "mode": "once",
       "fps": 1
@@ -84,8 +78,8 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "60d7f1170e8a15821a729bc38d32ac998e495781c645a65aa0d80011c9d4d8e7",
-  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+  "source_sha256": "fdb54fa5dc140657b72870fdd9e5a9e46178169f27bcd0583db7d64472a1f159",
+  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
   "face_sha256": {
     "faces/point/0.bin": "b39eb349030abed806b20676029bd24a63641a6e9b3d3fa52d70192cf62d2695",
@@ -94,59 +88,105 @@
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
   "body_contact_required": false,
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "entry_actuator_angles_rad": [
     [
-      -3.4279175756615554e-09,
-      0.03352514669016316,
-      0.007738809518691742
+      -7.045373451895712e-09,
+      0.0638323303268964,
+      -0.37808002900994603
     ],
     [
-      -6.855835318943024e-09,
-      0.03352477345347081,
-      0.007738730184252423
+      -1.4090755817763138e-08,
+      0.06383198113078907,
+      -0.3780799502863877
     ],
     [
-      1.9847632452160202e-09,
-      0.03352559296754421,
-      0.007738898994546462
+      4.079115572228944e-09,
+      0.0638328507297785,
+      -0.37808015953916674
     ],
     [
-      -3.4280487131336387e-09,
-      0.03352525226236473,
-      0.007738824207827111
+      -7.045365999494796e-09,
+      0.06383233697354572,
+      -0.3780800551101773
     ]
   ],
   "source_validation": {
-    "command": "point",
-    "samples": 1321,
-    "duration_s": 11.0,
-    "sample_hz": 120,
-    "min_sole_z_mm": -6.188827228470473e-12,
-    "min_body_z_mm": 19.68438162058138,
-    "minimum_closure_height_mm": 3.825900315528904,
-    "maximum_planted_target_error_mm": 1.4154011296341196e-11,
-    "minimum_assumed_support_margin_mm": 24.725723222569542,
-    "maximum_adjacent_joint_step_degrees": 1.2320503002270993,
-    "pulse_range_us": [
-      478.01879882951005,
-      2482.080854592495
-    ],
+    "min_sole_z_mm": -2.2902142404745973e-09,
+    "min_body_z_mm": 1.0000000021845992,
+    "minimum_closure_height_mm": 11.265090555597158,
+    "maximum_adjacent_joint_step_degrees": 3.392933573975009,
+    "maximum_planted_target_error_mm": 1.9669244011311093e-10,
     "hardware_qualified": false,
-    "collision_checked": false,
-    "motion_end_s": 10.4
+    "command": "point",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 733,
+    "sample_hz": 120,
+    "duration_s": 6.1,
+    "motion_end_s": 5.9,
+    "peak_joint_speed_deg_s": 407.15202887699195,
+    "joint_min_deg": [
+      [
+        -1.7021328933208431e-06,
+        -28.756486851179996,
+        -21.664650100860804
+      ],
+      [
+        -8.393867360738013e-06,
+        -32.73332906862778,
+        -32.019982482630155
+      ],
+      [
+        -54.882981602214706,
+        -18.84378232264318,
+        -66.00373618043069
+      ],
+      [
+        -4.036697368960207e-07,
+        1.3550895463719548,
+        -66.00371459816432
+      ]
+    ],
+    "joint_max_deg": [
+      [
+        1.5392621953420452e-06,
+        11.987723606044286,
+        5.360646137095804
+      ],
+      [
+        2.754747850365362e-06,
+        3.6573031167529217,
+        -4.839203012246294
+      ],
+      [
+        8.191604122273917,
+        111.51190679154384,
+        70.43241105165393
+      ],
+      [
+        1.5614616252700814e-06,
+        13.949426269114186,
+        -21.662391475886732
+      ]
+    ],
+    "minimum_support_margin_mm": -13.48519996269114,
+    "mapped_pulse_min_us": 438.62540420176003,
+    "mapped_pulse_max_us": 2861.3748356011906,
+    "reviewed_pulse_window_us": [
+      400,
+      2900
+    ],
+    "collision_checked": false
   },
-  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "contact_model": "Bare Part027 hull minimum Z; complete body hull; assumed COM.",
   "retargeted_from": {
     "path": "docs/gait-research/point-20260916/source.json",
     "sha256": "5e1ea7fb19b17c5588053538ff08c563767487bc5a7ade0df20a7b89cee737c2"
   },
-  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
-  "blender_scene": "Motions - Current Geometry",
-  "posture_sha256": "85c36573c3f6a08c7661ad4c272bd43841544402128b73bd24348daf82109249",
-  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "retargeting_notes": "Extend the physical front-left upper and lower leg into one forward horizontal line for the full 40 + 55 mm modeled reach.",
+  "posture_sha256": "3ee3008a95a8ef42dc8b87c8d9c1a78fdd7e7585029f402d63955f70b1bb39dd",
+  "posture_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
+  "retargeting_notes": "Accepted Wave rear-leg seating, quick front-left lift and full forward point, held before seated foot replacement and recovery.",
   "choreography_source": "docs/gait-research/point-20260916/manifest.json",
   "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
-  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
+  "current_mounting_qualification": "Current geometry and installed pulse mapping; loaded behavior and whole-body collisions unqualified."
 }
