@@ -8,7 +8,6 @@
 #define AINEKIO_PCA_CHANNELS 16U
 #define AINEKIO_PCA_BODY_CHANNELS 12U
 #define AINEKIO_PCA_IO_BUDGET_US UINT64_C(5000)
-#define AINEKIO_PCA_PROGRESS_LIMIT_US UINT64_C(40000)
 
 typedef enum {
     AINEKIO_PCA_OK = 0,
@@ -18,7 +17,14 @@ typedef enum {
     AINEKIO_PCA_DISARMED,
     AINEKIO_PCA_STALE,
     AINEKIO_PCA_DEADLINE,
+    AINEKIO_PCA_TIMEOUT,
 } ainekio_pca_result_t;
+
+typedef enum {
+    AINEKIO_PCA_BUS_OK,
+    AINEKIO_PCA_BUS_ERROR,
+    AINEKIO_PCA_BUS_TIMEOUT,
+} ainekio_pca_bus_result_t;
 
 typedef enum {
     AINEKIO_PCA_FAULT_NONE = 0,
@@ -38,9 +44,9 @@ typedef struct {
     void (*disable_output)(void *context, bool disabled);
     uint64_t (*now_us)(void *context);
     void (*sleep_us)(void *context, uint32_t duration_us);
-    bool (*write)(void *context, uint8_t reg, const uint8_t *data,
+    ainekio_pca_bus_result_t (*write)(void *context, uint8_t reg, const uint8_t *data,
                   size_t length, uint32_t timeout_ms);
-    bool (*read)(void *context, uint8_t reg, uint8_t *data,
+    ainekio_pca_bus_result_t (*read)(void *context, uint8_t reg, uint8_t *data,
                  size_t length, uint32_t timeout_ms);
 } ainekio_pca_port_t;
 
@@ -86,7 +92,6 @@ ainekio_pca_result_t ainekio_pca_write_frame(ainekio_pca9685_t *driver, uint64_t
     const uint16_t pulses_us[AINEKIO_PCA_BODY_CHANNELS]);
 void ainekio_pca_emergency_disable(ainekio_pca9685_t *driver, ainekio_pca_fault_t reason);
 void ainekio_pca_disarm(ainekio_pca9685_t *driver);
-void ainekio_pca_supervise(ainekio_pca9685_t *driver);
 ainekio_pca_status_t ainekio_pca_status(ainekio_pca9685_t *driver);
 
 #endif

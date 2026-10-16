@@ -1,0 +1,13 @@
+{
+  "version": "0.8.54-p4-seated-emotes",
+  "image_bytes": 2834624,
+  "image_sha256": "2ff4c3bef9e0502b57bec62ec4e4c60a718b16640cc3c927417fda13e02cb3fe",
+  "native_tests_passed": 51,
+  "hardware_gestures_tested": false,
+  "deployment": "verified_over_wifi",
+  "running_partition": "ota_0",
+  "boot_partition": "ota_0",
+  "pending_verify": false,
+  "ota_error": "ESP_OK",
+  "session_epoch": 19
+}

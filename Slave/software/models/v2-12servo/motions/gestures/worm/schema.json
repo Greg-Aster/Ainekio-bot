@@ -1,6 +1,6 @@
 {
   "command": "worm",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "leg_order": [
     "FL",
     "FR",
@@ -13,11 +13,12 @@
     "theta_Part005"
   ],
   "sample_hz": 120,
-  "semantic_end_s": 20.0,
+  "semantic_end_s": 6.4,
   "optional_demonstration_recovery": false,
   "sample_fields": [
     "time_s",
     "phase",
+    "phase_fraction",
     "body_translation_world_mm",
     "body_position_world_mm",
     "body_rotation_euler_xyz_rad",
@@ -37,12 +38,16 @@
     "assumed_com_world_mm",
     "support_margin_mm",
     "target_foot_reference_xy_mm",
-    "target_sole_clearance_mm"
+    "target_sole_clearance_mm",
+    "minimum_closure_height_mm",
+    "arm_reach_mm"
   ],
   "interpolation": "Monotone cubic Hermite; compiled error bound 0.005 degree.",
   "units": {
     "angle": "radian",
     "position": "mm",
     "time": "second"
-  }
+  },
+  "contact_model": "Bare Part027 hull minimum Z; complete body hull; assumed COM.",
+  "worm_posture": "Three brisk large front-to-rear pitch/heave waves with all four bare feet planted, then standing recovery."
 }

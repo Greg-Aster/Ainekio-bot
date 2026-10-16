@@ -1,4 +1,4 @@
-"""Exercise ongoing Crab through the wire decoder and full Blender sole hulls."""
+"""Exercise ongoing Crab through the wire decoder and the installed bare Part027 sole hull."""
 import json
 from pathlib import Path
 import subprocess
@@ -15,7 +15,9 @@ sys.path.insert(0, str(root/'tools'))
 from validate_compact_clips import transform
 
 cfg = json.loads((root/'geometry.json').read_text())
-hulls = np.load(root/'motions/gestures/reviewed-hulls.npz')
+hulls = dict(np.load(root/'motions/gestures/reviewed-hulls.npz'))
+bare = np.array(json.loads((root/'motions/locomotion/walk-contact.json').read_text())['sole_hull_local_mm'])
+for leg in cfg['leg_order']: hulls['sole_'+leg] = bare
 pivot = np.array(cfg['continuous_walk']['body_rotation_pivot_mm'])
 allowance = json.loads((root/'motions/locomotion/sole-profile.json').read_text())['support_allowance_mm']
 refinement = json.loads((root/'motions/locomotion/crab.json').read_text())['sole_refinement_allowance_mm']
@@ -39,8 +41,9 @@ for direction in ('fwd', 'back', 'side_l', 'side_r', 'turn_l', 'turn_r'):
     offsets = body + pivot - matrices @ pivot
     targets = np.array([r['feet'] for r in rows])[:,[2,3,0,1]]
     assert abs(body[-1,2] - json.loads((root/'motions/locomotion/crab.json').read_text())['body_z_mm']) < 1e-8
-    wide = rows[150]['feet']
-    assert all(abs(abs(foot[1])-95) < 1e-6 for foot in wide)
+    # Check the established stance before locomotion rotates or translates it.
+    wide = next(r['feet'] for r in rows if r['phase'] > 0.)
+    assert all(abs(abs(foot[1])-json.loads((root/'motions/locomotion/crab.json').read_text())['stance_half_width_mm']) < 1e-6 for foot in wide)
     for i, leg in enumerate(('FL', 'FR', 'RL', 'RR')):
         rotation, translation, closure = transform(cfg, leg, q[:,i])
         translation = np.einsum('nij,nj->ni', matrices, translation) + offsets

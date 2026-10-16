@@ -122,6 +122,12 @@
     },
     {
       "$ref": "#/$defs/pong"
+    },
+    {
+      "$ref": "#/$defs/balance"
+    },
+    {
+      "$ref": "#/$defs/balance_status"
     }
   ],
   "allOf": [
@@ -1030,6 +1036,12 @@
                 "crab"
               ]
             },
+            "lateral": {
+              "type": "number",
+              "minimum": -100,
+              "maximum": 100,
+              "description": "Signed sideways gait command in percent; positive values move left."
+            },
             "forward": {
               "type": "number",
               "minimum": -100,
@@ -1124,6 +1136,10 @@
                   "stride"
                 ]
               }
+            },
+            {
+              "if": {"required": ["lateral"]},
+              "then": {"required": ["forward", "turn"]}
             },
             {
               "if": {
@@ -2205,7 +2221,9 @@
             "littlefs_fail",
             "asset_missing",
             "tts_orphan",
-            "tts_overflow"
+            "tts_overflow",
+            "imu",
+            "wake"
           ]
         },
         "origin_id": {
@@ -2344,6 +2362,193 @@
           "type": "boolean"
         }
       }
+    },
+    "balance": {
+      "x-ainekio-message-type": "balance",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
+      "properties": {
+        "t": {
+          "const": "balance"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "op": {
+          "enum": [
+            "get",
+            "save",
+            "calibrate_gyro"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0
+        },
+        "damping": {
+          "type": "number",
+          "minimum": 0
+        },
+        "roll_deg": {
+          "type": "number"
+        },
+        "pitch_deg": {
+          "type": "number"
+        }
+      },
+      "if": {
+        "properties": {
+          "op": {
+            "const": "save"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "enabled"
+        ]
+      },
+      "else": {
+        "properties": {
+          "enabled": false,
+          "strength": false,
+          "damping": false,
+          "roll_deg": false,
+          "pitch_deg": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "strength"
+                ]
+              },
+              {
+                "required": [
+                  "damping"
+                ]
+              },
+              {
+                "required": [
+                  "roll_deg"
+                ]
+              },
+              {
+                "required": [
+                  "pitch_deg"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "strength",
+              "damping",
+              "roll_deg",
+              "pitch_deg"
+            ]
+          }
+        }
+      ]
+    },
+    "balance_status": {
+      "x-ainekio-message-type": "balance_status",
+      "x-ainekio-direction": "body-to-brain",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "enabled",
+        "saved",
+        "active"
+      ],
+      "properties": {
+        "t": {
+          "const": "balance_status"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "saved": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0
+        },
+        "damping": {
+          "type": "number",
+          "minimum": 0
+        },
+        "roll_deg": {
+          "type": "number"
+        },
+        "pitch_deg": {
+          "type": "number"
+        },
+        "tuning_saved": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "strength"
+                ]
+              },
+              {
+                "required": [
+                  "damping"
+                ]
+              },
+              {
+                "required": [
+                  "roll_deg"
+                ]
+              },
+              {
+                "required": [
+                  "pitch_deg"
+                ]
+              },
+              {
+                "required": [
+                  "tuning_saved"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "strength",
+              "damping",
+              "roll_deg",
+              "pitch_deg",
+              "tuning_saved"
+            ]
+          }
+        }
+      ]
     }
   }
 }

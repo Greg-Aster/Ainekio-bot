@@ -1,0 +1,5244 @@
+{
+  "schema": "ainekio.calibrated-gait-audit.v1",
+  "generated_utc": "2026-10-13T01:20:56.369725+00:00",
+  "evidence": "Live saved mapping applied to offline targets; shaft pose and travel are unmeasured.",
+  "hardware_qualified": false,
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "assumption": "Installed servo angle zeros must match the model; readback alone does not prove horn indexing.",
+  "sample_hz": 50,
+  "joint_speed_limit_degrees_s": 1000,
+  "calibration_sha256": "7a74c9dbc29e498407c395c38440771ca24da76359537559eb95b52eca943bdd",
+  "binary_sha256": "8ad2d3dfe979f41ee27fe1174e2f1749490b2bbd5fd2eff8567456f808f84b16",
+  "tool_sha256": "0911a594aa1a84d0f6e32cd374d4670852de26355a69fbf363ab7e87058f37fa",
+  "source_sha256": {
+    "geometry.json": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+    "model.json": "c465cd3b84a869c23cdeb386030cb131c7dcc86975f6fb2d1cd975ebad33e150",
+    "servo_profile.json": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
+    "motion.c": "f2d1ca1356a8400502a1d4d481c467d4d608bc7472a7fe2db268c9660f05caa6",
+    "walk_kinematics.c": "384e31538657a8825ff0aec0d1d86d50243e940e9442855ace575660f1f279c9",
+    "motions/locomotion/config.json": "d837bfc41225a799a1b7bd3a82340596db06d1c46b3ce6d23536d22a445eafc6",
+    "motions/run/config.json": "87ab314d3d5875f6e863b8c3acaf6c52d43ee0afdd77172667521f51ceb94742"
+  },
+  "declared_source_pulse_window_us": [
+    300,
+    3000
+  ],
+  "window_scope": "Source profile review window, not measured installed shaft travel or a runtime restriction.",
+  "timer_representable_pulse_window_us": [
+    3,
+    19986
+  ],
+  "device_mapping": [
+    {
+      "id": 0,
+      "channel": 0,
+      "home_us": 1600,
+      "home_cd": 0,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 1,
+      "channel": 1,
+      "home_us": 2444,
+      "home_cd": 117,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 2,
+      "channel": 2,
+      "home_us": 2577,
+      "home_cd": -4041,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 3,
+      "channel": 3,
+      "home_us": 1670,
+      "home_cd": 0,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 4,
+      "channel": 4,
+      "home_us": 856,
+      "home_cd": 117,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 5,
+      "channel": 5,
+      "home_us": 723,
+      "home_cd": -4041,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 6,
+      "channel": 6,
+      "home_us": 1670,
+      "home_cd": 0,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 7,
+      "channel": 7,
+      "home_us": 2444,
+      "home_cd": 117,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 8,
+      "channel": 8,
+      "home_us": 2577,
+      "home_cd": -4041,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 9,
+      "channel": 9,
+      "home_us": 1760,
+      "home_cd": 0,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 10,
+      "channel": 10,
+      "home_us": 856,
+      "home_cd": 117,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 11,
+      "channel": 11,
+      "home_us": 723,
+      "home_cd": -4041,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    }
+  ],
+  "cases": {
+    "walk/fwd": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1158,
+      "sampled_seconds": 23.14,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        1927.74442389,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.72749371,
+        -9.27338275021
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 160,
+        "3": 563,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        162.98116271763274,
+        1711.3338970333734
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.5447703526,
+      "peak_sampled_joint_speed_degrees_s": 993.7453959315371,
+      "leverage": {
+        "checked_leg_poses": 9260,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.734283104765417,
+        "stance_output_min_deg": 49.9381388050417,
+        "swing_output_min_deg": 44.2037733200682,
+        "stance_input_min_deg": 61.29783351634085,
+        "swing_input_min_deg": 59.849880364282704
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3720.0,
+            "phase": 2.73085374097,
+            "model_degrees": -2.1220046997070314,
+            "pulse_us": 1576
+          },
+          "maximum": {
+            "ms": 3020.0,
+            "phase": 2.21988961483,
+            "model_degrees": 2.062888946533203,
+            "pulse_us": 1623
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2360.0,
+            "phase": 1.71600823199,
+            "model_degrees": 76.126259765625,
+            "pulse_us": 1611
+          },
+          "maximum": {
+            "ms": 20640.0,
+            "phase": 14.5408644997,
+            "model_degrees": -43.1559765625,
+            "pulse_us": 2937
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2300.0,
+            "phase": 1.66254243692,
+            "model_degrees": 48.5400537109375,
+            "pulse_us": 1589
+          },
+          "maximum": {
+            "ms": 4780.0,
+            "phase": 3.4815289573,
+            "model_degrees": -90.674462890625,
+            "pulse_us": 3135
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 115
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 2380.0,
+            "phase": 1.73434740873,
+            "model_degrees": 2.052107086181641,
+            "pulse_us": 1647
+          },
+          "maximum": {
+            "ms": 3040.0,
+            "phase": 2.23466823986,
+            "model_degrees": -2.127152099609375,
+            "pulse_us": 1694
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 5560.0,
+            "phase": 4.02580898312,
+            "model_degrees": -41.9912646484375,
+            "pulse_us": 376
+          },
+          "maximum": {
+            "ms": 20240.0,
+            "phase": 14.2171949549,
+            "model_degrees": 76.0456494140625,
+            "pulse_us": 1688
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 4060.0,
+            "phase": 2.97887606725,
+            "model_degrees": -90.610751953125,
+            "pulse_us": 165
+          },
+          "maximum": {
+            "ms": 2960.0,
+            "phase": 2.17688707308,
+            "model_degrees": 48.133818359375,
+            "pulse_us": 1707
+          },
+          "samples_below_source_window": 113,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3000.0,
+            "phase": 2.20533321202,
+            "model_degrees": 2.0308648681640626,
+            "pulse_us": 1647
+          },
+          "maximum": {
+            "ms": 2400.0,
+            "phase": 1.75294094057,
+            "model_degrees": -2.1343150329589844,
+            "pulse_us": 1694
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2680.0,
+            "phase": 1.97215467524,
+            "model_degrees": 77.0934814453125,
+            "pulse_us": 1600
+          },
+          "maximum": {
+            "ms": 3780.0,
+            "phase": 2.77833918784,
+            "model_degrees": -45.6431787109375,
+            "pulse_us": 2964
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2620.0,
+            "phase": 1.92596537116,
+            "model_degrees": 44.7032080078125,
+            "pulse_us": 1631
+          },
+          "maximum": {
+            "ms": 3720.0,
+            "phase": 2.73085374097,
+            "model_degrees": -90.4381640625,
+            "pulse_us": 3133
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 101
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 3020.0,
+            "phase": 2.21988961483,
+            "model_degrees": -2.1239637756347656,
+            "pulse_us": 1736
+          },
+          "maximum": {
+            "ms": 2380.0,
+            "phase": 1.73434740873,
+            "model_degrees": 2.057473907470703,
+            "pulse_us": 1783
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 20340.0,
+            "phase": 14.2910607413,
+            "model_degrees": -46.6533349609375,
+            "pulse_us": 325
+          },
+          "maximum": {
+            "ms": 4760.0,
+            "phase": 3.46720072724,
+            "model_degrees": 77.0008935546875,
+            "pulse_us": 1699
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 20280.0,
+            "phase": 14.2461154682,
+            "model_degrees": -90.81169921875,
+            "pulse_us": 163
+          },
+          "maximum": {
+            "ms": 2040.0,
+            "phase": 1.41911318616,
+            "model_degrees": 44.863525390625,
+            "pulse_us": 1670
+          },
+          "samples_below_source_window": 105,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/back": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "back",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "back",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1163,
+      "sampled_seconds": 23.24,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -1921.9260535,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.7267715608,
+        -9.27252221233
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 137,
+        "3": 588,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        163.38945624942914,
+        1703.9542570900762
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.551116332429,
+      "peak_sampled_joint_speed_degrees_s": 997.4685320487337,
+      "leverage": {
+        "checked_leg_poses": 9300,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 5.1398933741715425,
+        "stance_output_min_deg": 52.98805357517216,
+        "swing_output_min_deg": 46.08529478839412,
+        "stance_input_min_deg": 60.456855891153126,
+        "swing_input_min_deg": 59.0471558953859
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3760.0,
+            "phase": 2.72942788737,
+            "model_degrees": -2.1255366516113283,
+            "pulse_us": 1576
+          },
+          "maximum": {
+            "ms": 4400.0,
+            "phase": 3.20898066805,
+            "model_degrees": 2.0314825439453124,
+            "pulse_us": 1623
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 6160.0,
+            "phase": 4.4843568404,
+            "model_degrees": 76.5864404296875,
+            "pulse_us": 1606
+          },
+          "maximum": {
+            "ms": 3680.0,
+            "phase": 2.66662711956,
+            "model_degrees": -43.4230908203125,
+            "pulse_us": 2939
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 4840.0,
+            "phase": 3.52986376428,
+            "model_degrees": 46.356904296875,
+            "pulse_us": 1613
+          },
+          "maximum": {
+            "ms": 3740.0,
+            "phase": 2.71338084075,
+            "model_degrees": -90.17373046875,
+            "pulse_us": 3130
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 104
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3740.0,
+            "phase": 2.71338084075,
+            "model_degrees": 2.0303581237792967,
+            "pulse_us": 1647
+          },
+          "maximum": {
+            "ms": 4420.0,
+            "phase": 3.22397169667,
+            "model_degrees": -2.1290025329589843,
+            "pulse_us": 1694
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.16607737824,
+            "model_degrees": -43.1412255859375,
+            "pulse_us": 364
+          },
+          "maximum": {
+            "ms": 5480.0,
+            "phase": 3.98610539388,
+            "model_degrees": 76.508662109375,
+            "pulse_us": 1693
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 4420.0,
+            "phase": 3.22397169667,
+            "model_degrees": -89.878486328125,
+            "pulse_us": 173
+          },
+          "maximum": {
+            "ms": 20680.0,
+            "phase": 15.0294912807,
+            "model_degrees": 46.4911328125,
+            "pulse_us": 1689
+          },
+          "samples_below_source_window": 103,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 4400.0,
+            "phase": 3.20898066805,
+            "model_degrees": 2.040474853515625,
+            "pulse_us": 1647
+          },
+          "maximum": {
+            "ms": 3760.0,
+            "phase": 2.72942788737,
+            "model_degrees": -2.115169677734375,
+            "pulse_us": 1694
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 20320.0,
+            "phase": 14.7388340767,
+            "model_degrees": 75.1680078125,
+            "pulse_us": 1622
+          },
+          "maximum": {
+            "ms": 4000.0,
+            "phase": 2.9126547921,
+            "model_degrees": -43.36462890625,
+            "pulse_us": 2939
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 20380.0,
+            "phase": 14.7832330133,
+            "model_degrees": 47.8758837890625,
+            "pulse_us": 1596
+          },
+          "maximum": {
+            "ms": 4060.0,
+            "phase": 2.95673365341,
+            "model_degrees": -90.774951171875,
+            "pulse_us": 3137
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 95
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 4420.0,
+            "phase": 3.22397169667,
+            "model_degrees": -2.117340545654297,
+            "pulse_us": 1736
+          },
+          "maximum": {
+            "ms": 3740.0,
+            "phase": 2.71338084075,
+            "model_degrees": 2.038649139404297,
+            "pulse_us": 1783
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3380.0,
+            "phase": 2.41597861444,
+            "model_degrees": -43.5761962890625,
+            "pulse_us": 359
+          },
+          "maximum": {
+            "ms": 5800.0,
+            "phase": 4.22423293472,
+            "model_degrees": 74.8507763671875,
+            "pulse_us": 1675
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 4760.0,
+            "phase": 3.46978142125,
+            "model_degrees": -90.742216796875,
+            "pulse_us": 164
+          },
+          "maximum": {
+            "ms": 5860.0,
+            "phase": 4.27120366465,
+            "model_degrees": 47.5936083984375,
+            "pulse_us": 1701
+          },
+          "samples_below_source_window": 103,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/turn_l": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "turn_l",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "turn_l",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1141,
+      "sampled_seconds": 22.8,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 186.56863429402827,
+      "body_translation_z_range_mm": [
+        -10.7274110071,
+        -9.2735671858
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 155,
+        "3": 626,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        596.8449911180069,
+        1690.395749862729
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 195.3201876210316,
+      "leverage": {
+        "checked_leg_poses": 9124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 21.721660830134965,
+        "stance_output_min_deg": 73.70493723322623,
+        "swing_output_min_deg": 66.71692103363361,
+        "stance_input_min_deg": 79.91242196193663,
+        "swing_input_min_deg": 79.42881047020933
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 20140.0,
+            "phase": 21.5264499958,
+            "model_degrees": -2.674505615234375,
+            "pulse_us": 1570
+          },
+          "maximum": {
+            "ms": 2700.0,
+            "phase": 2.14875528299,
+            "model_degrees": 1.3333622741699218,
+            "pulse_us": 1615
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3000.0,
+            "phase": 2.48208861632,
+            "model_degrees": -3.3905743408203124,
+            "pulse_us": 2495
+          },
+          "maximum": {
+            "ms": 2240.0,
+            "phase": 1.63976775521,
+            "model_degrees": -21.39521240234375,
+            "pulse_us": 2695
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 20120.0,
+            "phase": 21.5042653683,
+            "model_degrees": -13.9822314453125,
+            "pulse_us": 2283
+          },
+          "maximum": {
+            "ms": 2380.0,
+            "phase": 1.79345071337,
+            "model_degrees": -27.89533447265625,
+            "pulse_us": 2438
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 2440.0,
+            "phase": 1.85992163834,
+            "model_degrees": 3.557442321777344,
+            "pulse_us": 1630
+          },
+          "maximum": {
+            "ms": 2760.0,
+            "phase": 2.21542194966,
+            "model_degrees": -4.730797119140625,
+            "pulse_us": 1723
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 3.0598663941,
+            "model_degrees": -20.69162109375,
+            "pulse_us": 613
+          },
+          "maximum": {
+            "ms": 2760.0,
+            "phase": 2.21542194966,
+            "model_degrees": -4.2837307739257815,
+            "pulse_us": 795
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3420.0,
+            "phase": 2.94875528299,
+            "model_degrees": -28.4047216796875,
+            "pulse_us": 856
+          },
+          "maximum": {
+            "ms": 2740.0,
+            "phase": 2.19319972743,
+            "model_degrees": -13.078050537109375,
+            "pulse_us": 1027
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 2880.0,
+            "phase": 2.34875528299,
+            "model_degrees": 1.6891287231445313,
+            "pulse_us": 1651
+          },
+          "maximum": {
+            "ms": 2500.0,
+            "phase": 1.92653740627,
+            "model_degrees": -3.915206298828125,
+            "pulse_us": 1714
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2980.0,
+            "phase": 2.4598663941,
+            "model_degrees": -7.829664916992187,
+            "pulse_us": 2544
+          },
+          "maximum": {
+            "ms": 2440.0,
+            "phase": 1.85992163834,
+            "model_degrees": -21.99609130859375,
+            "pulse_us": 2701
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3200.0,
+            "phase": 2.70431083854,
+            "model_degrees": -13.787584228515625,
+            "pulse_us": 2281
+          },
+          "maximum": {
+            "ms": 2500.0,
+            "phase": 1.92653740627,
+            "model_degrees": -28.53306884765625,
+            "pulse_us": 2445
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 2780.0,
+            "phase": 2.23764417188,
+            "model_degrees": -5.502496337890625,
+            "pulse_us": 1699
+          },
+          "maximum": {
+            "ms": 3080.0,
+            "phase": 2.57097750521,
+            "model_degrees": 3.559686584472656,
+            "pulse_us": 1800
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 2860.0,
+            "phase": 2.32653306077,
+            "model_degrees": -22.153349609375,
+            "pulse_us": 597
+          },
+          "maximum": {
+            "ms": 3000.0,
+            "phase": 2.48208861632,
+            "model_degrees": -7.064478759765625,
+            "pulse_us": 765
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 2820.0,
+            "phase": 2.28208861632,
+            "model_degrees": -28.1569775390625,
+            "pulse_us": 859
+          },
+          "maximum": {
+            "ms": 3040.0,
+            "phase": 2.52653306077,
+            "model_degrees": -14.5737939453125,
+            "pulse_us": 1010
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/turn_r": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "turn_r",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "turn_r",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1141,
+      "sampled_seconds": 22.8,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": -186.56863429402827,
+      "body_translation_z_range_mm": [
+        -10.7274110071,
+        -9.2735671858
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 155,
+        "3": 626,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        594.9316274586122,
+        1690.4098845597748
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 194.59208945356676,
+      "leverage": {
+        "checked_leg_poses": 9124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 21.674586873684326,
+        "stance_output_min_deg": 73.70557239135321,
+        "swing_output_min_deg": 66.84664768233485,
+        "stance_input_min_deg": 79.63777786859394,
+        "swing_input_min_deg": 79.37356854104827
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3220.0,
+            "phase": 2.72653306077,
+            "model_degrees": -4.73458984375,
+            "pulse_us": 1547
+          },
+          "maximum": {
+            "ms": 2860.0,
+            "phase": 2.32653306077,
+            "model_degrees": 3.593919677734375,
+            "pulse_us": 1640
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2320.0,
+            "phase": 1.72726679881,
+            "model_degrees": -4.209035949707031,
+            "pulse_us": 2504
+          },
+          "maximum": {
+            "ms": 20180.0,
+            "phase": 21.5707569544,
+            "model_degrees": -21.04224365234375,
+            "pulse_us": 2691
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3200.0,
+            "phase": 2.70431083854,
+            "model_degrees": -13.08361083984375,
+            "pulse_us": 2273
+          },
+          "maximum": {
+            "ms": 2960.0,
+            "phase": 2.43764417188,
+            "model_degrees": -28.4090673828125,
+            "pulse_us": 2444
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3140.0,
+            "phase": 2.63764417188,
+            "model_degrees": 1.321842803955078,
+            "pulse_us": 1655
+          },
+          "maximum": {
+            "ms": 2580.0,
+            "phase": 2.01542194966,
+            "model_degrees": -2.6019442749023436,
+            "pulse_us": 1699
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 2680.0,
+            "phase": 2.12653306077,
+            "model_degrees": -21.046845703125,
+            "pulse_us": 609
+          },
+          "maximum": {
+            "ms": 3440.0,
+            "phase": 2.97097750521,
+            "model_degrees": -3.348227233886719,
+            "pulse_us": 806
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 2820.0,
+            "phase": 2.28208861632,
+            "model_degrees": -27.9019921875,
+            "pulse_us": 862
+          },
+          "maximum": {
+            "ms": 3480.0,
+            "phase": 3.01542194966,
+            "model_degrees": -14.068304443359375,
+            "pulse_us": 1016
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 2640.0,
+            "phase": 2.08208861632,
+            "model_degrees": 3.587973937988281,
+            "pulse_us": 1630
+          },
+          "maximum": {
+            "ms": 3220.0,
+            "phase": 2.72653306077,
+            "model_degrees": -5.46736572265625,
+            "pulse_us": 1731
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2560.0,
+            "phase": 1.9931997277,
+            "model_degrees": -6.99925048828125,
+            "pulse_us": 2535
+          },
+          "maximum": {
+            "ms": 3320.0,
+            "phase": 2.83764417188,
+            "model_degrees": -22.32614013671875,
+            "pulse_us": 2705
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2580.0,
+            "phase": 2.01542194966,
+            "model_degrees": -14.604775390625,
+            "pulse_us": 2290
+          },
+          "maximum": {
+            "ms": 3260.0,
+            "phase": 2.77097750521,
+            "model_degrees": -28.15945068359375,
+            "pulse_us": 2441
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 2960.0,
+            "phase": 2.43764417188,
+            "model_degrees": -3.9164505004882812,
+            "pulse_us": 1716
+          },
+          "maximum": {
+            "ms": 2440.0,
+            "phase": 1.85992163834,
+            "model_degrees": 1.6944900512695313,
+            "pulse_us": 1779
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 2880.0,
+            "phase": 2.34875528299,
+            "model_degrees": -21.9947265625,
+            "pulse_us": 599
+          },
+          "maximum": {
+            "ms": 2520.0,
+            "phase": 1.94875632376,
+            "model_degrees": -7.8474365234375,
+            "pulse_us": 756
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 2960.0,
+            "phase": 2.43764417188,
+            "model_degrees": -28.51869873046875,
+            "pulse_us": 855
+          },
+          "maximum": {
+            "ms": 2740.0,
+            "phase": 2.19319972743,
+            "model_degrees": -13.8006982421875,
+            "pulse_us": 1019
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "crawl/fwd": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "fwd",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1081,
+      "sampled_seconds": 21.6,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        503.341109404,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -22.2499084031,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 139,
+        "3": 561,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        327.2997717508848,
+        1659.4724591154732
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 368.4682151549151,
+      "leverage": {
+        "checked_leg_poses": 8644,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 56.55624579678113,
+        "swing_output_min_deg": 53.333502735782815,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 81.0812696555069
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3960.0,
+            "phase": 1.75215421407,
+            "model_degrees": -0.8558876037597656,
+            "pulse_us": 1590
+          },
+          "maximum": {
+            "ms": 3460.0,
+            "phase": 1.19659865852,
+            "model_degrees": 0.8033309936523437,
+            "pulse_us": 1609
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 4660.0,
+            "phase": 2.52993199185,
+            "model_degrees": -44.7762890625,
+            "pulse_us": 2955
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 3020.0,
+            "phase": 0.713754996417,
+            "model_degrees": -12.178787841796876,
+            "pulse_us": 2263
+          },
+          "maximum": {
+            "ms": 4620.0,
+            "phase": 2.48548754741,
+            "model_degrees": -53.5092529296875,
+            "pulse_us": 2723
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3060.0,
+            "phase": 0.755513261393,
+            "model_degrees": 0.7685037994384766,
+            "pulse_us": 1661
+          },
+          "maximum": {
+            "ms": 3440.0,
+            "phase": 1.1743764363,
+            "model_degrees": -0.768739013671875,
+            "pulse_us": 1679
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 4200.0,
+            "phase": 2.01882088074,
+            "model_degrees": -44.69962890625,
+            "pulse_us": 346
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 4180.0,
+            "phase": 1.99659865852,
+            "model_degrees": -53.52076171875,
+            "pulse_us": 577
+          },
+          "maximum": {
+            "ms": 3480.0,
+            "phase": 1.21882088074,
+            "model_degrees": -12.23827880859375,
+            "pulse_us": 1036
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3460.0,
+            "phase": 1.19659865852,
+            "model_degrees": 0.8048765563964844,
+            "pulse_us": 1661
+          },
+          "maximum": {
+            "ms": 3960.0,
+            "phase": 1.75215421407,
+            "model_degrees": -0.8637152099609375,
+            "pulse_us": 1680
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727676391601562,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 20200.0,
+            "phase": 19.7943392178,
+            "model_degrees": -46.4130224609375,
+            "pulse_us": 2973
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 3240.0,
+            "phase": 0.95216036772,
+            "model_degrees": -12.352615966796876,
+            "pulse_us": 2265
+          },
+          "maximum": {
+            "ms": 20160.0,
+            "phase": 19.7511652052,
+            "model_degrees": -54.3476611328125,
+            "pulse_us": 2732
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 3500.0,
+            "phase": 1.24104310296,
+            "model_degrees": -0.8600654602050781,
+            "pulse_us": 1750
+          },
+          "maximum": {
+            "ms": 3060.0,
+            "phase": 0.755513261393,
+            "model_degrees": 0.7676654052734375,
+            "pulse_us": 1769
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 4440.0,
+            "phase": 2.28548754741,
+            "model_degrees": -45.9443603515625,
+            "pulse_us": 333
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727539825439453,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 4400.0,
+            "phase": 2.24104310296,
+            "model_degrees": -54.119296875,
+            "pulse_us": 571
+          },
+          "maximum": {
+            "ms": 3700.0,
+            "phase": 1.46326532519,
+            "model_degrees": -12.414210205078126,
+            "pulse_us": 1034
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "crawl/back": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "back",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "back",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1091,
+      "sampled_seconds": 21.8,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -455.7377233,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -22.249574377,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 131,
+        "3": 531,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        339.8563915204543,
+        1659.4651385993732
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 363.9189676585314,
+      "leverage": {
+        "checked_leg_poses": 8724,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 56.75744395060849,
+        "swing_output_min_deg": 53.97738480163336,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 81.23509207144585
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 6520.0,
+            "phase": 3.7453558172,
+            "model_degrees": -0.8584658813476562,
+            "pulse_us": 1590
+          },
+          "maximum": {
+            "ms": 6020.0,
+            "phase": 3.18980026164,
+            "model_degrees": 0.7901219177246094,
+            "pulse_us": 1609
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 5560.0,
+            "phase": 2.67912046302,
+            "model_degrees": -45.2829248046875,
+            "pulse_us": 2960
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 6280.0,
+            "phase": 3.47868915053,
+            "model_degrees": -12.42911376953125,
+            "pulse_us": 2266
+          },
+          "maximum": {
+            "ms": 5580.0,
+            "phase": 2.70123836833,
+            "model_degrees": -53.72677734375,
+            "pulse_us": 2725
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 5580.0,
+            "phase": 2.70123836833,
+            "model_degrees": 0.8040286254882812,
+            "pulse_us": 1661
+          },
+          "maximum": {
+            "ms": 6080.0,
+            "phase": 3.25646692831,
+            "model_degrees": -0.8582745361328125,
+            "pulse_us": 1680
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 6000.0,
+            "phase": 3.16757803942,
+            "model_degrees": -45.232109375,
+            "pulse_us": 340
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 6040.0,
+            "phase": 3.21202248387,
+            "model_degrees": -53.7365478515625,
+            "pulse_us": 575
+          },
+          "maximum": {
+            "ms": 20260.0,
+            "phase": 19.0062211291,
+            "model_degrees": -12.36971923828125,
+            "pulse_us": 1035
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 6020.0,
+            "phase": 3.18980026164,
+            "model_degrees": 0.7932283782958984,
+            "pulse_us": 1661
+          },
+          "maximum": {
+            "ms": 5640.0,
+            "phase": 2.7677007751,
+            "model_degrees": -0.8550518798828125,
+            "pulse_us": 1680
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727676391601562,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 20180.0,
+            "phase": 18.9216004091,
+            "model_degrees": -45.1245751953125,
+            "pulse_us": 2958
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 6500.0,
+            "phase": 3.72313359498,
+            "model_degrees": -12.4818701171875,
+            "pulse_us": 2267
+          },
+          "maximum": {
+            "ms": 20200.0,
+            "phase": 18.9430963764,
+            "model_degrees": -53.7130615234375,
+            "pulse_us": 2725
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 6080.0,
+            "phase": 3.25646692831,
+            "model_degrees": -0.8606704711914063,
+            "pulse_us": 1750
+          },
+          "maximum": {
+            "ms": 5580.0,
+            "phase": 2.70123836833,
+            "model_degrees": 0.8067507171630859,
+            "pulse_us": 1769
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 5320.0,
+            "phase": 2.41629046506,
+            "model_degrees": -45.043623046875,
+            "pulse_us": 343
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727539825439453,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 6260.0,
+            "phase": 3.45646692831,
+            "model_degrees": -53.5662451171875,
+            "pulse_us": 577
+          },
+          "maximum": {
+            "ms": 6960.0,
+            "phase": 4.23424470609,
+            "model_degrees": -12.427529296875,
+            "pulse_us": 1034
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "crawl/turn_l": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "turn_l",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "turn_l",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1081,
+      "sampled_seconds": 21.6,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": 195.74376410331885,
+      "body_translation_z_range_mm": [
+        -22.2499084031,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 139,
+        "3": 561,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        402.1686626649363,
+        1708.0527564773245
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 226.36168984938496,
+      "leverage": {
+        "checked_leg_poses": 8644,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 56.10314036794886,
+        "swing_output_min_deg": 54.16447764008149,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 80.70768741878638
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3720.0,
+            "phase": 1.48548754741,
+            "model_degrees": -3.4714590454101564,
+            "pulse_us": 1561
+          },
+          "maximum": {
+            "ms": 3000.0,
+            "phase": 0.693294643488,
+            "model_degrees": 3.2669464111328126,
+            "pulse_us": 1636
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 2960.0,
+            "phase": 0.65330812692,
+            "model_degrees": -38.00232666015625,
+            "pulse_us": 2879
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 3720.0,
+            "phase": 1.48548754741,
+            "model_degrees": -14.114490966796875,
+            "pulse_us": 2285
+          },
+          "maximum": {
+            "ms": 2980.0,
+            "phase": 0.673140171231,
+            "model_degrees": -36.91726806640625,
+            "pulse_us": 2538
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3260.0,
+            "phase": 0.974376951018,
+            "model_degrees": 5.22474853515625,
+            "pulse_us": 1612
+          },
+          "maximum": {
+            "ms": 3480.0,
+            "phase": 1.21882088074,
+            "model_degrees": -4.4034051513671875,
+            "pulse_us": 1719
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 3300.0,
+            "phase": 1.01882088074,
+            "model_degrees": -39.67482177734375,
+            "pulse_us": 402
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 3280.0,
+            "phase": 0.996598658555,
+            "model_degrees": -39.92697265625,
+            "pulse_us": 728
+          },
+          "maximum": {
+            "ms": 3480.0,
+            "phase": 1.21882088074,
+            "model_degrees": -14.026011962890625,
+            "pulse_us": 1016
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 20140.0,
+            "phase": 19.7293335294,
+            "model_degrees": 4.203951721191406,
+            "pulse_us": 1623
+          },
+          "maximum": {
+            "ms": 3240.0,
+            "phase": 0.95216036772,
+            "model_degrees": -4.721083984375,
+            "pulse_us": 1722
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727676391601562,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 3160.0,
+            "phase": 0.863632082747,
+            "model_degrees": -33.39151123046875,
+            "pulse_us": 2828
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 3940.0,
+            "phase": 1.72993199185,
+            "model_degrees": -17.3182861328125,
+            "pulse_us": 2320
+          },
+          "maximum": {
+            "ms": 3220.0,
+            "phase": 0.92995957677,
+            "model_degrees": -33.63776123046875,
+            "pulse_us": 2502
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 4400.0,
+            "phase": 2.24104310296,
+            "model_degrees": -5.360223388671875,
+            "pulse_us": 1700
+          },
+          "maximum": {
+            "ms": 3700.0,
+            "phase": 1.46326532519,
+            "model_degrees": 4.781405029296875,
+            "pulse_us": 1813
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 3580.0,
+            "phase": 1.32993199185,
+            "model_degrees": -33.4848388671875,
+            "pulse_us": 471
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727539825439453,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 1.26326532519,
+            "model_degrees": -33.6767138671875,
+            "pulse_us": 798
+          },
+          "maximum": {
+            "ms": 3720.0,
+            "phase": 1.48548754741,
+            "model_degrees": -17.09440673828125,
+            "pulse_us": 982
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "crawl/turn_r": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "turn_r",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "turn_r",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1081,
+      "sampled_seconds": 21.6,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": -195.74376410331885,
+      "body_translation_z_range_mm": [
+        -22.2499084031,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 139,
+        "3": 561,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        426.7370048909103,
+        1703.3848818756815
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 222.61772165396675,
+      "leverage": {
+        "checked_leg_poses": 8644,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 57.02115618134761,
+        "swing_output_min_deg": 55.063915631092925,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 80.82939125579877
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3920.0,
+            "phase": 1.70770976963,
+            "model_degrees": -4.385052795410156,
+            "pulse_us": 1551
+          },
+          "maximum": {
+            "ms": 3700.0,
+            "phase": 1.46326532519,
+            "model_degrees": 4.051821594238281,
+            "pulse_us": 1645
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 3760.0,
+            "phase": 1.52993199185,
+            "model_degrees": -37.04142822265625,
+            "pulse_us": 2869
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 3920.0,
+            "phase": 1.70770976963,
+            "model_degrees": -14.04733642578125,
+            "pulse_us": 2284
+          },
+          "maximum": {
+            "ms": 3720.0,
+            "phase": 1.48548754741,
+            "model_degrees": -36.70521240234375,
+            "pulse_us": 2536
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3480.0,
+            "phase": 1.21882088074,
+            "model_degrees": 3.155782470703125,
+            "pulse_us": 1635
+          },
+          "maximum": {
+            "ms": 3260.0,
+            "phase": 0.974376951018,
+            "model_degrees": -4.278889465332031,
+            "pulse_us": 1718
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 4340.0,
+            "phase": 2.1743764363,
+            "model_degrees": -37.463671875,
+            "pulse_us": 427
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727130126953125,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 4360.0,
+            "phase": 2.19659865852,
+            "model_degrees": -36.88003173828125,
+            "pulse_us": 762
+          },
+          "maximum": {
+            "ms": 3260.0,
+            "phase": 0.974376951018,
+            "model_degrees": -11.35670654296875,
+            "pulse_us": 1046
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3240.0,
+            "phase": 0.95216036772,
+            "model_degrees": 4.748074340820312,
+            "pulse_us": 1617
+          },
+          "maximum": {
+            "ms": 3940.0,
+            "phase": 1.72993199185,
+            "model_degrees": -5.36188720703125,
+            "pulse_us": 1730
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2448,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727676391601562,
+            "pulse_us": 2448
+          },
+          "maximum": {
+            "ms": 4020.0,
+            "phase": 1.81882088074,
+            "model_degrees": -33.35960205078125,
+            "pulse_us": 2828
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2364,
+          "minimum": {
+            "ms": 3260.0,
+            "phase": 0.974376951018,
+            "model_degrees": -17.041253662109376,
+            "pulse_us": 2317
+          },
+          "maximum": {
+            "ms": 20180.0,
+            "phase": 19.7728432504,
+            "model_degrees": -33.95873779296875,
+            "pulse_us": 2505
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 3700.0,
+            "phase": 1.46326532519,
+            "model_degrees": -4.656046752929687,
+            "pulse_us": 1708
+          },
+          "maximum": {
+            "ms": 3500.0,
+            "phase": 1.24104310296,
+            "model_degrees": 4.166911926269531,
+            "pulse_us": 1806
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 852,
+          "minimum": {
+            "ms": 3600.0,
+            "phase": 1.35215421407,
+            "model_degrees": -33.1339306640625,
+            "pulse_us": 475
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 0.7727539825439453,
+            "pulse_us": 852
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 936,
+          "minimum": {
+            "ms": 3660.0,
+            "phase": 1.41882088074,
+            "model_degrees": -33.35395263671875,
+            "pulse_us": 801
+          },
+          "maximum": {
+            "ms": 3480.0,
+            "phase": 1.21882088074,
+            "model_degrees": -17.296962890625,
+            "pulse_us": 980
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "run/fwd": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "fwd",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        4190.47623934,
+        0.0,
+        2.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.4997461907,
+        -5.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        239.75377913701544,
+        1768.2673183149711
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 492.95046183629455,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 8.676318437832478,
+        "stance_output_min_deg": 63.09411515711938,
+        "swing_output_min_deg": 59.19828840109751,
+        "stance_input_min_deg": 51.57138046319159,
+        "swing_input_min_deg": 49.49458310004697
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 4200.0,
+            "phase": 4.1977549424,
+            "model_degrees": -6.268416748046875,
+            "pulse_us": 1530
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": -8.963569416664541e-06,
+            "pulse_us": 1600
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3560.0,
+            "phase": 3.48664383128,
+            "model_degrees": 55.55974609375,
+            "pulse_us": 1840
+          },
+          "maximum": {
+            "ms": 21340.0,
+            "phase": 23.1832047378,
+            "model_degrees": -27.849345703125,
+            "pulse_us": 2766
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2660.0,
+            "phase": 2.48793499038,
+            "model_degrees": 32.06553955078125,
+            "pulse_us": 1772
+          },
+          "maximum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": -70.663740234375,
+            "pulse_us": 2913
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 6.722680409438908e-06,
+            "pulse_us": 1670
+          },
+          "maximum": {
+            "ms": 4200.0,
+            "phase": 4.1977549424,
+            "model_degrees": -6.2684033203125,
+            "pulse_us": 1740
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 21340.0,
+            "phase": 23.1832047378,
+            "model_degrees": -27.84937255859375,
+            "pulse_us": 534
+          },
+          "maximum": {
+            "ms": 3560.0,
+            "phase": 3.48664383128,
+            "model_degrees": 55.5597265625,
+            "pulse_us": 1460
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": -70.6637451171875,
+            "pulse_us": 387
+          },
+          "maximum": {
+            "ms": 2660.0,
+            "phase": 2.48793499038,
+            "model_degrees": 32.06553955078125,
+            "pulse_us": 1528
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3780.0,
+            "phase": 3.73108827573,
+            "model_degrees": 6.73075439453125,
+            "pulse_us": 1595
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": -4.4817852904088796e-06,
+            "pulse_us": 1670
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 58.8882958984375,
+            "pulse_us": 1803
+          },
+          "maximum": {
+            "ms": 20820.0,
+            "phase": 22.657725602,
+            "model_degrees": -37.9753076171875,
+            "pulse_us": 2879
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3120.0,
+            "phase": 2.9977549424,
+            "model_degrees": 53.664033203125,
+            "pulse_us": 1532
+          },
+          "maximum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": -83.902158203125,
+            "pulse_us": 3060
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 60
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 6.72267924528569e-06,
+            "pulse_us": 1760
+          },
+          "maximum": {
+            "ms": 3780.0,
+            "phase": 3.73108827573,
+            "model_degrees": 6.730772094726563,
+            "pulse_us": 1835
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 20820.0,
+            "phase": 22.657725602,
+            "model_degrees": -37.97533447265625,
+            "pulse_us": 421
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 58.8882763671875,
+            "pulse_us": 1497
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": -83.902158203125,
+            "pulse_us": 240
+          },
+          "maximum": {
+            "ms": 3120.0,
+            "phase": 2.9977549424,
+            "model_degrees": 53.6640625,
+            "pulse_us": 1768
+          },
+          "samples_below_source_window": 60,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "run/back": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "back",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "back",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -3492.06351744,
+        0.0,
+        6.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.0,
+        -1.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        433.8153146716619,
+        1650.0001144341252
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 331.2300237989082,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 9.097317099689711,
+        "stance_output_min_deg": 63.715756029178515,
+        "swing_output_min_deg": 61.667714819887586,
+        "stance_input_min_deg": 59.93036679462255,
+        "swing_input_min_deg": 58.03864877957299
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": -8.963569416664541e-06,
+            "pulse_us": 1600
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": -8.963569416664541e-06,
+            "pulse_us": 1600
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": 51.0367724609375,
+            "pulse_us": 1890
+          },
+          "maximum": {
+            "ms": 1440.0,
+            "phase": 1.23902012191,
+            "model_degrees": -25.06971923828125,
+            "pulse_us": 2736
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": 27.625751953125,
+            "pulse_us": 1821
+          },
+          "maximum": {
+            "ms": 3560.0,
+            "phase": 3.48664383128,
+            "model_degrees": -65.7158935546875,
+            "pulse_us": 2858
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 6.722680409438908e-06,
+            "pulse_us": 1670
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 6.722680409438908e-06,
+            "pulse_us": 1670
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 1440.0,
+            "phase": 1.23902012191,
+            "model_degrees": -25.06975830078125,
+            "pulse_us": 564
+          },
+          "maximum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": 51.036748046875,
+            "pulse_us": 1410
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3560.0,
+            "phase": 3.48664383128,
+            "model_degrees": -65.71591796875,
+            "pulse_us": 442
+          },
+          "maximum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": 27.62580810546875,
+            "pulse_us": 1479
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": -4.4817852904088796e-06,
+            "pulse_us": 1670
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": -4.4817852904088796e-06,
+            "pulse_us": 1670
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": 53.3798828125,
+            "pulse_us": 1864
+          },
+          "maximum": {
+            "ms": 1960.0,
+            "phase": 1.7434649901,
+            "model_degrees": -29.57987060546875,
+            "pulse_us": 2786
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3500.0,
+            "phase": 3.41997716462,
+            "model_degrees": 31.77200439453125,
+            "pulse_us": 1775
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": -66.4366015625,
+            "pulse_us": 2866
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 6.72267924528569e-06,
+            "pulse_us": 1760
+          },
+          "maximum": {
+            "ms": 0.0,
+            "phase": 0,
+            "model_degrees": 6.72267924528569e-06,
+            "pulse_us": 1760
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 1960.0,
+            "phase": 1.7434649901,
+            "model_degrees": -29.5798974609375,
+            "pulse_us": 514
+          },
+          "maximum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": 53.37984375,
+            "pulse_us": 1436
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": -66.4366259765625,
+            "pulse_us": 434
+          },
+          "maximum": {
+            "ms": 3500.0,
+            "phase": 3.41997716462,
+            "model_degrees": 31.7720458984375,
+            "pulse_us": 1525
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "run/turn_l": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "turn_l",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "turn_l",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        6.0
+      ],
+      "target_yaw_change_degrees": 366.6666666233582,
+      "body_translation_z_range_mm": [
+        -10.0,
+        -1.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        614.212644357727,
+        1690.5995551184703
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 153.93812049675,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 15.95342824121201,
+        "stance_output_min_deg": 77.84906095019613,
+        "swing_output_min_deg": 70.596902557755,
+        "stance_input_min_deg": 71.22170496509638,
+        "swing_input_min_deg": 68.53899178478542
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3060.0,
+            "phase": 2.93108878243,
+            "model_degrees": -2.644317626953125,
+            "pulse_us": 1571
+          },
+          "maximum": {
+            "ms": 3560.0,
+            "phase": 3.48664383128,
+            "model_degrees": 2.872283630371094,
+            "pulse_us": 1632
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 5.189086303710938,
+            "pulse_us": 2399
+          },
+          "maximum": {
+            "ms": 1400.0,
+            "phase": 1.20202753548,
+            "model_degrees": -16.534249267578126,
+            "pulse_us": 2641
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 20320.0,
+            "phase": 22.1088598359,
+            "model_degrees": -13.352200927734375,
+            "pulse_us": 2276
+          },
+          "maximum": {
+            "ms": 3640.0,
+            "phase": 3.57553272017,
+            "model_degrees": -27.826826171875,
+            "pulse_us": 2437
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": 2.9296298217773438,
+            "pulse_us": 1637
+          },
+          "maximum": {
+            "ms": 2660.0,
+            "phase": 2.48793499038,
+            "model_degrees": -2.565942687988281,
+            "pulse_us": 1699
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3820.0,
+            "phase": 3.77553272017,
+            "model_degrees": -14.27359375,
+            "pulse_us": 684
+          },
+          "maximum": {
+            "ms": 3540.0,
+            "phase": 3.46442160906,
+            "model_degrees": 9.065888061523438,
+            "pulse_us": 944
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3020.0,
+            "phase": 2.8866474793,
+            "model_degrees": -30.34361572265625,
+            "pulse_us": 835
+          },
+          "maximum": {
+            "ms": 2500.0,
+            "phase": 2.31276563164,
+            "model_degrees": -11.5497412109375,
+            "pulse_us": 1044
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": 3.653946838378906,
+            "pulse_us": 1629
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": -3.209732971191406,
+            "pulse_us": 1706
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": 2.319313812255859,
+            "pulse_us": 2431
+          },
+          "maximum": {
+            "ms": 2860.0,
+            "phase": 2.70901347369,
+            "model_degrees": -20.56722900390625,
+            "pulse_us": 2686
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3460.0,
+            "phase": 3.37553272017,
+            "model_degrees": -11.177373046875,
+            "pulse_us": 2252
+          },
+          "maximum": {
+            "ms": 3020.0,
+            "phase": 2.8866474793,
+            "model_degrees": -30.31186767578125,
+            "pulse_us": 2465
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": -3.312413330078125,
+            "pulse_us": 1723
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 3.533328857421875,
+            "pulse_us": 1799
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3760.0,
+            "phase": 3.70886605351,
+            "model_degrees": -20.5908349609375,
+            "pulse_us": 614
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 3.2128390502929687,
+            "pulse_us": 879
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 20820.0,
+            "phase": 22.657725602,
+            "model_degrees": -29.0831591796875,
+            "pulse_us": 849
+          },
+          "maximum": {
+            "ms": 3200.0,
+            "phase": 3.08664383128,
+            "model_degrees": -13.658411865234376,
+            "pulse_us": 1020
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "run/turn_r": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "turn_r",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "turn_r",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        6.0
+      ],
+      "target_yaw_change_degrees": -366.6666666233582,
+      "body_translation_z_range_mm": [
+        -10.0,
+        -1.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        614.2130997038389,
+        1690.5996926708672
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 153.9381204938852,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 15.9534067314992,
+        "stance_output_min_deg": 77.84908168483875,
+        "swing_output_min_deg": 70.59693419199725,
+        "stance_input_min_deg": 71.22173268917464,
+        "swing_input_min_deg": 68.53902262841872
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 2660.0,
+            "phase": 2.48793499038,
+            "model_degrees": -2.5659561157226562,
+            "pulse_us": 1571
+          },
+          "maximum": {
+            "ms": 3960.0,
+            "phase": 3.93108827573,
+            "model_degrees": 2.9296188354492188,
+            "pulse_us": 1633
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3540.0,
+            "phase": 3.46442160906,
+            "model_degrees": 9.065928955078125,
+            "pulse_us": 2356
+          },
+          "maximum": {
+            "ms": 3820.0,
+            "phase": 3.77553272017,
+            "model_degrees": -14.2735791015625,
+            "pulse_us": 2616
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2500.0,
+            "phase": 2.31276563164,
+            "model_degrees": -11.5497412109375,
+            "pulse_us": 2256
+          },
+          "maximum": {
+            "ms": 3020.0,
+            "phase": 2.8866474793,
+            "model_degrees": -30.34358642578125,
+            "pulse_us": 2465
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3560.0,
+            "phase": 3.48664383128,
+            "model_degrees": 2.8722940063476563,
+            "pulse_us": 1638
+          },
+          "maximum": {
+            "ms": 3060.0,
+            "phase": 2.93108878243,
+            "model_degrees": -2.6443057250976563,
+            "pulse_us": 1699
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 1400.0,
+            "phase": 1.20202753548,
+            "model_degrees": -16.534276123046876,
+            "pulse_us": 659
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 5.189031372070312,
+            "pulse_us": 901
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3640.0,
+            "phase": 3.57553272017,
+            "model_degrees": -27.82683349609375,
+            "pulse_us": 863
+          },
+          "maximum": {
+            "ms": 20320.0,
+            "phase": 22.1088598359,
+            "model_degrees": -13.352227783203125,
+            "pulse_us": 1024
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 3.533322448730469,
+            "pulse_us": 1631
+          },
+          "maximum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": -3.312425231933594,
+            "pulse_us": 1707
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": 3.2128665161132814,
+            "pulse_us": 2421
+          },
+          "maximum": {
+            "ms": 3760.0,
+            "phase": 3.70886605351,
+            "model_degrees": -20.59080810546875,
+            "pulse_us": 2686
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3200.0,
+            "phase": 3.08664383128,
+            "model_degrees": -13.6584521484375,
+            "pulse_us": 2280
+          },
+          "maximum": {
+            "ms": 20820.0,
+            "phase": 22.657725602,
+            "model_degrees": -29.0831591796875,
+            "pulse_us": 2451
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.97553272825,
+            "model_degrees": -3.2097232055664064,
+            "pulse_us": 1724
+          },
+          "maximum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": 3.6539599609375,
+            "pulse_us": 1801
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 2860.0,
+            "phase": 2.70901347369,
+            "model_degrees": -20.56725830078125,
+            "pulse_us": 614
+          },
+          "maximum": {
+            "ms": 3520.0,
+            "phase": 3.44219938684,
+            "model_degrees": 2.3192864990234376,
+            "pulse_us": 869
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3020.0,
+            "phase": 2.8866474793,
+            "model_degrees": -30.311875,
+            "pulse_us": 835
+          },
+          "maximum": {
+            "ms": 3460.0,
+            "phase": 3.37553272017,
+            "model_degrees": -11.177373046875,
+            "pulse_us": 1048
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/curve": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100,
+        "forward": 100,
+        "turn": 50
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "forward": 100,
+            "turn": 50,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1160,
+      "sampled_seconds": 23.18,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        1596.41769338,
+        968.276405566,
+        0.0
+      ],
+      "target_yaw_change_degrees": 62.47619836452169,
+      "body_translation_z_range_mm": [
+        -10.7272538108,
+        -9.27253241278
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 123,
+        "3": 599,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        131.64152273359548,
+        1731.7953653282862
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.526440107189,
+      "peak_sampled_joint_speed_degrees_s": 983.1961687579688,
+      "leverage": {
+        "checked_leg_poses": 9276,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.619351531550834,
+        "stance_output_min_deg": 49.3028999829224,
+        "swing_output_min_deg": 43.656727677438624,
+        "stance_input_min_deg": 61.6315327242789,
+        "swing_input_min_deg": 59.89494126714616
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 3540.0,
+            "phase": 2.5506928721,
+            "model_degrees": -2.4899916076660156,
+            "pulse_us": 1572
+          },
+          "maximum": {
+            "ms": 3000.0,
+            "phase": 2.16942219006,
+            "model_degrees": 1.5944512939453126,
+            "pulse_us": 1618
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2400.0,
+            "phase": 1.7146420802,
+            "model_degrees": 71.9008642578125,
+            "pulse_us": 1658
+          },
+          "maximum": {
+            "ms": 20320.0,
+            "phase": 14.5336351811,
+            "model_degrees": -40.151923828125,
+            "pulse_us": 2903
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2360.0,
+            "phase": 1.68020564222,
+            "model_degrees": 47.757392578125,
+            "pulse_us": 1597
+          },
+          "maximum": {
+            "ms": 20260.0,
+            "phase": 14.488788173,
+            "model_degrees": -87.67232421875,
+            "pulse_us": 3102
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 91
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3880.0,
+            "phase": 2.80036116269,
+            "model_degrees": 2.8470950317382813,
+            "pulse_us": 1638
+          },
+          "maximum": {
+            "ms": 3080.0,
+            "phase": 2.22377242181,
+            "model_degrees": -2.6670602416992186,
+            "pulse_us": 1700
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 4200.0,
+            "phase": 3.03207169563,
+            "model_degrees": -44.752548828125,
+            "pulse_us": 346
+          },
+          "maximum": {
+            "ms": 4480.0,
+            "phase": 3.22294599126,
+            "model_degrees": 79.9914599609375,
+            "pulse_us": 1732
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 4140.0,
+            "phase": 2.98542426687,
+            "model_degrees": -93.632265625,
+            "pulse_us": 132
+          },
+          "maximum": {
+            "ms": 3000.0,
+            "phase": 2.16942219006,
+            "model_degrees": 48.5591748046875,
+            "pulse_us": 1712
+          },
+          "samples_below_source_window": 136,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3160.0,
+            "phase": 2.28167820911,
+            "model_degrees": 1.6917864990234375,
+            "pulse_us": 1651
+          },
+          "maximum": {
+            "ms": 2620.0,
+            "phase": 1.89459665723,
+            "model_degrees": -3.55671875,
+            "pulse_us": 1710
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2720.0,
+            "phase": 1.9708705949,
+            "model_degrees": 74.5220947265625,
+            "pulse_us": 1629
+          },
+          "maximum": {
+            "ms": 20640.0,
+            "phase": 14.7785252813,
+            "model_degrees": -46.186640625,
+            "pulse_us": 2970
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2660.0,
+            "phase": 1.92443353317,
+            "model_degrees": 42.332529296875,
+            "pulse_us": 1658
+          },
+          "maximum": {
+            "ms": 3800.0,
+            "phase": 2.73740246262,
+            "model_degrees": -88.1562109375,
+            "pulse_us": 3108
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 96
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 3080.0,
+            "phase": 2.22377242181,
+            "model_degrees": -3.4749163818359374,
+            "pulse_us": 1721
+          },
+          "maximum": {
+            "ms": 3660.0,
+            "phase": 2.63578029304,
+            "model_degrees": 2.941302490234375,
+            "pulse_us": 1793
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3160.0,
+            "phase": 2.28167820911,
+            "model_degrees": -45.6301171875,
+            "pulse_us": 336
+          },
+          "maximum": {
+            "ms": 4840.0,
+            "phase": 3.47435385464,
+            "model_degrees": 79.0902685546875,
+            "pulse_us": 1722
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.2379155353,
+            "model_degrees": -93.40982421875,
+            "pulse_us": 134
+          },
+          "maximum": {
+            "ms": 3360.0,
+            "phase": 2.41811362819,
+            "model_degrees": 46.8848779296875,
+            "pulse_us": 1693
+          },
+          "samples_below_source_window": 118,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/reverse_curve": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100,
+        "forward": -100,
+        "turn": -50
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "forward": -100,
+            "turn": -50,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1153,
+      "sampled_seconds": 23.04,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -1585.94204244,
+        948.474891162,
+        0.0
+      ],
+      "target_yaw_change_degrees": -61.76318750449169,
+      "body_translation_z_range_mm": [
+        -10.7274995176,
+        -9.2728017788
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 145,
+        "3": 575,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        130.44198973376695,
+        1743.131809752201
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.522103709414,
+      "peak_sampled_joint_speed_degrees_s": 999.5162227623657,
+      "leverage": {
+        "checked_leg_poses": 9220,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.8321411863115245,
+        "stance_output_min_deg": 45.22133857573854,
+        "swing_output_min_deg": 39.71852528811507,
+        "stance_input_min_deg": 58.557922132698465,
+        "swing_input_min_deg": 56.594183632309495
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 2380.0,
+            "phase": 1.71458360025,
+            "model_degrees": -3.921847229003906,
+            "pulse_us": 1556
+          },
+          "maximum": {
+            "ms": 3100.0,
+            "phase": 2.24792960367,
+            "model_degrees": 2.4877569580078127,
+            "pulse_us": 1628
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3440.0,
+            "phase": 2.47738702536,
+            "model_degrees": 72.290087890625,
+            "pulse_us": 1654
+          },
+          "maximum": {
+            "ms": 2320.0,
+            "phase": 1.66443421013,
+            "model_degrees": -41.1474658203125,
+            "pulse_us": 2914
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 20540.0,
+            "phase": 14.5280393029,
+            "model_degrees": 46.1540234375,
+            "pulse_us": 1615
+          },
+          "maximum": {
+            "ms": 2380.0,
+            "phase": 1.71458360025,
+            "model_degrees": -87.009970703125,
+            "pulse_us": 3095
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 78
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 2360.0,
+            "phase": 1.69761185484,
+            "model_degrees": 1.6719398498535156,
+            "pulse_us": 1651
+          },
+          "maximum": {
+            "ms": 21160.0,
+            "phase": 15.0531466717,
+            "model_degrees": -0.6896733856201172,
+            "pulse_us": 1678
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 2980.0,
+            "phase": 2.16631975539,
+            "model_degrees": -45.7619140625,
+            "pulse_us": 335
+          },
+          "maximum": {
+            "ms": 4140.0,
+            "phase": 2.97938370962,
+            "model_degrees": 81.0017138671875,
+            "pulse_us": 1743
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3060.0,
+            "phase": 2.21983743202,
+            "model_degrees": -93.04689453125,
+            "pulse_us": 138
+          },
+          "maximum": {
+            "ms": 4200.0,
+            "phase": 3.02479632933,
+            "model_degrees": 46.586181640625,
+            "pulse_us": 1690
+          },
+          "samples_below_source_window": 135,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 3000.0,
+            "phase": 2.17936584122,
+            "model_degrees": 2.674239501953125,
+            "pulse_us": 1640
+          },
+          "maximum": {
+            "ms": 3820.0,
+            "phase": 2.74953183307,
+            "model_degrees": -4.784407348632812,
+            "pulse_us": 1723
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3800.0,
+            "phase": 2.73446175899,
+            "model_degrees": 72.6162158203125,
+            "pulse_us": 1650
+          },
+          "maximum": {
+            "ms": 2640.0,
+            "phase": 1.92130994712,
+            "model_degrees": -43.5072412109375,
+            "pulse_us": 2940
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3840.0,
+            "phase": 2.76482412938,
+            "model_degrees": 45.2354443359375,
+            "pulse_us": 1625
+          },
+          "maximum": {
+            "ms": 2700.0,
+            "phase": 1.9664799408,
+            "model_degrees": -88.370810546875,
+            "pulse_us": 3110
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 91
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 2060.0,
+            "phase": 1.43181639877,
+            "model_degrees": -1.8630609130859375,
+            "pulse_us": 1739
+          },
+          "maximum": {
+            "ms": 2440.0,
+            "phase": 1.76700747275,
+            "model_degrees": 1.67365234375,
+            "pulse_us": 1779
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 2020.0,
+            "phase": 1.39538976518,
+            "model_degrees": -43.28599609375,
+            "pulse_us": 362
+          },
+          "maximum": {
+            "ms": 20120.0,
+            "phase": 14.2307488604,
+            "model_degrees": 77.638193359375,
+            "pulse_us": 1706
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3420.0,
+            "phase": 2.46356249849,
+            "model_degrees": -93.740224609375,
+            "pulse_us": 130
+          },
+          "maximum": {
+            "ms": 20180.0,
+            "phase": 14.2742770067,
+            "model_degrees": 50.136787109375,
+            "pulse_us": 1729
+          },
+          "samples_below_source_window": 122,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/steering_update": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100,
+        "forward": 100,
+        "turn": 0
+      },
+      "updates": [
+        {
+          "at_ms": 6000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 100,
+            "forward": 75,
+            "turn": 75,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 12000,
+          "command": {
+            "t": "intent",
+            "seq": 3,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 100,
+            "forward": -75,
+            "turn": -75,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 4,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "forward": 100,
+            "turn": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1152,
+      "sampled_seconds": 23.02,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        404.350241756,
+        22.1222552006,
+        0.0
+      ],
+      "target_yaw_change_degrees": -14.342137353967484,
+      "body_translation_z_range_mm": [
+        -10.7272977734,
+        -9.27298293663
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 141,
+        "3": 583,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        164.48076869443457,
+        1706.6693331761671
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.57436467441,
+      "peak_sampled_joint_speed_degrees_s": 994.0971506736637,
+      "leverage": {
+        "checked_leg_poses": 9212,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.7796300372313425,
+        "stance_output_min_deg": 52.30012305252543,
+        "swing_output_min_deg": 44.41785928739118,
+        "stance_input_min_deg": 61.22433569473258,
+        "swing_input_min_deg": 59.853600659967874
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 14060.0,
+            "phase": 11.6882208523,
+            "model_degrees": -4.556882629394531,
+            "pulse_us": 1549
+          },
+          "maximum": {
+            "ms": 14680.0,
+            "phase": 12.2722550762,
+            "model_degrees": 2.78100341796875,
+            "pulse_us": 1631
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 3760.0,
+            "phase": 2.71452760907,
+            "model_degrees": 75.9387646484375,
+            "pulse_us": 1613
+          },
+          "maximum": {
+            "ms": 6220.0,
+            "phase": 4.52782703852,
+            "model_degrees": -42.100439453125,
+            "pulse_us": 2925
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 3700.0,
+            "phase": 2.6707358159,
+            "model_degrees": 48.1108447265625,
+            "pulse_us": 1593
+          },
+          "maximum": {
+            "ms": 6160.0,
+            "phase": 4.48048751428,
+            "model_degrees": -90.67673828125,
+            "pulse_us": 3136
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 29
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 9040.0,
+            "phase": 6.8454982308,
+            "model_degrees": 3.2947769165039062,
+            "pulse_us": 1633
+          },
+          "maximum": {
+            "ms": 9480.0,
+            "phase": 7.23775816653,
+            "model_degrees": -3.196932067871094,
+            "pulse_us": 1706
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 13540.0,
+            "phase": 11.1694780678,
+            "model_degrees": -44.4703515625,
+            "pulse_us": 349
+          },
+          "maximum": {
+            "ms": 3080.0,
+            "phase": 2.21467205068,
+            "model_degrees": 75.9493310546875,
+            "pulse_us": 1687
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 4120.0,
+            "phase": 2.98018262973,
+            "model_degrees": -90.650537109375,
+            "pulse_us": 165
+          },
+          "maximum": {
+            "ms": 3020.0,
+            "phase": 2.17093948172,
+            "model_degrees": 48.1202392578125,
+            "pulse_us": 1707
+          },
+          "samples_below_source_window": 37,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 13520.0,
+            "phase": 11.1491354685,
+            "model_degrees": 3.2254147338867187,
+            "pulse_us": 1634
+          },
+          "maximum": {
+            "ms": 15200.0,
+            "phase": 12.7460353206,
+            "model_degrees": -5.781512451171875,
+            "pulse_us": 1734
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 2740.0,
+            "phase": 1.96634813285,
+            "model_degrees": 77.0489208984375,
+            "pulse_us": 1601
+          },
+          "maximum": {
+            "ms": 6560.0,
+            "phase": 4.7788246445,
+            "model_degrees": -45.6257177734375,
+            "pulse_us": 2964
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 2680.0,
+            "phase": 1.92240381579,
+            "model_degrees": 44.5953466796875,
+            "pulse_us": 1632
+          },
+          "maximum": {
+            "ms": 3780.0,
+            "phase": 2.7295693179,
+            "model_degrees": -90.362119140625,
+            "pulse_us": 3132
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 29
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 9460.0,
+            "phase": 7.2205760904,
+            "model_degrees": -4.297332763671875,
+            "pulse_us": 1712
+          },
+          "maximum": {
+            "ms": 8800.0,
+            "phase": 6.60365633728,
+            "model_degrees": 3.5610107421875,
+            "pulse_us": 1800
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 3160.0,
+            "phase": 2.27609325374,
+            "model_degrees": -45.603232421875,
+            "pulse_us": 336
+          },
+          "maximum": {
+            "ms": 3420.0,
+            "phase": 2.46485603723,
+            "model_degrees": 76.875693359375,
+            "pulse_us": 1697
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 3100.0,
+            "phase": 2.22969401811,
+            "model_degrees": -90.573583984375,
+            "pulse_us": 166
+          },
+          "maximum": {
+            "ms": 20240.0,
+            "phase": 17.2653762015,
+            "model_degrees": 47.515498046875,
+            "pulse_us": 1700
+          },
+          "samples_below_source_window": 30,
+          "samples_above_source_window": 0
+        }
+      ]
+    },
+    "walk/run_transition": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 50
+      },
+      "updates": [
+        {
+          "at_ms": 6000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 200,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 12000,
+          "command": {
+            "t": "intent",
+            "seq": 3,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 75,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 4,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1160,
+      "sampled_seconds": 23.18,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        2989.40226323,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.9981082118,
+        -5.0000175924
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 20,
+        "1": 36,
+        "2": 328,
+        "3": 348,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        52.49131746561875,
+        1832.537273458673
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.703432688022,
+      "peak_sampled_joint_speed_degrees_s": 989.9266371664811,
+      "leverage": {
+        "checked_leg_poses": 9276,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 4.4187385324527995,
+        "stance_output_min_deg": 45.76198620914656,
+        "swing_output_min_deg": 42.68596304751634,
+        "stance_input_min_deg": 42.413251723771715,
+        "swing_input_min_deg": 37.91744506943962
+      },
+      "below_source_regression_margins": {},
+      "mapped_joints": [
+        {
+          "id": 0,
+          "name": "rear_left_shoulder",
+          "channel": 0,
+          "first_target_us": 1600,
+          "minimum": {
+            "ms": 11140.0,
+            "phase": 11.2247121376,
+            "model_degrees": -7.819105224609375,
+            "pulse_us": 1513
+          },
+          "maximum": {
+            "ms": 16880.0,
+            "phase": 19.2431589727,
+            "model_degrees": 1.5775663757324219,
+            "pulse_us": 1618
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 1,
+          "name": "rear_left_carrier",
+          "channel": 1,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 10200.0,
+            "phase": 9.5046727402,
+            "model_degrees": 71.0890283203125,
+            "pulse_us": 1667
+          },
+          "maximum": {
+            "ms": 20560.0,
+            "phase": 22.540182225,
+            "model_degrees": -38.15611572265625,
+            "pulse_us": 2881
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 2,
+          "name": "rear_left_crank",
+          "channel": 2,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 18520.0,
+            "phase": 20.7035146881,
+            "model_degrees": 41.010615234375,
+            "pulse_us": 1672
+          },
+          "maximum": {
+            "ms": 10980.0,
+            "phase": 10.936247244,
+            "model_degrees": -84.526279296875,
+            "pulse_us": 3067
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 3
+        },
+        {
+          "id": 3,
+          "name": "rear_right_shoulder",
+          "channel": 3,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 17440.0,
+            "phase": 19.7404353371,
+            "model_degrees": 1.576077880859375,
+            "pulse_us": 1652
+          },
+          "maximum": {
+            "ms": 11140.0,
+            "phase": 11.2247121376,
+            "model_degrees": -7.81978759765625,
+            "pulse_us": 1757
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 4,
+          "name": "rear_right_carrier",
+          "channel": 4,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 17760.0,
+            "phase": 20.0261172418,
+            "model_degrees": -37.3759716796875,
+            "pulse_us": 428
+          },
+          "maximum": {
+            "ms": 11820.0,
+            "phase": 12.4963380082,
+            "model_degrees": 69.8745654296875,
+            "pulse_us": 1619
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 5,
+          "name": "rear_right_crank",
+          "channel": 5,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 12060.0,
+            "phase": 12.9388980609,
+            "model_degrees": -83.684111328125,
+            "pulse_us": 242
+          },
+          "maximum": {
+            "ms": 17960.0,
+            "phase": 20.2032169833,
+            "model_degrees": 41.01599609375,
+            "pulse_us": 1628
+          },
+          "samples_below_source_window": 4,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 6,
+          "name": "front_left_shoulder",
+          "channel": 6,
+          "first_target_us": 1670,
+          "minimum": {
+            "ms": 11420.0,
+            "phase": 11.7688422855,
+            "model_degrees": 8.514088134765625,
+            "pulse_us": 1575
+          },
+          "maximum": {
+            "ms": 17420.0,
+            "phase": 19.7224595737,
+            "model_degrees": -1.5858782958984374,
+            "pulse_us": 1688
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 7,
+          "name": "front_left_carrier",
+          "channel": 7,
+          "first_target_us": 2563,
+          "minimum": {
+            "ms": 10460.0,
+            "phase": 9.99173152614,
+            "model_degrees": 75.633720703125,
+            "pulse_us": 1617
+          },
+          "maximum": {
+            "ms": 12980.0,
+            "phase": 14.6362280414,
+            "model_degrees": -43.8715380859375,
+            "pulse_us": 2944
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 8,
+          "name": "front_left_crank",
+          "channel": 8,
+          "first_target_us": 2360,
+          "minimum": {
+            "ms": 11020.0,
+            "phase": 11.0056968007,
+            "model_degrees": 59.0601806640625,
+            "pulse_us": 1472
+          },
+          "maximum": {
+            "ms": 12900.0,
+            "phase": 14.484293994,
+            "model_degrees": -100.75578125,
+            "pulse_us": 3248
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 28
+        },
+        {
+          "id": 9,
+          "name": "front_right_shoulder",
+          "channel": 9,
+          "first_target_us": 1760,
+          "minimum": {
+            "ms": 16860.0,
+            "phase": 19.2251700898,
+            "model_degrees": -1.5827449035644532,
+            "pulse_us": 1742
+          },
+          "maximum": {
+            "ms": 11420.0,
+            "phase": 11.7688422855,
+            "model_degrees": 8.51414794921875,
+            "pulse_us": 1855
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 10,
+          "name": "front_right_carrier",
+          "channel": 10,
+          "first_target_us": 737,
+          "minimum": {
+            "ms": 20280.0,
+            "phase": 22.2760869718,
+            "model_degrees": -40.88548583984375,
+            "pulse_us": 389
+          },
+          "maximum": {
+            "ms": 12080.0,
+            "phase": 12.9739463983,
+            "model_degrees": 74.6772607421875,
+            "pulse_us": 1673
+          },
+          "samples_below_source_window": 0,
+          "samples_above_source_window": 0
+        },
+        {
+          "id": 11,
+          "name": "front_right_crank",
+          "channel": 11,
+          "first_target_us": 940,
+          "minimum": {
+            "ms": 11260.0,
+            "phase": 11.4597274744,
+            "model_degrees": -96.66896484375,
+            "pulse_us": 98
+          },
+          "maximum": {
+            "ms": 10480.0,
+            "phase": 10.0287080061,
+            "model_degrees": 59.4483544921875,
+            "pulse_us": 1833
+          },
+          "samples_below_source_window": 12,
+          "samples_above_source_window": 0
+        }
+      ]
+    }
+  },
+  "candidate_change": {
+    "walk_body_z_mm": -10,
+    "original_walk_body_z_mm": -8,
+    "other_trajectory_parameters_changed": false
+  }
+}

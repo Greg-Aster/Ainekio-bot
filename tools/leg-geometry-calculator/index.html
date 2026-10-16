@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ainekio · Leg geometry calculator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">AINEKIO / MECHANISM DESIGN</span>
+        <h1>Leg geometry calculator</h1>
+        <p>Explore dimensions, shaft placement and the cost of each stride.</p>
+      </div>
+      <div class="header-actions">
+        <span class="badge">Offline · no robot connection</span
+        ><button id="reset">Reset to installed lengths</button>
+      </div>
+    </header>
+    <main>
+      <aside>
+        <section>
+          <h2>
+            <span>01</span> Link dimensions <small>mm · hole centres</small>
+          </h2>
+          <div id="geometry-controls"></div>
+          <div id="ratios" class="note"></div>
+        </section>
+        <section>
+          <h2><span>02</span> Servo shafts & chassis</h2>
+          <label class="check"
+            ><input id="fixed-mounts" type="checkbox" checked />Keep installed
+            shaft positions</label
+          >
+          <p class="note">
+            Changing a link does not move its motor. Unlock to test a mount
+            redesign.
+          </p>
+          <div id="shaft-controls"></div>
+          <label class="select-label"
+            >Inspect leg<select id="leg-select"></select
+          ></label>
+          <div id="mount-controls"></div>
+          <p id="mount-note" class="note"></p>
+        </section>
+        <section>
+          <h2><span>03</span> Foot path</h2>
+          <div id="path-controls"></div>
+          <button id="find-stroke" class="wide">
+            Find largest sampled stride
+          </button>
+          <p id="search-result" class="note">
+            Checks the full return path and entered servo excursion. Does not
+            optimise torque or prove walking.
+          </p>
+        </section>
+        <section>
+          <h2><span>04</span> Load assumptions</h2>
+          <div id="load-controls"></div>
+          <p class="note">
+            Equal vertical load among the entered supporting legs. Horizontal
+            force is per leg. No motor specification is assumed.
+          </p>
+        </section>
+        <details>
+          <summary>Assembly branches & direct joint pose</summary>
+          <div id="branch-controls"></div>
+          <label class="select-label"
+            >View mode<select id="mode">
+              <option value="path">Follow requested foot path</option>
+              <option value="pose">Explore joint angles</option>
+            </select></label
+          >
+          <div id="pose-controls"></div>
+          <p class="note">
+            Angles are absolute in the linkage plane, not servo pulses or saved
+            Home offsets. Other assembly branches may require reassembly.
+          </p>
+        </details>
+      </aside>
+      <div class="workspace">
+        <section class="visual-card">
+          <div class="visual-heading">
+            <div>
+              <h2 id="drawing-title">Front left · installed mounts</h2>
+              <p id="mount-status"></p>
+            </div>
+            <div class="segmented">
+              <button id="view-leg" class="selected">Leg detail</button
+              ><button id="view-body">On chassis</button>
+            </div>
+          </div>
+          <svg
+            id="diagram"
+            viewBox="0 0 1000 470"
+            role="img"
+            aria-label="Animated linkage geometry"
+          ></svg>
+          <div class="legend">
+            <span class="carrier">Carrier</span><span class="crank">Crank</span
+            ><span class="rod">Rod</span
+            ><span class="lower">Lower leg / pickup</span
+            ><span class="foot">Foot path</span><span>○ fixed shaft</span>
+          </div>
+          <div class="transport">
+            <button id="play" aria-label="Play animation">▶ Play</button
+            ><input
+              id="phase"
+              aria-label="Cycle phase"
+              type="range"
+              min="0"
+              max="999"
+              value="120"
+            /><span id="phase-label"></span>
+          </div>
+          <div id="pose-status" role="status"></div>
+          <p class="model-caption">
+            Planar point-foot model · shoulder held neutral · recorded shaft
+            positions
+          </p>
+        </section>
+        <div class="metrics" id="metrics"></div>
+        <section>
+          <div class="section-heading">
+            <h2>Servo demand through the cycle</h2>
+            <span>Shaded region = foot on ground</span>
+          </div>
+          <div class="plots">
+            <div>
+              <h3>Angular travel <small>degrees from cycle start</small></h3>
+              <svg
+                id="angle-plot"
+                viewBox="0 0 480 180"
+                role="img"
+                aria-label="Servo angular travel plot"
+              ></svg>
+            </div>
+            <div>
+              <h3>Support torque <small>Nm · magnitude</small></h3>
+              <svg
+                id="torque-plot"
+                viewBox="0 0 480 180"
+                role="img"
+                aria-label="Servo support torque plot"
+              ></svg>
+            </div>
+          </div>
+          <div class="legend">
+            <span class="carrier">Carrier servo</span
+            ><span class="crank">Crank servo</span>
+          </div>
+        </section>
+        <section>
+          <div class="section-heading">
+            <h2>Compare designs</h2>
+            <button id="save-design">＋ Keep this design</button>
+          </div>
+          <p class="note">
+            Snapshots retain the dimensions, mounts, foot path and load
+            assumptions. Select a name to restore it.
+          </p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Design</th>
+                  <th>Links: leg / carrier / rod / pickup / crank</th>
+                  <th>Mounts</th>
+                  <th>Stroke</th>
+                  <th>Valid samples</th>
+                  <th>Travel C / K</th>
+                  <th>Peak Nm C / K</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="comparisons"></tbody>
+            </table>
+          </div>
+          <div class="exports">
+            <button id="export-json">Export design JSON</button
+            ><label class="button"
+              >Import design<input
+                id="import-json"
+                type="file"
+                accept=".json,application/json"
+                hidden /></label
+            ><button id="export-csv">Export cycle CSV</button
+            ><button id="export-svg">Export drawing SVG</button>
+          </div>
+          <p id="file-status" role="status" class="note"></p>
+        </section>
+        <details class="method" open>
+          <summary>What the calculator measures</summary>
+          <p>
+            A two-motor planar linkage: the carrier drives the knee, the crank
+            drives the connecting rod, and the lower leg carries a pickup and a
+            foot. Both motor shafts are fixed to the leg assembly. The third,
+            shoulder servo is held at its CAD-neutral orientation here.
+          </p>
+          <p>
+            <strong>The foot is an idealised point.</strong> Installed link
+            lengths and shaft frames come from the repository; the Part 027
+            outline, rocking contact, boots, joint clearances, servo housings
+            and collisions are not simulated. A bent lower leg can be
+            represented with the foot-angle control. “Body clearance” is
+            measured from the exported chassis hull bottom to the requested
+            ground.
+          </p>
+          <p>
+            Torque is calculated from virtual work, <code>τ = −JᵀF</code>, with
+            the entered external foot force. It excludes link weight,
+            acceleration, friction, compliance and motor losses. It is required
+            support torque, not available servo torque. Equal supporting-leg
+            loads and the displayed centre of mass are assumptions. The side
+            view is not a support-polygon or fall prediction.
+          </p>
+          <p>
+            Servo travel reports excursion over this sample path. It does not
+            verify absolute horn indexing, pulse limits, real end stops or
+            loaded speed. Results with missing samples are partial. Near-toggle
+            configurations can have very high or undefined torque. There is no
+            universal best ratio: compare reach, height, excursion, load and
+            mount changes for the same task.
+          </p>
+          <p id="provenance"></p>
+        </details>
+      </div>
+    </main>
+    <footer>
+      Local design calculations only. Exported files do not command or update
+      the robot.
+    </footer>
+    <script src="robot-data.js"></script>
+    <script src="mechanics.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

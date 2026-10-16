@@ -1,0 +1,1293 @@
+{
+  "schema": "ainekio.gait-research.v1",
+  "generated_utc": "2026-10-12T17:36:26.172919+00:00",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "hardware_qualified": false,
+  "sample_hz": 50,
+  "evidence": "Native command target sampling; no physical robot commands or measurements.",
+  "generator_sha256": "ac4bbca439ca0b81cc4679c4d9ea494d0511941da541f1fca5ee894fb96e81ac",
+  "binary_sha256": "481f6cb19ce2538b7c68260c6a8c21fdfaf2bf5b2639a02bfce048df7dbf3be0",
+  "source_sha256": {
+    "geometry.json": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+    "servo_profile.json": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
+    "motion.c": "f2d1ca1356a8400502a1d4d481c467d4d608bc7472a7fe2db268c9660f05caa6",
+    "walk_kinematics.c": "384e31538657a8825ff0aec0d1d86d50243e940e9442855ace575660f1f279c9",
+    "motions/locomotion/config.json": "2417752e983b33db7efe07b9268293c03b10c4f33bd4740e575d8476948b5330",
+    "motions/locomotion/sole-profile.json": "7ae7b537b1fa5c5c52a7b7f091e70c8ef01de37d0ad3304147d76197dd759e95",
+    "motions/run/config.json": "87ab314d3d5875f6e863b8c3acaf6c52d43ee0afdd77172667521f51ceb94742"
+  },
+  "source_regression_margins": {
+    "stance_output_min_deg": 45,
+    "swing_output_min_deg": 35,
+    "stance_input_min_deg": 20,
+    "swing_input_min_deg": 20,
+    "straightening_clearance_min_mm": 3,
+    "scope": "Offline gait regression margins, not measured torque limits or servo pulse caps."
+  },
+  "cases": {
+    "walk/fwd": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1178,
+      "sampled_seconds": 23.54,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        1326.1942704,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -8.72749992673,
+        -7.272538113
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 110,
+        "3": 506,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        167.07525400133318,
+        1725.82335148411
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.308221615866,
+      "peak_sampled_joint_speed_degrees_s": 545.4380750378399,
+      "leverage": {
+        "checked_leg_poses": 9420,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.5445831352423554,
+        "stance_output_min_deg": 44.913348112837284,
+        "swing_output_min_deg": 38.18364271160788,
+        "stance_input_min_deg": 58.911279348338375,
+        "swing_input_min_deg": 56.9537880724238
+      },
+      "below_source_regression_margins": {
+        "stance_output_min_deg": {
+          "measured": 44.913348112837284,
+          "required": 45
+        }
+      }
+    },
+    "walk/back": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "back",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "back",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1195,
+      "sampled_seconds": 23.88,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -1307.68286364,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -8.72749933817,
+        -7.27250009945
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 114,
+        "3": 531,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        164.43174311506039,
+        1718.3378436054459
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.306616306027,
+      "peak_sampled_joint_speed_degrees_s": 544.998552366605,
+      "leverage": {
+        "checked_leg_poses": 9556,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.905342627171173,
+        "stance_output_min_deg": 46.18799072879796,
+        "swing_output_min_deg": 40.10026195925001,
+        "stance_input_min_deg": 57.78190724849348,
+        "swing_input_min_deg": 56.15658807179712
+      },
+      "below_source_regression_margins": {}
+    },
+    "walk/turn_l": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "turn_l",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "turn_l",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1141,
+      "sampled_seconds": 22.8,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 186.56863429402827,
+      "body_translation_z_range_mm": [
+        -8.72741100715,
+        -7.2735671858
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 155,
+        "3": 626,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        627.7947031950633,
+        1689.549043564966
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 190.18730045675392,
+      "leverage": {
+        "checked_leg_poses": 9124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 20.486700008179348,
+        "stance_output_min_deg": 76.68302152085364,
+        "swing_output_min_deg": 69.49225756895773,
+        "stance_input_min_deg": 77.75260255240875,
+        "swing_input_min_deg": 77.26654005366511
+      },
+      "below_source_regression_margins": {}
+    },
+    "walk/turn_r": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "turn_r",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "turn_r",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1141,
+      "sampled_seconds": 22.8,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": -186.56863429402827,
+      "body_translation_z_range_mm": [
+        -8.72741100715,
+        -7.2735671858
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 155,
+        "3": 626,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        625.9473646977033,
+        1689.5859265864704
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 190.315708013511,
+      "leverage": {
+        "checked_leg_poses": 9124,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 20.440692887730705,
+        "stance_output_min_deg": 76.68066730048466,
+        "swing_output_min_deg": 69.62636922289884,
+        "stance_input_min_deg": 77.47096886192523,
+        "swing_input_min_deg": 77.20036335548008
+      },
+      "below_source_regression_margins": {}
+    },
+    "crawl/fwd": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "fwd",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1081,
+      "sampled_seconds": 21.6,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        503.341109404,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -22.2499084031,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 139,
+        "3": 561,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        327.2997717508848,
+        1659.4724591154732
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 368.4682151549151,
+      "leverage": {
+        "checked_leg_poses": 8644,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 56.55624579678113,
+        "swing_output_min_deg": 53.333502735782815,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 81.0812696555069
+      },
+      "below_source_regression_margins": {}
+    },
+    "crawl/back": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "back",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "back",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1091,
+      "sampled_seconds": 21.8,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -455.7377233,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -22.249574377,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 131,
+        "3": 531,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        339.8563915204543,
+        1659.4651385993732
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 363.9189676585314,
+      "leverage": {
+        "checked_leg_poses": 8724,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 56.75744395060849,
+        "swing_output_min_deg": 53.97738480163336,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 81.23509207144585
+      },
+      "below_source_regression_margins": {}
+    },
+    "crawl/turn_l": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "turn_l",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "turn_l",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1081,
+      "sampled_seconds": 21.6,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": 195.74376410331885,
+      "body_translation_z_range_mm": [
+        -22.2499084031,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 139,
+        "3": 561,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        402.1686626649363,
+        1708.0527564773245
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 226.36168984938496,
+      "leverage": {
+        "checked_leg_poses": 8644,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 56.10314036794886,
+        "swing_output_min_deg": 54.16447764008149,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 80.70768741878638
+      },
+      "below_source_regression_margins": {}
+    },
+    "crawl/turn_r": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "crawl",
+        "dir": "turn_r",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "crawl",
+            "dir": "turn_r",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1081,
+      "sampled_seconds": 21.6,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        -20.0
+      ],
+      "target_yaw_change_degrees": -195.74376410331885,
+      "body_translation_z_range_mm": [
+        -22.2499084031,
+        -2.0
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 139,
+        "3": 561,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        426.7370048909103,
+        1703.3848818756815
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 222.61772165396675,
+      "leverage": {
+        "checked_leg_poses": 8644,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 18.15674730867199,
+        "stance_output_min_deg": 57.02115618134761,
+        "swing_output_min_deg": 55.063915631092925,
+        "stance_input_min_deg": 75.01014150125928,
+        "swing_input_min_deg": 80.82939125579877
+      },
+      "below_source_regression_margins": {}
+    },
+    "run/fwd": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "fwd",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        4190.47623934,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.4997461907,
+        -5.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        239.75377913701544,
+        1768.2673183149711
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 492.95046183629455,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 8.676318437832478,
+        "stance_output_min_deg": 63.09411515711938,
+        "swing_output_min_deg": 59.19828840109751,
+        "stance_input_min_deg": 51.57138046319159,
+        "swing_input_min_deg": 49.49458310004697
+      },
+      "below_source_regression_margins": {}
+    },
+    "run/back": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "back",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "back",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -3492.06351744,
+        0.0,
+        4.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -8.0,
+        -1.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        433.81554234599105,
+        1650.0001144341252
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 331.2300237989082,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 9.097317099689711,
+        "stance_output_min_deg": 63.715756029178515,
+        "swing_output_min_deg": 61.667714819887586,
+        "stance_input_min_deg": 59.93036679462255,
+        "swing_input_min_deg": 58.03864877957299
+      },
+      "below_source_regression_margins": {}
+    },
+    "run/turn_l": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "turn_l",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "turn_l",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        4.0
+      ],
+      "target_yaw_change_degrees": 366.6666666233582,
+      "body_translation_z_range_mm": [
+        -8.0,
+        -1.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        614.212644357727,
+        1690.5995551184703
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 153.93812049675,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 15.95342824121201,
+        "stance_output_min_deg": 77.84906095019613,
+        "swing_output_min_deg": 70.619298148277,
+        "stance_input_min_deg": 71.22170496509638,
+        "swing_input_min_deg": 68.53886841016454
+      },
+      "below_source_regression_margins": {}
+    },
+    "run/turn_r": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "run",
+        "dir": "turn_r",
+        "speed": 100
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "run",
+            "dir": "turn_r",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1250,
+      "sampled_seconds": 24.98,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        0.0,
+        0.0,
+        4.0
+      ],
+      "target_yaw_change_degrees": -366.6666666233582,
+      "body_translation_z_range_mm": [
+        -8.0,
+        -1.50385814626
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 122,
+        "1": 0,
+        "2": 676,
+        "3": 0,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        614.2130997038389,
+        1690.5996926708672
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 1.0,
+      "peak_sampled_joint_speed_degrees_s": 153.9381204938852,
+      "leverage": {
+        "checked_leg_poses": 9996,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 15.9534067314992,
+        "stance_output_min_deg": 77.84908168483875,
+        "swing_output_min_deg": 70.61930935234719,
+        "stance_input_min_deg": 71.22173268917464,
+        "swing_input_min_deg": 68.53893590584887
+      },
+      "below_source_regression_margins": {}
+    },
+    "walk/curve": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100,
+        "forward": 100,
+        "turn": 50
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "forward": 100,
+            "turn": 50,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1192,
+      "sampled_seconds": 23.82,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        1203.08254917,
+        461.066956386,
+        0.0
+      ],
+      "target_yaw_change_degrees": 41.93746232280407,
+      "body_translation_z_range_mm": [
+        -8.7274758008,
+        -7.27259175865
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 105,
+        "3": 507,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        134.46307387577542,
+        1760.1668327743128
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.2922773711,
+      "peak_sampled_joint_speed_degrees_s": 544.8916599079093,
+      "leverage": {
+        "checked_leg_poses": 9532,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.420608012172522,
+        "stance_output_min_deg": 44.21480754683669,
+        "swing_output_min_deg": 37.50334385103987,
+        "stance_input_min_deg": 58.73737272468081,
+        "swing_input_min_deg": 57.01706358588591
+      },
+      "below_source_regression_margins": {
+        "stance_output_min_deg": {
+          "measured": 44.21480754683669,
+          "required": 45
+        }
+      }
+    },
+    "walk/reverse_curve": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100,
+        "forward": -100,
+        "turn": -50
+      },
+      "updates": [
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "forward": -100,
+            "turn": -50,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1190,
+      "sampled_seconds": 23.78,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        -1209.86748011,
+        467.193945509,
+        0.0
+      ],
+      "target_yaw_change_degrees": -42.22843380100493,
+      "body_translation_z_range_mm": [
+        -8.72731767047,
+        -7.27251875485
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 107,
+        "3": 513,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        131.0361402955425,
+        1773.2942286869802
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.2916952326,
+      "peak_sampled_joint_speed_degrees_s": 544.7253448016519,
+      "leverage": {
+        "checked_leg_poses": 9516,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 2.653003964923471,
+        "stance_output_min_deg": 40.34305264616027,
+        "swing_output_min_deg": 32.99253749525368,
+        "stance_input_min_deg": 55.52426847055848,
+        "swing_input_min_deg": 53.52042788289961
+      },
+      "below_source_regression_margins": {
+        "stance_output_min_deg": {
+          "measured": 40.34305264616027,
+          "required": 45
+        },
+        "swing_output_min_deg": {
+          "measured": 32.99253749525368,
+          "required": 35
+        },
+        "straightening_clearance_min_mm": {
+          "measured": 2.653003964923471,
+          "required": 3
+        }
+      }
+    },
+    "walk/steering_update": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 100,
+        "forward": 100,
+        "turn": 0
+      },
+      "updates": [
+        {
+          "at_ms": 6000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 100,
+            "forward": 75,
+            "turn": 75,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 12000,
+          "command": {
+            "t": "intent",
+            "seq": 3,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 100,
+            "forward": -75,
+            "turn": -75,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 4,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "forward": 100,
+            "turn": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1157,
+      "sampled_seconds": 23.12,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        292.236547181,
+        12.9183544445,
+        0.0
+      ],
+      "target_yaw_change_degrees": -11.245230870721558,
+      "body_translation_z_range_mm": [
+        -8.72749667209,
+        -7.27250118018
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 0,
+        "1": 0,
+        "2": 113,
+        "3": 502,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        167.46457478058915,
+        1725.876702850274
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.307778197185,
+      "peak_sampled_joint_speed_degrees_s": 545.3769448471451,
+      "leverage": {
+        "checked_leg_poses": 9252,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.555693385745329,
+        "stance_output_min_deg": 44.51904805793878,
+        "swing_output_min_deg": 38.24404142428705,
+        "stance_input_min_deg": 58.829067742050064,
+        "swing_input_min_deg": 56.94509740005065
+      },
+      "below_source_regression_margins": {
+        "stance_output_min_deg": {
+          "measured": 44.51904805793878,
+          "required": 45
+        }
+      }
+    },
+    "walk/run_transition": {
+      "initial": {
+        "t": "intent",
+        "seq": 1,
+        "name": "walk",
+        "steps": 0,
+        "gait": "walk",
+        "dir": "fwd",
+        "speed": 50
+      },
+      "updates": [
+        {
+          "at_ms": 6000,
+          "command": {
+            "t": "intent",
+            "seq": 2,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 200,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 12000,
+          "command": {
+            "t": "intent",
+            "seq": 3,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 75,
+            "update": 1
+          }
+        },
+        {
+          "at_ms": 20000,
+          "command": {
+            "t": "intent",
+            "seq": 4,
+            "name": "walk",
+            "steps": 0,
+            "gait": "walk",
+            "dir": "fwd",
+            "speed": 0,
+            "update": 1
+          }
+        }
+      ],
+      "sampler_returncode": 0,
+      "sampler_error": "",
+      "samples": 1166,
+      "sampled_seconds": 23.3,
+      "finish_completed": true,
+      "final_contacts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "target_body_translation_delta_mm": [
+        2398.91228359,
+        0.0,
+        0.0
+      ],
+      "target_yaw_change_degrees": 0.0,
+      "body_translation_z_range_mm": [
+        -10.9992584689,
+        -5.00213879127
+      ],
+      "support_sample_window": "phase >= 4, time < 20 s; target contact schedule, not sensed contact",
+      "support_sample_counts": {
+        "0": 23,
+        "1": 56,
+        "2": 330,
+        "3": 316,
+        "4": 0
+      },
+      "maximum_planted_target_xy_step_mm": 0.0,
+      "reference_unmirrored_pulse_span_us": [
+        74.36917228599566,
+        1830.984240224264
+      ],
+      "reference_pulse_scope": "Shared source mounting references only; installed signs, offsets and limits were not read.",
+      "minimum_clock_scale": 0.381365031543,
+      "peak_sampled_joint_speed_degrees_s": 543.9617296508274,
+      "leverage": {
+        "checked_leg_poses": 9324,
+        "branch_reversals": 0,
+        "minimum_straightening_clearance_mm": 3.707916057541702,
+        "stance_output_min_deg": 45.11204477088701,
+        "swing_output_min_deg": 39.06254557374876,
+        "stance_input_min_deg": 45.20293336758633,
+        "swing_input_min_deg": 39.21043788732609
+      },
+      "below_source_regression_margins": {}
+    }
+  }
+}

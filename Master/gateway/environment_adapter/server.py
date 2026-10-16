@@ -5,6 +5,7 @@ import base64
 import hmac
 import json
 import math
+from pathlib import Path
 import struct
 from collections.abc import Coroutine
 from dataclasses import dataclass
@@ -20,15 +21,17 @@ from gateway.plugins import (
     AudioUtterancePlugin,
     robot_utterance_id,
 )
+from gateway.security import _atomic_secure_json, _read_json
 from gateway.perception import RecognitionResult
-from gateway.server.service import ActionExpiredError, GatewayError, GatewayService
+from gateway.server.service import CONTROL_STALE_SECONDS, ActionExpiredError, GatewayError, GatewayService
 from gateway.body_capabilities import body_commands, expression_library
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
-from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
+from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, WALK_LATERAL_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
 from websockets.exceptions import ConnectionClosed
 
 from .speech_transport import (
     SpeechAudioMessage,
+    play_computer_speech,
     paced_speaker_frames,
     parse_speech_audio_message,
 )
@@ -39,6 +42,9 @@ from .translation import (
     SUPPORTED_ROBOT_COMMANDS,
     BridgeAction,
     translate_environment_action,
+    is_locomotion_translation,
+    locomotion_commands,
+    valid_locomotion_goal,
 )
 from .action_receipts import ActionConflictError, ActionReceipts
 
@@ -115,11 +121,22 @@ class EnvironmentAdapter:
         self.clock = clock
         self.utcnow = utcnow
         self.receipts = ActionReceipts(config.receipt_path)
+        self._speech_settings_path = Path(config.receipt_path).with_name('speech-output.json') if config.receipt_path != ':memory:' else None
+        self._speech_target = (_read_json(self._speech_settings_path)['playbackTarget']
+            if self._speech_settings_path and self._speech_settings_path.exists() else 'robot')
+        self._computer_speech: dict[str, asyncio.Task[None]] = {}
+        self._locomotion_yaw: dict[str, dict[str, object]] = {}
+        self._ground_range_selection: dict[str, object] | None = None
+        self._ground_range_measurement: dict[str, object] | None = None
+        self.locomotion_measurement: Callable[..., dict[str, object]] | None = None
+        self.selected_ground_range: Callable[..., dict[str, object]] | None = None
         self.recognition_status: Callable[[], dict[str, object]] | None = None
+        self.vision_operation = None
         self._websocket: Any | None = None
         self._send_lock = asyncio.Lock()
         self._cancelling_actions: set[str] = set()
         self._camera_observation_count = 0
+        self._latest_camera_frame: dict[str, object] | None = None
         self._pending_snapshot_context: dict[str, object] | None = None
         self._pending_snapshot_key: tuple[str, int, int] | None = None
         self._robot_action_contexts: dict[
@@ -183,13 +200,15 @@ class EnvironmentAdapter:
             if not future.done():
                 future.cancel()
 
-    async def speech_output_settings(self, output_target: str | None = None) -> dict[str, object]:
-        if output_target is not None and output_target not in {"local", "robot"}:
-            raise ValueError("outputTarget must be local or robot")
-        result = await self._request_settings("speech.settings", {} if output_target is None else {"outputTarget": output_target})
-        if result.get("outputTarget") not in {"local", "robot"}:
-            raise GatewayError("MetaHuman returned invalid speech settings")
-        return {key: result[key] for key in ("outputTarget", "username", "provider", "speechDisabled") if key in result}
+    async def speech_output_settings(self, playback_target: str | None = None) -> dict[str, object]:
+        if playback_target is not None:
+            if playback_target not in {'robot', 'computer'}:
+                raise ValueError('playbackTarget must be robot or computer')
+            if self._speech_settings_path:
+                await asyncio.to_thread(_atomic_secure_json, self._speech_settings_path, {'playbackTarget': playback_target})
+            self._speech_target = playback_target
+            await self._send_observation()
+        return {'playbackTarget': self._speech_target}
 
     async def behavior_settings(self, enabled: bool | None = None) -> dict[str, object]:
         result = await self._request_settings("behavior.settings", {} if enabled is None else {"enabled": enabled})
@@ -255,100 +274,16 @@ class EnvironmentAdapter:
             }
         )
         self._bridge_ready = ready_sent
-        if ready_sent:
-            await self._recover_action_receipts()
-            await self._replay_pending_feedback()
         try:
-            async for raw in websocket:
-                if isinstance(raw, bytes):
-                    try:
-                        speech = parse_speech_audio_message(
-                            raw,
-                            expected_session_id=self.config.session_id,
-                        )
-                    except ValueError:
-                        await websocket.close(
-                            code=1002,
-                            reason="malformed environment speech frame",
-                        )
-                        return
-                    accepted = self._feedback(
-                        speech.action_id,
-                        "accepted",
-                        "accepted",
-                        command="speak",
-                    )
-                    try:
-                        accepted = await asyncio.to_thread(self.receipts.receive, {"id": speech.action_id, "type": "speechAudio", "sessionId": speech.session_id,
-                            "speechId": speech.speech_id, "durationMs": speech.duration_ms, "pcm": base64.b64encode(speech.pcm).decode("ascii")}, accepted)
-                    except ActionConflictError as error:
-                        await self._send({"type": "environment.protocol_error", "version": ADAPTER_PROTOCOL_VERSION,
-                            "actionId": speech.action_id, "message": str(error)})
-                        continue
-                    await self._send_feedback(accepted)
-                    continue
-                message = self._decode_message(raw)
-                if message.get("type") in {"speech.settings.result", "behavior.settings.result"}:
-                    request_id = message.get("requestId")
-                    future = self._settings_requests.get(request_id) if isinstance(request_id, str) else None
-                    if self._websocket is websocket and future is not None and not future.done():
-                        future.set_result(message)
-                    continue
-                if message.get("type") == "environment.feedback.ack":
-                    feedback_id = message.get("feedbackId")
-                    if isinstance(feedback_id, str):
-                        await self._acknowledge_feedback(
-                            feedback_id,
-                            admitted=message.get("admitted") is True,
-                        )
-                    continue
-                if message.get("type") == "audio.utterance.result":
-                    self._last_audio_result = {
-                        key: value
-                        for key, value in message.items()
-                        if key in {"utteranceId", "status", "message", "timestamp"}
-                    }
-                    continue
-                if message.get("type") == "environment.observation.ack":
-                    if message.get("admitted") is True and isinstance(message.get("observationId"), str):
-                        await asyncio.to_thread(self.receipts.acknowledge, message["observationId"])
-                    continue
-                if message.get("type") == "environment.cancel":
-                    task = asyncio.create_task(self._cancel_action(message))
-                    self._action_tasks.add(task)
-                    task.add_done_callback(self._action_finished)
-                    continue
-                if message.get("type") == "environment.action.update":
-                    await self._schedule_walk_update(message, websocket)
-                    continue
-                if message.get("type") != "environment.action":
-                    continue
-                action = message.get("action")
-                if not isinstance(action, dict):
-                    continue
-                action_id = action.get("id")
-                if isinstance(action_id, str) and action_id:
-                    accepted = self._feedback(
-                        action_id,
-                        "accepted",
-                        "accepted",
-                        command=str(action.get("type", "environment.action")),
-                    )
-                    try:
-                        accepted = await asyncio.to_thread(self.receipts.receive, action, accepted)
-                    except ActionConflictError as error:
-                        await self._send({"type": "environment.protocol_error", "version": ADAPTER_PROTOCOL_VERSION,
-                            "actionId": action_id, "message": str(error)})
-                        continue
-                    except GatewayError as error:
-                        # Rejection is a delivery response, not a replacement for
-                        # an existing action's immutable terminal receipt.
-                        await self._send({"type": "environment.feedback", "version": ADAPTER_PROTOCOL_VERSION,
-                            "sessionId": self.config.session_id, "feedback": self._feedback(action_id, "rejected", str(error))})
-                        continue
-                    await self._send_feedback(accepted)
-        except ConnectionClosed:
-            pass
+            async with asyncio.TaskGroup() as tasks:
+                recovery = tasks.create_task(self._restore_connection(websocket)) if ready_sent else None
+                try:
+                    await self._receive_messages(websocket)
+                except ConnectionClosed:
+                    pass
+                finally:
+                    if recovery is not None:
+                        recovery.cancel()
         finally:
             if self._websocket is websocket:
                 self._bridge_ready = False
@@ -369,6 +304,108 @@ class EnvironmentAdapter:
                         return_exceptions=True,
                     )
                 self._microphone_level_task = None
+
+    async def _restore_connection(self, websocket: Any) -> None:
+        # Read ACKs concurrently with replay; recovery produces only missing
+        # results after the pre-existing delivery snapshot has been sent.
+        await self._replay_pending_feedback(websocket)
+        if self._websocket is websocket and not websocket.closed:
+            await self._recover_action_receipts()
+
+    async def _receive_messages(self, websocket: Any) -> None:
+        async for raw in websocket:
+            if isinstance(raw, bytes):
+                try:
+                    speech = parse_speech_audio_message(
+                        raw,
+                        expected_session_id=self.config.session_id,
+                    )
+                except ValueError:
+                    await websocket.close(
+                        code=1002,
+                        reason="malformed environment speech frame",
+                    )
+                    return
+                accepted = self._feedback(
+                    speech.action_id,
+                    "accepted",
+                    "accepted",
+                    command="speak",
+                )
+                try:
+                    accepted = await asyncio.to_thread(self.receipts.receive, {"id": speech.action_id, "type": "speechAudio", "sessionId": speech.session_id,
+                        "speechId": speech.speech_id, "durationMs": speech.duration_ms, "pcm": base64.b64encode(speech.pcm).decode("ascii")}, accepted)
+                except ActionConflictError as error:
+                    await self._send({"type": "environment.protocol_error", "version": ADAPTER_PROTOCOL_VERSION,
+                        "actionId": speech.action_id, "message": str(error)})
+                    continue
+                await self._send_feedback(accepted)
+                continue
+            message = self._decode_message(raw)
+            if message.get("type") == "environment.visual.read":
+                task = asyncio.create_task(self._read_camera_visual(message, websocket=websocket))
+                self._action_tasks.add(task)
+                task.add_done_callback(self._action_finished)
+                continue
+            if message.get("type") == "behavior.settings.result":
+                request_id = message.get("requestId")
+                future = self._settings_requests.get(request_id) if isinstance(request_id, str) else None
+                if self._websocket is websocket and future is not None and not future.done():
+                    future.set_result(message)
+                continue
+            if message.get("type") == "environment.feedback.ack":
+                feedback_id = message.get("feedbackId")
+                if isinstance(feedback_id, str):
+                    await self._acknowledge_feedback(
+                        feedback_id,
+                        admitted=message.get("admitted") is True,
+                    )
+                continue
+            if message.get("type") == "audio.utterance.result":
+                self._last_audio_result = {
+                    key: value
+                    for key, value in message.items()
+                    if key in {"utteranceId", "status", "message", "timestamp"}
+                }
+                continue
+            if message.get("type") == "environment.observation.ack":
+                if message.get("admitted") is True and isinstance(message.get("observationId"), str):
+                    await asyncio.to_thread(self.receipts.acknowledge, message["observationId"])
+                continue
+            if message.get("type") == "environment.cancel":
+                task = asyncio.create_task(self._cancel_action(message))
+                self._action_tasks.add(task)
+                task.add_done_callback(self._action_finished)
+                continue
+            if message.get("type") == "environment.action.update":
+                await self._schedule_walk_update(message, websocket)
+                continue
+            if message.get("type") != "environment.action":
+                continue
+            action = message.get("action")
+            if not isinstance(action, dict):
+                continue
+            action_id = action.get("id")
+            if isinstance(action_id, str) and action_id:
+                accepted = self._feedback(
+                    action_id,
+                    "accepted",
+                    "accepted",
+                    command=str(action.get("type", "environment.action")),
+                )
+                try:
+                    accepted = await asyncio.to_thread(self.receipts.receive, action, accepted)
+                except ActionConflictError as error:
+                    await self._send({"type": "environment.protocol_error", "version": ADAPTER_PROTOCOL_VERSION,
+                        "actionId": action_id, "message": str(error)})
+                    continue
+                except GatewayError as error:
+                    # Rejection is a delivery response, not a replacement for
+                    # an existing action's immutable terminal receipt.
+                    await self._send({"type": "environment.feedback", "version": ADAPTER_PROTOCOL_VERSION,
+                        "sessionId": self.config.session_id, "feedback": self._feedback(action_id, "rejected", str(error))})
+                    continue
+                await self._send_feedback(accepted)
 
     async def _schedule_walk_update(self, request: dict[str, Any], websocket: Any) -> None:
         # Backpressure is explicit: one in-flight update, no update task queue.
@@ -411,8 +448,8 @@ class EnvironmentAdapter:
             if type(request.get("epoch")) is not int:
                 raise GatewayError("walk update requires the robot epoch")
             controls = request.get("controls")
-            if not isinstance(controls, dict) or set(controls) - {"forward", "turn"} not in ({"speed"}, {"stride", "rate"}):
-                raise GatewayError("walk update controls require speed OR stride and rate, optionally forward and turn")
+            if not isinstance(controls, dict) or set(controls) - {"forward", "turn", "lateral"} not in ({"speed"}, {"stride", "rate"}):
+                raise GatewayError("walk update controls require speed OR stride and rate, optionally forward, turn and lateral")
             robot = self._walk_update_robot(request)
             row = await asyncio.to_thread(self.receipts.action, action_id)
             if row is None or row["state"] != "started" or row["wire"] is None:
@@ -485,6 +522,9 @@ class EnvironmentAdapter:
         await self._send_payload(websocket, json.dumps(result, separators=(",", ":")))
 
     async def _process_speech_audio(self, speech: SpeechAudioMessage) -> None:
+        if self._speech_target == 'computer':
+            await self._process_computer_speech(speech)
+            return
         robot_id, robot = self._selected_robot()
         if robot is None:
             feedback = self._feedback(
@@ -525,6 +565,8 @@ class EnvironmentAdapter:
                     robot_id=robot_id,
                     epoch=epoch,
                 )
+            except asyncio.CancelledError:
+                feedback = self._feedback(speech.action_id, "cancelled", "speech delivery interrupted", command="speak")
             except (GatewayError, TimeoutError, ConnectionClosed, OSError) as error:
                 feedback = self._feedback(
                     speech.action_id,
@@ -535,6 +577,31 @@ class EnvironmentAdapter:
                 )
         feedback = await self._send_feedback(feedback)
         await self._send_observation(feedback=[feedback])
+
+    async def _process_computer_speech(self, speech: SpeechAudioMessage) -> None:
+        previous = list(self._computer_speech.values())
+        self._computer_speech[speech.action_id] = asyncio.current_task()
+        try:
+            try:
+                for task in previous:
+                    task.cancel()
+                if previous:
+                    await asyncio.gather(*previous, return_exceptions=True)
+                async with self.receipts.dispatch(speech.action_id,
+                        {'kind': 'computer-speech', 'gatewayInstance': self.gateway.instance_id}):
+                    # Playback starts only after this action's dispatch is recorded.
+                    pass
+                await play_computer_speech(speech.pcm)
+                feedback = self._feedback(speech.action_id, 'completed', 'speech_played', command='speak')
+            except asyncio.CancelledError:
+                feedback = self._feedback(speech.action_id, 'cancelled', 'computer speech cancelled', command='speak')
+            except (OSError, GatewayError) as error:
+                feedback = self._feedback(speech.action_id, 'rejected', str(error), command='speak')
+            feedback['data']['playbackTarget'] = 'computer'
+            feedback = await self._send_feedback(feedback)
+            await self._send_observation(feedback=[feedback])
+        finally:
+            self._computer_speech.pop(speech.action_id, None)
 
     async def _process_environment_action(self, action: dict[str, Any], *, resume: dict[str, Any] | None = None) -> None:
         action_id = action.get("id")
@@ -570,6 +637,11 @@ class EnvironmentAdapter:
             row = await asyncio.to_thread(self.receipts.action, action_id) if isinstance(action_id, str) else None
             if row is not None and row["state"] == "terminal" and row["result"]:
                 feedback = json.loads(row["result"])
+            elif row is not None and feedback["type"] == "outcome_unknown":
+                feedback = self._ended_action_session(row) or feedback
+            if (resume is not None and row is not None and row["result"]
+                and row["observation_recorded"] and json.loads(row["result"])["id"] == feedback["id"]):
+                return
             visual: dict[str, object] | None = None
             if (
                 visual_future is not None
@@ -632,6 +704,16 @@ class EnvironmentAdapter:
                 "rejected",
                 f"unsupported_action:{action.get('type')}",
             )
+        if is_locomotion_translation(translated):
+            goal = action.get("locomotionGoal")
+            if not valid_locomotion_goal(goal):
+                return self._feedback(action_id, "rejected", "locomotion_goal_required")
+            if ("units" in action or "amount" in action or action.get("durationMs", 0) != 0
+                or action.get("continuous", True) is not True):
+                return self._feedback(action_id, "rejected", "locomotion_goal_conflicts_with_finite_controls")
+            # Goal completion belongs to the existing task owner, which sends Finish.
+            # Manual translation keeps its finite-cycle semantics.
+            translated = translate_environment_action({**action, "continuous": True}, model=(self._selected_robot()[1] or {}).get("model"))
         if translated.kind == "text":
             await self.gateway.publish_transcript(
                 {
@@ -978,6 +1060,23 @@ class EnvironmentAdapter:
             self._pending_snapshot_context = None
 
     async def _handle_gateway_event(self, event: dict[str, object]) -> None:
+        if event.get("t") == "locomotion_measurement":
+            if event.get("robot_id") == self._selected_robot()[0]:
+                if self._ground_range_selection is not None and self.selected_ground_range is not None:
+                    selected = self._ground_range_selection
+                    measurement = await self.selected_ground_range(selected["frameId"], selected["groundContact"])
+                    self._ground_range_measurement = {**measurement, **{key: selected[key] for key in ("trackId", "queryId") if key in selected}}
+                await self._send_telemetry("robot.status", {"robot_id": event.get("robot_id"), "epoch": event.get("epoch"),
+                    "locomotionMeasurement": self._observation()["state"]["locomotionMeasurement"]})
+            return
+        if event.get("t") == "imu":
+            if event.get("robot_id") == self._selected_robot()[0]:
+                await self._send_telemetry("robot.status", {**{key: event[key]
+                    for key in ("robot_id", "epoch", "imu") if key in event},
+                    "locomotionMeasurement": self._observation()["state"]["locomotionMeasurement"]})
+            return
+        if event.get("name") == "body_event" and event.get("robot_id") != self._selected_robot()[0]:
+            return
         if event.get("t") == "status":
             await self._send_telemetry(
                 "robot.status",
@@ -1000,6 +1099,13 @@ class EnvironmentAdapter:
                         "wake_enabled",
                         "wake_model",
                         "wake_ready",
+                        "output_ready",
+                        "output_armed",
+                        "output_fault",
+                        "power_monitor_ready",
+                        "status_received_at",
+                        "imu",
+                        "balance",
                     }
                 },
             )
@@ -1093,7 +1199,9 @@ class EnvironmentAdapter:
                     },
                 )
             return
-        await self._send_observation(body_event=event)
+        await self._send_observation(body_event=event, metadata=(
+            {"perceptionEvent": "body_event"} if event.get("name") == "body_event" else None
+        ))
         if event.get("t") == "connection":
             await self._recover_action_receipts()
 
@@ -1155,6 +1263,9 @@ class EnvironmentAdapter:
         counter = frame.get("counter")
         if type(counter) is not int:
             return
+        robot_id, robot = self._selected_robot()
+        if robot is not None and frame.get("robot_id") == robot_id and frame.get("epoch") == robot.get("epoch"):
+            self._latest_camera_frame = {**frame, "timestamp": self._frame_timestamp(frame)}
         snapshot_key = self._snapshot_key(frame, counter)
         snapshot_context = (
             self._robot_snapshot_contexts.pop(snapshot_key, None)
@@ -1214,18 +1325,15 @@ class EnvironmentAdapter:
             finally:
                 queue.task_done()
 
-    async def _deliver_camera_frame(
+    def _camera_visual(
         self,
         frame: Mapping[str, object],
         snapshot_context: dict[str, object],
-    ) -> None:
-        payload = frame.get("payload")
-        if not isinstance(payload, bytes):
-            self._resolve_action_visual(snapshot_context, None)
-            return
-        visual = {
+    ) -> dict[str, object]:
+        payload = frame["payload"]
+        return {
             "id": f"ainekio-camera-{self.gateway.instance_id}-{frame.get('robot_id')}-{frame.get('epoch')}-{frame.get('counter')}",
-            "timestamp": self.utcnow().isoformat(),
+            "timestamp": frame.get("timestamp") or self._frame_timestamp(frame),
             "mimeType": "image/jpeg",
             "dataUrl": f"data:image/jpeg;base64,{base64.b64encode(payload).decode('ascii')}",
             "source": "robot-camera",
@@ -1243,6 +1351,58 @@ class EnvironmentAdapter:
                 },
             },
         }
+
+    def _frame_timestamp(self, frame: Mapping[str, object]) -> str:
+        received_at = frame.get("received_at")
+        age = self.gateway.clock() - received_at if isinstance(received_at, (int, float)) else 0
+        return (self.utcnow() - timedelta(seconds=age)).isoformat()
+
+    async def _read_camera_visual(self, message: Mapping[str, object], *, websocket=None) -> None:
+        websocket = websocket if websocket is not None else self._websocket
+        response: dict[str, object] = {
+            "type": "environment.visual.result", "version": ADAPTER_PROTOCOL_VERSION,
+            "requestId": message.get("requestId"), "sessionId": self.config.session_id,
+        }
+        if message.get("version") != ADAPTER_PROTOCOL_VERSION or message.get("sessionId") != self.config.session_id:
+            response["error"] = "Camera read does not match this bridge session"
+        elif message.get("operation") is not None:
+            try:
+                if message.get("operation") == "groundRange":
+                    if self.selected_ground_range is None:
+                        robot_id, robot = self._selected_robot()
+                        response["vision"] = {"locomotionMeasurement": {"target": {"available": False,
+                            "reason": "ground_range_unavailable", "robotId": robot_id, "sessionId": self.config.session_id,
+                            "epoch": robot.get("epoch") if robot else None, "gatewayInstance": self.gateway.instance_id}}}
+                    else:
+                        selected = {key: message[key] for key in ("frameId", "groundContact", "trackId", "queryId") if key in message}
+                        measurement = await self.selected_ground_range(selected["frameId"], selected["groundContact"], message["sourceFrame"]) if "sourceFrame" in message else await self.selected_ground_range(selected["frameId"], selected["groundContact"])
+                        self._ground_range_selection = selected
+                        self._ground_range_measurement = {**measurement, **{key: selected[key] for key in ("trackId", "queryId") if key in selected}}
+                        response["vision"] = {"locomotionMeasurement": {"target": self._observation()["state"]["locomotionMeasurement"]["target"]}}
+                else:
+                    if self.vision_operation is None:
+                        raise ValueError("Vision target configuration is not available")
+                    response["vision"] = await self.vision_operation(dict(message))
+            except Exception as error:
+                response["error"] = str(error)
+        else:
+            robot_id, robot = self._selected_robot()
+            frame = self._latest_camera_frame
+            response["visual"] = self._camera_visual(frame, {}) if (
+                frame is not None and robot is not None
+                and frame.get("robot_id") == robot_id and frame.get("epoch") == robot.get("epoch")
+            ) else None
+        await self._send(response, websocket=websocket)
+
+    async def _deliver_camera_frame(
+        self,
+        frame: Mapping[str, object],
+        snapshot_context: dict[str, object],
+    ) -> None:
+        if not isinstance(frame.get("payload"), bytes):
+            self._resolve_action_visual(snapshot_context, None)
+            return
+        visual = self._camera_visual(frame, snapshot_context)
         if self._resolve_action_visual(snapshot_context, visual):
             return
         await self._send_observation(
@@ -1331,9 +1491,56 @@ class EnvironmentAdapter:
                 "observation": observation,
         }
         action_id = str(feedback[0]["actionId"]) if feedback and feedback[0].get("actionId") else None
-        if action_id or text or visual:
+        if action_id or text or visual or (body_event and body_event.get("name") == "body_event"):
             envelope = await asyncio.to_thread(self.receipts.queue, str(observation["id"]), action_id, envelope)
         await self._send(envelope)
+
+    def _yaw_measurement(self, robot_id: str | None, robot: Mapping[str, object] | None) -> dict[str, object]:
+        status = robot.get("status") if robot else None
+        imu = status.get("imu") if isinstance(status, Mapping) else None
+        base = {"source": "body-imu", "robotId": robot_id, "sessionId": self.config.session_id,
+            "gatewayInstance": self.gateway.instance_id,
+            "epoch": robot.get("epoch") if robot else None, "uncertaintyDegrees": None}
+        if robot is not None and robot.get("connection_state") == "stale":
+            self._locomotion_yaw.pop(str(robot_id), None)
+            return {**base, "available": False, "reason": "body_connection_stale"}
+        if not isinstance(imu, Mapping):
+            self._locomotion_yaw.pop(str(robot_id), None)
+            return {**base, "available": False, "reason": "imu_unavailable"}
+        base.update({"observedAt": imu.get("received_at"), "timestampUs": imu.get("timestamp_us"),
+            "bootId": imu.get("boot_id"), "clock": "gateway-receipt", "imu": dict(imu)})
+        received_at = imu.get("received_at")
+        try:
+            observed_at = datetime.fromisoformat(received_at.replace("Z", "+00:00")) if isinstance(received_at, str) else None
+        except ValueError:
+            observed_at = None
+        if observed_at is None or observed_at.tzinfo is None:
+            self._locomotion_yaw.pop(str(robot_id), None)
+            return {**base, "available": False, "reason": "body_orientation_timestamp_unavailable"}
+        expires_at = observed_at + timedelta(seconds=CONTROL_STALE_SECONDS)
+        base["expiresAt"] = expires_at.isoformat()
+        if self.utcnow() >= expires_at:
+            self._locomotion_yaw.pop(str(robot_id), None)
+            return {**base, "available": False, "reason": "body_orientation_expired"}
+        quaternion = imu.get("orientation_wxyz")
+        if (imu.get("available") is not True or imu.get("fresh") is not True
+            or imu.get("frame") != "body_nominal" or not isinstance(quaternion, list) or len(quaternion) != 4):
+            self._locomotion_yaw.pop(str(robot_id), None)
+            return {**base, "available": False, "reason": "body_orientation_unavailable"}
+        w, x, y, z = quaternion
+        heading = math.degrees(math.atan2(2 * (w*z + x*y), 1 - 2 * (y*y + z*z)))
+        key = (robot.get("epoch"), imu.get("boot_id"))
+        previous = self._locomotion_yaw.get(str(robot_id))
+        if previous is None or previous["key"] != key or observed_at >= previous["expiresAt"]:
+            previous = {"key": key, "heading": heading, "degrees": heading,
+                "timestamp": imu.get("timestamp_us"),
+                "referenceId": f"{self.gateway.instance_id}:{robot_id}:{key}:{imu.get('timestamp_us')}"}
+        elif imu.get("timestamp_us") != previous["timestamp"]:
+            previous = {**previous, "degrees": previous["degrees"] + (heading - previous["heading"] + 180) % 360 - 180,
+                "heading": heading, "timestamp": imu.get("timestamp_us")}
+        previous["expiresAt"] = expires_at
+        self._locomotion_yaw[str(robot_id)] = previous
+        return {**base, "available": True, "referenceId": previous["referenceId"], "degrees": previous["degrees"]}
 
     def _observation(
         self,
@@ -1356,7 +1563,7 @@ class EnvironmentAdapter:
         updates_available = bool(motion_ready and robot and robot.get("model") == "v2-12servo"
             and {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
             and robot.get("connection_state") == "online")
-        speaker_ready = body_authenticated and (not isinstance(declared, Mapping) or declared.get("speaker") is True)
+        speaker_ready = self._speech_target == "computer" or (body_authenticated and (not isinstance(declared, Mapping) or declared.get("speaker") is True))
         body_status = robot.get("status") if robot is not None else None
         camera_ready = (
             body_authenticated
@@ -1378,6 +1585,7 @@ class EnvironmentAdapter:
                 "cameraReady": camera_ready,
                 "microphoneReady": declared.get("microphone") if isinstance(declared, Mapping) else None,
                 "speakerReady": speaker_ready,
+                "speechPlaybackTarget": self._speech_target,
             },
             "gateway": gateway_status,
             "recognition": ({**self.recognition_status(), "reportedAt": self.utcnow().isoformat()}
@@ -1389,7 +1597,8 @@ class EnvironmentAdapter:
                 "gatewayInstance": self.gateway.instance_id,
                 "maxValidityMs": MAX_WALK_UPDATE_VALIDITY_MS,
                 "controls": (["speed", "stride", "rate"] + (["forward", "turn"]
-                    if WALK_STEERING_FEATURE in robot.get("features", []) else [])) if updates_available else [],
+                    if WALK_STEERING_FEATURE in robot.get("features", []) else []) + (["lateral"]
+                    if {WALK_STEERING_FEATURE, WALK_LATERAL_FEATURE}.issubset(robot.get("features", [])) else [])) if updates_available else [],
                 "robotId": robot_id, "epoch": robot.get("epoch") if robot else None,
                 "maxInFlight": 1,
             },
@@ -1398,7 +1607,7 @@ class EnvironmentAdapter:
             state["bodyEvent"] = {
                 key: value
                 for key, value in body_event.items()
-                if key in {"t", "name", "status", "robot_id", "epoch"}
+                if key in {"t", "name", "status", "robot_id", "epoch", "event_id", "data"}
             }
         if self._last_audio_result is not None:
             state["lastAudioResult"] = dict(self._last_audio_result)
@@ -1413,6 +1622,33 @@ class EnvironmentAdapter:
             robot_commands = list(LEGACY_ROBOT_COMMANDS) if supported is None else [
                 name for name in SUPPORTED_ROBOT_COMMANDS if name in supported
             ]
+        gait_commands = locomotion_commands(robot_commands, str(robot.get("model")) if robot else None)
+        robot_commands = [command for command in robot_commands if command not in gait_commands]
+        measurement = self.locomotion_measurement(robot_id) if self.locomotion_measurement is not None else {
+            "available": False, "reason": "locomotion_measurement_not_configured", "robotId": robot_id}
+        position = {**measurement, **(measurement.get("position") if isinstance(measurement.get("position"), Mapping) else {}),
+            "sessionId": self.config.session_id, "observedAt": measurement.get("frameTimestamp", measurement.get("observedAt"))}
+        position.pop("position", None)
+        position.pop("camera", None)
+        if robot is None or measurement.get("robotId") != robot_id or measurement.get("epoch") != robot.get("epoch"):
+            position.update({"available": False, "reason": position.get("reason") or "measurement_session_changed"})
+        position.update({"sourceRobotId": measurement.get("robotId"), "sourceEpoch": measurement.get("epoch"),
+            "robotId": robot_id, "epoch": robot.get("epoch") if robot else None, "gatewayInstance": self.gateway.instance_id})
+        state["locomotionMeasurement"] = {"position": position, "yaw": self._yaw_measurement(robot_id, robot)}
+        if isinstance(measurement.get("camera"), Mapping):
+            camera = {**measurement["camera"], "sessionId": self.config.session_id}
+            if robot is None or camera.get("robotId") != robot_id or camera.get("epoch") != robot.get("epoch"):
+                camera.update({"available": False, "reason": camera.get("reason") or "measurement_session_changed"})
+            camera.update({"sourceRobotId": camera.get("robotId"), "sourceEpoch": camera.get("epoch"),
+                "robotId": robot_id, "epoch": robot.get("epoch") if robot else None, "gatewayInstance": self.gateway.instance_id})
+            state["locomotionMeasurement"]["camera"] = camera
+        if self._ground_range_measurement is not None:
+            target = {**self._ground_range_measurement, "sessionId": self.config.session_id}
+            if robot is None or target.get("robotId") != robot_id or target.get("epoch") != robot.get("epoch"):
+                target.update({"available": False, "reason": target.get("reason") or "measurement_session_changed"})
+            target.update({"sourceRobotId": target.get("robotId"), "sourceEpoch": target.get("epoch"),
+                "robotId": robot_id, "epoch": robot.get("epoch") if robot else None, "gatewayInstance": self.gateway.instance_id})
+            state["locomotionMeasurement"]["target"] = target
         if camera_ready:
             actions.append("captureImage")
         if self._motion_plan_available(gateway_status):
@@ -1427,6 +1663,7 @@ class EnvironmentAdapter:
                 "expressionLibrary": expressions,
                 "expressionFeedback": expression_feedback,
                 "robotCommands": robot_commands,
+                "locomotion": {"commands": gait_commands, "lateral": bool(robot and {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, WALK_LATERAL_FEATURE}.issubset(robot.get("features", []))), "goalKinds": ["distance", "relativeTurn", "approach", "follow", "visual"] if gait_commands else []},
                 "robotCommandDescriptions": {
                     command: (V2_COMMAND_DESCRIPTIONS.get(command, ROBOT_COMMAND_DESCRIPTIONS[command]) if robot and robot.get("model") == "v2-12servo" else ROBOT_COMMAND_DESCRIPTIONS[command])
                     for command in robot_commands
@@ -1507,13 +1744,22 @@ class EnvironmentAdapter:
             "sessionId": self.config.session_id, "feedback": dict(feedback),
         })
         if self._bridge_ready:
-            await self._replay_pending_feedback()
+            await self._send(envelope)
         return envelope["feedback"]
 
     async def _recover_action_receipts(self) -> None:
         for row in await asyncio.to_thread(self.receipts.recoverable):
             if row["id"] in self._active_action_ids:
                 continue
+            if row["result"]:
+                wire = json.loads(row["wire"]) if row["wire"] else {}
+                # Keep historical uncertainty without replaying it. A newly
+                # authenticated body session can now end the old ownership.
+                if row["state"] == "terminal" or (wire.get("gatewayInstance") != self.gateway.instance_id
+                    and self._ended_action_session(row) is None):
+                    if not row["observation_recorded"]:
+                        await self._send_observation(feedback=[json.loads(row["result"])], metadata={"actionId": row["id"]})
+                    continue
             if row["state"] == "received":
                 await self._send_feedback(json.loads(row["accepted"]))
             elif row["state"] != "terminal" and row["wire"]:
@@ -1524,6 +1770,36 @@ class EnvironmentAdapter:
                 await self._send_observation(feedback=[feedback], metadata={"actionId": row["id"]})
         await asyncio.to_thread(self.receipts.prune, time() - 30 * 86400)
 
+    def _ended_action_session(self, row: Mapping[str, Any]) -> dict[str, Any] | None:
+        """Report ended execution separately from its unobserved physical outcome."""
+        wire = json.loads(row["wire"]) if row["wire"] else {}
+        previous = {key: wire.get(key) for key in ("gatewayInstance", "robotId", "epoch")}
+        same_gateway = wire.get("gatewayInstance") == self.gateway.instance_id
+        if wire.get("kind") == "computer-speech":
+            if same_gateway:
+                return None
+            current = {"gatewayInstance": self.gateway.instance_id}
+        else:
+            if not isinstance(wire.get("robotId"), str) or type(wire.get("epoch")) is not int or type(wire.get("sequence")) is not int:
+                return None
+            robot = self.gateway.status().get("robots", {}).get(wire["robotId"])
+            if not isinstance(robot, Mapping) or robot.get("connected") is not True or type(robot.get("epoch")) is not int:
+                return None
+            if same_gateway and robot["epoch"] == wire["epoch"]:
+                return None
+            current = {"gatewayInstance": self.gateway.instance_id, "robotId": wire["robotId"], "epoch": robot["epoch"]}
+        command = json.loads(row["payload"])
+        feedback = self._feedback(row["id"], "outcome_unknown",
+            "Execution session ended; earlier physical effect remains unverified",
+            command=command.get("command", command.get("type")),
+            robot_id=wire.get("robotId"), epoch=wire.get("epoch"), sequence=wire.get("sequence"))
+        # This is new evidence, not a rewrite of the earlier uncertain receipt.
+        feedback["id"] += "-execution-ended"
+        feedback["data"].update(executionEnded=True, earlierEffectUnknown=True,
+            sessionReplacement={"previous": previous, "current": current},
+            priorOutcome=json.loads(row["result"]) if row["result"] else None)
+        return feedback
+
     async def _resume_action_receipt(self, row: dict[str, Any]) -> dict[str, object]:
         """Follow the recorded wire command, never dispatch its payload again."""
         wire = json.loads(row["wire"])
@@ -1531,35 +1807,26 @@ class EnvironmentAdapter:
         action_id = row["id"]
         command = json.loads(row["payload"])
         try:
+            if wire.get("kind") == "computer-speech":
+                raise GatewayError("Body Control restarted before computer playback completion was recorded")
             if not isinstance(robot_id, str) or type(epoch) is not int or type(sequence) is not int:
                 raise GatewayError("saved action lacks its robot/session/sequence identity")
-            # Legacy receipts also belong to a previous host session: no new
-            # dispatch omits this ID. Remote timestamps cannot identify a host
-            # process, and a new process can reuse an old epoch and sequence.
-            same_instance = wire.get("gatewayInstance") == self.gateway.instance_id
-            if not same_instance:
-                robot = self.gateway.status().get("robots", {}).get(robot_id)
-                if not isinstance(robot, Mapping) or robot.get("connected") is not True:
-                    raise GatewayError("previous gateway session ended; awaiting authenticated robot reconnection")
-                # Reauthentication establishes a new body session. The previous
-                # control session is over; this does not claim its motion succeeded.
-                feedback = self._feedback(action_id, "outcome_unknown",
-                    "Previous gateway session ended; earlier physical effect remains unverified",
-                    command=command.get("command", command.get("type")), robot_id=robot_id, epoch=epoch, sequence=sequence)
-                feedback["data"]["earlierEffectUnknown"] = True
-                feedback["data"]["priorOutcome"] = json.loads(row["result"]) if row["result"] else None
-            else:
-                terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, epoch=epoch, timeout=None)
-                feedback = self._terminal_feedback(action_id, terminal,
-                    command=command.get("command", command.get("type")), robot_id=robot_id, epoch=epoch, sequence=sequence)
+            if wire.get("gatewayInstance") != self.gateway.instance_id:
+                # Epochs and wire sequences can be reused by a new gateway.
+                raise GatewayError("previous gateway session ended; awaiting authenticated robot reconnection")
+            terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, epoch=epoch, timeout=None)
+            feedback = self._terminal_feedback(action_id, terminal,
+                command=command.get("command", command.get("type")), robot_id=robot_id, epoch=epoch, sequence=sequence)
         except (GatewayError, TimeoutError, ConnectionClosed, OSError, KeyError, ValueError) as error:
             feedback = self._feedback(action_id, "outcome_unknown", str(error) or type(error).__name__,
                 command=command.get("command", command.get("type")), robot_id=robot_id, epoch=epoch, sequence=sequence)
+        if feedback["type"] == "outcome_unknown":
+            return self._ended_action_session(row) or feedback
         return feedback
 
-    async def _replay_pending_feedback(self) -> None:
+    async def _replay_pending_feedback(self, websocket: Any) -> None:
         for envelope in await asyncio.to_thread(self.receipts.pending):
-            sent = await self._send(envelope)
+            sent = await self._send(envelope, websocket=websocket)
             if not sent:
                 return
 
@@ -1578,12 +1845,22 @@ class EnvironmentAdapter:
                 await self._send({"type": "environment.protocol_error", "version": ADAPTER_PROTOCOL_VERSION,
                     "actionId": action_id, "message": str(error)})
                 return
+            ended = self._ended_action_session(row)
             if row["state"] == "terminal":
                 feedback = json.loads(row["result"])
+            elif ended is not None:
+                feedback = await self._resume_action_receipt(row)
             else:
                 try:
                     if row["wire"] is not None:
                         wire = json.loads(row["wire"])
+                        if wire.get('kind') == 'computer-speech':
+                            playback = self._computer_speech.get(action_id)
+                            if playback is not None:
+                                playback.cancel()
+                                await asyncio.shield(playback)
+                                return
+                            raise GatewayError('Computer playback belongs to an ended Body Control instance; outcome unknown')
                         robot_id, epoch, original = wire.get("robotId"), wire.get("epoch"), wire.get("sequence")
                         if not isinstance(robot_id, str) or type(epoch) is not int or type(original) is not int:
                             raise GatewayError("Saved cancellation lacks its original wire identity")
@@ -1675,9 +1952,9 @@ class EnvironmentAdapter:
                     "task": task,
                 })
 
-    async def _send(self, message: Mapping[str, object]) -> bool:
-        websocket = self._websocket
-        if websocket is None or websocket.closed:
+    async def _send(self, message: Mapping[str, object], *, websocket: Any | None = None) -> bool:
+        websocket = websocket if websocket is not None else self._websocket
+        if websocket is None or self._websocket is not websocket or websocket.closed:
             return False
         # Older durable receipts duplicated a single image in both fields.
         # Preserve every distinct frame, but send that image only once on replay.
@@ -1732,8 +2009,11 @@ class EnvironmentAdapter:
         status = {"ack": "completed", "done": "completed", "cancelled": "cancelled"}.get(terminal_type, "rejected")
         if terminal.get("seq") != sequence or terminal.get("outcome_unknown") or terminal.get("code") in {"disconnect", "superseded"}:
             status = "outcome_unknown"
-        return self._feedback(action_id, status, str(terminal.get("code", terminal_type)),
+        feedback = self._feedback(action_id, status, str(terminal.get("msg", terminal.get("code", terminal_type))),
             command=command, sequence=sequence, robot_id=robot_id, epoch=epoch)
+        if "code" in terminal:
+            feedback["data"]["code"] = terminal["code"]
+        return feedback
 
     def _feedback(
         self,

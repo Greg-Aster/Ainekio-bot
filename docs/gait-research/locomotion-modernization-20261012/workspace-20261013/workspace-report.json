@@ -1,0 +1,563 @@
+{
+  "scope": "Offline level-body planar planted strokes; no collision, ground stability, force or tracking qualification. Joint windows from existing 400..2900us review range, no firmware limits changed. Shoulder held neutral. Contours sampled at 0.25 degree joint resolution.",
+  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "live_blender_parity": {
+    "RL": {
+      "foot_transform_translation_error_mm": 2.5026899530618945e-05,
+      "foot_transform_rotation_element_error": 2.3841856083839406e-07
+    },
+    "RR": {
+      "foot_transform_translation_error_mm": 1.3261379188826311e-05,
+      "foot_transform_rotation_element_error": 3.220620778954223e-07
+    },
+    "FL": {
+      "foot_transform_translation_error_mm": 9.332590690239406e-06,
+      "foot_transform_rotation_element_error": 1.61439873691549e-08
+    },
+    "FR": {
+      "foot_transform_translation_error_mm": 1.4350377238127997e-05,
+      "foot_transform_rotation_element_error": 1.547751219298912e-07
+    }
+  },
+  "existing_geometry_review_criteria": {
+    "stance_output_min_deg": 45,
+    "swing_output_min_deg": 35,
+    "stance_input_min_deg": 20,
+    "swing_input_min_deg": 20,
+    "straightening_clearance_min_mm": 3,
+    "scope": "Offline gait regression margins, not measured torque limits or servo pulse caps."
+  },
+  "longest_with_existing_review_criteria": [
+    {
+      "body_clearance_mm": 20.0,
+      "body_z_mm": -29.25000762939453,
+      "stroke_mm": 41.39701257657126,
+      "foot_reference_x_mm": [
+        73.20586178649947,
+        114.60287436307073
+      ],
+      "carrier_excursion_degrees": 76.47981379134518,
+      "crank_excursion_degrees": 97.26947913218702,
+      "peak_vertical_force_moment_arm_mm": 60.21438303422413
+    },
+    {
+      "body_clearance_mm": 30.0,
+      "body_z_mm": -19.25000762939453,
+      "stroke_mm": 82.59068038153501,
+      "foot_reference_x_mm": [
+        59.385314178806794,
+        141.9759945603418
+      ],
+      "carrier_excursion_degrees": 127.5,
+      "crank_excursion_degrees": 108.21174983619704,
+      "peak_vertical_force_moment_arm_mm": 52.138417225983545
+    },
+    {
+      "body_clearance_mm": 40.0,
+      "body_z_mm": -9.250007629394531,
+      "stroke_mm": 87.64070930036789,
+      "foot_reference_x_mm": [
+        45.09648134441309,
+        132.73719064478098
+      ],
+      "carrier_excursion_degrees": 109.94030029619816,
+      "crank_excursion_degrees": 112.19931131949622,
+      "peak_vertical_force_moment_arm_mm": 48.872525395455284
+    },
+    {
+      "body_clearance_mm": 45.0,
+      "body_z_mm": -4.250007629394531,
+      "stroke_mm": 82.76477314602575,
+      "foot_reference_x_mm": [
+        44.17741448476842,
+        126.94218763079417
+      ],
+      "carrier_excursion_degrees": 96.29455261136022,
+      "crank_excursion_degrees": 105.60630809219835,
+      "peak_vertical_force_moment_arm_mm": 47.47396931758201
+    },
+    {
+      "body_clearance_mm": 50.0,
+      "body_z_mm": 0.7499923706054688,
+      "stroke_mm": 76.095301694128,
+      "foot_reference_x_mm": [
+        44.02490241741913,
+        120.12020411154712
+      ],
+      "carrier_excursion_degrees": 81.94748210837145,
+      "crank_excursion_degrees": 97.8535038249272,
+      "peak_vertical_force_moment_arm_mm": 43.81780315793198
+    },
+    {
+      "body_clearance_mm": 55.0,
+      "body_z_mm": 5.749992370605469,
+      "stroke_mm": 67.08922718338007,
+      "foot_reference_x_mm": [
+        44.660223656626826,
+        111.7494508400069
+      ],
+      "carrier_excursion_degrees": 66.3940020437022,
+      "crank_excursion_degrees": 88.25,
+      "peak_vertical_force_moment_arm_mm": 39.79890102499063
+    },
+    {
+      "body_clearance_mm": 60.0,
+      "body_z_mm": 10.749992370605469,
+      "stroke_mm": 55.05091179108592,
+      "foot_reference_x_mm": [
+        46.1610365152079,
+        101.21194830629382
+      ],
+      "carrier_excursion_degrees": 49.271462701105285,
+      "crank_excursion_degrees": 75.76519573955078,
+      "peak_vertical_force_moment_arm_mm": 34.19883569298857
+    },
+    {
+      "body_clearance_mm": 65.0,
+      "body_z_mm": 15.749992370605469,
+      "stroke_mm": 38.011348805055974,
+      "foot_reference_x_mm": [
+        48.696852262314934,
+        86.70820106737091
+      ],
+      "carrier_excursion_degrees": 29.482467015959,
+      "crank_excursion_degrees": 57.5,
+      "peak_vertical_force_moment_arm_mm": 29.32715217999633
+    },
+    {
+      "body_clearance_mm": 70.0,
+      "body_z_mm": 20.74999237060547,
+      "stroke_mm": 8.238049374207293,
+      "foot_reference_x_mm": [
+        54.05244150187333,
+        62.290490876080625
+      ],
+      "carrier_excursion_degrees": 4.753745011322163,
+      "crank_excursion_degrees": 16.75,
+      "peak_vertical_force_moment_arm_mm": 24.381518553624222
+    }
+  ],
+  "maximum_visible_sole_profile_support_difference_mm": 0.15104576877256903,
+  "current_walk": {
+    "speed": 99,
+    "carrier_range_degrees": [
+      -36.489001565251314,
+      72.73564752836242
+    ],
+    "crank_range_degrees": [
+      -64.45208289522525,
+      47.903750309956784
+    ],
+    "carrier_excursion_degrees": [
+      109.22464909361373,
+      109.20991637549159,
+      105.04811135933203,
+      105.06855411531015
+    ],
+    "crank_excursion_degrees": [
+      108.72124366097344,
+      108.72909154806084,
+      111.95795419570203,
+      111.94617211918177
+    ],
+    "body_translation_z_mm": [
+      -10.7202248158,
+      -9.27980017118
+    ],
+    "evidence": "Baseline Walk trajectory sampled before adopting the constant-speed swing return, using the unretimed common clock; not measured servo tracking."
+  },
+  "longest_by_height": [
+    {
+      "body_clearance_mm": 20.0,
+      "body_z_mm": -29.25000762939453,
+      "stroke_mm": 41.41506207915653,
+      "foot_reference_x_mm": [
+        73.20586178649947,
+        114.620923865656
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -7.244135161742719,
+        34.17092691741381
+      ],
+      "carrier_range_degrees": [
+        -39.87,
+        36.618947552086944
+      ],
+      "crank_range_degrees": [
+        -34.499479132187005,
+        63.02000000000001
+      ],
+      "carrier_excursion_degrees": 76.48894755208694,
+      "crank_excursion_degrees": 97.51947913218702,
+      "minimum_output_angle_degrees": 51.63187329119751,
+      "minimum_input_angle_degrees": 48.75084586835389,
+      "vertical_force_carrier_moment_arm_peak_mm": 60.21438303422413,
+      "vertical_force_crank_moment_arm_peak_mm": 41.11658538398967,
+      "samples": 697
+    },
+    {
+      "body_clearance_mm": 30.0,
+      "body_z_mm": -19.25000762939453,
+      "stroke_mm": 89.26238610966402,
+      "foot_reference_x_mm": [
+        59.385314178806794,
+        148.64770028847082
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -21.064682769435393,
+        68.19770334022863
+      ],
+      "carrier_range_degrees": [
+        -39.87,
+        112.13
+      ],
+      "crank_range_degrees": [
+        -52.89056133868069,
+        55.321188497516346
+      ],
+      "carrier_excursion_degrees": 152.0,
+      "crank_excursion_degrees": 108.21174983619704,
+      "minimum_output_angle_degrees": 5.22514785894588,
+      "minimum_input_angle_degrees": 41.13197709584129,
+      "vertical_force_carrier_moment_arm_peak_mm": 89.05255856211687,
+      "vertical_force_crank_moment_arm_peak_mm": 261.4546747459438,
+      "samples": 1063
+    },
+    {
+      "body_clearance_mm": 40.0,
+      "body_z_mm": -9.250007629394531,
+      "stroke_mm": 96.209438245272,
+      "foot_reference_x_mm": [
+        45.09648134441309,
+        141.3059195896851
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -35.353515603829095,
+        60.8559226414429
+      ],
+      "carrier_range_degrees": [
+        -33.31030029619816,
+        102.88
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        46.1821923875791
+      ],
+      "carrier_excursion_degrees": 136.19030029619816,
+      "crank_excursion_degrees": 115.6621923875791,
+      "minimum_output_angle_degrees": 4.684228047624671,
+      "minimum_input_angle_degrees": 41.05869843455359,
+      "vertical_force_carrier_moment_arm_peak_mm": 142.34746316438532,
+      "vertical_force_crank_moment_arm_peak_mm": 278.6500180974855,
+      "samples": 1008
+    },
+    {
+      "body_clearance_mm": 45.0,
+      "body_z_mm": -4.250007629394531,
+      "stroke_mm": 92.58960910879846,
+      "foot_reference_x_mm": [
+        44.17741448476842,
+        136.76702359356688
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -36.27258246347377,
+        56.31702664532469
+      ],
+      "carrier_range_degrees": [
+        -25.66455261136022,
+        97.88
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        42.38080869083664
+      ],
+      "carrier_excursion_degrees": 123.54455261136022,
+      "crank_excursion_degrees": 111.86080869083662,
+      "minimum_output_angle_degrees": 4.5005793091192645,
+      "minimum_input_angle_degrees": 40.63015134661589,
+      "vertical_force_carrier_moment_arm_peak_mm": 167.67319045280226,
+      "vertical_force_crank_moment_arm_peak_mm": 280.05764800378336,
+      "samples": 943
+    },
+    {
+      "body_clearance_mm": 50.0,
+      "body_z_mm": 0.7499923706054688,
+      "stroke_mm": 87.4028950961746,
+      "foot_reference_x_mm": [
+        44.02490241741913,
+        131.42779751359373
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -36.42509453082306,
+        50.977800565351544
+      ],
+      "carrier_range_degrees": [
+        -17.817482108371458,
+        92.37886538699972
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        37.76886538699974
+      ],
+      "carrier_excursion_degrees": 110.19634749537119,
+      "crank_excursion_degrees": 107.24886538699974,
+      "minimum_output_angle_degrees": 4.598517716212195,
+      "minimum_input_angle_degrees": 39.942781808158166,
+      "vertical_force_carrier_moment_arm_peak_mm": 174.31640649205391,
+      "vertical_force_crank_moment_arm_peak_mm": 255.05720353300413,
+      "samples": 870
+    },
+    {
+      "body_clearance_mm": 55.0,
+      "body_z_mm": 5.749992370605469,
+      "stroke_mm": 80.80288197757967,
+      "foot_reference_x_mm": [
+        44.660223656626826,
+        125.4631056342065
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -35.78977329161536,
+        45.01310868596431
+      ],
+      "carrier_range_degrees": [
+        -9.629935603528052,
+        87.13
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        32.803153928100585
+      ],
+      "carrier_excursion_degrees": 96.75993560352805,
+      "crank_excursion_degrees": 102.28315392810057,
+      "minimum_output_angle_degrees": 3.7547652692489346,
+      "minimum_input_angle_degrees": 38.45028396632809,
+      "vertical_force_carrier_moment_arm_peak_mm": 231.30966359618336,
+      "vertical_force_crank_moment_arm_peak_mm": 285.80873577601346,
+      "samples": 798
+    },
+    {
+      "body_clearance_mm": 60.0,
+      "body_z_mm": 10.749992370605469,
+      "stroke_mm": 72.17849313853621,
+      "foot_reference_x_mm": [
+        46.1610365152079,
+        118.33952965374411
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -34.28896043303429,
+        37.88953270550192
+      ],
+      "carrier_range_degrees": [
+        -0.8914627011052795,
+        81.07517530217095
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        26.52000000000001
+      ],
+      "carrier_excursion_degrees": 81.96663800327623,
+      "crank_excursion_degrees": 96.0,
+      "minimum_output_angle_degrees": 3.481738332600266,
+      "minimum_input_angle_degrees": 36.60427037210651,
+      "vertical_force_carrier_moment_arm_peak_mm": 255.23113965546946,
+      "vertical_force_crank_moment_arm_peak_mm": 273.1413106772309,
+      "samples": 713
+    },
+    {
+      "body_clearance_mm": 65.0,
+      "body_z_mm": 15.749992370605469,
+      "stroke_mm": 60.96135633061935,
+      "foot_reference_x_mm": [
+        48.696852262314934,
+        109.65820859293429
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -31.753144685927253,
+        29.2082116446921
+      ],
+      "carrier_range_degrees": [
+        8.74064224716091,
+        74.13
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        18.41042134574288
+      ],
+      "carrier_excursion_degrees": 65.38935775283909,
+      "crank_excursion_degrees": 87.89042134574287,
+      "minimum_output_angle_degrees": 3.5630377534750943,
+      "minimum_input_angle_degrees": 29.139058622461285,
+      "vertical_force_carrier_moment_arm_peak_mm": 250.79724250136462,
+      "vertical_force_crank_moment_arm_peak_mm": 231.67172467858072,
+      "samples": 614
+    },
+    {
+      "body_clearance_mm": 70.0,
+      "body_z_mm": 20.74999237060547,
+      "stroke_mm": 45.26646652975946,
+      "foot_reference_x_mm": [
+        52.65390030101211,
+        97.92036683077157
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -27.79609664723008,
+        17.470369882529383
+      ],
+      "carrier_range_degrees": [
+        19.994917909392402,
+        65.21414857281283
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        6.27000000000001
+      ],
+      "carrier_excursion_degrees": 45.21923066342043,
+      "crank_excursion_degrees": 75.75,
+      "minimum_output_angle_degrees": 4.593246476201219,
+      "minimum_input_angle_degrees": 18.405052826441313,
+      "vertical_force_carrier_moment_arm_peak_mm": 169.18284247437606,
+      "vertical_force_crank_moment_arm_peak_mm": 131.21861173912475,
+      "samples": 485
+    },
+    {
+      "body_clearance_mm": 75.0,
+      "body_z_mm": 25.74999237060547,
+      "stroke_mm": 21.110875855822542,
+      "foot_reference_x_mm": [
+        59.178877112157636,
+        80.28975296798018
+      ],
+      "foot_reference_x_from_shoulder_mm": [
+        -21.27111983608455,
+        -0.1602439802620097
+      ],
+      "carrier_range_degrees": [
+        35.068649361998595,
+        54.13
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        -13.740546524742674
+      ],
+      "carrier_excursion_degrees": 19.061350638001407,
+      "crank_excursion_degrees": 55.739453475257314,
+      "minimum_output_angle_degrees": 4.631530889594588,
+      "minimum_input_angle_degrees": 3.8344504783554743,
+      "vertical_force_carrier_moment_arm_peak_mm": 125.92062911368984,
+      "vertical_force_crank_moment_arm_peak_mm": 66.25942787553379,
+      "samples": 300
+    }
+  ],
+  "load_arm_selected_78mm_strokes": [
+    {
+      "body_clearance_mm": 30.0,
+      "body_z_mm": -19.25000762939453,
+      "stroke_mm": 78.09533222455377,
+      "foot_reference_x_mm": [
+        59.385314178806794,
+        137.48064640336057
+      ],
+      "carrier_range_degrees": [
+        -39.87,
+        78.13
+      ],
+      "crank_range_degrees": [
+        -52.89056133868069,
+        55.321188497516346
+      ],
+      "carrier_excursion_degrees": 118.0,
+      "crank_excursion_degrees": 108.21174983619704,
+      "minimum_output_angle_degrees": 57.42639426812386,
+      "minimum_input_angle_degrees": 68.95190346174401,
+      "peak_vertical_force_moment_arm_mm": 52.138417225983545
+    },
+    {
+      "body_clearance_mm": 40.0,
+      "body_z_mm": -9.250007629394531,
+      "stroke_mm": 78.13516441008193,
+      "foot_reference_x_mm": [
+        45.09648134441309,
+        123.23164575449502
+      ],
+      "carrier_range_degrees": [
+        -33.31030029619816,
+        59.35958801037792
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        40.52000000000001
+      ],
+      "carrier_excursion_degrees": 92.66988830657607,
+      "crank_excursion_degrees": 110.0,
+      "minimum_output_angle_degrees": 63.93532166521431,
+      "minimum_input_angle_degrees": 67.9937150295043,
+      "peak_vertical_force_moment_arm_mm": 45.493797688917866
+    },
+    {
+      "body_clearance_mm": 45.0,
+      "body_z_mm": -4.250007629394531,
+      "stroke_mm": 78.05768764203195,
+      "foot_reference_x_mm": [
+        44.17741448476842,
+        122.23510212680037
+      ],
+      "carrier_range_degrees": [
+        -25.66455261136022,
+        62.129999999999995
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        34.39331667053447
+      ],
+      "carrier_excursion_degrees": 87.79455261136022,
+      "crank_excursion_degrees": 103.87331667053445,
+      "minimum_output_angle_degrees": 54.30442412033676,
+      "minimum_input_angle_degrees": 61.14067595259481,
+      "peak_vertical_force_moment_arm_mm": 42.789455543472684
+    },
+    {
+      "body_clearance_mm": 50.0,
+      "body_z_mm": 0.7499923706054688,
+      "stroke_mm": 78.00956905945732,
+      "foot_reference_x_mm": [
+        44.02490241741913,
+        122.03447147687645
+      ],
+      "carrier_range_degrees": [
+        -17.817482108371458,
+        67.63
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        29.354480859550595
+      ],
+      "carrier_excursion_degrees": 85.44748210837145,
+      "crank_excursion_degrees": 98.83448085955058,
+      "minimum_output_angle_degrees": 41.10642241756013,
+      "minimum_input_angle_degrees": 53.98229052188654,
+      "peak_vertical_force_moment_arm_mm": 45.846650251265885
+    },
+    {
+      "body_clearance_mm": 55.0,
+      "body_z_mm": 5.749992370605469,
+      "stroke_mm": 78.0217319441643,
+      "foot_reference_x_mm": [
+        44.660223656626826,
+        122.68195560079113
+      ],
+      "carrier_range_degrees": [
+        -9.629935603528052,
+        78.13
+      ],
+      "crank_range_degrees": [
+        -69.47999999999999,
+        27.371359024082434
+      ],
+      "carrier_excursion_degrees": 87.75993560352805,
+      "crank_excursion_degrees": 96.85135902408243,
+      "minimum_output_angle_degrees": 18.91727124631038,
+      "minimum_input_angle_degrees": 45.240461538768784,
+      "peak_vertical_force_moment_arm_mm": 69.41423590999825
+    }
+  ]
+}

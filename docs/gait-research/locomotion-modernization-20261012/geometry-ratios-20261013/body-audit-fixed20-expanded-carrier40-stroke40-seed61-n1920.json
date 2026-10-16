@@ -1,0 +1,156 @@
+{
+  "scope": "Listed speed settings with recomputed body shift and actual-contact force distribution,120 samples per cycle for body support,then 1920 samples for dynamics with interpolated body shift and reactions. Research trajectory with80% stance,not deployed firmware trajectory. Assumed COM and uniform plastic links; no measured servo curve or physical qualification.",
+  "dimensions": [
+    28.173376319979027,
+    54.999987056064654,
+    20.0,
+    77.67671887318387,
+    36.03641822080144,
+    47.64619954541877,
+    -44.08271776931058,
+    26.300644673023246
+  ],
+  "rows": [
+    {
+      "valid": true,
+      "score": 0.2815828324111206,
+      "dimensions": [
+        28.173376319979027,
+        54.999987056064654,
+        20.0,
+        77.67671887318387,
+        36.03641822080144,
+        47.64619954541877,
+        -44.08271776931058,
+        26.300644673023246
+      ],
+      "peak_torque_Nm": [
+        0.03378972895889406,
+        0.030848186125777066
+      ],
+      "peak_speed_deg_s": [
+        42.27120362718027,
+        77.68671643247289
+      ],
+      "utilization": [
+        0.25426135820668183,
+        0.27348850674042235
+      ],
+      "imbalance": 0.08705434828126159,
+      "min_angle": 60.483776437441556,
+      "ranges": [
+        5.045476481826516,
+        8.756439674602676,
+        14.09572656583668
+      ],
+      "estimated_mass_kg": 0.5754163634595567,
+      "loaded_rms_torque_Nm": [
+        0.021753003939411972,
+        0.02136681016563571
+      ],
+      "loaded_difference_rms_Nm": 0.0022797198602112875,
+      "speed_percent": 1,
+      "cycle_seconds": 1.7821782178217822,
+      "stride_mm": 0.4,
+      "body_plan_success": true,
+      "support_margin_mm": 2.4773093997714097,
+      "minimum_reaction_fraction": 0.0,
+      "force_equilibrium_error": 1.9156286334975903e-08,
+      "shoulder_point_body_peak_Nm": 0.09830441826644595
+    },
+    {
+      "valid": true,
+      "score": 0.5173432369235553,
+      "dimensions": [
+        28.173376319979027,
+        54.999987056064654,
+        20.0,
+        77.67671887318387,
+        36.03641822080144,
+        47.64619954541877,
+        -44.08271776931058,
+        26.300644673023246
+      ],
+      "peak_torque_Nm": [
+        0.04243050488891419,
+        0.03753626894388905
+      ],
+      "peak_speed_deg_s": [
+        231.03671119743126,
+        304.42546133957615
+      ],
+      "utilization": [
+        0.39976154159372673,
+        0.5080712429400893
+      ],
+      "imbalance": 0.11534710599929394,
+      "min_angle": 54.04595099314255,
+      "ranges": [
+        6.329236141143027,
+        25.407218554517485,
+        31.533510727516028
+      ],
+      "estimated_mass_kg": 0.5754163634595567,
+      "loaded_rms_torque_Nm": [
+        0.021535024780808147,
+        0.021783694219833054
+      ],
+      "loaded_difference_rms_Nm": 0.005794532441086598,
+      "speed_percent": 50,
+      "cycle_seconds": 1.2,
+      "stride_mm": 20.0,
+      "body_plan_success": true,
+      "support_margin_mm": 2.417826838587408,
+      "minimum_reaction_fraction": 0.0,
+      "force_equilibrium_error": 9.111972509856514e-09,
+      "shoulder_point_body_peak_Nm": 0.10156380385739375
+    },
+    {
+      "valid": true,
+      "score": 1.0011616863997832,
+      "dimensions": [
+        28.173376319979027,
+        54.999987056064654,
+        20.0,
+        77.67671887318387,
+        36.03641822080144,
+        47.64619954541877,
+        -44.08271776931058,
+        26.300644673023246
+      ],
+      "peak_torque_Nm": [
+        0.048216825636835776,
+        0.050798083444790795
+      ],
+      "peak_speed_deg_s": [
+        586.8524567016759,
+        594.1836493227497
+      ],
+      "utilization": [
+        0.993067360729085,
+        0.9915081660013577
+      ],
+      "imbalance": 0.05081407866027906,
+      "min_angle": 47.823027726398074,
+      "ranges": [
+        6.4958365745003,
+        44.37419504241375,
+        47.716020608515095
+      ],
+      "estimated_mass_kg": 0.5754163634595567,
+      "loaded_rms_torque_Nm": [
+        0.021217174125186686,
+        0.02272383787606962
+      ],
+      "loaded_difference_rms_Nm": 0.011515668194149325,
+      "speed_percent": 100,
+      "cycle_seconds": 0.9,
+      "stride_mm": 40.0,
+      "body_plan_success": true,
+      "support_margin_mm": 2.4103768973469712,
+      "minimum_reaction_fraction": 0.0,
+      "force_equilibrium_error": 2.3604266985444156e-08,
+      "shoulder_point_body_peak_Nm": 0.10287556472377159
+    }
+  ]
+}

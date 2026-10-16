@@ -58,7 +58,8 @@ extern const size_t ainekio_v2_clip_count;
 bool ainekio_v2_clip_find(const char *name, size_t *index);
 bool ainekio_v2_clip_request(const ainekio_command_t *command, size_t *index);
 bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_t *frame);
-/* One owner-selected commanded joint speed limit, shared by all motion paths. */
+/* Owner-selected joint speed for posture/clip timing and balance corrections.
+ * Walking cadence is governed by the walking controls independently. */
 double ainekio_v2_joint_speed_default(void);
 bool ainekio_v2_joint_speed_set(float degrees_s);
 /* Retime the entire clip, retaining all joint paths and relative timing. */

@@ -820,10 +820,13 @@ static ainekio_decode_result_t decode_intent(
             if (result == AINEKIO_DECODE_OK && (intent->data.walk.stride_percent < 1 || intent->data.walk.stride_percent > 100 ||
                 intent->data.walk.motion_rate < .25F || intent->data.walk.motion_rate > 3)) result = AINEKIO_DECODE_RANGE;
         }
-        if (result == AINEKIO_DECODE_OK && (object_get(parser, root, "forward") >= 0 || object_get(parser, root, "turn") >= 0)) {
+        if (result == AINEKIO_DECODE_OK && (object_get(parser, root, "forward") >= 0 || object_get(parser, root, "turn") >= 0 || object_get(parser, root, "lateral") >= 0)) {
             intent->data.walk.steering = true;
             result = required_number(parser, root, "forward", &intent->data.walk.forward);
             if (result == AINEKIO_DECODE_OK) result = required_number(parser, root, "turn", &intent->data.walk.turn);
+            if (result == AINEKIO_DECODE_OK && object_get(parser, root, "lateral") >= 0)
+                result = required_number(parser, root, "lateral", &intent->data.walk.lateral);
+            if (result == AINEKIO_DECODE_OK && fabsf(intent->data.walk.lateral) > 100.F) result = AINEKIO_DECODE_RANGE;
             if (result == AINEKIO_DECODE_OK && (fabsf(intent->data.walk.forward) > 100.F || fabsf(intent->data.walk.turn) > 100.F)) result = AINEKIO_DECODE_RANGE;
         }
         if (result == AINEKIO_DECODE_OK && update) {
@@ -1477,7 +1480,7 @@ static ainekio_decode_result_t validate_outbound(
         static const char *const events[] = {
             "vad_open", "vad_close", "wake_word", "battery_warn", "battery_cutoff",
             "brownout_recovered", "boot", "sd_fail", "sd_corrupt", "littlefs_fail",
-            "asset_missing", "tts_orphan", "tts_overflow",
+            "asset_missing", "tts_orphan", "tts_overflow", "imu", "wake",
         };
         result = validate_string_enum(parser, root, "name", events, sizeof(events) / sizeof(events[0]));
     } else if (message->kind == AINEKIO_MESSAGE_CAMERA_META) {
@@ -1527,7 +1530,7 @@ static ainekio_decode_result_t decode_control(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings", "speaker",
+        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings", "speaker", "balance",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1544,9 +1547,35 @@ static ainekio_decode_result_t decode_control(
         return AINEKIO_DECODE_VALUE;
     if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE ||
          message->kind == AINEKIO_MESSAGE_MOTION_SPEED || message->kind == AINEKIO_MESSAGE_ROBOT_SETTINGS ||
-         message->kind == AINEKIO_MESSAGE_SPEAKER) &&
+         message->kind == AINEKIO_MESSAGE_SPEAKER || message->kind == AINEKIO_MESSAGE_BALANCE) &&
         !body_extensions) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
+    case AINEKIO_MESSAGE_BALANCE: {
+        result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_BALANCE);
+        char op[16];
+        if (result == AINEKIO_DECODE_OK) result = required_string(&parser, root, "op", op, sizeof(op), 3U, 14U);
+        if (result != AINEKIO_DECODE_OK) return result;
+        const char *keys[]={"strength", "damping", "roll_deg", "pitch_deg"};
+        unsigned fields=0;
+        for(unsigned i=0;i<4;i++) fields+=object_get(&parser,root,keys[i])>=0;
+        if (!strcmp(op,"calibrate_gyro")) message->command.data.balance.calibrate_gyro=true;
+        if (!strcmp(op, "get") || message->command.data.balance.calibrate_gyro)
+            return fields==0 && object_get(&parser, root, "enabled") < 0 ? AINEKIO_DECODE_OK : AINEKIO_DECODE_VALUE;
+        if (strcmp(op, "save")) return AINEKIO_DECODE_VALUE;
+        message->command.data.balance.save = true;
+        result=required_boolean(&parser, root, "enabled", &message->command.data.balance.enabled);
+        if(result!=AINEKIO_DECODE_OK || fields==0)return result;
+        if(fields!=4)return AINEKIO_DECODE_MISSING;
+        float *values[]={&message->command.data.balance.strength,&message->command.data.balance.damping,
+            &message->command.data.balance.roll_deg,&message->command.data.balance.pitch_deg};
+        for(unsigned i=0;i<4;i++) {
+            result=required_number(&parser,root,keys[i],values[i]);
+            if(result!=AINEKIO_DECODE_OK)return result;
+            if(i<2 && *values[i]<0.F)return AINEKIO_DECODE_RANGE;
+        }
+        message->command.data.balance.has_tuning=true;
+        return AINEKIO_DECODE_OK;
+    }
     case AINEKIO_MESSAGE_SPEAKER: {
         result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_SPEAKER);
         int64_t volume;

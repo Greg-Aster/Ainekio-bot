@@ -1,0 +1,37 @@
+{
+  "native_tests": {
+    "passed": 51,
+    "failed": 0,
+    "seconds": 26.04
+  },
+  "native_command_audit_cases": 26,
+  "source_recordings_validated": 14,
+  "installed_pulse_review_us": [
+    400,
+    2900
+  ],
+  "production_mapping_sampled_span_us": [
+    402,
+    2898
+  ],
+  "hardware_qualified": false,
+  "firmware": {
+    "version": "0.8.50-p4-gait-library",
+    "bytes": 3027824,
+    "sha256": "8460df6e98d55ede70e8e7e35c2702801702d2f8b736491af925ef08a3671f6b",
+    "hardware_qualified": false,
+    "deployed": true,
+    "deployment": {
+      "transport": "wifi",
+      "robot_id": "ainekio-p4-e6ebe5",
+      "running_partition": "ota_0",
+      "boot_partition": "ota_0",
+      "pending_verify": false,
+      "error": "ESP_OK",
+      "session_epoch": 10,
+      "owner_confirmed_supported": true,
+      "owner_confirmed_servo_power_off": true,
+      "physical_gait_tested": false
+    }
+  }
+}

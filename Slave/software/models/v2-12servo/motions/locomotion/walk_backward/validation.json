@@ -1,29 +1,38 @@
 {
   "command": "walk_backward",
-  "samples": 2504,
-  "max_target_error_mm": 0.1514744943477595,
-  "foot_xy_error_mm": 6.548773819758935e-05,
+  "samples": 2209,
+  "max_target_error_mm": 0.15149770268588014,
+  "foot_xy_error_mm": 6.0334408068740686e-05,
   "full_sole_height_error_mm": [
-    0.10821497345959585,
-    0.1514744943477595
+    0.09480723905497257,
+    0.15149770268588014
   ],
   "support_allowance_mm": 0.151,
-  "min_sole_z_mm": 0.10821497345959585,
-  "min_body_z_mm": 47.10000762939453,
-  "min_closure_height_mm": 7.368565418654852,
-  "maximum_adjacent_joint_step_degrees": 4.541037609284136,
+  "min_sole_z_mm": 0.09480723905497257,
+  "min_body_z_mm": 56.25000762939453,
+  "min_closure_height_mm": 13.418832393957723,
+  "maximum_adjacent_joint_step_degrees": 4.669362792944512,
   "hardware_qualified": false,
   "collision_checked": false,
   "leverage": {
-    "checked_leg_poses": 20028,
+    "checked_leg_poses": 17668,
     "branch_reversals": 0,
-    "minimum_straightening_clearance_mm": 1.8804168985795542,
-    "stance_output_min_deg": 29.060981024093177,
-    "swing_output_min_deg": 29.06143184831279,
-    "stance_input_min_deg": 62.360615034583596,
-    "swing_input_min_deg": 62.360837747738245
+    "minimum_straightening_clearance_mm": 5.873049624868756,
+    "stance_output_min_deg": 49.63947673535425,
+    "swing_output_min_deg": 49.31474544863303,
+    "stance_input_min_deg": 40.51139105183405,
+    "swing_input_min_deg": 40.290601333884695
   },
-  "modeled_envelope_conflict": false,
-  "first_bound_envelope_conflict": null,
-  "mounting_profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37"
+  "modeled_envelope_conflict": true,
+  "first_bound_envelope_conflict": {
+    "sample": 0,
+    "time_s": 0.0,
+    "cad_leg": "FL",
+    "q_deg": [
+      -4.531932936517183e-06,
+      15.663345947283087,
+      -24.628325195307994
+    ]
+  },
+  "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67"
 }

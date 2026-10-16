@@ -46,11 +46,12 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sequence, 1)
         self.assertEqual(socket.messages[0]["epoch"], 7)
         self.assertEqual(socket.messages[0]["deadline_ms"], 20495)
-        # Old samples are not silently extended by moving the host's clock.
+        # A short heartbeat gap does not reject a new command. The two
+        # monotonic clocks keep advancing until the session reconnects.
         clock[0] += 1
-        with self.assertRaises(ActionExpiredError):
-            await connection.send_command({"t": "mode", "name": "normal"}, received_at=clock[0])
-        self.assertEqual(connection.next_sequence, 2)
+        await connection.send_command({"t": "mode", "name": "normal"}, received_at=clock[0])
+        self.assertEqual(socket.messages[-1]["deadline_ms"], 21745)
+        self.assertEqual(connection.next_sequence, 3)
         await connection.send_command({"t": "stop", "detach": True}, received_at=clock[0])
         self.assertNotIn("deadline_ms", socket.messages[-1])
         self.assertEqual(socket.messages[-1]["epoch"], 7)
@@ -78,7 +79,7 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(deadline_ms, body_now_ms)
         self.assertLessEqual(deadline_ms, upstream_expiry_ms - 5)
 
-    async def test_clock_gap_dispatch_failure_and_robot_rejection_are_saved(self) -> None:
+    async def test_clock_gap_does_not_reject_a_fresh_command_and_is_logged(self) -> None:
         connection, socket, clock = self.connection(features=("command_deadline_v1",))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "operations.jsonl"
@@ -87,10 +88,9 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
                 lambda row: audit.record(str(row["event"]), **_audit_fields(row)))
             connection.observe_body_clock({"clock_ms": 20000})
             clock[0] += 1.25
-            with self.assertRaisesRegex(ActionExpiredError, "fresh body clock"):
-                await connection.send_command({"t": "mode", "name": "calibrate"}, received_at=clock[0])
-            self.assertEqual(socket.messages, [])
-            self.assertEqual(connection.next_sequence, 1)
+            await connection.send_command({"t": "mode", "name": "calibrate"}, received_at=clock[0])
+            self.assertEqual(socket.messages[-1]["deadline_ms"], 21745)
+            self.assertEqual(connection.next_sequence, 2)
             connection.observe_body_clock({"clock_ms": 21250})
             sequence = await connection.send_command({"t": "mode", "name": "calibrate"}, received_at=clock[0])
             await connection._handle_control({"t": "nak", "seq": sequence, "code": "busy",
@@ -98,15 +98,14 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
                 "output_timing": {"last_io_us": 6000, "max_io_us": 6000, "transfers": 2, "failures": 0}})
             rows = [json.loads(line) for line in path.read_text().splitlines()]
             self.assertEqual([row["event"] for row in rows],
-                             ["dispatch_rejected", "body_clock_gap", "command_result"])
-            self.assertEqual(rows[0]["clock_age_ms"], 1250)
-            self.assertEqual(rows[1]["clock_gap_ms"], 1250)
-            self.assertEqual(rows[1]["clock_advance_ms"], 1250)
-            self.assertEqual(rows[2]["epoch"], 7)
-            self.assertEqual(rows[2]["seq"], sequence)
-            self.assertEqual(rows[2]["t"], "nak")
-            self.assertEqual(rows[2]["output_timing"]["last_io_us"], 6000)
-            self.assertEqual(rows[2]["msg"], "Servo controller I2C transfer missed its deadline")
+                             ["body_clock_gap", "command_result"])
+            self.assertEqual(rows[0]["clock_gap_ms"], 1250)
+            self.assertEqual(rows[0]["clock_advance_ms"], 1250)
+            self.assertEqual(rows[1]["epoch"], 7)
+            self.assertEqual(rows[1]["seq"], sequence)
+            self.assertEqual(rows[1]["t"], "nak")
+            self.assertEqual(rows[1]["output_timing"]["last_io_us"], 6000)
+            self.assertEqual(rows[1]["msg"], "Servo controller I2C transfer missed its deadline")
 
     def test_diagnostic_audit_keeps_motion_context_without_pairing_credentials(self) -> None:
         fields = _audit_fields({"robot_token": "robot-secret", "wifi_password": "wifi-secret",

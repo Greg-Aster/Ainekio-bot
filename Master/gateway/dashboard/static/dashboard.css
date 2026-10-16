@@ -103,11 +103,12 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
 .command-result.error { color: var(--red); font-weight: 700; }
 
 .dashboard-grid {
-  width: min(1500px, 100%);
-  margin: 0 auto;
-  padding: 0 clamp(1rem, 3vw, 2.5rem) 4rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: minmax(280px, .95fr) minmax(400px, 1.1fr);
+  gap: 1rem;
 }
 
 .control-section {
@@ -117,8 +118,7 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
   border-bottom: 1px solid var(--line);
 }
 
-.control-section:nth-child(odd) { border-right: 1px solid var(--line); }
-.primary-view-container { grid-column: 1 / -1; }
+.primary-view-container { min-width: 0; min-height: 0; overflow: auto; }
 .faces-section { grid-column: 1 / -1; border-right: 0 !important; }
 .faces-workspace { display: grid; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
 .face-viewer { min-width: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--dark); }
@@ -175,6 +175,16 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .camera-controls button { width: 100%; }
 .camera-frame { width: 100%; height: auto; display: block; object-fit: contain; }
 .camera-frame[hidden] { display: none; }
+.camera-image-plane { position: relative; width: 100%; }
+.camera-image-plane[hidden] { display: none; }
+.camera-detections { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.camera-detection { position: absolute; border: 2px solid #45d5ed; }
+.camera-detection span { position: absolute; top: 0; left: 0; padding: 0.1rem 0.3rem; background: #101719e6; color: #e6fcff; font-size: 0.8rem; white-space: nowrap; }
+.camera-recognition-toggle, .camera-detection-status { margin: 0.75rem 1rem; }
+.vision-target-controls { margin: 0.75rem 1rem; }
+.vision-target-controls .button-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.vision-target-controls input { flex: 1 1 10rem; min-width: 0; }
+.camera-detection button { pointer-events: auto; position: absolute; top: 0; left: 0; padding: 0.1rem 0.3rem; background: #101719e6; color: #e6fcff; font-size: 0.8rem; white-space: nowrap; }
 .walk-controls { margin-bottom: 1rem; }
 .walk-controls[hidden], #walk-advanced[hidden], #walk-speed-field[hidden] { display: none; }
 .walk-controls fieldset { border: 1px solid var(--line); display: grid; gap: .75rem; padding: 1rem; }
@@ -224,6 +234,17 @@ body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { displ
 .emote-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.4rem; }
 .emote-grid button { min-width: 0; padding-inline: 0.35rem; font-size: 0.75rem; }
 .input-with-actions { display: grid; grid-template-columns: minmax(120px, 1fr) auto auto; gap: 0.5rem; }
+#balance-controls { display: grid; align-items: stretch; justify-content: normal; min-width: 0; gap: .5rem; }
+#balance-controls p { margin: 0; font-size: .8rem; line-height: 1.5; }
+#balance-controls > .field-group { display: grid; align-items: start; justify-content: stretch; min-width: 0; gap: .6rem; }
+#balance-controls h3 { margin: .7rem 0 0; font-size: .95rem; }
+#balance-controls table th, #balance-controls table td { white-space: nowrap; }
+#balance-controls caption { text-align: left; padding: .5rem 0; }
+#balance-controls .input-with-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#balance-enabled { grid-column: 1 / -1; }
+#balance-tuning-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: .75rem; margin: .5rem 0; }
+#balance-tuning-controls label { display: grid; gap: .35rem; min-width: 0; }
+#balance-tuning-controls p, #balance-defaults { grid-column: 1 / -1; }
 #motion-speed-controls, #joint-speed-controls {
   display: grid;
   align-items: stretch;
@@ -384,3 +405,84 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .sensing-controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
 .sensing-control-section { grid-column: 1 / -1; }
 .sensing-controls-grid form { display: grid; gap: .75rem; }
+
+.controller-logs { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.8rem; }
+
+/* One live view and one selected tool share the operating workspace. */
+.dashboard-page { height: 100vh; height: 100dvh; overflow: hidden; display: grid; grid-template-rows: auto auto minmax(0, 1fr); }
+.dashboard-page .app-header { min-height: 64px; padding: .65rem 1.25rem; }
+.dashboard-page .safety-bar { position: static; min-height: 64px; padding: .5rem 1.25rem; }
+.dashboard-page .stop-button { min-height: 44px; min-width: 180px; }
+.dashboard-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
+.tools-collapsed .dashboard-shell { grid-template-columns: minmax(0, 1fr); }
+#tools-toggle { display: inline-flex; align-items: center; gap: .5rem; white-space: nowrap; }
+.tool-sidebar { min-height: 0; overflow-y: auto; padding: 1rem .75rem; border-right: 1px solid var(--line); background: var(--dark); }
+.sidebar-heading { margin: 0 .65rem .75rem; color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; }
+.navigation-group { margin-bottom: .45rem; }
+.navigation-group summary { padding: .7rem .65rem; cursor: pointer; font-size: .85rem; font-weight: 650; border-radius: 5px; }
+.navigation-group summary:hover { background: var(--surface); }
+.navigation-group summary:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.navigation-group ul { margin: .15rem 0 .5rem .95rem; padding: 0 0 0 .65rem; border-left: 1px solid var(--line); list-style: none; }
+.navigation-group button { width: 100%; text-align: left; min-height: 38px; padding: .5rem .65rem; border-color: transparent; background: transparent; color: var(--muted); font-size: .82rem; font-weight: 500; }
+.navigation-group button:hover { color: var(--ink); background: var(--surface); }
+.navigation-group button[aria-current="page"] { color: #fff; background: #263f4d; border-color: #41677f; }
+.tool-workspace { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--line); border-radius: 8px; background: #202326; scrollbar-gutter: stable; }
+.tool-workspace > .control-section { margin: 0; padding: 1.25rem; border: 0; }
+.tool-workspace .settings-grid { display: block; }
+.tool-workspace .settings-card { min-width: 0; padding: 0; border: 0; }
+.tool-workspace .section-heading { margin-bottom: 1rem; }
+.tool-workspace h2:focus, .tool-workspace h3:focus { outline: none; }
+.workspace-section form { display: grid; gap: .8rem; }
+.tool-workspace .camera-controls { padding: 0; border: 0; background: transparent; }
+.tool-workspace .vision-target-controls { margin: 0 0 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+.tool-workspace .faces-workspace { grid-template-columns: 1fr; }
+.tool-workspace .face-viewer { max-width: 320px; }
+.tool-workspace .telemetry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tool-workspace .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tool-workspace .mapping-grid button { grid-column: 1 / -1; justify-self: start; }
+.tool-workspace .calibration-settings, .tool-workspace .calibration-selection { grid-template-columns: 1fr; }
+.tool-workspace .calibration-save-row { align-items: stretch; flex-direction: column; }
+.tool-workspace .field-group { flex-direction: column; align-items: stretch; }
+.tool-workspace #balance-tuning-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tool-workspace #motion-speed-controls { margin-top: 0; }
+.tool-workspace #asset-intent-form { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.primary-view-container { border: 1px solid var(--line); border-radius: 8px; background: var(--dark); }
+.primary-view-container .primary-view-section { padding: 1rem 0 0; border: 0; }
+.primary-view-container .section-heading { margin-bottom: .75rem; padding-inline: 1rem; align-items: center; }
+.primary-view-container .camera-stage { min-height: 180px; }
+.primary-view-container .camera-image-plane { max-width: 100%; }
+.primary-view-container .camera-detection-status { font-size: .78rem; }
+.primary-view-container .simulator-frame { height: calc(100vh - 230px); }
+#camera-view-message { font-size: .85rem; }
+@media (max-width: 1200px) {
+  .dashboard-shell { grid-template-columns: 195px minmax(0, 1fr); }
+  .dashboard-grid { grid-template-columns: minmax(260px, .85fr) minmax(350px, 1fr); gap: .75rem; padding: .75rem; }
+  .tool-workspace > .control-section { padding: 1rem; }
+}
+@media (max-width: 1050px) {
+  .dashboard-shell { position: relative; grid-template-columns: minmax(0, 1fr); }
+  .tool-sidebar { position: absolute; z-index: 20; inset: 0 auto 0 0; width: 240px; box-shadow: 8px 0 24px #0006; }
+}
+@media (max-width: 700px) {
+  .dashboard-page .app-header { padding: .5rem .75rem; gap: .5rem; }
+  .dashboard-page .brand-mark, .dashboard-page .product-name { display: none; }
+  .dashboard-page .header-actions { flex-wrap: wrap; gap: .4rem; }
+  .dashboard-page .header-actions select { min-width: 100px; max-width: 175px; }
+  .dashboard-page .safety-bar { flex-direction: row; align-items: center; min-height: 54px; gap: .75rem; padding: .4rem .75rem; }
+  .dashboard-page .stop-button { width: auto; min-width: 135px; font-size: .8rem; }
+  .dashboard-page .command-result { font-size: .75rem; }
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(150px, 35%) minmax(0, 1fr); padding: .5rem; gap: .5rem; }
+  .primary-view-container { overflow: hidden; }
+  .primary-view-container .primary-view-section { height: 100%; padding: .35rem .5rem; display: flex; flex-direction: column; }
+  .primary-view-container .section-heading { flex-direction: row; min-height: 32px; margin: 0 0 .25rem; padding: 0; }
+  .primary-view-container .section-kicker { display: none; }
+  .primary-view-container #snapshot-button { min-height: 30px; padding: .25rem .5rem; font-size: .75rem; }
+  .primary-view-container .camera-recognition-toggle { margin: 0 0 .25rem; font-size: .7rem; }
+  .primary-view-container .camera-preview { flex: 1; min-height: 0; display: flex; }
+  .primary-view-container .camera-stage { min-height: 0; height: 100%; grid-template-rows: minmax(0, 1fr); }
+  .primary-view-container .camera-image-plane { width: auto; height: 100%; max-width: 100%; }
+  .primary-view-container .camera-frame { width: auto; height: 100%; max-width: 100%; }
+  .primary-view-container .camera-detection-status { margin: .2rem 0 0; font-size: .65rem; }
+  .primary-view-container .simulator-frame { min-height: 0; flex: 1; height: auto; }
+  .tool-workspace > .control-section { padding: .9rem; }
+}

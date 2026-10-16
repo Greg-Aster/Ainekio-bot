@@ -1,0 +1,103 @@
+{
+  "scope": "Model replay assuming physical motor angle zeros and commanded chassis pose; not measured foot contact.",
+  "cases": {
+    "current": {
+      "body_translation_mm": [
+        0,
+        0,
+        -8
+      ],
+      "feet": [
+        {
+          "cad_leg": "RL",
+          "physical_leg": "front_left",
+          "sole_min_z_mm": 9.272508504613214,
+          "reference_xyz_mm": [
+            84.63749785151435,
+            67.11117825517562,
+            9.462101604399088
+          ]
+        },
+        {
+          "cad_leg": "RR",
+          "physical_leg": "front_right",
+          "sole_min_z_mm": 9.272539168704675,
+          "reference_xyz_mm": [
+            84.63750078921419,
+            -67.11114516586338,
+            9.462121594441044
+          ]
+        },
+        {
+          "cad_leg": "FL",
+          "physical_leg": "rear_left",
+          "sole_min_z_mm": 9.272489801823589,
+          "reference_xyz_mm": [
+            -48.7719398560255,
+            67.11116230278544,
+            9.462069163300775
+          ]
+        },
+        {
+          "cad_leg": "FR",
+          "physical_leg": "rear_right",
+          "sole_min_z_mm": 9.272497231168465,
+          "reference_xyz_mm": [
+            -48.77194694351227,
+            -67.11114229528205,
+            9.462087435768161
+          ]
+        }
+      ]
+    },
+    "compact": {
+      "body_translation_mm": [
+        0,
+        0,
+        -8
+      ],
+      "feet": [
+        {
+          "cad_leg": "RL",
+          "physical_leg": "front_left",
+          "sole_min_z_mm": 0.14858858528267405,
+          "reference_xyz_mm": [
+            74.20747780615437,
+            67.11118426609121,
+            0.3197541146385632
+          ]
+        },
+        {
+          "cad_leg": "RR",
+          "physical_leg": "front_right",
+          "sole_min_z_mm": 0.1485847245509504,
+          "reference_xyz_mm": [
+            74.20747552046436,
+            -67.11114546832651,
+            0.31973920148010393
+          ]
+        },
+        {
+          "cad_leg": "FL",
+          "physical_leg": "rear_left",
+          "sole_min_z_mm": 0.14856739157008292,
+          "reference_xyz_mm": [
+            -59.20197415831112,
+            67.11116613399786,
+            0.31973094735353413
+          ]
+        },
+        {
+          "cad_leg": "FR",
+          "physical_leg": "rear_right",
+          "sole_min_z_mm": 0.14854809586444873,
+          "reference_xyz_mm": [
+            -59.201996385269936,
+            -67.11113996075795,
+            0.3197110695547565
+          ]
+        }
+      ]
+    }
+  }
+}

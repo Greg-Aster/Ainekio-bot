@@ -345,6 +345,10 @@ def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
 
 
 def _translate_move(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
+    goal = action.get("locomotionGoal")
+    if model == "v2-12servo" and action.get("gait") == "crab" and isinstance(goal, Mapping) and goal.get("kind") == "distance":
+        direction = {"forward": "fwd", "back": "back", "left": "side_l", "right": "side_r"}.get(goal.get("direction"))
+        return BridgeAction("intent", "walk", _walk_params(action, direction)) if direction else None
     direction = _normalized(action.get("direction") or "forward")
     if direction in {"left", "turnleft", "right", "turnright"}:
         side = "left" if direction in {"left", "turnleft"} else "right"
@@ -384,7 +388,7 @@ def _walk_params(action: Mapping[str, object], direction: str) -> dict[str, obje
     if "continuous" in action and type(action["continuous"]) is not bool:
         raise ProtocolValidationError("type:continuous")
     params = {"dir": direction, "steps": 0 if action.get("continuous") else _bounded_steps(action.get("units"))}
-    for key in ("speed", "stride", "rate", "forward", "turn", "update", "gait", "speed_percent", "stride_percent", "motion_rate"):
+    for key in ("speed", "stride", "rate", "forward", "turn", "lateral", "update", "gait", "speed_percent", "stride_percent", "motion_rate"):
         if key in action:
             params[key] = action[key]
     validate_walk_controls(params)
@@ -401,3 +405,58 @@ def _bounded_steps(value: object) -> int:
     if type(value) not in {int, float}:
         return 1
     return max(1, min(10, int(value)))
+
+
+def is_locomotion_translation(action: BridgeAction) -> bool:
+    """Classify the existing actuator command, including translated aliases."""
+    return action.kind == "intent" and (action.name == "walk" or
+        (action.name == "emote" and action.params.get("asset") in {
+            "walk_slow", "run", "crab", "turn_left_15", "turn_right_15",
+            "turn_left_45", "turn_right_45", "turn_left_90", "turn_right_90",
+            "turn_left_180", "turn_right_180"}))
+
+
+def locomotion_commands(commands: list[str], model: str | None) -> list[str]:
+    return [command for command in commands
+        if (translated := translate_environment_action({"type": "robotCommand", "command": command}, model=model))
+        is not None and is_locomotion_translation(translated)]
+
+
+def valid_locomotion_goal(goal: object) -> bool:
+    """Validate the same goal payload admitted by Core; never choose its meaning."""
+    from datetime import datetime
+    number = lambda value: type(value) in (int, float) and math.isfinite(value)
+    positive = lambda value: number(value) and value > 0
+    text = lambda value: isinstance(value, str) and bool(value.strip())
+    if not isinstance(goal, Mapping):
+        return False
+    kind = goal.get("kind")
+    if kind == "distance":
+        return goal.get("direction") in ("forward", "back", "left", "right") and positive(goal.get("metres")) and positive(goal.get("tolerance"))
+    if kind == "relativeTurn":
+        return number(goal.get("degrees")) and positive(goal.get("tolerance"))
+    if kind == "visual":
+        return text(goal.get("target")) and text(goal.get("completionCriteria"))
+    if kind not in ("approach", "follow"):
+        return False
+    target, proximity = goal.get("target"), goal.get("proximity")
+    if not isinstance(target, Mapping) or not isinstance(proximity, Mapping) or not text(target.get("frameId")):
+        return False
+    try:
+        datetime.fromisoformat(target.get("frameTimestamp"))
+    except (ValueError, TypeError):
+        return False
+    box = target.get("box")
+    if not isinstance(box, Mapping) or not all(number(box.get(key)) and 0 <= box[key] <= 1 for key in ("x", "y", "width", "height")):
+        return False
+    if box["width"] <= 0 or box["height"] <= 0 or box["x"] + box["width"] > 1.000001 or box["y"] + box["height"] > 1.000001:
+        return False
+    if not positive(proximity.get("tolerance")):
+        return False
+    if proximity.get("kind") == "metric":
+        point = target.get("groundContact")
+        if not positive(proximity.get("metres")) or not isinstance(point, Mapping) or not all(number(point.get(key)) and 0 <= point[key] <= 1 for key in ("x", "y")):
+            return False
+    elif proximity.get("kind") != "imageRelative" or not positive(proximity.get("boxHeight")) or proximity["boxHeight"] > 1:
+        return False
+    return kind != "follow" or text(goal.get("endingCondition"))

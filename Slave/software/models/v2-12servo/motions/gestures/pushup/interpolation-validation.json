@@ -1,33 +1,10 @@
 {
   "command": "pushup",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "source_sha256": "2c136913a43119a5f41af6e900c5bcae4d5ffcfedb32ef26178ca6b7a4a75d1d",
-  "samples": 1741,
-  "hardware_qualified": false,
-  "collision_checked": false,
-  "interpolators": {
-    "source": {
-      "poses": 1741,
-      "minimum_sole_z_mm": -2.6256827823090134e-09,
-      "minimum_body_z_mm": 1.7914843455453386,
-      "minimum_closure_height_mm": 7.531964437154789,
-      "maximum_interpolated_target_error_mm": 6.021267040523526e-09
-    },
-    "native_monotone_cubic_midpoints": {
-      "poses": 1740,
-      "minimum_sole_z_mm": -0.0900001012302738,
-      "minimum_body_z_mm": 1.7915051155658865,
-      "minimum_closure_height_mm": 7.531967235218762,
-      "maximum_interpolated_target_error_mm": 0.09000010123029505
-    },
-    "blender_linear_midpoints": {
-      "poses": 1740,
-      "minimum_sole_z_mm": -0.0003246786247359523,
-      "minimum_body_z_mm": 1.7915051155658865,
-      "minimum_closure_height_mm": 7.531968232972096,
-      "maximum_interpolated_target_error_mm": 0.007119682304804087
-    }
-  },
-  "evidence_scope": "Historical check of the prior recording; this file does not validate the reauthored path.",
-  "superseded_source_sha256": "2c136913a43119a5f41af6e900c5bcae4d5ffcfedb32ef26178ca6b7a4a75d1d"
+  "samples": 3409,
+  "max_sole_vertex_error_mm": 0.007130840818179999,
+  "max_sole_clearance_change_mm": 0.006573674813893149,
+  "min_closure_height_mm": 9.21173382374824,
+  "source_sha256": "919023260bb800901cae13e969c0f2b1363322a2a2a8572a16c80674db13a5bb",
+  "status": "passed_offline_compiled_comparison",
+  "hardware_qualified": false
 }

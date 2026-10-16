@@ -1,0 +1,32 @@
+{
+  "version": "0.8.42-p4-startup-rise",
+  "image": "Slave/firmware/esp32p4-wifi6/build/ainekio_p4_body.bin",
+  "bytes": 3022768,
+  "sha256": "10de45ff27db73434b7daba62ff0075fe0b2fa7d3c5c84ef844e8178afe67ece",
+  "source_sha256": {
+    "Slave/firmware/esp32p4-wifi6/main/body.c": "f9fb8f58177c477c3e35a9e47b6e6c65df2e0b4a1df2928ed2dd06c95726269e",
+    "Slave/firmware/esp32p4-wifi6/main/app_main.c": "dc4d419f9e114d93c2bb8ebe886f1750cdbfc6bd423353b3232aa641a6dbe66c",
+    "Slave/software/models/v2-12servo/posture.c": "e9565a37cd3fa3f9c09d37aeb76cfd32782fb8d1837d66c65cd131fce7703b61",
+    "Slave/software/models/v2-12servo/include/ainekio/v2_posture.h": "e5be7f37effc78eab7f0ab7b503f6e1f85baa0ca64a0e21d07e1505309ac7e92"
+  },
+  "native_validation": "49 other tests passed in full run; both body tests passed after fixing the test expectation at the instant IMU correction begins",
+  "uploaded": true,
+  "activated": true,
+  "physical_startup_qualified": false,
+  "deployment": {
+    "verified_at_utc": "2026-10-14T18:19:26.750851+00:00",
+    "transport": "Wi-Fi application OTA",
+    "running_partition": "ota_0",
+    "boot_partition": "ota_0",
+    "state": "idle",
+    "pending_verify": false,
+    "saved_joint_calibration_unchanged": true,
+    "imu_fresh": true,
+    "imu_calibration_applied": true,
+    "balance_active": true,
+    "output_armed": true,
+    "output_fault": 0,
+    "walking_command_sent": false,
+    "observed_reset_reason": 1
+  }
+}

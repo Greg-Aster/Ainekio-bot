@@ -41,6 +41,11 @@ establish that it is running on a robot.
 
 ## Connections
 
+For assembly with all three modules, use the updated
+[P4 + LCD + PCA9685 + IMU image](Assembly_Reference.png) and
+[combined connection table](ASSEMBLY_REFERENCE.md). It shows shared power
+and distinguishes the LCD SPI signals from both I2C buses.
+
 ![P4 to LCD pinout and wiring diagram](LCD_Wiring.png)
 
 [Full-resolution wiring image](LCD_Wiring.png) · [Editable vector diagram](LCD_Wiring.svg)

@@ -2,6 +2,30 @@ cmake_minimum_required(VERSION 3.16)
 project(ainekio_p4_native C)
 enable_testing()
 add_compile_options(-UNDEBUG) # Assertions must execute in optimized test builds.
+add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c)
+target_include_directories(test_imu_telemetry PRIVATE ../main)
+target_link_libraries(test_imu_telemetry PRIVATE ainekio_imu)
+target_compile_options(test_imu_telemetry PRIVATE -Wall -Wextra -Werror -Wpedantic)
+add_test(NAME imu_wire_telemetry COMMAND test_imu_telemetry)
+
+add_executable(test_video_avi test_video_avi.c ../main/video_avi.c)
+target_include_directories(test_video_avi PRIVATE ../main)
+target_compile_options(test_video_avi PRIVATE -Wall -Wextra -Werror)
+add_test(NAME video_avi COMMAND test_video_avi)
+
+add_executable(test_ota test_ota.c)
+target_include_directories(test_ota PRIVATE ota_shim body_shim ../main
+    ../components/ainekio_pca9685/include ../components/ainekio_p4_media/include)
+target_link_libraries(test_ota PRIVATE ainekio_v2_motion ainekio_faces)
+target_compile_options(test_ota PRIVATE -Wall -Wextra -Werror)
+add_test(NAME ota_upload_and_activation COMMAND test_ota)
+
+add_executable(test_imu_diagnostics test_imu_diagnostics.c)
+target_include_directories(test_imu_diagnostics PRIVATE imu_shim body_shim ../main
+    ../components/ainekio_p4_media/include)
+target_link_libraries(test_imu_diagnostics PRIVATE ainekio_imu ainekio_core)
+target_compile_options(test_imu_diagnostics PRIVATE -Wall -Wextra -Werror -Wpedantic)
+add_test(NAME imu_hardware_diagnostics COMMAND test_imu_diagnostics)
 
 add_executable(test_joint_calibration test_joint_calibration.c ../main/joint_calibration.c)
 target_include_directories(test_joint_calibration PRIVATE ../main
@@ -46,10 +70,11 @@ target_compile_options(test_connection_screen PRIVATE -Wall -Wextra -Werror -Wpe
 add_test(NAME lcd_connection_guidance COMMAND test_connection_screen)
 add_executable(test_body test_body.c ../main/joint_calibration.c)
 target_include_directories(test_body PRIVATE body_shim
-    "../components/ainekio_pca9685/include")
-target_link_libraries(test_body PRIVATE ainekio_v2_motion m)
+    "../components/ainekio_pca9685/include" "../components/ainekio_p4_media/include")
+target_link_libraries(test_body PRIVATE ainekio_v2_motion ainekio_imu m)
 target_compile_options(test_body PRIVATE -Wall -Wextra -Werror)
 add_test(NAME body_execution COMMAND test_body)
+add_test(NAME body_feedback_execution COMMAND test_body --feedback)
 
 # Exercise the real camera owner; only hardware I/O and task scheduling are virtual.
 add_executable(test_camera test_camera.c ../components/ainekio_p4_media/camera.c)
@@ -63,7 +88,7 @@ add_executable(test_calibration_store test_calibration_store.c ../main/joint_cal
 target_include_directories(test_calibration_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)
 target_compile_options(test_calibration_store PRIVATE -Wall -Wextra -Werror -ffunction-sections -fdata-sections)
 target_link_options(test_calibration_store PRIVATE -Wl,--gc-sections)
-target_link_libraries(test_calibration_store PRIVATE ainekio_v2_motion m)
+target_link_libraries(test_calibration_store PRIVATE ainekio_v2_motion ainekio_faces m)
 add_test(NAME calibration_store COMMAND test_calibration_store)
 
 add_executable(test_robot_settings test_robot_settings.c ../main/robot_settings.c)
@@ -76,7 +101,7 @@ add_executable(test_robot_settings_store test_robot_settings_store.c ../main/joi
 target_include_directories(test_robot_settings_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)
 target_compile_options(test_robot_settings_store PRIVATE -Wall -Wextra -Werror -ffunction-sections -fdata-sections)
 target_link_options(test_robot_settings_store PRIVATE -Wl,--gc-sections)
-target_link_libraries(test_robot_settings_store PRIVATE ainekio_v2_motion m)
+target_link_libraries(test_robot_settings_store PRIVATE ainekio_v2_motion ainekio_faces m)
 add_test(NAME robot_settings_store COMMAND test_robot_settings_store)
 
 add_executable(test_gateway_selection test_gateway_selection.c ../main/gateway_selection.c ../main/robot_settings.c)

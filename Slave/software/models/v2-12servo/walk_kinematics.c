@@ -146,17 +146,47 @@ bool ainekio_v2_limits_frame(const ainekio_v2_frame_t *frame)
     }
     return true;
 }
-bool ainekio_v2_walk_solve(ainekio_v2_walk_pose_t *p)
+bool ainekio_v2_contact_forward(ainekio_v2_walk_pose_t *p,
+    double local_points[4][3],bool choose_contacts)
+{
+    if(!p||!local_points)return false;
+    vec_t body[3];rotation(p->euler,body);
+    /* Installed bare Part027 contact is independent of the selected gait. */
+    const v2_sole_profile_t *profile=&v2_walk_sole;
+    for(unsigned leg=0;leg<4;leg++) {
+        const v2_walk_leg_t *g=&v2_walk_legs[leg];vec_t shoulder[3],r[3];
+        for(unsigned j=0;j<3;j++)shoulder[j]=scale(body[j],g->shoulder_sign[j]);
+        solution_t s={0};if(!seed(p->joints[leg],&s))return false;
+        mechanism(g,shoulder,&s,r);vec_t contact,world;
+        (void)support(profile,r,&s,&contact);
+        if(choose_contacts) {
+            local_points[leg][0]=contact.x;local_points[leg][1]=contact.y;local_points[leg][2]=contact.z;
+        }
+        vec_t local={(float)local_points[leg][0],(float)local_points[leg][1],(float)local_points[leg][2]};
+        vec_t hip=add(point(v2_walk_pivot),transform(body,sub(point(g->shoulder_translation),point(v2_walk_pivot))));
+        (void)derivatives(g,shoulder,r,&s,local,&world);
+        p->feet[leg][0]=p->body[0]+hip.x+world.x;
+        p->feet[leg][1]=p->body[1]+hip.y+world.y;
+        p->feet[leg][2]=p->body[2]+hip.z+world.z;
+        (void)derivatives(g,shoulder,r,&s,contact,&world);
+        p->sole_height[leg]=p->body[2]+hip.z+world.z-profile->allowance;
+    }
+    return true;
+}
+static bool solve(ainekio_v2_walk_pose_t *p,const double local_points[4][3])
 {
     if(!p)return false;
     for(unsigned j=0;j<3;j++)if(!isfinite(p->body[j])||!isfinite(p->euler[j]))return false;
     vec_t body[3];rotation(p->euler,body);
     double next[4][3];
-    const v2_sole_profile_t *profile=p->gait==AINEKIO_GAIT_CRAWL?&v2_crawl_sole:&v2_walk_sole;
+    /* Installed bare Part027 contact is independent of the selected gait. */
+    const v2_sole_profile_t *profile=&v2_walk_sole;
     for(unsigned leg=0;leg<4;leg++) {
         for(unsigned j=0;j<3;j++)if(!isfinite(p->joints[leg][j])||!isfinite(p->feet[leg][j]))return false;
         if(!isfinite(p->sole_height[leg]))return false;
-        const v2_walk_leg_t *g=&v2_walk_legs[leg];vec_t shoulder[3],r[3];
+        v2_walk_leg_t geometry=v2_walk_legs[leg];
+        if(local_points)for(unsigned j=0;j<3;j++)geometry.reference[j]=(float)local_points[leg][j];
+        const v2_walk_leg_t *g=&geometry;vec_t shoulder[3],r[3];
         for(unsigned j=0;j<3;j++)shoulder[j]=scale(body[j],g->shoulder_sign[j]);
         vec_t hip=add(point(v2_walk_pivot),transform(body,sub(point(g->shoulder_translation),point(v2_walk_pivot))));
         /* Subtract unbounded world translation in double before using the FPU. */
@@ -192,8 +222,20 @@ bool ainekio_v2_walk_solve(ainekio_v2_walk_pose_t *p)
         float theta;if(!crank(&s,(float)p->joints[leg][2],crank_branch,&theta))return false;
         next[leg][0]=atan2f(s.hs,s.hc);next[leg][1]=wrap(atan2f(s.dz-V2_O_Z,s.dx-V2_O_X)-V2_ALPHA_ZERO);next[leg][2]=theta;
     }
-    memcpy(p->joints,next,sizeof(next));p->frame.geometry_id=ainekio_v2_walk_geometry_id;
-    for(unsigned leg=0;leg<4;leg++)for(unsigned j=0;j<3;j++)
-        p->frame.position[(leg<2?leg+2:leg-2)*3+j]=(float)(p->joints[leg][j]*5729.577951308232f);
+    ainekio_v2_frame_t frame=p->frame;frame.geometry_id=ainekio_v2_walk_geometry_id;
+    for(unsigned leg=0;leg<4;leg++)for(unsigned j=0;j<3;j++) {
+        unsigned id=(leg<2?leg+2:leg-2)*3+j;
+        frame.position[id]=(float)(next[leg][j]*5729.577951308232f);
+        next[leg][j]=frame.position[id]*.00017453292519943296;
+    }
+    /* Closure must hold for the encoded angles that seed the next frame, not
+     * just the intermediate circle intersection. At a tangent, float angle
+     * conversion can otherwise produce an unsolvable next-frame seed. This
+     * is the same linkage-fit criterion, applied to the actual result. */
+    if(!ainekio_v2_limits_frame(&frame))return false;
+    memcpy(p->joints,next,sizeof(next));p->frame=frame;
     return true;
 }
+bool ainekio_v2_walk_solve(ainekio_v2_walk_pose_t *p){return solve(p,NULL);}
+bool ainekio_v2_contact_solve(ainekio_v2_walk_pose_t *p,const double local_points[4][3])
+{return local_points && solve(p,local_points);}

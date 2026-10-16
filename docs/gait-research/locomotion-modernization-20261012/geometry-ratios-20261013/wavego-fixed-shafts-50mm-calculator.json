@@ -1,0 +1,145 @@
+{
+  "schema": "ainekio.leg-calculator.v1",
+  "source": "Slave/software/models/v2-12servo/geometry.json",
+  "sourceSha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "state": {
+    "g": {
+      "carrier": 30,
+      "crank": 30,
+      "rod": 52,
+      "pickup": 40,
+      "leg": 50,
+      "shaftX": -12.500072202896149,
+      "shaftZ": 11.500026466861769,
+      "footAngle": -156.71624124154175,
+      "kneeBranch": 1,
+      "crankBranch": -1
+    },
+    "p": {
+      "stroke": 50,
+      "center": 0,
+      "lift": 12,
+      "period": 1.8,
+      "duty": 0.8,
+      "mass": 566,
+      "supports": 3,
+      "push": 0,
+      "travel": 230,
+      "clearance": 49.53818160875974
+    },
+    "mounts": [
+      {
+        "id": "RL",
+        "name": "front left",
+        "carrier": [
+          66.6878149845833,
+          69.71182602063479
+        ],
+        "crank": [
+          54.18774177632283,
+          81.21185139470536
+        ],
+        "shoulder": [
+          80.44999694824219,
+          80.96183013916016
+        ],
+        "basis": [
+          [
+            1,
+            -8.742278367890357e-8
+          ],
+          [
+            8.742279078433057e-8,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "RR",
+        "name": "front right",
+        "carrier": [
+          66.68781287769494,
+          69.71181650773411
+        ],
+        "crank": [
+          54.18773966943455,
+          81.21184188180486
+        ],
+        "shoulder": [
+          80.44999694824219,
+          80.96182250976562
+        ],
+        "basis": [
+          [
+            1,
+            -8.742277657347386e-8
+          ],
+          [
+            8.7422776573478e-8,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "FL",
+        "name": "rear left",
+        "carrier": [
+          -66.72159285134632,
+          69.71181773577351
+        ],
+        "crank": [
+          -79.22166331778678,
+          81.21184609009407
+        ],
+        "shoulder": [
+          -92.98379516601562,
+          80.96183013916016
+        ],
+        "basis": [
+          [
+            1.0000000000000153,
+            1.5099581673894112e-7
+          ],
+          [
+            -1.5099583094979856e-7,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "FR",
+        "name": "rear right",
+        "carrier": [
+          -66.72158620545916,
+          69.71181144945976
+        ],
+        "crank": [
+          -79.22165566653553,
+          81.2118408965716
+        ],
+        "shoulder": [
+          -92.98379516601562,
+          80.96182250976562
+        ],
+        "basis": [
+          [
+            1.0000000000000153,
+            2.3841858011193596e-7
+          ],
+          [
+            -2.384186491454621e-7,
+            0.9999999999999772
+          ]
+        ]
+      }
+    ],
+    "selected": 0,
+    "fixed": true,
+    "mode": "path",
+    "alpha": -148.3710496211672,
+    "theta": 142.37576366221407,
+    "closureBranch": 1,
+    "view": "leg"
+  },
+  "assumptions": "External-force torque only. Equal assumed three-foot support, not measured load sharing between feet. Arm load sharing is evaluated, not guaranteed by equal lengths. Partial-path values are not valid cycle comparisons. No housing or horn collision model, motor curve, mass inertia, sole profile or whole-body stability simulation."
+}

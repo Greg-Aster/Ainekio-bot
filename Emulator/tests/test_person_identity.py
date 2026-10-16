@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import replace
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
@@ -61,6 +62,41 @@ class TrackingTests(unittest.TestCase):
 
     def update(self, counter, time, people, source=("robot", 1, 0)):
         return self.tracker.update(source, counter, time, people)
+
+    def test_generic_track_is_the_continuity_owner_when_supplied(self):
+        first = self.update(1, 0, [replace(person(match=ALICE, visible=True), track_id="objects:1")])[0]
+        # Generic association owns continuity even when box/color matching alone
+        # would disagree. The name remains explicitly an estimate from a face.
+        moved = self.update(2, .5, [replace(person(x=.6, color=1), track_id="objects:1")])[0]
+        self.assertEqual(first["trackId"], "objects:1")
+        self.assertEqual(moved["trackId"], first["trackId"])
+        self.assertEqual(moved["state"], "tracked")
+        replaced = self.update(3, .6, [replace(person(x=.6, color=1), track_id="objects:2")])[0]
+        self.assertEqual(replaced, {"trackId": "objects:2", "state": "unknown"})
+        mismatch = self.update(4, .7, [replace(person(visible=True), track_id="objects:1")])[0]
+        self.assertEqual(mismatch, {"trackId": "objects:1", "state": "unknown"})
+
+    def test_unconfirmed_generic_detection_does_not_start_a_second_association(self):
+        self.update(1, 0, [replace(person(match=ALICE, visible=True), track_id="objects:1")])
+        unconfirmed = self.update(2, .1, [replace(person(), detector_continuity=True)])[0]
+        self.assertEqual(unconfirmed["state"], "unknown")
+        self.assertNotEqual(unconfirmed["trackId"], "objects:1")
+
+    def test_face_wrapper_commits_the_same_detector_track_id(self):
+        with TemporaryDirectory() as root:
+            gallery = FaceGallery(Path(root) / "people.json", "hash")
+            gallery.add("Alice", feature())
+            commits = []
+            def finalize(result, source, counter, received_at):
+                commits.append((source, counter))
+                return replace(result, objects=tuple(replace(item, track_id="objects:1") for item in result.objects))
+            detector = SimpleNamespace(finalize_frame=finalize, tracking_enabled=True)
+            backend = PersonIdentityBackend(detector, SimpleNamespace(model_hash="hash", detector_hash="hash"), gallery)
+            recognition = RecognitionResult("fixture", "fixture", "", (RecognizedObject("person", .9, (.1, .1, .3, .7)),), ())
+            result = backend.finalize_frame((recognition, [person(match=feature(), visible=True)]), ("robot", 1, 0), 8, 0)
+            self.assertEqual(commits, [(("robot", 1, 0), 8)])
+            self.assertEqual(result.objects[0].track_id, result.objects[0].identity["trackId"])
+            self.assertEqual(result.objects[0].identity["state"], "face_match")
 
     def test_named_track_motion_face_hidden_expiry_and_face_reacquisition(self):
         first = self.update(1, 0, [person(match=ALICE, visible=True)])[0]

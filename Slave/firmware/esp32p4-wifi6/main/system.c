@@ -1,9 +1,11 @@
 #include "system.h"
+#include "logs.h"
 #include "board.h"
 #include "body.h"
 #include "controller.h"
 #include "network.h"
 #include "storage.h"
+#include "ota.h"
 #include "ainekio/p4_media.h"
 
 #include <inttypes.h>
@@ -93,10 +95,11 @@ ainekio_p4_system_status_t ainekio_p4_system_status(void)
 
 esp_err_t ainekio_p4_system_profile(ainekio_profile_t requested)
 {
+    if (ainekio_p4_ota_busy()) return ESP_ERR_INVALID_STATE;
     if (requested != AINEKIO_PROFILE_HOME && requested != AINEKIO_PROFILE_TETHER) return ESP_ERR_INVALID_ARG;
     if (!settings_lock || atomic_load(&power_pending)) return ESP_ERR_INVALID_STATE;
     if (xSemaphoreTake(settings_lock, pdMS_TO_TICKS(100)) != pdTRUE) return ESP_ERR_TIMEOUT;
-    if (atomic_load(&power_pending)) { xSemaphoreGive(settings_lock); return ESP_ERR_INVALID_STATE; }
+    if (atomic_load(&power_pending) || ainekio_p4_ota_busy()) { xSemaphoreGive(settings_lock); return ESP_ERR_INVALID_STATE; }
     esp_err_t result = ESP_OK;
     if ((int)requested != atomic_load(&profile)) {
         ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
@@ -115,7 +118,11 @@ esp_err_t ainekio_p4_system_profile(ainekio_profile_t requested)
 
 static esp_err_t schedule_power(bool restart, uint32_t seconds)
 {
+    if (ainekio_p4_ota_busy()) return ESP_ERR_INVALID_STATE;
     if (!power_queue || atomic_exchange(&power_pending, true)) return ESP_ERR_INVALID_STATE;
+    /* Pair with the uploader's check after claiming its busy flag, so a
+     * concurrent power request cannot pass an earlier observation. */
+    if (ainekio_p4_ota_busy()) { atomic_store(&power_pending, false); return ESP_ERR_INVALID_STATE; }
     ainekio_body_state_t previous_state = atomic_load(&state);
     bool storage_attempted = false, media_attempted = false, timer_prepared = false, hold_attempted = false;
     bool settings_held = false;
@@ -171,6 +178,7 @@ esp_err_t ainekio_p4_system_restart(void) { return schedule_power(true, 0); }
 
 esp_err_t ainekio_p4_system_state(ainekio_state_request_t requested, uint32_t seconds)
 {
+    if (ainekio_p4_ota_busy() && requested != AINEKIO_STATE_REQUEST_DOZE) return ESP_ERR_INVALID_STATE;
     if (atomic_load(&power_pending)) return ESP_ERR_INVALID_STATE;
     if (requested == AINEKIO_STATE_REQUEST_SLEEP) {
         if (seconds == 0 || seconds > 86400U) return ESP_ERR_INVALID_ARG;
@@ -182,7 +190,9 @@ esp_err_t ainekio_p4_system_state(ainekio_state_request_t requested, uint32_t se
         return ESP_ERR_INVALID_ARG;
     if (!settings_lock) return ESP_ERR_INVALID_STATE;
     if (xSemaphoreTake(settings_lock, pdMS_TO_TICKS(100)) != pdTRUE) return ESP_ERR_TIMEOUT;
-    if (atomic_load(&power_pending)) { xSemaphoreGive(settings_lock); return ESP_ERR_INVALID_STATE; }
+    if (atomic_load(&power_pending) || (ainekio_p4_ota_busy() && requested != AINEKIO_STATE_REQUEST_DOZE)) {
+        xSemaphoreGive(settings_lock); return ESP_ERR_INVALID_STATE;
+    }
     const bool dozing = requested == AINEKIO_STATE_REQUEST_DOZE;
     const ainekio_body_state_t previous = atomic_load(&state);
     /* Close body admission before changing the output generation. */
@@ -196,10 +206,15 @@ esp_err_t ainekio_p4_system_state(ainekio_state_request_t requested, uint32_t se
 
 esp_err_t ainekio_p4_system_authenticated(void)
 {
-    if (!atomic_load(&ota_pending)) return ESP_OK;
+    if (!atomic_load(&ota_pending)) { ainekio_p4_logs_runtime(); return ESP_OK; }
     ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
-    esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
-    if (result == ESP_OK) atomic_store(&ota_pending, false);
+    esp_err_t result = ainekio_p4_ota_startup_check();
+    if (result == ESP_OK) result = esp_ota_mark_app_valid_cancel_rollback();
+    if (result == ESP_OK) {
+        atomic_store(&ota_pending, false);
+        ainekio_p4_ota_accepted();
+        ainekio_p4_logs_runtime();
+    }
     return result;
 }
 
@@ -223,6 +238,11 @@ int ainekio_p4_system_command(int argc, char **argv)
         if (strcmp(argv[2], "retry") == 0) result = ainekio_p4_storage_retry();
         else if (strcmp(argv[2], "clear") == 0) result = ainekio_p4_storage_clear();
         else return 1;
+    } else if (argc == 3 && strcmp(argv[1], "recording") == 0) {
+        if (ainekio_p4_ota_busy()) return 1;
+        if (strcmp(argv[2], "start") == 0) result = ainekio_p4_video_start();
+        else if (strcmp(argv[2], "stop") == 0) result = ainekio_p4_video_stop();
+        else if (strcmp(argv[2], "status") != 0) return 1;
     } else if (argc != 1) return 1;
     const ainekio_p4_system_status_t status = ainekio_p4_system_status();
     const ainekio_p4_storage_status_t sd = ainekio_p4_storage_status();
@@ -231,5 +251,9 @@ int ainekio_p4_system_command(int argc, char **argv)
            status.heap_free, status.ota_layout, status.ota_pending);
     printf("storage mounted=%d free=%" PRIu64 " dropped=%" PRIu32 " error=%s\n",
            sd.mounted, sd.free_bytes, sd.dropped_records, esp_err_to_name(sd.last_error));
+    const ainekio_p4_video_status_t video = ainekio_p4_video_status();
+    printf("recording=%d frames=%" PRIu32 " dropped=%" PRIu32 " segments=%" PRIu32 " max_write_us=%" PRIu32 " path=%s error=%s\n",
+        video.recording, video.frames, video.dropped, video.segments, video.max_write_us,
+        video.path, esp_err_to_name(video.error));
     return result == ESP_OK ? 0 : 1;
 }

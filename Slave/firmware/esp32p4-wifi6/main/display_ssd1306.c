@@ -1,3 +1,4 @@
+#include "ota.h"
 #include "display.h"
 #include "face_timeline.h"
 #include "system.h"
@@ -200,8 +201,10 @@ static void display_task(void *unused)
     int connection_phase=-1;
     TickType_t last=xTaskGetTickCount();
     for(;;){
+        ainekio_connection_page_t page;
+        const bool updating=ainekio_p4_ota_page(&page);
         const ainekio_body_state_t state=ainekio_p4_system_status().state;
-        bool sleep=state==AINEKIO_STATE_DOZING||state==AINEKIO_STATE_DEEP_SLEEP;
+        bool sleep=!updating && (state==AINEKIO_STATE_DOZING||state==AINEKIO_STATE_DEEP_SLEEP);
         if(sleep!=sleeping){oled_cmd(sleep ? 0xae : 0xaf);sleeping=sleep;}
         if(!sleep){
             const uint64_t now=esp_timer_get_time()/1000;
@@ -227,8 +230,7 @@ static void display_task(void *unused)
                 gateway==AINEKIO_SCREEN_GATEWAY_AUTH_FAILED ? 2 :
                 gateway==AINEKIO_SCREEN_GATEWAY_PROTOCOL_FAILED ? 3 : 0);
             if(phase!=connection_phase){connection_phase=phase;connection_since=now;}
-            ainekio_connection_page_t page;
-            ainekio_connection_page(&network,gateway,now-connection_since,&page);
+            if(!updating)ainekio_connection_page(&network,gateway,now-connection_since,&page);
             /* Speech continues independently even while the body holds a pose. */
             if(page.face_visible)
                 ainekio_face_render(sample.face,talking ? now : sample.elapsed_ms,talking,pixels);

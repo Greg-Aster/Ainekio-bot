@@ -1,74 +1,67 @@
 {
-  "command": "bow",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "samples": 1021,
-  "duration_s": 8.5,
-  "sample_hz": 120,
-  "max_target_error_mm": 9.72022462519817e-11,
-  "min_sole_height_mm": -6.495781690318836e-11,
-  "minimum_body_ground_clearance_mm": 5.262739768285016,
-  "minimum_closure_triangle_height_mm": 4.493533179854496,
-  "minimum_assumed_support_margin_mm": 49.26986684948603,
-  "actuator_min_degrees": [
-    [
-      -4.7374145983252526e-06,
-      -5.313539162484738,
-      -1.9028721854086035
-    ],
-    [
-      -3.987229073970162e-06,
-      -5.313557061255728,
-      -1.9028658588531508
-    ],
-    [
-      0.0,
-      -5.3135186378820185,
-      -1.9028646007140266
-    ],
-    [
-      -1.9641272322781057e-07,
-      -5.313540650516646,
-      -1.9028759695094746
-    ]
-  ],
-  "actuator_max_degrees": [
-    [
-      -1.9640520960412418e-07,
-      46.93723190808014,
-      30.635124904873923
-    ],
-    [
-      3.165338448457297e-06,
-      46.93722449701652,
-      30.635143451299477
-    ],
-    [
-      5.020656409349951e-06,
-      119.99999999999999,
-      101.29499761671912
-    ],
-    [
-      1.8470264299905514e-06,
-      119.99999999999999,
-      101.29499761671912
-    ]
-  ],
-  "maximum_adjacent_joint_step_degrees": 1.3052419495922964,
-  "peak_joint_speed_deg_s": 156.62903395107367,
-  "peak_joint_acceleration_deg_s2": 812.923517035105,
-  "seconds": 6.226304566000181,
+  "min_sole_z_mm": -1.0378187198512023e-10,
+  "min_body_z_mm": 2.0240649577950123,
+  "minimum_closure_height_mm": 7.993888688320271,
+  "maximum_adjacent_joint_step_degrees": 3.0825304142752907,
+  "maximum_planted_target_error_mm": 1.0368950142947142e-10,
   "hardware_qualified": false,
-  "collision_checked": false,
-  "validation_scope": "Current measured linkage, sole and body hulls. Assumed COM, unmeasured load, friction and electrical limits.",
-  "lower_leg_angle_above_floor_deg": {
-    "RL": 1.8000000000000638,
-    "RR": 1.799999999999259
-  },
-  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "body_support_scope": "Current complete body hull.",
-  "front_hand_forward_travel_mm": {
-    "RL": 73.33326688702203,
-    "RR": 73.33326640987337
-  },
-  "motion_end_s": 8.0
+  "command": "bow",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "samples": 877,
+  "sample_hz": 120,
+  "duration_s": 7.3,
+  "motion_end_s": 7.1,
+  "peak_joint_speed_deg_s": 369.63404964324195,
+  "joint_min_deg": [
+    [
+      -4.527081159652629e-06,
+      -2.7487395611587093,
+      -21.66238998045336
+    ],
+    [
+      -3.7307266123630634e-06,
+      -2.7487525010720644,
+      -21.662385469925972
+    ],
+    [
+      2.337200161193621e-07,
+      -2.7487143208375775,
+      -21.662397459222866
+    ],
+    [
+      -1.4416618558349156e-06,
+      -2.7487449505286503,
+      -21.662391475887667
+    ]
+  ],
+  "joint_max_deg": [
+    [
+      -4.0366787704329867e-07,
+      48.8110060632319,
+      7.3172451588224945
+    ],
+    [
+      2.464590073673917e-06,
+      48.81097997161792,
+      7.317268406148738
+    ],
+    [
+      5.020366380908958e-06,
+      120.8152105789464,
+      75.71772704408806
+    ],
+    [
+      2.17477136620593e-06,
+      120.81520854483904,
+      75.71773335395889
+    ]
+  ],
+  "minimum_support_margin_mm": 51.97859064256395,
+  "mapped_pulse_min_us": 812.4583072046275,
+  "mapped_pulse_max_us": 2487.541549018563,
+  "reviewed_pulse_window_us": [
+    400,
+    2900
+  ],
+  "collision_checked": false
 }

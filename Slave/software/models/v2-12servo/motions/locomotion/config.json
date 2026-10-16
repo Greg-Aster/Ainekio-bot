@@ -1,28 +1,113 @@
 {
-  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
   "walk_turn_degrees_per_cycle": 8.73,
   "crawl": {
-    "body_z_mm": -22,
+    "body_z_mm": -5,
     "entry_seconds": 2,
-    "sweep_mm": 18,
-    "rearward_bias_mm": 4,
-    "lift_mm": 4,
-    "minimum_lift_mm": 2,
-    "sway_mm": 0.5,
-    "bob_mm": 0.25,
-    "roll_deg": 0.5,
-    "pitch_deg": 0.25,
-    "turn_degrees_per_cycle": 10
+    "sweep_mm": 32,
+    "rearward_bias_mm": 0,
+    "lift_mm": 8,
+    "minimum_lift_mm": 5,
+    "sway_mm": 0,
+    "bob_mm": 0,
+    "roll_deg": 0,
+    "pitch_deg": 0,
+    "turn_degrees_per_cycle": 10,
+    "ground_contact_fraction": 0.78,
+    "support_coefficients_mm": {
+      "fwd": [
+        8.101,
+        7.262,
+        -0.0,
+        4.07,
+        -0.0
+      ],
+      "back": [
+        6.316,
+        9.433,
+        -0.0,
+        13.735,
+        -0.0
+      ],
+      "turn_l": [
+        6.95,
+        10.907,
+        -0.0,
+        7.965,
+        -0.0
+      ],
+      "turn_r": [
+        6.95,
+        10.907,
+        -0.0,
+        7.965,
+        -0.0
+      ]
+    },
+    "support_basis": "Body-frame x = k0 + k1*sin(4*pi*phase) + k2*cos(4*pi*phase); y = k3*sin(2*pi*phase) + k4*cos(2*pi*phase). Offline fit with bare Part027, centered COM; no runtime limiter."
   },
   "hardware_qualified": false,
   "walk": {
-    "body_z_mm": -8,
-    "stance_sweep_mm": 96,
-    "rearward_bias_mm": -8,
-    "lift_mm": 8.85,
-    "body_motion_scale": 0.485,
-    "stroke_basis": "Wider coordinated foot path: 96 mm stance sweep, centered 8 mm forward. Retains the previous full-Walk lift and body sway/bob/roll/pitch; Home calibration is unchanged. Calculated using saved mirrored carrier 856/2444 us, crank 723/2577 us, and 11.111111 us/degree.",
-    "transition_cycles": 2
+    "body_z_mm": 5,
+    "stance_sweep_mm": 61.94505422059417,
+    "rearward_bias_mm": 23.041079405021794,
+    "lift_mm": 10,
+    "body_motion_scale": 0,
+    "stroke_basis": "Owner-reindexed cranks: left Home 2800 us, full Walk opposite endpoint 1600 us; mirrored right 500/1700 us. Photo-estimated mounting angle -117.68 degrees at Home, not measured calibration. Carrier calibration unchanged. Fit uses those crank endpoints, rearward foot placement, and variable body height. Authored reversal landmarks are emitted at production cadence. Requires corresponding mounting calibration; saved robot calibration is not overwritten.",
+    "transition_cycles": 2,
+    "ground_contact_fraction": 0.78,
+    "support_x_mean_mm": 0,
+    "support_x_mm": 4,
+    "support_y_mm": 5,
+    "support_x_mean_full_stride_mm": 0,
+    "minimum_lift_mm": 6,
+    "support_phase_cycles": 0,
+    "body_z_full_stride_mm": -1.3223185985845165,
+    "body_height_coefficients_mm": [
+      -5.755500565571178,
+      1.5838630594194612,
+      -1.32619395668322,
+      -1.304375040929981
+    ],
+    "backward_body_z_full_stride_mm": -3.9091947681820205,
+    "backward_body_height_coefficients_mm": [
+      -4.878419243837693,
+      -4.1228930765910565,
+      2.1708468546534063,
+      -3.25892069307099
+    ],
+    "run_transition_body_x_mm": -4.0,
+    "height_rephase_gain": 1.55,
+    "run_transition_backward_body_x_mm": -1.0,
+    "full_stride_key_phases": [
+      0.03328125,
+      0.2476875,
+      0.2829375,
+      0.49628125,
+      0.5333125,
+      0.74771875,
+      0.7829375000000001,
+      0.99628125
+    ],
+    "backward_full_stride_key_phases": [
+      0.03175,
+      0.2475,
+      0.28334375,
+      0.4980625,
+      0.5317500000000001,
+      0.7475,
+      0.78334375,
+      0.9980625000000001
+    ],
+    "crank_mounting_reference": {
+      "model_degrees_at_home": -117.68,
+      "left_home_us": 2800,
+      "left_other_endpoint_us": 1600,
+      "right_home_us": 500,
+      "right_other_endpoint_us": 1700,
+      "us_per_degree": 11.11111111111111,
+      "evidence": "Photo-derived provisional angle; other legs assumed physically mirrored; no shaft-angle measurement."
+    }
   },
   "leverage_validation": {
     "stance_output_min_deg": 45,

@@ -15,7 +15,7 @@ from gateway.dashboard.server import DashboardHandler
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.action_receipts import ActionConflictError, ActionReceipts
 from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
-from protocol.control_v1 import BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE, WALK_STEERING_FEATURE, ProtocolValidationError
+from protocol.control_v1 import BODY_CAPABILITIES_FEATURE, BODY_COMMANDS_FEATURE, COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, RUN_GAIT_FEATURE, WALK_STEERING_FEATURE, WALK_LATERAL_FEATURE, ProtocolValidationError
 from Emulator.tests.test_action_receipts import accepted, action
 from Emulator.tests.test_environment_adapter import FakeWebSocket
 
@@ -110,6 +110,33 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
             "robot_id": "robot", "name": "walk", "params": {"dir": "fwd", "steps": 0, "speed": 40}})
         await self.connection._handle_control({"t": "ack", "seq": result["seq"]})
         return result["seq"]
+
+    async def test_lateral_update_is_negotiated_and_keeps_original_action_until_finish(self):
+        before = self.adapter._observation()
+        self.assertFalse(before["capabilities"]["locomotion"]["lateral"])
+        self.assertNotIn("lateral", before["state"]["activeMovementUpdates"]["controls"])
+        await self.start()
+        await self.update(self.request(controls={"speed": 50, "forward": 0, "turn": 0, "lateral": 100}))
+        await asyncio.wait_for(self.adapter._walk_update_task, 1)
+        self.assertEqual(self.result()["status"], "rejected")
+        self.assertEqual(len(self.body.sent), 1)
+        self.connection.features = (*self.connection.features, WALK_LATERAL_FEATURE)
+        after = self.adapter._observation()
+        self.assertTrue(after["capabilities"]["locomotion"]["lateral"])
+        self.assertIn("lateral", after["state"]["activeMovementUpdates"]["controls"])
+        await self.update(self.request(2, controls={"speed": 50, "forward": 25, "turn": 0, "lateral": -80}))
+        wire = await self.sent(2)
+        self.assertEqual(wire["lateral"], -80)
+        self.assertEqual(wire["forward"], 25)
+        self.assertEqual(wire["update"], 1)
+        await self.acknowledge_update()
+        self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "started")
+        await self.update(self.request(3, controls={"speed": 0}))
+        await self.acknowledge_update(3)
+        self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "started")
+        await self.connection._handle_control({"t": "done", "seq": 1})
+        await asyncio.gather(*self.tasks)
+        self.assertEqual(self.adapter.receipts.action(self.original["id"])["state"], "terminal")
 
     async def test_camera_receipt_status_is_independent_of_recognition_results(self) -> None:
         from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, encode_binary_frame
@@ -463,11 +490,11 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.result()["status"], "rejected", fields)
         self.assertEqual(len(self.body.sent), 1)
 
-    async def test_finite_motion_cannot_be_converted_into_ongoing_walk(self) -> None:
-        await self.start(continuous=False, units=3)
-        await (await self.update(self.request()))
-        self.assertEqual(self.result()["status"], "rejected")
-        self.assertEqual(len(self.body.sent), 1)
+    async def test_finite_cycle_override_cannot_bypass_goal_owned_completion(self) -> None:
+        result = await self.adapter.handle_action({**self.original, "continuous": False, "units": 3})
+        self.assertEqual(result["type"], "rejected")
+        self.assertEqual(result["message"], "locomotion_goal_conflicts_with_finite_controls")
+        self.assertEqual(self.body.sent, [])
 
     async def test_update_expiring_behind_send_lock_does_not_reach_body(self) -> None:
         await self.start()

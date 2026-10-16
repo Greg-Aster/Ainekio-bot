@@ -1,12 +1,10 @@
 {
-  "mechanism_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
-  "measured_blender_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
-  "measured_date": "2026-09-29",
-  "body_support_scope": "Current complete body hull.",
-  "schema": "ainekio.point.full-forward-extension.v1",
-  "description": "Forward pointing with a coupled positive-crank extension path that fits the mounted servo range.",
-  "contact_hulls_file": "../sit/posture-hulls.npz",
-  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
+  "mechanism_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "body_support_scope": "Complete body hull; bare Part027 contact.",
+  "schema": "ainekio.point.expressive-bare.v1",
+  "description": "Accepted Wave rear-leg seating, quick front-left lift and full forward point, held before seated foot replacement and recovery.",
+  "contact_hulls_file": "contact-hulls.npz",
+  "contact_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
   "grounded_legs": [],
   "knee_to_ankle_local_unit": {},
   "pointing_leg": "RL",
@@ -17,44 +15,59 @@
     -35.346595764160156
   ],
   "extended_joint_offsets_rad": [
-    0.14263475862967734,
-    2.059730559444062,
-    1.637719397712503
+    0.14297046295362,
+    1.946249928689466,
+    1.229277472969403
   ],
-  "extension_waypoints_rad": [
-    [
-      -0.4266138172991002,
-      0.43046485428392867,
-      0.20006545236760376
-    ],
-    [
-      0.14263475862967734,
-      2.059730559444062,
-      1.637719397712503
-    ]
-  ],
-  "extension_waypoint_fractions": [
-    0,
-    1
-  ],
-  "timing_s": {
-    "lift_end": 3.0,
-    "extension_end": 4.2,
-    "hold_end": 6.2,
-    "retraction_end": 7.4
-  },
-  "posture_sample_time_s": 5.0,
-  "angle_scope": "Authored for the mounted pulse mapping in calibrated_path_fit; loaded tracking is unmeasured.",
+  "posture_sample_time_s": 2.2,
+  "angle_scope": "Firmware geometric offsets; physical calibration and assembly mounting unqualified.",
   "nominal_link_lengths_mm": [
-    40,
+    35,
     55
   ],
-  "calibrated_path_fit": {
-    "pulse_target_us": [
-      400,
-      2900
-    ],
-    "details": "source.json metadata.calibrated_path_fit"
-  },
-  "extension_interpolation": "Quintic progress in crank angle and normalized four-bar carrier coordinates."
+  "extension_interpolation": "Authored joint path with bare-contact lift/replacement joins.",
+  "bare_contact_source_sha256": "fbcae38d154a461dc9310002cbd49ea97531994fd51fbb1ed96a8b9a14bdb044",
+  "phases": [
+    {
+      "start": 0.0,
+      "end": 1.2,
+      "kind": "squat_rear_legs"
+    },
+    {
+      "start": 1.2,
+      "end": 1.6,
+      "kind": "lift_front_left"
+    },
+    {
+      "start": 1.6,
+      "end": 2.2,
+      "kind": "extend_to_point"
+    },
+    {
+      "start": 2.2,
+      "end": 3.7,
+      "kind": "hold_point"
+    },
+    {
+      "start": 3.7,
+      "end": 4.3,
+      "kind": "retract_front_left"
+    },
+    {
+      "start": 4.3,
+      "end": 4.7,
+      "kind": "replace_front_left"
+    },
+    {
+      "start": 4.7,
+      "end": 5.9,
+      "kind": "return_to_standing"
+    },
+    {
+      "start": 5.9,
+      "end": 6.1,
+      "kind": "hold_standing"
+    }
+  ],
+  "baseline_source_archive_sha256": "fd96bb68abb0de1658a9df697d5f1949a5f0afa27aad37c2e8285e81a2a3a4e2"
 }

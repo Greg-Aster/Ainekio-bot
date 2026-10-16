@@ -1,0 +1,17 @@
+{
+  "version": "0.8.55-p4-fast-stroke",
+  "image_bytes": 2835040,
+  "image_sha256": "bd137596d3e986a7e7bfe6c648f3e16c8a5ea942d32d777c6d547d998b19a81f",
+  "deployment": "verified_over_wifi",
+  "hardware_walking_tested": false,
+  "source_sha256": {
+    "Slave/software/models/v2-12servo/motion.c": "d66146ee316f0534e70760dfa7e0edbcbf0698a2636daa2cac20000b1d304052",
+    "Slave/software/models/v2-12servo/include/ainekio/v2_walk.h": "2fa90b783c9c9304329dffa1865ce06278aa1936e0cdff6997cd6b4e6d9ea187"
+  },
+  "running_partition": "ota_1",
+  "boot_partition": "ota_1",
+  "pending_verify": false,
+  "ota_error": "ESP_OK",
+  "native_tests_passed": 51,
+  "session_epoch": 40
+}

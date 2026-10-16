@@ -7,6 +7,12 @@
 #include "../main/body.c"
 #include "ainekio/control_codec.h"
 static float saved_motion_rate=1.F;
+static bool leveling_enabled=true;
+static ainekio_v2_balance_tuning_t leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+ainekio_v2_balance_tuning_t ainekio_p4_balance_tuning(void) { return leveling_tuning; }
+bool ainekio_p4_balance_enabled(void) { return leveling_enabled; }
+static ainekio_p4_imu_status_t imu_status;
+ainekio_p4_imu_status_t ainekio_p4_imu_status(void){return imu_status;}
 float ainekio_p4_motion_rate(void) { return saved_motion_rate; }
 
 struct test_queue { unsigned capacity, size, count; unsigned char data[]; };
@@ -16,7 +22,7 @@ static ainekio_pca9685_t driver;
 static unsigned writes;
 static uint16_t last_written[12];
 static unsigned enabled = 0xfff;
-static bool mapping_failure, driver_failure, power_pending;
+static bool mapping_failure, driver_failure, driver_timeout, defer_requests, power_pending;
 static ainekio_body_state_t system_state;
 static ainekio_p4_joint_config_t mapped_joints[12];
 
@@ -32,7 +38,7 @@ int xQueueSend(QueueHandle_t q,const void *p,unsigned timeout)
 int xQueueReceive(QueueHandle_t q,void *p,unsigned timeout)
 {
     /* Let the sole output owner service a synchronous caller's admission. */
-    if(q==results && !q->count && timeout && requests->count) {
+    if(q==results && !q->count && timeout && requests->count && !defer_requests) {
         body_request_t request; assert(xQueueReceive(requests,&request,0));
         body_result_t result={request.serial,process_request(&request,clock_us)};
         if(result.result==ESP_OK && request.home && body.active && body.ramping) {
@@ -54,10 +60,6 @@ int xTaskCreatePinnedToCore(void(*fn)(void*),const char*n,unsigned stack,void*a,
 { (void)fn;(void)n;(void)stack;(void)a;(void)pri;(void)h;(void)core;return 1; }
 void vTaskDelay(unsigned t) { clock_us+=(uint64_t)t*1000; }
 int64_t esp_timer_get_time(void) { return (int64_t)clock_us; }
-int esp_task_wdt_reconfigure(const esp_task_wdt_config_t *c) { (void)c;return 0; }
-int esp_task_wdt_init(const esp_task_wdt_config_t *c) { (void)c;return 0; }
-int esp_task_wdt_add_user(const char *n,void **h) { (void)n;*h=(void*)1;return 0; }
-int esp_task_wdt_reset_user(void *h) { (void)h;return 0; }
 ainekio_p4_system_status_t ainekio_p4_system_status(void)
 { return (ainekio_p4_system_status_t){.restart_pending=power_pending, .state=system_state}; }
 ainekio_pca9685_t *ainekio_p4_output(void) { return &driver; }
@@ -74,6 +76,7 @@ static ainekio_pca_result_t write_pulses(ainekio_pca9685_t*d,uint64_t g,const ui
 {
     if(g!=d->state.generation)return AINEKIO_PCA_STALE;
     if(driver_failure)return AINEKIO_PCA_IO;
+    if(driver_timeout)return AINEKIO_PCA_TIMEOUT;
     for(unsigned i=0;i<12;i++)assert(!p[i] || ainekio_pca_pulse_valid(d,p[i]));
     last_write_started=clock_us;clock_us+=write_delay_us;
     memcpy(last_written,p,sizeof(last_written));writes++;d->state.last_frame_us=clock_us;return AINEKIO_PCA_OK;
@@ -117,8 +120,9 @@ static void reset(void)
     ainekio_p4_body_listen(false);
     memset(commanded,0,sizeof(commanded));driver=(ainekio_pca9685_t){.state={.generation=1,.ready=true}};
     system_state=AINEKIO_STATE_IDLE;
-    saved_motion_rate=1.F;
-    clock_us=1000000;writes=0;enabled=0xfff;mapping_failure=driver_failure=power_pending=false;
+    saved_motion_rate=1.F;leveling_enabled=true;leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+    imu_status=(ainekio_p4_imu_status_t){0};
+    clock_us=1000000;writes=0;enabled=0xfff;mapping_failure=driver_failure=driver_timeout=defer_requests=power_pending=false;
     mapping_delay_us=write_delay_us=last_mapping_started=last_write_started=0;
     /* Broad test fixture for executor lifecycle coverage. The actual shipping
      * center-indexed calibration is exercised separately across the catalog. */
@@ -141,12 +145,15 @@ static int execute(ainekio_command_t *c)
 { return ainekio_p4_body_execute(driver.state.generation,17,c); }
 static void advance(unsigned ms)
 { assert(ms%20==0);while(ms){clock_us+=20000;output_step(clock_us);ms-=20;} }
-static ainekio_p4_body_event_t finish(unsigned maximum_ms)
+static ainekio_p4_body_event_t finish_at(unsigned maximum_ms,unsigned line)
 {
     ainekio_p4_body_event_t e;
     while(maximum_ms && !ainekio_p4_body_event(&e)) {advance(20);maximum_ms-=20;}
+    if(!maximum_ms)fprintf(stderr,"Motion completion timed out at test line %u: kind=%u entering=%u contact_entry=%u posture_s=%.6f\n",
+        line,body.motion.kind,body.motion.entering,body.motion.contact_entry,body.motion.posture_elapsed);
     assert(maximum_ms);return e;
 }
+#define finish(maximum_ms) finish_at((maximum_ms),__LINE__)
 static void pose_and_replace(void)
 {
     reset();ainekio_command_t c=command(1,AINEKIO_INTENT_NEUTRAL);
@@ -156,7 +163,7 @@ static void pose_and_replace(void)
     c.sequence=2;c.data.intent.kind=AINEKIO_INTENT_STAND;
     const uint16_t before=last_written[0];assert(execute(&c)==ESP_OK&&last_written[0]==before);
     ainekio_p4_body_event_t e;assert(ainekio_p4_body_event(&e)&&e.sequence==1&&!e.completed&&e.result==ESP_OK);
-    e=finish(5000);assert(e.sequence==2&&e.completed&&e.result==ESP_OK);
+    e=finish(10000);assert(e.sequence==2&&e.completed&&e.result==ESP_OK);
     uint16_t held[12];memcpy(held,last_written,sizeof(held));advance(100);
     assert(!memcmp(held,last_written,sizeof(held))&&!ainekio_p4_body_event(&e));
 }
@@ -187,6 +194,50 @@ static void clips(void)
         assert(ainekio_p4_frame_pulses(&terminal,expected));assert(!memcmp(expected,last_written,sizeof(expected)));
     }
 }
+static void rise_from_grounded_postures(void)
+{
+    const char *names[]={"lay_down","dead"};
+    for(unsigned posture=0;posture<2;posture++) {
+        reset();
+        ainekio_command_t c=command(1,AINEKIO_INTENT_EMOTE);
+        strcpy(c.data.intent.data.asset,names[posture]);
+        assert(execute(&c)==ESP_OK);
+        assert(finish(15000).completed);
+        assert(body.motion.kind==MOTION_NONE && body.motion.face_is_clip);
+        c=command(2,AINEKIO_INTENT_STAND);
+        assert(execute(&c)==ESP_OK && body.motion.reverse_grounded_entry);
+        advance(3000);
+        ainekio_v2_frame_t expected;
+        const uint64_t sample=ainekio_v2_clips[body.motion.recovery_clip].duration_us-
+            (uint64_t)(3000000.*body.motion.entry_rate);
+        assert(ainekio_v2_clip_sample(body.motion.recovery_clip,sample,&expected));
+        for(unsigned i=0;i<12;i++)assert(fabsf(body.pose.position[i]-expected.position[i])<1.F);
+        ainekio_p4_body_event_t event=finish(10000);
+        assert(event.sequence==2 && event.completed && body.motion.kind==MOTION_NONE);
+        ainekio_v2_walk_pose_t stand;
+        assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
+        for(unsigned i=0;i<12;i++)assert(fabsf(body.pose.position[i]-stand.frame.position[i])<1.F);
+        assert(body.balance_hold);
+        imu_status.calibration_applied=true;
+        imu_status.attitude.available=imu_status.attitude.fresh=true;
+        imu_status.attitude.orientation_wxyz[0]=cosf(.02F);
+        imu_status.attitude.orientation_wxyz[1]=sinf(.02F);
+        advance(100);
+        assert(body.balance.sensor_usable && body.balance.correction[0]<0.);
+    }
+    reset();
+    ainekio_command_t c=command(1,AINEKIO_INTENT_EMOTE);
+    strcpy(c.data.intent.data.asset,"lay_down");
+    assert(execute(&c)==ESP_OK && finish(15000).completed);
+    c=command(2,AINEKIO_INTENT_WALK);
+    c.data.intent.data.walk.controls=1;
+    c.data.intent.data.walk.speed_percent=50;
+    assert(execute(&c)==ESP_OK && !body.motion.reverse_grounded_entry);
+    assert(!body.motion.entering && !body.ramping && body.motion.walk.phase==0.);
+    advance(20);
+    assert(body.motion.walk.phase>0.);
+    assert(body.motion.kind==MOTION_WALK && !body.motion.entering && driver.state.armed);
+}
 static void cancellation_and_faults(void)
 {
     reset();ainekio_command_t c=command(1,AINEKIO_INTENT_NEUTRAL);assert(execute(&c)==ESP_OK);
@@ -201,8 +252,8 @@ static void cancellation_and_faults(void)
     mapping_failure=true;advance(20);assert(!driver.state.armed);
     assert(ainekio_p4_body_event(&e)&&!e.completed&&e.result==ESP_ERR_INVALID_ARG);
     reset();c.data.intent.kind=AINEKIO_INTENT_NEUTRAL;assert(execute(&c)==ESP_OK);
-    clock_us+=40001;output_step(clock_us);assert(!driver.state.armed);
-    assert(ainekio_p4_body_event(&e)&&!e.completed&&e.result==ESP_ERR_TIMEOUT);
+    clock_us+=40001;output_step(clock_us);assert(driver.state.armed);
+    assert(!ainekio_p4_body_event(&e));
     reset();assert(execute(&c)==ESP_OK);driver_failure=true;advance(20);
     assert(!driver.state.armed&&ainekio_p4_body_event(&e)&&e.result==ESP_FAIL);
     reset();enabled=7u<<6;assert(execute(&c)==ESP_OK);e=finish(5000);assert(e.completed);
@@ -247,14 +298,43 @@ static void stop_motion_phases(void)
         assert(ainekio_p4_body_event(&e)&&e.connection==17&&e.sequence==1&&!e.completed&&e.result==ESP_OK);
         assert(!ainekio_p4_body_event(&e));
         assert(ainekio_p4_body_execute(generation,17,&c)==ESP_ERR_INVALID_STATE&&writes==before);
-        c.sequence=2;assert(execute(&c)==ESP_OK&&driver.state.armed&&body.ramping);
+        c.sequence=2;assert(execute(&c)==ESP_OK&&driver.state.armed);
+        assert(body.ramping==(c.data.intent.kind!=AINEKIO_INTENT_WALK));
         assert(ainekio_p4_body_status().sequence==2);
+    }
+}
+static void ordinary_stop_holds_commanded_pose(void)
+{
+    for(unsigned stage=0;stage<3;stage++) {
+        reset();ainekio_command_t c=command(1,stage==2?AINEKIO_INTENT_WALK:AINEKIO_INTENT_SIT);
+        assert(execute(&c)==ESP_OK);advance(stage==0?100:1000);
+        uint16_t held[12];memcpy(held,last_written,sizeof held);
+        const uint64_t generation=driver.state.generation;
+        assert(ainekio_p4_body_hold(generation)==ESP_OK);
+        assert(driver.state.armed && driver.state.generation==generation);
+        assert(!ainekio_p4_body_status().moving);
+        ainekio_p4_body_event_t e;
+        assert(ainekio_p4_body_event(&e) && e.sequence==1 && !e.completed && e.result==ESP_OK);
+        advance(1000);
+        assert(!memcmp(held,last_written,sizeof held));
+        assert(ainekio_p4_body_hold(generation)==ESP_OK);
+        assert(!ainekio_p4_body_event(&e));
+        assert(driver.state.armed && !memcmp(held,last_written,sizeof held));
+        c.sequence=2;assert(execute(&c)==ESP_OK);
+        assert(driver.state.armed && ainekio_p4_body_status().moving);
+        ainekio_pca_emergency_disable(&driver,AINEKIO_PCA_FAULT_EMERGENCY);
+        advance(20);const unsigned before=writes;
+        system_state=AINEKIO_STATE_DOZING;power_pending=true;
+        assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+        advance(100);
+        assert(!driver.state.armed && writes==before);
     }
 }
 static void sample_clock_with_work(void)
 {
     reset();ainekio_command_t c=command(1,AINEKIO_INTENT_WALK);
-    assert(execute(&c)==ESP_OK);advance(2000);
+    assert(execute(&c)==ESP_OK);
+    /* Walking has no posture or homing preamble. */
     assert(!body.motion.entering&&body.motion.kind==MOTION_WALK);
     /* Charge seven milliseconds to calculation/mapping and three to I2C.
      * The task wakes every five milliseconds, as the production owner does. */
@@ -285,14 +365,50 @@ static void sample_clock_with_work(void)
     before=writes;assert(!output_step(clock_us)&&writes==before);
     clock_us=body.next_frame;assert(output_step(clock_us));
 
-    /* The sample clock can expire while time since the last completed write
-     * is still under40 ms. Report that as a timeout, never a range failure. */
-    clock_us=body.motion.walk.last_us+40001;
-    assert(clock_us-body.last_frame<AINEKIO_PCA_PROGRESS_LIMIT_US);
-    before=writes;assert(!output_step(clock_us)&&writes==before&&!driver.state.armed);
-    ainekio_p4_body_event_t e;
-    assert(ainekio_p4_body_event(&e)&&!e.completed&&e.result==ESP_ERR_TIMEOUT);
+    /* Paused scheduling resumes one current output without an automatic stop
+     * or a burst of replayed writes, including gaps beyond the old 40 ms gate. */
+    const uint64_t gaps[]={40001,100000,1000000};
+    for(unsigned i=0;i<sizeof(gaps)/sizeof(gaps[0]);i++) {
+        clock_us=body.motion.walk.last_us+gaps[i];
+        before=writes;assert(output_step(clock_us)&&writes==before+1&&driver.state.armed);
+        assert(body.motion.kind==MOTION_WALK && !body.motion.walk.failed);
+        ainekio_p4_body_event_t e;assert(!ainekio_p4_body_event(&e));
+    }
 }
+static void timed_out_output_resumes(void)
+{
+    reset();ainekio_command_t c=command(1,AINEKIO_INTENT_WALK);
+    assert(execute(&c)==ESP_OK);advance(10000);
+    const uint64_t generation=driver.state.generation;
+    const unsigned before=writes;
+    uint16_t held[12];memcpy(held,last_written,sizeof held);
+    driver_timeout=true;advance(1000);
+    assert(body.active && driver.state.armed && driver.state.generation==generation);
+    assert(writes==before && !memcmp(held,last_written,sizeof held));
+    ainekio_p4_body_event_t e;assert(!ainekio_p4_body_event(&e));
+    driver_timeout=false;advance(20);
+    assert(writes==before+1 && body.motion.kind==MOTION_WALK);
+    driver_timeout=true;
+    ainekio_pca_emergency_disable(&driver,AINEKIO_PCA_FAULT_EMERGENCY);advance(20);
+    assert(!body.active && !driver.state.armed && writes==before+1);
+    assert(ainekio_p4_body_event(&e) && !e.completed && e.sequence==1);
+
+    /* A timed-out terminal frame must not report successful completion. */
+    reset();c=command(2,AINEKIO_INTENT_NEUTRAL);assert(execute(&c)==ESP_OK);
+    driver_timeout=true;advance(10000);
+    assert(body.active && driver.state.armed && !ainekio_p4_body_event(&e));
+    driver_timeout=false;advance(20);
+    assert(ainekio_p4_body_event(&e) && e.completed && e.sequence==2 && e.result==ESP_OK);
+    /* A missing admission response reports failure without disabling the
+     * already active output. Existing request expiry is a separate contract. */
+    reset();defer_requests=true;c=command(3,AINEKIO_INTENT_WALK);
+    assert(execute(&c)==ESP_ERR_TIMEOUT && driver.state.armed && body.active);
+    body_request_t pending;assert(xQueueReceive(requests,&pending,0));
+    clock_us+=200000;
+    assert(process_request(&pending,clock_us)==ESP_ERR_INVALID_STATE && driver.state.armed);
+    puts("Output timeouts retain PWM, preserve explicit Stop and complete only after a successful write.");
+}
+
 static void rejected_clip_preserves_motion(void)
 {
     reset();size_t rest,point;ainekio_v2_frame_t f;uint16_t p[12];
@@ -394,7 +510,8 @@ static void calibration_normal_handoff(void)
     assert(ainekio_p4_body_hold(generation)==ESP_ERR_INVALID_STATE);
     assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
     assert(execute(&stand)==ESP_OK && writes==before+1 && driver.state.armed);
-    assert(finish(10000).completed);
+    /* Re-arming Stand folds the legs, positions shoulders, then rises. */
+    assert(finish(12000).completed);
 }
 
 static void motion_from_saved_home(void)
@@ -406,18 +523,17 @@ static void motion_from_saved_home(void)
     uint16_t homes[12];assert(ainekio_p4_home_pulses(homes));
     ainekio_pca_disarm(&driver);output_step(clock_us);
     ainekio_command_t walk=command(80,AINEKIO_INTENT_WALK);
-    assert(execute(&walk)==ESP_OK && body.ramping);
-    for(unsigned channel=0;channel<12;channel++) {
-        for(unsigned i=0;i<12;i++)assert(last_written[i]==(i<=channel?homes[i]:0));
-        if(channel<11)advance(200);
-    }
-    assert(!body.ramping && body.motion.entering);
-    assert(!memcmp(saved,mapped_joints,sizeof(saved)));
-    advance(10000);
-    assert(body.motion.kind==MOTION_WALK && !body.motion.entering);
+    assert(execute(&walk)==ESP_OK && !body.ramping && !body.motion.entering);
+    assert(!body.motion.contact_entry && !body.motion.reverse_grounded_entry);
+    uint16_t first_gait[12];assert(ainekio_p4_frame_pulses(&body.motion.walk.pose.frame,first_gait));
+    assert(!memcmp(first_gait,last_written,sizeof first_gait));
+    assert(memcmp(homes,last_written,sizeof homes));
+    assert(!memcmp(saved,mapped_joints,sizeof saved));
+    advance(20);
+    assert(body.motion.kind==MOTION_WALK && body.motion.walk.phase>0.);
     ainekio_p4_body_event_t event;assert(!ainekio_p4_body_event(&event));
 
-    /* Stop must cancel each phase of initial Home as well as the later gait. */
+    /* Stop still cancels walking immediately after admission or while active. */
     for(unsigned delay=0;delay<=2000;delay+=1000) {
         reset();ainekio_pca_disarm(&driver);output_step(clock_us);
         assert(execute(&walk)==ESP_OK);advance(delay);
@@ -439,10 +555,16 @@ static void motion_from_saved_home(void)
 
     /* Invalid model references are distinguished from BUSY before any PWM. */
     reset();assert(ainekio_p4_joint_defaults(mapped_joints));
-    mapped_joints[4].home_cd=6000; mapped_joints[5].home_cd=0;
+    mapped_joints[4].home_cd=12000; mapped_joints[5].home_cd=0;
+    /* Keep the requested target electrically representable so this reaches
+     * reference geometry validation rather than failing pulse mapping first. */
+    mapped_joints[4].home_us=2000;
     ainekio_pca_disarm(&driver);output_step(clock_us);
     unsigned before=writes;
-    assert(execute(&walk)==AINEKIO_P4_ERR_REFERENCE && writes==before && !driver.state.armed);
+    ainekio_command_t stand=command(81,AINEKIO_INTENT_STAND);
+    /* An invalid saved Home is not the startup reference anymore. */
+    assert(execute(&stand)==ESP_OK && writes==before+1 && body.motion.startup_entry);
+    assert(finish(4000).completed);
 }
 
 static void supervised_faults_are_failures(void)
@@ -509,13 +631,16 @@ static void commanded_pose_survives_pwm_rounding(void)
     /* A changed saved mapping cannot reuse an old model-coordinate reference. */
     reset();mapped_joints[0].home_cd=1500;
     c=command(102,AINEKIO_INTENT_NEUTRAL);assert(execute(&c)==ESP_OK);
-    assert(body.motion.entry_from.position[0]==1500);
+    assert(body.motion.entry_from.position[0]==0); /* Neutral, never calibration Home. */
 }
 
 static void entry_endpoint_precision(void)
 {
-    reset();ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);
+    /* Neutral uses this scalar entry ramp. Stand now uses the separately
+     * tested contact planner and cannot be sampled as a two-second ramp. */
+    reset();ainekio_command_t c=command(1,AINEKIO_INTENT_NEUTRAL);
     assert(execute(&c)==ESP_OK && body.motion.entering);
+    assert(!body.motion.contact_entry);
     body.motion.entry_duration=2000000;
     bool complete;ainekio_v2_frame_t frame;
     /* Previously u=0.999633491 produced progress=1.0000000138. */
@@ -591,15 +716,15 @@ static void motion_speed(void)
             assert(clock_us-started>=expected && clock_us-started-expected<20000);
         }
     }
-    /* The entry path uses degrees/s, independently of pulse mapping, and a
-     * raised limit releases the old slow-entry ceiling without changing paths. */
+    /* Finite-clip entry uses degrees/s independently of pulse mapping. Stand's
+     * contact-planned rate is checked per frame in imu_posture_feedback. */
     const float entry_limits[]={100.F,2000.F};
     float entry_rates[2];
     for(unsigned k=0;k<2;k++) {
         reset();assert(ainekio_v2_joint_speed_set(entry_limits[k]));
-        ainekio_command_t stand=command(1,AINEKIO_INTENT_STAND);
-        stand.data.intent.playback_rate=8.F;
-        assert(execute(&stand)==ESP_OK);
+        ainekio_command_t sit=command(1,AINEKIO_INTENT_SIT);
+        sit.data.intent.playback_rate=8.F;
+        assert(execute(&sit)==ESP_OK && !body.motion.contact_entry);
         double derivatives[12];ainekio_v2_frame_t low,high;
         assert(ainekio_v2_transition_bounds(&body.motion.entry_from,&body.motion.entry_to,&low,&high,derivatives));
         for(unsigned j=0;j<12;j++)
@@ -711,8 +836,229 @@ static void listening_feedback(void)
     puts("Listening cue: exact restoration, early close, saved speed limit, motion/calibration priority, Stop and all retained clip poses pass.");
 }
 
-int main(void)
+static void imu_posture_feedback(float joint_speed,float motion_rate)
 {
+    reset();assert(ainekio_v2_joint_speed_set(joint_speed));
+    saved_motion_rate=motion_rate;
+    const unsigned homes[12]={1600,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
+    const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+    for(unsigned i=0;i<12;i++) {
+        mapped_joints[i]=(ainekio_p4_joint_config_t){.channel=(int8_t)i,.home_us=homes[i],
+            .invert=inverted[i],.home_cd=i%3==0?0:i%3==1?117:-4041,.us_per_degree=11.111111F};
+        body.pulses[i]=last_written[i]=(uint16_t)homes[i];
+    }
+    retain_manual_reference();publish(body.pulses);
+    imu_status.calibration_applied=true;
+    imu_status.attitude.available=imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=cosf(.02F);
+    imu_status.attitude.orientation_wxyz[1]=sinf(.02F);
+    ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK && body.motion.contact_entry);
+    assert(fabs(body.motion.posture.start.euler[0]-.04)<1e-6);
+    uint16_t previous_pulses[12];memcpy(previous_pulses,last_written,sizeof(last_written));
+    ainekio_v2_frame_t previous=body.pose;
+    while(body.motion.entering) {
+        advance(20);
+        if(!body.active || driver.state.fault) {
+            fprintf(stderr,"Stand feedback failed: limit=%g rate=%g authored_s=%.6f fault=%u\n",
+                joint_speed,motion_rate,body.motion.posture_elapsed,driver.state.fault);
+
+        }
+        assert(body.active && !driver.state.fault);
+        for(unsigned j=0;j<12;j++) {
+            assert(last_written[j]>=300 && last_written[j]<=3000);
+            assert(fabs(body.pose.position[j]-previous.position[j])<=joint_speed*2.+.1);
+        }
+        previous=body.pose;
+    }
+    ainekio_p4_body_event_t event;assert(ainekio_p4_body_event(&event) && event.completed && event.sequence==1);
+    assert(body.balance_hold && body.balance.sensor_usable && body.balance.correction[0]<0.);
+    advance(1000);
+    assert(ainekio_p4_body_status().balance_active && body.balance.measured[0]>.039);
+    assert(memcmp(previous_pulses,last_written,sizeof(last_written)));
+    const double correction=fabs(body.balance.correction[0]);
+    imu_status.attitude.fresh=false;advance(20);
+    assert(body.balance_hold && body.active && fabs(body.balance.correction[0])<correction);
+    assert(!ainekio_p4_body_status().balance_active);
+    advance(4000);assert(fabs(body.balance.correction[0])<1e-7);
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    assert(!ainekio_p4_body_status().balance_active);
+    memcpy(previous_pulses,last_written,sizeof previous_pulses);
+    imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=cosf(.04F);
+    imu_status.attitude.orientation_wxyz[1]=sinf(.04F);
+    advance(1000);
+    assert(!body.balance_hold && !ainekio_p4_body_status().balance_active);
+    assert(driver.state.armed && !memcmp(previous_pulses,last_written,sizeof previous_pulses));
+    c=command(2,AINEKIO_INTENT_WALK);c.data.intent.data.walk.controls=1;
+    c.data.intent.data.walk.speed_percent=50;
+    assert(execute(&c)==ESP_OK);
+    while(body.motion.entering){advance(20);assert(body.active);}
+    imu_status.attitude.fresh=true;advance(1000);
+    assert(body.motion.kind==MOTION_WALK && body.balance.sensor_usable);
+    double phase=body.motion.walk.phase;
+    leveling_enabled=false;advance(1000);
+    assert(body.motion.kind==MOTION_WALK && body.motion.walk.phase>phase && body.active);
+    assert(driver.state.armed && !ainekio_p4_body_status().balance_active);
+    leveling_enabled=true;advance(20);
+    assert(ainekio_p4_body_status().balance_active);
+    phase=body.motion.walk.phase;
+    imu_status.attitude.fresh=false;advance(1000);
+    assert(body.motion.kind==MOTION_WALK && body.motion.walk.phase>phase && body.active);
+    ainekio_pca_disarm(&driver);advance(20);
+    assert(!body.balance_hold && !body.active && !ainekio_p4_body_status().balance_active);
+    puts("Production IMU feedback: measured starting tilt, contact entry, mapped pulses, standing hold, stale fade, continued walking and disarm passed.");
+}
+
+static void sustained_standing_feedback(void)
+{
+    reset();assert(ainekio_v2_joint_speed_set(1000));
+    const unsigned homes[12]={1500,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
+    const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+    for(unsigned j=0;j<12;j++)mapped_joints[j]=(ainekio_p4_joint_config_t){
+        .channel=(int8_t)j,.home_us=homes[j],.invert=inverted[j],
+        .home_cd=j%3==0?0:j%3==1?117:-4041,.us_per_degree=11.111111F};
+    imu_status.calibration_applied=true;
+    imu_status.attitude.available=imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=1;
+    ainekio_pca_disarm(&driver);output_step(clock_us);
+    ainekio_command_t c=command(302,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK);
+    assert(finish(4000).completed && body.balance_hold);
+    uint16_t standing[12];memcpy(standing,last_written,sizeof standing);
+    imu_status.attitude.orientation_wxyz[0]=cosf(.1F);
+    imu_status.attitude.orientation_wxyz[2]=-sinf(.1F); /* Front raised. */
+    const double held_correction=body.balance.correction[1];
+    leveling_tuning.strength=leveling_tuning.damping=0;
+    advance(200);
+    assert(body.balance.correction[1]==held_correction && !memcmp(standing,last_written,sizeof standing));
+    leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+    advance(500);double first=body.balance.correction[1];
+    advance(500);
+    assert(body.balance.correction[1]>first && first>.08);
+    assert(body.motion.kind==MOTION_NONE && body.active && driver.state.armed);
+    assert(ainekio_p4_body_status().balance_active && !driver.state.fault);
+    assert(abs((int)last_written[1]-standing[1])>100);
+    assert(abs((int)last_written[4]-standing[4])>100);
+    ainekio_v2_walk_pose_t relative=body.balance_nominal,start=body.balance_nominal;
+    for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
+        relative.joints[l][j]=body.pose.position[(l<2?l+2:l-2)*3+j]*.00017453292519943296;
+    memset(relative.body,0,sizeof relative.body);memset(relative.euler,0,sizeof relative.euler);
+    memset(start.body,0,sizeof start.body);memset(start.euler,0,sizeof start.euler);
+    assert(ainekio_v2_contact_forward(&relative,body.balance_anchors,false));
+    assert(ainekio_v2_contact_forward(&start,body.balance_anchors,false));
+    for(unsigned l=2;l<4;l++)assert(start.feet[l][2]-relative.feet[l][2]>10.);
+    const ainekio_p4_body_status_t feedback=ainekio_p4_body_status();
+    assert(feedback.balance_legs_valid);
+    for(unsigned l=0;l<4;l++) {
+        assert(fabs(feedback.balance_extension_mm[l]-(start.feet[l][2]-relative.feet[l][2]))<.001);
+        if(l<2)assert(feedback.balance_extension_mm[l]<0.); /* Physical fronts shorten. */
+        else assert(feedback.balance_extension_mm[l]>10.); /* Physical rears extend. */
+    }
+    for(unsigned j=0;j<12;j++)assert(fabs(feedback.balance_joint_delta_deg[j]-
+        (body.pose.position[j]-body.balance_nominal.frame.position[j])*.01)<.001);
+    /* The setting fades only feedback, keeps outputs enabled, and can be
+     * re-enabled in the same Stand hold without issuing a new motion. */
+    const double before_off=body.balance.correction[1];
+    leveling_enabled=false;advance(20);
+    assert(body.balance_hold && body.active && driver.state.armed);
+    assert(!ainekio_p4_body_status().balance_active);
+    assert(body.balance.correction[1]>0. && body.balance.correction[1]<before_off);
+    advance(4000);assert(fabs(body.balance.correction[1])<1e-7);
+    leveling_enabled=true;advance(1000);
+    assert(ainekio_p4_body_status().balance_active && body.balance.correction[1]>.08);
+    /* An explicit Stop keeps its existing hold semantics. */
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    memcpy(standing,last_written,sizeof standing);advance(1000);
+    assert(!body.balance_hold && !memcmp(standing,last_written,sizeof standing));
+    puts("Standing: sustained nose-up feedback reaches mapped rear-carrier outputs and extends modeled rear feet >10mm; Stop holds.");
+}
+
+static void startup_crouch_shoulders_rise(void)
+{
+    for(unsigned manual=0;manual<2;manual++) {
+        reset();
+        const unsigned homes[12]={1500,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
+        const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+        /* Deliberately permute channels: stage order follows joint roles. */
+        for(unsigned j=0;j<12;j++)mapped_joints[j]=(ainekio_p4_joint_config_t){
+            .channel=(int8_t)((j+5)%12),.home_us=homes[j],.invert=inverted[j],
+            .home_cd=j%3==0?0:j%3==1?117:-4041,.us_per_degree=11.111111F};
+        ainekio_p4_joint_config_t saved[12];memcpy(saved,mapped_joints,sizeof saved);
+        if(manual) {
+            imu_status.calibration_applied=true;
+            imu_status.attitude.available=imu_status.attitude.fresh=true;
+            imu_status.attitude.orientation_wxyz[0]=cosf(.02F);
+            imu_status.attitude.orientation_wxyz[1]=sinf(.02F);
+        }
+        ainekio_pca_disarm(&driver);output_step(clock_us);
+        const unsigned before=writes;
+        ainekio_command_t c=command(301,AINEKIO_INTENT_STAND);
+        assert((manual?execute(&c):ainekio_p4_body_startup(driver.state.generation))==ESP_OK);
+        assert(writes==before+1 && body.motion.startup_entry && !body.ramping);
+        uint16_t folded[12];assert(ainekio_p4_frame_pulses(&body.motion.rise.crouch.frame,folded));
+        ainekio_v2_frame_t previous_pose=body.motion.rise.crouch.frame;
+        double peak=0.,pitch=0.;
+        for(unsigned elapsed=0;elapsed<=2500;elapsed+=20) {
+            if(elapsed)advance(20);
+            assert(body.active && driver.state.armed && !driver.state.fault);
+            for(unsigned j=0;j<12;j++) {
+                unsigned ch=(unsigned)mapped_joints[j].channel;
+                const unsigned offset=j<6?100:0;
+                if(elapsed<offset+(j%3==0?600:0))assert(!last_written[ch]);
+                else assert(last_written[ch]>=400 && last_written[ch]<=2900);
+                if(j%3 && elapsed>=offset && elapsed<1200)assert(last_written[ch]==folded[ch]);
+                if(j%3==0 && elapsed>=600+offset && elapsed<1200)assert(last_written[ch]==homes[j]);
+                if(elapsed>1200)peak=fmax(peak,fabs(body.pose.position[j]-previous_pose.position[j])*.5);
+            }
+            if(elapsed==2400)assert(body.motion.kind==MOTION_POSE); /* Rear still rising. */
+            if(elapsed>1200) {
+                pitch=fmax(pitch,fabs(body.motion.rise.pose.euler[1]));
+                ainekio_v2_walk_pose_t actual=body.motion.rise.pose;
+                assert(ainekio_v2_contact_forward(&actual,body.motion.rise.anchors,false));
+                for(unsigned l=0;l<4;l++) {
+                    for(unsigned axis=0;axis<2;axis++)assert(fabs(actual.feet[l][axis]-body.motion.rise.stand.feet[l][axis])<.002);
+                    assert(fabs(actual.sole_height[l]-body.motion.rise.stand.sole_height[l])<.002);
+                }
+            }
+            previous_pose=body.pose;
+        }
+        assert(!body.motion.startup_entry && body.motion.kind==MOTION_NONE && body.balance_hold);
+        if(manual)assert(body.balance.sensor_usable && body.balance.correction[0]<0.);
+        assert(!memcmp(saved,mapped_joints,sizeof saved));
+        ainekio_p4_body_event_t event;
+        if(manual)assert(ainekio_p4_body_event(&event) && event.completed && event.sequence==301);
+        assert(!ainekio_p4_body_event(&event)); /* Startup has no remote command receipt. */
+        assert(pitch>0. && fabs(body.motion.rise.pose.euler[1])<1e-8);
+        for(unsigned j=0;j<12;j++)assert(fabs(body.motion.rise.pose.frame.position[j]-body.motion.rise.stand.frame.position[j])<.1);
+        printf("Startup: front pair leads rear by 100ms, shoulders follow folding, planted 25mm rise, peak %.2f deg/s and pitch %.3f deg; no Home.\n",peak,pitch*180./3.141592653589793);
+        /* A later explicit calibration Home still uses the owner's matchmarks. */
+        uint16_t home[12];assert(ainekio_p4_home_pulses(home));
+        assert(ainekio_p4_body_home(driver.state.generation,home)==ESP_OK);
+        assert(!memcmp(last_written,home,sizeof home));
+    }
+    for(unsigned elapsed=200;elapsed<2400;elapsed+=800) {
+        reset();assert(ainekio_p4_joint_defaults(mapped_joints));
+        ainekio_pca_disarm(&driver);output_step(clock_us);
+        assert(ainekio_p4_body_startup(driver.state.generation)==ESP_OK);advance(elapsed);
+        assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+        unsigned before=writes;uint16_t held[12];memcpy(held,last_written,sizeof held);
+        advance(3000);assert(writes>before && !memcmp(held,last_written,sizeof held));
+        assert(body.motion.kind==MOTION_NONE);
+    }
+}
+
+int main(int argc,char **argv)
+{
+    startup_crouch_shoulders_rise();
+    if(argc==2 && !strcmp(argv[1],"--feedback")){
+        sustained_standing_feedback();
+        imu_posture_feedback(1000,1);
+        imu_posture_feedback(80,3);
+        assert(ainekio_v2_joint_speed_set(1000));
+        rise_from_grounded_postures();
+        return 0;
+    }
     listening_feedback();
     face_playback_clock();
     entry_endpoint_precision();
@@ -723,8 +1069,8 @@ int main(void)
     supervised_faults_are_failures();
     motion_from_saved_home();
     calibration_normal_handoff();
-    pose_and_replace();locomotion();clips();cancellation_and_faults();
-    stop_motion_phases();sample_clock_with_work();rejected_clip_preserves_motion();integrated_catalog();
-    puts("Production body: 12 locomotion variants, finite walk, all clips, smooth entry, updates, replacement, stop, deadlines, mapping/driver faults, partial assembly and calibration passed.");
+    pose_and_replace();locomotion();clips();rise_from_grounded_postures();cancellation_and_faults();
+    stop_motion_phases();ordinary_stop_holds_commanded_pose();sample_clock_with_work();timed_out_output_resumes();rejected_clip_preserves_motion();integrated_catalog();
+    puts("Production body: 12 locomotion variants, finite walk, all clips, smooth entry, updates, replacement, stop, delayed resumption, mapping/driver faults, partial assembly and calibration passed.");
     return 0;
 }

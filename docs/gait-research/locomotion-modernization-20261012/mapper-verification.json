@@ -1,0 +1,8 @@
+{
+  "frames": 37081,
+  "joint_pulses": 444972,
+  "cases": 32,
+  "mismatches": 0,
+  "production_mapper_sha256": "4d25e1acdd827625f5bb59910b17f4b9a09975901bcfce6b37bf72c35954799a",
+  "audit_tool_sha256": "0911a594aa1a84d0f6e32cd374d4670852de26355a69fbf363ab7e87058f37fa"
+}

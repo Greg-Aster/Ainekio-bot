@@ -1,0 +1,268 @@
+[
+  {
+    "geometry": [
+      45,
+      44,
+      44,
+      37,
+      26
+    ],
+    "stroke": 60,
+    "clearance": 61,
+    "pivot_offset": [
+      -12.5,
+      11.5
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 41.48626877454717,
+    "peak_joint_torque_Nm": [
+      0.10570849987360259,
+      0.10911488090185685,
+      0.066369223320231
+    ],
+    "peak_speed_deg_s": [
+      35.08117038414848,
+      341.92694056667506,
+      1328.1838611302894
+    ],
+    "excursions_deg": [
+      19.02018376960438,
+      65.75103885519265,
+      119.90503914619272
+    ],
+    "min_support_margin": 2.829653645285954,
+    "force_equilibrium_error": 5.420814019885256e-09,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  },
+  {
+    "geometry": [
+      50,
+      39,
+      40,
+      32,
+      23
+    ],
+    "stroke": 60,
+    "clearance": 60,
+    "pivot_offset": [
+      -12.5,
+      11.5
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 43.89438336087915,
+    "peak_joint_torque_Nm": [
+      0.10572441893302809,
+      0.11135165529842952,
+      0.07796609222223042
+    ],
+    "peak_speed_deg_s": [
+      35.496527340985224,
+      365.94869378567665,
+      1100.9041929673099
+    ],
+    "excursions_deg": [
+      19.240095863881855,
+      66.56102853534465,
+      120.17883018529426
+    ],
+    "min_support_margin": 3.0209076160310175,
+    "force_equilibrium_error": 1.1971926006104638e-07,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  },
+  {
+    "geometry": [
+      55,
+      29,
+      38,
+      28,
+      26
+    ],
+    "stroke": 60,
+    "clearance": 53,
+    "pivot_offset": [
+      -12.5,
+      11.5
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 45.51634022275802,
+    "peak_joint_torque_Nm": [
+      0.1057478372275699,
+      0.10243422162015003,
+      0.06885488876103332
+    ],
+    "peak_speed_deg_s": [
+      38.690269285125574,
+      449.58355292568245,
+      1836.5489833921763
+    ],
+    "excursions_deg": [
+      20.924454887919598,
+      77.88832513471395,
+      159.90181662425184
+    ],
+    "min_support_margin": 2.5251824153714892,
+    "force_equilibrium_error": 1.0261904836994518e-07,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  },
+  {
+    "geometry": [
+      45,
+      43,
+      34,
+      31,
+      23
+    ],
+    "stroke": 82,
+    "clearance": 62,
+    "pivot_offset": [
+      1,
+      0
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 42.25155495138078,
+    "peak_joint_torque_Nm": [
+      0.10544139127276804,
+      0.16174953037403475,
+      0.13720682166481551
+    ],
+    "peak_speed_deg_s": [
+      34.678139279144034,
+      655.7484422477369,
+      625.6099386941239
+    ],
+    "excursions_deg": [
+      18.701471907198275,
+      78.06727029721358,
+      73.80926590860628
+    ],
+    "min_support_margin": 2.518854076171648,
+    "force_equilibrium_error": 2.756364936296052e-08,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  },
+  {
+    "geometry": [
+      50,
+      31,
+      33,
+      24,
+      20
+    ],
+    "stroke": 82,
+    "clearance": 52,
+    "pivot_offset": [
+      0,
+      3
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 40.915200306477544,
+    "peak_joint_torque_Nm": [
+      0.10573557677921022,
+      0.0772750262386503,
+      0.07231191297399583
+    ],
+    "peak_speed_deg_s": [
+      39.192789207374496,
+      844.8077851271937,
+      1596.2229719312938
+    ],
+    "excursions_deg": [
+      21.172580927536394,
+      99.36296657440256,
+      116.91983907319843
+    ],
+    "min_support_margin": 2.537835220604742,
+    "force_equilibrium_error": 7.791101097609499e-12,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  },
+  {
+    "geometry": [
+      55,
+      37,
+      34,
+      28,
+      20
+    ],
+    "stroke": 82,
+    "clearance": 62,
+    "pivot_offset": [
+      4.5,
+      2.5
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 43.081611400193836,
+    "peak_joint_torque_Nm": [
+      0.10570711639982609,
+      0.06956175253432131,
+      0.06484818117778943
+    ],
+    "peak_speed_deg_s": [
+      34.679112017713116,
+      712.2544206492024,
+      1264.3963797996291
+    ],
+    "excursions_deg": [
+      18.79505611486777,
+      90.50056557556562,
+      102.74109196084953
+    ],
+    "min_support_margin": 2.5756225667542694,
+    "force_equilibrium_error": 5.6908815437850535e-09,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  },
+  {
+    "geometry": [
+      55,
+      35,
+      38,
+      28,
+      20
+    ],
+    "stroke": 40,
+    "clearance": 58,
+    "pivot_offset": [
+      -12.5,
+      11.5
+    ],
+    "stance_closed": false,
+    "all_cycle_closed": false,
+    "current_index_fits": false,
+    "min_loaded_sagittal_angle": 48.518105750129756,
+    "peak_joint_torque_Nm": [
+      0.10572518948814326,
+      0.10248408916012695,
+      0.05351265697881635
+    ],
+    "peak_speed_deg_s": [
+      36.34805900574466,
+      266.039376953242,
+      774.8420331980205
+    ],
+    "excursions_deg": [
+      19.691504132352726,
+      47.34385741010547,
+      106.42252397333144
+    ],
+    "min_support_margin": 2.910069325449001,
+    "force_equilibrium_error": 9.372058684675721e-12,
+    "min_weight_fraction": 0.0,
+    "model": "Reused body-shift path; x scaled with stroke. Assumed centred 566g body. No limb inertia, collision or physical qualification. Original Cartesian return, not retuned."
+  }
+]

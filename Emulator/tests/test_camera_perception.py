@@ -16,6 +16,39 @@ class Socket:
 
 
 class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_prompt_configuration_shares_inference_executor_and_replaces_accepted_generation(self):
+        from gateway.perception import RecognitionResult
+        started, release = threading.Event(), threading.Event()
+        calls, commits = [], []
+        class Backend:
+            query = None
+            def __call__(self, jpeg):
+                calls.append(("frame", jpeg, threading.get_ident()))
+                if jpeg == b"1":
+                    started.set(); release.wait(2)
+                return RecognitionResult("fixture", "fixture", "", (), (), self.query)
+            def configure_vision(self, request):
+                calls.append(("configure", request, threading.get_ident()))
+                self.query = request["requestId"]
+                return {"queryId": self.query}
+            def finalize_frame(self, result, source, counter, received_at):
+                commits.append(counter)
+                return result
+        plugin = self.plugin(Backend())
+        await self.frame(1)
+        await asyncio.to_thread(started.wait, 1)
+        configuration = asyncio.create_task(plugin.configure_vision({"operation": "search", "requestId": "keys"}))
+        await asyncio.sleep(0)
+        release.set()
+        self.assertEqual(await configuration, {"queryId": "keys"})
+        await plugin._queue.join()
+        self.assertEqual(commits, [], "inference begun before a target change cannot commit afterward")
+        await self.frame(2)
+        await plugin._queue.join()
+        self.assertEqual(plugin.recognition_status()["observation"]["queryId"], "keys")
+        self.assertEqual(commits, [2])
+        self.assertEqual(len({call[2] for call in calls}), 1, "configuration must not create a second model worker")
+
     async def test_identity_commits_only_fresh_current_generation_on_existing_camera_worker(self):
         started, release = threading.Event(), threading.Event()
         commits = []
@@ -41,9 +74,27 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         await self.frame(2)
         await asyncio.wait_for(plugin._queue.join(), 2)
         self.assertEqual(commits[0][1:], (("robot", 1, 2), 2, 10.0))
-        self.assertEqual(plugin.identity_status()["observation"]["frameCounter"], 2)
+        self.assertEqual(plugin.recognition_status()["observation"]["frameCounter"], 2)
         self.now += 2
-        self.assertNotIn("observation", plugin.identity_status(), "stale names must disappear from the UI")
+        self.assertIsNone(plugin.recognition_status()["observation"], "stale names must disappear from the UI")
+
+    async def test_generic_recognition_retains_exact_image_and_complete_source_without_face_backend(self):
+        from gateway.perception import RecognitionResult, RecognizedObject
+        result = RecognitionResult("fixture", "objects", "Keys on a table",
+            (RecognizedObject("keys", .8, (.2, .3, .1, .05)),), ())
+        plugin = self.plugin(lambda jpeg: result)
+        await self.frame(9)
+        await plugin._queue.join()
+        analysis = plugin.current_analysis("robot")
+        self.assertEqual(analysis.jpeg, b"9")
+        observation = plugin.recognition_status()["observation"]
+        self.assertEqual((observation["robotId"], observation["epoch"], observation["frameCounter"]), ("robot", 1, 9))
+        self.assertEqual(observation["gatewayInstance"], self.gateway.instance_id)
+        self.assertEqual(observation["objects"][0]["label"], "keys")
+        self.assertFalse(plugin.identity_status()["configured"])
+        self.assertIsNone(plugin.current_analysis("other"))
+        self.gateway._connections["robot"].epoch = 2
+        self.assertIsNone(plugin.current_analysis("robot"), "a new session cannot borrow previous boxes or pixels")
 
     def setUp(self) -> None:
         self.now = 10.0
@@ -84,11 +135,18 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
             local_frames.append(payload)
 
         plugin = self.plugin(consume)
+        adapter.locomotion_measurement = plugin.locomotion_measurement
         await self.gateway._publish_event({"t": "cam_meta", "robot_id": "robot", "epoch": 1,
             "res": "QVGA", "fps": 5, "counter_base": 1})
         await self.frame(1)
         await asyncio.wait_for(plugin._queue.join(), 1)
-        self.assertEqual(bridge.sent, [], "preview frames must remain outside the remote snapshot path")
+        self.assertTrue(bridge.sent)
+        for message in bridge.sent:
+            self.assertEqual(message["type"], "environment.telemetry", "preview pixels must remain outside the remote snapshot path")
+            camera = message["telemetry"]["locomotionMeasurement"]["camera"]
+            self.assertTrue(camera["available"])
+            self.assertEqual(camera["frameCounter"], 1)
+            self.assertNotIn("jpeg", json.dumps(message))
         # Earlier P4 metadata carried preview FPS on its explicitly tagged still.
         await self.gateway._publish_event({"t": "cam_meta", "robot_id": "robot", "epoch": 1,
             "res": "XGA", "fps": 5, "counter_base": 2, "origin": "audio", "origin_id": 73})

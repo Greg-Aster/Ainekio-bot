@@ -42,6 +42,7 @@ typedef enum {
     AINEKIO_MESSAGE_MOTION_SPEED,
     AINEKIO_MESSAGE_ROBOT_SETTINGS,
     AINEKIO_MESSAGE_SPEAKER,
+    AINEKIO_MESSAGE_BALANCE,
 } ainekio_message_kind_t;
 
 typedef enum {

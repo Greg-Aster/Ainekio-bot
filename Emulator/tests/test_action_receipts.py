@@ -18,7 +18,7 @@ from Emulator.tests.test_environment_adapter import FakeGateway, FakeWebSocket, 
 
 
 def action(identifier: str, generation: int = 1) -> dict:
-    return {"id": identifier, "type": "robotCommand", "command": "walk", "createdAt": datetime.now(timezone.utc).isoformat(),
+    return {"id": identifier, "type": "robotCommand", "command": "walk", "locomotionGoal": {"kind": "visual", "target": "fixture target", "completionCriteria": "fixture criterion"}, "createdAt": datetime.now(timezone.utc).isoformat(),
         "bodyLease": {"bodyId": "ainekio-01", "executionId": "execution-" + str(generation), "generation": generation}}
 
 
@@ -27,6 +27,187 @@ def accepted(identifier: str) -> dict:
 
 
 class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
+    async def test_status_receipt_timestamp_reaches_snapshot_and_bridge_unchanged(self) -> None:
+        gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "test"}))
+        connection = GatewayConnection(gateway, FakeWebSocket(), "test-body", 1)
+        gateway._connections["test-body"] = connection
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        adapter._websocket = FakeWebSocket()
+        gateway.subscribe_events(adapter._handle_gateway_event)
+        packet = {"t": "status", "vbat": 0, "rssi": -40, "state": "active", "uptime": 1,
+            "heap": 100000, "sd": False, "cam_drops": 0, "mic_drops": 0, "spk_underruns": 0,
+            "output_ready": False, "output_armed": False, "output_fault": 1, "power_monitor_ready": False}
+        try:
+            for instant in (datetime(2026, 10, 14, 23, 0, tzinfo=timezone.utc),
+                            datetime(2026, 10, 14, 23, 1, tzinfo=timezone.utc)):
+                with patch("gateway.server.service.datetime") as clock:
+                    clock.now.return_value = instant
+                    await connection._handle_control(packet)
+                snapshot = gateway.status()["robots"]["test-body"]["status"]
+                telemetry = json.loads(adapter._websocket.sent[-1])["telemetry"]
+                self.assertEqual(snapshot["status_received_at"], instant.isoformat())
+                self.assertEqual(telemetry["status_received_at"], snapshot["status_received_at"])
+                self.assertIs(telemetry["output_ready"], False)
+                self.assertIs(telemetry["power_monitor_ready"], False)
+        finally:
+            adapter.receipts.close()
+
+    async def test_terminal_rejection_preserves_detail_code_and_identity_on_replay(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+        try:
+            adapter.receipts.receive(action("capture"), accepted("capture"))
+            terminal = {"t": "nak", "seq": 12, "code": "busy",
+                "msg": "Body is asleep; select Idle before moving"}
+            feedback = adapter._terminal_feedback("capture", terminal, command="captureImage",
+                sequence=12, robot_id="test-body", epoch=2)
+            self.assertEqual(feedback["type"], "rejected")
+            self.assertEqual(feedback["message"], terminal["msg"])
+            self.assertEqual(feedback["actionId"], "capture")
+            self.assertEqual(feedback["data"], {"command": "captureImage", "sequence": 12,
+                "robotId": "test-body", "epoch": 2, "code": "busy"})
+            await adapter._send_feedback(feedback)
+            self.assertEqual(json.loads(adapter.receipts.action("capture")["result"]), feedback)
+            adapter._websocket.sent.clear()
+            await adapter._replay_pending_feedback(adapter._websocket)
+            replayed = [json.loads(item) for item in adapter._websocket.sent]
+            self.assertIn(feedback, [item.get("feedback") for item in replayed])
+            for terminal, expected_type, expected_message in (
+                ({"t": "nak", "seq": 12, "code": "limit"}, "rejected", "limit"),
+                ({"t": "done", "seq": 12}, "completed", "done"),
+                ({"t": "cancelled", "seq": 12}, "cancelled", "cancelled"),
+                ({"t": "nak", "seq": 13, "code": "busy", "msg": "different command"},
+                    "outcome_unknown", "different command"),
+            ):
+                with self.subTest(terminal=terminal):
+                    result = adapter._terminal_feedback("capture", terminal, command="captureImage",
+                        sequence=12, robot_id="test-body", epoch=2)
+                    self.assertEqual(result["type"], expected_type)
+                    self.assertEqual(result["message"], expected_message)
+                    self.assertEqual(result["data"].get("code"), terminal.get("code"))
+        finally:
+            adapter.receipts.close()
+
+    async def test_new_feedback_does_not_replay_the_delivery_backlog(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+        try:
+            adapter.receipts.queue("older", None, {"type": "environment.observation", "observation": {"id": "older"}})
+            feedback = adapter._feedback("new", "completed", "done")
+            await adapter._send_feedback(feedback)
+            self.assertEqual([json.loads(item)["feedback"] for item in adapter._websocket.sent], [feedback])
+            self.assertEqual(len(adapter.receipts.pending()), 2)
+        finally:
+            adapter.receipts.close()
+
+    async def test_replay_is_bound_to_its_connection_and_keeps_unacknowledged_receipts(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        old, replacement = FakeWebSocket(), FakeWebSocket()
+        adapter._websocket, adapter._bridge_ready = old, True
+        first = {"type": "environment.observation", "observation": {"id": "first"}}
+        second = {"type": "environment.observation", "observation": {"id": "second"}}
+        adapter.receipts.queue("first", None, first)
+        adapter.receipts.queue("second", None, second)
+        send = old.send
+
+        async def replace_after_send(payload):
+            await send(payload)
+            adapter.receipts.acknowledge("first")
+            adapter._websocket = replacement
+
+        old.send = replace_after_send
+        try:
+            await adapter._replay_pending_feedback(old)
+            self.assertEqual([json.loads(item) for item in old.sent], [first])
+            self.assertEqual(replacement.sent, [], "Old replay must not migrate to the replacement socket")
+            self.assertEqual(adapter.receipts.pending(), [second])
+            await adapter._replay_pending_feedback(replacement)
+            self.assertEqual([json.loads(item) for item in replacement.sent], [second])
+            self.assertEqual(adapter.receipts.pending(), [second], "Sending alone is not acknowledgement")
+        finally:
+            adapter.receipts.close()
+
+    async def test_historical_unknown_recovery_preserves_evidence_without_producing_it_again(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+        try:
+            adapter.receipts.receive(action("old"), accepted("old"))
+            adapter.receipts.begin("old", {"gatewayInstance": "previous-gateway", "sequence": 1})
+            original = adapter._feedback("old", "outcome_unknown", "reconnect")
+            await adapter._send_feedback(original)
+            await adapter._recover_action_receipts()
+            pending = adapter.receipts.pending()
+            self.assertEqual(len(pending), 2, "A missing observation is produced once")
+            for _ in range(3):
+                await adapter._recover_action_receipts()
+                self.assertEqual(adapter.receipts.pending(), pending)
+            for envelope in pending:
+                adapter.receipts.acknowledge((envelope.get("feedback") or envelope["observation"])["id"])
+            adapter._websocket.sent.clear()
+            await adapter._recover_action_receipts()
+            self.assertEqual(adapter.receipts.pending(), [])
+            self.assertEqual(adapter._websocket.sent, [])
+            self.assertEqual(json.loads(adapter.receipts.action("old")["result"]), original)
+            self.assertEqual(adapter.receipts.action("old")["state"], "outcome_unknown")
+            self.assertEqual(adapter.gateway.calls, [])
+        finally:
+            adapter.receipts.close()
+
+    async def test_same_session_recovery_publishes_only_a_new_correlated_result(self) -> None:
+        class Gateway(FakeGateway):
+            terminal = None
+
+            async def wait_terminal(self, sequence, **kwargs):
+                if self.terminal is None:
+                    raise GatewayError("reconnect")
+                return self.terminal
+
+        gateway = Gateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+        try:
+            adapter.receipts.receive(action("same"), accepted("same"))
+            adapter.receipts.begin("same", {"gatewayInstance": gateway.instance_id, "robotId": "test-body", "epoch": 1, "sequence": 1})
+            for _ in range(3):
+                await adapter._recover_action_receipts()
+                await asyncio.gather(*tuple(adapter._action_tasks))
+                self.assertEqual(len(adapter.receipts.pending()), 2)
+            original = json.loads(adapter.receipts.action("same")["result"])
+            gateway.terminal = {"t": "done", "seq": 1}
+            await adapter._recover_action_receipts()
+            await asyncio.gather(*tuple(adapter._action_tasks))
+            self.assertEqual(adapter.receipts.action("same")["state"], "terminal")
+            observations = [item["observation"] for item in adapter.receipts.pending() if item["type"] == "environment.observation"]
+            self.assertEqual(len(observations), 2)
+            self.assertEqual(observations[0]["feedback"], [original])
+            self.assertEqual(observations[1]["feedback"][0]["type"], "completed")
+            self.assertEqual(gateway.calls, [], "Recovery never dispatches the action again")
+        finally:
+            adapter.receipts.close()
+
+    async def test_new_result_recovers_its_own_observation_after_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = EnvironmentAdapterConfig(token="test", receipt_path=str(Path(directory) / "receipts.sqlite"))
+            adapter = EnvironmentAdapter(FakeGateway(), config)
+            adapter.receipts.receive(action("changed"), accepted("changed"))
+            unknown = adapter._feedback("changed", "outcome_unknown", "unknown")
+            await adapter._send_feedback(unknown)
+            await adapter._send_observation(feedback=[unknown])
+            completed = adapter._feedback("changed", "completed", "done")
+            await adapter._send_feedback(completed)
+            self.assertEqual(adapter.receipts.action("changed")["observation_recorded"], 0)
+            adapter.receipts.close()
+            resumed = EnvironmentAdapter(FakeGateway(), config)
+            try:
+                await resumed._recover_action_receipts()
+                observations = [item["observation"] for item in resumed.receipts.pending() if item["type"] == "environment.observation"]
+                self.assertEqual([item["feedback"] for item in observations], [[unknown], [completed]])
+                self.assertEqual(resumed.receipts.action("changed")["observation_recorded"], 1)
+                await resumed._recover_action_receipts()
+                self.assertEqual(len(resumed.receipts.pending()), 4)
+            finally:
+                resumed.receipts.close()
+
     async def test_action_result_has_no_fixed_duration_cutoff(self) -> None:
         class CompletionGateway(FakeGateway):
             async def wait_terminal(self, sequence: int, **kwargs: object) -> dict[str, object]:
@@ -123,12 +304,72 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.wait_for(asyncio.gather(*tuple(adapter._action_tasks)), 2)
                     feedback = json.loads(adapter.receipts.action("restart")["result"])
                     self.assertEqual(feedback["type"], "outcome_unknown", "A new session's reused seq is not the old result")
+                    self.assertIs(feedback["data"].get("executionEnded"), True)
+                    self.assertEqual(adapter.receipts.action("restart")["state"], "terminal")
+                    self.assertEqual(feedback["data"]["sessionReplacement"]["current"],
+                        {"gatewayInstance": gateway.instance_id, "robotId": "test-body", "epoch": 1})
+                    self.assertEqual(feedback["data"]["priorOutcome"]["type"], "outcome_unknown")
+                    pending = adapter.receipts.pending()
+                    await adapter._recover_action_receipts()
+                    self.assertEqual(adapter.receipts.pending(), pending, "Settled recovery produces no new work")
                     self.assertEqual(socket.sent, [], "Recovery must not force a stop or repeat an action")
+                    adapter.receipts.close()
+                    adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(
+                        token="test", robot_id="test-body", receipt_path=receipt_path))
+                    await adapter._recover_action_receipts()
+                    self.assertEqual(adapter.receipts.recoverable(), [])
+                    self.assertEqual(json.loads(adapter.receipts.action("restart")["result"]), feedback)
+                    self.assertEqual(adapter.receipts.pending(), pending, "Restart retains identical delivery receipts")
                 finally:
                     for task in tuple(adapter._action_tasks):
                         task.cancel()
                     await asyncio.gather(*adapter._action_tasks, return_exceptions=True)
                     adapter.receipts.close()
+
+    async def test_same_gateway_reconnect_settles_movement_and_speech_but_preserves_late_correlated_result(self) -> None:
+        for kind in ("intent", "speech"):
+            with self.subTest(kind=kind):
+                gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "test"}))
+                socket = FakeWebSocket()
+                gateway._connections["test-body"] = GatewayConnection(gateway, socket, "test-body", 2)
+                adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+                try:
+                    adapter.receipts.receive(action(kind), accepted(kind))
+                    adapter.receipts.begin(kind, {"gatewayInstance": gateway.instance_id, "robotId": "test-body",
+                        "epoch": 1, "sequence": 1, "kind": kind})
+                    original = adapter._feedback(kind, "outcome_unknown", "disconnect")
+                    await adapter._send_feedback(original)
+                    await adapter._recover_action_receipts()
+                    await asyncio.gather(*tuple(adapter._action_tasks))
+                    ended = json.loads(adapter.receipts.action(kind)["result"])
+                    self.assertIs(ended["data"]["executionEnded"], True)
+                    self.assertEqual(ended["data"]["priorOutcome"], original)
+                    self.assertEqual(adapter.receipts.action(kind)["state"], "terminal")
+                    await adapter._cancel_action({"actionId": kind, "cancellationId": "late-cancel",
+                        "bodyLease": action(kind)["bodyLease"]})
+                    self.assertEqual(json.loads(adapter.receipts.action(kind)["result"]), ended)
+                    actual = adapter._terminal_feedback(kind, {"t": "cancelled", "seq": 1},
+                        command=kind, robot_id="test-body", epoch=1, sequence=1)
+                    await adapter._send_feedback(actual)
+                    self.assertEqual(json.loads(adapter.receipts.action(kind)["result"])["type"], "cancelled")
+                    self.assertEqual(socket.sent, [])
+                finally:
+                    adapter.receipts.close()
+
+    async def test_computer_playback_recovery_ends_only_a_replaced_gateway_process(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        try:
+            for name, instance in (("old", "old-process"), ("current", gateway.instance_id)):
+                adapter.receipts.receive(action(name), accepted(name))
+                adapter.receipts.begin(name, {"gatewayInstance": instance, "kind": "computer-speech"})
+            await adapter._recover_action_receipts()
+            await asyncio.gather(*tuple(adapter._action_tasks))
+            self.assertEqual(adapter.receipts.action("old")["state"], "terminal")
+            self.assertEqual(adapter.receipts.action("current")["state"], "outcome_unknown")
+            self.assertEqual(gateway.calls, [])
+        finally:
+            adapter.receipts.close()
 
     async def test_gateway_wait_matches_the_original_robot_epoch(self) -> None:
         gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "test"}))
@@ -398,7 +639,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                 adapter = EnvironmentAdapter(service, EnvironmentAdapterConfig(token="fixture", robot_id="body", receipt_path=":memory:"))
                 socket = FakeWebSocket()
                 adapter._websocket, adapter._bridge_ready = socket, True
-                original = action("transport")
+                original = {**action("transport"), "command": "stand"}
                 adapter.receipts.receive(original, accepted("transport"))
                 if fail:
                     await adapter._process_environment_action(original)

@@ -6,108 +6,201 @@
     "name": "emote",
     "asset": "worm"
   },
-  "gait_id": "worm_reviewed_expression",
-  "duration_seconds": 20.0,
-  "semantic_end_seconds": 20.0,
+  "gait_id": "worm_expressive_bare_20261015",
+  "duration_seconds": 6.4,
+  "semantic_end_seconds": 6.4,
   "source_sample_hz": 120,
-  "sample_count": 2401,
+  "sample_count": 769,
   "entry_actuator_angles_rad": [
     [
-      -3.427959092610388e-09,
-      0.03352514964837939,
-      0.007738812013922806
+      -7.045373451895712e-09,
+      0.0638323303268964,
+      -0.37808002900994603
     ],
     [
-      -6.855846852517011e-09,
-      0.033524776049833116,
-      0.007738732136420924
+      -1.4090755817763138e-08,
+      0.06383198113078907,
+      -0.3780799502863877
     ],
     [
-      1.984752331146021e-09,
-      0.03352559585157838,
-      0.007738901378509924
+      4.0791166271547766e-09,
+      0.06383285072937872,
+      -0.3780801595390978
     ],
     [
-      -3.4279669276531193e-09,
-      0.03352525513270849,
-      0.007738826571264649
+      -7.045365999494796e-09,
+      0.06383233697354572,
+      -0.3780800551101773
     ]
   ],
   "semantic_final_actuator_angles_rad": [
     [
-      -3.427967796872899e-09,
-      0.03352514667553437,
-      0.007738809546471098
+      -7.045364900171505e-09,
+      0.0638323303269771,
+      -0.3780800290099598
     ],
     [
-      -6.855846181461054e-09,
-      0.03352477307698932,
-      0.0077387296689784505
+      -1.409072540130011e-08,
+      0.06383198113079944,
+      -0.37807995028638924
     ],
     [
-      1.9847588997823714e-09,
-      0.033525592878715774,
-      0.007738898911065243
+      4.079078139706373e-09,
+      0.06383285072933231,
+      -0.37808015953908947
     ],
     [
-      -3.4279631272421003e-09,
-      0.03352525215986665,
-      0.0077388241038243944
+      -7.04535961444861e-09,
+      0.06383233697362992,
+      -0.37808005511019177
     ]
   ],
   "playlist_final_actuator_angles_rad": [
     [
-      -3.427967796872899e-09,
-      0.03352514667553437,
-      0.007738809546471098
+      -7.045364900171505e-09,
+      0.0638323303269771,
+      -0.3780800290099598
     ],
     [
-      -6.855846181461054e-09,
-      0.03352477307698932,
-      0.0077387296689784505
+      -1.409072540130011e-08,
+      0.06383198113079944,
+      -0.37807995028638924
     ],
     [
-      1.9847588997823714e-09,
-      0.033525592878715774,
-      0.007738898911065243
+      4.079078139706373e-09,
+      0.06383285072933231,
+      -0.37808015953908947
     ],
     [
-      -3.4279631272421003e-09,
-      0.03352525215986665,
-      0.0077388241038243944
+      -7.04535961444861e-09,
+      0.06383233697362992,
+      -0.37808005511019177
     ]
   ],
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
-  "geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
   "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
-  "source_sha256": "cbb77cb92aba509a28ffb2f14c03f0e46f91cfc14a3db4f6d6a19d70b0a5063d",
-  "posture_sha256": "1dbe64cd49c06a042579076918d10d99f903ca31c1dc57eec4e338842340e41d",
-  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
-  "reviewed_sha256": "2e4e92284bf509d81a162312aa03b42cd228ece26faa51d2c2542c7ee5824874",
+  "source_sha256": "7fd9041c9604911e56b5c3095f7849127a74ebbfc29ad89e57c11443e5ed6060",
+  "posture_sha256": "09bd806917a4232eb0d2ae8e4515a58d87f44e78db4e0b83bd3a9ec562d2f2c8",
+  "posture_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
+  "reviewed_sha256": "fcdd272160522fc853d3919c83343f9e8c5bca409801c43c1096c973c57ad44a",
   "hardware_qualified": false,
   "actuator_calibration": null,
   "completion": "Return to the recorded standing pose.",
   "source_validation": {
-    "command": "worm",
-    "samples": 2401,
-    "duration_s": 20.0,
-    "sample_hz": 120,
-    "min_sole_z_mm": -0.0011692967173573265,
-    "min_body_z_mm": 3.2048940429429393,
-    "minimum_closure_height_mm": 12.520105890117543,
-    "maximum_planted_target_error_mm": 7.303688502702244e-05,
-    "minimum_assumed_support_margin_mm": 53.44487716901355,
-    "maximum_adjacent_joint_step_degrees": 0.3363844012693858,
-    "pulse_range_us": [
-      405.0,
-      2895.0
-    ],
+    "min_sole_z_mm": -8.927614203457779e-10,
+    "min_body_z_mm": 4.0,
+    "minimum_closure_height_mm": 8.699383070095346,
+    "maximum_adjacent_joint_step_degrees": 3.490872891959377,
+    "maximum_planted_target_error_mm": 8.927614203457779e-10,
     "hardware_qualified": false,
-    "collision_checked": false,
-    "motion_end_s": 20.0
+    "command": "worm",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 769,
+    "sample_hz": 120,
+    "duration_s": 6.4,
+    "motion_end_s": 6.2,
+    "peak_joint_speed_deg_s": 417.83247227734256,
+    "joint_min_deg": [
+      [
+        -4.0367016388714046e-07,
+        -25.66658920196131,
+        -21.662389980454424
+      ],
+      [
+        -9.621244319963999e-07,
+        -25.666626514655665,
+        -21.662385469926082
+      ],
+      [
+        -3.328421648307617e-06,
+        -21.67389075073765,
+        -32.31738787973964
+      ],
+      [
+        -1.910669211215953e-06,
+        -21.673933852963078,
+        -32.317376599466556
+      ]
+    ],
+    "joint_max_deg": [
+      [
+        1.2506701826977815e-05,
+        60.93591183073752,
+        17.8717304106257
+      ],
+      [
+        2.2745230866014707e-05,
+        60.93588186495907,
+        17.87173766050878
+      ],
+      [
+        1.0150898900968e-06,
+        29.777788779593976,
+        42.50249318044968
+      ],
+      [
+        9.517451557120259e-06,
+        29.777748034140124,
+        42.50251782495786
+      ]
+    ],
+    "minimum_support_margin_mm": 42.55745399317507,
+    "mapped_pulse_min_us": 557.8152723231156,
+    "mapped_pulse_max_us": 2742.1843130914076,
+    "reviewed_pulse_window_us": [
+      400,
+      2900
+    ],
+    "collision_checked": false
   },
-  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
-  "blender_scene": "Motions - Current Geometry",
   "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
-  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads."
+  "current_mounting_qualification": "Current geometry and installed pulse mapping; loaded behavior and whole-body collisions unqualified.",
+  "final_actuator_angles_rad": [
+    [
+      -7.045364900171505e-09,
+      0.0638323303269771,
+      -0.3780800290099598
+    ],
+    [
+      -1.409072540130011e-08,
+      0.06383198113079944,
+      -0.37807995028638924
+    ],
+    [
+      4.079078139706373e-09,
+      0.06383285072933231,
+      -0.37808015953908947
+    ],
+    [
+      -7.04535961444861e-09,
+      0.06383233697362992,
+      -0.37808005511019177
+    ]
+  ],
+  "generated_utc": "2026-10-15",
+  "motion_end_seconds": 6.2,
+  "entry_pose": "Bare-Part027 standing pose; existing executor owns entry interpolation.",
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      63.0
+    ],
+    "euler_xyz_rad": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "contact_model": "Bare Part027 hull minimum Z; complete body hull; assumed COM.",
+  "retargeting_notes": "Three brisk large front-to-rear pitch/heave waves with all four bare feet planted, then standing recovery.",
+  "face_cues": [
+    {
+      "time_s": 6.2,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ]
 }

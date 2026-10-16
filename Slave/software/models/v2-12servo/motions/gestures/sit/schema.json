@@ -70,7 +70,7 @@
     },
     "provenance": "Measured rig transforms and driver expressions, verified against evaluated Blender poses; electrical horn index not calibrated"
   },
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "sample_fields": [
     "time_s",
     "phase",

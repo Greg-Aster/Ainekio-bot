@@ -1,5 +1,21 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.37-p4-wifi-recovery` keeps the C6 radio awake and allows the existing TCP
+transport to recover transient packet loss before aborting a WebSocket send.
+Separate send/receive locks preserve incoming command processing during recovery.
+See [Wi-Fi investigation and validation](RECORDING_OTA.md#wi-fi-investigation-2026-10-13).
+
+`0.8.34-p4-rolling-logs` adds bounded Wi-Fi diagnostics and automatic oldest-clip
+reuse near capacity, plus the
+internal-card clip downloads and Body Control
+recording/upload/activation controls to the segmented SD recording and authenticated
+P4 OTA support. Update progress uses the existing OLED/LCD. See
+[recording, Wi-Fi updates and initial USB migration](RECORDING_OTA.md).
+Controller-only hardware tests passed for recording, Wi-Fi upload/activation,
+interrupted upload and rollback. The screen state was confirmed by the owner.
+Powered motion, SD fault recovery and sustained Wi-Fi stability remain unqualified;
+see the linked guide for measured results and remaining limitations.
+
 Native V2 body-controller target (`0.8.0-p4-color-face`). It uses the portable Ainekio lifecycle,
 configuration store and command decoder, with its own P4 startup, board resources,
 C6 networking and PCA9685 output driver. It does not compile the S3 platform.
@@ -83,12 +99,29 @@ percentages from −100 to +100: positive forward advances, positive turn turns
 left. An update ACK confirms admission and leaves the original action running;
 only its terminal result ends that action. See the
 [negotiated steering contract](../../software/protocol/README.md#directional-locomotion-and-automatic-run).
-Older firmware lacking this feature receives no composed steering from the
-gateway. Native decoder/model tests cover this source contract; this change has
-not been cross-compiled, flashed or tested on a physical body.
+Current source also advertises `walk_lateral_v1` for signed sideways steering,
+positive left, through the same action and update owner. The existing gait
+interpolation blends forward, lateral and yaw while retaining planted contacts.
+Older firmware lacking either negotiated extension is not sent its unsupported
+controls. Native decoder/model and gateway receipt tests cover lateral reversal,
+cross-track correction and Finish. The P4 application cross-build passes; this
+source has not yet been flashed or tested on a physical body.
 
 All execution uses the existing body output task and device joint calibration.
-Entry follows a coordinated carrier/crank path from a commanded reference; this is not measured shaft position. Conservative continuous path bounds and actual linkage closure are checked before execution; the provisional angle envelope is not a runtime dependency. When outputs are off or only some assigned joints have been commanded, a new motion request first engages the saved Home pulses 200 ms apart, then enters the requested motion. Save and reconnection alone leave outputs off. An invalid model reference is reported explicitly before enabling outputs; changing firmware defaults never rewrites measured Home pulses or model angles.
+Walk begins gait execution on the next output frame. It does not prepend Home,
+Stand, foot-placement choreography, a generic pose transition, or recovery from
+a stored lying pose. If walking re-enables the outputs without a retained full
+reference, its first output is the initial gait pose. Homing and Stand are
+separate operator commands. Existing interpolation inside the requested gait
+remains; Crawl/Crab retain their own gait-specific stance setup.
+
+Other motion entry follows a coordinated carrier/crank path from a commanded
+reference; this is not measured shaft position. Conservative continuous path
+bounds and actual linkage closure are checked before execution; the provisional
+angle envelope is not a runtime dependency. Their unknown-reference entry can
+still engage saved Home pulses 200 ms apart. Save and reconnection alone leave
+outputs off. An invalid model reference is reported explicitly before enabling
+outputs; changing firmware defaults never rewrites measured Home pulses or angles.
 Clip angle envelopes are checked before movement, and every emitted pulse must
 fit the PCA9685 timer capacity. An unrepresentable pose returns LIMIT without
 silently compressing its geometry. Nominal calibration does not establish horn
@@ -114,8 +147,13 @@ calibration pulses establish their literal reference once. Mapping changes and
 output faults invalidate the cached model reference. No NVS layout, saved pulse,
 channel, inversion, Home angle or us/degree scale is changed.
 
-The existing Stop, generation fencing, output owner, 20 ms cadence and independent
-40 ms progress guard remain. The update path uses fixed storage, with no heap
+Stop, generation fencing, the output owner and 20 ms cadence remain. As of
+`0.8.38-p4-gait-progress`, scheduling gaps and slow successful transfers do not
+disable outputs. The body progress watchdog and P4 task/interrupt watchdog resets
+are removed by owner direction. An I2C transaction timeout releases the bus call
+and records the failure without changing OE; the normal output clock attempts
+the next frame. Completion requires a successful write. Actual non-timeout bus
+errors retain their existing failure handling. The update path uses fixed storage, with no heap
 allocation, storage writes or media processing. Console `controller` reports
 observed maximum calculation/frame/request time, over-budget counts, body stack
 headroom and internal heap. These measurements are observations, not guaranteed
@@ -123,7 +161,7 @@ bounds under untested media workloads. See the model's
 [controller validation](../../software/models/v2-12servo/CONTROLLER_VALIDATION.md)
 for resource costs, removed components and qualification limits.
 
-The current source build is `0.8.0-p4-color-face`; prior deployment records below refer to `0.6.1-p4-motion`. It requires the 8 MiB application partition. Boards still using
+The current source build is `0.8.19-p4-imu-cal`; prior deployment records below refer to earlier images. It requires the 8 MiB application partition. Boards still using
 the old `0.3.0-p4-turns` partition layout require the migration described in the
 [integration record](../../../docs/v2-12servo/MOTION_INTEGRATION_20260917.md),
 not just an application-only flash.
@@ -133,10 +171,15 @@ not just an application-only flash.
 The [portable IMU component](../../software/imu/README.md) is compiled by the P4
 project and exercised by its native test project. It defines timestamped samples,
 calibrated sensor-to-body transforms, attitude estimates and freshness/recovery
-flags using pinned x-io Fusion sources. It does not start acquisition, transmit
-IMU telemetry or modify movement. Wiring, mounting calibration, the sensor driver
-and physical timing measurements are the next integration step. The existing
-motion/output owner and motion library are unchanged by this component.
+flags using pinned x-io Fusion sources. P4's media component owns continuous
+208 Hz LSM6DS3 acquisition on shared I2C0 and calls this estimator. Application
+`0.8.19-p4-imu-cal` loads a saved nominal mounting matrix and measured gyro bias
+from a separate NVS record; persistence and corrected stationary readings were
+verified on the connected P4 with servos disconnected. Console diagnostics expose
+raw and corrected samples. Network IMU telemetry and gait feedback remain
+unconnected. Precise mounting/accelerometer calibration and timing under combined
+active media/network load remain unqualified. See the
+[gait research journal](../../../docs/v2-12servo/GAIT_RESEARCH_JOURNAL.md).
 
 ## Shared camera streaming and snapshots
 
@@ -284,7 +327,8 @@ budget and last failed ESP-IDF result, retained until the next failure/reboot),
 `motion_timing` (existing calculation/frame/request maxima and the
 output queue depth), and `controller_queue_depth`. Maxima and counts are since
 boot. Serialization runs in the controller tasks, outside the servo output
-loop. These observations retain the existing clock and I2C deadline rules.
+loop. The reported 5 ms I2C budget is the individual bus-call wait, not an
+automatic output shutdown threshold. A slow successful transfer is accepted.
 The serial console also includes ESP-IDF's I2C failure messages, distinguishing
 hardware NACKs from hardware/software timeouts without logging each frame.
 
@@ -292,7 +336,8 @@ The eight-entry controller queue and one-entry output queue buffer work between
 tasks. They are not a playlist that waits for each entire motion to finish:
 walking updates adjust the active walk, and a new motion can replace it. The
 gateway's fresh-clock check happens before a command reaches either robot
-queue; an I2C deadline failure happens while the robot executes it.
+queue; an I2C timeout is reported while the robot executes it and does not
+disable PWM. Command admission expiry is separate from output-stall handling.
 
 ## Build and flash
 
@@ -362,6 +407,11 @@ board through DTR/RTS; wait for the `ainekio-p4>` prompt before sending commands
 | Command | Behavior |
 | --- | --- |
 | `board` | Chip revision, flash, reset cause, pin assignment and driver state |
+| `imu` / `imu probe` | Startup chip identity and live 208 Hz acquisition/estimator status, age, errors, timing and active calibration/frame |
+| `imu sample` / `imu watch` | Two / ten seconds of sensor-axis snapshots at up to 50 Hz; continuous acquisition is unaffected; no motion or saved calibration writes |
+| `imu body` | Two seconds of corrected estimator snapshots in body axes when calibration is applied; m/s² including gravity and rad/s |
+| `imu calibration` | Read stored sensor-to-body matrix and gyro bias, plus whether calibration is active |
+| `imu calibration set r00 r01 r02 r10 r11 r12 r20 r21 r22 bx by bz` | Save row-major sensor-to-body rotation and sensor XYZ gyro bias in rad/s to NVS `p4_imu/cal_v1`; applies next boot, leaving the running estimator unchanged |
 | `controller` | Selected connection generation, epoch and capability readiness |
 | `face` / `face list` / `face NAME` / `face auto` | Display driver/frame diagnostics, available expressions, manual face, return to motion-driven selection; no PWM output |
 | `gait walk <cycles> <elapsed-ms> [speed | stride rate]` | Evaluate variable walking to elapsed time; automatic Speed or independent stride/rate; no PWM or motion completion |
@@ -385,17 +435,19 @@ board through DTR/RTS; wait for the `ainekio-p4>` prompt before sending commands
 
 Endpoints end in `/robot`, for example `ws://HOST:8790/robot` on a trusted LAN or
 `wss://HOST/robot` with a verified server certificate. WSS initializes SNTP for
-certificate dates; body deadlines always use the monotonic clock. WSS has not
+certificate dates; body sampling uses the monotonic clock. WSS has not
 been exercised in this bring-up. No certificate-validation bypass is provided.
 The existing LAN trust model is retained: the body authenticates to the selected
 gateway with its token; plaintext LAN WebSocket does not cryptographically
 authenticate the server. Use TLS for connections needing server authentication.
 
 The setup AP defaults to WPA2 association and provides DHCP and browser provisioning at
-`http://192.168.4.1/`. The HTTP listener accepts the AP interface only, validates
+`http://192.168.4.1/`. The setup handlers accept the AP interface only, validate
 bounded configuration input and a per-start CSRF token, and preserves existing
 pairing identity for network-only changes. The setup key persists across boots.
-The serial configuration commands remain available.
+The serial configuration commands remain available. The same HTTP server also
+serves pairing-token-authenticated recording and firmware maintenance on station
+Wi-Fi; setup forms remain AP-only.
 
 Firmware advertising `robot_settings_v1` also supports authenticated settings
 readback, per-slot network writes/removal, setup-hotspot password and pairing-token
@@ -478,14 +530,32 @@ already assembled linkage. Do not force a powered servo against a mechanical
 stop. The revised laying geometry and the physical horn positions must agree
 before calling this a body rest pose.
 
-`disable` or an authenticated gateway stop latches output disable immediately.
-Use `home` locally or Home/Move in Calibration to establish a known reference before semantic motion. Entering calibration reinitializes the driver with all
+`disable` or an authenticated gateway Stop with `detach:true` latches output disable immediately.
+Ordinary Stop cancels choreography and holds the last commanded pose without
+disabling energized outputs. It does not return to neutral, establish a stable
+stance, or re-enable already detached outputs.
+Use Stand to rise from detached outputs. `home` locally or Home/Move in Calibration is only for joint calibration, not a prerequisite for semantic motion. Entering calibration reinitializes the driver with all
 channels off; it does not move a joint. I2C faults, stalled frame updates and loss of an already
 authenticated controller also disable outputs; reconnecting alone does not
-resume them. Initial Wi-Fi/gateway unavailability does not block startup home.
-After a reported brownout, watchdog, panic or other fault reset, automatic home
-is inhibited; `home` permits an explicit retry. A complete power loss can still
-appear as a fresh power-on and restart home. Firmware cannot cut the servo rail.
+resume them. Initial Wi-Fi/gateway unavailability does not block startup rise.
+Starting with `0.8.43-p4-staggered-rise`, startup leads with the physical front
+two legs; the rear pair follows 100 ms later. Each leg's carrier and crank
+remain coordinated. Front/rear folding starts at 0/100 ms, shoulder engagement
+at 600/700 ms, and body rise at 1200/1300 ms. The initial crouch is 25 mm below
+Stand. Each pair's rise lasts 1.2 s, completing the sequence at 2.5 s. A small
+planned body pitch expresses the front/rear rise offset while solving all four
+planted sole contacts on one rigid body; it returns to level at completion.
+Existing IMU balance correction operates during rise and standing. This separates
+commanded start times, but does not guarantee a particular peak current: moving
+and holding loads overlap, and electrical current has not been measured. This runs asynchronously in the
+body owner; networking does not wait for the sequence. Stand from detached
+outputs uses the same sequence. Walk still starts directly without this sequence.
+The fold and shoulder intervals are commanded movement time, not sensed arrival;
+the MG90 interface provides no shaft-position feedback. Physical startup is not
+yet qualified. After a reported brownout, watchdog, panic or other fault reset,
+the existing reset policy inhibits automatic rise; Stand permits an explicit
+retry. A complete power loss can still appear as a fresh power-on and restart
+the sequence. Firmware cannot cut the servo rail.
 
 Joint settings use one compact `p4_config/joint_mapping` record: twelve channel
 assignments, Home pulses, inversion, model angles at Home and µs/degree. Each
@@ -521,20 +591,22 @@ recommended servo sweep. Normal motion targets and clip/entry extrema use this
 same timer capacity. The direct model checks actual rod/pickup closure.
 A manual pose that cannot close the linkage is rejected for
 semantic entry; operator recovery is required. Entry preflight includes
-intermediate path extrema. Gaits, named motions and entry transitions share an
+intermediate path extrema. Named motions and entry transitions use an
 owner-configurable commanded joint speed limit in degrees per second. Body
 Control reads and saves it through `motion_speed` / `joint_speed_limit_v1`.
 The robot persists it independently of calibration and the named-motion
 multiplier. The initial displayed value is the former nominal 545.4545 °/s;
 there is no fixed upper ceiling. Automatic Run increases stride, leg lift, body
-bounding and requested cadence together through its Speed range. The configured
-limit retimes the whole motion while preserving its requested stride. Independent
-stride/rate mode and other motions also retime together at the configured limit,
-without the former 125% trigger or separate pulse-speed entry bound.
+bounding and requested cadence together through its Speed range. Walking uses
+that cadence (or advanced rate) without automatic gait-clock reduction when a
+joint moves faster than the separate posture/gesture setting. The setting still
+applies to posture/clip timing and balance corrections. No motor torque or
+measured shaft speed is commanded by this position-control interface.
 Status reports `speed_limited`, `joint_speed_limit_deg_s` and `gait_cadence`
 (commanded/requested cycles per second and stride percentages). These describe
-commanded timing, not measured shaft tracking. Manual calibration pulses and
-startup Home remain direct pulse operations. Saving uses the existing output
+commanded timing, not measured shaft tracking. Manual calibration remains a direct pulse operation. Startup shoulder and
+initial fold targets are direct position commands; the subsequent rise uses
+contact geometry. Saving uses the existing output
 disarm behavior; a subsequent operator motion resumes outputs.
 Motion converts model angles
 using `home_us + direction * (angle - home_angle) * us_per_degree`. Calibration
@@ -551,7 +623,9 @@ measurement path is specified.
 
 The existing output task owns homing and the PCA driver. There is no separate
 test build, timed servo-test adapter, wiring-acknowledgement gate or firmware
-fault-injection command. The direct OE stop and progress watchdog remain.
+fault-injection command. Detached Stop still disables OE immediately. Ordinary
+Stop uses the existing body hold operation. There is no automatic
+elapsed-time output-stall shutdown.
 
 ## Servo power
 
@@ -715,12 +789,13 @@ claiming reliable recognition across a room.
 
 ## Optional voice/wake asset layout
 
-The default partition table retains the factory layout. The optional
-`partitions-full.csv` preserves NVS/PHY and app offset `0x20000`, and adds two
-8 MiB OTA slots plus LittleFS at `0x1020000`. OTA support validates a pending
-image after an authenticated controller session; it does not add an unauthenticated
-firmware upload endpoint. Selecting a layout during a build does not migrate a
-board.
+Fresh configurations now select `partitions-full.csv` and rollback. This preserves
+NVS/PHY and app offset `0x20000`, with two 8 MiB OTA slots and LittleFS at
+`0x1020000`. Existing local sdkconfig files can retain the legacy factory layout
+in `partitions.csv`. Selecting a layout during a build does not migrate a board.
+Follow [the migration and startup-validation procedure](RECORDING_OTA.md) before
+using Wi-Fi updates. Installing or replacing the optional asset filesystem is
+separate from updating the application.
 
 To build the full layout separately, use a separate `SDKCONFIG` file and select
 `partitions-full.csv` under Partition Table. Build with that configuration:

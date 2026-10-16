@@ -6,6 +6,39 @@ command lifecycle results, and serves the password-protected local operations
 dashboard. Robot tokens, the dashboard password verifier, and the bounded audit
 log live under the ignored `build/gateway/` runtime directory by default.
 
+## Body Control workspace
+
+The **Tools** sidebar groups controls under Operate, Perception, Recordings,
+Maintenance, and Settings. Expand a group and select a tool. The camera stays
+beside the tool on desktop and above it on small screens; robot selection,
+connection state, and Signal stop remain visible. Tools can collapse the sidebar.
+The browser remembers the selected tool and expanded groups. Switching tools
+preserves form drafts and does not send robot commands or stop the camera.
+
+Use **Recordings → Video and SD card** for recording and downloads,
+**Maintenance → Firmware updates** for uploads and activation, and
+**Maintenance → Robot logs** for diagnostics. **Settings** in the header opens
+Connections. Refresh an existing dashboard tab to load this layout.
+
+## P4 recording and firmware in Body Control
+
+The SD card section starts/stops onboard video recording while preview streaming
+continues, lists clips, and downloads a selected clip to the computer. The card
+stays inside the robot. Downloaded clips remain until rolling recording reuses them. Near capacity,
+firmware 0.8.34 automatically overwrites the oldest completed video in its existing
+space, with no review or bulk deletion. Active recordings/downloads are excluded. Clear logs/captures does not delete video.
+
+The Robot firmware section uploads a compiled P4 application `.bin`, then offers
+activation on next boot or an explicit restart. Upload enters Doze and finalizes
+recording. The existing robot display reports update progress. C6 firmware is
+separate. The dashboard uses its existing login and CSRF protection; the pairing
+token stays server-side. Transfers use the selected authenticated LAN peer and
+bounded chunks in the existing HTTP server threads. The robot requires the
+[recording/OTA firmware and one-time bootloader setup](../../Slave/firmware/esp32p4-wifi6/RECORDING_OTA.md).
+
+The Robot logs section reads or downloads bounded current/previous-boot diagnostics
+over the same authenticated Wi-Fi path. Retention covers warm resets, not power loss.
+
 ## Physical Robot Gateway
 
 The physical robot and the Environment Bridge share one authenticated,
@@ -15,6 +48,12 @@ rejected from `/environment`, as are requests carrying Cloudflare relay
 headers. Once established, either side can send data,
 so the fact that the ESP32 initiates its connection does not make communication
 one-way.
+
+A replacement robot session becomes commandable after its welcome is sent.
+The gateway reads the new epoch's heartbeats and receipts while retiring the old
+socket and notifying connection subscribers; old-socket teardown does not delay
+the new receive loop. Retirement and reception share the connection handler's
+lifetime, and replaced commands keep their existing cancellation receipts.
 
 On first pairing, supply a strong robot token. Configure a separate Environment
 Bridge token when using MetaHuman on this host; standalone Body Control does not
@@ -57,7 +96,7 @@ The dashboard reuses its saved operator password across launches. A first run
 without `AINEKIO_DASHBOARD_PASSWORD` generates and prints a password once when
 launched in an interactive terminal; an unattended first run requires that
 environment variable. Later launches do not generate or print another password.
-Use **Settings → Body Control password** to change it with your current password.
+Use **Settings → Password** to change it with your current password.
 The environment variable seeds a missing password store only; it cannot undo a
 later password change. Only the verifier persists; plaintext passwords are not
 saved by the dashboard. Browser sessions last 30 days and survive server
@@ -68,7 +107,7 @@ file `dashboard-sessions.json` alongside `dashboard-auth.json`.
 Dashboard authentication is separate from robot WiFi setup and is never
 presented by the ESP32 setup portal.
 
-**Settings → Robot Wi-Fi and pairing** reads and edits P4 settings over the
+**Settings → Robot Wi-Fi** reads and edits P4 settings over the
 existing authenticated connection when firmware advertises `robot_settings_v1`.
 Older firmware shows an update message. The operator can save four connection slots,
 each with Wi-Fi credentials and a Body Control URL, remove a connection,
@@ -196,13 +235,13 @@ in the ignored `.env` to select hotspot mode at startup. In Body Control,
 **Settings → Robot connection mode** switches between the existing Wi-Fi network
 and the configured robot hotspot immediately, saving the choice in `.env`.
 The running gateway starts `ainekio-hotspot-dhcp.service` and its dependencies,
-then stops `ainekio-hotspot-interface.service` and its dependent services when
-switched to Wi-Fi or when the gateway exits, including a failed startup.
-Switching does not restart Body Control. A robot using the hotspot reconnects
-through its saved Wi-Fi profiles when that hotspot is turned off.
+then stops `ainekio-hotspot-interface.service` and its dependent services only
+when switched to Wi-Fi. The hotspot stays up across gateway restarts. Switching
+does not restart Body Control. A robot using the hotspot reconnects through its
+saved Wi-Fi profiles when that hotspot is turned off.
 The operator needs permission to
 start/stop those specific system units without an interactive prompt. Disable
-their independent boot enablement when using this gateway-owned lifecycle.
+their independent boot enablement when using this connection-mode setting.
 The default is `0`, so other hosts need no hotspot services. Body Control's
 dashboard login and robot pairing authentication continue to use their existing
 owners. The launcher loads `.env`; a direct `python3 -m gateway.server` invocation
@@ -276,6 +315,13 @@ correlated Environment observation; it does not send a second automatic
 snapshot command. MetaHuman can still request `captureImage` directly. These
 bounded snapshots share the camera service with the dashboard but are the only
 camera images admitted to the Environment observation path.
+When MetaHuman selects visual context, it sends `environment.visual.read`
+with `version: 1`, `requestId`, and `sessionId` through the same bridge.
+The adapter replies `environment.visual.result` with the same identities and
+`visual` containing the latest already-received selected-body frame, or `null`
+when none is available. The frame retains its original gateway receipt time
+and robot/gateway/epoch/counter identity. This read does not trigger a capture,
+wait for a new frame, or publish an observation. Session errors return `error`.
 
 Bodies advertising `camera_profiles_v1` expose separate **Stream resolution**
 and **Snapshot resolution** controls in the existing panel. Stream output is
@@ -588,6 +634,47 @@ detection/segmentation checkpoints are accepted. Labels come from that checkpoin
 class map, and segmentation supplies boxes, not distance estimates. The model
 identity includes the weights SHA256. This option does not enable camera capture.
 
+Optional generic continuity uses `--vision-yolo-tracker bytetrack.yaml` or
+`AINEKIO_VISION_YOLO_TRACKER=bytetrack.yaml`. A local ByteTrack YAML can supply
+its association settings. Install the optional `lap` dependency in the selected
+Python environment before enabling this option; it is not installed at runtime.
+The same camera worker commits tracking only for accepted frames. Every detection
+remains visible, including boxes without a confirmed track. `trackId` is scoped
+to the camera session and recognition generation, survives the existing bridge,
+and appears in the detection overlay tooltip. It estimates continuity, not
+personal identity. Named-face recognition uses that association when available.
+This option alone does not select targets or command movement.
+
+Prompted YOLOE checkpoints support selecting a detection in the camera's
+**Show detections on their source image** view. Selection sends the exact image
+and region as a visual reference. Text search additionally requires a local
+MobileCLIP encoder selected by `--vision-yolo-text-encoder /absolute/path/mobileclip2_b.ts`
+or `AINEKIO_VISION_YOLO_TEXT_ENCODER`, with its CLIP tokenizer installed in the
+selected Python environment. Choose encoder weights compatible with the YOLOE
+checkpoint. The camera panel advertises the operations available from that
+backend; **Release target** restores its original class configuration. A search
+or selection does not enable the camera, recognition, or robot movement.
+
+For prompted checkpoints distributed with placeholder class names, prepare the
+desired default vocabulary before deployment. For example, the desktop pilot
+preserves its previous `person` detector by computing that label's embedding
+with the configured local encoder, calling `set_classes`, and saving a local
+checkpoint. Remove `model.clip_model` before saving so the encoder remains a
+separate file. Configure the gateway with that prepared checkpoint; startup and
+**Release target** then restore the same meaningful default vocabulary. Do not
+interpret numeric placeholder labels as a known class map. The pilot's prepared
+weights and validation are recorded in the integration audit.
+
+MetaHuman uses the same finite `environment.visual-read` request over the
+Environment Bridge for search, visual selection and release. The existing task
+program can acquire candidates through the configured vision model, select a
+retained image region, and observe while stationary. Results carry the target
+query ID; detections and track IDs continue through ordinary perception telemetry.
+Visual references improve matching but do not prove that a similar object is
+the same physical instance. Target configuration is session state, not a saved
+user preference; production deployment and actual-device qualification are
+tracked in `docs/audits/VISION_TRACKING_INTEGRATION.md`.
+
 To retain the local detector across normal launcher restarts, set
 `AINEKIO_VISION_YOLO_WEIGHTS`, `AINEKIO_VISION_YOLO_DEVICE` and
 `AINEKIO_VISION_YOLO_IMAGE_SIZE` in the existing ignored `.env`. Command-line
@@ -596,7 +683,8 @@ with Ultralytics installed. Body Control's camera panel reports whether recognit
 is configured, observation age, fresh-result rate, received frames and errors.
 These ages start at gateway receipt, not camera exposure.
 
-Body Control's **Vision and robot control** section separates three saved choices:
+Body Control's **Perception** group separates three saved choices under
+**Camera settings**, **Recognition**, and **MetaHuman control**:
 camera settings are stored per robot in the gateway data directory and reapplied
 on that robot's next connection; recognition can be switched off without stopping
 preview (queued and late inference results are discarded); MetaHuman robot control
@@ -606,6 +694,14 @@ the Coordinator and keeps unresolved command receipts available for reconciliati
 Switching it on permits new instructions, without restarting cancelled executions
 or changing the configured Reactive/Semi/Full mode. Manual controls remain independent.
 An off setting or cancellation request does not establish physical rest.
+
+On bridge reconnection, the adapter replays saved deliveries while reading their
+acknowledgements. Producing new feedback sends that receipt only, not the pending
+backlog. Recovery follows an existing command's wire identity without resending
+the command. A recorded unknown outcome remains unknown; reconnecting alone does
+not create another observation of it. A new correlated result, or a result whose
+observation was not persisted, produces its own observation through the same
+receipt owner.
 
 ### Named people (optional local models)
 
@@ -778,7 +874,14 @@ Cancellation and steering validate the immutable action/lease, gateway instance,
 robot epoch and latest body dispatch inside the same send lock as manual control.
 An unguarded manual update also invalidates autonomous cleanup authority. Speaker
 cancellation is separately fenced. Capture cancellation never issues a body-wide
-Stop. Disconnect/reconnect evidence stays unknown; old motion is never replayed.
+Stop. An uncertain action retains its historical `outcome_unknown` result. When
+an authenticated replacement body session ends its execution, the same receipt
+owner records `data.executionEnded: true`, the previous/current session identities
+in `data.sessionReplacement`, and `data.priorOutcome`. MetaHuman settles that
+command's ownership without claiming success. Disconnect alone does not establish
+this transition; old motion is never replayed. Ended computer playback is similarly
+settled when its owning gateway process has been replaced. The committed receipt
+survives replay/restart, and a later correlated body result can add factual evidence.
 A correlated terminal receipt establishes commanded execution outcome, not sensed
 physical rest or measured servo position. Emergency Stop still sends the existing
 P4 output-disable command and can interrupt speech.
@@ -945,3 +1048,58 @@ can be reached even while the robot bridge is disconnected. MetaHuman needs the
 paired connection-selector source update; older versions open Agent Monitor
 without the new selector. Its local option means the MetaHuman host, while its
 SSH destination can be any configured machine running Body Control.
+
+
+### Speech destination
+
+MetaHuman's chat audio control selects **Off**, **Browser**, or **Body Control**.
+Body Control's Audio panel separately chooses **Robot speaker** or **Body Control
+computer**, persisted in `speech-output.json` beside the adapter receipt database.
+This local choice can be changed while MetaHuman is disconnected. It no longer
+changes MetaHuman's browser output preference.
+
+Both destinations consume the same authenticated PCM speech messages and action
+receipts. Computer output plays through the gateway user's default PulseAudio or
+PipeWire-Pulse device using `paplay` (16 kHz mono signed 16-bit PCM); the executable
+must be installed on the gateway host. Playback errors remain failed receipts.
+Cancellation terminates the owned playback process; interrupted gateway recovery
+retains an unknown historical outcome and never replays the audio. Computer
+playback needs no connected robot or body clock. Robot playback keeps the existing
+P4 speaker transport and completion receipts.
+
+
+### V2 body events and IMU status
+
+The P4 reports timestamped IMU snapshots on its existing controller connection.
+Body Control detects threshold crossings and publishes structured `body_event`
+observations through the Environment Bridge. Sensor telemetry updates status;
+it does not itself invoke an LLM. The separate MetaHuman **Body Event Trigger**
+workflow interprets events and delegates its selected intention to Environment Mode.
+No phrase or motion sequence is selected in firmware or gateway event detection.
+
+In Body Control, **Perception → Body events** saves enable switches and thresholds
+per selected robot in the existing `sensing-controls.json` settings store. Changes
+apply immediately on this Body Control host and survive its restart. Defaults:
+60° tilt for 300 ms, clearing below 45°; acceleration magnitude differing from
+1 g by more than 0.75 g or angular-rate magnitude above 180°/s, clearing below
+0.35 g and 90°/s. Continued readings above a threshold are one episode until it
+clears. Rapid-movement reporting also has a per-robot cooldown, defaulting to
+10 seconds. **Rapid movement cooldown (seconds)** sets the minimum time between
+reported rapid events; 0 disables the cooldown. Crossings during the cooldown
+are not queued or emitted later. A new crossing after clearing is required.
+The interval uses Body Control's monotonic clock and survives settings edits and
+robot reconnects; restarting Body Control starts a fresh interval history. Old
+saved settings gain the 10-second default while retaining their other values.
+These settings do not change actuator control or balance behavior.
+**Good morning** submits an explicit wake request through the same event workflow.
+Firmware reports boot/wake events once at the source, rather than treating a
+network reconnect as a wake. Event capture requires the Body Control connection;
+this transport does not replay sensor samples lost while disconnected.
+
+IMU readings retain acquisition time, reception time, gyro rad/s, acceleration
+m/s² (including gravity), quaternion, calibration and source freshness flags.
+`body_nominal` identifies saved mounting/bias calibration; `sensor_unverified`
+identifies its absence. Six-axis yaw has no absolute heading reference.
+Balance corrections exist in the V2 body code; these changes do not add a
+fallen-body get-up sequence. Firmware build/flash and physical qualification
+are separate from host-side tests.

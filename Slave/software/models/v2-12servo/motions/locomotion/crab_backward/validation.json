@@ -1,29 +1,38 @@
 {
   "command": "crab_backward",
-  "samples": 2584,
-  "max_target_error_mm": 0.15149259360395817,
-  "foot_xy_error_mm": 5.273110372172596e-05,
+  "samples": 2255,
+  "max_target_error_mm": 0.15149443324101242,
+  "foot_xy_error_mm": 5.5105829176227417e-05,
   "full_sole_height_error_mm": [
-    0.08160556012523656,
-    0.15149259360395817
+    0.09285345930672406,
+    0.15149443324101242
   ],
   "support_allowance_mm": 0.151,
-  "min_sole_z_mm": 0.08160556012523656,
-  "min_body_z_mm": 27.25000762939453,
-  "min_closure_height_mm": 18.259958263417133,
-  "maximum_adjacent_joint_step_degrees": 3.659383130863122,
+  "min_sole_z_mm": 0.09285345930672406,
+  "min_body_z_mm": 37.25000762939453,
+  "min_closure_height_mm": 17.971779638129963,
+  "maximum_adjacent_joint_step_degrees": 3.7798129272237935,
   "hardware_qualified": false,
   "collision_checked": false,
   "leverage": {
-    "checked_leg_poses": 20668,
+    "checked_leg_poses": 18036,
     "branch_reversals": 0,
-    "minimum_straightening_clearance_mm": 13.099940559081688,
-    "stance_output_min_deg": 71.11272918243004,
-    "swing_output_min_deg": 68.52987973880623,
-    "stance_input_min_deg": 75.58165948573404,
-    "swing_input_min_deg": 75.27939242518407
+    "minimum_straightening_clearance_mm": 11.047172826835478,
+    "stance_output_min_deg": 68.15526395561763,
+    "swing_output_min_deg": 71.11316376601707,
+    "stance_input_min_deg": 46.919210902413134,
+    "swing_input_min_deg": 46.74196329977083
   },
-  "modeled_envelope_conflict": false,
-  "first_bound_envelope_conflict": null,
-  "mounting_profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37"
+  "modeled_envelope_conflict": true,
+  "first_bound_envelope_conflict": {
+    "sample": 0,
+    "time_s": 0.0,
+    "cad_leg": "FL",
+    "q_deg": [
+      -4.531934682743574e-06,
+      15.663331298814912,
+      -24.628352050756586
+    ]
+  },
+  "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67"
 }

@@ -1,0 +1,17 @@
+{
+  "version": "0.8.56-p4-fast-gaits",
+  "image_bytes": 2834960,
+  "image_sha256": "bff5a30747ee55e26f6a35c20836b358cc19613fb4fc01edf5b12cf7e4d631a1",
+  "deployment": "verified_over_wifi",
+  "hardware_gaits_tested": false,
+  "native_tests_passed": 51,
+  "source_sha256": {
+    "Slave/software/models/v2-12servo/motion.c": "25c108c6366219d06c77990e808d46eb8106025797f933be884ba57ca2d28d36",
+    "Slave/software/models/v2-12servo/include/ainekio/v2_walk.h": "bf895d873eeb563fd9921fe6378d34fba3ffefae08817264fd7ff5e39b2488ac"
+  },
+  "running_partition": "ota_0",
+  "boot_partition": "ota_0",
+  "pending_verify": false,
+  "ota_error": "ESP_OK",
+  "session_epoch": 43
+}

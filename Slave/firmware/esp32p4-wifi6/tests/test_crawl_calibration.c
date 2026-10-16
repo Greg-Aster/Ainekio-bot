@@ -1,4 +1,4 @@
-/* Offline production Crawl and pulse mapping with the mounted servo profile. */
+/* Offline production Crawl/Crab and pulse mapping with the mounted servo profile. */
 #include "joint_calibration.h"
 #include "ainekio/v2_walk.h"
 #include <assert.h>
@@ -6,13 +6,14 @@
 
 static ainekio_p4_joint_config_t joints[12];
 static unsigned minimum=65535,maximum;
+static ainekio_gait_t gait;
 static void check(ainekio_v2_walk_state_t *s,uint64_t now)
 {
     assert(ainekio_v2_walk_tick(s,now));
     uint16_t pulses[12];assert(ainekio_p4_joint_map_frame(joints,&s->pose.frame,pulses));
     for(unsigned i=0;i<12;i++) {
         if(pulses[i]<400||pulses[i]>2900)
-            fprintf(stderr,"Crawl dir=%u time=%llu phase=%g joint=%u pulse=%u\n",s->direction,(unsigned long long)now,s->phase,i,pulses[i]);
+            fprintf(stderr,"gait=%u dir=%u time=%llu phase=%g joint=%u pulse=%u\n",s->gait_mode,s->direction,(unsigned long long)now,s->phase,i,pulses[i]);
         assert(pulses[i]>=400&&pulses[i]<=2900);
         if(pulses[i]<minimum)minimum=pulses[i];
         if(pulses[i]>maximum)maximum=pulses[i];
@@ -22,7 +23,7 @@ static ainekio_command_t command(unsigned direction)
 {
     ainekio_command_t c={.kind=AINEKIO_COMMAND_INTENT,.sequence=1};
     c.data.intent.kind=AINEKIO_INTENT_WALK;
-    c.data.intent.data.walk.gait=AINEKIO_GAIT_CRAWL;
+    c.data.intent.data.walk.gait=gait;
     c.data.intent.data.walk.direction=(ainekio_walk_direction_t)direction;
     c.data.intent.data.walk.controls=1;c.data.intent.data.walk.speed_percent=100;
     return c;
@@ -35,13 +36,14 @@ static void update(ainekio_v2_walk_state_t *s,ainekio_command_t *c,unsigned spee
 }
 int main(void)
 {
-    const unsigned home[12]={1600,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
+    const unsigned home[12]={1500,2444,2577,1670,856,723,1670,2444,2577,1760,856,723};
     assert(ainekio_p4_joint_defaults(joints));
-    for(unsigned i=0;i<12;i++){joints[i].home_us=home[i];joints[i].invert=(i/3)%2==0;}
+    for(unsigned i=0;i<12;i++){joints[i].home_us=home[i];joints[i].invert=i%3==0?(i==3||i==6):(i/3)%2==0;}
     assert(ainekio_v2_joint_speed_set(1000));
     const unsigned speeds[]={1,25,50,75,100};
     const unsigned intervals[]={10000,20000,40000};
-    for(unsigned d=0;d<4;d++)for(unsigned dt=0;dt<3;dt++)for(unsigned mode=0;mode<8;mode++) {
+    for(gait=AINEKIO_GAIT_CRAWL;gait<=AINEKIO_GAIT_CRAB;gait++)if(gait!=AINEKIO_GAIT_RUN)
+    for(unsigned d=0;d<(gait==AINEKIO_GAIT_CRAB?6:4);d++)for(unsigned dt=0;dt<3;dt++)for(unsigned mode=0;mode<8;mode++) {
         ainekio_command_t c=command(d);
         if(mode<5)c.data.intent.data.walk.speed_percent=speeds[mode];
         else {c.data.intent.data.walk.controls=2;c.data.intent.data.walk.stride_percent=100;c.data.intent.data.walk.motion_rate=(float[]){.25F,1.F,3.F}[mode-5];}
@@ -54,7 +56,8 @@ int main(void)
         assert(s.complete);
     }
     /* Finish during lowering, then throughout a steady cycle at both rate extremes. */
-    for(unsigned d=0;d<4;d++)for(unsigned rate=0;rate<2;rate++)for(unsigned stop=0;stop<37;stop++) {
+    for(gait=AINEKIO_GAIT_CRAWL;gait<=AINEKIO_GAIT_CRAB;gait++)if(gait!=AINEKIO_GAIT_RUN)
+    for(unsigned d=0;d<(gait==AINEKIO_GAIT_CRAB?6:4);d++)for(unsigned rate=0;rate<2;rate++)for(unsigned stop=0;stop<37;stop++) {
         ainekio_command_t c=command(d);c.data.intent.data.walk.controls=2;
         c.data.intent.data.walk.stride_percent=100;c.data.intent.data.walk.motion_rate=rate?3.F:.25F;
         ainekio_v2_walk_state_t s={0};assert(ainekio_v2_walk_accept(&s,&c,0));
@@ -64,5 +67,5 @@ int main(void)
         }
         assert(s.complete);
     }
-    printf("Crawl entry, four directions, speed changes and Finish: %u-%u us.\n",minimum,maximum);
+    printf("Crawl/Crab entry, all directions, speed changes and Finish: %u-%u us.\n",minimum,maximum);
 }

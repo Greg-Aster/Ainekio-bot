@@ -11,7 +11,7 @@ typedef struct {
     uint8_t write_values[64];
     size_t write_count;
     uint64_t now;
-    unsigned calls, fail_at, interrupt_at, slow_at;
+    unsigned calls, fail_at, interrupt_at, slow_at, timeout_at;
     unsigned enables, lock_depth;
     bool disabled;
     bool corrupt_readback;
@@ -33,7 +33,7 @@ static void disable(void *p, bool disabled)
 static uint64_t now(void *p) { return ((fixture_t *)p)->now; }
 static void delay(void *p, uint32_t us) { ((fixture_t *)p)->now += us; }
 
-static bool bus_call(fixture_t *f, uint32_t timeout_ms)
+static ainekio_pca_bus_result_t bus_call(fixture_t *f, uint32_t timeout_ms)
 {
     assert(f->lock_depth == 0); /* GPIO gate lock cannot span I2C. */
     assert(timeout_ms == 5U);
@@ -47,12 +47,12 @@ static bool bus_call(fixture_t *f, uint32_t timeout_ms)
     }
     if (f->slow_at == f->calls) {
         f->now += 6000U;
-        ainekio_pca_supervise(&f->driver);
     } else f->now += 100U;
-    return f->fail_at != f->calls;
+    return f->timeout_at == f->calls ? AINEKIO_PCA_BUS_TIMEOUT :
+        f->fail_at == f->calls ? AINEKIO_PCA_BUS_ERROR : AINEKIO_PCA_BUS_OK;
 }
 
-static bool write_bytes(void *p, uint8_t reg, const uint8_t *bytes,
+static ainekio_pca_bus_result_t write_bytes(void *p, uint8_t reg, const uint8_t *bytes,
                         size_t count, uint32_t timeout_ms)
 {
     fixture_t *f = p;
@@ -60,19 +60,19 @@ static bool write_bytes(void *p, uint8_t reg, const uint8_t *bytes,
     assert(f->write_count < sizeof(f->write_regs));
     f->write_regs[f->write_count] = reg;
     f->write_values[f->write_count++] = bytes[0];
-    const bool ok = bus_call(f, timeout_ms);
+    const ainekio_pca_bus_result_t result = bus_call(f, timeout_ms);
     /* Even an interrupted transaction can still touch the peripheral. */
-    memcpy(f->registers + reg, bytes, ok ? count : count / 2U);
-    return ok;
+    memcpy(f->registers + reg, bytes, result == AINEKIO_PCA_BUS_OK ? count : count / 2U);
+    return result;
 }
-static bool read_bytes(void *p, uint8_t reg, uint8_t *bytes,
+static ainekio_pca_bus_result_t read_bytes(void *p, uint8_t reg, uint8_t *bytes,
                        size_t count, uint32_t timeout_ms)
 {
     fixture_t *f = p;
-    const bool ok = bus_call(f, timeout_ms);
+    const ainekio_pca_bus_result_t result = bus_call(f, timeout_ms);
     memcpy(bytes, f->registers + reg, count);
     if (reg == 0xFE && f->corrupt_readback) bytes[0] ^= 1;
-    return ok;
+    return result;
 }
 
 static ainekio_pca_result_t initialize(fixture_t *f)
@@ -101,12 +101,37 @@ static void test_initialization_and_frame(void)
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);
     assert(!f.disabled && f.enables == 1);
     assert(f.registers[8] == (307 & 255) && f.registers[9] == 1);
-    assert(f.registers[6+44+2] == 205 && f.registers[6+44+3] == 0);
+    assert(f.registers[6+44] == (3754 & 255) && f.registers[6+44+1] == (3754 >> 8));
+    assert(f.registers[6+44+2] == (3959 & 255) && f.registers[6+44+3] == (3959 >> 8));
     for (size_t i=12; i<16; ++i) assert(f.registers[6+4*i+3] == 0x10);
     const unsigned calls = f.calls;
     pulses[0] = UINT16_MAX;
     assert(ainekio_pca_write_frame(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_INVALID);
     assert(f.calls == calls);
+    for(unsigned pass=0;pass<3;pass++) {
+        const uint16_t widths[]={400,1500,2900};
+        for(unsigned i=0;i<12;i++)pulses[i]=widths[pass];
+        const unsigned before=f.calls;
+        assert(ainekio_pca_write_frame(&f.driver,ainekio_pca_status(&f.driver).generation,pulses)==AINEKIO_PCA_OK);
+        assert(f.calls==before+1); /* One frame transfer, no sleeps between channels. */
+        unsigned previous=0;
+        for(unsigned i=0;i<12;i++) {
+            const unsigned reg=6+4*i;
+            const unsigned on=f.registers[reg]+256U*f.registers[reg+1];
+            const unsigned off=f.registers[reg+2]+256U*f.registers[reg+3];
+            const unsigned width=(off+4096U-on)%4096U;
+            assert(on<4096 && off<4096 && (!i || on>previous));
+            if(i)assert(on-previous==341 || on-previous==342);
+            /* Independently expected widths at 25MHz / (121+1). */
+            assert(width==(pass==0?82U:pass==1?307U:594U));
+            previous=on;
+        }
+        if(pass==2)assert(f.registers[6+44+3]<f.registers[6+44+1]); /* Counter wrap. */
+        for(unsigned i=12;i<16;i++)assert(f.registers[6+4*i+3]==0x10);
+    }
+    pulses[5]=0;
+    assert(ainekio_pca_write_frame(&f.driver,ainekio_pca_status(&f.driver).generation,pulses)==AINEKIO_PCA_OK);
+    assert(f.registers[6+4*5+3]==0x10); /* Individual detach remains full-off. */
     ainekio_pca_disarm(&f.driver);
     assert(f.disabled && !ainekio_pca_status(&f.driver).armed);
 }
@@ -150,7 +175,7 @@ static void test_disable_during_arm_and_recovery(void)
     assert(f.enables == 1);
 }
 
-static void test_failed_frame_and_progress_deadline(void)
+static void test_failed_frame_and_delayed_progress(void)
 {
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
@@ -163,32 +188,35 @@ static void test_failed_frame_and_progress_deadline(void)
     f.fail_at = 0;
     assert(ainekio_pca_recover(&f.driver, ainekio_pca_status(&f.driver).generation) == AINEKIO_PCA_OK);
     assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);
-    f.now = ainekio_pca_status(&f.driver).last_frame_us + 39999;
-    ainekio_pca_supervise(&f.driver);
-    assert(!f.disabled);
-    ++f.now;
-    ainekio_pca_supervise(&f.driver);
-    assert(f.disabled && ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_PROGRESS);
+    f.now += 1000000;
+    assert(ainekio_pca_write_frame(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);
+    assert(!f.disabled && ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_NONE);
 }
 
-static void test_hung_transfer_and_stale_frame(void)
+static void test_slow_transfer_timeout_and_explicit_stop(void)
 {
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
     uint16_t pulses[12] = {1500};
     f.slow_at = f.calls + 1;
-    assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_STALE);
-    assert(f.disabled && f.enables == 0);
-    assert(ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_DEADLINE);
+    const uint64_t generation = ainekio_pca_status(&f.driver).generation;
+    assert(ainekio_pca_arm(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
+    assert(!f.disabled && f.enables == 1);
+    assert(ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_NONE);
     const ainekio_pca_status_t measured = ainekio_pca_status(&f.driver);
     assert(measured.last_io_us == 6000U && measured.max_io_us == 6000U);
     assert(measured.io_transfers == f.calls && measured.io_failures == 0U);
     f.slow_at = 0;
-    assert(ainekio_pca_recover(&f.driver, ainekio_pca_status(&f.driver).generation) == AINEKIO_PCA_OK);
-    assert(ainekio_pca_arm(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_OK);
+    f.timeout_at = f.calls + 1;
+    assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_TIMEOUT);
+    const ainekio_pca_status_t timed_out = ainekio_pca_status(&f.driver);
+    assert(!f.disabled && timed_out.armed && timed_out.generation == generation);
+    assert(timed_out.frames == measured.frames && timed_out.last_frame_us == measured.last_frame_us);
+    assert(timed_out.io_failures == 1 && !timed_out.in_flight);
+    assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
     f.interrupt_at = f.calls + 1;
     assert(ainekio_pca_write_frame(&f.driver, ainekio_pca_status(&f.driver).generation, pulses) == AINEKIO_PCA_STALE);
-    assert(f.disabled && ainekio_pca_status(&f.driver).frames == 1);
+    assert(f.disabled && ainekio_pca_status(&f.driver).frames == 2);
 }
 
 static void test_shutdown_preserves_fault_cause(void)
@@ -212,9 +240,10 @@ static void test_shutdown_preserves_fault_cause(void)
     assert(ainekio_pca_status(&f.driver).fault == AINEKIO_PCA_FAULT_IO);
 }
 
-static void test_late_writer_cannot_hide_missed_progress(void)
+static void test_late_writer_resumes(void)
 {
-    for (unsigned during_transfer = 0; during_transfer < 2; ++during_transfer) {
+    const uint64_t gaps[] = {39950, 40000, 40001, 1000000, 60000000};
+    for (unsigned i = 0; i < sizeof(gaps)/sizeof(gaps[0]); ++i) {
         fixture_t f = {0};
         assert(initialize(&f) == AINEKIO_PCA_OK);
         uint16_t pulses[12] = {1500};
@@ -222,16 +251,12 @@ static void test_late_writer_cannot_hide_missed_progress(void)
         assert(ainekio_pca_arm(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
         const ainekio_pca_status_t before = ainekio_pca_status(&f.driver);
         const unsigned calls = f.calls;
-        /* Do not run the supervisor: a writer resuming between guard ticks
-         * must detect both an already missed deadline and one crossed in I2C. */
-        f.now = before.last_frame_us + AINEKIO_PCA_PROGRESS_LIMIT_US - (during_transfer ? 50U : 0U);
-        assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_DEADLINE);
+        f.now = before.last_frame_us + gaps[i];
+        assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_OK);
         const ainekio_pca_status_t after = ainekio_pca_status(&f.driver);
-        assert(f.disabled && after.fault == AINEKIO_PCA_FAULT_PROGRESS);
-        assert(after.frames == before.frames && after.last_frame_us == before.last_frame_us);
-        assert(f.calls == calls + during_transfer);
-        assert(!after.in_flight);
-        assert(ainekio_pca_write_frame(&f.driver, generation, pulses) == AINEKIO_PCA_STALE);
+        assert(!f.disabled && after.fault == AINEKIO_PCA_FAULT_NONE);
+        assert(after.frames == before.frames + 1 && after.last_frame_us == f.now);
+        assert(after.generation == generation && f.calls == calls + 1 && !after.in_flight);
     }
 }
 
@@ -290,11 +315,11 @@ int main(void)
     test_initialization_and_frame();
     test_each_initialization_failure();
     test_disable_during_arm_and_recovery();
-    test_failed_frame_and_progress_deadline();
-    test_hung_transfer_and_stale_frame();
+    test_failed_frame_and_delayed_progress();
+    test_slow_transfer_timeout_and_explicit_stop();
     test_shutdown_preserves_fault_cause();
-    test_late_writer_cannot_hide_missed_progress();
+    test_late_writer_resumes();
     test_hardware_pulse_bounds();
-    puts("PCA9685: initialization, frames, failures, generation races, recovery and deadline tests passed");
+    puts("PCA9685: initialization, frames, failures, generation races, recovery, timeout and delayed-resumption tests passed");
     return 0;
 }

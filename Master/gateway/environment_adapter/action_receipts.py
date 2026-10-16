@@ -248,13 +248,16 @@ class ActionReceipts:
                     if evidence in wire:
                         feedback = {**feedback, "data": {**feedback.get("data", {}), evidence: wire[evidence]}}
                 previous = json.loads(row["result"]) if row["result"] else None
-                if previous and (row["state"] == "terminal" or previous["id"] == feedback["id"]):
+                reconciles_ended = (previous is not None and previous["type"] == "outcome_unknown"
+                    and previous.get("data", {}).get("executionEnded") is True and feedback["type"] != "outcome_unknown")
+                if previous and (row["state"] == "terminal" and not reconciles_ended or previous["id"] == feedback["id"]):
                     # Natural completion and cancellation can race. The first
                     # committed terminal receipt is returned to both callers.
                     feedback = previous
-                self.db.execute("UPDATE actions SET state=?,result=?,updated=? WHERE id=?", (
-                    "outcome_unknown" if feedback["type"] == "outcome_unknown" else "terminal",
-                    encoded(feedback), time(), feedback["actionId"]))
+                self.db.execute("UPDATE actions SET state=?,result=?,observation_recorded=?,updated=? WHERE id=?", (
+                    "outcome_unknown" if feedback["type"] == "outcome_unknown" and feedback.get("data", {}).get("executionEnded") is not True else "terminal",
+                    encoded(feedback), row["observation_recorded"] if previous == feedback else 0,
+                    time(), feedback["actionId"]))
                 # A later Stop receipt is not a correlated terminal receipt for
                 # an earlier action. Preserve that action's explicit uncertainty.
             message = {**envelope, "feedback": feedback}

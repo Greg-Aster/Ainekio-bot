@@ -1,29 +1,38 @@
 {
   "command": "crawl_turn_left",
-  "samples": 2454,
-  "max_target_error_mm": 0.15146459977140214,
-  "foot_xy_error_mm": 5.569585540854405e-05,
+  "samples": 2208,
+  "max_target_error_mm": 0.15145944196195238,
+  "foot_xy_error_mm": 6.081009129843551e-05,
   "full_sole_height_error_mm": [
-    0.12150630823207109,
-    0.15146459977140214
+    0.09460476051488342,
+    0.15145944196195238
   ],
   "support_allowance_mm": 0.151,
-  "min_sole_z_mm": 0.12150630823207109,
-  "min_body_z_mm": 20.717232680463884,
-  "min_closure_height_mm": 18.734238833597132,
-  "maximum_adjacent_joint_step_degrees": 1.7569568809988423,
+  "min_sole_z_mm": 0.09460476051488342,
+  "min_body_z_mm": 44.25000762939453,
+  "min_closure_height_mm": 20.529190471232912,
+  "maximum_adjacent_joint_step_degrees": 4.750095214829377,
   "hardware_qualified": false,
   "collision_checked": false,
   "leverage": {
-    "checked_leg_poses": 19628,
+    "checked_leg_poses": 17660,
     "branch_reversals": 0,
-    "minimum_straightening_clearance_mm": 13.938078413402707,
-    "stance_output_min_deg": 62.35000629700559,
-    "swing_output_min_deg": 60.516049454684044,
-    "stance_input_min_deg": 64.60855532078926,
-    "swing_input_min_deg": 64.2200103720584
+    "minimum_straightening_clearance_mm": 14.981820515732075,
+    "stance_output_min_deg": 79.85420861325389,
+    "swing_output_min_deg": 77.31987698621766,
+    "stance_input_min_deg": 59.23944317333092,
+    "swing_input_min_deg": 65.03178559379847
   },
-  "modeled_envelope_conflict": false,
-  "first_bound_envelope_conflict": null,
-  "mounting_profile_sha256": "e1e8dbdae29aa8a9cfee830448d444148f48328b8fec21e97c1804e009d2cf37"
+  "modeled_envelope_conflict": true,
+  "first_bound_envelope_conflict": {
+    "sample": 859,
+    "time_s": 7.158333333333333,
+    "cad_leg": "RL",
+    "q_deg": [
+      0.11308548927285227,
+      -17.946445312486954,
+      -53.58386230468327
+    ]
+  },
+  "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67"
 }

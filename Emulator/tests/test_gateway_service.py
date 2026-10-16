@@ -24,7 +24,7 @@ from gateway.server.service import (
     RobotOfflineError,
 )
 from gateway.plugins import AudioTranscriptPlugin, CameraFramePlugin
-from protocol.control_v1 import CAMERA_PROFILES_FEATURE, CAMERA_ADAPTIVE_FEATURE
+from protocol.control_v1 import CAMERA_PROFILES_FEATURE, CAMERA_ADAPTIVE_FEATURE, COMMAND_DEADLINE_FEATURE
 from emulator.body.media import FixtureCameraSource, QueueMicrophoneSource
 from Emulator.tests.support import build_core_library
 
@@ -37,10 +37,143 @@ class ImmediateMotionBackend:
         return None
 
 
+class LifecycleSocket:
+    def __init__(self, *, clock_ms=10000, acknowledge=False):
+        self.closed = False
+        self.sent = []
+        self.incoming = asyncio.Queue()
+        self.incoming.put_nowait(json.dumps({'t': 'hello', 'ver': 1, 'fw': 'fixture',
+            'id': 'fixture-body', 'auth': 'test', 'features': [COMMAND_DEADLINE_FEATURE], 'clock_ms': clock_ms}))
+        self.welcomed = asyncio.Event()
+        self.pong = asyncio.Event()
+        self.close_started = asyncio.Event()
+        self.close_release = None
+        self.acknowledge = acknowledge
+
+    async def recv(self):
+        value = await self.incoming.get()
+        if value is None:
+            raise websockets.exceptions.ConnectionClosedOK(None, None)
+        return value
+
+    async def send(self, raw):
+        message = json.loads(raw)
+        self.sent.append(message)
+        if message['t'] == 'welcome':
+            self.welcomed.set()
+        if message['t'] == 'pong':
+            self.pong.set()
+        if self.acknowledge and 'seq' in message:
+            for kind in ['ack', 'done']:
+                self.incoming.put_nowait(json.dumps({'t': kind, 'seq': message['seq']}))
+
+    async def close(self, code=1000, reason=''):
+        self.close_started.set()
+        if self.close_release is not None:
+            await self.close_release.wait()
+        self.closed = True
+        self.incoming.put_nowait(None)
+
+
 class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.library_path = build_core_library()
+
+    async def test_balance_readback_preserves_motion_owner(self):
+        class Socket:
+            closed = False
+            def __init__(self): self.sent = []
+            async def send(self, raw): self.sent.append(json.loads(raw))
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo",
+                                       features=("balance_control_v1",))
+        service._connections["robot"] = connection
+        connection.body_command_sequence = 321
+        connection.body_command_source = "manual"
+        connection.body_command = {"t":"intent", "name":"walk", "seq":321}
+        task = asyncio.create_task(service.body_balance("save", {"enabled":False}, robot_id="robot"))
+        while not socket.sent: await asyncio.sleep(0)
+        message = socket.sent[-1]
+        self.assertEqual(message, {"t":"balance", "seq":1, "op":"save", "enabled":False})
+        result = {"t":"balance_status", "seq":1, "enabled":False, "saved":True, "active":False}
+        await connection._handle_control(result)  # Not a receipt before ACK.
+        self.assertIsNone(connection.last_balance)
+        await connection._handle_control({"t":"ack", "seq":1})
+        self.assertFalse(task.done())
+        await connection._handle_control({**result, "seq":999})
+        self.assertIsNone(connection.last_balance)
+        await connection._handle_control(result)
+        self.assertEqual(await task, result)
+        self.assertEqual(service.status()["robots"]["robot"]["balance_settings"], result)
+        self.assertEqual(connection.body_command_sequence, 321)
+        self.assertEqual(connection.body_command["name"], "walk")
+        self.assertEqual(len(socket.sent), 1)
+        with self.assertRaisesRegex(GatewayError, "unknown self-leveling"):
+            await service.body_balance("save", {"angle":10}, robot_id="robot")
+        connection.features = ()
+        with self.assertRaisesRegex(GatewayError, "firmware"):
+            await service.body_balance("get", robot_id="robot")
+        self.assertEqual(len(socket.sent), 1)
+
+    async def test_gyro_calibration_preserves_motion_and_uses_receipts(self):
+        class Socket:
+            closed = False
+            def __init__(self): self.sent = []
+            async def send(self, raw): self.sent.append(json.loads(raw))
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo",
+                                       features=("balance_control_v1",))
+        service._connections["robot"] = connection
+        connection.body_command_sequence = 321
+        with self.assertRaisesRegex(GatewayError, "stationary gyro"):
+            await service.body_balance("calibrate_gyro", robot_id="robot")
+        self.assertEqual(socket.sent, [])
+        connection.features += ("balance_feedback_v1",)
+        task = asyncio.create_task(service.body_balance("calibrate_gyro", robot_id="robot"))
+        while not socket.sent: await asyncio.sleep(0)
+        self.assertEqual(socket.sent[-1], {"t":"balance", "op":"calibrate_gyro", "seq":1})
+        await connection._handle_control({"t":"ack", "seq":1})
+        reply = {"t":"balance_status", "seq":1, "enabled":False, "saved":True, "active":False}
+        await connection._handle_control(reply)
+        self.assertEqual(await task, reply)
+        self.assertEqual(connection.body_command_sequence, 321)
+        self.assertEqual(len(socket.sent), 1)
+
+    async def test_balance_tuning_negotiation_and_atomic_readback(self):
+        class Socket:
+            closed = False
+            def __init__(self): self.sent = []
+            async def send(self,raw): self.sent.append(json.loads(raw))
+        service=GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
+        socket=Socket()
+        connection=GatewayConnection(service,socket,"robot",1,model="v2-12servo",features=("balance_control_v1",))
+        service._connections["robot"]=connection
+        fields={"enabled":False,"strength":1.75,"damping":.6,"roll_deg":-2,"pitch_deg":3}
+        with self.assertRaisesRegex(GatewayError,"tune self-leveling"):
+            await service.body_balance("save",fields,robot_id="robot")
+        self.assertEqual(socket.sent,[])
+        connection.features+=("balance_tuning_v1",)
+        task=asyncio.create_task(service.body_balance("save",fields,robot_id="robot"))
+        while not socket.sent: await asyncio.sleep(0)
+        self.assertEqual(socket.sent[-1],{"t":"balance","op":"save","seq":1,**fields})
+        await connection._handle_control({"t":"ack","seq":1})
+        result={"t":"balance_status","seq":1,"saved":True,"active":False,"tuning_saved":True,**fields}
+        await connection._handle_control(result)
+        self.assertEqual(await task,result)
+
+    async def test_maintenance_address_uses_selected_remote_peer(self) -> None:
+        from types import SimpleNamespace
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = SimpleNamespace(remote_address=("192.0.2.7", 32100), local_address=("192.0.2.1", 8790))
+        connection = GatewayConnection(service, socket, "robot", 1)
+        service._connections["robot"] = connection
+        self.assertEqual(await service.maintenance_address("robot"), "192.0.2.7")
+        with self.assertRaises(RobotOfflineError): await service.maintenance_address("other")
+        connection.transport = "bridge"
+        with self.assertRaises(GatewayError): await service.maintenance_address("robot")
 
     async def test_speech_cancellation_uses_audio_command_and_preserves_dispatch_receipt(self) -> None:
         from contextlib import asynccontextmanager
@@ -488,6 +621,85 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
                 await client.run_once()
 
         core.close()
+
+    async def test_replacement_reads_heartbeats_while_previous_socket_closes(self) -> None:
+        now = [0.0]
+        service = GatewayService(GatewayServiceConfig(tokens={'fixture-body': 'test'}), clock=lambda: now[0])
+        old, new = LifecycleSocket(), LifecycleSocket(acknowledge=True)
+        old_task = asyncio.create_task(service.handler(old, '/robot'))
+        await asyncio.wait_for(old.welcomed.wait(), 1)
+        old_sequence = await service.queue_intent('stand')
+        old.close_release = asyncio.Event()
+        new_task = asyncio.create_task(service.handler(new, '/robot'))
+        try:
+            await asyncio.wait_for(old.close_started.wait(), 1)
+            await asyncio.wait_for(new.welcomed.wait(), 1)
+            self.assertFalse(old.closed)
+            now[0] = 2.0
+            new.incoming.put_nowait(json.dumps({'t': 'ping', 'clock_ms': 12000}))
+            await asyncio.wait_for(new.pong.wait(), 1)
+            sequence = await service.queue_intent('stand')
+            terminal = await service.wait_terminal(sequence, robot_id='fixture-body', timeout=1)
+            self.assertEqual(terminal['t'], 'done')
+            self.assertEqual(service._connections['fixture-body'].body_clock_ms, 12000)
+            old_results = [item for item in service.terminals if item['epoch'] == 1 and item['seq'] == old_sequence]
+            self.assertEqual(old_results[-1]['result']['code'], 'reconnect')
+        finally:
+            old.close_release.set()
+            await old.close()
+            await new.close()
+            await asyncio.gather(old_task, new_task)
+
+    async def test_lost_heartbeats_close_the_old_session_and_allow_reconnect(self) -> None:
+        now = [0.0]
+        service = GatewayService(GatewayServiceConfig(tokens={'fixture-body': 'test'}), clock=lambda: now[0])
+        old = LifecycleSocket()
+        old_task = asyncio.create_task(service.handler(old, '/robot'))
+        await asyncio.wait_for(old.welcomed.wait(), 1)
+        old_sequence = await service.queue_intent('stand')
+        now[0] = 3.0
+        old.incoming.put_nowait(json.dumps({'t': 'ping', 'clock_ms': 13000}))
+        await asyncio.wait_for(old.pong.wait(), 1)
+        now[0] = 6.8
+        await asyncio.sleep(0.15)
+        self.assertFalse(old.closed)  # Silence from the user is not lost robot liveness.
+        now[0] = 7.1
+        await asyncio.wait_for(old.close_started.wait(), 1)
+        await asyncio.wait_for(old_task, 1)
+        self.assertNotIn('fixture-body', service._connections)
+        self.assertTrue(any(item['seq'] == old_sequence and item['result']['outcome_unknown']
+                            for item in service.terminals))
+
+        replacement = LifecycleSocket(acknowledge=True)
+        replacement_task = asyncio.create_task(service.handler(replacement, '/robot'))
+        try:
+            await asyncio.wait_for(replacement.welcomed.wait(), 1)
+            self.assertFalse(any(item.get('t') == 'intent' for item in replacement.sent))
+            sequence = await service.queue_intent('stand')
+            terminal = await service.wait_terminal(sequence, robot_id='fixture-body', timeout=1)
+            self.assertEqual(terminal['t'], 'done')
+        finally:
+            await replacement.close()
+            await replacement_task
+
+    async def test_connected_callback_can_receive_its_command_receipt(self) -> None:
+        service = GatewayService(GatewayServiceConfig(tokens={'fixture-body': 'test'}))
+        socket = LifecycleSocket(acknowledge=True)
+        completed = asyncio.Event()
+        async def connected(event):
+            if event.get('status') != 'connected':
+                return
+            sequence = await service.queue_intent('stand')
+            terminal = await service.wait_terminal(sequence, robot_id='fixture-body', timeout=1)
+            self.assertEqual(terminal['t'], 'done')
+            completed.set()
+        service.subscribe_events(connected)
+        task = asyncio.create_task(service.handler(socket, '/robot'))
+        try:
+            await asyncio.wait_for(completed.wait(), 1)
+        finally:
+            await socket.close()
+            await task
 
     async def test_duplicate_connection_cancels_old_epoch_and_closes_4000(self) -> None:
         service = GatewayService(

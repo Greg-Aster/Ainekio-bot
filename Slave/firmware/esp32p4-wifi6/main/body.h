@@ -10,6 +10,8 @@ enum { AINEKIO_P4_ERR_REFERENCE = 0x20000 };
 /* The body task is the only I2C/PWM writer. Callers carry the generation from
  * admission, so Stop/disconnect invalidates work even while it is queued. */
 esp_err_t ainekio_p4_body_start(void);
+/* Asynchronous startup choreography; calibration Home is separate. */
+esp_err_t ainekio_p4_body_startup(uint64_t generation);
 /* Re-probe/reinitialize the driver with every channel off. Never enables OE. */
 esp_err_t ainekio_p4_body_prepare(uint64_t generation);
 /* Cancel choreography and retain only the already energized commanded pose. */
@@ -33,6 +35,13 @@ typedef struct {
     uint64_t connection;
     uint32_t sequence;
     bool moving, speed_limited, automatic_run, listening_feedback;
+    bool balance_active, balance_reduced;
+    float body_roll_rad, body_pitch_rad, balance_roll_rad, balance_pitch_rad;
+    /* Commanded differences from the nominal motion, not servo feedback.
+     * Legs: physical front-left, front-right, rear-left, rear-right. */
+    bool balance_legs_valid;
+    float balance_extension_mm[4];
+    float balance_joint_delta_deg[AINEKIO_BODY_JOINT_COUNT]; /* model joint order */
     float gait_cycles_s, gait_requested_cycles_s, stride_percent, requested_stride_percent;
     /* Read-only presentation of the last successful motion sample. Display
      * tasks consume this; the output owner never renders or transfers pixels. */

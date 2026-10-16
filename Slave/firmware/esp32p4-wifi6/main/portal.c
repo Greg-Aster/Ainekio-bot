@@ -3,6 +3,7 @@
 #include "board.h"
 #include "network.h"
 #include "system.h"
+#include "ota.h"
 #include "ainekio/provisioning_portal.h"
 
 #include <inttypes.h>
@@ -143,7 +144,9 @@ esp_err_t ainekio_p4_portal_start(void)
     snprintf(csrf, sizeof(csrf), "%08" PRIx32 "%08" PRIx32 "%08" PRIx32 "%08" PRIx32,
              esp_random(), esp_random(), esp_random(), esp_random());
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.stack_size = 6144;
+    config.stack_size = 8192;
+    config.max_uri_handlers = 9;
+    config.task_priority = 2; /* Storage/update work stays below control/link tasks. */
     config.max_open_sockets = 2;
     config.recv_wait_timeout = 3;
     config.send_wait_timeout = 3;
@@ -153,6 +156,7 @@ esp_err_t ainekio_p4_portal_start(void)
     const httpd_uri_t configure_uri = {.uri="/configure", .method=HTTP_POST, .handler=configure};
     if (result == ESP_OK) result = httpd_register_uri_handler(server, &root_uri);
     if (result == ESP_OK) result = httpd_register_uri_handler(server, &configure_uri);
+    if (result == ESP_OK) result = ainekio_p4_maintenance_register(server);
     if (result != ESP_OK && server) (void)ainekio_p4_portal_stop();
     return result;
 }

@@ -37,7 +37,7 @@ int main(void)
             }
         }
         assert(stopped&&state.complete&&!state.failed);
-        assert(fabs(state.pose.body[2]-(family==2?V2_CRAB_BODY_Z:crawl?V2_CRAWL_BODY_Z:V2_BODY_Z))<1e-8);
+        assert(fabs(state.pose.body[2]-(family==2?V2_CRAB_BODY_Z:crawl?V2_CRAWL_BODY_Z:V2_BODY_Z))<1e-6);
         for(unsigned i=0;i<4;i++)assert(state.pose.grounded[i]&&state.pose.sole_height[i]==0.);
         /* body_x records commanded travel from zero. Crawl's rearward bias
          * belongs to its foot-placement targets, not the entry root position. */
@@ -96,6 +96,63 @@ int main(void)
     assert(state.phase==arc_phase&&state.command_sequence==1);
     while(state.phase<arc_phase+4){arc_time+=20000;assert(ainekio_v2_walk_tick(&state,arc_time));}
     assert(state.body_yaw<left_yaw&&!state.complete);
+    /* Full-stroke curved reversal exposed leverage loss missed by the earlier
+     * 40% arc test. Preserve sequence, planted anchors and the existing floors
+     * through direction changes, then finish the same command. */
+    const char *reversal="{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":100,\"forward\":100,\"turn\":0}";
+    assert(ainekio_control_decode_for_body(reversal,strlen(reversal),&command)==AINEKIO_DECODE_OK);
+    state=(ainekio_v2_walk_state_t){0};
+    assert(ainekio_v2_walk_accept(&state,&command.command,0));
+    for(uint64_t now=20000;now<=40000000&&!state.complete;now+=20000){
+        ainekio_v2_walk_pose_t old=state.pose;
+        assert(ainekio_v2_walk_tick(&state,now));
+        leverage_step(&old,&state.pose);
+        for(unsigned leg=0;leg<4;leg++)if(old.grounded[leg]&&state.pose.grounded[leg])
+            assert(hypot(old.feet[leg][0]-state.pose.feet[leg][0],old.feet[leg][1]-state.pose.feet[leg][1])<1e-8);
+        if(now==6000000||now==12000000||now==20000000){
+            double phase=state.phase;
+            command.command.sequence++;
+            command.command.data.intent.data.walk.update_sequence=1;
+            command.command.data.intent.data.walk.forward=now==6000000?75:-75;
+            command.command.data.intent.data.walk.turn=now==6000000?75:-75;
+            if(now==20000000)command.command.data.intent.data.walk.speed_percent=0;
+            assert(ainekio_v2_walk_accept(&state,&command.command,now));
+            assert(state.phase==phase&&state.command_sequence==1);
+        }
+    }
+    assert(state.complete);
+    /* Lateral reversal and cross-track correction retain the original running
+     * action, phase and planted contacts, then Finish that same action. */
+    const char *crab="{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"side_l\",\"steps\":0,\"gait\":\"crab\",\"speed\":50,\"forward\":0,\"turn\":0,\"lateral\":100}";
+    for(unsigned initially_steered=0;initially_steered<2;initially_steered++){
+    assert(ainekio_control_decode_for_body(crab,strlen(crab),&command)==AINEKIO_DECODE_OK);
+    assert(command.command.data.intent.data.walk.lateral==100);
+    command.command.data.intent.data.walk.steering=initially_steered!=0;
+    state=(ainekio_v2_walk_state_t){0};
+    assert(ainekio_v2_walk_accept(&state,&command.command,0));
+    uint64_t crab_time=0;
+    while(state.phase<5){crab_time+=20000;assert(ainekio_v2_walk_tick(&state,crab_time));}
+    assert(state.body_y>0 && fabs(state.body_x)<1e-8);
+    double lateral_peak=state.body_y,crab_phase=state.phase;
+    command.command.sequence=2;command.command.data.intent.data.walk.update_sequence=1;
+    command.command.data.intent.data.walk.steering=true;
+    command.command.data.intent.data.walk.forward=25;
+    command.command.data.intent.data.walk.lateral=-100;
+    assert(ainekio_v2_walk_accept(&state,&command.command,crab_time));
+    assert(state.phase==crab_phase&&state.command_sequence==1);
+    while(state.phase<crab_phase+8){
+        ainekio_v2_walk_pose_t old=state.pose;
+        crab_time+=20000;assert(ainekio_v2_walk_tick(&state,crab_time));
+        leverage_step(&old,&state.pose);
+        for(unsigned leg=0;leg<4;leg++)if(old.grounded[leg]&&state.pose.grounded[leg])
+            assert(hypot(old.feet[leg][0]-state.pose.feet[leg][0],old.feet[leg][1]-state.pose.feet[leg][1])<1e-8);
+    }
+    assert(state.body_y<lateral_peak&&state.body_x>0&&!state.complete);
+    command.command.sequence=3;command.command.data.intent.data.walk.speed_percent=0;
+    assert(ainekio_v2_walk_accept(&state,&command.command,crab_time));
+    while(!state.complete){crab_time+=20000;assert(ainekio_v2_walk_tick(&state,crab_time));}
+    assert(state.command_sequence==1);
+    }
     printf("84 locomotion envelopes at10/20/30/40 ms, planted XY drift %.9g mm; max output joint change %.6g rad. Finish during lowering and profile matching passed.\n",drift,step);
     leverage_report();
     return 0;

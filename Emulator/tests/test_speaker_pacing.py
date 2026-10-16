@@ -7,6 +7,18 @@ from gateway.server.service import GatewayConnection, GatewayError, GatewayServi
 
 
 class SpeakerPacingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_new_speech_interrupts_stream_without_old_completion_receipt(self):
+        connection, socket = self.connection()
+        first = asyncio.create_task(connection.send_tts([bytes(640)] * 1500, received_at=100.0))
+        while len(socket.frame_times) < 6:
+            await asyncio.sleep(0.001)
+        second = asyncio.create_task(connection.send_tts([bytes(640)], received_at=100.0))
+        await asyncio.wait_for(second, 1)
+        with self.assertRaises(asyncio.CancelledError):
+            await first
+        self.assertEqual([message['op'] for message in socket.controls], ['start', 'cancel', 'start', 'end'])
+        self.assertLess(len(socket.frame_times), 10)
+
     def connection(self, *, cancel_after=None):
         class Socket:
             closed = False

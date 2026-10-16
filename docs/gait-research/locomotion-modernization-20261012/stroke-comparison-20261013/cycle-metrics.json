@@ -1,0 +1,22 @@
+[
+  {
+    "stroke_mm": 70,
+    "peak_speed_deg_s": [
+      555.1475938194616,
+      951.9412776030526
+    ],
+    "min_output_angle_deg": 63.21714211656196,
+    "min_input_angle_deg": 23.20486239399994,
+    "inverse_branch_positive_samples": 0
+  },
+  {
+    "stroke_mm": 82,
+    "peak_speed_deg_s": [
+      657.4775482590757,
+      1141.8313409069742
+    ],
+    "min_output_angle_deg": 49.96071892108387,
+    "min_input_angle_deg": 9.283350561453528,
+    "inverse_branch_positive_samples": 0
+  }
+]

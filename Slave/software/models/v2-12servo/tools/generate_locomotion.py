@@ -19,13 +19,16 @@ def record(root,cli,command,direction,crawl):
     run_demo=command=="run"
     crab=command.startswith("crab")
     cfg=json.loads((root/'geometry.json').read_text());ref=load_reference(root);m=ref.Mechanism(cfg)
-    allowance=json.loads((root/'motions/locomotion/sole-profile.json').read_text())['support_allowance_mm']
+    sole_profile=json.loads((root/'motions/locomotion/sole-profile.json').read_text())
+    allowance=sole_profile['support_allowance_mm']
+    compact_sole=np.array(sole_profile['profiles']['walk'])
     hulls=np.load(root/'motions/gestures/sit/posture-hulls.npz');bodyhull=hulls['body']
     if crab:
         hulls=np.load(root/'motions/gestures/reviewed-hulls.npz');bodyhull=hulls['body']
-    if crawl or crab:m.hulls={l:hulls['sole_'+l] for l in ref.LEGS}
+    bare=json.loads((root/'motions/locomotion/walk-contact.json').read_text())['sole_hull_local_mm']
+    m.hulls={l:np.asarray(bare) for l in ref.LEGS}
     pivot=np.array(cfg['continuous_walk']['body_rotation_pivot_mm'])
-    initial=dict(t='intent',seq=1,name='walk',dir=direction,gait='crab' if crab else 'crawl' if crawl else 'walk',steps=0,speed=0 if command=='crouch' else 100 if run_demo else 25)
+    initial=dict(t='intent',seq=1,name='walk',dir=direction,gait='crab' if crab else 'crawl' if crawl or crab else 'walk',steps=0,speed=0 if command=='crouch' else 100 if run_demo else 25)
     updates=[] if command=='crouch' else [(6000,dict(speed=100)),(12000,dict(stride=60,rate=3)),(17000,dict(speed=0))]
     if run_demo:updates=[(6000,dict(speed=150)),(14000,dict(speed=200)),(20000,dict(speed=75)),(28000,dict(speed=0))]
     events=[(ms,{k:v for k,v in {**initial,**fields,'seq':i+2,'update':1}.items() if k!='speed' or 'stride' not in fields}) for i,(ms,fields) in enumerate(updates)]
@@ -36,12 +39,16 @@ def record(root,cli,command,direction,crawl):
     # Crouch's command completion holds the exact final pose for two seconds.
     if command=='crouch':
         for _ in range(240):native.append(copy.deepcopy(native[-1]))
-    rows=[];xy_error=0.;sole_low=float('inf');sole_high=-float('inf');closure=float('inf');ground=float('inf');body_ground=float('inf')
+    rows=[];xy_error=0.;compact_error=0.;sole_low=float('inf');sole_high=-float('inf');closure=float('inf');ground=float('inf');body_ground=float('inf')
     for i,n in enumerate(native):
         body=np.array(n['body']);e=np.array(n['euler']);q=np.array(n['q']).reshape(4,3);m.body_euler=e
         feet=[];contacts=[];sole=[];indices=[];betas=[]
         for l,j in zip(LEGS,SOURCE_ORDER):
             rot,trans=m.pose(l,q[j],body);vs=m.hulls[l]@rot.T+trans;k=int(vs[:,2].argmin())
+            # Check the commanded contact surface separately from the full-CAD
+            # approximation allowance, which must not hide a wrong target Z.
+            compact_height=float((compact_sole@rot[2]+trans[2]).min())-allowance
+            compact_error=max(compact_error,abs(compact_height-n['feet'][j][2]))
             feet.append(m.reference(l,q[j],body).tolist());contacts.append(vs[k].tolist());sole.append(float(vs[k,2]));indices.append(k);betas.append(float(m.planar(q[j])[3]-m.b0));closure=min(closure,m.planar(q[j])[4])
         targets=np.array(n['feet'])[SOURCE_ORDER]
         xy_error=max(xy_error,float(np.max(abs(np.array(feet)[:,:2]-targets[:,:2]))))
@@ -54,11 +61,11 @@ def record(root,cli,command,direction,crawl):
         for r,n in zip(rows,native):r['run_blend']=n['run_blend']
     # Match full-CAD controller validation: XY stays exact; signed sole height
     # includes the compact profile's conservative allowance and arithmetic error.
-    assert xy_error<.005 and sole_low>-.001 and sole_high<allowance+(json.loads((root/'motions/locomotion/crab.json').read_text())['sole_refinement_allowance_mm'] if crab else .002),(command,xy_error,sole_low,sole_high,allowance)
+    assert xy_error<.005 and compact_error<.001 and sole_low>-.001 and sole_high<allowance+(json.loads((root/'motions/locomotion/crab.json').read_text())['sole_refinement_allowance_mm'] if crab else .002),(command,xy_error,compact_error,sole_low,sole_high,allowance)
     assert ground>-.005 and body_ground>0 and closure>0,(command,ground,body_ground,closure)
     angles=np.array([r['actuator_angles_rad'] for r in rows]);report=dict(command=command,samples=len(rows),max_target_error_mm=max(xy_error,abs(sole_low),abs(sole_high)),foot_xy_error_mm=xy_error,full_sole_height_error_mm=[sole_low,sole_high],support_allowance_mm=allowance,min_sole_z_mm=ground,min_body_z_mm=body_ground,min_closure_height_mm=float(closure),maximum_adjacent_joint_step_degrees=float(np.rad2deg(abs(np.diff(angles,axis=0))).max()),hardware_qualified=False,collision_checked=False)
     report['leverage']=leverage_report(cfg,angles,[r['contact_active'] for r in rows],json.loads((root/'motions/locomotion/config.json').read_text())['leverage_validation'])
-    source=dict(metadata=dict(configuration=dict(command=command,sample_hz=120,geometry_id=cfg['geometry_id'],hardware_qualified=False),leg_order=LEGS,joint_order=cfg['joint_order'],angle_units='radian',position_units='mm',time_units='second',generator='tools/generate_locomotion.py',native_initial_command=initial,native_updates=[dict(at_ms=ms,command=msg) for ms,msg in events],native_sources_sha256={p:digest(root/p) for p in ['motion.c','walk_kinematics.c','geometry.json','motions/locomotion/config.json','motions/locomotion/contact-hulls.json','motions/locomotion/sole-profile.json']}),samples=rows,validation=report)
+    source=dict(metadata=dict(contact_profile='bare_part027',configuration=dict(command=command,sample_hz=120,geometry_id=cfg['geometry_id'],hardware_qualified=False),leg_order=LEGS,joint_order=cfg['joint_order'],angle_units='radian',position_units='mm',time_units='second',generator='tools/generate_locomotion.py',native_initial_command=initial,native_updates=[dict(at_ms=ms,command=msg) for ms,msg in events],native_sources_sha256={p:digest(root/p) for p in ['motion.c','walk_kinematics.c','geometry.json','motions/locomotion/config.json','motions/locomotion/walk-contact.json','motions/locomotion/contact-hulls.json','motions/locomotion/sole-profile.json']}),samples=rows,validation=report)
     if crab:
         source['metadata']['native_sources_sha256'].update({p:digest(root/p) for p in ['motions/locomotion/crab.json','motions/gestures/reviewed-hulls.npz']})
     if run_demo:

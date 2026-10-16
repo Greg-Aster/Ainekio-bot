@@ -32,12 +32,16 @@ ROBOT_SETTINGS_FEATURE = "robot_settings_v1"
 GATEWAY_SWITCHING_FEATURE = "gateway_switching_v1"
 STORAGE_CONTROL_FEATURE = "storage_control_v1"
 MOTION_SPEED_FEATURE = "motion_speed_v1"
+BALANCE_CONTROL_FEATURE = "balance_control_v1"
+BALANCE_TUNING_FEATURE = "balance_tuning_v1"
+BALANCE_TUNING_FIELDS = frozenset({"strength", "damping", "roll_deg", "pitch_deg"})
 JOINT_SPEED_LIMIT_FEATURE = "joint_speed_limit_v1"
 BODY_CAPABILITIES_FEATURE = "body_capabilities_v1"
 BODY_COMMANDS_FEATURE = "body_commands_v1"
 WALK_CONTROLS_FEATURE = "walk_controls_v1"
 LOCOMOTION_FEATURE = "walk_controls_v2"
 WALK_STEERING_FEATURE = "walk_steering_v1"
+WALK_LATERAL_FEATURE = "walk_lateral_v1"
 RUN_GAIT_FEATURE = "run_gait_v1"
 CRAB_GAIT_FEATURE = "crab_gait_v1"
 MAX_MONOTONIC_MS = (1 << 53) - 1
@@ -78,6 +82,8 @@ EVENT_NAMES = frozenset(
         "asset_missing",
         "tts_orphan",
         "tts_overflow",
+        "imu",
+        "wake",
     }
 )
 NAK_CODES = frozenset(
@@ -281,13 +287,19 @@ def validate_walk_controls(message: Mapping[str, object]) -> None:
                 _fail("type:walk." + name)
             if not lo <= value <= hi:
                 _fail("range:walk." + name)
-    if "forward" in message or "turn" in message:
+    if "forward" in message or "turn" in message or "lateral" in message:
         for name in ("forward", "turn"):
             value = message.get(name)
             if type(value) not in (int, float) or not math.isfinite(value):
                 _fail("type:walk." + name)
             if not -100 <= value <= 100:
                 _fail("range:walk." + name)
+    if "lateral" in message:
+        value = message["lateral"]
+        if type(value) not in (int, float) or not math.isfinite(value):
+            _fail("type:walk.lateral")
+        if not -100 <= value <= 100:
+            _fail("range:walk.lateral")
     if "gait" in message:
         _string(message, "gait", allowed=frozenset({"walk", "crawl", "run", "crab"}))
     if message.get("dir") in {"side_l", "side_r"} and message.get("gait") != "crab":
@@ -540,6 +552,33 @@ def _motion_rate(message: Mapping[str, object], key: str = "rate") -> None:
         _fail("range:" + key)
 
 
+def _balance_tuning(message: Mapping[str, object]) -> None:
+    for key in BALANCE_TUNING_FIELDS:
+        value = _number(message, key)
+        if key in {"strength", "damping"} and value < 0:
+            _fail("range:" + key)
+
+
+def _validate_balance(message: Mapping[str, object]) -> None:
+    _seq(message)
+    operation = _string(message, "op", allowed=frozenset({"get", "save", "calibrate_gyro"}))
+    if operation == "save":
+        _boolean(message, "enabled")
+        if BALANCE_TUNING_FIELDS.intersection(message):
+            _balance_tuning(message)
+    elif {"enabled", *BALANCE_TUNING_FIELDS}.intersection(message):
+        _fail("unexpected enabled setting")
+
+
+def _validate_balance_status(message: Mapping[str, object]) -> None:
+    _seq(message)
+    for key in ("enabled", "saved", "active"):
+        _boolean(message, key)
+    if (BALANCE_TUNING_FIELDS | {"tuning_saved"}).intersection(message):
+        _balance_tuning(message)
+        _boolean(message, "tuning_saved")
+
+
 def _validate_motion_speed(message: Mapping[str, object]) -> None:
     _seq(message)
     operation = _string(message, "op", allowed=frozenset({"get", "save"}))
@@ -752,6 +791,19 @@ def _validate_status(message: Mapping[str, object]) -> None:
 
 def _validate_event(message: Mapping[str, object]) -> None:
     name = _string(message, "name", allowed=EVENT_NAMES)
+    if name == "imu":
+        data = message.get("data")
+        if not isinstance(data, dict):
+            _fail("missing:imu.data")
+        for key in ("timestamp_us", "age_us", "boot_id"):
+            _integer(data, key, minimum=0, maximum=2**64-1)
+        for key in ("available", "fresh", "startup", "calibration_applied"):
+            _boolean(data, key)
+        for key, count in (("orientation_wxyz", 4), ("acceleration_m_s2", 3), ("angular_rate_rad_s", 3)):
+            values = data.get(key)
+            if not isinstance(values, list) or len(values) != count or any(
+                type(v) not in (int, float) or not math.isfinite(v) for v in values):
+                _fail(f"invalid:imu.{key}")
     if "origin_id" in message:
         if name not in {"vad_open", "vad_close"}:
             _fail("unexpected:origin_id")
@@ -796,6 +848,8 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "cal_save": _validate_cal_save,
     "calibration": _validate_calibration,
     "calibration_status": _validate_calibration_status,
+    "balance": _validate_balance,
+    "balance_status": _validate_balance_status,
     "motion_speed": _validate_motion_speed,
     "motion_speed_status": _validate_motion_speed_status,
     "robot_settings": _validate_robot_settings,

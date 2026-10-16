@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import http.client
 import json
 import math
+import re
 import struct
 import threading
 from collections.abc import AsyncIterator
@@ -11,11 +14,13 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
+from uuid import uuid4
 
 from gateway.security import DashboardPasswordStore, RobotTokenStore, _atomic_secure_json, _read_json
 from gateway.environment_adapter import EnvironmentAdapter
 from gateway.hotspot import RobotHotspot
+from gateway.body_events import validate_settings
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.control_v1 import ProtocolValidationError
@@ -29,6 +34,13 @@ DEFAULT_TEST_TONE_VOLUME_PERCENT = 15
 PCM_S16_MAX = 32767
 TEST_TONE_FRAME_COUNT = 100
 STATIC_ROOT = Path(__file__).with_name("static")
+ROBOT_MAINTENANCE = {
+    "/api/robot/logs": "/api/logs",
+    "/api/robot/recording": "/api/recording",
+    "/api/robot/recordings": "/api/recordings",
+    "/api/robot/firmware": "/api/firmware",
+    "/api/robot/firmware/activate": "/api/firmware/activate",
+}
 STATIC_FILES = {
     "/": ("dashboard.html", "text/html; charset=utf-8", True),
     "/login": ("login.html", "text/html; charset=utf-8", False),
@@ -70,6 +82,8 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.control_settings_path = password_store.path.with_name("sensing-controls.json")
         self.control_settings = (_read_json(self.control_settings_path)
             if self.control_settings_path.exists() else {"recognition": True, "cameras": {}})
+        for robot_id, settings in self.control_settings.get("body_events", {}).items():
+            self.gateway.body_events.configure(robot_id, settings)
         self.event_loop = event_loop
         self.password_store = password_store
         self.token_store = token_store
@@ -88,9 +102,44 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self._camera_frames: dict[str, tuple[int, bytes]] = {}
         gateway.subscribe_frames(self._record_camera_frame)
 
-    def call_gateway(self, awaitable: Any, *, timeout: float = 10.0) -> object:
+    def call_gateway(self, awaitable: Any, *, timeout: float | None = 10.0) -> object:
         future = asyncio.run_coroutine_threadsafe(awaitable, self.event_loop)
         return future.result(timeout=timeout)
+
+    async def body_event_status(self):
+        return self.gateway.body_events.status()
+
+    async def set_body_events(self, robot_id, settings):
+        settings = validate_settings(settings)
+        saved = {**self.control_settings, "body_events": {
+            **self.control_settings.get("body_events", {}), robot_id: settings}}
+        _atomic_secure_json(self.control_settings_path, saved)
+        self.control_settings = saved
+        self.gateway.body_events.configure(robot_id, settings)
+        return {"robot_id": robot_id, "settings": settings}
+
+    async def request_body_wake(self, robot_id):
+        if self.environment_adapter is None:
+            raise GatewayError("The Environment Bridge is not configured")
+        robot = self.gateway.status()["robots"].get(robot_id)
+        if robot is None or robot.get("connection_state") != "online":
+            raise GatewayError("Select a connected robot")
+        event = self.gateway.body_events.wake(robot_id, robot["epoch"], "explicit_good_morning_request")
+        if event is None:
+            return {"submitted": False, "reason": "Wake events are disabled"}
+        await self.gateway._publish_event(event)
+        return {"submitted": True, "event_id": event["event_id"]}
+
+    async def ground_calibration(self, robot_id, request):
+        if self.camera_recognition is None:
+            raise GatewayError("Camera processing is not configured")
+        result = await self.camera_recognition.configure_ground_plane(robot_id, request)
+        if request.get("operation") == "fit":
+            saved = {**self.control_settings, "ground_calibrations": {
+                **self.control_settings.get("ground_calibrations", {}), robot_id: result["calibration"]}}
+            _atomic_secure_json(self.control_settings_path, saved)
+            self.control_settings = saved
+        return result
 
     async def set_recognition(self, enabled: bool) -> dict[str, object]:
         if self.camera_recognition is None:
@@ -104,6 +153,26 @@ class DashboardHttpServer(ThreadingHTTPServer):
     async def person_status(self) -> dict[str, object]:
         status = getattr(self.camera_recognition, "identity_status", None)
         return status() if status else {"configured": False}
+
+    async def recognition_status(self) -> dict[str, object]:
+        if self.camera_recognition is None:
+            return {"configured": False, "enabled": False, "observation": None}
+        return self.camera_recognition.recognition_status()
+
+    async def recognition_frame(self, robot_id: str, after_id: str | None) -> dict[str, object] | None:
+        if self.camera_recognition is None:
+            return None
+        analysis = self.camera_recognition.current_analysis(robot_id)
+        if analysis is None:
+            return None
+        # Read the image and observation atomically on the camera worker's loop.
+        # New raw frames cannot replace the image that produced these boxes.
+        frame_id = f"{self.gateway.instance_id}:{analysis.robot_id}:{analysis.epoch}:{analysis.counter}"
+        result = {"id": frame_id,
+            "observation": self.camera_recognition.analysis_observation(analysis)}
+        if frame_id != after_id:
+            result["jpeg"] = base64.b64encode(analysis.jpeg).decode("ascii")
+        return result
 
     async def set_saved_camera(self, robot_id: str, settings: dict[str, object]) -> dict[str, object]:
         sequence = await self.gateway.set_camera(robot_id=robot_id, **settings)
@@ -164,6 +233,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed_url = urlsplit(self.path)
         path = parsed_url.path
+        if path in ROBOT_MAINTENANCE:
+            if self._require_session() is not None:
+                self._robot_maintenance(path)
+            return
         if path in STATIC_FILES:
             filename, content_type, requires_auth = STATIC_FILES[path]
             if path == "/login" and self._session() is not None:
@@ -204,11 +277,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
                     "host_network": self.server.hotspot.snapshot(),
                     "camera_settings": self.server.control_settings["cameras"],
+                    "body_events": self.server.call_gateway(self.server.body_event_status()),
                     "person_recognition": self.server.call_gateway(self.server.person_status()),
-                    "recognition": ({"configured": True, "enabled": self.server.camera_recognition.enabled,
-                        "maxAgeMs": self.server.camera_recognition.max_frame_age_s * 1000,
-                        **self.server.camera_recognition.metrics()}
-                        if self.server.camera_recognition is not None else {"configured": False, "enabled": False}),
+                    "recognition": self.server.call_gateway(self.server.recognition_status()),
                 }
             )
             return
@@ -227,11 +298,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"error": "not_found"}, status=HTTPStatus.NOT_FOUND)
 
-    def _speech_output(self, output_target: str | None = None) -> dict[str, object]:
+    def _speech_output(self, playback_target: str | None = None) -> dict[str, object]:
         adapter = self.server.environment_adapter
         if adapter is None:
             raise GatewayError("MetaHuman Environment Bridge is not configured")
-        return self.server.call_gateway(adapter.speech_output_settings(output_target))
+        return self.server.call_gateway(adapter.speech_output_settings(playback_target))
 
     def _camera_frame(self, query_string: str) -> None:
         query = parse_qs(query_string, keep_blank_values=True)
@@ -241,6 +312,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 {"error": "robot_id is required"},
                 status=HTTPStatus.BAD_REQUEST,
             )
+            return
+        if query.get("view") == ["recognition"]:
+            self._send_json(self.server.call_gateway(self.server.recognition_frame(
+                robot_ids[0], query.get("after_id", [None])[0])))
             return
         after_counter: int | None = None
         after_values = query.get("after", [])
@@ -293,6 +368,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.headers.get("X-Ainekio-CSRF") != session.csrf_token:
             self._send_json({"error": "csrf"}, status=HTTPStatus.FORBIDDEN)
             return
+        if path in ROBOT_MAINTENANCE:
+            self._robot_maintenance(path, post=True)
+            return
         if path == "/api/logout":
             token = self._session_token()
             self.server.sessions.revoke(token)
@@ -334,6 +412,90 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         self._send_json(response)
 
+    def _robot_maintenance(self, path: str, *, post: bool = False) -> None:
+        """Stream between browser and selected robot; credentials stay here.
+
+        Runs in the existing HTTP request thread, never the robot control loop.
+        Neither direction buffers an entire image or recording in memory.
+        """
+        upstream = None
+        started = False
+        try:
+            query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+            robot_ids = query.get("robot_id", [])
+            if len(robot_ids) != 1 or not robot_ids[0]:
+                raise ValueError("Select one robot")
+            robot_id = robot_ids[0]
+            address = self.server.call_gateway(self.server.gateway.maintenance_address(robot_id))
+            token = self.server.token_store.snapshot().get(robot_id)
+            if not token:
+                raise GatewayError("Robot pairing token is unavailable")
+            target = ROBOT_MAINTENANCE[path]
+            name = None
+            if "name" in query:
+                names = query["name"]
+                if len(names) != 1 or not re.fullmatch(r"video-[0-9a-fA-F]{8}-[0-9]{8,10}\.avi(?:\.part)?", names[0]):
+                    raise ValueError("Invalid recording name")
+                name = names[0]
+                target += "?" + urlencode({"name": name})
+            headers = {"Authorization": "Bearer " + token, "Connection": "close"}
+            upstream = http.client.HTTPConnection(address, 80, timeout=30)
+            if post:
+                if path == "/api/robot/firmware":
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if length <= 0:
+                        raise ValueError("Choose an application firmware binary")
+                    upstream.putrequest("POST", target)
+                    for key, value in headers.items(): upstream.putheader(key, value)
+                    upstream.putheader("Content-Type", "application/octet-stream")
+                    upstream.putheader("Content-Length", str(length))
+                    upstream.endheaders()
+                    remaining = length
+                    while remaining:
+                        chunk = self.rfile.read(min(65536, remaining))
+                        if not chunk: raise ConnectionError("Firmware upload interrupted")
+                        upstream.send(chunk)
+                        remaining -= len(chunk)
+                else:
+                    payload = self._read_json()
+                    if payload is None: return
+                    operation = _required_string(payload, "op")
+                    upstream.request("POST", target, operation, headers)
+            else:
+                upstream.request("GET", target, headers=headers)
+            response = upstream.getresponse()
+            if response.status >= 400:
+                detail = response.read(16384).decode("utf-8", errors="replace")
+                try: message = json.loads(detail).get("error", detail)
+                except ValueError: message = f"Robot maintenance returned HTTP {response.status}"
+                # A robot's 401 is not an expired dashboard login.
+                self._send_json({"error": message}, status=HTTPStatus.BAD_GATEWAY)
+                return
+            self.send_response(response.status)
+            self._security_headers()
+            self.send_header("Content-Type", response.getheader("Content-Type", "application/json"))
+            length = response.getheader("X-Recording-Bytes") if name else response.getheader("Content-Length")
+            if length is not None:
+                self.send_header("Content-Length", str(int(length)))
+            if name:
+                self.send_header("Content-Disposition", f'attachment; filename="{name}"')
+            self.send_header("Connection", "close")
+            self.close_connection = True
+            self.end_headers()
+            started = True
+            while chunk := response.read(65536):
+                self.wfile.write(chunk)
+            if post:
+                self.server.audit_log.record("robot_maintenance", robot_id=robot_id, operation=path)
+        except (GatewayError, ValueError) as exc:
+            if not started: self._send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+        except (OSError, http.client.HTTPException, TimeoutError):
+            if not started:
+                self._send_json({"error": "Robot transfer interrupted. Refresh status to check the outcome."},
+                                status=HTTPStatus.BAD_GATEWAY)
+        finally:
+            if upstream is not None: upstream.close()
+
     def _dispatch_api(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         robot_id = _optional_string(payload, "robot_id")
         if path in {"/api/people/enroll", "/api/people/forget"}:
@@ -343,8 +505,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if path.endswith("/enroll"):
                 return self.server.call_gateway(camera.enroll_person(payload), timeout=30)
             return self.server.call_gateway(camera.forget_person(_required_string(payload, "personId")))
+        if path == "/api/body-events":
+            return self.server.call_gateway(self.server.set_body_events(
+                _required_string(payload, "robot_id"), payload.get("settings")))
+        if path == "/api/body-events/good-morning":
+            return self.server.call_gateway(self.server.request_body_wake(_required_string(payload, "robot_id")))
         if path == "/api/recognition":
             return self.server.call_gateway(self.server.set_recognition(_required_bool(payload, "enabled")))
+        if path == "/api/vision/target":
+            camera = self.server.camera_recognition
+            if camera is None:
+                raise GatewayError("Recognition is not configured")
+            return self.server.call_gateway(camera.configure_vision({**payload, "requestId": str(uuid4())}), timeout=None)
         if path == "/api/behavior-control":
             adapter = self.server.environment_adapter
             if adapter is None:
@@ -352,9 +524,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             enabled = _required_bool(payload, "enabled") if "enabled" in payload else None
             return self.server.call_gateway(adapter.behavior_settings(enabled))
         if path == "/api/speech-output":
-            target = _required_string(payload, "outputTarget")
-            if target not in {"local", "robot"}:
-                raise ValueError("outputTarget must be local or robot")
+            target = _required_string(payload, "playbackTarget")
+            if target not in {"computer", "robot"}:
+                raise ValueError("playbackTarget must be computer or robot")
             response = self._speech_output(target)
             self.server.audit_log.record("speech_output_changed", output_target=target)
             return response
@@ -416,6 +588,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.server.gateway.request_snap(robot_id=robot_id)
             )
             return {"ok": True, "seq": sequence}
+        if path == "/api/camera/ground-calibration":
+            return self.server.call_gateway(self.server.ground_calibration(
+                _required_string(payload, "robot_id"), payload), timeout=None)
         if path == "/api/camera":
             options = {"snapshot_resolution": _required_string(payload, "snapshot_res")} if "snapshot_res" in payload else {}
             for key in ("exposure_us", "gain_x16", "jpeg_quality"):
@@ -478,6 +653,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 )
             )
             return {"ok": True, "seq": sequence}
+        if path == "/api/balance":
+            operation = _required_string(payload, "op")
+            values = {key: value for key, value in payload.items() if key not in {"op", "robot_id"}}
+            result = self.server.call_gateway(self.server.gateway.body_balance(
+                operation, values, robot_id=robot_id), timeout=8.0)
+            self.server.audit_log.record("balance_confirmed", robot_id=robot_id,
+                                         operation=operation, sequence=result["seq"])
+            return {"ok": True, "seq": result["seq"], "balance": result}
         if path == "/api/motion-speed":
             operation = _required_string(payload, "op")
             values = {key: value for key, value in payload.items() if key not in {"op", "robot_id"}}
@@ -662,7 +845,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "invalid_content_length"}, status=HTTPStatus.BAD_REQUEST)
             return None
         from protocol.binary_helpers import MAX_JPEG_BYTES
-        limit = (MAX_JPEG_BYTES * 4 // 3 + 4096) if urlsplit(self.path).path == "/api/people/enroll" else MAX_REQUEST_BODY_BYTES
+        limit = (MAX_JPEG_BYTES * 4 // 3 + 4096) if urlsplit(self.path).path in {"/api/people/enroll", "/api/vision/target"} else MAX_REQUEST_BODY_BYTES
         if length <= 0 or length > limit:
             self._send_json({"error": "invalid_body_size"}, status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             return None

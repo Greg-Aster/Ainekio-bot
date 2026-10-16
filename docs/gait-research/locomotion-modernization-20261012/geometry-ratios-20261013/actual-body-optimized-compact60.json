@@ -1,0 +1,39 @@
+{
+  "valid": true,
+  "score": 0.8964224149137667,
+  "dimensions": [
+    45.0,
+    54.971723516034885,
+    21.459882782839447,
+    19.42132541382467,
+    21.082258760419656,
+    67.7596506979212,
+    -11.661272864222413,
+    -25.838620541959724
+  ],
+  "peak_torque_Nm": [
+    0.09315983614106958,
+    0.10357845519783314
+  ],
+  "peak_speed_deg_s": [
+    530.6341627504027,
+    534.3106523351713
+  ],
+  "utilization": [
+    0.8910706098185032,
+    0.8910702183658378
+  ],
+  "imbalance": 0.10058673917142484,
+  "min_angle": 44.999562914981624,
+  "ranges": [
+    5.30629599836391,
+    44.09197311515995,
+    33.125628272190575
+  ],
+  "estimated_mass_kg": 0.5642379733643759,
+  "name": "compact60",
+  "stride": 60,
+  "converged": true,
+  "iterations": 1452,
+  "scope": "Local minimax optimum; fixed previously solved body trajectory; actual sole mesh; uniform-link mass scenario; generic motor torque-speed proxy. Not a proven global optimum or physical qualification."
+}

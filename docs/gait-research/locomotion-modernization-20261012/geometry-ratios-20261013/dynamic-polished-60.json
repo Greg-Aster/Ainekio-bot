@@ -1,0 +1,110 @@
+{
+  "mode": "expanded",
+  "stroke": 60.0,
+  "seed": 41,
+  "dimensions": [
+    113.43843047124386,
+    53.884072893572885,
+    21.976074242449954,
+    10.529872309948637,
+    86.5177029379063,
+    137.55934830556686,
+    -8.848505568903256,
+    -40.84898755824301
+  ],
+  "result": {
+    "score": [
+      0.4930358613071744
+    ],
+    "closed": [
+      true
+    ],
+    "min_leg_angle": [
+      46.78382768594015
+    ],
+    "peak_torque_Nm": [
+      [
+        0.07332273553884339,
+        0.08193383902269857
+      ]
+    ],
+    "peak_speed_deg_s": [
+      [
+        235.45309831957195,
+        287.2778163920903
+      ]
+    ],
+    "peak_reference_utilization": [
+      [
+        0.4812827824869979,
+        0.48128279630310955
+      ]
+    ],
+    "torque_imbalance_fraction": [
+      0.10509825472073396
+    ],
+    "joint_excursions_deg": [
+      [
+        22.471137875684608,
+        17.788317586573225
+      ]
+    ],
+    "estimated_total_mass_kg": [
+      0.5917747461319394
+    ],
+    "link_mass_each_kg": [
+      [
+        0.0077429473724436905,
+        0.0014172747827911462,
+        0.0036527471823780086,
+        0.003764155915372008
+      ]
+    ]
+  },
+  "generations": 600,
+  "converged": false,
+  "bounds": [
+    [
+      20,
+      160
+    ],
+    [
+      45,
+      55
+    ],
+    [
+      20,
+      100
+    ],
+    [
+      8,
+      120
+    ],
+    [
+      8,
+      180
+    ],
+    [
+      35,
+      170
+    ],
+    [
+      -100,
+      100
+    ],
+    [
+      -100,
+      80
+    ]
+  ],
+  "assumptions": {
+    "cycle_seconds": 0.9,
+    "duty": 0.8,
+    "stance_force_per_leg_N": 2.77623,
+    "reference_stall_Nm": 0.1765197,
+    "reference_no_load_deg_s": 600.0,
+    "scope": "Spherical toe planar surrogate; half total body weight per loaded leg. Uniform beams with assumed solid-plastic density1.24g/cm3 and STL-derived volume per length include gravity and swing inertia; carrier/crank STLs are not watertight, so volume is approximate. Gear/motor inertia excluded. Reference torque-speed line is not installed-MG90 qualification. Full mesh/body verification required."
+  },
+  "local_converged": true,
+  "local_iterations": 384
+}

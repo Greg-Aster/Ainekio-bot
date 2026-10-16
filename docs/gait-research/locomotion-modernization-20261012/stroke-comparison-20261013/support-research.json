@@ -1,0 +1,70 @@
+[
+  {
+    "stroke_mm": 70,
+    "nominal_foot_reference_range_relative_hip_mm": {
+      "RL": [
+        -45.5611080593533,
+        24.050003051757784
+      ],
+      "RR": [
+        -45.56111568874783,
+        24.049995422363253
+      ],
+      "FL": [
+        -5.536755032009552,
+        64.07435607910153
+      ],
+      "FR": [
+        -5.536770290798614,
+        64.07434082031247
+      ]
+    },
+    "provisional_com_xy_mm": [
+      0,
+      0
+    ],
+    "samples_outside_support": 226,
+    "samples": 240,
+    "minimum_margin_mm": -16.564737282151256,
+    "best_fixed_com_and_margin_mm": [
+      2.961342620660721,
+      1.762431994152198e-05,
+      -14.68489619146442
+    ],
+    "scope": "Static vertical-load support at sampled three-foot phases. Assumed COM, no measured mass/contact/dynamics; excludes finite sole patch width."
+  },
+  {
+    "stroke_mm": 82,
+    "nominal_foot_reference_range_relative_hip_mm": {
+      "RL": [
+        -45.49444139268665,
+        36.05000305175777
+      ],
+      "RR": [
+        -45.494449022081184,
+        36.04999542236324
+      ],
+      "FL": [
+        -5.470088365342903,
+        76.07435607910152
+      ],
+      "FR": [
+        -5.470103624131966,
+        76.07434082031246
+      ]
+    },
+    "provisional_com_xy_mm": [
+      0,
+      0
+    ],
+    "samples_outside_support": 202,
+    "samples": 240,
+    "minimum_margin_mm": -22.503327014234067,
+    "best_fixed_com_and_margin_mm": [
+      9.1433444596073,
+      1.7976164920587378e-05,
+      -16.788463491959423
+    ],
+    "scope": "Static vertical-load support at sampled three-foot phases. Assumed COM, no measured mass/contact/dynamics; excludes finite sole patch width."
+  }
+]

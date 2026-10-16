@@ -15,6 +15,9 @@
   let csrfToken = null;
   let hostNetworkBusy = false;
   let selectedRobotId = null;
+  let bodyEventsRobot = null;
+  let bodyEventsEdited = false;
+  let bodyEventsSaving = false;
   let preferredRobotId = readLocal("ainekio-selected-robot", null);
   let statusRequest = null;
   let statusGeneration = 0;
@@ -22,8 +25,18 @@
   let availableBodyCommands = [];
   let variableWalking = false;
   let directionalWalking = false;
+  let steeringSupported = false;
   let runningSupported = false;
   let crabSupported = false;
+  const balanceTuningKeys = ["strength", "damping", "roll_deg", "pitch_deg"];
+  let balanceTuningSupported = false;
+  let balanceSupported = false;
+  let balanceSession = null;
+  let balanceGeneration = 0;
+  let balanceData = null;
+  let balanceBusy = false;
+  let balanceEdited = false;
+  let balanceEntry = null;
   let motionSpeedSupported = false;
   let motionSpeedSession = null;
   let motionSpeedGeneration = 0;
@@ -48,6 +61,14 @@
   let storageData = null;
   let storageLoading = false;
   let storageAttempted = false;
+  let maintenanceRobot = null;
+  let maintenanceBusy = false;
+  let maintenanceReading = false;
+  let maintenanceReadAt = 0;
+  let maintenanceError = "";
+  let recordingData = null;
+  let firmwareData = null;
+  let recordingFiles = [];
   let faceCatalog = [];
   let faceLibraryReady = false;
   let faceRobot = null;
@@ -81,6 +102,7 @@
     return availableBodyCommands === null || availableBodyCommands.includes(name);
   }
   let heldDirection = null;
+  const heldSteeringInputs = new Map();
   let heldRequestPending = false;
   let heldRequest = null;
   let statusTimer = null;
@@ -92,6 +114,10 @@
   let cameraFrameCounter = null;
   let cameraFrameRobotId = null;
   let cameraObjectUrl = null;
+  let cameraRecognitionFrameId = null;
+  let cameraViewGeneration = 0;
+  let visionOperations = new Set();
+  let visionTargetBusy = false;
   let cameraProfileSession = null;
   let cameraSettingsRobotId = null;
   let recognitionEdited = false;
@@ -218,18 +244,63 @@
     } catch (error) { text("face-library-status", `Could not load expressions: ${error.message}`); }
   }
 
-  function resetCameraView(message = "Waiting for camera frames. Turn on the camera below if needed.") {
+  function resetCameraView(message = "Waiting for camera frames. Enable preview in Perception → Camera settings if needed.") {
+    cameraViewGeneration++;
     cameraFrameCounter = null;
     cameraFrameRobotId = null;
+    cameraRecognitionFrameId = null;
     if (cameraRequestController) cameraRequestController.abort();
     const image = byId("camera-view");
     const output = byId("camera-view-message");
     if (!image || !output) return;
     image.hidden = true;
+    byId("camera-image-plane").hidden = true;
+    byId("camera-detections").replaceChildren();
     output.textContent = message;
     output.hidden = false;
     if (cameraObjectUrl) URL.revokeObjectURL(cameraObjectUrl);
     cameraObjectUrl = null;
+  }
+
+  async function configureVisionTarget(payload) {
+    visionTargetBusy = true;
+    text("vision-target-result", "Applying target…");
+    try {
+      const result = await request("/api/vision/target", { method: "POST", body: JSON.stringify(payload) });
+      text("vision-target-result", result.operation === "release" ? "Target released." : `Looking for: ${result.classes.join(", ")}`);
+      byId("camera-show-detections").checked = true;
+      resetCameraView();
+    } catch (error) { text("vision-target-result", error.message); }
+    finally { visionTargetBusy = false; }
+  }
+
+  function renderCameraDetections(observation, sourceFrame) {
+    const overlay = byId("camera-detections");
+    overlay.replaceChildren();
+    for (const item of observation.objects) {
+      if (!item.box) continue;
+      const box = document.createElement("div");
+      box.className = "camera-detection";
+      box.style.left = `${item.box.x * 100}%`;
+      box.style.top = `${item.box.y * 100}%`;
+      box.style.width = `${item.box.width * 100}%`;
+      box.style.height = `${item.box.height * 100}%`;
+      const label = document.createElement(visionOperations.has("select") ? "button" : "span");
+      label.textContent = item.identity?.name ? `${item.identity.name} · ${item.identity.state}` : item.label;
+      if (item.score != null) label.textContent += ` · ${Math.round(item.score * 100)}%`;
+      if (item.trackId) box.title = `Track ${item.trackId} (continuity estimate)`;
+      if (label.tagName === "BUTTON") {
+        label.type = "button";
+        label.title = "Use this object as a visual reference";
+        label.addEventListener("click", () => configureVisionTarget({ operation: "select", description: item.label, box: item.box,
+          frame: { id: sourceFrame.id, dataUrl: `data:image/jpeg;base64,${sourceFrame.jpeg}`,
+            timestamp: new Date(Date.now() - observation.ageMs).toISOString(),
+            metadata: { robotId: observation.robotId, gatewayInstance: observation.gatewayInstance,
+              epoch: observation.epoch, counter: observation.frameCounter } } }));
+      }
+      box.append(label);
+      overlay.append(box);
+    }
   }
 
   function delay(milliseconds) {
@@ -257,6 +328,12 @@
         cameraFrameRobotId = robotId;
       }
       const query = new URLSearchParams({ robot_id: robotId });
+      const showDetections = byId("camera-show-detections").checked;
+      const generation = cameraViewGeneration;
+      if (showDetections) {
+        query.set("view", "recognition");
+        if (cameraRecognitionFrameId) query.set("after_id", cameraRecognitionFrameId);
+      }
       if (cameraFrameCounter !== null) query.set("after", String(cameraFrameCounter));
       const controller = new AbortController();
       cameraRequestController = controller;
@@ -272,16 +349,55 @@
         }
         if (response.status === 204) continue;
         if (!response.ok) throw new Error(`camera request failed (${response.status})`);
-        if (robotId !== selectedRobotId) continue;
-        const blob = await response.blob();
+        if (robotId !== selectedRobotId || generation !== cameraViewGeneration) continue;
+        let blob, observation, recognitionFrame;
+        if (showDetections) {
+          recognitionFrame = await response.json();
+          if (generation !== cameraViewGeneration) continue;
+          if (!recognitionFrame) {
+            if (!cameraObjectUrl) {
+              text("camera-view-message", "Waiting for a recognition result. Camera and recognition must be enabled.");
+            }
+            text("camera-detection-status", cameraObjectUrl
+              ? "Waiting for a new recognition result · showing previous source image."
+              : "Waiting for the first recognition image.");
+            continue;
+          }
+          observation = recognitionFrame.observation;
+          if (!recognitionFrame.jpeg) {
+            text("camera-detection-status", `${observation.objects.length} detections · frame ${observation.frameCounter}` +
+              ` · ${Math.round(observation.ageMs)} ms since receipt · ${observation.model}`);
+            continue;
+          }
+          blob = new Blob([Uint8Array.from(atob(recognitionFrame.jpeg), char => char.charCodeAt(0))], { type: "image/jpeg" });
+        } else {
+          blob = await response.blob();
+        }
+        if (generation !== cameraViewGeneration) continue;
         const nextUrl = URL.createObjectURL(blob);
         const image = byId("camera-view");
-        image.src = nextUrl;
-        image.hidden = false;
+        // Decode offscreen so the displayed source image and boxes stay paired.
+        const nextImage = image.cloneNode(false);
+        nextImage.src = nextUrl;
+        try { await nextImage.decode(); }
+        catch (error) { URL.revokeObjectURL(nextUrl); throw error; }
+        if (generation !== cameraViewGeneration) { URL.revokeObjectURL(nextUrl); continue; }
+        nextImage.hidden = false;
+        image.replaceWith(nextImage);
+        byId("camera-image-plane").hidden = false;
         byId("camera-view-message").hidden = true;
         if (cameraObjectUrl) URL.revokeObjectURL(cameraObjectUrl);
         cameraObjectUrl = nextUrl;
         cameraFrameCounter = response.headers.get("X-Ainekio-Camera-Counter");
+        if (observation) {
+          cameraRecognitionFrameId = recognitionFrame.id;
+          renderCameraDetections(observation, recognitionFrame);
+          text("camera-detection-status", `${observation.objects.length} detections · frame ${observation.frameCounter}` +
+            ` · ${Math.round(observation.ageMs)} ms since receipt · ${observation.model}`);
+        } else {
+          byId("camera-detections").replaceChildren();
+          text("camera-detection-status", "Live camera view.");
+        }
       } catch (error) {
         if (error.name !== "AbortError") {
           if (!cameraObjectUrl) resetCameraView("Camera view is temporarily unavailable.");
@@ -289,6 +405,7 @@
         }
       } finally {
         if (cameraRequestController === controller) cameraRequestController = null;
+        if (showDetections) await delay(200);
       }
     }
   }
@@ -421,6 +538,7 @@
 
   async function stopMotion(label = "Stop sent", detach = false) {
     cancelCalibrationSlider();
+    heldSteeringInputs.clear();
     if (!detach && variableWalking && activeWalkSequence !== null && !heldRequestPending) {
       heldDirection = null; gamepadDirection = null;
       document.querySelectorAll("[data-held-direction]").forEach((button) => button.classList.remove("is-active"));
@@ -428,8 +546,10 @@
     }
     if (detach) resetWalking();
     const robotId = selectedRobotId;
-    const generation = walkGeneration;
     const pendingRequest = heldRequest || walkRequest;
+    // Invalidate a pending start before its late reply can revive held movement.
+    if (pendingRequest && activeWalkSequence === null) resetWalking();
+    const generation = walkGeneration;
     const endpoint = detach ? "/api/detach" : "/api/stop";
     heldDirection = null;
     gamepadDirection = null;
@@ -451,6 +571,10 @@
 
   async function beginHeldMotion(direction, element = null) {
     if (!bodyCommandAvailable(directionCommands[direction])) return;
+    if (canSteer()) {
+      const [forward, turn] = directionVector(direction);
+      return driveHeldVector(forward, turn);
+    }
     if (heldDirection === direction || heldRequestPending) return;
     if (directionalWalking && activeWalkSequence !== null) { await stopMotion("Finishing current movement"); return; }
     if (directionalWalking && byId("walk-gait").value === "crawl" && !bodyCommandAvailable("crawl")) return;
@@ -498,6 +622,7 @@
 
   function resetWalking() {
     walkGeneration += 1;
+    heldSteeringInputs.clear();
     heldDirection = null; gamepadDirection = null;
     heldRequest = null; heldRequestPending = false;
     walkRequest = null; walkRequestPending = false;
@@ -534,12 +659,17 @@
     if (rejected || ended || walkStatus && walkStatus.epoch !== entry?.epoch) resetWalking();
     walkStatus = entry;
     if (!walkRequestPending && !heldRequestPending) {
+      const adoptedWalk = sequence !== activeWalkSequence;
       activeWalkSequence = rejected ? null : sequence;
       activeWalkProfile = activeWalkSequence !== null && entry?.active_walk ?
         {dir: entry.active_walk.dir, gait: entry.active_walk.gait || "walk"} : null;
+      if (adoptedWalk && activeWalkProfile && canSteer()) {
+        const defaults = directionVector(activeWalkProfile.dir);
+        setSteeringVector(entry.active_walk.forward ?? defaults[0], entry.active_walk.turn ?? defaults[1]);
+      }
     }
     if (activeWalkProfile && directionalWalking) {
-      byId("walk-direction").value = activeWalkProfile.dir;
+      if (!canSteer()) byId("walk-direction").value = activeWalkProfile.dir;
       byId("walk-gait").value = activeWalkProfile.gait;
     }
     renderWalkingControls();
@@ -548,6 +678,8 @@
   function renderWalkingControls() {
     const pending = walkRequestPending || heldRequestPending;
     for (const id of ["walk-direction", "walk-gait", "walk-continuous"]) byId(id).disabled = activeWalkSequence !== null || pending;
+    if (canSteer()) byId("walk-direction").disabled = false;
+    byId("walk-steering").hidden = !canSteer();
     byId("walk-apply").textContent = activeWalkSequence === null ? "Start" : "Apply to current movement";
     byId("walk-finish").disabled = activeWalkSequence === null;
     byId("walk-cycles-field").hidden = directionalWalking && byId("walk-continuous").checked;
@@ -566,6 +698,42 @@
     if (Number(slider.value) > Number(slider.max)) slider.value = slider.max;
     byId("walk-speed-value").textContent = `${slider.value}%`;
     byId("walk-run-hint").hidden = !extended || gait === "run";
+    byId("walk-steering").hidden = !canSteer();
+  }
+
+  function canSteer() {
+    return steeringSupported && (activeWalkProfile?.gait || byId("walk-gait").value) !== "crab";
+  }
+
+  function directionVector(direction) {
+    return ({ fwd: [100, 0], back: [-100, 0], turn_l: [0, 100], turn_r: [0, -100] })[direction] || [0, 0];
+  }
+
+  function setSteeringVector(forward, turn) {
+    byId("walk-forward").value = String(forward);
+    byId("walk-turn").value = String(turn);
+    byId("walk-forward-value").textContent = `${forward}%`;
+    byId("walk-turn-value").textContent = `${turn}%`;
+  }
+
+  async function driveHeldVector(forward, turn) {
+    if (forward === 0 && turn === 0) {
+      if (heldDirection === "steering") await stopMotion("Movement released");
+      return;
+    }
+    heldDirection = "steering";
+    setSteeringVector(forward, turn);
+    await applyWalking();
+  }
+
+  function updateHeldSteering(key, direction = null) {
+    if (direction === null) heldSteeringInputs.delete(key);
+    else heldSteeringInputs.set(key, direction);
+    const directions = new Set(heldSteeringInputs.values());
+    document.querySelectorAll("[data-held-direction]").forEach((button) =>
+      button.classList.toggle("is-active", directions.has(button.dataset.heldDirection)));
+    return driveHeldVector(100 * (Number(directions.has("fwd")) - Number(directions.has("back"))),
+      100 * (Number(directions.has("turn_l")) - Number(directions.has("turn_r"))));
   }
 
   function walkingParameters(steps, direction = byId("walk-direction").value) {
@@ -573,13 +741,17 @@
     if (directionalWalking) params.gait = byId("walk-gait").value;
     if (!variableWalking) return params;
     if (byId("walk-mode").value === "auto") params.speed = Number(byId("walk-speed").value);
-    else { params.stride = Number(byId("walk-stride").value); params.rate = Number(byId("walk-rate").value); }
+    else { params.stride = Number(byId("walk-stride").value); params.rate = 2; } // Legacy wire field; current P4 gaits use fast strokes.
+    if (canSteer()) {
+      params.forward = Number(byId("walk-forward").value);
+      params.turn = Number(byId("walk-turn").value);
+    }
     return params;
   }
 
   async function applyWalking(finish = false, updateOnly = false) {
     if (!variableWalking) return;
-    if (updateOnly && activeWalkSequence === null) return;
+    if (updateOnly && activeWalkSequence === null && !walkRequestPending) return;
     const profile = activeWalkProfile || { dir: directionalWalking ? byId("walk-direction").value : "fwd", gait: byId("walk-gait").value };
     if (!bodyCommandAvailable(directionCommands[profile.dir]) || (directionalWalking && profile.gait === "crawl" && !bodyCommandAvailable("crawl"))) return;
     if (profile.gait === "crab" && !crabSupported) return;
@@ -588,7 +760,7 @@
     if (!finish && !byId("walk-controls").reportValidity()) return;
     const robotId = selectedRobotId;
     const generation = walkGeneration;
-    const steps = directionalWalking && byId("walk-continuous").checked ? 0 : Number(byId("walk-cycles").value);
+    const steps = heldDirection === "steering" || directionalWalking && byId("walk-continuous").checked ? 0 : Number(byId("walk-cycles").value);
     const params = finish ? { dir: profile.dir, steps: 1, speed: 0 } : walkingParameters(steps, profile.dir);
     if (directionalWalking) params.gait = profile.gait;
     if (activeWalkSequence !== null) params.update = activeWalkSequence;
@@ -628,6 +800,177 @@
         if (generation === walkGeneration && robotId === selectedRobotId) applyWalking(finishNext, true);
       }
     }
+  }
+
+  function balanceFormEdited() {
+    balanceEdited = byId("balance-enabled").value !== String(balanceData?.enabled) ||
+      (balanceTuningSupported && balanceTuningKeys.some(key => Number(byId(`balance-${key}`).value) !== balanceData?.[key]));
+    text("balance-status", balanceEdited ? "Unsaved change — Save on robot to apply it." :
+      `${balanceData?.saved ? "Saved on robot" : "Robot default"}: ${balanceData?.enabled ? "On" : "Off"}.`);
+    renderBalance();
+  }
+
+  function renderBalance() {
+    byId("balance-enabled").disabled = !balanceSupported || !balanceData || balanceBusy;
+    byId("balance-read").disabled = !balanceSupported || balanceBusy;
+    byId("balance-save").disabled = !balanceSupported || !balanceData || balanceBusy ||
+      (!balanceEdited && balanceData.saved && (!balanceTuningSupported || balanceData.tuning_saved));
+    for (const key of balanceTuningKeys)
+      byId(`balance-${key}`).disabled = !balanceTuningSupported || !balanceData || balanceBusy;
+    byId("balance-defaults").disabled = !balanceTuningSupported || !balanceData || balanceBusy;
+    byId("balance-reference").disabled = !balanceTuningSupported || !balanceData || balanceBusy || !balanceAttitude(balanceEntry);
+    byId("balance-gyro-calibrate").disabled = !balanceSupported || balanceBusy ||
+      !(balanceEntry?.features || []).includes("balance_feedback_v1");
+  }
+
+  function balanceAttitude(entry) {
+    const imu = entry?.status?.imu, q = imu?.orientation_wxyz;
+    if (entry?.connected === false || entry?.connection_state === "stale" || !imu?.available || !imu.fresh ||
+        !Array.isArray(q) || q.length !== 4 || !q.every(Number.isFinite)) return null;
+    // Use transport freshness too: an old sample may retain fresh=true at its source.
+    const age = Date.now() - Date.parse(imu.received_at);
+    if (!Number.isFinite(age) || age > 3000) return null;
+    const norm = Math.hypot(...q);
+    if (!norm) return null;
+    const [w, x, y, z] = q.map(v => v / norm), deg = 180 / Math.PI;
+    return {roll: Math.atan2(2*(w*x+y*z), 1-2*(x*x+y*y))*deg,
+      pitch: -Math.asin(Math.max(-1, Math.min(1, 2*(w*y-z*x))))*deg, imu};
+  }
+
+  function renderBalanceFeedback() {
+    const attitude = balanceAttitude(balanceEntry), imu = balanceEntry?.status?.imu;
+    const b = balanceEntry?.status?.balance;
+    const online = balanceSupported;
+    const angle = v => `${v >= 0 ? "+" : ""}${v.toFixed(2)}°`;
+    text("balance-sensor", attitude ?
+      `Live IMU · ${imu.calibration_applied ? "saved mounting/bias applied" : "sensor axes unverified"}` +
+      (imu.startup || imu.gyro_recovery || imu.acceleration_recovery ? " · estimator recovering" : "") :
+      "IMU unavailable or stale — no live angle.");
+    text("balance-tilt", attitude ?
+      `Measured: roll ${angle(attitude.roll)} (positive = left up) · pitch ${angle(attitude.pitch)} (positive = nose up).` : "");
+    text("balance-error", attitude && balanceData && balanceTuningSupported ?
+      `Offset from saved targets: roll ${angle(attitude.roll-balanceData.roll_deg)} · pitch ${angle(attitude.pitch-balanceData.pitch_deg)}. Zero is on target. Moving motions also include their programmed body angle.` : "");
+    text("balance-correction", online && Number.isFinite(b?.roll_correction_rad) && Number.isFinite(b?.pitch_correction_rad) ?
+      `Commanded correction: roll ${angle(b.roll_correction_rad*180/Math.PI)} · pitch ${angle(-b.pitch_correction_rad*180/Math.PI)}.` +
+      (b.reduced ? " Correction cannot fully fit the current linkage or joint-speed setting." : "") : "No correction telemetry.");
+    const legs = online && b?.legs_valid && b.extension_mm?.length === 4 && b.joint_delta_deg?.length === 12;
+    for (let l=0; l<4; l++) {
+      const joint = (l < 2 ? l+2 : l-2)*3;
+      const ext = b?.extension_mm?.[l];
+      text(`balance-leg-${l}`, legs && Number.isFinite(ext) ? `${Math.abs(ext).toFixed(2)} mm ${ext < 0 ? "shorter" : "longer"}` : "—");
+      for (const [name, offset] of [["carrier",1],["crank",2]]) {
+        const v = b?.joint_delta_deg?.[joint+offset];
+        text(`balance-${name}-${l}`, legs && Number.isFinite(v) ? angle(v) : "—");
+      }
+    }
+    const c = b?.gyro_calibration;
+    const supported = (balanceEntry?.features || []).includes("balance_feedback_v1");
+    const vector = values => Array.isArray(values) && values.length === 3 && values.every(Number.isFinite) ?
+      values.map(v => (v*180/Math.PI).toFixed(3)).join(", ") : "unavailable";
+    text("balance-gyro-status", !supported ? "Firmware update required for gyro calibration and per-leg feedback." :
+      !online ? "Robot disconnected; calibration status unavailable." :
+      c?.phase === 1 ? `Sampling stationary gyro: ${c.samples}/${c.target}. Keep the robot still.` :
+      c?.phase === 2 ? `Gyro bias saved and applied. Sensor X/Y/Z: ${vector(c.bias_rad_s)} °/s. Sample standard deviation: ${vector(c.deviation_rad_s)} °/s.` :
+      c?.phase === 3 ? `Gyro calibration failed (error ${c.error}); previous active calibration retained.` :
+      "Ready for a stationary gyro measurement.");
+  }
+
+  function captureBalanceReference() {
+    const attitude = balanceAttitude(balanceEntry);
+    if (!attitude || !balanceData || !balanceTuningSupported || balanceBusy) return;
+    byId("balance-roll_deg").value = attitude.roll.toFixed(4);
+    byId("balance-pitch_deg").value = attitude.pitch.toFixed(4);
+    balanceFormEdited();
+    text("balance-reference-status", "Current pose copied to the target fields. Save on robot to apply this reference; On/Off and response settings are unchanged.");
+  }
+
+  async function calibrateBalanceGyro() {
+    const robotId = selectedRobotId, generation = balanceGeneration;
+    const current = () => robotId === selectedRobotId && generation === balanceGeneration;
+    balanceBusy = true; renderBalance();
+    text("balance-gyro-status", "Requesting stationary gyro measurement…");
+    try {
+      await command("/api/balance", {op:"calibrate_gyro",robot_id:robotId}, "Stationary gyro measurement requested", current);
+      if (current()) text("balance-gyro-status", "Sampling requested. Keep still; live feedback will report the saved result.");
+    } catch(error) {
+      if (current()) text("balance-gyro-status", error.message);
+    } finally {
+      if (current()) { balanceBusy=false; renderBalance(); }
+    }
+  }
+
+  async function operateBalance(op) {
+    if (!balanceSupported || balanceBusy) return;
+    const tuning = {};
+    if (op === "save" && balanceTuningSupported) {
+      for (const key of balanceTuningKeys) {
+        const input = byId(`balance-${key}`);
+        if (!input.reportValidity()) return;
+        tuning[key] = Number(input.value);
+      }
+    }
+    const generation = balanceGeneration;
+    const robotId = selectedRobotId;
+    const current = () => generation === balanceGeneration && robotId === selectedRobotId;
+    balanceBusy = true;
+    renderBalance();
+    text("balance-status", op === "save" ? "Saving self-leveling on robot…" : "Reading self-leveling from robot…");
+    try {
+      const response = await command("/api/balance", {op, robot_id: robotId,
+        ...(op === "save" ? {enabled: byId("balance-enabled").value === "true", ...tuning} : {})},
+        op === "save" ? "Self-leveling saved on robot" : "Self-leveling read from robot", current);
+      if (!current()) return;
+      const state = response.balance;
+      if (!state || state.seq !== response.seq || typeof state.enabled !== "boolean" ||
+          typeof state.saved !== "boolean" || typeof state.active !== "boolean")
+        throw new Error("Invalid self-leveling readback; read from robot again.");
+      if (balanceTuningSupported && (balanceTuningKeys.some(key => !Number.isFinite(state[key])) ||
+          state.strength < 0 || state.damping < 0 || typeof state.tuning_saved !== "boolean"))
+        throw new Error("Invalid response settings; read from robot again.");
+      balanceData = state;
+      if (balanceTuningSupported) {
+        for (const key of balanceTuningKeys) byId(`balance-${key}`).value = String(state[key]);
+        text("balance-tuning-status", state.tuning_saved ? "Response settings saved on robot." : "Using the original response defaults.");
+      }
+      balanceEdited = false;
+      byId("balance-enabled").value = String(state.enabled);
+      text("balance-status", `${state.saved ? "Saved on robot" : "Robot default"}: ${state.enabled ? "On" : "Off"}.`);
+      text("balance-active", state.active ? "Leveling is active." : "Leveling is inactive.");
+    } catch (error) {
+      if (current()) text("balance-status", error.message);
+    } finally {
+      if (current()) { balanceBusy = false; renderBalanceFeedback(); renderBalance(); }
+    }
+  }
+
+  function updateBalance(entry) {
+    balanceEntry = entry;
+    const p4 = entry?.model === "v2-12servo";
+    const supported = Boolean(p4 && entry.connection_state !== "stale" && entry.connected !== false &&
+      (entry.features || []).includes("balance_control_v1"));
+    balanceTuningSupported = supported && (entry.features || []).includes("balance_tuning_v1");
+    const session = entry ? `${selectedRobotId}:${entry.epoch}:${supported}:${balanceTuningSupported}` : null;
+    byId("balance-controls").hidden = !p4;
+    byId("balance-tuning-controls").hidden = !balanceTuningSupported;
+    if (!balanceTuningSupported) text("balance-tuning-status", p4 ? "A firmware update enables response and target-angle settings." : "");
+    balanceSupported = supported;
+    if (session !== balanceSession) {
+      balanceSession = session;
+      balanceGeneration++;
+      balanceData = null;
+      balanceBusy = balanceEdited = false;
+      byId("balance-enabled").value = "";
+      for (const key of balanceTuningKeys) byId(`balance-${key}`).value = "";
+      text("balance-reference-status", "");
+      text("balance-active", "");
+      if (supported) operateBalance("get");
+      else text("balance-status", p4 ? "Connect with firmware supporting self-leveling control to change this setting." : "Connect a robot to read self-leveling.");
+    }
+    if (supported && typeof entry?.status?.balance?.active === "boolean") {
+      text("balance-active", entry.status.balance.active ? "Leveling is active." : "Leveling is inactive.");
+    }
+    renderBalanceFeedback();
+    renderBalance();
   }
 
   function renderMotionSpeed() {
@@ -727,6 +1070,16 @@
   }
 
   function setupMotionControls() {
+    byId("balance-reference").addEventListener("click", captureBalanceReference);
+    byId("balance-gyro-calibrate").addEventListener("click", calibrateBalanceGyro);
+    byId("balance-read").addEventListener("click", () => operateBalance("get"));
+    byId("balance-save").addEventListener("click", () => operateBalance("save"));
+    byId("balance-enabled").addEventListener("change", balanceFormEdited);
+    for (const key of balanceTuningKeys) byId(`balance-${key}`).addEventListener("input", balanceFormEdited);
+    byId("balance-defaults").addEventListener("click", () => {
+      for (const key of balanceTuningKeys) byId(`balance-${key}`).value = key === "strength" || key === "damping" ? "1" : "0";
+      balanceFormEdited();
+    });
     byId("joint-speed-save").addEventListener("click", () => operateMotionSpeed("save", "joint_speed_limit_deg_s"));
     byId("joint-speed-limit").addEventListener("input", () => {
       const input = byId("joint-speed-limit");
@@ -754,11 +1107,22 @@
     byId("walk-mode").addEventListener("change", () => {
       const manual = byId("walk-mode").value === "manual";
       byId("walk-advanced").hidden = !manual; byId("walk-speed-field").hidden = manual;
-      byId("walk-stride").disabled = !manual; byId("walk-rate").disabled = !manual;
+      byId("walk-stride").disabled = !manual;
     });
     byId("walk-gait").addEventListener("change", updateSpeedRange);
     byId("walk-speed").addEventListener("input", updateSpeedRange);
     byId("walk-speed").addEventListener("change", () => applyWalking(false, true));
+    byId("walk-direction").addEventListener("change", () => {
+      if (!canSteer()) return;
+      setSteeringVector(...directionVector(byId("walk-direction").value));
+      return applyWalking(false, true);
+    });
+    for (const id of ["walk-forward", "walk-turn"]) {
+      byId(id).addEventListener("input", () => {
+        setSteeringVector(Number(byId("walk-forward").value), Number(byId("walk-turn").value));
+        return applyWalking(false, true);
+      });
+    }
     document.querySelectorAll("[data-intent]").forEach((button) => {
       button.addEventListener("click", () => sendNamedMotion(button.dataset.intent, null, `${button.textContent.trim()} sent`));
     });
@@ -766,11 +1130,13 @@
       button.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         button.setPointerCapture(event.pointerId);
-        beginHeldMotion(button.dataset.heldDirection, button);
+        if (canSteer()) updateHeldSteering(`pointer:${event.pointerId}`, button.dataset.heldDirection);
+        else beginHeldMotion(button.dataset.heldDirection, button);
       });
       const release = (event) => {
         event.preventDefault();
-        if (heldDirection === button.dataset.heldDirection) stopMotion("Movement released");
+        if (canSteer() && heldSteeringInputs.has(`pointer:${event.pointerId}`)) updateHeldSteering(`pointer:${event.pointerId}`);
+        else if (heldDirection === button.dataset.heldDirection) stopMotion("Movement released");
       };
       button.addEventListener("pointerup", release);
       button.addEventListener("pointercancel", release);
@@ -782,10 +1148,16 @@
       const direction = directionForKey(event.code);
       if (event.repeat || !direction || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) return;
       event.preventDefault();
-      beginHeldMotion(direction);
+      if (canSteer()) updateHeldSteering(`key:${event.code}`, direction);
+      else beginHeldMotion(direction);
     });
     window.addEventListener("keyup", (event) => {
       const direction = directionForKey(event.code);
+      if (canSteer() && heldSteeringInputs.has(`key:${event.code}`)) {
+        event.preventDefault();
+        updateHeldSteering(`key:${event.code}`);
+        return;
+      }
       if (direction && heldDirection === direction) {
         event.preventDefault();
         stopMotion("Movement released");
@@ -843,6 +1215,19 @@
     let direction = null;
     const horizontal = gamepad.axes[0] || 0;
     const vertical = gamepad.axes[1] || 0;
+    if (canSteer()) {
+      // Keep the existing controller activation threshold; preserve both axes.
+      const axis = (value) => Math.abs(value) > 0.55 ? Math.round(value * 100) : 0;
+      const released = gamepad.buttons[1] && gamepad.buttons[1].pressed;
+      const forward = released ? 0 : axis(-vertical), turn = released ? 0 : axis(-horizontal);
+      const vector = forward || turn ? `${forward}:${turn}` : null;
+      if (vector !== gamepadDirection) {
+        gamepadDirection = vector;
+        driveHeldVector(forward, turn);
+      }
+      if (gamepadSampling) gamepadTimer = window.setTimeout(pollGamepad, 50);
+      return;
+    }
     if (Math.abs(vertical) > 0.55 && Math.abs(vertical) >= Math.abs(horizontal)) direction = vertical < 0 ? "fwd" : "back";
     else if (Math.abs(horizontal) > 0.55) direction = horizontal < 0 ? "turn_l" : "turn_r";
     if (gamepad.buttons[1] && gamepad.buttons[1].pressed) direction = null;
@@ -1194,7 +1579,7 @@
   function renderStorage() {
     const online = calibrationEntry && calibrationEntry.connection_state !== "stale";
     const enabled = online && bodyStorageEnabled();
-    const mounted = storageData ? storageData.mounted : Boolean(calibrationEntry && calibrationEntry.status && calibrationEntry.status.sd);
+    const mounted = recordingData ? recordingData.mounted : storageData ? storageData.mounted : Boolean(calibrationEntry && calibrationEntry.status && calibrationEntry.status.sd);
     const busy = storageLoading || Boolean(storageData && storageData.busy);
     byId("storage-read-button").disabled = !enabled || storageLoading;
     byId("storage-retry-button").disabled = !enabled || busy;
@@ -1204,7 +1589,142 @@
     text("storage-details", !online ? "Connect a robot to read storage status." : !enabled ?
       (calibrationEntry.capabilities && calibrationEntry.capabilities.reasons || {}).storage || "Storage controls are unavailable on this body." :
       storageLoading ? "Waiting for storage readback from the body…" : !storageData ? "Read storage status from the body." :
-      `${storageData.mounted ? `${(storageData.free_bytes / 1048576).toFixed(1)} MiB free of ${(storageData.total_bytes / 1048576).toFixed(1)} MiB` : "SD card is not mounted"}. ${storageData.dropped_records} dropped records.${storageData.busy ? " Storage is busy." : ""}${storageData.error ? ` ${storageData.error}` : ""}`);
+      `${mounted ? `${((recordingData?.free_bytes ?? storageData.free_bytes) / 1048576).toFixed(1)} MiB free of ${(storageData.total_bytes / 1048576).toFixed(1)} MiB` : "SD card is not mounted"}. ${storageData.dropped_records} dropped records.${storageData.busy ? " Storage is busy." : ""}${storageData.error ? ` ${storageData.error}` : ""}`);
+    renderMaintenance();
+  }
+
+  function maintenanceUrl(operation, robot = selectedRobotId) {
+    return `/api/robot/${operation}?${new URLSearchParams({robot_id: robot})}`;
+  }
+
+  function renderMaintenance() {
+    if (!byId("recording-details")) return;
+    const online = calibrationEntry?.model === "v2-12servo" && calibrationEntry.connection_state !== "stale";
+    const available = online && !maintenanceBusy;
+    byId("recording-start-button").disabled = !available || Boolean(recordingData?.recording);
+    byId("recording-stop-button").disabled = !available || !recordingData?.recording;
+    byId("recordings-refresh-button").disabled = !available;
+    byId("recordings-select").disabled = !available || !recordingFiles.length;
+    byId("recording-download-button").disabled = !available || !byId("recordings-select").value;
+    byId("firmware-upload-button").disabled = !available || !byId("firmware-file").files?.length;
+    byId("firmware-file").disabled = maintenanceBusy;
+    byId("controller-logs-read-button").disabled = !available;
+    byId("controller-logs-download-button").disabled = !available;
+    const staged = ["staged", "next_boot"].includes(firmwareData?.state);
+    byId("firmware-next-boot-button").disabled = !available || !staged;
+    byId("firmware-restart-button").disabled = !available || !staged;
+    if (!online) {
+      text("recording-details", "Connect the robot to use its internal card.");
+      text("firmware-details", "Connect the robot to manage its firmware.");
+    } else {
+      if (recordingData) text("recording-details", `${recordingData.recording ? "Recording" : "Stopped"} · ${recordingData.frames} frames · ${recordingData.dropped} dropped · ${recordingData.segments} completed segments · ${recordingData.overwrite_oldest ? `rolling overwrite (${recordingData.overwritten || 0} reused)` : "stops when full"} · ${(recordingData.free_bytes / 1048576).toFixed(1)} MiB free.${!recordingData.mounted ? " Card unavailable." : ""}${recordingData.error !== "ESP_OK" ? ` ${recordingData.error}` : ""}${recordingData.storage_error !== "ESP_OK" ? ` ${recordingData.storage_error}` : ""}`);
+      if (firmwareData) text("firmware-details", `${firmwareData.version || "P4"} · ${firmwareData.state.replaceAll("_", " ")} · running ${firmwareData.running}${firmwareData.boot !== firmwareData.running ? ` · next boot ${firmwareData.boot}` : ""}${firmwareData.pending_verify ? " · awaiting startup validation" : ""}${firmwareData.error !== "ESP_OK" ? ` · ${firmwareData.error}` : ""}`);
+    }
+    if (online && maintenanceError) {
+      text("recording-details", maintenanceError);
+      text("firmware-details", maintenanceError);
+    }
+  }
+
+  async function refreshMaintenance() {
+    if (calibrationEntry?.model !== "v2-12servo" || calibrationEntry.connection_state === "stale" || maintenanceBusy || maintenanceReading) return;
+    const robot = selectedRobotId;
+    maintenanceReading = true;
+    maintenanceReadAt = Date.now();
+    try {
+      const recording = await request(maintenanceUrl("recording", robot));
+      const firmware = await request(maintenanceUrl("firmware", robot));
+      if (robot !== selectedRobotId) return;
+      recordingData = recording; firmwareData = firmware; maintenanceError = "";
+    } catch (error) {
+      if (robot === selectedRobotId) {
+        maintenanceError = error.message;
+      }
+    } finally { maintenanceReading = false; renderStorage(); }
+  }
+
+  async function readControllerLogs(download = false) {
+    const robot = selectedRobotId;
+    text("controller-logs-output", "Reading controller logs…");
+    try {
+      const response = await fetch(maintenanceUrl("logs", robot));
+      const output = await response.text();
+      if (robot !== selectedRobotId) return;
+      if (!response.ok) {
+        let message = output; try { message = JSON.parse(output).error || output; } catch (_) {}
+        throw new Error(message);
+      }
+      text("controller-logs-output", output);
+      if (download) {
+        const url = URL.createObjectURL(new Blob([output], {type: "text/plain"}));
+        const link = document.createElement("a");
+        link.href = url; link.download = `${robot}-logs.txt`;
+        document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (error) { if (robot === selectedRobotId) text("controller-logs-output", error.message); }
+  }
+
+  async function refreshRecordings() {
+    const robot = selectedRobotId;
+    try {
+      text("recordings-details", "Reading recordings from the robot…");
+      const result = await request(maintenanceUrl("recordings", robot));
+      if (robot !== selectedRobotId) return;
+      recordingFiles = result.files;
+      const select = byId("recordings-select"), previous = select.value;
+      select.replaceChildren();
+      recordingFiles.forEach(file => select.add(new Option(`${file.name} · ${(file.bytes / 1048576).toFixed(2)} MiB${file.complete ? "" : " · unfinished"}`, file.name)));
+      if (recordingFiles.some(file => file.name === previous)) select.value = previous;
+      text("recordings-details", `${recordingFiles.length} recordings. Downloads go to this computer; files remain until reused by rolling recording.`);
+    } catch (error) { if (robot === selectedRobotId) text("recordings-details", error.message); }
+    finally { renderMaintenance(); }
+  }
+
+  async function operateMaintenance(operation, op) {
+    const robot = selectedRobotId;
+    maintenanceBusy = true; renderMaintenance();
+    try {
+      const result = await request(maintenanceUrl(operation, robot), {method: "POST", body: JSON.stringify({op})});
+      if (robot !== selectedRobotId) return;
+      if (operation === "recording") recordingData = result;
+      else text("firmware-operation", op === "restart" ? "Update selected. Robot restarting; waiting for reconnection and validation." : "Update selected for the next boot. The robot has not restarted.");
+    } catch (error) { if (robot === selectedRobotId) showResult(error.message, true); }
+    finally {
+      maintenanceBusy = false; renderMaintenance();
+      if (robot === selectedRobotId) { await refreshMaintenance(); if (operation === "recording" && op === "stop") await refreshRecordings(); }
+    }
+  }
+
+  async function uploadFirmware() {
+    const file = byId("firmware-file").files[0], robot = selectedRobotId;
+    if (!file || !robot) return;
+    maintenanceBusy = true; renderMaintenance();
+    const progress = byId("firmware-upload-progress");
+    progress.hidden = false; progress.value = 0;
+    text("firmware-operation", "Preparing upload: recording will finish and the robot will enter Doze.");
+    try {
+      await new Promise((resolve, reject) => {
+        const upload = new XMLHttpRequest();
+        upload.open("POST", maintenanceUrl("firmware", robot));
+        upload.setRequestHeader("Content-Type", "application/octet-stream");
+        upload.setRequestHeader("X-Ainekio-CSRF", csrfToken);
+        upload.upload.onprogress = event => {
+          if (robot !== selectedRobotId) return;
+          if (event.lengthComputable) progress.value = 100 * event.loaded / event.total;
+          text("firmware-operation", progress.value >= 100 ? "Transfer sent; waiting for the robot to finish writing and validate. Watch its screen." : `Uploading ${Math.floor(progress.value)}%…`);
+        };
+        upload.onload = () => {
+          let result; try { result = JSON.parse(upload.responseText); } catch (_) { reject(new Error("Invalid upload response; refresh firmware status.")); return; }
+          if (upload.status >= 200 && upload.status < 300) resolve(result);
+          else reject(new Error(result.error || "Upload failed"));
+        };
+        upload.onerror = () => reject(new Error("Upload interrupted. Refresh firmware status before retrying."));
+        upload.send(file);
+      });
+      if (robot === selectedRobotId) text("firmware-operation", "Firmware validated and staged. Choose next boot or activate and restart. The robot remains in Doze.");
+    } catch (error) { if (robot === selectedRobotId) text("firmware-operation", error.message); }
+    finally { maintenanceBusy = false; progress.hidden = true; renderMaintenance(); if (robot === selectedRobotId) { await refreshMaintenance(); await refreshRecordings(); } }
   }
 
   async function operateStorage(op) {
@@ -1227,6 +1747,23 @@
   }
 
   function setupForms() {
+    byId("controller-logs-read-button").addEventListener("click", () => readControllerLogs());
+    byId("controller-logs-download-button").addEventListener("click", () => readControllerLogs(true));
+    byId("recording-start-button").addEventListener("click", () => operateMaintenance("recording", "start"));
+    byId("recording-stop-button").addEventListener("click", () => operateMaintenance("recording", "stop"));
+    byId("recordings-refresh-button").addEventListener("click", refreshRecordings);
+    byId("recordings-select").addEventListener("change", renderMaintenance);
+    byId("recording-download-button").addEventListener("click", () => {
+      const name = byId("recordings-select").value;
+      if (!name) return;
+      const link = document.createElement("a");
+      link.href = maintenanceUrl("recordings") + "&" + new URLSearchParams({name});
+      link.download = name; document.body.append(link); link.click(); link.remove();
+    });
+    byId("firmware-file").addEventListener("change", renderMaintenance);
+    byId("firmware-upload-button").addEventListener("click", uploadFirmware);
+    byId("firmware-next-boot-button").addEventListener("click", () => operateMaintenance("firmware/activate", "next_boot"));
+    byId("firmware-restart-button").addEventListener("click", () => operateMaintenance("firmware/activate", "restart"));
     byId("storage-read-button").addEventListener("click", () => operateStorage("get"));
     byId("storage-retry-button").addEventListener("click", () => operateStorage("retry"));
     byId("storage-clear-button").addEventListener("click", () => operateStorage("clear"));
@@ -1258,6 +1795,22 @@
       const asset = new FormData(event.currentTarget).get("asset");
       const name = submitter.value;
       command("/api/intent", { name, params: name === "face" ? { expr: asset } : { asset } }, `${name} sent`);
+    });
+    byId("ground-calibration-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const operation = event.submitter?.value || "status";
+      try {
+        const post = (payload) => request("/api/camera/ground-calibration", { method: "POST", body: JSON.stringify({ robot_id: selectedRobotId, ...payload }) });
+        const status = await post({ operation: "status" });
+        if (operation === "status") { text("ground-calibration-status", JSON.stringify(status, null, 2)); return; }
+        if (operation === "resetSamples") { text("ground-calibration-status", JSON.stringify(await post({ operation }), null, 2)); return; }
+        const values = new FormData(form);
+        const payload = { operation, frameId: status.frame?.frameId, columns: Number(values.get("columns")), rows: Number(values.get("rows")),
+          squareMetres: Number(values.get("squareMetres")), geometryId: values.get("geometryId") };
+        if (operation === "fit") payload.cameraToBody = JSON.parse(values.get("cameraToBody"));
+        text("ground-calibration-status", JSON.stringify(await post(payload), null, 2));
+      } catch (error) { text("ground-calibration-status", error.message); }
     });
     byId("camera-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -1468,24 +2021,79 @@
     byId("desktop-connection-form").addEventListener("submit", (event) => { event.preventDefault(); saveAndOpen("desktop"); });
   }
 
-  function setupSecurity() {
-    const settings = byId("settings-panel");
-    const settingsButton = byId("settings-button");
-    function showSettings(open) {
-      settings.hidden = !open;
-      settingsButton.setAttribute("aria-expanded", String(open));
-      if (open) {
-        if (selectedRobotId) byId("token-robot-id").value = selectedRobotId;
-        settings.scrollIntoView({ block: "start" });
-        byId("password-form").elements.current_password.focus({ preventScroll: true });
-      } else {
-        byId("password-form").reset();
-        byId("password-result").hidden = true;
-        settingsButton.focus();
-      }
+  function setupNavigation() {
+    const sidebar = byId("tool-sidebar");
+    const workspace = byId("tool-workspace");
+    const toggle = byId("tools-toggle");
+    const buttons = Array.from(sidebar.querySelectorAll("[data-workspace]"));
+    const panels = Array.from(workspace.querySelectorAll("[data-workspace-panel]"));
+    const groups = Array.from(sidebar.querySelectorAll("[data-navigation-group]"));
+    const scrollPositions = new Map();
+    let current = null;
+    const compact = window.matchMedia("(max-width: 1050px)");
+    let expanded = compact.matches ? false : readLocal("ainekio-tools-expanded", true);
+    const settingsPages = ["connections", "network", "pairing", "account"];
+
+    function showSidebar(open, remember = true) {
+      expanded = open;
+      sidebar.hidden = !open;
+      document.body.classList.toggle("tools-collapsed", !open);
+      toggle.setAttribute("aria-expanded", String(open));
+      if (remember && !compact.matches) writeLocal("ainekio-tools-expanded", open);
     }
-    settingsButton.addEventListener("click", () => showSettings(settings.hidden));
-    byId("settings-close-button").addEventListener("click", () => showSettings(false));
+
+    function showWorkspace(name, focus = true) {
+      const button = buttons.find(item => item.dataset.workspace === name) || buttons[0];
+      name = button.dataset.workspace;
+      if (current) scrollPositions.set(current, workspace.scrollTop);
+      current = name;
+      panels.forEach(panel => {
+        panel.hidden = !panel.dataset.workspacePanel.split(" ").includes(name);
+      });
+      buttons.forEach(item => {
+        if (item === button) item.setAttribute("aria-current", "page");
+        else item.removeAttribute("aria-current");
+      });
+      button.closest("details").open = true;
+      byId("settings-button").setAttribute("aria-expanded", String(settingsPages.includes(name)));
+      if (settingsPages.includes(name) && selectedRobotId) byId("token-robot-id").value = selectedRobotId;
+      writeLocal("ainekio-workspace", name);
+      workspace.scrollTop = scrollPositions.get(name) || 0;
+      if (focus) {
+        const panel = panels.find(item => !item.hidden && item.dataset.workspacePanel === name);
+        const heading = panel.querySelector("h2, h3");
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }
+      if (compact.matches) showSidebar(false, false);
+    }
+
+    groups.forEach(group => {
+      group.open = readLocal(`ainekio-tools-group-${group.dataset.navigationGroup}`, group.open);
+      group.addEventListener("toggle", () => writeLocal(`ainekio-tools-group-${group.dataset.navigationGroup}`, group.open));
+    });
+    buttons.forEach(button => button.addEventListener("click", () => showWorkspace(button.dataset.workspace)));
+    toggle.addEventListener("click", () => showSidebar(!expanded));
+    byId("settings-button").addEventListener("click", () => showWorkspace("connections"));
+    byId("settings-close-button").addEventListener("click", () => {
+      byId("password-form").reset();
+      byId("password-result").hidden = true;
+      showWorkspace("overview");
+    });
+    // Navigation keys belong to these UI controls, not to the drive shortcuts.
+    // No robot action is sent when selecting, opening or closing a tool.
+    [sidebar, toggle, byId("settings-button"), byId("settings-close-button")].forEach(element => {
+      for (const type of ["keydown", "keyup"]) element.addEventListener(type, event => {
+        if (event.code === "Space" || (type === "keydown" && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code))) event.stopPropagation();
+        if (event.code === "Escape" && expanded) { showSidebar(false); toggle.focus(); }
+      });
+    });
+    compact.addEventListener("change", () => showSidebar(compact.matches ? false : readLocal("ainekio-tools-expanded", true), false));
+    showSidebar(expanded, false);
+    showWorkspace(readLocal("ainekio-workspace", "overview"), false);
+  }
+
+  function setupSecurity() {
     byId("password-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -1587,7 +2195,7 @@
     preferredRobotId = selectedRobotId;
     writeLocal("ainekio-selected-robot", preferredRobotId);
     select.value = selectedRobotId;
-    if (selectedRobotId !== previous) { resetCameraView(); resetWalking(); updateMotionSpeed(null); }
+    if (selectedRobotId !== previous) { resetCameraView(); resetWalking(); updateMotionSpeed(null); updateBalance(null); }
   }
 
   function text(id, value) { byId(id).textContent = value; }
@@ -1709,8 +2317,49 @@
     });
   }
 
+  function renderBodyEvents(payload, entry) {
+    const form = byId("body-events-form");
+    if (bodyEventsRobot !== selectedRobotId) {
+      bodyEventsRobot = selectedRobotId;
+      bodyEventsEdited = false;
+    }
+    const settings = payload.body_events?.robots?.[selectedRobotId] || payload.body_events?.defaults;
+    if (settings && !bodyEventsEdited && !bodyEventsSaving) {
+      for (const [key, value] of Object.entries(settings)) {
+        const input = form.elements.namedItem(key);
+        if (!input) continue;
+        if (input.type === "checkbox") input.checked = value;
+        else input.value = value;
+      }
+    }
+    for (const input of form.elements) input.disabled = !selectedRobotId || bodyEventsSaving;
+    byId("body-events-good-morning").disabled = !entry || entry.connection_state !== "online" || bodyEventsSaving;
+    const imu = entry?.status?.imu;
+    text("body-events-imu", imu ? JSON.stringify({
+      connected: entry.connection_state === "online", frame: imu.frame,
+      available: imu.available, freshAtSource: imu.fresh, sampleTimeUs: imu.timestamp_us,
+      receivedAt: imu.received_at, calibrationApplied: imu.calibration_applied,
+      angularRateRadS: imu.angular_rate_rad_s, accelerationMS2: imu.acceleration_m_s2,
+      orientationWXYZ: imu.orientation_wxyz, startup: imu.startup,
+    }, null, 2) : "No IMU measurement received. V2 needs firmware with IMU reporting.");
+    text("body-events-recent", JSON.stringify((payload.body_events?.recent || [])
+      .filter(event => event.robot_id === selectedRobotId).map(event => ({
+        id: event.event_id, kind: event.data.kind, reason: event.data.reason,
+        tiltDegrees: event.data.tilt_degrees, accelerationChangeG: event.data.acceleration_change_g,
+        rotationDps: event.data.rotation_dps,
+      })), null, 2));
+  }
+
   function renderStatus(payload) {
     const recognition = payload.recognition;
+    visionOperations = new Set(recognition?.visionOperations || []);
+    byId("vision-target-search").disabled = !visionOperations.has("search") || visionTargetBusy;
+    byId("vision-target-release").disabled = !visionOperations.has("release") || visionTargetBusy;
+    if (!visionTargetBusy) {
+      const target = recognition?.visionTarget;
+      text("vision-target-status", target ? `Looking for: ${target.classes.join(", ")}` :
+        visionOperations.has("select") || visionOperations.has("search") ? "No selected target." : "Target search needs a prompted YOLOE model.");
+    }
     const recognitionStatus = byId("camera-recognition-status");
     byId("recognition-enabled").disabled = !recognition?.configured || recognitionSaving;
     byId("recognition-form").querySelector("button").disabled = !recognition?.configured || recognitionSaving;
@@ -1730,7 +2379,8 @@
     const robotIds = Object.keys(robots).sort();
     updateRobotSelect(robotIds);
     const entry = selectedRobotId ? robots[selectedRobotId] : null;
-    renderPeople(payload.person_recognition);
+    renderBodyEvents(payload, entry);
+    renderPeople(payload.person_recognition, recognition?.observation);
     if (cameraSettingsRobotId !== selectedRobotId) {
       const saved = payload.camera_settings?.[selectedRobotId];
       if (saved) {
@@ -1753,12 +2403,14 @@
         legacyBody && (!entry.capabilities || entry.capabilities.motion === true) ? null : [];
     renderMotionCatalog(entry, legacyBody);
     updateMotionSpeed(entry);
+    updateBalance(entry);
     document.querySelectorAll("[data-intent], [data-emote], [data-held-direction]").forEach((button) => {
       const name = button.dataset.intent || button.dataset.emote || directionCommands[button.dataset.heldDirection];
       button.disabled = !bodyCommandAvailable(name) ||
         (availableBodyCommands === null && button.hasAttribute("data-requires-declaration"));
     });
     directionalWalking = Boolean(entry && entry.model === "v2-12servo" && (entry.features || []).includes("walk_controls_v2"));
+    steeringSupported = Boolean(directionalWalking && (entry.features || []).includes("walk_steering_v1"));
     variableWalking = directionalWalking || Boolean(entry && entry.model === "v2-12servo" && (entry.features || []).includes("walk_controls_v1"));
     runningSupported = Boolean(directionalWalking && (entry.features || []).includes("run_gait_v1") && bodyCommandAvailable("run"));
     crabSupported = Boolean(directionalWalking && (entry.features || []).includes("crab_gait_v1") && bodyCommandAvailable("crab"));
@@ -1779,6 +2431,13 @@
         availableBodyCommands.length ? availableBodyCommands.join(", ") :
           installedMotions.length ? `${installedMotions.join(", ")} installed; motion unavailable` : "motion unavailable"}`);
     calibrationEntry = entry;
+    if (maintenanceRobot !== selectedRobotId) {
+      maintenanceRobot = selectedRobotId; maintenanceReadAt = 0; maintenanceError = "";
+      recordingData = null; firmwareData = null; recordingFiles = [];
+      byId("recordings-select").replaceChildren();
+      text("recordings-details", ""); text("firmware-operation", "");
+      text("controller-logs-output", "Read logs from the selected robot.");
+    }
     updateRobotSettings(entry);
     const session = entry ? `${selectedRobotId}:${entry.epoch}:${entry.model}` : null;
     if (session !== calibrationSession) {
@@ -1822,6 +2481,7 @@
     }
     if (entry && entry.storage && !storageLoading && (!storageData || entry.storage.seq >= storageData.seq)) storageData = entry.storage;
     renderStorage();
+    if (entry?.model === "v2-12servo" && Date.now() - maintenanceReadAt >= 5000) refreshMaintenance();
     if (bodyStorageEnabled() && entry.connection_state !== "stale" && !storageAttempted && !storageLoading) {
       storageAttempted = true;
       operateStorage("get");
@@ -1977,11 +2637,11 @@
     let reading = false;
     let revision = 0;
     function render(settings) {
-      select.value = settings.outputTarget;
+      select.value = settings.playbackTarget;
       select.disabled = false;
       button.disabled = false;
-      const destination = settings.outputTarget === "robot" ? "Robot speaker" : "Computer";
-      text("speech-output-state", `Saved: ${destination}${settings.username ? ` · ${settings.username}` : ""}.${settings.speechDisabled ? " Speech is disabled in MetaHuman Voice Settings." : ""}${settings.outputTarget === "robot" && settings.provider !== "kokoro" ? " Robot speech currently requires Kokoro in MetaHuman Voice Settings." : ""}`);
+      const destination = settings.playbackTarget === "robot" ? "Robot speaker" : "Body Control computer";
+      text("speech-output-state", `Saved: ${destination}. Select Body Control in MetaHuman to send speech here.`);
     }
     async function refresh() {
       if (saving || reading || edited) return;
@@ -2008,7 +2668,7 @@
       button.disabled = true;
       try {
         const settings = await request("/api/speech-output", {
-          method: "POST", body: JSON.stringify({outputTarget: select.value}),
+          method: "POST", body: JSON.stringify({playbackTarget: select.value}),
         });
         edited = false;
         render(settings);
@@ -2051,7 +2711,7 @@
   let personEnrollmentBusy = false;
   let enrolledPeopleSignature = "";
 
-  function renderPeople(status) {
+  function renderPeople(status, observation) {
     const configured = status?.configured === true;
     byId("person-enrollment-form").querySelector("button").disabled = !configured || personEnrollmentBusy;
     text("person-recognition-status", configured ? "Local face recognition ready" : "Named-person models are not configured on this host.");
@@ -2080,7 +2740,6 @@
         list.append(item);
       }
     }
-    const observation = status?.observation;
     if (!observation || observation.robotId !== selectedRobotId) {
       text("visible-people", "No fresh person observations.");
       return;
@@ -2094,6 +2753,16 @@
   }
 
   function setupSensingControls() {
+    byId("vision-target-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const labels = byId("vision-target-text").value.split(",").map(value => value.trim()).filter(Boolean);
+      if (labels.length) void configureVisionTarget({ operation: "search", labels });
+    });
+    byId("vision-target-release").addEventListener("click", () => configureVisionTarget({ operation: "release" }));
+    byId("camera-show-detections").addEventListener("change", () => {
+      resetCameraView();
+      text("camera-detection-status", byId("camera-show-detections").checked ? "Waiting for recognition." : "Live camera view.");
+    });
     byId("person-enrollment-form").addEventListener("submit", async event => {
       event.preventDefault();
       if (personEnrollmentBusy) return;
@@ -2115,6 +2784,36 @@
         text("person-enrollment-result", "Face sample saved. Add another angle, or view recognition when the camera is connected.");
       } catch (error) { text("person-enrollment-result", error.message); }
       finally { personEnrollmentBusy = false; void refreshStatus(); }
+    });
+    byId("body-events-form").addEventListener("input", () => {
+      bodyEventsEdited = true;
+      text("body-events-result", "Unsaved body event settings.");
+    });
+    byId("body-events-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!selectedRobotId || bodyEventsSaving) return;
+      const robotId = selectedRobotId;
+      const settings = {};
+      for (const input of event.currentTarget.elements) {
+        if (input.name) settings[input.name] = input.type === "checkbox" ? input.checked : Number(input.value);
+      }
+      bodyEventsSaving = true;
+      try {
+        await request("/api/body-events", {method: "POST", body: JSON.stringify({robot_id: robotId, settings})});
+        if (robotId === selectedRobotId) {
+          bodyEventsEdited = false;
+          text("body-events-result", "Settings saved and applied to Body Control.");
+        }
+      } catch (error) { text("body-events-result", error.message); }
+      finally { bodyEventsSaving = false; void refreshStatus(); }
+    });
+    byId("body-events-good-morning").addEventListener("click", async () => {
+      try {
+        const result = await request("/api/body-events/good-morning", {
+          method: "POST", body: JSON.stringify(withRobot()),
+        });
+        text("body-events-result", result.submitted ? "Good-morning event reported by Body Control." : result.reason);
+      } catch (error) { text("body-events-result", error.message); }
     });
     byId("recognition-enabled").addEventListener("change", () => { recognitionEdited = true; });
     byId("recognition-form").addEventListener("submit", async event => {
@@ -2154,6 +2853,7 @@
   }
 
   async function setupDashboard() {
+    setupNavigation();
     const session = await request("/api/session");
     csrfToken = session.csrf;
     setupSensingControls();
@@ -2161,7 +2861,7 @@
     byId("robot-select").addEventListener("change", (event) => {
       availableBodyCommands = [];
       selectedRobotId = event.target.value || null;
-      updateMotionSpeed(null);
+      updateMotionSpeed(null); updateBalance(null);
       preferredRobotId = selectedRobotId;
       writeLocal("ainekio-selected-robot", preferredRobotId);
       statusGeneration++;

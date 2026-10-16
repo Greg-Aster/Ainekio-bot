@@ -1,5 +1,25 @@
 # V2 servo mounting and calibration
 
+## Reindexed-crank Walk candidate (0.8.59)
+
+The owner has physically refitted the crank horns. The new rear-left Home is
+2800 µs, with 1600 µs at the other full-Walk endpoint. The mirrored right-side
+Home is 500 µs, with 1700 µs at the other endpoint. Carriers retain their existing
+mounting and calibration. Corresponding left/right pulses sum to 3300 µs.
+
+The new provisional **Model angle at Home is -117.68 degrees** for each crank,
+reconstructed from the supplied rear-left photo; it is not a measured shaft
+angle. Other horns must occupy corresponding mirrored physical poses for that
+reference to apply. The previous -40.41-degree matchmark association below is
+historical and must not be combined with the new endpoint Home pulses.
+Changing only Home after reindexing would give the gait the wrong angle mapping.
+
+This build does not write saved device calibration. Firmware and mounting
+calibration are separate changes. Physical validation is pending. See
+[the gait journal](../../../../docs/v2-12servo/GAIT_RESEARCH_JOURNAL.md).
+
+## Previous mounting reference
+
 Profile `v2-24-38-centered-shaft-heads`. The original motion geometry and timing are retained. The retained mapping references below are provisional; they do not establish the installed horn angles.
 
 | Joint | Part | Default Home reference (non-inverted) | Model angle at that pulse |

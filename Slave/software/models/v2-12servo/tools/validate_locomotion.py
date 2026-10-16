@@ -16,7 +16,10 @@ def leverage_report(cfg,q,contact,limits):
     if q.shape != (len(q),4,3) or contact.shape != q.shape[:2] or not len(q):
         raise ValueError('Invalid gait samples')
     q=np.concatenate((q,(q[:-1]+q[1:])*.5))
-    contact=np.concatenate((contact,contact[:-1]|contact[1:]))
+    # A midpoint spanning liftoff/touchdown is not an established planted
+    # contact. Keep loaded checks on the actual endpoints and continuous
+    # stance midpoints; swing/closure/branch checks still cover every midpoint.
+    contact=np.concatenate((contact,contact[:-1]&contact[1:]))
     p=cfg['parameters'];a=p['alpha_neutral']+q[:,:,1];t=p['new_theta_neutral']+q[:,:,2]
     D=np.array(p['O'])+p['primary_length']*np.stack((np.cos(a),np.sin(a)),axis=-1)
     P=np.array(p['C_new'])+p['input_length']*np.stack((np.cos(t),np.sin(t)),axis=-1)
@@ -48,18 +51,21 @@ def leverage_report(cfg,q,contact,limits):
 
 def validate(root):
     cfg=json.loads((root/'geometry.json').read_text());ref=load_reference(root);hulls=np.load(root/'motions/gestures/sit/posture-hulls.npz');pivot=np.array(cfg['continuous_walk']['body_rotation_pivot_mm']);reports=[]
-    for path in [root/'motions/gestures/crouch/source.json',*sorted((root/'motions/locomotion').glob('*/source.json'))]:
+    # The retained Crouch gesture has its own gesture-source validation; it
+    # is not a native locomotion recording and has no native command metadata.
+    for path in sorted((root/'motions/locomotion').glob('*/source.json')):
         source=json.loads(path.read_text());rows=source['samples'];m=ref.Mechanism(cfg);low=source['metadata']['native_initial_command']['gait']=='crawl'
         for name,expected in source['metadata']['native_sources_sha256'].items():
             # These files identify the historical recording implementation.
             # Geometry inputs stay pinned; current runtime is checked separately.
-            # Crouch is a preserved compiled gesture, not regenerated locomotion.
-            if path.parent.name=='crouch' and name=='motions/locomotion/config.json':continue
             if name not in ('motion.c','walk_kinematics.c'):assert hashlib.sha256((root/name).read_bytes()).hexdigest()==expected,(path,name)
         if source['metadata']['native_initial_command']['gait']=='crab':
             hulls=np.load(root/'motions/gestures/reviewed-hulls.npz');m.hulls={l:hulls['sole_'+l] for l in ref.LEGS}
         else:hulls=np.load(root/'motions/gestures/sit/posture-hulls.npz')
         if low:m.hulls={l:hulls['sole_'+l] for l in ref.LEGS}
+        if source['metadata'].get('contact_profile')=='bare_part027':
+            bare=np.asarray(json.loads((root/'motions/locomotion/walk-contact.json').read_text())['sole_hull_local_mm'])
+            m.hulls={l:bare for l in ref.LEGS}
         q=np.array([r['actuator_angles_rad'] for r in rows]);b=np.array([r['body_translation_world_mm'] for r in rows]);e=np.array([r['body_rotation_euler_xyz_rad'] for r in rows]);t=np.array([np.c_[r['target_foot_reference_xy_mm'],r['target_sole_clearance_mm']] for r in rows]);contact=np.array([r['contact_active'] for r in rows]);drift=0.
         for i in range(4):
             mask=contact[1:,i]&contact[:-1,i]

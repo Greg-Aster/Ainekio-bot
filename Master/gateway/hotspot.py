@@ -1,4 +1,4 @@
-"""Gateway ownership of the installed host hotspot and its existing .env setting."""
+"""Control the installed host hotspot through its existing .env setting."""
 from __future__ import annotations
 
 import asyncio
@@ -19,7 +19,6 @@ class RobotHotspot:
     def __init__(self, env_file: Path = Path(".env"), *, enabled: bool | None = None) -> None:
         self.env_file = env_file.resolve()
         self.enabled = os.environ.get("AINEKIO_HOTSPOT", "0") == "1" if enabled is None else enabled
-        self._managed = False
         self._lock = asyncio.Lock()
         self._network_lock = threading.Lock()
         self._network_cache: dict[str, str] = {}
@@ -71,23 +70,13 @@ class RobotHotspot:
     async def start(self) -> None:
         async with self._lock:
             if self.enabled:
-                self._managed = True
                 await self._service(True)
-
-    async def close(self) -> None:
-        async with self._lock:
-            if self._managed:
-                await self._service(False)
-                self._managed = False
 
     async def set_enabled(self, enabled: bool) -> dict[str, bool]:
         async with self._lock:
-            if enabled != self.enabled or (not enabled and self._managed):
-                if enabled:
-                    self._managed = True
+            if enabled != self.enabled:
                 await self._service(enabled)
                 self.enabled = enabled
-                self._managed = enabled
             try:
                 self._save_setting()
             except OSError as exc:

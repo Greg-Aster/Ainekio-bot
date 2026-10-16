@@ -1,0 +1,1847 @@
+{
+  "scope": "Offline installed bare Part027 targets, fixed 35/20/28/38/55 mm linkage. Euler body rotation included. Assumed centered 566 g COM at original z65 mm. Includes translational acceleration but not link inertia, servo response, measured contact or yaw inertial moments. Four-foot force split is an unconstrained least-squares estimate; negative force fractions are evidence against the assumed support state. Run paired/flight dynamic forces are not evaluated. Negative support margins remain for Crab turns: not physical stability qualification.",
+  "hardware_qualified": false,
+  "configs": {
+    "motions/run/config.json": {
+      "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+      "gait": "bound",
+      "base_cycle_seconds": 1.2,
+      "ground_contact_fraction": 0.42,
+      "phase_offsets": {
+        "RL": 0,
+        "RR": 0,
+        "FL": 0.5,
+        "FR": 0.5
+      },
+      "sweep_mm": 44,
+      "rearward_bias_mm": 0,
+      "lift_mm": 12,
+      "minimum_lift_mm": 5,
+      "bob_mm": 0,
+      "pitch_deg": 0,
+      "turn_degrees_per_cycle": 20,
+      "hardware_qualified": false,
+      "dynamics_scope": "Kinematic front/rear paired bound with original 42 percent stance and flight timing. Upright centered trajectory; scheduled contacts and body pose are not measured ground forces or tracking.",
+      "research_sources": [
+        "https://journals.sagepub.com/doi/10.1177/0278364917694244"
+      ],
+      "automatic_speed_threshold_percent": 100,
+      "maximum_speed_percent": 200,
+      "transition_cycles": 6,
+      "body_z_mm": 5,
+      "research_angle_bounds_deg": [
+        [
+          -110,
+          110
+        ],
+        [
+          -39.99,
+          185.33
+        ],
+        [
+          -53.27,
+          139.36
+        ]
+      ],
+      "forward": {
+        "sweep_mm": 44,
+        "rearward_bias_mm": 0,
+        "body_z_mm": 5,
+        "lane_offset_mm": 0,
+        "lane_assignment": "physical_front_inside_rear_outside",
+        "pitch_bias_deg": 0,
+        "pitch_deg": 0,
+        "pitch_phase_cycles": 0.25
+      },
+      "mounting_profile_sha256": "77733fa2c479f57d0731cfd5b5febc1108ea256db45dd2c0a87339d86a800a67",
+      "search_bounds_basis": "Installed geometry, saved horn references and existing 400\u20132900 us calibration review window. Preserve original shaft locations and mounting calibration.",
+      "initial_sweep_mm": 37,
+      "swing_ramp_fraction": 0.05,
+      "calibrated_revision": "Installed 35/20/28/38/55 mm linkage and bare Part027. 37 to 44 mm centered stroke, body Z +5 mm, 5 to 12 mm lift; existing front/rear paired timing and flight retained. Native verification is not physical loaded bounding qualification."
+    },
+    "motions/locomotion/config.json": {
+      "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+      "walk_turn_degrees_per_cycle": 8.73,
+      "crawl": {
+        "body_z_mm": -5,
+        "entry_seconds": 2,
+        "sweep_mm": 32,
+        "rearward_bias_mm": 0,
+        "lift_mm": 8,
+        "minimum_lift_mm": 5,
+        "sway_mm": 0,
+        "bob_mm": 0,
+        "roll_deg": 0,
+        "pitch_deg": 0,
+        "turn_degrees_per_cycle": 10,
+        "ground_contact_fraction": 0.78,
+        "support_coefficients_mm": {
+          "fwd": [
+            8.101,
+            7.262,
+            -0.0,
+            4.07,
+            -0.0
+          ],
+          "back": [
+            6.316,
+            9.433,
+            -0.0,
+            13.735,
+            -0.0
+          ],
+          "turn_l": [
+            6.95,
+            10.907,
+            -0.0,
+            7.965,
+            -0.0
+          ],
+          "turn_r": [
+            6.95,
+            10.907,
+            -0.0,
+            7.965,
+            -0.0
+          ]
+        },
+        "support_basis": "Body-frame x = k0 + k1*sin(4*pi*phase) + k2*cos(4*pi*phase); y = k3*sin(2*pi*phase) + k4*cos(2*pi*phase). Offline fit with bare Part027, centered COM; no runtime limiter."
+      },
+      "hardware_qualified": false,
+      "walk": {
+        "body_z_mm": 7,
+        "stance_sweep_mm": 37,
+        "rearward_bias_mm": 0,
+        "lift_mm": 10,
+        "body_motion_scale": 0,
+        "stroke_basis": "Installed 35 mm carrier / 20 mm crank / 28 mm pickup / 38 mm rod / 55 mm bare Part027 leg and original shafts. 37 mm planted sweep, body Z +7 mm, 78 percent contact, phase-aligned support translation and 6-10 mm broader foot lift. Numerical source validation; loaded physical walking unqualified.",
+        "transition_cycles": 1,
+        "ground_contact_fraction": 0.78,
+        "support_x_mean_mm": 9,
+        "support_x_mm": 4,
+        "support_y_mm": 7,
+        "support_x_mean_full_stride_mm": 3,
+        "minimum_lift_mm": 6,
+        "support_phase_cycles": 0.02
+      },
+      "leverage_validation": {
+        "stance_output_min_deg": 45,
+        "swing_output_min_deg": 35,
+        "stance_input_min_deg": 20,
+        "swing_input_min_deg": 20,
+        "straightening_clearance_min_mm": 3,
+        "scope": "Offline gait regression margins, not measured torque limits or servo pulse caps."
+      }
+    },
+    "motions/locomotion/crab.json": {
+      "body_z_mm": -12,
+      "entry_seconds": 3,
+      "stance_half_width_mm": 80,
+      "period_seconds": 2.4,
+      "sweep_mm": 40,
+      "side_sweep_mm": 32,
+      "lift_mm": 14,
+      "minimum_lift_mm": 8,
+      "turn_degrees_per_cycle": 32.72727272727273,
+      "phase_offsets": [
+        0,
+        0.5,
+        0.75,
+        0.25
+      ],
+      "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+      "hardware_qualified": false,
+      "reference": "Bare Part027 wide wave gait; 40 mm fore/aft and 32 mm sideways stance stroke, 80 percent stance. Source-leg order RL/RR/FL/FR.",
+      "startup_cycles": 2,
+      "sole_refinement_allowance_mm": 0.08,
+      "ground_contact_fraction": 0.8,
+      "support_coefficients_mm": {
+        "fwd": [
+          7.5,
+          2.45,
+          0,
+          1.66,
+          0
+        ],
+        "back": [
+          8.1,
+          1,
+          0,
+          14.3,
+          0
+        ],
+        "turn_l": [
+          6.95,
+          7,
+          0,
+          7.965,
+          0
+        ],
+        "turn_r": [
+          6.95,
+          7,
+          0,
+          7.965,
+          0
+        ],
+        "side_l": [
+          7.5,
+          1.1,
+          0,
+          11.4,
+          0
+        ],
+        "side_r": [
+          7.5,
+          1.1,
+          0,
+          11.4,
+          0
+        ]
+      },
+      "support_basis": "Body-frame x = k0 + k1*sin(4*pi*phase) + k2*cos(4*pi*phase); y = k3*sin(2*pi*phase) + k4*cos(2*pi*phase). Offline fit with bare Part027, centered COM; no runtime limiter."
+    }
+  },
+  "source_sha256": {
+    "motion.c": "8fb7d66c1ca136b084429b9b40fa8b3aac4fe373fa147c180e958ec3fc8f5189",
+    "walk_kinematics.c": "44cc7e07be04fbf22e1435f7d3e76aa6b629dca1c1dc3ef6688a7418d39fc418",
+    "motions/run/config.json": "3e8e187edd93bda4cba5274a25d55d1943bde765c4f31d37a1f98de59c8f1c7c",
+    "motions/locomotion/config.json": "c53ef7fd99fa8ff7c6377ae39b762ee304b66fbcc1fa63a945708decfa5ebbc7",
+    "motions/locomotion/crab.json": "577b9329250a54d8a5ccf88ef3968b28a7486df01d2ea936057a3b297d7867e5"
+  },
+  "binary_sha256": "43e68dcfbde9e752965721e05eea900dd962d9abd197d289cdd033650d24a976",
+  "cases": [
+    {
+      "gait": "run",
+      "direction": "fwd",
+      "speed": 100,
+      "samples": 2004,
+      "complete": true,
+      "pulse_span_us": [
+        584.1456163192499,
+        2715.8542209199927
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 40.68071532158108,
+      "loaded_input_min_deg": 52.05855474998113,
+      "loaded_output_min_deg": 62.82743232880737,
+      "peak_joint_speed_deg_s_steady": [
+        0.00019710598280663262,
+        174.97027588121745,
+        155.06225585846357
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.08909085589119314,
+        0.15146713469777495
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.03570604664118287,
+        0.030119611873260895
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "fwd",
+      "speed": 200,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        517.363226995712,
+        2782.6364474815
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 39.36145891809925,
+      "loaded_input_min_deg": 50.356176669698506,
+      "loaded_output_min_deg": 60.38358315549788,
+      "peak_joint_speed_deg_s_steady": [
+        0.0002061849372694619,
+        400.95263671905076,
+        374.6081543083759
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.08883692056731185,
+        0.15149420562916305
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.03568402784096102,
+        0.0314886517981723
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "back",
+      "speed": 100,
+      "samples": 2004,
+      "complete": true,
+      "pulse_span_us": [
+        582.95545789953,
+        2717.0448133679747
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 40.34004512747223,
+      "loaded_input_min_deg": 52.56051666927232,
+      "loaded_output_min_deg": 62.251813084210646,
+      "peak_joint_speed_deg_s_steady": [
+        0.00019707462342934758,
+        174.9299926739544,
+        155.0942382823739
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.08908403438963308,
+        0.15150920057824097
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.03570025985930797,
+        0.03045649032534153
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "back",
+      "speed": 200,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        518.1592339436983,
+        2781.8406032980906
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 39.30415228923118,
+      "loaded_input_min_deg": 50.45842450054373,
+      "loaded_output_min_deg": 60.26244075100945,
+      "peak_joint_speed_deg_s_steady": [
+        0.00020613039669072783,
+        400.95257568472147,
+        374.3234863384602
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.0886426984042723,
+        0.15145076652484946
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.03568940227230291,
+        0.03155280109544681
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_l",
+      "speed": 100,
+      "samples": 2004,
+      "complete": true,
+      "pulse_span_us": [
+        811.6315205892165,
+        2488.414015028215
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 46.79320303407009,
+      "loaded_input_min_deg": 56.835623301118694,
+      "loaded_output_min_deg": 67.81250466780665,
+      "peak_joint_speed_deg_s_steady": [
+        16.923782348659437,
+        116.69653320556736,
+        45.5866699214987
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.10600298092300342,
+        0.15150384556282714
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.03610967357715583,
+        0.025346884922130265
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_l",
+      "speed": 200,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        789.8204481336891,
+        2510.298397488061
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 46.510691723629314,
+      "loaded_input_min_deg": 56.47662035205081,
+      "loaded_output_min_deg": 67.16590433323607,
+      "peak_joint_speed_deg_s_steady": [
+        40.570587158316435,
+        257.06509399375307,
+        104.7211914062376
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.10600298092300342,
+        0.1514890982771449
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.036250480265745656,
+        0.02553631879717288
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_r",
+      "speed": 100,
+      "samples": 2004,
+      "complete": true,
+      "pulse_span_us": [
+        811.585835774721,
+        2488.3681776258913
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 46.79320252615218,
+      "loaded_input_min_deg": 56.83559609016094,
+      "loaded_output_min_deg": 67.81255796058711,
+      "peak_joint_speed_deg_s_steady": [
+        16.923614501819273,
+        116.6972045917822,
+        45.58679199015677
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.10600298092300342,
+        0.15150432257040525
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.03610966290604603,
+        0.02534688302443832
+      ]
+    },
+    {
+      "gait": "run",
+      "direction": "turn_r",
+      "speed": 200,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        789.7014533148754,
+        2510.179399278419
+      ],
+      "minimum_scheduled_contacts": 0,
+      "loaded_leg_min_deg": 46.51068121420356,
+      "loaded_input_min_deg": 56.47659038962292,
+      "loaded_output_min_deg": 67.16591249059793,
+      "peak_joint_speed_deg_s_steady": [
+        40.570617675771125,
+        257.06512451206345,
+        104.72045898569382
+      ],
+      "body_z_mm": 5.0,
+      "bare_sole_target_error_mm": [
+        0.10600298092300342,
+        0.151461829348281
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.036250472937030924,
+        0.02553632298619955
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed": 1,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        623.1202663844158,
+        2677.806667751578
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 45.07411566078213,
+      "loaded_input_min_deg": 66.50610285581399,
+      "loaded_output_min_deg": 84.01181360899425,
+      "peak_joint_speed_deg_s_steady": [
+        10.724197387463027,
+        95.72308349504846,
+        83.02539062438962
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09757299207814984,
+        0.15146042097442614
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.042631401264301906,
+        0.027113216233112584
+      ],
+      "support_margin_mm": 0.7828056016653733,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11888008431926438,
+        0.07495749056862248
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed": 25,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        574.2164171003899,
+        2735.2085503473045
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 42.05360541748285,
+      "loaded_input_min_deg": 63.55240014142791,
+      "loaded_output_min_deg": 83.88630320074324,
+      "peak_joint_speed_deg_s_steady": [
+        10.955402374166201,
+        150.33999633775582,
+        143.17578125128298
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.08960244912451643,
+        0.151474250190474
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04268389860226967,
+        0.028729121313766568
+      ],
+      "support_margin_mm": 1.154188328540144,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11674259770108975,
+        0.08146930546696812
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed": 50,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        452.2353515640566,
+        2847.7644314249956
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 37.96168549655168,
+      "loaded_input_min_deg": 59.97956478008868,
+      "loaded_output_min_deg": 83.02289437462221,
+      "peak_joint_speed_deg_s_steady": [
+        11.245735168635223,
+        215.06080286212293,
+        212.7703857427896
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09457690730700108,
+        0.1513940678951058
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.0427248350029765,
+        0.03055214021938094
+      ],
+      "support_margin_mm": 0.9909505029635,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11687369795136622,
+        0.08521336958880779
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "fwd",
+      "speed": 100,
+      "samples": 1630,
+      "complete": true,
+      "pulse_span_us": [
+        449.8020833326501,
+        2845.2503797732084
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 37.96307858031595,
+      "loaded_input_min_deg": 59.97969177155614,
+      "loaded_output_min_deg": 83.02199939573151,
+      "peak_joint_speed_deg_s_steady": [
+        22.448570251275502,
+        428.11833190884005,
+        423.3945312499792
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09190871511228682,
+        0.15144448145810774
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04272463667904705,
+        0.03055001622664046
+      ],
+      "support_margin_mm": 1.6405193915317113,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11689492517819054,
+        0.09274561836067441
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed": 1,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        608.3354763452217,
+        2691.656467013835
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 40.0148511176779,
+      "loaded_input_min_deg": 61.42689656196838,
+      "loaded_output_min_deg": 78.92208907912894,
+      "peak_joint_speed_deg_s_steady": [
+        35.672058105574905,
+        105.28054809546099,
+        114.492065429299
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.1323055453805031,
+        0.15148725374017413
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.0441715361994149,
+        0.02999233187711455
+      ],
+      "support_margin_mm": 0.789903224931713,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.126190218868025,
+        0.07334279860838071
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed": 25,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        545.9926757809408,
+        2753.7732747393597
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 36.428260537290505,
+      "loaded_input_min_deg": 59.95859814056295,
+      "loaded_output_min_deg": 77.09826799856016,
+      "peak_joint_speed_deg_s_steady": [
+        36.330940246400786,
+        114.11471557725964,
+        173.48339843844536
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09101555551538798,
+        0.15148195725690528
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04421620788892511,
+        0.03105029843385805
+      ],
+      "support_margin_mm": 1.2192479168399828,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13418154119621453,
+        0.08110298648531562
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed": 50,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        444.1599934901794,
+        2855.5996093726753
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 32.78091957429765,
+      "loaded_input_min_deg": 54.92598070430159,
+      "loaded_output_min_deg": 73.24797569741828,
+      "peak_joint_speed_deg_s_steady": [
+        37.13876342755067,
+        179.72140884396626,
+        239.02880859488658
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09200678607418755,
+        0.1514507218188541
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04423176998737164,
+        0.03246311717271798
+      ],
+      "support_margin_mm": 0.9571645100027553,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.14280602561679315,
+        0.08979279231429914
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "back",
+      "speed": 100,
+      "samples": 1645,
+      "complete": true,
+      "pulse_span_us": [
+        444.1684027790061,
+        2855.5931532142117
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 32.793543929006944,
+      "loaded_input_min_deg": 55.635694880422456,
+      "loaded_output_min_deg": 73.18438314780946,
+      "peak_joint_speed_deg_s_steady": [
+        74.09237670871451,
+        355.1753234864863,
+        474.67553710760234
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09671641683843557,
+        0.15145541265555273
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04422229891247594,
+        0.03246281337880239
+      ],
+      "support_margin_mm": 3.311971255987217,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13775214619862336,
+        0.08440787123692597
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed": 1,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        612.2111002607312,
+        2688.8651801214933
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 40.52802232457085,
+      "loaded_input_min_deg": 63.34946638651132,
+      "loaded_output_min_deg": 81.4467687251336,
+      "peak_joint_speed_deg_s_steady": [
+        21.232261657594616,
+        113.1769103991652,
+        128.32275390679845
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.10808906001411778,
+        0.1514970382827272
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04345939436491787,
+        0.029847383281193234
+      ],
+      "support_margin_mm": 0.8232669536623103,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1232350404807811,
+        0.07797648839359908
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed": 25,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        594.7898763017748,
+        2714.365397135453
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.79277232834095,
+      "loaded_input_min_deg": 61.422793968786124,
+      "loaded_output_min_deg": 80.84861031870174,
+      "peak_joint_speed_deg_s_steady": [
+        31.110576629857317,
+        146.21249389673014,
+        139.7607421873417
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09948421663657303,
+        0.15145356815672528
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.043576021781822245,
+        0.03027794116616073
+      ],
+      "support_margin_mm": 1.1081635212473584,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12417584942425192,
+        0.07847579581483155
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed": 50,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        566.0944010414698,
+        2741.7672526044084
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.03490490147115,
+      "loaded_input_min_deg": 59.238359730649506,
+      "loaded_output_min_deg": 79.85587274128719,
+      "peak_joint_speed_deg_s_steady": [
+        41.884059906158654,
+        181.1338806137799,
+        157.46276855268027
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09245392449501821,
+        0.15147311571166977
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04369952178484729,
+        0.03071008418550812
+      ],
+      "support_margin_mm": 0.766239804723396,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1250561669869999,
+        0.07901394081185555
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_l",
+      "speed": 100,
+      "samples": 1630,
+      "complete": true,
+      "pulse_span_us": [
+        555.5311414928201,
+        2741.912760416657
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.036030345422674,
+      "loaded_input_min_deg": 59.24449035076699,
+      "loaded_output_min_deg": 79.86522712769316,
+      "peak_joint_speed_deg_s_steady": [
+        83.58541584028129,
+        359.1538696301814,
+        309.7271728542415
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09617928673883647,
+        0.15141729775941837
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04369584705283443,
+        0.03070935276737007
+      ],
+      "support_margin_mm": 1.7487606458080798,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11909052265979819,
+        0.09030415283943231
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed": 1,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        611.1362847221408,
+        2688.0717230903433
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 40.528039723748144,
+      "loaded_input_min_deg": 63.34942883635929,
+      "loaded_output_min_deg": 81.44677304223788,
+      "peak_joint_speed_deg_s_steady": [
+        21.23221588141994,
+        113.17761230397697,
+        128.3217773460733
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.10809157236420841,
+        0.15149292248214508
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04345938431459739,
+        0.02984737262194442
+      ],
+      "support_margin_mm": 0.8232306999893844,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12323505651739876,
+        0.07797645792453327
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed": 25,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        585.6347113712944,
+        2712.0646158856175
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.792772907765524,
+      "loaded_input_min_deg": 61.4227758070218,
+      "loaded_output_min_deg": 80.84864029155949,
+      "peak_joint_speed_deg_s_steady": [
+        31.110553741339338,
+        146.21115112430067,
+        139.7590332032079
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09918153911117056,
+        0.1514480732243051
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.043576023246002654,
+        0.030277944164119906
+      ],
+      "support_margin_mm": 1.1081981353769796,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12417584551693457,
+        0.07847573309613781
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed": 50,
+      "samples": 1687,
+      "complete": true,
+      "pulse_span_us": [
+        558.2326388888443,
+        2741.712510850807
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.03489619351451,
+      "loaded_input_min_deg": 59.238359730649506,
+      "loaded_output_min_deg": 79.85583812843915,
+      "peak_joint_speed_deg_s_steady": [
+        41.884490966654916,
+        181.13388061436902,
+        157.4625244124991
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09615098206939798,
+        0.1514644895611097
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.043699504886250864,
+        0.03071009254792821
+      ],
+      "support_margin_mm": 0.7661978283500925,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12505616407712708,
+        0.07901391565755839
+      ]
+    },
+    {
+      "gait": "crawl",
+      "direction": "turn_r",
+      "speed": 100,
+      "samples": 1630,
+      "complete": true,
+      "pulse_span_us": [
+        558.1308593753118,
+        2733.9574924043
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.03602900051027,
+      "loaded_input_min_deg": 59.24443738720936,
+      "loaded_output_min_deg": 79.86520077607213,
+      "peak_joint_speed_deg_s_steady": [
+        83.5855236054169,
+        359.15457153212833,
+        309.7261962877864
+      ],
+      "body_z_mm": -5.0,
+      "bare_sole_target_error_mm": [
+        0.09851419472602707,
+        0.15142593726849363
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04369583801460141,
+        0.030709354838938295
+      ],
+      "support_margin_mm": 1.7487186387166465,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11909057595298345,
+        0.09030410101316941
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed": 1,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        623.6081000436424,
+        2675.2175699871987
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.908439002038676,
+      "loaded_input_min_deg": 70.51366599139607,
+      "loaded_output_min_deg": 85.63775064730645,
+      "peak_joint_speed_deg_s_steady": [
+        10.803283688997423,
+        78.35461425901495,
+        27.988647459602475
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15149211666643136
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.041750672103647295,
+        0.024487038568931502
+      ],
+      "support_margin_mm": 0.1247594393367244,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11766652113416487,
+        0.06610764508120148
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed": 25,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        542.3525119360278,
+        2728.927897135179
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 42.08383724556908,
+      "loaded_input_min_deg": 66.3508816267948,
+      "loaded_output_min_deg": 85.36665797335472,
+      "peak_joint_speed_deg_s_steady": [
+        14.068847658367426,
+        142.2776184071039,
+        106.27465820448523
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15149176708345813
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04195256706531698,
+        0.027968778121470438
+      ],
+      "support_margin_mm": 0.035054877581956134,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11529697861144127,
+        0.07551292587901896
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed": 50,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        417.73893229207846,
+        2881.5419921850594
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 35.001363214775196,
+      "loaded_input_min_deg": 60.15537817844294,
+      "loaded_output_min_deg": 83.86461472677833,
+      "peak_joint_speed_deg_s_steady": [
+        17.568420408333083,
+        215.45762634201026,
+        197.26037597582524
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15147153650832834
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04198308735160027,
+        0.030797526746112195
+      ],
+      "support_margin_mm": 0.514130173344185,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11492052178856493,
+        0.08372462791591365
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "fwd",
+      "speed": 100,
+      "samples": 1697,
+      "complete": true,
+      "pulse_span_us": [
+        422.4894205716288,
+        2877.5105794283713
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 35.3585822898089,
+      "loaded_input_min_deg": 59.98650557303289,
+      "loaded_output_min_deg": 83.93058500095876,
+      "peak_joint_speed_deg_s_steady": [
+        35.0138549819022,
+        429.23095321641347,
+        392.6873779270396
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.1514870860228381
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04198314415550846,
+        0.030605979251492305
+      ],
+      "support_margin_mm": 1.572804964314571,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.11444027031927562,
+        0.08519448789344411
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed": 1,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        626.0359971789645,
+        2674.0040690103474
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.68914437802961,
+      "loaded_input_min_deg": 59.70018199335013,
+      "loaded_output_min_deg": 75.8512369306661,
+      "peak_joint_speed_deg_s_steady": [
+        35.88085937564109,
+        79.44055938733182,
+        11.906005858926834
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15141378111037262
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04518590518356057,
+        0.025920565636066546
+      ],
+      "support_margin_mm": 1.1031973991767643,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1290422143910756,
+        0.07324771714327245
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed": 25,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        575.1740180119914,
+        2724.947726779321
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 43.38011470609819,
+      "loaded_input_min_deg": 54.11491378535552,
+      "loaded_output_min_deg": 74.31278972438842,
+      "peak_joint_speed_deg_s_steady": [
+        39.646606444558685,
+        136.08878993977734,
+        82.08032226659132
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.09719558835105957,
+        0.15147735346050872
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04592223301943753,
+        0.02857922704702322
+      ],
+      "support_margin_mm": 1.3160743438214055,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13778929532709472,
+        0.08139817615196993
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed": 50,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        423.9731987866922,
+        2876.0106336812305
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 37.00699653738186,
+      "loaded_input_min_deg": 46.81573133081846,
+      "loaded_output_min_deg": 69.95717471626189,
+      "peak_joint_speed_deg_s_steady": [
+        44.13598632577384,
+        201.2371673580461,
+        165.2319335938781
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.09377516703980149,
+        0.15141378111037262
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.046349415381357326,
+        0.030758046851226788
+      ],
+      "support_margin_mm": -0.05200724305530002,
+      "minimum_force_fraction": -0.0005781918939093825,
+      "external_support_peak_carrier_crank_Nm": [
+        0.14898474333409872,
+        0.09156036600852753
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "back",
+      "speed": 100,
+      "samples": 1679,
+      "complete": true,
+      "pulse_span_us": [
+        423.9181857665279,
+        2876.0799153622124
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 37.00427956054075,
+      "loaded_input_min_deg": 47.15728861398712,
+      "loaded_output_min_deg": 69.96014976273828,
+      "peak_joint_speed_deg_s_steady": [
+        87.89898681564163,
+        401.2025985729539,
+        329.23535156097824
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.09474085229611795,
+        0.15146104053811982
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.046349856808072534,
+        0.03075085882259445
+      ],
+      "support_margin_mm": 0.7292459069628023,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1487656926417931,
+        0.091627613958945
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed": 1,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        635.5695800780004,
+        2664.8036566841433
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 42.988057675611316,
+      "loaded_input_min_deg": 64.1706256729849,
+      "loaded_output_min_deg": 80.05752804637937,
+      "peak_joint_speed_deg_s_steady": [
+        24.52587890570685,
+        96.839111326344,
+        63.36743163997119
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15150602777144329
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.0442930078658963,
+        0.028454447899140332
+      ],
+      "support_margin_mm": 1.8764483048070701,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12617652503026175,
+        0.07169233856290734
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed": 25,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        538.0874565970776,
+        2733.4836154516847
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.56131225724299,
+      "loaded_input_min_deg": 54.76015938037289,
+      "loaded_output_min_deg": 73.83113120273013,
+      "peak_joint_speed_deg_s_steady": [
+        54.72335815483836,
+        178.59716033941734,
+        119.53906249872543
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15148909259647425
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.045318083761277876,
+        0.029917821868384053
+      ],
+      "support_margin_mm": -1.486320353225227,
+      "minimum_force_fraction": -0.015363810590159972,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1287412110047739,
+        0.07595250170195332
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed": 50,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        413.7207845049623,
+        2874.5345594630467
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 31.649671059718955,
+      "loaded_input_min_deg": 40.14254620937269,
+      "loaded_output_min_deg": 61.42620767167213,
+      "peak_joint_speed_deg_s_steady": [
+        88.77105712744499,
+        267.1177673346098,
+        211.90527343330717
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.09153839744551462,
+        0.15148063354341623
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04770422080571371,
+        0.03346402121984538
+      ],
+      "support_margin_mm": -3.8406624071678053,
+      "minimum_force_fraction": -0.040906339458556484,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13168851698082942,
+        0.08534338987028109
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_l",
+      "speed": 100,
+      "samples": 1697,
+      "complete": true,
+      "pulse_span_us": [
+        418.3014865423822,
+        2874.460828993969
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 31.360613671706396,
+      "loaded_input_min_deg": 40.113916538928876,
+      "loaded_output_min_deg": 61.5379518006967,
+      "peak_joint_speed_deg_s_steady": [
+        176.85510254142554,
+        533.3114376057631,
+        407.1318359404112
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.0940917226727791,
+        0.1514599730256183
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04770106958226034,
+        0.03359832828597139
+      ],
+      "support_margin_mm": -3.885077362409322,
+      "minimum_force_fraction": -0.039746696486038416,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13222836261205556,
+        0.08364039345511162
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed": 1,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        635.1975640189914,
+        2664.432400173638
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 42.98806980767606,
+      "loaded_input_min_deg": 64.17063737085208,
+      "loaded_output_min_deg": 80.05755282787717,
+      "peak_joint_speed_deg_s_steady": [
+        24.526245117411158,
+        96.8391113263354,
+        63.368164063385294
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.1514744624279487
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04429300513682001,
+        0.02845445383657608
+      ],
+      "support_margin_mm": 1.8764191376549313,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12617657412480243,
+        0.07169236624155217
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed": 25,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        566.6248914929092,
+        2740.7816297740837
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 39.56135041178659,
+      "loaded_input_min_deg": 54.76015030914521,
+      "loaded_output_min_deg": 73.83109757350698,
+      "peak_joint_speed_deg_s_steady": [
+        54.72399902245626,
+        178.59579849234754,
+        119.53735351459164
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15149554883069882
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04531808340669197,
+        0.029917816911451425
+      ],
+      "support_margin_mm": -1.486350834209996,
+      "minimum_force_fraction": -0.015364128437717284,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1287412229105699,
+        0.07595251745458295
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed": 50,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        425.51166449913194,
+        2883.6037326378196
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 31.649671354058928,
+      "loaded_input_min_deg": 40.14245577041434,
+      "loaded_output_min_deg": 61.426145505977175,
+      "peak_joint_speed_deg_s_steady": [
+        88.77047729416427,
+        267.11776733401314,
+        211.9079589953352
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.09501978291500279,
+        0.15150024566489506
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.047704235464333784,
+        0.03346402149874115
+      ],
+      "support_margin_mm": -3.840686561759627,
+      "minimum_force_fraction": -0.04090659874386828,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13168855409698815,
+        0.08534344769122028
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "turn_r",
+      "speed": 100,
+      "samples": 1697,
+      "complete": true,
+      "pulse_span_us": [
+        425.5392252587679,
+        2881.698513457618
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 31.360604257718805,
+      "loaded_input_min_deg": 40.113916538928876,
+      "loaded_output_min_deg": 61.53796846934543,
+      "peak_joint_speed_deg_s_steady": [
+        176.85559082178813,
+        533.3100595488065,
+        407.1345214738449
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.09718936560325986,
+        0.15149213976145148
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04770106674239577,
+        0.03359833355317666
+      ],
+      "support_margin_mm": -3.8851078869932305,
+      "minimum_force_fraction": -0.03974702324431467,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13222843525168396,
+        0.08364044003110907
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed": 1,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        654.4832763670796,
+        2644.7130262588785
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.446891793709554,
+      "loaded_input_min_deg": 62.906946923383444,
+      "loaded_output_min_deg": 78.02399446715687,
+      "peak_joint_speed_deg_s_steady": [
+        31.334655763380802,
+        74.99343872076926,
+        13.151855470118122
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15143703904843508
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.044688777261885186,
+        0.025759336690929908
+      ],
+      "support_margin_mm": 1.5003780472799764,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12842794444054634,
+        0.0731201963124857
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed": 25,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        623.3823920355753,
+        2656.045830620805
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.02954313638281,
+      "loaded_input_min_deg": 54.17157072071123,
+      "loaded_output_min_deg": 69.95854662433037,
+      "peak_joint_speed_deg_s_steady": [
+        61.22357177759,
+        128.51069450366577,
+        28.74377441257713
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.1514877505482648
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04535596162887111,
+        0.026397092211074173
+      ],
+      "support_margin_mm": 1.1029024203996585,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12960015993008134,
+        0.07406073803838034
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed": 50,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        572.1146918402748,
+        2696.8858235675016
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.4296996987833,
+      "loaded_input_min_deg": 42.38390842909194,
+      "loaded_output_min_deg": 56.830925089400736,
+      "peak_joint_speed_deg_s_steady": [
+        95.5373840348292,
+        187.04405212310482,
+        56.86132812568268
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15149740425422564
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.046126798359912576,
+        0.027090422637654463
+      ],
+      "support_margin_mm": 0.6774126941788978,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13071339753967864,
+        0.07500620328100459
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_l",
+      "speed": 100,
+      "samples": 1697,
+      "complete": true,
+      "pulse_span_us": [
+        572.0852322049225,
+        2710.864474826384
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.43018671006377,
+      "loaded_input_min_deg": 42.93216402295761,
+      "loaded_output_min_deg": 57.347718609365195,
+      "peak_joint_speed_deg_s_steady": [
+        190.57934570221002,
+        372.9023971567678,
+        111.02441406318333
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.1514313164071055
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04612664214418969,
+        0.02709055514907658
+      ],
+      "support_margin_mm": 0.5892548800024429,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13074030781283674,
+        0.07509071488452805
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed": 1,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        654.9627549914896,
+        2645.5226372614675
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.44692504601524,
+      "loaded_input_min_deg": 62.90688886240294,
+      "loaded_output_min_deg": 78.02399446715687,
+      "peak_joint_speed_deg_s_steady": [
+        31.334838866368216,
+        74.9954833985768,
+        13.14990234580417
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15144910287601654
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.04468878114577735,
+        0.02575932893704838
+      ],
+      "support_margin_mm": 1.5004036641695748,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1284279337923664,
+        0.07312015534619432
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed": 25,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        638.1702067056009,
+        2676.253634982538
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.02957381280484,
+      "loaded_input_min_deg": 54.17157692858508,
+      "loaded_output_min_deg": 69.9585500230184,
+      "peak_joint_speed_deg_s_steady": [
+        61.22363281477849,
+        128.51137828813145,
+        28.744873044827653
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15148586173548928
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.045355976039516556,
+        0.02639708724854055
+      ],
+      "support_margin_mm": 1.102936915316974,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.12960015247355677,
+        0.07406071045671621
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed": 50,
+      "samples": 1741,
+      "complete": true,
+      "pulse_span_us": [
+        561.6664767795179,
+        2718.3438313805036
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.4297135277248,
+      "loaded_input_min_deg": 42.383939857645316,
+      "loaded_output_min_deg": 56.83096190649333,
+      "peak_joint_speed_deg_s_steady": [
+        95.5374450691584,
+        187.044738769191,
+        56.86437988224613
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.15149207367592332
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.0461268179471384,
+        0.027090401324174767
+      ],
+      "support_margin_mm": 0.6774505990640733,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1307133390827237,
+        0.07500612597655887
+      ]
+    },
+    {
+      "gait": "crab",
+      "direction": "side_r",
+      "speed": 100,
+      "samples": 1697,
+      "complete": true,
+      "pulse_span_us": [
+        574.3727484810344,
+        2718.314995659903
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.430216224030765,
+      "loaded_input_min_deg": 42.9321624225318,
+      "loaded_output_min_deg": 57.34773888346983,
+      "peak_joint_speed_deg_s_steady": [
+        190.5795898452562,
+        372.90306854298257,
+        111.02343749959333
+      ],
+      "body_z_mm": -12.0,
+      "bare_sole_target_error_mm": [
+        0.10601836043315593,
+        0.1514738381168872
+      ],
+      "peak_vertical_torque_m_per_N": [
+        0.046126634199793036,
+        0.02709053613225754
+      ],
+      "support_margin_mm": 0.5892866963187373,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.13074026718153925,
+        0.07509065588685387
+      ]
+    }
+  ]
+}

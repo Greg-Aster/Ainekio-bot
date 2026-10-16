@@ -1,0 +1,1275 @@
+{
+  "source": "Slave/software/models/v2-12servo/geometry.json",
+  "sourceSha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "phi": 23.283758758458244,
+  "path": {
+    "stroke": 50,
+    "center": 0,
+    "lift": 12,
+    "period": 1.8,
+    "duty": 0.8,
+    "mass": 566,
+    "supports": 3,
+    "push": 0,
+    "travel": 230
+  },
+  "force": 1.8501879666666665,
+  "bend": {
+    "kneeToBend": 45.92792335061798,
+    "pickupToBend": 5.927923350617981,
+    "toeSegment": 19.764257049020586
+  },
+  "cases": {
+    "installed": {
+      "g": {
+        "carrier": 35,
+        "crank": 20,
+        "rod": 38,
+        "pickup": 28,
+        "leg": 55,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 0,
+        "kneeBranch": -1,
+        "crankBranch": -1
+      },
+      "envelope": {
+        "samples": 622,
+        "complete": true,
+        "peak": [
+          0.09668066994543634,
+          0.07028712247511233
+        ],
+        "minOtherJointHeight": 31.390772691381127
+      },
+      "benchmarks": [
+        {
+          "height": 65,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            52.69327652052445,
+            89.3087265300967
+          ],
+          "speeds": [
+            423.6174731960465,
+            577.5327960945228
+          ],
+          "peakTorque": [
+            0.06832371310975714,
+            0.05680168637100034
+          ],
+          "rmsTorque": [
+            0.06502827886263685,
+            0.03659897792794174
+          ],
+          "imbalance": 16.86387670448691,
+          "load": 1.8501879666666665,
+          "minLegAngle": 39.19839002690709,
+          "minOutputAngle": 67.72285272218814,
+          "minInputAngle": 38.89335698796199,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 34.55715471823383,
+          "closureError": 6.28539212249071e-14,
+          "jacobianError": 3.315352969934793e-8
+        },
+        {
+          "height": 70,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            50.518740844433076,
+            91.60400684354144
+          ],
+          "speeds": [
+            399.72692800843816,
+            541.1595908237812
+          ],
+          "peakTorque": [
+            0.06215580235157438,
+            0.05340696780538891
+          ],
+          "rmsTorque": [
+            0.05942641319249654,
+            0.03272484073067206
+          ],
+          "imbalance": 14.075652175961116,
+          "load": 1.8501879666666665,
+          "minLegAngle": 43.96758732323851,
+          "minOutputAngle": 57.24392082400744,
+          "minInputAngle": 27.452664362114,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 38.02772737696624,
+          "closureError": 6.156044012742064e-14,
+          "jacobianError": 3.091725986337224e-8
+        },
+        {
+          "height": 75,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            49.414902398037725,
+            113.16341292802483
+          ],
+          "speeds": [
+            385.65580980767123,
+            600.3674914139207
+          ],
+          "peakTorque": [
+            0.05515029876102815,
+            0.05013624966137724
+          ],
+          "rmsTorque": [
+            0.052922092443348084,
+            0.028436748656354784
+          ],
+          "imbalance": 9.091608227504436,
+          "load": 1.8501879666666665,
+          "minLegAngle": 49.336913145664454,
+          "minOutputAngle": 44.69069402177101,
+          "minInputAngle": 7.717002047472975,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 41.611051118473966,
+          "closureError": 6.514653997020136e-14,
+          "jacobianError": 3.731287456787413e-8
+        }
+      ]
+    },
+    "candidate": {
+      "g": {
+        "carrier": 30,
+        "crank": 30,
+        "rod": 52,
+        "pickup": 40,
+        "leg": 50,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "envelope": {
+        "samples": 622,
+        "complete": true,
+        "peak": [
+          0.06134627586853023,
+          0.06132788060994904
+        ],
+        "minOtherJointHeight": 6.8188988805656905
+      },
+      "benchmarks": [
+        {
+          "height": 65,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            57.555422986692356,
+            57.51284579496296
+          ],
+          "speeds": [
+            458.29515676719905,
+            429.7851988840876
+          ],
+          "peakTorque": [
+            0.047683244282248224,
+            0.047729158158997996
+          ],
+          "rmsTorque": [
+            0.03481861131703107,
+            0.03170327745822034
+          ],
+          "imbalance": 0.09619670348431617,
+          "load": 1.8501879666666665,
+          "minLegAngle": 46.82044657933843,
+          "minOutputAngle": 69.31917621066438,
+          "minInputAngle": 74.40409798177672,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 8.052096067482466,
+          "closureError": 4.1583447479068616e-14,
+          "jacobianError": 2.6745238912440072e-8
+        },
+        {
+          "height": 70,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            57.70275605247416,
+            58.104884694027
+          ],
+          "speeds": [
+            446.94137602218507,
+            419.31520825873577
+          ],
+          "peakTorque": [
+            0.042041107302527955,
+            0.04274401244131469
+          ],
+          "rmsTorque": [
+            0.03076718916229947,
+            0.027643593595732104
+          ],
+          "imbalance": 1.6444528686954414,
+          "load": 1.8501879666666665,
+          "minLegAngle": 53.801612491432294,
+          "minOutputAngle": 57.89829082670768,
+          "minInputAngle": 58.849074562936664,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 6.695795234456206,
+          "closureError": 5.17282919736354e-14,
+          "jacobianError": 2.9548374413934653e-8
+        },
+        {
+          "height": 75,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            64.42635037368223,
+            65.72688487711515
+          ],
+          "speeds": [
+            462.60592291155035,
+            434.9272417764879
+          ],
+          "peakTorque": [
+            0.030896973053847955,
+            0.03288464765850214
+          ],
+          "rmsTorque": [
+            0.02315724927159869,
+            0.021266762569091505
+          ],
+          "imbalance": 6.044384678515115,
+          "load": 1.8501879666666665,
+          "minLegAngle": 64.15807764057935,
+          "minOutputAngle": 37.31606251600908,
+          "minInputAngle": 31.744624754756003,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 3.7916642751321348,
+          "closureError": 6.394884621840902e-14,
+          "jacobianError": 2.423773182158584e-8
+        }
+      ]
+    },
+    "lowerTorque": {
+      "g": {
+        "carrier": 26,
+        "crank": 26,
+        "rod": 54,
+        "pickup": 36,
+        "leg": 50,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "envelope": {
+        "samples": 622,
+        "complete": true,
+        "peak": [
+          0.05516790321606813,
+          0.05545623854792708
+        ],
+        "minOtherJointHeight": 4.194755374616975
+      },
+      "benchmarks": [
+        {
+          "height": 65,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            63.66387402844503,
+            62.29933706927909
+          ],
+          "speeds": [
+            507.79609337521947,
+            487.14331936548257
+          ],
+          "peakTorque": [
+            0.04023681131149079,
+            0.04180935599536817
+          ],
+          "rmsTorque": [
+            0.029148232946443,
+            0.026286167948267443
+          ],
+          "imbalance": 3.7612267552066436,
+          "load": 1.8501879666666665,
+          "minLegAngle": 52.37448163664139,
+          "minOutputAngle": 61.961613910834075,
+          "minInputAngle": 77.76745605540887,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 6.255140772250037,
+          "closureError": 5.826883674891094e-14,
+          "jacobianError": 2.6064187252927695e-8
+        },
+        {
+          "height": 70,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            68.40123718326564,
+            62.980299273921894
+          ],
+          "speeds": [
+            511.63933889427716,
+            463.0368846787516
+          ],
+          "peakTorque": [
+            0.03088242101051486,
+            0.036263260475751694
+          ],
+          "rmsTorque": [
+            0.02360255457775495,
+            0.02253266480420266
+          ],
+          "imbalance": 14.83826714598612,
+          "load": 1.8501879666666665,
+          "minLegAngle": 61.64237296963591,
+          "minOutputAngle": 47.62862761672977,
+          "minInputAngle": 60.32812261457471,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 4.019384369249877,
+          "closureError": 6.355287432313019e-14,
+          "jacobianError": 3.272308291002446e-8
+        },
+        {
+          "height": 75,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 990,
+          "count": 1920,
+          "complete": false,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            68.32474279858997,
+            58.3661272247902
+          ],
+          "speeds": [
+            1970.9735569595116,
+            868.8800662373521
+          ],
+          "peakTorque": [
+            0.013426005923312938,
+            0.016569265206915953
+          ],
+          "rmsTorque": [
+            0.010579667110431233,
+            0.01090611213332088
+          ],
+          "imbalance": 18.970420500548386,
+          "load": 1.8501879666666665,
+          "minLegAngle": 78.52167262764394,
+          "minOutputAngle": 37.58841589055176,
+          "minInputAngle": 53.870182807583724,
+          "travelFits": true,
+          "torqueComplete": false,
+          "minOtherJointHeight": 4.892591368490358,
+          "closureError": 6.724396410628123e-14,
+          "jacobianError": 2.516223318593802e-8
+        }
+      ]
+    },
+    "shorterLeg": {
+      "g": {
+        "carrier": 30,
+        "crank": 30,
+        "rod": 52,
+        "pickup": 38,
+        "leg": 45,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "envelope": {
+        "samples": 622,
+        "complete": true,
+        "peak": [
+          0.05850613945338478,
+          0.05843184234490034
+        ],
+        "minOtherJointHeight": 3.0513734968988047
+      },
+      "benchmarks": [
+        {
+          "height": 65,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            60.055315543988414,
+            60.92133229759352
+          ],
+          "speeds": [
+            459.8683842548605,
+            440.75881608129595
+          ],
+          "peakTorque": [
+            0.0418520668373859,
+            0.0425619009003539
+          ],
+          "rmsTorque": [
+            0.030968629321291817,
+            0.027980554104606325
+          ],
+          "imbalance": 1.6677687038223967,
+          "load": 1.8501879666666665,
+          "minLegAngle": 51.38721653501373,
+          "minOutputAngle": 60.05854306260211,
+          "minInputAngle": 63.15892610288988,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 5.908860589499888,
+          "closureError": 4.973799150320701e-14,
+          "jacobianError": 2.370175700150412e-8
+        },
+        {
+          "height": 70,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            67.42533322138225,
+            67.30933934484108
+          ],
+          "speeds": [
+            470.47448068337246,
+            446.9606177988246
+          ],
+          "peakTorque": [
+            0.030717409258533335,
+            0.0328994459614178
+          ],
+          "rmsTorque": [
+            0.02318662687898521,
+            0.021751537551550442
+          ],
+          "imbalance": 6.632442094749578,
+          "load": 1.8501879666666665,
+          "minLegAngle": 62.73396023348208,
+          "minOutputAngle": 38.79376311037362,
+          "minInputAngle": 37.72777629927492,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 2.8156045002080674,
+          "closureError": 5.51529477954916e-14,
+          "jacobianError": 2.3547253036326765e-8
+        },
+        {
+          "height": 75,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 220,
+          "count": 1920,
+          "complete": false,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            61.89072046539499,
+            61.194083757848354
+          ],
+          "speeds": [
+            2210.367504761925,
+            1759.9661984538122
+          ],
+          "peakTorque": [
+            2.168753507670673e-18,
+            5.595026358471271e-18
+          ],
+          "rmsTorque": [
+            2.168753507670673e-18,
+            5.595026358471271e-18
+          ],
+          "imbalance": 61.23783216164791,
+          "load": 1.8501879666666665,
+          "minLegAngle": 90,
+          "minOutputAngle": 37.24615460918477,
+          "minInputAngle": 44.111552899952535,
+          "travelFits": true,
+          "torqueComplete": false,
+          "minOtherJointHeight": 5.793214699193868,
+          "closureError": 4.5496934130773415e-14,
+          "jacobianError": 2.3469247878438182e-8
+        }
+      ]
+    },
+    "minimumArms": {
+      "g": {
+        "carrier": 20,
+        "crank": 20,
+        "rod": 44,
+        "pickup": 32,
+        "leg": 55,
+        "shaftX": -12.500072202896149,
+        "shaftZ": 11.500026466861769,
+        "footAngle": 203.28375875845825,
+        "kneeBranch": 1,
+        "crankBranch": -1
+      },
+      "envelope": {
+        "samples": 622,
+        "complete": true,
+        "peak": [
+          0.04965899805463593,
+          0.05203003968658837
+        ],
+        "minOtherJointHeight": 3.1121198030838
+      },
+      "benchmarks": [
+        {
+          "height": 65,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            74.45142777434734,
+            68.73628664754362
+          ],
+          "speeds": [
+            618.967524029323,
+            540.5860184775606
+          ],
+          "peakTorque": [
+            0.03510173299808084,
+            0.03733467055475105
+          ],
+          "rmsTorque": [
+            0.024047654958622225,
+            0.022070807354822593
+          ],
+          "imbalance": 5.980868515755685,
+          "load": 1.8501879666666665,
+          "minLegAngle": 56.336360167077466,
+          "minOutputAngle": 54.046940619268184,
+          "minInputAngle": 58.250533759540616,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 5.4420064886300565,
+          "closureError": 4.973799150320701e-14,
+          "jacobianError": 2.4682048405111345e-8
+        },
+        {
+          "height": 70,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 1920,
+          "count": 1920,
+          "complete": true,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            83.87123761475311,
+            79.64758904880756
+          ],
+          "speeds": [
+            625.4857057340374,
+            529.405025812908
+          ],
+          "peakTorque": [
+            0.025513411443717268,
+            0.03035195622995156
+          ],
+          "rmsTorque": [
+            0.018899347156027965,
+            0.01823053552236656
+          ],
+          "imbalance": 15.941459422175818,
+          "load": 1.8501879666666665,
+          "minLegAngle": 65.38002356882645,
+          "minOutputAngle": 32.65291656377639,
+          "minInputAngle": 23.156960815981947,
+          "travelFits": true,
+          "torqueComplete": true,
+          "minOtherJointHeight": 2.8696047991718387,
+          "closureError": 5.859285502108464e-14,
+          "jacobianError": 2.8706830690339302e-8
+        },
+        {
+          "height": 75,
+          "stroke": 50,
+          "lift": 12,
+          "validCount": 219,
+          "count": 1920,
+          "complete": false,
+          "branchChanges": 0,
+          "singular": 0,
+          "ranges": [
+            76.26701862087124,
+            72.12644128956175
+          ],
+          "speeds": [
+            2974.408819373079,
+            2732.9472528475535
+          ],
+          "peakTorque": [
+            1.0709116995418005e-18,
+            5.1381633873707265e-18
+          ],
+          "rmsTorque": [
+            1.0709116995418005e-18,
+            5.1381633873707265e-18
+          ],
+          "imbalance": 79.1576947090855,
+          "load": 1.8501879666666665,
+          "minLegAngle": 90,
+          "minOutputAngle": 35.013746039994345,
+          "minInputAngle": 38.77639966360044,
+          "travelFits": true,
+          "torqueComplete": false,
+          "minOtherJointHeight": 6.684400437513119,
+          "closureError": 5.1237965343830035e-14,
+          "jacobianError": 2.0173722248273407e-8
+        }
+      ]
+    }
+  },
+  "widerCandidate": [
+    {
+      "height": 65,
+      "stroke": 40,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        48.49633876986043,
+        47.75630156594219
+      ],
+      "speeds": [
+        385.85474077468496,
+        361.5387983008878
+      ],
+      "peakTorque": [
+        0.04551506403389401,
+        0.04529390586724672
+      ],
+      "rmsTorque": [
+        0.03469307713256723,
+        0.031339128066592364
+      ],
+      "imbalance": 0.4859010337381795,
+      "load": 1.8501879666666665,
+      "minLegAngle": 49.165492993388675,
+      "minOutputAngle": 73.97762131571314,
+      "minInputAngle": 80.50899978669078,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 9.788668552601152,
+      "closureError": 4.2780337774645346e-14,
+      "jacobianError": 2.5953717397442233e-8
+    },
+    {
+      "height": 65,
+      "stroke": 50,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        57.555422986692356,
+        57.51284579496296
+      ],
+      "speeds": [
+        458.29515676719905,
+        429.7851988840876
+      ],
+      "peakTorque": [
+        0.047683244282248224,
+        0.047729158158997996
+      ],
+      "rmsTorque": [
+        0.03481861131703107,
+        0.03170327745822034
+      ],
+      "imbalance": 0.09619670348431617,
+      "load": 1.8501879666666665,
+      "minLegAngle": 46.82044657933843,
+      "minOutputAngle": 69.31917621066438,
+      "minInputAngle": 74.40409798177672,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 8.052096067482466,
+      "closureError": 4.1583447479068616e-14,
+      "jacobianError": 2.6745238912440072e-8
+    },
+    {
+      "height": 65,
+      "stroke": 60,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        67.1477039586772,
+        67.86326634747226
+      ],
+      "speeds": [
+        535.9797225514958,
+        501.9030434064267
+      ],
+      "peakTorque": [
+        0.04949195510245796,
+        0.04971504902472007
+      ],
+      "rmsTorque": [
+        0.03496041007318888,
+        0.03219384725024743
+      ],
+      "imbalance": 0.44874525247109265,
+      "load": 1.8501879666666665,
+      "minLegAngle": 45.18361356740927,
+      "minOutputAngle": 63.607595505459074,
+      "minInputAngle": 66.86649488051403,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 6.12260590917748,
+      "closureError": 4.2780337774645346e-14,
+      "jacobianError": 2.4049313651630655e-8
+    },
+    {
+      "height": 65,
+      "stroke": 70,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        77.52433478364956,
+        79.16791857920911
+      ],
+      "speeds": [
+        617.828183382889,
+        577.1709097771451
+      ],
+      "peakTorque": [
+        0.050833588755760994,
+        0.05123937874093421
+      ],
+      "rmsTorque": [
+        0.03511250638296973,
+        0.032827094750286875
+      ],
+      "imbalance": 0.7919494637608461,
+      "load": 1.8501879666666665,
+      "minLegAngle": 44.4417986912812,
+      "minOutputAngle": 56.41679069323459,
+      "minInputAngle": 57.26344238822208,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 3.9453843581598136,
+      "closureError": 5.0242958677880804e-14,
+      "jacobianError": 2.4944618814970454e-8
+    },
+    {
+      "height": 65,
+      "stroke": 82,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        92.2186341875111,
+        96.02489451842062
+      ],
+      "speeds": [
+        720.5513521618553,
+        671.1504347813433
+      ],
+      "peakTorque": [
+        0.0517398513524684,
+        0.05233192889075104
+      ],
+      "rmsTorque": [
+        0.035300765605205835,
+        0.033771136961542665
+      ],
+      "imbalance": 1.1313887158997606,
+      "load": 1.8501879666666665,
+      "minLegAngle": 44.42700558748206,
+      "minOutputAngle": 44.17289130187749,
+      "minInputAngle": 40.37631559901603,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 0.7662068962505089,
+      "closureError": 5.1237965343830035e-14,
+      "jacobianError": 2.7720329143221534e-8
+    },
+    {
+      "height": 70,
+      "stroke": 40,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        48.48708286148878,
+        47.923058401397554
+      ],
+      "speeds": [
+        379.10072721123015,
+        353.7484740006691
+      ],
+      "peakTorque": [
+        0.04063141130063042,
+        0.04060747094734959
+      ],
+      "rmsTorque": [
+        0.030772084620885688,
+        0.02714898703921067
+      ],
+      "imbalance": 0.058920801701179804,
+      "load": 1.8501879666666665,
+      "minLegAngle": 55.468847073671625,
+      "minOutputAngle": 63.52126435348862,
+      "minInputAngle": 66.26953983296815,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 8.569242458145368,
+      "closureError": 5.3290705182007514e-14,
+      "jacobianError": 2.341113969350772e-8
+    },
+    {
+      "height": 70,
+      "stroke": 50,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        57.70275605247416,
+        58.104884694027
+      ],
+      "speeds": [
+        446.94137602218507,
+        419.31520825873577
+      ],
+      "peakTorque": [
+        0.042041107302527955,
+        0.04274401244131469
+      ],
+      "rmsTorque": [
+        0.03076718916229947,
+        0.027643593595732104
+      ],
+      "imbalance": 1.6444528686954414,
+      "load": 1.8501879666666665,
+      "minLegAngle": 53.801612491432294,
+      "minOutputAngle": 57.89829082670768,
+      "minInputAngle": 58.849074562936664,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 6.695795234456206,
+      "closureError": 5.17282919736354e-14,
+      "jacobianError": 2.9548374413934653e-8
+    },
+    {
+      "height": 70,
+      "stroke": 60,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        68.09816191914203,
+        69.69739430194603
+      ],
+      "speeds": [
+        520.9565143211489,
+        489.67959224738377
+      ],
+      "peakTorque": [
+        0.04271587847991675,
+        0.04420543499821681
+      ],
+      "rmsTorque": [
+        0.030738628648106746,
+        0.028281021073260994
+      ],
+      "imbalance": 3.369623030200122,
+      "load": 1.8501879666666665,
+      "minLegAngle": 53.13015084029705,
+      "minOutputAngle": 50.40965067645611,
+      "minInputAngle": 48.834216676356505,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 4.501408415850406,
+      "closureError": 6.039613253960852e-14,
+      "jacobianError": 2.348450678368863e-8
+    },
+    {
+      "height": 70,
+      "stroke": 70,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        81.09406975456334,
+        85.14241249897852
+      ],
+      "speeds": [
+        600.4001071505063,
+        564.6889686151995
+      ],
+      "peakTorque": [
+        0.04273179458879137,
+        0.044696977475898736
+      ],
+      "rmsTorque": [
+        0.030663630002369373,
+        0.029037289989008078
+      ],
+      "imbalance": 4.396679592410959,
+      "load": 1.8501879666666665,
+      "minLegAngle": 53.130107747728424,
+      "minOutputAngle": 39.05298355264631,
+      "minInputAngle": 33.00875644248548,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 1.6853456465002097,
+      "closureError": 5.17282919736354e-14,
+      "jacobianError": 2.2408658484351918e-8
+    },
+    {
+      "height": 70,
+      "stroke": 82,
+      "lift": 12,
+      "validCount": 1705,
+      "count": 1920,
+      "complete": false,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        99.30921769710872,
+        104.70892149770391
+      ],
+      "speeds": [
+        2285.103900882717,
+        2320.1893775380636
+      ],
+      "peakTorque": [
+        0.04810737042558633,
+        0.04469698552493066
+      ],
+      "rmsTorque": [
+        0.03050352731384801,
+        0.02957647031118809
+      ],
+      "imbalance": 7.089111024953923,
+      "load": 1.8501879666666665,
+      "minLegAngle": 53.130102570048685,
+      "minOutputAngle": 21.85473506602981,
+      "minInputAngle": 3.180797980091395,
+      "travelFits": true,
+      "torqueComplete": false,
+      "minOtherJointHeight": -0.4423904616504899,
+      "closureError": 7.685694801574505e-14,
+      "jacobianError": 2.88073067622463e-8
+    },
+    {
+      "height": 75,
+      "stroke": 40,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        52.324777817465986,
+        51.73886191000201
+      ],
+      "speeds": [
+        394.65574679663655,
+        366.60221977944605
+      ],
+      "peakTorque": [
+        0.030896972931350263,
+        0.03223434546098934
+      ],
+      "rmsTorque": [
+        0.023503744087852635,
+        0.020543055434298282
+      ],
+      "imbalance": 4.148905493544438,
+      "load": 1.8501879666666665,
+      "minLegAngle": 64.28787823543271,
+      "minOutputAngle": 47.46530468338749,
+      "minInputAngle": 45.59481149173519,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 6.3877083373595696,
+      "closureError": 5.3290705182007514e-14,
+      "jacobianError": 2.6150116738676843e-8
+    },
+    {
+      "height": 75,
+      "stroke": 50,
+      "lift": 12,
+      "validCount": 1920,
+      "count": 1920,
+      "complete": true,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        64.42635037368223,
+        65.72688487711515
+      ],
+      "speeds": [
+        462.60592291155035,
+        434.9272417764879
+      ],
+      "peakTorque": [
+        0.030896973053847955,
+        0.03288464765850214
+      ],
+      "rmsTorque": [
+        0.02315724927159869,
+        0.021266762569091505
+      ],
+      "imbalance": 6.044384678515115,
+      "load": 1.8501879666666665,
+      "minLegAngle": 64.15807764057935,
+      "minOutputAngle": 37.31606251600908,
+      "minInputAngle": 31.744624754756003,
+      "travelFits": true,
+      "torqueComplete": true,
+      "minOtherJointHeight": 3.7916642751321348,
+      "closureError": 6.394884621840902e-14,
+      "jacobianError": 2.423773182158584e-8
+    },
+    {
+      "height": 75,
+      "stroke": 60,
+      "lift": 12,
+      "validCount": 1708,
+      "count": 1920,
+      "complete": false,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        78.04840109001198,
+        85.14439693545357
+      ],
+      "speeds": [
+        1504.5743479540743,
+        2664.4268811712896
+      ],
+      "peakTorque": [
+        0.03089697293135027,
+        0.03288464765850214
+      ],
+      "rmsTorque": [
+        0.022825930304852898,
+        0.021619327340312106
+      ],
+      "imbalance": 6.044385051022331,
+      "load": 1.8501879666666665,
+      "minLegAngle": 64.15806748511912,
+      "minOutputAngle": 20.643266955921664,
+      "minInputAngle": 4.892089389347328,
+      "travelFits": true,
+      "torqueComplete": false,
+      "minOtherJointHeight": 1.3860635540049486,
+      "closureError": 7.983731028902323e-14,
+      "jacobianError": 2.6150116738676843e-8
+    },
+    {
+      "height": 75,
+      "stroke": 70,
+      "lift": 12,
+      "validCount": 1460,
+      "count": 1920,
+      "complete": false,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        79.77862518226465,
+        87.63777023609225
+      ],
+      "speeds": [
+        1763.176334981214,
+        2953.138525013266
+      ],
+      "peakTorque": [
+        0.03089695661337867,
+        0.03288465727387103
+      ],
+      "rmsTorque": [
+        0.022826268481769284,
+        0.021620703997343508
+      ],
+      "imbalance": 6.044462145183167,
+      "load": 1.8501879666666665,
+      "minLegAngle": 64.15807219401637,
+      "minOutputAngle": 21.391950518773353,
+      "minInputAngle": 6.472455440403175,
+      "travelFits": true,
+      "torqueComplete": false,
+      "minOtherJointHeight": 1.4413277985552782,
+      "closureError": 6.550880341146756e-14,
+      "jacobianError": 2.3170396268312743e-8
+    },
+    {
+      "height": 75,
+      "stroke": 82,
+      "lift": 12,
+      "validCount": 1249,
+      "count": 1920,
+      "complete": false,
+      "branchChanges": 0,
+      "singular": 0,
+      "ranges": [
+        84.74165294936375,
+        90.0870791981619
+      ],
+      "speeds": [
+        2781.367476230568,
+        3109.70752416257
+      ],
+      "peakTorque": [
+        0.030896952513604727,
+        0.03288463967387132
+      ],
+      "rmsTorque": [
+        0.022823741822939555,
+        0.02162191853864838
+      ],
+      "imbalance": 6.044424326917354,
+      "load": 1.8501879666666665,
+      "minLegAngle": 64.15807491600593,
+      "minOutputAngle": 21.16836409224155,
+      "minInputAngle": 6.0100927016602474,
+      "travelFits": true,
+      "torqueComplete": false,
+      "minOtherJointHeight": 1.423629813385375,
+      "closureError": 7.324106877635579e-14,
+      "jacobianError": 2.687473710238919e-8
+    }
+  ],
+  "candidatePose": {
+    "ok": true,
+    "O": [
+      0,
+      0
+    ],
+    "C": [
+      -12.500072202896149,
+      11.500026466861769
+    ],
+    "D": [
+      18.557687223952254,
+      -23.571428571428573
+    ],
+    "E": [
+      -9.761388880360066,
+      -51.82085208055822
+    ],
+    "P": [
+      -36.119680623364935,
+      -6.9963001431362315
+    ],
+    "T": [
+      0,
+      -70
+    ],
+    "J": [
+      [
+        28.424938538859955,
+        16.617719718113843
+      ],
+      [
+        35.64609284430545,
+        -14.247887053304867
+      ]
+    ],
+    "alpha": -0.9038499822912325,
+    "theta": -2.477246827459333,
+    "closureBranch": 1,
+    "legAngle": 68.21321070173819,
+    "outputAngle": 75.52745840295077,
+    "inputAngle": 82.39269837182336
+  },
+  "interpretation": "External-force torque only. Equal assumed three-foot support, not measured load sharing between feet. Arm load sharing is evaluated, not guaranteed by equal lengths. Partial-path values are not valid cycle comparisons. No housing or horn collision model, motor curve, mass inertia, sole profile or whole-body stability simulation."
+}

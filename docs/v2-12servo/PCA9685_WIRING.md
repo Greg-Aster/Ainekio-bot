@@ -7,9 +7,14 @@ have different layouts.
 
 ## Image guides
 
+- [Current combined assembly image: LCD + servo board + IMU](Assembly_Reference.png)
+  · [connection table and sharing explanation](ASSEMBLY_REFERENCE.md)
 - [Full P4 pinout — PNG](ESP32P4_Pinout.png) · [editable SVG](ESP32P4_Pinout.svg)
 - [P4 → PCA9685 wiring — PNG](PCA9685_Wiring.png) · [editable SVG](PCA9685_Wiring.svg)
 - [P4 → 1.9-inch LCD wiring — PNG](LCD_Wiring.png) · [editable SVG](LCD_Wiring.svg) · [LCD instructions](LCD_FACE.md)
+
+The September pinout is a historical servo bring-up view. The combined guide
+supersedes its LCD allocations and explains shared 3V3 and GPIO7/8 I2C wiring.
 
 The pinout is an original vector illustration checked against Waveshare's
 [physical pinout](https://docs.waveshare.com/assets/images/ESP32-P4-WIFI6-details-inter-3472c9ea8e7f1e2665531f8d7e954e06.webp)
@@ -37,6 +42,12 @@ These GPIO assignments are defined in
 [`main/board.h`](../../Slave/firmware/esp32p4-wifi6/main/board.h).
 The source owns I²C controller 1 at 400 kHz, expects address `0x40`, and configures
 nominal 50 Hz PWM. The oscillator and actual waveforms have not been measured.
+The revised driver staggers channels 0–11 evenly across each PWM period, roughly
+1.67 ms between adjacent channel starts. OFF counts wrap modulo 4096 so pulse
+widths and calibration remain unchanged. All twelve targets still use one I²C
+frame write. Channels 12–15 stay off. Signal staggering does not establish that
+the MG90 motor-current peaks are staggered; that requires an electrical measurement.
+
 Do not use the header pins printed **SDA / SCL** (GPIO7/8): those belong to the
 onboard codec/camera bus. Use the pins printed **2 / 3** for this driver.
 

@@ -1,0 +1,655 @@
+{
+  "evidence": "Offline 50 Hz commanded positions; not measured motor speed, force or displacement. Calibration is saved robot mapping, bare Part027 geometry.",
+  "binaries": {
+    "before": "b49dfcdff9a5741fee1f3017e5fc8abcaac086a1a9f8ec5aa4b2f57422f7d9ae",
+    "after": "d6c7404dbee199241d8314be26a4c9bd076aa176ef54fc68af73bafbc2f38a27"
+  },
+  "cases": {
+    "walk/1": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20200.0,
+        "cycles_s": 6.2499999618375,
+        "median_fastest_joint_deg_s": 400.24780273365263,
+        "max_joint_deg_s": 547.9574079522487,
+        "pulse_range_us": [
+          676.7038320611832,
+          2623.0441605702313
+        ],
+        "sampled_lift_max_mm": [
+          4.40623518787,
+          4.40626666676,
+          6.02887747611,
+          6.02887235022
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20200.0,
+        "cycles_s": 6.2499999618375,
+        "median_fastest_joint_deg_s": 400.24780273365263,
+        "max_joint_deg_s": 547.9574079522487,
+        "pulse_range_us": [
+          676.7038320611832,
+          2623.0441605702313
+        ],
+        "sampled_lift_max_mm": [
+          4.40623518787,
+          4.40626666676,
+          6.02887747611,
+          6.02887235022
+        ]
+      }
+    },
+    "walk/25": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20220.0,
+        "cycles_s": 5.0386377328125,
+        "median_fastest_joint_deg_s": 485.64387512211,
+        "max_joint_deg_s": 557.5524597173035,
+        "pulse_range_us": [
+          633.8239508845933,
+          2666.1738247233534
+        ],
+        "sampled_lift_max_mm": [
+          6.9996528066,
+          6.99984913945,
+          6.99999912331,
+          6.99915825979
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20220.0,
+        "cycles_s": 5.0386377328125,
+        "median_fastest_joint_deg_s": 485.64387512211,
+        "max_joint_deg_s": 557.5524597173035,
+        "pulse_range_us": [
+          633.8239508845933,
+          2666.1738247233534
+        ],
+        "sampled_lift_max_mm": [
+          6.9996528066,
+          6.99984913945,
+          6.99999912331,
+          6.99915825979
+        ]
+      }
+    },
+    "walk/50": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20220.0,
+        "cycles_s": 3.5100967969,
+        "median_fastest_joint_deg_s": 529.7000732418273,
+        "max_joint_deg_s": 555.094970704214,
+        "pulse_range_us": [
+          571.7679636685859,
+          2728.2301917135983
+        ],
+        "sampled_lift_max_mm": [
+          7.99869451836,
+          7.99816408913,
+          7.99919096167,
+          7.99997800601
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20220.0,
+        "cycles_s": 3.5100967969,
+        "median_fastest_joint_deg_s": 529.7000732418273,
+        "max_joint_deg_s": 555.094970704214,
+        "pulse_range_us": [
+          571.7679636685859,
+          2728.2301917135983
+        ],
+        "sampled_lift_max_mm": [
+          7.99869451836,
+          7.99816408913,
+          7.99919096167,
+          7.99997800601
+        ]
+      }
+    },
+    "walk/100": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20300.0,
+        "cycles_s": 2.0249038880124997,
+        "median_fastest_joint_deg_s": 544.9668579098509,
+        "max_joint_deg_s": 552.8513183586606,
+        "pulse_range_us": [
+          484.4419578832171,
+          2809.216136976024
+        ],
+        "sampled_lift_max_mm": [
+          9.97588447876,
+          9.9758856099,
+          9.9435832628,
+          9.94359187926
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20300.0,
+        "cycles_s": 2.0249038880124997,
+        "median_fastest_joint_deg_s": 544.9668579098509,
+        "max_joint_deg_s": 552.8513183586606,
+        "pulse_range_us": [
+          484.4419578832171,
+          2809.216136976024
+        ],
+        "sampled_lift_max_mm": [
+          9.97588447876,
+          9.9758856099,
+          9.9435832628,
+          9.94359187926
+        ]
+      }
+    },
+    "run/1": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 26940.0,
+        "cycles_s": 0.5555555555525001,
+        "median_fastest_joint_deg_s": 16.266113280666076,
+        "max_joint_deg_s": 23.381103515781014,
+        "pulse_range_us": [
+          898.351637191348,
+          2401.648362808652
+        ],
+        "sampled_lift_max_mm": [
+          5.11769515305,
+          5.11769515305,
+          5.11769515305,
+          5.11769515305
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20180.0,
+        "cycles_s": 20.33000681575,
+        "median_fastest_joint_deg_s": 236.33036804154824,
+        "max_joint_deg_s": 345.7353210435738,
+        "pulse_range_us": [
+          898.351637191348,
+          2401.64806441479
+        ],
+        "sampled_lift_max_mm": [
+          4.98481318925,
+          4.98481318925,
+          5.04631888119,
+          5.04631888119
+        ]
+      }
+    },
+    "run/25": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 26940.0,
+        "cycles_s": 0.5555555555525001,
+        "median_fastest_joint_deg_s": 35.67817687971822,
+        "max_joint_deg_s": 53.92364502139555,
+        "pulse_range_us": [
+          750.2647287777668,
+          2549.7349728283716
+        ],
+        "sampled_lift_max_mm": [
+          7.9431319655,
+          7.9431319655,
+          7.9431319655,
+          7.9431319655
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20260.0,
+        "cycles_s": 12.670039290124999,
+        "median_fastest_joint_deg_s": 431.32678222578477,
+        "max_joint_deg_s": 546.0900268567758,
+        "pulse_range_us": [
+          830.0232706572303,
+          2469.9769734838965
+        ],
+        "sampled_lift_max_mm": [
+          6.47070645378,
+          6.47070645378,
+          6.4710438204,
+          6.4710438204
+        ]
+      }
+    },
+    "run/50": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 26940.0,
+        "cycles_s": 0.5555555555525001,
+        "median_fastest_joint_deg_s": 68.01300048936884,
+        "max_joint_deg_s": 87.5227050772517,
+        "pulse_range_us": [
+          583.2913464755981,
+          2716.7087620317816
+        ],
+        "sampled_lift_max_mm": [
+          10.8862953118,
+          10.8862953118,
+          10.8862953118,
+          10.8862953118
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20340.0,
+        "cycles_s": 7.693047514137499,
+        "median_fastest_joint_deg_s": 526.6157836922487,
+        "max_joint_deg_s": 546.1125488276047,
+        "pulse_range_us": [
+          750.0728613807262,
+          2549.9273556333965
+        ],
+        "sampled_lift_max_mm": [
+          7.90491380692,
+          7.90491380692,
+          7.66195558404,
+          7.66195558404
+        ]
+      }
+    },
+    "run/100": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 24980.0,
+        "cycles_s": 1.1111111111125,
+        "median_fastest_joint_deg_s": 135.22949218624964,
+        "max_joint_deg_s": 174.9757690453195,
+        "pulse_range_us": [
+          584.1454046026381,
+          2715.8547581581133
+        ],
+        "sampled_lift_max_mm": [
+          10.8858643076,
+          10.8858643076,
+          10.8477528876,
+          10.8477528876
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20540.0,
+        "cycles_s": 4.2169938827125,
+        "median_fastest_joint_deg_s": 544.955902100236,
+        "max_joint_deg_s": 546.299743653238,
+        "pulse_range_us": [
+          582.8460882454959,
+          2717.153911754504
+        ],
+        "sampled_lift_max_mm": [
+          10.8861451128,
+          10.8861451128,
+          10.8848040433,
+          10.8848040433
+        ]
+      }
+    },
+    "run/200": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 23940.0,
+        "cycles_s": 2.2222222222249997,
+        "median_fastest_joint_deg_s": 320.48657226471386,
+        "max_joint_deg_s": 400.9539794914717,
+        "pulse_range_us": [
+          517.3633975983372,
+          2782.636439637092
+        ],
+        "sampled_lift_max_mm": [
+          11.9997894832,
+          11.9997894832,
+          11.9536730011,
+          11.9536730011
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20560.0,
+        "cycles_s": 3.5744810723375,
+        "median_fastest_joint_deg_s": 545.1008300785593,
+        "max_joint_deg_s": 545.6447753894026,
+        "pulse_range_us": [
+          516.7998125547971,
+          2783.2005672207138
+        ],
+        "sampled_lift_max_mm": [
+          11.7564025158,
+          11.7564025158,
+          11.7588976463,
+          11.7588976463
+        ]
+      }
+    },
+    "crawl/1": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 21800.0,
+        "cycles_s": 0.5555555555562499,
+        "median_fastest_joint_deg_s": 68.08227538971322,
+        "max_joint_deg_s": 95.72241210883163,
+        "pulse_range_us": [
+          622.2077590271888,
+          2677.19558843533
+        ],
+        "sampled_lift_max_mm": [
+          5.05896750498,
+          5.05896750498,
+          5.04349272177,
+          5.04349272177
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20240.0,
+        "cycles_s": 5.0092400283875,
+        "median_fastest_joint_deg_s": 507.2056274401891,
+        "max_joint_deg_s": 548.2817993175473,
+        "pulse_range_us": [
+          624.5552253004649,
+          2675.5675638659927
+        ],
+        "sampled_lift_max_mm": [
+          5.02776306238,
+          5.00425171527,
+          5.027701083,
+          5.01530248794
+        ]
+      }
+    },
+    "crawl/25": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 21800.0,
+        "cycles_s": 0.5555555555562499,
+        "median_fastest_joint_deg_s": 91.40429687562357,
+        "max_joint_deg_s": 150.21429443208106,
+        "pulse_range_us": [
+          571.0851616930522,
+          2725.7833059564723
+        ],
+        "sampled_lift_max_mm": [
+          6.4986736724,
+          6.4986736724,
+          6.47879499833,
+          6.47879499833
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20240.0,
+        "cycles_s": 4.0954297116,
+        "median_fastest_joint_deg_s": 531.5932617197172,
+        "max_joint_deg_s": 548.2879638650031,
+        "pulse_range_us": [
+          608.0225246502598,
+          2691.975657858292
+        ],
+        "sampled_lift_max_mm": [
+          5.74994599413,
+          5.73421708762,
+          5.74843532619,
+          5.7497322077
+        ]
+      }
+    },
+    "crawl/50": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 21800.0,
+        "cycles_s": 0.5555555555562499,
+        "median_fastest_joint_deg_s": 120.18469715130375,
+        "max_joint_deg_s": 214.69267272884588,
+        "pulse_range_us": [
+          450.8481006613263,
+          2846.651899438489
+        ],
+        "sampled_lift_max_mm": [
+          7.9983675968,
+          7.9983675968,
+          7.9739015364,
+          7.9739015364
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20300.0,
+        "cycles_s": 3.2592251433749997,
+        "median_fastest_joint_deg_s": 544.5078735353641,
+        "max_joint_deg_s": 548.9327392583648,
+        "pulse_range_us": [
+          574.1864748608241,
+          2728.1633514382524
+        ],
+        "sampled_lift_max_mm": [
+          6.31910718498,
+          6.31912554501,
+          6.4785266346,
+          6.47852246461
+        ]
+      }
+    },
+    "crawl/100": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 21600.0,
+        "cycles_s": 1.111111111115,
+        "median_fastest_joint_deg_s": 243.70483398417377,
+        "max_joint_deg_s": 428.1169509894443,
+        "pulse_range_us": [
+          454.74887090871016,
+          2840.055599773157
+        ],
+        "sampled_lift_max_mm": [
+          7.97309739462,
+          7.9425270083,
+          7.99856130265,
+          7.86652534387
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20360.0,
+        "cycles_s": 2.1896445739875,
+        "median_fastest_joint_deg_s": 545.1201171872588,
+        "max_joint_deg_s": 547.9741210932888,
+        "pulse_range_us": [
+          451.39003857078364,
+          2848.7845490920854
+        ],
+        "sampled_lift_max_mm": [
+          7.99875606031,
+          7.99890151424,
+          7.99942146858,
+          7.9994710069
+        ]
+      }
+    },
+    "crab/1": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 22800.0,
+        "cycles_s": 0.41666666666625,
+        "median_fastest_joint_deg_s": 36.61801147661486,
+        "max_joint_deg_s": 77.95025634821715,
+        "pulse_range_us": [
+          625.374235685821,
+          2675.343090133444
+        ],
+        "sampled_lift_max_mm": [
+          8.12,
+          8.12,
+          8.12,
+          8.12
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20340.0,
+        "cycles_s": 6.0410845788500005,
+        "median_fastest_joint_deg_s": 327.45056152267875,
+        "max_joint_deg_s": 553.8163452142384,
+        "pulse_range_us": [
+          626.3239426807032,
+          2673.9368266236215
+        ],
+        "sampled_lift_max_mm": [
+          7.75729501254,
+          7.75391202252,
+          7.9643064495,
+          7.96460946165
+        ]
+      }
+    },
+    "crab/25": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 22800.0,
+        "cycles_s": 0.41666666666625,
+        "median_fastest_joint_deg_s": 69.37524414183923,
+        "max_joint_deg_s": 142.14306640510372,
+        "pulse_range_us": [
+          571.2237521830998,
+          2736.7701711230593
+        ],
+        "sampled_lift_max_mm": [
+          11,
+          11,
+          11,
+          11
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20400.0,
+        "cycles_s": 4.68750087635,
+        "median_fastest_joint_deg_s": 439.7723388669783,
+        "max_joint_deg_s": 553.1244583128872,
+        "pulse_range_us": [
+          604.9770061034535,
+          2692.770986603994
+        ],
+        "sampled_lift_max_mm": [
+          9.42685785428,
+          9.42684490643,
+          9.39525670078,
+          9.39527396886
+        ]
+      }
+    },
+    "crab/50": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 22800.0,
+        "cycles_s": 0.41666666666625,
+        "median_fastest_joint_deg_s": 134.51855468630092,
+        "max_joint_deg_s": 215.45762634202484,
+        "pulse_range_us": [
+          421.335352222352,
+          2878.6643765139734
+        ],
+        "sampled_lift_max_mm": [
+          14,
+          14,
+          14,
+          14
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20480.0,
+        "cycles_s": 3.2778002592249997,
+        "median_fastest_joint_deg_s": 531.6170654289328,
+        "max_joint_deg_s": 570.2907714846078,
+        "pulse_range_us": [
+          563.1493981068749,
+          2728.969932705389
+        ],
+        "sampled_lift_max_mm": [
+          10.9255306638,
+          10.999215521,
+          10.9574936741,
+          10.9998438532
+        ]
+      }
+    },
+    "crab/100": {
+      "before": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 22160.0,
+        "cycles_s": 0.83333333333625,
+        "median_fastest_joint_deg_s": 254.5515136713263,
+        "max_joint_deg_s": 429.23163604601865,
+        "pulse_range_us": [
+          422.96805614991933,
+          2877.031618327305
+        ],
+        "sampled_lift_max_mm": [
+          13.9956646916,
+          13.9956646916,
+          13.9956646916,
+          13.9956646916
+        ]
+      },
+      "after": {
+        "completed": true,
+        "all_feet_grounded_at_finish": true,
+        "finish_ms": 20640.0,
+        "cycles_s": 1.8314261569749997,
+        "median_fastest_joint_deg_s": 543.8799438488892,
+        "max_joint_deg_s": 585.940803528584,
+        "pulse_range_us": [
+          424.7038416744202,
+          2876.4173605417895
+        ],
+        "sampled_lift_max_mm": [
+          13.9995650962,
+          13.9999998892,
+          13.9934559877,
+          13.9960817477
+        ]
+      }
+    }
+  }
+}

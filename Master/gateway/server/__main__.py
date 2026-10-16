@@ -148,6 +148,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--vision-yolo-weights", default=os.environ.get("AINEKIO_VISION_YOLO_WEIGHTS"), help="Explicit local YOLO .pt file; optional offline detector instead of the configured URL")
     parser.add_argument("--vision-yolo-device", default=os.environ.get("AINEKIO_VISION_YOLO_DEVICE", "cpu"))
     parser.add_argument("--vision-yolo-image-size", type=int, default=os.environ.get("AINEKIO_VISION_YOLO_IMAGE_SIZE", "640"))
+    parser.add_argument("--vision-yolo-tracker", default=os.environ.get("AINEKIO_VISION_YOLO_TRACKER"),
+                        help="Optional ByteTrack YAML settings (for example bytetrack.yaml); requires lap")
+    parser.add_argument("--vision-yolo-text-encoder", default=os.environ.get("AINEKIO_VISION_YOLO_TEXT_ENCODER"),
+                        help="Existing local MobileCLIP TorchScript encoder for prompted YOLOE text search")
     parser.add_argument("--vision-face-detector", default=os.environ.get("AINEKIO_VISION_FACE_DETECTOR"), help="Local YuNet ONNX file for enrolled people")
     parser.add_argument("--vision-face-recognizer", default=os.environ.get("AINEKIO_VISION_FACE_RECOGNIZER"), help="Local SFace ONNX file; no automatic downloads")
     parser.add_argument("--vision-timeout-s", type=float, default=2.0)
@@ -257,7 +261,8 @@ async def _run_production(args: argparse.Namespace) -> None:
         timeout_s=args.vision_timeout_s, api_key=os.environ.get("AINEKIO_VISION_API_KEY", "")) if args.vision_url else None
     if yolo_weights:
         from gateway.yolo_backend import YoloBackend
-        backend = YoloBackend(yolo_weights, device=args.vision_yolo_device, image_size=args.vision_yolo_image_size)
+        backend = YoloBackend(yolo_weights, device=args.vision_yolo_device, image_size=args.vision_yolo_image_size,
+                              tracker=args.vision_yolo_tracker, text_encoder=args.vision_yolo_text_encoder)
 
     args.data_dir.mkdir(parents=True, exist_ok=True)
     face_detector, face_recognizer = getattr(args, "vision_face_detector", None), getattr(args, "vision_face_recognizer", None)
@@ -283,7 +288,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         lambda command: audit_log.record("gateway_command", **_audit_fields(command))
     )
     service.subscribe_events(
-        lambda event: audit_log.record("body_event", **_audit_fields(event))
+        lambda event: audit_log.record("body_event", **_audit_fields(event)) if event.get("t") != "imu" else None
     )
     service.subscribe_diagnostics(
         lambda diagnostic: audit_log.record(str(diagnostic["event"]), **_audit_fields(diagnostic))
@@ -322,12 +327,16 @@ async def _run_production(args: argparse.Namespace) -> None:
     async def publish_recognition(analysis):
         await adapter.publish_camera_analysis(analysis, max_frame_age_s=args.vision_max_frame_age_s)
 
-    camera = CameraFramePlugin(service, backend, observe=publish_recognition,
-        max_frame_age_s=args.vision_max_frame_age_s) if backend else None
-    adapter.recognition_status = camera.metrics if camera is not None else None
+    camera = CameraFramePlugin(service, backend, observe=publish_recognition if backend else None,
+        max_frame_age_s=args.vision_max_frame_age_s)
+    adapter.recognition_status = camera.metrics if backend is not None else None
+    adapter.vision_operation = camera.configure_vision if backend is not None else None
     dashboard.camera_recognition = camera
     if camera is not None:
-        camera.set_enabled(dashboard.control_settings["recognition"])
+        camera.set_enabled(bool(backend) and dashboard.control_settings["recognition"])
+        await camera.restore_ground_plane(dashboard.control_settings.get("ground_calibrations", {}))
+        adapter.locomotion_measurement = camera.locomotion_measurement
+        adapter.selected_ground_range = camera.selected_ground_range
     service.subscribe_events(dashboard.restore_camera)
 
     async def route(websocket: object, path: str) -> None:
@@ -390,14 +399,11 @@ async def _run_production(args: argparse.Namespace) -> None:
                 await asyncio.gather(*established)
     finally:
         signal.signal(signal.SIGTERM, previous_sigterm)
-        try:
-            if camera is not None:
-                await camera.aclose()
-            await asyncio.to_thread(dashboard.shutdown)
-            dashboard.server_close()
-            dashboard_thread.join(timeout=2.0)
-        finally:
-            await hotspot.close()
+        if camera is not None:
+            await camera.aclose()
+        await asyncio.to_thread(dashboard.shutdown)
+        dashboard.server_close()
+        dashboard_thread.join(timeout=2.0)
 
 
 def _seed_environment_token(token_store: RobotTokenStore) -> None:

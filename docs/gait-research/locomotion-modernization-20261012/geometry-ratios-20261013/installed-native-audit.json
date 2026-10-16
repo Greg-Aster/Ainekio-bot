@@ -1,0 +1,2913 @@
+{
+  "scope": "Native firmware targets; independent bare Part027 forward geometry; external support forces from assumed centered 566 g COM at original z65 mm. Uniform four-contact least squares load split. Does not include link/gear inertia or verify physical tracking.",
+  "reports": [
+    {
+      "speed": 1,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        681.681893071064,
+        2618.3159819812627
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 54.02922115009518,
+      "loaded_input_min_deg": 43.76529186549819,
+      "loaded_output_min_deg": 59.3578121439085,
+      "peak_joint_speed_deg_s_steady": [
+        20.02347561879756,
+        82.10092288103615,
+        46.9968241300459
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15150513905585328
+      ],
+      "support_margin_mm": 0.6268586100476092,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10209659976137578,
+        0.055393671148620476
+      ]
+    },
+    {
+      "speed": 2,
+      "samples": 1862,
+      "complete": true,
+      "pulse_span_us": [
+        680.4996632171216,
+        2619.50094391124
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.999437800697415,
+      "loaded_input_min_deg": 43.71500356031051,
+      "loaded_output_min_deg": 59.29613091246085,
+      "peak_joint_speed_deg_s_steady": [
+        20.220730848362255,
+        84.18481359726484,
+        47.83283928497005
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149250987140483
+      ],
+      "support_margin_mm": 0.6643620601376359,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10196729443139677,
+        0.05524742005020409
+      ]
+    },
+    {
+      "speed": 3,
+      "samples": 1892,
+      "complete": true,
+      "pulse_span_us": [
+        679.3115138649977,
+        2620.68924504434
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.969504134690425,
+      "loaded_input_min_deg": 43.66443378962562,
+      "loaded_output_min_deg": 59.23403454828501,
+      "peak_joint_speed_deg_s_steady": [
+        20.41788819410584,
+        86.29124393457371,
+        48.67978274467037
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15147216711958933
+      ],
+      "support_margin_mm": 0.6469271226298687,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10193698882856242,
+        0.05526604883398507
+      ]
+    },
+    {
+      "speed": 4,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        678.11698967049,
+        2621.8951528878256
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.93943324145323,
+      "loaded_input_min_deg": 43.61380283891403,
+      "loaded_output_min_deg": 59.17141955093526,
+      "peak_joint_speed_deg_s_steady": [
+        20.615285163465344,
+        88.41816484406503,
+        49.53458091716115
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149409802815228
+      ],
+      "support_margin_mm": 0.6510176314760159,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10185797925734165,
+        0.05520345114663523
+      ]
+    },
+    {
+      "speed": 5,
+      "samples": 1862,
+      "complete": true,
+      "pulse_span_us": [
+        676.9179120161368,
+        2623.3370058221403
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.909204706146234,
+      "loaded_input_min_deg": 43.5627259697055,
+      "loaded_output_min_deg": 59.108344966419835,
+      "peak_joint_speed_deg_s_steady": [
+        20.81266970972867,
+        90.59358009632268,
+        50.396209282285845
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149172506533404
+      ],
+      "support_margin_mm": 0.6907855481394662,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10177775557651504,
+        0.055138670275979566
+      ]
+    },
+    {
+      "speed": 6,
+      "samples": 1851,
+      "complete": true,
+      "pulse_span_us": [
+        675.713977338712,
+        2624.770358964488
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.87883905807377,
+      "loaded_input_min_deg": 43.5114374872261,
+      "loaded_output_min_deg": 59.044656445923074,
+      "peak_joint_speed_deg_s_steady": [
+        21.010563351871166,
+        92.7881198747763,
+        51.267741420570005
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15150191118185585
+      ],
+      "support_margin_mm": 0.6790180502607512,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10172235088397669,
+        0.0551151819106766
+      ]
+    },
+    {
+      "speed": 7,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        674.5060963291661,
+        2625.4956491638386
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.84833459147275,
+      "loaded_input_min_deg": 43.45990952451561,
+      "loaded_output_min_deg": 58.98058620321517,
+      "peak_joint_speed_deg_s_steady": [
+        21.209654361549116,
+        95.0065653174119,
+        52.14746978600311
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1515099295293716
+      ],
+      "support_margin_mm": 0.6984058063803573,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10163949936198298,
+        0.055045690137893774
+      ]
+    },
+    {
+      "speed": 8,
+      "samples": 1862,
+      "complete": true,
+      "pulse_span_us": [
+        673.2932065142991,
+        2626.7062622487824
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.81782759629951,
+      "loaded_input_min_deg": 43.40832778749065,
+      "loaded_output_min_deg": 58.91611843807443,
+      "peak_joint_speed_deg_s_steady": [
+        21.408896449109005,
+        97.21954660766767,
+        53.03710192459078
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514873207383154
+      ],
+      "support_margin_mm": 0.7773663499823655,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1014980561387629,
+        0.054878177861727724
+      ]
+    },
+    {
+      "speed": 9,
+      "samples": 1847,
+      "complete": true,
+      "pulse_span_us": [
+        672.0699955249274,
+        2627.9300044750726
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.78694124150758,
+      "loaded_input_min_deg": 43.35618472642596,
+      "loaded_output_min_deg": 58.85095220016827,
+      "peak_joint_speed_deg_s_steady": [
+        21.608487383257167,
+        99.53088262372626,
+        54.2620963504655
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149933299111495
+      ],
+      "support_margin_mm": 0.6915099768431361,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10140731267561899,
+        0.05479515465101351
+      ]
+    },
+    {
+      "speed": 10,
+      "samples": 1877,
+      "complete": true,
+      "pulse_span_us": [
+        670.8443560240202,
+        2629.155795757593
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.756011481282535,
+      "loaded_input_min_deg": 43.30388579242508,
+      "loaded_output_min_deg": 58.78526135331783,
+      "peak_joint_speed_deg_s_steady": [
+        21.807872878143392,
+        101.83675448737937,
+        56.43033990432558
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148215474674043
+      ],
+      "support_margin_mm": 0.7119396290722335,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10138246699133013,
+        0.05482220836672642
+      ]
+    },
+    {
+      "speed": 11,
+      "samples": 1863,
+      "complete": true,
+      "pulse_span_us": [
+        669.4701978539382,
+        2630.385305699178
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.72493763622904,
+      "loaded_input_min_deg": 43.251418572925225,
+      "loaded_output_min_deg": 58.71919684734168,
+      "peak_joint_speed_deg_s_steady": [
+        22.007356090067763,
+        104.17199616476407,
+        58.628294777663626
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148437783585056
+      ],
+      "support_margin_mm": 0.726474573180667,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10129907924661077,
+        0.05475116927030696
+      ]
+    },
+    {
+      "speed": 12,
+      "samples": 1848,
+      "complete": true,
+      "pulse_span_us": [
+        667.7555926998151,
+        2631.6227841951754
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.69375770330132,
+      "loaded_input_min_deg": 43.19863006347513,
+      "loaded_output_min_deg": 58.652572807296536,
+      "peak_joint_speed_deg_s_steady": [
+        22.206742251933164,
+        106.53046048619794,
+        60.864498711987274
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148826702730922
+      ],
+      "support_margin_mm": 0.7347956042248498,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10119865009104059,
+        0.054651510947654955
+      ]
+    },
+    {
+      "speed": 13,
+      "samples": 1840,
+      "complete": true,
+      "pulse_span_us": [
+        666.0796160591187,
+        2632.8629947665704
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.66240200640574,
+      "loaded_input_min_deg": 43.145718092100665,
+      "loaded_output_min_deg": 58.585481165167096,
+      "peak_joint_speed_deg_s_steady": [
+        22.406279825233735,
+        108.91419650349259,
+        63.13178000603156
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149762637454067
+      ],
+      "support_margin_mm": 0.73195602407392,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10113786930107485,
+        0.054618080933776576
+      ]
+    },
+    {
+      "speed": 14,
+      "samples": 1863,
+      "complete": true,
+      "pulse_span_us": [
+        665.8887502174525,
+        2634.1112497825475
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.630942160026905,
+      "loaded_input_min_deg": 43.09238993207766,
+      "loaded_output_min_deg": 58.51776110567029,
+      "peak_joint_speed_deg_s_steady": [
+        22.605806059353796,
+        111.34164573701621,
+        65.42399149301777
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149708879303603
+      ],
+      "support_margin_mm": 0.7322352791094602,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10107026407313989,
+        0.054573079195943265
+      ]
+    },
+    {
+      "speed": 15,
+      "samples": 1848,
+      "complete": true,
+      "pulse_span_us": [
+        664.6444415323232,
+        2635.371723248283
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.599285144879964,
+      "loaded_input_min_deg": 43.039201368313506,
+      "loaded_output_min_deg": 58.44961280103731,
+      "peak_joint_speed_deg_s_steady": [
+        22.805373648133088,
+        113.78207232422493,
+        67.76401430266453
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15150754682302647
+      ],
+      "support_margin_mm": 0.7210794115081995,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10097524257750529,
+        0.054482006937530136
+      ]
+    },
+    {
+      "speed": 16,
+      "samples": 1836,
+      "complete": true,
+      "pulse_span_us": [
+        663.3781244604858,
+        2636.6205095018154
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.56752097276759,
+      "loaded_input_min_deg": 42.9849729411917,
+      "loaded_output_min_deg": 58.38092476798756,
+      "peak_joint_speed_deg_s_steady": [
+        23.006435674024516,
+        116.26279703565268,
+        70.13067485125742
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148817027904826
+      ],
+      "support_margin_mm": 0.7227439264688513,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10089391081652882,
+        0.054413721942202904
+      ]
+    },
+    {
+      "speed": 17,
+      "samples": 1864,
+      "complete": true,
+      "pulse_span_us": [
+        662.1152224832143,
+        2637.8862953367343
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.53565505532962,
+      "loaded_input_min_deg": 42.931014268262345,
+      "loaded_output_min_deg": 58.31164909787665,
+      "peak_joint_speed_deg_s_steady": [
+        23.21504459241855,
+        118.74761985349332,
+        72.52704672219292
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148965584963392
+      ],
+      "support_margin_mm": 0.7526355990993281,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10081087168881747,
+        0.05434237885596839
+      ]
+    },
+    {
+      "speed": 18,
+      "samples": 1849,
+      "complete": true,
+      "pulse_span_us": [
+        660.8492089746026,
+        2639.4054052991755
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.503614915163794,
+      "loaded_input_min_deg": 42.87675038290604,
+      "loaded_output_min_deg": 58.24199536440619,
+      "peak_joint_speed_deg_s_steady": [
+        23.424208463695475,
+        121.29937852591058,
+        74.96679029214371
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148550224171264
+      ],
+      "support_margin_mm": 0.7458180436224353,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10072090982113095,
+        0.05425929667012874
+      ]
+    },
+    {
+      "speed": 19,
+      "samples": 1835,
+      "complete": true,
+      "pulse_span_us": [
+        659.5716600360367,
+        2641.4284314406254
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.47142686737854,
+      "loaded_input_min_deg": 42.822139895217475,
+      "loaded_output_min_deg": 58.171646808184214,
+      "peak_joint_speed_deg_s_steady": [
+        23.6334256956757,
+        123.86069946572285,
+        77.43692820455978
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149747560674598
+      ],
+      "support_margin_mm": 0.7825297494619861,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1006496237230213,
+        0.054361448769210424
+      ]
+    },
+    {
+      "speed": 20,
+      "samples": 1865,
+      "complete": true,
+      "pulse_span_us": [
+        658.3127043902497,
+        2641.6875232828065
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.439124133571184,
+      "loaded_input_min_deg": 42.76821624854441,
+      "loaded_output_min_deg": 58.10180284903237,
+      "peak_joint_speed_deg_s_steady": [
+        23.840636559522952,
+        126.26356001493336,
+        79.90877366585038
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15147863499904446
+      ],
+      "support_margin_mm": 1.1639025385346322,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1003974773731397,
+        0.0545467189198898
+      ]
+    },
+    {
+      "speed": 21,
+      "samples": 1850,
+      "complete": true,
+      "pulse_span_us": [
+        657.0061650929573,
+        2642.994214362348
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.40663041771124,
+      "loaded_input_min_deg": 42.71228116149898,
+      "loaded_output_min_deg": 58.029500567708325,
+      "peak_joint_speed_deg_s_steady": [
+        24.05325287794883,
+        129.0762319158887,
+        82.47658328393764
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514832465861886
+      ],
+      "support_margin_mm": 0.7898875410569275,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10046048030302072,
+        0.05473568602374051
+      ]
+    },
+    {
+      "speed": 22,
+      "samples": 1836,
+      "complete": true,
+      "pulse_span_us": [
+        655.7092639516383,
+        2644.282236257668
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.37402359457556,
+      "loaded_input_min_deg": 42.657051716675944,
+      "loaded_output_min_deg": 57.957562044168476,
+      "peak_joint_speed_deg_s_steady": [
+        24.263419933294333,
+        131.72634531409994,
+        85.04370988475937
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149055829617275
+      ],
+      "support_margin_mm": 0.7699469933073146,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10040384158527739,
+        0.05492345917663002
+      ]
+    },
+    {
+      "speed": 23,
+      "samples": 1826,
+      "complete": true,
+      "pulse_span_us": [
+        654.4189653263954,
+        2645.58262838436
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.341308383448464,
+      "loaded_input_min_deg": 42.601242825706905,
+      "loaded_output_min_deg": 57.885074443147815,
+      "peak_joint_speed_deg_s_steady": [
+        24.474195302228114,
+        134.40446248864401,
+        87.64806101496585
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514796610229716
+      ],
+      "support_margin_mm": 0.8667284988578459,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1002891811681304,
+        0.055111698422037114
+      ]
+    },
+    {
+      "speed": 24,
+      "samples": 1851,
+      "complete": true,
+      "pulse_span_us": [
+        653.1157652322261,
+        2646.885373132417
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.30836298838264,
+      "loaded_input_min_deg": 42.54543144411546,
+      "loaded_output_min_deg": 57.81205993400482,
+      "peak_joint_speed_deg_s_steady": [
+        24.684591809122377,
+        137.11468155165713,
+        90.2903196946484
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149058172382546
+      ],
+      "support_margin_mm": 0.8323332331563549,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.1002386906299103,
+        0.055300553725840945
+      ]
+    },
+    {
+      "speed": 25,
+      "samples": 1837,
+      "complete": true,
+      "pulse_span_us": [
+        651.4177043140149,
+        2648.1745333930166
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.27537061567984,
+      "loaded_input_min_deg": 42.48922107390578,
+      "loaded_output_min_deg": 57.739209646635,
+      "peak_joint_speed_deg_s_steady": [
+        24.893750344156878,
+        139.37137605242845,
+        92.93394441459237
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148760125215688
+      ],
+      "support_margin_mm": 1.1442770248918137,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10002869318478631,
+        0.055489711846314176
+      ]
+    },
+    {
+      "speed": 26,
+      "samples": 1822,
+      "complete": true,
+      "pulse_span_us": [
+        649.1507645285968,
+        2649.507027408502
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.24219515886107,
+      "loaded_input_min_deg": 42.43262882146375,
+      "loaded_output_min_deg": 57.66433658834284,
+      "peak_joint_speed_deg_s_steady": [
+        25.10849042432902,
+        142.61093477668598,
+        95.67216725107976
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15147844477730033
+      ],
+      "support_margin_mm": 0.897854275018247,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10011607380624156,
+        0.05567945983144472
+      ]
+    },
+    {
+      "speed": 27,
+      "samples": 1852,
+      "complete": true,
+      "pulse_span_us": [
+        649.1728488067481,
+        2650.8263922832775
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.208899238248144,
+      "loaded_input_min_deg": 42.37577011977931,
+      "loaded_output_min_deg": 57.58965060983936,
+      "peak_joint_speed_deg_s_steady": [
+        25.320028853584198,
+        145.41404441024625,
+        98.41482971119429
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148580023031144
+      ],
+      "support_margin_mm": 0.8347098325636466,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.10000862236157895,
+        0.05586960370066366
+      ]
+    },
+    {
+      "speed": 28,
+      "samples": 1838,
+      "complete": true,
+      "pulse_span_us": [
+        647.8468814158962,
+        2652.152663237992
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.17544989694967,
+      "loaded_input_min_deg": 42.31866026416752,
+      "loaded_output_min_deg": 57.514321345017244,
+      "peak_joint_speed_deg_s_steady": [
+        25.532298326279218,
+        148.24242574822964,
+        101.19164312016133
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148706298672465
+      ],
+      "support_margin_mm": 0.8272230681131774,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09992439524952464,
+        0.05606027230104241
+      ]
+    },
+    {
+      "speed": 29,
+      "samples": 1823,
+      "complete": true,
+      "pulse_span_us": [
+        646.5154498736113,
+        2653.4845501263885
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.14187562770824,
+      "loaded_input_min_deg": 42.26122782048193,
+      "loaded_output_min_deg": 57.43855856675532,
+      "peak_joint_speed_deg_s_steady": [
+        25.744605151811733,
+        151.09471274470008,
+        104.0043150182609
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514919385916942
+      ],
+      "support_margin_mm": 0.8602843964564926,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09986322317707226,
+        0.056251288216016895
+      ]
+    },
+    {
+      "speed": 30,
+      "samples": 1817,
+      "complete": true,
+      "pulse_span_us": [
+        645.0213080469692,
+        2654.978995516893
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.1081370466031,
+      "loaded_input_min_deg": 42.20362556845982,
+      "loaded_output_min_deg": 57.36204605922125,
+      "peak_joint_speed_deg_s_steady": [
+        25.957274830940698,
+        153.9791016324975,
+        106.85045484507219
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149768984917422
+      ],
+      "support_margin_mm": 0.8750040885504831,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0997847607316614,
+        0.056442669339606406
+      ]
+    },
+    {
+      "speed": 31,
+      "samples": 1839,
+      "complete": true,
+      "pulse_span_us": [
+        642.5760244335058,
+        2657.2871441101597
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.07428531634969,
+      "loaded_input_min_deg": 42.145632986186016,
+      "loaded_output_min_deg": 57.28508071224324,
+      "peak_joint_speed_deg_s_steady": [
+        26.17053147955223,
+        156.89695844327215,
+        109.73177014946936
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15151303120368032
+      ],
+      "support_margin_mm": 0.9092609389629729,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0996738767226071,
+        0.05663456203494875
+      ]
+    },
+    {
+      "speed": 32,
+      "samples": 1824,
+      "complete": true,
+      "pulse_span_us": [
+        640.0486267675712,
+        2659.6034130400876
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.040226585943714,
+      "loaded_input_min_deg": 42.08742216809494,
+      "loaded_output_min_deg": 57.20749496882897,
+      "peak_joint_speed_deg_s_steady": [
+        26.384145645804253,
+        159.84145299589127,
+        112.65065149188415
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149348715515032
+      ],
+      "support_margin_mm": 0.9138088363708334,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09963618768283271,
+        0.05682681452058604
+      ]
+    },
+    {
+      "speed": 33,
+      "samples": 1814,
+      "complete": true,
+      "pulse_span_us": [
+        637.7101217772425,
+        2661.9663549286606
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 53.00623918666734,
+      "loaded_input_min_deg": 42.02919271370844,
+      "loaded_output_min_deg": 57.12951973076928,
+      "peak_joint_speed_deg_s_steady": [
+        26.597701115108464,
+        162.79960792516945,
+        115.6067573636485
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148969434885373
+      ],
+      "support_margin_mm": 1.0701479321668472,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09950577430630025,
+        0.057019507803672494
+      ]
+    },
+    {
+      "speed": 34,
+      "samples": 1840,
+      "complete": true,
+      "pulse_span_us": [
+        635.3662285275605,
+        2664.2770838157126
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.971763584155255,
+      "loaded_input_min_deg": 41.96997556465068,
+      "loaded_output_min_deg": 57.050584375957406,
+      "peak_joint_speed_deg_s_steady": [
+        26.811960947786275,
+        165.82333266877865,
+        118.58950097437443
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514901899146306
+      ],
+      "support_margin_mm": 0.8982669389383204,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09948862488412526,
+        0.057212616118197494
+      ]
+    },
+    {
+      "speed": 35,
+      "samples": 1826,
+      "complete": true,
+      "pulse_span_us": [
+        632.9607117928034,
+        2666.599196351742
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.9373386997687,
+      "loaded_input_min_deg": 41.910994658558856,
+      "loaded_output_min_deg": 56.97125492589851,
+      "peak_joint_speed_deg_s_steady": [
+        27.024950792295705,
+        168.81358948651683,
+        121.61595779274509
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514797700027959
+      ],
+      "support_margin_mm": 0.9114087092367598,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09920772932437305,
+        0.057405923744255405
+      ]
+    },
+    {
+      "speed": 36,
+      "samples": 1811,
+      "complete": true,
+      "pulse_span_us": [
+        630.7154009394246,
+        2669.012605749468
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.902762870472785,
+      "loaded_input_min_deg": 41.851428781133336,
+      "loaded_output_min_deg": 56.89129842525646,
+      "peak_joint_speed_deg_s_steady": [
+        27.241515813519104,
+        171.92269159938502,
+        124.67690707145275
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148519909797686
+      ],
+      "support_margin_mm": 0.9615067953233165,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09931176608447037,
+        0.057599931375459885
+      ]
+    },
+    {
+      "speed": 37,
+      "samples": 1842,
+      "complete": true,
+      "pulse_span_us": [
+        628.6268808734949,
+        2671.372891453449
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.86804897501182,
+      "loaded_input_min_deg": 41.79165997251285,
+      "loaded_output_min_deg": 56.81069773959829,
+      "peak_joint_speed_deg_s_steady": [
+        27.456314590636588,
+        175.01540125219407,
+        127.77132427602807
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15147965788570517
+      ],
+      "support_margin_mm": 0.9354755898047245,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0992474175633366,
+        0.057794145797938366
+      ]
+    },
+    {
+      "speed": 38,
+      "samples": 1827,
+      "complete": true,
+      "pulse_span_us": [
+        626.265456804234,
+        2673.7381100725815
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.833195202395224,
+      "loaded_input_min_deg": 41.73168156905259,
+      "loaded_output_min_deg": 56.72951580958241,
+      "peak_joint_speed_deg_s_steady": [
+        27.674571151150317,
+        178.14431091138158,
+        130.90091695245812
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148610253739747
+      ],
+      "support_margin_mm": 0.9347694008730514,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09913556466826816,
+        0.05798878087510227
+      ]
+    },
+    {
+      "speed": 39,
+      "samples": 1813,
+      "complete": true,
+      "pulse_span_us": [
+        624.1215363146366,
+        2676.213067063303
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.79800781791875,
+      "loaded_input_min_deg": 41.671660899659024,
+      "loaded_output_min_deg": 56.64771699554226,
+      "peak_joint_speed_deg_s_steady": [
+        27.893329303839117,
+        181.25956019388062,
+        134.0619285001045
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148862235898974
+      ],
+      "support_margin_mm": 1.0404411286156332,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09910639425688343,
+        0.05818349171501027
+      ]
+    },
+    {
+      "speed": 40,
+      "samples": 1806,
+      "complete": true,
+      "pulse_span_us": [
+        621.5366132779976,
+        2678.5685716350185
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.76203023823153,
+      "loaded_input_min_deg": 41.61061043294785,
+      "loaded_output_min_deg": 56.565335904190995,
+      "peak_joint_speed_deg_s_steady": [
+        28.112903877268234,
+        184.4806774063357,
+        137.27075137326207
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148350292238355
+      ],
+      "support_margin_mm": 0.964957468151951,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09894969408185299,
+        0.058379045383909804
+      ]
+    },
+    {
+      "speed": 41,
+      "samples": 1829,
+      "complete": true,
+      "pulse_span_us": [
+        619.1546227505339,
+        2681.158124022946
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.72597824284091,
+      "loaded_input_min_deg": 41.550047753639475,
+      "loaded_output_min_deg": 56.48224662641501,
+      "peak_joint_speed_deg_s_steady": [
+        28.33287865713107,
+        187.75028896442956,
+        140.5092855687736
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15147623802003096
+      ],
+      "support_margin_mm": 0.9845470364566964,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09895064696554748,
+        0.05857480732623088
+      ]
+    },
+    {
+      "speed": 42,
+      "samples": 1814,
+      "complete": true,
+      "pulse_span_us": [
+        616.770203710898,
+        2683.4366751297616
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.68971278035736,
+      "loaded_input_min_deg": 41.48841450629628,
+      "loaded_output_min_deg": 56.39858614466823,
+      "peak_joint_speed_deg_s_steady": [
+        28.55310956947335,
+        190.95091560757822,
+        143.78777636841014
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1515001810253267
+      ],
+      "support_margin_mm": 0.9953390899112904,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09882416425649145,
+        0.058770835692158664
+      ]
+    },
+    {
+      "speed": 43,
+      "samples": 1803,
+      "complete": true,
+      "pulse_span_us": [
+        614.350191797096,
+        2685.6238534840745
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.65335152950429,
+      "loaded_input_min_deg": 41.42690328636474,
+      "loaded_output_min_deg": 56.31430612712146,
+      "peak_joint_speed_deg_s_steady": [
+        28.772758848004596,
+        194.21369697590353,
+        147.1004181168906
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148308266572386
+      ],
+      "support_margin_mm": 0.9971300732969297,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09878501624363943,
+        0.05896718851626346
+      ]
+    },
+    {
+      "speed": 44,
+      "samples": 1830,
+      "complete": true,
+      "pulse_span_us": [
+        612.6983484920545,
+        2687.7864431572575
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.61688999341159,
+      "loaded_input_min_deg": 41.36621466319982,
+      "loaded_output_min_deg": 56.229587735328366,
+      "peak_joint_speed_deg_s_steady": [
+        28.990743268173585,
+        197.37197644592422,
+        150.4267202420432
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09226444596186653,
+        0.1514755041582294
+      ],
+      "support_margin_mm": 1.0612210656761079,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09842781821075242,
+        0.05916387623657302
+      ]
+    },
+    {
+      "speed": 45,
+      "samples": 1816,
+      "complete": true,
+      "pulse_span_us": [
+        609.5544124172378,
+        2690.4305611667987
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.580189228116154,
+      "loaded_input_min_deg": 41.303031362270616,
+      "loaded_output_min_deg": 56.14376361693086,
+      "peak_joint_speed_deg_s_steady": [
+        29.20930932157561,
+        200.87996160288176,
+        153.83839973356172
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.08954466556052806,
+        0.1514864790796029
+      ],
+      "support_margin_mm": 1.0330593940837076,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09862930435985741,
+        0.05936093658636958
+      ]
+    },
+    {
+      "speed": 46,
+      "samples": 1801,
+      "complete": true,
+      "pulse_span_us": [
+        607.1446457864974,
+        2692.827957565531
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.54338155267896,
+      "loaded_input_min_deg": 41.24032139378732,
+      "loaded_output_min_deg": 56.057507561056696,
+      "peak_joint_speed_deg_s_steady": [
+        29.428051466112684,
+        204.2499769385437,
+        157.26100752701865
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.0903652486044783,
+        0.15147445160709516
+      ],
+      "support_margin_mm": 1.043364450050447,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09854255558630032,
+        0.05955837626033319
+      ]
+    },
+    {
+      "speed": 47,
+      "samples": 1832,
+      "complete": true,
+      "pulse_span_us": [
+        604.3822896134004,
+        2695.2620852037094
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.506391768435805,
+      "loaded_input_min_deg": 41.177802492789525,
+      "loaded_output_min_deg": 55.97069691849551,
+      "peak_joint_speed_deg_s_steady": [
+        29.647316546645836,
+        207.64458095851893,
+        160.72015682970817
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09038001738196044,
+        0.15147782788015363
+      ],
+      "support_margin_mm": 1.0928715268201188,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09845323889413239,
+        0.059756027792459525
+      ]
+    },
+    {
+      "speed": 48,
+      "samples": 1817,
+      "complete": true,
+      "pulse_span_us": [
+        602.3245053985651,
+        2697.684146174378
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.46931673062776,
+      "loaded_input_min_deg": 41.11452282067216,
+      "loaded_output_min_deg": 55.88308986791849,
+      "peak_joint_speed_deg_s_steady": [
+        29.866704357035832,
+        211.0876793184034,
+        164.21892123362923
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514901142971956
+      ],
+      "support_margin_mm": 1.1091133298345,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09842618065101925,
+        0.059954097569850234
+      ]
+    },
+    {
+      "speed": 49,
+      "samples": 1803,
+      "complete": true,
+      "pulse_span_us": [
+        599.9255911798841,
+        2700.0570297827867
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.4321344890644,
+      "loaded_input_min_deg": 41.051116567551894,
+      "loaded_output_min_deg": 55.794911945941855,
+      "peak_joint_speed_deg_s_steady": [
+        30.086342963655156,
+        214.55126824472924,
+        167.7555931841634
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148679366608242
+      ],
+      "support_margin_mm": 1.0544123085510932,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09825685356392125,
+        0.06015246518220457
+      ]
+    },
+    {
+      "speed": 50,
+      "samples": 1796,
+      "complete": true,
+      "pulse_span_us": [
+        599.1955198489051,
+        2700.6551266811393
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.397643874367375,
+      "loaded_input_min_deg": 40.98921161227399,
+      "loaded_output_min_deg": 55.706090208362056,
+      "peak_joint_speed_deg_s_steady": [
+        30.298372312603018,
+        217.12283446919471,
+        171.04535380008377
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148864196444123
+      ],
+      "support_margin_mm": 1.2976459650270513,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09771760618852826,
+        0.06034473871447292
+      ]
+    },
+    {
+      "speed": 51,
+      "samples": 1819,
+      "complete": true,
+      "pulse_span_us": [
+        595.0615857988748,
+        2704.9231601114693
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.35720890573981,
+      "loaded_input_min_deg": 40.92295210370849,
+      "loaded_output_min_deg": 55.616534185277764,
+      "peak_joint_speed_deg_s_steady": [
+        30.526868820665488,
+        221.56860459887034,
+        174.93787860721585
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149354923102365
+      ],
+      "support_margin_mm": 1.087891688393512,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0981994136823743,
+        0.060549807299536754
+      ]
+    },
+    {
+      "speed": 52,
+      "samples": 1805,
+      "complete": true,
+      "pulse_span_us": [
+        592.6117487255656,
+        2707.3941707713425
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.319380284515105,
+      "loaded_input_min_deg": 40.85863000188227,
+      "loaded_output_min_deg": 55.5261791981342,
+      "peak_joint_speed_deg_s_steady": [
+        30.747569308301216,
+        225.1332803286362,
+        178.59407887012193
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148046060551223
+      ],
+      "support_margin_mm": 1.1026384452144953,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09810187416198428,
+        0.06074932523028142
+      ]
+    },
+    {
+      "speed": 53,
+      "samples": 1793,
+      "complete": true,
+      "pulse_span_us": [
+        590.161608088394,
+        2710.179597806258
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.23215327489945,
+      "loaded_input_min_deg": 40.793715794883894,
+      "loaded_output_min_deg": 55.43527526978542,
+      "peak_joint_speed_deg_s_steady": [
+        30.968536600320494,
+        228.7211786967001,
+        182.28374705888467
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149450486987703
+      ],
+      "support_margin_mm": 1.120206210155743,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09802655806496298,
+        0.06094891780248154
+      ]
+    },
+    {
+      "speed": 54,
+      "samples": 1821,
+      "complete": true,
+      "pulse_span_us": [
+        587.7225475357013,
+        2712.5389728180153
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.121049000306066,
+      "loaded_input_min_deg": 40.72888731714163,
+      "loaded_output_min_deg": 55.34366704178673,
+      "peak_joint_speed_deg_s_steady": [
+        31.19026695209093,
+        232.34117895900954,
+        186.01166430863324
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149058111598634
+      ],
+      "support_margin_mm": 1.1786910483740627,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09794343827171158,
+        0.06114881828853341
+      ]
+    },
+    {
+      "speed": 55,
+      "samples": 1806,
+      "complete": true,
+      "pulse_span_us": [
+        585.2941117220123,
+        2715.0606786600974
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 52.004952428796486,
+      "loaded_input_min_deg": 40.663196550982306,
+      "loaded_output_min_deg": 55.25130556222634,
+      "peak_joint_speed_deg_s_steady": [
+        31.411485039771982,
+        235.99328110690894,
+        189.77783061935864
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149091886310373
+      ],
+      "support_margin_mm": 1.138342127700355,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09789250086357823,
+        0.06134893260610633
+      ]
+    },
+    {
+      "speed": 56,
+      "samples": 1792,
+      "complete": true,
+      "pulse_span_us": [
+        582.8266679389545,
+        2717.173256170239
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.90180412649059,
+      "loaded_input_min_deg": 40.59782923986827,
+      "loaded_output_min_deg": 55.15830541075563,
+      "peak_joint_speed_deg_s_steady": [
+        31.633636942948364,
+        239.6754360886234,
+        193.5822459853581
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149038516655544
+      ],
+      "support_margin_mm": 1.190025675752537,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09781389533938738,
+        0.061549290288802114
+      ]
+    },
+    {
+      "speed": 57,
+      "samples": 1822,
+      "complete": true,
+      "pulse_span_us": [
+        580.3989910346031,
+        2719.553349423085
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.79966979928842,
+      "loaded_input_min_deg": 40.531080900667504,
+      "loaded_output_min_deg": 55.06458029235312,
+      "peak_joint_speed_deg_s_steady": [
+        31.855191203878256,
+        243.32958729404763,
+        197.43071607048634
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148992579077003
+      ],
+      "support_margin_mm": 1.1866970720751482,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09766773383227957,
+        0.06175000164064364
+      ]
+    },
+    {
+      "speed": 58,
+      "samples": 1808,
+      "complete": true,
+      "pulse_span_us": [
+        577.899445362752,
+        2722.10852319166
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.67155461836061,
+      "loaded_input_min_deg": 40.46485590957376,
+      "loaded_output_min_deg": 54.97011857264212,
+      "peak_joint_speed_deg_s_steady": [
+        32.077561886118616,
+        247.00969321827984,
+        201.27474653769943
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09132014892776817,
+        0.15149454453269406
+      ],
+      "support_margin_mm": 1.2249596567688101,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09759345572894446,
+        0.061951048778437635
+      ]
+    },
+    {
+      "speed": 59,
+      "samples": 1794,
+      "complete": true,
+      "pulse_span_us": [
+        575.4214527314971,
+        2724.575132173937
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.56239817944351,
+      "loaded_input_min_deg": 40.39779391884198,
+      "loaded_output_min_deg": 54.87501967585198,
+      "peak_joint_speed_deg_s_steady": [
+        32.300962433066694,
+        250.9151953876908,
+        205.2359147454267
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09084995815245023,
+        0.15149346181110013
+      ],
+      "support_margin_mm": 1.3249965959205383,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09757622046150717,
+        0.06214948837228977
+      ]
+    },
+    {
+      "speed": 60,
+      "samples": 1787,
+      "complete": true,
+      "pulse_span_us": [
+        573.1626332821036,
+        2726.821733173572
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.46926692646938,
+      "loaded_input_min_deg": 40.330924405135804,
+      "loaded_output_min_deg": 54.77908256363056,
+      "peak_joint_speed_deg_s_steady": [
+        32.523989453644724,
+        254.6465277323236,
+        209.20732824066252
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09225893861081325,
+        0.15148832080826757
+      ],
+      "support_margin_mm": 1.42839825953385,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09752123288282692,
+        0.06231769309573919
+      ]
+    },
+    {
+      "speed": 61,
+      "samples": 1810,
+      "complete": true,
+      "pulse_span_us": [
+        570.28560582163,
+        2729.436481369718
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.359056949487204,
+      "loaded_input_min_deg": 40.263249461134336,
+      "loaded_output_min_deg": 54.682470824825,
+      "peak_joint_speed_deg_s_steady": [
+        32.748542594864126,
+        258.57866763782164,
+        213.21255116750925
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514882701668263
+      ],
+      "support_margin_mm": 1.2189097594230134,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09724868571455172,
+        0.062459758129147475
+      ]
+    },
+    {
+      "speed": 62,
+      "samples": 1795,
+      "complete": true,
+      "pulse_span_us": [
+        568.0032601649432,
+        2731.996588052807
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.240783715552816,
+      "loaded_input_min_deg": 40.1950766297498,
+      "loaded_output_min_deg": 54.58507627514942,
+      "peak_joint_speed_deg_s_steady": [
+        32.972332675765045,
+        262.4527509360153,
+        217.26148731060394
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149367531831714
+      ],
+      "support_margin_mm": 1.2886449532403645,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09717158213523198,
+        0.06257194940904792
+      ]
+    },
+    {
+      "speed": 63,
+      "samples": 1785,
+      "complete": true,
+      "pulse_span_us": [
+        565.2985052539935,
+        2734.4959819430455
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.126478835207244,
+      "loaded_input_min_deg": 40.127023231717715,
+      "loaded_output_min_deg": 54.48695163575481,
+      "peak_joint_speed_deg_s_steady": [
+        33.196725734295384,
+        266.36166819456935,
+        221.34628193996673
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148048223763055
+      ],
+      "support_margin_mm": 1.261147985048808,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09714221853229707,
+        0.06267835532682589
+      ]
+    },
+    {
+      "speed": 64,
+      "samples": 1812,
+      "complete": true,
+      "pulse_span_us": [
+        563.0960728106616,
+        2736.9910500471306
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 51.02220184890295,
+      "loaded_input_min_deg": 40.05811552015271,
+      "loaded_output_min_deg": 54.38808487172361,
+      "peak_joint_speed_deg_s_steady": [
+        33.42079862802343,
+        270.30200432722864,
+        225.47683884306255
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1515039914796663
+      ],
+      "support_margin_mm": 1.3437574439452646,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09699325406556043,
+        0.06277087908049202
+      ]
+    },
+    {
+      "speed": 65,
+      "samples": 1797,
+      "complete": true,
+      "pulse_span_us": [
+        560.5125158117216,
+        2739.3671210770494
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.90530161093966,
+      "loaded_input_min_deg": 39.98959468776706,
+      "loaded_output_min_deg": 54.28841474846867,
+      "peak_joint_speed_deg_s_steady": [
+        33.64574130319421,
+        274.27171027359,
+        229.65042593654485
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149816463599564
+      ],
+      "support_margin_mm": 1.2941068483642368,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09693769143836357,
+        0.0628522646061171
+      ]
+    },
+    {
+      "speed": 66,
+      "samples": 1783,
+      "complete": true,
+      "pulse_span_us": [
+        558.0191932006411,
+        2741.9789095247415
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.80446843843723,
+      "loaded_input_min_deg": 39.91947137972251,
+      "loaded_output_min_deg": 54.18804830141733,
+      "peak_joint_speed_deg_s_steady": [
+        33.87135632543293,
+        278.27693320329826,
+        233.86294510540574
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148672160939292
+      ],
+      "support_margin_mm": 1.3009674002642981,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09690445865002867,
+        0.06051644295017256
+      ]
+    },
+    {
+      "speed": 67,
+      "samples": 1814,
+      "complete": true,
+      "pulse_span_us": [
+        555.5065942776138,
+        2744.49120488327
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.69248349828851,
+      "loaded_input_min_deg": 39.850218331470046,
+      "loaded_output_min_deg": 54.08686694853919,
+      "peak_joint_speed_deg_s_steady": [
+        34.096912650435904,
+        282.3040127368286,
+        238.122251071031
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148567643413458
+      ],
+      "support_margin_mm": 1.3860403033773139,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09683274734974866,
+        0.060693505977610675
+      ]
+    },
+    {
+      "speed": 68,
+      "samples": 1799,
+      "complete": true,
+      "pulse_span_us": [
+        553.0204813109708,
+        2747.260694809998
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.61484297536324,
+      "loaded_input_min_deg": 39.78000033970416,
+      "loaded_output_min_deg": 53.98423571345165,
+      "peak_joint_speed_deg_s_steady": [
+        34.32229288488192,
+        286.36114510423306,
+        242.4198060976425
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149486075656604
+      ],
+      "support_margin_mm": 1.4054078498529066,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09672245705026108,
+        0.06080345403917443
+      ]
+    },
+    {
+      "speed": 69,
+      "samples": 1785,
+      "complete": true,
+      "pulse_span_us": [
+        550.6072995863009,
+        2749.7380803128913
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.47591740227074,
+      "loaded_input_min_deg": 39.709436193299496,
+      "loaded_output_min_deg": 53.886319224149744,
+      "peak_joint_speed_deg_s_steady": [
+        34.548777688848276,
+        290.45994162460494,
+        246.75697621975584
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149983073803597
+      ],
+      "support_margin_mm": 1.4900145455240477,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09662426931211421,
+        0.060988961635949475
+      ]
+    },
+    {
+      "speed": 70,
+      "samples": 1779,
+      "complete": true,
+      "pulse_span_us": [
+        548.004390384608,
+        2752.051465384535
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.38047008674765,
+      "loaded_input_min_deg": 39.638319873040885,
+      "loaded_output_min_deg": 53.78963597981525,
+      "peak_joint_speed_deg_s_steady": [
+        34.775299845371805,
+        294.6181607896877,
+        251.14844634566046
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148757051304784
+      ],
+      "support_margin_mm": 1.4244275754157627,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09663998050050852,
+        0.06112848447214707
+      ]
+    },
+    {
+      "speed": 71,
+      "samples": 1801,
+      "complete": true,
+      "pulse_span_us": [
+        545.5025679821972,
+        2754.4197196429277
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.260133534183716,
+      "loaded_input_min_deg": 39.56684520125487,
+      "loaded_output_min_deg": 53.69222157873586,
+      "peak_joint_speed_deg_s_steady": [
+        35.00217418386399,
+        298.7852592048949,
+        255.57782402678652
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148459820218962
+      ],
+      "support_margin_mm": 1.3742954620406636,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09652552320716416,
+        0.06131248612357952
+      ]
+    },
+    {
+      "speed": 72,
+      "samples": 1787,
+      "complete": true,
+      "pulse_span_us": [
+        543.194950625849,
+        2756.8642443470535
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.20464152321037,
+      "loaded_input_min_deg": 39.49473230754924,
+      "loaded_output_min_deg": 53.59404703456927,
+      "peak_joint_speed_deg_s_steady": [
+        35.228536257407335,
+        302.9325500680539,
+        260.0553545334515
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148801370872
+      ],
+      "support_margin_mm": 1.3969479082570047,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09634155706437345,
+        0.06151843973793169
+      ]
+    },
+    {
+      "speed": 73,
+      "samples": 1776,
+      "complete": true,
+      "pulse_span_us": [
+        540.4888296765637,
+        2759.522250407915
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 50.15047542775381,
+      "loaded_input_min_deg": 39.422640913507934,
+      "loaded_output_min_deg": 53.495001808191645,
+      "peak_joint_speed_deg_s_steady": [
+        35.440293466302535,
+        307.2171277352506,
+        264.52229825258786
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148415510371116
+      ],
+      "support_margin_mm": 1.6285720435131452,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09626139608345691,
+        0.06172230988662049
+      ]
+    },
+    {
+      "speed": 74,
+      "samples": 1803,
+      "complete": true,
+      "pulse_span_us": [
+        537.9766860996483,
+        2762.004796498379
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.950350461553604,
+      "loaded_input_min_deg": 39.35022568728311,
+      "loaded_output_min_deg": 53.395126717030124,
+      "peak_joint_speed_deg_s_steady": [
+        35.68448873719911,
+        311.48462992802575,
+        269.14018914954556
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514853197838235
+      ],
+      "support_margin_mm": 1.450429482626845,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09631597779259805,
+        0.06193096482962642
+      ]
+    },
+    {
+      "speed": 75,
+      "samples": 1789,
+      "complete": true,
+      "pulse_span_us": [
+        535.5151618141356,
+        2764.4846864042515
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.84141068840058,
+      "loaded_input_min_deg": 39.27718135743822,
+      "loaded_output_min_deg": 53.29450213305758,
+      "peak_joint_speed_deg_s_steady": [
+        35.912392940115716,
+        315.74325287639317,
+        273.7505668394772
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149252325099383
+      ],
+      "support_margin_mm": 1.4451709531067252,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09616321485689097,
+        0.062137445529742874
+      ]
+    },
+    {
+      "speed": 76,
+      "samples": 1774,
+      "complete": true,
+      "pulse_span_us": [
+        532.936234165848,
+        2767.0885062981683
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.73644254870369,
+      "loaded_input_min_deg": 39.20371706056858,
+      "loaded_output_min_deg": 53.19294052202677,
+      "peak_joint_speed_deg_s_steady": [
+        36.14108688313342,
+        320.1118418697238,
+        278.4097803808231
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514921627063881
+      ],
+      "support_margin_mm": 1.4859313953257356,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09619627442871533,
+        0.06234430975091861
+      ]
+    },
+    {
+      "speed": 77,
+      "samples": 1805,
+      "complete": true,
+      "pulse_span_us": [
+        530.3839442530109,
+        2769.596020526978
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.649061767468886,
+      "loaded_input_min_deg": 39.12984692312682,
+      "loaded_output_min_deg": 53.09049054219736,
+      "peak_joint_speed_deg_s_steady": [
+        36.36974881041232,
+        324.48179689757,
+        283.11543921032944
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149860466340037
+      ],
+      "support_margin_mm": 1.5295115810249627,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09609335345008689,
+        0.0625511788350025
+      ]
+    },
+    {
+      "speed": 78,
+      "samples": 1791,
+      "complete": true,
+      "pulse_span_us": [
+        527.8388639890678,
+        2772.095110850171
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.54138073866489,
+      "loaded_input_min_deg": 39.05552505187621,
+      "loaded_output_min_deg": 52.9872365833518,
+      "peak_joint_speed_deg_s_steady": [
+        36.5991204361645,
+        328.87838967008395,
+        287.86788483371083
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148758790969552
+      ],
+      "support_margin_mm": 1.5613130488469267,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09603320235781922,
+        0.06275845776936324
+      ]
+    },
+    {
+      "speed": 79,
+      "samples": 1776,
+      "complete": true,
+      "pulse_span_us": [
+        525.3072164277864,
+        2774.6911139731983
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.43767281337017,
+      "loaded_input_min_deg": 38.980777585748505,
+      "loaded_output_min_deg": 52.883119604355045,
+      "peak_joint_speed_deg_s_steady": [
+        36.828380004834855,
+        333.31254847773016,
+        292.67019084011247
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149579428139148
+      ],
+      "support_margin_mm": 1.5219006052824966,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09595452864753477,
+        0.06296570026919075
+      ]
+    },
+    {
+      "speed": 80,
+      "samples": 1771,
+      "complete": true,
+      "pulse_span_us": [
+        525.489051243114,
+        2774.511176431215
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.35608189228295,
+      "loaded_input_min_deg": 38.90855009897961,
+      "loaded_output_min_deg": 52.78052348555172,
+      "peak_joint_speed_deg_s_steady": [
+        37.05497686645746,
+        336.8833713742873,
+        297.35160249963957
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514885637344925
+      ],
+      "support_margin_mm": 1.6776750974197796,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0951125839718984,
+        0.06317328007377247
+      ]
+    },
+    {
+      "speed": 81,
+      "samples": 1793,
+      "complete": true,
+      "pulse_span_us": [
+        520.2106051590708,
+        2779.799336562675
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.23456267840066,
+      "loaded_input_min_deg": 38.83305308471793,
+      "loaded_output_min_deg": 52.67221416290363,
+      "peak_joint_speed_deg_s_steady": [
+        37.28825450707155,
+        342.27239063197334,
+        302.42609154225397
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149042357065312
+      ],
+      "support_margin_mm": 1.5462372392931627,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09581296448264233,
+        0.06338110076619104
+      ]
+    },
+    {
+      "speed": 82,
+      "samples": 1779,
+      "complete": true,
+      "pulse_span_us": [
+        517.6577081210555,
+        2782.3551174564277
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.132109629330614,
+      "loaded_input_min_deg": 38.76204190574427,
+      "loaded_output_min_deg": 52.56539338637229,
+      "peak_joint_speed_deg_s_steady": [
+        37.518677341926605,
+        346.8021720878025,
+        307.3786617092433
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15149107983161159
+      ],
+      "support_margin_mm": 1.6111558082128,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09576036847492952,
+        0.06358902155669496
+      ]
+    },
+    {
+      "speed": 83,
+      "samples": 1769,
+      "complete": true,
+      "pulse_span_us": [
+        515.0778697799076,
+        2784.9051306387055
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 49.0215287168961,
+      "loaded_input_min_deg": 38.690678140434606,
+      "loaded_output_min_deg": 52.45773932240043,
+      "peak_joint_speed_deg_s_steady": [
+        37.749495047261966,
+        351.36883656723677,
+        312.3858733886377
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514810108673732
+      ],
+      "support_margin_mm": 1.5806221760579433,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09595585495612392,
+        0.06379702111462877
+      ]
+    },
+    {
+      "speed": 84,
+      "samples": 1795,
+      "complete": true,
+      "pulse_span_us": [
+        512.5072142460745,
+        2787.4519563994727
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.929983184531025,
+      "loaded_input_min_deg": 38.61882428469953,
+      "loaded_output_min_deg": 52.349117692013614,
+      "peak_joint_speed_deg_s_steady": [
+        37.980302080398964,
+        355.9669199178883,
+        317.44499450571936
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148867299623703
+      ],
+      "support_margin_mm": 1.613195619303582,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09652250032032388,
+        0.06400544653835757
+      ]
+    },
+    {
+      "speed": 85,
+      "samples": 1781,
+      "complete": true,
+      "pulse_span_us": [
+        509.9594019092795,
+        2790.0660215777243
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.82573606456655,
+      "loaded_input_min_deg": 38.546538549558164,
+      "loaded_output_min_deg": 52.23947855155986,
+      "peak_joint_speed_deg_s_steady": [
+        38.21159469727268,
+        360.60256930367325,
+        322.5594401581949
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514905328785794
+      ],
+      "support_margin_mm": 1.679096999191529,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09672117262041167,
+        0.06421396456268226
+      ]
+    },
+    {
+      "speed": 86,
+      "samples": 1767,
+      "complete": true,
+      "pulse_span_us": [
+        507.4277543479982,
+        2792.6400922010307
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.722491062789636,
+      "loaded_input_min_deg": 38.47388824624402,
+      "loaded_output_min_deg": 52.12901889944726,
+      "peak_joint_speed_deg_s_steady": [
+        38.44346894738197,
+        365.27305265842455,
+        327.73228392657427
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514983514238697
+      ],
+      "support_margin_mm": 1.6401718990747725,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09660249608190499,
+        0.06442262663183985
+      ]
+    },
+    {
+      "speed": 87,
+      "samples": 1797,
+      "complete": true,
+      "pulse_span_us": [
+        504.77513654585334,
+        2795.1156563169297
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.638124373591246,
+      "loaded_input_min_deg": 38.400783951729004,
+      "loaded_output_min_deg": 52.017633477608975,
+      "peak_joint_speed_deg_s_steady": [
+        38.67542857507826,
+        369.9749548843932,
+        332.9638673195746
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148999189806212
+      ],
+      "support_margin_mm": 1.6729342593915533,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09658334167449126,
+        0.0646315229640282
+      ]
+    },
+    {
+      "speed": 88,
+      "samples": 1783,
+      "complete": true,
+      "pulse_span_us": [
+        502.18194138712045,
+        2797.509713513176
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.54865515923716,
+      "loaded_input_min_deg": 38.32729695345432,
+      "loaded_output_min_deg": 51.905243308128576,
+      "peak_joint_speed_deg_s_steady": [
+        38.90726013639406,
+        374.70349484641565,
+        338.25248279394845
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1515030002606501
+      ],
+      "support_margin_mm": 1.73963227675236,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0964630475523596,
+        0.06484064912644383
+      ]
+    },
+    {
+      "speed": 89,
+      "samples": 1768,
+      "complete": true,
+      "pulse_span_us": [
+        499.34020324204323,
+        2800.2726768178172
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.43163402524569,
+      "loaded_input_min_deg": 38.25317630248651,
+      "loaded_output_min_deg": 51.7918623456102,
+      "peak_joint_speed_deg_s_steady": [
+        39.14024429226569,
+        379.47506500458695,
+        343.60291147913927
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148984568925883
+      ],
+      "support_margin_mm": 1.7231106423099618,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09642697440858239,
+        0.0650499228834618
+      ]
+    },
+    {
+      "speed": 90,
+      "samples": 1799,
+      "complete": true,
+      "pulse_span_us": [
+        496.99297078605514,
+        2803.006953322502
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.333469096086844,
+      "loaded_input_min_deg": 38.17877450888463,
+      "loaded_output_min_deg": 51.677588600061604,
+      "peak_joint_speed_deg_s_steady": [
+        39.37340453898589,
+        384.283518177803,
+        348.9991024352532
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1515023154346622
+      ],
+      "support_margin_mm": 1.7402800273727053,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09635139229456759,
+        0.0652592833626656
+      ]
+    },
+    {
+      "speed": 91,
+      "samples": 1785,
+      "complete": true,
+      "pulse_span_us": [
+        494.5107282613633,
+        2805.6108491046784
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.23920241219111,
+      "loaded_input_min_deg": 38.10371037419165,
+      "loaded_output_min_deg": 51.56226357993445,
+      "peak_joint_speed_deg_s_steady": [
+        39.60671419619513,
+        389.1213411675639,
+        354.43900659896525
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514882995471023
+      ],
+      "support_margin_mm": 1.7360849137759544,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09626722115941716,
+        0.06546902871008367
+      ]
+    },
+    {
+      "speed": 92,
+      "samples": 1771,
+      "complete": true,
+      "pulse_span_us": [
+        491.784496198714,
+        2807.881735227311
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.15777758575026,
+      "loaded_input_min_deg": 38.028526089075605,
+      "loaded_output_min_deg": 51.44598597658665,
+      "peak_joint_speed_deg_s_steady": [
+        39.84006120567067,
+        393.97487358863594,
+        359.89905982338644
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09181462733239165,
+        0.15145466382235284
+      ],
+      "support_margin_mm": 1.7821917013728807,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09614324695776319,
+        0.06567869705058203
+      ]
+    },
+    {
+      "speed": 93,
+      "samples": 1762,
+      "complete": true,
+      "pulse_span_us": [
+        489.15191361658015,
+        2810.8457337614173
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 48.04594368525438,
+      "loaded_input_min_deg": 37.95226362108647,
+      "loaded_output_min_deg": 51.32864259459989,
+      "peak_joint_speed_deg_s_steady": [
+        40.07418728390312,
+        398.8939758326338,
+        365.4916187138017
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148062437666354
+      ],
+      "support_margin_mm": 1.7667323538728397,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0961559302011424,
+        0.06588898717564187
+      ]
+    },
+    {
+      "speed": 94,
+      "samples": 1787,
+      "complete": true,
+      "pulse_span_us": [
+        486.53238429262524,
+        2813.850713432863
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.94400122415757,
+      "loaded_input_min_deg": 37.87590917811836,
+      "loaded_output_min_deg": 51.21022375092425,
+      "peak_joint_speed_deg_s_steady": [
+        40.30840941164153,
+        403.84039882711204,
+        371.0910077940514
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.1514938186646475
+      ],
+      "support_margin_mm": 1.834356189941289,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09609778153535238,
+        0.06609913182948476
+      ]
+    },
+    {
+      "speed": 95,
+      "samples": 1773,
+      "complete": true,
+      "pulse_span_us": [
+        483.90526586256107,
+        2816.3736335291214
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.856237112662704,
+      "loaded_input_min_deg": 37.79943957674215,
+      "loaded_output_min_deg": 51.090799026159154,
+      "peak_joint_speed_deg_s_steady": [
+        40.54288767127786,
+        408.8161916409969,
+        376.7368421652518
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.08992750534048888,
+        0.15149334293638894
+      ],
+      "support_margin_mm": 1.8642877851122392,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09599971116307975,
+        0.06630959912275915
+      ]
+    },
+    {
+      "speed": 96,
+      "samples": 1761,
+      "complete": true,
+      "pulse_span_us": [
+        481.2904417762451,
+        2818.7606328593597
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.75758929749214,
+      "loaded_input_min_deg": 37.72178640093577,
+      "loaded_output_min_deg": 50.970399836678,
+      "peak_joint_speed_deg_s_steady": [
+        40.77822504102094,
+        413.6772372691137,
+        382.4175104968404
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09130780430708363,
+        0.1515020495841508
+      ],
+      "support_margin_mm": 1.8642514971681976,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.0959554352348106,
+        0.06652018088215975
+      ]
+    },
+    {
+      "speed": 97,
+      "samples": 1789,
+      "complete": true,
+      "pulse_span_us": [
+        478.6693187383519,
+        2821.358077913439
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.66421599235122,
+      "loaded_input_min_deg": 37.643952491594355,
+      "loaded_output_min_deg": 50.84889638635506,
+      "peak_joint_speed_deg_s_steady": [
+        41.01319422063644,
+        418.51847535377743,
+        388.18355619482634
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.0896989717898311,
+        0.15149987555166078
+      ],
+      "support_margin_mm": 1.9321996528379088,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09588678802605351,
+        0.06673091751838094
+      ]
+    },
+    {
+      "speed": 98,
+      "samples": 1775,
+      "complete": true,
+      "pulse_span_us": [
+        476.0075181225259,
+        2823.992102420259
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.580532350866974,
+      "loaded_input_min_deg": 37.56566068290079,
+      "loaded_output_min_deg": 50.72630543655895,
+      "peak_joint_speed_deg_s_steady": [
+        41.24904919042304,
+        423.3938643844014,
+        393.96770189310314
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.08960060859607033,
+        0.15148906842849552
+      ],
+      "support_margin_mm": 1.9700730305445688,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09580939631071685,
+        0.06694180480023398
+      ]
+    },
+    {
+      "speed": 99,
+      "samples": 1761,
+      "complete": true,
+      "pulse_span_us": [
+        473.35072632284334,
+        2826.6687017719896
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.47576666155848,
+      "loaded_input_min_deg": 37.487351916606706,
+      "loaded_output_min_deg": 50.60272995169128,
+      "peak_joint_speed_deg_s_steady": [
+        41.484786766029416,
+        428.3061364357655,
+        399.76345891341435
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.089300478922123,
+        0.15149143715064461
+      ],
+      "support_margin_mm": 1.9692185065078434,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09576504615801129,
+        0.06715314653008274
+      ]
+    },
+    {
+      "speed": 100,
+      "samples": 1791,
+      "complete": true,
+      "pulse_span_us": [
+        475.1955604178612,
+        2822.4004406705135
+      ],
+      "minimum_scheduled_contacts": 3,
+      "loaded_leg_min_deg": 47.48966275551502,
+      "loaded_input_min_deg": 37.41228949571518,
+      "loaded_output_min_deg": 50.48460752194138,
+      "peak_joint_speed_deg_s_steady": [
+        41.69186956406892,
+        429.5519629395701,
+        403.64915353077674
+      ],
+      "body_z_mm": 8.75,
+      "bare_sole_target_error_mm": [
+        0.09279967702509495,
+        0.15148619446102884
+      ],
+      "support_margin_mm": 3.3562208580300705,
+      "minimum_force_fraction": 0.0,
+      "external_support_peak_carrier_crank_Nm": [
+        0.09558602524566208,
+        0.06736015223987138
+      ]
+    }
+  ],
+  "binary_sha256": "ed5a959266e1ab76c720b8654e70a80ec042f6781dec652b6a8261fb1a8f925b",
+  "source_sha256": {
+    "Slave/software/models/v2-12servo/motion.c": "639a290945b25ab36d1f1d9daa30da709dc4899e8c90fe1d490833b8f1738760",
+    "Slave/software/models/v2-12servo/walk_kinematics.c": "15c64f6cfe8e16192bfffca0bffdbfe95c09a48bd160258ddf81ccef4b055cd2",
+    "Slave/software/models/v2-12servo/motions/locomotion/config.json": "34780acd02c06665168a84d626357d465dbe6a21483090a468771b74745cdf67",
+    "Slave/software/models/v2-12servo/motions/locomotion/walk-contact.json": "fbcae38d154a461dc9310002cbd49ea97531994fd51fbb1ed96a8b9a14bdb044",
+    "Slave/software/models/v2-12servo/motions/locomotion/sole-profile.json": "a9b3c2e1c716eac009d22088c3d3ea1cf3fa0bb8ace28912201e2f5b0e862379"
+  }
+}

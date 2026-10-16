@@ -1,12 +1,12 @@
 {
-  "gait_id": "stride-and-rate-v2-24-38-original-comparison",
-  "geometry_id": "upright-24-38-24-55-visible-20260929",
+  "gait_id": "stride-and-rate-v2-24-38-centered-shaft-heads",
+  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
   "hardware_qualified": false,
   "sha256": {
     "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
-    "../../geometry.json": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
-    "../locomotion/config.json": "163e8cda0a2845f568a0624452292138cc4cd4d073c859494bce272f1c4f2334",
-    "source.json": "8ab2142f5c73190859c04e8b05e7efde16f631c5bfe0bc6c934e6a3e2b719b19"
+    "../../geometry.json": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+    "../locomotion/config.json": "5d3be1ffec64b5a00102c173bf2a58e02fa25a412ae5afb167a623cda8a62a67",
+    "source.json": "2921c9ec5e68278ad517beb2d0c40da0ce7897344cb5ff83e6f1305095a64f37"
   },
   "source_leg_order": [
     "RL",
@@ -26,7 +26,7 @@
     0,
     1
   ],
-  "electrical_zero_and_signs": "Current per-joint references and modeled envelope are in servo_profile.json; saved measured calibration/direction remain operator settings. Historical recording does not qualify the current screw-aware mapping.",
+  "electrical_zero_and_signs": "Recommended references in servo_profile.json; per-joint measured calibration and direction remain operator settings.",
   "source_blend": "Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
   "recorded_gait_id": "stride-and-rate-v2-24-38-reference-1650",
   "recorded_source_bindings_sha256": {
