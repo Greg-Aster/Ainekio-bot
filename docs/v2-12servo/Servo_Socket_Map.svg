@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1600" viewBox="0 0 2200 1600" role="img" aria-labelledby="title desc">
+<title id="title">AINEKIO · SERVO SOCKET &amp; FEEDBACK MAP</title><desc id="desc">Physical joints and saved wiring mapping. Left and right are the robot’s own sides, looking forward through its face. Each original three-wire plug goes to PCA9685 and the added wiper wire goes to CD74HC4067.</desc>
+<rect x="0" y="0" width="2200" height="1600" rx="0" fill="#f5f7fa"/>
+<text x="60" y="94" font-family="DejaVu Sans,Arial,sans-serif" font-size="52" fill="#18232d" font-weight="700" text-anchor="start">AINEKIO · SERVO SOCKET &amp; FEEDBACK MAP</text>
+<text x="62" y="150" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#ed7848" font-weight="700" text-anchor="start">TWELVE MG90 SERVOS · PCA9685 OUTPUTS 0–11 → MULTIPLEXER C4–C15</text>
+<rect x="60" y="184" width="2080" height="64" rx="10" fill="#fff0df"/>
+<text x="84" y="226" font-family="DejaVu Sans,Arial,sans-serif" font-size="30" fill="#18232d" font-weight="700" text-anchor="start">LEFT / RIGHT = the robot’s own sides, looking forward through its face.</text>
+<rect x="60" y="280" width="1140" height="946" rx="14" fill="#fff"/>
+<rect x="60" y="280" width="1140" height="65" rx="12" fill="#18232d"/>
+<text x="84" y="324" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">PHYSICAL JOINT → BOARD SOCKET → FEEDBACK INPUT</text>
+<text x="85" y="393" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="700" text-anchor="start">LEG</text>
+<text x="365" y="393" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="700" text-anchor="start">JOINT</text>
+<text x="675" y="393" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="700" text-anchor="start">PCA9685</text>
+<text x="940" y="393" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="700" text-anchor="start">MUX</text>
+<rect x="80" y="416" width="1100" height="58" rx="5" fill="#e6eefc"/>
+<text x="98" y="455" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="700" text-anchor="start">Rear left</text>
+<text x="365" y="455" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Shoulder</text>
+<text x="740" y="455" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">0</text>
+<text x="990" y="455" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C4</text>
+<rect x="80" y="480" width="1100" height="58" rx="5" fill="#e6eefc"/>
+<text x="98" y="519" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Rear left</text>
+<text x="365" y="519" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Carrier</text>
+<text x="740" y="519" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">1</text>
+<text x="990" y="519" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C5</text>
+<rect x="80" y="544" width="1100" height="58" rx="5" fill="#e6eefc"/>
+<text x="98" y="583" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Rear left</text>
+<text x="365" y="583" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Crank</text>
+<text x="740" y="583" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">2</text>
+<text x="990" y="583" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C6</text>
+<rect x="80" y="608" width="1100" height="58" rx="5" fill="#e2f3ee"/>
+<text x="98" y="647" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="700" text-anchor="start">Rear right</text>
+<text x="365" y="647" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Shoulder</text>
+<text x="740" y="647" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">3</text>
+<text x="990" y="647" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C7</text>
+<rect x="80" y="672" width="1100" height="58" rx="5" fill="#e2f3ee"/>
+<text x="98" y="711" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Rear right</text>
+<text x="365" y="711" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Carrier</text>
+<text x="740" y="711" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">4</text>
+<text x="990" y="711" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C8</text>
+<rect x="80" y="736" width="1100" height="58" rx="5" fill="#e2f3ee"/>
+<text x="98" y="775" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Rear right</text>
+<text x="365" y="775" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Crank</text>
+<text x="740" y="775" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">5</text>
+<text x="990" y="775" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C9</text>
+<rect x="80" y="800" width="1100" height="58" rx="5" fill="#fff0df"/>
+<text x="98" y="839" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="700" text-anchor="start">Front left</text>
+<text x="365" y="839" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Shoulder</text>
+<text x="740" y="839" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">6</text>
+<text x="990" y="839" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C10</text>
+<rect x="80" y="864" width="1100" height="58" rx="5" fill="#fff0df"/>
+<text x="98" y="903" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Front left</text>
+<text x="365" y="903" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Carrier</text>
+<text x="740" y="903" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">7</text>
+<text x="990" y="903" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C11</text>
+<rect x="80" y="928" width="1100" height="58" rx="5" fill="#fff0df"/>
+<text x="98" y="967" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Front left</text>
+<text x="365" y="967" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Crank</text>
+<text x="740" y="967" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">8</text>
+<text x="990" y="967" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C12</text>
+<rect x="80" y="992" width="1100" height="58" rx="5" fill="#f0e9fc"/>
+<text x="98" y="1031" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="700" text-anchor="start">Front right</text>
+<text x="365" y="1031" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Shoulder</text>
+<text x="740" y="1031" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">9</text>
+<text x="990" y="1031" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C13</text>
+<rect x="80" y="1056" width="1100" height="58" rx="5" fill="#f0e9fc"/>
+<text x="98" y="1095" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Front right</text>
+<text x="365" y="1095" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Carrier</text>
+<text x="740" y="1095" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">10</text>
+<text x="990" y="1095" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C14</text>
+<rect x="80" y="1120" width="1100" height="58" rx="5" fill="#f0e9fc"/>
+<text x="98" y="1159" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Front right</text>
+<text x="365" y="1159" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Crank</text>
+<text x="740" y="1159" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">11</text>
+<text x="990" y="1159" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="middle">C15</text>
+<rect x="1230" y="280" width="910" height="946" rx="14" fill="#fff"/>
+<rect x="1230" y="280" width="910" height="65" rx="12" fill="#18232d"/>
+<text x="1254" y="324" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">TOP VIEW · FACE AT THE TOP</text>
+<rect x="1510" y="525" width="350" height="365" rx="32" fill="#18232d"/>
+<rect x="1580" y="475" width="210" height="70" rx="22" fill="#ed7848"/>
+<text x="1685" y="434" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="700" text-anchor="middle">FRONT / FACE</text>
+<text x="1685" y="700" font-family="DejaVu Sans,Arial,sans-serif" font-size="34" fill="#fff" font-weight="700" text-anchor="middle">ROBOT</text>
+<text x="1685" y="749" font-family="DejaVu Sans,Arial,sans-serif" font-size="34" fill="#fff" font-weight="700" text-anchor="middle">BODY</text>
+<rect x="1260" y="550" width="230" height="170" rx="10" fill="#fff0df"/>
+<text x="1375" y="585" font-family="DejaVu Sans,Arial,sans-serif" font-size="22" fill="#18232d" font-weight="700" text-anchor="middle">FRONT LEFT</text>
+<text x="1375" y="632" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#18232d" font-weight="700" text-anchor="middle">6 / 7 / 8</text>
+<text x="1375" y="673" font-family="DejaVu Sans,Arial,sans-serif" font-size="21" fill="#18232d" font-weight="400" text-anchor="middle">C10 / C11 / C12</text>
+<rect x="1880" y="550" width="230" height="170" rx="10" fill="#f0e9fc"/>
+<text x="1995" y="585" font-family="DejaVu Sans,Arial,sans-serif" font-size="22" fill="#18232d" font-weight="700" text-anchor="middle">FRONT RIGHT</text>
+<text x="1995" y="632" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#18232d" font-weight="700" text-anchor="middle">9 / 10 / 11</text>
+<text x="1995" y="673" font-family="DejaVu Sans,Arial,sans-serif" font-size="21" fill="#18232d" font-weight="400" text-anchor="middle">C13 / C14 / C15</text>
+<rect x="1260" y="835" width="230" height="170" rx="10" fill="#e6eefc"/>
+<text x="1375" y="870" font-family="DejaVu Sans,Arial,sans-serif" font-size="22" fill="#18232d" font-weight="700" text-anchor="middle">REAR LEFT</text>
+<text x="1375" y="917" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#18232d" font-weight="700" text-anchor="middle">0 / 1 / 2</text>
+<text x="1375" y="958" font-family="DejaVu Sans,Arial,sans-serif" font-size="21" fill="#18232d" font-weight="400" text-anchor="middle">C4 / C5 / C6</text>
+<rect x="1880" y="835" width="230" height="170" rx="10" fill="#e2f3ee"/>
+<text x="1995" y="870" font-family="DejaVu Sans,Arial,sans-serif" font-size="22" fill="#18232d" font-weight="700" text-anchor="middle">REAR RIGHT</text>
+<text x="1995" y="917" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#18232d" font-weight="700" text-anchor="middle">3 / 4 / 5</text>
+<text x="1995" y="958" font-family="DejaVu Sans,Arial,sans-serif" font-size="21" fill="#18232d" font-weight="400" text-anchor="middle">C7 / C8 / C9</text>
+<text x="1685" y="1074" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#18232d" font-weight="400" text-anchor="middle">Each group: shoulder / carrier / crank</text>
+<text x="1685" y="1120" font-family="DejaVu Sans,Arial,sans-serif" font-size="23" fill="#596879" font-weight="400" text-anchor="middle">Diagram is an orientation guide, not scale.</text>
+<text x="1685" y="1160" font-family="DejaVu Sans,Arial,sans-serif" font-size="23" fill="#596879" font-weight="400" text-anchor="middle">Use physical joint names, not CAD FL/RL tags.</text>
+<rect x="60" y="1255" width="2080" height="225" rx="14" fill="#fff"/>
+<rect x="60" y="1255" width="2080" height="65" rx="12" fill="#18232d"/>
+<text x="84" y="1299" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">ONE SERVO · TWO CONNECTIONS</text>
+<text x="88" y="1365" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Original 3-wire plug → PCA9685: signal / V+ servo supply / GND. Follow printed row labels.</text>
+<text x="88" y="1410" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Added potentiometer wiper wire → its C-number above. All grounds are common.</text>
+<text x="88" y="1450" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#18232d" font-weight="400" text-anchor="start">PCA outputs 12–15 unused · MUX C0–C3 unused · Shoulder = sideways sweep; carrier/crank = leg linkage.</text>
+<text x="62" y="1532" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#596879" font-weight="400" text-anchor="start">Saved mapping verified 2026-10-17 · Feedback calibrated at 500 / 1650 / 2800 µs · Remove power before rewiring.</text>
+<text x="62" y="1571" font-family="DejaVu Sans,Arial,sans-serif" font-size="23" fill="#596879" font-weight="400" text-anchor="start">2026-10-18 · See SERVO_SOCKET_MAP.md and Multiplexer_Wiring.png · Recalibrate if exchanging physical servos.</text>
+</svg>

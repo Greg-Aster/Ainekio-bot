@@ -7,6 +7,7 @@
 #include "system.h"
 #include "display.h"
 #include "imu_diagnostics.h"
+#include "servo_feedback.h"
 #include "ainekio/p4_imu.h"
 #include "ainekio/p4_assets.h"
 
@@ -56,6 +57,8 @@ void app_main(void)
     if (assets != ESP_OK) printf("assets unavailable: %s\n", esp_err_to_name(assets));
     ainekio_p4_log_stage("controller tasks");
     ESP_ERROR_CHECK(ainekio_p4_controller_start());
+    const esp_err_t feedback=ainekio_p4_feedback_start();
+    printf("servo feedback acquisition: %s\n",esp_err_to_name(feedback));
     ainekio_p4_log_stage("camera/audio initialization");
     const esp_err_t media = ainekio_p4_controller_media_start();
     if (media != ESP_OK) printf("media initialization: %s\n", esp_err_to_name(media));

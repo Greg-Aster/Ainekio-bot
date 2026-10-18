@@ -3420,3 +3420,1039 @@ A Finish test found a carrier reaching 2902 us in the first candidate. The body-
 Fresh pre-install calibration unexpectedly showed carrier Home pulses changed from 2444/856 to 2800/500 us while home_cd remained 117. The owner explicitly clarified that only carrier Home settings changed and carrier horns were **not** physically remounted. Retained the owner's 2800/500 us carrier Home pulses and changed carrier home_cd to **-3087**, preserving the original angle-to-pulse relationship (affine offset difference under 0.000014 us from float precision). This avoids interpreting a Home-setting edit as a changed carrier mounting angle. All four crank references are now **home_cd -11768**, with left Home **2800 us** and right Home **500 us**. Shoulder settings, channels, inversion and pulse-per-degree scales were preserved. The first calibration set was rejected by the existing mode requirement without applying it; entering the existing Body Control calibration mode allowed set/save and readback.
 
 Installation and persistence are verified. The crank mounting angle remains photo-estimated; actual shaft angles, mirrored mechanical alignment and physical walking performance remain unqualified. Native results establish the emitted rear-left 1600/2800 us endpoints under this mapping, not measured servo tracking. Runtime receipts and before/after calibration snapshots are retained outside the repository under `/tmp/ainekio-reindexed-walk-20261015`.
+
+## 2026-10-16 — Owner walking observations and feedback-learning requirements
+
+Following the 0.8.59 installation, the owner reports some actual forward walking at 100%, though poor quality. Reducing the control reduced stride and mostly produced twitching without useful translation. The rear sags under load, and feet tend to drag with insufficient physical lift. These are owner-reported physical observations; distance, speed, ground clearance, current and joint tracking were not instrumented in this turn. They establish that the smaller tested strides were ineffective on this setup, not a universally optimal stride or a confirmed cause of rear sag.
+
+Source inspection confirms IMU telemetry exports attitude, acceleration and angular rate, not measured forward speed or distance (`Slave/firmware/esp32p4-wifi6/main/imu_telemetry.c`). Walk also ties lift amplitude to stride percentage (`Slave/software/models/v2-12servo/motion.c`), so changing the control changes more than planted distance. Existing commanded trajectories cannot establish actual foot lift under load.
+
+Proposed learning direction, not implemented: use stationary external phone video with a scale reference to measure displacement, rear/body height and visible foot clearance, synchronized with IMU attitude/rate/acceleration and commanded gait phase. Optimize a small set of gait parameters from actual trial outcomes; execute trajectories and attitude feedback on P4, with trial evaluation/optimization on the workstation or Q6A. Separate stride, swing lift and cadence in the experiment. Use distance/time as progress, with tilt/impact/sag/drag costs; IMU calmness alone cannot distinguish standing still from successful translation. Rear sag may involve load geometry, actuator tracking, supply behavior or posture commands; no unique cause is established.
+
+References: ST LSM6DS3 datasheet (3-axis accelerometer and gyro), https://community.st.com/ysqtg83639/attachments/ysqtg83639/mems-sensors-forum/21052/1/st_imu_lsm6ds3_datasheet.pdf ; VectorNav inertial-navigation explanation and integration drift, https://www.vectornav.com/resources/detail/what-is-an-ins ; gait parameter learning via Bayesian optimization, https://arxiv.org/abs/2406.07065 . Research examples do not validate this robot. No firmware changes, uploads or robot commands were made during this assessment.
+
+### Freestyle support request and live trial preparation
+
+Owner authorized supervised camera/IMU walking trials and confirmed floor readiness, then explicitly requested adding Freestyle support to the current firmware before trials. No walking command was sent. Read-only inspection found the robot connected, camera and IMU live, and self-leveling enabled/active. Camera preview was stored outside the repository; it shows textured carpet and a bright light source ahead. Current sensing does not establish metric distance, electrical efficiency, individual servo tracking or ground clearance.
+
+The existing `motion_plan_v1` contract is eight servo targets (map 1). P4 controller explicitly excludes `AINEKIO_COMMAND_MOTION_PLAN`, omits its command-mask bit and feature advertisement, and the body executor accepts semantic intents only. Enabling its feature string alone would not implement Freestyle. A P4 implementation needs a model-specific plan representation, parser/gateway support, asynchronous execution through the existing calibrated/staggered output owner, and completion/interruption tests. Existing V1 byte/token/frame and duration capacities must not silently be mistaken for twelve-servo capability.
+
+Asked the owner whether P4 Freestyle should use foot/body keyframes solved by IK, or twelve joint-angle keyframes with explicit direct-angle authorization. AGENTS.md states “Use semantic robot commands through the existing MetaHuman and body-control owners; do not let AI output raw servo angles.” No firmware changes or flash were performed while that material format decision is pending. Earlier floor readiness is for trials, not servo-power-off update readiness.
+
+### Twelve-joint Freestyle implementation and unsuccessful activation — 0.8.60
+
+The owner removed the raw-angle prohibition and explicitly authorized continuing.
+Implemented negotiated `motion_plan_v2` / map 2 with twelve signed model-angle
+targets, gateway translation and authenticated Body Control submission, and P4
+execution through saved calibration and the staggered PCA output owner. Plans
+use caller-authored linear timing without a Home/Stand prefix. Explicit end-pose
+selection retains normal completion receipts. Arbitrary joint plans clear active
+balance correction without changing the saved setting; contact-aware leveling
+during Freestyle and camera-based gait optimization are not implemented.
+
+Build 0.8.60-p4-freestyle completed: 2,847,088 bytes, SHA-256
+`600b00fcb9a42aa6b89f0850ca88b9e20756928084cf16363a0c21a9ec788fc8`.
+All 51 native tests, three new gateway tests, and four existing V1 Freestyle
+tests passed. Three broader Python schema/fixture completeness failures were
+reproduced against unchanged HEAD datasets. These checks are not hardware proof.
+
+With fresh supported/servo-power-off confirmation, calibration was read and
+retained outside the repository. Wi-Fi upload returned staged; activation
+returned selected_for_next_boot. The gateway was reloaded, but the robot did
+not reconnect. The owner reported the display remained at update/restarting;
+after the requested power cycle, the display was blank. Gateway and the robot's
+last HTTP address are unavailable for robot diagnostics. USB boot-log capture
+has been requested. The running image, cause of failure, calibration persistence
+after reboot, and physical Freestyle execution are **not verified**. No trial
+or Freestyle motion command was sent. Do not treat 0.8.60 as successfully deployed.
+
+### Boot failure diagnosed and previous slot recovered
+
+The replacement USB cable enumerated the CH343 serial device; after the owner
+granted device access, serial capture confirmed 0.8.60 repeatedly rebooting at
+`vApplicationGetIdleTaskMemory`, failing to allocate the idle stack before
+`app_main`. This is a firmware startup allocation failure, not measured servo
+load or a confirmed power-supply fault. The repository's earlier maintenance
+bring-up records the same pre-V3 P4 constraint: most internal heap becomes
+available only after the scheduler releases startup-stack regions.
+
+The new receive buffer had grown from 4,097 to 8,193 bytes in BSS. Corrected it
+to allocate its full workspace in `controller_start`, alongside the existing
+queues, after scheduler startup. The receive-length check still accepts 8,192
+payload bytes. No protocol range/capacity reduction, runtime motion restriction
+or new recovery fallback was added. Build 0.8.61-p4-freestyle succeeds with
+2,847,120 bytes and SHA-256
+`0f72acf927ca4c217221cfcd678dfa4e21257796537f5856d0651eab0fdb95ce`.
+Five targeted native body/feedback/protocol/OTA tests pass.
+
+The owner explicitly authorized USB selection of the existing previous slot.
+ESP-IDF otatool changed only the 8 KiB otadata partition at 0x10000. Wi-Fi
+readback confirmed 0.8.59 in ota_1, boot ota_1, pending_verify false, ESP_OK.
+Neither application image, NVS, partition table nor bootloader was rewritten
+over USB. The first 0.8.61 upload was interrupted by a reboot before activation;
+the P4 returned to 0.8.59 and discarded the in-RAM staging selection. A second
+Wi-Fi upload is underway with the serial capture held open across activation.
+
+### Corrected Freestyle deployment verified — 0.8.61
+
+At 2026-10-16T17:25:17Z, authenticated Wi-Fi readback confirms
+**0.8.61-p4-freestyle**, running and boot **ota_0**, pending_verify false,
+ESP_OK, and the negotiated **motion_plan_v2** feature. All twelve joints'
+channel, Home pulse, Home model angle, inversion and scale match the pre-update
+snapshot exactly. No calibration write was needed.
+
+With servo supply still off per owner confirmation, submitted one 40 ms map-2
+frame computed from the current commanded pulses and saved calibration, ending
+in hold. The robot returned **done, sequence 7**. This establishes authenticated
+gateway-to-P4 twelve-joint execution and completion, not powered shaft tracking
+or successful walking. The staged image and updated deployment metadata are
+retained outside the repository under `/tmp/ainekio-freestyle-20261016`.
+
+Serial and Wi-Fi logs also confirm the corrected boot passes controller,
+camera/audio, IMU and display initialization, admits startup rise, reaches the
+console, and authenticates to the gateway. No idle-stack assertion appears in
+this corrected boot. Display initialization is firmware evidence; visible screen
+appearance has not yet been confirmed by the owner.
+
+## 2026-10-16 — Recorded floor trials and cumulative sag
+
+The owner authorized supervised floor trials and confirmed the tape visible in
+camera images is marked in inches. Added `Master/gateway/gait_trials.py` to
+record the existing authenticated intent/Freestyle owners, JPEG frames, full
+status, device-timestamped IMU samples and command receipts. Runtime data and
+session credentials remain outside the repository under
+`/tmp/ainekio-gait-trials-20261016`. Recording duration does not stop motion.
+Distance and electrical energy remain unmeasured. There is no saved camera
+intrinsic/ground-plane calibration, so image flow/tape displacement in the
+changing onboard view cannot be labeled metric travel. Preview was requested
+at VGA/10 fps; actual recordings generally delivered about 5 fps.
+
+| Trial | Leveling | Fresh IMU samples | Roll span ° | Pitch span ° | Largest IMU sample gap s |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Stationary | On | 39 | 0.07 | 0.04 | 0.242 |
+| Native Walk 100%, two requested cycles | On | 139 | 5.92 | 4.42 | 0.402 |
+| Same native command | Off | 151 | 6.87 | 10.86 | 0.223 |
+| Freestyle baseline, first placement | Off | 77 | 6.62 | 3.21 | 0.246 |
+| Freestyle baseline repeat | Off | 84 | 7.10 | 3.53 | 0.192 |
+| Freestyle 12 mm lift, first trial | Off | 30 | 0.22 | 3.00 | 2.024 |
+| Freestyle 12 mm lift, repeat | Off | 71 | 5.69 | 4.76 | 0.376 |
+
+All movement commands returned done. The last finite trial was sequence 22;
+readback then showed no pending sequences. Completion proves controller
+execution, not measured shaft arrival. The owner observed forward travel and
+rear sag. Onboard images show scene movement and changing viewing angle, but
+cannot directly inspect the feet. General gait/balance status updates can lag
+an entire short motion; IMU and receipts must be interpreted separately.
+
+The owner disabled self-leveling because calibration was suspect, then allowed
+it to be reenabled if needed. It remained off for Freestyle comparisons.
+Freestyle currently clears trajectory balance correction even if the saved
+switch is on; this feature does not yet add leveling to raw joint plans.
+
+`tools/export_freestyle.c` exports the native geometry without contacting a
+robot. Increasing swing lift alone from 10 to 14 mm demanded carrier pulses
+around 2955/345 µs with the current saved mapping. The tested candidate instead
+used 12 mm lift plus an 8 mm rear-foot airborne X offset, retaining the planted
+stroke. A full six-phase-cycle native command compressed into the protocol's
+32 frames produced about 19° peak angular error; that plan was not executed.
+The single-cycle comparison used 32 frames, about 0.94 s authored duration,
+1.25° peak angular approximation error and under 0.8 mm modeled sole-height
+error. One-ms interpolation samples closed in the model. These are offline
+results, not measured clearance or actuator tracking.
+
+**No gait winner was established.** The first lift trial lost IMU coverage
+across movement; its low sampled peak rate is invalid evidence of smoothness.
+The recorder now exposes maximum IMU sample and camera receipt gaps. Three
+recorder tests pass, including duplicate/stale sample handling and absence of
+an unsolicited Stop. More importantly, trials were repeated without physically
+restoring the starting stance. The owner reported cumulative sag and widening
+legs, making comparative scores confounded. These trials must not be used as
+learning rewards or promoted as improved walking.
+
+The owner reported Stand could not restore height under load but the legs
+extended when unloaded. Further gait comparisons were stopped. A subsequent
+read-only Stand check found the robot absent from the gateway registry; no
+Stand completion or pulse readback was established for that attempt.
+
+## 2026-10-16 — Fast Stand and startup stepping repair
+
+The owner explicitly requested full-speed Stand and boot behavior, with lifted
+foot repositioning rather than shoulders sweeping planted feet inward. Source
+inspection found an eight-second authored Stand path, quintic easing and an
+additional per-frame speed search. Startup separately used 600 ms folding,
+600 ms shoulder engagement and a 1200 ms eased rise, with 100 ms rear delay.
+
+Changes in progress for 0.8.62-p4-fast-stand:
+
+- Stand uses angular-distance timing at the same nominal full servo rate as
+  automatic Walk (profile 545.45 degrees/s), independent of the saved playback
+  multiplier and slow joint-rate setting. Removed Stand's extra time-bracketing
+  slowdown. The geometric path retains support shifts, an 8 mm foot lift,
+  airborne placement and planting; stage coordinates are no longer elapsed
+  seconds. Endpoints are emitted on the existing 50 Hz output clock.
+- Startup sends folding targets directly, then uses the same stepping path.
+  Shoulder output remains off until its own modeled lift stage, rather than
+  commanding all shoulders to calibration Home on the floor. Front folding
+  leads rear by one PWM frame (20 ms). Initial fold transit is estimated from
+  the profile's provisional 243° travel and nominal rate (~446 ms), replacing
+  the old 600 ms constant. It is not a sensed arrival or a torque command.
+- Disabling self-leveling now also disables IMU-derived rotation of Stand's
+  entry path. Previously Stand still used that orientation with the switch off.
+  Enabled leveling retains its existing behavior; no calibration values change.
+- Explicit calibration Home remains separate. No Walk preamble, automatic Stop,
+  new sensor requirement or additional fault shutdown was introduced.
+
+Targeted native tests pass: nominal Stand paths take 0.66–0.78 s with small
+initial tilts; the retained Freestyle endpoint takes about 0.90 s with leveling
+off. Startup completes in 1.04 s in the production-owner test. The test proves
+each shoulder first receives PWM at its lifted-foot stage, preserves remapped
+channels/calibration, and retains cancellation. Stand output is identical with
+playback settings 0.05/12 and saved joint-rate settings 20/2000 when leveling is
+off. These timing and geometry assertions do not prove the MG90s track them
+under load.
+
+Current-calibration offline audit: startup carrier targets span approximately
+385–2905 µs, slightly beyond the earlier 400–2900 review window but within the
+current declared 300–3000 profile. Startup crank targets span approximately
+1211–2084 µs. No pulse clipping was added. The post-trial input already contains
+a rounded 499 µs right crank endpoint. Large tilted-start contact geometry also
+remains problematic: the retained trial endpoint at −0.20/−0.25 rad pitch fails
+the contact solver when IMU-driven entry is enabled; positive large tilts can
+request excessive carrier travel. This repair is not proof of general tilted
+recovery, and these cases are not grounds to silently clamp or claim success.
+The requested leveling-off tests use the unrotated entry path.
+
+Research reference: Stanford Pupper separates support and swing foot targets,
+then uses IK (https://github.com/stanfordroboticsclub/StanfordQuadruped).
+Unitree's Go2 example blends standing joint targets with explicit stiffness and
+damping commands (https://github.com/unitreerobotics/unitree_mujoco/blob/main/example/python/stand_go2.py).
+Those designs do not establish that this position-only MG90 assembly has the
+same feedback or load capacity. Firmware build and physical validation status
+are recorded below when completed.
+
+### Build and installation status
+
+Built and frozen **0.8.62-p4-fast-stand**, 2,844,736 bytes, SHA-256
+`ef0b1980a7da7e4a575a923dc5b4cab628a0ded77c2d0049d206b8bd48956c2e`.
+The full 51-test native suite passed; following final Stand status/playback-field
+cleanup, both production body tests and posture-contact tests passed again.
+Three recorder tests and `git diff --check` pass. Artifact and logs are outside
+the repository in `/tmp/ainekio-gait-trials-20261016`.
+
+**Not deployed and not physically validated.** The final authenticated gateway
+read returned an empty robot registry. Requested controller Wi-Fi reconnection,
+frame support and servo power off for update activation, which runs startup.
+No additional physical motion or calibration write was sent after sequence 22.
+
+### Wi-Fi activation attempt after reconnection
+
+Owner confirmed frame supported and servo power off. Preflight read back
+0.8.61-p4-freestyle on ota_0, with self-leveling disabled; calibration and
+leveling settings were saved outside the repository for comparison. Two uploads
+returned staged successfully, but gateway activation returned HTTP 409 because
+the robot connection was gone. Subsequent reads returned the old firmware with
+idle staging state; retained logs show a controller panic and reset reason 4.
+The truncated log does not establish the crash's root cause.
+
+The same authenticated Wi-Fi maintenance endpoint remained reachable directly.
+A direct upload of the frozen, hash-verified 0.8.62 image followed immediately by
+activation returned `selected_for_next_boot`. No USB write, calibration write,
+or additional physical trial was performed. Post-restart verification follows.
+
+**Deployment verified:** authenticated readback reports
+`0.8.62-p4-fast-stand`, running and boot partitions both `ota_1`,
+`pending_verify=false`, and `ESP_OK`. All twelve joint calibration records match
+the preflight values for ID, channel, Home pulse/angle, inversion and pulse scale.
+Saved leveling remains disabled with its prior strength, damping and level-zero
+values. The new boot log reports software reset reason 3 and no panic. Local
+artifact metadata and verification evidence were updated outside the repo.
+Servo power was off for installation: loaded Stand, actual foot lifting, shoulder
+drag reduction and startup tracking remain physically unverified.
+
+### Owner physical result: startup ends before loaded standing is achieved
+
+After deployment, the owner placed the robot on the floor and powered it on.
+Startup completed while the robot remained crouched with motors straining.
+Repeated Stand commands raised it incrementally until it stood. This establishes
+that the current completion receipt is not evidence of physical standing.
+Source confirms posture progression uses elapsed time and nominal joint speed;
+completion occurs at the end of the modeled path without shaft/height readback.
+PWM continues holding the final target after completion, so merely delaying the
+receipt does not establish a fix. Premature transitions between loaded stepping
+stages are a plausible explanation requiring observation, not a measured cause.
+
+The LSM6DS3 measures acceleration and angular rate. It can inform tilt and
+settling, but a stationary level crouch and stationary level Stand can produce
+the same inertial readings. IMU-only settlement must not be reported as measured
+standing height. Actual height feedback needs an external geometric reference
+(for example calibrated camera observations) or a distance/position measurement.
+No additional firmware change or physical command was sent for this assessment.
+
+### Servo potentiometer feedback and proposed acquisition interface
+
+Owner modified a spare MG90 by exposing its confirmed centre potentiometer
+wiper, retaining the internal connections. End-to-end pot resistance measured
+about 4.8 kOhm. Tested through PCA socket 11: 500 us gave approximately 0.2–0.3 V
+(mostly 0.3, slowly changing on a coarse meter), 1650 us gave steady 1.7 V, and
+2800 us gave steady 3.2 V. Owner previously tested 400–2900 us travel and chose
+100 us endpoint margins. Voltage at those outer endpoints remains unmeasured.
+These readings are promising feedback evidence, not precise angle calibration.
+
+Checked current ESP-IDF ADC mapping, firmware source, frozen 0.8.62 build config,
+and board references. ADC2 GPIO49–52 have no assigned role in this firmware.
+ADC1 GPIO16–19 are used by C6 SDIO. The current SSD1306 still uses GPIO20/21;
+GPIO22/23 are unused by that driver but needed if ST7789 returns. ADC2 GPIO53/54
+belong to audio/C6 reset. Thus six currently unassigned ADC inputs, four retained
+with either display, are insufficient for twelve direct feedback inputs.
+
+Selected design proposal: first feedback input on GPIO49 (ADC2 channel 0,
+header guide L10). For all twelve joints, CD74HCT4067 at regulated 5 V selects
+feedback channels, followed by a 5 V MCP6001 unity-gain buffer and a 1:1 divider
+into GPIO49. Buffer precedes divider to avoid appreciably loading the servo pot.
+Two equal 10 kOhm divider resistors nominally map 0–5 V to 0–2.5 V; ADC sampling
+and filtering need bench validation. Proposed select pins S0/S1/S2/S3 are
+GPIO27/28/29/30 (R14/L7/L6/L5), currently unassigned. HCT is intentional: its
+5 V operation accepts 3.3 V control logic; ordinary HC at 5 V has different
+guaranteed thresholds. One-servo bench interface can omit the multiplexer.
+This is an interface selection, not an assembled circuit or implemented driver;
+power sequencing, decoupling and exact package pinout remain wiring-design work.
+No parts purchased, firmware modified, or physical command issued.
+
+References: TI CD74HC/HCT4067 datasheet
+(https://www.ti.com/lit/ds/symlink/cd74hc4067.pdf), Microchip MCP6001 datasheet
+(https://ww1.microchip.com/downloads/en/DeviceDoc/MCP6001-1R-1U-2-4-1-MHz-Low-Power-Op-Amp-DS20001733L.pdf),
+Espressif P4 datasheet and Waveshare board schematic linked in PCA9685_WIRING.md.
+
+Space constraint refinement: owner prefers a single CD74HC4067 module. A 3.3 V
+HC multiplexer directly into the P4 ADC is a valid simpler candidate, conditional
+on every feedback input remaining between ground and the actual multiplexer
+supply, including other poses and supply variations. The measured 3.2 V at
+2800 us is encouraging but does not prove that condition over full travel or
+across all servos. HC at 3.3 V does not need the 5 V selection-level translator.
+An analog buffer is not intrinsically required; direct acquisition settling,
+cross-channel error and interaction with the servo's own feedback must be tested.
+The earlier 5 V buffered design was presented too strongly as a necessity.
+No servo travel reduction is proposed to accommodate the measurement circuit.
+Power sequencing must also avoid driving an unpowered multiplexer or ADC.
+This remains a proposed bench interface, with no hardware/firmware change made.
+
+### 2026-10-16 — Multiplexer acquisition and measured-position Stand implemented
+
+Owner purchased the DORHEA CD74HC4067 module and is modifying the remaining
+eleven MG90 servos. After clarification, owner explicitly approved:
+"Yes—use the measurements to coordinate Stand", specifically completing a leg
+lift before bringing that shoulder inward. The implementation retains fast
+movement commands, holds stage targets until measured arrival, and accepts a
+replacement motion command. No new timeout or automatic shutdown was added.
+
+Candidate **0.8.63-p4-servo-feedback** now provides:
+
+- Independent ADC2 channel 0 / GPIO49 acquisition, selecting the 3.3 V HC4067
+  with GPIO27/28/29/30. Sixteen channels per scan, one discarded conversion then
+  four retained samples per channel; raw average, spread, timestamp and optional
+  ADC-calibrated voltage are available. Sensor scans do not run in the body task.
+- Separate persistent `p4_feedback` calibration: configurable input per logical
+  joint, three observed raw/pulse reference points, ascending or descending
+  sensors, and explicit extrapolation rather than clipped readings. Existing
+  Home/inversion and PCA output assignments remain authoritative and unchanged.
+- Authenticated GET/POST `/api/servo-feedback`, proxied by the existing selected
+  robot maintenance owner. Body Control's Servo feedback tool shows measured
+  versus commanded pulse-equivalent positions, sample age/spread, saved points,
+  Stand progress and waiting joints. Calibration capture never commands motion.
+- Separate saved reader/Stand enables and adjustable arrival tolerance (initial
+  30 us). Both features initially off while wiring/calibration is incomplete.
+  Measured Stand uses the shaft-derived starting pose. Startup confirms its fold,
+  then the existing shift/lift/place/lower landmarks; a shoulder stays uncommanded
+  until its leg's lift arrival is confirmed. Final completion follows measured
+  arrival. A reading predating the target write cannot confirm arrival. If a
+  required reading is missing or a joint cannot arrive, the stage stays active
+  with targets applied; it does not time out or shut down.
+
+Validation: pinned ESP-IDF 5.5.4 build succeeded, application 2,865,056 bytes in
+an 8 MiB slot. All **53 native tests**, **36 dashboard integration tests**, and
+the seven dashboard JavaScript test files passed. New checks cover reversed
+feedback polarity and servo inversion, independent mux/PCA mapping, stale sample
+arrival, incomplete calibration, extended stage holding, shoulder sequencing,
+final arrival, cancellation, authentication, saved-request forwarding, selected
+robot changes and concurrent UI polling. The broader gateway run initially
+found its existing camera test double lacked `_publish_event`; that fixture now
+records published events, without changing camera behavior. System Python lacks
+optional OpenCV; the unrelated camera measurement path reported that limitation.
+Syntax and diff whitespace checks passed.
+
+Frozen candidate is outside the repository at
+`/tmp/ainekio-servo-feedback-20261016/ainekio_p4_body.bin`, SHA-256
+`045cbf6d2ce6ea12dda604bedd595b44d11ead6ceb80d511c27016041d298f9e`.
+**Not flashed, gateway not restarted, no physical movement sent.** The module is
+not installed, so ADC settling/loading, feedback accuracy, persistence across a
+real reboot and loaded Stand remain unverified. Wiring, mapping and commissioning
+are recorded in [PCA9685_WIRING.md](PCA9685_WIRING.md#mg90-fourth-wire-feedback--october-16-2026).
+Joint arrival estimates pose; it does not measure motor current, contact force
+or absolute body height, and it cannot itself overcome inadequate load torque.
+
+### 2026-10-17 — Replacement 1.9-inch LCD firmware restored
+
+Owner received the replacement LCD and requested removal of the temporary OLED
+and its associated code. The original `main/display.c` ST7789 driver and shared
+color face renderer were still present. Current firmware now compiles that driver
+directly; `display_ssd1306.c`, the temporary panel choice and the OLED default
+were removed. Existing color animations, listening/speech presentation, manual
+face selection, connection/setup pages, warning icons and OTA progress remain
+on the original LCD path, at 320×170, 15 FPS and the installed 180-degree rotation.
+The newer servo-feedback source and other existing local work were retained.
+V1's separate display implementation was not changed.
+
+Clean ESP-IDF 5.5.4 build **0.8.64-p4-lcd-restored** succeeded for pre-V3 P4
+using the full OTA layout. Application size is **2,905,696 bytes**, within the
+8 MiB application slot. Build inputs include only `main/display.c` for the P4
+display; linked-symbol inspection confirms the ST7789 driver and no SSD1306 or
+temporary OLED driver symbols. All four focused native tests pass: wide color
+faces, motion-face timeline, LCD connection guidance, and OTA upload/activation.
+Scoped whitespace checks pass. No new display policy or motion restriction was
+added.
+
+Frozen application: `/tmp/ainekio-lcd-restored-20261017/ainekio_p4_body.bin`.
+SHA-256: `249b8b9f54320442699e60aee1de150ec45f2f72879f088ad8b634e04f361a50`.
+Build logs, configuration and artifact manifest remain outside the repository.
+The owner confirms the replacement is not wired yet; **not flashed or physically
+tested**. No robot command or calibration write was sent. The existing
+[LCD wiring image/table](LCD_FACE.md#connections) remains authoritative:
+SCLK20, MOSI21, CS22, DC23, RESET26, VCC/BLK 3V3 and common ground. These do not
+conflict with the proposed feedback multiplexer pins.
+
+### October 17 installation — startup allocation fixed; LCD picture pending
+
+The owner wired the replacement and authorized installation. USB initially
+enumerated but denied serial access. The existing authenticated Body Control
+OTA path staged the complete application and selected it for restart. The P4
+then stopped reconnecting and the owner reported backlight without an image.
+After the owner granted access to `/dev/ttyACM0`, the serial log confirmed the
+initial LCD image repeatedly asserted in `vApplicationGetIdleTaskMemory` before
+`app_main`; this was a startup allocation failure, not an LCD presence test.
+
+Linked-symbol comparison against the preceding OLED candidate shows about
+9,510 additional internal-RAM instruction bytes for the LCD SPI driver. The
+Hosted global constructor allocated its transport before the scheduler released
+the pre-V3 P4 startup-stack regions. The build now omits that constructor source
+and calls the same `esp_hosted_init()` API from the existing network task before
+its first remote Wi-Fi call. No managed SDK source, transport queue capacity,
+task stack, movement limit, LCD rate or camera rate was changed. This removes
+the early allocation at its initialization owner rather than reducing capacity.
+
+The corrected **0.8.64-p4-lcd-restored** application is **2,905,408 bytes**,
+SHA-256 `ad25134dcabc7f0c11d3ac38742788588599c1ade5f171f4245e50230b369345`.
+It was written over USB to the already selected `ota_0` at `0x20000`; esptool's
+write hash check and separate `verify_flash` both passed. Metadata readback from
+`0x8000` through `0x11fff` matches its pre-write backup byte-for-byte, preserving
+the partition table, NVS, PHY and OTA selectors. The previous application in
+`ota_1`, bootloader, assets and calibration were not rewritten.
+
+The corrected boot reaches main, initializes camera/audio and ST7789, then
+starts Hosted under the network task. Serial reports display ready, 342 rendered
+frames, no output fault, and about 119 KB free internal heap at the sampled
+console check. C6 2.12.8 and the unchanged TX/RX queue sizes of eight are reported.
+Body Control subsequently reports the robot online, camera and display ready,
+and calibration saved with no pending edits. Authenticated firmware status
+confirms running/boot `ota_0`, version 0.8.64, pending verification false, ESP_OK.
+
+**The owner still sees no LCD picture**, despite a working backlight. Write-only
+SPI cannot acknowledge the physical panel, so transfer success does not prove
+that the LCD receives the signals or displays them. The owner suspects this
+replacement and will compare another panel with power removed during the swap.
+No second flash is required for that comparison. Physical picture, colors and
+orientation remain unverified; the remaining cause is not yet identified. No
+test movement was commanded; reboot followed the existing startup policy.
+
+### 2026-10-17 — Multiplexer assembly image for C4–C15
+
+Owner received the CD74HC4067 module and selected C15 through C4 for twelve
+feedback wires. Added `Multiplexer_Wiring.svg` and a 2400 × 1740 PNG alongside
+existing assembly images. The diagram shows seven P4 connections, an EN-to-GND
+local jumper, the twelve selected inputs, and the distinction between the new
+feedback wire and the existing PCA9685 servo wiring. It uses printed labels and
+explicitly does not claim to reproduce the delivered module's connector layout.
+Header rows were checked against the existing P4 pinout; signal assignments
+match the feedback driver. The rendered PNG was visually checked for legibility.
+Input-to-joint assignments are not assumed: the existing C0–C11 software defaults
+must be mapped to the owner's actual C4–C15 wiring. No firmware, saved calibration,
+or physical robot state changed for this documentation request.
+
+### 2026-10-17 — First physical C4 feedback acquisition
+
+Owner connected the multiplexer to the P4 and one modified servo to PCA9685
+socket 0, with its added wiper wire on mux C4. Live authenticated Body Control
+status confirms firmware 0.8.64-p4-lcd-restored, running/boot ota_0 and pending
+verification false; the installed image advertises servo_feedback_v1. Reader
+settings initially disabled, measured Stand disabled, with no captured curves.
+Enabled acquisition only, retaining measured Stand off and the existing 30 us
+arrival tolerance. No motor command, input remapping, calibration capture,
+firmware upload or restart was issued.
+
+Collected 15 C4 samples over approximately 3.3 seconds while the existing socket
+0 command remained 1500 us. ADC initialization and voltage calibration report
+ESP_OK. C4 raw values were 1536–1570 (1476–1508 mV); excluding the first sample,
+1556–1570 (1495–1508 mV). Scan advanced from 11 to 176. Last sample's four-read
+spread was 8 ADC counts; the first was 63. This establishes live analog
+acquisition through the selected mux channel, not calibrated shaft position or
+proof of adequate accuracy/settling under motion. Raw observations are outside
+the repo at /tmp/ainekio-c4-initial-samples.json. Asked whether the test servo is
+free of the linkage before any movement-based check. Existing default logical
+input mappings remain unchanged; the test wire is identified directly as C4.
+
+### 2026-10-17 — C4 spare-servo movement and repeatability check
+
+Owner confirmed the socket-0 servo is a loose spare with the horn clear to move.
+Used the existing Body Control calibration owner, entering calibration mode,
+reading the saved joint-to-output mapping, and commanding only the joint mapped
+to PCA9685 socket 0: 1500 → 1650 → 1350 → 1500 us. Collected twelve C4 snapshots
+per position. Last-six sample medians were respectively 1525, 1702, 1340 and
+1506 mV (raw 1587.5, 1772, 1395 and 1568). C4 responds in the expected direction
+and distinguishes these commanded positions. Readback confirms return to 1500
+us; comparison of all saved joint fields confirms no motor calibration change.
+Requested return to the original normal mode. No feedback curves or input
+mapping were saved; measured Stand remains disabled.
+
+A separate sixty-sample stationary check at the retained 1500 us command gave
+raw median 1570.5, 10th–90th percentile samples 1561–1583 and total range
+1543–1614; voltage median 1508.5 mV, total range 1482–1550 mV. Maximum spread
+inside a four-conversion average was 193 counts. The local two-position slope
+is approximately 1.257 ADC counts/us, so the observed total stationary spread
+would correspond to about 56 us using that provisional slope. This is not a
+saved calibration or a measured angle. Noise, supply variation, acquisition
+settling and actual shaft motion have not been separated; do not attribute all
+variation to motor position or claim the existing 30 us arrival tolerance is
+physically qualified from this test.
+
+Evidence remains outside the repo at /tmp/ainekio-c4-motion-test-results.json
+and /tmp/ainekio-c4-stationary-test-results.json. The test confirms a responsive
+analog feedback path for one loose servo around its middle travel; full-range
+accuracy, loaded response and the other eleven servo wires remain untested.
+
+### 2026-10-17 — Loose servos 1–3 checked on C5–C7
+
+Owner clarified that the legs are not attached: the servos are being checked
+before installation. Confirmed wiring is PCA9685 socket 1 → C5, socket 2 → C6,
+and socket 3 → C7. The P4 reconnected on 0.8.64; acquisition remained enabled
+across reboot and measured Stand remained off. Tested one output at a time
+through the existing Body Control calibration owner, using the saved logical
+joint-to-output mapping. Each sequence was 1500 → 1650 → 1350 → 1500 us, with
+12 C4–C7 snapshots at each command. Settings were not staged or saved.
+
+Last-six-sample voltage medians:
+
+| PCA socket / input | First 1500 us | 1650 us | 1350 us | Return 1500 us |
+| --- | --- | --- | --- | --- |
+| 1 / C5 | 1.5020 V | 1.6980 V | 1.3160 V | 1.5105 V |
+| 2 / C6 | 1.5160 V | 1.6780 V | 1.3165 V | 1.4810 V |
+| 3 / C7 | 1.5125 V | 1.6925 V | 1.3190 V | 1.5000 V |
+
+Each commanded output caused the corresponding input to change in the expected
+direction; simultaneously observed other connected inputs did not show a
+comparable command-sized change. Final command readback confirms all three at
+1500 us. Saved motor calibration fields compare unchanged before/after; return
+to the original normal mode was requested. Feedback input mapping and curves
+remain unchanged. This establishes basic loose-servo movement/feedback response
+around mid-travel, not full-range or loaded performance. Sample variation remains:
+maximum within-scan spreads were 180, 180 and 94 counts for C5, C6 and C7, and
+socket 2's return-to-centre median differed by 35 mV from its first centre reading.
+These measurements alone do not separate shaft hysteresis from acquisition noise.
+
+Detailed observations remain outside the repo at
+/tmp/ainekio-c5-c7-motion-test-results.json. No firmware update, Home sequence,
+Stand command, loaded-leg test or calibration save was performed.
+
+### 2026-10-17 — Remaining loose servos 4–11 checked on C8–C15
+
+Owner confirmed all remaining servos are loose with horns clear, and socket 4–11
+feedback wires are connected in order to C8–C15. Live 0.8.64 firmware reported
+acquisition enabled, measured Stand off, ADC/voltage errors ESP_OK. Used the
+existing Body Control calibration owner to test each output individually at
+1500 → 1650 → 1350 → 1500 us, collecting twelve snapshots per target and
+observing all twelve connected feedback inputs simultaneously.
+
+| PCA socket / input | First 1500 us | 1650 us | 1350 us | Return 1500 us |
+| --- | --- | --- | --- | --- |
+| 4 / C8 | 1.4865 V | 1.6735 V | 1.3175 V | 1.4850 V |
+| 5 / C9 | 1.4935 V | 1.6710 V | 1.3140 V | 1.4860 V |
+| 6 / C10 | 1.4750 V | 1.6470 V | 1.2985 V | 1.4660 V |
+| 7 / C11 | 1.5170 V | 1.7010 V | 1.3340 V | 1.5040 V |
+| 8 / C12 | 1.4995 V | 1.6710 V | 1.3205 V | 1.4860 V |
+| 9 / C13 | 1.5105 V | 1.7010 V | 1.3280 V | 1.5100 V |
+| 10 / C14 | 1.4875 V | 1.6735 V | 1.3175 V | 1.4860 V |
+| 11 / C15 | 1.4990 V | 1.6765 V | 1.3175 V | 1.4910 V |
+
+All eight expected inputs responded in the commanded direction. The high/low
+command separation produced 362.5–389 raw counts on the corresponding input;
+the largest change in any other input's median was 10.5 counts. No swapped or
+nonresponding channel was observed in this middle-travel check. Final readback
+confirms sockets 4–11 commanded to 1500 us. Saved motor calibration fields were
+unchanged; return to the original normal mode was requested. Feedback curves
+and input mapping remain unchanged. No Home, Stand, firmware update or loaded
+leg movement was commanded.
+
+Together with the earlier tests of sockets 0–3, all twelve fourth-wire paths
+have now shown a response to individually commanded loose-servo movement. This
+is not full-range calibration or evidence of loaded standing performance. Noise
+and repeatability still require characterization when calibrating. Detailed
+observations remain outside the repo at
+/tmp/ainekio-c8-c15-motion-test-results.json.
+
+### 2026-10-17 — All twelve loose servos calibrated over 500–2800 us
+
+Owner approved this range with all horns clear and linkages removed. Saved the
+confirmed PCA9685 socket N → multiplexer C(N+4) mapping for all twelve joints.
+Through the existing Body Control calibration owner, commanded each servo
+individually to 500, 1650 and 2800 us. Captured an actual ADC observation nearest
+the settled sample median at each point, including its scan/configuration
+revision, and saved each three-point curve to the robot's feedback settings.
+Live readback reports twelve calibrated joints, saved=true, acquisition enabled,
+and measured Stand still disabled. Firmware remains 0.8.64-p4-lcd-restored.
+
+Checked each completed curve at 2225, 1075, 1650 and 1500 us. Across 48 check
+positions and 480 settled observations, the largest absolute median difference
+between feedback-estimated pulse and command was 15.31 us; the largest individual
+difference was 23.34 us. Both occurred on socket 8 / C12. All checked observations
+were within the existing 30 us tolerance, which was not changed. Median endpoint
+voltages across the twelve servos were 0.244–0.259 V at 500 us and
+3.0815–3.174 V at 2800 us. This is unloaded command/feedback agreement, not an
+independent angular accuracy measurement, sustained noise qualification, or
+evidence that a loaded leg can lift the robot.
+
+A Wi-Fi read timed out after socket 5's three points were saved. Readback
+confirmed the robot remained online and those points intact; resumed only the
+unfinished checks and remaining sockets. No firmware recovery or restart was
+needed. Saved motor Home, direction, mapping and other motor-calibration fields
+compare unchanged against the initial backup. Requested return to normal mode.
+Sockets 1–11 finished commanded to 1500 us; socket 0 had returned to 1500 us in
+its earlier calibration pass and its PWM was subsequently disabled by entry
+into calibration mode for the remaining tests. No Home or Stand was commanded.
+
+The 500–2800 us values define these feedback calibration points; no new firmware
+travel restriction was added. Measured Stand remains off until linkages are
+installed and a supported test can validate the assembled mechanism. Detailed
+observations, backup, saved readback and summary remain outside the repository
+at /tmp/ainekio-feedback-calibration-20261017/.
+
+### 2026-10-18 — Assembly socket map and dedicated LSM6DS3 guide
+
+Added SERVO_SOCKET_MAP.md and Servo_Socket_Map.svg/.png showing physical
+shoulder/carrier/crank assignments for all twelve PCA9685 sockets and C4–C15
+feedback inputs. Cross-checked joint labels against joints_v2.py and the saved
+October 17 motor/feedback readback. Included a top-view orientation drawing and
+the legacy CAD front/rear naming distinction. Corrected the older feedback
+wiring table to lead with the saved mapping rather than unconfigured defaults.
+
+Added LSM6DS3_IMU.md and LSM6DS3_Wiring.svg/.png with the existing GPIO7/8 shared
+bus, local straps, mounting-axis evidence, level-reference operation and separate
+stationary gyro-bias calibration. Checked calibration labels and behavior against
+the current dashboard and firmware source. Linked both guides from the V2 index,
+combined assembly reference and PCA9685 wiring document. This is documentation
+work: no robot commands, configuration changes or firmware update were issued.
+
+### 2026-10-18 — Full P4 header pinout refreshed
+
+Updated ESP32P4_Pinout.svg and its PNG in place, retaining the board orientation
+and physical header row positions. Added LCD GPIO20/21/22/23/26, LSM6DS3 on shared
+GPIO7/8, and CD74HC4067 select GPIO27/28/29/30 plus SIG GPIO49. Marked module
+ground connections and the shared 3V3 branches; replaced obsolete bench/startup
+captions with current power and local-strap notes. Cross-checked against firmware
+board constants, actual LCD sdkconfig, feedback acquisition source and media bus
+source. Visually reviewed the rendered diagram and updated documentation links.
+No physical wiring or firmware configuration was changed.
+
+### 2026-10-18 — Installed-leg servo and feedback connection check
+
+Owner installed all legs, reported the robot standing, and then confirmed the
+frame supported with feet unloaded for small individual-joint movement checks.
+Live firmware remains 0.8.64-p4-lcd-restored. All twelve C4–C15 mappings and
+three-point feedback curves match the saved loose-servo calibration after a
+restart. Initial 60 snapshots over 14.8 seconds were fresh (maximum input age
+29.5 ms), with ADC status ESP_OK and every mapped input valid. The owner's
+transition to support overlapped this observation period, so these are not a
+controlled loaded-versus-unloaded comparison. C0–C3 remain unused floating inputs.
+
+Used the existing Body Control calibration owner. Entering calibration mode
+releases PWM; restored all retained command targets before the movement checks.
+Each joint then received current target +60 us, original target, target -60 us,
+and original target, with twelve snapshots per stage. Last-six medians compare
+the high and low positions. All twelve expected inputs responded in the positive
+direction and more strongly than any other connected input during that joint's
+test: matching raw change 61.5–146 counts; largest other-input change across all
+tests 26.5 counts. No swapped or nonresponding wire was observed. This verifies
+the commanded output-to-feedback association, not independent identification
+of the physical limb by vision.
+
+| Physical joint | PCA / MUX | Measured high-to-low span for 120 us command | Final stationary target minus measured median |
+| --- | --- | --- | --- |
+| Rear left shoulder | 0 / C4 | 81.3 us | +21.9 us |
+| Rear left carrier | 1 / C5 | 87.2 us | -15.5 us |
+| Rear left crank | 2 / C6 | 99.2 us | -2.5 us |
+| Rear right shoulder | 3 / C7 | 46.7 us | +14.9 us |
+| Rear right carrier | 4 / C8 | 91.1 us | +1.3 us |
+| Rear right crank | 5 / C9 | 105.1 us | +1.7 us |
+| Front left shoulder | 6 / C10 | 109.6 us | -28.0 us |
+| Front left carrier | 7 / C11 | 109.9 us | +0.6 us |
+| Front left crank | 8 / C12 | 104.8 us | -18.0 us |
+| Front right shoulder | 9 / C13 | 97.7 us | +18.6 us |
+| Front right carrier | 10 / C14 | 100.3 us | +5.4 us |
+| Front right crank | 11 / C15 | 99.1 us | -1.9 us |
+
+The rear-right shoulder had the weakest small-reversal response; its low-stage
+median error reached -46.6 us. Front-left shoulder stage errors reached -37.3 us.
+A subsequent 30-snapshot stationary read had all median errors within 30 us but
+individual excursions reached 88.4 us on front-left crank. These results do not
+separate internal servo deadband, joint friction/load, supply/reference effects,
+shaft hysteresis and acquisition noise. No stall diagnosis or calibration
+adjustment is justified from these measurements alone. In particular, do not
+silently widen the 30 us arrival tolerance or claim measured Stand is qualified.
+
+All original pulse targets were restored and normal mode confirmed. Saved motor
+calibration and feedback curves remained unchanged. Measured Stand remains off;
+no Stand, walking or full-range linked-leg sweep was commanded. Evidence is
+outside the repository at /tmp/ainekio-installed-feedback-20261018/ (initial
+observations, per-joint stages, motion summary and final stationary readback).
+
+### 2026-10-18 — Measured-joint stationary leveling candidate, 0.8.65
+
+Owner requested combining gyro leveling with the twelve new shaft feedback
+wires and approved continuing gyro-only leveling when measured feedback is
+unavailable, with that state reported. During the supported axis check,
+left-side raised measured roll +19.353 degrees and pitch +4.946 degrees. Owner
+reported the right legs extending. This agrees with raising the low side toward
+level with feet planted; no axis or servo-direction inversion was made.
+
+Implemented stationary Stand tracking around the existing gyro-generated pose.
+Saved feedback curves and per-joint mappings convert shaft readings to model
+angles. The output adds half the desired-minus-measured joint error, without
+integrating that trim or feeding it into the next gyro target. Existing linkage
+and joint-speed feasibility logic reduces only the extra trim if it cannot fit.
+Moving gaits keep gyro-only feedback. The existing Self-leveling switch controls
+both stationary loops; the separate measured Stand sequencing setting is not
+changed. No arrival wait, shutdown, or new motion-range restriction was added.
+
+Body Control now displays tracking availability/activity, measured joint errors
+and applied corrections in physical RL/RR/FL/FR order. Acquisition failure or
+missing calibrated readings leaves gyro-only leveling active. Plausible floating
+voltages from a disconnected wire are not reliably identified; the acquisition
+interface also has no sample-age cutoff for this consumer. Do not describe this
+as an unplug detector, foot-contact sensor, or proof of available lifting torque.
+
+Validation: native balance, calibrated feedback-position conversion and targeted
+body feedback tests pass, including left/right physical extension signs, persistent
+error without trim accumulation, a one-frame delayed ideal actuator, correction
+feasibility reduction, gyro-only fallback and switch-off behavior. Dashboard
+motion-race tests and JavaScript syntax checks pass. ESP-IDF cross-build succeeds
+as 0.8.65-p4-measured-leveling; application size 0x2c4de0 in an 8 MiB slot.
+Source whitespace checks pass. These are targeted checks, not a claim that the
+broader motion suite or loaded hardware is qualified. An earlier invocation of
+the old broad body-test binary failed its listening-feedback pulse-range assertion.
+
+Candidate is not installed yet. Supported physical correction and stability
+remain untested; gain 0.5 is an initial proportional setting, not a measured
+optimum. Existing firmware and saved calibration remain on the robot pending
+the owner's readiness for the Wi-Fi restart. Build and test logs remain in
+/tmp/ainekio-measured-level-* outside the repository.
+
+Deployment and first live observation: owner confirmed support and servo power
+off. Wi-Fi upload/activation succeeded; running and boot partitions are ota_1,
+0.8.65-p4-measured-leveling, pending verification false. All twelve saved feedback
+curves and joint mappings/calibration match the pre-update readback (excluding
+transient ready state and commanded pulses). Display, camera, IMU and joint
+acquisition report available. Self-leveling's saved Off setting was preserved;
+the owner subsequently enabled it and reported correction still reversed.
+
+This physical report supersedes any implication that the earlier single-axis
+observation qualified the assembled robot's correction direction. Live telemetry
+on the reported level surface showed the standing controller accumulating
+43.70 degrees roll correction at measured roll -13.82 degrees, with modeled
+left extension about +28 mm and right extension about -64 mm. Added shaft trim
+was reduced to zero by pose feasibility. These extension values are calculated
+from commands, not measured foot heights. Most shaft readings followed their
+commands within several degrees; one earlier rear-left carrier discrepancy
+of about 907 us later reduced to 62–67 us. Do not infer a permanent wire fault
+or physical reversal from that transient alone. Requested physical body lean
+to distinguish sensor orientation from joint geometry/mounting errors. Loaded
+leveling remains unresolved; the installed candidate is not physically qualified.
+Evidence: /tmp/ainekio-measured-level-20261018/.
+
+
+### 2026-10-18 — Owner-requested reversal of both leveling responses, 0.8.66
+
+Owner explicitly reported left-up causing left retraction/right extension and
+requested the opposite, then confirmed front/back response also reversed. The
+P4 output owner now selects -1 response polarity for both roll and pitch, for
+standing and moving gait correction. Attitude-error and angular-rate terms are
+reversed together. Sensor quaternions/rates, saved references, pulse calibration,
+horn inversion, startup posture interpretation and measured-joint tracking are
+unchanged. Saved zero-error poses still produce zero incremental correction.
+No new timeout, stop, restriction or fallback was introduced.
+
+The portable controller retains its conventional +1 response wrapper so existing
+model convergence tests are not rewritten to assert convergence of the reversed
+response. New direction tests exercise both polarities, both axes and standing/
+moving modes using forward geometry. For the P4-selected -1 response, a raised
+left side requests left extension/right retraction; a raised front requests front
+extension/rear retraction. Rate-term reversal and reference preservation pass.
+The production body feedback tests pass with mapped inverted servos and the
+revised front/rear response, plus existing tracking, unavailable-feedback,
+switch, stale-IMU and walking-continuation behavior. ESP-IDF builds
+0.8.66-p4-level-direction successfully. These tests establish commanded behavior;
+they do not prove a gyro hardware fault or physical closed-loop convergence.
+
+The candidate has not been installed yet. The last live observation placed the
+robot on the floor with outputs active; a fresh supported/power-off confirmation
+is needed for restart. Physical direction and settling must be checked after
+installation. Build/test logs are /tmp/ainekio-level-direction-*.
+
+Deployment completed after the owner confirmed support and servo power off.
+Uploaded and activated through the Wi-Fi Body Control OTA owner. Reconnected
+running 0.8.66-p4-level-direction from ota_0; boot also ota_0, pending verification
+false, ESP_OK. Compared before/after readbacks: all twelve feedback curves,
+feedback/output channel mappings and saved joint calibration are unchanged.
+IMU, feedback acquisition, LCD and camera report available. Outputs report ready
+and armed with fault 0; Self-leveling remains enabled and reports measured-joint
+tracking active. This confirms firmware/runtime integration, not servo power
+state or physical convergence. No extra motion commands were sent during this
+update. Both physical response directions and settling remain to be evaluated.
+Artifact hash, OTA receipts and calibration readbacks are outside the repo at
+/tmp/ainekio-level-direction-20261018/.
+
+### 2026-10-18 — Measured shaft Home capture in Joint Calibration
+
+Owner reports all four carriers and cranks physically at their furthest-back
+positions and defines that pose as Home; shoulders are outside this change.
+Owner requested fourth-wire readings inside Joint Calibration and the ability
+to position a joint and save that measured position as Home.
+
+Body Control now shows the selected joint's mapped mux input, ADC/voltage,
+measured pulse-equivalent position, mapped model angle, current target and
+target-minus-measured difference. It uses the existing feedback polling owner.
+The previous command-copy button now reads feedback on click and captures the
+measured position into the selected joint's Home draft. It does not issue a
+movement, change other joint drafts, or automatically save calibration.
+Apply & save uses the existing selected-joint set and device save/readback path.
+Existing output-release behavior on apply/save is unchanged and remains labeled.
+
+Choosing a new Home re-anchors the draft's Home pulse and model angle together,
+preserving its angle-to-pulse mapping to the existing 0.01-degree storage
+precision. This accepts an endpoint Home without treating it as the servo's
+midpoint or silently shifting every gait command. It does not establish a new
+horn mounting angle: a refitted horn still requires a known mechanical reference.
+The three-point pot curves remain separate and unchanged. Unavailable calibrated
+measurements are reported without substituting commanded pulses; extrapolated
+measurements are labeled. Both installed leveling response reversals remain intact.
+
+Production-handler tests pass for measured-versus-commanded capture, both
+inversion directions, preservation of the motion mapping across the pulse range,
+selected-joint save/readback, missing samples/calibration, and robot/joint/edit
+changes during a pending read. Existing feedback, gyro-trial and motion-race
+tests pass; JavaScript syntax and diff whitespace checks pass. A read-only live
+browser check displayed fourth-wire measurements from the connected robot,
+with no JavaScript errors or horizontal overflow at desktop/mobile widths.
+Evidence screenshots are outside the repository at
+/tmp/ainekio-measured-home-desktop.png and /tmp/ainekio-measured-home-mobile.png.
+No firmware update, movement, or robot Home-save command was sent in this task.
+Saving and physically returning to the owner's new endpoint Home remain untested.
+
+Earlier manual gyro-guided trials were paused at the owner's request. Those
+trials produced a near-zero attitude sample but did not establish reliable
+automatic leveling or a general joint calibration. The browser trial controls
+remain separate from measured Home capture; neither result qualifies loaded
+gait performance or automatic leveling convergence.
+
+### 2026-10-18 — Correct physical-reference Home capture and carrier mismatch
+
+Owner saved their rearward leg Homes, rebooted, and observed the rear-left
+carrier remaining near Home while the other carriers moved away. Live readback
+confirmed persisted Home pulses but inconsistent Home angles: rear-left carrier
++1.17°, the other three -30.87°, all cranks -117.68°. Startup was issuing Stand,
+not literal calibration Home; Self-leveling was off. The measured shaft readings
+generally followed those different commanded targets. Thus the observed
+carrier discrepancy had a demonstrated mapping cause, not a failed save.
+
+The earlier measured-Home button preserved the previous affine mapping. That
+was inadequate for the requested physical calibration: it could preserve a
+wrong angle offset. Capture now explicitly associates the measured pulse with
+the selected physical reference. Rearward assembly defaults for leg joints use
+carrier -30.87° and crank -117.68°, as documented in the 0.8.59 deployment entry.
+Custom uses the entered model angle unchanged; shoulders default to Custom.
+Scale and inversion are retained, and capture changes only the selected draft.
+Original matchmark guidance is labeled separately from rearward Home to avoid
+mixing the two references. This supersedes the mapping-preservation behavior
+described in the immediately preceding journal entry.
+
+These are existing model references, not new measured absolute linkage angles.
+Carrier -30.87° derives from the original 2444/856 µs mapping at 2800/500 µs;
+the crank -117.68° remains photo-estimated. The owner's matching physical poses
+are the reference assumption. No automatic inference of horn indexing from the
+potentiometer is claimed.
+
+After the owner confirmed frame support, corrected only rear-left carrier
+home_cd from 117 to -3087 through the Wi-Fi calibration owner and saved/read back
+the device settings. All twelve owner-set Home pulses, output channels, inversion,
+scales and other Home angles were preserved, as were all twelve feedback curves
+and mux assignments. Saved=true, dirty=false. Calibration entry released outputs;
+no Home, Stand, Freestyle, restart or firmware update was sent. Device left in
+calibration mode with outputs released. Receipts and before/after state are in
+/tmp/ainekio-home-reference-fix-20261018/ outside the repository.
+
+Tests exercise all eight leg joints with unequal measurements, different prior
+angles and mirrored directions; corresponding reference angles now agree.
+Custom/shoulder capture, selected-joint persistence/readback, missing feedback,
+and robot/joint/edit/reference changes during capture pass. Existing feedback,
+gyro-trial and motion-race suites pass. A native check using the production
+startup Stand and joint mapper with the actual saved calibration produces
+carrier pulses RL 2444, RR 796, FL 2359, FR 941 µs: each is 381 µs from its own
+Home in the correct mirrored direction. Calibration Home maps exactly to every
+saved Home pulse. This verifies software consistency, not physical standing.
+Read-only desktop/mobile browser verification shows the corrected saved angle,
+rearward reference selector and live fourth-wire readings, with no JavaScript
+errors or horizontal overflow. Supported physical Stand remains to be checked.
+
+### 2026-10-18 — Hard-right motion after enabling Self-leveling
+
+Owner reported an immediate extreme rightward attitude when enabling leveling
+after joint calibration. Read-only telemetry showed roll +32.275° and nose-up
+pitch +8.260°, with saved targets roll -2.0112° / pitch +3.0183°. Standing balance
+was active, roll correction +0.602589 rad (+34.53°), and correction reduction was
+active. Measured-joint feedback was available/active but all twelve additional
+tracking trims were zero in this sample. The corrected carrier Home angles
+remained saved. One generated target was rear-right carrier 236 µs, demonstrating
+that the leveling trajectory was driving beyond the owner's ordinary reference
+span; this investigation did not add a pulse clamp or change the span.
+
+The P4 calls balance_response_apply with response_direction=-1, introduced in
+0.8.66 for the requested reversal of both physical responses. This multiplies
+the entire attitude-error and rate terms, including the standing integral
+increment. It is separate from each servo's saved invert mapping.
+
+Reproduced the existing planted-body ideal-actuator convergence experiment
+using the production balance library and both response polarities. With an
+initial +4.584° disturbance and 200 ticks at 20 ms, -1 produced roll +51.304°
+or pitch +29.948° and reduced further correction at the geometry boundary.
+The +1 cases converged to approximately +0.005° on both axes. This establishes
+positive feedback for the installed polarity under the model's body/IMU frame
+relationship; it is not a new loaded-robot motion test. Live tilt and correction
+signs are consistent with that failure. The saved nonzero level target alone
+does not account for the approximately 32° tilt.
+
+No settings, motion commands or firmware changes were sent. Owner was asked
+to turn Self-leveling off. The earlier explicit instruction to retain both
+reversals remains in force; a change to that response requires resolving it
+with the owner. Readback and offline test artifacts are outside the repository:
+/tmp/ainekio-level-after-home.json and /tmp/ainekio-level-polarity-check.c.
+
+### 2026-10-18 — Approved negative-feedback correction, 0.8.67
+
+Owner explicitly approved correcting the leveling direction after the hard-right
+diagnosis, superseding the earlier instruction to retain both response reversals.
+The P4 body owner now calls the configured negative-feedback controller instead
+of selecting response_direction=-1. Both attitude-error and angular-rate damping
+terms therefore act toward the saved body reference. Servo-specific inversions,
+IMU axis transform/bias, saved level targets, Home settings, three-point sensor
+curves, feedback tracking and motion speeds remain unchanged. No new timeout,
+shutdown, limiter, fallback or sensor requirement was added.
+
+Added a production-owner closed-loop regression in test_body.c: the real P4
+scheduler, corrected unequal Home pulses, mirrored mapping and available shaft
+feedback run against the ideal planted-body response. Positive/negative roll
+and pitch disturbances converge toward nonzero saved references, with final
+residual approximately 0.00019° after 300 model ticks; mappings remain unchanged.
+The earlier P4-only reversed call would fail this test even though the portable
+controller's separate convergence tests passed. Existing direction expectations
+now require raised-front shortening/rear extension and opposing roll correction.
+
+Targeted feedback tests, portable balance tests, servo-feedback mapping tests
+and the full native production-body suite pass, including startup, all 23 stored
+clips and locomotion/command behavior. ESP-IDF 5.5.4 builds
+0.8.67-p4-level-feedback successfully. Frozen binary: 2,903,600 bytes,
+SHA-256 f198671a7a5d19ebce6a251fd9cac13f5165133607b78ccb9396d05c3b754c64.
+Artifact and deployment tools: /tmp/ainekio-level-feedback-20261018/.
+Physical settling is not established by these model tests. Awaiting supported,
+servo-power-off readiness before Wi-Fi activation; no new image installed yet.
+
+Deployment completed after the owner confirmed readiness. Uploaded and
+activated through the existing Wi-Fi OTA owner. The robot reconnected running
+0.8.67-p4-level-feedback from ota_1, boot ota_1, pending_verify=false, ESP_OK.
+Before/after comparisons confirm all twelve joint mappings, including the
+corrected rear-left carrier reference and all owner-adjusted Home pulses, are
+unchanged. All twelve fourth-wire curves and mux/output mappings are unchanged.
+Feedback acquisition, IMU, display and camera report available; output fault is
+zero. Self-leveling remains off as the owner left it before deployment. Startup
+ran with servo power off per readiness confirmation. No additional movement
+command was sent. Physical closed-loop leveling remains to be checked with
+servo power restored; successful deployment is not that physical validation.
+
+### 2026-10-18 — Level reference captured with physically level frame
+
+After the 0.8.67 update the owner reported improved but imperfect leveling,
+supported the frame and explicitly confirmed that the frame itself was physically
+level. Self-leveling was off in live readback. Seven fresh IMU observations over
+approximately 1.2 seconds ranged from +3.2962° to +3.3132° roll and +0.3290° to
++0.3490° nose-up pitch. Saved their median, rounded to four decimals, through the
+existing Body Control balance owner: roll +3.3082°, pitch +0.3375°. Previously
+saved targets were -2.0112° / +3.0183°. A separate readback confirmed saved=true,
+tuning_saved=true, strength=1, damping=1 and enabled=false.
+
+This compensates the observed mounting/reference offset at the owner-confirmed
+level body pose. It does not change raw IMU orientation, gyro bias, sensor axes,
+joint mappings or feedback curves. No movement, restart, or automatic enable
+was sent. Raw angles therefore remain nonzero at physical level; error relative
+to the saved reference should be near zero. Physical settling with leveling
+enabled remains unverified. Receipt: /tmp/ainekio-level-reference-20261018.json.
+
+### 2026-10-18 — Owner-requested quiet hold and shaft hunting tolerance, 0.8.68
+
+Owner requested that leveling ignore the fourth-wire hunting range, reach level
+and stop adjusting until needed again. A short read-only stationary sample with
+Self-leveling off showed fixed commanded pulses but approximately 13–112 µs
+peak-to-peak variation in measured pulse equivalents across joints. This does
+not distinguish electrical noise from physical servo movement. Raw capture is
+outside the repository at /tmp/ainekio-level-chatter-20261018.json.
+
+Implemented 120 µs shaft-error tolerance for stationary measured-joint trim;
+only error beyond that band contributes half-error correction. Raw readings,
+curves, Home mappings and the approved negative-feedback direction are unchanged.
+Stationary leveling settles within 0.5° on both axes with rates within 1°/s,
+holds the achieved commanded pose, and wakes beyond 1° on either axis. While
+settled it skips IK/FK, shaft-frame conversion and repeated PWM writes, retaining
+lightweight tilt monitoring. Shared ADC/IMU acquisition remains available and
+PCA9685 maintains holding PWM; this is not motor power-off. Moving gaits, motion
+speed and travel range are unchanged. Body Control shows the settled state and
+the active shaft tolerance.
+
+The current live saved level targets had changed to roll 7° / nose-up pitch
+1.5928°, strength/damping 1, Self-leveling off. These owner settings are preserved;
+this change does not recapture the previously measured physical-level reference.
+
+Production-body feedback tests, full body tests (23 clips and locomotion), portable
+balance tests, dashboard motion-race tests and JavaScript syntax checks pass.
+Tests verify no additional PWM writes or shaft-frame reads while settled despite
+noisy measurements, immediate wake on tilt, moving-through-level behavior,
+target changes, existing unavailable-IMU handling and new-command admission.
+Ideal planted-body convergence now intentionally ends within 0.5° (about 0.493°
+in the test) instead of chasing numerical zero. Physical chatter improvement
+is not yet demonstrated. ESP-IDF 5.5.4 builds the candidate successfully.
+
+Frozen artifact: 0.8.68-p4-level-settle, 2905296 bytes, SHA-256
+dc53740ee9dcfe99ea7a26c4f08ca0c62498787df3450220b9cfbfbefe9eb969. Receipts and deployment tools:
+/tmp/ainekio-level-settle-20261018/. Not yet installed.
+
+Deployment completed after fresh supported/servo-power-off confirmation. Wi-Fi
+upload and activation succeeded; the robot accepted 0.8.68-p4-level-settle on
+ota_0 with pending_verify=false and ESP_OK. Twelve feedback curves/mux mappings
+are unchanged. Comparison detected later Body Control saves during verification:
+rear-left carrier Home 2825→2750 µs, self-leveling off→on, roll target 7→3°.
+The dashboard audit records joint set/save and balance save operations; these
+newer settings were retained, and all remaining compared calibration/settings
+match. They are not silently described as unchanged. Pitch target remains
+1.59280002°, strength/damping 1.
+
+Live status exposes settle=0.5°, wake=1°, shaft tolerance=120 µs and reports
+settled=true, balance active=false and shaft tracking active=false. A subsequent
+readback reports roll 3.3581° / nose-up pitch 1.6208°, with no output fault; camera,
+display, IMU and feedback acquisition are available. Repeated gateway reads may
+reuse a status sample and are not independent high-rate physical observations.
+Host tests establish skipped writes while settled; physical chatter reduction
+and disturbance recovery still need the owner's observation. No movement or
+level-enable command was issued by the deployment tools.

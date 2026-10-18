@@ -368,6 +368,24 @@ async function run() {
   assert.equal(node('balance-leg-2').textContent,'3.00 mm longer');
   assert.equal(node('balance-carrier-0').textContent,'+30.00°','front left is model joint 7');
   assert.equal(node('balance-crank-3').textContent,'+21.00°','rear right is model joint 5');
+  api.updateBalance({...feedbackEntry,status:{...feedbackEntry.status,balance:{...feedbackEntry.status.balance,
+    joint_feedback:{available:true,active:true,reduced:false,gain:.5,tolerance_us:120,
+      error_deg:[0,1,2,3,4,5,6,7,8,9,10,11],trim_deg:[0,.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5]}}}});
+  assert.match(node('balance-joint-feedback').textContent,/active.*0.5/);
+  assert.match(node('balance-joint-feedback').textContent,/±120 µs/);
+  assert.match(node('balance-joint-errors').textContent,/Front left: \+6.00° \/ \+7.00° \/ \+8.00°/);
+  assert.match(node('balance-joint-trims').textContent,/Rear right: \+1.50° \/ \+2.00° \/ \+2.50°/);
+  api.updateBalance({...feedbackEntry,status:{...feedbackEntry.status,balance:{...feedbackEntry.status.balance,
+    active:false,settled:true,settle_deg:.5,wake_deg:1,
+    joint_feedback:{available:true,active:false,reduced:false,gain:.5,tolerance_us:120}}}});
+  assert.match(node('balance-active').textContent,/Level reached.*monitoring only.*0.5°.*1°/);
+  assert.match(node('balance-joint-feedback').textContent,/resting/);
+  assert.equal(node('balance-joint-trims').textContent,'');
+  api.updateBalance({...feedbackEntry,status:{...feedbackEntry.status,balance:{...feedbackEntry.status.balance,
+    joint_feedback:{available:false,active:false,reduced:false,gain:.5}}}});
+  assert.match(node('balance-joint-feedback').textContent,/unavailable; gyro-only/);
+  assert.equal(node('balance-joint-errors').textContent,'');
+  api.updateBalance(feedbackEntry);
   const beforeReference=requests.length;
   node('balance-reference').fire('click');
   assert.equal(Number(node('balance-roll_deg').value),-2);

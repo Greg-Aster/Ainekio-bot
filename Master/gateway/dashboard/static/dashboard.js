@@ -37,6 +37,14 @@
   let balanceBusy = false;
   let balanceEdited = false;
   let balanceEntry = null;
+  let servoFeedbackSession = null;
+  let servoFeedbackSupported = false;
+  let servoFeedbackData = null;
+  let servoFeedbackBusy = false;
+  let servoFeedbackWriting = false;
+  let servoFeedbackRequest = 0;
+  let servoFeedbackEdited = false;
+  let servoFeedbackReadAt = 0;
   let motionSpeedSupported = false;
   let motionSpeedSession = null;
   let motionSpeedGeneration = 0;
@@ -85,6 +93,9 @@
   ];
 
   const bodyCalibrationFields = ["channel", "center", "home_deg", "us_per_degree"];
+  // Rearward assembly reference: SERVO_ASSEMBLY.md and the 0.8.59 journal.
+  // Common model angles; per-servo measured Home pulses and invert remain individual.
+  const rearwardHomeDegrees = [0, -30.87, -117.68];
   const bodyCalibrationEnabled = () => Boolean(calibrationEntry && calibrationEntry.model === "v2-12servo" &&
     (calibrationEntry.features || []).includes("body_calibration_v2"));
 
@@ -802,6 +813,131 @@
     }
   }
 
+  function renderServoFeedback() {
+    const panel = byId("servo-feedback-panel");
+    if (!panel) return;
+    panel.querySelectorAll("form input, form select, form button, #servo-feedback-read").forEach(el => {
+      el.disabled = !servoFeedbackSupported || servoFeedbackWriting;
+    });
+    const data = servoFeedbackData;
+    if (!servoFeedbackSupported) {
+      text("servo-feedback-status", "Connect a P4 with servo feedback firmware.");
+      byId("servo-feedback-rows").replaceChildren();
+      text("servo-feedback-motion", ""); text("servo-feedback-raw", ""); text("servo-feedback-points", "");
+      return;
+    }
+    if (!data) return;
+    text("servo-feedback-status", `${data.enabled ? "Reading enabled" : "Reading off"} · ${data.joints.filter(j => j.calibrated).length}/12 joints calibrated · scan ${data.scan} (${(data.scan_us / 1000).toFixed(2)} ms). ${data.error !== "ESP_OK" ? data.error : ""}`);
+    const waiting = bodyJointNames.filter((_, id) => data.waiting_joints & (1 << id));
+    text("servo-feedback-motion", data.stand_waiting ?
+      `Stand ${(100 * data.stand_progress).toFixed(0)}%: holding a stage target while waiting for measured arrival${waiting.length ? ": " + waiting.join(", ") : "."}` :
+      `Measured Stand ${data.stand_enabled ? "enabled" : "off"}.`);
+    const rows = byId("servo-feedback-rows"); rows.replaceChildren();
+    for (const joint of data.joints) {
+      const channel = data.channels[joint.channel];
+      const row = document.createElement("tr");
+      const age = channel?.valid ? Math.max(0, (data.device_us - channel.sampled_us) / 1000) : null;
+      const values = [bodyJointNames[joint.id], joint.channel,
+        channel?.valid ? `${channel.raw}${Number.isFinite(channel.millivolts) ? ` / ${(channel.millivolts / 1000).toFixed(3)} V` : ""}` : "—",
+        joint.command_us || "Output off", Number.isFinite(joint.measured_us) ? joint.measured_us.toFixed(1) : "Uncalibrated",
+        Number.isFinite(joint.error_us) ? joint.error_us.toFixed(1) : "—",
+        channel?.valid ? `${age.toFixed(0)} ms old · spread ${channel.spread}${channel.at_adc_rail ? " · ADC rail" : ""}${joint.in_calibrated_range === false ? " · extrapolated" : ""}` : "No sample"];
+      for (const value of values) { const cell = document.createElement("td"); cell.textContent = String(value); row.appendChild(cell); }
+      rows.appendChild(row);
+    }
+    text("servo-feedback-raw", data.channels.map(c => `${c.channel}: ${c.valid ? c.raw : "—"}`).join(" · "));
+    const form = byId("servo-feedback-calibration"), joint = data.joints[Number(form.elements.joint.value)];
+    if (joint) text("servo-feedback-points", joint.points.map((p, i) => `${["Low", "Middle", "High"][i]}: ${p ? `${p.pulse_us} µs → ADC ${p.raw}` : "not captured"}`).join(" · "));
+    if (!servoFeedbackEdited) {
+      const config = byId("servo-feedback-config");
+      config.elements.enabled.checked = data.enabled;
+      config.elements.stand_enabled.checked = data.stand_enabled;
+      config.elements.tolerance_us.value = data.tolerance_us;
+    }
+  }
+
+  async function readServoFeedback(operation = null, force = false) {
+    if (!servoFeedbackSupported || servoFeedbackWriting || (servoFeedbackBusy && !operation)) return;
+    const session = servoFeedbackSession, robot = selectedRobotId;
+    const sequence = ++servoFeedbackRequest;
+    const current = () => sequence === servoFeedbackRequest && session === servoFeedbackSession && robot === selectedRobotId;
+    servoFeedbackBusy = true; servoFeedbackWriting = Boolean(operation);
+    servoFeedbackReadAt = Date.now(); renderServoFeedback();
+    try {
+      const data = await request(maintenanceUrl("servo-feedback", robot), operation ?
+        {method:"POST", body:JSON.stringify(operation)} : {});
+      if (!current()) return;
+      servoFeedbackData = data;
+      if (force || operation?.op === "configure") servoFeedbackEdited = false;
+      if (force || operation?.op === "map") {
+        const form = byId("servo-feedback-calibration");
+        form.elements.channel.value = data.joints[Number(form.elements.joint.value)].channel;
+      }
+      if (operation) text("servo-feedback-result", "Saved on robot. No movement command was sent.");
+    } catch (error) {
+      if (current()) {
+        servoFeedbackData = null;
+        byId("servo-feedback-rows").replaceChildren();
+        text("servo-feedback-status", "Feedback read failed; previous measurements cleared.");
+        text("servo-feedback-result", error.message);
+        text("servo-feedback-motion", ""); text("servo-feedback-raw", "");
+      }
+    } finally { if (current()) {
+      servoFeedbackBusy = false; servoFeedbackWriting = false; renderServoFeedback();
+      renderCalibrationFeedback();
+    } }
+  }
+
+  function updateServoFeedback(entry) {
+    const supported = Boolean(entry?.connected && entry.model === "v2-12servo" &&
+      entry.connection_state !== "stale" && (entry.features || []).includes("servo_feedback_v1"));
+    const session = `${selectedRobotId}:${entry?.epoch}:${supported}`;
+    if (session !== servoFeedbackSession) {
+      servoFeedbackSession = session; servoFeedbackSupported = supported;
+      servoFeedbackData = null; servoFeedbackBusy = false; servoFeedbackWriting = false; servoFeedbackEdited = false;
+      servoFeedbackReadAt = 0;
+      text("servo-feedback-result", "");
+      if (supported) void readServoFeedback(null, true);
+    }
+    renderServoFeedback();
+    const gyroGuideVisible=byId("gyro-joint-guide")?.closest?.('[data-workspace-panel]')?.hidden===false;
+    if (supported && (!byId("servo-feedback-panel")?.hidden || gyroGuideVisible) && Date.now() - servoFeedbackReadAt > 500)
+      void readServoFeedback();
+  }
+
+  function setupServoFeedback() {
+    const form = byId("servo-feedback-calibration"), config = byId("servo-feedback-config");
+    if (!form || !config) return;
+    bodyJointNames.forEach((name, id) => form.elements.joint.add(new Option(name, String(id))));
+    form.elements.joint.addEventListener("change", () => {
+      const joint = servoFeedbackData?.joints[Number(form.elements.joint.value)];
+      form.elements.channel.value = joint?.channel ?? "";
+      renderServoFeedback();
+    });
+    config.addEventListener("input", () => { servoFeedbackEdited = true; });
+    config.addEventListener("submit", event => {
+      event.preventDefault();
+      void readServoFeedback({op:"configure", enabled:config.elements.enabled.checked,
+        stand_enabled:config.elements.stand_enabled.checked, tolerance_us:Number(config.elements.tolerance_us.value)});
+    });
+    byId("servo-feedback-read").addEventListener("click", () => readServoFeedback(null, true));
+    byId("servo-feedback-map").addEventListener("click", () => {
+      if (!form.elements.channel.reportValidity()) return;
+      void readServoFeedback({op:"map", joint:Number(form.elements.joint.value), channel:Number(form.elements.channel.value)});
+    });
+    byId("servo-feedback-clear").addEventListener("click", () =>
+      readServoFeedback({op:"clear", joint:Number(form.elements.joint.value)}));
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const joint = Number(form.elements.joint.value), data = servoFeedbackData;
+      const channel = data?.channels[data.joints[joint].channel];
+      if (!channel?.valid || !data.enabled) { text("servo-feedback-result", "Read a sample from the mapped input before capturing."); return; }
+      void readServoFeedback({op:"capture", joint, point:Number(form.elements.point.value),
+        pulse_us:Number(form.elements.pulse_us.value), raw:channel.raw, scan:data.scan, revision:data.revision});
+    });
+    renderServoFeedback();
+  }
+
   function balanceFormEdited() {
     balanceEdited = byId("balance-enabled").value !== String(balanceData?.enabled) ||
       (balanceTuningSupported && balanceTuningKeys.some(key => Number(byId(`balance-${key}`).value) !== balanceData?.[key]));
@@ -841,6 +977,9 @@
     const attitude = balanceAttitude(balanceEntry), imu = balanceEntry?.status?.imu;
     const b = balanceEntry?.status?.balance;
     const online = balanceSupported;
+    if (online && b) text("balance-active", b.settled ?
+      `Level reached — holding position; tilt monitoring only. Settle ${b.settle_deg}°, wake beyond ${b.wake_deg}°.` :
+      b.active ? "Leveling is active." : "Leveling is inactive.");
     const angle = v => `${v >= 0 ? "+" : ""}${v.toFixed(2)}°`;
     text("balance-sensor", attitude ?
       `Live IMU · ${imu.calibration_applied ? "saved mounting/bias applied" : "sensor axes unverified"}` +
@@ -853,6 +992,22 @@
     text("balance-correction", online && Number.isFinite(b?.roll_correction_rad) && Number.isFinite(b?.pitch_correction_rad) ?
       `Commanded correction: roll ${angle(b.roll_correction_rad*180/Math.PI)} · pitch ${angle(-b.pitch_correction_rad*180/Math.PI)}.` +
       (b.reduced ? " Correction cannot fully fit the current linkage or joint-speed setting." : "") : "No correction telemetry.");
+    const tracking = online ? b?.joint_feedback : null;
+    text("balance-joint-feedback", tracking ?
+      b.settled ? "Measured-joint correction resting; the achieved servo targets are held." :
+      tracking.active ? `Standing position feedback active · tracking gain ${tracking.gain}×.` +
+        (Number.isFinite(tracking.tolerance_us) ? ` Errors within ±${tracking.tolerance_us} µs produce no added correction.` : "") +
+        (tracking.reduced ? " Additional correction reduced to fit the linkage or joint-speed setting." : "") :
+      !tracking.available ? "Measured-joint feedback unavailable; gyro-only leveling remains available." :
+        "Measured joints available; position tracking engages during active standing self-leveling." :
+      "No measured-joint leveling telemetry.");
+    const jointValues = values => Array.isArray(values) && values.length === 12 && values.every(Number.isFinite) ?
+      ["Rear left", "Rear right", "Front left", "Front right"].map((name,i) =>
+        `${name}: ${values.slice(i*3,i*3+3).map(angle).join(" / ")}`).join(" · ") : "";
+    text("balance-joint-errors", tracking?.active ?
+      `Target minus measured (shoulder / carrier / crank): ${jointValues(tracking.error_deg)}` : "");
+    text("balance-joint-trims", tracking?.active ?
+      `Added position correction: ${jointValues(tracking.trim_deg)}` : "");
     const legs = online && b?.legs_valid && b.extension_mm?.length === 4 && b.joint_delta_deg?.length === 12;
     for (let l=0; l<4; l++) {
       const joint = (l < 2 ? l+2 : l-2)*3;
@@ -1247,6 +1402,186 @@
     if (message) showResult(message, error);
   }
 
+  let gyroJointSession = null;
+  let gyroJointTrial = null;
+  let gyroJointResponse = null;
+  function gyroJointKey(id) { return `ainekio-gyro-joint-v1:${selectedRobotId}:${id}`; }
+  function gyroJointMapping(calibration) {
+    return JSON.stringify(calibration.joints.map(({id,channel,home_us,home_cd,invert,us_per_degree}) =>
+      ({id,channel,home_us,home_cd,invert,us_per_degree})));
+  }
+  function renderGyroJointGuide() {
+    const panel=byId("gyro-joint-guide"); if (!panel) return;
+    panel.hidden=!bodyCalibrationEnabled();
+    const id=Number(byId("servo-form").elements.id.value);
+    const session=`${selectedRobotId}:${calibrationEntry?.epoch}:${id}`;
+    if (session!==gyroJointSession) {
+      gyroJointSession=session; gyroJointTrial=null;
+      gyroJointResponse=readLocal(gyroJointKey(id),null);
+      text("gyro-joint-result","");
+    }
+    const a=balanceAttitude(calibrationEntry), shaft=servoFeedbackData?.joints?.find(j=>j.id===id);
+    text("gyro-joint-live", a ? `Body: roll ${a.roll.toFixed(2)}° · pitch ${a.pitch.toFixed(2)}°.`+
+      (Number.isFinite(shaft?.measured_us) ? ` ${bodyJointNames[id]} measured ${shaft.measured_us.toFixed(1)} µs; commanded ${shaft.command_us} µs.` : " Read servo feedback for measured shaft position.") : "No current body tilt reading.");
+    text("gyro-joint-response", gyroJointResponse ?
+      `Saved trial: ${gyroJointResponse.delta} µs command → roll ${gyroJointResponse.roll.toFixed(3)}°, pitch ${gyroJointResponse.pitch.toFixed(3)}°; measured shaft change ${gyroJointResponse.measured.toFixed(1)} µs.` : "No measured response for this joint. Test a step and capture its result.");
+  }
+  async function gyroJointSnapshot(robotId) {
+    const [status,feedback,reply]=await Promise.all([
+      request("/api/status"), request(`/api/robot/servo-feedback?robot_id=${encodeURIComponent(robotId)}`),
+      request("/api/calibration/body",{method:"POST",body:JSON.stringify({robot_id:robotId,op:"get"})})]);
+    const entry=status.robots?.[robotId], attitude=balanceAttitude(entry);
+    if (!attitude) throw new Error("Current gyro reading unavailable; trial cannot be measured.");
+    return {entry,attitude,feedback,calibration:reply.calibration};
+  }
+  async function gyroJointMove(snapshot,id,pulse,robotId) {
+    if (snapshot.entry.mode==="calibrate") return request("/api/calibration/body",{
+      method:"POST",body:JSON.stringify({robot_id:robotId,op:"move",id,pulse_us:pulse})});
+    const targets=snapshot.calibration.joints.map(j=>{
+      const p=j.id===id ? pulse : j.pulse_us;
+      if (!p) throw new Error("A joint has no held target. Establish the starting pose before a Freestyle trial.");
+      return Math.round(j.home_cd+100*(p-j.home_us)/j.us_per_degree*(j.invert?-1:1));
+    });
+    return request("/api/motion-plan",{method:"POST",body:JSON.stringify({robot_id:robotId,frames:[[20,targets]],end:"hold"})});
+  }
+  async function operateGyroJoint(action) {
+    renderGyroJointGuide();
+    const session=gyroJointSession, robotId=selectedRobotId;
+    const id=Number(byId("servo-form").elements.id.value);
+    try {
+      const current=await gyroJointSnapshot(robotId);
+      if (session!==gyroJointSession || robotId!==selectedRobotId) return;
+      const joint=current.calibration.joints.find(j=>j.id===id);
+      const measured=current.feedback.joints.find(j=>j.id===id)?.measured_us;
+      if (action==="capture") {
+        if (!gyroJointTrial) throw new Error("Test a step before capturing its result.");
+        const trial=gyroJointTrial;
+        if (gyroJointMapping(current.calibration)!==trial.mapping) throw new Error("Joint mapping changed during the trial; start a new trial.");
+        const delta=joint.pulse_us-trial.pulse;
+        if (!delta || !Number.isFinite(measured)) throw new Error("No commanded step or measured shaft position to compare.");
+        gyroJointResponse={delta,roll:current.attitude.roll-trial.roll,pitch:current.attitude.pitch-trial.pitch,
+          measured:measured-trial.measured,mapping:trial.mapping,pulse:trial.pulse,when:new Date().toISOString()};
+        writeLocal(gyroJointKey(id),gyroJointResponse);
+        text("gyro-joint-result","Response captured and saved in this browser. The joint is holding its trial target.");
+      } else {
+        let pulse;
+        if (action==="restore") {
+          if (!gyroJointTrial) throw new Error("No trial target to restore.");
+          pulse=gyroJointTrial.pulse;
+        } else {
+          const step=Number(byId("gyro-joint-step").value);
+          if (!Number.isInteger(step) || step<=0) throw new Error("Enter a positive whole-number trial step in µs.");
+          let delta=action==="minus" ? -step : step;
+          if (action==="correct") {
+            const r=gyroJointResponse;
+            if (!r || r.mapping!==gyroJointMapping(current.calibration)) throw new Error("Capture a response with the current joint mapping first.");
+            const roll=Number(byId("gyro-joint-roll").value)-current.attitude.roll;
+            const pitch=Number(byId("gyro-joint-pitch").value)-current.attitude.pitch;
+            const sr=r.roll/r.delta, sp=r.pitch/r.delta, norm=sr*sr+sp*sp;
+            if (!norm || !Number.isFinite(roll+pitch)) throw new Error("A measured response and numeric target are required.");
+            delta=Math.round(Math.max(-step,Math.min(step,(roll*sr+pitch*sp)/norm)));
+            if (!delta) { text("gyro-joint-result","The measured response predicts less than 1 µs of improvement from this joint."); return; }
+          }
+          pulse=joint.pulse_us+delta;
+          gyroJointTrial={pulse:joint.pulse_us,roll:current.attitude.roll,pitch:current.attitude.pitch,
+            measured,mapping:gyroJointMapping(current.calibration)};
+        }
+        const reply=await gyroJointMove(current,id,pulse,robotId);
+        if (session!==gyroJointSession || robotId!==selectedRobotId) return;
+        text("gyro-joint-result",`${bodyJointNames[id]}: ${pulse} µs requested (command ${reply.seq}). `+
+          (action==="restore" ? "Original trial target restored; compare the live tilt." : "Capture the result after the body settles."));
+      }
+      if (session===gyroJointSession) renderGyroJointGuide();
+    } catch(error) { if (session===gyroJointSession) text("gyro-joint-result",error.message); }
+  }
+  function setupGyroJointGuide() {
+    for (const action of ["minus","plus","capture","restore","correct"])
+      byId(`gyro-joint-${action}`).addEventListener("click",()=>void operateGyroJoint(action));
+  }
+
+  function renderCalibrationFeedback() {
+    if (!byId("calibration-feedback-status") || !bodyCalibrationEnabled()) return;
+    const id = Number(byId("servo-form").elements.id.value);
+    const data = servoFeedbackSupported ? servoFeedbackData : null;
+    const joint = data?.joints?.find(item => item.id === id);
+    const channel = data?.channels?.find(item => item.channel === joint?.channel);
+    const valid = data?.enabled && channel?.valid;
+    const measured = valid && joint?.calibrated && Number.isFinite(joint.measured_us);
+    const target = joint?.command_us;
+    const values = {
+      input: joint ? `C${joint.channel}` : "—",
+      raw: valid ? `ADC ${channel.raw}${Number.isFinite(channel.millivolts) ? ` / ${(channel.millivolts / 1000).toFixed(3)} V` : ""}` : "—",
+      position: measured ? `${joint.measured_us.toFixed(1)} µs equivalent` : "—",
+      angle: measured && Number.isFinite(joint.model_deg) ? `${joint.model_deg.toFixed(2)}°` : "—",
+      target: target ? `${target} µs` : "Outputs off / no target",
+      error: measured && target ? `${(target - joint.measured_us).toFixed(1)} µs` : "—",
+    };
+    for (const [name, value] of Object.entries(values)) text(`calibration-feedback-${name}`, value);
+    text("calibration-feedback-status", !data ? "No current feedback reading." : !data.enabled ? "Feedback reading is off." :
+      !valid ? "No sample from this joint’s feedback input." :
+      `Scan ${data.scan} · sample ${Math.max(0, (data.device_us - channel.sampled_us) / 1000).toFixed(0)} ms old · spread ${channel.spread} ADC counts.` +
+      (!measured ? " Sensor calibration is needed to convert this reading to a Home position." : "") +
+      (joint.in_calibrated_range === false ? " Position is extrapolated beyond the saved sensor points." : ""));
+  }
+
+  async function captureMeasuredHome() {
+    const joint = selectedCalibrationJoint();
+    if (!joint || !servoFeedbackSupported) {
+      showCalibrationResult("Read this joint’s settings and connect its calibrated shaft feedback first.", true); return;
+    }
+    const robot = selectedRobotId, session = calibrationGeneration, feedbackSession = servoFeedbackSession;
+    const form = byId("body-calibration-form");
+    const fields = () => JSON.stringify(bodyCalibrationFields.map(name => form.elements[name].value)
+      .concat(form.elements.invert.checked, calibrationHomeReference()));
+    const before = fields();
+    showCalibrationResult("Reading the selected joint’s fourth wire…");
+    try {
+      const data = await request(maintenanceUrl("servo-feedback", robot));
+      if (robot !== selectedRobotId || session !== calibrationGeneration || feedbackSession !== servoFeedbackSession ||
+          joint.id !== Number(byId("servo-form").elements.id.value)) return;
+      if (before !== fields()) throw new Error("Joint fields changed while reading. Capture again to use the updated fields.");
+      const feedback = data.joints?.find(item => item.id === joint.id);
+      const channel = data.channels?.find(item => item.channel === feedback?.channel);
+      if (!data.enabled || !channel?.valid || !feedback?.calibrated || !Number.isFinite(feedback.measured_us))
+        throw new Error("No calibrated measured position is available for this joint. Home was not changed.");
+      const pulse = Math.round(feedback.measured_us);
+      // Establish the known physical pose. Do not infer its angle from the old
+      // mapping: doing so preserves exactly the mounting error being calibrated.
+      let angle;
+      if (hasJointAngleMapping()) {
+        angle = calibrationHomeReference() === "rearward" ? rearwardHomeDegrees[joint.id % 3] :
+          form.elements.home_deg.value === "" ? NaN : Number(form.elements.home_deg.value);
+        if (!Number.isFinite(angle)) throw new Error("Enter the model angle of your custom physical reference pose before capturing Home.");
+      }
+      form.elements.center.value = String(pulse);
+      if (angle !== undefined) form.elements.home_deg.value = angle.toFixed(2);
+      rememberCalibrationSettings();
+      renderCalibration();
+      showCalibrationResult(`Measured ${feedback.measured_us.toFixed(1)} µs (ADC ${channel.raw}, C${feedback.channel}) captured as Home ${pulse} µs. ` +
+        (angle !== undefined ? `Physical reference ${angle.toFixed(2)}°; previous angle offset replaced. ` : "") +
+        "Local edit only; Apply & save to robot to keep it. No movement command was sent." +
+        (feedback.in_calibrated_range === false ? " This position is extrapolated beyond the saved sensor points." : ""));
+    } catch (error) {
+      if (robot === selectedRobotId && session === calibrationGeneration && joint.id === Number(byId("servo-form").elements.id.value))
+        showCalibrationResult(error.message, true);
+    }
+  }
+
+  function calibrationHomeReference() {
+    const id = Number(byId("servo-form").elements.id.value);
+    return calibrationDraft(id).homeReference || (id % 3 === 0 ? "custom" : "rearward");
+  }
+
+  function renderCalibrationHomeReference() {
+    const id = Number(byId("servo-form").elements.id.value);
+    const reference = calibrationHomeReference();
+    byId("calibration-home-reference").value = reference;
+    text("calibration-home-reference-help", reference === "rearward" ?
+      `Capture assigns ${rearwardHomeDegrees[id % 3].toFixed(2)}° to this measured shaft position. ` +
+      "Use matching rearward carrier/crank poses on all four legs; this is the existing assembly model reference. The crank reference is photo-estimated." :
+      "Capture keeps the Model angle at Home entered above and assigns it to the measured shaft position. Enter the angle of your known physical pose.");
+  }
+
   function renderCalibrationReadback() {
     const p4 = bodyCalibrationEnabled();
     const joint = selectedCalibrationJoint();
@@ -1276,7 +1611,7 @@
     byId("calibration-draft-status").classList.toggle("has-edits", Boolean(changed));
     const recommended = Number.isFinite(joint?.recommended_home_cd) && Number.isFinite(joint?.recommended_home_us);
     text("calibration-reference-help", recommended ?
-      `Default motion mapping reference: ${joint.recommended_home_us} µs at ${(joint.recommended_home_cd / 100).toFixed(2)}° model angle. This is a calculated reference, not measured horn alignment. Home pulse and model angle remain separately editable.` : "");
+      `Original matchmark reference: ${joint.recommended_home_us} µs at ${(joint.recommended_home_cd / 100).toFixed(2)}° model angle. This is not the rearward Home reference; choose that physical reference below when capturing Home.` : "");
   }
 
   function selectedCalibrationJoint() {
@@ -1301,6 +1636,7 @@
         const stored = saved?.joints?.[id];
         if (!stored || typeof stored !== "object") continue;
         const draft = {edited: stored.edited === true};
+        if (["rearward", "custom"].includes(stored.homeReference)) draft.homeReference = stored.homeReference;
         if (typeof stored.pulse === "string") draft.pulse = stored.pulse;
         if (stored.fields && typeof stored.fields === "object") {
           draft.fields = Object.fromEntries(bodyCalibrationFields.filter((name) => typeof stored.fields[name] === "string")
@@ -1568,6 +1904,12 @@
     text("calibration-availability", state + (p4 && calibrationData?.profile_confirmed === false ? " Review the mounting reference and mapping, then Save before using motion commands." : ""));
     renderCalibrationSlider(moving);
     renderCalibrationReadback();
+    renderCalibrationFeedback();
+    // Capturing a local reference is read-only and does not require releasing PWM.
+    byId("calibration-use-position-button").disabled = !p4 || !online || !calibrationData || !servoFeedbackSupported || calibrationLoading;
+    byId("calibration-home-reference").disabled = !p4 || !calibrationData || calibrationLoading;
+    if (p4) renderCalibrationHomeReference();
+    renderGyroJointGuide();
   }
 
   function bodyStorageEnabled() {
@@ -1927,8 +2269,11 @@
       const fields = calibrationFields();
       if (fields) calibrateBody("set", fields, "Joint settings staged on body");
     });
-    byId("body-calibration-form").addEventListener("input", () => {
-      if (bodyCalibrationEnabled()) { rememberCalibrationSettings(); renderCalibration(); }
+    byId("body-calibration-form").addEventListener("input", (event) => {
+      if (bodyCalibrationEnabled()) {
+        if (event.target === byId("body-calibration-form").elements.home_deg) calibrationDraft().homeReference = "custom";
+        rememberCalibrationSettings(); renderCalibration();
+      }
     });
     byId("calibration-save-button").addEventListener("click", () => bodyCalibrationEnabled() ? saveBodyCalibration() : command("/api/calibration/save", {}, "Calibration saved"));
     byId("calibration-neutral-button").addEventListener("click", () => bodyCalibrationEnabled() ? calibrateBody("home", {}, "Assigned joints homed") : command("/api/calibration/neutral", {}, "Neutral targets sent"));
@@ -1942,13 +2287,11 @@
       if (!joint) return;
       calibrateBody("move", {id: joint.id, pulse_us: (joint.pulse_us || joint.home_us) + Number(button.dataset.calibrationTrim)}, "Joint trim confirmed");
     }));
-    byId("calibration-use-position-button").addEventListener("click", () => {
-      const joint = selectedCalibrationJoint();
-      if (!joint || !joint.pulse_us) { showCalibrationResult("Home or move the joint before using its commanded pulse.", true); return; }
-      byId("body-calibration-form").elements.center.value = joint.pulse_us;
-      rememberCalibrationSettings();
-      renderCalibration();
-      showCalibrationResult("Last commanded pulse copied to the Home field. This is a local edit; apply or save when ready.");
+    byId("calibration-use-position-button").addEventListener("click", () => void captureMeasuredHome());
+    byId("calibration-home-reference").addEventListener("change", () => {
+      calibrationDraft().homeReference = byId("calibration-home-reference").value;
+      persistCalibrationWorkspace();
+      renderCalibrationHomeReference();
     });
     document.querySelectorAll("[data-joint-select]").forEach((select) => select.addEventListener("change", () => {
       if (!bodyCalibrationEnabled()) return;
@@ -2404,6 +2747,7 @@
     renderMotionCatalog(entry, legacyBody);
     updateMotionSpeed(entry);
     updateBalance(entry);
+    updateServoFeedback(entry);
     document.querySelectorAll("[data-intent], [data-emote], [data-held-direction]").forEach((button) => {
       const name = button.dataset.intent || button.dataset.emote || directionCommands[button.dataset.heldDirection];
       button.disabled = !bodyCommandAvailable(name) ||
@@ -2882,6 +3226,8 @@
       refreshStatus();
     });
     setupMotionControls();
+    setupGyroJointGuide();
+    setupServoFeedback();
     setupForms();
     setupSpeechOutput();
     setupSecurity();

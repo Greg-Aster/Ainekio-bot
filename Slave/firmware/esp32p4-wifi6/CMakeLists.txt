@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.8.59-p4-reindexed-walk")
+set(PROJECT_VER "0.8.68-p4-level-settle")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/faces"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/imu"
@@ -8,6 +8,15 @@ set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../components/ainekio_discovery")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(ainekio_p4_body)
+
+# Hosted's global constructor allocates transport pools before the pre-V3 P4
+# startup-stack RAM is released. The network task owns the same initialization
+# after scheduler startup, before any remote Wi-Fi call.
+idf_component_get_property(AINEKIO_HOSTED_LIB espressif__esp_hosted COMPONENT_LIB)
+get_target_property(AINEKIO_HOSTED_SOURCES ${AINEKIO_HOSTED_LIB} SOURCES)
+list(FILTER AINEKIO_HOSTED_SOURCES EXCLUDE REGEX "/port_esp_hosted_host_init\\.c$")
+set_property(TARGET ${AINEKIO_HOSTED_LIB} PROPERTY SOURCES ${AINEKIO_HOSTED_SOURCES})
+
 include(cmake/idf_dw_gdma.cmake)
 include(cmake/idf_panic_log.cmake)
 

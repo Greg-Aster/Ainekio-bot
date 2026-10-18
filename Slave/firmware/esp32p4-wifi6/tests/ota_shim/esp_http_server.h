@@ -4,7 +4,7 @@
 #include "esp_err.h"
 typedef void *httpd_handle_t;
 enum { HTTP_GET, HTTP_POST };
-typedef struct { httpd_handle_t handle; int method; size_t content_len; } httpd_req_t;
+typedef struct httpd_req { httpd_handle_t handle; int method; size_t content_len; } httpd_req_t;
 typedef struct { const char *uri; int method; esp_err_t (*handler)(httpd_req_t *); } httpd_uri_t;
 esp_err_t httpd_resp_set_status(httpd_req_t *, const char *);
 esp_err_t httpd_resp_set_type(httpd_req_t *, const char *);

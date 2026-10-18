@@ -58,6 +58,7 @@
 </ul></details>
 <details class="navigation-group" data-navigation-group="maintenance"><summary>Maintenance</summary><ul>
 <li><button type="button" data-workspace="calibration">Joint calibration</button></li>
+<li><button type="button" data-workspace="servo-feedback">Servo feedback</button></li>
 <li><button type="button" data-workspace="controllers">Controller mappings</button></li>
 <li><button type="button" data-workspace="firmware">Firmware updates</button></li>
 <li><button type="button" data-workspace="logs">Robot logs</button></li>
@@ -324,6 +325,9 @@
             <p id="balance-tilt"></p>
             <p id="balance-error"></p>
             <p id="balance-correction"></p>
+            <p id="balance-joint-feedback" role="status"></p>
+            <p id="balance-joint-errors"></p>
+            <p id="balance-joint-trims"></p>
             <div class="table-scroll"><table>
               <caption>Commanded adjustments relative to the current motion</caption>
               <thead><tr><th>Leg</th><th>Extension</th><th>Carrier change</th><th>Crank change</th></tr></thead>
@@ -651,6 +655,26 @@
           <p id="calibration-joint-help" class="muted"></p>
         </div>
         <p id="calibration-feedback" class="calibration-feedback" role="status" aria-live="polite" hidden></p>
+        <section id="gyro-joint-guide" class="calibration-card" hidden aria-labelledby="gyro-joint-title">
+          <h3 id="gyro-joint-title">Gyro-guided leveling calibration</h3>
+          <p id="gyro-joint-live" role="status">Waiting for body tilt.</p>
+          <p>Keep the feet on the test surface and let the body respond freely. Test the selected joint, then capture its result once the movement has settled. In normal mode, trials use Freestyle and hold the other targets; automatic leveling stays suspended until Stand is selected.</p>
+          <div class="calibration-grid">
+            <label>Trial step µs<input id="gyro-joint-step" type="number" min="1" step="1" value="60"></label>
+            <label>Target roll °<input id="gyro-joint-roll" type="number" step="0.1" value="0"></label>
+            <label>Target pitch °<input id="gyro-joint-pitch" type="number" step="0.1" value="0"></label>
+          </div>
+          <div class="command-row">
+            <button id="gyro-joint-minus" type="button">Test −step</button>
+            <button id="gyro-joint-plus" type="button">Test +step</button>
+            <button id="gyro-joint-capture" type="button">Capture result</button>
+            <button id="gyro-joint-restore" type="button">Restore trial target</button>
+            <button id="gyro-joint-correct" type="button">Correct one step toward target</button>
+          </div>
+          <p id="gyro-joint-result" role="status"></p>
+          <p id="gyro-joint-response"></p>
+          <p>Captured responses are saved in this browser for this robot and joint mapping. They describe this loaded pose and surface; they do not replace horn/Home calibration or update the robot’s automatic leveling controller. Each correction uses at most the trial step entered above.</p>
+        </section>
         <div id="calibration-settings" class="calibration-settings" hidden>
           <section class="calibration-card" aria-labelledby="calibration-readback-title">
             <div class="calibration-card-heading">
@@ -666,8 +690,18 @@
               <div><dt>Servo scale</dt><dd id="calibration-body-scale">—</dd></div>
               <div><dt>Last commanded pulse</dt><dd id="calibration-body-pulse">—</dd></div>
             </dl>
+            <h4>Live shaft feedback · fourth wire</h4>
+            <dl class="calibration-readback">
+              <div><dt>Feedback input</dt><dd id="calibration-feedback-input">—</dd></div>
+              <div><dt>Sensor reading</dt><dd id="calibration-feedback-raw">—</dd></div>
+              <div><dt>Measured position</dt><dd id="calibration-feedback-position">—</dd></div>
+              <div><dt>Measured model angle</dt><dd id="calibration-feedback-angle">—</dd></div>
+              <div><dt>Current target</dt><dd id="calibration-feedback-target">—</dd></div>
+              <div><dt>Target − measured</dt><dd id="calibration-feedback-error">—</dd></div>
+            </dl>
+            <p id="calibration-feedback-status" role="status">Waiting for shaft feedback.</p>
             <p id="calibration-reference-help" class="muted"></p>
-            <p class="muted">These are settings reported by the controller, not measured shaft positions. Reading settings does not move the robot.</p>
+            <p class="muted">Measured position comes from the fourth wire and its saved sensor calibration, expressed as equivalent µs. The model angle also uses the saved horn mapping. Reading does not move the robot.</p>
           </section>
           <section class="calibration-card" aria-labelledby="calibration-edit-title">
             <h3 id="calibration-edit-title">Edit selected joint</h3>
@@ -681,6 +715,15 @@
               <label class="switch-row invert-row"><span>Reverse angle direction (Invert)</span><input name="invert" type="checkbox"></label>
               <button id="calibration-stage-button" type="submit">Apply temporarily</button>
             </form>
+            <label>Physical reference for Home capture
+              <select id="calibration-home-reference">
+                <option value="rearward">Rearward assembly pose</option>
+                <option value="custom">Custom model angle entered above</option>
+              </select>
+            </label>
+            <p id="calibration-home-reference-help" class="muted"></p>
+            <button id="calibration-use-position-button" type="button">Use measured position as Home</button>
+            <p class="muted">Place the selected joint at the stated physical reference, capture its measured position, then Apply &amp; save to robot. Capture replaces the old angle offset with that reference. Each servo keeps its individual Home pulse, direction and scale. Startup still rises to Stand; Home is the calibration pose.</p>
             <button id="calibration-use-body-values" type="button">Discard local edits</button>
             <p id="calibration-mapping-help" class="muted" hidden>Home pulse and Model angle at Home describe the same physical pose. Invert reverses angle-driven motion; the pulse test below still sends the exact µs value entered. Apply temporarily sends this joint’s settings without saving them after restart.</p>
           </section>
@@ -706,7 +749,6 @@
             <button type="button" data-calibration-trim="-5">−5 µs</button>
             <button type="button" data-calibration-trim="5">+5 µs</button>
             <button id="calibration-joint-home-button" type="button">Move to Home</button>
-            <button id="calibration-use-position-button" type="button">Copy last command to Home field</button>
           </div>
           <p id="calibration-pulse-help" class="muted" hidden>Pulse targets use the controller’s output range. These are commands, not measured servo positions.</p>
           <div class="command-row">
@@ -723,6 +765,44 @@
           <button type="submit">Stage limits</button>
         </form>
       </section>
+
+<section id="servo-feedback-panel" class="control-section" data-workspace-panel="servo-feedback" aria-labelledby="servo-feedback-title">
+  <div class="section-heading"><h2 id="servo-feedback-title">Servo position feedback</h2></div>
+  <p id="servo-feedback-status" role="status">Connect a P4 with servo feedback firmware.</p>
+  <p class="muted">The fourth servo wire measures shaft position. An ADC reading alone does not prove a wire is connected or a foot is touching the floor.</p>
+  <form id="servo-feedback-config" class="calibration-grid">
+    <label class="switch-row">Read the multiplexer<input name="enabled" type="checkbox"></label>
+    <label class="switch-row">Coordinate Stand using measured positions<input name="stand_enabled" type="checkbox"></label>
+    <label>Arrival tolerance (pulse-equivalent µs)<input name="tolerance_us" type="number" min="1" max="65535" step="1" value="30" required></label>
+    <button type="submit">Save feedback settings</button>
+    <button id="servo-feedback-read" type="button">Read from robot</button>
+  </form>
+  <p class="muted">Enable reading after wiring. Calibrate all twelve joints before enabling measured Stand. Stand keeps its fast movement commands, then holds each lift/place target until the joints arrive. A missing reading or a joint that cannot reach its target leaves that stage active; another motion command can replace it. This does not increase motor torque.</p>
+  <p id="servo-feedback-motion" role="status"></p>
+  <div class="table-scroll"><table>
+    <caption>Measured shaft position versus commanded position</caption>
+    <thead><tr><th>Joint</th><th>MUX input</th><th>ADC / voltage</th><th>Command µs</th><th>Measured equivalent µs</th><th>Error µs</th><th>Reading</th></tr></thead>
+    <tbody id="servo-feedback-rows"></tbody>
+  </table></div>
+  <h3>Calibrate one feedback wire</h3>
+  <p>Use Joint calibration to move the unloaded servo to three known positions. Confirm that its shaft has arrived, then capture each position here. Low, middle and high refer to increasing command pulses; the feedback voltage may increase or decrease. Capturing never moves a servo or changes its Home settings.</p>
+  <p>Choose Joint calibration in the sidebar to position a servo, then return here to capture its reading.</p>
+  <form id="servo-feedback-calibration" class="calibration-grid">
+    <label>Physical joint<select name="joint" id="servo-feedback-joint"></select></label>
+    <label>MUX input (0–15)<input name="channel" type="number" min="0" max="15" step="1" required></label>
+    <button id="servo-feedback-map" type="button">Save input mapping</button>
+    <label>Reference point<select name="point"><option value="0">Low pulse</option><option value="1">Middle pulse</option><option value="2">High pulse</option></select></label>
+    <label>Pulse at the confirmed position (µs)<input name="pulse_us" type="number" min="1" max="65535" step="1" required></label>
+    <button type="submit">Capture settled position</button>
+    <button id="servo-feedback-clear" type="button">Clear selected feedback calibration</button>
+  </form>
+  <p id="servo-feedback-points"></p>
+  <p id="servo-feedback-result" role="status"></p>
+  <details><summary>All multiplexer inputs and wiring</summary>
+    <p>CD74HC4067: VCC → 3V3, GND and EN → common GND, SIG/COM → GPIO49. S0/S1/S2/S3 → GPIO27/28/29/30. Feedback voltages must remain within the module's actual supply voltage; check the full range before connecting. Keep the reader powered while the servos drive their feedback wires.</p>
+    <p id="servo-feedback-raw"></p>
+  </details>
+</section>
 
 <section class="control-section controller-section" aria-labelledby="controller-title" data-workspace-panel="controllers">
         <div class="section-heading">

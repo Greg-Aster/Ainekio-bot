@@ -16,6 +16,9 @@
 #define AINEKIO_SERVO_COUNT 8U
 #define AINEKIO_MAX_SEQUENCE 0x7FFFFFFFU
 #define AINEKIO_JOINT_MAP_VERSION 1U
+#define AINEKIO_V2_JOINT_MAP_VERSION 2U
+#define AINEKIO_MOTION_PLAN_V2_FEATURE "motion_plan_v2"
+#define AINEKIO_MOTION_PLAN_JOINT_CAPACITY 12U
 #define AINEKIO_MOTION_PLAN_MAX_FRAMES 32U
 #define AINEKIO_MOTION_PLAN_MIN_FRAME_MS 100U
 #define AINEKIO_MOTION_PLAN_MAX_FRAME_MS 5000U
@@ -187,14 +190,14 @@ typedef enum {
 } ainekio_motion_plan_end_t;
 
 typedef struct {
-    uint16_t duration_ms;
-    uint16_t targets[AINEKIO_SERVO_COUNT];
+    uint32_t duration_ms;
+    int32_t targets[AINEKIO_MOTION_PLAN_JOINT_CAPACITY];
 } ainekio_motion_plan_frame_t;
 
 typedef struct {
     uint8_t joint_map_version;
     uint8_t frame_count;
-    uint16_t total_duration_ms;
+    uint64_t total_duration_ms;
     ainekio_motion_plan_end_t end;
     ainekio_motion_plan_frame_t frames[AINEKIO_MOTION_PLAN_MAX_FRAMES];
 } ainekio_motion_plan_t;

@@ -20,6 +20,9 @@ MAX_AUTH_CHARS = 128
 MAX_FEATURES = 32
 MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
+MOTION_PLAN_V2_FEATURE = "motion_plan_v2"
+MOTION_PLAN_V2_JOINT_MAP = 2
+MOTION_PLAN_V2_JOINTS = 12
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
 CAMERA_PROFILES_FEATURE = "camera_profiles_v1"
 CAMERA_ADAPTIVE_FEATURE = "camera_adaptive_v1"
@@ -356,8 +359,9 @@ def _validate_motion_plan(message: Mapping[str, object]) -> None:
         message,
         "map",
         minimum=MOTION_PLAN_JOINT_MAP,
-        maximum=MOTION_PLAN_JOINT_MAP,
+        maximum=MOTION_PLAN_V2_JOINT_MAP,
     )
+    v2 = message["map"] == MOTION_PLAN_V2_JOINT_MAP
     frames = _required(message, "frames")
     if not isinstance(frames, list):
         _fail("type:frames")
@@ -370,17 +374,17 @@ def _validate_motion_plan(message: Mapping[str, object]) -> None:
         duration_ms, targets = frame
         if type(duration_ms) is not int:
             _fail("type:frames.duration")
-        if not MOTION_PLAN_MIN_FRAME_MS <= duration_ms <= MOTION_PLAN_MAX_FRAME_MS:
+        if not (1 if v2 else MOTION_PLAN_MIN_FRAME_MS) <= duration_ms <= ((1 << 32) - 1 if v2 else MOTION_PLAN_MAX_FRAME_MS):
             _fail("range:frames.duration")
         total_duration_ms += duration_ms
-        if total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
+        if not v2 and total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
             _fail("range:frames.total_duration")
-        if not isinstance(targets, list) or len(targets) != MOTION_PLAN_JOINTS:
+        if not isinstance(targets, list) or len(targets) != (MOTION_PLAN_V2_JOINTS if v2 else MOTION_PLAN_JOINTS):
             _fail("range:frames.targets")
         for target in targets:
             if type(target) is not int:
                 _fail("type:frames.target")
-            if not 0 <= target <= MOTION_PLAN_MAX_CENTIDEGREES:
+            if not (-(1 << 31) if v2 else 0) <= target <= ((1 << 31) - 1 if v2 else MOTION_PLAN_MAX_CENTIDEGREES):
                 _fail("range:frames.target")
     _string(message, "end", allowed=frozenset({"hold", "stand", "neutral"}))
 

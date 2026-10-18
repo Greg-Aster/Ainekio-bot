@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.16)
 project(ainekio_p4_native C)
 enable_testing()
+add_executable(test_servo_feedback test_servo_feedback.c ../main/servo_feedback_model.c)
+target_include_directories(test_servo_feedback PRIVATE ../main)
+target_link_libraries(test_servo_feedback PRIVATE m)
+target_compile_options(test_servo_feedback PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
+add_test(NAME servo_feedback_calibration COMMAND test_servo_feedback)
+add_executable(test_servo_feedback_position test_servo_feedback_position.c
+    ../main/servo_feedback_position.c ../main/servo_feedback_model.c)
+target_include_directories(test_servo_feedback_position PRIVATE ../main body_shim
+    ../../../software/models/v2-12servo/include ../../../software/core/include)
+target_link_libraries(test_servo_feedback_position PRIVATE m)
+target_compile_options(test_servo_feedback_position PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
+add_test(NAME servo_feedback_measured_arrival COMMAND test_servo_feedback_position)
 add_compile_options(-UNDEBUG) # Assertions must execute in optimized test builds.
 add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c)
 target_include_directories(test_imu_telemetry PRIVATE ../main)

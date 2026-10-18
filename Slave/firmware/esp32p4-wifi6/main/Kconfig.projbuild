@@ -1,14 +1,6 @@
-menu "Ainekio face display"
-choice AINEKIO_DISPLAY_PANEL
-    prompt "Connected face display"
-    default AINEKIO_DISPLAY_SSD1306
-config AINEKIO_DISPLAY_SSD1306
-    bool "0.96-inch SSD1306 I2C OLED (current assembly)"
-config AINEKIO_DISPLAY_ST7789
-    bool "1.9-inch ST7789 SPI LCD"
-endchoice
+menu "Ainekio 1.9-inch ST7789 face display"
 config AINEKIO_LCD_ENABLED
-    bool "Enable the selected face display"
+    bool "Enable the LCD face display"
     default y
 config AINEKIO_LCD_SCLK
     int "LCD SCL / SCK GPIO"

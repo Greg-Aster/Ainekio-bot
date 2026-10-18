@@ -3,12 +3,13 @@
 #include <math.h>
 #include <string.h>
 
-/* Shift onto three supports, lift vertically, translate while clear, lower. */
+/* Geometric stage coordinates: shift, lift, translate while clear, lower.
+ * They define path shape; posture_advance assigns time by angular travel. */
 static const double shift_s=.6,lift_s=.3,place_s=.5,lower_s=.3,settle_s=1.2;
 static const double lift_mm=8.;
 static const unsigned order[4]={0,3,1,2};
 static double clamp(double u){return fmax(0.,fmin(1.,u));}
-static double ease(double u){u=clamp(u);return u*u*u*(10.+u*(-15.+6.*u));}
+static double fraction(double u){return clamp(u);}
 bool ainekio_v2_rise_begin(ainekio_v2_rise_t *s)
 {
     if(!s)return false;
@@ -28,7 +29,7 @@ bool ainekio_v2_rise_sample(ainekio_v2_rise_t *s,double front_fraction,double re
     ainekio_v2_walk_pose_t p=s->crouch;
     memcpy(p.joints,s->pose.joints,sizeof(p.joints));
     const double height=s->stand.body[2]-s->crouch.body[2];
-    const double front=ease(front_fraction)*height,rear=ease(rear_fraction)*height;
+    const double front=fraction(front_fraction)*height,rear=fraction(rear_fraction)*height;
     /* Source leg order is physical front pair, rear pair (CAD RL/RR/FL/FR).
      * A slight body pitch expresses the delayed rear lift without splicing
      * incompatible leg frames or moving the planted contact targets. */
@@ -43,7 +44,7 @@ bool ainekio_v2_rise_sample(ainekio_v2_rise_t *s,double front_fraction,double re
     return true;
 }
 static double step_s(void){return shift_s+lift_s+place_s+lower_s;}
-double ainekio_v2_posture_duration(void){return 4.*step_s()+settle_s;}
+double ainekio_v2_posture_path_length(void){return 4.*step_s()+settle_s;}
 static void joints(ainekio_v2_walk_pose_t *p,const ainekio_v2_frame_t *f)
 {
     for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
@@ -84,7 +85,7 @@ bool ainekio_v2_posture_sample(ainekio_v2_posture_t *s,double elapsed)
 {
     if(!s||!isfinite(elapsed)||elapsed<0.)return false;
     if(elapsed==0.){s->pose=s->start;return true;}
-    if(elapsed>=ainekio_v2_posture_duration()){s->pose=s->target;return true;}
+    if(elapsed>=ainekio_v2_posture_path_length()){s->pose=s->target;return true;}
     ainekio_v2_walk_pose_t p=s->start;
     memcpy(p.joints,s->pose.joints,sizeof(p.joints));
     const unsigned step=(unsigned)fmin(4.,floor(elapsed/step_s()));
@@ -94,26 +95,74 @@ bool ainekio_v2_posture_sample(ainekio_v2_posture_t *s,double elapsed)
         unsigned l=order[k];memcpy(p.feet[l],s->target.feet[l],sizeof(p.feet[l]));
         p.sole_height[l]=s->target.sole_height[l];
     }
-    double u=ease(elapsed/(4.*step_s()));
+    double u=fraction(elapsed/(4.*step_s()));
     p.body[2]=s->start.body[2]+u*(s->target.body[2]-s->start.body[2]);
     for(unsigned j=0;j<3;j++)p.euler[j]=(1.-u)*s->start.euler[j];
     if(step<4) {
         const unsigned l=order[step];
         for(unsigned axis=0;axis<2;axis++) {
             double previous=step?s->shift[step-1][axis]:0.;
-            p.body[axis]=previous+ease(local/shift_s)*(s->shift[step][axis]-previous);
+            p.body[axis]=previous+fraction(local/shift_s)*(s->shift[step][axis]-previous);
         }
         double swing=local-shift_s;
         if(swing>0.) {
-            double xy=ease((swing-lift_s)/place_s);
+            double xy=fraction((swing-lift_s)/place_s);
             for(unsigned axis=0;axis<2;axis++)p.feet[l][axis]=s->start.feet[l][axis]+xy*(s->target.feet[l][axis]-s->start.feet[l][axis]);
             double clear=fmax(s->start.sole_height[l],s->target.sole_height[l])+lift_mm;
-            if(swing<lift_s)p.sole_height[l]=s->start.sole_height[l]+ease(swing/lift_s)*(clear-s->start.sole_height[l]);
+            if(swing<lift_s)p.sole_height[l]=s->start.sole_height[l]+fraction(swing/lift_s)*(clear-s->start.sole_height[l]);
             else if(swing<lift_s+place_s)p.sole_height[l]=clear;
-            else p.sole_height[l]=clear+ease((swing-lift_s-place_s)/lower_s)*(s->target.sole_height[l]-clear);
+            else p.sole_height[l]=clear+fraction((swing-lift_s-place_s)/lower_s)*(s->target.sole_height[l]-clear);
             p.grounded[l]=swing>=lift_s+place_s+lower_s;
         }
-    } else for(unsigned axis=0;axis<2;axis++)p.body[axis]=(1.-ease(local/settle_s))*s->shift[3][axis];
+    } else for(unsigned axis=0;axis<2;axis++)p.body[axis]=(1.-fraction(local/settle_s))*s->shift[3][axis];
     if(!ainekio_v2_contact_solve(&p,(const double (*)[3])s->anchors))return false;
     s->pose=p;return true;
+}
+
+bool ainekio_v2_posture_advance(ainekio_v2_posture_t *s,double *progress,double seconds)
+{
+    if(!s||!progress||!isfinite(seconds)||seconds<0.)return false;
+    const double end=ainekio_v2_posture_path_length();
+    double remaining=seconds;
+    while(remaining>0. && *progress<end) {
+        double event=end;
+        const double landmarks[4]={shift_s,shift_s+lift_s,
+            shift_s+lift_s+place_s,step_s()};
+        for(unsigned leg=0;leg<4;leg++)for(unsigned k=0;k<4;k++) {
+            double at=leg*step_s()+landmarks[k];
+            if(at>*progress+1e-9)event=fmin(event,at);
+        }
+        double segment=fmin(.01,event-*progress);
+        ainekio_v2_posture_t next=*s;
+        if(!ainekio_v2_posture_sample(&next,*progress+segment))return false;
+        double distance=0.;
+        for(unsigned j=0;j<12;j++)distance=fmax(distance,
+            fabs(next.pose.frame.position[j]-s->pose.frame.position[j])/100.);
+        double duration=distance/ainekio_v2_joint_speed_default();
+        if(duration<=remaining) {
+            *s=next;*progress+=segment;remaining-=duration;
+            if(*progress>=event-1e-9){*progress=event;return true;}
+        } else {
+            segment*=remaining/duration;
+            if(!ainekio_v2_posture_sample(s,*progress+segment))return false;
+            *progress+=segment;remaining=0.;
+        }
+    }
+    return true;
+}
+
+bool ainekio_v2_posture_shoulder_engaged(double progress,unsigned model_leg)
+{
+    unsigned source=model_leg<2?model_leg+2:model_leg-2;
+    for(unsigned k=0;k<4;k++)if(order[k]==source)
+        return progress>=k*step_s()+shift_s+lift_s;
+    return false;
+}
+
+bool ainekio_v2_posture_landmark(double progress)
+{
+    const double landmarks[4]={shift_s,shift_s+lift_s,shift_s+lift_s+place_s,step_s()};
+    for(unsigned leg=0;leg<4;leg++)for(unsigned k=0;k<4;k++)
+        if(fabs(progress-(leg*step_s()+landmarks[k]))<1e-9)return true;
+    return fabs(progress-ainekio_v2_posture_path_length())<1e-9;
 }

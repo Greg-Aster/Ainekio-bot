@@ -9,7 +9,7 @@ See [Wi-Fi investigation and validation](RECORDING_OTA.md#wi-fi-investigation-20
 reuse near capacity, plus the
 internal-card clip downloads and Body Control
 recording/upload/activation controls to the segmented SD recording and authenticated
-P4 OTA support. Update progress uses the existing OLED/LCD. See
+P4 OTA support. Update progress uses the LCD. See
 [recording, Wi-Fi updates and initial USB migration](RECORDING_OTA.md).
 Controller-only hardware tests passed for recording, Wi-Fi upload/activation,
 interrupted upload and rollback. The screen state was confirmed by the owner.
@@ -36,17 +36,20 @@ pulses; updating geometric source alone does not change those home settings.
 The current source integrates twelve-joint operator calibration, provisioning,
 profiles/power states, removable storage, OV5647 camera, onboard ES8311 audio,
 VAD and the shared wake-word engine. Readiness comes from the actual driver and
-asset state. The current assembly uses a **0.96-inch SSD1306 I2C OLED** on
-GPIO20 (SCL) and GPIO21 (SDA), selected by default in `sdkconfig.defaults`.
-It renders the same face choices and connection guidance in 128×64 monochrome.
-The temporary OLED implementation is isolated in `main/display_ssd1306.c`;
-normal firmware builds with the current configuration include it, so flashing
-other P4 changes retains the working display. Existing local `sdkconfig` files
-can retain an older panel choice; confirm `CONFIG_AINEKIO_DISPLAY_SSD1306=y`
-before building or flashing this assembly. The 1.9-inch ST7789 RGB565 LCD remains selectable with
-`CONFIG_AINEKIO_DISPLAY_ST7789` when its replacement arrives. Its wiring and
-expression guide is [here](../../../docs/v2-12servo/LCD_FACE.md). A build
-selects one display driver, and the OLED source can be removed when retired.
+asset state. Version `0.8.64-p4-lcd-restored` returns the face display to the
+**1.9-inch ST7789 RGB565 LCD**, in 320×170 landscape at 15 FPS with the installed
+180-degree rotation. The temporary P4 OLED driver and panel-selection options
+have been removed. The build directly compiles `main/display.c`, including the
+existing expressions, listening/speech feedback, connection guidance, warning
+icons and OTA progress. Previous OLED panel selections cannot select another
+driver. LCD wiring and expression details are
+[here](../../../docs/v2-12servo/LCD_FACE.md).
+
+The LCD SPI driver adds internal-RAM code. On the pre-V3 P4, Hosted transport
+initialization therefore runs in the network task after scheduler startup,
+before the first remote Wi-Fi call. The build omits Hosted's automatic global
+constructor; it does not modify the managed SDK or reduce queues, task stacks,
+camera rate or LCD frame rate.
 
 While a microphone utterance is open (wake, VAD or Open gate), the display overlays
 its animated Listening expression. It restores the underlying manual/motion face
@@ -386,7 +389,7 @@ driver; they never create a second bus or write OE directly.
 | Resource | Assignment / reservation |
 | --- | --- |
 | PCA9685 | I2C controller 1, SDA GPIO2, SCL GPIO3, address `0x40`, 400 kHz; OE GPIO4 |
-| Face display | Current OLED: SDA GPIO21, SCL GPIO20, VCC 3V3, common GND. Alternative ST7789 LCD: SPI2 SCLK20, MOSI21, CS22, DC23, RESET26; VCC and BLK on 3V3. Select the connected panel in menuconfig. |
+| Face display | 1.9-inch ST7789 LCD: SPI2 SCLK20, MOSI21, CS22, DC23, RESET26; VCC and BLK on 3V3, common GND. |
 | Header reference | With USB-C at top, component side facing you: GPIO2=L15, GPIO3=L14, GPIO4=L12, GND=L13, 3V3=R5. L/R are top-down guide row IDs; see the [pinout and wiring guide](../../../docs/v2-12servo/PCA9685_WIRING.md). These correspond to schematic U10 pins 15/14/12/13/36. |
 | Onboard codec/camera I2C | GPIO7/8 reserved; no competing legacy I2C driver |
 | C6 SDIO | CLK18, CMD19, D0–D3 14–17, reset54; C6 boot6 reserved |

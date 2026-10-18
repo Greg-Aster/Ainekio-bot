@@ -12,6 +12,7 @@ def generate(root,out):
        'extern const double v2_joint_center_degrees[3];','extern const unsigned v2_joint_reference_us[3];',
        f'#define V2_SERVO_PULSE_MIDPOINT_US ({sum(p["pulse_range_us"])/2:.17g})',
        f'#define V2_SERVO_US_PER_DEGREE ({p["us_per_degree"]:.17g})',
+       f'#define V2_SERVO_PROFILE_TRAVEL_DEGREES ({p["provisional_travel_degrees"]:.17g})',
        f'#define V2_GAIT_MAX_JOINT_SPEED_DEGREES_S ({speed:.17g})',
        f'#define V2_SERVO_SPEED_EXCESS_FLAG_RATIO ({p["servo_speed_excess_flag_ratio"]:.17g})',
        f'#define V2_SERVO_PROFILE_ID {json.dumps(p["profile_id"])}','#endif']

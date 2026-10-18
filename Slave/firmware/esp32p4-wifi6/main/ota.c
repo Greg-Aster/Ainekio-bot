@@ -1,5 +1,6 @@
 #include "ota.h"
 #include "logs.h"
+#include "servo_feedback.h"
 #include "board.h"
 #include "body.h"
 #include "config.h"
@@ -382,9 +383,17 @@ bool ainekio_p4_ota_page(ainekio_connection_page_t *page)
     return true;
 }
 
+static esp_err_t servo_feedback(httpd_req_t *r)
+{
+    if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
+    return ainekio_p4_feedback_http(r);
+}
+
 esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server)
 {
     const httpd_uri_t endpoints[] = {
+        {.uri="/api/servo-feedback", .method=HTTP_GET, .handler=servo_feedback},
+        {.uri="/api/servo-feedback", .method=HTTP_POST, .handler=servo_feedback},
         {.uri="/api/logs", .method=HTTP_GET, .handler=controller_logs},
         {.uri="/api/recording", .method=HTTP_GET, .handler=recording},
         {.uri="/api/recording", .method=HTTP_POST, .handler=recording},

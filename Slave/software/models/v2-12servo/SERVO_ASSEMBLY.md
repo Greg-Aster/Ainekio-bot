@@ -1,5 +1,27 @@
 # V2 servo mounting and calibration
 
+## Fourth-wire reference capture (2026-10-18)
+
+Body Control Joint Calibration now offers **Rearward assembly pose** when
+capturing a measured Home. The shared local model references are **-30.87° for
+carriers** and **-117.68° for cranks**. All corresponding joints must physically
+occupy that matching rearward pose. Their measured Home pulses remain individual;
+inversion still accounts for mirrored servo mounting. Shoulders default to a
+custom explicit reference angle and are not changed by leg calibration.
+
+The carrier reference follows the original mapping at left 2800 / right 500 µs:
+`1.17° - (2800 - 2444) / (1000 / 90) = -30.87°`. The crank value is the
+photo-derived reindexed reference described below. Neither is a new independent
+measurement of the installed linkage angle. The sensor measures each shaft;
+matching the physical reference poses establishes the mapping to the model.
+
+Capture assigns the selected reference angle to the measured pulse; it no
+longer shifts the reference angle using the previous calibration. The previous
+behavior preserved inconsistent mounting offsets. **Custom model angle entered
+above** keeps that explicitly entered angle instead. Apply & save persists the
+selected joint through the existing calibration owner. Startup still rises to
+Stand rather than holding calibration Home; it uses this saved angle mapping.
+
 ## Reindexed-crank Walk candidate (0.8.59)
 
 The owner has physically refitted the crank horns. The new rear-left Home is

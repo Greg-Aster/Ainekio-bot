@@ -51,6 +51,8 @@ from protocol.control_v1 import (
     JOINT_SPEED_LIMIT_FEATURE,
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
+    MOTION_PLAN_V2_FEATURE,
+    MOTION_PLAN_V2_JOINT_MAP,
     MOTION_PLAN_JOINT_MAP,
     PROTOCOL_VERSION,
     ProtocolValidationError,
@@ -979,14 +981,14 @@ class GatewayService:
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
-        if MOTION_PLAN_FEATURE not in connection.features:
-            raise GatewayError(
-                f"robot {connection.robot_id} does not advertise {MOTION_PLAN_FEATURE}"
-            )
+        v2 = connection.model == "v2-12servo"
+        feature = MOTION_PLAN_V2_FEATURE if v2 else MOTION_PLAN_FEATURE
+        if feature not in connection.features:
+            raise GatewayError(f"robot {connection.robot_id} does not advertise {feature}")
         return await connection.send_command(
             {
                 "t": "motion_plan",
-                "map": MOTION_PLAN_JOINT_MAP,
+                "map": MOTION_PLAN_V2_JOINT_MAP if v2 else MOTION_PLAN_JOINT_MAP,
                 "frames": frames,
                 "end": end,
             },

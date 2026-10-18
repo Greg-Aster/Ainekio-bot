@@ -22,9 +22,12 @@ do not supply those values.
 
 ## Wiring Guides
 
+- [Servo-to-PCA9685 socket and multiplexer input map](SERVO_SOCKET_MAP.md) · [image](Servo_Socket_Map.png)
+- [LSM6DS3 gyro wiring, mounting and calibration](LSM6DS3_IMU.md) · [image](LSM6DS3_Wiring.png)
+- [Multiplexer-to-P4 wiring image](Multiplexer_Wiring.png)
 - [Combined assembly image: P4 + LCD + servo board + IMU](Assembly_Reference.png)
 - [Combined connection table and resolved pin conflicts](ASSEMBLY_REFERENCE.md)
-- [Historical servo bring-up P4 pinout image](ESP32P4_Pinout.png)
+- [Current P4 header pinout: servo board, LCD, IMU and multiplexer](ESP32P4_Pinout.png) · [editable SVG](ESP32P4_Pinout.svg)
 - [PCA9685 connection image](PCA9685_Wiring.png)
 - [Wiring table, sources and servo power](PCA9685_WIRING.md)
 

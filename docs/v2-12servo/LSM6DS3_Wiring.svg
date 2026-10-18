@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1600" viewBox="0 0 2200 1600" role="img" aria-labelledby="title desc">
+<title id="title">AINEKIO · LSM6DS3 GYRO / IMU</title><desc id="desc">Four P4 connections: 3V3 to IMU 3V3, GND to GND, GPIO8 to SCL and GPIO7 to SDA. Local straps CS to 3V3 and SA0, SCX, SDX to ground. VIN, INT1, INT2 and DCS are unused. Follow module labels, not drawing pin positions.</desc>
+<rect x="0" y="0" width="2200" height="1600" rx="0" fill="#f5f7fa"/>
+<text x="60" y="94" font-family="DejaVu Sans,Arial,sans-serif" font-size="52" fill="#18232d" font-weight="700" text-anchor="start">AINEKIO · LSM6DS3 GYRO / IMU</text>
+<text x="62" y="150" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#ed7848" font-weight="700" text-anchor="start">WAVESHARE ESP32-P4-WIFI6 · SHARED I²C0 · ADDRESS 0x6A</text>
+<rect x="60" y="184" width="2080" height="64" rx="10" fill="#fff0df"/>
+<text x="84" y="226" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="700" text-anchor="start">Use the photographed module’s 3V3 pin · VIN stays unused · Disconnect power before rewiring.</text>
+<rect x="60" y="280" width="2080" height="460" rx="14" fill="#fff"/>
+<rect x="60" y="280" width="2080" height="65" rx="12" fill="#18232d"/>
+<text x="84" y="324" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">FOUR WIRES TO THE P4 · FOLLOW THE PRINTED LABELS</text>
+<text x="100" y="396" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#596879" font-weight="700" text-anchor="start">P4 HEADER</text>
+<text x="1740" y="396" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#596879" font-weight="700" text-anchor="start">LSM6DS3 BOARD</text>
+<rect x="88" y="409" width="2024" height="60" rx="7" fill="#f0f4f7"/>
+<text x="110" y="450" font-family="DejaVu Sans,Arial,sans-serif" font-size="31" fill="#18232d" font-weight="700" text-anchor="start">R5 · 3V3</text>
+<line x1="680" y1="439" x2="1720" y2="439" stroke="#d73854" stroke-width="5"/>
+<rect x="950" y="415" width="500" height="49" rx="6" fill="#f5f7fa"/>
+<text x="1200" y="449" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#d73854" font-weight="700" text-anchor="middle">Shared 3.3 V rail</text>
+<text x="1770" y="450" font-family="DejaVu Sans,Arial,sans-serif" font-size="33" fill="#d73854" font-weight="700" text-anchor="start">3V3</text>
+<rect x="88" y="482" width="2024" height="60" rx="7" fill="#f0f4f7"/>
+<text x="110" y="523" font-family="DejaVu Sans,Arial,sans-serif" font-size="31" fill="#18232d" font-weight="700" text-anchor="start">L18 · GND</text>
+<line x1="680" y1="512" x2="1720" y2="512" stroke="#596879" stroke-width="5"/>
+<rect x="950" y="488" width="500" height="49" rx="6" fill="#f5f7fa"/>
+<text x="1200" y="522" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="700" text-anchor="middle">Common ground</text>
+<text x="1770" y="523" font-family="DejaVu Sans,Arial,sans-serif" font-size="33" fill="#596879" font-weight="700" text-anchor="start">GND</text>
+<rect x="88" y="555" width="2024" height="60" rx="7" fill="#f0f4f7"/>
+<text x="110" y="596" font-family="DejaVu Sans,Arial,sans-serif" font-size="31" fill="#18232d" font-weight="700" text-anchor="start">L16 · GPIO8 / SCL</text>
+<line x1="680" y1="585" x2="1720" y2="585" stroke="#009bbb" stroke-width="5"/>
+<rect x="950" y="561" width="500" height="49" rx="6" fill="#f5f7fa"/>
+<text x="1200" y="595" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#009bbb" font-weight="700" text-anchor="middle">I²C clock</text>
+<text x="1770" y="596" font-family="DejaVu Sans,Arial,sans-serif" font-size="33" fill="#009bbb" font-weight="700" text-anchor="start">SCL</text>
+<rect x="88" y="628" width="2024" height="60" rx="7" fill="#f0f4f7"/>
+<text x="110" y="669" font-family="DejaVu Sans,Arial,sans-serif" font-size="31" fill="#18232d" font-weight="700" text-anchor="start">L17 · GPIO7 / SDA</text>
+<line x1="680" y1="658" x2="1720" y2="658" stroke="#279d81" stroke-width="5"/>
+<rect x="950" y="634" width="500" height="49" rx="6" fill="#f5f7fa"/>
+<text x="1200" y="668" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#279d81" font-weight="700" text-anchor="middle">I²C data</text>
+<text x="1770" y="669" font-family="DejaVu Sans,Arial,sans-serif" font-size="33" fill="#279d81" font-weight="700" text-anchor="start">SDA</text>
+<rect x="60" y="770" width="1010" height="285" rx="14" fill="#fff"/>
+<rect x="60" y="770" width="1010" height="65" rx="12" fill="#18232d"/>
+<text x="84" y="814" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">LOCAL STRAPS ON THE IMU BOARD</text>
+<text x="90" y="880" font-family="DejaVu Sans,Arial,sans-serif" font-size="34" fill="#18232d" font-weight="700" text-anchor="start">CS → 3V3</text>
+<text x="390" y="880" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Selects I²C operation</text>
+<text x="90" y="945" font-family="DejaVu Sans,Arial,sans-serif" font-size="34" fill="#18232d" font-weight="700" text-anchor="start">SA0 → GND</text>
+<text x="390" y="945" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Selects address 0x6A</text>
+<text x="90" y="1010" font-family="DejaVu Sans,Arial,sans-serif" font-size="31" fill="#18232d" font-weight="700" text-anchor="start">SCX + SDX → GND</text>
+<text x="535" y="1010" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#18232d" font-weight="400" text-anchor="start">Unused auxiliary bus</text>
+<rect x="1100" y="770" width="1040" height="285" rx="14" fill="#fff"/>
+<rect x="1100" y="770" width="1040" height="65" rx="12" fill="#18232d"/>
+<text x="1124" y="814" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">LEAVE UNCONNECTED</text>
+<text x="1130" y="880" font-family="DejaVu Sans,Arial,sans-serif" font-size="32" fill="#18232d" font-weight="700" text-anchor="start">VIN · INT1 · INT2 · DCS / OCS</text>
+<text x="1130" y="940" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Keep existing PCA9685 on GPIO2 / 3.</text>
+<text x="1130" y="990" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">GPIO7 / 8 is shared with onboard media.</text>
+<rect x="60" y="1085" width="2080" height="310" rx="14" fill="#fff"/>
+<rect x="60" y="1085" width="2080" height="65" rx="12" fill="#18232d"/>
+<text x="84" y="1129" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="start">BODY CONTROL → SELF-LEVELING · TWO DIFFERENT CALIBRATIONS</text>
+<text x="90" y="1195" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#ed7848" font-weight="700" text-anchor="start">LEVEL REFERENCE</text>
+<text x="510" y="1195" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Support frame at the desired level angle.</text>
+<text x="510" y="1242" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#18232d" font-weight="400" text-anchor="start">Use current pose as level reference → Save on robot.</text>
+<text x="90" y="1305" font-family="DejaVu Sans,Arial,sans-serif" font-size="29" fill="#ed7848" font-weight="700" text-anchor="start">GYRO BIAS</text>
+<text x="510" y="1305" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#18232d" font-weight="400" text-anchor="start">Keep completely still at any angle; click Calibrate stationary gyro bias.</text>
+<text x="510" y="1352" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" fill="#18232d" font-weight="400" text-anchor="start">256 samples; saves and applies automatically. This does not redefine level.</text>
+<text x="62" y="1450" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="400" text-anchor="start">P4 view: component side, USB-C at top. L/R labels count rows downward; they are not GPIO numbers.</text>
+<text x="62" y="1494" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="400" text-anchor="start">Schematic connections only; module pin positions are not depicted. Mount rigidly to the frame.</text>
+<text x="62" y="1538" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#596879" font-weight="400" text-anchor="start">The IMU measures rotation and acceleration. It does not measure servo position or body height.</text>
+<text x="62" y="1577" font-family="DejaVu Sans,Arial,sans-serif" font-size="23" fill="#596879" font-weight="400" text-anchor="start">2026-10-18 · See LSM6DS3_IMU.md for mounting axes, calibration, troubleshooting and sources.</text>
+</svg>

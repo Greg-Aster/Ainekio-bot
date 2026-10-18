@@ -32,6 +32,10 @@ class FakeGateway:
         self.tokens: dict[str, str] = {}
         self.calls: list[tuple[str, object]] = []
         self.frame_callbacks: list[Callable[[dict[str, object]], object]] = []
+        self.published_events: list[dict[str, object]] = []
+
+    async def _publish_event(self, event: dict[str, object]) -> None:
+        self.published_events.append(event)
 
     def subscribe_frames(
         self,
@@ -159,6 +163,17 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_freestyle_route_uses_existing_authenticated_motion_owner(self):
+        cookie,csrf=await self._login()
+        self.gateway.queue_motion_plan=AsyncMock(return_value=42)
+        payload={"robot_id":"ainekio-test-01","frames":[[100,[-11768]*12]],"end":"hold"}
+        status,_,_=await self._request("POST","/api/motion-plan",payload)
+        self.assertEqual(status,401)
+        status,result,_=await self._request("POST","/api/motion-plan",payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(status,200)
+        self.assertEqual(result,{"ok":True,"seq":42})
+        self.gateway.queue_motion_plan.assert_awaited_once_with(payload["frames"],end="hold",robot_id="ainekio-test-01")
+
     async def test_recognition_view_pairs_boxes_with_the_analyzed_frame_and_requires_login(self):
         from gateway.plugins import CameraFramePlugin
         from gateway.perception import RecognitionResult, RecognizedObject
@@ -392,6 +407,18 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             await self._request("POST", "/api/robot/recording?robot_id=ainekio-test-01",
                 {"op":"start"}, cookie=cookie, csrf=csrf)
             self.assertEqual((transfers[-1].target, transfers[-1].body), ("/api/recording", "start"))
+            feedback_route = "/api/robot/servo-feedback?robot_id=ainekio-test-01"
+            self.assertEqual((await self._request("GET", feedback_route))[0], 401)
+            self.assertEqual((await self._request("POST", feedback_route, {"op":"configure"}, cookie=cookie))[0], 403)
+            await self._request("GET", feedback_route, cookie=cookie)
+            self.assertEqual(transfers[-1].target, "/api/servo-feedback")
+            capture = {"op":"capture", "joint":11, "point":1, "pulse_us":1650,
+                       "raw":2111, "scan":45, "revision":3}
+            await self._request("POST", feedback_route, capture, cookie=cookie, csrf=csrf)
+            self.assertEqual(transfers[-1].target, "/api/servo-feedback")
+            self.assertEqual(json.loads(transfers[-1].body), capture)
+            self.assertEqual(transfers[-1].headers["Content-Type"], "application/json")
+            self.assertEqual(transfers[-1].headers["Authorization"], "Bearer private-pair-token")
             name = "video-1234abcd-00000001.avi"
             reply.update(bytes=blob, headers={"Content-Type":"video/x-msvideo", "X-Recording-Bytes":str(len(blob))})
             status, raw, headers = await self._raw_request("GET", route + "&name=" + name, cookie=cookie)

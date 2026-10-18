@@ -4,9 +4,9 @@
 
 int main(void)
 {
-    char input[AINEKIO_CONTROL_MAX_BYTES + 2U];
+    char input[AINEKIO_BODY_CONTROL_MAX_BYTES + 2U];
     const size_t length = fread(input, 1U, sizeof(input), stdin);
-    if (ferror(stdin) || length == 0U || length > AINEKIO_CONTROL_MAX_BYTES) {
+    if (ferror(stdin) || length == 0U || length > AINEKIO_BODY_CONTROL_MAX_BYTES) {
         return 3;
     }
     ainekio_control_message_t message;

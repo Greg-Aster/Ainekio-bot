@@ -90,7 +90,10 @@ static uint32_t sensor_boot_id;
 static bool boot_reported;
 static atomic_uint wake_reports;
 
-static char receive_text[4097];
+/* Pre-V3 P4 releases startup-stack RAM only after the scheduler starts.
+ * Allocate the receive workspace with the controller queues, not in BSS,
+ * so twelve-joint payload capacity cannot consume the idle-task boot heap. */
+static char *receive_text;
 static size_t receive_used, frame_received;
 static uint8_t receive_opcode;
 typedef struct {
@@ -195,10 +198,13 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
         "\"motion_timing\":{\"frames\":%" PRIu32 ",\"max_calculation_us\":%" PRIu32
         ",\"max_frame_us\":%" PRIu32 ",\"max_request_us\":%" PRIu32
         ",\"over_2ms\":%" PRIu32 ",\"over_5ms\":%" PRIu32 ",\"queue_depth\":%" PRIu32 "},"
-        "\"balance\":{\"enabled\":%s,\"active\":%s,\"reduced\":%s,\"roll_rad\":%.6g,\"pitch_rad\":%.6g,"
+        "\"balance\":{\"enabled\":%s,\"active\":%s,\"reduced\":%s,\"settled\":%s,\"settle_deg\":%.3g,\"wake_deg\":%.3g,\"roll_rad\":%.6g,\"pitch_rad\":%.6g,"
         "\"roll_correction_rad\":%.6g,\"pitch_correction_rad\":%.6g,"
         "\"legs_valid\":%s,\"extension_mm\":[%.4g,%.4g,%.4g,%.4g],"
         "\"joint_delta_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g],"
+        "\"joint_feedback\":{\"available\":%s,\"active\":%s,\"reduced\":%s,"
+        "\"gain\":0.5,\"tolerance_us\":%.3g,\"error_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g],"
+        "\"trim_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g]},"
         "\"gyro_calibration\":{\"phase\":%u,\"samples\":%u,\"target\":%u,\"error\":%d,"
         "\"bias_rad_s\":[%.6g,%.6g,%.6g],\"deviation_rad_s\":[%.6g,%.6g,%.6g]}}}",
         ainekio_p4_display_face(), motion.automatic_run ? "true" : "false", (double)motion.gait_cycles_s,
@@ -210,6 +216,7 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
         timing.request_us, timing.over_2ms, timing.over_5ms, timing.queue_depth,
         ainekio_p4_balance_enabled()?"true":"false",
         (ainekio_p4_balance_enabled() && output.armed && motion.balance_active)?"true":"false",motion.balance_reduced?"true":"false",
+        (output.armed && motion.balance_settled)?"true":"false",BALANCE_SETTLE_DEG,BALANCE_WAKE_DEG,
         (double)motion.body_roll_rad,(double)motion.body_pitch_rad,
         (double)motion.balance_roll_rad,(double)motion.balance_pitch_rad,
         motion.balance_legs_valid?"true":"false",
@@ -219,11 +226,22 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
         (double)motion.balance_joint_delta_deg[3],(double)motion.balance_joint_delta_deg[4],(double)motion.balance_joint_delta_deg[5],
         (double)motion.balance_joint_delta_deg[6],(double)motion.balance_joint_delta_deg[7],(double)motion.balance_joint_delta_deg[8],
         (double)motion.balance_joint_delta_deg[9],(double)motion.balance_joint_delta_deg[10],(double)motion.balance_joint_delta_deg[11],
+        motion.balance_tracking_available?"true":"false",
+        (output.armed && motion.balance_tracking_active)?"true":"false",motion.balance_tracking_reduced?"true":"false",
+        BALANCE_SHAFT_TOLERANCE_US,
+        (double)motion.balance_tracking_error_deg[0],(double)motion.balance_tracking_error_deg[1],(double)motion.balance_tracking_error_deg[2],
+        (double)motion.balance_tracking_error_deg[3],(double)motion.balance_tracking_error_deg[4],(double)motion.balance_tracking_error_deg[5],
+        (double)motion.balance_tracking_error_deg[6],(double)motion.balance_tracking_error_deg[7],(double)motion.balance_tracking_error_deg[8],
+        (double)motion.balance_tracking_error_deg[9],(double)motion.balance_tracking_error_deg[10],(double)motion.balance_tracking_error_deg[11],
+        (double)motion.balance_tracking_trim_deg[0],(double)motion.balance_tracking_trim_deg[1],(double)motion.balance_tracking_trim_deg[2],
+        (double)motion.balance_tracking_trim_deg[3],(double)motion.balance_tracking_trim_deg[4],(double)motion.balance_tracking_trim_deg[5],
+        (double)motion.balance_tracking_trim_deg[6],(double)motion.balance_tracking_trim_deg[7],(double)motion.balance_tracking_trim_deg[8],
+        (double)motion.balance_tracking_trim_deg[9],(double)motion.balance_tracking_trim_deg[10],(double)motion.balance_tracking_trim_deg[11],
         gyro.phase,gyro.samples,AINEKIO_GYRO_CALIBRATION_SAMPLES,(int)gyro.error,
         (double)gyro.bias_rad_s[0],(double)gyro.bias_rad_s[1],(double)gyro.bias_rad_s[2],
         (double)gyro.deviation_rad_s[0],(double)gyro.deviation_rad_s[1],(double)gyro.deviation_rad_s[2]);
-    /* Motion and balance fields fit with the NAK in 2560 bytes and with
-     * the bounded status catalog in 4096 bytes. snprintf also bounds writes. */
+    /* Motion and balance fields fit with the NAK in 3584 bytes and with
+     * the bounded status catalog in 5120 bytes. snprintf also bounds writes. */
     return length - 1U + (size_t)added;
 }
 
@@ -245,7 +263,7 @@ static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t e
         error == ESP_ERR_NO_MEM ? "Body lacks memory or command queue space" :
         output.fault ? "Motion stopped after execution failed" :
         "Command could not execute; read body status and retry";
-    char text[2560];
+    char text[3584];
     const size_t length = ainekio_encode_nak(true, sequence, code, detail, text, sizeof(text));
     append_motion_diagnostics(text, sizeof(text), length);
     reply(connection, text);
@@ -304,7 +322,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {"command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_PLAN_V2_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -413,7 +431,7 @@ static void websocket_event(void *arg, esp_event_base_t base, int32_t id, void *
         if (data->data_len < 0 || data->payload_len < 0 || data->payload_offset < 0 ||
             (size_t)data->payload_offset != frame_received ||
             data->data_len > data->payload_len - data->payload_offset ||
-            receive_used + (size_t)data->data_len >= sizeof(receive_text) ||
+            receive_used + (size_t)data->data_len > AINEKIO_BODY_CONTROL_MAX_BYTES ||
             (receive_opcode == 2 && receive_used + (size_t)data->data_len >
              AINEKIO_BINARY_HEADER_BYTES + AINEKIO_AUDIO_PAYLOAD_BYTES)) { fail_link(); return; }
         memcpy(receive_text + receive_used, data->data_ptr, data->data_len);
@@ -589,7 +607,7 @@ static void telemetry(uint64_t connection)
         .power_monitor_ready=system.battery_available, .microphone_ready=media.microphone_ready,
         .speaker_ready=media.speaker_ready, .display_ready=ainekio_p4_display_ready(), .capabilities=&caps};
     status.body = &body;
-    char text[4096];
+    char text[5120];
     size_t length = ainekio_encode_status(&status, text, sizeof(text));
     if (!length) { fail_link(); return; }
     append_motion_diagnostics(text, sizeof(text), length);
@@ -1087,6 +1105,8 @@ static esp_err_t apply(const request_t *request)
         ainekio_pca_disarm(ainekio_p4_output());
         return ainekio_p4_media_wake_configure(command->data.wake.enabled, command->data.wake.model,
             command->data.wake.has_threshold ? &command->data.wake.threshold : NULL);
+    case AINEKIO_COMMAND_MOTION_PLAN:
+        return ainekio_p4_body_execute(request->output_generation, request->connection, command);
     case AINEKIO_COMMAND_INTENT:
         if (command->data.intent.kind == AINEKIO_INTENT_FACE)
             return ainekio_p4_display_select(&command->data.intent.data.face);
@@ -1154,8 +1174,8 @@ static void control_task(void *arg)
         const ainekio_profile_t previous_profile = admission.core.profile;
         const ainekio_body_state_t previous_state = admission.core.state;
         const ainekio_mode_t previous_mode = admission.core.mode;
-        const bool model_supported = command->kind != AINEKIO_COMMAND_MOTION_PLAN &&
-            (command->kind != AINEKIO_COMMAND_INTENT || command->data.intent.kind == AINEKIO_INTENT_SAY ||
+        const bool model_supported = command->kind == AINEKIO_COMMAND_MOTION_PLAN ?
+            ainekio_p4_body_supports(command) : (command->kind != AINEKIO_COMMAND_INTENT || command->data.intent.kind == AINEKIO_INTENT_SAY ||
              command->data.intent.kind == AINEKIO_INTENT_FACE ||
              ainekio_p4_body_supports(command));
         ainekio_core_set_boot_ready(&admission.core, true);
@@ -1199,7 +1219,8 @@ static void control_task(void *arg)
 
 esp_err_t ainekio_p4_controller_start(void)
 {
-    const uint32_t allowed = AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_INTENT) |
+    const uint32_t allowed = AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_PLAN) |
+        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_INTENT) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STOP) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MODE) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_BODY_CALIBRATION) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_PROFILE) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STATE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_CAMERA) |
@@ -1208,12 +1229,13 @@ esp_err_t ainekio_p4_controller_start(void)
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STORAGE) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_SPEED) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_ROBOT_SETTINGS) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_SPEAKER) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_BALANCE);
     ainekio_admission_init(&admission, allowed, true);
+    receive_text = malloc(AINEKIO_BODY_CONTROL_MAX_BYTES+1);
     requests = xQueueCreate(8, sizeof(request_t));
     replies = xQueueCreate(16, sizeof(reply_t));
     audio_packets = xQueueCreate(8, sizeof(packet_t));
     camera_packets = xQueueCreate(2, sizeof(packet_t));
     media_events = xQueueCreate(8, sizeof(media_event_t));
-    if (!requests || !replies || !audio_packets || !camera_packets || !media_events) return ESP_ERR_NO_MEM;
+    if (!receive_text || !requests || !replies || !audio_packets || !camera_packets || !media_events) return ESP_ERR_NO_MEM;
     ESP_ERROR_CHECK(ainekio_p4_body_start());
     atomic_store(&initialized, true);
     if (xTaskCreate(control_task, "body_control", 12288, NULL, 5, NULL) != pdPASS ||

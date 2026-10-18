@@ -19,12 +19,38 @@ struct test_queue { unsigned capacity, size, count; unsigned char data[]; };
 static uint64_t clock_us;
 static uint64_t mapping_delay_us, write_delay_us, last_mapping_started, last_write_started;
 static ainekio_pca9685_t driver;
-static unsigned writes;
+static unsigned writes, shaft_feedback_reads;
 static uint16_t last_written[12];
 static unsigned enabled = 0xfff;
 static bool mapping_failure, driver_failure, driver_timeout, defer_requests, power_pending;
 static ainekio_body_state_t system_state;
 static ainekio_p4_joint_config_t mapped_joints[12];
+static bool shaft_feedback_enabled, shaft_feedback_reached;
+static bool shaft_tracking_available, shaft_measured_override;
+static ainekio_v2_frame_t shaft_measured;
+static uint16_t shaft_wait_mask;
+bool ainekio_p4_feedback_stand_enabled(void){return shaft_feedback_enabled;}
+bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,ainekio_v2_frame_t *frame)
+{
+    shaft_feedback_reads++;
+    if(!shaft_tracking_available && !shaft_feedback_enabled)return false;
+    if(shaft_measured_override){*frame=shaft_measured;return true;}
+    uint16_t measured[12];memcpy(measured,last_written,sizeof measured);
+    uint16_t modeled[12];assert(ainekio_p4_frame_pulses(frame,modeled));
+    /* An unpowered shoulder still has a physical position. This test starts
+     * it at the crouch shoulder angle; real feedback reads its potentiometer. */
+    for(unsigned i=0;i<12;i++)if(!measured[i])measured[i]=modeled[i];
+    return ainekio_p4_joint_unmap_frame(mapping,measured,frame);
+}
+bool ainekio_p4_feedback_arrived(const ainekio_p4_joint_config_t *mapping,
+    const uint16_t *targets,int64_t commanded_us,uint16_t *waiting)
+{
+    assert(commanded_us>0 && commanded_us<=(int64_t)clock_us);
+    *waiting=0;
+    for(unsigned j=0;j<12;j++)if(mapping[j].channel>=0 && targets[mapping[j].channel] &&
+        !shaft_feedback_reached && (shaft_wait_mask&(1U<<j)))*waiting|=1U<<j;
+    return *waiting==0;
+}
 
 QueueHandle_t xQueueCreate(unsigned n, unsigned size)
 {
@@ -121,6 +147,8 @@ static void reset(void)
     memset(commanded,0,sizeof(commanded));driver=(ainekio_pca9685_t){.state={.generation=1,.ready=true}};
     system_state=AINEKIO_STATE_IDLE;
     saved_motion_rate=1.F;leveling_enabled=true;leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+    shaft_feedback_enabled=shaft_feedback_reached=false;shaft_wait_mask=0xfff;
+    shaft_tracking_available=shaft_measured_override=false;
     imu_status=(ainekio_p4_imu_status_t){0};
     clock_us=1000000;writes=0;enabled=0xfff;mapping_failure=driver_failure=driver_timeout=defer_requests=power_pending=false;
     mapping_delay_us=write_delay_us=last_mapping_started=last_write_started=0;
@@ -150,7 +178,7 @@ static ainekio_p4_body_event_t finish_at(unsigned maximum_ms,unsigned line)
     ainekio_p4_body_event_t e;
     while(maximum_ms && !ainekio_p4_body_event(&e)) {advance(20);maximum_ms-=20;}
     if(!maximum_ms)fprintf(stderr,"Motion completion timed out at test line %u: kind=%u entering=%u contact_entry=%u posture_s=%.6f\n",
-        line,body.motion.kind,body.motion.entering,body.motion.contact_entry,body.motion.posture_elapsed);
+        line,body.motion.kind,body.motion.entering,body.motion.contact_entry,body.motion.posture_progress);
     assert(maximum_ms);return e;
 }
 #define finish(maximum_ms) finish_at((maximum_ms),__LINE__)
@@ -736,8 +764,8 @@ static void motion_speed(void)
     assert(ainekio_v2_joint_speed_set(ainekio_v2_joint_speed_default()));
     reset();saved_motion_rate=2.F;
     ainekio_command_t c=command(1,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
-    assert(body.motion.playback_rate==2.F);
-    saved_motion_rate=3.F;assert(body.motion.playback_rate==2.F);
+    assert(body.motion.playback_rate==1.F && !ainekio_p4_body_status().speed_limited);
+    saved_motion_rate=3.F;assert(body.motion.playback_rate==1.F);
     c=command(2,AINEKIO_INTENT_WALK);c.data.intent.data.walk.steps=1;
     assert(execute(&c)==ESP_OK && body.motion.playback_rate==1.F);
     puts("Named motion speed: every clip at 0.25x through 12x, configured joint limit and coordinated retiming, requested and retimed source parity, scaled entry, exact completion and V1 rejection passed.");
@@ -856,21 +884,21 @@ static void imu_posture_feedback(float joint_speed,float motion_rate)
     assert(execute(&c)==ESP_OK && body.motion.contact_entry);
     assert(fabs(body.motion.posture.start.euler[0]-.04)<1e-6);
     uint16_t previous_pulses[12];memcpy(previous_pulses,last_written,sizeof(last_written));
-    ainekio_v2_frame_t previous=body.pose;
+    const uint64_t stand_started=clock_us;
     while(body.motion.entering) {
         advance(20);
         if(!body.active || driver.state.fault) {
             fprintf(stderr,"Stand feedback failed: limit=%g rate=%g authored_s=%.6f fault=%u\n",
-                joint_speed,motion_rate,body.motion.posture_elapsed,driver.state.fault);
+                joint_speed,motion_rate,body.motion.posture_progress,driver.state.fault);
 
         }
         assert(body.active && !driver.state.fault);
         for(unsigned j=0;j<12;j++) {
             assert(last_written[j]>=300 && last_written[j]<=3000);
-            assert(fabs(body.pose.position[j]-previous.position[j])<=joint_speed*2.+.1);
+            assert(isfinite(body.pose.position[j]));
         }
-        previous=body.pose;
     }
+    assert(clock_us-stand_started<1500000);
     ainekio_p4_body_event_t event;assert(ainekio_p4_body_event(&event) && event.completed && event.sequence==1);
     assert(body.balance_hold && body.balance.sensor_usable && body.balance.correction[0]<0.);
     advance(1000);
@@ -908,6 +936,75 @@ static void imu_posture_feedback(float joint_speed,float motion_rate)
     ainekio_pca_disarm(&driver);advance(20);
     assert(!body.balance_hold && !body.active && !ainekio_p4_body_status().balance_active);
     puts("Production IMU feedback: measured starting tilt, contact entry, mapped pulses, standing hold, stale fade, continued walking and disarm passed.");
+}
+
+static void stand_full_rate_without_leveling(void)
+{
+    unsigned durations[2]={0};uint16_t reference[100][12];
+    for(unsigned test=0;test<2;test++) {
+        reset();leveling_enabled=false;saved_motion_rate=test?12.F:.05F;
+        assert(ainekio_v2_joint_speed_set(test?2000:20));
+        imu_status.calibration_applied=true;
+        imu_status.attitude.available=imu_status.attitude.fresh=true;
+        imu_status.attitude.orientation_wxyz[0]=cosf(.125F);
+        imu_status.attitude.orientation_wxyz[2]=-sinf(.125F);
+        ainekio_command_t c=command(180,AINEKIO_INTENT_STAND);
+        assert(execute(&c)==ESP_OK && body.motion.contact_entry);
+        assert(body.motion.posture.start.euler[1]==0.);
+        while(body.motion.entering) {
+            assert(durations[test]<100);
+            advance(20);assert(body.active && !driver.state.fault);
+            if(!test)memcpy(reference[durations[test]],last_written,sizeof last_written);
+            else assert(!memcmp(reference[durations[test]],last_written,sizeof last_written));
+            durations[test]++;
+        }
+        ainekio_p4_body_event_t event;assert(ainekio_p4_body_event(&event) && event.completed);
+    }
+    assert(durations[0]==durations[1]);
+    printf("Stand: %ums, identical pulses at playback 0.05/12 and saved speed 20/2000; disabled leveling ignores tilted IMU.\n",durations[0]*20);
+}
+
+/* Close the ideal planted-body loop through the production scheduler, mapper
+ * and shaft-feedback path. Testing the portable +1 wrapper alone missed the
+ * previous P4-specific -1 call. This proves model convergence, not loaded gait. */
+static void standing_feedback_converges(void)
+{
+    for(unsigned axis=0;axis<2;axis++)for(int sign=-1;sign<=1;sign+=2) {
+        reset();assert(ainekio_v2_joint_speed_set(2000));
+        const unsigned homes[12]={1760,2825,2870,1650,415,440,1650,2740,2800,1730,560,500};
+        const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+        for(unsigned j=0;j<12;j++)mapped_joints[j]=(ainekio_p4_joint_config_t){
+            .channel=(int8_t)j,.home_us=homes[j],.invert=inverted[j],
+            .home_cd=j%3==0?0:j%3==1?-3087:-11768,.us_per_degree=11.111111F};
+        ainekio_p4_joint_config_t saved[12];memcpy(saved,mapped_joints,sizeof saved);
+        imu_status.calibration_applied=true;
+        imu_status.attitude.available=imu_status.attitude.fresh=true;
+        imu_status.attitude.orientation_wxyz[0]=1;
+        ainekio_pca_disarm(&driver);output_step(clock_us);
+        ainekio_command_t c=command(303,AINEKIO_INTENT_STAND);
+        assert(execute(&c)==ESP_OK && finish(4000).completed && body.balance_hold);
+        shaft_tracking_available=true;
+        const double target=sign*.03,disturbance=sign*.08;
+        if(axis==0)leveling_tuning.roll_deg=target*180./acos(-1.);
+        else leveling_tuning.pitch_deg=-target*180./acos(-1.);
+        double measured=target+disturbance,rate=0.;
+        for(unsigned n=0;n<300;n++) {
+            memset(imu_status.attitude.orientation_wxyz,0,sizeof imu_status.attitude.orientation_wxyz);
+            imu_status.attitude.orientation_wxyz[0]=(float)cos(measured*.5);
+            imu_status.attitude.orientation_wxyz[axis+1]=(float)sin(measured*.5);
+            imu_status.attitude.angular_rate_rad_s[axis]=(float)rate;
+            advance(20);
+            assert(body.active && body.balance_hold && driver.state.armed && !driver.state.fault);
+            assert(body.balance_tracking_available && (body.balance_tracking_active || body.balance_settled));
+            double next=target+disturbance+body.balance.correction[axis];
+            rate=(next-measured)/.02;measured=next;
+        }
+        assert(fabs(measured-target)*180./acos(-1.)<=BALANCE_SETTLE_DEG);
+        assert(body.balance_settled);
+        assert(!memcmp(saved,mapped_joints,sizeof saved));
+        printf("P4 closed-loop axis=%u sign=%d: residual %.5f deg; saved mapping unchanged.\n",
+            axis,sign,(measured-target)*180./acos(-1.));
+    }
 }
 
 static void sustained_standing_feedback(void)
@@ -952,8 +1049,8 @@ static void sustained_standing_feedback(void)
     assert(feedback.balance_legs_valid);
     for(unsigned l=0;l<4;l++) {
         assert(fabs(feedback.balance_extension_mm[l]-(start.feet[l][2]-relative.feet[l][2]))<.001);
-        if(l<2)assert(feedback.balance_extension_mm[l]<0.); /* Physical fronts shorten. */
-        else assert(feedback.balance_extension_mm[l]>10.); /* Physical rears extend. */
+        if(l<2)assert(feedback.balance_extension_mm[l]<0.); /* Raised fronts shorten. */
+        else assert(feedback.balance_extension_mm[l]>10.); /* Lower rears extend. */
     }
     for(unsigned j=0;j<12;j++)assert(fabs(feedback.balance_joint_delta_deg[j]-
         (body.pose.position[j]-body.balance_nominal.frame.position[j])*.01)<.001);
@@ -971,7 +1068,7 @@ static void sustained_standing_feedback(void)
     assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
     memcpy(standing,last_written,sizeof standing);advance(1000);
     assert(!body.balance_hold && !memcmp(standing,last_written,sizeof standing));
-    puts("Standing: sustained nose-up feedback reaches mapped rear-carrier outputs and extends modeled rear feet >10mm; Stop holds.");
+    puts("Standing: sustained nose-up feedback reaches mapped carrier outputs and extends modeled rear feet >10mm; Stop holds.");
 }
 
 static void startup_crouch_shoulders_rise(void)
@@ -997,41 +1094,40 @@ static void startup_crouch_shoulders_rise(void)
         assert((manual?execute(&c):ainekio_p4_body_startup(driver.state.generation))==ESP_OK);
         assert(writes==before+1 && body.motion.startup_entry && !body.ramping);
         uint16_t folded[12];assert(ainekio_p4_frame_pulses(&body.motion.rise.crouch.frame,folded));
-        ainekio_v2_frame_t previous_pose=body.motion.rise.crouch.frame;
-        double peak=0.,pitch=0.;
-        for(unsigned elapsed=0;elapsed<=2500;elapsed+=20) {
-            if(elapsed)advance(20);
+        bool shoulder_on[4]={0};unsigned lifted_shoulders=0,elapsed=0;
+        while(body.motion.kind!=MOTION_NONE && elapsed<10000) {
             assert(body.active && driver.state.armed && !driver.state.fault);
             for(unsigned j=0;j<12;j++) {
                 unsigned ch=(unsigned)mapped_joints[j].channel;
-                const unsigned offset=j<6?100:0;
-                if(elapsed<offset+(j%3==0?600:0))assert(!last_written[ch]);
-                else assert(last_written[ch]>=400 && last_written[ch]<=2900);
-                if(j%3 && elapsed>=offset && elapsed<1200)assert(last_written[ch]==folded[ch]);
-                if(j%3==0 && elapsed>=600+offset && elapsed<1200)assert(last_written[ch]==homes[j]);
-                if(elapsed>1200)peak=fmax(peak,fabs(body.pose.position[j]-previous_pose.position[j])*.5);
-            }
-            if(elapsed==2400)assert(body.motion.kind==MOTION_POSE); /* Rear still rising. */
-            if(elapsed>1200) {
-                pitch=fmax(pitch,fabs(body.motion.rise.pose.euler[1]));
-                ainekio_v2_walk_pose_t actual=body.motion.rise.pose;
-                assert(ainekio_v2_contact_forward(&actual,body.motion.rise.anchors,false));
-                for(unsigned l=0;l<4;l++) {
-                    for(unsigned axis=0;axis<2;axis++)assert(fabs(actual.feet[l][axis]-body.motion.rise.stand.feet[l][axis])<.002);
-                    assert(fabs(actual.sole_height[l]-body.motion.rise.stand.sole_height[l])<.002);
+                if(j%3==0) {
+                    unsigned leg=j/3;
+                    if(last_written[ch] && !shoulder_on[leg]) {
+                        assert(body.motion.contact_entry);
+                        unsigned source=leg<2?leg+2:leg-2;
+                        const ainekio_v2_posture_t *p=&body.motion.posture;
+                        assert(!p->pose.grounded[source]);
+                        assert(p->pose.sole_height[source]>=
+                            fmax(p->start.sole_height[source],p->target.sole_height[source])+7.99);
+                        shoulder_on[leg]=true;lifted_shoulders++;
+                    }
+                } else if(elapsed*1000ULL<startup_fold_us()+STARTUP_PAIR_OFFSET_US) {
+                    if(elapsed*1000ULL<startup_pair_offset(j))assert(!last_written[ch]);
+                    else assert(last_written[ch]==folded[ch]);
                 }
             }
-            previous_pose=body.pose;
+            advance(20);elapsed+=20;
         }
+        assert(elapsed<2000 && lifted_shoulders==4);
         assert(!body.motion.startup_entry && body.motion.kind==MOTION_NONE && body.balance_hold);
         if(manual)assert(body.balance.sensor_usable && body.balance.correction[0]<0.);
         assert(!memcmp(saved,mapped_joints,sizeof saved));
         ainekio_p4_body_event_t event;
         if(manual)assert(ainekio_p4_body_event(&event) && event.completed && event.sequence==301);
-        assert(!ainekio_p4_body_event(&event)); /* Startup has no remote command receipt. */
-        assert(pitch>0. && fabs(body.motion.rise.pose.euler[1])<1e-8);
-        for(unsigned j=0;j<12;j++)assert(fabs(body.motion.rise.pose.frame.position[j]-body.motion.rise.stand.frame.position[j])<.1);
-        printf("Startup: front pair leads rear by 100ms, shoulders follow folding, planted 25mm rise, peak %.2f deg/s and pitch %.3f deg; no Home.\n",peak,pitch*180./3.141592653589793);
+        assert(!ainekio_p4_body_event(&event));
+        ainekio_v2_walk_pose_t stand;
+        assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
+        for(unsigned j=0;j<12;j++)assert(fabs(body.motion.posture.pose.frame.position[j]-stand.frame.position[j])<.1);
+        printf("Startup: %ums, front fold leads rear by one PWM frame; each shoulder engages at lifted-foot stage; no Home.\n",elapsed);
         /* A later explicit calibration Home still uses the owner's matchmarks. */
         uint16_t home[12];assert(ainekio_p4_home_pulses(home));
         assert(ainekio_p4_body_home(driver.state.generation,home)==ESP_OK);
@@ -1048,10 +1144,204 @@ static void startup_crouch_shoulders_rise(void)
     }
 }
 
+static ainekio_command_t freestyle(unsigned seq, unsigned duration, unsigned frames)
+{
+    ainekio_command_t c={.kind=AINEKIO_COMMAND_MOTION_PLAN,.sequence=seq};
+    c.data.motion_plan=(ainekio_motion_plan_t){.joint_map_version=2,.frame_count=frames,
+        .total_duration_ms=(uint64_t)duration*frames,.end=AINEKIO_MOTION_PLAN_END_HOLD};
+    for(unsigned f=0;f<frames;f++) {
+        c.data.motion_plan.frames[f].duration_ms=duration;
+        for(unsigned j=0;j<12;j++)c.data.motion_plan.frames[f].targets[j]=(f?1000:-1000)+(int)j*10;
+    }
+    return c;
+}
+static void freestyle_execution(void)
+{
+    reset();
+    mapped_joints[5].invert=true;retain_manual_reference();
+    ainekio_command_t c=freestyle(41,100,2);
+    assert(ainekio_p4_body_supports(&c));
+    assert(execute(&c)==ESP_OK);
+    assert(body.motion.kind==MOTION_FREESTYLE && !body.ramping && !body.motion.entering);
+    assert(last_written[0]==1600); /* no Home/Stand prepended */
+    advance(40);assert(last_written[0]==1540);
+    advance(60);assert(last_written[0]==1450 && last_written[5]==1748);
+    assert(body.motion.freestyle.index==1);
+    advance(100);
+    ainekio_p4_body_event_t e;
+    assert(ainekio_p4_body_event(&e)&&e.sequence==41&&e.completed&&e.result==ESP_OK);
+    assert(last_written[0]==1550 && body.motion.kind==MOTION_NONE);
+    advance(100);assert(!ainekio_p4_body_event(&e)&&last_written[0]==1550);
+
+    /* Every endpoint survives sub-tick timing and an output retry. */
+    reset();c=freestyle(42,35,2);assert(execute(&c)==ESP_OK);
+    advance(20);driver_timeout=true;advance(20);
+    assert(body.motion.freestyle.index==0 && last_written[0]!=1450);
+    driver_timeout=false;advance(20);assert(last_written[0]==1450 && body.motion.freestyle.index==1);
+    advance(40);assert(last_written[0]==1550);
+    assert(ainekio_p4_body_event(&e)&&e.completed&&e.sequence==42);
+
+    reset();c=freestyle(43,12000,1);assert(execute(&c)==ESP_OK);
+    advance(10020);assert(body.motion.kind==MOTION_FREESTYLE&&!ainekio_p4_body_event(&e));
+    c=freestyle(44,100,1);assert(execute(&c)==ESP_OK);
+    assert(ainekio_p4_body_event(&e)&&!e.completed&&e.sequence==43);
+    advance(20);const uint16_t held=last_written[0];
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    assert(ainekio_p4_body_event(&e)&&!e.completed&&e.sequence==44);
+    advance(100);assert(last_written[0]==held&&!ainekio_p4_body_event(&e));
+
+    reset();c=freestyle(45,20,1);c.data.motion_plan.joint_map_version=1;
+    assert(!ainekio_p4_body_supports(&c)&&execute(&c)==ESP_ERR_NOT_SUPPORTED);
+    for(unsigned end=1;end<=2;end++) {
+        reset();leveling_enabled=false;
+        ainekio_command_t stand=command(1,AINEKIO_INTENT_STAND);
+        assert(execute(&stand)==ESP_OK);e=finish(10000);assert(e.completed);
+        c=freestyle(46,40,1);c.data.motion_plan.end=end;
+        for(unsigned j=0;j<12;j++)c.data.motion_plan.frames[0].targets[j]=(int32_t)lroundf(body.pose.position[j]);
+        assert(execute(&c)==ESP_OK);advance(40);
+        assert(!ainekio_p4_body_event(&e)); /* end-pose is part of this plan */
+        e=finish(10000);assert(e.sequence==46&&e.completed&&e.result==ESP_OK);
+        assert(!ainekio_p4_body_event(&e));
+    }
+}
+
+static void measured_stand_arrival(void)
+{
+    reset();leveling_enabled=false;shaft_feedback_enabled=true;
+    assert(ainekio_p4_joint_defaults(mapped_joints));
+    ainekio_pca_disarm(&driver);output_step(clock_us);
+    assert(ainekio_p4_body_startup(driver.state.generation)==ESP_OK);
+    advance(20);
+    assert(body.motion.feedback_commanded_us && !body.motion.contact_entry);
+    uint16_t held[12];memcpy(held,last_written,sizeof held);
+    advance(4000); /* Loaded fold can take longer than the previous whole rise. */
+    assert(body.motion.startup_entry && !body.motion.contact_entry);
+    assert(!memcmp(held,last_written,sizeof held));
+    for(unsigned j=0;j<12;j+=3)assert(!last_written[mapped_joints[j].channel]);
+    assert(driver.state.armed && ainekio_p4_body_status().servo_feedback_waiting);
+    shaft_feedback_reached=true;advance(20);
+    unsigned stages=0;
+    while(body.motion.kind!=MOTION_NONE && stages<20) {
+        while(body.motion.kind!=MOTION_NONE && !body.motion.feedback_commanded_us)advance(20);
+        if(body.motion.kind==MOTION_NONE)break;
+        shaft_feedback_reached=false;
+        double progress=body.motion.posture_progress;
+        memcpy(held,last_written,sizeof held);
+        for(unsigned leg=0;leg<4;leg++)
+            if(!ainekio_v2_posture_shoulder_engaged(body.motion.feedback_confirmed_progress,leg))
+                assert(!held[mapped_joints[3*leg].channel]);
+        advance(1200);
+        assert(body.motion.kind!=MOTION_NONE && body.motion.posture_progress==progress);
+        assert(!memcmp(held,last_written,sizeof held));
+        assert(ainekio_p4_body_status().servo_feedback_waiting_mask);
+        shaft_feedback_reached=true;advance(20);stages++;
+    }
+    assert(stages==17 && body.motion.kind==MOTION_NONE && body.balance_hold);
+    /* A later request can replace a waiting Stand; there is no global barrier. */
+    ainekio_command_t stand=command(444,AINEKIO_INTENT_STAND);
+    shaft_feedback_reached=false;assert(execute(&stand)==ESP_OK);
+    while(!body.motion.feedback_commanded_us)advance(20);
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    assert(body.motion.kind==MOTION_NONE);
+    puts("Measured Stand: variable fold/lift/place arrival, energized waiting, final arrival and cancellation passed.");
+    shaft_feedback_enabled=false;
+}
+
+static void standing_tracks_measured_joints(void)
+{
+    reset();assert(ainekio_v2_joint_speed_set(1000));
+    imu_status.calibration_applied=true;
+    imu_status.attitude.available=imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=1;
+    ainekio_command_t c=command(1901,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK);assert(finish(4000).completed && body.balance_hold);
+    /* Isolate the shaft loop during an active leveling episode. */
+    leveling_tuning.strength=leveling_tuning.damping=0;
+    imu_status.attitude.orientation_wxyz[0]=cosf(.02F);
+    imu_status.attitude.orientation_wxyz[1]=sinf(.02F);
+    advance(20);
+    const ainekio_v2_frame_t target=body.balance_target;
+    shaft_tracking_available=shaft_measured_override=true;
+    const double band=BALANCE_SHAFT_TOLERANCE_US/mapped_joints[1].us_per_degree*100.;
+    for(int n=-120;n<=120;n+=10) {
+        shaft_measured=target;shaft_measured.position[1]+=(float)(n/mapped_joints[1].us_per_degree*100.);
+        advance(20);
+        assert(body.balance_tracking_active && body.balance_tracking_available);
+        assert(fabs(body.pose.position[1]-target.position[1])<.01);
+    }
+    shaft_measured=target;shaft_measured.position[1]-=(float)(band+100.);
+    for(unsigned n=0;n<100;n++) {
+        advance(20);
+        assert(fabs(body.pose.position[1]-target.position[1]-50.)<.01);
+        assert(fabs(body.balance_target.position[1]-target.position[1])<.01);
+    }
+    const ainekio_p4_body_status_t report=ainekio_p4_body_status();
+    assert(report.balance_tracking_active && fabs(report.balance_tracking_trim_deg[1]-.5)<.001);
+    shaft_tracking_available=false;
+    advance(20);assert(body.active && body.balance_hold && driver.state.armed);
+    assert(!body.balance_tracking_active && !body.balance_tracking_available);
+    assert(fabs(body.pose.position[1]-target.position[1])<.01);
+    shaft_tracking_available=true;advance(20);assert(body.balance_tracking_active);
+    leveling_enabled=false;advance(20);
+    assert(!body.balance_tracking_active && fabs(body.pose.position[1]-target.position[1])<.01);
+    puts("Standing shaft noise: +/-120us ignored; only excess error adds nonintegrating trim; gyro-only fallback and switch passed.");
+}
+
+static void standing_settles_and_wakes(void)
+{
+    reset();imu_status.calibration_applied=true;
+    imu_status.attitude.available=imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=1;
+    shaft_tracking_available=true;
+    ainekio_command_t c=command(1902,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK && finish(4000).completed);
+    advance(20);
+    assert(body.balance_settled && !ainekio_p4_body_status().balance_active);
+    unsigned held_writes=writes,held_reads=shaft_feedback_reads;
+    uint16_t held[12];memcpy(held,last_written,sizeof held);
+    /* No position feedback work or PWM rewrites even with noisy wipers. */
+    shaft_measured_override=true;shaft_measured=body.pose;
+    shaft_measured.position[1]+=2000;
+    for(unsigned n=0;n<100;n++) {
+        const float roll=(n%2?.7F:-.7F)*.01745329252F;
+        imu_status.attitude.orientation_wxyz[0]=cosf(roll/2);
+        imu_status.attitude.orientation_wxyz[1]=sinf(roll/2);
+        advance(20);
+        assert(body.balance_settled && writes==held_writes && shaft_feedback_reads==held_reads);
+    }
+    assert(driver.state.armed && !memcmp(held,last_written,sizeof held));
+    shaft_measured_override=false;
+    imu_status.attitude.orientation_wxyz[0]=cosf(.012F);
+    imu_status.attitude.orientation_wxyz[1]=sinf(.012F); /* 1.375 degrees: wake. */
+    advance(20);
+    assert(!body.balance_settled && writes>held_writes && shaft_feedback_reads>held_reads);
+    assert(ainekio_p4_body_status().balance_active);
+    imu_status.attitude.orientation_wxyz[0]=1;imu_status.attitude.orientation_wxyz[1]=0;
+    imu_status.attitude.angular_rate_rad_s[0]=.04F;
+    advance(20);assert(!body.balance_settled); /* Passing through level is not settled. */
+    imu_status.attitude.angular_rate_rad_s[0]=0;advance(20);
+    assert(body.balance_settled);
+    memcpy(held,last_written,sizeof held);held_writes=writes;
+    advance(1000);assert(writes==held_writes && !memcmp(held,last_written,sizeof held));
+    /* A changed target wakes the same hold; no new Stand is needed. */
+    leveling_tuning.roll_deg=2;advance(20);assert(!body.balance_settled);
+    leveling_tuning.roll_deg=0;advance(20);assert(body.balance_settled);
+    imu_status.attitude.fresh=false;advance(20);
+    assert(!body.balance_settled && !ainekio_p4_body_status().balance_active && driver.state.armed);
+    imu_status.attitude.fresh=true;advance(20);assert(body.balance_settled);
+    c=command(1903,AINEKIO_INTENT_WALK);c.data.intent.data.walk.controls=1;c.data.intent.data.walk.speed_percent=50;
+    assert(execute(&c)==ESP_OK);advance(20);
+    assert(!body.balance_settled && body.motion.kind==MOTION_WALK && driver.state.armed);
+    puts("Standing quiet hold: hysteresis, no shaft reads/PWM writes, rate-aware settling, disturbance/target wake, IMU loss and immediate Walk passed.");
+}
+
 int main(int argc,char **argv)
 {
-    startup_crouch_shoulders_rise();
+    measured_stand_arrival();
+    startup_crouch_shoulders_rise();stand_full_rate_without_leveling();
+    standing_feedback_converges();standing_settles_and_wakes();
     if(argc==2 && !strcmp(argv[1],"--feedback")){
+        standing_tracks_measured_joints();
         sustained_standing_feedback();
         imu_posture_feedback(1000,1);
         imu_posture_feedback(80,3);
@@ -1069,6 +1359,7 @@ int main(int argc,char **argv)
     supervised_faults_are_failures();
     motion_from_saved_home();
     calibration_normal_handoff();
+    freestyle_execution();
     pose_and_replace();locomotion();clips();rise_from_grounded_postures();cancellation_and_faults();
     stop_motion_phases();ordinary_stop_holds_commanded_pose();sample_clock_with_work();timed_out_output_resumes();rejected_clip_preserves_motion();integrated_catalog();
     puts("Production body: 12 locomotion variants, finite walk, all clips, smooth entry, updates, replacement, stop, delayed resumption, mapping/driver faults, partial assembly and calibration passed.");

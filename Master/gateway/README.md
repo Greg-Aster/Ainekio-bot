@@ -22,6 +22,16 @@ Connections. Refresh an existing dashboard tab to load this layout.
 
 ## P4 recording and firmware in Body Control
 
+P4 firmware advertising `servo_feedback_v1` also exposes **Maintenance → Servo
+feedback**. It displays all twelve measured/commanded joint positions, sixteen
+raw multiplexer inputs, calibration and measured Stand progress. Reader enable,
+joint input mapping, three-point calibration, arrival tolerance and measured
+Stand enable persist on the robot, separately from motor calibration. These
+controls use the existing authenticated maintenance proxy
+`/api/robot/servo-feedback?robot_id=…` → `/api/servo-feedback` (GET/POST JSON);
+they never issue motion commands. See the
+[wiring and commissioning procedure](../../docs/v2-12servo/PCA9685_WIRING.md#mg90-fourth-wire-feedback--october-16-2026).
+
 The SD card section starts/stops onboard video recording while preview streaming
 continues, lists clips, and downloads a selected clip to the computer. The card
 stays inside the robot. Downloaded clips remain until rolling recording reuses them. Near capacity,
@@ -40,6 +50,54 @@ The Robot logs section reads or downloads bounded current/previous-boot diagnost
 over the same authenticated Wi-Fi path. Retention covers warm resets, not power loss.
 
 ## Physical Robot Gateway
+
+### Freestyle plans
+
+The authenticated Body Control API accepts `POST /api/motion-plan` with the
+existing dashboard session and CSRF header. The JSON body supplies `robot_id`,
+`frames` (compact `[duration_ms, [joint targets]]` arrays), and `end`
+(`hold`, `stand`, or `neutral`). It returns the command sequence; submission
+does not mean execution is complete. Normal ACK and terminal receipts track it.
+
+For a P4 advertising `motion_plan_v2`, targets are twelve signed model-angle
+centidegrees in the [map 2 joint order](../../Slave/software/protocol/joints_v2.py).
+The gateway selects map 2 automatically. V1 continues to use map 1 and eight
+targets. The Environment Bridge exposes `robotMotionPlan` when the selected
+body advertises the matching feature, with named joint `degrees` targets and
+`durationMs` frames. See the [wire contract](../../Slave/software/protocol/README.md#p4-twelve-joint-freestyle)
+for timing, units and balance behavior. This API adds no gait optimizer or
+camera-distance estimator.
+
+### Supervised gait trial recording
+
+`gateway.gait_trials` records camera JPEGs, device-timestamped IMU/status data,
+the submitted command and its terminal receipt through the authenticated
+dashboard. For example, from the repository root:
+
+```sh
+PYTHONPATH=Master python3 -m gateway.gait_trials \
+  --session-file /tmp/private-dashboard-session \
+  --robot YOUR_ROBOT_ID --output /tmp/gait-trial-unique \
+  --seconds 12 --command motion-plan --payload /tmp/trial-plan.json
+```
+
+The session file contains the existing dashboard session cookie value; keep it
+private. Omitting `--command` records without sending movement. The recording
+duration ends recording only; it never sends Stop or changes balance settings.
+Use an explicitly finite plan when a finite physical trial is intended.
+
+`summary.json` reports distinct fresh device samples and maximum sample gaps.
+The device's `fresh` flag describes acquisition at publication time, not the
+age of a cached dashboard response. A gap across movement can hide the peak
+angular rate or impact; a small sampled peak alone cannot establish improvement.
+General gait/balance status is slower than IMU telemetry and may remain unchanged
+through an entire short motion. Command receipts establish controller completion,
+not measured servo tracking. Camera timestamps are host receipt times, not
+exposure timestamps. Distance and electrical energy remain null: this recorder
+does not invent metric odometry or current measurements. Store recordings and
+credentials outside version control.
+
+## Physical Robot Gateway operation
 
 The physical robot and the Environment Bridge share one authenticated,
 full-duplex gateway process. Ainekio connects to the LAN-facing `/robot` route;
@@ -935,13 +993,34 @@ movement.
 Body Control uses the connected body's advertised capabilities. The P4 joint
 panel reads twelve saved/staged device records through `body_calibration_v2`;
 it does not reuse the eight-servo angle contract. Select the joint, enable
-calibration, then use a pulse target or ±5 µs adjustment. **Use commanded pulse
-as home** stages the trim; **Save calibration** applies edited joint settings,
-commits them and displays the controller's readback. A pulse entered for **Move
+calibration, then use a pulse target or ±5 µs adjustment. With `servo_feedback_v1`,
+the same panel displays the selected joint's fourth-wire ADC/voltage, measured
+pulse-equivalent position, model angle, current target and target-minus-measured
+error. **Use measured position as Home** reads the sensor again and stages its
+measured position locally; it never substitutes the commanded pulse. Capture
+works without enabling calibration or releasing outputs. **Apply & save to
+robot**, in calibration mode, applies the selected joint's fields, commits them
+and displays the controller's readback. A pulse entered for **Move
 joint** is not automatically a Home setting. Saving disables outputs without rebooting; **Home
 selected joint** or an explicit move resumes that joint. **Read from body** is
-available without enabling calibration. Home and pulse targets use µs, and
-the displayed pulse is a command, not a shaft-position sensor reading.
+available without enabling calibration. Home and pulse targets use µs; the live
+shaft measurement uses the separately saved three-point feedback curve.
+
+Home may be an end-of-travel pose; it need not be the travel midpoint. Choose
+**Rearward assembly pose** (the default for carriers/cranks) to assign the
+measured position to the common assembly reference: carrier -30.87°, crank
+-117.68°. These come from the documented assembly mapping, with the crank
+reference originally photo-estimated. Position the corresponding joints at
+matching physical poses. **Custom model angle entered above** assigns the
+measurement to that explicit angle; shoulders default to this option.
+Capture replaces the old angle offset instead of deriving a new reference
+angle from that old mapping. Direction and scale remain unchanged. Editing the
+angle field selects Custom. The reference choice and joint drafts persist in
+this browser. Capture changes only the selected joint's draft; other joints are
+unaffected. A physically refitted horn still requires a known mechanical pose:
+the wiper cannot identify horn indexing. Missing or
+uncalibrated feedback is reported without changing Home. Extrapolated positions
+remain visible and are explicitly labeled. No movement is sent by capture.
 
 The pulse slider previews a calculated model angle from the controller's Home,
 direction and µs/degree mapping, and sends one movement request after release.
@@ -980,7 +1059,7 @@ unbounded burst into the controller's playback queue.
 
 ### V2 mounting references
 
-Current P4 calibration readback separates saved per-joint mappings from recommended mounting offsets, reports `servo_profile_id` and `profile_confirmed`, and labels shaft travel unmeasured. The observed 300–2900 µs span has arithmetic midpoint 1600 µs; the selected mounting reference is 1300 µs. The panel shows the recommended model offset without overwriting restored drafts or transmitting settings automatically. Review the mapping and Save before semantic motion; after outputs are disabled, establish a known reference with Calibration Home/Move. See the [assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).
+Current P4 calibration readback separates saved per-joint mappings from recommended mounting offsets and reports `servo_profile_id` and `profile_confirmed`. Calculated targets and fourth-wire measurements are labeled separately. The observed 300–2900 µs span has arithmetic midpoint 1600 µs; the historical mounting reference is 1300 µs. The panel shows the recommended model offset without overwriting restored drafts or transmitting settings automatically. Review the mapping and Save before semantic motion; after outputs are disabled, establish a known reference with Calibration Home/Move. See the [assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).
 
 ### Physical gateway startup connection choice
 

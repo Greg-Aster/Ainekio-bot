@@ -1,5 +1,11 @@
 # 1.9-inch LCD and wide face expressions
 
+As of October 17, the firmware source again targets this LCD directly. The
+temporary P4 SSD1306 driver and its panel-selection options have been removed.
+The restored build is `0.8.64-p4-lcd-restored`; replacement-panel installation
+and its physical verification are recorded separately from the earlier tests
+below.
+
 The P4 source now supports the project's recorded XIITIA 1.9-inch ST7789
 module (ASIN B0DFWMC16W), using its 170×320 panel in **320×170 landscape**.
 The owner confirmed on October 6 that the LCD and camera are connected and

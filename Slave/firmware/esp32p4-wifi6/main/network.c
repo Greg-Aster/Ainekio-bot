@@ -198,7 +198,9 @@ static void network_task(void *arg)
     const bool has_wifi = first_network >= 0;
     /* Network initialization can block or fail without blocking board startup,
      * the console, or the independent output supervisor. */
-    esp_err_t result = esp_netif_init();
+    esp_err_t result = esp_hosted_init();
+    if (result != ESP_OK) goto failed;
+    result = esp_netif_init();
     if (result == ESP_OK) result = esp_event_loop_create_default();
     if (result != ESP_OK) goto failed;
     station = esp_netif_create_default_wifi_sta();

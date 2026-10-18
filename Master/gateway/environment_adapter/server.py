@@ -1719,7 +1719,7 @@ class EnvironmentAdapter:
     def _motion_plan_support_status(
         self,
         gateway_status: Mapping[str, object] | None = None,
-    ) -> dict[str, bool]:
+    ) -> dict[str, object]:
         _, robot = self._selected_robot(gateway_status)
         if robot is None:
             return {
@@ -1728,8 +1728,15 @@ class EnvironmentAdapter:
                 "available": False,
             }
         features = robot.get("features")
-        supported = isinstance(features, list) and "motion_plan_v1" in features
+        v2 = robot.get("model") == "v2-12servo"
+        feature = "motion_plan_v2" if v2 else "motion_plan_v1"
+        supported = isinstance(features, list) and feature in features
+        details = {}
+        if v2:
+            from protocol.joints_v2 import joint_contract
+            details = {"jointMap": joint_contract(), "feature": feature}
         return {
+            **details,
             "supported": supported,
             "enabled": self.config.freestyle_enabled,
             "available": supported and self.config.freestyle_enabled,

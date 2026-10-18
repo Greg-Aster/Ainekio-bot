@@ -9,6 +9,7 @@ double ainekio_v2_center_degrees(unsigned joint);
 /* Reported servo-profile window midpoint; distinct from driver timer capacity. */
 double ainekio_v2_pulse_midpoint(void);
 double ainekio_v2_us_per_degree(void);
+double ainekio_v2_profile_travel_degrees(void);
 unsigned ainekio_v2_pulse_reference(unsigned joint);
 const char *ainekio_v2_servo_profile_id(void);
 /* progress is in [0,1]. Bounds conservatively enclose the full direct

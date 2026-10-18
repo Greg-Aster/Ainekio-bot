@@ -13,8 +13,34 @@ static void valid(const char *json, size_t length, ainekio_message_kind_t kind)
     assert(message.kind == kind);
 }
 
+static void test_twelve_joint_plan_decode(void)
+{
+    const char *json="{\"t\":\"motion_plan\",\"seq\":1,\"map\":2,\"frames\":[[12000,[-11768,23000,0,1,2,3,4,5,6,7,8,9]]],\"end\":\"hold\"}";
+    ainekio_control_message_t m;
+    assert(ainekio_control_decode_for_body(json,strlen(json),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.motion_plan.frames[0].targets[0]==-11768);
+    assert(m.command.data.motion_plan.frames[0].targets[1]==23000);
+    assert(m.command.data.motion_plan.frames[0].targets[11]==9);
+    assert(m.command.data.motion_plan.total_duration_ms==12000);
+    char full[AINEKIO_BODY_CONTROL_MAX_BYTES];
+    size_t n=(size_t)snprintf(full,sizeof(full),"{\"t\":\"motion_plan\",\"seq\":2,\"map\":2,\"frames\":[");
+    for(unsigned f=0;f<32;f++) {
+        n+=(size_t)snprintf(full+n,sizeof(full)-n,"%s[4294967295,[",f?",":"");
+        for(unsigned j=0;j<12;j++)n+=(size_t)snprintf(full+n,sizeof(full)-n,"%s-2147483648",j?",":"");
+        n+=(size_t)snprintf(full+n,sizeof(full)-n,"]]");
+    }
+    n+=(size_t)snprintf(full+n,sizeof(full)-n,"],\"end\":\"hold\"}");
+    assert(n>4096 && n<sizeof(full));
+    assert(ainekio_control_decode_for_body(full,n,&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.motion_plan.frame_count==32);
+    assert(m.command.data.motion_plan.total_duration_ms==UINT64_C(4294967295)*32);
+    assert(m.command.data.motion_plan.frames[31].targets[11]==INT32_MIN);
+
+}
+
 int main(void)
 {
+    test_twelve_joint_plan_decode();
     char output[512];
     const char *detach_json = "{\"t\":\"stop\",\"seq\":1,\"detach\":true}";
     ainekio_control_message_t detach_message;
