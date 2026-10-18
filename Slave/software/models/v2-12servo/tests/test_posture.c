@@ -24,7 +24,7 @@ static double support_margin(const ainekio_v2_walk_pose_t *p)
     return margin;
 }
 
-static void entry(double roll,double pitch)
+static void entry(double roll,double pitch,bool fast)
 {
     ainekio_v2_walk_pose_t stand;
     assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
@@ -34,9 +34,11 @@ static void entry(double roll,double pitch)
     assert(ainekio_v2_posture_begin(&s,&home,&stand.frame,euler));
     double error=0,speed=0,lift[4]={0},margin=INFINITY;
     ainekio_v2_walk_pose_t previous=s.pose;
-    for(unsigned n=1;n<=(unsigned)lround(ainekio_v2_posture_duration()*50);n++) {
-        double t=n/50.;
-        if(!ainekio_v2_posture_sample(&s,t)){fprintf(stderr,"posture failed at %.3f roll %.3f pitch %.3f\n",t,roll,pitch);assert(0);}
+    unsigned n=0;double t=0.;
+    while(t<ainekio_v2_posture_path_length()) {
+        n++;
+        bool ok=fast?ainekio_v2_posture_advance(&s,&t,.02):ainekio_v2_posture_sample(&s,t=n/50.);
+        if(!ok){fprintf(stderr,"posture failed at %.3f roll %.3f pitch %.3f\n",t,roll,pitch);assert(0);}
         ainekio_v2_walk_pose_t actual=s.pose;
         assert(ainekio_v2_contact_forward(&actual,s.anchors,false));
         unsigned airborne=0;
@@ -58,12 +60,15 @@ static void entry(double roll,double pitch)
     for(unsigned l=0;l<4;l++)assert(lift[l]>7.99);
     assert(error<.002);
     assert(!memcmp(s.pose.frame.position,stand.frame.position,sizeof(stand.frame.position)));
-    printf("roll=%g pitch=%g anchor_error_mm=%g peak_joint_deg_s=%g support_margin_mm=%g\n",roll,pitch,error,speed,margin);
+    printf("fast=%u wall_s=%g roll=%g pitch=%g anchor_error_mm=%g peak_joint_deg_s=%g support_margin_mm=%g\n",fast,n/50.,roll,pitch,error,speed,margin);
+    if(fast)assert(n<75);
     assert(margin>0.);
 }
 int main(void)
 {
-    entry(0,0);
-    entry(.05,0);entry(-.05,0);entry(0,.05);entry(0,-.05);
+    for(unsigned fast=0;fast<2;fast++) {
+        entry(0,0,fast);
+        entry(.05,0,fast);entry(-.05,0,fast);entry(0,.05,fast);entry(0,-.05,fast);
+    }
     return 0;
 }

@@ -388,6 +388,25 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
 
         core.close()
 
+    async def test_p4_freestyle_selects_map_two_and_keeps_completion_pending(self):
+        class Socket:
+            closed=False
+            def __init__(self): self.sent=[]
+            async def send(self,raw): self.sent.append(json.loads(raw))
+        service=GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
+        socket=Socket()
+        connection=GatewayConnection(service,socket,"robot",1,model="v2-12servo",features=("motion_plan_v2",))
+        service._connections["robot"]=connection
+        seq=await service.queue_motion_plan([[12000,[-11768]*12]],end="hold",robot_id="robot")
+        self.assertEqual(socket.sent[-1]["map"],2)
+        self.assertEqual(socket.sent[-1]["frames"],[[12000,[-11768]*12]])
+        self.assertTrue(connection.pending[seq].needs_done)
+        self.assertFalse(connection.pending[seq].future.done())
+        next_seq=connection.next_sequence
+        with self.assertRaises(ValueError):
+            await service.queue_motion_plan([[100,[9000]*8]],end="hold",robot_id="robot")
+        self.assertEqual(connection.next_sequence,next_seq)
+
     async def test_gateway_motion_plan_requires_feature_and_tracks_done(self) -> None:
         service = GatewayService(
             GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})

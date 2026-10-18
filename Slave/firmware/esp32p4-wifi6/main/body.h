@@ -1,4 +1,10 @@
 #pragma once
+/* Owner-requested quiet hold. The shaft band covers the observed ~112 us
+ * peak-to-peak fluctuation; it applies only to extra standing feedback trim. */
+#define BALANCE_SHAFT_TOLERANCE_US 120.
+#define BALANCE_SETTLE_DEG .5
+#define BALANCE_WAKE_DEG 1.
+#define BALANCE_SETTLE_RATE_DEG_S 1.
 
 #include "ainekio/pca9685.h"
 #include "ainekio/control_encode.h"
@@ -36,6 +42,12 @@ typedef struct {
     uint32_t sequence;
     bool moving, speed_limited, automatic_run, listening_feedback;
     bool balance_active, balance_reduced;
+    bool balance_settled;
+    bool balance_tracking_available, balance_tracking_active, balance_tracking_reduced;
+    float balance_tracking_error_deg[12], balance_tracking_trim_deg[12];
+    bool servo_feedback_waiting;
+    uint16_t servo_feedback_waiting_mask;
+    float stand_progress;
     float body_roll_rad, body_pitch_rad, balance_roll_rad, balance_pitch_rad;
     /* Commanded differences from the nominal motion, not servo feedback.
      * Legs: physical front-left, front-right, rear-left, rear-right. */

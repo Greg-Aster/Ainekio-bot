@@ -145,7 +145,7 @@ esp_err_t ainekio_p4_portal_start(void)
              esp_random(), esp_random(), esp_random(), esp_random());
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 8192;
-    config.max_uri_handlers = 9;
+    config.max_uri_handlers = 11;
     config.task_priority = 2; /* Storage/update work stays below control/link tasks. */
     config.max_open_sockets = 2;
     config.recv_wait_timeout = 3;

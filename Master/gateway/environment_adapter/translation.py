@@ -15,6 +15,7 @@ from protocol.control_v1 import (
     MOTION_PLAN_MIN_FRAME_MS,
 )
 from protocol.joints_v1 import JOINT_LABELS
+from protocol.joints_v2 import JOINT_LABELS as V2_JOINT_LABELS
 
 
 SEED_EMOTES = frozenset(
@@ -183,7 +184,7 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
     if action_type == "move":
         return _translate_move(action, model=model)
     if action_type == "robotmotionplan":
-        return _translate_motion_plan(action)
+        return _translate_motion_plan(action, model=model)
     if action_type != "robotcommand":
         return None
 
@@ -280,13 +281,15 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
     return None
 
 
-def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
+def _translate_motion_plan(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
+    v2 = model == "v2-12servo"
+    labels = V2_JOINT_LABELS if v2 else JOINT_LABELS
     raw_frames = action.get("frames")
     if not isinstance(raw_frames, list) or not 1 <= len(raw_frames) <= MOTION_PLAN_MAX_FRAMES:
         return None
     frames: list[object] = []
     total_duration_ms = 0
-    label_to_id = {label: joint_id for joint_id, label in enumerate(JOINT_LABELS)}
+    label_to_id = {label: joint_id for joint_id, label in enumerate(labels)}
     for raw_frame in raw_frames:
         if not isinstance(raw_frame, Mapping):
             return None
@@ -294,15 +297,15 @@ def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
         targets = raw_frame.get("targets")
         if (
             type(duration_ms) is not int
-            or not MOTION_PLAN_MIN_FRAME_MS <= duration_ms <= MOTION_PLAN_MAX_FRAME_MS
+            or not (1 if v2 else MOTION_PLAN_MIN_FRAME_MS) <= duration_ms <= ((1 << 32) - 1 if v2 else MOTION_PLAN_MAX_FRAME_MS)
             or not isinstance(targets, list)
-            or len(targets) != len(JOINT_LABELS)
+            or len(targets) != len(labels)
         ):
             return None
         total_duration_ms += duration_ms
-        if total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
+        if not v2 and total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
             return None
-        compact_targets: list[int | None] = [None] * len(JOINT_LABELS)
+        compact_targets: list[int | None] = [None] * len(labels)
         for target in targets:
             if not isinstance(target, Mapping):
                 return None
@@ -322,7 +325,7 @@ def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
             centidegrees = round(scaled)
             if (
                 abs(scaled - centidegrees) > 1e-6
-                or not 0 <= centidegrees <= MOTION_PLAN_MAX_CENTIDEGREES
+                or not (-(1 << 31) if v2 else 0) <= centidegrees <= ((1 << 31) - 1 if v2 else MOTION_PLAN_MAX_CENTIDEGREES)
             ):
                 return None
             compact_targets[joint_id] = centidegrees
@@ -337,7 +340,7 @@ def _translate_motion_plan(action: Mapping[str, object]) -> BridgeAction | None:
         "motion_plan",
         "freestyle",
         {
-            "map": MOTION_PLAN_JOINT_MAP,
+            "map": 2 if v2 else MOTION_PLAN_JOINT_MAP,
             "frames": frames,
             "end": end,
         },

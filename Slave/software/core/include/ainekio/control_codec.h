@@ -8,6 +8,7 @@
 #include "ainekio/protocol.h"
 
 #define AINEKIO_CONTROL_MAX_BYTES 4096U
+#define AINEKIO_BODY_CONTROL_MAX_BYTES 8192U
 
 typedef enum {
     AINEKIO_MESSAGE_HELLO = 0,

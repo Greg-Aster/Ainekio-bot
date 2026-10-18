@@ -21,7 +21,9 @@ dirty firmware, IMU, gait, calibration and gateway work was retained.
   **P4 silicon revision 1.3**, 360 MHz, 32 MiB flash and 32 MiB PSRAM at 200 MHz,
   with C6 **2.12.8** installed. These are historical measurements, not a new live
   interrogation. A separate PCB revision/silkscreen is not recorded. Current
-  configuration still targets pre-V3 P4 and the installed SSD1306 OLED.
+  configuration targets pre-V3 P4. The October 17 display restoration returns
+  current builds to the 1.9-inch ST7789 LCD; SSD1306 observations below describe
+  the earlier temporary assembly.
 - `components/ainekio_p4_media/camera.c` is the sole camera owner. OV5647 RAW10
   enters CSI/ISP, then two RGB565 capture buffers. It resizes/rotates the image
   and uses the hardware JPEG encoder once, quality 75, YUV420. Preview starts
@@ -214,7 +216,7 @@ read status before retrying. Restarting **before** explicit activation discards
 the RAM-only staged selection and continues the existing firmware; upload again
 if needed. Activation does not alter credentials, calibration or asset data.
 
-The OLED and LCD show preparing, writing percentage, validation, staged,
+The LCD shows preparing, writing percentage, validation, staged,
 next-boot/restart, accepted and failure states. Update messages keep the display
 on during Doze. Success/failure notices last 15 seconds; otherwise normal face
 and sleep behavior returns. During first boot, pending validation is displayed.

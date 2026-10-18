@@ -1,17 +1,12 @@
-if(CONFIG_AINEKIO_DISPLAY_SSD1306)
-    set(AINEKIO_DISPLAY_SOURCE "display_ssd1306.c")
-else()
-    set(AINEKIO_DISPLAY_SOURCE "display.c")
-endif()
-
 idf_component_register(SRCS "app_main.c" "board.c" "body.c" "config.c" "joint_calibration.c" "network.c" "controller.c"
                            "system.c" "storage.c" "video_avi.c" "ota.c" "logs.c" "portal.c" "robot_settings.c" "gateway_selection.c"
-                           "${AINEKIO_DISPLAY_SOURCE}" "face_timeline.c" "connection_screen.c" "imu_diagnostics.c" "imu_telemetry.c" INCLUDE_DIRS "."
+                           "display.c" "face_timeline.c" "connection_screen.c" "imu_diagnostics.c" "imu_telemetry.c"
+                           "servo_feedback.c" "servo_feedback_model.c" "servo_feedback_position.c" INCLUDE_DIRS "."
     REQUIRES ainekio_discovery ainekio_pca9685 core imu v2-12servo esp_driver_gpio esp_driver_i2c esp_driver_uart
              esp_timer esp_system esp_wifi esp_event esp_netif nvs_flash console
              esp_websocket_client esp_hw_support json spi_flash esp_hosted mbedtls
              ainekio_p4_media ainekio_p4_assets app_update esp_http_server fatfs sdmmc esp_driver_sdmmc
-             faces esp_lcd esp_driver_spi
+             faces esp_lcd esp_driver_spi esp_adc
     PRIV_REQUIRES esp_app_format)
 
 # Optional maintenance image, built from the same pinned Hosted package. This

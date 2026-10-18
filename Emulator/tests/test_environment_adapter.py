@@ -749,6 +749,30 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             {"supported": True, "enabled": True, "available": True},
         )
 
+    async def test_p4_freestyle_uses_twelve_named_signed_joints(self):
+        from protocol.joints_v2 import JOINT_LABELS
+        class P4Gateway(FakeGateway):
+            def status(self):
+                status=super().status()
+                status["robots"]["test-body"].update(model="v2-12servo",features=["motion_plan_v2"])
+                return status
+        gateway=P4Gateway()
+        adapter=EnvironmentAdapter(gateway,EnvironmentAdapterConfig(
+            receipt_path=":memory:",token="test",robot_id="test-body"))
+        self.addCleanup(adapter.receipts.close)
+        action={"id":"p4-plan","type":"robotMotionPlan","endPose":"hold",
+            "frames":[{"durationMs":12000,"targets":[{"joint":j,"degrees":-117.68}
+                for j in reversed(JOINT_LABELS)]}]}
+        result=await adapter.handle_action(action)
+        self.assertEqual(result["type"],"completed")
+        self.assertEqual(gateway.calls[0][1][0],[[12000,[-11768]*12]])
+        state=adapter._observation()["state"]["freestyleMovement"]
+        self.assertTrue(state["available"])
+        self.assertEqual(state["jointMap"]["version"],2)
+        self.assertEqual(len(state["jointMap"]["joints"]),12)
+        self.assertIsNone(translate_environment_action({**action,"frames":[{
+            "durationMs":100,"targets":[{"joint":j,"degrees":90} for j in ("R1","R2","L1","L2","R4","R3","L3","L4")]}]},model="v2-12servo"))
+
     async def test_stop_can_preempt_an_active_freestyle_action(self) -> None:
         gateway = BlockingMotionGateway()
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)

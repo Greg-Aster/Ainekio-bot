@@ -11,7 +11,19 @@ View the P4 component side with USB-C at the top and C6 antenna at the bottom.
 L/R numbers count header rows down from USB-C; they are not GPIO numbers.
 Remove power before changing connections.
 
+For the added MG90 fourth-wire feedback module, use the separate
+[CD74HC4067 wiring image](Multiplexer_Wiring.png)
+([editable SVG](Multiplexer_Wiring.svg)). It shows the P4 connections, local
+EN-to-GND jumper and owner's C4–C15 feedback input selection. The combined image
+above predates this addition.
+
 ## Connection table
+
+For the individual servo assignments, use the
+[servo socket and feedback map](SERVO_SOCKET_MAP.md) ([image](Servo_Socket_Map.png)).
+For the gyro board, use the dedicated
+[LSM6DS3 wiring and calibration guide](LSM6DS3_IMU.md) ([image](LSM6DS3_Wiring.png)).
+These October 18 references supplement the combined image without changing its wiring.
 
 | Module | Module pin | P4 connection / local junction |
 | --- | --- | --- |
@@ -84,4 +96,6 @@ See the [gait research journal](GAIT_RESEARCH_JOURNAL.md).
 The PNG was produced with the built-in image generation tool, then visually
 reviewed against these connection tables. The initial and final revision
 [prompts](Assembly_Reference.prompt.txt) are retained for reproducibility.
-Existing individual SVG/PNG diagrams remain historical references.
+The P4 pinout SVG/PNG was updated October 18 with all current external header
+assignments, including feedback. [Open the current P4 pinout](ESP32P4_Pinout.png).
+Other older individual diagrams retain their original publication context.

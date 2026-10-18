@@ -4,6 +4,8 @@
 #define taskEXIT_CRITICAL portEXIT_CRITICAL
 #include "../main/ota.c"
 #include <assert.h>
+static unsigned feedback_requests;
+esp_err_t ainekio_p4_feedback_http(struct httpd_req *r){(void)r;feedback_requests++;return ESP_OK;}
 
 static const esp_partition_t slot0 = {.address=0x20000, .size=0x800000, .label="ota_0"};
 static const esp_partition_t slot1 = {.address=0x820000, .size=0x800000, .label="ota_1"};
@@ -44,6 +46,9 @@ static httpd_req_t request(size_t size) { return (httpd_req_t){.method=HTTP_POST
 int main(void)
 {
     httpd_req_t r=request(sizeof(image_bytes));
+    reset();authorization="Bearer wrong";servo_feedback(&r);
+    assert(!feedback_requests&&!strcmp(response_code,"401 Unauthorized"));
+    reset();servo_feedback(&r);assert(feedback_requests==1);
     reset(); authorization="Bearer wrong"; upload(&r);
     assert(!begins && !stops && !selects && !strcmp(response_code,"401 Unauthorized"));
     reset(); layout=false; upload(&r); assert(!begins && !stops);

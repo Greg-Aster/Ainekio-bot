@@ -8,7 +8,7 @@
 
 #include "ainekio/assets.h"
 
-#define JSON_MAX_TOKENS 400U
+#define JSON_MAX_TOKENS 512U
 #define JSON_MAX_DEPTH 8U
 #define JSON_STRING_BUFFER 192U
 
@@ -915,7 +915,7 @@ static ainekio_decode_result_t decode_motion_plan(
             root,
             "map",
             AINEKIO_JOINT_MAP_VERSION,
-            AINEKIO_JOINT_MAP_VERSION,
+            AINEKIO_V2_JOINT_MAP_VERSION,
             &joint_map
         );
     }
@@ -935,7 +935,9 @@ static ainekio_decode_result_t decode_motion_plan(
     ainekio_motion_plan_t *plan = &message->command.data.motion_plan;
     plan->joint_map_version = (uint8_t)joint_map;
     plan->frame_count = (uint8_t)parser->tokens[frames].children;
-    uint32_t total_duration_ms = 0U;
+    const bool v2 = joint_map == AINEKIO_V2_JOINT_MAP_VERSION;
+    const unsigned joints = v2 ? AINEKIO_MOTION_PLAN_JOINT_CAPACITY : AINEKIO_SERVO_COUNT;
+    uint64_t total_duration_ms = 0U;
     for (uint8_t frame_index = 0U; frame_index < plan->frame_count; ++frame_index) {
         const int frame = array_get(parser, frames, frame_index);
         if (frame < 0 || parser->tokens[frame].type != JSON_TOKEN_ARRAY ||
@@ -946,35 +948,35 @@ static ainekio_decode_result_t decode_motion_plan(
         if (!token_integer(parser, array_get(parser, frame, 0U), &duration_ms)) {
             return AINEKIO_DECODE_TYPE;
         }
-        if (duration_ms < AINEKIO_MOTION_PLAN_MIN_FRAME_MS ||
-            duration_ms > AINEKIO_MOTION_PLAN_MAX_FRAME_MS) {
+        if (duration_ms < (v2 ? 1 : AINEKIO_MOTION_PLAN_MIN_FRAME_MS) ||
+            duration_ms > (v2 ? UINT32_MAX : AINEKIO_MOTION_PLAN_MAX_FRAME_MS)) {
             return AINEKIO_DECODE_RANGE;
         }
         total_duration_ms += (uint32_t)duration_ms;
-        if (total_duration_ms > AINEKIO_MOTION_PLAN_MAX_TOTAL_MS) {
+        if (!v2 && total_duration_ms > AINEKIO_MOTION_PLAN_MAX_TOTAL_MS) {
             return AINEKIO_DECODE_RANGE;
         }
 
         const int targets = array_get(parser, frame, 1U);
         if (targets < 0 || parser->tokens[targets].type != JSON_TOKEN_ARRAY ||
-            parser->tokens[targets].children != AINEKIO_SERVO_COUNT) {
+            parser->tokens[targets].children != joints) {
             return AINEKIO_DECODE_RANGE;
         }
         ainekio_motion_plan_frame_t *output_frame = &plan->frames[frame_index];
-        output_frame->duration_ms = (uint16_t)duration_ms;
-        for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT; ++joint_id) {
+        output_frame->duration_ms = (uint32_t)duration_ms;
+        for (uint8_t joint_id = 0U; joint_id < joints; ++joint_id) {
             int64_t centidegrees = 0;
             if (!token_integer(parser, array_get(parser, targets, joint_id), &centidegrees)) {
                 return AINEKIO_DECODE_TYPE;
             }
-            if (centidegrees < 0 ||
-                centidegrees > AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES) {
+            if (centidegrees < (v2 ? INT32_MIN : 0) ||
+                centidegrees > (v2 ? INT32_MAX : AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES)) {
                 return AINEKIO_DECODE_RANGE;
             }
-            output_frame->targets[joint_id] = (uint16_t)centidegrees;
+            output_frame->targets[joint_id] = (int32_t)centidegrees;
         }
     }
-    plan->total_duration_ms = (uint16_t)total_duration_ms;
+    plan->total_duration_ms = total_duration_ms;
 
     char end[8];
     result = required_string(parser, root, "end", end, sizeof(end), 4U, 7U);
@@ -1503,7 +1505,7 @@ static ainekio_decode_result_t decode_control(
     if (json == NULL || message == NULL) {
         return AINEKIO_DECODE_TYPE;
     }
-    if (length == 0U || length > AINEKIO_CONTROL_MAX_BYTES || length > UINT16_MAX) {
+    if (length == 0U || length > (body_extensions ? AINEKIO_BODY_CONTROL_MAX_BYTES : AINEKIO_CONTROL_MAX_BYTES) || length > UINT16_MAX) {
         return AINEKIO_DECODE_OVERSIZE;
     }
     json_parser_t parser = {.json = json, .length = length};

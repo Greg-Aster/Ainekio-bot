@@ -35,6 +35,7 @@ PCM_S16_MAX = 32767
 TEST_TONE_FRAME_COUNT = 100
 STATIC_ROOT = Path(__file__).with_name("static")
 ROBOT_MAINTENANCE = {
+    "/api/robot/servo-feedback": "/api/servo-feedback",
     "/api/robot/logs": "/api/logs",
     "/api/robot/recording": "/api/recording",
     "/api/robot/recordings": "/api/recordings",
@@ -460,6 +461,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     payload = self._read_json()
                     if payload is None: return
                     operation = _required_string(payload, "op")
+                    if path == "/api/robot/servo-feedback":
+                        headers["Content-Type"] = "application/json"
+                        operation = json.dumps(payload, allow_nan=False)
                     upstream.request("POST", target, operation, headers)
             else:
                 upstream.request("GET", target, headers=headers)
@@ -536,6 +540,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             self.server.audit_log.record("host_network_changed", **network)
             return {"ok": True, "host_network": network}
+        if path == "/api/motion-plan":
+            frames = payload.get("frames")
+            if not isinstance(frames, list):
+                raise ValueError("frames must be a list of [duration_ms, joint_targets_centidegrees]")
+            sequence = self.server.call_gateway(self.server.gateway.queue_motion_plan(
+                frames, end=_required_string(payload, "end"), robot_id=robot_id))
+            self.server.audit_log.record("motion_plan_issued", robot_id=robot_id, sequence=sequence)
+            return {"ok": True, "seq": sequence}
         if path == "/api/intent":
             name = _required_string(payload, "name")
             params = payload.get("params")

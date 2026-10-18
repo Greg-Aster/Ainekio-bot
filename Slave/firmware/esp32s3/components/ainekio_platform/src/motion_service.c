@@ -53,8 +53,8 @@ static bool motion_plan_valid(const ainekio_motion_plan_t *plan)
         }
         for (uint8_t joint_id = 0U; joint_id < AINEKIO_SERVO_COUNT;
              ++joint_id) {
-            if (frame->targets[joint_id] >
-                AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES) {
+            if (frame->targets[joint_id] < 0 || frame->targets[joint_id] >
+                (int32_t)AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES) {
                 return false;
             }
         }

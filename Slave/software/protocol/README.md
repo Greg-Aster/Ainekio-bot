@@ -46,6 +46,36 @@ unready movement is rejected before gateway dispatch, and firmware admission
 independently applies model support after session, expiry and sequence checks.
 No raw twelve-joint motion/calibration payload is introduced by this feature.
 
+## P4 twelve-joint Freestyle
+
+P4 firmware 0.8.60 advertises `motion_plan_v2`. The existing `motion_plan`
+envelope uses `map:2` and frames of `[duration_ms, [twelve targets]]`. Targets
+are signed model-angle centidegrees, in `joints_v2.py` order: rear-left,
+rear-right, front-left, front-right; each leg has shoulder, carrier, crank.
+They are not pulse widths or angles relative to the saved Home pose. Saved
+joint mounting references, inversion and scaling convert them to pulses.
+
+Map 2 supports 1–32 frames, positive uint32 millisecond frame durations, and
+signed int32 targets. The P4 control decoder accepts up to 8192 bytes. Map 1
+and its existing eight-servo representation and timing limits remain unchanged.
+The gateway selects the map from the negotiated robot model and feature.
+
+P4 interpolates linearly from its last commanded pose using each frame's
+duration, through the existing staggered PCA9685 output owner. It adds no Home,
+Stand, easing or named-motion speed multiplier before the plan. Endpoints are
+written at the existing 50 Hz output cadence before advancing, so sub-tick
+durations cannot imply faster physical output. These are commanded targets;
+there is no shaft-position feedback. An initially unknown commanded pose uses
+the first target as the initial output.
+
+`end:"hold"` holds the final target; `end:"stand"` or `end:"neutral"`
+explicitly requests that final named pose. Completion follows its actual
+execution. Stop, replacement and disconnect retain existing command semantics.
+Freestyle clears active balance corrections without changing the saved
+self-leveling setting: arbitrary joint plans do not define foot contact or a
+body pose for the balance solver. Explicit `end:"stand"` resumes normal Stand
+feedback.
+
 ## Saved joint speed limit
 
 V2 `joint_speed_limit_v1` extends the existing motion-speed command with
