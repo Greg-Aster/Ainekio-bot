@@ -45,11 +45,61 @@ void ainekio_v2_balance_track(const ainekio_v2_frame_t *target,
     ainekio_v2_balance_track_tolerant(target,measured,previous,NULL,dt,joint_speed,out,tracking);
 }
 
-void ainekio_v2_balance_response_apply(ainekio_v2_balance_t *s,
+/* Project measured joint lag onto the two body-control axes. Only the target
+ * needs to close mechanically: noisy measured joint triples need not form a
+ * perfect linkage. Numerical derivatives retain the target assembly branch. */
+static void actuator_lag(ainekio_v2_balance_t *state,
+    const ainekio_v2_walk_pose_t *nominal,const double points[4][3],
+    const ainekio_v2_frame_t *previous,const ainekio_v2_frame_t *measured,
+    const double tolerance[12],ainekio_v2_balance_tracking_t *tracking)
+{
+    memset(tracking,0,sizeof(*tracking));
+    double residual[12],jacobian[12][2];bool any=false;
+    for(unsigned j=0;j<12;j++) {
+        const double error=(previous->position[j]-measured->position[j])*.01;
+        tracking->error_deg[j]=error;
+        if(!state->actuator_reference_valid)state->actuator_bias_deg[j]=error;
+        const double relative=error-state->actuator_bias_deg[j];
+        residual[j]=copysign(fmax(0.,fabs(relative)-tolerance[j]),relative)*100.;
+        any=any||residual[j]!=0.;
+    }
+    state->actuator_reference_valid=true;
+    tracking->observable=true;
+    if(!any)return;
+    for(unsigned axis=0;axis<2;axis++) {
+        bool solved=false;
+        for(int direction=1;direction>=-1;direction-=2) {
+            const double step=direction*.0008726646259971648; /* 0.05deg derivative */
+            ainekio_v2_walk_pose_t displaced=*nominal;
+            for(unsigned a=0;a<2;a++)displaced.euler[a]+=state->correction[a];
+            displaced.euler[axis]+=step;displaced.frame=*previous;
+            for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
+                displaced.joints[l][j]=previous->position[(l<2?l+2:l-2)*3+j]*.00017453292519943296;
+            if(points ? ainekio_v2_contact_solve(&displaced,points) : ainekio_v2_walk_solve(&displaced)) {
+                for(unsigned j=0;j<12;j++)jacobian[j][axis]=(displaced.frame.position[j]-previous->position[j])/step;
+                solved=true;break;
+            }
+        }
+        if(!solved){tracking->observable=false;return;}
+    }
+    double aa=0.,ab=0.,bb=0.,ar=0.,br=0.;
+    for(unsigned j=0;j<12;j++) {
+        const double a=jacobian[j][0],b=jacobian[j][1];
+        aa+=a*a;ab+=a*b;bb+=b*b;ar+=a*residual[j];br+=b*residual[j];
+    }
+    const double determinant=aa*bb-ab*ab;
+    if(!(determinant>1e-12*aa*bb)){tracking->observable=false;return;}
+    tracking->body_lag_rad[0]=(bb*ar-ab*br)/determinant;
+    tracking->body_lag_rad[1]=(aa*br-ab*ar)/determinant;
+}
+
+static void balance_response(ainekio_v2_balance_t *s,
     const float q[4],const float rate[3],bool usable,double dt,
     const ainekio_v2_walk_pose_t *nominal,const double local_points[4][3],
     const ainekio_v2_frame_t *previous,double joint_speed,ainekio_v2_walk_pose_t *out,
-    const ainekio_v2_balance_tuning_t *tuning,bool standing,double response_direction)
+    const ainekio_v2_balance_tuning_t *tuning,bool standing,double response_direction,
+    const ainekio_v2_frame_t *measured,const double tolerance[12],
+    ainekio_v2_balance_tracking_t *tracking)
 {
     *out=*nominal;
     s->sensor_usable=usable;s->reduced=false;s->applied_fraction=1.;
@@ -58,20 +108,30 @@ void ainekio_v2_balance_response_apply(ainekio_v2_balance_t *s,
         s->measured[0]=atan2(2.*(w*x+y*z),1.-2.*(x*x+y*y));
         s->measured[1]=asin(fmax(-1.,fmin(1.,2.*(w*y-z*x))));
     }
-    /* Standing integrates attitude error into the accepted body offset. A
-     * persistent tilt keeps moving the planted linkage instead of settling
-     * at 40% of the error. Gyro rate damps the approach to level. Moving gaits
-     * retain their existing filtered PD correction around the authored pose. */
+    if(tracking)actuator_lag(s,nominal,local_points,previous,measured,tolerance,tracking);
+    /* Taper stationary correction as attitude error shrinks. At Strength 1
+     * the response rate approaches 2/s near level and 8/s at large tilt, with
+     * 5deg at the middle of that curve. Exponential gain keeps the requested
+     * fraction consistent across update intervals. Targets still go directly
+     * to PWM; moving-gait filtering and unavailable-sensor fade are unchanged. */
     double desired[2];
     for(unsigned j=0;j<2;j++) {
         const double offset=(j==0 ? tuning->roll_deg : -tuning->pitch_deg)*.017453292519943295;
         const double direction=response_direction;
         const double error=direction*(nominal->euler[j]+offset-s->measured[j]);
         const double angular_rate=direction*rate[j];
-        double target=usable ? .4*tuning->strength*error-.05*tuning->damping*angular_rate : 0.;
-        desired[j]=standing && usable ? s->correction[j]+
-            dt*(2.*tuning->strength*error-.2*tuning->damping*angular_rate) :
-            s->correction[j]+dt/(.25+dt)*(target-s->correction[j]);
+        if(standing && usable) {
+            const double relative_error=error/(5.*.017453292519943295);
+            const double squared=relative_error*relative_error;
+            const double response_rate=2.+6.*squared/(1.+squared);
+            const double gain=-expm1(-response_rate*tuning->strength*dt);
+            const double back_calculation=tracking && tracking->observable ?
+                -expm1(-4.*dt)*tracking->body_lag_rad[j] : 0.;
+            desired[j]=s->correction[j]+gain*error-dt*.2*tuning->damping*angular_rate-back_calculation;
+        } else {
+            const double target=usable ? .4*tuning->strength*error-.05*tuning->damping*angular_rate : 0.;
+            desired[j]=s->correction[j]+dt/(.25+dt)*(target-s->correction[j]);
+        }
     }
     if(desired[0]==0. && desired[1]==0. && s->correction[0]==0. && s->correction[1]==0.)return;
     for(unsigned attempt=0;attempt<13;attempt++) {
@@ -93,7 +153,7 @@ void ainekio_v2_balance_response_apply(ainekio_v2_balance_t *s,
         }
         bool fits=fraction==0. || (local_points ? ainekio_v2_contact_solve(&candidate,local_points)
                                                           : ainekio_v2_walk_solve(&candidate));
-        if(fits && fraction>0.)for(unsigned j=0;j<12;j++) {
+        if(fits && fraction>0. && !(standing && usable))for(unsigned j=0;j<12;j++) {
             /* Preserve the base trajectory even when its existing owner is
              * retiming it. A correction may not increase an existing excess. */
             double allowed=joint_speed*dt*100.;
@@ -108,6 +168,27 @@ void ainekio_v2_balance_response_apply(ainekio_v2_balance_t *s,
             return;
         }
     }
+}
+
+void ainekio_v2_balance_response_apply(ainekio_v2_balance_t *s,
+    const float q[4],const float rate[3],bool usable,double dt,
+    const ainekio_v2_walk_pose_t *nominal,const double points[4][3],
+    const ainekio_v2_frame_t *previous,double joint_speed,ainekio_v2_walk_pose_t *out,
+    const ainekio_v2_balance_tuning_t *tuning,bool standing,double direction)
+{
+    balance_response(s,q,rate,usable,dt,nominal,points,previous,joint_speed,out,
+        tuning,standing,direction,NULL,NULL,NULL);
+}
+
+void ainekio_v2_balance_feedback_apply(ainekio_v2_balance_t *s,
+    const float q[4],const float rate[3],double dt,
+    const ainekio_v2_walk_pose_t *nominal,const double points[4][3],
+    const ainekio_v2_frame_t *previous,const ainekio_v2_frame_t *measured,
+    const double tolerance[12],ainekio_v2_walk_pose_t *out,
+    const ainekio_v2_balance_tuning_t *tuning,ainekio_v2_balance_tracking_t *tracking)
+{
+    balance_response(s,q,rate,true,dt,nominal,points,previous,INFINITY,out,
+        tuning,true,1.,measured,tolerance,tracking);
 }
 
 void ainekio_v2_balance_configured_apply(ainekio_v2_balance_t *s,

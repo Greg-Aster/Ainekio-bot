@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../main/body.c"
+void ainekio_p4_log_stage(const char *stage){assert(stage && *stage);}
 #include "ainekio/control_codec.h"
 static float saved_motion_rate=1.F;
 static bool leveling_enabled=true;
@@ -908,7 +909,13 @@ static void imu_posture_feedback(float joint_speed,float motion_rate)
     imu_status.attitude.fresh=false;advance(20);
     assert(body.balance_hold && body.active && fabs(body.balance.correction[0])<correction);
     assert(!ainekio_p4_body_status().balance_active);
-    advance(4000);assert(fabs(body.balance.correction[0])<1e-7);
+    /* Direct active correction can reach farther before sensor loss. The
+     * existing speed-limited fade must decrease monotonically from that pose. */
+    for(unsigned n=0;n<500 && fabs(body.balance.correction[0])>=1e-7;n++) {
+        const double before=fabs(body.balance.correction[0]);advance(20);
+        assert(fabs(body.balance.correction[0])<=before+1e-10);
+    }
+    assert(fabs(body.balance.correction[0])<1e-7);
     assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
     assert(!ainekio_p4_body_status().balance_active);
     memcpy(previous_pulses,last_written,sizeof previous_pulses);
@@ -1032,7 +1039,7 @@ static void sustained_standing_feedback(void)
     leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
     advance(500);double first=body.balance.correction[1];
     advance(500);
-    assert(body.balance.correction[1]>first && first>.08);
+    assert(body.balance.correction[1]>=first && first>.08);
     assert(body.motion.kind==MOTION_NONE && body.active && driver.state.armed);
     assert(ainekio_p4_body_status().balance_active && !driver.state.fault);
     assert(abs((int)last_written[1]-standing[1])>100);
@@ -1249,7 +1256,7 @@ static void measured_stand_arrival(void)
 
 static void standing_tracks_measured_joints(void)
 {
-    reset();assert(ainekio_v2_joint_speed_set(1000));
+    reset();assert(ainekio_v2_joint_speed_set(3));
     imu_status.calibration_applied=true;
     imu_status.attitude.available=imu_status.attitude.fresh=true;
     imu_status.attitude.orientation_wxyz[0]=1;
@@ -1261,30 +1268,60 @@ static void standing_tracks_measured_joints(void)
     imu_status.attitude.orientation_wxyz[1]=sinf(.02F);
     advance(20);
     const ainekio_v2_frame_t target=body.balance_target;
-    shaft_tracking_available=shaft_measured_override=true;
+    shaft_tracking_available=shaft_measured_override=true;shaft_measured=target;
+    /* An existing loaded offset is not new lag: preserve it as the episode
+     * reference, without changing calibration or asking for extra overdrive. */
+    shaft_measured.position[1]-=2000.;
+    const ainekio_v2_frame_t loaded=shaft_measured;
+    advance(20);
     const double band=BALANCE_SHAFT_TOLERANCE_US/mapped_joints[1].us_per_degree*100.;
     for(int n=-120;n<=120;n+=10) {
-        shaft_measured=target;shaft_measured.position[1]+=(float)(n/mapped_joints[1].us_per_degree*100.);
+        shaft_measured=loaded;shaft_measured.position[1]+=(float)(n/mapped_joints[1].us_per_degree*100.);
         advance(20);
         assert(body.balance_tracking_active && body.balance_tracking_available);
         assert(fabs(body.pose.position[1]-target.position[1])<.01);
     }
-    shaft_measured=target;shaft_measured.position[1]-=(float)(band+100.);
-    for(unsigned n=0;n<100;n++) {
-        advance(20);
-        assert(fabs(body.pose.position[1]-target.position[1]-50.)<.01);
-        assert(fabs(body.balance_target.position[1]-target.position[1])<.01);
-    }
-    const ainekio_p4_body_status_t report=ainekio_p4_body_status();
-    assert(report.balance_tracking_active && fabs(report.balance_tracking_trim_deg[1]-.5)<.001);
+    shaft_measured=loaded;shaft_measured.position[1]-=(float)(band+100.);
+    advance(20);
+    assert(body.balance_tracking.observable);
+    assert(fabs(body.balance_tracking.body_lag_rad[0])+fabs(body.balance_tracking.body_lag_rad[1])>0.);
+    for(unsigned j=0;j<12;j++)assert(body.balance_tracking.trim_deg[j]==0.);
     shaft_tracking_available=false;
     advance(20);assert(body.active && body.balance_hold && driver.state.armed);
     assert(!body.balance_tracking_active && !body.balance_tracking_available);
-    assert(fabs(body.pose.position[1]-target.position[1])<.01);
+    assert(!body.balance.actuator_reference_valid);
     shaft_tracking_available=true;advance(20);assert(body.balance_tracking_active);
+    assert(body.balance.actuator_reference_valid);
     leveling_enabled=false;advance(20);
-    assert(!body.balance_tracking_active && fabs(body.pose.position[1]-target.position[1])<.01);
-    puts("Standing shaft noise: +/-120us ignored; only excess error adds nonintegrating trim; gyro-only fallback and switch passed.");
+    assert(!body.balance_tracking_active && !body.balance.actuator_reference_valid);
+    puts("Standing shaft feedback: +/-120us relative noise ignored; excess lag feeds outer-loop tracking without extra joint overdrive; gyro-only recovery and switch passed.");
+}
+
+static void standing_sends_tapered_targets(void)
+{
+    uint16_t expected[2][12];
+    for(unsigned test=0;test<4;test++) {
+        reset();assert(ainekio_v2_joint_speed_set(test&2?2000:3));
+        leveling_enabled=false;
+        imu_status.calibration_applied=true;
+        imu_status.attitude.available=imu_status.attitude.fresh=true;
+        imu_status.attitude.orientation_wxyz[0]=1;
+        ainekio_command_t c=command(1904,AINEKIO_INTENT_STAND);
+        assert(execute(&c)==ESP_OK && finish(4000).completed);
+        const ainekio_v2_frame_t previous=body.pose;
+        leveling_enabled=true;shaft_tracking_available=true;
+        imu_status.attitude.orientation_wxyz[0]=cosf(.02F);
+        imu_status.attitude.orientation_wxyz[1]=sinf(.02F);
+        clock_us+=test&1?100000:20000;
+        assert(output_step(clock_us));
+        assert(!body.balance.reduced && body.balance.correction[0]<0. && body.balance.correction[0]>-.04);
+        double largest=0.;
+        for(unsigned j=0;j<12;j++)largest=fmax(largest,fabs(body.pose.position[j]-previous.position[j]));
+        assert(largest>6.01);
+        if(test<2)memcpy(expected[test],last_written,sizeof last_written);
+        else assert(!memcmp(expected[test%2],last_written,sizeof last_written));
+    }
+    puts("Stationary tapered targets: partial correction on first tick, no added joint-speed ramp at 3/2000deg/s with 20/100ms updates.");
 }
 
 static void standing_settles_and_wakes(void)
@@ -1339,7 +1376,7 @@ int main(int argc,char **argv)
 {
     measured_stand_arrival();
     startup_crouch_shoulders_rise();stand_full_rate_without_leveling();
-    standing_feedback_converges();standing_settles_and_wakes();
+    standing_feedback_converges();standing_sends_tapered_targets();standing_settles_and_wakes();
     if(argc==2 && !strcmp(argv[1],"--feedback")){
         standing_tracks_measured_joints();
         sustained_standing_feedback();

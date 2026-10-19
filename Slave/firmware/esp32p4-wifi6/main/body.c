@@ -1,4 +1,6 @@
 #include "body.h"
+#include "logs.h"
+#include <stdio.h>
 #include "board.h"
 #include "system.h"
 #include "config.h"
@@ -249,6 +251,8 @@ static void publish_motion(void)
         value.balance_tracking_error_deg[j]=(float)body.balance_tracking.error_deg[j];
         value.balance_tracking_trim_deg[j]=(float)body.balance_tracking.trim_deg[j];
     }
+    for(unsigned axis=0;axis<2;axis++)
+        value.balance_tracking_lag_rad[axis]=(float)body.balance_tracking.body_lag_rad[axis];
     /* Observe the successfully written pose, with chassis translation and
      * rotation removed so a downward contact shift means leg extension.
      * This presentation does not feed back into the solver or output path. */
@@ -366,6 +370,10 @@ static void stop_body(esp_err_t result)
 
 static void fail_motion(esp_err_t result)
 {
+    char diagnostic[128];
+    snprintf(diagnostic,sizeof diagnostic,"motion failure: result=%d kind=%d stationary_level=%d",
+        (int)result,(int)body.motion.kind,(int)body.balance_hold);
+    ainekio_p4_log_stage(diagnostic);
     ainekio_pca_emergency_disable(ainekio_p4_output(), result == ESP_ERR_TIMEOUT ?
         AINEKIO_PCA_FAULT_PROGRESS : AINEKIO_PCA_FAULT_EMERGENCY);
     stop_body(result);
@@ -451,6 +459,7 @@ static void balance_frame(const ainekio_v2_walk_pose_t *nominal,const double anc
         if(body.balance_settled ? error<=BALANCE_WAKE_DEG :
             error<=BALANCE_SETTLE_DEG && rate<=BALANCE_SETTLE_RATE_DEG_S) {
             body.balance_settled=true;body.balance.sensor_usable=true;body.balance.reduced=false;
+            body.balance.actuator_reference_valid=false;
             body.balance_tracking_active=false;
             memset(&body.balance_tracking,0,sizeof body.balance_tracking);
             *frame=body.pose; /* Keep the achieved pose, including any accepted tracking trim. */
@@ -458,31 +467,32 @@ static void balance_frame(const ainekio_v2_walk_pose_t *nominal,const double anc
         }
     }
     body.balance_settled=false;
-    /* Gyro integration owns the desired pose, while the separate servo loop
-     * owns its tracking trim. Feeding trim back as the next gyro target would
-     * accumulate a correction even with zero attitude error. */
+    /* The outer body controller owns the target. Measured joint lag unwinds
+     * excess accumulated demand rather than adding another servo drive loop. */
     const ainekio_v2_frame_t *previous=standing&&body.balance_target_valid ?
         &body.balance_target : &body.pose;
-    /* Correct body attitude toward the saved reference. Mirrored servo
-     * directions belong to the joint mapper, not the outer feedback sign. */
-    ainekio_v2_balance_configured_apply(
-        &body.balance,imu.attitude.orientation_wxyz,
-        imu.attitude.angular_rate_rad_s,leveling,dt,
-        nominal,anchors,previous,ainekio_v2_gait_joint_speed_limit(),&adjusted,&tuning,standing);
-    *frame=adjusted.frame;
-    body.balance_target=adjusted.frame;body.balance_target_valid=standing;
     body.balance_tracking_active=false;
     memset(&body.balance_tracking,0,sizeof body.balance_tracking);
-    ainekio_v2_frame_t measured=adjusted.frame;
+    ainekio_v2_frame_t measured=*previous;
     const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
     body.balance_tracking_available=ainekio_p4_feedback_frame(calibration.joints,&measured);
     if(standing && leveling && body.balance_tracking_available) {
         double tolerance[12];
         for(unsigned j=0;j<12;j++)tolerance[j]=BALANCE_SHAFT_TOLERANCE_US/calibration.joints[j].us_per_degree;
-        ainekio_v2_balance_track_tolerant(&adjusted.frame,&measured,&body.pose,tolerance,dt,
-            ainekio_v2_gait_joint_speed_limit(),frame,&body.balance_tracking);
-        body.balance_tracking_active=true;
+        ainekio_v2_balance_feedback_apply(&body.balance,imu.attitude.orientation_wxyz,
+            imu.attitude.angular_rate_rad_s,dt,nominal,anchors,previous,&measured,
+            tolerance,&adjusted,&tuning,&body.balance_tracking);
+        body.balance_tracking_active=body.balance_tracking.observable;
+    } else {
+        body.balance.actuator_reference_valid=false;
+        /* Existing gyro-only behavior when usable shaft feedback is unavailable.
+         * Moving gaits retain their authored-pose controller. */
+        ainekio_v2_balance_configured_apply(&body.balance,imu.attitude.orientation_wxyz,
+            imu.attitude.angular_rate_rad_s,leveling,dt,nominal,anchors,previous,
+            ainekio_v2_gait_joint_speed_limit(),&adjusted,&tuning,standing);
     }
+    *frame=adjusted.frame;
+    body.balance_target=adjusted.frame;body.balance_target_valid=standing;
     body.balance_nominal=*nominal;
     body.balance_contacts=anchors!=NULL;
     if(anchors && anchors!=(const double (*)[3])body.balance_anchors)
@@ -1050,12 +1060,16 @@ static bool output_step(uint64_t now)
                 motion_status.balance_tracking_active=motion_status.balance_tracking_reduced=false;
                 memset(motion_status.balance_tracking_error_deg,0,sizeof motion_status.balance_tracking_error_deg);
                 memset(motion_status.balance_tracking_trim_deg,0,sizeof motion_status.balance_tracking_trim_deg);
+                memset(motion_status.balance_tracking_lag_rad,0,sizeof motion_status.balance_tracking_lag_rad);
                 portEXIT_CRITICAL(&pulse_lock);
                 body.last_frame=esp_timer_get_time();body.next_frame=now+UINT64_C(20000);
                 return true;
             }
             sampling=true;
-            if(!ainekio_p4_frame_pulses(&sampled,body.pulses))error=ESP_ERR_INVALID_ARG;
+            if(!ainekio_p4_frame_pulses(&sampled,body.pulses)) {
+                ainekio_p4_log_stage("stationary leveling target cannot map to PWM");
+                error=ESP_ERR_INVALID_ARG;
+            }
         } else { body.balance_settled=false;error = listen_frame(now, &sampled, &sampling); }
         if (error != ESP_OK) { fail_motion(error); return false; }
     }

@@ -203,7 +203,7 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
         "\"legs_valid\":%s,\"extension_mm\":[%.4g,%.4g,%.4g,%.4g],"
         "\"joint_delta_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g],"
         "\"joint_feedback\":{\"available\":%s,\"active\":%s,\"reduced\":%s,"
-        "\"gain\":0.5,\"tolerance_us\":%.3g,\"error_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g],"
+        "\"mode\":\"actuator_tracking\",\"gain\":0,\"tracking_rate_s\":4,\"body_lag_rad\":[%.5g,%.5g],\"tolerance_us\":%.3g,\"error_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g],"
         "\"trim_deg\":[%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g]},"
         "\"gyro_calibration\":{\"phase\":%u,\"samples\":%u,\"target\":%u,\"error\":%d,"
         "\"bias_rad_s\":[%.6g,%.6g,%.6g],\"deviation_rad_s\":[%.6g,%.6g,%.6g]}}}",
@@ -228,6 +228,7 @@ static size_t append_motion_diagnostics(char *text, size_t capacity, size_t leng
         (double)motion.balance_joint_delta_deg[9],(double)motion.balance_joint_delta_deg[10],(double)motion.balance_joint_delta_deg[11],
         motion.balance_tracking_available?"true":"false",
         (output.armed && motion.balance_tracking_active)?"true":"false",motion.balance_tracking_reduced?"true":"false",
+        (double)motion.balance_tracking_lag_rad[0],(double)motion.balance_tracking_lag_rad[1],
         BALANCE_SHAFT_TOLERANCE_US,
         (double)motion.balance_tracking_error_deg[0],(double)motion.balance_tracking_error_deg[1],(double)motion.balance_tracking_error_deg[2],
         (double)motion.balance_tracking_error_deg[3],(double)motion.balance_tracking_error_deg[4],(double)motion.balance_tracking_error_deg[5],

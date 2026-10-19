@@ -45,6 +45,7 @@ typedef struct {
     bool balance_settled;
     bool balance_tracking_available, balance_tracking_active, balance_tracking_reduced;
     float balance_tracking_error_deg[12], balance_tracking_trim_deg[12];
+    float balance_tracking_lag_rad[2];
     bool servo_feedback_waiting;
     uint16_t servo_feedback_waiting_mask;
     float stand_progress;

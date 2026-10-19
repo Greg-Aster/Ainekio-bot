@@ -20,6 +20,7 @@
 /* Allocate after scheduler startup: this board's pre-v3 early internal RAM is
  * scarce. Acquisition never runs inside the motion/output task. */
 static ainekio_p4_feedback_snapshot_t *state;
+static ainekio_feedback_filter_t *filters;
 static SemaphoreHandle_t config_mutex;
 static portMUX_TYPE lock=portMUX_INITIALIZER_UNLOCKED;
 static adc_oneshot_unit_handle_t adc;
@@ -64,6 +65,7 @@ static void acquire(void *unused)
         ainekio_p4_feedback_snapshot_t sample;ainekio_p4_feedback_snapshot(&sample);
         if(!sample.config.enabled) {
             attempted=false;
+            memset(filters,0,16*sizeof(*filters));
             portENTER_CRITICAL(&lock);state->valid_mask=0;portEXIT_CRITICAL(&lock);
         } else {
             if(!adc&&!attempted) {
@@ -91,13 +93,16 @@ static void acquire(void *unused)
                     sample.millivolts[channel]=-1;
                     if(e==ESP_OK) {
                         sample.raw[channel]=(total+2)/4;sample.spread[channel]=hi-lo;
+                        ainekio_feedback_filter_update(&filters[channel],sample.raw[channel],sample.sampled_us[channel]);
+                        sample.filtered_raw[channel]=(float)filters[channel].position;
+                        sample.velocity_raw_s[channel]=(float)filters[channel].velocity;
                         sample.valid_mask|=1U<<channel;
                         if(cali) {
                             int mv;
                             esp_err_t v=adc_cali_raw_to_voltage(cali,sample.raw[channel],&mv);
                             if(v==ESP_OK)sample.millivolts[channel]=mv;
                         }
-                    } else sample.error=e;
+                    } else {sample.error=e;filters[channel].initialized=false;}
                 }
                 sample.scan_us=esp_timer_get_time()-start;
                 portENTER_CRITICAL(&lock);
@@ -105,6 +110,8 @@ static void acquire(void *unused)
                 if(state->revision==sample.revision&&state->config.enabled) {
                     memcpy(state->raw,sample.raw,sizeof(sample.raw));
                     memcpy(state->spread,sample.spread,sizeof(sample.spread));
+                    memcpy(state->filtered_raw,sample.filtered_raw,sizeof(sample.filtered_raw));
+                    memcpy(state->velocity_raw_s,sample.velocity_raw_s,sizeof(sample.velocity_raw_s));
                     memcpy(state->millivolts,sample.millivolts,sizeof(sample.millivolts));
                     memcpy(state->sampled_us,sample.sampled_us,sizeof(sample.sampled_us));
                     state->valid_mask=sample.valid_mask;state->error=sample.error;
@@ -121,8 +128,9 @@ esp_err_t ainekio_p4_feedback_start(void)
 {
     if(state)return ESP_ERR_INVALID_STATE;
     state=calloc(1,sizeof(*state));config_mutex=xSemaphoreCreateMutex();
-    if(!state||!config_mutex) {
-        free(state);state=NULL;
+    filters=calloc(16,sizeof(*filters));
+    if(!state||!config_mutex||!filters) {
+        free(state);state=NULL;free(filters);filters=NULL;
         if(config_mutex)vSemaphoreDelete(config_mutex);
         config_mutex=NULL;return ESP_ERR_NO_MEM;
     }
@@ -138,7 +146,7 @@ esp_err_t ainekio_p4_feedback_start(void)
     }
     state->error=e==ESP_ERR_NVS_NOT_FOUND?ESP_OK:e;
     if(xTaskCreate(acquire,"servo-feedback",4096,NULL,3,NULL)!=pdPASS) {
-        free(state);state=NULL;vSemaphoreDelete(config_mutex);config_mutex=NULL;
+        free(state);state=NULL;free(filters);filters=NULL;vSemaphoreDelete(config_mutex);config_mutex=NULL;
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
@@ -225,6 +233,8 @@ static cJSON *status_json(void)
         cJSON_AddNumberToObject(v,"channel",channel);cJSON_AddBoolToObject(v,"valid",valid);
         if(valid) {
             cJSON_AddNumberToObject(v,"raw",s.raw[channel]);
+            cJSON_AddNumberToObject(v,"filtered_raw",s.filtered_raw[channel]);
+            cJSON_AddNumberToObject(v,"velocity_raw_s",s.velocity_raw_s[channel]);
             cJSON_AddNumberToObject(v,"spread",s.spread[channel]);
             cJSON_AddNumberToObject(v,"sampled_us",s.sampled_us[channel]);
             cJSON_AddBoolToObject(v,"at_adc_rail",s.raw[channel]==0||s.raw[channel]==4095);
@@ -255,6 +265,13 @@ static cJSON *status_json(void)
             double degrees=(measured-m->home_us)/m->us_per_degree;
             cJSON_AddNumberToObject(v,"model_deg",m->home_cd/100.+(m->invert?-degrees:degrees));
             if(target)cJSON_AddNumberToObject(v,"error_us",target-measured);
+            double filtered,neighbor;
+            if(ainekio_feedback_position(j,s.filtered_raw[j->channel],&filtered,&in_range)&&
+               ainekio_feedback_position(j,s.filtered_raw[j->channel]+1.,&neighbor,&in_range)) {
+                cJSON_AddNumberToObject(v,"filtered_us",filtered);
+                cJSON_AddNumberToObject(v,"velocity_us_s",(neighbor-filtered)*s.velocity_raw_s[j->channel]);
+                if(target)cJSON_AddNumberToObject(v,"filtered_error_us",target-filtered);
+            }
         }
     }
     return o;

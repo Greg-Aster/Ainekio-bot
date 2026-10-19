@@ -839,7 +839,8 @@
       const age = channel?.valid ? Math.max(0, (data.device_us - channel.sampled_us) / 1000) : null;
       const values = [bodyJointNames[joint.id], joint.channel,
         channel?.valid ? `${channel.raw}${Number.isFinite(channel.millivolts) ? ` / ${(channel.millivolts / 1000).toFixed(3)} V` : ""}` : "—",
-        joint.command_us || "Output off", Number.isFinite(joint.measured_us) ? joint.measured_us.toFixed(1) : "Uncalibrated",
+        joint.command_us || "Output off", Number.isFinite(joint.measured_us) ?
+          `${joint.measured_us.toFixed(1)}${Number.isFinite(joint.filtered_us) ? ` raw / ${joint.filtered_us.toFixed(1)} filtered` : ""}` : "Uncalibrated",
         Number.isFinite(joint.error_us) ? joint.error_us.toFixed(1) : "—",
         channel?.valid ? `${age.toFixed(0)} ms old · spread ${channel.spread}${channel.at_adc_rail ? " · ADC rail" : ""}${joint.in_calibrated_range === false ? " · extrapolated" : ""}` : "No sample"];
       for (const value of values) { const cell = document.createElement("td"); cell.textContent = String(value); row.appendChild(cell); }
@@ -995,8 +996,12 @@
     const tracking = online ? b?.joint_feedback : null;
     text("balance-joint-feedback", tracking ?
       b.settled ? "Measured-joint correction resting; the achieved servo targets are held." :
-      tracking.active ? `Standing position feedback active · tracking gain ${tracking.gain}×.` +
-        (Number.isFinite(tracking.tolerance_us) ? ` Errors within ±${tracking.tolerance_us} µs produce no added correction.` : "") +
+      tracking.active ? (tracking.mode === "actuator_tracking" ?
+        "Measured actuator tracking active; accumulated leveling demand follows shaft progress." :
+        `Standing position feedback active · tracking gain ${tracking.gain}×.`) +
+        (Number.isFinite(tracking.tolerance_us) ? (tracking.mode === "actuator_tracking" ?
+          ` Changes in tracking error within ±${tracking.tolerance_us} µs of this correction's starting offset are ignored.` :
+          ` Errors within ±${tracking.tolerance_us} µs produce no added correction.`) : "") +
         (tracking.reduced ? " Additional correction reduced to fit the linkage or joint-speed setting." : "") :
       !tracking.available ? "Measured-joint feedback unavailable; gyro-only leveling remains available." :
         "Measured joints available; position tracking engages during active standing self-leveling." :
@@ -1007,7 +1012,9 @@
     text("balance-joint-errors", tracking?.active ?
       `Target minus measured (shoulder / carrier / crank): ${jointValues(tracking.error_deg)}` : "");
     text("balance-joint-trims", tracking?.active ?
-      `Added position correction: ${jointValues(tracking.trim_deg)}` : "");
+      tracking.mode === "actuator_tracking" && tracking.body_lag_rad?.length === 2 ?
+        `Joint lag projected into body motion: roll ${angle(tracking.body_lag_rad[0] * 180 / Math.PI)}, pitch ${angle(-tracking.body_lag_rad[1] * 180 / Math.PI)}. No added servo overdrive.` :
+        `Added position correction: ${jointValues(tracking.trim_deg)}` : "");
     const legs = online && b?.legs_valid && b.extension_mm?.length === 4 && b.joint_delta_deg?.length === 12;
     for (let l=0; l<4; l++) {
       const joint = (l < 2 ? l+2 : l-2)*3;

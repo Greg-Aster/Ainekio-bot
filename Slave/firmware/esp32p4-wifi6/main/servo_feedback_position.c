@@ -11,12 +11,14 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
     for(unsigned j=0;j<12;j++) {
         if(mapping[j].channel<0)continue;
         unsigned channel=s.config.joint[j].channel;
-        double pulse;bool in_range;
+        double pulse,neighbor;bool in_range;
         if(!(s.valid_mask&(1U<<channel))||
-           !ainekio_feedback_position(&s.config.joint[j],s.raw[channel],&pulse,&in_range))return false;
+           !ainekio_feedback_position(&s.config.joint[j],s.filtered_raw[channel],&pulse,&in_range)||
+           !ainekio_feedback_position(&s.config.joint[j],s.filtered_raw[channel]+1.,&neighbor,&in_range))return false;
         double delta=(pulse-mapping[j].home_us)/mapping[j].us_per_degree;
         result.position[j]=mapping[j].home_cd+100.*(mapping[j].invert?-delta:delta);
-        result.velocity[j]=0;
+        result.velocity[j]=100.*(mapping[j].invert?-1.:1.)*
+            (neighbor-pulse)*s.velocity_raw_s[channel]/mapping[j].us_per_degree;
     }
     *frame=result;return true;
 }

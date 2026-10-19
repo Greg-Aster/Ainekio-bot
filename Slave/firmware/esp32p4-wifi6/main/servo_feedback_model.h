@@ -25,3 +25,12 @@ bool ainekio_feedback_calibrated(const ainekio_feedback_joint_t *joint);
  * Outside the captured range, extrapolate explicitly; never clip travel. */
 bool ainekio_feedback_position(const ainekio_feedback_joint_t *joint,
     double raw,double *pulse_us,bool *in_range);
+/* Motion-adaptive measurement filter. Raw calibration samples stay separate.
+ * Timestamped per channel; no target commands, travel clipping or blocking. */
+typedef struct {
+    double raw, position, derivative, velocity;
+    int64_t sampled_us;
+    bool initialized;
+} ainekio_feedback_filter_t;
+void ainekio_feedback_filter_update(ainekio_feedback_filter_t *filter,
+    double raw,int64_t sampled_us);
