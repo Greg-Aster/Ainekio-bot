@@ -6,6 +6,7 @@ struct httpd_req;
 
 typedef struct {
     uint16_t raw[16], spread[16], valid_mask;
+    float filtered_raw[16], velocity_raw_s[16];
     int millivolts[16];
     int64_t sampled_us[16];
     uint32_t scan, scan_us, revision;

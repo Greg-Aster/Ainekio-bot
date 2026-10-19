@@ -2,6 +2,28 @@
 #include <math.h>
 #include <string.h>
 
+static double filter_alpha(double cutoff,double dt)
+{
+    return 1./(1.+1./(6.2831853071795864769*cutoff*dt));
+}
+void ainekio_feedback_filter_update(ainekio_feedback_filter_t *f,double raw,int64_t now)
+{
+    if(!f->initialized) {
+        *f=(ainekio_feedback_filter_t){.raw=raw,.position=raw,.sampled_us=now,.initialized=true};
+        return;
+    }
+    if(now<=f->sampled_us)return; /* A duplicate observation is not new motion. */
+    const double dt=(now-f->sampled_us)/1e6;
+    const double derivative_alpha=filter_alpha(5.,dt);
+    f->derivative+=derivative_alpha*((raw-f->raw)/dt-f->derivative);
+    /* One-Euro style adaptive cutoff, in ADC counts: quiet at rest, faster
+     * through real motion. These are measurement bandwidths, not motor rates. */
+    const double alpha=filter_alpha(1.5+.002*fabs(f->derivative),dt);
+    const double position=f->position+alpha*(raw-f->position);
+    f->velocity+=derivative_alpha*((position-f->position)/dt-f->velocity);
+    f->position=position;f->raw=raw;f->sampled_us=now;
+}
+
 void ainekio_feedback_defaults(ainekio_feedback_config_t *c)
 {
     memset(c,0,sizeof(*c));

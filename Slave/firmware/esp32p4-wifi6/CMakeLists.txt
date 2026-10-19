@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.8.68-p4-level-settle")
+set(PROJECT_VER "0.8.71-p4-level-tracking")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/faces"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/imu"

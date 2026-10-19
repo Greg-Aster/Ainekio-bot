@@ -3,8 +3,35 @@
 #include <math.h>
 #include <stdio.h>
 
+static void measurement_filter(void)
+{
+    ainekio_feedback_filter_t f={0};
+    ainekio_feedback_filter_update(&f,2000,1000000);
+    assert(f.position==2000 && f.velocity==0);
+    double raw_energy=0.,filtered_energy=0.;
+    for(unsigned n=1;n<=300;n++) {
+        double raw=2000+(n%2?40:-40);
+        ainekio_feedback_filter_update(&f,raw,1000000+n*20000);
+        if(n>50){raw_energy+=(raw-2000)*(raw-2000);filtered_energy+=(f.position-2000)*(f.position-2000);}
+    }
+    assert(sqrt(filtered_energy/raw_energy)<.25);
+    double held=f.position;ainekio_feedback_filter_update(&f,1000,f.sampled_us);
+    assert(f.position==held);
+    for(unsigned n=0;n<4;n++)ainekio_feedback_filter_update(&f,3000,f.sampled_us+20000);
+    assert(f.position>2900 && f.position<=3000);
+    f=(ainekio_feedback_filter_t){0};
+    for(unsigned n=0;n<=50;n++) {
+        double raw=500+60*n;
+        ainekio_feedback_filter_update(&f,raw,1000000+n*20000);
+        if(n>20)assert(raw-f.position<90);
+    }
+    assert(fabs(f.velocity-3000)<30);
+    printf("Feedback filter: stationary noise RMS ratio %.3f; 1000-count step >90%% within 80ms; ramp lag <90 counts at 3000 counts/s.\n",sqrt(filtered_energy/raw_energy));
+}
+
 int main(void)
 {
+    measurement_filter();
     ainekio_feedback_config_t c;ainekio_feedback_defaults(&c);
     assert(ainekio_feedback_config_valid(&c));
     assert(!c.enabled&&!c.stand_enabled);

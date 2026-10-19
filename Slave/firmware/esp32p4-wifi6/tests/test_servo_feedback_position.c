@@ -20,12 +20,18 @@ int main(void)
         sample.config.joint[j]=(ainekio_feedback_joint_t){.channel=c,.points=7,
             .point={{j%2?3500:500,500},{2000,1500},{j%2?500:3500,2500}}};
         sample.raw[c]=j%2?1850:2150;sample.sampled_us[c]=1001;
+        sample.filtered_raw[c]=sample.raw[c];sample.velocity_raw_s[c]=30;
         targets[11-j]=1600;
     }
     assert(ainekio_feedback_config_valid(&sample.config));
     ainekio_v2_frame_t frame={0};
     assert(ainekio_p4_feedback_frame(mapping,&frame));
     for(unsigned j=0;j<12;j++)assert(fabs(frame.position[j]-(j%2?0:2000))<1e-6);
+    for(unsigned j=0;j<12;j++)assert(fabs(frame.velocity[j]-200)<1e-6);
+    /* Filtering affects level feedback, not raw Home capture/arrival samples. */
+    sample.filtered_raw[sample.config.joint[0].channel]+=15;
+    assert(ainekio_p4_feedback_frame(mapping,&frame));
+    assert(fabs(frame.position[0]-2100)<1e-6);
     assert(ainekio_p4_feedback_arrived(mapping,targets,1000,&waiting)&&!waiting);
     /* A physically wrong target, not the command receipt, controls arrival. */
     targets[mapping[4].channel]=1700;

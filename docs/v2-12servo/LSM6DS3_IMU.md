@@ -93,6 +93,9 @@ Stand are separate features with separate saved switches.
 
 ## Measured-joint leveling (0.8.65)
 
+Historical behavior below: 0.8.71 replaces the extra half-error trim with
+actuator tracking, described at the end of this document.
+
 During stationary Stand, Self-leveling combines the IMU attitude target with
 the calibrated MG90 feedback wires. The gyro controller calculates the desired
 pose; each servo's measured position then supplies an additional correction
@@ -162,6 +165,10 @@ stationary sample; that sample does not distinguish electrical noise from actual
 servo hunting. The tolerance also leaves real tracking errors within that band
 to the gyro controller rather than adding shaft trim.
 
+In 0.8.71 the same 120 µs tolerance instead applies to changes in measured
+tracking error during a correction episode; no additional half-error trim is
+commanded. See the actuator-tracking section below.
+
 Settled leveling skips inverse/forward kinematics, measured-joint conversion and
 servo target writes. IMU monitoring and shared feedback acquisition remain
 available to other features. The PCA9685 continues its existing PWM: this saves
@@ -172,6 +179,62 @@ Production-owner tests cover noisy readings, held targets without repeated PWM
 writes, wake on tilt, new commands and the existing unavailable-sensor behavior.
 Firmware 0.8.68 is installed and reports settled with correction inactive.
 Physical chatter reduction and disturbance recovery still need observation.
+
+## Direct active stationary correction (0.8.69)
+
+While stationary leveling is active, each update requests the complete remaining
+attitude correction, scaled by the existing Strength setting. At Strength 1,
+zero angular rate and reachable geometry, a 4° error requests a 4° body correction
+on the first update. Previously it requested 0.16° per 20 ms update. The accepted
+offset is retained for subsequent corrections; the existing angular-rate damping
+term remains. No software joint-speed ramp applies to the active stationary
+gyro target or its additional fourth-wire trim.
+
+Existing linkage feasibility checks still determine whether a target can be
+represented by this robot. The 120 µs hunting tolerance, 0.5° settle / 1° wake
+thresholds and quiet holding behavior are unchanged. Moving-gait balance and
+the existing disabled/unavailable-sensor fade are unchanged. Direct targets
+do not guarantee a particular motor torque or physical arrival time; those
+remain dependent on the servo, supply and load.
+
+Native tests verify identical first-update PWM targets with speed settings of
+3 and 2000°/s and update intervals of 20 and 100 ms at zero angular rate. Quiet
+hold, shaft tolerance, both-axis model convergence and motion regressions pass.
+Firmware 0.8.69 was installed with calibration/settings preserved. The owner
+then reported twitching and an output failure; 0.8.70 supersedes this response.
+
+## Tapered active correction (0.8.70)
+
+The owner reported twitching and a failed Stand/output state with 0.8.69's
+full-error requests. Version 0.8.70 replaces those requests with a response
+that tapers as the remaining tilt shrinks. With Strength 1, zero angular rate
+and a 20 ms update, the requested fraction is approximately:
+
+| Remaining tilt | Fraction corrected this update |
+| --- | --- |
+| 5° | 9.52% |
+| 2° | 5.50% |
+| 1° | 4.36% |
+| 0.5° | 4.04%, unless quiet hold has already settled |
+
+The response rate is `2 + 6*r²/(1+r²)` per second, where `r` is tilt error
+divided by 5°. The requested fraction is `1-exp(-rate*Strength*dt)`; Damping
+retains its existing angular-rate term. Strength changes the approach rate.
+This deliberately reduces successive correction steps near level; it is not
+a motor-current or motor-power setting. The accepted targets still have no
+additional joint-speed ramp. The fourth-wire tolerance, settle/wake thresholds,
+moving-gait balance and existing unavailable-sensor behavior remain unchanged.
+
+Native tests include a hypothetical 40 ms command delay and 200 ms actuator
+response, in addition to instantaneous-actuator and production-controller tests.
+Those assumed timings are not measured MG90 performance. The live failure
+readback showed output fault 1, with the controller online and zero I²C failures;
+the available boot log did not establish a new crash or brownout. Added motion
+failure/result and stationary-target mapping diagnostics improve future Wi-Fi
+logs. Tapering alone does not establish the cause or resolution of that fault.
+Firmware 0.8.70 is installed and accepted with calibration/settings preserved.
+Readback reports settled with no output fault; loaded recovery still needs
+physical observation.
 
 ## Connection checks and evidence
 
@@ -189,6 +252,44 @@ These are firmware configuration values, not guaranteed delivered sample rate
 under every workload. This documentation update did not move or recalibrate the
 robot. Current mounting and loaded correction performance need physical checks
 after reassembly.
+
+## Filtered measurements and actuator tracking (0.8.71)
+
+Fourth-wire acquisition retains the discarded first ADC conversion and four-read
+average after each multiplexer switch. It now also estimates position and velocity
+across scans with a One-Euro-style adaptive filter: 1.5 Hz resting cutoff, 5 Hz
+derivative cutoff, and 0.002 Hz per ADC-count/s speed coefficient. These are
+measurement bandwidths, not servo speed limits. Actual sample timestamps determine
+the filter interval. Raw readings, voltage, sample spread, Home capture and saved
+three-point calibration remain unchanged. Body Control exposes both raw and
+filtered pulse-equivalent position; the API also exposes estimated velocity.
+The separate measured-Stand arrival decision continues using its existing raw
+measurement and tolerance.
+
+Active stationary leveling uses filtered shaft progress to track its actuator
+response. At the start of each correction episode it records the current
+target-minus-measurement offset. This transient reference tolerates an existing
+loaded offset without changing calibration. Subsequent tracking-error changes
+inside ±120 µs are ignored. Beyond that band, the linkage's local joint/body
+Jacobian projects measured lag into roll/pitch demand. Back-calculation at 4/s
+removes that lag from accumulated leveling correction. This replaces the extra
+half-error joint overdrive; no extra servo trim is sent. The IMU still supplies
+the attitude error, with the 0.8.70 taper and existing direction conventions.
+
+The reference resets on settling or loss of usable feedback. Existing gyro-only
+operation continues when feedback is unavailable; a locally unobservable linkage
+projection contributes no back-calculation. This adds no stop, arrival wait,
+timeout, travel restriction or speed limit. Quiet holding remains 0.5° settle /
+1° wake, with the existing angular-rate condition. Moving-gait control is unchanged.
+
+Filter and tracking parameters are initial engineering choices, validated with
+synthetic noise, blocked/delayed actuator models and native controller tests.
+They still require loaded hardware observation. Filtering cannot distinguish
+every electrical fluctuation from real shaft motion, and firmware cannot remove
+an MG90's internal holding chatter while its target is unchanged.
+
+Algorithm references: [One Euro filter](https://gery.casiez.net/1euro/) and
+[actuator tracking anti-windup](https://www.mathworks.com/help/simulink/slref/anti-windup-control-using-a-pid-controller.html).
 
 ## Sources
 

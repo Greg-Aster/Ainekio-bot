@@ -4456,3 +4456,210 @@ reuse a status sample and are not independent high-rate physical observations.
 Host tests establish skipped writes while settled; physical chatter reduction
 and disturbance recovery still need the owner's observation. No movement or
 level-enable command was issued by the deployment tools.
+
+### 2026-10-18 — Direct active stationary leveling, 0.8.69
+
+Owner explicitly requested direct corrective targets for active stationary
+leveling while retaining hunting tolerance and settled/wake behavior. The body
+attitude controller now requests the complete remaining tilt error scaled by
+Strength, instead of the previous dt*2 approach (4% per 20 ms at Strength 1).
+The existing per-update angular-rate damping term remains. Active stationary
+correction bypasses the joint-speed ramp; stationary fourth-wire tracking also
+passes its complete target/trim through without that ramp. The existing geometry
+solver and correction-only feasibility reduction remain. No new guard, delay,
+shutdown or fallback was added. Moving-gait balance, disabled/stale-sensor fade,
+servo calibration, feedback curves and quiet-hold thresholds are unchanged.
+
+Regression tests demonstrate identical first-update PWM targets at speed settings
+3/2000 deg/s and update intervals 20/100 ms with zero angular rate. The shaft-trim
+regression now runs at 3 deg/s and verifies that its 0.5 degree trim is sent whole,
+not ramped. +/-120 us noise tolerance, no writes during settled hold, wake on tilt,
+new commands, missing-feedback behavior and both-axis ideal planted-body
+convergence pass. Final ideal-model residual is about +/-0.00536 degrees; this
+is not measured hardware performance. The larger reachable correction required
+updating the unavailable-sensor regression to verify monotonic completion of its
+existing speed-limited fade rather than assuming the previous smaller excursion
+could always finish fading in four seconds. Full native body suite (23 clips and
+locomotion), portable balance tests and ESP-IDF 5.5.4 firmware build pass.
+
+Direct position targets do not constitute a motor-current or torque setting.
+Actual loaded speed, torque and settling remain to be checked on the robot.
+
+Frozen artifact: 0.8.69-p4-level-direct, 2905344 bytes, SHA-256
+99065e7a3a06f9024392ffef36575e336086a7ab926d031271dac010846d1f96. Deployment tools/receipts:
+/tmp/ainekio-level-direct-20261018/. Not installed yet.
+
+Deployment completed after supported/servo-power-off confirmation. The local
+Body Control gateway initially refused connections; its existing user service
+was stopped. Started that existing service, then captured calibration and
+settings before uploading. Wi-Fi OTA accepted 0.8.69-p4-level-direct on ota_1,
+pending_verify=false and ESP_OK. Exact before/after comparisons confirm all
+twelve joint mappings, feedback curves/mux mappings and saved leveling settings
+are preserved (enabled=true, Strength/Damping=1, target roll=3 degrees and
+nose-up pitch=1.59280002 degrees). IMU, feedback acquisition, display and camera
+report available; output fault is zero. Startup ran with servo power off per
+the owner's confirmation. No extra movement or calibration command was sent.
+Loaded direct-correction response remains to be physically tested.
+
+### 2026-10-18 — Owner-requested taper after direct-response twitching, 0.8.70
+
+Owner reported considerable twitching and a Stand/system failure after 0.8.69,
+and requested tapering during corrections. Read-only inspection found the P4
+online with output_fault=1 (existing emergency/failure classification), outputs
+disarmed, zero I2C failures and last_esp_error=0. The available boot log contains
+the 0.8.69 software restart and no subsequent panic/brownout record. This is
+not sufficient to identify the exact failed target or exclude a separate power
+problem. Captures remain outside the repository:
+/tmp/ainekio-level-taper-20261018/status.json and firmware.log.
+
+Replaced the full-error stationary update with an error-dependent response rate:
+rate=2+6*r*r/(1+r*r), r=error/5 degrees, gain=1-exp(-rate*Strength*dt).
+At default Strength and 20ms, the correction fraction tapers from 9.52% at 5°,
+through 5.50% at 2°, to 4.36% at 1° and 4.04% at 0.5°. Existing angular-rate
+damping remains. This deliberately requests smaller successive corrections near
+level; it does not command a motor torque/current percentage. Accepted targets
+still bypass the joint-speed ramp. Quiet hold and wake, 120us shaft tolerance,
+shaft trim, walking balance, saved calibration and missing-sensor behavior remain
+unchanged. No new stop, wait, timeout or fallback was added.
+
+Added fault-path diagnostic messages for motion result/kind/stationary-hold state
+and stationary target-to-PWM mapping failure. These add evidence, not a new
+runtime gate. The prior log did not identify the cause; this update must not be
+reported as a proven crash fix.
+
+Portable tests verify decreasing correction fraction as tilt shrinks and unchanged
+results across low/high joint-speed settings. A new delayed-actuator scenario
+uses 40ms command latency plus a 200ms first-order physical response; both signs
+on both axes converge without exceeding the initial 4.584° error magnitude.
+These are explicit model assumptions, not measured servo characteristics.
+Production-body tests retain settling/wake/no-repeat-writes, shaft noise tolerance,
+command admission, missing-data behavior and actual mapper execution. Native
+feedback, full body (23 clips and locomotion) and portable balance tests pass.
+Physical loaded settling and recurrence of the output fault remain unverified.
+
+ESP-IDF 5.5.4 build passed. Frozen artifact: 0.8.70-p4-level-taper,
+2907664 bytes, SHA-256 2d753365ccdb8b6d32265cd3225084934c7e2531ee1557bd6b423251cddf8a7a.
+Not installed yet; awaiting supported, servo-power-off readiness.
+
+Installed after owner confirmed supported frame and servo power off. Wi-Fi OTA
+accepted 0.8.70-p4-level-taper on ota_0 with pending_verify=false and ESP_OK.
+Exact comparison confirms all twelve joint calibration mappings, feedback curves
+and saved leveling settings unchanged. IMU, feedback, display and camera are
+available; outputs report ready/armed with output_fault=0. Current status reports
+settled=true and both gyro correction activity and measured-joint trim inactive,
+with raw roll 3.017° and nose-up pitch 1.809° relative to saved targets 3° and
+1.5928°. This confirms runtime state reporting, not loaded recovery performance.
+No additional movement or settings command was issued. Physical twitch reduction
+and whether the earlier output fault recurs remain for observation.
+
+### 2026-10-18 — Chatter observed while distinguishing target changes from shaft readings
+
+Owner reports 0.8.70 resolved the preceding problem but chatter remains and asks
+whether motor corrections are observable. Recorded 80 read-only status/feedback
+pairs over 27.71s, with 80 live feedback reads and six distinct periodic status
+packets. For the first 15.88s (47 distinct feedback scans), all twelve commanded
+pulse targets stayed exactly constant; the corresponding periodic frame/I2C
+transfer counters also stayed at 5229/5250. Leveling reported settled with both
+correction paths inactive. Fourth-wire pulse-equivalent ranges still varied by
+about 21–69us peak-to-peak within that fixed-target interval: front-left carrier
+2377us command versus 2431.2–2500.5us readings, rear-right crank 1509us command
+versus 1566.1–1630.0us readings. These are calibrated electrical observations,
+not proof that the shafts physically moved by the full inferred amount.
+
+Later in the capture the counters rose to 5334/5355 and target changes occurred,
+showing brief software activity between periodic snapshots even though the six
+status snapshots all happened to report settled. No output fault appeared.
+Thus continuous host-issued corrections are not established as the sole cause;
+if audible chatter continued during the fixed-target interval, new leveling
+commands cannot explain that interval. Internal servo holding behavior, actual
+motion and feedback noise remain to be distinguished. Motor current is not
+measured. No motion/settings commands were issued. Raw observations remain at
+/tmp/ainekio-chatter-observation-20261018/capture.json outside the repository.
+
+### 2026-10-18 — Scope of the 120us tolerance and proposed control improvements
+
+Read-only source review confirms 120us is a shaft-tracking error deadband, not a
+maximum correction or servo-internal deadband. Before existing geometry reduction,
+additional trim is 0.5*sign(error)*max(abs(error)-120us,0), expressed through each
+joint's mapping. Gyro-driven body correction is independent of this band. In the
+previous 80-sample capture, rear-left carrier error exceeded 120us in 4 samples
+(maximum magnitude 133.56us); rear-right crank and front-left carrier each crossed
+once (120.99/123.46us). Those readings would qualify for excess-error trim only
+when stationary tracking is active. They do not prove that trim was applied at
+every crossing or explain audible chatter during unchanged-target intervals.
+
+Current acquisition discards one ADC conversion after mux switching, averages
+four conversions and publishes at 20ms scan cadence. There is no cross-scan
+position/velocity estimator; feedback_frame sets modeled velocity to zero.
+Standing body correction accumulates accepted commanded geometry, with separate
+half-error shaft trim. It lacks measured-actuator tracking anti-windup for lag or
+load, although it already avoids accumulating unreachable geometry increments.
+
+Proposed, not implemented: per-joint noise/offset characterization and low-latency
+position/velocity estimation; use measured actuator response to coordinate the
+outer body controller with servo-local control and prevent demand accumulation;
+extend explicit hold/hysteresis to meaningful joint-target changes. Tune these
+against measured loaded response rather than only an assumed instantaneous
+plant. Existing quiet hold already prevented new writes for 15.88s, so firmware
+changes cannot be claimed to resolve all fixed-target chatter. Actual PWM
+stability, power/ground and servo-local holding behavior remain distinct causes.
+
+Primary references reviewed:
+https://www.mathworks.com/help/simulink/slref/anti-windup-control-using-a-pid-controller.html
+(cascaded actuator dynamics and tracking anti-windup),
+https://www.pololu.com/blog/17/servo-control-interface-in-detail
+(servo signal timing and measured electrical response), and
+https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32p4/schematic-checklist-esp32p4.html
+(ADC signal integrity). No firmware/settings changes made during this review.
+
+### 2026-10-18 — Filtered fourth-wire measurements and actuator-aware leveling
+
+Owner requested better measurement quality and actuator-aware feedback for the
+constantly loaded MG90 servos. Implemented 0.8.71-p4-level-tracking. Acquisition
+retains its four-conversion average and adds a timestamped One-Euro-style filter
+per mux channel: 1.5 Hz resting cutoff, 5 Hz derivative cutoff, speed coefficient
+0.002 Hz per ADC-count/s. Filtered position and estimated velocity are available
+alongside unchanged raw voltage/counts, spread and calibrated raw position.
+Calibration capture and measured-Stand arrival remain on their existing raw path.
+
+Stationary leveling now projects measured joint lag through the local linkage
+Jacobian into roll/pitch and back-calculates accumulated correction at 4/s. It
+replaces the previous extra half-error servo trim. Each active episode records
+the current loaded target-minus-measurement offset as a transient reference;
+only subsequent changes outside +/-120us contribute to back-calculation. This
+does not save offsets into calibration or demand that an existing loaded error
+be removed. Body Control reports actuator tracking, projected body lag and no
+added servo overdrive. Raw versus filtered positions are visible in feedback.
+
+Preserved the 0.8.70 taper, mounting/polarity conventions, 0.5deg settle / 1deg
+wake, angular-rate settle condition, immediate new commands, gyro-only behavior
+when feedback is unavailable, moving-gait behavior and existing motion range.
+No shutdown, timeout, waiting stage or new joint-speed restriction was added.
+An unobservable local projection contributes no back-calculation.
+
+Validation: native full body suite, balance model suite, feedback filter and
+position suites, dashboard motion/feedback/measured-Home suites and ESP-IDF 5.5.4
+build passed. Synthetic +/-40 ADC-count noise produced filtered RMS 0.177 of raw;
+a 1000-count step reached >90% within 80ms. These are test signals, not measured
+loaded hardware performance. Blocked-actuator simulations on both axes/signs
+kept demand at about 0.032-0.035rad versus 0.329-0.815rad without tracking, then
+converged after release with a modeled 200ms actuator response. Production-owner
+tests cover existing loaded offset, +/-120us fluctuations, excess lag, feedback
+loss/recovery and quiet holding. Actual loaded chatter reduction remains untested.
+
+Frozen artifact: 2910416 bytes, SHA-256
+c8f8e395944e0cad017a6fd6e9227ace97778c785b0901abc286909b2b5609de.
+Not installed yet; awaiting supported frame / servo-power-off confirmation.
+Primary algorithm references: https://gery.casiez.net/1euro/ and the MathWorks
+actuator tracking anti-windup reference above. Parameters are initial engineering
+choices; unchanged-target chatter inside the servo remains a separate issue.
+
+Installed after owner confirmed supported frame and servo power off. Wi-Fi OTA
+accepted 0.8.71-p4-level-tracking on ota_1, pending_verify=false, ESP_OK. Exact
+before/after comparison confirms all twelve feedback curves, joint mappings and
+saved leveling settings preserved. All twelve filtered position/velocity fields
+and actuator_tracking mode are present. IMU, display and camera report available;
+output_fault=0, and leveling reports settled with both correction paths inactive.
+This is a supported, servo-power-off verification. Loaded chatter reduction has
+not yet been physically verified. Artifacts and snapshots remain outside the
+repository at /tmp/ainekio-level-tracking-20261018/.

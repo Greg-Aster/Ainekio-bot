@@ -10,13 +10,16 @@ typedef struct {
 typedef struct {
     double correction[2], measured[2], applied_fraction;
     bool sensor_usable, reduced;
+    double actuator_bias_deg[12];
+    bool actuator_reference_valid;
 } ainekio_v2_balance_t;
 /* Standing servo tracking is a separate proportional correction, in model
  * centidegrees. It never integrates a stalled joint's error. The caller keeps
  * the untrimmed gyro target separate from the command sent to the motors. */
 typedef struct {
     double error_deg[12], trim_deg[12], applied_fraction;
-    bool reduced;
+    double body_lag_rad[2];
+    bool reduced, observable;
 } ainekio_v2_balance_tracking_t;
 void ainekio_v2_balance_track(const ainekio_v2_frame_t *target,
     const ainekio_v2_frame_t *measured,const ainekio_v2_frame_t *previous,
@@ -36,9 +39,10 @@ void ainekio_v2_balance_apply(ainekio_v2_balance_t *state,
     const ainekio_v2_walk_pose_t *nominal,const double local_points[4][3],
     const ainekio_v2_frame_t *previous,double joint_speed_deg_s,
     ainekio_v2_walk_pose_t *output);
-/* Sustained leveling of a stationary nominal pose. Retains accepted extension
- * at zero error; existing geometry/speed reduction applies to the next
- * increment, so an unreachable request does not erase prior compensation. */
+/* Sustained leveling of a stationary nominal pose. Correction strength tapers
+ * toward level; accepted targets have no additional joint-speed ramp. Retains
+ * extension at zero error; geometry reduction preserves reachable compensation.
+ * Unavailable-sensor fade continues using the existing speed setting. */
 void ainekio_v2_balance_hold_apply(ainekio_v2_balance_t *state,
     const float orientation[4],const float angular_rate[3],bool usable,double dt,
     const ainekio_v2_walk_pose_t *nominal,const double local_points[4][3],
@@ -50,6 +54,15 @@ void ainekio_v2_balance_configured_apply(ainekio_v2_balance_t *state,
     const ainekio_v2_walk_pose_t *nominal,const double local_points[4][3],
     const ainekio_v2_frame_t *previous,double joint_speed_deg_s,
     ainekio_v2_walk_pose_t *output,const ainekio_v2_balance_tuning_t *tuning,bool standing);
+/* Stationary outer-loop tracking of measured actuator progress. Joint errors
+ * outside tolerance are projected onto the commanded roll/pitch geometry and
+ * back-calculated into the accepted offset. No additional joint overdrive. */
+void ainekio_v2_balance_feedback_apply(ainekio_v2_balance_t *state,
+    const float orientation[4],const float angular_rate[3],double dt,
+    const ainekio_v2_walk_pose_t *nominal,const double local_points[4][3],
+    const ainekio_v2_frame_t *previous,const ainekio_v2_frame_t *measured,
+    const double tolerance_deg[12],ainekio_v2_walk_pose_t *output,
+    const ainekio_v2_balance_tuning_t *tuning,ainekio_v2_balance_tracking_t *tracking);
 /* Output-owner response polarity; +1 retains the model convention, -1 reverses
  * both attitude error and rate response. Sensor and saved target signs stay
  * unchanged. This is not a sensor mounting calibration. */

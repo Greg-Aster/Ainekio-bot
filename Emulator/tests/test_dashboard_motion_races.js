@@ -376,6 +376,11 @@ async function run() {
   assert.match(node('balance-joint-errors').textContent,/Front left: \+6.00° \/ \+7.00° \/ \+8.00°/);
   assert.match(node('balance-joint-trims').textContent,/Rear right: \+1.50° \/ \+2.00° \/ \+2.50°/);
   api.updateBalance({...feedbackEntry,status:{...feedbackEntry.status,balance:{...feedbackEntry.status.balance,
+    joint_feedback:{available:true,active:true,reduced:false,mode:"actuator_tracking",gain:0,tolerance_us:120,
+      body_lag_rad:[.02,-.03],error_deg:Array(12).fill(1),trim_deg:Array(12).fill(0)}}}});
+  assert.match(node('balance-joint-feedback').textContent,/Measured actuator tracking active/);
+  assert.match(node('balance-joint-trims').textContent,/roll \+1.15°.*pitch \+1.72°/);
+  api.updateBalance({...feedbackEntry,status:{...feedbackEntry.status,balance:{...feedbackEntry.status.balance,
     active:false,settled:true,settle_deg:.5,wake_deg:1,
     joint_feedback:{available:true,active:false,reduced:false,gain:.5,tolerance_us:120}}}});
   assert.match(node('balance-active').textContent,/Level reached.*monitoring only.*0.5°.*1°/);

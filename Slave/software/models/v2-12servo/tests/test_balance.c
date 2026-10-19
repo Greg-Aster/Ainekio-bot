@@ -50,7 +50,6 @@ static void standing_extension_and_release(void)
                 (const double (*)[3])anchors,&previous,1000,&output);
             assert(sign*s.correction[axis]<=sign*before+1e-10);
             assert(isfinite(s.correction[axis]));
-            for(unsigned j=0;j<12;j++)assert(fabs(output.frame.position[j]-previous.position[j])<=2000.01);
             if(s.reduced)reduced++;
             previous=output.frame;
             if(i==24)initial=fabs(s.correction[axis]);
@@ -96,21 +95,60 @@ static void standing_extension_and_release(void)
     }
 }
 
-static void standing_uses_existing_joint_speed(void)
+static void standing_tapered_targets(void)
 {
     ainekio_v2_walk_pose_t nominal,output;
     double anchors[4][3];
     assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&nominal));
     assert(ainekio_v2_contact_forward(&nominal,anchors,true));
-    ainekio_v2_balance_t s={0};ainekio_v2_frame_t previous=nominal.frame;
-    const float q[4]={(float)cos(.1),0,-(float)sin(.1),0},rate[3]={0};
-    for(unsigned i=0;i<200;i++) {
+    const float rate[3]={0};double last_gain=0.;
+    const double errors[]={.5,1.,2.,5.};
+    for(unsigned i=0;i<4;i++) {
+        const double error=errors[i]*acos(-1.)/180.;
+        const float q[4]={(float)cos(error/2),0,-(float)sin(error/2),0};
+        ainekio_v2_balance_t s={0};
         ainekio_v2_balance_hold_apply(&s,q,rate,true,.02,&nominal,
-            (const double (*)[3])anchors,&previous,3,&output);
-        for(unsigned j=0;j<12;j++)assert(fabs(output.frame.position[j]-previous.position[j])<=6.01);
-        previous=output.frame;
+            (const double (*)[3])anchors,&nominal.frame,3,&output);
+        assert(!s.reduced);
+        double gain=s.correction[1]/error;
+        assert(gain>last_gain && gain<.11);last_gain=gain;
+        if(i==0)assert(gain>.03 && gain<.05);
+        ainekio_v2_balance_t faster={0};ainekio_v2_walk_pose_t other;
+        ainekio_v2_balance_hold_apply(&faster,q,rate,true,.02,&nominal,
+            (const double (*)[3])anchors,&nominal.frame,2000,&other);
+        for(unsigned j=0;j<12;j++)assert(fabs(other.frame.position[j]-output.frame.position[j])<.01);
+        printf("Stationary taper %.1fdeg: %.2f percent per 20ms update\n",errors[i],100.*gain);
     }
-    assert(s.correction[1]>.02);
+}
+
+/* Delayed first-order actuator response, rather than instant commanded pose.
+ * Assumed 40ms transport delay and 200ms mechanical response are test scenarios,
+ * not measurements of the owner's servo. Exercise both axes and both signs. */
+static void standing_with_actuator_lag(void)
+{
+    for(unsigned axis=0;axis<2;axis++)for(int sign=-1;sign<=1;sign+=2) {
+        ainekio_v2_walk_pose_t nominal,output;double anchors[4][3];
+        assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&nominal));
+        assert(ainekio_v2_contact_forward(&nominal,anchors,true));
+        ainekio_v2_balance_t s={0};ainekio_v2_frame_t previous=nominal.frame;
+        const double disturbance=sign*.08;
+        double actual=0.,rate=0.,delayed[2]={0},peak=0.,tail=0.;
+        for(unsigned i=0;i<500;i++) {
+            double measured=disturbance+actual;
+            float q[4]={(float)cos(measured*.5),0,0,0},rates[3]={0};
+            q[axis+1]=(float)sin(measured*.5);rates[axis]=(float)rate;
+            ainekio_v2_balance_hold_apply(&s,q,rates,true,.02,&nominal,
+                (const double (*)[3])anchors,&previous,3,&output);
+            previous=output.frame;
+            double next=actual+(1.-exp(-.02/.2))*(delayed[i%2]-actual);
+            delayed[i%2]=s.correction[axis];rate=(next-actual)/.02;actual=next;
+            peak=fmax(peak,fabs(disturbance+actual));
+            if(i>400)tail=fmax(tail,fabs(disturbance+actual));
+        }
+        assert(peak<=fabs(disturbance)+1e-6 && tail<.001);
+        printf("Lagged standing axis=%u sign=%d: peak %.3fdeg, final-window %.5fdeg\n",
+            axis,sign,peak*180/acos(-1.),tail*180/acos(-1.));
+    }
 }
 
 static void adjustable_response(void)
@@ -125,7 +163,9 @@ static void adjustable_response(void)
         t.strength=2;
         ainekio_v2_balance_configured_apply(&strong,tilt,still,true,.02,&nominal,NULL,&nominal.frame,1000,&out,&t,hold);
         assert(base.applied_fraction==1. && strong.applied_fraction==1.);
-        assert(fabs(strong.correction[0]-2.*base.correction[0])<1e-10);
+        if(hold)assert(fabs(strong.correction[0])>fabs(base.correction[0]) &&
+            fabs(strong.correction[0])<2.*fabs(base.correction[0]));
+        else assert(fabs(strong.correction[0]-2.*base.correction[0])<1e-10);
         base=(ainekio_v2_balance_t){0};t=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
         ainekio_v2_balance_configured_apply(&base,level,rate,true,.02,&nominal,NULL,&nominal.frame,1000,&out,&t,hold);
         t.damping=2;
@@ -237,8 +277,61 @@ static void measured_joint_tracking(void)
     assert(t.reduced && t.applied_fraction<1. && ainekio_v2_limits_frame(&out));
 }
 
+static void actuator_tracking_load(void)
+{
+    for(unsigned axis=0;axis<2;axis++)for(int sign=-1;sign<=1;sign+=2) {
+        double end[2]={0};
+        for(unsigned tracking_on=0;tracking_on<2;tracking_on++) {
+            ainekio_v2_walk_pose_t nominal,out;double points[4][3],tolerance[12];
+            assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&nominal));
+            assert(ainekio_v2_contact_forward(&nominal,points,true));
+            for(unsigned j=0;j<12;j++)tolerance[j]=.2;
+            ainekio_v2_balance_t state={0};ainekio_v2_balance_tracking_t tracking;
+            ainekio_v2_frame_t previous=nominal.frame,measured=nominal.frame;
+            ainekio_v2_balance_tuning_t tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
+            const double disturbance=sign*.04;
+            float q[4]={(float)cos(disturbance/2),0,0,0},rate[3]={0};
+            q[axis+1]=(float)sin(disturbance/2);
+            for(unsigned n=0;n<400;n++) {
+                if(tracking_on) {
+                    ainekio_v2_balance_feedback_apply(&state,q,rate,.02,&nominal,
+                        (const double (*)[3])points,&previous,&measured,tolerance,&out,&tuning,&tracking);
+                    assert(tracking.observable);
+                    for(unsigned j=0;j<12;j++)assert(tracking.trim_deg[j]==0.);
+                } else ainekio_v2_balance_hold_apply(&state,q,rate,true,.02,&nominal,
+                    (const double (*)[3])points,&previous,3,&out);
+                previous=out.frame;
+            }
+            end[tracking_on]=fabs(state.correction[axis]);
+            if(tracking_on) {
+                assert(end[1]<.08); /* Stalled measured joints do not build a huge offset. */
+                double actual=0.,velocity=0.;
+                for(unsigned n=0;n<500;n++) {
+                    const double angle=disturbance+actual;
+                    q[0]=(float)cos(angle/2);q[axis+1]=(float)sin(angle/2);rate[axis]=(float)velocity;
+                    ainekio_v2_walk_pose_t physical=nominal;
+                    physical.euler[axis]+=actual;physical.frame=measured;
+                    for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
+                        physical.joints[l][j]=measured.position[(l<2?l+2:l-2)*3+j]*.00017453292519943296;
+                    assert(ainekio_v2_contact_solve(&physical,(const double (*)[3])points));
+                    measured=physical.frame;
+                    ainekio_v2_balance_feedback_apply(&state,q,rate,.02,&nominal,
+                        (const double (*)[3])points,&previous,&measured,tolerance,&out,&tuning,&tracking);
+                    previous=out.frame;
+                    const double next=actual+(1.-exp(-.02/.2))*(state.correction[axis]-actual);
+                    velocity=(next-actual)/.02;actual=next;
+                }
+                assert(fabs(disturbance+actual)<.002);
+            }
+        }
+        assert(end[1]<end[0]*.5);
+        printf("Actuator tracking axis=%u sign=%d: blocked demand %.3f vs %.3f rad without tracking; released load converges.\n",axis,sign,end[1],end[0]);
+    }
+}
+
 int main(void)
 {
+    actuator_tracking_load();
     ainekio_v2_walk_pose_t nominal,output;
     assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&nominal));
     const float tilted[4]={(float)cos(.05),(float)sin(.05),0,0},still[3]={0};
@@ -272,7 +365,7 @@ int main(void)
     adjustable_response();
     standing_rejects_persistent_tilt();
     standing_extension_and_release();
-    standing_uses_existing_joint_speed();
-    puts("Balance: tilt direction, rate damping, stale fade, anchors and shared speed limit passed");
+    standing_tapered_targets();standing_with_actuator_lag();
+    puts("Balance: tilt direction, rate damping, stale fade, anchors, tapered standing targets and moving-gait speed limit passed");
     return 0;
 }
