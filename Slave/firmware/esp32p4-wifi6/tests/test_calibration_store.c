@@ -4,13 +4,13 @@
 #include <string.h>
 #define portMAX_DELAY 0xffffffffu
 #include "../main/config.c"
-static struct { char key[16]; unsigned char data[4096]; size_t size; } records[8];
+static struct { char key[16]; unsigned char data[4096]; size_t size; } records[16];
 static unsigned count, commits;
 static bool fail_commit;
 static ainekio_pca9685_t driver;
 static void put(const char *key,const void *data,size_t size) {
     unsigned i=0; for(;i<count && strcmp(records[i].key,key);++i){}
-    if(i==count){assert(count<8);++count;strcpy(records[i].key,key);}
+    if(i==count){assert(count<16);++count;strcpy(records[i].key,key);}
     assert(size<=sizeof records[i].data);memcpy(records[i].data,data,size);records[i].size=size;
 }
 esp_err_t nvs_open(const char *n,int mode,nvs_handle_t *h){(void)n;(void)mode;*h=1;return ESP_OK;}
@@ -64,6 +64,13 @@ int main(void){
     assert(!ainekio_p4_frame_pulses(&frame,pulses));
     for(unsigned i=0;i<12;i++)assert(!pulses[i]);
     boot();ainekio_p4_joint_record_t preserved=committed;
+    assert(ainekio_p4_idle_rest_seconds()==180 && !ainekio_p4_idle_rest_saved());
+    assert(ainekio_p4_idle_rest_save(240)==ESP_OK);boot();
+    assert(ainekio_p4_idle_rest_seconds()==240 && ainekio_p4_idle_rest_saved());
+    assert(ainekio_p4_idle_rest_save(0)==ESP_OK);boot();
+    assert(ainekio_p4_idle_rest_seconds()==0 && ainekio_p4_idle_rest_saved());
+    fail_commit=true;assert(ainekio_p4_idle_rest_save(180)!=ESP_OK);
+    assert(ainekio_p4_idle_rest_seconds()==0);fail_commit=false;
     assert(ainekio_p4_motion_rate()==2.F && !ainekio_p4_motion_rate_saved());
     driver.state.armed=true;assert(ainekio_p4_motion_rate_save(1.5F)==ESP_ERR_INVALID_STATE);
     driver.state.armed=false;assert(ainekio_p4_motion_rate_save(0.F)==ESP_ERR_INVALID_ARG);

@@ -44,4 +44,8 @@ esp_err_t ainekio_p4_balance_save(bool enabled);
 ainekio_v2_balance_tuning_t ainekio_p4_balance_tuning(void);
 bool ainekio_p4_balance_tuning_saved(void);
 esp_err_t ainekio_p4_balance_configure(bool enabled,const ainekio_v2_balance_tuning_t *tuning);
+/* Inactivity before normal lay-down; zero disables automatic rest. */
+uint32_t ainekio_p4_idle_rest_seconds(void);
+bool ainekio_p4_idle_rest_saved(void);
+esp_err_t ainekio_p4_idle_rest_save(uint32_t seconds);
 int ainekio_p4_config_command(int argc, char **argv);

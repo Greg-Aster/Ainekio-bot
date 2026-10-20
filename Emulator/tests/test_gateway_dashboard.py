@@ -419,6 +419,13 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(json.loads(transfers[-1].body), capture)
             self.assertEqual(transfers[-1].headers["Content-Type"], "application/json")
             self.assertEqual(transfers[-1].headers["Authorization"], "Bearer private-pair-token")
+            rest_route = "/api/robot/idle-rest?robot_id=ainekio-test-01"
+            self.assertEqual((await self._request("GET", rest_route))[0], 401)
+            rest = {"op": "configure", "seconds": 240}
+            self.assertEqual((await self._request("POST", rest_route, rest, cookie=cookie))[0], 403)
+            await self._request("POST", rest_route, rest, cookie=cookie, csrf=csrf)
+            self.assertEqual(transfers[-1].target, "/api/idle-rest")
+            self.assertEqual(json.loads(transfers[-1].body), rest)
             name = "video-1234abcd-00000001.avi"
             reply.update(bytes=blob, headers={"Content-Type":"video/x-msvideo", "X-Recording-Bytes":str(len(blob))})
             status, raw, headers = await self._raw_request("GET", route + "&name=" + name, cookie=cookie)

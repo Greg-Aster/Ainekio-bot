@@ -838,3 +838,24 @@ at unity gain; the master percentage scales each PCM frame once at playback.
 Repeated saves of the same value do not rewrite NVS. Failed saves leave the
 previous volume active. Heartbeat `audio.speaker_volume_percent` reports the
 confirmed value; older bodies without that field do not expose this control.
+
+
+## Configurable inactivity rest
+
+P4 firmware `0.8.114-p4-idle-rest` advertises `idle_rest_v1`. Body Control's
+**Mode and power → Lay down after inactivity (minutes)** reads and saves the
+robot's NVS setting through authenticated `/api/idle-rest`. The default is
+180 seconds; zero disables automatic rest. Changes apply without reboot or
+servo release and persist across power cycles.
+
+One one-shot timer uses the existing ESP-IDF shared timer service. Its callback
+only posts a notice; the existing body output owner starts the ordinary
+`lay_down` clip. No extra task, periodic timer, or polling interval is added.
+Active choreography and listening defer rest; successful interaction commands
+and audio completion reset the idle period. Long playback is checked at expiry
+and its completion starts a fresh interval. Camera frames, heartbeats, and
+settings/status reads are not activity. Rest runs once per activity period,
+retains powered outputs, and admits replacement commands normally. It does not
+wake detached servos or interrupt manual joint calibration. The next normal
+motion restores automatic-rest eligibility. This is a posture change, not
+Doze, deep sleep, or output release.

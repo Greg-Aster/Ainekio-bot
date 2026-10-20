@@ -1182,3 +1182,17 @@ identifies its absence. Six-axis yaw has no absolute heading reference.
 Balance corrections exist in the V2 body code; these changes do not add a
 fallen-body get-up sequence. Firmware build/flash and physical qualification
 are separate from host-side tests.
+
+
+## P4 inactivity rest
+
+In **Mode and power**, supported P4 firmware exposes **Lay down after inactivity
+(minutes)**. Save the desired interval on the robot; the initial default is
+three minutes and `0` disables it. It survives power cycles and works without
+Body Control remaining connected. Active motion and speech defer rest. The
+normal lay-down clip retains powered outputs and accepts new commands.
+Calibration/manual joint moves do not start an automatic rest motion.
+The authenticated maintenance proxy is `/api/robot/idle-rest?robot_id=…`;
+GET returns `{seconds, saved}`, POST accepts
+`{"op":"configure","seconds":180}`. Older firmware does not advertise the
+feature, so its dashboard keeps these controls hidden.

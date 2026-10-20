@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 project(ainekio_p4_native C)
 enable_testing()
+set(TRACE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__cjson/cJSON")
+add_executable(test_idle_rest test_idle_rest.c "${TRACE_JSON_DIR}/cJSON.c")
+target_include_directories(test_idle_rest PRIVATE ota_shim body_shim ../main
+    ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
+target_link_libraries(test_idle_rest PRIVATE ainekio_v2_motion m)
+target_compile_options(test_idle_rest PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+add_test(NAME idle_rest_settings COMMAND test_idle_rest)
+
+
 add_executable(test_servo_feedback test_servo_feedback.c ../main/servo_feedback_model.c)
 target_include_directories(test_servo_feedback PRIVATE ../main)
 target_link_libraries(test_servo_feedback PRIVATE m)

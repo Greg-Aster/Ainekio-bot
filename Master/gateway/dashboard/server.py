@@ -35,6 +35,7 @@ PCM_S16_MAX = 32767
 TEST_TONE_FRAME_COUNT = 100
 STATIC_ROOT = Path(__file__).with_name("static")
 ROBOT_MAINTENANCE = {
+    "/api/robot/idle-rest": "/api/idle-rest",
     "/api/robot/servo-feedback": "/api/servo-feedback",
     "/api/robot/logs": "/api/logs",
     "/api/robot/recording": "/api/recording",
@@ -461,7 +462,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     payload = self._read_json()
                     if payload is None: return
                     operation = _required_string(payload, "op")
-                    if path == "/api/robot/servo-feedback":
+                    if path in ("/api/robot/servo-feedback", "/api/robot/idle-rest"):
                         headers["Content-Type"] = "application/json"
                         operation = json.dumps(payload, allow_nan=False)
                     upstream.request("POST", target, operation, headers)
