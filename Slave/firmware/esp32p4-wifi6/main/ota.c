@@ -1,3 +1,4 @@
+#include "idle_rest.h"
 #include "ota.h"
 #include "logs.h"
 #include "servo_feedback.h"
@@ -383,6 +384,12 @@ bool ainekio_p4_ota_page(ainekio_connection_page_t *page)
     return true;
 }
 
+static esp_err_t idle_rest(httpd_req_t *r)
+{
+    if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
+    return ainekio_p4_idle_rest_http(r);
+}
+
 static esp_err_t servo_feedback(httpd_req_t *r)
 {
     if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
@@ -392,6 +399,8 @@ static esp_err_t servo_feedback(httpd_req_t *r)
 esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server)
 {
     const httpd_uri_t endpoints[] = {
+        {.uri="/api/idle-rest", .method=HTTP_GET, .handler=idle_rest},
+        {.uri="/api/idle-rest", .method=HTTP_POST, .handler=idle_rest},
         {.uri="/api/servo-feedback", .method=HTTP_GET, .handler=servo_feedback},
         {.uri="/api/servo-feedback", .method=HTTP_POST, .handler=servo_feedback},
         {.uri="/api/logs", .method=HTTP_GET, .handler=controller_logs},

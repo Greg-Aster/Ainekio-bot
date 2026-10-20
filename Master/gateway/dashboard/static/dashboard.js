@@ -1220,6 +1220,47 @@
     renderMotionSpeed();
   }
 
+  let idleRestSession = "", idleRestRequest = 0;
+  function updateIdleRest(entry) {
+    const supported = Boolean(entry?.connected && entry.features?.includes("idle_rest_v1"));
+    byId("idle-rest-form").hidden = !supported;
+    const session = supported ? `${selectedRobotId}:${entry.epoch}` : "";
+    if (session !== idleRestSession) {
+      idleRestSession = session;
+      ++idleRestRequest;
+      if (supported) readIdleRest();
+    }
+  }
+  async function readIdleRest(save = false) {
+    if (!idleRestSession) return;
+    const input = byId("idle-rest-minutes");
+    if (save && !input.reportValidity()) return;
+    const seconds = Math.round(Number(input.value) * 60);
+    if (save && (!Number.isFinite(seconds) || seconds < 0 || (Number(input.value) > 0 && seconds === 0) || seconds > 4294967295)) {
+      text("idle-rest-status", "Enter at least one second (1/60 minute), or 0 to disable automatic rest.");
+      return;
+    }
+    const session = idleRestSession, requestId = ++idleRestRequest;
+    input.disabled = byId("idle-rest-save").disabled = byId("idle-rest-read").disabled = true;
+    try {
+      const data = await request(maintenanceUrl("idle-rest"), save ?
+        {method:"POST", body:JSON.stringify({op:"configure", seconds})} : {});
+      if (session !== idleRestSession || requestId !== idleRestRequest) return;
+      input.value = String(data.seconds / 60);
+      text("idle-rest-status", `${data.saved ? "Saved on robot" : "Robot default"}: ${data.seconds ? `lay down after ${data.seconds / 60} minutes of inactivity` : "automatic rest off"}.`);
+    } catch (error) {
+      if (session === idleRestSession && requestId === idleRestRequest)
+        text("idle-rest-status", error.message);
+    } finally {
+      if (session === idleRestSession && requestId === idleRestRequest)
+        input.disabled = byId("idle-rest-save").disabled = byId("idle-rest-read").disabled = false;
+    }
+  }
+  function setupIdleRest() {
+    byId("idle-rest-form").addEventListener("submit", event => {event.preventDefault(); readIdleRest(true);});
+    byId("idle-rest-read").addEventListener("click", () => readIdleRest());
+  }
+
   function sendNamedMotion(name, asset, label) {
     const params = asset ? {asset} : {};
     const ongoing = asset === "run" || (crabSupported && asset?.startsWith("crab"));
@@ -2752,6 +2793,7 @@
       Array.isArray(entry.robot_commands) ? entry.robot_commands :
         legacyBody && (!entry.capabilities || entry.capabilities.motion === true) ? null : [];
     renderMotionCatalog(entry, legacyBody);
+    updateIdleRest(entry);
     updateMotionSpeed(entry);
     updateBalance(entry);
     updateServoFeedback(entry);
@@ -3234,6 +3276,7 @@
     });
     setupMotionControls();
     setupGyroJointGuide();
+    setupIdleRest();
     setupServoFeedback();
     setupForms();
     setupSpeechOutput();

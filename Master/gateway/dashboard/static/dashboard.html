@@ -283,6 +283,16 @@
           </div>
         </div>
         <div class="field-group">
+          <form id="idle-rest-form" hidden>
+            <label for="idle-rest-minutes">Lay down after inactivity (minutes)</label>
+            <div class="input-with-actions">
+              <input id="idle-rest-minutes" type="number" min="0" step="any" value="3" required>
+              <button type="submit" id="idle-rest-save">Save on robot</button>
+              <button type="button" id="idle-rest-read">Read from robot</button>
+            </div>
+            <p class="muted">0 disables automatic rest. Active movement and speech defer rest. The robot lays down normally and keeps its servos powered; new commands remain available. Saved across power cycles.</p>
+            <p id="idle-rest-status" role="status" class="muted"></p>
+          </form>
           <span class="field-label">Power state</span>
           <div class="command-row">
             <button type="button" data-state="idle">Idle</button>

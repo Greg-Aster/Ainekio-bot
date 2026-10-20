@@ -24,6 +24,8 @@ static ainekio_p4_calibration_t calibration;
 static ainekio_p4_joint_record_t committed;
 /* Independent of joint calibration. Readers never take the NVS write lock. */
 static _Atomic float motion_rate = AINEKIO_MOTION_RATE_DEFAULT;
+static _Atomic uint32_t idle_rest_seconds=180;
+static atomic_bool idle_rest_saved;
 static atomic_bool motion_rate_saved;
 static atomic_bool joint_speed_saved;
 static atomic_bool balance_enabled = true;
@@ -134,6 +136,10 @@ esp_err_t ainekio_p4_config_init(void)
         strcpy(boot_config.endpoint_url, p->endpoint);
         strcpy(boot_config.transport_mode, !strncmp(p->endpoint, "wss://", 6) ? "remote" : "local");
     }
+    uint32_t rest=180;
+    const bool rest_saved=blob("idle_rest_s",&rest,sizeof rest,false)==AINEKIO_STORE_OK;
+    atomic_store(&idle_rest_seconds,rest_saved ? rest : 180);
+    atomic_store(&idle_rest_saved,rest_saved);
     float rate = AINEKIO_MOTION_RATE_DEFAULT;
     const ainekio_store_result_t rate_result = blob("motion_rate", &rate, sizeof(rate), false);
     const bool rate_valid = rate_result == AINEKIO_STORE_OK &&
@@ -175,6 +181,16 @@ esp_err_t ainekio_p4_config_init(void)
     if (!calibration.valid) puts("Joint settings unreadable or invalid; automatic home disabled. Repair and save calibration.");
     printf("configuration load=%d; configured=%d\n", result, store.has_active);
     return result == AINEKIO_CONFIG_LOAD_IO_ERROR ? ESP_FAIL : ESP_OK;
+}
+
+uint32_t ainekio_p4_idle_rest_seconds(void) { return atomic_load(&idle_rest_seconds); }
+bool ainekio_p4_idle_rest_saved(void) { return atomic_load(&idle_rest_saved); }
+esp_err_t ainekio_p4_idle_rest_save(uint32_t seconds)
+{
+    if(blob("idle_rest_s",&seconds,sizeof seconds,true)!=AINEKIO_STORE_OK)return ESP_FAIL;
+    atomic_store(&idle_rest_seconds,seconds);
+    atomic_store(&idle_rest_saved,true);
+    return ESP_OK;
 }
 
 bool ainekio_p4_balance_enabled(void) { return atomic_load(&balance_enabled); }

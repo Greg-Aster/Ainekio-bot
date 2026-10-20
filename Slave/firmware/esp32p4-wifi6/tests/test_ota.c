@@ -4,6 +4,7 @@
 #define taskEXIT_CRITICAL portEXIT_CRITICAL
 #include "../main/ota.c"
 #include <assert.h>
+esp_err_t ainekio_p4_idle_rest_http(struct httpd_req *r){(void)r;return ESP_OK;}
 static unsigned feedback_requests;
 esp_err_t ainekio_p4_feedback_http(struct httpd_req *r){(void)r;feedback_requests++;return ESP_OK;}
 

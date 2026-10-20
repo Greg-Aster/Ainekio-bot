@@ -4663,3 +4663,24 @@ output_fault=0, and leveling reports settled with both correction paths inactive
 This is a supported, servo-power-off verification. Loaded chatter reduction has
 not yet been physically verified. Artifacts and snapshots remain outside the
 repository at /tmp/ainekio-level-tracking-20261018/.
+
+
+## 2026-10-20 — Owner-configurable shared inactivity timer
+
+Owner requested normal lay-down after three minutes of inactivity, then asked
+for adjustment in Body Control. Implemented `idle_rest_v1`: saved robot-owned
+seconds (default180, zero disabled), a Mode and power minutes control, and the
+existing authenticated maintenance path. A one-shot ESP-IDF timer notifies the
+existing output task; no extra polling task or stack. Active motion/listening
+and long speech defer rest; user commands and audio completion restart idle.
+Telemetry, camera frames and read-only queries do not. One normal lay-down
+retains powered outputs; new commands remain available. Manual calibration and
+explicitly detached outputs are not automatically moved.
+
+Native tests passed for exact expiry, active movement, long audio, replacement,
+disable/reconfigure, powered rest, non-repeating lay-down, NVS reboot persistence,
+and HTTP input/storage errors. Dashboard tests covered selected robot changes,
+minutes conversion, disabling and stale replies. Authenticated gateway proxy
+test passed. Integrated IDF application build passed. Installation and physical
+three-minute observation are pending. DNDIY subsequently confirmed the robot
+online on `0.8.113-p4-link-motion`; the rest update has not been installed.

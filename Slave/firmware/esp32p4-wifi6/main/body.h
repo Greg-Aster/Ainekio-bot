@@ -29,6 +29,9 @@ void ainekio_p4_body_pulses(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS]);
 /* Nonblocking audio cue. The existing output owner performs it while holding a
  * pose; commanded motion owns the joints until it completes. Never arms PWM. */
 void ainekio_p4_body_listen(bool active);
+/* Meaningful input or audio completion resets the shared one-shot rest timer. */
+void ainekio_p4_body_activity(void);
+
 
 typedef struct {
     uint64_t connection;

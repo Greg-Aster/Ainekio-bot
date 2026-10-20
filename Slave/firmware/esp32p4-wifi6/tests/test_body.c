@@ -18,6 +18,26 @@ float ainekio_p4_motion_rate(void) { return saved_motion_rate; }
 
 struct test_queue { unsigned capacity, size, count; unsigned char data[]; };
 static uint64_t clock_us;
+static uint32_t rest_seconds=180;
+static bool speaker_busy;
+uint32_t ainekio_p4_idle_rest_seconds(void) { return rest_seconds; }
+ainekio_p4_media_status_t ainekio_p4_media_status(void)
+{ return (ainekio_p4_media_status_t){.speaker_busy=speaker_busy}; }
+struct test_timer { esp_timer_create_args_t args; uint64_t due; };
+esp_err_t esp_timer_create(const esp_timer_create_args_t *a,esp_timer_handle_t *h)
+{ *h=calloc(1,sizeof **h);(*h)->args=*a;return ESP_OK; }
+esp_err_t esp_timer_start_once(esp_timer_handle_t t,uint64_t delay)
+{ assert(!t->due);t->due=clock_us+delay;return ESP_OK; }
+esp_err_t esp_timer_stop(esp_timer_handle_t t) { t->due=0;return ESP_OK; }
+static void rest_tick(void)
+{
+    if(rest_timer->due && clock_us>=rest_timer->due) {
+        rest_timer->due=0;rest_timer->args.callback(rest_timer->args.arg);
+    }
+    rest_step(clock_us);
+}
+
+
 static uint64_t mapping_delay_us, write_delay_us, last_mapping_started, last_write_started;
 static ainekio_pca9685_t driver;
 static unsigned writes, shaft_feedback_reads;
@@ -146,7 +166,7 @@ static void reset(void)
     body=(body_state_t){0};motion_status=(ainekio_p4_body_status_t){0};
     ainekio_p4_body_listen(false);
     memset(commanded,0,sizeof(commanded));driver=(ainekio_pca9685_t){.state={.generation=1,.ready=true}};
-    system_state=AINEKIO_STATE_IDLE;
+    system_state=AINEKIO_STATE_IDLE;rest_seconds=180;speaker_busy=false;
     saved_motion_rate=1.F;leveling_enabled=true;leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
     shaft_feedback_enabled=shaft_feedback_reached=false;shaft_wait_mask=0xfff;
     shaft_tracking_available=shaft_measured_override=false;
@@ -173,7 +193,7 @@ static ainekio_command_t command(unsigned seq,ainekio_intent_kind_t kind)
 static int execute(ainekio_command_t *c)
 { return ainekio_p4_body_execute(driver.state.generation,17,c); }
 static void advance(unsigned ms)
-{ assert(ms%20==0);while(ms){clock_us+=20000;output_step(clock_us);ms-=20;} }
+{ assert(ms%20==0);while(ms){clock_us+=20000;output_step(clock_us);rest_tick();ms-=20;} }
 static ainekio_p4_body_event_t finish_at(unsigned maximum_ms,unsigned line)
 {
     ainekio_p4_body_event_t e;
@@ -1372,8 +1392,44 @@ static void standing_settles_and_wakes(void)
     puts("Standing quiet hold: hysteresis, no shaft reads/PWM writes, rate-aware settling, disturbance/target wake, IMU loss and immediate Walk passed.");
 }
 
+static void inactivity_rest(void)
+{
+    reset();
+    ainekio_command_t c=command(91,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK);assert(finish(15000).completed);rest_tick();
+    assert(rest_timer->due==clock_us+180000000);
+    clock_us=rest_timer->due-1;rest_tick();assert(body.motion.kind==MOTION_NONE);
+    ++clock_us;rest_tick();assert(body.motion.kind==MOTION_CLIP);
+    assert(!strcmp(body.motion.face_command,"lay_down"));assert(driver.state.armed);
+    while(body.motion.kind!=MOTION_NONE)advance(20);
+    assert(driver.state.armed && !rest_timer->due);
+    clock_us+=600000000;rest_tick();assert(body.motion.kind==MOTION_NONE);
+    /* New commands remain immediate. A superseded timer notice cannot override them. */
+    c.sequence++;assert(execute(&c)==ESP_OK);rest_timeout(NULL);rest_tick();
+    assert(body.motion.kind==MOTION_POSE);assert(finish(15000).completed);
+    assert(rest_timer->due);
+    rest_seconds=0;ainekio_p4_body_activity();rest_tick();assert(!rest_timer->due);
+    clock_us+=600000000;rest_tick();assert(body.motion.kind==MOTION_NONE);
+    rest_seconds=240;ainekio_p4_body_activity();rest_tick();
+    assert(rest_timer->due==clock_us+240000000);
+    /* Long speech delays rest until the audio completion resets inactivity. */
+    speaker_busy=true;clock_us=rest_timer->due;rest_tick();assert(body.motion.kind==MOTION_NONE);
+    speaker_busy=false;ainekio_p4_body_activity();rest_tick();assert(rest_timer->due==clock_us+240000000);
+    ainekio_p4_body_listen(true);ainekio_p4_body_activity();rest_tick();assert(!rest_timer->due);
+    ainekio_p4_body_listen(false);ainekio_p4_body_activity();rest_tick();assert(rest_timer->due);
+    /* Continuous locomotion is work, irrespective of command age. */
+    c=command(95,AINEKIO_INTENT_WALK);c.data.intent.data.walk.speed_percent=20;
+    assert(execute(&c)==ESP_OK);rest_tick();assert(!rest_timer->due);
+    clock_us+=600000000;rest_timeout(NULL);rest_tick();assert(body.motion.kind==MOTION_WALK);
+    /* Released and manually calibrated outputs are not automatically re-armed. */
+    reset();assert(ainekio_p4_body_move(driver.state.generation,0,1600)==ESP_OK);
+    rest_tick();assert(!rest_timer->due);
+    puts("Shared one-shot inactivity: timed lay-down, saved selection, active work, replacement and powered rest passed.");
+}
+
 int main(int argc,char **argv)
 {
+    inactivity_rest();
     measured_stand_arrival();
     startup_crouch_shoulders_rise();stand_full_rate_without_leveling();
     standing_feedback_converges();standing_sends_tapered_targets();standing_settles_and_wakes();

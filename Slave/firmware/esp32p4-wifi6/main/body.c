@@ -11,6 +11,8 @@
 #include "ainekio/v2_balance.h"
 #include "ainekio/p4_imu.h"
 
+#include <stdatomic.h>
+#include "ainekio/p4_media.h"
 #include <math.h>
 #include <stdlib.h>
 
@@ -44,6 +46,19 @@ static ainekio_p4_body_status_t motion_status;
 static ainekio_p4_body_timing_t timing;
 static TaskHandle_t output_handle;
 static bool listen_requested;
+static esp_timer_handle_t rest_timer;
+static atomic_bool rest_expired;
+static atomic_uint activity_revision;
+static unsigned rest_revision;
+static bool rest_busy, rest_eligible;
+static uint64_t rest_deadline;
+void ainekio_p4_body_activity(void) { atomic_fetch_add(&activity_revision,1); }
+static void rest_timeout(void *arg)
+{
+    (void)arg;
+    /* Shared esp_timer task only posts a notice. PWM stays with body_output. */
+    atomic_store(&rest_expired,true);
+}
 
 void ainekio_p4_body_listen(bool active)
 {
@@ -1142,6 +1157,8 @@ static esp_err_t process_request(const body_request_t *request, uint64_t now)
     const ainekio_pca_status_t status = ainekio_pca_status(output);
     if (now >= request->deadline || status.generation != request->generation)
         return ESP_ERR_INVALID_STATE;
+    ainekio_p4_body_activity();
+    if(!request->hold)rest_eligible=request->execute || request->freestyle;
     if (request->hold) {
         body.listen.active = false;
         ainekio_p4_body_listen(false);
@@ -1194,6 +1211,45 @@ static esp_err_t process_request(const body_request_t *request, uint64_t now)
     return ESP_OK;
 }
 
+/* Called by the existing output owner. Only state changes rearm the timer;
+ * there is no new polling task, periodic timer or per-frame deadline scan. */
+static void rest_step(uint64_t now)
+{
+    bool listening;
+    portENTER_CRITICAL(&pulse_lock);
+    listening=listen_requested;
+    portEXIT_CRITICAL(&pulse_lock);
+    const bool busy=body.motion.kind!=MOTION_NONE || body.ramping || listening || body.listen.active;
+    const unsigned revision=atomic_load(&activity_revision);
+    if(revision!=rest_revision || busy!=rest_busy) {
+        rest_revision=revision;rest_busy=busy;
+        esp_timer_stop(rest_timer);
+        atomic_store(&rest_expired,false);
+        rest_deadline=0;
+        const uint32_t seconds=ainekio_p4_idle_rest_seconds();
+        if(!busy && rest_eligible && body.active && seconds) {
+            rest_deadline=now+(uint64_t)seconds*1000000;
+            if(esp_timer_start_once(rest_timer,(uint64_t)seconds*1000000)!=ESP_OK) {
+                rest_deadline=0;
+                puts("Unable to arm inactivity rest timer");
+            }
+        }
+    }
+    if(!atomic_exchange(&rest_expired,false) || !rest_deadline || now<rest_deadline)return;
+    rest_deadline=0;
+    /* A stale callback cannot override a new command or released outputs.
+     * Long audio finishes through its existing callback, which resets activity. */
+    if(busy || !rest_eligible || !body.active ||
+       !ainekio_pca_status(ainekio_p4_output()).armed ||
+       ainekio_p4_media_status().speaker_busy)return;
+    body_request_t request={.generation=body.generation,.deadline=UINT64_MAX,.execute=true,
+        .intent={.kind=AINEKIO_INTENT_EMOTE}};
+    strcpy(request.intent.data.asset,"lay_down");
+    rest_eligible=false; /* One rest per activity period, never repeated clips. */
+    const esp_err_t result=start_motion(&request,now);
+    if(result!=ESP_OK)printf("Inactivity lay-down failed: %d\n",(int)result);
+}
+
 static void output_task(void *arg)
 {
     (void)arg;
@@ -1212,6 +1268,7 @@ static void output_task(void *arg)
                 body.pending_home = request.serial;
             else xQueueOverwrite(results, &response);
         }
+        rest_step(esp_timer_get_time());
         /* Yield after a late frame without adding another 5 ms of lateness.
          * The next iteration samples current time without replaying outputs. */
         vTaskDelay(body.active && (uint64_t)esp_timer_get_time() >= body.next_frame ?
@@ -1221,6 +1278,14 @@ static void output_task(void *arg)
 
 esp_err_t ainekio_p4_body_start(void)
 {
+    rest_deadline=0;rest_revision=0;rest_busy=false;rest_eligible=false;
+    atomic_store(&activity_revision,0);atomic_store(&rest_expired,false);
+    if(!rest_timer) {
+        const esp_timer_create_args_t timer={.callback=rest_timeout,.name="idle_rest"};
+        const esp_err_t result=esp_timer_create(&timer,&rest_timer);
+        if(result!=ESP_OK)return result;
+    } else esp_timer_stop(rest_timer);
+
     requests = xQueueCreate(1, sizeof(body_request_t));
     results = xQueueCreate(1, sizeof(body_result_t));
     events = xQueueCreate(16, sizeof(ainekio_p4_body_event_t));

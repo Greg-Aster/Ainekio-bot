@@ -323,7 +323,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {AINEKIO_MOTION_PLAN_V2_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_PLAN_V2_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "servo_feedback_v1", "idle_rest_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -484,6 +484,7 @@ static void microphone(void *context, uint64_t session, const uint8_t *pcm)
 static void audio_done(void *context, uint64_t session, uint32_t sequence, esp_err_t result)
 {
     (void)context;
+    ainekio_p4_body_activity();
     char text[192];
     if (result == ESP_OK) ainekio_encode_done(sequence, text, sizeof(text));
     else ainekio_encode_nak(true, sequence, AINEKIO_NAK_BUSY, "audio playback failed", text, sizeof(text));
@@ -510,6 +511,7 @@ static void gate_event(void *context, uint64_t session, bool open, bool wake_wor
     enter();
     const bool normal = admission.core.mode == AINEKIO_MODE_NORMAL;
     leave();
+    ainekio_p4_body_activity();
     ainekio_p4_body_listen(open && normal);
     /* Boundaries share the PCM FIFO: start must precede pre-roll and close
      * must follow the last sample, even while the link task is delayed. */
@@ -863,6 +865,8 @@ static void link_task(void *arg)
         enter();
         ainekio_admission_close(&admission, link_generation);
         leave();
+        if(ainekio_p4_media_status().speaker_busy)ainekio_p4_body_activity();
+        ainekio_p4_body_listen(false);
         ainekio_p4_media_disconnect();
         esp_websocket_client_stop(client);
         esp_websocket_client_destroy(client);
@@ -1021,6 +1025,7 @@ static void done(uint64_t connection, uint32_t sequence)
 static void cancel_audio(uint64_t connection, ainekio_cancel_code_t code)
 {
     const uint32_t sequence = ainekio_p4_media_audio_cancel();
+    if(sequence)ainekio_p4_body_activity();
     if (sequence) {
         char text[100];
         ainekio_encode_cancelled(sequence, code, text, sizeof(text));
@@ -1199,6 +1204,13 @@ static void control_task(void *arg)
                 leave();
                 execution_failed(request.connection, request.message.sequence, result);
             } else {
+                if(command->kind==AINEKIO_COMMAND_INTENT || command->kind==AINEKIO_COMMAND_MOTION_PLAN ||
+                   command->kind==AINEKIO_COMMAND_STOP || command->kind==AINEKIO_COMMAND_SNAPSHOT ||
+                   command->kind==AINEKIO_COMMAND_TTS || command->kind==AINEKIO_COMMAND_STATE ||
+                   command->kind==AINEKIO_COMMAND_CAMERA || command->kind==AINEKIO_COMMAND_MICROPHONE ||
+                   command->kind==AINEKIO_COMMAND_SPEAKER || command->kind==AINEKIO_COMMAND_WAKE_CONFIG ||
+                   command->kind==AINEKIO_COMMAND_MODE || command->kind==AINEKIO_COMMAND_PROFILE)
+                    ainekio_p4_body_activity();
                 char text[80];
                 ainekio_encode_ack(command->sequence,
                     command->kind == AINEKIO_COMMAND_STATE ? command->data.state.sleep_seconds : 0, text, sizeof(text));
