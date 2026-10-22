@@ -146,6 +146,101 @@ bool ainekio_v2_limits_frame(const ainekio_v2_frame_t *frame)
     }
     return true;
 }
+unsigned ainekio_v2_feet_forward(const ainekio_v2_frame_t *frame,float feet[4][3])
+{
+    unsigned mask=0;
+    for(unsigned leg=0;leg<4;leg++) {
+        const v2_walk_leg_t *g=&v2_walk_legs[(leg+2)%4];
+        vec_t shoulder[3]={{g->shoulder_sign[0],0,0},{0,g->shoulder_sign[1],0},{0,0,g->shoulder_sign[2]}},r[3],world;
+        double q[3];for(unsigned j=0;j<3;j++)q[j]=frame->position[3*leg+j]*.00017453292519943296;
+        solution_t s={0};
+        if(!isfinite(q[0])||!isfinite(q[1])||!isfinite(q[2])||!seed(q,&s))continue;
+        mechanism(g,shoulder,&s,r);
+        (void)derivatives(g,shoulder,r,&s,point(g->reference),&world);
+        world=add(point(g->shoulder_translation),world);
+        feet[leg][0]=world.x;feet[leg][1]=world.y;feet[leg][2]=world.z;mask|=1U<<leg;
+    }
+    return mask;
+}
+bool ainekio_v2_feet_offset(const ainekio_v2_frame_t *nominal,
+    const float delta[4][3],ainekio_v2_frame_t *out)
+{
+    ainekio_v2_frame_t frame=*nominal;
+    for(unsigned leg=0;leg<4;leg++) {
+        if(delta[leg][0]==0 && delta[leg][1]==0 && delta[leg][2]==0)continue;
+        const v2_walk_leg_t *g=&v2_walk_legs[(leg+2)%4];
+        vec_t shoulder[3]={{g->shoulder_sign[0],0,0},{0,g->shoulder_sign[1],0},{0,0,g->shoulder_sign[2]}},r[3],target;
+        double q[3];for(unsigned j=0;j<3;j++)q[j]=nominal->position[3*leg+j]*.00017453292519943296;
+        solution_t s={0};if(!seed(q,&s))return false;
+        mechanism(g,shoulder,&s,r);
+        (void)derivatives(g,shoulder,r,&s,point(g->reference),&target);
+        target=add(target,(vec_t){delta[leg][0],delta[leg][1],delta[leg][2]});
+        if(!isfinite(target.x)||!isfinite(target.y)||!isfinite(target.z))return false;
+        float t=V2_THETA_ZERO+(float)q[2];
+        float branch=(s.dx+V2_PICKUP*s.bc-V2_C_X)*sinf(t)-(s.dz+V2_PICKUP*s.bs-V2_C_Z)*cosf(t);
+        if(!endpoint(g,shoulder,target,s.dx,s.dz,&s))return false;
+        float theta;if(!crank(&s,(float)q[2],branch,&theta))return false;
+        frame.position[3*leg]=atan2f(s.hs,s.hc)*5729.577951308232f;
+        frame.position[3*leg+1]=wrap(atan2f(s.dz-V2_O_Z,s.dx-V2_O_X)-V2_ALPHA_ZERO)*5729.577951308232f;
+        frame.position[3*leg+2]=theta*5729.577951308232f;
+    }
+    if(!ainekio_v2_limits_frame(&frame))return false;
+    *out=frame;return true;
+}
+static bool reference_at(unsigned leg,const float q[3],vec_t *world)
+{
+    const v2_walk_leg_t *g=&v2_walk_legs[(leg+2)%4];
+    vec_t shoulder[3]={{g->shoulder_sign[0],0,0},{0,g->shoulder_sign[1],0},{0,0,g->shoulder_sign[2]}},r[3];
+    double angle[3];for(unsigned j=0;j<3;j++)angle[j]=q[j]*.00017453292519943296;
+    solution_t s={0};if(!seed(angle,&s))return false;
+    mechanism(g,shoulder,&s,r);(void)derivatives(g,shoulder,r,&s,point(g->reference),world);return true;
+}
+bool ainekio_v2_feet_bounded(ainekio_v2_frame_t *frame,const float low[12],const float high[12])
+{
+    ainekio_v2_frame_t result=*frame;
+    for(unsigned leg=0;leg<4;leg++) {
+        unsigned id=3*leg;float *q=&result.position[id];
+        if(q[1]>=low[id+1]&&q[1]<=high[id+1]&&q[2]>=low[id+2]&&q[2]<=high[id+2])continue;
+        vec_t target,position;if(!reference_at(leg,q,&target))return false;
+        for(unsigned j=1;j<3;j++)q[j]=fmaxf(low[id+j],fminf(high[id+j],q[j]));
+        if(!reference_at(leg,q,&position))return false;
+        /* Projected Gauss-Newton: minimize Cartesian displacement subject to
+         * measured electrical travel and actual four-bar closure. This solves
+         * a feasible pose before mapping; it never clips outgoing PWM. */
+        for(unsigned iteration=0;iteration<8;iteration++) {
+            vec_t error=sub(target,position),jac[2];float cost=dot(error,error);
+            if(cost<1e-8f)break;
+            bool derivative=true;
+            for(unsigned j=0;j<2;j++) {
+                float probe[3];memcpy(probe,q,sizeof probe);
+                float step=q[j+1]+1.f<=high[id+j+1]?1.f:-1.f;
+                if(q[j+1]+step<low[id+j+1]){derivative=false;break;}
+                probe[j+1]+=step;vec_t p;
+                if(!reference_at(leg,probe,&p)){derivative=false;break;}
+                jac[j]=scale(sub(p,position),1.f/step);
+            }
+            if(!derivative)break;
+            float a=dot(jac[0],jac[0]),b=dot(jac[0],jac[1]),d=dot(jac[1],jac[1]);
+            float e=dot(jac[0],error),f=dot(jac[1],error),det=a*d-b*b;
+            float step[2]={a>1e-12f?e/a:0.f,d>1e-12f?f/d:0.f};
+            if(det>1e-12f){step[0]=(d*e-b*f)/det;step[1]=(a*f-b*e)/det;}
+            /* At an active bound, optimize the remaining actuator directly. */
+            if((q[1]<=low[id+1]&&step[0]<0)||(q[1]>=high[id+1]&&step[0]>0)){step[0]=0;step[1]=d>1e-12f?f/d:0;}
+            if((q[2]<=low[id+2]&&step[1]<0)||(q[2]>=high[id+2]&&step[1]>0)){step[1]=0;step[0]=a>1e-12f?e/a:0;}
+            bool improved=false;
+            for(unsigned trial=0;trial<8;trial++) {
+                float probe[3];memcpy(probe,q,sizeof probe);float fraction=ldexpf(1.f,-(int)trial);
+                for(unsigned j=1;j<3;j++)probe[j]=fmaxf(low[id+j],fminf(high[id+j],q[j]+fraction*step[j-1]));
+                vec_t p;if(!reference_at(leg,probe,&p))continue;
+                vec_t residual=sub(target,p);
+                if(dot(residual,residual)<cost){memcpy(q,probe,sizeof probe);position=p;improved=true;break;}
+            }
+            if(!improved)break;
+        }
+    }
+    if(!ainekio_v2_limits_frame(&result))return false;
+    *frame=result;return true;
+}
 bool ainekio_v2_contact_forward(ainekio_v2_walk_pose_t *p,
     double local_points[4][3],bool choose_contacts)
 {

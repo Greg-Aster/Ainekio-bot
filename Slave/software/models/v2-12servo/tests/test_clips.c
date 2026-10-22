@@ -1,6 +1,7 @@
 #include "ainekio/v2_motion.h"
 #include "ainekio/admission.h"
 #include "ainekio/v2_walk.h"
+#include "clip_data.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -24,16 +25,102 @@ int main(void)
     assert(!ainekio_v2_clip_find("wave", NULL));
     assert(!ainekio_v2_clip_sample(ainekio_v2_clip_count, 0, &frame));
     assert(!ainekio_v2_clip_sample(0, 0, NULL));
+    float up[3];
+    assert(!ainekio_v2_clip_expected_up(ainekio_v2_clip_count,0,up));
+    assert(!ainekio_v2_clip_expected_up(0,0,NULL));
     for (size_t i = 0; i < ainekio_v2_clip_count; ++i) {
         const ainekio_v2_clip_t *clip = &ainekio_v2_clips[i];
         assert(ainekio_v2_clip_find(clip->command, &selected) && selected == i);
         assert(!clip->hardware_qualified);
         assert(clip->peak_joint_speed_degrees_s > 0.F);
-        const float below = 0.99 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
-        const float above = 1.01 * ainekio_v2_gait_joint_speed_limit() / clip->peak_joint_speed_degrees_s;
-        assert(ainekio_v2_clip_playback_rate(i, below) == below);
-        const float limited = ainekio_v2_clip_playback_rate(i, above);
-        assert(fabs(limited * clip->peak_joint_speed_degrees_s - ainekio_v2_gait_joint_speed_limit()) < .001);
+        const double speed=ainekio_v2_gait_joint_speed_limit()*AINEKIO_V2_GESTURE_SPEED_SCALE;
+        const bool taper=!strcmp(clip->command,"sit") || !strcmp(clip->command,"rest") || !strcmp(clip->command,"crouch");
+        const double duration=ainekio_v2_clip_playback_seconds(i,speed,2.F);
+        uint64_t source_us=0,previous_us=0,reverse_us;
+        unsigned travelling=0;
+        for(unsigned step=0;step<=2000;step++) {
+            const double time=duration*step/2000.;
+            ainekio_v2_frame_t playback,source,reverse;
+            assert(ainekio_v2_clip_playback_sample(i,time,speed,2.F,false,&playback,&source_us));
+            assert(source_us>=previous_us && source_us<=clip->duration_us);
+            previous_us=source_us;
+            assert(ainekio_v2_clip_sample(i,source_us,&source));
+            assert(ainekio_v2_clip_playback_sample(i,duration-time,speed,2.F,true,&reverse,&reverse_us));
+            double peak=0.;
+            for(unsigned j=0;j<12;j++) {
+                /* Retiming preserves the existing cubic path and reverses it
+                 * exactly, including all extrema and terminal poses. */
+                assert(fabs(playback.position[j]-source.position[j])<.2);
+                assert(fabs(playback.position[j]-reverse.position[j])<.02);
+                assert(isfinite(playback.velocity[j]) && isfinite(playback.acceleration[j]));
+                peak=fmax(peak,fabs(playback.velocity[j])/100.);
+            }
+            if(peak>0.) {
+                assert(peak<=speed+.001);
+                if(!taper)assert(fabs(peak-speed)<.001);
+                travelling++;
+            }
+        }
+        assert(travelling>0 && source_us==clip->duration_us);
+        /* Position differences inside every travel span independently prove
+         * the clock moves at full speed, rather than just reporting it. A
+         * window crossing a reversal measures net travel, not motor speed. */
+        const ainekio_v2_clip_clock_t *clock=&v2_clip_clocks[i];
+        unsigned measured_spans=0;
+        for(size_t k=0;k+1<clock->count;k++) {
+            const ainekio_v2_clip_clock_knot_t *a=&clock->knots[k],*b=&clock->knots[k+1];
+            if(taper && b->travel_degrees>.8*clock->knots[clock->count-1].travel_degrees)continue;
+            const double begin=a->travel_degrees/speed+a->hold_seconds;
+            const double end=b->travel_degrees/speed+b->hold_seconds;
+            if(end<=begin)continue;
+            ainekio_v2_frame_t before,after;uint64_t ignored;
+            assert(ainekio_v2_clip_playback_sample(i,begin+.2*(end-begin),speed,2.F,false,&before,&ignored));
+            assert(ainekio_v2_clip_playback_sample(i,begin+.8*(end-begin),speed,2.F,false,&after,&ignored));
+            double distance=0.;
+            for(unsigned j=0;j<12;j++)distance=fmax(distance,fabs(after.position[j]-before.position[j])/100.);
+            if(b->hold_seconds>a->hold_seconds)assert(distance<.005);
+            else if(b->travel_degrees-a->travel_degrees>.01) {
+                assert(fabs(distance/(.6*(end-begin))-speed)<speed*.02);
+                measured_spans++;
+            }
+        }
+        assert(measured_spans>0);
+        /* Output-cadence regression: a late frame cannot jump past a phase
+         * endpoint or reversal, and a delayed shaft cannot consume a hold.
+         * All targets, including the final target, need separate arrival. */
+        for(unsigned cadence=0;cadence<2;cadence++) {
+            ainekio_v2_clip_player_t player={0};
+            unsigned seen=0,steps=0;
+            double minimum[12],maximum[12];
+            for(unsigned j=0;j<12;j++){minimum[j]=INFINITY;maximum[j]=-INFINITY;}
+            while(seen<clock->target_count) {
+                assert(++steps<20000);
+                assert(ainekio_v2_clip_player_tick(i,&player,cadence?.137:.020,speed,3.F,false,&frame,&source_us));
+                assert(frame.phase!=AINEKIO_V2_COMPLETE);
+                for(unsigned j=0;j<12;j++){
+                    minimum[j]=fmin(minimum[j],frame.position[j]);maximum[j]=fmax(maximum[j],frame.position[j]);
+                }
+                if(!player.waiting)continue;
+                assert(source_us==(uint64_t)llround(clock->targets[seen]*1000000./V2_CLIP_SAMPLE_HZ));
+                const double stopped=player.seconds;
+                const ainekio_v2_frame_t target=frame;
+                assert(ainekio_v2_clip_player_tick(i,&player,5.,speed,3.F,false,&frame,&source_us));
+                assert(player.waiting && player.seconds==stopped);
+                assert(!memcmp(target.position,frame.position,sizeof frame.position));
+                assert(frame.phase!=AINEKIO_V2_COMPLETE);
+                assert(ainekio_v2_clip_player_tick(i,&player,5.,speed,3.F,true,&frame,&source_us));
+                assert(player.seconds==stopped); /* No catch-up after arrival. */
+                seen++;
+            }
+            assert(frame.phase==AINEKIO_V2_COMPLETE);
+            ainekio_v2_frame_t low,high;
+            assert(ainekio_v2_clip_bounds(i,&low,&high));
+            for(unsigned j=0;j<12;j++) {
+                assert(fabs(minimum[j]-low.position[j])<=.51);
+                assert(fabs(maximum[j]-high.position[j])<=.51);
+            }
+        }
+        printf("%-10s %.3f s travel + original holds, %zu feedback targets\n",clip->command,duration,clock->target_count);
         char wire[256];
         if (clip->intent == AINEKIO_INTENT_SIT)
             snprintf(wire, sizeof(wire), "{\"t\":\"intent\",\"name\":\"sit\",\"seq\":1,\"epoch\":7,\"deadline_ms\":1000}");
@@ -90,12 +177,43 @@ int main(void)
         }
         assert(nonzero == (!strcmp(clip->command, "sit") || !strcmp(clip->command, "rest") || !strcmp(clip->command, "dead") || !strcmp(clip->command, "lay_down") || !strcmp(clip->command, "crouch") || !strcmp(clip->command, "upright")));
         for (uint64_t t = 0; t < clip->duration_us; t += UINT64_C(19997)) {
+            assert(ainekio_v2_clip_expected_up(i,t,up));
+            assert(fabs(up[0]*up[0]+up[1]*up[1]+up[2]*up[2]-1.)<1e-6);
             assert(ainekio_v2_clip_sample(i, t, &frame));
             for (unsigned j = 0; j < 12; ++j) {
                 assert(isfinite(frame.position[j]) && isfinite(frame.velocity[j]) && isfinite(frame.acceleration[j]));
                 assert(fabs(frame.velocity[j])/100. <= clip->peak_joint_speed_degrees_s);
             }
         }
+    }
+    /* Sit keeps its full two-second hold at every legacy playback rate. */
+    const double speed=ainekio_v2_gait_joint_speed_limit();
+    assert(fabs(ainekio_v2_clip_playback_seconds(0,speed,.25F)-
+                ainekio_v2_clip_playback_seconds(0,speed,2.F))<1e-6);
+    const double travel=ainekio_v2_clip_playback_seconds(0,speed,2.F)-2.;
+    assert(fabs(ainekio_v2_clip_playback_seconds(0,speed/2.,2.F)-2.-2.*travel)<1e-6);
+    ainekio_v2_frame_t fast,slow,other_rate;uint64_t fast_us,slow_us,other_us;
+    assert(ainekio_v2_clip_playback_sample(0,travel*.3,speed,2.F,false,&fast,&fast_us));
+    assert(ainekio_v2_clip_playback_sample(0,travel*.6,speed/2.,2.F,false,&slow,&slow_us));
+    assert(ainekio_v2_clip_playback_sample(0,travel*.3,speed,.25F,false,&other_rate,&other_us));
+    assert(fast_us==slow_us && fast_us==other_us);
+    assert(!memcmp(fast.position,slow.position,sizeof fast.position));
+    assert(!memcmp(fast.position,other_rate.position,sizeof fast.position));
+    const char *tapered[]={"sit","rest","crouch"};
+    for(unsigned i=0;i<3;i++) {
+        size_t clip;assert(ainekio_v2_clip_find(tapered[i],&clip));
+        const double moving=ainekio_v2_clip_playback_seconds(clip,speed,3.F)-2.;
+        assert(ainekio_v2_clip_playback_sample(clip,.25*moving,speed,3.F,false,&fast,&fast_us));
+        assert(ainekio_v2_clip_playback_sample(clip,.99*moving,speed,3.F,false,&slow,&slow_us));
+        double fast_peak=0.,slow_peak=0.;
+        for(unsigned j=0;j<12;j++) {
+            fast_peak=fmax(fast_peak,fabs(fast.velocity[j])/100.);
+            slow_peak=fmax(slow_peak,fabs(slow.velocity[j])/100.);
+        }
+        assert(fabs(fast_peak-speed)<.001 && slow_peak<speed*.15);
+        assert(ainekio_v2_clip_playback_sample(clip,moving+1.999,speed,3.F,false,&held,&slow_us));
+        assert(ainekio_v2_clip_sample(clip,UINT64_MAX,&frame));
+        for(unsigned j=0;j<12;j++)assert(fabs(held.position[j]-frame.position[j])<.01);
     }
     const char *names[] = {"sit", "rest", "wave", "dance", "swim", "point", "nod", "pushup", "bow",
         "cute", "freaky", "worm", "shake", "shrug", "dead", "lay_down", "celebrate", "stretch", "surprised", "sad", "curious"};

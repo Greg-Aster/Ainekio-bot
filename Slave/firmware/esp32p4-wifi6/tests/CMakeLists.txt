@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(ainekio_p4_native C)
 enable_testing()
+add_executable(test_gait_trace test_gait_trace.c ../main/gait_trace.c)
+target_include_directories(test_gait_trace PRIVATE ../main)
+target_compile_options(test_gait_trace PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
+add_test(NAME gait_trace_ring COMMAND test_gait_trace)
 set(TRACE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__cjson/cJSON")
 add_executable(test_idle_rest test_idle_rest.c "${TRACE_JSON_DIR}/cJSON.c")
 target_include_directories(test_idle_rest PRIVATE ota_shim body_shim ../main
@@ -9,6 +13,20 @@ target_link_libraries(test_idle_rest PRIVATE ainekio_v2_motion m)
 target_compile_options(test_idle_rest PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 add_test(NAME idle_rest_settings COMMAND test_idle_rest)
 
+add_executable(test_gait_trace_runtime test_gait_trace_runtime.c ../main/gait_trace.c "${TRACE_JSON_DIR}/cJSON.c")
+target_include_directories(test_gait_trace_runtime PRIVATE trace_shim ota_shim body_shim ../main
+    ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
+target_link_libraries(test_gait_trace_runtime PRIVATE ainekio_imu ainekio_v2_motion m)
+target_compile_options(test_gait_trace_runtime PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+add_test(NAME gait_trace_http COMMAND test_gait_trace_runtime)
+
+add_executable(test_gait_learning_runtime test_gait_learning_runtime.c ../main/servo_feedback_model.c
+    ../main/joint_calibration.c "${TRACE_JSON_DIR}/cJSON.c")
+target_include_directories(test_gait_learning_runtime PRIVATE trace_shim ota_shim body_shim ../main
+    ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
+target_link_libraries(test_gait_learning_runtime PRIVATE ainekio_imu ainekio_v2_motion m)
+target_compile_options(test_gait_learning_runtime PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+add_test(NAME gait_learning_runtime COMMAND test_gait_learning_runtime)
 
 add_executable(test_servo_feedback test_servo_feedback.c ../main/servo_feedback_model.c)
 target_include_directories(test_servo_feedback PRIVATE ../main)
@@ -24,7 +42,9 @@ target_compile_options(test_servo_feedback_position PRIVATE -Wall -Wextra -Werro
 add_test(NAME servo_feedback_measured_arrival COMMAND test_servo_feedback_position)
 add_compile_options(-UNDEBUG) # Assertions must execute in optimized test builds.
 add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c)
-target_include_directories(test_imu_telemetry PRIVATE ../main)
+target_include_directories(test_imu_telemetry PRIVATE ../main imu_shim
+    ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include
+    ../../../software/core/include)
 target_link_libraries(test_imu_telemetry PRIVATE ainekio_imu)
 target_compile_options(test_imu_telemetry PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME imu_wire_telemetry COMMAND test_imu_telemetry)
@@ -104,6 +124,9 @@ target_include_directories(test_camera PRIVATE camera_shim body_shim
 target_link_libraries(test_camera PRIVATE ainekio_core)
 target_compile_options(test_camera PRIVATE -Wall -Wextra -Werror)
 add_test(NAME camera_profiles_and_snapshots COMMAND test_camera)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME camera_automatic_pipeline
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_camera_ipa.py)
 
 add_executable(test_calibration_store test_calibration_store.c ../main/joint_calibration.c ../main/robot_settings.c)
 target_include_directories(test_calibration_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)
@@ -137,3 +160,7 @@ target_include_directories(test_gateway_discovery PRIVATE discovery_shim camera_
     ../../components/ainekio_discovery/include)
 target_compile_options(test_gateway_discovery PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME shared_gateway_discovery COMMAND test_gateway_discovery)
+
+add_executable(preview_gait_learning ../tools/preview_gait_learning.c ../main/joint_calibration.c)
+target_include_directories(preview_gait_learning PRIVATE ../main)
+target_link_libraries(preview_gait_learning PRIVATE ainekio_v2_motion m)

@@ -335,9 +335,15 @@ async def _run_production(args: argparse.Namespace) -> None:
     if camera is not None:
         camera.set_enabled(bool(backend) and dashboard.control_settings["recognition"])
         await camera.restore_ground_plane(dashboard.control_settings.get("ground_calibrations", {}))
+        await camera.restore_depth(dashboard.control_settings.get("depth_motion", {}))
         adapter.locomotion_measurement = camera.locomotion_measurement
         adapter.selected_ground_range = camera.selected_ground_range
     service.subscribe_events(dashboard.restore_camera)
+    from gateway.gait_learning_service import GaitLearningService, RobotLearningTransport
+    gait_learning = GaitLearningService(service, RobotLearningTransport(service, token_store),
+                                       camera.locomotion_measurement)
+    dashboard.gait_learning = gait_learning
+    await gait_learning.start()
 
     async def route(websocket: object, path: str) -> None:
         if path == "/robot":
@@ -386,6 +392,7 @@ async def _run_production(args: argparse.Namespace) -> None:
                 await stopped
             finally:
                 server.close()
+                await gait_learning.close()
                 await service.close()
                 # Environment and not-yet-paired sockets share this server.
                 # Release them before asyncio.Server.wait_closed waits for all
@@ -399,6 +406,9 @@ async def _run_production(args: argparse.Namespace) -> None:
                 await asyncio.gather(*established)
     finally:
         signal.signal(signal.SIGTERM, previous_sigterm)
+        if dashboard.freestyle is not None:
+            await dashboard.freestyle.close()
+        await gait_learning.close()
         if camera is not None:
             await camera.aclose()
         await asyncio.to_thread(dashboard.shutdown)

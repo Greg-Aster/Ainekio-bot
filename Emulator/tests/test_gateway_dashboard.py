@@ -13,7 +13,7 @@ from collections.abc import AsyncIterable
 from pathlib import Path
 from typing import Callable
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from gateway.dashboard.server import start_dashboard_server
 from gateway.body_events import BodyEvents
@@ -163,6 +163,109 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_freestyle_trial_export_does_not_submit_motion(self):
+        cookie,csrf=await self._login()
+        service=SimpleNamespace(trial=Mock(return_value={'job':{'id':'trial-1','execute':False}}),
+                                submit=AsyncMock())
+        self.server.freestyle=service
+        code,result,_=await self._request('POST','/api/freestyle',{
+            'operation':'trial','robot_id':'ainekio-test-01','job_id':'trial-1'},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result['job']['id'],'trial-1')
+        service.trial.assert_called_once_with('ainekio-test-01','trial-1')
+        service.submit.assert_not_awaited()
+        self.assertEqual(self.gateway.calls,[])
+
+    async def test_freestyle_lazy_loader_configures_without_contacting_robot(self):
+        events,commands=[],[]
+        self.gateway.subscribe_events=events.append
+        self.gateway.unsubscribe_events=events.remove
+        self.gateway.subscribe_commands=commands.append
+        self.gateway.unsubscribe_commands=commands.remove
+        self.assertIsNone(self.server.freestyle)
+        cookie,csrf=await self._login()
+        code,result,_=await self._request('POST','/api/freestyle',{
+            'operation':'configure','robot_id':'ainekio-test-01',
+            'endpoint':'http://127.0.0.1:8794','recover_events':False},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertFalse(result['settings']['ainekio-test-01']['recover_events'])
+        self.assertEqual(self.gateway.calls,[])
+        self.assertEqual((len(events),len(commands)),(1,1))
+        await self.server.freestyle.close()
+        self.assertEqual((len(events),len(commands)),(0,0))
+
+    async def test_freestyle_is_optional_authenticated_and_selected_robot_scoped(self):
+        route='/api/freestyle'
+        cookie,csrf=await self._login()
+        service=SimpleNamespace(configure=AsyncMock(return_value={'configured':True}),
+                                submit=AsyncMock(return_value={'job_id':'test-job'}))
+        self.server.freestyle=service
+        payload={'robot_id':'ainekio-test-01','request':'a new greeting','execute':False}
+        self.assertEqual((await self._request('POST',route,payload,cookie=cookie))[0],403)
+        code,result,_=await self._request('POST',route,payload,cookie=cookie,csrf=csrf)
+        self.assertEqual((code,result),(200,{'job_id':'test-job'}))
+        service.submit.assert_awaited_once_with('ainekio-test-01','a new greeting',False)
+        with tempfile.TemporaryDirectory() as removed:
+            with patch('gateway.dashboard.server.FREESTYLE_ROOT',Path(removed)):
+                code,_,_=await self._request('POST',route,payload,cookie=cookie,csrf=csrf)
+                self.assertEqual(code,409)
+                code,result,_=await self._request('GET','/api/status',cookie=cookie)
+                self.assertEqual(code,200)
+                self.assertNotIn('freestyle',result)
+        self.assertEqual(self.gateway.calls,[])
+
+    async def test_trial_status_preserves_camera_owner_availability(self):
+        measured = {'available': False, 'reason': 'Measured calibration required', 'robotId': 'ainekio-test-01'}
+        self.server.camera_recognition = SimpleNamespace(locomotion_measurement=lambda robot: dict(measured))
+        result = await self.server.trial_status()
+        self.assertEqual(result['robots']['ainekio-test-01']['locomotion_measurement'], measured)
+        self.assertEqual(self.gateway.calls, [])
+
+    async def test_gait_training_is_authenticated_and_never_commands_motion(self):
+        from test_gait_learning import recording
+        payload={"batches": recording(), "gain": .5}
+        route="/api/gait-learning/train"
+        self.assertEqual((await self._request("POST",route,payload))[0],401)
+        cookie,csrf=await self._login()
+        self.assertEqual((await self._request("POST",route,payload,cookie=cookie))[0],403)
+        code,result,_=await self._request("POST",route,payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result["model"]["schema"],"gait_learning_v2")
+        self.assertEqual(len(result["model"]["coefficients"]),60)
+        self.assertFalse(result["training"]["physical_improvement_demonstrated"])
+        self.assertEqual(self.gateway.calls,[])
+
+    async def test_host_learning_routes_use_selected_robot_and_require_csrf(self):
+        learning = SimpleNamespace(
+            history=AsyncMock(return_value={"contexts":[]}),
+            configure=AsyncMock(return_value={"state":"logging"}),
+            analyze=lambda robot: {"queued":True, "robot":robot},
+            restore=AsyncMock(return_value={"pending_gaits":["run"]}),
+            status=lambda robot: {"robot":robot})
+        self.server.gait_learning = learning
+        route = "/api/gait-learning/service"
+        payload = {"robot_id":"ainekio-test-01", "op":"configure",
+                   "settings":{"logging":True,"learning":False}}
+        self.assertEqual((await self._request("POST",route,payload))[0],401)
+        cookie,csrf = await self._login()
+        self.assertEqual((await self._request("POST",route,payload,cookie=cookie))[0],403)
+        code,result,_ = await self._request("POST",route,payload,cookie=cookie,csrf=csrf)
+        self.assertEqual((code,result["state"]),(200,"logging"))
+        learning.configure.assert_awaited_once_with("ainekio-test-01",payload["settings"])
+        code,result,_ = await self._request("POST",route,{"robot_id":"ainekio-test-01","op":"history"},
+                                            cookie=cookie,csrf=csrf)
+        self.assertEqual((code,result),(200,{"contexts":[]}))
+        learning.history.assert_awaited_once_with("ainekio-test-01")
+        code,result,_ = await self._request("POST",route,{"robot_id":"ainekio-test-01","op":"analyze"},
+                                            cookie=cookie,csrf=csrf)
+        self.assertEqual((code,result["robot"]),(200,"ainekio-test-01"))
+        code,_,_ = await self._request("POST",route,{"robot_id":"ainekio-test-01","op":"restore",
+                                                   "gait":"run","model_id":"previous"},
+                                      cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        learning.restore.assert_awaited_once_with("ainekio-test-01","run","previous")
+        self.assertEqual(self.gateway.calls,[])
+
     async def test_freestyle_route_uses_existing_authenticated_motion_owner(self):
         cookie,csrf=await self._login()
         self.gateway.queue_motion_plan=AsyncMock(return_value=42)
@@ -426,6 +529,12 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             await self._request("POST", rest_route, rest, cookie=cookie, csrf=csrf)
             self.assertEqual(transfers[-1].target, "/api/idle-rest")
             self.assertEqual(json.loads(transfers[-1].body), rest)
+            learning_route = "/api/robot/gait-learning?robot_id=ainekio-test-01"
+            model = {"op": "install", "model": {"schema": "gait_learning_v2", "coefficients": [0]*60}}
+            self.assertEqual((await self._request("POST", learning_route, model, cookie=cookie))[0], 403)
+            await self._request("POST", learning_route, model, cookie=cookie, csrf=csrf)
+            self.assertEqual(transfers[-1].target, "/api/gait-learning")
+            self.assertEqual(json.loads(transfers[-1].body), model)
             name = "video-1234abcd-00000001.avi"
             reply.update(bytes=blob, headers={"Content-Type":"video/x-msvideo", "X-Recording-Bytes":str(len(blob))})
             status, raw, headers = await self._raw_request("GET", route + "&name=" + name, cookie=cookie)
@@ -971,6 +1080,23 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(headers["x-ainekio-camera-counter"], "17")
         self.assertIn("img-src 'self' blob:", headers["content-security-policy"])
 
+    async def test_requested_snapshot_survives_preview_and_requires_matching_epoch(self):
+        cookie, _ = await self._login()
+        frame = {'robot_id': 'ainekio-test-01', 'frame_type': CAMERA_JPEG_FRAME_TYPE,
+                 'epoch': 8, 'counter': 20, 'payload': b'still',
+                 'camera_metadata': {'origin': 'request', 'origin_id': 42}}
+        self.server._record_camera_frame(frame)
+        self.server._record_camera_frame({**frame, 'counter': 21, 'payload': b'preview', 'camera_metadata': {}})
+        status, body, headers = await self._raw_request('GET',
+            '/api/camera/frame?robot_id=ainekio-test-01&epoch=8&request_seq=42', cookie=cookie)
+        self.assertEqual((status, body), (200, b'still'))
+        self.assertEqual(headers['x-ainekio-camera-origin-id'], '42')
+        self.assertEqual(headers['x-ainekio-camera-epoch'], '8')
+        self.assertIsNone(self.server.wait_for_camera_frame('ainekio-test-01', None,
+            timeout=0, request_sequence=42, epoch=9))
+        self.assertIsNone(self.server.wait_for_camera_frame('ainekio-test-01', None,
+            timeout=0, request_sequence=43, epoch=8))
+
     async def test_dashboard_defaults_to_physical_camera_panel(self) -> None:
         cookie, _csrf = await self._login()
         status, body, _headers = await self._raw_request("GET", "/", cookie=cookie)
@@ -1013,7 +1139,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
     async def test_body_event_controls_are_authenticated_saved_and_applied_per_robot(self):
         from gateway.body_events import DEFAULTS
         cookie, csrf = await self._login()
-        settings = {**DEFAULTS, "tip_degrees": 65, "rapid_enabled": False, "rapid_cooldown_s": 2.5}
+        settings = {**DEFAULTS, "tip_degrees": 65, "rapid_enabled": False, "motion_cooldown_s": 2.5}
         payload = {"robot_id": "p4", "settings": settings}
         self.assertEqual((await self._request("POST", "/api/body-events", payload, cookie=cookie))[0], 403)
         result = await self._request("POST", "/api/body-events", payload, cookie=cookie, csrf=csrf)

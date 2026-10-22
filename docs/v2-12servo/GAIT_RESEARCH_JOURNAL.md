@@ -4664,6 +4664,2834 @@ This is a supported, servo-power-off verification. Loaded chatter reduction has
 not yet been physically verified. Artifacts and snapshots remain outside the
 repository at /tmp/ainekio-level-tracking-20261018/.
 
+### 2026-10-19 — Reassessing walking with measured joint feedback
+
+Owner requested comparison with Spot, Atlas and Pupper V3 before choosing the
+next gait architecture. Source review: motion.c:ainekio_v2_walk_tick advances
+the gait from elapsed time, including fast-stroke mode. body.c:balance_frame
+reads the measured frame but applies actuator tracking only during stationary
+balance hold. Walking uses the existing IMU trajectory-relative correction;
+measured joints do not yet adapt walking phase or foot targets. Planned body
+travel/contact flags remain model outputs, not measured odometry/contact.
+
+Primary-source findings, checked today:
+- Spot's published production approach combines model predictive control with
+  reinforcement learning; learning complements the existing model controller.
+  https://bostondynamics.com/blog/starting-on-the-right-foot-with-reinforcement-learning/
+- Atlas architecture depends on generation and demonstrated behavior. Older
+  hydraulic Atlas used MPC; electric Atlas demonstrations include simulation-
+  trained RL using retargeted human motion. This does not establish every detail
+  of its proprietary production controller.
+  https://bostondynamics.com/blog/picking-up-momentum/
+  https://bostondynamics.com/blog/can-football-teach-a-robot-to-move/
+- Pupper V3's public neural controller uses IMU angular velocity/projected
+  gravity, measured joint positions, requested motion, previous actions and
+  observation history. Its position actions are accompanied by programmable
+  kp/kd actuator gains. Its configuration uses a 520Hz controller manager and
+  repeat_action=10, approximately 52Hz policy evaluation, targeting 50Hz.
+  https://github.com/Nate711/pupperv3-monorepo/blob/main/ros2_ws/src/neural_controller/src/neural_controller.cpp
+  https://github.com/Nate711/pupperv3-monorepo/blob/main/ros2_ws/src/neural_controller/launch/config.yaml
+  Stanford's newer deployment repository also supports phase-clocked gait
+  references with learned feedback: retaining a phase clock is not inherently
+  obsolete. Observation layouts vary between policies; do not assume every
+  policy consumes joint velocities or measured foot contact.
+  https://github.com/cs123-stanford/pupper_gait_deploy
+
+Recommendation, not implemented: retain verified linkage kinematics and add a
+measured-state locomotion owner that uses shaft position/estimated velocity,
+IMU, command and action history to adjust foot placement, clearance and support
+posture continuously. A learned residual controller is a candidate after loaded
+actuator identification, with training on a workstation and inference deployment
+chosen by measured P4/Q6A latency. No Pupper policy can be transplanted unchanged:
+fixed MG90 internal control, linkage topology, backlash, power droop, sampling
+skew and latency need representation. Fourth wires provide shaft observation,
+not torque control, current measurement or guaranteed contact detection. Camera
+or external observation is still needed to distinguish useful travel from slip
+when evaluating gaits. This review changed no firmware, settings or robot motion.
+
+### 2026-10-19 — Learned-correction compute sizing
+
+Owner asked whether to train a model and whether P4/Q6A resources suffice.
+Proposed policy would be trained for this robot, using existing RL tooling rather
+than directly deploying Pupper's weights. Simulation must include the measured
+MG90 response and coupled linkage. Training belongs on a workstation; onboard
+inference uses the resulting fixed weights. This is not yet implemented.
+
+Illustrative dense networks, not selected/trained models: 64 inputs, two 64-unit
+hidden layers and 12 outputs require 9,100 parameters including biases, 35.55KiB
+FP32 weights and 0.448 million matrix multiply-accumulates/s at 50Hz. Two 128-unit
+hidden layers require 26,380 parameters, 103.05KiB FP32 weights and 1.306 million
+MAC/s. These figures exclude runtime, activations, sensing, kinematics and OS
+overhead; operation counts are not measured CPU percentages or execution times.
+
+Current sdkconfig selects 360MHz and 200MHz PSRAM. The equipment budget records
+32MiB P4 PSRAM and a 12GB-class Q6A; the memory capacities were not remeasured
+today. Radxa documents QCS6490's eight-core CPU and available 12GB configuration:
+https://docs.radxa.com/en/dragon/q6a . The small candidate policy should be readily
+CPU-feasible on Q6A; NPU acceleration is not a prerequisite. P4 deployment is
+plausible but needs an integrated benchmark. Yesterday's accepted .71 snapshot
+had maximum frame time 16.701ms, maximum calculation 14.863ms and ADC scan
+14.013ms. Those are separate-task observations, not additive costs or steady-
+state walking utilization. They do not establish spare time in every 20ms cycle.
+
+Recommended target: keep fast joint feedback, gait execution and preferably the
+small correction policy on P4 to avoid a Wi-Fi round trip; use Q6A for evaluation,
+vision and development inference if useful. Placement remains proposed. No
+claim that additional compute fixes insufficient mechanical leverage or power.
+
+### 2026-10-19 — First loaded fourth-wire walking baseline
+
+Owner approved beginning the learned-correction work and confirmed floor ready,
+servo power on and supervision. Extended the existing gateway.gait_trials owner
+with optional --feedback recording: independent camera/status/feedback readers,
+raw feedback JSONL, per-joint CSV, firmware/calibration/leveling provenance and
+sample-quality statistics. No controller behavior, gait, calibration, speed or
+leveling setting was changed. Recorder duration ends capture, not robot motion.
+Seven focused tests pass, including repeated samples, clock reset, calibration
+revision, ambiguous boot, invalid measurements and passive read-only operation.
+
+Read-only provenance confirmed accepted 0.8.71-p4-level-tracking, all twelve
+calibrated feedback channels, leveling enabled at strength/damping 1 with saved
+roll 3deg / pitch 1.5928deg. First recorded six seconds without a motion command,
+then sent existing semantic Walk with dir=fwd, steps=2, gait=walk, stride=100,
+rate=2. Sequence 10 received done; final sampled output_fault=0. Owner observed
+forward movement and no foot dragging. Rear sag and metric travel distance were
+not independently quantified; no current/energy measurement exists.
+
+Walk recording: 12 seconds, 147 feedback responses with valid samples for every
+joint, 199 distinct fresh IMU samples and 7 camera frames; no recorder errors.
+Sampled excursion over the full recording, in pulse-equivalent microseconds:
+
+| Joint | Command snapshots | Raw shaft readings | Filtered shaft readings |
+| --- | ---: | ---: | ---: |
+| Rear-left carrier | 602 | 559.5 | 500.8 |
+| Rear-left crank | 1101 | 1015.7 | 960.0 |
+| Rear-right carrier | 636 | 525.8 | 479.8 |
+| Rear-right crank | 1159 | 1094.6 | 1069.1 |
+
+These are observed ranges, not proved missed stroke, load torque or stall.
+Raw versus filtered ranges demonstrate why estimator lag must be represented in
+training. HTTP command snapshots do not carry exact PWM-write timestamps.
+Feedback polling delivered approximately 12 responses/s with gaps up to 123.4ms;
+nearest-IMU alignment offset reached 87.5ms and IMU sample gaps reached 181.2ms.
+Camera receipt gaps reached 2.56s. This capture establishes a physical baseline
+and transport limitations, not a synchronized 50Hz learning dataset. Exact
+sample timestamps and signed pairing offsets remain in the CSV; no interpolation
+or inferred contact flags are presented as measured truth.
+
+Next required measurement improvement: capture target-write events, gait phase,
+IMU and per-channel shaft timestamps locally on P4, then transfer batches without
+making motion depend on network polling. Use these to identify loaded actuator
+response before fitting a learned correction. Preserve this successful walking
+baseline for comparison. No model has been trained or deployed in this step.
+Artifacts: /tmp/ainekio-learned-gait-20261019/{stationary-01,walk-100-01}/.
+
+### 2026-10-19 — Device-timestamped gait recording prepared (.72)
+
+Implemented optional P4-local recording of output publications and complete
+fourth-wire scans, with individual channel acquisition timestamps, raw/filtered
+ADC values, estimator velocity, calibration revision, latest timestamped IMU
+sample and planned gait phase. Output timestamps mark software publication after
+output processing, not measured PWM edges. Planned phase does not prove contact.
+No gait, leveling, calibration, speed or motion admission behavior was changed.
+
+The explicit trace_start request allocates a 512-event PSRAM ring (216KiB with
+the tested 432-byte event layout). The existing authenticated feedback endpoint
+streams batches of up to 64 events. Readers use boot/session identity and a
+sequence cursor; overwritten records are reported. trace_stop stops recording
+only, retaining the buffer for download and reuse. Motion never waits for a
+reader or depends on recording success.
+
+Gateway --device-trace recording preserves raw batches outside the repository
+and reconstructs commanded versus measured pulse-equivalent positions using
+each channel's device timestamp. It does not carry targets across missing events
+or convert a changed calibration revision using old curves. Recording remains
+measurement infrastructure; no correction model has been trained or installed.
+
+Validation: 13 Python gait-recorder tests, two native trace suites (including
+actual runtime serialization), and the full native body-motion suite pass.
+ESP-IDF builds 0.8.72-p4-gait-trace successfully; artifact is 2,916,304 bytes,
+SHA256 bd2a5a1ab9813e48faea89a331879ee4522b4d4c1edbed6bd5bd6f4896d12914.
+Artifact and installation tools: /tmp/ainekio-gait-trace-20261019/.
+Not yet installed or measured on hardware. Scan completeness and motion-loop
+overhead still require a live recording before using it as a learning dataset.
+
+Subsequent installation and passive check: owner confirmed supported frame and
+servo power off. First upload staged successfully, but the running .71 firmware
+crashed before activation, clearing its in-RAM staged selection. Wi-Fi retained
+boot log shows reset reason 4 and a register dump; root cause is not established.
+Saved log outside the repository. Re-upload followed immediately by activation
+succeeded: .72 is running in ota_0, pending_verify=false. Joint calibration,
+all twelve feedback curves and saved leveling settings compare unchanged.
+Self-leveling was off before and after this update; no setting was overridden.
+
+Passive capture requested six seconds; concurrent camera completion and final
+drain extended the recorded scan span to 7.14257s. Captured 358 complete scans
+(49.982Hz average), 315 output publications and five camera frames, with no
+skipped scan counters, ring loss, incomplete batches or recorder errors. All
+twelve channels were valid. Maximum per-channel acquisition gap was 32.194ms;
+the average 50Hz figure is not a claim of uniform timing. Median scan duration
+was 16.195ms, maximum 23.907ms. Device-local IMU pairing offset was at most
+19.919ms. The first scan had twelve unavailable IMU pairings. Ring reports
+221,184 bytes. Motion-frame lifetime maximum stayed 16.541ms throughout this
+passive check, and sampled output_fault stayed zero. This does not benchmark
+loaded walking overhead. No motion command was submitted; recording stopped
+normally without stopping or changing the robot's motion owner.
+Artifacts: /tmp/ainekio-gait-trace-20261019/stationary-01/ and installation
+snapshots in its parent. Loaded two-cycle trial awaits floor readiness.
+
+Owner subsequently confirmed floor readiness. Sent the same two-cycle forward
+Walk, stride=100 and rate=2, through the semantic intent owner (sequence 12).
+Receipt was done. Owner reported forward movement with "no sad", understood in
+the context of the question as no sag. No metric distance was supplied. Saved
+606 complete scans, averaging 50.007Hz, with no skipped scans, lost records,
+incomplete batches or recorder errors. All twelve feedback channels were valid;
+seven camera frames were captured. No trained correction was active. Self-leveling
+remained off. Motion-frame lifetime maximum remained 16.541ms and sampled
+output_fault stayed zero. Scan median was 16.677ms and maximum 28.424ms; individual
+channel gaps reached 32.031ms. This is average-rate capture, not a hard 20ms bound.
+
+Both rear cranks received a 1,200us command excursion; raw measured excursions
+were 1,109.6us left and 1,166.6us right over the recording. These measurements
+are not interpreted as torque or a stall. An exploratory comparison restricted
+to 192 planned-walking samples per joint found the lowest raw position error
+when comparing against older commanded targets: 55–70ms for seven carrier/crank
+joints and 95ms for the front-right crank (5ms search grid). For example,
+rear-left crank RMS difference fell from 194.7us to 51.8us with a 65ms shift.
+This supports investigating actuator response timing, rather than treating all
+instantaneous error as a correction to add. It is not an isolated measurement
+of pure delay: servo dynamics, loading, sensor calibration and output timing
+remain mixed. One short trial cannot establish a general correction policy.
+
+Loaded artifacts and exploratory analysis:
+/tmp/ainekio-gait-trace-20261019/walk-100-01/.
+Next modeling work should use repeated recordings and a separate evaluation
+trial, retaining this successful unmodified gait as the comparison. Fourth-wire
+signals now support synchronized gait analysis; gait execution itself is still
+the existing controller, not a newly trained or phase-adaptive walking policy.
+
+### 2026-10-19 — Repeated loaded trials and first learned response model
+
+Owner requested the next step and confirmed floor readiness after the P4 had
+restarted since the previous turn. Recorded two further unchanged, two-cycle
+100% forward Walk commands, rate=2. Sequences 8 and 11 both returned done.
+Captured 656 and 648 complete twelve-channel feedback scans, with no reported
+ring loss, invalid joint samples or recorder errors. Sampled output_fault stayed
+zero; lifetime motion-frame maximum stayed 16.590ms across both trials. Owner
+reported no sag or stumbling, with a slight right turn of uncertain mechanical
+or floor origin. Self-leveling remained off. No new gait commands, joint offsets,
+calibration values or firmware were installed in this step.
+
+Added gateway.gait_response for offline identification. Training uses recordings
+walk-100-01 and walk-100-02; evaluation uses the separate walk-100-03 recording.
+Six linear coefficients per joint predict change in raw measured position from
+current measured position, filtered velocity, filtered/raw difference and past
+targets. Prediction labels use actual future samples, at least 40ms later;
+the evaluation intervals were 40.003–70.439ms. No future target or measurement
+enters the input. Phase and scan-end IMU snapshots are not predictors here,
+because the latter may occur after an individual joint's sample time.
+
+Compared against a separately fitted command-history-only model, constant
+position and constant filtered velocity. Both fitted predictors receive the
+actual prediction interval. Fixed ridge=0.001; no search on evaluation data.
+During analysis, corrected the command-only comparator to include the interval
+and its interactions with target history, so sampling jitter was not an unfair
+advantage for the measured-state model. This comparison was rerun on the same
+evaluation recording; treat the results as exploratory, not a locked benchmark.
+The measured-state model itself was not changed using the evaluation outcomes.
+
+There were 4,410 joint-time training examples and 2,221 evaluation examples,
+from short correlated trajectories, not thousands of independent walks.
+Pooled position-prediction RMS error in pulse-equivalent microseconds:
+
+| Predictor | Evaluation RMS error |
+| --- | ---: |
+| Learned measured-state response | 26.67us |
+| Learned command-history response | 29.67us |
+| Hold last measured position | 90.23us |
+| Constant filtered velocity | 86.46us |
+
+The measured-state fit improved over command history for ten of twelve joints;
+both rear carriers were slightly worse (left 32.91 versus 29.66us; right 24.17
+versus 23.39us). Front-right crank improved from 44.98 to 34.10us. This does not
+prove a gait improvement or identify responses to new corrective commands.
+The state predictor totals 72 coefficients, 288 bytes if stored as FP32;
+history, features and execution costs are additional and have not been measured
+on P4. It is trained on the workstation and is not deployed to either P4 or Q6A.
+Nineteen focused Python gait/trace/response tests pass, including causal inputs,
+variable intervals, missing scans, session/command separation, duplicate-trial
+exclusion and IMU integration boundaries. Reports retain trace and metadata
+hashes; weights and recordings remain outside the repository.
+
+Owner asked whether the gyro/accelerometer were included, rather than relying
+on repeated questions about sag. Both are recorded; their evidence should be
+reported directly. The joint response predictor uses shaft feedback and target
+history; it is not yet a learned IMU-based gait controller. An IMU does not
+directly measure body height, so symmetric sinking remains unobservable from
+attitude alone. Owner observation is complementary physical evidence.
+
+Important IMU finding: in planned-walking samples of walk-100-02, all 189 unique
+fresh IMU observations reported startup=true. In walk-100-03, 180 of 194 did.
+The first baseline also had 189/189 startup observations. Fusion's no-magnetometer
+update explicitly zeros heading during startup; fused yaw therefore cannot be
+used as reliable turn measurement in these trials. Raw calibrated body-Z gyro
+integration gave -15.11deg and -11.77deg over 3.813s and 3.844s in the two repeats,
+consistent with a rightward turn under the saved x-forward/y-left/z-up convention.
+This is approximate body-axis rotation from sampled rates, not absolute yaw or
+odometry. Peak sampled acceleration norms were 19.42 and 21.56m/s^2, including
+gravity; these do not by themselves establish impacts or their cause.
+
+Source review: Slave/software/imu/imu.c restarts convergence on acquisition gaps
+above its existing 20ms threshold. Actual gap-restart counters exist in the IMU
+owner but are not currently included in network telemetry or trace samples.
+Repeated gaps are a candidate explanation for persistent startup, not yet a
+confirmed hardware diagnosis. Did not change timing thresholds, axis signs,
+task priorities or calibration speculatively. Diagnose this acquisition/reset
+path before using fused orientation to train body-level correction.
+
+Artifacts: /tmp/ainekio-gait-trace-20261019/walk-100-{02,03}/,
+response-model-v1.json and response-evaluation.txt in the same parent directory.
+
+### 2026-10-19 — IMU acquisition/reset diagnosis in progress
+
+Owner requested continuing through the next repair rather than stopping at the
+model report. Built 0.8.73-p4-imu-counters, exposing the existing accepted_samples,
+rejected_samples and gap_restarts counters in IMU telemetry. No estimator,
+sampling, gait, task-priority or calibration behavior is changed in this
+diagnostic image. Native IMU wire-telemetry and hardware-diagnostic tests pass;
+ESP-IDF build passes. Owner confirmed supported frame and servo power off for
+Wi-Fi installation. Artifact: 2,916,448 bytes; SHA256
+9e72b4bfd548a65382cbc00f525808f770337482eeb53f95d863503bc153d6b1.
+Installation and measurements are being saved outside the repository at
+/tmp/ainekio-imu-diagnosis-20261019/.
+
+The .73 upload staged, but activation was interrupted by a crash in the running
+.72 image. It rebooted to .72 before selecting the successor. Decoding the saved
+.72 ELF located MEPC 0x40161184 in _svfprintf_r, called by snprintf; MCAUSE=27 is
+the P4 stack-protection interrupt. The retained log truncates the earlier task
+name/backtrace, so the exact failing caller is not established from this dump
+alone. Source showed authentication calling the 5KiB status serializer inside
+the nested WebSocket receive/decode callback. Removed that nesting: welcome now
+requests status atomically and the existing link task publishes it. No new
+motion queue, wait, admission rule, timeout or output behavior was introduced.
+
+Built 0.8.74-p4-status-stack with this asynchronous status publication and the
+IMU counters. Five focused native IMU/protocol/gateway suites pass, and ESP-IDF
+build passes. Artifact: 2,916,624 bytes, SHA256
+3635cdfc4ad1a37dcb174e6db32215c7eb07ec23adf9fe0f82766ce26b886313.
+Installing under the owner's still-current supported/servo-power-off approval;
+artifacts in /tmp/ainekio-status-stack-20261019/. Runtime outcome pending.
+
+.74 subsequently booted and was accepted in ota_1. Snapshot comparison confirmed
+all twelve feedback calibration curves, joint calibration, and saved balance
+settings were preserved. Display/camera readiness and all twelve measurements
+were available. This successful update is evidence for the callback-stack repair,
+not proof that every reconnect/crash path has been eliminated.
+
+Passive .74 measurements with frame supported and servo supply off confirmed
+real acquisition gaps: idle-01 accepted 3,162 samples over 18.922313s (167.1Hz)
+and restarted the estimator six times. 263/297 distinct network observations
+were still in startup. With camera plus local trace recording, recording-load-01
+accepted 992 samples over 5.961239s (166.4Hz), with seven restarts and 96/96
+network observations in startup. Network observation intervals are not the
+sensor acquisition intervals; the cumulative device counters establish these
+rates and restart counts. No servo movement was requested. No trace loss occurred.
+
+The acquisition task was priority 3, equal to the multiplexed ADC scan and below
+the priority-5 controller/network owners. Built .75-p4-imu-acquisition to test
+priority 6 for this short, blocking sensor task; body_output remains priority 10.
+No CPU affinity, gait, sensor calibration, estimator gap/freshness threshold,
+ADC filtering, or motion admission behavior changes. Native acquisition and
+wire-telemetry tests and ESP-IDF build pass. This is a scheduling hypothesis
+being checked against the same idle/recording workloads, not yet a proven repair.
+Artifact: 2,916,624 bytes; SHA256
+770f7bbbb67125f6af8df811627592060f39f91b73c9025592b7f3ab83d5f524.
+Artifacts: /tmp/ainekio-imu-acquisition-20261019/.
+
+.75 staged but was not activated: the running .74 controller disconnected and
+crashed before activation. It recovered into .74, with retained stack-protection
+fault in _svfprintf_r/snprintf, integer "%lu" serialization. Thus .74's
+callback change did not eliminate the observed OTA-time failure. The crash
+occurred during automatic dashboard settings traffic while OTA was busy;
+the gateway audit includes cancelled calibration/settings queries and repeated
+reconnections. There was no .75 acquisition measurement.
+
+Matched .74 disassembly showed control_task reserving 7,152 bytes, including
+inlined calibration_status's JSON workspace even along an unrelated error path.
+execution_failed adds 3,712 bytes, followed by the encoder, snprintf, and
+_svfprintf_r (1,152 bytes by itself), exceeding the task's 12,288-byte allocation.
+The retained dump again lacks the initial task/backtrace text, so the dump alone
+does not prove the whole call chain; the compiled error path independently
+demonstrates the stack-budget defect. Kept calibration_status as a separate
+non-inlined function. .76 disassembly confirms control_task now reserves 4,512
+bytes, and calibration_status's 4,432 bytes are present only when that function
+is called. No task stack enlargement, weakened protection, command rejection,
+or movement wait was introduced.
+
+Built .76-p4-control-stack, including the priority-6 IMU acquisition experiment.
+Five focused native suites and ESP-IDF build pass. Artifact: 2,917,248 bytes;
+SHA256 bbc7e4d8fe9855b1b8402857f1a9731b7089eae961bbdceb2c75bc07c3024a11.
+Asked owner to close the dashboard temporarily to avoid triggering the old
+firmware's error path during installation; supported/servo-off readiness remains
+current. Artifacts: /tmp/ainekio-control-stack-20261019/.
+
+Extended offline gait recording summaries with per-boot counter deltas and
+accepted acquisition rate, including stale observations; distinguish these
+from dashboard polling intervals. Missing counters remain unavailable, boots
+are never combined, duplicate snapshots do not count twice, and backwards
+counters are reported rather than interpreted as a rate. Twenty Python
+gait/trace/response tests pass. This reporting changes no robot motion behavior.
+
+Closing the dashboard alone did not avoid the .74 crash: gateway reconnection
+also requests settings. The local gateway had stopped when the owner closed the
+app; restored its existing user service, then another proxied .76 attempt staged
+and .74 crashed again before activation (same stack/register pattern). For
+recovery, temporarily stopped that service and used the robot's existing bearer-
+authenticated HTTP maintenance endpoint directly at the confirmed LAN peer
+192.168.0.89. Direct .76 upload and activation both succeeded; gateway service
+was restored in a finally block. No USB, partition erasure, calibration write,
+or settings changes were used. Post-boot acceptance and IMU comparison pending.
+
+.76 verified running/boot ota_0, pending_verify=false, ESP_OK. Retained log shows
+the expected software restart (reason 3), with no current-boot panic. Settings
+snapshot comparison confirms unchanged joint calibration, all twelve feedback
+curves, balance settings, 120us hunting tolerance and settled/wake thresholds.
+The supported robot's servo power remained off; outputs report ready with no
+fault. This establishes successful installation and readback, not loaded gait
+qualification or exhaustive error-path validation.
+
+Passive comparison:
+
+| Firmware/workload | Observed acquisition interval | Accepted rate | Estimator gap restarts | Fresh network observations in startup |
+| --- | ---: | ---: | ---: | ---: |
+| .74 idle | 18.922313s | 167.10Hz | 6 | 263/297 |
+| .74 camera + trace | 5.961239s | 166.41Hz | 7 | 95/95 |
+| .76 idle | 20.006028s | 203.94Hz | 4 | 166/319 |
+| .76 camera + trace | 5.905979s | 204.88Hz | 1 | 47/99 |
+
+Scheduling improved acquisition substantially, but did not eliminate the gaps.
+The short sequential recordings are not a controlled long-duration benchmark.
+.76 recording retained 307 scans for each of twelve calibrated joints, with no
+lost trace records or recording errors. No gait or model correction was applied.
+Do not claim continuous heading is repaired, or deploy learned orientation
+corrections on the strength of these measurements.
+
+Owner questioned the need for 208 samples/second. This is the inherited IMU ODR,
+not a demonstrated requirement of this MG90 robot. PWM output and shaft feedback
+are roughly 50Hz; gyro oversampling can support transient capture/filtering but
+does not increase actuator bandwidth, torque, or ADC amplitude resolution.
+The acquisition continuity and full estimator restart on >20ms gaps are distinct
+issues from average sample rate. A lower ODR must be evaluated with matching
+estimator configuration and measured motion, rather than chasing 208Hz as an
+objective or merely relaxing the existing threshold. Rate remains unchanged.
+Reviewed ST's LSM6DS3 driver for hardware acquisition options; no FIFO change
+or new recovery/fallback behavior has been implemented:
+https://github.com/STMicroelectronics/lsm6ds3-pid/blob/master/lsm6ds3_reg.c
+
+### 2026-10-19 — Distinguishing the remaining IMU acquisition delays
+
+Owner asked to continue after discussing sampling rates. Retained the existing
+50Hz PWM/shaft feedback and 208Hz IMU configuration; no sampling requirement has
+been established by actuator bandwidth alone. Added passive timing diagnostics
+for the last raw-sample interval exceeding the estimator's existing gap threshold:
+timestamp, interval, longest between-poll idle, longest status/data read, I/O
+errors and no-data polls since the previous raw sample, previous sample's
+processing duration, and acquisition CPU. I2C read duration includes waiting and
+preemption, so it must not be labelled wire transfer time. Diagnostics observe
+existing resets; they introduce no new reset, motion gate, timeout, or fallback.
+
+The P4 telemetry serializer now accepts the full existing sensor-owner snapshot
+and includes an acquisition object. Its buffer accommodates worst-case integer
+counters. Native tests distinguish delayed scheduling, delayed status reads,
+delayed data reads, and failed I/O while preserving old timestamps on failure.
+Both focused IMU suites and ESP-IDF build pass. Built .77-p4-imu-timing:
+2,918,304 bytes, SHA256
+c42918f052fc34bb63e25fc3ad8f7777276d2343c00a0bae0f95f17d81fa8d7e.
+Installing through the existing authenticated Wi-Fi maintenance endpoint with
+the gateway running; the owner's supported/servo-power-off state is unchanged.
+Artifacts: /tmp/ainekio-imu-timing-20261019/. Live measurements pending.
+
+.77 upload/activation succeeded with the gateway running, but the larger local
+IMU message buffer increased the link task's stack demand. It subsequently
+restarted during status floating-point formatting. Matched ELF decoding shows
+the stack-protection interrupt in allocator code reached through newlib's
+_Balloc/__d2b/cvt path; retained stack contains the status JSON. The 30s gateway
+watch collected no usable IMU observations. This is a diagnostic-update
+regression, not evidence that the physical IMU or servo feedback failed.
+
+Prepared .78-p4-status-workspace: allocate the existing 5KiB status JSON workspace
+once with the controller's other buffers and keep it owned by the link task.
+reply() already copies outgoing messages before that workspace is reused.
+This removes the large nested local allocation while preserving status content,
+queue behavior, existing allocation-failure handling, and stack protection.
+Temporarily stopped the gateway to prevent repeated status-triggered restarts
+while preparing direct authenticated Wi-Fi recovery. Servo power remains off.
+
+.78 installed and accepted over Wi-Fi on ota_0. Image: 2,918,240 bytes,
+SHA256 923e20d23a27049b040fb27ec79786cab4dc247bc151a3ab5e3578482828865a.
+ELF disassembly shows telemetry's local frame reduced to 656 bytes, with the
+link task at 4320 bytes. Snapshot comparison confirms all twelve feedback curves,
+joint calibration, balance settings and hunting/settle/wake parameters preserved.
+The current .78 boot remained continuous throughout the measurements below.
+The retained previous-boot log contains a reset-path exception; do not describe
+the activation restart itself as clean. No current-boot status-format crash was
+observed. Artifacts and captures: /tmp/ainekio-status-workspace-20261019/.
+
+The first 25-second stationary watch and six-second camera/trace capture had
+zero estimator gap restarts (~205 accepted samples/s). The next 50-second watch
+had four. New diagnostics localize these gaps to status-register I2C calls:
+roughly 15–20ms, versus <2ms between-poll idle and ~0.4ms successful data reads.
+One 60ms gap included two I/O errors. This does not distinguish wire delay from
+driver lock waiting/preemption, and is not evidence of a required lower ODR.
+
+The owner subsequently confirmed floor-ready with servo power on and nearby
+observation. A gateway reconnect interrupted the first passive floor capture
+before motion. The existing manually launched gateway owned the ports; the
+service started by the recovery script was retrying against that instance.
+Stopped only that duplicate service retry loop, preserving the manual gateway.
+Retried the passive capture successfully, then sent two existing semantic Walk
+commands (two cycles, forward, stride 100, rate 2), sequences 10 and 15. Both
+returned done. Camera frames show forward scene displacement; calibrated distance
+and electrical energy remain unavailable. No learned correction was applied.
+
+| Recording | Accepted IMU rate | Gap restarts during recording | Per-joint trace scans | Lost records |
+| --- | ---: | ---: | ---: | ---: |
+| Walk 01, 12s | 199.45Hz | 8 | 619 | 0 |
+| Walk 02, 12s | 205.60Hz | 1 | 645 | 0 |
+
+All twelve joint channels remained valid. Whole-recording gyro startup counts
+were 133/197 and 51/199 fresh network observations, respectively. The local
+Walk-02 motion segment itself had no startup observations; its integrated
+body-Z rate was approximately -12.74 degrees over 3.856s. This is not absolute
+heading or odometry. Stationary mean body-Z rate before/between/after was
+-0.341/-0.334/-0.321 degrees/s: residual bias accounts for about 1.3 degrees of
+that four-second rotation, not the full turn. No gyro calibration was overwritten.
+
+Evaluated the same response-fitting procedure trained only on the earlier
+walk-100-01/02 against both new walks, without fitting to the new recordings.
+Weighted joint-position prediction RMS at 40–69ms horizon: measured-state model
+35.07us, command-only 45.16us, last-position 90.69us, constant filtered velocity
+85.47us. Measured-state prediction improved over command-only on all twelve
+joints (22.3% aggregate RMS reduction). These are exploratory holdouts, not an
+independent policy trial: feedback helps predict observed joint response, but
+this does not establish how changed targets affect support, distance or energy.
+Report: response-evaluation-new-walks.json in the artifact directory.
+
+Prepared .79 sensor scheduling change after examining the pinned IDF 5.5.4
+driver: synchronous I2C holds bus_lock_mux across interrupt completion, and that
+lock is a binary semaphore without priority inheritance. The priority-2 camera
+can therefore retain it while priority-3 ADC or priority-5 network work delays
+its completion and priority-6 IMU waits. This is a concrete possible priority
+inversion matching the measurements, not yet a proven exclusive cause.
+Camera register ioctl calls now temporarily use the existing IMU acquisition
+priority, restoring camera priority on success and error. Pixel processing,
+JPEG, delivery, sample rates, PWM, gait and estimator gap policy are unchanged.
+The output task remains priority 10. Native tests verify normal capture plus
+priority restoration after a failed exposure read; six focused suites pass.
+Hardware comparison is pending. Driver and scheduler references:
+https://github.com/espressif/esp-idf/blob/v5.5.4/components/esp_driver_i2c/i2c_master.c
+https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/system/freertos_idf.html
+
+.79 ESP-IDF build passed: 2,918,336 bytes, SHA256
+1e40a781260dbc248f2bb28e9df0a4b4cc9dcbd76389aefa501b4e3ab9a2d762.
+Frozen binary/ELF and comparison scripts are under
+/tmp/ainekio-sensor-scheduling-20261019/. Requested supported/servo-power-off
+confirmation again because the owner had since enabled power for floor trials.
+The retained reset-path exception's ELF prefix 5e7b5db57 matches .77, not .78.
+
+.79 installed through authenticated Wi-Fi after the owner reconfirmed support
+and servo power off. Running/boot ota_1, accepted, ESP_OK. Current boot log shows
+the expected software reset reason 3. All twelve feedback calibration curves,
+joint calibration and saved balance settings compare unchanged. The existing
+manual gateway stayed running throughout this update.
+
+Post-update measurements:
+
+| Workload | Observed interval | Accepted IMU rate | New gap restarts | Trace result |
+| --- | ---: | ---: | ---: | --- |
+| Stationary watch (overlaps camera recording) | 49.990s | 207.04Hz | 0 | network observations only |
+| Stationary camera + joint recording | 24.970s | 207.05Hz | 0 | 1264 scans/joint, 0 lost records |
+| Two-cycle Walk with camera + joint recording | 11.834s | 207.03Hz | 0 | 683 scans/joint, 0 lost records |
+
+These rows overlap and must not be added as independent durations. One 20.63ms
+gap occurred at 22.489s during startup/connection, before these intervals; the
+repair has not eliminated every startup or camera-reconfiguration delay. There
+were no sensor I/O errors in the observed new-boot diagnostics. Current repair
+applies to routine camera register access, not every format/stream ioctl.
+The clean observations support the priority-inversion diagnosis for the
+recurring runtime gaps, but do not establish exhaustive timing guarantees.
+
+For the .79 Walk the owner again confirmed floor-ready and nearby. Existing
+semantic two-cycle 100% forward Walk at rate 2 (sequence 12) returned done, with
+no recorder errors, invalid feedback, lost trace records or new IMU startup
+observations. The local motion interval contained 193 IMU observations over
+3.840s, none starting/recovering. Integrated body-Z rate was approximately
+-15.57 degrees, consistent with the ongoing rightward tendency; residual bias,
+body-axis versus world-yaw differences and unmeasured foot slip still matter.
+No calibrated travel-distance or electrical-efficiency claim is available.
+The maximum network observation gaps are transport sampling gaps, not physical
+IMU acquisition gaps; use device counters/timestamps to distinguish them.
+
+On this additional whole-trial holdout, the unchanged fitting procedure trained
+only on the original two walks gave 25.98us measured-state prediction RMS versus
+28.66us command-only (9.35% improvement, 11/12 joints improved); last-position and
+constant-velocity baselines were 91.40us and 88.37us. Saved response-evaluation.json
+under the .79 artifact directory. Between the new .78 and .79 trials, feedback
+improved aggregate prediction by 9–22%; these numbers measure prediction, not
+walking improvement. No learned corrective policy is deployed. Next control
+work must evaluate actual corrected walking, including turning/support/stride,
+rather than equating lower prediction error with a better gait.
+
+
+## 2026-10-19 — Independent walking heading feedback, candidate 0.8.80
+
+Owner requested trajectory interpolation/correction during walking and selected
+an independent Walking feedback switch, separate from Self-leveling. Implemented
+P4-local relative-heading PI steering in the existing gait generator. The
+operator's curve remains a separate reference; corrective steering never
+rewrites it or repeatedly restarts its two-cycle interpolation. The quarter-cycle
+feedback blend changes the body/landing trajectory, not the servo output rate.
+Existing angular-distance timing, commanded stride and operator steering remain.
+Forward and corrective turn share the already-approved available stroke budget.
+
+The independent `walk_feedback` NVS value is written by the existing control
+owner through `balance/op=walking`. It never writes joint/IMU calibration or
+self-leveling settings. No saved selection means Off until explicitly selected.
+Body Control includes its own selector/save button and live heading-error,
+turn-correction and geometry-reduction readout. Feature: `walking_feedback_v1`.
+
+Previously authorized behavior is retained: absent/recovering IMU data fades
+only the corrective steering, and reacquisition establishes a new relative
+heading without resetting gait phase. Geometry/representability search reduces
+only the extra correction and reports that reduction. If the underlying
+commanded gait itself fails, its existing failure handling remains. No new
+elapsed-time stop, wait-for-joint stage, PWM easing or stall shutdown was added.
+The pulse mapper checks the saved inversion/reference and timer representability;
+it is not proof of collision clearance or loaded servo travel. The current
+reported timer window is 3–19986us, not a measured mechanical envelope.
+
+Verification:
+
+- Firmware 0.8.80-p4-walking-feedback builds with pinned IDF 5.5.4. Frozen
+  artifacts: `/tmp/ainekio-walking-feedback-20261019`; binary 2,921,104 bytes,
+  SHA256 `10d53c54453a95f8993f4db60f9ec5c88d690d881d048ae0c4e015fcac2451aa`.
+- 24 selected native gait, body, calibration, posture and gesture tests pass;
+  additional core decode test passes. New tests exercise both yaw signs, wrapped
+  yaw, requested curve reversal, IMU dropout/reacquisition, correction-only
+  geometry reduction, all four gait families and multiple strides/directions.
+- Disabled feedback produces identical nominal poses/phase. Production body
+  tests run heading correction with Self-leveling off and verify independent
+  disable without stopping the gait. NVS tests preserve joint settings and
+  Self-leveling across saves, failed commits and reboot.
+- An idealized yaw-response simulation with +/-0.065rad unwanted yaw per gait
+  cycle converges with approximately -/+48.39% corrective turn. This tests
+  control signs and reference handling, not real traction or physical performance.
+- A separate `/tmp` replay uses the latest captured installed joint mapping;
+  mapping and model checks pass. It does not establish physical travel margins.
+- Gateway receipt/ownership tests and dashboard switch/navigation/gyro-joint/
+  servo-feedback tests pass. Python and JSON-schema checks agree for the new
+  walking operation. The broader protocol suite still has three pre-existing
+  coverage failures: missing robot-settings schema types and missing motion-
+  speed/robot-settings fixture coverage. HEAD and working schema show the same
+  missing types; these are not walking-controller failures.
+
+This change is gyro heading feedback only. Fourth-wire recordings and the
+validated offline response predictor remain in place, but no learned corrective
+policy is deployed. Model-prediction accuracy must not be confused with improved
+physical walking. A paired feedback-Off/On floor trial, recording gyro, all
+joint channels and camera, is still required. The first direct Wi-Fi read after
+building returned no route to the robot's previous address; no upload, reboot,
+setting change or physical motion was sent in this implementation turn.
+
+Gateway readback also contains no entry for `ainekio-p4-e6ebe5`. Requested Wi-Fi
+reconnection with frame supported and servo power off before activation.
+
+
+### 0.8.80 Wi-Fi installation and live setting verification
+
+Owner reconnected the robot and confirmed frame supported, servo power off.
+Captured `before.json`, uploaded the frozen image using the existing gateway OTA
+owner, activated it, then reloaded the single manually owned gateway with its
+same arguments/environment. No duplicate service was started. P4 reports
+`0.8.80-p4-walking-feedback`, running/boot `ota_0`, pending verification false,
+ESP_OK. The post-boot readback preserves all twelve feedback calibration curves,
+all joint settings and saved balance settings. IMU available/fresh, startup
+false, calibration applied, zero gap restarts at readback; camera/display ready,
+output fault zero. Servo outputs are logically armed after the existing startup
+rise; physical servo supply remains off under the owner's confirmation.
+
+Live `balance/op=walking` saves On and Off both return correct receipts and
+readback while preserving Self-leveling enable/strength/damping/targets. Final
+Walking feedback selection is saved Off; Self-leveling remains Off. This
+verifies the switch/owner path, not walking performance. Asked owner to return
+the robot to the floor with servo power on for two finite Off/On trials.
+
+
+## 2026-10-19 — First physical Walking feedback Off/On pair
+
+Owner confirmed floor ready and nearby. Issued exactly two semantic forward
+Walk trials, each `steps=2, stride=100, rate=2`, with P4-local joint/IMU trace and
+onboard camera recording. Self-leveling stayed Off for both. No calibration,
+servo speed, geometry, or gait-range edits were made. Both commands returned
+`done`; there were no recorder errors, lost trace records or new IMU gap
+restarts. Data: `/tmp/ainekio-walking-feedback-20261019/walk-off-01` and
+`walk-on-01`; analysis saved as `comparison.json` alongside the recordings.
+
+| Measured outcome | Feedback Off (seq 22) | Feedback On (seq 28) |
+| --- | ---: | ---: |
+| Device-local walking interval | 3.820 s | 3.522 s |
+| Relative quaternion yaw change | -11.42° | -1.99° |
+| Integrated body-Z rotation (approximation) | -9.70° | -1.46° |
+| Roll span during motion | 4.73° | 5.02° |
+| Pitch span during motion | 5.21° | 4.92° |
+| Local IMU observations during motion | 193 | 178 |
+| Fourth-wire scans per joint, whole capture | 616 | 630 |
+| Lost trace records / new IMU restarts | 0 / 0 | 0 / 0 |
+
+Negative yaw denotes the observed rightward rotation. Relative quaternion yaw
+uses unwrapped differences over the moving interval; body-Z integration is a
+separate approximation because body tilt changes. Six-axis yaw still drifts.
+Post-motion average body-Z rates were approximately -0.210°/s and -0.284°/s;
+those residuals do not account for the roughly 9.4° difference between trials.
+Network status captured an active +23.06% steering correction in the On trial,
+with geometry reduction false at that observation. General status is too slow
+to establish the full correction waveform or that reduction never occurred.
+
+This one pair shows about 83% less heading drift, not established repeatability.
+The trials were sequential on different floor patches and had different starting
+poses; no randomized/reversed repeat or calibrated distance measurement has yet
+been made. Camera frames are consistent with continued forward movement in the
+On trial. They do not show feet well enough to establish dragging/contact, and
+IMU tilt is not an absolute body-height or sag measurement. Asked the owner
+whether the second Walk looked straighter while retaining useful progress.
+
+Moving-interval raw shaft tracking errors remain substantial. Off/On crank RMS
+errors: rear-left 186/190us, rear-right 188/182us, front-left 184/186us,
+front-right 205/204us. Rear-left carrier rises from 142 to 157us; other carrier
+changes are smaller. These include normal dynamic lag, electrical noise and
+calibration uncertainty; they are not direct stall or torque measurements.
+Heading feedback has not solved actuator tracking. Walking feedback remains
+saved On after the comparison; it becomes inactive when no gait is running.
+
+
+Owner's physical observation: **“Straighter, with good forward movement.”**
+This supports the measured heading improvement and continued useful travel in
+this pair. Retained Walking feedback On, Self-leveling Off; no additional
+movement was sent after the two authorized trials.
+
+The existing response-model fitting procedure, trained only on the original
+walk-100-01/02 recordings, was evaluated against both new whole-trial holdouts:
+4,238 examples; measured-state prediction RMS 26.70us versus command-history
+29.04us (about 8.0% lower), with 9/12 joints improved. Hold-last-position and
+constant-filtered-velocity baselines were 92.21us and 90.02us. Report saved as
+`response-evaluation.json` under the .80 artifact directory. This remains
+prediction evidence, not a learned motion policy or proof of reduced tracking
+error. Physical heading feedback and offline actuator identification are now
+separately documented results.
+
+## 2026-10-19 — Fourth-wire learned trajectory execution, 0.8.81
+
+Owner requested the planned learned walking system end to end, and specifically
+approved preserving the current gait/gyro steering while smoothly removing only
+the learned contribution when feedback or a matching model is unavailable.
+Linkage-incompatible corrections may be reduced without reducing nominal gait.
+
+Implemented a task-space iterative-learning loop, distinct from the previous
+short-horizon joint-response predictor:
+
+- P4 forward kinematics uses the existing measured fixed shaft locations,
+  mirrored assembly transforms, saved shaft mapping and current four-bar branch.
+- Per-leg potentiometer samples are interpolated to a common device timestamp;
+  the reference is interpolated from the nominal path history at that time.
+  Tracking records retain the applied residual separately from the nominal path.
+- Host/Q6A training fits two harmonics per foot coordinate to
+  `previous applied residual + learning fraction * (nominal - measured)`.
+  Coefficients describe millimetres in body coordinates, not AI raw servo angles.
+- P4 evaluates the 60 coefficients and solves the corrected material-point
+  targets using its existing linkage. The underlying gait clock, Home,
+  calibration, PCA9685 staggering and heading controller remain unchanged.
+- Body Control adds record/download, train/load/download candidate, install,
+  enable/amount, and per-leg tracking/error/status presentation. Model and settings
+  persist in their own NVS namespace; an empty installation starts inactive.
+- Initial profile coverage is forward Walk at its recorded stride. Command,
+  calibration, geometry and leveling/heading context must match. Other commands
+  continue normally with a reported reason for no learned correction.
+
+Tests before deployment: geometry FK/IK round-trip and correction-only reduction;
+exact nominal output when inactive; measured-time alignment and mirrored sensor
+polarity; authenticated model upload and host training without movement;
+NVS model reload; explicit unavailable-feedback/context reasons; synthetic
+periodic-error fitting and iteration; selected-robot UI ownership. A synthetic
+unit-response plant improved as expected; this is **not physical gait evidence**.
+The first firmware build succeeded, 2,932,704 bytes, SHA256
+`bea86b45bd4e2b474bde0269defcb4dbbeff196b9f7a70c02a04bd71b77cee93`.
+Build/capture artifacts: `/tmp/ainekio-learned-walking-20261019`.
+
+This design follows iterative-learning control's use of repeated tracking errors
+to refine feedforward trajectories. Background: [KU Leuven learning for control](https://www.mech.kuleuven.be/en/pma/research/meco/research/learning-for-control)
+and [robot path-following ILC research](https://www.dynsyslab.org/wp-content/papercite-data/pdf/ostafew-iros13.pdf).
+These support the method, not a claim of demonstrated MG90 robot performance.
+
+Remaining physical work at this entry: install/read back, measure runtime timing,
+record baseline with the new tracking events, fit/upload a candidate, record a
+separate candidate trial and compare it with the baseline. No new physical
+improvement is claimed yet. Potentiometer/FK tracking is not measured contact,
+force, body height, slip, energy efficiency or metric travelled distance.
+
+### 0.8.81 deployment and first real tracking fit
+
+Owner confirmed Wi-Fi connected, frame supported, servo power off. Upload
+succeeded. First activation returned ESP_ERR_TIMEOUT before changing the boot
+slot; after gateway reload/reconnection, a second activation succeeded. Readback:
+0.8.81 in ota_1, pending_verify false, ESP_OK; all twelve shaft calibration curves
+and joint mappings unchanged; IMU/camera/display available. Self-leveling remains
+off and gyro walking feedback remains on. Gateway now runs the training/proxy/UI
+changes (PID 3145411 at deployment).
+
+Owner then confirmed floor ready and nearby for a four-cycle baseline and a
+separately evaluated candidate. Baseline `baseline-01` completed (sequence 11),
+8 camera images, 742 shaft scans per joint, 221 tracking events, no capture
+errors or lost trace records. Common-time/FK valid-leg masks across tracking
+events: all four 166; first three 28; first two 9; first only 2; none 16.
+Unavailable entries remain unavailable, not invented contact or shaft data.
+
+First fit (`candidate-01.json`, learning fraction 0.5) used 137/137/135/116 valid
+post-entry samples for RL/RR/FL/FR, 31–32 of 32 phase bins. Baseline per-leg
+reference-point RMS errors (x/y/z mm) were:
+
+| Leg | X | Y | Z |
+|---|---:|---:|---:|
+| Rear left | 13.53 | 4.23 | 8.95 |
+| Rear right | 13.60 | 5.37 | 7.65 |
+| Front left | 12.57 | 8.10 | 8.12 |
+| Front right | 15.58 | 3.90 | 5.78 |
+
+These are inferred linkage tracking errors, including sensor/calibration/model
+error; not ground-truth toe position. Runtime can execute the resulting model,
+but **it has not yet been applied to the physical robot**.
+
+Offline preview used the current installed mapping, four cycles, and heading
+drift inputs of zero and +/-0.05 rad/s. Full learned amount could reach 3031 us;
+at 25% amount, the no-drift preview reached 314–2871 us versus nominal 331–2870 us.
+Therefore even a small global scale can extend an existing endpoint. The mapper
+checks timer representability; successful IK does not establish physical servo
+travel. Paused candidate deployment to ask the owner for a specific additional
+behavior: reduce only learned additions that go beyond the existing Walk's
+travel, preserving the base gait and reporting its existing outlying endpoint.
+This is separate from the already-approved linkage-fit reduction.
+
+
+### 2026-10-19 — confirmed carrier/crank travel and shoulder exception
+
+Owner clarified that 2800 µs is the left rearward collision endpoint and
+500 µs its right-side counterpart. The 500–2800 µs mechanical interval applies
+to the eight carrier/crank joints; shoulders are centered with unknown physical
+extrema and are explicitly excluded. Saved Home pulses are calibration
+references, not new travel endpoints: do not rewrite them to alter the mapping.
+
+The earlier .81 baseline/candidate remains historical evidence and has not been
+installed as a learned model. Its preview exposed nominal outliers (331–2870 µs)
+and learned targets up to 3031 µs. Owner authorized reducing only learned additions
+beyond nominal travel; the confirmed collision range also requires fitting the
+underlying generated poses. No additional physical trial has been sent yet.
+
+Prepared 0.8.82-p4-learned-travel:
+
+- Project generated carrier/crank targets into the feasible linkage workspace
+  using the actual saved angle-to-pulse mapping, before PWM conversion. Optimize
+  reference-point displacement at active bounds, retain shoulder targets and
+  unchanged feasible frames. Startup and generated motions use the same fit.
+- Preserve literal manual calibration/Home behavior and all calibration values.
+  The generated-motion fit is not a general collision detector.
+- Reduce learned offsets independently by leg. Model v2 records nominal pulse
+  extrema by output channel; learned additions stay in that envelope while
+  preserving the current steered nominal target. Physical carrier/crank bounds
+  also apply to learned corrections; no physical shoulder range is invented.
+- Add nominal pulses to tracking records, update host training/model import,
+  report each leg's accepted correction fraction and travel reduction.
+
+Offline four-cycle 100% straight Walk with installed calibration: all eight
+carrier/crank targets fit 500–2800 µs; shoulders are unchanged. 86/284 generated
+frames required adjustment; reference-point change RMS 1.214 mm, largest 9.210 mm
+across all legs/frames. These are commanded model points, not measured foot
+clearance or distance. The startup RR crouch carrier changes from 424 to 500 µs,
+with its companion crank adjusted by the linkage solve. All 23 authored motion
+clips sampled at 20 ms also fit with linkage closure in this installed mapping.
+
+Validation: full native run initially 56/58 passed; the two failures were the
+old v1 installation fixture and a timer-overflow fixture using an intentionally
+impossible carrier reference. Updated the former for model v2; moved the timer
+fixture to an unrestricted shoulder, preserving the original overflow assertion.
+All nine focused native checks now pass, including runtime learning, calibrated
+travel across gait directions/modes, independent leg correction, startup/body,
+trace, OTA and calibration persistence. Python recording/training tests: 24 pass.
+Authenticated training route and dashboard learning UI checks pass. ESP-IDF build
+succeeded; artifact 2,936,416 bytes, SHA256
+`f280760fc6dde9e9be3871b2a79027c1fb3fcb0a359eaba86dde7d4a53524e3f`.
+
+Build/test evidence is not loaded walking qualification. Pending: Wi-Fi update,
+fresh bounded-path baseline, model fit/preview, separately recorded physical
+candidate comparison. Current .81 firmware remains installed at this entry.
+
+
+### 2026-10-19 — .82 deployed; learned model trained and tested on the robot
+
+Owner confirmed support and servo power off. Wi-Fi upload/activation completed;
+0.8.82-p4-learned-travel booted in ota_0 and was accepted (pending_verify=false,
+ESP_OK). Initial gateway reconnect lagged while the local maintenance server was
+already available; authenticated boot logs and subsequent gateway status verified
+successful startup, not a rollback. All twelve joint mappings and feedback curves
+survived unchanged. IMU, camera and display available. Self-leveling remains off;
+independent gyro walking feedback remains on.
+
+Owner then confirmed floor-ready with power on and nearby supervision. Completed
+five separately recorded four-cycle forward Walk commands, all at 100% stride,
+rate 2: baseline-01 (seq15), candidate-01-half (seq22), baseline-02 (seq27),
+candidate-02-half (seq36), candidate-03-full (seq40). All completed with no recorder
+errors or lost trace records. All twelve feedback channels were recorded. Every
+recorded carrier/crank output was inside 500–2800 µs. Shoulders were not subjected
+to that mechanical interval.
+
+Model `5cd27bdb456f100f8224421824dcf6b60ac4b70a1608ac655055ae643af9d1bc`,
+context signature 155792265, was fitted from baseline-01 at learning gain 0.5,
+previewed at correction amounts 0.25/0.5/1 and three simulated heading drifts,
+installed through the authenticated maintenance API, and actually applied by the
+P4. The host/Q6A trains; the P4 evaluates its 60 coefficients. No neural-network
+pretraining or remote inference is involved. Validity is specific to this
+geometry/calibration, forward Walk and 100% stride; the physical tests used rate 2.
+The existing cadence remains unchanged.
+
+Comparison uses equal weighting of phase bins available in all five recordings,
+per-leg timestamp-aligned shaft-derived reference points and each trial's
+unlearned nominal target. Combined RMS is the square root of mean per-leg vector
+squared error. These are geometric tracking estimates, not measured foot contact,
+travel distance, force or electrical efficiency.
+
+| Setting | Trials | Reference-point RMS error | Heading change |
+| --- | --- | --- | --- |
+| Learned off | 2 | 17.20 mm pooled | -7.89°, -1.95° |
+| Same model at 50% | 2 | 16.73 mm pooled | -4.36°, -3.58° |
+| Same model at 100% | 1 | 16.83 mm | -12.26° |
+
+The half-strength result is approximately 2.7% lower tracking error.
+This is a modest initial result, not evidence of a dramatically improved gait.
+Full strength did not improve it further and showed worse heading/pitch excursion,
+so restored and saved learned enabled=true, amount=0.5. The model stays installed;
+ordinary gyro steering remains enabled. No further movement was commanded after
+that selection. The owner observed the first candidate as “Similar or better
+forward movement; no dragging or sag.” Later results rely on the recorded data;
+there is no separate owner observation of the full-strength trial.
+
+Typical recorded tracking-frame intervals were approximately 22.9 ms both without
+and with the model; no new gait-clock slowdown was introduced. The last trial's
+IMU diagnostics showed 2885 accepted samples, zero rejected samples and zero new
+gap restarts. Camera images show forward scene change, but metric distance and
+energy remain unmeasured. Trial variation prevents claiming a repeatable heading
+benefit from learning; existing gyro steering is the heading controller.
+
+The record → train → range preview → install → physical comparison workflow now
+has end-to-end evidence. Further model training/validation across other commands,
+strides, surfaces and measured travel objectives remains separate work. Raw traces,
+camera frames, model JSON and comparison scripts/results are retained outside the
+repo under `/tmp/ainekio-learned-walking-20261019/travel-v2/`.
+
+### 2026-10-19 — Longer independent training and repeated physical evaluation
+
+At the owner's request, increased recordings from short commissioning trials to
+sixteen steady walking cycles per trial, plus entry and normal Finish. The existing
+finite Walk protocol accepts at most ten cycles; used its continuous Walk command
+and sent its existing Finish update when recorded phase reached 18 (two entry
+cycles plus sixteen steady cycles). No firmware cadence or motion limits changed.
+The four evaluation walks each took approximately fourteen seconds. Gyro steering
+stayed on and stationary self-leveling stayed off throughout.
+
+The first long training capture lost 517 trace events during the idle tail,
+several seconds after walking completed. Its entire walking segment was intact.
+Preserved the original capture and exported the complete, consecutive batch prefix
+through the last walking tracking batch as `training-window.jsonl`, with separate
+hash/provenance evidence. Do not describe the original capture as loss-free.
+Added optional host recorder `--until-done` support to finish recording on the
+submitted command's matching terminal receipt. It does not send Stop or change
+robot motion; another command's receipt does not end recording. Thirteen targeted
+Python checks passed. All four subsequent evaluation captures have no lost trace
+records or recorder errors. No firmware update was required for this recorder change.
+
+Trained model
+`6780d884c6ced0ab5267d9fa3589c176e6ba283a2b234810c9d805210296a17b`
+only on the long training window, using 525/521/511/436 aligned observations for
+RL/RR/FL/FR. Context signature remains 155792265. The held-out baseline predicts
+roughly 92% of the recurring squared tracking-error pattern from the fitted model;
+this is an offline prediction metric, not a 92% physical walking improvement.
+All three offline heading preview cases passed at correction amount 0.5. Installed
+this model and kept it unchanged throughout evaluation; no evaluation recording
+was used to train it.
+
+| Trial, in execution order | Learning | Estimated reference-point RMS error | Gyro heading change | Pitch span | Owner-reported travel |
+| --- | --- | --- | --- | --- | --- |
+| Evaluation baseline 1, seq11 | Off | 17.26 mm | -7.88° | 5.76° | Approximately 18 inches |
+| Evaluation candidate 1, seq18 | 50% | 16.72 mm | -3.11° | 7.05° | Approximately 21 inches; no dragging or sag |
+| Evaluation baseline 2, seq25 | Off | 17.21 mm | -3.10° | 6.48° | Approximately 21.5 inches |
+| Evaluation candidate 2, seq32 | 50% | 16.77 mm | -4.23° | 7.49° | Approximately 30.5 inches; no sag |
+
+Comparison equally weights shared phase bins and legs. Pooled estimated tracking
+error changes from 17.23 mm to 16.75 mm, a 2.84% reduction. Both learned runs have
+greater pitch excursion than both baselines. The repeat baseline already exceeds
+the first learned run's distance: the initial 18-to-21-inch comparison does not
+establish a repeatable travel improvement. Tape distances are owner observations
+from the requested common starting position/reference point, not camera-derived
+metric measurements. Contact, torque, energy consumption and absolute body height
+remain unmeasured.
+
+All twelve feedback channels recorded in each evaluation. IMU accepted sample
+deltas were 2897/2892/3040/2953, with zero rejected samples and zero new gap restarts.
+All recorded carrier/crank outputs stayed within 500–2800 µs; shoulder calibration
+and travel remain unchanged. Final run completed normally and recorded 729 valid
+samples per joint without invalid samples. Final saved setting: longer-run model
+enabled at 50%, gyro steering on, self-leveling off. Learning's post-Finish status
+reports `untrained_command`; corrections were recorded during Walk itself.
+
+Raw traces, camera frames, model, operator observations and comparison results
+remain outside the repository under the existing temporary experiment directory.
+The recording/training/install/evaluation system works end to end. These tests
+support a modest tracking improvement for this particular forward Walk. With the
+final owner report included, average travel is 19.75 inches for the two baselines
+and 25.75 inches for the two learned trials (30.4% greater observed mean). The
+individual distances vary substantially, and two trials per setting do not
+establish a general distance, stability or electrical-efficiency improvement.
+The final report explicitly confirms no sag; it does not separately confirm
+absence of dragging.
+
+### 2026-10-19 — Autonomous evaluation gap identified after the longer trials
+
+The owner requested that the robot measure progress, detect sag, correct its
+heading and return to the start itself instead of repeatedly relying on manual
+observations and resets. This is the intended evaluation workflow; existing
+supervised trials do not yet implement that autonomy.
+
+Source and read-only runtime audit:
+
+- `gait_trials.py` still reports `distance_m: None`; the learning objective is
+  timestamp-aligned linkage tracking, not measured forward progress.
+- `ground_plane.py` already implements calibrated planar camera tracking and
+  position/heading relative to a floor reference. It has no movement authority.
+  The Environment Bridge exposes its measurements, but the gait recorder does
+  not consume them. Runtime calibration status returned `calibration: null`,
+  zero calibration samples, and unavailable measurement with reason
+  `Measured calibration and floor reference required`.
+- Gyro walking feedback is enabled. Self-leveling is disabled. The longer-run
+  learned model remains enabled at 50%. No motion or settings change was made
+  during this audit.
+- Fourth-wire observations can support a linkage-extension/support-height
+  estimate combined with body orientation and support-phase information. Shaft
+  positions do not themselves establish foot contact or a fixed ground plane;
+  gyro tilt alone cannot detect a level body sinking vertically.
+
+Next integration should use the existing camera measurement owner for measured
+travel and starting-pose error, the existing semantic walking/steering owners for
+return, and phase-aware joint/IMU evidence for support loss. Camera calibration
+and camera-to-body geometry must be measured before assigning metric meaning to
+image movement. Reversing the outbound number of cycles is not a measured return
+to the same pose. No autonomous return controller or sag classifier was added or
+claimed operational by this audit. Raw observations remain outside the repository.
+
+### 2026-10-19 — Motion-aware body notifications installed
+
+The owner requested correction of rapid-movement reactions during commanded
+locomotion and tipped reactions during intentionally tilted motions. Body Control
+owns classification; the P4 continues supplying its existing IMU measurements.
+Added timestamped execution context after successful output writes, with command,
+entry/motion/hold phase and the authored expected body vertical. Context lookup
+uses the IMU sample time so a later command cannot explain an earlier measurement.
+Named-motion references use the same retimed source clock as motion playback,
+including entry, reverse grounded recovery and held final poses.
+
+Rapid-movement threshold crossings during executing Walk/Run/Crawl/Crab are
+classified without requesting a rapid-movement reaction. They do not consume the
+notification cooldown or produce a delayed reaction when locomotion finishes.
+Tipped detection remains active, measuring deviation from the intended body
+vertical when the calibrated IMU and authored reference are available. Manual
+PWM/Freestyle without an authored chassis reference and older firmware retain
+absolute-tilt behavior. Meaningful events carry this context through the existing
+Environment Bridge. Existing thresholds remain editable; no command restrictions,
+automatic stops, extra sensor tasks or MetaHuman prompt changes were introduced.
+
+Validation: 17 Python event/bridge checks, three dashboard checks and six focused
+native suites passed. Compiling the previous and updated clip compilers against
+the same recordings produced identical values in all 115 joint-motion arrays
+(23 clips, five arrays each). The added orientation tracks contain 4,446 knots,
+62,244 bytes of constant values/knots before tables and alignment, stored in flash.
+Motion trajectories, speed limits, IMU sampling and telemetry cadence are unchanged
+by this notification change.
+
+With the owner's explicit supported-frame/servo-power-disconnected installation
+approval, restarted Body Control preserving its runtime arguments/environment and
+installed only the application over its existing OTA route. Running/boot slot is
+ota_1, version `0.8.83-p4-motion-events`, pending verification false, ESP_OK.
+Application: 3,009,040 bytes; SHA-256
+`3d1b89fbbd7437b03704f2f908c83597e064245d93a6cb722ccbe0cf0c1d956e`.
+
+The robot reconnected and reported display, camera, microphone, speaker and wake
+readiness. Twelve passive live samples carried calibrated, fresh IMU measurements
+and unit expected-vertical vectors with context timestamps no later than the
+measurement; held Stand reported upright. IMU accepted-sample rate during this
+short check was 206.99 Hz, with zero rejected samples and zero gap restarts.
+Before/after snapshots confirmed unchanged saved joint calibration, feedback
+curves/settings, balance settings, network settings, camera settings and body-event
+settings. Live pulses and sensor readings naturally differ after startup. Private
+artifacts and deployment evidence remain under
+`/tmp/ainekio-body-notifications-20261019`, outside Git. No additional powered gait
+or tipping experiment was performed; physical false-event suppression under load
+still needs owner testing. These passive checks do not measure incremental CPU
+cost or qualify every motion on the assembled robot.
+
+### 2026-10-19 — Reaction-face landmarks for repeat notifications
+
+The owner requested suppression of further shake/tip events while the event's
+reaction expression remains active, using the display lifecycle rather than body
+motion completion. The existing MetaHuman initial event branch now generates a
+`be_` token within the existing 32-character display-token format. Explicit token
+handoff/release retains its identity; ordinary and completion replacement faces
+retain ordinary tokens. No model prompt or graph ordering was changed here.
+
+P4 IMU telemetry now carries the active selection token. The existing display
+owner's release, replacement and expiry are authoritative; there is no second
+host timer. A temporary listening/speech overlay retains the selection. Body
+Control continues classifying episodes while suppressing new shake/tip emissions
+for this token, so an already-observed shake does not reappear when the face ends.
+New crossings after the measurements clear can report again. The existing
+rapid-event cooldown still applies before the face arrives. Wake events and
+command admission are unaffected. This is distinct from the previous execution
+context used to recognize normal locomotion and intentional tilted poses.
+
+Validation passed 21 Python event/bridge tests, three dashboard tests, two native
+face/telemetry suites, 19 MetaHuman expression/fast-event tests and Core typecheck.
+The full P4 application and a separate MetaHuman Site build succeeded; the compiled
+Site runtime matched its source and validated the installed workflow definitions.
+P4 candidate `0.8.85-p4-event-face`: 3,008,992 bytes, SHA-256
+`f1a57e0cb507dfc4d4446a7260485d2ddaee49c2327dad76a1c5421b869a8e83`.
+Private firmware/install artifacts are under `/tmp/ainekio-event-face-20261019`;
+the Site build is under MetaHuman's ignored `out/event-face-20261019/site`.
+Deployment and a physical shake/face-reset test remain pending. Body Control was
+stopped at the final preparation check, with separate firmware installation work
+recorded elsewhere in this journal; this task did not interfere with that work.
+
+### 2026-10-19 — Connect trial measurements and support a measured paper reference
+
+Implemented the next measurement integration after the owner requested autonomous
+trial assessment and resets. Body Control now includes the existing camera
+owner's position measurement in each robot's status. The gait recorder retains
+that measurement, captures a pre-command status, and reports per-reference signed
+forward/lateral displacement, heading change and starting-body-Z change. Repeated
+camera frames are not counted as additional observations. Missing calibration,
+unavailable observations and changed references remain explicit; they do not
+become zero movement. Reported distance is endpoint displacement, not path length.
+The camera owner now publishes its already-computed relative Z component.
+
+Added phase-binned shaft-derived extension-shortfall assessment. The P4 trace now
+includes the planner's grounded flag at the same historical target time as each
+measured leg reference, plus calibrated-IMU status. Support labels are unknown
+inside a history interval that crosses liftoff/touchdown. Source/model leg order
+is mapped explicitly. The host projects extension deficit onto gravity using
+bracketing calibrated IMU samples within the same command and continuous trace
+segment. Swing samples do not become support-loss evidence. These remain modeled
+leg-reference estimates, not measured foot contact or a confirmed sag classifier.
+No new actuator writer, slowdown, timeout or automatic motion response was added.
+
+The owner has no printer/checkerboard and has placed 9 × 12 inch sheets beside the
+track, reporting 12-inch intervals. Saved sheet dimensions are 0.2286 × 0.3048 m;
+whether the interval refers to matching edges or an empty gap is not yet known.
+Added manual measured-rectangle capture to the existing camera calibration owner
+and UI. Frozen image selection keeps the exact frame identity; users select four
+corners in consistent order with measured width/height. Multiple tilted views fit
+intrinsics; an actual floor reference and measured camera-to-body transform are
+still required. Sparse manual points need validation against the tape. This uses
+the same planar point-correspondence method documented by OpenCV:
+https://docs.opencv.org/5.0/main_modules/calib.html .
+
+Validation: 29 focused camera/recorder/assessment tests, all 38 dashboard HTTP
+tests, three native trace/learning suites and four dashboard JS test scripts
+passed. Synthetic tests cover known translation, camera lever arm and vertical
+movement, manual-corner intrinsic recovery, fixed-frame selection during live
+updates, phase-boundary ambiguity, unknown calibration, trace gaps and quaternion
+projection. Native tests verify the source/model support-leg permutation. No
+synthetic result is claimed as physical calibration.
+
+Reloaded Body Control preserving its runtime settings. Live camera availability
+reaches the recorder; a one-second passive capture reported missing calibration
+and stale camera observations explicitly, with no errors, movement commands or
+invented distance. A fresh camera image showed carpet/furniture without clearly
+identifiable sheet corners, so physical calibration is still pending. No
+autonomous return-to-start controller is implemented or active yet.
+
+Built 0.8.84 with the exact sdkconfig from the installed .83 build. The initial
+Wi-Fi upload was staged after owner support/power-off confirmation, but the
+installed .83 crashed before activation and rebooted into .83. Retained Wi-Fi
+panic log decodes to newlib floating-point diagnostic formatting. The old control
+task's compiled static frame was 4592 bytes, before nested 3712-byte failure reply
+and diagnostics/formatting frames. Moved the single-consumer command workspace to
+startup allocation, reducing the compiled control-task frame to 1584 bytes while
+preserving queue ownership and the existing allocation-failure behavior. No task
+stack enlargement or motion restriction was introduced. The repaired image builds
+successfully: 3,008,384 bytes, SHA256
+`cc6aa0712fff0e3df7c8e2981efba3544b0431d38564e5b5434ddb1dcb3bc17c`.
+Closing the dashboard tab was insufficient: the gateway audit still showed
+another client issuing face and speech requests. A second .83 upload crashed
+through the same diagnostic formatter. With the gateway stopped, direct Wi-Fi
+upload stayed staged but activation reported `ESP_ERR_TIMEOUT`; the precise
+internal operation causing that timeout was not established. Temporarily running
+the existing gateway on its LAN address with dashboard port 8792 kept the robot
+connected while excluding the observed localhost background clients. Authenticated
+Wi-Fi upload and activation then succeeded. The robot reports
+`0.8.84-p4-gait-observation`, running/boot slot `ota_0`, state `accepted`,
+`pending_verify:false`, and `ESP_OK`. Normal gateway addresses were restored;
+post-update measurement/calibration verification is complete. Saved joint
+references, all twelve feedback calibrations, balance configuration and robot
+settings match the pre-upload capture (only reply sequences, readiness and current
+commanded pulse values differ). The learned model
+`6780d884c6ced0ab5267d9fa3589c176e6ba283a2b234810c9d805210296a17b`
+remains enabled at 50%.
+
+A five-second stationary recorder run captured 341 device sample events and 299
+output publications, all twelve feedback channels, zero reported lost records,
+zero incomplete batches, and no recorder errors. All 341 sample events carry the
+new `calibration_applied:true` IMU field. Acquisition counters advanced by 1031
+accepted samples with zero rejected samples or gap restarts. No motion command
+was submitted by the recorder. There are no walking tracking events in this
+stationary test, so live support-phase serialization still needs a walking trial.
+The boot ID remained unchanged during verification; logs also show one control
+transport write failure/reconnection, not a reboot or proof of flawless transport.
+
+Five fresh camera frames now clearly show the tape and paper references. Owner
+confirmed the 12-inch edges run parallel to the tape, with 9 inches across it.
+Sheet-gap semantics remain unknown and are not used. Camera distance remains
+unavailable until physical calibration and floor reference are established. Asked
+for a short, servo-power-off handheld sequence showing the nearest left sheet at
+different camera angles; this is calibration setup, not an autonomous return test.
+Private build, calibration-view and runtime evidence is under
+`/tmp/ainekio-gait-observation-20261019`, outside version control.
+
+### 2026-10-19 — First paper-target camera recordings
+
+With the owner ready for camera calibration, recorded two passive sequences
+without submitting any robot motion commands. The 25-second and 45-second
+recordings retained 13 and 23 camera frames respectively, with no recorder errors.
+The first sequence includes two close views with a complete sheet; most other
+frames are floor-level views, and the close views have similar perspective.
+The second sequence begins at floor level, then includes varied handheld angles
+late in the recording; several are motion-blurred, while the final view shows a
+complete sheet. The initial assessment based on early frames missed this later
+motion and was corrected after inspecting the later frames and IMU spans.
+Some received frames are 1280×960
+while ordinary preview frames are 640×480; they must not be mixed blindly in a
+single intrinsic fit. No camera calibration or floor-distance result was saved
+from these observations pending corner quality and fit assessment. Switched the operator interaction
+to held poses acknowledged before capture, avoiding timed movement prompts.
+Recordings: `handheld-124058` and `handheld-124203` under the private evidence
+directory above. The sheets measure 0.2286 m across the track by 0.3048 m along it.
+
+### 2026-10-19 — Tape reference and robot-requested measurement photographs
+
+Owner rejected repeated manual repositioning/calibration requests and directed
+use of the robot's camera, IMU, joint feedback and semantic motion controls under
+the existing authorization. The handheld procedure is discontinued. Last explicit
+servo-supply state remains off; no physical movement was commanded in this work.
+
+Reviewed the four long evaluation recordings: only 2–4 camera images were retained
+per trial, with blurred end views. A received preview is not a guaranteed final
+post-walk photograph. Added exact `cam_meta`/binary-counter association in the
+gateway, preserving epoch and request sequence through camera HTTP responses.
+The dashboard retains the latest requested still separately from previews.
+`capture_snapshot` now retrieves its own request and saves bracketing status;
+it does not issue gait or servo commands. Existing preview access is retained.
+The host gateway was reloaded without changing firmware. Three live captures
+matched request sequences 6, 7 and 9 to camera counters 5, 7 and 9 in epoch 17.
+Their camera view has a close foreground object obscuring the tape; no distance
+was invented from these frames.
+
+Added a perspective ruler-pose calculation using identified inch marks and an
+explicit camera matrix. Synthetic projection tests recover the known motion
+under camera rotation and height change. An offline check on earlier clear,
+stationary images used the visible 3/4/5 numeral centres as local ruler anchors,
+SIFT matches within the tape region and a provisional centred-camera estimate
+derived from the already-recorded paper views. Four frames had 72–80 inlier
+matches and an estimated along-tape position spread of 0.03993 inch (1.014 mm).
+This is repeatability under a provisional model, not calibrated accuracy or a
+new walking-distance measurement. Absolute foot-number ambiguity, numeral-centre
+offset, lens uncertainty and camera exposure timing remain unresolved. No
+provisional intrinsics were saved to the robot or the live ground-plane owner.
+
+Validation: 52 dashboard, snapshot, recording, ruler geometry and metadata tests
+passed; `git diff --check` passed. Evidence, photos and the stationary tape result
+are under `/tmp/ainekio-tape-measure-20261019`, outside version control.
+Automatic tape reading through a complete walk and autonomous return remain
+unfinished; the user-measured 18/21/21.5/30.5-inch trial results remain separately
+labelled as operator observations.
+
+### 2026-10-19 — Direct operator trials and removal of unused experiment code
+
+Owner clarified that testing and returning to the starting area should use the
+existing semantic controls, with the agent selecting each action from camera,
+IMU and joint feedback. Do not add a dedicated autonomous test/reset behavior or
+ask the owner to reposition the robot between ordinary trials.
+
+Woke the controller from Doze using Idle. After a subsequent controller reboot,
+Stand completed (epoch 18, sequence 10), with measured movement on all twelve
+joint-feedback channels. A matching requested photograph showed the tape and
+paper rows clearly. Forward Walk at full stride/rate 2 for two cycles completed
+(sequence 14), followed by a separately issued backward two-cycle Walk
+(sequence 18). Both recordings have zero recorder errors and zero reported lost
+trace records; gyro acquisition reported zero gap restarts during each run.
+The forward image shows a rightward deviation. Planned-support extension
+shortfall projected onto gravity averaged about 6.27/3.21/3.46/1.40 mm for
+RL/RR/FL/FR in the forward recording. These are model-derived leg tracking
+shortfalls, not a direct measurement of body sag or floor contact. Backward
+completion is verified; exact return to the starting location is not yet proven.
+Private evidence: /tmp/ainekio-live-gait-20261019.
+
+Cleanup audit found the provisional ruler solver had no runtime consumer.
+Removed Master/gateway/tape_measure.py, its dedicated unit test and current README
+entry; the historical research entry above remains as a record, not an active
+capability claim. Retained requested-snapshot identity because it fixes receipt
+of the wrong camera image, and retained the recorder/trainer actually used by
+learned walking. No dedicated return-to-start behavior was implemented or
+installed. Temporary operating scripts and recordings remain outside the repo;
+no matching trial script was running at cleanup inspection. Firmware was not
+changed or flashed by this cleanup. Twenty-four recorder, trace, learned-model
+and assessment tests passed after removal.
+
+### 2026-10-19 — Firmware diagnostic cleanup; camera session owns deployment
+
+Owner requested removal of leftover experiment instrumentation. Removed the
+extra IMU poll/scheduling/bus timing probes and their wire fields, including the
+associated unused test shim. Kept sensor timestamps, attitude, calibration,
+accepted/rejected sample counts, estimator gap-restart counts and existing I/O
+health counts. Kept the scheduling fix and functional learned gait/feedback.
+
+The device trace buffer now detaches under the existing producer lock and is
+freed outside that lock once recording is stopped and its final response has
+been successfully sent. Partial downloads and failed transfers retain data for
+retry. Stopping/reading affects only recording, never robot movement. The next
+recording allocates again; ordinary boot allocates no trace buffer. Tests cover
+failed-transfer retention, multi-batch retention, final release, inactive
+producers, empty reads after release and restart. This removes the previous
+216 KiB retention until reboot after a completed recording.
+
+Four focused native tests passed (trace HTTP/lifecycle, learned correction,
+IMU wire telemetry and IMU hardware/calibration), plus 24 host recorder, trace,
+learning and assessment tests. Full P4 firmware build passed, including the
+current camera changes. No new limits, motion delays or special test/reset
+behavior were added. Artifact and exact SHA-256 are recorded in
+/tmp/ainekio-firmware-cleanup-20261019/artifact.json; application image is in the
+same directory. Owner explicitly assigned the combined Wi-Fi deployment to
+the camera session. This session has NOT flashed this cleanup or verified it
+on the running robot. Preserve the source changes when that session rebuilds.
+
+Removed the completed temporary live-gait-check.py, install-camera-measurement.py
+and tape-camera.py helpers from /tmp after confirming none was running.
+Recorded trial evidence, model artifacts and build receipts are retained.
+
+### 2026-10-19 — Training-mode scope and resumed physical baseline survey
+
+Owner clarified the intended outcome: an explicit real-world training mode,
+initially on this workstation and eventually on Q6A, which improves walking
+from actual outcomes and saves a compact model for P4 execution. Normal walking
+uses the saved model and live feedback without ongoing training. A measured
+plateau is not proof of a global optimum. Current Walk is a starting baseline;
+the final foot paths and coordination may differ substantially. Preserve live
+steering and compatibility with self-leveling. Do not replace the existing
+command owners with a dedicated test/reset behavior.
+
+The existing 60-coefficient model is periodic task-space iterative learning,
+not reinforcement learning or a sensor-conditioned walking policy. Training
+minimizes nominal-versus-measured reference-point error. Its inputs during
+execution are phase and correction amount; feedback availability determines
+eligibility, but measured joint error and attitude are not policy features.
+Its recorded nominal pulse envelope also prevents it exploring arbitrary new
+base trajectories. Calling repeated fits of this model optimal gait learning
+would be incorrect. Existing Walk was authored and checked against a geometry
+model, not trained by reinforcement learning in simulation.
+
+Current execution ordering is heading controller -> moving balance controller
+-> calibrated linkage fit -> periodic learned correction -> output. Fourth-wire
+actuator-aware balance currently applies to stationary holding; moving balance
+uses gyro-driven trajectory-relative correction. Sensor-conditioned learning
+and joint-feedback coordination during walking remain work, not demonstrated
+capabilities. IMU tilt cannot by itself measure common-mode body-height loss;
+shaft-derived extension is a geometric estimate, not measured contact or load.
+
+Resumed using existing semantic commands and private recordings in
+`/tmp/ainekio-adaptive-20261019`. Servo supply was explicitly confirmed on.
+Corrected an operator readout mistake: multiplexer C0-C3 are unused; servo
+feedback occupies C4-C15. Stand completed at epoch 2, sequence 12, restoring
+armed outputs with fault 0. Ten full-stride forward cycles completed at
+sequence 16, then six backward cycles at sequence 20 returned toward the start
+without asking the owner to move the robot. Both recordings report no recorder
+errors. The forward run recorded no new IMU gap restart and approximately
+-10.31 degrees integrated body-Z rotation, with 5.01/5.06 degree roll/pitch
+spans. Photographs establish forward and reverse progress, but metric camera
+distance remains unavailable; do not report optical motion as calibrated
+travel or motor tracking as electrical efficiency.
+
+Before this survey, comparing `adaptive-baseline-01` and
+`adaptive-candidate-01` gave phase-weighted reference RMS 17.288 and 17.446 mm
+respectively. Candidate pitch span was about 19.09 degrees versus 5.50 degrees;
+its starting photograph also showed the tape housing in front after an
+overshot return, so this was not a controlled matched-start comparison. It is
+not accepted as an improvement. Learned correction is currently disabled for
+the baseline survey; its installed model is retained. The live trace-release
+check in `trace-release-check.json` reported storage_bytes 0 after final
+download, verifying buffer release on the running firmware.
+
+### 2026-10-19 — Broader baseline survey and live leveling compatibility
+
+Completed forward Walk at 50%, 75% and 100% stride, backward Walk, left/right
+turning, and repeated 100% forward Walk with saved self-leveling enabled. All
+used existing semantic commands, rate 2, and gyro steering enabled. This is
+baseline characterization, not an RL-trained replacement gait or an optimum.
+Twelve completed survey recordings (including recovery Stand) contain 48,600
+valid reconstructed joint observations. Private evidence and the consolidated
+report are in `/tmp/ainekio-adaptive-20261019/survey-summary.json`.
+
+| Trial | Requested cycles | Approx. integrated body-Z rotation | Roll span | Pitch span |
+| --- | ---: | ---: | ---: | ---: |
+| Forward 100%, leveling off | 10 | -10.31 deg | 5.01 deg | 5.06 deg |
+| Forward 75%, leveling off | 10 | -1.01 deg | 4.62 deg | 3.66 deg |
+| Forward 50%, leveling off | 10 | -0.91 deg | 4.36 deg | 3.23 deg |
+| Left turn 100%, leveling off | 10 | +10.18 deg | 5.01 deg | 5.33 deg |
+| Right turn 100%, leveling off | 10 | -20.64 deg | See raw report | See raw report |
+| Forward 100%, leveling on | 10 | -0.31 deg | 4.34 deg | 4.38 deg |
+| Forward 100%, leveling on, repeat | 10 | -1.09 deg | 4.94 deg | 5.35 deg |
+
+Camera views show useful forward progress at full stride and less progress at
+shorter stride. These are visual observations, not measured inches/metres.
+Starting poses/floor locations were not identical across all runs; do not claim
+causal improvement from this table alone. The first leveling-on run explicitly
+reported simultaneous active leveling and heading correction, without reduced
+level correction in the sampled telemetry. Its photographs also show lateral
+offset from the tape: low gyro yaw does not prove straight ground translation.
+Both leveling-on forward recordings reported zero new IMU gaps/rejections.
+
+A controller-link interruption changed connection epoch 2 to 4 while preparing
+the first right-turn recording. That attempt failed with HTTP 409 before motion
+submission and is excluded. P4 uptime continued; outputs were released by the
+existing connection-loss behavior. Owner confirmed no other session was
+changing the connection. Stand restored outputs; the subsequent right-turn and
+leveling trials completed. This event is not labelled a motor stall or gait
+failure. No new shutdown, timeout or connection behavior was introduced.
+
+Trained the existing offline joint-response predictor on forward 100%, forward
+50%, backward 100%, and ten-cycle left-turn recordings, holding forward 75%
+out for evaluation. It predicts approximately 40-68 ms ahead. Across joints,
+measured-state RMSE was 28.68 us versus command-history-only 28.42 us and
+hold-last-position 94.19 us. Thus this evaluation does not establish an advantage
+from the measured-state features over command history. Saved privately as
+`survey-response-model.json`; it is not installed and is not a walking policy or
+a validated predictor of untried commands.
+
+End state: self-leveling and walking heading feedback enabled, saved periodic
+learned correction disabled, outputs armed with fault 0. Existing tuning values
+were preserved (strength 1, damping 1, roll offset 3 deg, pitch offset 1.5928 deg).
+No firmware upload or product-code changes were made for this survey. The
+required next implementation is a sensor-conditioned gait policy and physical
+performance optimizer capable of changing the base trajectory/coordination;
+repeating nominal-tracking fits alone cannot deliver that request. Metric visual
+progress remains unavailable in the current measurement owner, and low tilt or
+small shaft error must not silently substitute for successful locomotion.
+
+### 2026-10-19 — Active goal: sensor-conditioned policy and explicit host search
+
+The end-to-end learned walking goal is active. The preceding acknowledgement
+turn made no implementation progress; this turn changed the production policy
+path, host training owner and tests. No robot motion, firmware activation or
+gateway restart was performed. The current physical result is still the
+baseline survey above, not a validation of the new policy.
+
+Implemented `gait_learning_v3` alongside the existing version 2 format. It keeps
+the 60 periodic task-space coefficients and adds 96 sensor coefficients. Each
+leg's three correction axes can now depend on eight live inputs: aligned
+shaft-derived reference-point error xyz / 10 mm, calibrated roll/pitch target
+error / 0.1 rad, and body angular rate xyz in rad/s. Total float weights are
+624 bytes; this excludes runtime history/telemetry. The saved level reference
+uses the balance owner's existing axis signs; no IMU reversal was changed.
+All output still goes through the existing linkage solver, calibrated mapping,
+approved carrier/crank travel and learned-addition fit. The gait clock and PWM
+owner are unchanged. The existing phase-only NVS blob loads with zero sensor
+weights, preserving its enable setting and coefficients.
+
+The sensor-policy context also identifies IMU mounting/bias and saved level
+reference. Unusable joint or IMU inputs fade the last usable learned sensor
+response with the existing contribution blend; underlying gait/heading/balance
+owners continue. Version 2 models retain their previous sensor requirements.
+The existing device trace records exact decision-time features, phase, IMU
+timestamp, context and applied correction separately from the older delayed
+tracking observations. This avoids reconstructing policy inputs using future
+measurements. Recorder metadata now includes installed learning settings/model.
+Body Control accepts version 3 candidate files and identifies sensor versus
+phase-only models in its readout.
+
+Added the explicit host `gateway.gait_training` owner: resumable start/propose/
+advance/export operations, paired policy perturbations, repeated comparison
+blocks, and a separate untested search centre versus best evaluated incumbent.
+Only the evaluated incumbent is exported. Search changes periodic and sensor
+weights; objective weights and exploration scales are explicit inputs. The
+objective uses measured forward speed, calibrated body tilt and shaft-derived
+tracking error relative to the **applied** target, including learned offsets.
+It does not penalize departure from the old nominal foot path merely for being
+different. No electrical efficiency/force measurement is claimed. This owner
+has no motion/reset/return commands and adds no firmware test behavior. Normal
+P4 execution does not train continuously.
+
+Method reference: [Mania, Guy and Recht, Simple random search provides a
+competitive approach to reinforcement learning](https://arxiv.org/abs/1803.07055).
+This supplies the policy-parameter search approach, not evidence that this robot
+is trained or optimal. Repeated-run differences and standard errors remain in
+the training result. A missing camera distance cannot become a zero or a
+tracking-only reward. Existing survey recordings lack the new decision-time
+features and metric progress, so they have not been relabelled as successful
+sensor-policy training.
+
+Validation completed:
+
+- 11 native tests passed: body execution with/without shaft feedback, motion,
+  locomotion, Run, balance, heading correction, learned policy and trace owners.
+- 21 host learning/search/recorder tests passed, including fixed-phase sensor
+  response, reproducible paired proposals, matched repeated comparisons,
+  missing-progress handling and exporting evaluated rather than proposed weights.
+- 49 gateway/trace/assessment tests passed. The sandbox initially denied local
+  test-server sockets; the authorized rerun outside the sandbox passed.
+- Dashboard learning test passed. P4 ESP-IDF build passed; candidate binary is
+  0x2df590 bytes with 64% of the OTA slot free. Build log remains private at
+  `/tmp/ainekio-policy-build.log`. Firmware version/deployment ownership was not
+  changed; this build is not an installed release.
+
+Remaining requirements are explicit: integrate learned base gait phase/duty/
+landing parameters with the existing contact planner; broaden trained command
+contexts while preserving operator steering and leveling; connect the explicit
+host search to physical trial orchestration using existing semantic commands;
+obtain usable metric visual progress; then deploy and demonstrate repeatable
+physical improvement and save the best demonstrated model. Version 3 currently
+still inherits forward/recorded-stride eligibility and the recorded learned-
+addition envelope. These software tests do not finish the walking goal.
+
+
+## 2026-10-19 — Learned base gait profile and live reconnection
+
+Extended the compact model to version 4 so training can change the underlying
+Walk rather than only add offsets to an unchanged foot path. Its 33 profile
+parameters adjust duty fraction, sweep, per-leg phase, lift and landing, and
+body-position harmonics. Another 48 weights condition the response on operator
+forward/turn/lateral/stride commands. Together with the periodic and measured
+sensor terms, the model is 237 float32 values (948 bytes), excluding runtime
+history and telemetry. This is a model interface and search implementation;
+no new physically trained profile has been demonstrated yet.
+
+A new Walk selects the saved profile before its first frame. Grounded anchors
+remain committed; mid-command model changes report that the profile applies to
+the next Walk. Existing steering/heading, balance and Walk/Run interpolation
+remain in their owners. The profile blends out during Run, so this change does
+not claim to train Run. Version 4 records operator inputs, context and the
+executed profile hash; evaluation verifies the recorded profile. Version 2/3
+models migrate with zero appended fields and retain their previous eligibility.
+The joint calibration, IMU signs, nominal servo speed and owner-approved travel
+remain unchanged. Sensor-dependent additions retain the approved fade behavior.
+
+Validation: 11 native motion/runtime/recording tests passed; an additional
+profile test covers curved Walk, transition into Run and back, heading feedback,
+and balance application. Fourteen host policy/search tests passed. Offline
+preview using the current saved calibration completed forward/backward/left/
+right at 50 and 100 percent with a zero-addition profile. The preview now accepts
+version 4 coefficients and specified sensor inputs; it does not simulate loaded
+servo response. The ESP-IDF build passed, 0x2e1300 bytes, 64 percent OTA slot free.
+The release label is 0.8.90-p4-learned-gait and includes the existing face-layer
+work from 0.8.89. Deployment outcome is recorded separately below.
+
+After the owner powered on, the live robot reported 0.8.89, calibrated readable
+feedback on all twelve joints, and fresh IMU samples without acquisition errors.
+The servo output release matched a logged control-connection loss and reconnect,
+not an I2C transfer failure. Camera imagery showed the desk, so no walking was
+commanded. The owner then confirmed frame support and servo power off for OTA.
+Runtime evidence and camera captures remain outside the repository.
+
+Remaining: deploy and verify the model interface, obtain usable metric visual
+progress, conduct repeated physical candidate comparisons through existing
+semantic commands, and save the best demonstrated model. No claim of improved
+walking, measured sag, or optimality follows from these software checks.
+
+
+### Deployment and measurement verification
+
+The owner confirmed frame support and servo power off. Wi-Fi upload and activation
+of 0.8.90 succeeded (application SHA-256
+`34fb1d3da09a41e94ad951db58f4cf6eb63165867c87ec6d5073eb672cfe1662`).
+A concurrent camera session then deployed 0.8.91-p4-highlight-wb, including the
+gait changes. We retained that combined release; its live OTA status is accepted,
+with no pending verification. The owner confirmed that deployment session has
+finished. Live status exposes the sensor-policy feature, operator inputs and
+both saved and selected gait profiles. Saved joint mappings and all twelve
+feedback calibrations match the pre-update snapshots. The old saved learned
+model remains disabled; no new candidate has been promoted.
+
+A five-second stationary camera/joint/IMU recording completed with 259 sample
+records, no reported loss, no incomplete batches, 1,032 accepted IMU acquisitions,
+zero rejected acquisitions and zero acquisition-gap restarts. This was a passive
+recording with no movement command from this session; it does not establish
+loaded tracking, gait benefit or torque. Camera distance is still unavailable.
+
+Updated the host support assessment to include the applied learned displacement
+in its target, and to include version-4 eligible Walk commands rather than only
+the older straight/full-stride subset. Otherwise an intentionally raised foot
+could be misreported as an extension shortfall. Nineteen host assessment,
+learning and training tests passed. Planned support remains distinct from
+measured contact; no confirmed body-sag value is fabricated from these readings.
+
+
+### First version-4 floor recordings and temporary candidate installation
+
+With fresh floor readiness, enabled the existing self-leveling setting while
+retaining heading correction. The unchanged baseline completed four forward
+cycles and four backward return cycles through semantic Walk commands. Both
+recordings completed without errors or lost trace records. The forward recording
+had 291 joint sample events, zero IMU acquisition gaps during movement, and
+roll/pitch spans of 7.42/16.21 degrees. Its phase-averaged planned-support extension
+shortfalls were approximately RL 7.56, RR 2.53, FL 9.86, FR 0.46 mm; these are
+shaft-derived tracking observations, not direct ground contact or confirmed sag.
+
+Created and installed a zero-addition version-4 baseline with 123 usable eligible
+decision samples. Model a5692a8d10ae9e69e9300459661f813fd059b46b7c612ab8c2cb47e990f04f5f
+was enabled at amount 1. A two-cycle check completed, with zero applied learned
+correction as expected. However, only 3 eligible policy decisions had all inputs
+usable: the IMU was in startup for much of that short trial. The gap-restart
+counter changed from 1 in the preceding recordings to 2 before this trial, not
+during its acquisition. Snapshot captures and persistent model operations took
+place between those recordings; the precise cause is not yet isolated.
+
+The install/configure API previously wrote NVS on every candidate. Implemented
+explicit `persist:false` for RAM-only training candidates, retaining persistent
+behavior by default. Explicit `persist:true` saves the active model and settings.
+Status exposes `model_saved`; Body Control labels temporary models. Runtime tests
+verify RAM install/configure performs no NVS commit, reboot restores the previous
+saved model, and explicit save survives reload. Targeted native and dashboard
+tests passed. This is prepared as 0.8.92-p4-training-ram; deployment is not yet
+claimed. Avoiding flash writes during candidate exploration must still be checked
+on hardware; no arbitrary settling wait or gait stop was added.
+
+Prepared mirrored candidate profiles and previewed them with the current joint
+mapping at median and coordinate-wise extreme recorded sensor inputs. Paths
+completed with the existing calibrated travel fit; this is not a learned
+physical improvement. No candidate has received a fabricated visual reward.
+The camera still has no fitted metric calibration. Walking previews show blur;
+stationary requested stills are clearer. Existing Nod and turn commands are used
+to obtain additional target views, with captures kept outside the repository.
+
+
+### 0.8.92 installation and RAM-only hardware check
+
+After fresh support/power-off confirmation, installed 0.8.92-p4-training-ram over
+Wi-Fi. OTA accepted the image, running ota_1 with no pending verification;
+SHA-256 `7ee29ae78c318e09dfe59b445bdad59db626e071d977891dc090b93bec91c58f`,
+3,019,776 bytes. The saved zero-addition version-4 model survived reboot and was
+reported saved/enabled. With servo power still off, installed the first candidate
+using `persist:false`, then restored the zero-addition seed using `persist:false`.
+The candidate reported unsaved as intended. The IMU gap counter remained 1 and
+startup remained false across both operations. This verifies the temporary
+installation path on hardware, but does not alone prove the cause of the earlier
+gap. No altered gait was moved or promoted in this check. The permanently saved
+model remains the zero-addition baseline; live RAM also holds that baseline.
+
+The prior Nod and six-cycle left-turn commands completed. Their camera captures
+provide additional views but still do not constitute a fitted metric camera
+calibration. Physical optimization remains unfinished; the next floor session
+must evaluate actual progress, tracking and attitude together.
+
+### Recorded-image measurement sensitivity check
+
+While awaiting floor readiness after the 0.8.92 installation, inspected the
+existing stationary snapshots and their capture identities. The return and
+standing snapshots are separate requested captures (epoch 70, request sequences
+17 and 18, distinct image hashes), rather than the same cached JPEG.
+
+Evaluated an offline alternative to intrinsic fitting: map the measured 9 by
+12 inch paper through a planar homography and use assumed vertical furniture
+edges to locate the camera's perpendicular projection onto that plane. This
+approach is too sensitive in the existing shallow views. Perturbing manually
+selected image endpoints by independent one-pixel Gaussian noise produced a
+central 95% interval approximately 0.73 m wide in the paper's length direction
+for the standing image, and 0.16–0.18 m for the later views. These are sensitivity
+intervals under an assumed annotation-noise model, not calibrated confidence
+intervals or measured robot travel; lens distortion and furniture verticality
+remain unmeasured. They are inadequate for ranking these short walking trials.
+No derived position was used as a training reward or saved as camera calibration.
+Private analysis and images remain under /tmp, outside the repository. No
+firmware or runtime camera changes were made for this experiment.
+
+The next physical recordings need a better resolved metric reference view;
+existing semantic motion commands can obtain it once floor readiness returns.
+The last confirmed setup remains frame supported, servo power off. No movement
+was commanded during this analysis, and no new candidate was promoted.
+
+### Powered floor trials of version-4 sensor-conditioned gait profiles
+
+After the owner returned the robot to the floor, all twelve mapped feedback
+channels reported plausible powered readings and the calibrated IMU was fresh.
+Stand completed and restored outputs from their released state. The initial
+close camera obstruction cleared as the robot rose. Firmware remained
+0.8.92-p4-training-ram throughout these trials.
+
+Executed three ten-cycle forward Walk recordings: zero-addition baseline, the
+positive generation-0 candidate, and its negative counterpart. Repositioning
+used existing backward Walk, short forward Walk, and left-turn commands; no
+manual reset or dedicated return behavior was introduced. Camera views show
+forward travel, but repositioning did not reproduce identical starting poses.
+These recordings are physical pilot observations, not matched training blocks.
+
+| Recorded quantity | Baseline | Positive candidate | Negative candidate |
+| --- | ---: | ---: | ---: |
+| Usable eligible tracking decisions after phase 2 | 257 | 263 | 241 |
+| Applied-target tracking RMS, mm per coordinate | 10.426 | 10.235 | 10.453 |
+| Level-error RMS, degrees per roll/pitch coordinate | 2.218 | 2.372 | 2.463 |
+| Peak reported heading error, degrees | 10.30 | 13.67 | 4.53 |
+| Applied sensor/periodic residual RMS, mm per coordinate | 0 | 0.053 | 0.052 |
+| Reported lost trace records | 0 | 9 | 0 |
+| New IMU acquisition gaps | 0 | 0 | 0 |
+
+Selected profile hashes were respectively 3785240341, 4074084110 and 3861731214,
+confirming that both candidate profiles actually ran. The residual RMS excludes
+planner-profile changes such as lift, landing and phase. Recorded carrier/crank
+output extrema stayed within 500–2800 microseconds in all three recordings.
+All three commands reported completion. These observations do not measure
+contact, stall torque or electrical energy, and the filtered shaft tracking
+numbers include actuator lag and sensor/filter effects.
+
+The positive candidate's trace reader accumulated a backlog: batches of 64
+records took roughly 0.6–0.8 seconds while the producer continued filling the
+512-event ring. Its nine lost records were reported during final trace stop.
+The recorder previously waited for an outstanding camera download before
+stopping trace acquisition. Moved stop-and-drain into the trace reader thread,
+which already owns its cursor, so camera completion no longer delays it. This
+changes only host recording cleanup; it does not stop robot motion, reduce
+sampling, or add a firmware behavior. A regression test holds a camera response
+open and verifies trace stop occurs independently. Twenty-four focused recorder,
+trace and training tests passed. The following negative-candidate ten-cycle
+recording completed with zero loss. This single run does not establish sustained
+streaming throughput for arbitrarily long trials; the observed transport backlog
+still needs attention before longer uninterrupted recordings.
+
+The body connection changed from epoch 71 to 72 between trials without a reboot
+or firmware replacement. Each individual trial stayed within its own epoch;
+recordings retain those identities. The saved and active model is again the
+zero-addition baseline (active RAM restoration verified; persistent baseline
+was not replaced). Neither candidate was promoted, and generation 0 was not
+advanced: measured distance and repeated matched comparisons are still missing.
+The negative candidate's lower peak heading error is promising but insufficient
+by itself, especially with different starting poses and slightly worse tilt.
+Private recordings and comparison metadata are under
+/tmp/ainekio-floor-training-20261020, outside the repository.
+
+### Trace transport repair and interrupted camera-view trial
+
+The firmware trace response previously issued separate HTTP writes for each
+JSON record and its one-byte newline. Packed the same NDJSON stream into 8 KiB
+response chunks, without changing sampling, the 64-record batch, the 512-event
+ring, or motion execution. Native trace HTTP tests verify complete record
+parsing, chunk count, and retention after failed writes; the targeted test and
+the P4 build passed. This session did not deploy this transport change. Another
+session subsequently installed 0.8.93-p4-measured-motion; inclusion of this
+change in that particular binary has not been verified.
+
+On 0.8.92, an existing three-cycle left Crab command completed while recording
+570 accepted IMU samples, zero new IMU gaps and zero lost trace records. Its
+before/after stills show a lateral viewpoint change. The following right Crab
+request was rejected because the body had entered Doze; its requested snapshot
+was also rejected. The robot then disconnected and returned on 0.8.93. The
+owner confirmed another session is working on it. Hardware commands and
+deployment remain with that session; these 0.8.92 observations must not be
+silently pooled with subsequent firmware comparisons.
+
+Offline camera reconstruction used the existing sharp stills, including the
+lateral view. A 15-view fit reached approximately 0.79 px mean reprojection
+error, but low image residual alone does not establish correct metric shape.
+The initial separate paper-check script omitted bearing-vector normalization;
+its invalid projections were an analysis error, not evidence of a robot fault.
+After correcting that temporary script, the four known paper edges imply scales
+of 0.0668, 0.0375, 0.0438 and 0.1393 metres per reconstruction unit, with roughly
+4.41 px paper-corner reprojection RMS. Their disagreement prevents a defensible
+distance measurement. No resulting distance was used as a training reward,
+no camera calibration was saved, and no candidate was promoted. Temporary
+reconstruction code, dependencies and images remain outside the repository.
+
+An additional offline fit used only the three observed paper rectangles, their
+owner-reported 9-by-12-inch size, a centered principal point and equal focal
+lengths. Across three focal initializations it converged near 656 px, but its
+7.45 px reprojection RMS remains substantial. Perturbing corner annotations by
+1 px over twenty repetitions produced focal estimates from 633 to 675 px;
+this does not account for paper curvature, erroneous corner identification or
+an inadequate lens model. These results do not qualify a camera calibration.
+
+The saved pilot metadata confirms all three forward trials used 0.8.92 and
+identical joint calibration anchors, with distinct requested model IDs. Baseline
+and positive recordings used camera epoch 71; negative used 72. Each has seven
+camera frames. Recorded request-to-receipt intervals reach 2.17 seconds and
+include waiting for the next image; they must not be described as measured
+exposure times or pure network latency. No optimizer generation was advanced.
+The private provenance receipt is trial-provenance-check.json alongside the
+recordings. Physical comparisons remain pending access to the robot after the
+other session's work, and a defensible visual progress measurement.
+
+### Resumed floor recording on 0.8.93 and overlapping deployment
+
+The owner returned access to the robot on the floor. Firmware reported
+0.8.93-p4-measured-motion, all twelve feedback channels responded, and the saved
+version-4 zero-addition baseline was enabled at amount 1. Heading correction and
+self-leveling remained enabled. A ten-cycle forward Walk at stride 100 and rate
+2 completed (epoch 4, sequence 23). Before/after requested stills show forward
+movement; no metric distance is asserted. Recording captured 479 valid samples
+per joint, zero lost trace records and zero new IMU acquisition gaps. Median
+trace response time was 0.454 s with maximum backlog 38 records, compared with
+the earlier positive pilot's backlog of 418. This is an observed improvement in
+this recording, not proof of indefinite loss-free streaming. Only one preview
+frame arrived during this trial; requested endpoint stills were retained.
+
+The planned backward repositioning was not submitted: its metadata request
+failed while the robot disconnected. The gateway audit then showed a firmware
+POST from outside this session, and the shared source advanced to
+0.8.94-p4-independent-jam. The P4 log showed repeated controller reconnects
+without a reboot during that interval, followed by Doze and released outputs.
+No further movement or model installation was sent while the overlapping
+deployment was being coordinated. This trial remains separate from 0.8.92 and
+any later firmware results.
+
+An offline affine following fit on the central portion of this new Walk found
+best raw-feedback shifts of approximately 50–65 ms for the carrier/crank
+channels; filtered-feedback shifts were 60–80 ms. Raw crank following gains
+were approximately 0.95–1.00. Rear-left and front-left carrier gains were
+approximately 0.745 and 0.761, respectively; right carrier gains were 0.960 and
+0.857. These fit coefficients describe this periodic trial, not independent
+servo speed, torque, contact or electrical power. Filtering, linkage load,
+software output timing and actuation delay are confounded. They motivate testing
+timing and carrier-trajectory changes, but do not justify promoting a policy
+without measured travel and repeated comparisons. The analysis and recordings
+are private under /tmp/ainekio-floor-training-resume-20261020.
+
+### 0.8.94 floor follow-up, battery interruption and offline recording repair
+
+After the owner confirmed the other session had finished, verified accepted
+0.8.94-p4-independent-jam and resumed on epoch 38. The saved baseline model was
+unchanged and no candidate was installed during this follow-up. Ten forward
+cycles completed (sequence 21), followed by eight backward cycles (25) and two
+right-turn cycles (31). Requested stills confirmed forward travel and a return
+to the tape's starting area, but did not establish identical starting poses or
+validated metric distance. The final planned two-cycle repositioning was never
+submitted: feedback metadata acquisition failed after the connection vanished.
+The owner then reported a depleted battery and requested completing offline
+work before continuing later. No further robot commands were sent.
+
+The ten-cycle 0.8.94 forward recording had 291 usable post-entry tracking
+decisions, approximately 11.089 mm applied-target RMS error per coordinate and
+2.413 degrees roll/pitch error RMS per coordinate. Peak reported heading error
+was 4.93 degrees, and no new IMU acquisition gaps were recorded. However, twelve
+trace records were lost with backlog reaching 443. The backward recording lost
+625 records following a trace HTTP timeout. Those incomplete records remain
+diagnostic evidence, not scored training trials. They cannot establish a gait
+or firmware improvement, especially with battery state unmeasured. No model was
+promoted and generation 0 remains unevaluated as a matched comparison.
+
+The previously added response buffering is present in the uploaded 0.8.94
+artifact, as confirmed by its distinctive allocation-error string; buffering
+alone did not resolve sustained recording throughput. Inspection of the actual
+cJSON dependency found a second cost: noninteger binary32 sensor readings were
+printed with 15 significant digits, parsed back as doubles, and sometimes
+printed again with 17 digits. Changed only trace float-array serialization to
+nine significant digits, sufficient to recover the original binary32 values.
+The wire representation remains numeric JSON arrays. Existing nonfinite-to-null
+behavior and integer timestamps are preserved. No movement, sampling, ring
+capacity, model, calibration or normal-runtime behavior was changed.
+
+Validation: the native trace HTTP test passed, including a new wire round-trip
+test covering 1,024 float bit patterns/extremes, signed zero and nonfinite
+values; 24 host recorder/trace/training tests passed; the complete P4 build
+passed. A three-repeat host benchmark of 20,000 representative tracking events
+reduced mean event size from 2,218.44 to 1,714.44 bytes (22.72%) and median CPU
+time from 1.243464 to 0.539307 seconds (56.63%). This is a host serialization
+benchmark, not a P4 timing result or proof that live record loss is fixed.
+
+The patch is built but not deployed. The build retains the shared checkout's
+0.8.94 version string, so it must not be confused with the already-installed
+0.8.94 binary; a release version should be assigned when deployment resumes.
+Private build identity and evidence are retained with the resumed trial files.
+Next physical work: install/version the recording repair, verify complete
+recording on the charged robot, then resume matched candidate comparisons with
+defensible visual progress measurements. Heading and self-leveling compatibility
+still require candidate validation; the baseline remains the saved policy.
+
+### Charged-battery resume: recording repair deployed as 0.8.95
+
+The owner resumed testing with a charged battery and confirmed the frame was
+supported with servo power off. Built and uploaded 0.8.95-p4-trace-float32
+(3,026,192 bytes; SHA256
+3e26b95beaaadf11e92d387418eda1f371dc549abc109b2a98ba749e1cc8f371).
+The first activation returned ESP_ERR_TIMEOUT while the old 0.8.94 image
+remained running. Retrying activation of the already-staged image succeeded;
+the controller reconnected on epoch 19 and reported accepted 0.8.95, ota_0,
+no pending verification and ESP_OK. No second upload was necessary.
+
+Compared saved joint reference calibration, fourth-wire channel mapping and
+calibration points, learned model identity/coefficients/amount, and balance
+settings before and after activation: unchanged. The saved zero-addition
+baseline remains selected; this update does not promote a trained candidate.
+
+A 25-second passive recording, with no motion command submitted, captured
+1,254 samples per joint, fifteen camera frames, zero lost trace records, no
+incomplete batches and no IMU acquisition gaps or rejected acquisitions.
+The frame orientation changed during the recording, so this is not a
+stationary-noise measurement. With servo power off and no walking tracking
+events it also does not establish sustained recording throughput during gait.
+Private deployment receipts and recordings are under
+/tmp/ainekio-trace95-20261020. The owner subsequently confirmed floor readiness
+for a recorded ten-cycle baseline.
+
+The ten-cycle forward Walk at stride 100/rate 2 then completed on epoch 20,
+sequence 15. It captured 517 samples per joint, 453 output events, zero lost
+records, no incomplete batches and no new IMU acquisition gaps. Median trace
+response was 0.464 seconds. The 268 usable post-entry tracking decisions had
+9.402 mm applied-target RMS error per coordinate and 1.894 degrees tilt RMS
+per coordinate. These are diagnostic results, not an improvement comparison.
+
+The requested pre-trial still failed, and preview subsequently stopped updating:
+the camera task logged `camera unavailable: ESP_FAIL`. The one downloaded trial
+image was stale, so there is no measured visual progress and this run is not
+scored for training. No candidate was installed or promoted.
+
+With fresh owner confirmation of support and servo power off, restarted the
+controller through its existing settings-apply operation (revision 2, with no
+pending settings changes). Preview resumed. Temporarily selected existing 960P
+snapshot mode instead of AUTO to investigate format switching; that still also
+failed, although preview remained available afterward. Preview shows horizontal
+colored lines and substantial low-light noise even with servo power off.
+The task exit, still failure and image artifacts are observed facts; a common
+cause is not established. The owner raised a possible loose cable or nearby
+magnet. Advised powering everything off before inspecting/reseating the ribbon;
+no hardware change has yet been verified. Private evidence is under
+/tmp/ainekio-floor-training-095-20261020. The diagnostic camera setting is now
+960P for snapshots; preview remains VGA at 1 fps.
+
+### Cable repair and renewed baseline
+
+The owner identified a kinked camera cable, reported it fixed and confirmed
+floor readiness with servo power on. On reconnect (epoch 25), 0.8.95 remained
+installed. The new preview had no visible horizontal colored-line artifacts.
+Both requested 960P reference stills succeeded, at 144,156 and 153,732 bytes.
+This confirms successful captures after the reported repair, not indefinite
+camera reliability.
+
+A ten-cycle forward baseline at stride 100/rate 2 completed as sequence 9.
+The recorder reported four camera frames, no errors, zero lost trace records,
+and 2,103 accepted IMU acquisitions over 10.156 seconds, with no rejected
+acquisitions or acquisition-gap restarts. The reference images show forward
+travel. Distance remains unqualified: the tape is visible, but no validated
+metric camera displacement was extracted or supplied to the optimizer.
+
+The planned eight-cycle backward return was not submitted. Metadata acquisition
+failed with HTTP 409 after the robot disappeared from the gateway. Repeated
+read-only status checks still showed no connected robot. Asked the owner whether
+power remained on; no reboot cause is inferred from a lost connection alone.
+No candidate was installed, no model was promoted, and no generation advanced.
+
+Offline following fits on the completed recording found raw carrier gains of
+0.826/0.910/0.770/0.820 and crank gains of 0.982/0.970/0.990/0.939 in
+rear-left/rear-right/front-left/front-right order. Best raw shifts were 45–70 ms;
+filtered shifts were 65–90 ms. These periodic fits combine software timing,
+filtering and loaded response; they are not torque measurements or independent
+motor identification. Private images, recordings and fit analysis are under
+/tmp/ainekio-cable-repaired-20261020. No firmware changes were made for this
+follow-up; snapshot mode remains 960P.
+
+The owner subsequently confirmed the robot was deliberately powered off for
+maintenance. The disconnection above is therefore an owner-reported power-off,
+not evidence of a controller crash. Physical comparisons await its return.
+
+### Research refresh: owner-requested learning during ordinary locomotion
+
+The owner requested a proposal for optional persistent gait logging and a
+Body Control learning mode: vary motion, collect sensor/outcome data during
+ordinary forward/backward/turning maneuvers, analyze and improve periodically,
+then freeze the demonstrated policy at diminishing returns. Re-enable learning
+after mechanical changes. This entry is research/proposal, not implementation
+or authorization of new runtime restrictions.
+
+Current audit: the live trace header reported active=false, session=0,
+latest=0, capacity=0. Body Control provides browser-owned Start recording,
+Finish/download, file-based Train/load and manual Install controls. These are
+not a durable logging service or an automatic training lifecycle. The existing
+UI trainer fits periodic tracking residuals. gait_training.py implements an
+offline paired random search, but no gateway service invokes it automatically.
+Its present objective requires forward speed, tilt and actuator error and does
+not cover command-conditioned turning/backward objectives. Version 4 on P4
+already supports command/sensor-conditioned Walk corrections and gait profiles;
+its eligibility does not extend to Run/Crawl/Crab.
+
+Primary references reviewed:
+- Smith, Kostrikov, Levine, RSS 2023, Demonstrating a Walk in the Park:
+  https://www.roboticsproceedings.org/rss19/p056.pdf
+  Real A1 learning with SAC-family methods, onboard velocity estimation,
+  contact inputs, controllable PD joint targets and GPU laptop training.
+  Its continuous-learning result is relevant; its approximately twenty-minute
+  result is not a prediction for MG90 linkage hardware.
+- Widmer et al., Tuning Legged Locomotion Controllers via Safe Bayesian
+  Optimization: https://arxiv.org/abs/2306.07092
+  Hardware controller tuning and gait contexts support the proposed
+  sample-efficient parameter-search direction. Its safety machinery is not
+  implicitly adopted.
+- Stanford Pupper v3 training/deployment:
+  https://github.com/cs123-stanford/pupper-mjlab and
+  https://github.com/cs123-stanford/pupper_gait_deploy
+  Simulation-trained policies exported for execution; not evidence that a
+  deployed Pupper retrains its policy during every ordinary walk.
+- RMA: https://arxiv.org/abs/2107.04034
+  Simulation-trained policy plus online adaptation, distinct from continually
+  optimizing policy weights on the physical robot.
+- Existing optimizer/estimator implementations:
+  https://botorch.org/ and https://docs.openvins.com/gs-calibration.html
+  Camera/IMU timing and calibration remain necessary for defensible metric
+  progress; a working camera alone is not a functioning odometry estimator.
+
+Proposed direction: host-owned persistent logger and contextual Bayesian gait
+parameter optimization, initially on the workstation, subsequently Q6A after
+benchmarking. Keep P4 motion, linkage IK, live heading/leveling and compact
+sensor-conditioned policy execution. Start with a low-dimensional coordinated
+parameter set rather than simultaneously searching all 237 policy floats.
+Use ordinary commanded movement windows with model/context identities, retain
+reference-policy observations across comparable contexts, and promote repeatable
+improvements. Score commanded translation/yaw, unwanted drift, body tilt/impact
+and measured following; do not call joint error a torque or energy measurement.
+
+UI proposal: Log gait data, Learn while walking, Analyze now, learning progress,
+per-maneuver coverage and saved-model history/restore. Training off preserves
+the learned gait and live feedback. Plateau is evidence about covered contexts,
+not a global optimum or an arbitrary motion timeout. Invalid/missing progress
+must remain explicitly unknown; handling incomplete observations is a proposed
+learning-data policy, not a new robot stop or movement restriction. No firmware,
+dashboard or trainer changes were made during this research refresh.
+
+### 2026-10-20 — owner-approved host learning implementation and priority correction
+
+The owner approved using the computer running Body Control for training, with
+training switched off on a laptop/smaller host. The owner clarified that the
+current priorities are forward Walk, backward Walk, turning and Run, and reports
+that these currently do not work satisfactorily. Earlier successful forward
+trials are historical observations, not present qualification of these commands.
+Crab and Crawl are experimental and excluded from the initial training scope.
+
+Implementation now adds a gateway-owned persistent recorder, explicit logging/
+learning switches, asynchronous Analyze now, model history/restore and automatic
+candidate/evaluation/incumbent/plateau lifecycle. Private traces, images and
+training state use the host's XDG state directory outside the repository.
+The previous browser-owned recording loop was removed. No return-to-start
+behavior or test-specific robot motion command was added.
+
+The host optimizer uses BoTorch, with nine coordinated gait/feedback search
+coordinates. Both fourth-wire reference-point response and gyro tilt response
+can change, in addition to duty, sweep, front/rear lift and landing, and height.
+It records actual model/profile/context identities, scores measured directional
+progress, yaw trajectory error, lateral drift, body motion and joint following,
+and compares matching command/stride/cadence conditions. Walk promotion requires
+repeated forward, backward and both left/right turning observations. Run uses a
+separate P4 model/NVS slot and retains bounding. Candidate weights are RAM-only;
+only demonstrated incumbents are persisted. Ordinary motion does not wait for
+analysis. Existing self-leveling, heading feedback and mechanical limits remain.
+
+Validation so far: 61 focused host/dashboard tests passed before the final
+telemetry refinements; nine new host-learning tests subsequently passed,
+including browser-independent recording, signed backward/turn objectives,
+missing-distance handling, model promotion, plateau and restore. Native trace,
+learning-runtime and gait-profile tests passed with independent Run persistence
+and actual Run inference. A real CPU-only BoTorch fit/proposal on synthetic
+observations completed in approximately four seconds. These are software tests,
+not physical gait improvements.
+
+One wider native invocation selected an old Python without NumPy/SciPy; that
+environment failure is distinct from motion-code failure. The source/reference
+checks are being rerun with the repository's pinned scientific packages.
+A separate Stand session advanced the shared firmware version during this work;
+this session is building separately and has not flashed or restarted the robot.
+
+Remaining qualification is explicit: the existing camera motion measurement
+owner still needs usable calibrated metric observations on this robot. OpenVINS
+was researched but has not been implemented by this change. Receipt-clock camera/
+trace alignment is approximate and labeled. No new physical candidate has been
+promoted, and the host learning mode has not been activated on the live robot.
+
+Implementation verification completed later in this session:
+
+- 66 host/HTTP/dashboard tests passed, including authenticated selected-robot
+  logging, analysis and restore. The final twelve host-learning tests passed
+  again after persistence and comparison refinements. Both learning dashboard
+  JavaScript suites passed.
+- Native trace serialization, separate Walk/Run learning execution and gait
+  profiles passed. The pinned source/reference comparison also passed for
+  3,889 poses; the earlier missing-NumPy result was an environment failure.
+- The CPU BoTorch worker fitted twelve synthetic nine-dimensional observations
+  and proposed a candidate in 2.75 seconds. This measures software execution,
+  not robot improvement.
+- The host now uses the existing production native linkage preview before
+  installing an automatic candidate, fitting only the learned delta toward the
+  incumbent when necessary. Real native previews of a small candidate completed
+  forward/backward/left/right conditions for Walk and Run in approximately
+  0.10/0.09 seconds using the existing calibration test fixture. Sensor inputs
+  were zero; this does not predict load, slip, collisions or physical feedback.
+- Requested motion rate, rather than resulting cadence, identifies comparison
+  conditions. A faster candidate therefore remains comparable. Useful motion
+  supplies the reward; stability/following costs reduce it, so quiet immobility
+  cannot beat useful progress. Extra spinning past the planned turn is not
+  rewarded. Logging history survives enabling training; restoring a model
+  restores its search centre as well.
+- The final integrated ESP-IDF build succeeded. Private artifact:
+  `/tmp/ainekio-host-learning-20261020/build/ainekio_p4_body.bin`, 3,041,168 bytes,
+  SHA-256 `7ee499eb9c2322e99e66a16840d0ba83fc9e26a3e109cb8049bf7cdda7c85dd8`.
+  The concurrent Stand session owns the shared `.97` version; this session
+  did not flash this artifact, restart the gateway or dispatch robot movement.
+
+Read-only inspection of the physical gateway's saved sensing configuration
+found **zero metric camera calibrations**. That is the concrete remaining
+measurement dependency for this implementation's progress objective. The
+logger can retain joint/IMU/camera evidence, but automatic physical improvement
+cannot be claimed or ranked by distance until the existing measurement owner
+provides qualified metric observations. No learned candidate was activated on
+the robot by this session. Forward, backward, turning and bounding Run remain
+the physical acceptance priorities; Crab/Crawl remain experimental.
+
+
+## 2026-10-20 — Stand measured-progress repair, prepared for physical testing
+
+Owner requested one existing motion foundation that steps toward actual Stand
+joint targets, without the all-joint checkpoint deadlock or an intermediate
+planner failure automatically releasing PWM. Optional jam release remains the
+owner's independent choice.
+
+A native replay using the recorded installed mapping reproduced a crank-branch
+failure in the fixed contact trajectory. This was a geometric planning failure,
+not evidence of a physical jam or exhausted PWM timer. The body-controller
+regression now completes that case after one corrective path and retains the
+original final joint target.
+
+Changes in the existing owners:
+
+- Measured startup engages carrier/crank outputs at their measured positions,
+  then uses the existing stepping planner. It no longer commands a simultaneous
+  fold and waits for all eight joints before starting to step. Shoulders engage
+  after their own lifted-leg arrival and stay engaged through subsequent replans.
+- Lift/place arrival checks the moving leg. Supporting joints are not a global
+  barrier; lowering can transfer load before the next leg steps. Final Stand
+  completion still requires all commanded targets to arrive.
+- The same non-progress observer supplies corrective stepping and optional jam
+  release. A missed stage or final target replans from measured positions, with
+  the affected leg first. An unsolved contact path tries the four existing leg
+  orderings and reports replanning if none currently solves. The request remains
+  replaceable; this does not create a new stop, automatic release, or deadline.
+- Joint-travel fitting participates in candidate sampling before path progress
+  commits. Failed planning leaves progress/pose unchanged. Contact geometry is
+  recomputed from the fitted frame rather than reporting unfitted clearance.
+  One existing test fixture requests 8 mm lift but produces about 5.93 mm after
+  its installed travel fitting; the test now checks positive commanded clearance
+  and agreement with forward kinematics, rather than claiming 8 mm occurred.
+- Removed the unused separate rise interpolation and obsolete checkpoint helpers.
+- Feedback config version 4 separates `arrival_tolerance_us` from the existing
+  jam `tolerance_us`. Migration preserves the owner's former shared value in
+  both fields and preserves all calibration curves, mappings and enable flags.
+  Body Control exposes both settings and displays replanning status/count.
+
+Verification: six focused native suites passed (body execution, body feedback,
+posture/contact geometry, joint calibration, feedback calibration/migration and
+feedback arrival/non-progress), plus the feedback dashboard JavaScript test.
+Coverage includes blocked active/supporting joints, missed final arrival, Stop,
+transient mapping failure, transactional planning, four leg orderings, independent
+jam/arrival settings, and a simulated unequal-rate servo plant that reaches all
+final targets in 2.18 seconds. The simulated plant is not a torque/contact model.
+The integrated ESP-IDF application builds as `0.8.97-p4-stand-progress`; all LCD,
+camera and other currently integrated source remains included. Existing mechanical
+travel bounds and physical PWM representability checks remain in their owners.
+
+Prepared artifact and private replay/build evidence are under
+`/tmp/ainekio-stand-repair-20261020`. At preparation the online robot reported
+`0.8.96-p4-large-faces`, with coordination off, jam release off, both tolerances
+400 us and the no-progress window 3000 ms. No movement was dispatched for this
+repair. Installation and loaded standing remain unverified; physical readiness
+was requested before rebooting the robot. Preserved arrival tolerance is an
+owner-adjustable acceptance band, not proof of exact standing height.
+
+Installation attempt after owner authorization: the complete 3,030,800-byte
+`0.8.97-p4-stand-progress` application uploaded and returned `staged`. Activation
+returned `ESP_ERR_TIMEOUT` through Body Control and on one direct maintenance
+retry. The robot still reports `0.8.96-p4-large-faces`, running/boot `ota_1`,
+with no pending verification. The new image is not active; a full physical
+power cycle is needed before retrying installation. No saved feedback settings
+were changed and no Stand test was dispatched. Private upload/activation receipts
+are in the existing task directory. Artifact SHA-256:
+`4357ece6f7677c91d97a9cbec6f9e32778076da4034dd2fbe86e75f28bf5e013`.
+
+Owner-requested retry after power cycle: direct authenticated Wi-Fi upload
+again returned `staged`, but activation again returned `ESP_ERR_TIMEOUT`.
+A separate call to the existing recording stop endpoint reproduced the timeout
+in 4.038 seconds, identifying the recording/storage command path as an
+installation blocker. Readback still reports version `0.8.96-p4-large-faces`,
+running/boot `ota_1`, no pending verification; saved coordination/jam flags
+remain off and both tolerances remain 400 us. No USB serial device was present
+on DNDIY. Application-only USB flashing is the next installation route; the
+prepared `.97` image remains uninstalled.
+
+Subsequent owner-requested Wi-Fi activation retry succeeded using the same
+already-staged image. The robot rebooted into `0.8.97-p4-stand-progress` on
+`ota_0`, reported `accepted` with `ESP_OK` and no pending verification, and
+reconnected to Body Control. Readback confirms all feedback settings and all
+twelve feedback calibration curves/mappings are unchanged: coordination off,
+jam protection off, both tolerances 400 us, no-progress window 3000 ms.
+Display, camera, microphone and speaker report ready. No additional motion
+command was sent; loaded standing remains to be tested. This successful retry
+does not establish that the intermittent recording-stop timeout is repaired.
+
+## 2026-10-20 — Complete Stand passes with final verification
+
+Owner replaced intermediate arrival-gated execution with complete movement
+passes followed by final-pose checks, and explicitly approved removing
+intermediate feedback waits throughout named motions and custom sequences.
+
+The existing body output owner now executes the initial Stand fold and stepping
+pass without requiring shaft readings to start or progress. After the final
+commanded target is successfully written, one subsequent feedback snapshot
+supplies both goal errors and the starting pose for a corrective stepping pass.
+The original goal, sequence and completion receipt survive repeated passes.
+There is no intermediate joint checkpoint, jam-timer dependency, artificial
+settling interval, retry-count cap or added automatic release. Missing readings
+cannot establish completion. Stop and command replacement remain available.
+
+Named clips, custom sequences, finite gait endings and reverse lay-down recovery
+run through their authored paths without feedback-arrival waits. Recovery into
+Stand verifies only after its complete reverse/alignment path, then uses stepping
+for correction. Removed the old checkpoint enum/branches, paused trajectory
+clock, clip-landmark API and shared blocked-joint mask. The optional jam observer
+retains its owner-selected release behavior and observes non-progress only when
+jam protection is enabled. Acquisition remains available to telemetry, balance,
+learning and final Stand verification. Existing saved flags, tolerances and
+calibrations remain unchanged; the UI labels `stand_enabled` as final-pass Stand
+verification and explains the new behavior.
+
+Verification: ten relevant native suites passed (feedback configuration,
+feedback observations/jam behavior, joint and clip calibration, body execution,
+body feedback, posture contacts, V2 motion, clips and grounded steps). The
+feedback dashboard test also passed. Tests cover complete initial/corrective
+passes without intermediate reads, multiple final-goal corrections, missing
+observations, fixed final targets, replacement/Stop, all named clips with
+unavailable feedback, custom endpoints, reverse recovery and failed final PWM
+writes. A deliberately lagging plant continued corrective passes for 20 simulated
+seconds without false completion; completion was tested after explicitly placing
+that simulated plant at the goal. This is not evidence of autonomous convergence
+or loaded standing. The previously observed electrical/acquisition signal loss
+has not been repaired by this change and still requires separate investigation.
+
+Integrated application prepared as `0.8.101-p4-stand-passes`, 3,038,448 bytes,
+SHA-256 `ff1cfb49ed222cd4ff88cd27426b467d91f192ad9c2b52d347739a8e74385d68`.
+Private artifact, source manifest and build/test evidence:
+`/tmp/ainekio-stand-sequence-20261020`. Not installed during this coding task;
+no robot motion or saved-setting change was issued.
+
+Owner-authorized Wi-Fi installation completed: the exact prepared application
+was uploaded; two activation attempts returned the existing shutdown timeout,
+and the next activation retry succeeded without another upload or power cycle.
+The robot booted `0.8.101-p4-stand-passes` on `ota_1`, reported `accepted` with
+no pending verification and reconnected to Body Control. Readback confirmed
+unchanged feedback calibration/mappings and all saved feedback settings:
+acquisition on, Stand verification off, jam protection off, both tolerances
+400 us and no-progress window 3000 ms. Display/camera/audio report ready.
+No extra Stand command or settings change was issued. Loaded standing and the
+feedback signal issue remain unverified; the OTA timeout was not repaired here.
+
+## 2026-10-20 — Installed vision audit and optional learned-depth odometry
+
+Owner requested alternatives to Depth Anything and checking existing SLAM before
+adding software. Read-only host audit found ROS 2 Jazzy (`ros_base` and
+`image_transport`) but no discovered ORB-SLAM3, OpenVINS, RTAB-Map, Cartographer or
+SLAM Toolbox installation. The queried ROS graph had no application nodes and only
+`/rosout`/`/parameter_events`; no running SLAM service or container was found.
+**Open3D 0.20.0 is installed in the ComfyUI interpreter**, and its RGB-D odometry
+and dense-SLAM APIs imported successfully. ComfyUI also contains MoGe-2 code and
+the existing 632 MiB converted weights. These libraries were not connected to the
+robot's camera measurement owner.
+
+Live Body Control was online, receiving camera frames, and reporting
+`Measured calibration and floor reference required` for locomotion measurement.
+Private sensing settings contain zero ground calibrations. The camera was set
+to VGA at 1 FPS. Twelve existing stream frames were read without changing settings
+or sending movement; their arrival intervals were about 1.2–1.3 seconds. Images
+showed a tabletop/person working near the camera, not a controlled walking trial.
+This session has not asserted that the robot was stationary or ready for motion.
+
+Compared primary-source descriptions of MoGe-2, Depth Anything 3 (including the
+metric nested 1.1 variant), UniDepth V2, Depth Pro, ORB-SLAM3 and OpenVINS. Detailed
+links/tradeoffs are in `Master/gateway/README.md`, “Optional host depth and camera
+odometry.” Existing MoGe-2/Open3D were used for the optional prototype instead of
+downloading another large checkpoint. An inspected DA3 upstream source checkout
+was removed after inspection; no DA3 model weights were downloaded.
+
+Implementation adds an isolated host MoGe-2 worker and Open3D multiscale RGB-D
+odometry, selected explicitly in Camera → Depth and camera movement. Existing
+calibrated ground-plane tracking remains the other choice. Model outputs include
+estimated depth preview, fixed-per-reference estimated intrinsics, local
+camera/body pose (depending on supplied mounting transform), model identity,
+registration diagnostics and original frame receipt time. Distances are marked
+`learned-metric-estimate`, with unverified metric accuracy and unknown uncertainty.
+No mapping/loop closure or calibrated visual-inertial fusion is claimed.
+
+The selected source feeds the existing gait recorder and objective. Result
+provenance is saved; changed camera calibration/source contexts begin a new
+comparison bank and archive old observations rather than comparing unlike
+measurements. The worker sends no motion commands. There is no inference deadline,
+automatic camera setting change, guessed-optics fallback or firmware alteration.
+P4 live correction, joint feedback and IMU scoring remain under their existing
+owners. Disabling depth releases its model when no robot uses it.
+
+Private benchmark material: `/tmp/ainekio-depth-20261020`, plus the existing four
+VGA frames in `/tmp/ainekio-cable-repaired-20261020/baseline-10`.
+The installed network's initial benchmark warmed up in about 1.74 s, then ran
+in 76–78 ms/frame; peak Torch allocation was approximately 1000 MiB on the RTX
+4080. Open3D's initial default solve took 22–29 ms/pair. Per-frame focal estimates
+varied roughly 294–353 pixels, motivating fixed optics within a tracking reference.
+The default solver also under-converged on a synthetic 20 mm image translation:
+after correcting invalid warp-border depth, its error was about 3.1 mm; increasing
+the multiscale iterations to 30/20/10 reduced that example to about 0.7 mm.
+These are local implementation checks, not measured physical camera accuracy.
+Sparse, blurred historical walking images do not validate travel direction,
+scale, drift or a learning reward.
+
+Deployment status: source integration and offline GPU worker exercised; the
+running gateway was not restarted or reconfigured, and no robot commands,
+training activation, saved robot calibration or firmware changes were issued.
+Physical distance accuracy and whether this source improves forward/backward,
+turning and Run training remain outstanding. This does not complete the learned
+walking objective.
+
+Validation receipt: 54 tests passed across depth integration, host gait learning,
+ground-plane tracking/authenticated camera settings and camera perception. The
+known-motion Open3D test, signed forward/backward/yaw transforms, measured lever
+arm, source persistence, model release and error reporting are covered. Dashboard
+navigation (four tests) and host gait-training UI checks passed; JavaScript
+syntax and `git diff --check` passed. Tests exercise mocked robot transport and
+synthetic images, not physical gait. Restricted-sandbox executor shutdown hung;
+the same suites passed outside the sandbox, and only this session's three hung
+test processes were terminated.
+
+
+## 2026-10-20 — Sequential initial folding and completed-pass jam assessment
+
+Owner requested reduced simultaneous servo travel while resolving the supply issue,
+and explicitly approved assessing startup/Stand jams between complete passes.
+The existing seconds-based jam observer is retained, including saved tolerance,
+progress increment and no-progress duration. No runtime setting was changed.
+
+Initial startup/detached Stand now engages one leg's crank/carrier together in
+stepping order (front-left, rear-right, front-right, rear-left), each separated
+by the existing full-travel transit estimate rounded to a 20 ms output tick.
+This replaces the front/rear overlap of 20 ms. Engaged legs stay powered; each
+shoulder still engages during its lifted-foot stage. The later contact-aware
+body rise is unchanged and still moves supporting legs together. These are
+command timings, not measured arrival or a guarantee of lower peak current.
+
+During startup/Stand, in-pass samples no longer feed jam-progress history.
+A fresh final-target observation begins that history; subsequent complete-pass
+observations retain the same final goal and elapsed-time rule. If replanning
+cannot proceed, assessment continues while holding the finished-pass target.
+The threshold remains milliseconds (3000 = 3 seconds), not a pass count. A pass
+can finish after the threshold. Jam-only mode does not introduce a missing-data
+completion barrier; independent Stand verification remains the owner of goal
+confirmation/retries. Other movement and idle holding retain continuous jam
+assessment. Both assessment paths reuse the same release-and-body-event owner.
+
+Validation: body_execution, body_feedback_execution, servo_feedback_measured_arrival
+and dashboard servo-feedback tests passed; integrated ESP-IDF build succeeded.
+Coverage includes complete-pass assessment, missing data with jam-only mode,
+in-pass dip recovery, startup/command/idle release receipts, and a three-second
+threshold with irregularly spaced pass samples. Source diff whitespace passed.
+Firmware 0.8.109-p4-stand-pass-jam is built, NOT installed. Private artifact and
+test evidence: /tmp/ainekio-stand-pass-jam-20261020. Supply sag and loaded
+stand-up improvement remain physically unverified.
+
+**Installation verified:** Owner requested flash. Wi-Fi upload staged the
+3,039,232-byte image (SHA-256
+`7776f77aa9496904df91d24cc9dd9dbde2752680f6b611abe5010f8273fc77fe`);
+activation succeeded and the P4 reconnected with 0.8.109-p4-stand-pass-jam,
+ota_0 running/boot, accepted, pending_verify=false, ESP_OK. All seven feedback
+settings and all twelve feedback curves/channel mappings compare equal to
+preflash. Startup reported final path progress 1, no replans and no stalled
+joint mask. Outputs are released by the existing OTA acceptance path in
+system_authenticated; no additional Stand command was sent. This verifies
+installation, not physical arrival or resolution of the supply problem.
+
+
+## 2026-10-20 — Live depth source activated in host gait learning
+
+Owner requested putting the installed vision tools into use, then explicitly
+confirmed floor readiness for recorded walking. MoGe-2/Open3D is now selected
+in Body Control, the preview is requested at VGA/5 FPS, and persistent host
+logging and learning are enabled. These are host/camera settings; this session
+installed no firmware and changed no robot joint calibration or base gait.
+Actual camera cadence can be below the requested rate.
+
+Live activation exposed and repaired these owning-layer defects:
+
+- Ultralytics CPU recognition sets CUDA_VISIBLE_DEVICES empty. The independent
+  depth worker now preserves the launcher's allocation, with an optional
+  AINEKIO_DEPTH_CUDA_VISIBLE_DEVICES override. Its lightweight module is loaded
+  before recognition initializes. Live GPU use was about 1476 MiB; ordinary
+  combined depth/odometry processing was approximately 123–154 ms per frame.
+- Trace reads previously reused a cursor after controller restart, producing a
+  permanent HTTP409 loop. Reads now include the existing boot/session contract;
+  session changes reacquire metadata and start a separate observation context.
+- A missing joint observation previously restarted the complete four-cycle
+  window. Windows now retain their command context, count missing observations
+  and use only actual usable samples. Missing readings do not become zero error.
+  Statistics describe the measured subset, not unseen joint behavior.
+- HTTP trace batches can carry old buffered history. Live status-clock receipts
+  now align that history with camera receipts. Network latency remains unknown;
+  this is not exposure-synchronized visual-inertial estimation.
+
+A nearly black startup image established an unusable visual reference. An
+explicit tracking restart from a clear image restored estimates. After a later
+Open3D singular fit, the owner explicitly approved automatic recovery: retain
+intrinsics/calibration, establish a new local reference, report the failed
+interval unavailable, and resume with the next usable fit. No distance is
+invented across a reference break and no robot motion is stopped. The recovery
+worker is installed and live. Windows crossing a tracking break remain unscored.
+
+Trial receipts and limitations:
+
+1. Initial eight-cycle command (epoch 29/sequence 8) preceded explicit floor
+   confirmation and used forward=1, which is 1 percent in this wire protocol.
+   Both were operator errors by the agent. Placement is unverified; this is
+   excluded from gait comparisons. No scored window/model promotion occurred.
+2. After explicit floor confirmation and visual inspection, the current Walk
+   ran eight cycles at stride=100, forward=100, turn=0 (epoch 29/sequence 9).
+   The controller reported completion. The original recorder scored no window.
+   Offline replay with the timing/window repairs recovered one window using
+   70 usable observations out of 131; this replay installed no model.
+3. After the host repair and another explicit floor-ready confirmation, a live
+   eight-cycle forward Walk completed (new gateway epoch 1/sequence 7). The
+   service saved its first forward baseline bank: one four-cycle window, 80
+   usable observations of 136, four camera poses, and no lost trace records in
+   that run. Its estimated camera-origin forward displacement was 0.0536 m
+   over 2.112 s for that window only, NOT the whole command and NOT a calibrated
+   physical distance. Reported lateral motion and about 55 mm kinematic tracking
+   RMS require investigation; neither is treated as independently verified.
+   This created an initial baseline, not an improved or optimal gait.
+4. Eight-cycle backward Walk (epoch 1/sequence 8) was submitted to reposition
+   without asking the owner to carry the robot. Its trace contains 98 tracking
+   records, but the controller reconnected into epoch 2 and later received a
+   Stand from another source. There is no verified completed backward return.
+   No additional motion commands were sent after observing that reconnect.
+
+The host continues recording ordinary forward/backward/turning/Run activity.
+Automatic analysis still needs comparable repeat observations in the relevant
+maneuvers before choosing a candidate. Physical depth-scale accuracy, camera
+mounting transform, motion-blur robustness, incomplete joint observation coverage
+and the apparent large tracking error remain unresolved. This receipt does not
+claim locomotion improvement or completion of the learned-walking objective.
+
+Validation: 60 targeted tests passed for depth geometry/recovery, host recording
+and learning, camera settings/authentication and camera perception. Tests include
+known synthetic translation, GPU allocation isolation, trace-session restart,
+queued-data clock alignment and intermittent-observation windows. Logs, camera
+images, activation receipts and replay results remain private under
+/tmp/ainekio-depth-20261020 and ~/.local/state/ainekio/gait-learning; none were
+added to the repository. Earlier live recording accumulated trace loss during
+reconnections/backlog; those counts were reported, not erased or called valid
+training. A sandbox-stalled replay process was terminated and rerun outside the
+sandbox; no unrelated process was stopped.
+
+
+## 2026-10-20 — Persistent measured Stand goal, not jam-triggered collapse
+
+Owner clarified that target shortfall and environmental obstruction must cause
+continued Stand correction, not servo release. The previous 0.8.109 test reached
+Stand, emitted completion, then the independent holding observer flagged nine
+joints roughly three seconds later and released all outputs. Stand used 400 us
+arrival tolerance while that holding observer used 200 us. These were conflicting
+owners of a single standing objective.
+
+With Stand verification enabled, initial completion and retained standing now
+use the same arrival_tolerance_us comparison. Shortfalls repeat complete
+corrective passes. Reaching the goal produces one completion receipt and keeps
+the goal active; subsequent drift re-enters the same posture planner with an
+internal continuation and no duplicate external receipt. Stop/release, calibration
+and replacement body motion relinquish that goal. Missing observations never
+assert arrival or release output. Intentional listening gestures are not opposed
+by Stand correction. Current commanded balance adjustments become the holding
+target and require post-write observations before judging a discrepancy.
+
+The separate position-based jam-release timer no longer overrides a verified
+Stand goal, either during correction or after initial completion. It remains
+available for other operations and for Stand with verification disabled. This
+does not establish true current/temperature overload protection: those quantities
+are not measured by the fourth wire. No saved settings or tolerances changed.
+If measured geometry cannot produce a corrective path, the existing planner
+reports replanning and retains output rather than inventing a pose or reporting
+success. Poor feedback still cannot establish physical standing.
+
+Removed the unrelated unconditional servo disable in system_authenticated's
+OTA acceptance path. Firmware validation now observes the existing output state
+without dropping a successfully started robot. Error/rollback decisions remain.
+
+Validation: body_execution, body_feedback_execution, servo_feedback_measured_arrival,
+dashboard servo-feedback tests, and two production-function OTA tests pass.
+New coverage includes repeated shortfalls beyond the jam time, accepted-goal
+holding, drift recovery without duplicate receipts, missing samples, Stop and
+replacement, and OTA acceptance retaining armed outputs. Integrated build
+0.8.110-p4-stand-goal completed; private evidence and exact artifact manifest
+are in /tmp/ainekio-persistent-stand-20261020. Physical improvement is not inferred
+from these tests.
+
+Installation receipt: 0.8.110-p4-stand-goal was accepted in ota_1 with
+pending_verify false; saved calibration and feedback settings were preserved.
+The owner subsequently reported inaccurate corrections and intermittent jerking,
+including after disabling jam protection. This is not a qualified Stand repair.
+The initial postboot capture retained powered outputs but entered repeated
+geometric replanning; completion of the intended recovery was not established.
+
+Later passive observation found jam protection, Stand verification and stationary
+leveling all disabled. Thirty feedback snapshots retained identical commanded
+pulses on all twelve outputs and no Stand replan. The owner confirmed the robot
+was standing, while the raw feedback channels were near/below their calibration
+minima. Earlier captures from the same installed firmware had distinct in-range
+shaft readings. The discrepancy therefore exists before angle inversion and
+conversion; its electrical/acquisition cause remains unverified. ADC read success
+currently establishes a sampled channel, not physical position accuracy, and
+the position converter explicitly extrapolates beyond calibration. No new range
+rejection, output release, calibration changes or movement commands were added
+during this investigation. The passive capture does not establish that a reported
+jerk occurred inside its observation window. Private evidence is retained in
+/tmp/ainekio-persistent-stand-20261020/passive-134809.jsonl.
+
+## 2026-10-20 — Stand verification repeats commanded stepping
+
+The owner clarified that being upright does not mean the joints have reached
+the standing target. Low reported positions alone do not establish defective
+feedback, and the preceding passive capture did not establish the physical
+cause of the shortfall or intermittent jerking.
+
+The 0.8.110 final-pass handoff rebuilt its entire geometric trajectory from
+measured shaft positions. That was different from the requested execute/check/
+repeat behavior: a shortfall could replace the commanded support pose with a
+substantially different origin, or produce an unsolvable measured linkage and
+leave the request replanning. Version 0.8.111-p4-stand-repeat removes this handoff.
+Every corrective pass continues from the last commanded frame toward the same
+standing target. Final-pass feedback compares calibrated pulse equivalents
+directly with the target; the remaining-joint mask chooses which leg to
+prioritize and determines completion. The now-unused measured-frame return was
+removed from that verifier. Live balance retains its separate shaft observation
+API. This adds no retry cap, intermediate wait, output release or pulse limit.
+
+A new production-body regression supplies large measured offsets, verifies
+continuous commanded references, affected-leg priority, repeated complete passes,
+unchanged final target and eventual completion receipt. It fails against the
+previous body implementation because corrective replanning cannot start, and
+passes against the new implementation. Three focused native suites and the
+dashboard servo-feedback test pass; the integrated firmware builds. The existing
+slow-plant test still verifies continuation rather than autonomous convergence;
+neither test establishes successful weight-bearing standing.
+
+A live Stand request (epoch 5, sequence 19) was recorded on 0.8.110 with the
+owner's verification and jam settings off, and returned a trajectory completion
+receipt. It is not proof of measured arrival. Private capture, before/after
+regression evidence, build and installation receipts are retained under
+/tmp/ainekio-stand-repeat-20261020 and the preceding persistent-stand directory.
+
+Installation: Wi-Fi upload and activation succeeded. The P4 reported
+0.8.111-p4-stand-repeat accepted, pending_verify false, connected, outputs armed
+and output_fault zero. Saved switches, thresholds, input mappings and all twelve
+feedback curves matched the preflash snapshot. Coordinated Stand and jam
+protection remain off as the owner had saved them. Physical validation of the
+new feedback-enabled corrective behavior is still outstanding.
+
+## 2026-10-20 — Stand retest after owner repaired a ground fault
+
+The owner found and corrected a ground fault and requested another live test.
+The P4 retained 0.8.111-p4-stand-repeat. Distinct joint feedback readings returned.
+For the test, Stand verification was temporarily enabled with the existing
+400 us arrival tolerance; jam protection stayed off. Stand command epoch 11 /
+sequence 7 completed with measured verification. During 65 subsequent snapshots
+covering 19.22 seconds before another command replaced it, all twelve joints
+remained inside the configured tolerance; maximum absolute filtered error was
+175.74 us. There were zero corrective replans and no output fault. The owner
+confirmed the robot stood correctly and remained steady without the previous
+jerking. This validates this Stand-and-hold trial, not jam protection or recovery
+from a deliberately introduced obstruction.
+
+The owner also issued Neutral (8) and Stand (9) during the recording; both
+returned completion, but they are separate from the sequence-7 hold measurement.
+After recording, the original saved settings were restored: Stand verification
+off, jam protection off. No release command was sent. Private measurements and
+configuration receipts are in /tmp/ainekio-ground-repair-test-20261020-140055.
+
+## 2026-10-20 — Feedback readings recover after ground inspection
+
+Owner reported finding a probable ground fault and requested another voltage
+check. Three successive live feedback snapshots (scans 1762, 1764, 1765) now
+show distinct joint voltages spanning 0.601–2.735 V, rather than the previous
+all-low 0.09–0.26 V pattern. All twelve channels were within their saved
+calibration ranges; acquisition and voltage conversion reported ESP_OK.
+Measured positions differed from commanded positions by at most approximately
+94 us across these snapshots. The mirrored rear carriers now read approximately
+2.66–2.74 V left and 0.60–0.62 V right, consistent with their respective
+2369 us and 796 us commands. Outputs were reported armed.
+
+This supports the owner's electrical-fault finding; it does not isolate the
+exact failed connection or establish long-term stability. No movement or
+calibration changes were commanded for this check. Loaded walking and learning
+must be evaluated with the restored measurements rather than interpreting the
+previous all-low samples as actual joint positions.
+
+## 2026-10-20 — Feedback failure continues authored motion
+
+Owner explicitly selected: finish programmed movement, retain powered targets,
+report unusable feedback, and suspend measured corrections until usable readings
+return. Missing feedback must not become a command-completion barrier.
+
+Installed integrated `0.8.112-p4-feedback-fallback` over Wi-Fi; accepted in ota_1
+with no pending verification. App SHA256:
+`9f539dfe4dfa26208f28a907b36a3af7a5ed37d387e8aaef16426bfbe002be8a`
+(3,040,688 bytes). Calibration and saved settings were preserved. Firmware now
+finishes the authored Stand path when post-command observations are unavailable,
+with `position_verified:false`, while retaining the powered goal. Valid measured
+shortfalls still use corrective stepping; returned observations can resume this
+without duplicating the original completion receipt. Feedback absence or
+extrapolation cannot serve as evidence of a jam. Command pulse range is unchanged.
+
+Body Control now displays current feedback health and fourth-wire millivolts.
+It sends fault/restoration notices through the existing body-event bridge, with
+fault notices using the existing cooldown and reaction-face suppression. These
+notices never send a stop or release. The Environment Bridge retains the optional
+position-verification field in action receipts. Out-of-calibration signals are
+untrusted measurements, not proof of a specific electrical failure. The hardware
+still does not measure servo-rail or battery voltage.
+
+Validation:
+
+- Three native suites passed: body execution, feedback execution, and measured
+  arrival. These cover reader loss with coordination and jam enabled, completion
+  without output release, holding, resumed correction, new-command admission,
+  and all-low/out-of-range signals that cannot establish a jam.
+- 57 gateway/body-event tests and nine subtests passed using pinned WebSockets
+  10.4; dashboard feedback and body-event tests passed. Additional receipt and
+  same-scan reader-failure cases passed after review.
+- New protocol schema/validator test passed. The broader legacy protocol suite
+  still has three pre-existing coverage failures: missing robot_settings schema
+  entries and missing robot_settings/motion_speed fixture types. This was
+  confirmed against the pre-task validator copy; unrelated contracts were not
+  rewritten. The live gateway's ComfyUI interpreter has WebSockets 16, so the
+  integration test harness used the repository-pinned 10.4 import path.
+- Live Stand sequence 7 completed with the feedback reader disabled; outputs
+  stayed armed and fault-free for the five-second follow-up. The settings API
+  requires coordination/jam disabled when deliberately turning the reader off;
+  unexpected reader loss with those features enabled is covered by native tests.
+- Live Stand sequence 8, with reading and coordination enabled, completed with
+  `position_verified:false` when the immediate post-write observation was not
+  yet available. Outputs remained armed and fault-free during the five-second
+  follow-up, with no correction replans. Feedback subsequently reported all
+  twelve calibrated signals usable. This verifies graceful completion; the
+  receipt deliberately does not claim measured arrival or physical standing.
+- Restored the owner's settings: reader on, coordination off, jam off, arrival
+  tolerance 400 us, jam tolerance 200 us, no-progress window 3000 ms, progress
+  threshold 15 us. No release command or physical wiring fault was introduced.
+
+Private build/install/capture evidence is in
+`/tmp/ainekio-feedback-degraded-20261020`. No supply-voltage fault was injected;
+actual power-rail monitoring remains unavailable with the current sensors.
+
+## 2026-10-20 — Learning-window reset and recorder transport repair
+
+Loaded forward and backward commands completed after the ground inspection,
+but the learning service was not reliably producing observations. Two distinct
+host defects were investigated:
+
+- A trace HTTP request took 18.979 seconds during the earlier backward trial,
+  overflowing the P4 recording buffer by 1,430 records. The host now reuses its
+  per-robot HTTP connection instead of opening a TCP connection for every batch.
+  Failed requests are surfaced without replaying model installations. The
+  socket change addresses connection churn; it does not prove the cause of
+  every network stall. Since the subsequent reload, completed forward, backward
+  and turning trials have reported zero lost trace records. One peer reset was
+  reported and the existing recorder resumed.
+- `model_active` changed whenever a fourth-wire observation was briefly
+  unavailable. Including that flag in the training-window identity repeatedly
+  reset the window even though the selected model and commanded gait were
+  unchanged. Availability is now recorded within the window. Unusable joint
+  samples do not enter the tracking-error calculation; the result includes
+  unavailable-observation and active-model counts. Command, calibration,
+  profile and model changes still separate observations. Regression coverage
+  now reproduces alternating usable/unusable feedback with an active model.
+
+The camera worker now tracks fixed 3-D feature landmarks with OpenCV PnP,
+using MoGe-2 depth for new landmarks, instead of interpreting independent depth
+predictions as dense scene motion. Matched landmarks retain their world points;
+new depth is aligned to their scale. Failed fits retain the previously approved
+new-reference/unknown-gap behavior. Ordinary robot reconnection preserves
+estimated intrinsics when image size and source settings are unchanged.
+The old `moge-open3d` configuration value remains compatible; the reported
+source is `moge2-landmark-odometry`.
+
+Validation: 63 focused recorder, camera, depth and measurement tests passed.
+Live recording `20261020-142345-edf0d844` produced scored forward, left-turn
+and right-turn observations after the window fix. Other windows remained
+unscored because camera tracking was lost; those are not zero-distance results.
+The current shared Walk optimizer still requires repeated observations in all
+four directions before proposing a candidate. At this checkpoint no new
+candidate had yet been installed or demonstrated superior.
+
+Camera exposures around 178 ms still cause motion blur. Learned metric depth,
+estimated optics and camera-origin travel are not surveyed distance, body
+height, foot contact or energy measurements. No claim of an optimal gait or
+verified metric travel follows from these repairs. Changes in this section are
+host-side; no test-specific code or flash was added to the firmware. Private
+trial receipts and images remain under `/tmp/ainekio-depth-20261020` and the
+existing private gait-learning state directory.
+
+## 2026-10-20 — Preserve powered motion through controller loss
+
+Owner requested finite work continue during a Body Control disconnect and
+open-ended movement finish gracefully rather than dropping the robot.
+
+Confirmed cause: P4 controller send failure, WebSocket loss, stale-control
+handling and Wi-Fi disconnection directly invoked PCA9685 emergency disable.
+This bypassed the motion owner and released powered supports. Automatic setup-key
+creation and manual setup entry also had unrelated output-disable calls.
+
+`0.8.113-p4-link-motion` removes connection-loss output release and routes the
+retired connection identity asynchronously to the existing output owner. Finite
+Stand, named clips, counted gaits and custom sequences retain local execution.
+An open-ended gait uses `ainekio_v2_walk_update` with the existing zero-stride
+Finish request, preserving its motion rate, committed foot paths and final
+powered hold. No disconnect delay, new standing pose or polling dependency was
+added. The retired-session watermark covers requests already accepted at loss
+without allowing a delayed notice to affect a newer session. Session admission
+still prevents stale/replayed remote work; reconnect does not fabricate an
+unobserved completion. Explicit detach, power transitions and actual output
+fault handling are separate and unchanged. This is P4-specific.
+
+Validation: native body execution and feedback execution passed, including
+identical write counts and final targets for finite Stand/Sit/counted Walk with
+and without loss, continuous Walk/Crawl/Run/Crab loss during entry and mid-motion,
+modeled grounded feet after Finish, retained armed outputs, and old/new-session
+isolation. Gateway selection/session-fencing tests also passed. Integrated IDF
+build passed. Physical disconnect testing is pending installation.
+
+The owner said the concurrent full-speed-gestures agent will flash and requested
+combination first. Both changes are already in the shared checkout. Verified
+that `/tmp/ainekio-full-speed-gestures/p4/ainekio_p4_body.bin` is version
+`0.8.113-p4-link-motion`, 3,396,464 bytes, SHA256
+`48362864030f2923a5a19ba2a64642d8c29f44ce4ec59a5c5c597c81bcca133f`.
+Its body/controller/network objects, with debug information stripped, match this
+repair's tested build exactly. Generated clip data also matches exactly. Leave
+flashing to that agent; do not install a competing image. Private build/test and
+object-comparison evidence: `/tmp/ainekio-disconnect-motion-20261020`.
+
+## 2026-10-20 — Live learning advances to candidate comparison
+
+Further host repairs were required before the ordinary-walking learning loop
+advanced reliably:
+
+- Camera samples now enter the recorder from timestamped
+  `locomotion_measurement` events. Polling the dashboard snapshot had inserted
+  expired copies of previously valid frames into historical windows. Live
+  freshness remains unchanged; historical measurements no longer expire
+  retroactively. Actual image-fit failures remain unavailable.
+- Camera optics are retained per image mode within the depth worker. A
+  high-resolution still and return to preview had caused a different focal
+  estimate, changing the measurement identity and archiving accumulated
+  observations. Returning to a previously seen mode now reuses its optics.
+  A worker restart still begins a new estimate and measurement context.
+- An HTTP reconnect no longer clears a partly accumulated window. The device
+  recording cursor and lost-record footer establish continuity. Boot/session
+  changes and actual reported loss still separate observations.
+
+All 65 focused depth, recorder, camera and ground-measurement tests passed.
+Offline replay of original camera events with the saved trace recovered ten
+scorable windows out of fourteen; four remained unscored for actual tracking
+failure or insufficient camera observations. This replay did not send commands
+or manufacture distance across gaps.
+
+Live evidence in private recording `20261020-143739-5841d12e`:
+
+- The Walk baseline accumulated two scored windows in each of forward,
+  backward, left-turn and right-turn operation.
+- The service automatically generated and installed RAM-only candidate
+  `1812f6acaace5790c46c81b9c0eee95b846df0563244f5d0e0c4520cfcb7bfad`.
+  The native preview accepted the full proposed change for all four observed
+  command conditions.
+- Two matched windows per direction completed the first evaluation. The
+  candidate did not demonstrate improvement under the existing comparison
+  rule. The incumbent was retained; the candidate was not promoted to saved
+  firmware policy. The host recorded the comparison and automatically advanced
+  to generation 1 with candidate
+  `2f46ffc9b81845895f58dc22351334b063ff3d7e322377b0ecc961fa7031147a`.
+- Run separately accumulated two baseline observations and automatically
+  installed candidate
+  `eb87ddc9327ba40c98b201d62440732c1ccc7e6e198573ef4f3d589cb0fa5acd`.
+  Its full proposed delta passed the Run preview. This did not replace the
+  Walk bank or change the command's bounding gait to a trot.
+
+This demonstrates a live Walk record/propose/install/compare/next-candidate
+iteration, not convergence or a better gait. Logging and learning remain
+enabled on this host and consume ordinary Body Control commands. Run candidate
+evaluation was still in progress at this checkpoint.
+
+Remaining limitations: metric distance is an unverified MoGe estimate; motion
+blur can make individual camera windows unusable. HTTP peer resets still occur,
+and the recording reported 213 lost records cumulatively by the first Run.
+The firmware HTTP server currently allows two open sockets with LRU eviction;
+concurrent dashboard maintenance traffic and the recorder can contend for them.
+No socket-limit firmware change was made in this work. Camera gaps, missing
+joint samples and actual record loss remain visible and are not converted to
+zero error, zero travel or successful trials. Tests and runtime results must
+not be described as proof of optimal walking, physical energy efficiency or
+collision qualification.
+
+### Ordinary-use learning and interrupted recordings
+
+The owner reaffirmed that normal operation includes failed walks and
+interruptions: learning should use the valid data that arrives, without
+requiring repeated dedicated forward/backward trials. No further dedicated
+motion sequence was started after this clarification. The last in-progress
+Run completed; its bank had three scored observations (two baseline and one
+candidate), so its comparison remains incomplete. No improved policy was
+promoted during this verification.
+
+Distinguish measurement quality from walking success. Valid measurements of
+poor progress, vibration or tracking error are evidence against a candidate;
+discarding those outcomes would bias learning toward apparent success.
+Missing or unreliable measurements remain unknown, rather than being scored
+as zero travel or zero error. The current recorder preserves completed scored
+windows across subsequent interruptions and excludes unavailable samples.
+Actual record loss, changed commands and recording sessions separate windows;
+unfinished windows are not currently scored. Thus a whole recording need not
+be perfect, although short interrupted segments may not yield an observation.
+
+Logging and learning were left enabled for ordinary Body Control locomotion.
+The final verification checkpoint reported 326 lost records cumulatively and
+an HTTP peer closure. A separate WebSocket protocol error (`reserved bits must
+be 0`) also occurred before a reconnect; its cause is unresolved. These are
+measurement/transport limitations, not evidence of a gait improvement or a
+reason to repeat physical trials indefinitely.
+
+### Combined image installed on owner request
+
+The owner subsequently requested flashing. Installed the combined full-speed-
+gestures image identified above over Wi-Fi. Upload staged successfully despite
+a temporary control disconnect on the previous `.112` firmware; after reconnect,
+activation succeeded. Confirmed `.113` running and accepted in ota_0, with no
+pending verification and ESP_OK. Body Control reconnected (epoch 11), output
+ready/armed, output fault zero, display ready, calibration saved/not dirty.
+Feedback/jam settings match the pre-install snapshot exactly. Installation
+receipts are in `/tmp/ainekio-disconnect-motion-20261020/install`.
+
+This confirms installation and boot, not a physical disconnect-under-motion
+trial. The inactivity-to-rest timer remains unimplemented and is not included.
+
 
 ## 2026-10-20 — Owner-configurable shared inactivity timer
 
@@ -4684,3 +7512,38 @@ minutes conversion, disabling and stale replies. Authenticated gateway proxy
 test passed. Integrated IDF application build passed. Installation and physical
 three-minute observation are pending. DNDIY subsequently confirmed the robot
 online on `0.8.113-p4-link-motion`; the rest update has not been installed.
+
+## 2026-10-20 — Navigable learning history
+
+Added **Body Control → Recordings → Learning history**. The read-only view
+shows performance by observation order, filters by gait/measurement context
+and matching command settings, and offers score, camera progress, IMU tilt/
+angular motion, acceleration deviation and joint tracking measurements. Points
+and an accessible paginated table expose individual observations. Expandable
+candidate entries show profile changes, sensor-response coefficient changes,
+comparison uncertainty, and whether improvement was demonstrated. History JSON
+can be downloaded without changing the selected policy or starting analysis.
+
+Current and archived measurement contexts remain separate. New scored
+observations and candidate decisions save their recording time and generation;
+older records explicitly show that their timestamps were not recorded. Existing
+history is also archived before learning-setting resets or saved-model restore
+clear active observations. This changes history retention, not the optimizer,
+its evidence rules, robot motion or mechanical limits.
+
+Validation: 23 focused service and authenticated route tests passed, including
+history reads with recording off, robot/context separation, preservation of old
+records without invented timestamps and no robot/optimizer calls from history.
+A real Chrome check against saved data verified four Walk command conditions,
+Run selection, point inspection, candidate differences, empty history, and a
+390-pixel viewport without overflow. History requests were read-only. No test
+walk or firmware update was used for this UI work.
+
+Activation verified: the host service was reloaded with its existing environment;
+the robot reconnected and reports logging/learning enabled with state `learning`.
+The live history endpoint returned seven separate contexts, including current
+Walk (16 scored observations) and Run (3). Authenticated Chrome navigation
+opened the new page, displayed the current Walk chart and downloaded matching
+history JSON. No browser exceptions or motion requests occurred in this check.
+Private screenshots: `/tmp/ainekio-learning-history.png` and
+`/tmp/ainekio-learning-history-live.png`.

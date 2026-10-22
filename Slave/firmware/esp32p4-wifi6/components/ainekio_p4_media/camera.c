@@ -56,7 +56,7 @@ static uint64_t session;
 
 typedef struct {
     int fd;
-    bool streaming, still;
+    bool streaming;
     unsigned width, height, hts, vts, pclk;
     void *buffers[CAMERA_BUFFERS];
     size_t lengths[CAMERA_BUFFERS];
@@ -76,7 +76,15 @@ static int sensor_register(int fd, bool write, uint32_t address, uint32_t *value
     struct v4l2_ext_controls controls = {
         .ctrl_class = V4L2_CTRL_CLASS_ESP_CAM_IOCTL, .count = 1, .controls = &control,
     };
+    /* IDF 5.5's shared I2C bus lock is a binary semaphore, without priority
+     * inheritance. A priority-2 camera transaction can otherwise hold the bus
+     * while ADC/network work prevents it from finishing, blocking the IMU.
+     * Use the sensor acquisition priority only for this register transaction;
+     * capture, pixel conversion, JPEG and delivery retain camera priority. */
+    const UBaseType_t priority = uxTaskPriorityGet(NULL);
+    if (priority < P4_SENSOR_IO_PRIORITY) vTaskPrioritySet(NULL, P4_SENSOR_IO_PRIORITY);
     int result = ioctl(fd, write ? VIDIOC_S_EXT_CTRLS : VIDIOC_G_EXT_CTRLS, &controls);
+    if (priority < P4_SENSOR_IO_PRIORITY) vTaskPrioritySet(NULL, priority);
     if (!result) *value = reg.value;
     return result;
 }
@@ -159,23 +167,44 @@ static int select_format(capture_device_t *device, unsigned width, unsigned heig
     return 0;
 }
 
-static int exposure_profile(capture_device_t *device, bool still)
+static int configure_automatic_sensor(capture_device_t *device)
 {
-    uint32_t mode, manual;
-    if (read_register(device->fd, 0x3a00, &mode) || read_register(device->fd, 0x3503, &manual)) return -1;
-    /* Keep sensor AEC, AGC and frame length automatic (datasheet 4.6).
-     * Preview previously allowed only one frame while AGC could reach 64x.
-     * Allow a 1/15 s preview shutter and automatic 1..32x gain (ISO 100..3200
-     * on the published OV5647 scale). These are ceilings, not fixed settings.
-     * Stills retain their eight-frame integration range. No host AE loop. */
-    const unsigned preview_lines = (uint64_t)66667U * device->pclk /
-                                   ((uint64_t)device->hts * 1000000ULL);
-    const unsigned lines = still ? device->vts * 8U - 4U : preview_lines;
+    uint32_t mode, manual, sensor_awb, sensor_wb_gain, awb_control;
+    if (read_register(device->fd, 0x3a00, &mode) || read_register(device->fd, 0x3503, &manual) ||
+        read_register(device->fd, 0x5001, &sensor_awb) ||
+        read_register(device->fd, 0x5002, &sensor_wb_gain) ||
+        read_register(device->fd, 0x5180, &awb_control)) return -1;
+    /* OV5647 datasheet 4.6: AEC/AGC select shutter and sensitivity from the
+     * scene, extending integration before increasing amplification. Both
+     * preview and stills have the sensor's documented eight-frame integration
+     * range and full 10-bit gain-ceiling field. These describe hardware range,
+     * not a requested shutter or gain. No application ISO/exposure ceiling.
+     *
+     * White balance belongs to the sensor, before its output clipping. On P4
+     * rev 1.3 esp_video folds ISP white-balance gains into the CCM; that combined
+     * matrix can map saturated neutral input to magenta. Applying the native
+     * automatic gains first leaves the ISP's neutral-preserving CCM independent
+     * of AWB. ov5647_ipa.json therefore has no second AWB owner. Clear manual and
+     * frozen AWB modes (datasheet 0x5180), and preserve unrelated ISP bits. */
+    const unsigned lines = device->vts * 8U - 4U;
     if (write_register(device->fd, 0x3503, manual & ~7U) ||
-        write_word(device->fd, 0x3a18, 32U * 16U) ||
+        write_word(device->fd, 0x3a18, 0x3ffU) ||
         write_word(device->fd, 0x3a02, lines) || write_word(device->fd, 0x3a14, lines) ||
-        write_register(device->fd, 0x3a00, (mode | 4U) & ~1U)) return -1;
-    device->still = still;
+        write_register(device->fd, 0x3a00, (mode | 4U) & ~1U) ||
+        write_register(device->fd, 0x5180, awb_control & ~0x38U) ||
+        write_register(device->fd, 0x5001, sensor_awb | 1U) ||
+        write_register(device->fd, 0x5002, sensor_wb_gain | 1U)) return -1;
+    /* The pinned OV5647 driver exposes its AEC luminance target through
+     * V4L2_CID_EXPOSURE (not shutter time). Meter to 18% of linear full scale
+     * before the ISP's gamma/color processing, rather than the vendor's 80/255.
+     * This sets the desired brightness; AEC/AGC still choose shutter and gain
+     * continuously. Use the driver to keep all six AEC convergence thresholds
+     * consistent, including after a sensor-format reset. */
+    struct v4l2_ext_control target = {.id = V4L2_CID_EXPOSURE, .value = 46};
+    struct v4l2_ext_controls controls = {
+        .ctrl_class = V4L2_CTRL_CLASS_CAMERA, .count = 1, .controls = &target,
+    };
+    if (ioctl(device->fd, VIDIOC_S_EXT_CTRLS, &controls)) return -1;
     return 0;
 }
 
@@ -300,8 +329,8 @@ static void camera_task(void *unused)
             failed(request, ESP_FAIL);
             goto cleanup;
         }
-        if (!device.streaming || format_changed || device.still != pending) {
-            if (exposure_profile(&device, pending)) { failed(request, ESP_FAIL); goto cleanup; }
+        if (!device.streaming || format_changed) {
+            if (configure_automatic_sensor(&device)) { failed(request, ESP_FAIL); goto cleanup; }
         }
         if (!device.streaming) {
             xSemaphoreTake(state_lock, portMAX_DELAY);

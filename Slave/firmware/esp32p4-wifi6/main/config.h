@@ -38,6 +38,9 @@ float ainekio_p4_motion_rate(void);
 bool ainekio_p4_motion_rate_saved(void);
 esp_err_t ainekio_p4_motion_rate_save(float rate);
 /* Independent saved feedback selection; changing it does not stop motion. */
+bool ainekio_p4_walking_feedback_enabled(void);
+bool ainekio_p4_walking_feedback_saved(void);
+esp_err_t ainekio_p4_walking_feedback_save(bool enabled);
 bool ainekio_p4_balance_enabled(void);
 bool ainekio_p4_balance_saved(void);
 esp_err_t ainekio_p4_balance_save(bool enabled);

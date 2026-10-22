@@ -15,7 +15,7 @@ function fixture() {
   }
   const defaults = { wake_enabled: true, tip_enabled: true, rapid_enabled: true,
     tip_degrees: 60, tip_clear_degrees: 45, tip_hold_ms: 300, rapid_accel_g: .75,
-    rapid_clear_accel_g: .35, rapid_rotation_dps: 180, rapid_clear_rotation_dps: 90, rapid_cooldown_s: 10 };
+    rapid_clear_accel_g: .35, rapid_rotation_dps: 180, rapid_clear_rotation_dps: 90, motion_cooldown_s: 10 };
   const elements = Object.entries(defaults).map(([name, value]) => ({ name,
     type: typeof value === 'boolean' ? 'checkbox' : 'number', value: String(value), checked: value === true }));
   elements.namedItem = name => elements.find(item => item.name === name);
@@ -42,8 +42,8 @@ function fixture() {
 
 test('body-event GUI saves editable thresholds for the selected robot without movement commands', async () => {
   const f = fixture();
-  assert.equal(f.node('body-events-form').elements.namedItem('rapid_cooldown_s').value, 10);
-  f.node('body-events-form').elements.namedItem('rapid_cooldown_s').value = '2.5';
+  assert.equal(f.node('body-events-form').elements.namedItem('motion_cooldown_s').value, 10);
+  f.node('body-events-form').elements.namedItem('motion_cooldown_s').value = '2.5';
   f.node('body-events-form').elements.namedItem('tip_degrees').value = '67';
   await f.node('body-events-form').fire('input');
   f.api.render(f.payload, f.entry);
@@ -53,7 +53,7 @@ test('body-event GUI saves editable thresholds for the selected robot without mo
   assert.equal(f.requests[0].url, '/api/body-events');
   assert.equal(f.requests[0].body.robot_id, 'p4');
   assert.equal(f.requests[0].body.settings.tip_degrees, 67);
-  assert.equal(f.requests[0].body.settings.rapid_cooldown_s, 2.5);
+  assert.equal(f.requests[0].body.settings.motion_cooldown_s, 2.5);
   assert.equal(f.requests[0].body.settings.rapid_enabled, true);
 });
 

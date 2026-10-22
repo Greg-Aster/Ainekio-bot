@@ -30,7 +30,10 @@ static int64_t clock_us;
 static unsigned jpeg_width, jpeg_height, stream_fps;
 static unsigned sensor_width = 1280, sensor_height = 960, sensor_regs[65536];
 static unsigned sensor_gain = 16, sample_count;
+static unsigned sensor_ae_target;
 static bool changing_light;
+static UBaseType_t camera_priority = 2;
+static bool fail_exposure_read;
 static ainekio_camera_capture_t captures[16];
 static void *allocations[32];
 static size_t allocation_count;
@@ -109,6 +112,9 @@ BaseType_t xTaskCreate(void (*function)(void *), const char *name, unsigned stac
     return pdPASS;
 }
 void vTaskDelete(void *task) { (void)task; assert(!"unexpected camera task exit"); }
+UBaseType_t uxTaskPriorityGet(void *task) { (void)task; return camera_priority; }
+void vTaskPrioritySet(void *task, UBaseType_t priority)
+{ (void)task; camera_priority = priority; }
 void vTaskDelay(TickType_t ticks)
 {
     clock_us += (int64_t)ticks * 1000;
@@ -159,13 +165,34 @@ int ioctl(int fd, unsigned long operation, ...)
         unsigned hts = sensor_width == 1280 ? 1796 : 2271, vts = sensor_width == 1280 ? 1093 : 1199;
         sensor_regs[0x380c] = hts >> 8; sensor_regs[0x380d] = hts & 255;
         sensor_regs[0x380e] = vts >> 8; sensor_regs[0x380f] = vts & 255;
+        /* OV5647 reset defaults: native AWB and its gain stage are enabled.
+         * The P4 ISP also has AWB, so the raw producer must hand it unbalanced
+         * samples rather than running a second independent white balance. */
+        sensor_regs[0x5001] = 0x01;
+        sensor_regs[0x5002] = 0x41;
+        sensor_regs[0x5180] = 0x78; /* Manual/frozen state must not survive a format reset. */
+        sensor_ae_target = 80;
     } else if (operation == VIDIOC_G_EXT_CTRLS || operation == VIDIOC_S_EXT_CTRLS) {
         struct v4l2_ext_controls *controls = argument;
+        if (controls->ctrl_class == V4L2_CTRL_CLASS_CAMERA) {
+            assert(operation == VIDIOC_S_EXT_CTRLS && controls->count == 1);
+            assert(controls->controls->id == V4L2_CID_EXPOSURE);
+            assert(controls->controls->value == 46);
+            sensor_ae_target = controls->controls->value;
+            return 0;
+        }
+        assert(camera_priority == P4_SENSOR_IO_PRIORITY);
         assert(controls->ctrl_class == V4L2_CTRL_CLASS_ESP_CAM_IOCTL && controls->count == 1);
         esp_cam_sensor_reg_val_t *reg = (void *)controls->controls->p_u8;
         assert(reg->regaddr < 65536);
+        if (fail_exposure_read && reg->regaddr == 0x3500) {
+            fail_exposure_read = false;
+            return -1;
+        }
         if (operation == VIDIOC_G_EXT_CTRLS) reg->value = sensor_regs[reg->regaddr];
         else {
+            /* The application never writes a fixed shutter or sensitivity.
+             * Those output registers belong to the sensor's automatic loop. */
             assert(reg->regaddr < 0x3500 || reg->regaddr > 0x3502);
             assert(reg->regaddr != 0x350a && reg->regaddr != 0x350b);
             sensor_regs[reg->regaddr] = reg->value;
@@ -175,6 +202,8 @@ int ioctl(int fd, unsigned long operation, ...)
         buffer->length = sensor_width * sensor_height * 2U;
         buffer->m.offset = buffer->index * buffer->length;
     } else if (operation == VIDIOC_DQBUF) {
+        assert(camera_priority == 2);
+        assert(sensor_ae_target == 46);
         if (finished) longjmp(scheduler, 1);
         clock_us += 50000;
         struct v4l2_buffer *buffer = argument;
@@ -210,6 +239,7 @@ esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t encoder, const jpeg_encode_
                               size_t capacity, uint32_t *encoded)
 {
     (void)encoder;
+    assert(camera_priority == 2);
     const uint16_t *pixels = (const uint16_t *)input;
     const unsigned probes[][2] = {{0, 0}, {config->width - 1, 0},
         {0, config->height - 1}, {config->width - 1, config->height - 1},
@@ -240,17 +270,16 @@ static void frame_received(void *context, uint64_t session, ainekio_camera_origi
     assert(jpeg_width == widths[resolution] && jpeg_height == heights[resolution]);
     assert((sensor_regs[0x3503] & 7U) == 0); /* shutter, gain and VTS stay automatic */
     assert((sensor_regs[0x3a00] & 5U) == 4U); /* night integration, not frozen */
-    assert(((sensor_regs[0x3a18] << 8) | sensor_regs[0x3a19]) == 512);
+    assert(((sensor_regs[0x3a18] << 8) | sensor_regs[0x3a19]) == 1023);
+    assert(sensor_regs[0x5001] == 1);
+    assert(sensor_regs[0x5002] == 0x41); /* Native WB gain and unrelated processing. */
+    assert(sensor_regs[0x5180] == 0x40); /* Automatic, unfrozen; preserve fast-AWB bit. */
     const unsigned maximum_lines = (sensor_regs[0x3a02] << 8) | sensor_regs[0x3a03];
     assert(maximum_lines == ((sensor_regs[0x3a14] << 8) | sensor_regs[0x3a15]));
-    if (origin == AINEKIO_CAMERA_ORIGIN_NONE) {
-        const unsigned hts = sensor_width == 1280 ? 1796 : 2271;
-        const unsigned pclk = sensor_width == 1280 ? 88333333 : 81666700;
-        const unsigned maximum_us = (uint64_t)maximum_lines * hts * 1000000ULL / pclk;
-        assert(maximum_us >= 66630 && maximum_us <= 66667);
-    } else {
-        assert(maximum_lines == (sensor_width == 1280 ? 1093U : 1199U) * 8U - 4U);
-    }
+    /* Preview and stills both let the sensor meter throughout its documented
+     * eight-frame integration range; switching output type must not impose
+     * a fixed shutter/ISO or a separate application exposure ceiling. */
+    assert(maximum_lines == (sensor_width == 1280 ? 1093U : 1199U) * 8U - 4U);
     captures[received_frames] = ainekio_p4_media_camera_capture();
     frames[received_frames].session = session;
     frames[received_frames].origin = origin;
@@ -374,5 +403,13 @@ int main(void)
     changing_light = true; sensor_gain = 512; capture(2);
     assert(captures[0].gain_x16 == 512 && captures[1].gain_x16 == 512);
     assert(captures[0].exposure_us != bright_exposure || captures[1].exposure_us != bright_exposure);
+    sensor_gain = 1023;
+    capture(1);
+    assert(captures[0].gain_x16 == 1023); /* Report actual sensor output, without an ISO clamp. */
+    /* An unsuccessful sensor read must also restore camera scheduling before
+     * the next frame/encoder operation; no high-priority pixel processing. */
+    fail_exposure_read = true;
+    capture(1);
+    assert(!fail_exposure_read && camera_priority == 2);
     return 0;
 }

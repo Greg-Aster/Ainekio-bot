@@ -64,8 +64,42 @@ static void entry(double roll,double pitch,bool fast)
     if(fast)assert(n<75);
     assert(margin>0.);
 }
+static bool reject_second(ainekio_v2_frame_t *frame,void *context)
+{
+    (void)frame;
+    return ++*(unsigned *)context<2;
+}
+static void transactional_planning(void)
+{
+    ainekio_v2_rise_t rise;assert(ainekio_v2_rise_begin(&rise));
+    const double level[3]={0};
+    for(unsigned joint=0;joint<12;joint++) {
+        unsigned offset=ainekio_v2_posture_order_for_joints(1U<<joint,0);
+        ainekio_v2_posture_t s={.order_offset=offset};
+        assert(ainekio_v2_posture_arrival_joints(&s,.9)==(7U<<(3*(joint/3))));
+    }
+    for(unsigned order=0;order<4;order++) {
+        ainekio_v2_posture_t s;
+        assert(ainekio_v2_posture_begin_ordered(&s,&rise.crouch.frame,&rise.stand.frame,level,order));
+        ainekio_v2_posture_t before=s;double progress=0.;unsigned calls=0;
+        assert(!ainekio_v2_posture_advance_mapped(&s,&progress,.02,reject_second,&calls));
+        assert(calls==2 && progress==0. && !memcmp(&s,&before,sizeof s));
+        unsigned seen=0;
+        while(progress<ainekio_v2_posture_path_length()) {
+            assert(ainekio_v2_posture_advance(&s,&progress,.02));
+            uint16_t mask=ainekio_v2_posture_arrival_joints(&s,progress);
+            if(mask && mask!=0xfff) {
+                unsigned leg=0;while(!(mask&(1U<<(3*leg))))leg++;
+                assert(mask==(7U<<(3*leg)));seen|=1U<<leg;
+            }
+        }
+        assert(seen==15 && ainekio_v2_posture_arrival_joints(&s,progress)==0xfff);
+        assert(!memcmp(s.pose.frame.position,rise.stand.frame.position,sizeof s.pose.frame.position));
+    }
+}
 int main(void)
 {
+    transactional_planning();
     for(unsigned fast=0;fast<2;fast++) {
         entry(0,0,fast);
         entry(.05,0,fast);entry(-.05,0,fast);entry(0,.05,fast);entry(0,-.05,fast);

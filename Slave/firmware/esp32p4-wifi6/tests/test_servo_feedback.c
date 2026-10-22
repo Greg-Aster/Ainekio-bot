@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 static void measurement_filter(void)
 {
@@ -34,7 +35,7 @@ int main(void)
     measurement_filter();
     ainekio_feedback_config_t c;ainekio_feedback_defaults(&c);
     assert(ainekio_feedback_config_valid(&c));
-    assert(!c.enabled&&!c.stand_enabled);
+    assert(!c.enabled&&!c.stand_enabled&&!c.jam_enabled);
     double pulse;bool inside;
     assert(!ainekio_feedback_position(&c.joint[0],2000,&pulse,&inside));
     for(unsigned j=0;j<12;j++) {
@@ -52,6 +53,39 @@ int main(void)
     assert(ainekio_feedback_position(&c.joint[1],1050,&pulse,&inside));
     assert(inside&&fabs(pulse-2225)<1e-9);
     c.enabled=c.stand_enabled=1;assert(ainekio_feedback_config_valid(&c));
+    ainekio_feedback_config_t old=c,decoded;
+    old.version=1;
+    assert(ainekio_feedback_config_decode(&old,offsetof(ainekio_feedback_config_t,no_progress_ms),&decoded));
+    assert(decoded.enabled && decoded.stand_enabled && decoded.no_progress_ms==1000 && decoded.progress_us==5);
+    assert(!memcmp(decoded.joint,c.joint,sizeof c.joint));
+    assert(!decoded.jam_enabled); /* Version 1 did not implement jam release. */
+    old=c;old.version=2;old.no_progress_ms=2000;old.progress_us=15;old.tolerance_us=400;
+    /* The version-2 reserved bytes are not a jam switch. */
+    old.jam_enabled=255;old.reserved=255;
+    for(unsigned coordinated=0;coordinated<2;coordinated++)for(unsigned timed=0;timed<2;timed++) {
+        old.stand_enabled=coordinated;old.no_progress_ms=timed?2000:0;
+        assert(ainekio_feedback_config_decode(&old,offsetof(ainekio_feedback_config_t,arrival_tolerance_us),&decoded));
+        assert(decoded.jam_enabled==(coordinated&&timed));
+        assert(decoded.stand_enabled==coordinated && decoded.no_progress_ms==old.no_progress_ms);
+        assert(decoded.tolerance_us==400 && decoded.progress_us==15);
+        assert(decoded.arrival_tolerance_us==400);
+        assert(!memcmp(decoded.joint,c.joint,sizeof c.joint));
+    }
+    old.version=1;
+    assert(!ainekio_feedback_config_decode(&old,sizeof old,&decoded));
+    old=c;old.version=3;old.tolerance_us=400;old.jam_enabled=1;
+    assert(ainekio_feedback_config_decode(&old,offsetof(ainekio_feedback_config_t,arrival_tolerance_us),&decoded));
+    assert(decoded.tolerance_us==400 && decoded.arrival_tolerance_us==400 && decoded.jam_enabled);
+    c.arrival_tolerance_us=75;c.tolerance_us=400;
+    assert(ainekio_feedback_config_decode(&c,sizeof c,&decoded));
+    assert(!memcmp(&c,&decoded,sizeof c));
+    for(unsigned coordinated=0;coordinated<2;coordinated++)for(unsigned jam=0;jam<2;jam++) {
+        c.stand_enabled=coordinated;c.jam_enabled=jam;
+        assert(ainekio_feedback_config_valid(&c));
+        assert(ainekio_feedback_config_decode(&c,sizeof c,&decoded));
+        assert(!memcmp(&c,&decoded,sizeof c));
+    }
+    c.stand_enabled=1;c.jam_enabled=0;
     c.joint[2].points=3;assert(!ainekio_feedback_config_valid(&c));
     c.stand_enabled=0;assert(ainekio_feedback_config_valid(&c));
     c.joint[2].points=7;c.joint[2].point[1].raw=3500;

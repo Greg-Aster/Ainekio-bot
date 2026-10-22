@@ -284,8 +284,24 @@ meshes and research fitting remain desktop inputs and are not linked into firmwa
 Finite gestures retain their original workstation recordings. Historical fixed-angle
 turn recordings remain desktop references only and are excluded from the build. The
 compiler fits cubic segments with a continuous 0.005-degree error bound, keeps
-extrema/holds/endpoints and timing, and emits compact positions, tangents and
-extrema. No alternate dense runtime playback remains. The output owner retains
+extrema/holds/endpoints and source timing, and emits compact positions, tangents,
+extrema and a joint-distance clock. The fastest moving joint sets the common
+clock at the selected gesture travel speed while all other
+joints retain the same cubic path. Recorded slow travel and whole-clip speed
+scaling no longer govern execution. Gesture travel uses the owner's selected
+50% of configured joint speed; intentional holds retain their full source time
+regardless of playback rate. Sit, Rest and Crouch taper their final approach.
+Every authored phase endpoint and joint reversal is emitted and confirmed by
+servo-position feedback before the next part advances. Delayed output or servo
+arrival cannot skip a wave/stroke, consume a pause or report early completion.
+The legacy rate affects entry easing only. New commands remain asynchronous;
+missing feedback retains the current target without a completion timeout. Reverse
+grounded recovery uses the same distance clock. Face cue selection and expected
+attitude follow source progress; the selected expression animates on wall time
+even while awaiting a joint target. Calibration endpoint commands use the existing
+arrival tolerance on either side of the measured endpoint; extrapolated readings
+remain reported and are not used for balance or jam detection.
+No alternate dense runtime playback remains. The output owner retains
 the actual commanded joint pose; only manually requested PWM is interpreted back
 through the saved mapping, without polygon projection or invented shaft feedback.
 

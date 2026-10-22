@@ -15,14 +15,31 @@ typedef struct {
     ainekio_feedback_config_t config;
 } ainekio_p4_feedback_snapshot_t;
 
+typedef struct {
+    uint16_t calibrated, unavailable, clipped, below_calibration, above_calibration;
+} ainekio_p4_feedback_health_t;
+/* Confidence in measured positions, not a commanded travel limit or a
+ * measurement of the servo power rail. */
+void ainekio_p4_feedback_health(const ainekio_p4_feedback_snapshot_t *sample,
+    ainekio_p4_feedback_health_t *health);
+struct cJSON;
+struct cJSON *ainekio_p4_feedback_health_json(void);
+
 esp_err_t ainekio_p4_feedback_start(void);
 void ainekio_p4_feedback_snapshot(ainekio_p4_feedback_snapshot_t *out);
 bool ainekio_p4_feedback_stand_enabled(void);
+bool ainekio_p4_feedback_jam_enabled(void);
 bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
     ainekio_v2_frame_t *frame);
-/* No blocking, time cutoff, PWM writes or automatic retries of a motion.
- * A missing/newly failed reading cannot confirm physical arrival. */
-bool ainekio_p4_feedback_arrived(const ainekio_p4_joint_config_t *mapping,
-    const uint16_t *targets,int64_t commanded_us,uint16_t *waiting_mask);
+/* Final-pass observation of remaining goal error, in calibrated pulse units.
+ * False means no complete post-write observation yet, not physical failure. */
+bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,
+    const uint16_t *targets,int64_t commanded_us,uint16_t *remaining);
+/* Optional jam protection only; sequence verification does not use this timer. */
+typedef struct {
+    struct { double best; int direction; int64_t sampled_us, progress_at; } joint[12];
+} ainekio_p4_feedback_progress_t;
+uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *progress,
+    const ainekio_p4_joint_config_t *mapping,const uint16_t *targets);
 /* Handler is called only after existing maintenance authentication. */
 esp_err_t ainekio_p4_feedback_http(struct httpd_req *request);

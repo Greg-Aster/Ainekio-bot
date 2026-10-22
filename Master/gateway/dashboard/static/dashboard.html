@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ainekio Body Control</title>
     <link rel="stylesheet" href="/assets/dashboard.css">
+    <script src="/assets/gait-history.js" defer></script>
     <script src="/assets/dashboard.js" defer></script>
   </head>
   <body class="dashboard-page" data-dashboard-primary="camera">
@@ -55,6 +56,7 @@
 </ul></details>
 <details class="navigation-group" data-navigation-group="storage"><summary>Recordings</summary><ul>
 <li><button type="button" data-workspace="recordings">Video and SD card</button></li>
+<li><button type="button" data-workspace="learning-history">Learning history</button></li>
 </ul></details>
 <details class="navigation-group" data-navigation-group="maintenance"><summary>Maintenance</summary><ul>
 <li><button type="button" data-workspace="calibration">Joint calibration</button></li>
@@ -126,6 +128,7 @@
         </div>
         <dl class="telemetry-grid">
           <div><dt>Battery</dt><dd id="status-battery">--</dd></div>
+          <div><dt>Servo feedback</dt><dd id="status-feedback">Not reported</dd></div>
           <div><dt>Signal</dt><dd id="status-rssi">--</dd></div>
           <div><dt>Free heap</dt><dd id="status-heap">--</dd></div>
           <div><dt>Uptime</dt><dd id="status-uptime">--</dd></div>
@@ -305,8 +308,88 @@
 
       </section>
 
+<section id="gait-history-panel" class="control-section workspace-section" data-workspace-panel="learning-history" aria-labelledby="gait-history-title" hidden>
+  <div class="section-heading"><h2 id="gait-history-title">Learning history</h2></div>
+  <p>Follow measured performance and the changes tried during ordinary walking. Each point is a scored observation, not a whole walk.</p>
+  <div class="input-with-actions">
+    <button id="gait-history-refresh" type="button">Refresh history</button>
+    <button id="gait-history-export" type="button" disabled>Download history JSON</button>
+  </div>
+  <p id="gait-history-state" role="status">Select a robot to view its learning history.</p>
+  <div class="gait-history-filters">
+    <label>Gait and measurement context<select id="gait-history-context"></select></label>
+    <label>Motion and command settings<select id="gait-history-condition"></select></label>
+    <label>Measurement<select id="gait-history-metric">
+      <option value="score">Learning score · higher is better</option>
+      <option value="progress_m_s">Estimated forward progress (m/s)</option>
+      <option value="turn_rad_s">Estimated turning progress (rad/s)</option>
+      <option value="tilt_rms_rad">Body tilt RMS (rad)</option>
+      <option value="angular_rms_rad_s">Body angular motion RMS (rad/s)</option>
+      <option value="tracking_rms_mm">Joint tracking error RMS (mm)</option>
+      <option value="acceleration_deviation_rms_m_s2">Acceleration deviation RMS (m/s²)</option>
+      <option value="yaw_tracking_error_rad_s">Heading-rate error (rad/s)</option>
+      <option value="lateral_m_s">Estimated sideways motion (m/s)</option>
+    </select></label>
+  </div>
+  <p id="gait-history-summary"></p>
+  <p class="muted">Compare matching motions and settings within one measurement context. Camera distance is an estimate, not a tape-measure result. Missing measurements are not zero. Higher score does not by itself prove an improvement.</p>
+  <div id="gait-history-chart" class="gait-history-chart"></div>
+  <p class="muted">Horizontal axis: observation order within this context. Dates appear where recorded; older observations have no saved timestamp. Select a point to inspect its model and measurements below.</p>
+  <p id="gait-history-point" role="status"></p>
+  <details><summary>Observation measurements</summary><div class="gait-history-scroll"><table class="gait-history-table"><thead><tr><th>Observation</th><th>Recorded</th><th>Model</th><th>Value</th></tr></thead><tbody id="gait-history-observations"></tbody></table></div></details>
+  <h3>Candidate decisions and changes</h3>
+  <p class="muted">A candidate is an experiment. Only a demonstrated improvement is promoted. Expand a model to see its changes relative to the reference model.</p>
+  <div id="gait-history-models"></div>
+</section>
+
 <section class="control-section workspace-section" data-workspace-panel="balance" aria-labelledby="balance-title"><div class="section-heading"><h2 id="balance-title">Self-leveling</h2></div>
 <div id="balance-controls" class="field-group" hidden>
+          <div id="walking-feedback-controls" class="field-group" hidden>
+            <label for="walking-feedback-enabled">Walking feedback</label>
+            <div class="input-with-actions">
+              <select id="walking-feedback-enabled" disabled>
+                <option value="">Read from robot</option><option value="true">On</option><option value="false">Off</option>
+              </select>
+              <button id="walking-feedback-save" type="button" disabled>Save walking feedback</button>
+            </div>
+            <p class="muted">Corrects heading drift during the ongoing stride, independently of Self-leveling. Follows requested curves without slowing servo strokes. Gyro heading is relative and can drift; it does not measure distance or foot slip.</p>
+            <p id="walking-feedback-status" role="status"></p>
+            <p id="walking-feedback-live" role="status"></p>
+          </div>
+          <div id="learned-controls" class="field-group" hidden>
+            <h3>Learned walking corrections</h3>
+            <p class="muted">Learn from normal forward, backward, turning and bounding Run commands. This computer records and trains; the robot executes saved policies with live heading and leveling feedback. Crab and Crawl are experimental and are outside this training scope.</p>
+            <h4>Host training</h4>
+            <div class="input-with-actions">
+              <label><input id="gait-log-enabled" type="checkbox"> Log gait data on this computer</label>
+              <label><input id="gait-train-enabled" type="checkbox"> Learn while walking</label>
+              <button id="gait-training-save" type="button">Apply host settings</button>
+              <button id="gait-training-analyze" type="button">Analyze now</button>
+            </div>
+            <p class="muted">Learning includes recording and runs independently of this browser. Turn learning off on a smaller computer; saved robot policies still work. Data stays in this host’s private state directory. Missing distance measurements are reported, never scored as zero.</p>
+            <pre id="gait-training-status" role="status">Host training is off.</pre>
+            <details><summary>Learning parameters and saved models</summary>
+              <label>Exploration radii (JSON)<textarea id="gait-training-radii" rows="4"></textarea></label>
+              <p class="muted">Radii vary duty, stride, front/rear lift and landing, body height, tilt response and fourth-wire joint response around the reference policy. They do not change the robot’s mechanical limits.</p>
+              <label>Saved model<select id="gait-training-history"></select></label>
+              <button id="gait-training-restore" type="button">Use saved model and turn training off</button>
+            </details>
+            <div class="input-with-actions">
+              <label>Learned corrections<select id="learned-enabled"><option value="false">Off</option><option value="true">On</option></select></label>
+              <label>Correction amount (%)<input id="learned-amount" type="number" min="0" max="100" value="100"></label>
+              <button id="learned-save" type="button">Save correction setting</button>
+              <button id="learned-read" type="button">Read from robot</button>
+            </div>
+            <pre id="learned-live" role="status"></pre>
+            <p class="muted">Use Log gait data above to record regular motion commands. Records are saved on this computer even when this tab is closed.</p>
+            <label>Recording or candidate<input id="learned-file" type="file" accept=".json,.jsonl"></label>
+            <label>Learning fraction<input id="learned-gain" type="number" min="0.01" max="1" step="0.05" value="0.5"></label>
+            <div class="input-with-actions">
+              <button id="learned-train" type="button">Train / load and download candidate</button>
+              <button id="learned-install" type="button" disabled>Install candidate on robot</button>
+            </div>
+            <p id="learned-result" role="status"></p>
+          </div>
           <label for="balance-enabled">Self-leveling</label>
           <div class="input-with-actions">
             <select id="balance-enabled" aria-describedby="balance-help balance-status" disabled>
@@ -365,23 +448,23 @@
 <section class="control-section workspace-section" data-workspace-panel="speeds" aria-labelledby="speeds-title"><div class="section-heading"><h2 id="speeds-title">Motion speeds</h2></div>
 <div id="motion-speed-controls" class="field-group" hidden>
             <div id="joint-speed-controls" class="field-group">
-              <label for="joint-speed-limit">Joint speed limit (°/s) · all automatic movement</label>
+              <label for="joint-speed-limit">Base joint speed (°/s)</label>
               <div class="input-with-actions">
                 <input id="joint-speed-limit" type="number" step="any" aria-describedby="joint-speed-help joint-speed-status" disabled required>
                 <button id="joint-speed-save" type="button" disabled>Save limit on robot</button>
               </div>
-              <p id="joint-speed-help" class="muted">One maximum commanded joint speed for walking, named motions and entry transitions. Motions slow together to preserve their path and stride. If Run cannot reach its requested cadence, this limit is controlling its timing. Enter any positive value; there is no fixed maximum. Saving stops motion; start it again to resume.</p>
+              <p id="joint-speed-help" class="muted">Named gestures travel at 50% of this setting, preserve their full sequences and pauses, and use servo feedback to finish each target before continuing. Sit, Rest and Crouch ease into their final poses. This base speed also governs entry easing and standing balance corrections. Walking and Stand keep their own timing. Enter any positive value. Saving stops motion; start it again to resume.</p>
               <p id="joint-speed-status" class="muted" role="status">Read from robot to load its limit.</p>
               <p id="joint-speed-active" class="muted" role="status"></p>
               <p id="run-cadence-status" class="muted" role="status"></p>
             </div>
-            <label for="motion-speed">Named motion speed (×)</label>
+            <label for="motion-speed">Gesture entry rate (×)</label>
             <div class="input-with-actions">
               <input id="motion-speed" type="number" step="any" value="2" aria-describedby="motion-speed-help motion-speed-status" disabled required>
               <button id="motion-speed-save" type="button" disabled>Save on robot</button>
               <button id="motion-speed-read" type="button" disabled>Read from robot</button>
             </div>
-            <p id="motion-speed-help" class="muted">2× plays a motion in half the time. Changes apply to the next named motion, including its entry pose. Walking uses its own Speed control. Saving stops the robot; start a motion to resume.</p>
+            <p id="motion-speed-help" class="muted">This multiplier changes entry easing only. Gesture travel uses half the base joint speed; programmed pauses retain their original duration. Changes apply to the next gesture. Saving stops the robot; start a motion to resume.</p>
             <p id="motion-speed-status" class="muted" role="status">Connect a robot to read its motion speed.</p>
           </div>
 </section>
@@ -433,12 +516,43 @@
               <p class="field-help" id="camera-capture-status" aria-live="polite"></p>
 
             </form>
+          <details><summary>Depth and camera movement</summary>
+            <form id="depth-motion-form">
+              <label>Distance source
+                <select name="mode">
+                  <option value="ground-plane">Measured ground-plane reference</option>
+                  <option value="moge-open3d">MoGe-2 + landmark tracking (experimental distance estimates)</option>
+                </select>
+              </label>
+              <label>Depth detail (0 fastest, 9 most detailed)
+                <input name="resolution_level" type="number" min="0" max="9" step="1" value="0">
+              </label>
+              <label>Camera-to-body transform, if measured (optional 4×4 JSON)
+                <textarea name="cameraToBody" placeholder="Leave empty to track the camera with forward/upright mounting assumed"></textarea>
+              </label>
+              <button type="submit">Save distance source / restart depth tracking</button>
+            </form>
+            <p>MoGe estimates depth from the existing camera; no depth sensor or checkerboard is needed.
+              Distances are model estimates with unknown metric accuracy. Tracking is relative to its starting view;
+              it does not recognize a return to an earlier location. Without a measured mounting transform,
+              it tracks the camera's position, not the body centre. The selected source supplies gait-learning measurements.
+              This uses the host computer; switch back to ground-plane measurements to unload the depth model.</p>
+            <pre id="depth-motion-status" aria-live="polite"></pre>
+            <img id="depth-motion-preview" hidden alt="Estimated scene depth from the identified camera frame" style="max-width:100%">
+          </details>
           <details><summary>Metric ground-plane calibration</summary>
           <p>Measure the checkerboard square size. Capture at least three distinct tilted views at the same resolution and crop. Fit intrinsics, then place the board flat on the actual floor and set the reference. Displacement follows retained floor points; this is not depth or general visual-inertial navigation. Unknown metric uncertainty is reported as unknown.</p>
           <form id="ground-calibration-form">
-            <label>Inner columns <input name="columns" type="number" min="2" required></label>
-            <label>Inner rows <input name="rows" type="number" min="2" required></label>
-            <label>Measured square side (metres) <input name="squareMetres" type="number" step="any" required></label>
+            <label>Reference target <select name="pattern"><option value="checkerboard">Checkerboard</option><option value="rectangle">Four measured rectangle corners</option></select></label>
+            <label>Checkerboard inner columns <input name="columns" type="number" min="2"></label>
+            <label>Checkerboard inner rows <input name="rows" type="number" min="2"></label>
+            <label>Checkerboard square side (metres) <input name="squareMetres" type="number" step="any"></label>
+            <label>Rectangle width (metres) <input name="widthMetres" type="number" step="any"></label>
+            <label>Rectangle height (metres) <input name="heightMetres" type="number" step="any"></label>
+            <p>For a rectangle, mark four corners on a flat, rigid board and measure both sides. Keep the marks fixed. Freeze each view, then click the same corners in order: 1 → 2 along the width, 2 → 3 along the height, then 4. Use roughly ten views at different tilts and positions across the image. Four manual points are less precise than a checkerboard; check results against your tape. For the floor reference, lay the target flat on the floor.</p>
+            <button type="submit" value="freeze" formnovalidate>Freeze image for corner selection</button>
+            <button type="submit" value="clearCorners" formnovalidate>Clear selected corners</button>
+            <canvas id="ground-calibration-image" hidden style="max-width:100%;height:auto;touch-action:none" aria-label="Select four measured rectangle corners"></canvas>
             <label>Lens / crop / rotation identity <input name="geometryId" placeholder="Identify the measured optical configuration" required></label>
             <label>Measured camera-to-body transform (4×4 JSON; metres)<textarea name="cameraToBody" placeholder="No default transform: camera x right/y down/z forward; body x forward/y left/z up"></textarea></label>
             <button type="submit" value="status" formnovalidate>Read calibration status</button>
@@ -488,18 +602,18 @@
 
 <section class="control-section workspace-section" data-workspace-panel="events" aria-labelledby="events-title"><div class="section-heading"><h2 id="events-title">Body events</h2></div>
 <div>
-            <p class="muted">The selected robot reports measurements to the Event Trigger workflow in MetaHuman. Its LLM chooses a response and delegates it to Environment Mode.</p>
+            <p class="muted">Unexpected body events request a reaction from MetaHuman. Further shake and tip notifications pause while the event's reaction face is active, until it is released, replaced or expires. Commanded walking, running, crawling and crab movement do not trigger rapid-movement reactions. Tipping is measured against the intended motion or held pose when the robot supplies that reference; unexpected falls can still be reported during walking.</p>
             <form id="body-events-form">
               <label class="switch-row"><span>Boot, wake and good morning</span><input type="checkbox" name="wake_enabled"></label>
               <label class="switch-row"><span>Tipped over</span><input type="checkbox" name="tip_enabled"></label>
               <label class="switch-row"><span>Rapid movement</span><input type="checkbox" name="rapid_enabled"></label>
-              <label>Tilt trigger (degrees)<input type="number" name="tip_degrees" min="0" step="0.1" required></label>
+              <label>Unexpected tilt trigger (degrees)<input type="number" name="tip_degrees" min="0" step="0.1" required></label>
               <label>Tilt clears below (degrees)<input type="number" name="tip_clear_degrees" min="0" step="0.1" required></label>
               <label>Tilt duration (ms)<input type="number" name="tip_hold_ms" min="0" step="1" required></label>
               <label>Acceleration change trigger (g)<input type="number" name="rapid_accel_g" min="0" step="0.01" required></label>
               <label>Acceleration clears below (g)<input type="number" name="rapid_clear_accel_g" min="0" step="0.01" required></label>
-              <label>Rapid movement cooldown (seconds)<input type="number" name="rapid_cooldown_s" min="0" step="0.1" required></label>
-              <p class="field-help">Minimum time between rapid-movement events. Events during cooldown are not queued. Set to 0 to disable cooldown.</p>
+              <label>Shake and tip cooldown (seconds)<input type="number" name="motion_cooldown_s" min="0" step="0.1" required></label>
+              <p class="field-help">Shared minimum time between shake and tip notifications. Events during cooldown are not queued. Boot and wake notifications are separate. Set to 0 to disable cooldown.</p>
               <label>Rotation trigger (degrees/s)<input type="number" name="rapid_rotation_dps" min="0" step="1" required></label>
               <label>Rotation clears below (degrees/s)<input type="number" name="rapid_clear_rotation_dps" min="0" step="1" required></label>
               <button type="submit">Save body event settings</button>
@@ -779,15 +893,22 @@
 <section id="servo-feedback-panel" class="control-section" data-workspace-panel="servo-feedback" aria-labelledby="servo-feedback-title">
   <div class="section-heading"><h2 id="servo-feedback-title">Servo position feedback</h2></div>
   <p id="servo-feedback-status" role="status">Connect a P4 with servo feedback firmware.</p>
+  <p id="servo-feedback-health" role="status"></p>
   <p class="muted">The fourth servo wire measures shaft position. An ADC reading alone does not prove a wire is connected or a foot is touching the floor.</p>
   <form id="servo-feedback-config" class="calibration-grid">
     <label class="switch-row">Read the multiplexer<input name="enabled" type="checkbox"></label>
-    <label class="switch-row">Coordinate Stand using measured positions<input name="stand_enabled" type="checkbox"></label>
-    <label>Arrival tolerance (pulse-equivalent µs)<input name="tolerance_us" type="number" min="1" max="65535" step="1" value="30" required></label>
+    <label class="switch-row">Verify Stand after each complete stepping pass<input name="stand_enabled" type="checkbox"></label>
+    <label class="switch-row">Jam protection — release stalled outputs<input name="jam_enabled" type="checkbox"></label>
+    <p id="servo-feedback-jam-support" class="muted"></p>
+    <label>Stand goal tolerance (pulse-equivalent µs)<input name="arrival_tolerance_us" type="number" min="1" max="65535" step="1" value="30" required></label>
+    <span class="hint" id="servo-feedback-arrival-support"></span>
+    <label>Jam error tolerance (pulse-equivalent µs)<input name="tolerance_us" type="number" min="1" max="65535" step="1" value="30" required></label>
+    <label>No-progress window (ms; 0 disables release)<input name="no_progress_ms" type="number" min="0" max="2147483647" step="1" value="1000" required></label>
+    <label>Progress detection (pulse-equivalent µs)<input name="progress_us" type="number" min="1" max="65535" step="1" value="5" required></label>
     <button type="submit">Save feedback settings</button>
     <button id="servo-feedback-read" type="button">Read from robot</button>
   </form>
-  <p class="muted">Enable reading after wiring. Calibrate all twelve joints before enabling measured Stand. Stand keeps its fast movement commands, then holds each lift/place target until the joints arrive. A missing reading or a joint that cannot reach its target leaves that stage active; another motion command can replace it. This does not increase motor torque.</p>
+  <p class="muted">Stand runs the complete fold/stepping sequence, then checks the measured joint angles against its target using the Stand goal tolerance. It keeps correcting until that goal is reached and resumes correction if it later sags. If measured joints are short of the goal, it continues the commanded stepping trajectory, prioritizes an affected leg, and checks again after the complete pass. Named motions, reverse lay-down recovery and custom sequences have no intermediate feedback waits. Feedback-controlled Stand uses position shortfalls for corrective stepping, not automatic output release. Its goal tolerance also applies while standing; the separate jam tolerance and timer do not override it. Jam protection remains available for other motions, manual control and holding outside the verified Stand goal. Its window is elapsed time (3000 ms = 3 seconds). A detected jam in those operations ends the motion, releases outputs and emits a body event identifying the joints. Releasing outputs can let the robot sag. Calibrate all twelve feedback inputs for measured Stand verification. If feedback is missing or outside its calibrated range, the programmed sequence finishes and keeps its target powered, with final position reported as unverified. Corrections resume when usable readings return. These readings do not measure servo supply voltage or limit commanded travel. Stop and replacement commands remain available. Position feedback does not increase motor torque.</p>
   <p id="servo-feedback-motion" role="status"></p>
   <div class="table-scroll"><table>
     <caption>Measured shaft position versus commanded position</caption>

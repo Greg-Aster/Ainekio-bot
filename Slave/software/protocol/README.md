@@ -172,12 +172,13 @@ criteria still apply; changing gain does not increase motor torque or joint trav
 
 ## Saved named-motion speed
 
-V2 `motion_speed_v1` provides one shared speed multiplier for Stand, Sit and
-finite named motions. The default is 2×; positive numeric multipliers have no
-application-imposed speed cap or fixed increment.
-An optional `playback_rate` on these intents previews a different speed for that
-command. Omission uses the robot's current saved setting. The setting is captured
-when a motion starts; changing it does not retime a running gesture.
+V2 `motion_speed_v1` retains its existing wire format and default 2× setting.
+For Sit and finite named gestures, the multiplier scales intentional holds and
+entry easing. Moving portions always traverse the coordinated path at the saved
+joint speed, independent of this multiplier. Stand uses its own full-speed path.
+An optional `playback_rate` previews a different hold/entry rate for that command.
+Omission uses the robot's current saved setting. Both rate and joint speed are
+captured when a gesture starts; changing them does not retime a running gesture.
 
 ```json
 {"t":"intent","name":"emote","asset":"wave","playback_rate":1.35,"seq":71}
@@ -192,8 +193,11 @@ it never alters the joint-mapping record. A missing or invalid value falls back
 to 2× with `saved:false`. The command and saved setting use single precision.
 Body Control uses confirmed robot readback and explicit Save on robot.
 
-The multiplier directly scales the existing entry and clip clocks; it does not
-change the joint path or motion assets. Startup
+The compiler supplies a joint-distance clock alongside the original cubic path.
+Each moving interval is timed by its fastest joint; stationary intervals retain
+their authored duration divided by the requested rate. One fast segment no
+longer slows the entire gesture or its holds. Face cues and expected attitude
+follow the corresponding source position, including reverse recovery. Startup
 Home and Stop retain their existing timing. Ongoing gaits use fast coordinated
 strokes; Neutral entry still uses the saved joint-speed setting. V1 and
 older V2 firmware reject the extension at the gateway; the V1 C decoder rejects it.
@@ -285,6 +289,50 @@ The semantic commands `crab`, `crab_right`, `crab_forward`, `crab_backward`,
 `crab_turn_left`, `crab_turn_right` require the connected V2 body's declarations.
 The V1 `crab` emote is unchanged. `lay_down` is a separate declared V2 emote;
 `dead` is labeled Play Dead, and `rest` retains the chassis-grounded posture.
+
+## IMU execution context (P4)
+
+From `0.8.85-p4-event-face`, `data.face_token` carries the active timed/manual
+display selection's token, or an empty string after release/expiry. Tokens retain
+the existing `[a-z0-9_]{1,32}` command format. This identifies the retained
+selection even during temporary speech/listening overlays. MetaHuman's initial
+body-event reaction uses `be_` followed by 29 hex characters; Body Control uses
+that lifecycle to suppress repeat shake/tip notifications, independently of motion
+commands. Replacement and the P4's existing expression timeout end that lifecycle.
+Older firmware may omit the field. The token does not change sensor availability,
+sample cadence or command admission.
+
+The existing `event` / `name:"imu"` message optionally includes `data.motion`.
+It describes the output owner's execution, not measured chassis or shaft motion:
+
+```json
+{"command":"walk","activity":"locomotion","phase":"motion","sequence":42,
+ "connection":7,"started_us":1000000,"sampled_us":1020000,"expected_up":[0,0,1]}
+```
+
+`connection` is the P4-local command connection generation; the gateway envelope's
+`robot_id` and `epoch` retain their existing attribution. `started_us` is the
+first successful target-write time for this command. `sampled_us` timestamps the
+latest target/context update, including completion/hold and output-off changes.
+All times use the device monotonic clock shared with `data.timestamp_us`.
+The producer supplies the most recent execution snapshot not later than that
+IMU sample. Commands waiting in admission cannot supply this context.
+
+Activities are `idle`, `pose`, `locomotion`, `clip`, `freestyle` and `manual`;
+phases are `off`, `entry`, `motion` and `hold`. `expected_up` is a unit vector
+for world vertical expressed in nominal body coordinates, or `null` when no
+authored body-orientation reference is available. It follows recorded motion
+time, including playback-rate changes and reverse recovery; a held pose keeps
+its last reference. This reference is comparable with the sensor only when
+`calibration_applied` identifies its calibrated body frame. It describes intent,
+not evidence that the robot reached it. Consumers without this extension can
+continue reading the existing IMU fields.
+
+Body Control uses this context only for notification classification. Commanded
+locomotion does not generate rapid-movement reactions; unexpected falls remain
+reportable. Intended orientation is not permission to reject, stop or limit a
+motion. No new message type, sensor loop, inference call or execution gate is
+part of this extension.
 
 ## Existing lifecycle and media contracts
 
@@ -538,3 +586,41 @@ retain the original action, direction, gait, revision and acknowledgement identi
 The gait owner blends all three body-frame velocity components while preserving
 planted contacts; `speed: 0` still finishes the original action. This source
 extension requires rebuilt firmware and has not established physical qualification.
+
+
+### V2 measured-position stall event
+
+The P4 sends `{"t":"event","name":"servo_stall","event_id":"BOOT:CLOCK",
+"clock_us":1234567,"seq":0,"joint_mask":48,"outputs_released":true}` after
+its output owner releases all channels for observed shaft non-progress. `seq=0`
+allows startup/holding faults; bits 0–11 of `joint_mask` identify model joints,
+not configurable PWM or mux channels. Body Control wraps this as the existing
+`body_event` notification with `data.kind="servo_stall"`, adding physical joint
+names before forwarding it through the environment bridge. The normal command
+failure receipt is separate from this single notification. No current or
+thermal measurement is implied.
+
+### V2 feedback confidence and unverified completion
+
+From `0.8.112-p4-feedback-fallback`, coordinated Stand can complete its authored
+path with `{"t":"done","seq":7,"position_verified":false}` when usable
+post-command observations are unavailable. Outputs stay powered and new commands
+remain available. `position_verified:true` means the final measured joint targets
+matched. The optional field is retained in Environment Bridge receipt data.
+A retained Stand goal may resume correction when observations return, without a
+second receipt for the same request. Ordinary trajectory completion omits the field.
+
+The existing telemetry cadence also carries `event`, `name:"servo_feedback"`.
+Its `data` includes `enabled`, `usable`, `scan`, `clock_us`, `calibrated_mask`,
+`unavailable_mask`, `clipped_mask`, `below_calibration_mask`,
+`above_calibration_mask`, `adc_error`, `supply_voltage_available:false`, and
+`signal_millivolts` (twelve integers or null in model-joint order). Masks identify
+joints rather than mux/PWM channels. Below/above calibration marks position
+confidence, not a limit on commanded pulse widths. Diagnostic extrapolation
+remains available; unusable observations cannot establish a jam or arrival.
+
+Body Control retains current health in robot status and emits
+`servo_feedback_fault`/`servo_feedback_restored` through the existing body-event
+route. Fault notices share the existing event cooldown and reaction-face
+suppression and do not command any motion or output release. Signal voltage is
+not battery or servo-rail voltage and cannot identify the electrical cause alone.

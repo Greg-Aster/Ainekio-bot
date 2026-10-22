@@ -175,28 +175,102 @@ class BlockingWebSocket(FakeWebSocket):
 
 
 class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
-    async def test_boot_event_waits_for_bridge_and_replays_with_original_identity(self) -> None:
+    async def test_large_observation_replay_preserves_content_and_drains_on_ack(self) -> None:
+        from websockets.legacy.server import serve
+        from websockets.legacy.client import connect
+
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        observation = {"id": "large-frame", "timestamp": "2026-10-20T20:18:17Z",
+                       "visual": {"dataUrl": "data:image/jpeg;base64," + "a" * 600_000},
+                       "state": {"locomotionMeasurement": {"position": {
+                           "depthPreview": "data:image/png;base64," + "b" * 114_000}}}}
+        envelope = {"type": "environment.observation", "version": 1, "observation": observation}
+        adapter.receipts.queue(observation["id"], None, envelope)
+        try:
+            async with serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0, max_size=None) as server:
+                url = f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}"
+                # An unacknowledged disconnect must preserve the original message.
+                for acknowledge in (False, True):
+                    async with connect(url, max_size=None) as ws:
+                        await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "test"}))
+                        self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
+                        self.assertEqual(json.loads(await asyncio.wait_for(ws.recv(), 3)), envelope)
+                        if acknowledge:
+                            await ws.send(json.dumps({"type": "environment.observation.ack",
+                                                     "observationId": observation["id"], "admitted": True}))
+                            async with asyncio.timeout(3):
+                                while adapter.receipts.pending():
+                                    await asyncio.sleep(0.001)
+                        else:
+                            self.assertEqual(adapter.receipts.pending(), [envelope])
+                self.assertEqual(adapter.receipts.pending(), [])
+                self.assertEqual(adapter.gateway.calls, [])
+            self.assertEqual(adapter._decode_message(json.dumps(envelope)), envelope)
+            with self.assertRaises(ValueError):
+                adapter._decode_message("[]")
+        finally:
+            adapter.receipts.close()
+
+    async def test_new_offline_input_is_not_queued_but_existing_input_resumes(self) -> None:
         adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
         event = {"t": "event", "name": "body_event", "robot_id": "test-body", "epoch": 1,
                  "event_id": "boot-event", "data": {"kind": "wake", "reason": "boot"}}
-        try:
+        visual = {"dataUrl": "data:image/jpeg;base64," + "a" * 600_000, "timestamp": "2026-10-20T20:18:17Z"}
+
+        async def publish():
             await adapter._handle_gateway_event(event)
-            pending = adapter.receipts.pending()
-            self.assertEqual(len(pending), 1)
-            observation = pending[0]["observation"]
-            self.assertEqual(observation["state"]["bodyEvent"]["event_id"], "boot-event")
-            self.assertEqual(observation["metadata"]["perceptionEvent"], "body_event")
-            self.assertNotIn("perceptionEvent", adapter._observation().get("metadata", {}))
-            websocket = FakeWebSocket()
-            adapter._websocket = websocket
-            await adapter._replay_pending_feedback(websocket)
-            self.assertEqual(json.loads(websocket.sent[0]), pending[0])
-            self.assertEqual(len(adapter.receipts.pending()), 1)
-            adapter.receipts.acknowledge(observation["id"])
-            await adapter._replay_pending_feedback(websocket)
-            self.assertEqual(len(websocket.sent), 1)
+            await adapter._handle_gateway_transcript({"text": "fixture transcript"})
+            await adapter._send_observation(visual=visual, metadata={"perceptionEvent": "audio_utterance"})
+
+        try:
+            await publish()
+            self.assertEqual(adapter.receipts.pending(), [], "Offline input must not be saved for later reactions")
+            connected = FakeWebSocket()
+            adapter._websocket, adapter._bridge_ready = connected, True
+            await adapter._replay_pending_feedback(connected)
+            self.assertEqual(connected.sent, [])
+            await publish()
+            observations = [json.loads(message)["observation"] for message in connected.sent]
+            self.assertEqual(len(observations), 3)
+            self.assertEqual(observations[0]["state"]["bodyEvent"]["event_id"], "boot-event")
+            self.assertEqual(observations[1]["text"][0]["text"], "fixture transcript")
+            self.assertEqual(observations[2]["visual"], visual)
+            saved = adapter.receipts.pending()
+            self.assertEqual([item["observation"] for item in saved], observations)
+            connected.closed = True
+            await publish()
+            replacement = FakeWebSocket()
+            adapter._websocket = replacement
+            await adapter._replay_pending_feedback(replacement)
+            self.assertEqual([json.loads(item) for item in replacement.sent], saved,
+                             "Previously admitted input resumes; new offline input is absent")
+            for item in saved:
+                adapter.receipts.acknowledge(item["observation"]["id"])
             self.assertEqual(adapter.receipts.pending(), [])
             self.assertEqual(adapter.gateway.calls, [])
+        finally:
+            adapter.receipts.close()
+
+    async def test_disconnect_after_admission_preserves_input_for_reconnect(self) -> None:
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+
+        class DisconnectedSocket(FakeWebSocket):
+            async def send(self, payload):
+                self.closed = True
+                raise OSError("fixture connection lost")
+
+            async def close(self, **kwargs):
+                self.closed = True
+
+        adapter._websocket, adapter._bridge_ready = DisconnectedSocket(), True
+        try:
+            await adapter._send_observation(text=[{"id": "live-text", "source": "environment", "text": "fixture"}])
+            saved = adapter.receipts.pending()
+            self.assertEqual(len(saved), 1)
+            replacement = FakeWebSocket()
+            adapter._websocket = replacement
+            await adapter._replay_pending_feedback(replacement)
+            self.assertEqual([json.loads(item) for item in replacement.sent], saved)
         finally:
             adapter.receipts.close()
 

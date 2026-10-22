@@ -216,6 +216,30 @@ read status before retrying. Restarting **before** explicit activation discards
 the RAM-only staged selection and continues the existing firmware; upload again
 if needed. Activation does not alter credentials, calibration or asset data.
 
+The servo-feedback scan schedule skips elapsed 20 ms periods after a flash
+stall. It retains the normal 50 Hz cadence instead of replaying missed scans:
+ADC reads can only measure the present. Before this correction, the priority-3
+feedback task could starve the priority-2 storage worker after upload. Live
+diagnostics captured a runnable storage request waiting about 49 seconds and
+feedback consuming 3.39 seconds of a four-second activation timeout while
+storage received no CPU time. This is a sampling-schedule correction; the
+storage timeout, task priorities, and OTA preparation sequence are unchanged.
+
+An authenticated reconnect can also confirm the already-selected profile during
+OTA without writing NVS or changing output state. Previously, the profile
+setter rejected even that no-op while an upload was busy, causing WELCOME to
+tear the connection down repeatedly until upload completed. A different profile
+remains subject to the existing OTA restriction. Regression tests exercise the
+production scan scheduler and profile setter in
+`Emulator/tests/test_p4_feedback_cadence.py` and
+`Emulator/tests/test_p4_ota_preparation.py`.
+
+On 2026-10-20, `0.8.108-p4-ota-fix` passed two consecutive Body Control
+upload/immediate-activation cycles across both OTA slots. Uploads took 35.57
+and 33.12 seconds; first-attempt activations took 0.41 and 0.37 seconds, with
+no activation retries or intervening delays. Temporary storage diagnostics and
+FreeRTOS CPU profiling were removed from this image.
+
 The LCD shows preparing, writing percentage, validation, staged,
 next-boot/restart, accepted and failure states. Update messages keep the display
 on during Doze. Success/failure notices last 15 seconds; otherwise normal face

@@ -11,8 +11,12 @@ static void check_page(const ainekio_connection_page_t *page)
 {
     assert(strlen(page->heading) <= 25);
     assert(strlen(page->footer) <= 50);
-    for (unsigned i = 0; i < AINEKIO_SCREEN_LINES; ++i)
+    unsigned populated = 0;
+    for (unsigned i = 0; i < AINEKIO_SCREEN_LINES; ++i) {
         assert(strlen(page->lines[i]) <= 25);
+        populated += page->lines[i][0] != 0;
+    }
+    assert(populated <= 6);
     struct { uint16_t before; uint16_t pixels[AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT]; uint16_t after; } frame;
     frame.before = 0x1234; frame.after = 0x5678;
     memset(frame.pixels, 0x55, sizeof(frame.pixels));
@@ -21,6 +25,12 @@ static void check_page(const ainekio_connection_page_t *page)
     if (page->face_visible)
         for (unsigned i = 0; i < AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT; ++i)
             assert(frame.pixels[i] == 0x5555);
+    else
+        for(unsigned y=0;y<AINEKIO_FACE_HEIGHT;++y)
+            for(unsigned x=0;x<AINEKIO_FACE_WIDTH;++x)
+                if(y<AINEKIO_LCD_VISIBLE_TOP || y>=AINEKIO_LCD_VISIBLE_BOTTOM ||
+                    x>=AINEKIO_LCD_VISIBLE_RIGHT)
+                    assert(!frame.pixels[y*AINEKIO_FACE_WIDTH+x]);
 }
 
 static void preview(const ainekio_connection_page_t *page)
@@ -54,8 +64,10 @@ int main(int argc, char **argv)
     strcpy(n.setup_address, "192.168.4.1");
     ainekio_connection_page(&n, AINEKIO_SCREEN_GATEWAY_SEARCHING, 0, &p);
     assert(strstr(p.heading, "not found"));
-    assert(!strcmp(p.lines[1], n.setup_ssid));
-    assert(!strcmp(p.lines[4], n.setup_password));
+    char joined[80];
+    snprintf(joined, sizeof(joined), "%.25s%.25s", p.lines[0], p.lines[1]);
+    assert(!strcmp(joined + strlen("Join Wi-Fi: "), n.setup_ssid));
+    assert(!strcmp(p.lines[3], n.setup_password));
     preview(&p);
     ainekio_connection_page(&n, AINEKIO_SCREEN_GATEWAY_SEARCHING, 12000, &p);
     assert(strstr(p.lines[0], "http://192.168.4.1/"));
@@ -68,15 +80,14 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < 64; ++i) n.setup_password[i] = "aZ0!"[i % 4];
     n.setup_password[64] = 0;
     ainekio_connection_page(&n, AINEKIO_SCREEN_GATEWAY_SEARCHING, 0, &p);
-    char joined[80];
-    snprintf(joined, sizeof(joined), "%.25s%.25s", p.lines[1], p.lines[2]);
-    assert(!strcmp(joined, n.setup_ssid));
-    snprintf(joined, sizeof(joined), "%.25s%.25s%.25s", p.lines[4], p.lines[5], p.lines[6]);
+    snprintf(joined, sizeof(joined), "%.25s%.25s", p.lines[0], p.lines[1]);
+    assert(!strcmp(joined + strlen("Join Wi-Fi: "), n.setup_ssid));
+    snprintf(joined, sizeof(joined), "%.25s%.25s%.25s", p.lines[3], p.lines[4], p.lines[5]);
     assert(!strcmp(joined, n.setup_password));
     preview(&p);
     n.setup_password[0] = 0;
     ainekio_connection_page(&n, AINEKIO_SCREEN_GATEWAY_SEARCHING, 0, &p);
-    assert(strstr(p.lines[3], "No Wi-Fi password"));
+    assert(strstr(p.lines[2], "No Wi-Fi password"));
     n.portal_ready = false;
     ainekio_connection_page(&n, AINEKIO_SCREEN_GATEWAY_SEARCHING, 0, &p);
     assert(strstr(p.heading, "unavailable"));

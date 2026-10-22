@@ -15,6 +15,7 @@ from uuid import uuid4
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MAX_JPEG_BYTES, MIC_PCM_FRAME_TYPE
 
 from .server.service import GatewayService
+from .depth_motion import DepthMotion, settings as depth_settings
 
 
 AUDIO_FRAME_BYTES = 640
@@ -406,6 +407,9 @@ class CameraFramePlugin:
         self._metric_queue = asyncio.Queue(maxsize=1)
         self._metric_worker = None
         self._ground_plane = None
+        self._depth_motion = None
+        self._depth_settings = {}
+        self._metric_generation = {}
         self._metric_latest = {}
         self._camera_latest = {}
         gateway.subscribe_frames(self._handle_frame)
@@ -557,6 +561,35 @@ class CameraFramePlugin:
     async def restore_ground_plane(self, calibrations):
         await self._metric_call("restore", calibrations)
 
+    async def configure_depth(self, robot_id, request):
+        config = depth_settings(request)
+        self._metric_generation[robot_id] = self._metric_generation.get(robot_id, 0)+1
+        # Serialized with camera inference, while the gateway remains async.
+        def update():
+            self._depth_settings[robot_id] = config
+            if self._depth_motion is not None:
+                if any(c["mode"] == "moge-open3d" for c in self._depth_settings.values()):
+                    self._depth_motion.reset(robot_id)
+                else:
+                    self._depth_motion.close()
+                    self._depth_motion = None
+            self._metric_latest.pop(robot_id, None)
+        await asyncio.get_running_loop().run_in_executor(self._metric_executor, update)
+        return config
+
+    async def restore_depth(self, configurations):
+        self._depth_settings = {robot: depth_settings(config) for robot, config in configurations.items()}
+
+    def _process_metric(self, frame, received_iso):
+        config = self._depth_settings.get(frame.robot_id, {})
+        if config.get("mode") == "moge-open3d":
+            if self._depth_motion is None:
+                self._depth_motion = DepthMotion(self.gateway.instance_id)
+            return self._depth_motion.process(frame.robot_id, frame.epoch, frame.counter,
+                frame.received_at, frame.payload, received_iso, config)
+        return self._metric_owner().process(frame.robot_id, frame.epoch, frame.counter,
+                                             frame.received_at, frame.payload, received_iso)
+
     def camera_measurement(self, robot_id):
         camera = self._camera_latest.get(robot_id)
         if camera is None:
@@ -598,20 +631,23 @@ class CameraFramePlugin:
     async def _run_metrics(self):
         while True:
             frame, received_iso = await self._metric_queue.get()
+            generation = self._metric_generation.get(frame.robot_id, 0)
             try:
-                result = await self._metric_call("process", frame.robot_id, frame.epoch, frame.counter,
-                                                frame.received_at, frame.payload, received_iso)
-                if self._body_current(frame):
+                result = await asyncio.get_running_loop().run_in_executor(
+                    self._metric_executor, self._process_metric, frame, received_iso)
+                if self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
                     result["expiresAt"] = (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()
                     self._metric_latest[frame.robot_id] = result
                     await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
-                                                       "epoch": frame.epoch, "measurement": result})
+                        "epoch": frame.epoch, "measurement": {k: v for k, v in result.items() if k != "depthPreview"}})
             except Exception as error:
                 failed = {"available": False, "robotId": frame.robot_id, "epoch": frame.epoch,
-                    "observedAt": received_iso, "frameTimestamp": received_iso, "reason": str(error)}
-                self._metric_latest[frame.robot_id] = failed
-                logging.getLogger(__name__).warning("Ground-plane measurement failed: %s", error)
-                if self._body_current(frame):
+                    "observedAt": received_iso, "frameTimestamp": received_iso, "reason": str(error),
+                    "receivedAtMonotonic": frame.received_at, "frameCounter": frame.counter,
+                    "frameId": f"ainekio-camera-{self.gateway.instance_id}-{frame.robot_id}-{frame.epoch}-{frame.counter}"}
+                logging.getLogger(__name__).warning("Camera motion measurement failed: %s", error)
+                if self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
+                    self._metric_latest[frame.robot_id] = failed
                     await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
                                                        "epoch": frame.epoch, "measurement": failed})
             finally:
@@ -704,6 +740,10 @@ class CameraFramePlugin:
         if self._metric_worker is not None:
             self._metric_worker.cancel()
             await asyncio.gather(self._metric_worker, return_exceptions=True)
+        def close_depth():
+            if self._depth_motion is not None:
+                self._depth_motion.close()
+        await asyncio.get_running_loop().run_in_executor(self._metric_executor, close_depth)
         await asyncio.to_thread(self._metric_executor.shutdown, wait=True, cancel_futures=True)
         if self._worker is not None:
             self._worker.cancel()

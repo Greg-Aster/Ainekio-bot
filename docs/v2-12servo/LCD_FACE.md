@@ -16,12 +16,80 @@ Version `0.8.3-p4-face-warnings` removes the connected text footer and adds smal
 fault icons without covering the face. It was installed on October 6 with
 application-only flash hash verification, preserving saved settings/calibration.
 
-The resting face follows the owner's supplied robot concept: two cyan pupils,
-curved outer lights, small secondary arcs and a black background. The library
+The resting face follows the owner's supplied robot concept: two white-centered
+cyan pupils, thick swept side lights, short outer accents and a black background. The library
 redraws every V1 expression name for the wider color screen, plus the newer
 motions. Full-color procedural strokes, hearts, stars, chevrons, rings, crosses,
 tears and other marks replace the old monochrome bitmaps. The definitions and
 renderer are editable; they impose no restriction on future artwork.
+
+The face retains its enlarged vertical geometry and stroke thickness in the
+same 320×170 frame. The mounting correction moves the composition center from
+x=160 to **x=145**, **15 pixels left** when viewed head-on toward the cable.
+This replaces the initial 32-pixel estimate with measurements from the open
+`Ainekio-Motion-Working.blend`, scene `Wireless`, on October 20:
+`Active_area_22p695x42p72` spans world Y = −19.3624 to +23.3576 mm, so its
+42.72 mm active width has center Y = +1.9976 mm. The mirrored `Chin.L.001` /
+`Chin.R.001` geometry and camera mock-up are centered at Y = 0. The required
+correction is −1.9976 / 42.72 × 320 = **−14.963 pixels**, rounded to −15.
+These are model measurements; physical mounting tolerance remains unmeasured.
+The owner selected a narrower layout to preserve every feature: horizontal
+placement fits the left **290 pixels**, leaving a **30-pixel black margin
+on the right**.
+Pupils remain round, and the baked side ribbons retain their stroke thickness.
+The latest refinement expands horizontal face geometry **5% around x=145**
+and moves the eyes and side lights **10 pixels down** (two 5-pixel adjustments).
+Neutral left clearance,
+including glow, decreases from 13 to **7 pixels**. Speech bars retain their
+previous position and size; other expression accents retain their vertical
+positions. Running speed marks move inward to fit the wider composition.
+Both preview galleries use this same renderer,
+including speaking, listening, thinking and motion expressions.
+
+The October 20 bezel-only review of `MASK | Recessed LCD bezel` establishes an
+uninterrupted opening at **x=0–314, y=35–167**, viewed straight at the robot.
+Other shell pieces are excluded from this layout requirement. Firmware uses
+these bounds for layout and tests, without cropping the rendered image.
+The core face scale, x=145 center, 105% width and +10-pixel eye/light offset
+remain unchanged. Decorative plus-shaped sparkles and confetti have been
+removed. Question marks move down between the eyes; running strokes sit above
+the eyes within the opening; the Pushup sweat droplet moves down five pixels
+so its glow also clears the bezel. Semantic mouths, tears, hearts, sleep marks,
+music notes and speech bars remain.
+
+Connection titles start at y=38. Up to six double-size body rows start at y=57
+with 16-pixel spacing; blank logical rows are omitted. The setup page combines
+the join instruction with the Wi-Fi name, preserving full-length credentials
+without overlapping glyphs or adding more rotating pages.
+The footer starts at y=159. Motion and camera warning icons retain their clear
+existing positions. Animated previews in both galleries are regenerated from
+the same firmware renderer. These are CAD/pixel checks, not a physical fit test.
+
+The earlier size-only revision was installed over Wi-Fi on October 20 as
+`0.8.96-p4-large-faces`. The first
+activation attempt timed out without changing the boot selection; the retry
+succeeded. The robot reconnected with OTA state `accepted`, running/boot slot
+`ota_1`, no pending verification, and `display_ready=true`. These are firmware
+and driver checks.
+
+The concept-style lights and Blender-measured 15-pixel mounting correction
+were installed over Wi-Fi on October 20 as `0.8.98-p4-aligned-face`, replacing
+`0.8.97-p4-stand-progress`. The 3,041,056-byte application image has SHA-256
+`efff626f46dfbcf75d321e0cd517d6c38b552d960b196b763c65f00ecb95b11d`.
+Two activation attempts timed out with the original boot slot unchanged.
+The existing recording-stop operation then completed with storage `ESP_OK`;
+activation succeeded on the next attempt. After reboot, Body Control reported
+version `0.8.98-p4-aligned-face`, OTA `accepted`, running/boot `ota_1`,
+`pending_verify=false`, `ESP_OK`, and the default face with `display_ready=true`.
+Physical appearance and mounting alignment still require observation.
+The subsequent 5% widening / 5-pixel lowering was installed over Wi-Fi on
+October 20 as `0.8.99-p4-wider-lower-face`. Its 3,041,616-byte application image
+has SHA-256 `b6510db780d683df1673223a32e82d383b38b57a1b57ee882041d7dc0857f1fe`.
+Activation initially timed out with the previous boot slot unchanged and a
+storage timeout reported. The existing recording-stop operation completed with
+`ESP_OK`, and activation succeeded on retry. After reboot, Body Control reported
+the new version, OTA `accepted`, running/boot `ota_0`, `pending_verify=false`,
+`ESP_OK`, and the stand face with `display_ready=true`.
 
 * [Animated gallery — open index.html in a browser](face-preview/index.html)
 * [Expression sheet](face-preview/contact-sheet.png)
@@ -227,23 +295,46 @@ These animations are sampled directly from elapsed time without allocating
 frame sequences on the P4. Listening animation is not a microphone level
 meter, and Thinking animation alone does not establish remote task progress.
 
-Each expression also has a soft colored halo around its eyes and curved side
-lights. The halo breathes with the expression's period; Thinking passes the
-pulse from left to right twice per sequence. Still expressions remain still.
-Stroke centers stay sharp, and small symbols and voice bars use tighter glows
-so they remain distinct. This is a distance-based stroke effect: the renderer
-samples glow width (12–16 pixels) and strength once per face side and shades
-only each stroke's bounds. There is no full-screen blur, extra framebuffer,
-heap allocation, or stored animation sequence on the P4.
+The October 20 concept-style revision gives the side lights thicker, white
+centers, flat ends and an inward sweep at their lower tips. Pupils and expression
+strokes also have brighter white centers. Glow still breathes with the
+expression's period; Thinking passes the pulse between the two sides, while
+still expressions remain still. Blink, gaze, expression timing and speech
+remain sampled live.
 
-The halo renderer passes the 59-face native bounds/rendering tests under
-AddressSanitizer and UndefinedBehaviorSanitizer and cross-compiles with the P4
-firmware flags. Its pixel-loop optimization matches the initial halo renderer
-on 590 sampled frames including speech. A five-expression desktop benchmark
-measured roughly 20% less rendering time than the preceding narrow-glow
-renderer; this is **not a P4 timing measurement**. The P4 renderer object grew
-by 556 bytes (code/constants), with no static RAM increase. Device frame timing
-and LCD appearance still need checking after installation.
+The expensive distance calculations for the permanent side lights are baked
+into one **9,379-byte read-only mask**, mirrored for the other side.
+`tools/bake_lights.py` owns the ribbon geometry and generates `light_mask.h`.
+Each mask byte describes edge distance at eighth-pixel precision. A temporary
+512-byte RGB565 palette applies the current color, glow width and brightness.
+Integer interpolation retains fractional-pixel movement. Moving eyes and
+expression symbols retain their procedural geometry. This avoids re-rendering
+80 overlapping side-light segments each frame without storing animation frames.
+There is no additional framebuffer, heap allocation or persistent RAM cache.
+The existing full-frame LCD transfers are unchanged.
+
+A sequential desktop benchmark pinned to one CPU compared the preceding
+large-face renderer with the initial 256-pixel concept layout, using the median of three passes per
+expression, 64 animation samples per pass, with speech on alternate frames.
+The 59-expression total fell **65.8%**; neutral/default fell from **1,138.7 µs
+to 109.8 µs (90.4%)**. Every expression improved in that sample. These are
+**desktop elapsed times, not P4 timing measurements or whole-system CPU usage**.
+Compiling that 256-pixel layout with the existing P4 firmware flags increased code
+and read-only data by **8,693 bytes**, with no `.data` or `.bss` increase.
+The current widened layout adds 1,130 mask bytes to that measured layout;
+the timing figures above have not been remeasured for the layout refinements.
+The P4 compiler reports 608 bytes of stack for the side-light routine, including
+its palette, plus the caller's 240-byte frame in that measured revision.
+The latest layout's device timing and stack usage have not been remeasured.
+
+To regenerate the mask and measure the current native renderer:
+
+```sh
+python3 Slave/software/faces/tools/bake_lights.py
+python3 Slave/software/faces/tools/bake_lights.py --check
+/usr/bin/cmake --build /tmp/ainekio-lcd-native --target face_benchmark
+/tmp/ainekio-lcd-native/faces/face_benchmark
+```
 
 The [interactive face library](face-preview/index.html) includes animated WebP
 previews, PNG stills, and an updated [contact sheet](face-preview/contact-sheet.png).
@@ -258,8 +349,9 @@ python3 Slave/software/faces/tools/gallery.py \
 ```
 
 Restart Body Control after adding/removing assets so its static-file catalog
-reloads. Firmware changes are needed only when expression definitions change;
-the installed face command already handles selection without movement.
+reloads. Replacing existing previews takes effect on the next page load.
+Changes to expression definitions or rendering geometry require a firmware
+update; the installed face command already handles selection without movement.
 
 ## Validation and reproduction
 

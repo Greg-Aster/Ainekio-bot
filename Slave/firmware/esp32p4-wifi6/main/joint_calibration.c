@@ -90,3 +90,25 @@ bool ainekio_p4_joint_unmap_frame(const ainekio_p4_joint_config_t *joints,
     }
     *frame=candidate;return true;
 }
+bool ainekio_p4_joint_fit_frame(const ainekio_p4_joint_config_t *joints,ainekio_v2_frame_t *frame)
+{
+    float low[12],high[12];
+    for(unsigned j=0;j<12;j++) {
+        low[j]=-INFINITY;high[j]=INFINITY;
+        if(j%3==0||joints[j].channel<0)continue;
+        const ainekio_p4_joint_config_t *m=&joints[j];
+        double sign=m->invert?-1.:1.;
+        double a=m->home_cd+sign*100.*(500.-m->home_us)/m->us_per_degree;
+        double b=m->home_cd+sign*100.*(2800.-m->home_us)/m->us_per_degree;
+        low[j]=(float)fmin(a,b);high[j]=(float)fmax(a,b);
+    }
+    return ainekio_v2_feet_bounded(frame,low,high);
+}
+bool ainekio_p4_joint_frame_in_travel(const ainekio_p4_joint_config_t *joints,const ainekio_v2_frame_t *frame)
+{
+    uint16_t pulses[12];if(!ainekio_p4_joint_map_frame(joints,frame,pulses))return false;
+    for(unsigned j=0;j<12;j++)if(j%3&&joints[j].channel>=0) {
+        unsigned p=pulses[joints[j].channel];if(p<500||p>2800)return false;
+    }
+    return true;
+}

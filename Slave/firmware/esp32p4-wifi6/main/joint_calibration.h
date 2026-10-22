@@ -28,3 +28,6 @@ bool ainekio_p4_joint_map_frame(const ainekio_p4_joint_config_t *joints,
 
 bool ainekio_p4_joint_unmap_frame(const ainekio_p4_joint_config_t *joints,
                                 const uint16_t *pulses,ainekio_v2_frame_t *frame);
+/* Owner-measured carrier/crank collision endpoints; shoulders are unchanged. */
+bool ainekio_p4_joint_fit_frame(const ainekio_p4_joint_config_t *joints,ainekio_v2_frame_t *frame);
+bool ainekio_p4_joint_frame_in_travel(const ainekio_p4_joint_config_t *joints,const ainekio_v2_frame_t *frame);

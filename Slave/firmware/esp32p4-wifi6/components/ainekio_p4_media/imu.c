@@ -176,7 +176,11 @@ esp_err_t ainekio_p4_imu_start(void)
     if (state.running) return ESP_ERR_INVALID_STATE;
     state.running=true;
     publish();
-    if (xTaskCreate(acquisition_task,"p4_imu",4096,NULL,3,NULL)!=pdPASS) {
+    /* Acquire the 208 Hz sensor ahead of network serialization (priority 5)
+     * and the multiplexed ADC scan (3). The body output owner (10) still
+     * preempts acquisition. Polling blocks between reads; no other owner
+     * waits for the estimator. */
+    if (xTaskCreate(acquisition_task,"p4_imu",4096,NULL,P4_SENSOR_IO_PRIORITY,NULL)!=pdPASS) {
         state.running=false;state.last_error=ESP_ERR_NO_MEM;publish();
         return ESP_ERR_NO_MEM;
     }

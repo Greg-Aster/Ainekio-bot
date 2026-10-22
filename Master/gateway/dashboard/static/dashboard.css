@@ -486,3 +486,17 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .primary-view-container .simulator-frame { min-height: 0; flex: 1; height: auto; }
   .tool-workspace > .control-section { padding: .9rem; }
 }
+
+/* Learning history shares the existing workspace and follows its available width. */
+.gait-history-chart svg { display: block; width: 100%; height: auto; }
+.gait-history-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: .75rem; }
+.gait-history-filters label { min-width: 0; }
+.gait-history-filters select { width: 100%; }
+.gait-history-chart circle { cursor: pointer; }
+.gait-history-chart circle:focus { stroke: currentColor; stroke-width: 3; }
+.gait-history-scroll { overflow-x: auto; }
+.gait-history-table { width: 100%; border-collapse: collapse; text-align: left; }
+.gait-history-table th, .gait-history-table td { padding: .5rem; border-bottom: 1px solid #64748b55; }
+.gait-history-model { border: 1px solid #64748b55; border-radius: .5rem; padding: .7rem; margin: .6rem 0; overflow-wrap: anywhere; }
+#gait-history-panel select { max-width: 100%; }
+#gait-history-point { overflow-wrap: anywhere; }

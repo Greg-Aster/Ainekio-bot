@@ -20,27 +20,6 @@ bool ainekio_v2_rise_begin(ainekio_v2_rise_t *s)
     s->crouch=s->stand;
     s->crouch.body[2]-=25.;
     if(!ainekio_v2_contact_solve(&s->crouch,(const double (*)[3])s->anchors))return false;
-    s->pose=s->crouch;
-    return true;
-}
-bool ainekio_v2_rise_sample(ainekio_v2_rise_t *s,double front_fraction,double rear_fraction)
-{
-    if(!s||!isfinite(front_fraction)||!isfinite(rear_fraction))return false;
-    ainekio_v2_walk_pose_t p=s->crouch;
-    memcpy(p.joints,s->pose.joints,sizeof(p.joints));
-    const double height=s->stand.body[2]-s->crouch.body[2];
-    const double front=fraction(front_fraction)*height,rear=fraction(rear_fraction)*height;
-    /* Source leg order is physical front pair, rear pair (CAD RL/RR/FL/FR).
-     * A slight body pitch expresses the delayed rear lift without splicing
-     * incompatible leg frames or moving the planted contact targets. */
-    const double fx=.5*(v2_walk_legs[0].shoulder_translation[0]+v2_walk_legs[1].shoulder_translation[0]);
-    const double rx=.5*(v2_walk_legs[2].shoulder_translation[0]+v2_walk_legs[3].shoulder_translation[0]);
-    const double fz=.5*(v2_walk_legs[0].shoulder_translation[2]+v2_walk_legs[1].shoulder_translation[2]);
-    p.euler[1]=asin((rear-front)/(fx-rx));
-    p.body[2]+=front+sin(p.euler[1])*(fx-v2_walk_pivot[0])-
-        (cos(p.euler[1])-1.)*(fz-v2_walk_pivot[2]);
-    if(!ainekio_v2_contact_solve(&p,(const double (*)[3])s->anchors))return false;
-    s->pose=p;
     return true;
 }
 static double step_s(void){return shift_s+lift_s+place_s+lower_s;}
@@ -54,8 +33,14 @@ static void joints(ainekio_v2_walk_pose_t *p,const ainekio_v2_frame_t *f)
 bool ainekio_v2_posture_begin(ainekio_v2_posture_t *s,
     const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,const double euler[3])
 {
+    return ainekio_v2_posture_begin_ordered(s,from,to,euler,0);
+}
+bool ainekio_v2_posture_begin_ordered(ainekio_v2_posture_t *s,
+    const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,const double euler[3],
+    unsigned order_offset)
+{
     if(!s||!from||!to||!euler)return false;
-    *s=(ainekio_v2_posture_t){.from=*from,.to=*to};
+    *s=(ainekio_v2_posture_t){.from=*from,.to=*to,.order_offset=order_offset%4};
     joints(&s->start,from);joints(&s->target,to);
     memcpy(s->start.euler,euler,sizeof(s->start.euler));
     if(!ainekio_v2_contact_forward(&s->start,s->anchors,true)||
@@ -70,7 +55,7 @@ bool ainekio_v2_posture_begin(ainekio_v2_posture_t *s,
        !ainekio_v2_contact_forward(&s->target,s->anchors,false))return false;
     double feet[4][3];memcpy(feet,s->start.feet,sizeof(feet));
     for(unsigned k=0;k<4;k++) {
-        unsigned moving=order[k];
+        unsigned moving=order[(k+s->order_offset)%4];
         for(unsigned axis=0;axis<2;axis++) {
             double all=0.,tripod=0.;
             for(unsigned l=0;l<4;l++){all+=feet[l][axis]/4.;if(l!=moving)tripod+=feet[l][axis]/3.;}
@@ -92,14 +77,14 @@ bool ainekio_v2_posture_sample(ainekio_v2_posture_t *s,double elapsed)
     double local=elapsed-step*step_s();
     for(unsigned l=0;l<4;l++)p.grounded[l]=true;
     for(unsigned k=0;k<step;k++) {
-        unsigned l=order[k];memcpy(p.feet[l],s->target.feet[l],sizeof(p.feet[l]));
+        unsigned l=order[(k+s->order_offset)%4];memcpy(p.feet[l],s->target.feet[l],sizeof(p.feet[l]));
         p.sole_height[l]=s->target.sole_height[l];
     }
     double u=fraction(elapsed/(4.*step_s()));
     p.body[2]=s->start.body[2]+u*(s->target.body[2]-s->start.body[2]);
     for(unsigned j=0;j<3;j++)p.euler[j]=(1.-u)*s->start.euler[j];
     if(step<4) {
-        const unsigned l=order[step];
+        const unsigned l=order[(step+s->order_offset)%4];
         for(unsigned axis=0;axis<2;axis++) {
             double previous=step?s->shift[step-1][axis]:0.;
             p.body[axis]=previous+fraction(local/shift_s)*(s->shift[step][axis]-previous);
@@ -119,7 +104,18 @@ bool ainekio_v2_posture_sample(ainekio_v2_posture_t *s,double elapsed)
     s->pose=p;return true;
 }
 
-bool ainekio_v2_posture_advance(ainekio_v2_posture_t *s,double *progress,double seconds)
+static bool sample_mapped(ainekio_v2_posture_t *s,double progress,
+    ainekio_v2_posture_fit_t fit,void *context)
+{
+    if(!ainekio_v2_posture_sample(s,progress))return false;
+    if(!fit)return true;
+    ainekio_v2_frame_t frame=s->pose.frame;
+    if(!fit(&frame,context))return false;
+    joints(&s->pose,&frame);
+    return ainekio_v2_contact_forward(&s->pose,s->anchors,false);
+}
+static bool advance(ainekio_v2_posture_t *s,double *progress,double seconds,
+    ainekio_v2_posture_fit_t fit,void *context)
 {
     if(!s||!progress||!isfinite(seconds)||seconds<0.)return false;
     const double end=ainekio_v2_posture_path_length();
@@ -134,35 +130,55 @@ bool ainekio_v2_posture_advance(ainekio_v2_posture_t *s,double *progress,double 
         }
         double segment=fmin(.01,event-*progress);
         ainekio_v2_posture_t next=*s;
-        if(!ainekio_v2_posture_sample(&next,*progress+segment))return false;
+        if(!sample_mapped(&next,*progress+segment,fit,context))return false;
         double distance=0.;
         for(unsigned j=0;j<12;j++)distance=fmax(distance,
             fabs(next.pose.frame.position[j]-s->pose.frame.position[j])/100.);
         double duration=distance/ainekio_v2_joint_speed_default();
         if(duration<=remaining) {
             *s=next;*progress+=segment;remaining-=duration;
-            if(*progress>=event-1e-9){*progress=event;return true;}
+            if(*progress>=event-1e-9) {
+                if(!sample_mapped(s,event,fit,context))return false;
+                *progress=event;return true;
+            }
         } else {
             segment*=remaining/duration;
-            if(!ainekio_v2_posture_sample(s,*progress+segment))return false;
+            if(!sample_mapped(s,*progress+segment,fit,context))return false;
             *progress+=segment;remaining=0.;
         }
     }
     return true;
 }
-
-bool ainekio_v2_posture_shoulder_engaged(double progress,unsigned model_leg)
+bool ainekio_v2_posture_advance_mapped(ainekio_v2_posture_t *s,double *progress,
+    double seconds,ainekio_v2_posture_fit_t fit,void *context)
 {
-    unsigned source=model_leg<2?model_leg+2:model_leg-2;
-    for(unsigned k=0;k<4;k++)if(order[k]==source)
-        return progress>=k*step_s()+shift_s+lift_s;
-    return false;
+    if(!s||!progress)return false;
+    ainekio_v2_posture_t next=*s;double at=*progress;
+    if(!advance(&next,&at,seconds,fit,context))return false;
+    *s=next;*progress=at;return true;
 }
-
-bool ainekio_v2_posture_landmark(double progress)
+bool ainekio_v2_posture_advance(ainekio_v2_posture_t *s,double *progress,double seconds)
 {
-    const double landmarks[4]={shift_s,shift_s+lift_s,shift_s+lift_s+place_s,step_s()};
-    for(unsigned leg=0;leg<4;leg++)for(unsigned k=0;k<4;k++)
-        if(fabs(progress-(leg*step_s()+landmarks[k]))<1e-9)return true;
-    return fabs(progress-ainekio_v2_posture_path_length())<1e-9;
+    return ainekio_v2_posture_advance_mapped(s,progress,seconds,NULL,NULL);
+}
+uint16_t ainekio_v2_posture_arrival_joints(const ainekio_v2_posture_t *s,double progress)
+{
+    if(progress>=ainekio_v2_posture_path_length())return 0xfff;
+    for(unsigned k=0;k<4;k++) {
+        double local=progress-k*step_s();
+        if(fabs(local-(shift_s+lift_s))<1e-9 ||
+           fabs(local-(shift_s+lift_s+place_s))<1e-9) {
+            unsigned model=(order[(k+s->order_offset)%4]+2)%4;
+            return (uint16_t)(7U<<(3*model));
+        }
+    }
+    return 0;
+}
+unsigned ainekio_v2_posture_order_for_joints(uint16_t mask,unsigned start)
+{
+    for(unsigned k=0;k<4;k++) {
+        unsigned at=(start+k)%4,model=(order[at]+2)%4;
+        if(mask&(7U<<(3*model)))return at;
+    }
+    return start%4;
 }

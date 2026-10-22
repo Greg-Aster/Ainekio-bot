@@ -58,12 +58,36 @@ extern const size_t ainekio_v2_clip_count;
 bool ainekio_v2_clip_find(const char *name, size_t *index);
 bool ainekio_v2_clip_request(const ainekio_command_t *command, size_t *index);
 bool ainekio_v2_clip_sample(size_t index, uint64_t elapsed_us, ainekio_v2_frame_t *frame);
+/* Authored body vertical for notifications only, using the same playback time.
+ * This is an intended orientation, not a measured chassis pose. */
+bool ainekio_v2_clip_expected_up(size_t index, uint64_t elapsed_us, float up[3]);
 /* Owner-selected joint speed for posture/clip timing and balance corrections.
  * Walking cadence is governed by the walking controls independently. */
 double ainekio_v2_joint_speed_default(void);
 bool ainekio_v2_joint_speed_set(float degrees_s);
-/* Retime the entire clip, retaining all joint paths and relative timing. */
-float ainekio_v2_clip_playback_rate(size_t index, float requested);
+/* Owner-selected gesture travel is 50% of the configured joint speed.
+ * This does not change walking or the saved calibration/speed setting. */
+#define AINEKIO_V2_GESTURE_SPEED_SCALE .5
+/* Follow the compiled path at the supplied coordinated joint speed. The legacy
+ * rate is accepted for compatibility; authored holds are never shortened.
+ * Sit, Rest and Crouch decelerate over their final 20% (at most 10 degrees).
+ * Entry easing is owned by the body executor.
+ * Source time is returned for face cues and intended-attitude telemetry. */
+double ainekio_v2_clip_playback_seconds(size_t index, double joint_speed, float hold_rate);
+bool ainekio_v2_clip_playback_sample(size_t index, double seconds, double joint_speed,
+    float hold_rate, bool reverse, ainekio_v2_frame_t *frame, uint64_t *source_us);
+typedef struct {
+    double seconds;
+    size_t target;
+    bool waiting;
+} ainekio_v2_clip_player_t;
+/* Zero-initialize a player for each command. Each phase endpoint/reversal is
+ * emitted even when a tick is late. Arrival acknowledges a previously written
+ * target; time spent reaching it never consumes the next phase or its hold.
+ * Completion requires arrival at the terminal target. No wall-clock timeout. */
+bool ainekio_v2_clip_player_tick(size_t index, ainekio_v2_clip_player_t *player,
+    double seconds, double joint_speed, float rate, bool arrived,
+    ainekio_v2_frame_t *frame, uint64_t *source_us);
 float ainekio_v2_speed_limited_rate(double peak_degrees_s, float requested);
 /* Position envelopes include every knot and every interpolated segment. The
  * extrema for different joints need not occur in the same sampled frame. */

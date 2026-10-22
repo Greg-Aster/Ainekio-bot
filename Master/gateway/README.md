@@ -24,9 +24,106 @@ Connections. Refresh an existing dashboard tab to load this layout.
 
 P4 firmware advertising `servo_feedback_v1` also exposes **Maintenance → Servo
 feedback**. It displays all twelve measured/commanded joint positions, sixteen
-raw multiplexer inputs, calibration and measured Stand progress. Reader enable,
-joint input mapping, three-point calibration, arrival tolerance and measured
-Stand enable persist on the robot, separately from motor calibration. These
+raw multiplexer inputs, calibration and Stand progress. Reader enable, joint
+mapping, three-point calibration and verification settings persist separately
+from motor calibration. The existing `stand_enabled` field now selects final
+Stand verification; `arrival_tolerance_us` is the final joint-goal tolerance.
+`jam_enabled` independently selects no-progress detection and output release;
+`tolerance_us` is its error band. Existing settings migration preserves enable
+flags, calibration and both tolerances; it never tightens saved settings.
+Firmware without `jam_enabled` exposes the older coupled behavior.
+
+Stand executes its complete initial fold and stepping pass without intermediate
+feedback checks. Only after the final target is successfully written does it
+compare a subsequent feedback snapshot with all final joint targets. A measured
+shortfall starts another full stepping pass from the last commanded pose
+toward the unchanged goal. There is no jam-timer dependency or retry-count limit.
+Repeated measured correction passes keep the same request and completion receipt.
+Missing or untrusted observations never hold command completion: the authored
+sequence finishes, outputs remain powered at its target, and `done` reports
+`position_verified:false`. Measured arrival reports `position_verified:true`.
+Stop and replacement commands remain available. The retained goal observer can
+resume correction when usable observations return; it emits no duplicate receipt.
+
+Named clips, reverse lay-down recovery, custom sequences and finite gait endings
+run through their authored paths without feedback checkpoints. Their completion
+receipts describe completion of the commanded trajectory. Reverse lay-down
+recovery into Stand is verified after the full recovery/alignment sequence, then
+uses corrective stepping if needed. No separate legacy checkpoint controller is
+retained. Geometric path repair remains in the existing posture planner; it uses
+the last written pose during a pass rather than resampling shafts mid-sequence.
+`stand_replanning` reports a currently unsolved path; `stand_replans` counts
+accepted new paths. A geometry failure does not release outputs or claim success.
+
+Feedback-controlled Stand retains its standing goal after the first completion
+receipt. The same `arrival_tolerance_us` comparison governs initial completion
+and later position drift. A mismatch starts another complete corrective stepping
+pass; the original goal is retained through the pass. Recovery after an already
+acknowledged goal has no duplicate external receipt. Each pass starts from the
+last commanded pose. Measured shortfalls select the leg order and determine
+completion, without replacing the trajectory origin with a measured pose.
+Stop, release, calibration
+or a new body motion relinquishes the goal. Listening gestures are allowed to
+finish without the retained Stand goal fighting their intentional offsets.
+
+While this verified Stand goal is active, the independent jam-release observer
+does not classify target shortfall or stationary drift as grounds to release
+outputs. No-progress time is not a deadline for Stand. Missing observations do
+not assert measured arrival or release outputs; they complete the authored command. An unsolved corrective geometry is
+reported as replanning, retains output and retries on subsequent observations;
+there is no false completion or forced pulse beyond the calibrated mapping.
+
+Feedback health appears in Robot status and Servo position feedback. The body
+publishes health on the existing telemetry cadence; Body Control reports one
+`servo_feedback_fault` per episode and `servo_feedback_restored` when it clears,
+through the existing body-event/Environment Bridge route. Fault notices share
+the existing event cooldown and reaction-face suppression. Current health stays
+visible even when a repeated notification is suppressed. These reports never
+send a stop, release outputs or reject a command.
+
+Missing samples, ADC rail values, and raw or filtered readings outside the saved
+calibration curve are unavailable for position correction and jam inference.
+Diagnostic extrapolation remains visible. This confidence classification adds
+no command pulse limit: authored motion retains its full configured travel.
+`signal_millivolts` measures the fourth-wire signal, not the servo power rail;
+`supply_voltage_available:false` is explicit. A low signal cannot by itself
+distinguish actual joint position, wiring trouble, or a supply-voltage problem.
+
+The optional jam observer remains available for other movement, manual control,
+and holding without a verified Stand goal. With Stand verification disabled,
+jam-only Stand retains its completed-pass observation and subsequent holding
+checks. Its editable no-progress window defaults to 1000 ms with 5 us of new
+shaft travel; a zero window disables release. Feedback does not measure current,
+temperature or foot contact. Neither goal recovery nor a position-based jam
+heuristic guarantees that the power supply or feedback voltage is reliable.
+
+The initial fold engages one leg's crank/carrier together, following the existing
+stepping order, instead of both front legs followed by both rear legs 20 ms later.
+Each leg receives the existing full-travel transit estimate before the next starts.
+Previously engaged legs remain powered; shoulders still engage at lifted-foot
+landmarks. This reduces overlapping initial travel commands but neither measures
+current nor guarantees a shaft has arrived. The subsequent contact-aware rise
+still coordinates supporting legs to raise the body.
+
+Outside the verified Stand goal, enabled jam protection can end motion and release every servo output on observed non-progress.
+It emits one `servo_stall` notification for that stopped execution, including
+startup/holding without a command ID. Body Control routes it through the existing
+`body_event` path to the environment bridge (`metadata.perceptionEvent=body_event`).
+The workflow sees `state.bodyEvent.data` with:
+
+```json
+{"kind":"servo_stall","joints":[{"id":4,"name":"rear_right_carrier"}],
+ "joint_mask":16,"command_sequence":0,"clock_us":1234567,
+ "outputs_released":true,"reason":"no_position_progress"}
+```
+
+Joint IDs use the physical V2 joint order, independent of PCA output and ADC mux
+channel mappings. Sequence zero covers startup/no active user command. The outer
+`event_id` combines the firmware boot identity and occurrence timestamp. The
+reaction workflow remains owned by MetaHuman; firmware does not choose an
+expression, recovery movement or retry. Shake/tip notification suppression does
+not hide this execution fault. Existing calibration curves survive the NVS
+configuration upgrade. These
 controls use the existing authenticated maintenance proxy
 `/api/robot/servo-feedback?robot_id=…` → `/api/servo-feedback` (GET/POST JSON);
 they never issue motion commands. See the
@@ -68,6 +165,25 @@ body advertises the matching feature, with named joint `degrees` targets and
 for timing, units and balance behavior. This API adds no gait optimizer or
 camera-distance estimator.
 
+### Walking heading feedback
+
+P4 firmware advertising `walking_feedback_v1` has a separate **Walking feedback**
+switch in Body Control's Self-leveling panel. It saves independently through
+`POST /api/balance` with `{"op":"walking","enabled":true,"robot_id":"…"}`.
+The normal `get` response adds `walking_enabled` and `walking_saved`; existing
+self-leveling `save` requests do not change either value. An installation with
+no saved walking selection reports Off until the owner enables it.
+
+The body adjusts the ongoing gait's steering using relative gyro heading.
+Operator-requested curves remain the heading reference. Corrections blend in
+trajectory space, sharing the existing forward/turn stroke budget; the semantic
+gait retains its full nominal joint movement rate. Missing or recovering IMU
+data fades only this correction while the requested gait continues. Status
+`walking_feedback` reports enabled/active/reduced, `heading_error_rad`, and
+additive `turn_percent`. This is relative heading correction, not absolute
+heading, distance estimation, measured foot contact, or a trained policy.
+Fourth-wire model evaluation and local trace recording remain separate.
+
 ### Supervised gait trial recording
 
 `gateway.gait_trials` records camera JPEGs, device-timestamped IMU/status data,
@@ -93,9 +209,132 @@ angular rate or impact; a small sampled peak alone cannot establish improvement.
 General gait/balance status is slower than IMU telemetry and may remain unchanged
 through an entire short motion. Command receipts establish controller completion,
 not measured servo tracking. Camera timestamps are host receipt times, not
-exposure timestamps. Distance and electrical energy remain null: this recorder
-does not invent metric odometry or current measurements. Store recordings and
-credentials outside version control.
+exposure timestamps. The recorder now retains the camera owner's
+`locomotion_measurement` from authenticated dashboard status. `visual_motion`
+reports signed forward/lateral displacement, heading change and starting-body-Z
+change between distinct calibrated frames. `distance_m` is net endpoint
+displacement, not path length, and remains null when calibration, continuity or
+matching references are unavailable. Per-segment evidence and unavailable reasons
+are retained. Electrical energy remains null without current measurements. Store
+recordings and credentials outside version control.
+
+With a device trace, `support` reports phase-binned measured-versus-target leg
+reference extension. Firmware 0.8.84 adds timestamp-aligned planned support labels
+and IMU calibration identity to the trace. This permits gravity-projected
+shortfall during planned stance, excluding swing and ambiguous phase transitions.
+Older recordings retain body-axis extension evidence without invented support
+labels or calibration. These estimates do not measure foot contact or prove sag;
+camera height change and body orientation provide complementary evidence. No
+motion decision, automatic stop or new servo writer is part of this assessment.
+
+Camera calibration is under **Camera → Metric ground-plane calibration**. A
+printer is optional: choose **Four measured rectangle corners**, measure a flat
+rigid target's width and height, freeze each image, and select the same corners
+in order around it. Capture roughly ten views with varied tilts and coverage;
+four manually selected corners are less precise than a checkerboard. Fit with
+the measured camera-to-body transform, then place the target on the actual floor
+and select its corners to establish the reference. Refreshing the live preview
+does not replace a frozen selection. New status/freeze requests do replace the
+server's retained calibration frame; select again if another session replaced it.
+Reference tracking needs visible features and does not yet implement autonomous
+return-to-start. Validate physical distance against a measured reference before
+using it as a gait-training outcome.
+
+Add `--feedback` for fourth-wire gait research on firmware with
+`servo_feedback_v1`. It records `feedback.jsonl`, a deduplicated per-joint
+`joints.csv`, and `metadata.json` containing firmware, joint calibration and
+leveling settings read through their existing owners. Each channel keeps its
+own device sample timestamp; the summary reports observed tracking error,
+sample gaps and commanded/measured excursion. Invalid readings stay invalid.
+Clock resets and calibration revision changes start separate analysis segments.
+`--no-camera` omits camera requests when only telemetry is needed.
+
+```sh
+PYTHONPATH=Master python3 -m gateway.gait_trials \
+  --session-file /tmp/private-dashboard-session \
+  --robot YOUR_ROBOT_ID --output /tmp/feedback-baseline-unique \
+  --seconds 12 --feedback
+```
+
+This mode uses the existing polling API, not a synchronous 50Hz training stream.
+The IMU pairing uses nearest device timestamps with explicit signed offsets;
+the feedback boot ID is inferred only from agreeing bracketing status reads.
+The command is observed at HTTP-response construction, with no exact PWM-write
+timestamp. Consequently `observed_error_us` includes timing mismatch and filter
+lag and must not be labeled measured motor torque or stall. Raw JSON preserves
+all responses even when the CSV deduplicates repeated sensor samples. Inspect
+the actual sampling gaps before fitting actuator dynamics. The recorder sends
+no automatic Stop and does not alter the current gait or leveling settings.
+
+Firmware **0.8.72** adds `--device-trace` for local device-time recording. This
+replaces feedback polling for that recording; camera/status capture stays
+concurrent. The P4 records output publications and feedback scans in an optional
+512-event PSRAM ring (216 KiB), then downloads up to 64 events per batch through
+the existing authenticated servo-feedback endpoint. No SD card is required.
+The 20ms acquisition cadence is unchanged; delivered timing is measured, not
+guaranteed by the recorder. Start/stop affect this journal only, never movement. After stopping, storage
+is released when the final batch has been successfully downloaded. A failed
+transfer retains the stopped recording for retry; a new recording allocates its
+own buffer. No trace buffer is allocated during ordinary boot.
+
+```sh
+PYTHONPATH=Master python3 -m gateway.gait_trials \
+  --session-file /tmp/private-dashboard-session \
+  --robot YOUR_ROBOT_ID --output /tmp/device-gait-trial-unique \
+  --seconds 12 --device-trace
+```
+
+`trace.jsonl` preserves every downloaded batch. `joints.csv` associates each
+channel's sample time with the preceding output publication and includes the
+IMU's original timestamp/offset, planned gait phase and command sequence.
+These are software output-publication times, **not physical PCA PWM-edge times**.
+ADC timestamps mark completion of each channel's averaged conversions. Planned
+phase and walking flags are not measured contact. Raw values and estimator
+outputs are both retained. Calibration revision changes invalidate conversion
+until matching calibration is provided; raw events remain available.
+
+The ring overwrites its oldest diagnostic events if downloading falls behind.
+Sequence gaps and reported loss remain explicit, and analysis does not carry a
+target across a gap. Records are independently timestamped rather than falsely
+described as simultaneous. The API operations are `trace_start`, `trace_read`
+and `trace_stop` (POST JSON `op`); reads carry `after`, `session` and `boot_id`.
+Responses are newline-delimited JSON: schema/session header, events, then
+`next`/`lost`/`more`. A stop retains buffered records for draining; allocated
+storage is reused until reboot. Session/boot checks protect recording identity,
+not robot command admission. Recording state and buffers are never saved to NVS.
+
+`gateway.gait_response` fits an **offline actuator-response predictor**, using
+NumPy on the analysis host. It does not connect to the robot or produce servo
+commands. Supply separate complete recordings for training and evaluation:
+
+```sh
+PYTHONPATH=Master python3 -m gateway.gait_response \
+  --train /tmp/walk-training-1 /tmp/walk-training-2 \
+  --evaluate /tmp/walk-evaluation \
+  --output /tmp/gait-response.json
+```
+
+For each joint, six learned coefficients predict raw measured position change
+from current shaft position, filtered velocity and past targets. The label is
+the first actual scan at least 40ms later; the report retains the actual interval
+and both predictors receive that interval. Comparison models use command history
+alone, unchanged position, or constant filtered velocity. Features never use
+future targets, future feedback, or an IMU snapshot acquired after the joint
+sample. Invalid samples, scan loss, trace/session and command changes split
+examples. Identical trial files cannot count as independent evaluation. These
+rules describe offline analysis; they add no restrictions to robot movement.
+
+Reports preserve trial hashes, calibration/firmware provenance, recording
+quality, IMU startup/recovery counts, acceleration and approximate body-Z gyro
+rotation. Body-Z rotation is not absolute heading, distance or body height.
+Trial summaries also report acquisition-counter deltas and accepted sample rate
+per device boot when the firmware supplies them. Dashboard observation spacing
+is separate from sensor acquisition timing; stale snapshots can still carry
+useful cumulative counters. Missing counters are not interpreted as zero resets.
+Startup attitude must not be treated as a converged orientation estimate.
+Raw shaft readings include noise and calibration error. Improved prediction
+on repeated Walk recordings does not establish a better gait or a reliable
+response to new corrective commands; neither model is deployed to firmware.
 
 ## Physical Robot Gateway operation
 
@@ -245,9 +484,11 @@ gateway stops its managed hotspot on shutdown.
 Start Body Control on the desired host and stop it on the current host using
 `./Master/stop-physical-gateway.sh` (or Ctrl+C for a foreground launcher).
 A returning host does not seize a healthy connection. The P4 destroys the old
-WebSocket and closes admission before opening another. Stop/disconnect output
-disable and generation fencing remain; interrupted actions return their existing
-disconnect outcome. Connection switching does not transfer a MetaHuman objective,
+WebSocket and closes admission before opening another. On P4 firmware
+`0.8.113-p4-link-motion`, connection loss preserves powered output and locally
+accepted finite motion. Open-ended gaits use their existing Finish trajectory
+and hold the settled pose. Retired-session commands are not replayed; the gateway
+still reports an unknown/disconnected outcome for receipts it could not observe. Connection switching does not transfer a MetaHuman objective,
 replay movement or copy a durable execution database.
 
 A phone browser can use an available host's password-protected dashboard when
@@ -347,8 +588,9 @@ These are source limits, not measured physical handoff latency. Each slot suppli
 URL (for example `ws://10.42.77.1:8790/robot` on the computer hotspot). This uses
 normal Wi-Fi association, not Wi-Fi Direct. If no saved network works, the
 existing timed setup AP becomes available after 60 seconds; with no networks it
-opens immediately. Wi-Fi/controller loss retains the existing output disable
-and stale-command fencing, and reconnecting never replays movement.
+opens immediately. Wi-Fi/controller loss preserves P4 powered motion: finite
+tasks continue locally, continuous gaits finish gracefully, and standing holds
+remain powered. Stale-command fencing remains; reconnecting never replays movement.
 
 The AP-only setup page at `http://192.168.4.1/` remains the recovery path. For an
 already configured P4, it can replace a network and optionally change its server
@@ -1156,19 +1398,63 @@ it does not itself invoke an LLM. The separate MetaHuman **Body Event Trigger**
 workflow interprets events and delegates its selected intention to Environment Mode.
 No phrase or motion sequence is selected in firmware or gateway event detection.
 
+Firmware `0.8.83-p4-motion-events` adds execution context to each IMU sample:
+command, device connection/sequence, phase and the intended body vertical.
+The body output owner publishes target context only after a successful PWM
+write. A short snapshot history pairs the sensor timestamp with the preceding
+execution state, including entry, retimed playback, reverse recovery and held
+poses. Queued commands, requested playback rates and face selections are not
+used to infer movement.
+
+Rapid-movement crossings during commanded locomotion (Walk, Run, Crawl and
+Crab, including their entry) update the detector's episode state but do not
+request a reaction or consume its cooldown. A crossing is not deferred until
+walking stops. Unexpected tipping remains reportable during walking. For a
+calibrated body-frame observation, tipping is the angle between measured and
+authored body vertical rather than absolute tilt from upright. The same saved
+trigger/clear angles and hold duration apply; absolute tilt remains in the
+event alongside `unexpected_tilt_degrees` and execution evidence. A completed
+or stopped intentional pose retains its last intended orientation while held.
+Older firmware, unverified sensor axes, and manual/Freestyle motion without
+an authored chassis orientation retain the existing absolute-tilt calculation.
+These notification decisions neither cancel nor change a robot command.
+
+Firmware `0.8.85-p4-event-face` also reports the active expression's `face_token`
+with IMU telemetry. MetaHuman's Face Expression node marks the initial body-event
+branch expression with a `be_` token; ordinary expressions and subsequent
+replacement faces retain ordinary tokens. While that reaction selection remains
+active, Body Control updates the shake/tip episode state without emitting more
+shake/tip events. Release, replacement or the expression's existing local expiry
+ends this suppression. Temporary listening/speech overlays do not release the
+underlying selection. No host timer duplicates the firmware's expression timer,
+and reconnect reads the current selection from telemetry. Suppressed episodes
+are not queued for later reaction. Wake notifications and user commands continue.
+The shared configurable shake/tip cooldown still applies, including before
+the reaction face arrives; an event still awaiting its face is not considered an
+active displayed reaction.
+
+All 23 named motions reuse the recorded body quaternion, compressed separately
+from their unchanged joint tracks. Reference data lives in flash. The existing
+IMU acquisition, balance/learning consumers and telemetry cadence are retained;
+no second sensor task or extra LLM/workflow is introduced. Only unexpected
+events enter the existing Environment Bridge reaction route.
+
 In Body Control, **Perception → Body events** saves enable switches and thresholds
 per selected robot in the existing `sensing-controls.json` settings store. Changes
 apply immediately on this Body Control host and survive its restart. Defaults:
 60° tilt for 300 ms, clearing below 45°; acceleration magnitude differing from
 1 g by more than 0.75 g or angular-rate magnitude above 180°/s, clearing below
 0.35 g and 90°/s. Continued readings above a threshold are one episode until it
-clears. Rapid-movement reporting also has a per-robot cooldown, defaulting to
-10 seconds. **Rapid movement cooldown (seconds)** sets the minimum time between
-reported rapid events; 0 disables the cooldown. Crossings during the cooldown
+clears. Shake and tip reporting share one per-robot cooldown, defaulting to
+10 seconds. **Shake and tip cooldown (seconds)** sets the minimum time between
+either kind of notification; 0 disables the cooldown. Crossings during the cooldown
 are not queued or emitted later. A new crossing after clearing is required.
 The interval uses Body Control's monotonic clock and survives settings edits and
 robot reconnects; restarting Body Control starts a fresh interval history. Old
-saved settings gain the 10-second default while retaining their other values.
+saved rapid-only cooldown settings retain their interval under `motion_cooldown_s`;
+settings without a cooldown gain the 10-second default. Wake notifications do not
+consume or wait for this interval. If both detectors cross in the same sample,
+the existing tip-first order uses the interval for the tip notification.
 These settings do not change actuator control or balance behavior.
 **Good morning** submits an explicit wake request through the same event workflow.
 Firmware reports boot/wake events once at the source, rather than treating a
@@ -1182,6 +1468,442 @@ identifies its absence. Six-axis yaw has no absolute heading reference.
 Balance corrections exist in the V2 body code; these changes do not add a
 fallen-body get-up sequence. Firmware build/flash and physical qualification
 are separate from host-side tests.
+
+For longer supervised trials, the recorder's `--until-done` option ends capture
+when its submitted command's completion receipt arrives. It does not send Stop
+or change motion duration. The P4 finite Walk protocol currently accepts at most
+ten cycles; longer experiments can use continuous Walk and the existing Finish
+update. Retain complete raw recordings, distinguish any loss during motion from
+later idle loss, and keep evaluation runs separate from training.
+
+### Learned walking: fourth-wire trajectory corrections
+
+Firmware `0.8.82-p4-learned-travel` advertises `gait_learning_v1` and accepts
+`gait_learning_v2` candidate models with recorded pulse envelopes. Body Control's
+**Learned walking corrections** panel records, trains, downloads and installs a
+small model. Training runs in the gateway Python environment (NumPy required);
+the P4 executes the model locally. Internet inference is not involved.
+
+1. Leave learned corrections off for the baseline. Keep the selected heading
+   feedback and Self-leveling settings consistent between trials.
+2. Start recording, issue forward Walk through the normal controls, then finish
+   recording. Allow complete strides after the existing two-cycle entry. The
+   recording controls neither start nor stop motion.
+3. Select the downloaded `trace.jsonl`, choose the learning fraction, and train.
+   This downloads a candidate JSON with its training report; it does not install
+   or activate it automatically.
+4. Install the candidate, enable learned corrections and set the correction
+   amount. Record the same commanded gait again. Compare tracking errors, gyro
+   motion and observed forward progress, including whether feet drag.
+5. A subsequent fit learns from the **applied correction plus remaining tracking
+   error**. Save baseline/candidate recordings separately. Repeated independent
+   trials establish benefit; a training fit alone does not.
+
+The model is specific to forward Walk at the recorded stride and installed
+calibration. It includes 60 float coefficients: constant plus two sine/cosine
+harmonics for three body-coordinate offsets on each of four feet. P4 inference
+uses the existing fixed-shaft linkage solver and calibrated output mapping. It
+does not change nominal phase/cadence, Home, steering ownership or servo timing.
+Model coefficients occupy 240 bytes; runtime history and measurements require
+additional RAM. Hardware runtime timing is reported separately from this size.
+
+Fourth-wire samples are interpolated to a common timestamp for each leg, and
+matched to the nominal target history at that timestamp. Forward kinematics
+tracks a fixed material point on Part 027. This is a geometric estimate, **not**
+measured contact, ground clearance, torque, load, slip or travelled distance.
+Training smooths repeated errors with two harmonics rather than feeding every
+ADC fluctuation back into the servos.
+
+If the selected command, geometry, calibration or feedback does not match,
+only the learned contribution fades away; normal gait and heading control
+continue. A correction that does not fit the linkage/output mapping is reduced,
+independently for each leg, with accepted fractions and travel-boundary reductions
+reported. Learned additions stay within the recorded nominal pulse envelope; a
+steered nominal pose can extend that envelope for the current frame without
+allowing the learned layer to extend it farther.
+
+The owner confirmed 500–2800 µs mechanical travel for **carrier and crank only**.
+Left 2800 / right 500 is the rearward endpoint. Shoulders are centered, their
+physical limits are not established, and this range is not applied to them.
+Generated motion targets (including Walk and startup rise) are fitted in
+Cartesian space to feasible linkage poses inside these carrier/crank bounds
+before mapping to PWM. Feasible targets pass through unchanged. This can alter
+an infeasible nominal foot path; it does not slow the gait clock. Saved Home,
+inversion and angle-to-pulse references remain unchanged. Literal manual joint
+calibration/Home commands retain their existing behavior; they are not covered
+by this generated-motion fit. These are not general collision-avoidance checks.
+No model has physical qualification merely because it fits the linkage.
+
+Authenticated maintenance API (gateway proxy preserves the selected robot):
+
+- `GET /api/robot/gait-learning?robot_id=...`: model and latest walking observation.
+- `POST` same URL, `{"op":"configure","enabled":true,"amount":0.5}`: save settings.
+- `POST` same URL, `{"op":"install","model":{...}}`: save the downloaded model;
+  preserve the enable setting. Installing while enabled changes the ongoing or next walk's
+  correction and should be treated as a real motion change.
+- `POST /api/gait-learning/train`, `{"batches":[...],"gain":0.5}`: host-only fit;
+  never submits a motion command. Body Control sends only tracking records,
+  trace headers and loss receipts. Maximum training upload is 8 MiB.
+
+`gait_trace_v1` has an additional `tracking` event, with per-leg timestamps,
+phase, nominal/measured reference point, applied correction, context signature,
+stride, command sequence, nominal output-channel pulses (`nominal_pulses_us`)
+and validity mask. Version 2 training requires these nominal pulses; record a
+fresh baseline on 0.8.82 or newer. Older sample/output consumers ignore
+this event. The trace header now includes the geometry identifier. The UI labels
+telemetry as the **last walking observation**, rather than a live measurement
+while idle. Calibration/geometry changes require a new matching recording/model.
+
+Offline fitting/evaluation uses the same trainer as Body Control:
+
+```bash
+PYTHONPATH=Master python -m gateway.gait_learning /tmp/baseline/trace.jsonl \
+  --gain 0.5 --output /tmp/walk-candidate.json
+PYTHONPATH=Master python -m gateway.gait_learning /tmp/candidate/trace.jsonl --evaluate
+```
+
+Use separate paths for captures and model artifacts outside the repository.
+The ILC update assumes a locally consistent response to task-space displacement;
+a model may worsen walking and must be evaluated physically. The separate
+`gait_response` predictor remains diagnostic and is not inverted into commands.
+
+The sensor-policy implementation adds `gait_sensor_policy_v1` and accepts
+`gait_learning_v3` models through the same install endpoint. This is an extension
+under physical development, not a qualified replacement gait. It retains the
+60 periodic coefficients and adds 96 feedback coefficients: for each leg/axis,
+the eight inputs are shaft-derived reference-point error xyz divided by 10 mm,
+roll/pitch target error divided by 0.1 rad, and body angular rate xyz in rad/s.
+The saved level reference uses the same signs as the balance owner. Coefficients
+occupy 624 bytes. P4 inference includes no optimizer, Python or network call.
+Version 2 NVS models migrate with zero sensor coefficients, preserving their
+enable setting and output behavior. Sensor-conditioned models include IMU
+mounting/bias and the level reference in their context signature. On unusable
+joint/IMU data, the last usable learned sensor response fades with the existing
+learned-contribution blend; the underlying gait/heading/balance owners continue.
+
+Tracking records now contain `policy` with schema `gait_policy_input_v1`, the
+exact 32 decision-time features, decision phase, IMU source timestamp, context
+signature, input usability, and the applied correction at that decision. These
+are separate from the older per-leg tracking samples aligned to earlier sensor
+timestamps. Host fitting must not replace decision-time inputs with future
+measurements. The recorder saves the installed learning configuration alongside
+the other run metadata, and Body Control can import/export version 3 candidates.
+
+`gateway.gait_training` is the explicit host training owner. Its `start`,
+`propose`, `advance` and `export` operations keep resumable JSON outside the
+repository. Search scales, optimizer step size, number of perturbation directions
+and objective weights are explicit arguments. Paired candidates vary both
+periodic and sensor coefficients. Repeated candidate/incumbent runs in matching
+comparison blocks provide measured rewards; a new untested search centre is
+never exported as the best evaluated model. Trials use the existing semantic
+motion and recording owners; this module adds no robot reset/return behavior.
+
+The objective uses measured forward metres/second, calibrated tilt error and
+shaft-derived error relative to the **applied** target, including learned
+displacement. It does not reward staying close to the old nominal foot path.
+`recorded_metrics` consumes the existing visual assessment and device trace;
+unavailable camera distance remains unavailable, rather than becoming a zero
+reward or a tracking-only surrogate. This is neither a force nor energy estimate.
+Each comparison reports paired differences and uncertainty; the current best
+evaluated model is not called globally optimal. Normal operation executes only
+the installed model; training runs solely when these host operations are invoked.
+
+```bash
+PYTHONPATH=Master python -m gateway.gait_learning /tmp/baseline/trace.jsonl \
+  --policy-seed --output /tmp/policy-seed.json
+PYTHONPATH=Master python -m gateway.gait_training --help
+```
+
+Version 4 (`gait_learning_v4`) additionally learns the underlying Walk profile:
+duty fraction, sweep, four phase offsets, four foot lifts, eight landing offsets
+and fifteen body-position Fourier coefficients. Its 33 profile parameters are
+deltas from the current gait; zero reproduces the baseline exactly. It adds 48
+response weights for operator forward/turn/lateral/stride inputs. All 237 floats
+occupy 948 bytes, excluding runtime history and recording. The model still runs
+locally on the P4; training runs on the host.
+
+Training can send `persist: false` with model `install` or `configure` to apply
+a candidate in RAM without writing flash. The last permanently saved model
+returns after reboot. Omitted `persist` retains the existing persistent behavior;
+`persist: true` explicitly saves the current installed model and configuration.
+Status reports `model_saved`, and Body Control identifies a temporary model.
+
+### Host learning during ordinary locomotion
+
+
+**Recordings → Learning history** opens the read-only progress view. It graphs
+scored observations by gait and matching command settings, keeps archived
+measurement contexts separate, and shows candidate decisions and changes from
+the reference model. Available metrics include camera-estimated progress,
+joint tracking error, body tilt, angular motion and acceleration deviation.
+The observation table and JSON download expose the underlying history.
+New observations/decisions include timestamps; older data use observation order
+and explicitly indicate missing timestamps. Opening this view never submits a
+motion, installs a policy or triggers training. It refreshes when the existing
+status stream reports changed observations or learning state.
+
+
+`gateway.gait_learning_service` now owns the optional persistent recorder and
+training lifecycle. Body Control exposes **Log gait data**, **Learn while
+walking**, **Analyze now**, progress by maneuver, exploration radii, and saved
+policy restore. The settings belong to this host; leave learning off on a
+laptop/smaller host. Closing a browser does not stop host recording. The former
+browser-owned trace loop has been removed so the two recorders do not compete.
+
+Priority coverage is forward Walk, backward Walk, both turning directions, and
+bounding Run. Crab and Crawl remain outside this initial optimizer. Training
+uses the operator's normal commands; the service never submits motion, Stop,
+Home, resets, or raw joint targets. Existing P4 heading feedback, self-leveling,
+fast-stroke timing and mechanical travel handling retain their owners.
+
+The host drains the existing P4 trace and writes camera JPEGs, IMU/joint/output
+records, motion commands, calibration/model metadata and measured motion windows
+under `$XDG_STATE_HOME/ainekio/gait-learning` (default
+`~/.local/state/ainekio/gait-learning`). These private data are not repository
+assets. Recording includes acceleration and planned support information;
+planned support is not a measured contact switch. Learning includes logging.
+Logging alone does not start an optimizer. Analyze now can calculate a proposal
+with learning off; it does not install that proposal.
+
+Trace downloads reuse a per-robot HTTP connection; failed requests are reported
+without replaying model-install operations. Brief missing joint observations
+are counted inside the current window, not treated as a change of installed
+policy. Windows report both unusable tracking observations and observations
+where the learned correction was active. Missing readings never become zero
+tracking error. Model, command, calibration and profile changes still identify
+different observations.
+Camera history comes from timestamped measurement events rather than polling
+the dashboard's freshness-filtered current value. A valid archived frame does
+not become a failed measurement merely because it later expires for live use.
+Real camera-fit failures remain unavailable. HTTP reconnects also retain partial
+windows when the device cursor confirms no lost samples.
+
+The initial search has nine coordinated parameters: duty fraction, sweep,
+front/rear lift, front/rear landing position, body height, tilt-feedback gain and
+fourth-wire reference-point feedback gain. These are deltas around the reference
+policy, not raw PWM angles. Radii are editable search scales, not new motor
+limits. Space-filling initialization precedes BoTorch Gaussian-process Bayesian
+optimization. Demonstrated improvements recenter the search and retain earlier
+observations in the new coordinates. This is hardware policy optimization, not
+an assertion that an end-to-end neural locomotion policy has been trained.
+
+Evaluation rewards signed translation and commanded rotation, and measures
+trajectory yaw error, lateral drift, tilt, angular motion, acceleration-norm
+deviation and measured reference-point following. It uses the P4's recorded
+planned twist only as a target, never as measured distance. Candidate/reference
+comparisons match direction, stride and requested motion rate; resulting cadence
+is an outcome, not a condition that excludes faster candidates. Walk needs repeated forward,
+backward, left-turn and right-turn evidence. A single forward win cannot promote
+a Walk policy. Uncertainty estimates from repeated windows are descriptive:
+adjacent walking windows are not guaranteed to be statistically independent.
+These observations measure neither motor current nor torque/energy consumption.
+Useful motion is divided by the measured quality costs: quiet stillness cannot
+beat useful progress solely by removing vibration. Turning beyond the planned
+rotation earns no extra reward.
+
+Before installation, the existing native linkage preview evaluates the proposed
+profile against observed commands and current joint calibration. If it cannot
+solve the proposed change, the host fits only the learned delta toward the
+incumbent and reports its scale. This samples geometry with zero sensor features;
+it does not establish collision-free physical operation or loaded stability.
+Existing P4 residual fitting handles live additions. An unsolved incumbent is
+reported for investigation, without changing the base gait or sending movement.
+
+Candidate installation uses the existing RAM-only maintenance operation. Only
+demonstrated incumbents are saved to P4 flash. A separate Run policy is stored
+under the `p4_learning/run` NVS key; the existing Walk model stays under `model`.
+`POST /api/gait-learning` accepts `gait: "walk" | "run"` with `read`, `install`
+and `configure`. Omitting `gait` retains the Walk API. Run preserves front-pair/
+rear-pair bounding. Trace policy records include actual model identity, amount,
+active state, gait, cadence, profile identity and planned twist. Geometry
+profiles take effect at the next locomotion start; installing a candidate does
+not retarget an airborne foot. Walk-to-Run interpolation continues under the
+existing motion owner; an unmatched learned profile remains reported as pending.
+
+After the configurable number of post-bootstrap Bayesian comparisons without
+the requested minimum demonstrated improvement, that bank retains its incumbent.
+Learning switches off automatically only when both priority banks have reached
+that condition. This is a plateau in the covered search/conditions, not a global
+optimum or a cutoff on robot movement. Turning learning off restores the saved
+incumbents; learned execution and live feedback remain available.
+
+Install optional optimizer dependencies separately from the gateway:
+
+```bash
+python3 -m venv --system-site-packages build/gait-training-env
+build/gait-training-env/bin/python -m pip --isolated install torch==2.8.0 \
+  --index-url https://download.pytorch.org/whl/cpu
+build/gait-training-env/bin/python -m pip --isolated install \
+  -r Emulator/requirements-gait-training.txt
+cmake -S Slave/firmware/esp32p4-wifi6/tests -B build/gait-native \
+  -DPython3_EXECUTABLE="$PWD/build/gait-training-env/bin/python"
+cmake --build build/gait-native --target preview_gait_learning -j4
+```
+
+The host launches that interpreter as a worker; alternatively set
+`AINEKIO_GAIT_TRAINING_PYTHON`. There is no optimizer/inference elapsed-time
+cutoff and no GPU requirement. Disabling learning avoids background optimization.
+`AINEKIO_GAIT_PREVIEW` can select the matching native preview executable.
+Rebuild it with firmware geometry changes.
+
+**Qualification status:** this implementation consumes the existing calibrated
+camera motion owner. It does not implement or claim working OpenVINS odometry.
+Camera/IMU timing remains explicitly marked as approximate receipt-clock
+alignment. Unavailable/ambiguous camera motion, a changed reference, lost trace
+records or unavailable calibrated joint/IMU observations do not become a
+tracking-only progress reward. Recording and ordinary motion remain available,
+but those windows cannot demonstrate improvement. Hardware-qualified metric
+motion, deployment and physical evaluation of all four priorities remain
+necessary before calling the automatic learning system operational on the robot.
+This separates candidate exploration from permanent deployment without adding
+an elapsed-time wait or stopping the commanded gait.
+
+The profile is selected when new locomotion begins. Updating a model mid-command
+reports `profile_pending_next_walk` rather than moving already planted foot
+anchors. Operator steering, heading correction and Walk/Run interpolation retain
+their existing owners. Walk and Run select their separate profile banks;
+a mid-command transition retains gait interpolation and reports an unmatched
+learned profile until the next start. Sensor-dependent additions retain their approved fade behavior
+on unavailable feedback, while the selected underlying gait keeps running.
+Version 4 supports forward, backward, turning and interpolated Walk commands;
+version 2/3 models retain their earlier eligibility. Old models load with zero
+new parameters. No IMU signs, joint calibration, nominal servo-speed setting or
+approved mechanical travel are changed by the profile implementation.
+
+The recorder includes the four operator inputs, gait context and selected
+profile hash. Evaluation checks the executed profile against the candidate.
+`--policy-seed` now creates a version 4 zero-addition seed from new recordings;
+search requires explicit command and 33 profile exploration scales. These scales
+define the experiment, not motor travel restrictions. Mathematical profile
+validity is not evidence of linkage feasibility or physical stability.
+
+The existing offline `preview_gait_learning` executable accepts optional
+`v4 direction stride` arguments after amount and heading drift, followed
+optionally by a JSON command selecting Run or curved steering. Input is twelve
+calibration rows, 237 model floats, 32 sensor features and optional pulse-envelope
+pairs. It reports calibrated travel and linkage fitting under that specified
+sensor condition; it cannot predict actual loading, slip or sensor response.
+
+Usable metric visual progress and repeated physical evaluation during ordinary
+operation remain necessary before this meets the full
+learned-walking objective. Software tests and a firmware build are not evidence
+that the new profile has improved walking.
+
+Requested measurement photos use `gateway.gait_trials.capture_snapshot(client,
+robot_id, output_directory)`. It issues the existing Snap command and retrieves
+that request's JPEG by connection epoch and sequence, saving bracketing status
+alongside it. It does not send a movement command or change a gait. HTTP clients
+can retrieve the same image at `/api/camera/frame?robot_id=...&epoch=...&request_seq=...`.
+The latest requested still is retained separately from preview frames. Response
+headers include `X-Ainekio-Camera-Epoch`, `X-Ainekio-Camera-Origin` and
+`X-Ainekio-Camera-Origin-Id`; these identify the capture but are not exposure
+timestamps. Ordinary preview retrieval remains available through the same route.
+
+### Optional host depth and camera odometry
+
+Camera → **Depth and camera movement** selects either the existing measured
+ground-plane owner or experimental **MoGe-2 + landmark tracking**. The latter runs the
+installed MoGe-2 network in an isolated host process and uses OpenCV SIFT matches,
+PnP RANSAC and pose refinement against retained 3-D landmarks. It supplies the existing `locomotion_measurement` contract,
+including a depth preview, camera intrinsics, relative position/heading and
+landmark counts and pixel reprojection error. No P4 firmware change or robot movement command is involved.
+The source selection persists in private `sensing-controls.json`.
+The saved mode key `moge-open3d` remains compatible with existing settings;
+the measurement source is now `moge2-landmark-odometry`. The initial dense
+RGB-D comparison treated inconsistent per-image learned depth as movement in
+physical recordings. Matched landmarks now retain world positions; newly seen
+landmarks use model depth aligned to the retained map's scale. This avoids that
+direct depth-difference error without claiming a calibrated absolute scale.
+
+This is estimated metric depth and local odometry, **not a calibrated distance
+sensor, loop-closing SLAM or visual-inertial fusion**. `scaleSource` is
+`learned-metric-estimate`, metric accuracy is explicitly unverified, and metric
+uncertainty is unknown. Inlier counts and residual error are optimizer diagnostics,
+not an accuracy certificate. The first image establishes estimated intrinsics;
+those optics remain fixed for that reference instead of changing focal length
+on every image. Unknown/failed focal estimation is reported rather than replaced
+with a guessed field of view. Changing resolution, body epoch, source settings
+or explicitly restarting depth tracking establishes a new reference.
+An ordinary connection-epoch change preserves estimated intrinsics when the
+image size and source configuration are unchanged; it resets only the local map.
+The worker retains optics per image mode. Returning from a high-resolution
+still to preview reuses the preview's estimate rather than recalibrating it
+from a different scene. Restarting the worker still creates a fresh estimate.
+
+If landmark matching cannot fit a camera pose, tracking automatically establishes a new local
+reference using the current image's usable features, keeping the existing intrinsics and
+calibration identity. The failed interval is unavailable, with no position;
+the next successful pair resumes local tracking. No travel is inferred across
+the break. Training windows spanning that break are recorded as unscored, while
+valid windows on either side retain their common measurement context.
+
+Without an entered measured camera-to-body transform, reported motion belongs
+to the camera origin with forward/upright mounting assumed. Camera rotation,
+mounting tilt and a body-centre lever arm therefore matter. Supplying the actual
+4×4 transform accounts for the lever arm; it does not calibrate the learned depth
+scale. This implementation does not claim it can infer body height, foot contact
+or metric scale accuracy from these estimates alone.
+
+The gait recorder consumes the selected source through its existing camera
+measurement callback. Reward records retain distance source, scale provenance,
+coordinate origin and calibration context. A changed camera context starts a new
+comparison bank using the actual current gait; previous observations are
+archived, not compared across measurement systems. Joint feedback, IMU scoring,
+live steering and self-leveling retain their existing owners. Depth processing
+has no motion authority or inference time cutoff. It uses the existing
+one-pending-frame camera executor; original receipt timestamps and normal
+freshness reporting are retained. The depth image is shown in Body Control, not
+duplicated into every training event. Selecting ground-plane mode releases the
+model once no selected robot uses it. Recognition and robot admission remain
+independent of depth inference.
+
+The recorder binds each trace cursor to the device boot/session and reacquires
+the stream after a session change. Live status-clock receipts align queued
+sensor history with camera receipts; network latency remains approximate and
+camera exposure is not synchronized. An unavailable joint observation is
+excluded, counted and reported without restarting the entire cycle window.
+Command/calibration changes and lost trace records still separate observations.
+Tracking-error statistics describe the usable samples, not the missing ones.
+
+Host runtime configuration (environment variables read by the gateway/worker):
+
+- `AINEKIO_DEPTH_PYTHON`: interpreter containing Torch, NumPy, OpenCV,
+  and safetensors; defaults to the gateway interpreter.
+- `AINEKIO_DEPTH_COMFY_ROOT`: existing ComfyUI checkout containing
+  `comfy.ldm.moge`; defaults to `~/ComfyUI`.
+- `AINEKIO_DEPTH_MODEL`: existing MoGe-2 converted safetensors file; defaults to
+  `models/geometry_estimation/moge_2_vitl_normal_fp16.safetensors` under that checkout.
+- `AINEKIO_DEPTH_CUDA_VISIBLE_DEVICES`: optional depth-worker GPU allocation.
+  Otherwise the worker preserves the launcher's original CUDA visibility,
+  independently of the recognition backend's later CPU-device selection.
+
+No automatic package installation, model download, alternate model fallback or
+camera FPS change occurs. Errors appear in camera measurement status. These are
+optional dependencies; ground-plane operation does not import Torch.
+The October 20 workstation already contained OpenCV and the MoGe-2 weights.
+Other hosts must provide that runtime or retain the ground-plane source.
+
+Research comparison:
+
+| System | Relevant capability | Fit and remaining work |
+| --- | --- | --- |
+| [MoGe-2](https://github.com/microsoft/MoGe) + [Open3D](https://www.open3d.org/docs/latest/tutorial/t_reconstruction_system/dense_slam.html) | Estimated metric geometry/intrinsics plus RGB-D tracking | Both already installed here; selected for an optional prototype. Single-frame depth inconsistency and visual drift require physical evaluation. Only odometry is integrated, not Open3D's dense mapping API. |
+| [Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3) | Multi-view depth and camera poses; nested model adds metric scale | Strong alternative for jointly estimated poses/depth. The metric nested 1.1 checkpoint is about 6.76 GB; not downloaded or benchmarked here. Standard relative variants must not be labelled metric. |
+| [UniDepth V2](https://github.com/lpiccinelli-eth/UniDepth) | Metric depth, intrinsics and confidence | Alternative depth producer, including smaller variants; still needs a motion estimator. Confidence is not a calibrated centimetre error bound. |
+| [Depth Pro](https://github.com/apple-aiml-research/ml-depth-pro) | Metric depth and focal-length estimation | Alternative depth producer; no built-in trajectory estimator. Not benchmarked here. |
+| [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3) / [OpenVINS](https://docs.openvins.com/gs-calibration.html) | Established visual/visual-inertial motion estimation | Neither found installed/running here. Camera/IMU calibration and timestamp alignment must be addressed for VIO; monocular image-only SLAM does not by itself establish absolute scale. |
+
+Qualification: installed APIs and offline worker operation are confirmed. The
+initial saved-image benchmark used four sparse VGA images, not a surveyed path.
+MoGe took about 77 ms/image after warm-up and about 1 GB peak Torch allocation.
+The current worker fixes intrinsics per reference and tracks sparse landmarks;
+these timings are not an end-to-end walking FPS guarantee.
+Synthetic known-motion tests check transform direction, metric units and
+lever-arm handling. Real travel accuracy, drift during body bobbing, and improved
+physical gait selection remain unverified. The live camera was configured for
+1 FPS during the audit; motion tracking needs substantially more overlapping
+views than the historical multi-second snapshots. Selection of this experimental
+source is explicit; it is not silently substituted for measured calibration.
 
 
 ## P4 inactivity rest

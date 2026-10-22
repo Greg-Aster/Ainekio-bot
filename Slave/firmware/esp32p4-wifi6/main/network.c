@@ -123,8 +123,7 @@ static void event(void *arg, esp_event_base_t base, int32_t id, void *data)
         atomic_store(&wifi_issue, reason == WIFI_REASON_NO_AP_FOUND ? AINEKIO_SCREEN_WIFI_NOT_FOUND :
             reason == WIFI_REASON_AUTH_FAIL || reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT ?
             AINEKIO_SCREEN_WIFI_REJECTED : AINEKIO_SCREEN_WIFI_LOST);
-        /* No motion queue, RPC or I2C is involved in loss handling. */
-        if (was_online) ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
+        if (was_online) ainekio_p4_controller_connection_lost();
         ESP_LOGI("network", "Station disconnected reason=%u", ((wifi_event_sta_disconnected_t *)data)->reason);
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         atomic_fetch_add(&network_generation, 1);
@@ -277,7 +276,6 @@ static void network_task(void *arg)
         }
         if (atomic_exchange(&lost, false)) ainekio_provisioning_on_wifi_lost(&provision, now_ms);
         if (atomic_exchange(&manual_ap, false)) {
-            ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
             ainekio_provisioning_request_manual(&provision, AINEKIO_PROVISION_REASON_DASHBOARD_REQUEST, now_ms);
         }
         if (atomic_exchange(&retry, false)) {
@@ -333,7 +331,6 @@ esp_err_t ainekio_p4_network_prepare(void)
     size_t key_size = sizeof(ap_key);
     result = nvs_get_str(nvs, "setup_key", ap_key, &key_size);
     if (result == ESP_ERR_NVS_NOT_FOUND) {
-        ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
         snprintf(ap_key, sizeof(ap_key), "%08" PRIx32 "%08" PRIx32, esp_random(), esp_random());
         result = nvs_set_str(nvs, "setup_key", ap_key);
         if (result == ESP_OK) result = nvs_commit(nvs);

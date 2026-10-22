@@ -50,9 +50,6 @@ from .action_receipts import ActionConflictError, ActionReceipts
 
 
 ADAPTER_PROTOCOL_VERSION = 1
-# A raw JPEG may be 256 KiB. Its base64 data URL needs roughly one third more
-# room while remaining below the gateway's 512 KiB bridge-frame ceiling.
-MAX_ADAPTER_JSON_MESSAGE_BYTES = 384 * 1024
 MAX_AUDIO_UTTERANCE_MESSAGE_BYTES = 512 * 1024
 AUDIO_UTTERANCE_MAGIC = b"AIKAUD01"
 AUDIO_UTTERANCE_HEADER_BYTES = len(AUDIO_UTTERANCE_MAGIC) + 4
@@ -1482,6 +1479,12 @@ class EnvironmentAdapter:
         metadata: dict[str, object] | None = None,
         feedback: list[dict[str, object]] | None = None,
     ) -> None:
+        action_id = str(feedback[0]["actionId"]) if feedback and feedback[0].get("actionId") else None
+        websocket = self._websocket
+        # New input needs a recipient at admission. Already accepted action
+        # results retain their existing delivery/recovery lifecycle.
+        if not action_id and (websocket is None or websocket.closed):
+            return
         observation = self._observation(text=text, visual=visual, body_event=body_event, metadata=metadata, feedback=feedback)
         observation["id"] = str(uuid4())
         envelope = {
@@ -1490,10 +1493,9 @@ class EnvironmentAdapter:
                 "sessionId": self.config.session_id,
                 "observation": observation,
         }
-        action_id = str(feedback[0]["actionId"]) if feedback and feedback[0].get("actionId") else None
         if action_id or text or visual or (body_event and body_event.get("name") == "body_event"):
             envelope = await asyncio.to_thread(self.receipts.queue, str(observation["id"]), action_id, envelope)
-        await self._send(envelope)
+        await self._send(envelope, websocket=websocket)
 
     def _yaw_measurement(self, robot_id: str | None, robot: Mapping[str, object] | None) -> dict[str, object]:
         status = robot.get("status") if robot else None
@@ -1971,8 +1973,6 @@ class EnvironmentAdapter:
                 key: value for key, value in observation.items() if key != "visuals"
             }}
         encoded = json.dumps(message, separators=(",", ":"))
-        if len(encoded.encode("utf-8")) > MAX_ADAPTER_JSON_MESSAGE_BYTES:
-            raise GatewayError("environment adapter message exceeds its size limit")
         return await self._send_payload(websocket, encoded)
 
     async def _send_payload(self, websocket: Any, payload: str | bytes) -> bool:
@@ -2003,7 +2003,7 @@ class EnvironmentAdapter:
                 return False
 
     def _decode_message(self, raw: object) -> dict[str, Any]:
-        if not isinstance(raw, str) or len(raw.encode("utf-8")) > MAX_ADAPTER_JSON_MESSAGE_BYTES:
+        if not isinstance(raw, str):
             raise ValueError("invalid environment adapter message")
         value = json.loads(raw)
         if not isinstance(value, dict):
@@ -2020,6 +2020,8 @@ class EnvironmentAdapter:
             command=command, sequence=sequence, robot_id=robot_id, epoch=epoch)
         if "code" in terminal:
             feedback["data"]["code"] = terminal["code"]
+        if "position_verified" in terminal:
+            feedback["data"]["position_verified"] = terminal["position_verified"]
         return feedback
 
     def _feedback(

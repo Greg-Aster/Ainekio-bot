@@ -1,0 +1,6 @@
+# Optional host optimizer. Install CPU torch from download.pytorch.org/whl/cpu
+# first. The normal gateway does not import these packages.
+torch==2.8.0
+botorch==0.15.1
+numpy==2.3.5
+scipy==1.17.0

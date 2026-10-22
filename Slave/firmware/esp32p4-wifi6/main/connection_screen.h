@@ -46,7 +46,9 @@ typedef enum {
     AINEKIO_SCREEN_GATEWAY_PROTOCOL_FAILED,
 } ainekio_connection_gateway_t;
 
-enum { AINEKIO_SCREEN_LINES = 8, AINEKIO_SCREEN_LINE_BYTES = 80 };
+/* Logical page slots; rendering removes blank rows. Current pages use at most
+ * six populated rows, including full-length Wi-Fi credentials. */
+enum { AINEKIO_SCREEN_LINES = 7, AINEKIO_SCREEN_LINE_BYTES = 80 };
 typedef struct {
     bool face_visible;
     unsigned page, pages;

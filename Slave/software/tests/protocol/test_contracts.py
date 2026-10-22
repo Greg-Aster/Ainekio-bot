@@ -253,6 +253,23 @@ class ControlSchemaTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.schema = load_json(SCHEMA_ROOT / "control-v1.schema.json")
 
+    def test_feedback_health_and_unverified_completion(self) -> None:
+        health = {"enabled": True, "usable": False, "scan": 1, "clock_us": 1000,
+                  "calibrated_mask": 4095, "unavailable_mask": 4095, "clipped_mask": 0,
+                  "below_calibration_mask": 0, "above_calibration_mask": 0,
+                  "adc_error": "ESP_FAIL", "supply_voltage_available": False,
+                  "signal_millivolts": [None]*12}
+        for message in [{"t": "event", "name": "servo_feedback", "data": health},
+                        {"t": "done", "seq": 7, "position_verified": False},
+                        {"t": "done", "seq": 8, "position_verified": True}]:
+            validate_control_message(message)
+            assert_matches_schema(message, self.schema, self.schema)
+        invalid = {"t": "done", "seq": 7, "position_verified": "false"}
+        with self.assertRaises(ValueError):
+            validate_control_message(invalid)
+        with self.assertRaises(SchemaMismatch):
+            assert_matches_schema(invalid, self.schema, self.schema)
+
     def test_schema_covers_exactly_the_runtime_message_types(self) -> None:
         definitions = self.schema["$defs"]
         schema_types = {

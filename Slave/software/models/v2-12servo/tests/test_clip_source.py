@@ -24,6 +24,7 @@ for item in catalog["commands"]:
     reference = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(reference)
     motion = reference.Motion(folder)
+    source_samples = json.loads((folder/'source.json').read_text())['samples']
     # Every original knot, plus an off-grid sample in every interval, entry and
     # exit joins, terminal hold and an arbitrarily late call (no wrap/overflow).
     times = {round(i * 1000000 / motion.hz) for i in range(len(motion.positions))}
@@ -43,6 +44,19 @@ for item in catalog["commands"]:
     rows = [json.loads(line) for line in result.stdout.splitlines()]
     assert len(rows) == len(times)
     for t, actual in zip(times, rows):
+        # Independent Euler-to-vertical reference, distinct from the compiler's
+        # quaternion conversion and the C interpolation implementation.
+        source_at = min(t, command_duration_us)*motion.hz/1000000
+        lo = min(int(source_at), len(source_samples)-1)
+        hi = min(lo+1, len(source_samples)-1)
+        def vertical(row):
+            roll, pitch, _ = row['body_rotation_euler_xyz_rad']
+            return [-math.sin(pitch), math.sin(roll)*math.cos(pitch), math.cos(roll)*math.cos(pitch)]
+        a, b = vertical(source_samples[lo]), vertical(source_samples[hi])
+        u = source_at-lo
+        up = [(1-u)*x+u*y for x, y in zip(a, b)]
+        length = math.sqrt(sum(v*v for v in up))
+        assert math.sqrt(sum((v/length-target)**2 for v, target in zip(up,actual['expected_up']))) < .00011, item['command']
         expected = motion.sample(min(t, command_duration_us))
         if t >= command_duration_us:
             expected.update(complete=True, velocity=[0.0]*12, acceleration=[0.0]*12)
