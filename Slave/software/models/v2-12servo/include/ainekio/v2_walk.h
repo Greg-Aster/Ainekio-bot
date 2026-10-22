@@ -5,6 +5,15 @@
 /* Advanced controls retain explicit stride/cadence. Automatic Walk traverses
  * the coordinated joint path at the full nominal joint movement rate. */
 typedef struct { double stride_percent, motion_rate; } ainekio_v2_walk_controls_t;
+#define AINEKIO_GAIT_PROFILE_PARAMETERS 33
+/* Learned Walk geometry, in physical model order RL RR FL FR. Zero is the
+ * existing gait. Landings are body-frame offsets selected at liftoff; planted
+ * anchors never follow subsequent body motion. No PWM or actuator timing here. */
+typedef struct {
+    float duty_delta, sweep_delta_mm;
+    float phase_offset[4], lift_delta_mm[4], landing_mm[4][2];
+    float body_mm[3][5]; /* constant, sin/cos phase, sin/cos twice phase */
+} ainekio_v2_gait_profile_t;
 typedef struct {
     double phase, body[3], euler[3], feet[4][3], sole_height[4];
     double joints[4][3]; /* reference order RL, RR, FL, FR; radians */
@@ -33,6 +42,13 @@ typedef struct {
     double run_from, run_target, run_transition_phase;
     double offset_from[4], offset_target[4];
     ainekio_v2_walk_controls_t from, target, pending;
+    ainekio_v2_gait_profile_t profile;
+    bool profile_run; /* learned profile belongs to bounding Run, not command spelling */
+    /* Separate operator trajectory and measured-heading correction. Radians
+     * are relative to activation; six-axis yaw is not absolute odometry. */
+    double heading_reference, heading_measured, heading_last_yaw, heading_error;
+    double heading_integral, feedback_turn;
+    bool heading_acquired, heading_active, heading_reduced;
     bool steering;
     double forward_from, forward_target, turn_from, turn_target, lateral_from, lateral_target, steering_phase;
     ainekio_v2_foot_state_t feet[4];
@@ -46,10 +62,30 @@ double ainekio_v2_gait_joint_speed_limit(void);
 double ainekio_v2_gait_joint_speed_flag_threshold(void);
 bool ainekio_v2_walk_controls(double speed_percent, ainekio_v2_walk_controls_t *out);
 bool ainekio_v2_walk_controls_valid(ainekio_v2_walk_controls_t controls);
+/* Profile domain: finite geometry, positive sweep, duty strictly between 0
+ * and 1, nonnegative lift. This does not assert linkage or physical feasibility. */
+bool ainekio_v2_gait_profile_valid(const ainekio_v2_gait_profile_t *profile);
+/* Select once after begin/accept, before the first tick. Command interpolation
+ * then uses the same profile; it is not a mid-swing retargeting interface. */
+void ainekio_v2_walk_profile_begin(ainekio_v2_walk_state_t *state,
+    const ainekio_v2_gait_profile_t *profile);
+/* Operator command at the executed phase, excluding heading feedback. */
+void ainekio_v2_walk_command_features(const ainekio_v2_walk_state_t *state,float values[4]);
 /* Stateless reference pose, for C/Python parity and diagnostic sampling. */
 bool ainekio_v2_walk_pose(double phase, ainekio_v2_walk_controls_t controls,
                          ainekio_v2_walk_pose_t *out);
 bool ainekio_v2_walk_solve(ainekio_v2_walk_pose_t *pose);
+/* Fixed material point on each lower leg, in body coordinates (mm), model
+ * joint order. This is inferred geometry, not measured ground contact. */
+unsigned ainekio_v2_feet_forward(const ainekio_v2_frame_t *frame, float feet[4][3]);
+/* Task-space residual through the same fixed-shaft linkage and assembly branch.
+ * Does not change the gait clock, nominal state, calibration or servo mapping. */
+bool ainekio_v2_feet_offset(const ainekio_v2_frame_t *nominal,
+    const float delta[4][3], ainekio_v2_frame_t *out);
+/* Joint-bounded Cartesian IK for the two linkage actuators. Shoulder targets
+ * stay unchanged. Already feasible frames pass through exactly. */
+bool ainekio_v2_feet_bounded(ainekio_v2_frame_t *frame,
+    const float lower_cd[12], const float upper_cd[12]);
 /* Material-point anchors for contact-aware posture transitions. Source leg
  * order, local sole coordinates. Forward chooses lowest sole points when
  * choose_contacts is true; otherwise evaluates the supplied material points.
@@ -71,6 +107,12 @@ bool ainekio_v2_walk_begin(ainekio_v2_walk_state_t *state, unsigned cycles,
 bool ainekio_v2_walk_update(ainekio_v2_walk_state_t *state,
                            ainekio_v2_walk_controls_t controls);
 bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *state, uint64_t now_us);
+/* Heading correction shares the existing steering range, not the servo clock.
+ * Optional validator checks the candidate against the owning body's calibrated
+ * pulse mapping. Failure removes only the added correction, never the request. */
+bool ainekio_v2_walk_feedback_tick(ainekio_v2_walk_state_t *state,
+    uint64_t now_us, bool enabled, bool usable, double yaw_rad,
+    bool (*valid)(const ainekio_v2_frame_t *, void *), void *context);
 /* Call after common session/expiry admission. Updates name the original walk. */
 bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *state,
                            const ainekio_command_t *command, uint64_t now_us);

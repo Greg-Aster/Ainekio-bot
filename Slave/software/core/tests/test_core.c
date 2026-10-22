@@ -294,6 +294,11 @@ static void test_balance_setting_decode(void)
     assert(ainekio_control_decode_for_body(get,strlen(get),&m)==AINEKIO_DECODE_OK);
     assert(m.command.kind==AINEKIO_COMMAND_BALANCE && !m.command.data.balance.save);
     assert(ainekio_control_decode(get,strlen(get),&m)!=AINEKIO_DECODE_OK);
+    const char *walking="{\"t\":\"balance\",\"seq\":9,\"op\":\"walking\",\"enabled\":true}";
+    assert(ainekio_control_decode_for_body(walking,strlen(walking),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.balance.walking_feedback && m.command.data.balance.enabled && !m.command.data.balance.save);
+    walking="{\"t\":\"balance\",\"seq\":9,\"op\":\"walking\",\"enabled\":true,\"strength\":2}";
+    assert(ainekio_control_decode_for_body(walking,strlen(walking),&m)!=AINEKIO_DECODE_OK);
     const char *gyro="{\"t\":\"balance\",\"seq\":9,\"op\":\"calibrate_gyro\"}";
     assert(ainekio_control_decode_for_body(gyro,strlen(gyro),&m)==AINEKIO_DECODE_OK);
     assert(m.command.data.balance.calibrate_gyro && !m.command.data.balance.save);

@@ -24,11 +24,12 @@ static ainekio_p4_calibration_t calibration;
 static ainekio_p4_joint_record_t committed;
 /* Independent of joint calibration. Readers never take the NVS write lock. */
 static _Atomic float motion_rate = AINEKIO_MOTION_RATE_DEFAULT;
+static atomic_bool motion_rate_saved;
 static _Atomic uint32_t idle_rest_seconds=180;
 static atomic_bool idle_rest_saved;
-static atomic_bool motion_rate_saved;
 static atomic_bool joint_speed_saved;
 static atomic_bool balance_enabled = true;
+static atomic_bool walking_feedback_enabled, walking_feedback_saved;
 static atomic_bool balance_saved, balance_tuning_saved;
 static ainekio_v2_balance_tuning_t balance_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
 typedef struct {
@@ -153,6 +154,10 @@ esp_err_t ainekio_p4_config_init(void)
     const bool limit_valid = limit_result == AINEKIO_STORE_OK && isfinite(limit) && limit > 0.F;
     ainekio_v2_joint_speed_set(limit_valid ? limit : ainekio_v2_joint_speed_default());
     atomic_store(&joint_speed_saved, limit_valid);
+    uint8_t walking=0;
+    const bool walking_valid=blob("walk_feedback",&walking,sizeof(walking),false)==AINEKIO_STORE_OK && walking<=1;
+    atomic_store(&walking_feedback_enabled,walking_valid && walking!=0);
+    atomic_store(&walking_feedback_saved,walking_valid);
     uint8_t leveling = 1;
     const ainekio_store_result_t leveling_result = blob("balance_enable", &leveling, sizeof(leveling), false);
     const bool leveling_valid = leveling_result == AINEKIO_STORE_OK && leveling <= 1;
@@ -190,6 +195,17 @@ esp_err_t ainekio_p4_idle_rest_save(uint32_t seconds)
     if(blob("idle_rest_s",&seconds,sizeof seconds,true)!=AINEKIO_STORE_OK)return ESP_FAIL;
     atomic_store(&idle_rest_seconds,seconds);
     atomic_store(&idle_rest_saved,true);
+    return ESP_OK;
+}
+
+bool ainekio_p4_walking_feedback_enabled(void) { return atomic_load(&walking_feedback_enabled); }
+bool ainekio_p4_walking_feedback_saved(void) { return atomic_load(&walking_feedback_saved); }
+esp_err_t ainekio_p4_walking_feedback_save(bool enabled)
+{
+    uint8_t value=enabled?1:0;
+    if(blob("walk_feedback",&value,sizeof(value),true)!=AINEKIO_STORE_OK)return ESP_FAIL;
+    atomic_store(&walking_feedback_enabled,enabled);
+    atomic_store(&walking_feedback_saved,true);
     return ESP_OK;
 }
 

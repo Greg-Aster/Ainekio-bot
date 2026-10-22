@@ -11,11 +11,14 @@
 #include "esp_err.h"
 
 /* The saved/commanded joint reference cannot be expressed by the motion model. */
-enum { AINEKIO_P4_ERR_REFERENCE = 0x20000 };
+enum { AINEKIO_P4_ERR_REFERENCE = 0x20000, AINEKIO_P4_ERR_STALLED };
 
 /* The body task is the only I2C/PWM writer. Callers carry the generation from
- * admission, so Stop/disconnect invalidates work even while it is queued. */
+ * admission, so explicit output release invalidates queued output writes. */
 esp_err_t ainekio_p4_body_start(void);
+/* Connection loss preserves finite work and powered holds. The output owner
+ * uses the existing Finish path for an open-ended gait from this session. */
+void ainekio_p4_body_connection_lost(uint64_t connection);
 /* Asynchronous startup choreography; calibration Home is separate. */
 esp_err_t ainekio_p4_body_startup(uint64_t generation);
 /* Re-probe/reinitialize the driver with every channel off. Never enables OE. */
@@ -26,24 +29,40 @@ esp_err_t ainekio_p4_body_home(uint64_t generation,
     const uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS]);
 esp_err_t ainekio_p4_body_move(uint64_t generation, uint8_t channel, uint16_t pulse);
 void ainekio_p4_body_pulses(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS]);
+void ainekio_p4_body_pulse_snapshot(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS],uint64_t *published_us,bool *armed);
 /* Nonblocking audio cue. The existing output owner performs it while holding a
  * pose; commanded motion owns the joints until it completes. Never arms PWM. */
 void ainekio_p4_body_listen(bool active);
 /* Meaningful input or audio completion resets the shared one-shot rest timer. */
 void ainekio_p4_body_activity(void);
 
-
 typedef struct {
     uint64_t connection;
     uint32_t sequence;
     bool completed;
+    /* 0: authored completion; 1: requested but unavailable; 2: measured. */
+    uint8_t position_verification;
     ainekio_cancel_code_t reason;
     esp_err_t result;
+    uint16_t stalled_joints;
+    uint64_t clock_us;
 } ainekio_p4_body_event_t;
+/* Published only from the output owner; this describes commanded execution,
+ * not measured foot contact, travel or chassis pose. */
+typedef struct {
+    const char *command, *activity, *phase;
+    uint32_t sequence;
+    uint64_t connection, started_us, sampled_us;
+    float expected_up[3];
+    bool expected_up_known;
+} ainekio_p4_execution_t;
 typedef struct {
     uint64_t connection;
     uint32_t sequence;
     bool moving, speed_limited, automatic_run, listening_feedback;
+    ainekio_p4_execution_t execution;
+    bool walking_feedback_active, walking_feedback_reduced;
+    float walking_heading_error_rad, walking_turn_percent;
     bool balance_active, balance_reduced;
     bool balance_settled;
     bool balance_tracking_available, balance_tracking_active, balance_tracking_reduced;
@@ -52,6 +71,10 @@ typedef struct {
     bool servo_feedback_waiting;
     uint16_t servo_feedback_waiting_mask;
     float stand_progress;
+    bool stand_replanning;
+    uint32_t stand_replans;
+    uint16_t stalled_joints;
+    uint64_t stall_clock_us;
     float body_roll_rad, body_pitch_rad, balance_roll_rad, balance_pitch_rad;
     /* Commanded differences from the nominal motion, not servo feedback.
      * Legs: physical front-left, front-right, rear-left, rear-right. */
@@ -59,6 +82,8 @@ typedef struct {
     float balance_extension_mm[4];
     float balance_joint_delta_deg[AINEKIO_BODY_JOINT_COUNT]; /* model joint order */
     float gait_cycles_s, gait_requested_cycles_s, stride_percent, requested_stride_percent;
+    bool gait_valid;
+    double gait_phase; /* Planned phase, never measured foot contact. */
     /* Read-only presentation of the last successful motion sample. Display
      * tasks consume this; the output owner never renders or transfers pixels. */
     const char *face_command;
@@ -75,6 +100,8 @@ esp_err_t ainekio_p4_body_execute(uint64_t generation, uint64_t connection,
     const ainekio_command_t *command);
 bool ainekio_p4_body_event(ainekio_p4_body_event_t *event);
 ainekio_p4_body_status_t ainekio_p4_body_status(void);
+/* Latest execution snapshot at or before this device sensor timestamp. */
+ainekio_p4_execution_t ainekio_p4_body_execution_at(uint64_t timestamp_us);
 
 /* Observed maxima since boot, not deadline guarantees. No logging in the loop. */
 typedef struct {

@@ -56,8 +56,12 @@ static double mixed(const ainekio_v2_walk_state_t *s,double phase,double walk,do
 {
     return walk+(run-walk)*run_at(s,phase);
 }
-static double duty_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_DUTY:mixed(s,phase,s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_DUTY:V2_WALK_DUTY,V2_RUN_DUTY);}
-static double sweep_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAB?(s->direction>=AINEKIO_WALK_SIDE_LEFT?V2_CRAB_SIDE_SWEEP:V2_CRAB_SWEEP):s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_SWEEP:mixed(s,phase,V2_WALK_SWEEP,s->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_SWEEP:V2_RUN_SWEEP);}
+static double walk_duty(const ainekio_v2_walk_state_t *s) {return V2_WALK_DUTY+(!s->profile_run?s->profile.duty_delta:0.);}
+static double walk_sweep(const ainekio_v2_walk_state_t *s) {return V2_WALK_SWEEP+(!s->profile_run?s->profile.sweep_delta_mm:0.);}
+static double duty_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_DUTY:mixed(s,phase,s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_DUTY:walk_duty(s),V2_RUN_DUTY+(s->profile_run?s->profile.duty_delta:0.));}
+static double sweep_at(const ainekio_v2_walk_state_t *s,double phase) {return s->gait_mode==AINEKIO_GAIT_CRAB?(s->direction>=AINEKIO_WALK_SIDE_LEFT?V2_CRAB_SIDE_SWEEP:V2_CRAB_SWEEP):s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_SWEEP:mixed(s,phase,walk_sweep(s),(s->direction==AINEKIO_WALK_FORWARD?V2_RUN_FORWARD_SWEEP:V2_RUN_SWEEP)+(s->profile_run?s->profile.sweep_delta_mm:0.));}
+static double walk_offset(const ainekio_v2_walk_state_t *s,unsigned leg)
+{return v2_walk_offsets[leg]+(!s->profile_run?s->profile.phase_offset[(leg+2)%4]:0.);}
 static double offset_at(const ainekio_v2_walk_state_t *s,unsigned leg,double phase) {return s->offset_from[leg]==s->offset_target[leg]?s->offset_from[leg]:s->offset_from[leg]+(s->offset_target[leg]-s->offset_from[leg])*smooth((phase-s->run_transition_phase)/V2_RUN_TRANSITION);}
 /* Locate contact events on the changing phase schedule. During Walk/Run
  * blending, the offset and duty at touchdown differ from those at liftoff. */
@@ -81,7 +85,7 @@ static void set_run_target(ainekio_v2_walk_state_t *s,double target)
 {
     if(s->run_target==target)return;
     for(unsigned i=0;i<4;i++) {
-        double offset=offset_at(s,i,s->phase),next=target?(i<2?0.:.5):v2_walk_offsets[i];
+        double offset=offset_at(s,i,s->phase),next=target?(i<2?0.:.5):walk_offset(s,i);
         /* Select the nearest equivalent phase. Always rounding downward
          * makes a tiny interrupted Run transition advance a returning Walk
          * foot by almost a whole cycle. Half-cycle ties still advance. */
@@ -212,8 +216,8 @@ static double profile_travel(const ainekio_v2_walk_state_t *s,double lo,double h
         if(turning)ratio=(float)angle+((float)V2_RUN_TURN-(float)angle)*run;
         else {
             float sweep=s->gait_mode==AINEKIO_GAIT_CRAB?(float)sweep_at(s,lo):s->gait_mode==AINEKIO_GAIT_CRAWL?(float)V2_CRAWL_SWEEP:
-                (float)V2_WALK_SWEEP+(run_sweep-(float)V2_WALK_SWEEP)*run;
-            ratio=sweep/(s->gait_mode==AINEKIO_GAIT_CRAB?(float)V2_CRAB_DUTY:((float)(s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_DUTY:V2_WALK_DUTY)+((float)V2_RUN_DUTY-(float)(s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_DUTY:V2_WALK_DUTY))*run));
+                (float)walk_sweep(s)+(run_sweep-(float)walk_sweep(s))*run;
+            ratio=sweep/(s->gait_mode==AINEKIO_GAIT_CRAB?(float)V2_CRAB_DUTY:((float)(s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_DUTY:walk_duty(s))+((float)V2_RUN_DUTY-(float)(s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_DUTY:walk_duty(s)))*run));
         }
         sum+=(i==0||i==32?1.f:(i%2?4.f:2.f))*stride*ratio;
     }
@@ -227,7 +231,7 @@ static double turn_travel(const ainekio_v2_walk_state_t *s,double lo,double hi)
 {
     return profile_travel(s,lo,hi,true);
 }
-static double steering_at(const ainekio_v2_walk_state_t *s,double phase,unsigned axis)
+static double operator_steering_at(const ainekio_v2_walk_state_t *s,double phase,unsigned axis)
 {
     /* Feet already in swing retain landings chosen for the previous heading.
      * Use the same two-cycle blend as the full Walk stroke so a reversal does
@@ -237,6 +241,18 @@ static double steering_at(const ainekio_v2_walk_state_t *s,double phase,unsigned
     double from=axis==2?s->lateral_from:axis==1?s->turn_from:s->forward_from;
     double target=axis==2?s->lateral_target:axis==1?s->turn_target:s->forward_target;
     return (from+(target-from)*u)/100.;
+}
+static double steering_at(const ainekio_v2_walk_state_t *s,double phase,unsigned axis)
+{
+    double value=operator_steering_at(s,phase,axis);
+    return axis==1 ? fmax(-1.,fmin(1.,value+s->feedback_turn)) : value;
+}
+void ainekio_v2_walk_command_features(const ainekio_v2_walk_state_t *s,float values[4])
+{
+    values[0]=s->steering?operator_steering_at(s,s->phase,0):s->direction==AINEKIO_WALK_FORWARD?1.f:s->direction==AINEKIO_WALK_BACKWARD?-1.f:0.f;
+    values[1]=s->steering?operator_steering_at(s,s->phase,1):s->direction==AINEKIO_WALK_TURN_LEFT?1.f:s->direction==AINEKIO_WALK_TURN_RIGHT?-1.f:0.f;
+    values[2]=s->steering?operator_steering_at(s,s->phase,2):s->direction==AINEKIO_WALK_SIDE_LEFT?1.f:s->direction==AINEKIO_WALK_SIDE_RIGHT?-1.f:0.f;
+    values[3]=controls_at(s,s->phase).stride_percent/100.;
 }
 /* A curve spends the same available foot stroke on translation and yaw.
  * Use the outer foot's radius, rather than adding a full straight stroke
@@ -248,8 +264,8 @@ static double steering_scale(const ainekio_v2_walk_state_t *s,double phase)
     double forward=fabs(steering_at(s,phase,0)),turn=fabs(steering_at(s,phase,1));
     double radius=0.;
     for(unsigned i=0;i<4;i++)radius=fmax(radius,hypot(
-        fabs(v2_walk_stance[i][0])+fabs(V2_WALK_BIAS)+V2_WALK_SWEEP*.5,
-        v2_walk_stance[i][1]));
+        fabs(v2_walk_stance[i][0])+fabs(V2_WALK_BIAS)+walk_sweep(s)*.5+fabs(s->profile.landing_mm[(i+2)%4][0]),
+        fabs(v2_walk_stance[i][1])+fabs(s->profile.landing_mm[(i+2)%4][1])));
     double yaw=mixed(s,phase,V2_WALK_TURN,V2_RUN_TURN);
     double scale=fmax(1.,forward+turn*radius*yaw*duty_at(s,phase)/sweep_at(s,phase));
     return 1.+(scale-1.)*(1.-run_at(s,phase));
@@ -297,6 +313,27 @@ bool ainekio_v2_locomotion_begin(ainekio_v2_walk_state_t *s,ainekio_walk_directi
 bool ainekio_v2_walk_begin(ainekio_v2_walk_state_t *s,unsigned cycles,ainekio_v2_walk_controls_t c,uint64_t now)
 {
     return ainekio_v2_locomotion_begin(s,AINEKIO_WALK_FORWARD,false,cycles,c,now);
+}
+bool ainekio_v2_gait_profile_valid(const ainekio_v2_gait_profile_t *p)
+{
+    if(!p||!isfinite(p->duty_delta)||!isfinite(p->sweep_delta_mm)||
+       V2_WALK_DUTY+p->duty_delta<=0.||V2_WALK_DUTY+p->duty_delta>=1.||
+       V2_WALK_SWEEP+p->sweep_delta_mm<=0.)return false;
+    for(unsigned l=0;l<4;l++) {
+        if(!isfinite(p->phase_offset[l])||!isfinite(p->lift_delta_mm[l])||
+           fmin(V2_WALK_MIN_LIFT,V2_WALK_LIFT)+p->lift_delta_mm[l]<0.)return false;
+        for(unsigned a=0;a<2;a++)if(!isfinite(p->landing_mm[l][a]))return false;
+    }
+    for(unsigned a=0;a<3;a++)for(unsigned k=0;k<5;k++)if(!isfinite(p->body_mm[a][k]))return false;
+    return true;
+}
+void ainekio_v2_walk_profile_begin(ainekio_v2_walk_state_t *s,const ainekio_v2_gait_profile_t *p)
+{
+    s->profile=*p;s->profile_run=s->run_target==1.;
+    if(s->gait_mode==AINEKIO_GAIT_WALK && s->run_target==0.)
+        for(unsigned i=0;i<4;i++)s->offset_from[i]=s->offset_target[i]=walk_offset(s,i);
+    if(s->profile_run)
+        for(unsigned i=0;i<4;i++)s->offset_from[i]=s->offset_target[i]=(i<2?0.:.5)+p->phase_offset[(i+2)%4];
 }
 static double control_transition_start(const ainekio_v2_walk_state_t *s,ainekio_v2_walk_controls_t c)
 {
@@ -412,6 +449,12 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
                 height_phase-=(shift-round(shift))*.25*V2_WALK_HEIGHT_REPHASE_GAIN;
         }
         body_pose(&s->pose,c.stride_percent,height_phase);
+        if(s->gait_mode==AINEKIO_GAIT_WALK||s->gait_mode==AINEKIO_GAIT_RUN) {
+            double a=2.*pi*s->phase,b[5]={1.,sin(a),cos(a),sin(2.*a),cos(2.*a)};
+            double weight=(s->profile_run?s->pose.run_blend:1.-s->pose.run_blend)*c.stride_percent/100.;
+            for(unsigned axis=0;axis<3;axis++)for(unsigned k=0;k<5;k++)
+                s->pose.body[axis]+=weight*s->profile.body_mm[axis][k]*b[k];
+        }
         double fore=s->pose.body[0],sway=s->pose.body[1];s->pose.body[0]=s->body_x+fore*cos(s->body_yaw)-sway*sin(s->body_yaw);
         s->pose.body[1]=s->body_y+fore*sin(s->body_yaw)+sway*cos(s->body_yaw);s->pose.euler[2]=s->body_yaw;
     }
@@ -431,10 +474,11 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
             f->swing_span=f->touchdown_phase-(transitioning?fmax(liftoff,s->phase):liftoff);
             double td=f->touchdown_phase;
             double stance_end=contact_event(s,i,cycle+1.,true,td);
-            double stance=travel(s,td,stance_end),stance_middle=(td+stance_end)*.5;
+            double stance=travel(s,td,stance_end),stance_middle=(td+stance_end)*.5,landing_yaw=s->body_yaw;
             if(s->steering){
                 double x=s->body_x,y=s->body_y,yaw=s->body_yaw;
                 steered_path(s,s->phase,stance_middle,&x,&y,&yaw);
+                landing_yaw=yaw;
                 double lane=s->gait_mode==AINEKIO_GAIT_CRAB?copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1]):v2_walk_stance[i][1];
                 if(s->gait_mode!=AINEKIO_GAIT_CRAB){
                     double bias=s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_BIAS/V2_CRAWL_SWEEP:mixed(s,td,V2_WALK_BIAS/V2_WALK_SWEEP,V2_RUN_FORWARD_BIAS/V2_RUN_FORWARD_SWEEP);
@@ -446,6 +490,7 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
                 f->end_y=y+v2_walk_stance[i][0]*sin(yaw)+lane*cos(yaw)-v2_walk_stance[i][1];
             } else if(turning){
                 double yaw=s->body_yaw+turn_travel(s,s->phase,stance_middle);
+                landing_yaw=yaw;
                 double x=v2_walk_stance[i][0],y=s->gait_mode==AINEKIO_GAIT_CRAB?copysign(V2_CRAB_WIDTH,v2_walk_stance[i][1]):v2_walk_stance[i][1];
                 f->end_x=x*cos(yaw)-y*sin(yaw)-x;f->end_y=x*sin(yaw)+y*cos(yaw)-v2_walk_stance[i][1];
             } else if(s->gait_mode==AINEKIO_GAIT_CRAB){
@@ -467,6 +512,13 @@ static bool advance(ainekio_v2_walk_state_t *s,double dt,bool emit)
             double min_lift=s->gait_mode==AINEKIO_GAIT_CRAB?V2_CRAB_MIN_LIFT:s->gait_mode==AINEKIO_GAIT_CRAWL?V2_CRAWL_MIN_LIFT:mixed(s,s->phase,V2_WALK_MIN_LIFT,V2_RUN_MIN_LIFT);
             f->run_shape=1.;
             f->lift=min_lift+(lift-min_lift)*controls_at(s,s->stopping&&run_at(s,s->phase)>0. ? td : td-(1.-contact)/2.).stride_percent/100.;f->swinging=true;
+            if(s->gait_mode==AINEKIO_GAIT_WALK||s->gait_mode==AINEKIO_GAIT_RUN) {
+                unsigned leg=(i+2)%4;double weight=s->profile_run?run_at(s,td):1.-run_at(s,td);
+                double x=weight*s->profile.landing_mm[leg][0],y=weight*s->profile.landing_mm[leg][1];
+                f->end_x+=x*cos(landing_yaw)-y*sin(landing_yaw);
+                f->end_y+=x*sin(landing_yaw)+y*cos(landing_yaw);
+                f->lift+=weight*s->profile.lift_delta_mm[leg];
+            }
         }
         if(emit) {
             double x=f->start_x,y=f->start_y,height=0.;
@@ -599,6 +651,80 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *s,uint64_t now)
     }
     return true;
 }
+/* PI steering in gait-cycle coordinates: one full turn command is the
+ * available yaw per cycle. The quarter-cycle filter blends trajectory changes;
+ * it never eases PWM targets or waits for a joint. Integral tracks persistent
+ * turning bias; it is not a learned actuator model. */
+bool ainekio_v2_walk_feedback_tick(ainekio_v2_walk_state_t *s,uint64_t now,
+    bool enabled,bool usable,double yaw,bool (*valid)(const ainekio_v2_frame_t *,void *),void *context)
+{
+    if(!s || !s->initialized || now<s->last_us)return false;
+    if(!enabled && s->feedback_turn==0.) {
+        s->heading_active=s->heading_acquired=false;
+        s->heading_error=s->heading_integral=0.;s->heading_reduced=false;
+        return ainekio_v2_walk_tick(s,now);
+    }
+    /* Convert a semantic direction to its identical steering representation.
+     * Operator updates remain independent of the feedback input. */
+    if(!s->steering) {
+        s->forward_from=s->forward_target=s->direction==AINEKIO_WALK_FORWARD?100.:s->direction==AINEKIO_WALK_BACKWARD?-100.:0.;
+        s->turn_from=s->turn_target=s->direction==AINEKIO_WALK_TURN_LEFT?100.:s->direction==AINEKIO_WALK_TURN_RIGHT?-100.:0.;
+        s->lateral_from=s->lateral_target=s->direction==AINEKIO_WALK_SIDE_LEFT?100.:s->direction==AINEKIO_WALK_SIDE_RIGHT?-100.:0.;
+        s->steering=true;
+    }
+    const double old_integral=s->heading_integral;
+    const double dt=(now-s->last_us)/1e6;
+    const double dp=dt*s->cycles_s;
+    s->heading_active=enabled && usable && isfinite(yaw);
+    if(s->heading_active) {
+        if(!s->heading_acquired) {
+            s->heading_reference=s->heading_measured=0.;
+            s->heading_integral=0.;s->heading_last_yaw=yaw;
+        }
+        s->heading_measured+=atan2(sin(yaw-s->heading_last_yaw),cos(yaw-s->heading_last_yaw));
+        s->heading_last_yaw=yaw;s->heading_acquired=true;
+        s->heading_error=s->heading_reference-s->heading_measured;
+    } else {
+        s->heading_acquired=false;s->heading_error=s->heading_integral=0.;
+    }
+    const double authority=mixed(s,s->phase,V2_WALK_TURN,V2_RUN_TURN);
+    const double operator_turn=operator_steering_at(s,s->phase,1);
+    double target=0.;
+    if(s->heading_active) {
+        double integral=s->heading_integral+.25*s->heading_error*dp/authority;
+        double requested=s->heading_error/authority+integral;
+        double applied=fmax(-1.-operator_turn,fmin(1.-operator_turn,requested));
+        /* Back calculation uses the actual steering authority; no accumulating
+         * hidden turn demand while the operator already requests a full turn. */
+        s->heading_integral=integral+(applied-requested);
+        target=applied;
+    }
+    const double previous=s->feedback_turn;
+    const double correction=previous+(target-previous)*(-expm1(-dp/.25));
+    ainekio_v2_walk_state_t candidate;
+    bool accepted=false;
+    double selected=correction;
+    for(unsigned attempt=0;attempt<=13;attempt++) {
+        candidate=*s;
+        candidate.feedback_turn=attempt==13?0.:selected;
+        if(ainekio_v2_walk_tick(&candidate,now) && (!valid || valid(&candidate.pose.frame,context))) {
+            accepted=true;break;
+        }
+        selected*=.5;
+    }
+    if(!accepted)return false; /* The underlying commanded path failed too. */
+    candidate.heading_reduced=fabs(candidate.feedback_turn-correction)>1e-9;
+    if(candidate.heading_reduced)candidate.heading_integral=old_integral;
+    /* Reference follows only the operator's requested curve at the executed
+     * phase; the corrective turn must never redefine the desired heading. */
+    double x=0.,y=0.,reference=0.;
+    double applied=candidate.feedback_turn;candidate.feedback_turn=0.;
+    steered_path(&candidate,s->phase,candidate.phase,&x,&y,&reference);
+    candidate.feedback_turn=applied;
+    if(candidate.heading_acquired)candidate.heading_reference+=reference;
+    *s=candidate;
+    return true;
+}
 bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *command,uint64_t now)
 {
     uint8_t cycles;ainekio_v2_walk_controls_t controls={100.,1.};
@@ -635,9 +761,9 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
            intent->data.walk.update_sequence!=s->command_sequence||command->sequence<=s->latest_sequence||now!=s->last_us)return false;
         if(!ainekio_v2_walk_update(s,controls))return false;
         if(intent->data.walk.steering){
-            s->forward_from=s->steering?100.*steering_at(s,s->phase,false):(s->direction==AINEKIO_WALK_BACKWARD?-100.:s->direction==AINEKIO_WALK_FORWARD?100.:0.);
-            s->turn_from=s->steering?100.*steering_at(s,s->phase,true):(s->direction==AINEKIO_WALK_TURN_LEFT?100.:s->direction==AINEKIO_WALK_TURN_RIGHT?-100.:0.);
-            s->lateral_from=s->steering?100.*steering_at(s,s->phase,2):(s->direction==AINEKIO_WALK_SIDE_LEFT?100.:s->direction==AINEKIO_WALK_SIDE_RIGHT?-100.:0.);
+            s->forward_from=s->steering?100.*operator_steering_at(s,s->phase,false):(s->direction==AINEKIO_WALK_BACKWARD?-100.:s->direction==AINEKIO_WALK_FORWARD?100.:0.);
+            s->turn_from=s->steering?100.*operator_steering_at(s,s->phase,true):(s->direction==AINEKIO_WALK_TURN_LEFT?100.:s->direction==AINEKIO_WALK_TURN_RIGHT?-100.:0.);
+            s->lateral_from=s->steering?100.*operator_steering_at(s,s->phase,2):(s->direction==AINEKIO_WALK_SIDE_LEFT?100.:s->direction==AINEKIO_WALK_SIDE_RIGHT?-100.:0.);
             s->lateral_target=intent->data.walk.lateral;
             s->forward_target=intent->data.walk.forward;s->turn_target=intent->data.walk.turn;s->steering_phase=s->phase;s->steering=true;
         }

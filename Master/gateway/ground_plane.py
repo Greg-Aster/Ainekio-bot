@@ -86,9 +86,13 @@ class GroundPlane:
         if operation == "status":
             if robot in self.frames:
                 self.calibration_frames[robot] = self.frames[robot]
-            return {"calibration": self.calibrations.get(robot), "samples": len(self.samples.get(robot, [])),
+            result = {"calibration": self.calibrations.get(robot), "samples": len(self.samples.get(robot, [])),
                     "frame": self.frames[robot][1] if robot in self.frames else None,
                     "measurement": self.measurements.get(robot, {"available": False, "reason": "No camera frame"})}
+            if request.get("includeImage") and robot in self.calibration_frames:
+                gray, _ = self.calibration_frames[robot]
+                result["image"] = "data:image/jpeg;base64," + base64.b64encode(cv2.imencode('.jpg', gray)[1]).decode()
+            return result
         frame = self.calibration_frames.get(robot)
         if frame is None:
             raise ValueError("No retained camera frame for selected robot")
@@ -96,16 +100,27 @@ class GroundPlane:
         if request.get("frameId") != identity["frameId"]:
             raise ValueError("Select the exact current camera frame")
         if operation in ("capture", "reference"):
-            columns, rows = request.get("columns"), request.get("rows")
-            square = request.get("squareMetres")
-            if type(columns) is not int or type(rows) is not int or columns < 2 or rows < 2 or type(square) not in (float, int) or not math.isfinite(square) or square <= 0:
-                raise ValueError("Measured checkerboard inner columns/rows and squareMetres required")
-            found, corners = cv2.findChessboardCornersSB(gray, (columns, rows))
-            if not found:
-                raise ValueError("Measured checkerboard corners not found in selected frame")
-            points = np.zeros((columns * rows, 3), np.float64)
-            points[:, :2] = np.mgrid[:columns, :rows].T.reshape(-1, 2) * square
-            sample = {"points": points, "pixels": corners.reshape(-1, 2).astype(float), "identity": identity.copy(), "size": gray.shape[::-1]}
+            if request.get("pattern") == "rectangle":
+                width, height = request.get("widthMetres"), request.get("heightMetres")
+                if any(type(v) not in (float, int) or not math.isfinite(v) or v <= 0 for v in (width, height)):
+                    raise ValueError("Measured rectangle widthMetres and heightMetres required")
+                pixels = array(request.get("pixels"), (4, 2), "pixels")
+                if np.any(pixels < 0) or np.any(pixels > [gray.shape[1]-1, gray.shape[0]-1]):
+                    raise ValueError("Rectangle corners must belong to the selected image")
+                points = np.array([[0, 0, 0], [width, 0, 0], [width, height, 0], [0, height, 0]])
+            else:
+                columns, rows = request.get("columns"), request.get("rows")
+                square = request.get("squareMetres")
+                if type(columns) is not int or type(rows) is not int or columns < 2 or rows < 2 or type(square) not in (float, int) or not math.isfinite(square) or square <= 0:
+                    raise ValueError("Measured checkerboard inner columns/rows and squareMetres required")
+                found, corners = cv2.findChessboardCornersSB(gray, (columns, rows))
+                if not found:
+                    raise ValueError("Measured checkerboard corners not found in selected frame")
+                points = np.zeros((columns * rows, 3), np.float64)
+                points[:, :2] = np.mgrid[:columns, :rows].T.reshape(-1, 2) * square
+                pixels = corners.reshape(-1, 2).astype(float)
+            sample = {"points": points, "pixels": pixels, "identity": identity.copy(), "size": gray.shape[::-1],
+                      "pattern": request.get("pattern", "checkerboard")}
             if operation == "capture":
                 samples = self.samples.setdefault(robot, [])
                 if any(s["identity"]["frameId"] == identity["frameId"] for s in samples):
@@ -127,7 +142,7 @@ class GroundPlane:
         if operation == "fit":
             samples = self.samples.get(robot, [])
             if len(samples) < 3:
-                raise ValueError("At least three distinct checkerboard views required for intrinsic fitting")
+                raise ValueError("At least three distinct measured target views required for intrinsic fitting")
             size = samples[0]["size"]
             if any(s["size"] != size for s in samples):
                 raise ValueError("Calibration samples have different image geometry")
@@ -140,7 +155,8 @@ class GroundPlane:
             c = {"id": str(uuid4()), "robotId": robot, "imageSize": list(size), "geometryId": geometry,
                  "cameraMatrix": k.tolist(), "distortion": d.ravel().tolist(), "cameraToBody": transform.tolist(),
                  "reprojectionPixels": float(rms), "sampleFrames": [s["identity"] for s in samples],
-                 "source": "measured-checkerboard", "metricUncertaintyMetres": None}
+                 "source": "measured-planar-target", "patterns": sorted({s.get("pattern", "checkerboard") for s in samples}),
+                 "metricUncertaintyMetres": None}
             self.validate_calibration(c)
             self.calibrations[robot] = c
             self.references.pop(robot, None)
@@ -162,7 +178,7 @@ class GroundPlane:
             "source": "calibrated-ground-plane", "referenceId": reference["id"], "calibrationId": c["id"],
             "referenceFrameId": reference["identity"]["frameId"],
             "position": {"xMetres": float(position[0]), "yMetres": float(position[1]),
-                         "headingDegrees": heading, "uncertaintyMetres": None},
+                         "zMetres": float(position[2]), "headingDegrees": heading, "uncertaintyMetres": None},
             "uncertainty": {**quality, "metricMetres": None, "calibrationReprojectionPixels": c["reprojectionPixels"]}}
 
     def process(self, robot, epoch, counter, received_at, jpeg, received_iso):

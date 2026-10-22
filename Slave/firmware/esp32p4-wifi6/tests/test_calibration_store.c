@@ -92,7 +92,15 @@ int main(void){
     const uint8_t legacy_off=0;put("balance_enable",&legacy_off,sizeof legacy_off);boot();
     assert(!ainekio_p4_balance_enabled() && ainekio_p4_balance_saved());
     assert(!ainekio_p4_balance_tuning_saved() && ainekio_p4_balance_tuning().damping==1.F);
+    assert(!ainekio_p4_walking_feedback_enabled() && !ainekio_p4_walking_feedback_saved());
     driver.state.armed=true;
+    assert(ainekio_p4_walking_feedback_save(true)==ESP_OK && driver.state.armed);
+    boot();assert(ainekio_p4_walking_feedback_enabled() && ainekio_p4_walking_feedback_saved());
+    assert(!ainekio_p4_balance_enabled() && !memcmp(&preserved,&committed,sizeof committed));
+    fail_commit=true;assert(ainekio_p4_walking_feedback_save(false)==ESP_FAIL);
+    assert(ainekio_p4_walking_feedback_enabled());fail_commit=false;
+    assert(ainekio_p4_walking_feedback_save(false)==ESP_OK);boot();
+    assert(!ainekio_p4_walking_feedback_enabled());
     assert(ainekio_p4_balance_save(false)==ESP_OK && driver.state.armed);
     assert(!ainekio_p4_balance_enabled() && ainekio_p4_balance_saved());
     boot();assert(!ainekio_p4_balance_enabled() && ainekio_p4_balance_saved());

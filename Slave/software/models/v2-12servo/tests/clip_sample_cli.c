@@ -18,7 +18,10 @@ int main(void)
             for (size_t j = 0; j < 12; ++j) printf("%s%.9g", j ? "," : "", vectors[k][j]);
             printf("]");
         }
-        printf(",\"complete\":%s}\n", frame.phase == AINEKIO_V2_COMPLETE ? "true" : "false");
+        float up[3];
+        if(!ainekio_v2_clip_expected_up(index,time,up))return 1;
+        printf(",\"expected_up\":[%.9g,%.9g,%.9g],\"complete\":%s}\n",
+            (double)up[0],(double)up[1],(double)up[2],frame.phase == AINEKIO_V2_COMPLETE ? "true" : "false");
     }
     return 0;
 }

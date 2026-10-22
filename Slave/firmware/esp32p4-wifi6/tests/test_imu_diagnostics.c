@@ -46,7 +46,7 @@ void vTaskDelayUntil(TickType_t *wake,TickType_t ticks) { *wake+=ticks;vTaskDela
 BaseType_t xTaskCreate(void (*fn)(void *),const char *name,unsigned stack,void *arg,unsigned priority,void *handle)
 {
     assert(fn==acquisition_task && !strcmp(name,"p4_imu") && stack==4096);
-    assert(!arg && priority==3 && !handle);++tasks;return task_ok ? pdPASS : 0;
+    assert(!arg && priority==6 && !handle);++tasks;return task_ok ? pdPASS : 0;
 }
 esp_err_t i2c_master_probe(i2c_master_bus_handle_t bus,uint16_t address,int timeout)
 { assert(bus==(void *)1 && address==0x6a && timeout==20);return present ? ESP_OK : ESP_ERR_TIMEOUT; }

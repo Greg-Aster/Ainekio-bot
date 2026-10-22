@@ -20,10 +20,33 @@ Native V2 body-controller target (`0.8.0-p4-color-face`). It uses the portable A
 configuration store and command decoder, with its own P4 startup, board resources,
 C6 networking and PCA9685 output driver. It does not compile the S3 platform.
 
-With a saved joint mapping, normal power-on enables PCA9685 channels 0–11 at their home pulses,
-starting channels 200 ms apart and continuing to hold the resulting pose.
-Default home is **1300 µs at nominal 50 Hz** on every body channel. Channels
-12–15 remain off. Startup does not require Wi-Fi or a gateway connection.
+From `0.8.113-p4-link-motion`, Wi-Fi loss, controller disconnect, send failure
+and heartbeat expiry retire the transport session without disabling PWM. The
+body output owner continues accepted finite motions and powered standing. An
+open-ended Walk/Run/Crawl/Crab uses the same Finish trajectory as the dashboard,
+including steering, and holds its settled pose. There is no disconnect timer
+or new forced pose. Later-session commands remain available and cannot be
+finished by an old-session disconnect notification. Reconnection never replays
+commands or fabricates completion receipts for the disconnected session.
+Explicit detach, sleep/reboot and actual output faults retain their existing
+separate behavior. This policy applies to P4, not the S3 implementation.
+
+Normal power-on uses the saved joint mapping and local stepping/Stand planner.
+The initial fold and stepping pass run without intermediate feedback waits.
+With Stand verification enabled, the body checks measured joint positions after
+the entire pass, then repeats corrective stepping from the last commanded pose
+until the measured positions reach the final goal. The measurements select which
+leg to prioritize; they do not replace the trajectory's commanded origin. The optional jam timer is independent of these
+checks. Missing or untrusted feedback also completes the authored sequence,
+keeps its target powered, and reports `position_verified:false` without waiting.
+The retained goal can resume correction when usable readings return. Feedback
+health reports signal voltages and calibration confidence, not supply voltage.
+With verification off, the authored sequence completes normally. Named
+motions and custom sequences have no intermediate feedback checkpoints.
+Explicit calibration Home remains a separate command. Channels 12–15 remain off.
+Startup does not require Wi-Fi or a gateway connection. See
+[measured motion and stall events](../../../Master/gateway/README.md#p4-recording-and-firmware-in-body-control)
+for settings, the existing body-event route and qualification limits.
 
 This is the electrical assembly reference, not a calibrated chassis-supported
 resting pose. The owner has updated the laying pose in the saved Blender scene
@@ -58,7 +81,7 @@ The sole body output owner also moves the physical front shoulders (model joints
 6 and 9) by +6° over 300 ms, holds while capturing, then returns to the exact
 previous commanded pose and pulses. The saved joint-speed limit can lengthen the
 transition. Carrier/crank geometry is unchanged. Normal motions take priority;
-calibration/manual targets supersede the cue, and existing Stop/disconnect/output
+calibration/manual targets supersede the cue, and explicit Stop/output
 state ownership remains in effect. This feedback never arms detached outputs.
 
 Speaker playback suspends both wake inference and microphone transmission from
@@ -142,7 +165,15 @@ before deceleration, including explicit Run after speed changes.
 
 Finite motion playback uses verified cubic segments instead of dense 120 Hz
 arrays. Continuous fitting error is bounded to 0.005 degrees before float
-rounding; all recorded extrema, holds, endpoints and command durations remain.
+rounding; all recorded extrema, holds and endpoints remain. Moving segments
+traverse their coordinated cubic path at 50% of configured joint speed. Holds
+retain their full authored time; the legacy playback rate affects entry easing.
+Phase endpoints and reversals await measured arrival before advancing. Sit, Rest
+and Crouch taper their final approach. The compiled distance clock replaces
+whole-clip speed scaling, including reverse grounded recovery. Face cue selection
+follows retimed source progress; the selected expression animates independently
+on wall time during holds and arrival waits. At a calibrated endpoint command,
+arrival uses the existing tolerance on both sides of the measured endpoint.
 The compiler emits clip extrema so startup does not scan every recorded frame.
 The body output owner retains the last successfully written model pose alongside
 its pulse frame. Automatic motion entry does not invert rounded PWM; manual
@@ -199,9 +230,12 @@ QVGA/VGA/XGA. Preview remains QVGA/VGA at 0–15 fps. Still boot default is AUTO
 JPEG quality remains 75. Changing preview settings preserves the still profile
 unless `snapshot_res` is supplied. Neither profile is stored in NVS.
 
-Preview uses the 1280×960 binned mode with one-frame exposure. Stills enable
-the OV5647's eight-frame night integration range (about 178 ms in 960p, 267 ms
-in 1080p); the sensor still chooses the exposure and gain for the light. After
+Preview uses the 1280×960 binned mode. Preview and stills both use continuous
+sensor automatic exposure and sensitivity, with the OV5647's eight-frame
+night integration range (about 178 ms in 960p, 267 ms in 1080p). These are
+sensor integration limits, not fixed exposure settings. The sensor meters the
+light and extends exposure before increasing gain; long exposure can blur
+motion and reduce delivered frame rate. After
 startup/profile changes, stills collect at least eight frames and wait until
 measured exposure and gain remain within 1/16 of an anchor for 300 ms. After
 four seconds per mode, a changing scene returns the current image marked
@@ -263,6 +297,80 @@ exposure caused motion blur and automatic exposure showed brightness alternation
 The gateway/protocol support remains compatible with other capable firmware.
 
 ### OV5647 automatic exposure and ISO
+
+`0.8.88-p4-camera-metering` retains removal of the application's 66.7 ms preview and
+32× automatic-gain ceilings. Sensor AEC, AGC and automatic frame length stay
+enabled across preview, stills, format switches and stream restarts; the
+application never writes a fixed shutter or gain. Both profiles expose the
+sensor's eight-frame night integration range and full 10-bit gain-ceiling
+field. Preview/still transitions no longer switch exposure policies.
+
+The native AEC brightness target is 46/255 (18% linear full scale), applied
+through the pinned OV5647 driver's `V4L2_CID_EXPOSURE` control after each
+format initialization. Despite that control's name, this driver uses it for
+AEC brightness, not shutter duration. The driver updates its six convergence
+thresholds together. This replaces its brighter 80/255 default ahead of ISP
+gamma/color processing; shutter and sensitivity continue adapting to the
+scene and are not fixed to particular values.
+
+White balance has one owner: the OV5647's native automatic white-balance
+calculation and gain stage. `0.8.91-p4-highlight-wb` enables both and clears
+manual/frozen AWB modes after sensor-format initialization, preserving unrelated
+processing bits. The application profile removes the P4 AWB module. On P4 rev 1.3,
+`esp_video` otherwise combines white-balance gains with the color-correction
+matrix before clipping, which can map saturated neutral input to magenta.
+Native WB applies/clips its gains before the independent, neutral-preserving
+ISP color matrix. Exposure, gain and frame length remain sensor-automatic;
+the existing metering target is unchanged. No post-JPEG recoloring or fixed
+RGB gains are used. The custom profile remains selected in `sdkconfig.defaults`.
+
+Native tests verify the generated pipeline has no competing ISP AWB,
+automatic-control bits, preservation of unrelated sensor
+processing, absence of application writes to shutter/gain outputs, changing
+sensor readback, preview/still transitions, both native modes and orientation.
+The color-boundary test reproduces magenta from combined WB/CCM clipping and
+checks neutral saturation with the new ordering. This mathematical test does
+not qualify the sensor's actual AWB convergence or image quality. Clipped scene
+detail and optical flare are not reconstructed by this change.
+The previous live image showed cyan highlights and saturated green/blue
+channels. An intermediate `0.8.86` test disabled native AWB without enabling
+the missing ISP module; it produced a green cast and is superseded. Improved
+color, exposure adaptation and image quality require hardware comparison.
+The prior preview readback of 177,621 µs,
+despite the old 66.7 ms register setting, is not yet electrically explained.
+
+Highlight-color qualification, 2026-10-19: `0.8.91-p4-highlight-wb` was installed
+and accepted through application OTA. Fresh VGA frames from the same backlit
+room changed a saturated window patch from approximately RGB 246/196/247 to
+249/251/248; subsequent frames retained the neutral highlight. Native camera
+and generated-profile tests pass, including automatic exposure controls and
+the WB/CCM saturation boundary. Calibration, balance and network settings were
+preserved. This confirms correction of the observed magenta highlight, not
+recovery of clipped window detail or removal of the remaining optical/processing
+halo. Native AWB color accuracy across other illuminants remains unqualified.
+
+Installation check, 2026-10-19: `0.8.87-p4-camera-awb` was uploaded through the
+existing application OTA path and accepted on boot. Fresh VGA images arrived
+with zero reported camera drops. Calibration, balance and robot settings
+matched before installation (excluding command receipt sequence numbers).
+Sensitivity changed during observation, but exposure remained at 177,621 µs
+in the scene. Highlights were still clipped and noise remained visible;
+this is not a completed image-quality repair or a controlled bright/dim
+adaptation qualification. A requested lighting-change comparison is pending.
+
+Brightness correction, 2026-10-19: `0.8.88-p4-camera-metering` was installed and
+accepted through application OTA. The 46/255 AEC target produced visibly less
+washed-out floor detail in live VGA frames. Preview remained stable through
+41 frames with zero reported drops. In this dim, backlit view the sensor selected
+177,621 µs and 15× gain. The restart changed the camera angle, so before/after
+whole-frame clipping percentages are not a controlled exposure comparison.
+The bright window still clips and shadow noise remains; this check does not
+establish quality across other lighting conditions. Native tests verify the
+brightness target is restored after format changes while shutter/gain registers
+remain owned by automatic control. Saved joint mappings, balance and robot
+settings were retained; current output pulses differ following reboot.
+
+Historical exposure policies (superseded by the adaptive configuration above):
 
 `0.8.16-p4-iso3200` raises the automatic gain ceiling to 32x (ISO 3200
 on the same OV5647 scale), as requested. Preview shutter remains capped at
@@ -838,6 +946,17 @@ at unity gain; the master percentage scales each PCM frame once at playback.
 Repeated saves of the same value do not rewrite NVS. Failed saves leave the
 previous volume active. Heartbeat `audio.speaker_volume_percent` reports the
 confirmed value; older bodies without that field do not expose this control.
+
+### Foreground and background face ownership
+
+`0.8.89-p4-face-layers` keeps separate foreground and background expression
+selections in the existing display owner. Each keeps its own token and original
+expiry. Background thinking updates and releases leave foreground reaction faces
+intact. Foreground release or expiry reveals a still-active background, which
+continues yielding to speech/motion. IMU telemetry reports the foreground token
+when present, preserving Body Control event suppression through temporary audio
+overlays. STOP/automatic-face restore clears both selections. Native tests cover
+replacement, independent release, expiry and retained motion expressions.
 
 
 ## Configurable inactivity rest

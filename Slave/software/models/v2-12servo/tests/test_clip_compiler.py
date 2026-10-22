@@ -16,6 +16,78 @@ spec.loader.exec_module(compiler)
 
 
 class HandoffValidation(unittest.TestCase):
+    def test_gesture_targets_preserve_phases_and_full_waves(self):
+        clips=compiler.load_gestures(MODEL)
+        for clip in clips:
+            targets=compiler.gesture_targets(clip['positions'],clip['phases'])
+            self.assertEqual(targets[0],0)
+            self.assertEqual(targets[-1],len(clip['positions'])-1)
+            for phase in clip['phases']:
+                for time in phase['source_interval_s']:
+                    self.assertIn(round(time*120),targets)
+            for joint in range(12):
+                values=[row[joint] for row in clip['positions']]
+                emitted=[values[i] for i in targets]
+                self.assertLessEqual(abs(min(values)-min(emitted)),compiler.COMPRESSION_ERROR_CD)
+                self.assertLessEqual(abs(max(values)-max(emitted)),compiler.COMPRESSION_ERROR_CD)
+        wave=next(c for c in clips if c['command']=='wave')
+        targets=compiler.gesture_targets(wave['positions'],wave['phases'])
+        shoulder=[wave['positions'][t][6] for t in targets if 240<=t<=480]
+        self.assertAlmostEqual((max(shoulder)-min(shoulder))/100,84.,places=4)
+        turns=[(b-a)*(c-b) for a,b,c in zip(shoulder,shoulder[1:],shoulder[2:])]
+        self.assertGreaterEqual(sum(t<0 for t in turns),5)  # Three complete waves.
+
+    def test_authored_hold_keeps_its_time_despite_ik_roundoff(self):
+        positions=[[0.]*12,[1e-9]*12]
+        clock=compiler.travel_clock(positions,[0,1],[[0.]*12]*2,[(0,1)])
+        self.assertEqual(clock[-1][1],0.)
+        self.assertAlmostEqual(clock[-1][2],1/120.)
+
+    def test_distance_clock_ignores_travel_time_and_preserves_holds(self):
+        start, end = [0.]*12, [100., 50.]+[0.]*10
+        for width in (1, 120):
+            positions = [start]*width+[end]*(width+1)
+            velocities = [[0.]*12 for _ in positions]
+            clock = compiler.travel_clock(positions, [0, width, 2*width], velocities)
+            self.assertAlmostEqual(clock[-1][1], 1.)  # Independent of recorded speed.
+            self.assertAlmostEqual(clock[-1][2], width/120.)  # Intentional hold.
+
+    def test_distance_clock_accounts_for_changes_of_fastest_joint(self):
+        start, end = [0.]*12, [100., 100.]+[0.]*10
+        velocities = [[12000., 0.]+[0.]*10]*2
+        clock = compiler.travel_clock([start, end], [0, 1], velocities)
+        self.assertGreater(len(clock), 2)
+        # Joint 0 is linear; joint 1 uses smoothstep. Independently integrate
+        # their maximum absolute derivative without the root partition.
+        samples = 20000
+        expected = sum(max(1., 6*u*(1-u)) for u in
+                       ((i+.5)/samples for i in range(samples)))/samples
+        self.assertAlmostEqual(clock[-1][1], expected, places=7)
+        self.assertEqual(clock[-1][2], 0.)
+
+    def test_distance_clock_preserves_reversals_of_the_same_joint(self):
+        positions = [[0.]*12, [100.]+[0.]*11]
+        velocities = [[37200.]+[0.]*11]*2
+        clock = compiler.travel_clock(positions, [0, 1], velocities)
+        self.assertGreater(len(clock), 2)
+        self.assertGreater(clock[-1][1], 1.)  # Include return travel, not net displacement.
+
+    def test_orientation_reference_preserves_the_recorded_body_vertical(self):
+        for clip in compiler.load_gestures(MODEL):
+            rows = clip['expected_up']
+            knots = compiler.compact_up(rows)
+            for lo, hi in zip(knots, knots[1:]):
+                for index in range(lo, hi+1):
+                    u = (index-lo)/(hi-lo)
+                    vector = [(1-u)*a+u*b for a, b in zip(rows[lo], rows[hi])]
+                    length = math.sqrt(sum(v*v for v in vector))
+                    self.assertLessEqual(math.sqrt(sum((v/length-target)**2
+                        for v, target in zip(vector, rows[index]))), 1.000001e-4)
+        self.assertEqual(compiler.body_up([1, 0, 0, 0]), [0, 0, 1])
+        up = compiler.body_up([math.cos(math.pi/6), 0, math.sin(math.pi/6), 0])
+        self.assertAlmostEqual(up[0], -math.sin(math.pi/3))
+        self.assertAlmostEqual(up[2], .5)
+
     def setUp(self):
         self.command = "rest"
         self.temp = tempfile.TemporaryDirectory()

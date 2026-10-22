@@ -184,6 +184,7 @@ class GatewayConnection:
         self.camera_frames_received = 0
         self.camera_received_at: float | None = None
         self.camera_frame_counter: int | None = None
+        self.camera_metadata: dict[str, object] | None = None
         self.body_command_sequence: int | None = None
         self.body_command_source: str | None = None
         self.body_command: dict[str, object] | None = None
@@ -308,6 +309,8 @@ class GatewayConnection:
                     raise GatewayError("Update the P4 firmware to configure self-leveling")
                 if BALANCE_TUNING_FIELDS.intersection(message) and BALANCE_TUNING_FEATURE not in self.features:
                     raise GatewayError("Update the P4 firmware to tune self-leveling response")
+                if message.get("op") == "walking" and "walking_feedback_v1" not in self.features:
+                    raise GatewayError("Update the P4 firmware for walking trajectory feedback")
                 if message.get("op") == "calibrate_gyro" and "balance_feedback_v1" not in self.features:
                     raise GatewayError("Update the P4 firmware for stationary gyro calibration")
                 validate_control_message({**message, "seq": 1})
@@ -428,7 +431,8 @@ class GatewayConnection:
                     if (message.get("t") == "tts" and message.get("op") in {"start", "cancel"}
                         or message.get("t") == "intent" and message.get("name") == "say"):
                         self.speech_command_sequence = sequence
-                    if (message.get("t") in {"stop", "motion_plan", "servo", "calibration", "mode", "state"}
+                    if (message.get("t") in {"stop", "motion_plan", "servo", "mode", "state"}
+                        or message.get("t") == "calibration" and message.get("op") != "get"
                         or message.get("t") == "intent" and message.get("name") not in {"face", "say"}):
                         # Adapter updates retain the original owner. Unguarded dashboard
                         # updates are manual takeover, even before any device receipt.
@@ -585,10 +589,14 @@ class GatewayConnection:
             self.microphone_level = math.sqrt(
                 sum(sample * sample for sample in samples) / len(samples)
             ) / 32768.0
+        camera_metadata = None
         if frame.frame_type == CAMERA_JPEG_FRAME_TYPE:
             self.camera_frames_received += 1
             self.camera_received_at = self.service.clock()
             self.camera_frame_counter = frame.counter
+            if (self.camera_metadata or {}).get("counter_base") == frame.counter:
+                camera_metadata = self.camera_metadata
+            self.camera_metadata = None
         await self.service._publish_frame(
             {
                 "robot_id": self.robot_id,
@@ -597,6 +605,7 @@ class GatewayConnection:
                 "counter": frame.counter,
                 "payload": raw[5:],
                 "received_at": self.service.clock(),
+                **({"camera_metadata": camera_metadata} if camera_metadata is not None else {}),
             }
         )
 
@@ -611,10 +620,13 @@ class GatewayConnection:
             return
         if message_type == "status":
             validate_control_message(message)
-            imu = (self.last_status or {}).get("imu")
+            previous = self.last_status or {}
+            imu = previous.get("imu")
             self.last_status = {**message, "status_received_at": datetime.now(timezone.utc).isoformat()}
             if imu is not None:
                 self.last_status["imu"] = imu
+            if "servo_feedback" in previous:
+                self.last_status["servo_feedback"] = previous["servo_feedback"]
             if BODY_CAPABILITIES_FEATURE in self.features and "capabilities" in message:
                 self.capabilities = dict(message["capabilities"])
             if message.get("mode") in {"normal", "calibrate"}:
@@ -633,6 +645,19 @@ class GatewayConnection:
             for event in self.service.body_events.observe(self.robot_id, self.epoch, imu):
                 await self.service._publish_event(event)
             return
+        if message_type == "event" and message.get("name") == "servo_feedback":
+            health = message["data"]
+            self.last_status = {**(self.last_status or {}), "servo_feedback": health}
+            await self.service._publish_event({"t": "servo_feedback", "robot_id": self.robot_id,
+                "epoch": self.epoch, "data": health})
+            face_token = (self.last_status.get("imu") or {}).get("face_token", "")
+            for event in self.service.body_events.observe_feedback(self.robot_id, self.epoch, health, face_token):
+                await self.service._publish_event(event)
+            return
+        if message_type == "event" and message.get("name") == "servo_stall":
+            event = self.service.body_events.servo_stall(self.robot_id, self.epoch, message)
+            await self.service._publish_event(event)
+            return
         if message_type == "event" and message.get("name") in {"boot", "wake"}:
             event = self.service.body_events.wake(self.robot_id, self.epoch,
                 str(message.get("reason", message["name"])), message.get("event_id"), message.get("clock_us"))
@@ -640,6 +665,8 @@ class GatewayConnection:
                 await self.service._publish_event(event)
             return
         if message_type in {"event", "cam_meta"}:
+            if message_type == "cam_meta":
+                self.camera_metadata = dict(message)
             await self.service._publish_event(
                 {"robot_id": self.robot_id, "epoch": self.epoch, **message}
             )
@@ -1331,6 +1358,10 @@ class GatewayService:
     def subscribe_events(self, callback: GatewayCallback) -> None:
         self._event_callbacks.append(callback)
 
+    def unsubscribe_events(self, callback: GatewayCallback) -> None:
+        if callback in self._event_callbacks:
+            self._event_callbacks.remove(callback)
+
     def subscribe_frames(self, callback: GatewayCallback) -> None:
         self._frame_callbacks.append(callback)
 
@@ -1343,6 +1374,10 @@ class GatewayService:
 
     def subscribe_commands(self, callback: GatewayCallback) -> None:
         self._command_callbacks.append(callback)
+
+    def unsubscribe_commands(self, callback: GatewayCallback) -> None:
+        if callback in self._command_callbacks:
+            self._command_callbacks.remove(callback)
 
     def subscribe_diagnostics(self, callback: Callable[[dict[str, object]], None]) -> None:
         self._diagnostic_callbacks.append(callback)

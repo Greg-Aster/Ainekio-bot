@@ -264,7 +264,7 @@ typedef struct {
         ainekio_robot_settings_command_t robot_settings;
         uint8_t speaker_volume_percent;
         struct {
-            bool save, enabled, has_tuning, calibrate_gyro;
+            bool save, enabled, has_tuning, calibrate_gyro, walking_feedback;
             float strength, damping, roll_deg, pitch_deg;
         } balance;
         struct { bool save, has_joint_speed_limit; float rate, joint_speed_limit_deg_s; } motion_speed;

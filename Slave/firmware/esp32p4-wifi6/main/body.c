@@ -1,3 +1,4 @@
+#include "gait_learning.h"
 #include "body.h"
 #include "logs.h"
 #include <stdio.h>
@@ -5,6 +6,7 @@
 #include "system.h"
 #include "config.h"
 #include "servo_feedback.h"
+#include "gait_trace_runtime.h"
 #include "ainekio/v2_walk.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/v2_posture.h"
@@ -42,7 +44,12 @@ static SemaphoreHandle_t caller_lock;
 static uint32_t request_serial;
 static portMUX_TYPE pulse_lock = portMUX_INITIALIZER_UNLOCKED;
 static uint16_t commanded[AINEKIO_PCA_BODY_CHANNELS];
+static uint64_t commanded_us;
 static ainekio_p4_body_status_t motion_status;
+/* A target write and completion can publish in the same output frame. Four
+ * snapshots retain the preceding 20 ms frame as well as these phase changes. */
+static ainekio_p4_execution_t execution_history[4];
+static unsigned execution_history_next;
 static ainekio_p4_body_timing_t timing;
 static TaskHandle_t output_handle;
 static bool listen_requested;
@@ -58,6 +65,14 @@ static void rest_timeout(void *arg)
     (void)arg;
     /* Shared esp_timer task only posts a notice. PWM stays with body_output. */
     atomic_store(&rest_expired,true);
+}
+static uint64_t disconnected_through;
+
+void ainekio_p4_body_connection_lost(uint64_t connection)
+{
+    portENTER_CRITICAL(&pulse_lock);
+    if(connection>disconnected_through)disconnected_through=connection;
+    portEXIT_CRITICAL(&pulse_lock);
 }
 
 void ainekio_p4_body_listen(bool active)
@@ -90,17 +105,29 @@ static void record_frame_timing(uint64_t calculation,uint64_t frame)
 
 static void publish(const uint16_t *pulses)
 {
+    const uint64_t now=esp_timer_get_time();
     portENTER_CRITICAL(&pulse_lock);
     memcpy(commanded, pulses, sizeof(commanded));
+    commanded_us=now;
     portEXIT_CRITICAL(&pulse_lock);
+    ainekio_p4_gait_trace_output(pulses,now,
+        ainekio_pca_status(ainekio_p4_output()).armed);
 }
 
 void ainekio_p4_body_pulses(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS])
 {
+    uint64_t timestamp;bool armed;
+    ainekio_p4_body_pulse_snapshot(pulses,&timestamp,&armed);
+}
+
+void ainekio_p4_body_pulse_snapshot(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS],uint64_t *published_us,bool *armed)
+{
     portENTER_CRITICAL(&pulse_lock);
     memcpy(pulses, commanded, sizeof(commanded));
+    *published_us=commanded_us;
     portEXIT_CRITICAL(&pulse_lock);
-    if (!ainekio_pca_status(ainekio_p4_output()).armed) memset(pulses, 0, sizeof(commanded));
+    *armed=ainekio_pca_status(ainekio_p4_output()).armed;
+    if (!*armed) memset(pulses, 0, sizeof(commanded));
 }
 
 static esp_err_t submit(body_request_t *request)
@@ -167,10 +194,14 @@ typedef struct {
     bool entering, reverse_grounded_entry, contact_entry, balance_on_complete;
     bool startup_entry;
     bool feedback_pending_write;
+    bool feedback_verified;
+    ainekio_v2_frame_t feedback_frame;
     uint64_t feedback_commanded_us;
     uint16_t feedback_waiting_mask, feedback_targets[12];
-    double feedback_confirmed_progress;
     double posture_progress;
+    uint16_t engaged_shoulders;
+    uint32_t posture_replans;
+    bool posture_replanning;
     /* Only one entry planner is active for a motion. */
     union {
         ainekio_v2_posture_t posture;
@@ -178,11 +209,16 @@ typedef struct {
     };
     size_t clip, recovery_clip;
     float playback_rate, requested_rate;
+    double clip_joint_speed;
+    ainekio_v2_clip_player_t clip_player;
+    uint64_t clip_updated_us, clip_commanded_us;
+    bool clip_pending_write;
     float entry_rate;
     const char *face_command;
     uint64_t face_elapsed_us;
     uint32_t face_revision;
     bool face_is_clip;
+    float entry_up[3];
     uint16_t from[AINEKIO_PCA_BODY_CHANNELS], target[AINEKIO_PCA_BODY_CHANNELS];
     union {
         ainekio_v2_walk_state_t walk;
@@ -202,6 +238,12 @@ typedef struct {
     size_t next_channel;
     uint32_t pending_home;
     motion_t motion;
+    bool stand_goal_active;
+    uint64_t stand_goal_since;
+    ainekio_p4_feedback_progress_t feedback_progress;
+    uint16_t stalled_joints;
+    uint64_t stall_clock_us;
+    ainekio_p4_execution_t execution;
     struct {
         bool active, engaged;
         uint64_t started, duration;
@@ -223,12 +265,105 @@ typedef struct {
 } body_state_t;
 static body_state_t body;
 
+static void up_from_euler(const double euler[3],float up[3])
+{
+    up[0]=(float)-sin(euler[1]);
+    up[1]=(float)(sin(euler[0])*cos(euler[1]));
+    up[2]=(float)(cos(euler[0])*cos(euler[1]));
+}
+
+static void entry_reference(motion_t *next)
+{
+    next->entry_up[2]=1.F;
+    if(body.execution.expected_up_known)
+        memcpy(next->entry_up,body.execution.expected_up,sizeof(next->entry_up));
+}
+
+static void blend_up(const float from[3],const float to[3],double u,float up[3])
+{
+    double length=0.;
+    for(unsigned j=0;j<3;j++){up[j]=(float)((1.-u)*from[j]+u*to[j]);length+=up[j]*up[j];}
+    length=sqrt(length);
+    for(unsigned j=0;j<3;j++)up[j]/=(float)length;
+}
+
+static void expected_up(uint64_t now,float up[3])
+{
+    const motion_t *motion=&body.motion;
+    const float upright[3]={0,0,1};
+    memcpy(up,upright,sizeof upright);
+    if(motion->entering && motion->contact_entry) {
+        up_from_euler(motion->posture.pose.euler,up);
+    } else if(motion->entering && motion->startup_entry) {
+        up_from_euler(motion->rise.crouch.euler,up);
+    } else if(motion->entering) {
+        float target[3]={0,0,1};
+        if(motion->kind==MOTION_CLIP)ainekio_v2_clip_expected_up(motion->clip,0,target);
+        if(motion->reverse_grounded_entry) {
+            const double duration=ainekio_v2_clip_playback_seconds(motion->recovery_clip,
+                motion->clip_joint_speed,motion->requested_rate)*1e6;
+            const double elapsed=fmin((double)motion->entry_duration,(double)(now-motion->entry_start));
+            if(elapsed<duration) {
+                ainekio_v2_frame_t frame;uint64_t source_us;
+                ainekio_v2_clip_playback_sample(motion->recovery_clip,elapsed/1e6,
+                    motion->clip_joint_speed,motion->requested_rate,true,&frame,&source_us);
+                ainekio_v2_clip_expected_up(motion->recovery_clip,source_us,up);
+                return;
+            }
+            float source[3];ainekio_v2_clip_expected_up(motion->recovery_clip,0,source);
+            const double u=fmin(1.,(elapsed-duration)*motion->entry_rate/GROUNDED_ALIGN_US);
+            blend_up(source,target,u*u*u*(10.+u*(-15.+6.*u)),up);
+        } else {
+            const float u=fminf(1.F,((float)(now-motion->entry_start)/motion->entry_duration)*motion->entry_rate);
+            const double half=u<=.5F?u:1.-u;
+            const double ramp=half*half*half*(10.+half*(-15.+6.*half));
+            blend_up(motion->entry_up,target,u<=.5F?ramp:1.-ramp,up);
+        }
+    } else if(motion->kind==MOTION_WALK) {
+        up_from_euler(motion->walk.pose.euler,up);
+    } else if(motion->kind==MOTION_CLIP) {
+        ainekio_v2_clip_expected_up(motion->clip,motion->face_elapsed_us,up);
+    }
+}
+
+static void publish_execution(uint64_t now,bool sampling,bool manual)
+{
+    ainekio_p4_execution_t *execution=&body.execution;
+    if(sampling && body.motion.kind!=MOTION_NONE) {
+        const char *command=body.motion.kind==MOTION_FREESTYLE?"motion_plan":body.motion.face_command;
+        const uint64_t written=esp_timer_get_time();
+        if(!execution->command || execution->connection!=body.motion.connection ||
+           execution->sequence!=body.motion.sequence ||
+           strcmp(execution->command,command))execution->started_us=written;
+        execution->command=command;execution->sequence=body.motion.sequence;
+        execution->connection=body.motion.connection;
+        execution->activity=body.motion.kind==MOTION_WALK?"locomotion":
+            body.motion.kind==MOTION_CLIP?"clip":body.motion.kind==MOTION_FREESTYLE?"freestyle":"pose";
+        execution->phase=body.motion.posture_replanning?"replanning":
+            body.motion.entering?"entry":"motion";
+        execution->sampled_us=written;
+        execution->expected_up_known=body.motion.kind!=MOTION_FREESTYLE;
+        if(execution->expected_up_known)expected_up(now,execution->expected_up);
+    } else if(manual) {
+        const uint64_t written=esp_timer_get_time();
+        const uint64_t started=execution->activity && !strcmp(execution->activity,"manual") &&
+            execution->phase && !strcmp(execution->phase,"motion")?execution->started_us:written;
+        *execution=(ainekio_p4_execution_t){.command="manual",.activity="manual",
+            .phase=body.ramping?"motion":"hold",.started_us=started,.sampled_us=written};
+    }
+}
+
 static void publish_motion(void)
 {
     ainekio_p4_body_status_t value = {
         .connection=body.motion.connection, .sequence=body.motion.sequence,
         .moving=body.motion.kind != MOTION_NONE,
+        .execution=body.execution,
         .listening_feedback=body.listen.active,
+        .walking_feedback_active=body.motion.kind==MOTION_WALK && body.motion.walk.heading_active,
+        .walking_feedback_reduced=body.motion.kind==MOTION_WALK && body.motion.walk.heading_reduced,
+        .walking_heading_error_rad=body.motion.kind==MOTION_WALK ? body.motion.walk.heading_error : 0.,
+        .walking_turn_percent=body.motion.kind==MOTION_WALK ? body.motion.walk.feedback_turn*100. : 0.,
         .balance_active=ainekio_p4_balance_enabled() && body.balance.sensor_usable && !body.balance_settled && (body.balance_hold ||
             (body.motion.kind!=MOTION_NONE && (body.motion.contact_entry ||
                 body.motion.startup_entry || body.motion.kind==MOTION_WALK))),
@@ -238,9 +373,13 @@ static void publish_motion(void)
         .balance_tracking_active=body.balance_tracking_active && body.balance_hold &&
             ainekio_p4_balance_enabled(),
         .balance_tracking_reduced=body.balance_tracking_active && body.balance_tracking.reduced,
-        .servo_feedback_waiting=body.motion.feedback_commanded_us!=0 && ainekio_p4_feedback_stand_enabled(),
+        .servo_feedback_waiting=body.motion.kind!=MOTION_NONE &&
+            (body.motion.clip_commanded_us!=0 ||
+             (body.motion.feedback_commanded_us!=0 && ainekio_p4_feedback_stand_enabled())),
         .servo_feedback_waiting_mask=body.motion.feedback_waiting_mask,
+        .stalled_joints=body.stalled_joints,.stall_clock_us=body.stall_clock_us,
         .stand_progress=(float)(body.motion.posture_progress/ainekio_v2_posture_path_length()),
+        .stand_replanning=body.motion.posture_replanning,.stand_replans=body.motion.posture_replans,
         .body_roll_rad=(float)body.balance.measured[0],
         .body_pitch_rad=(float)body.balance.measured[1],
         .balance_roll_rad=(float)body.balance.correction[0],
@@ -252,6 +391,8 @@ static void publish_motion(void)
         .face_entering=body.motion.entering,
         .face_clip=body.motion.clip,
         .automatic_run=body.motion.kind==MOTION_WALK && body.motion.walk.automatic_run,
+        .gait_valid=body.motion.kind==MOTION_WALK,
+        .gait_phase=body.motion.kind==MOTION_WALK ? body.motion.walk.phase : 0.,
         .gait_cycles_s=body.motion.kind==MOTION_WALK && !body.motion.entering ? body.motion.walk.cycles_s : 0.F,
         .gait_requested_cycles_s=body.motion.kind==MOTION_WALK ? body.motion.walk.requested_cycles_s : 0.F,
         .stride_percent=body.motion.kind==MOTION_WALK ? body.motion.walk.stride_percent : 0.F,
@@ -289,7 +430,30 @@ static void publish_motion(void)
     }
     portENTER_CRITICAL(&pulse_lock);
     motion_status = value;
+    if(value.execution.sampled_us) {
+        unsigned previous=(execution_history_next+3)%4;
+        if(execution_history[previous].sampled_us==value.execution.sampled_us)
+            execution_history[previous]=value.execution;
+        else {
+            execution_history[execution_history_next]=value.execution;
+            execution_history_next=(execution_history_next+1)%4;
+        }
+    }
     portEXIT_CRITICAL(&pulse_lock);
+}
+
+ainekio_p4_execution_t ainekio_p4_body_execution_at(uint64_t timestamp_us)
+{
+    ainekio_p4_execution_t result={0};
+    portENTER_CRITICAL(&pulse_lock);
+    for(unsigned i=0;i<4;i++) {
+        const unsigned index=(execution_history_next+3-i)%4;
+        if(execution_history[index].sampled_us && execution_history[index].sampled_us<=timestamp_us) {
+            result=execution_history[index];break;
+        }
+    }
+    portEXIT_CRITICAL(&pulse_lock);
+    return result;
 }
 
 ainekio_p4_body_status_t ainekio_p4_body_status(void)
@@ -335,6 +499,13 @@ esp_err_t ainekio_p4_body_execute(uint64_t generation, uint64_t connection,
 
 static void finish_motion(bool completed, esp_err_t result)
 {
+    body.stand_goal_active=completed && body.motion.kind==MOTION_POSE &&
+        body.motion.balance_on_complete && ainekio_p4_feedback_stand_enabled();
+    if(body.stand_goal_active)body.stand_goal_since=body.last_frame;
+    memset(&body.feedback_progress,0,sizeof body.feedback_progress);
+    if(body.execution.command && body.execution.phase && strcmp(body.execution.phase,"hold"))
+        body.execution.sampled_us=esp_timer_get_time();
+    body.execution.phase="hold";
     if (body.motion.kind == MOTION_NONE) {
         if(!completed && body.motion.face_command){
             body.motion.face_command=NULL;
@@ -347,7 +518,11 @@ static void finish_motion(bool completed, esp_err_t result)
     }
     const ainekio_p4_body_event_t event = {.connection=body.motion.connection,
         .sequence=body.motion.sequence, .completed=completed, .reason=AINEKIO_CANCEL_STOP,
-        .result=result};
+        .position_verification=completed && body.motion.kind==MOTION_POSE &&
+            body.motion.balance_on_complete && ainekio_p4_feedback_stand_enabled() ?
+            (body.motion.feedback_verified?2:1):0,
+        .result=result,.stalled_joints=result==AINEKIO_P4_ERR_STALLED?body.stalled_joints:0,
+        .clock_us=(uint64_t)esp_timer_get_time()};
     /* Admission reserves two slots: replacement and eventual completion. There
      * is one producer, and a reader can only increase the available space. */
     if (event.connection && xQueueSend(events, &event, 0) != pdTRUE)
@@ -371,6 +546,7 @@ static void stop_body(esp_err_t result)
     body.listen.active = false;
     ainekio_p4_body_listen(false);
     finish_motion(false, result);
+    body.execution=(ainekio_p4_execution_t){.sampled_us=(uint64_t)esp_timer_get_time()};
     body.active = body.ramping = body.pose_valid = false;
     body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;body.balance=(ainekio_v2_balance_t){0};
     memset(body.pulses, 0, sizeof(body.pulses));
@@ -427,6 +603,30 @@ static void retain_manual_reference(void)
     body.pose_valid=false;
     if(calibration.valid && ainekio_p4_joint_unmap_frame(calibration.joints,body.pulses,&frame))
         retain_pose(&frame,&calibration);
+}
+
+static bool fit_motion_frame(ainekio_v2_frame_t *frame)
+{
+    const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
+    return calibration.valid && ainekio_p4_joint_fit_frame(calibration.joints,frame);
+}
+static bool motion_pulses(ainekio_v2_frame_t *frame,uint16_t *pulses)
+{
+    return fit_motion_frame(frame) && ainekio_p4_frame_pulses(frame,pulses);
+}
+static bool posture_fit(ainekio_v2_frame_t *frame,void *context)
+{
+    const ainekio_p4_calibration_t *calibration=context;
+    uint16_t pulses[12];
+    return ainekio_p4_joint_fit_frame(calibration->joints,frame) &&
+        ainekio_p4_frame_pulses(frame,pulses);
+}
+
+static bool walking_frame_valid(const ainekio_v2_frame_t *frame,void *context)
+{
+    (void)context;
+    uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS];
+    return ainekio_p4_frame_pulses(frame,pulses);
 }
 
 static bool usable_attitude(const ainekio_p4_imu_status_t *s)
@@ -514,37 +714,45 @@ static void balance_frame(const ainekio_v2_walk_pose_t *nominal,const double anc
         memcpy(body.balance_anchors,anchors,sizeof(body.balance_anchors));
 }
 
-/* Startup has no shaft readback. Send the fold target at once and allow the
- * profile's full stroke at its nominal servo rate, not an eased movement.
- * This is an arrival estimate, never a measured position acknowledgement. */
+/* The initial authored fold and stepping pass run independently of feedback.
+ * Position verification happens after the complete Stand pass. */
 static uint64_t startup_fold_us(void)
 {
     return (uint64_t)ceil(ainekio_v2_profile_travel_degrees()/
         ainekio_v2_joint_speed_default()*1e6);
 }
-#define STARTUP_PAIR_OFFSET_US UINT64_C(20000)
 /* Model joints 6..11 are physically front; 0..5 rear. CAD names are reversed.
- * Use joint roles, never the configurable PCA channel number, for timing. */
-static uint64_t startup_pair_offset(unsigned joint)
+ * Fold one leg's coupled crank/carrier at a time, in the stepping order.
+ * Transit remains an estimate from the existing travel/speed model, not a
+ * claim of measured arrival. Round to the output cadence so stages do not
+ * overlap just because the next tick falls beyond a fractional interval. */
+static uint64_t startup_leg_us(void)
 {
-    return joint<6?STARTUP_PAIR_OFFSET_US:0;
+    return ((startup_fold_us()+19999)/20000)*20000;
+}
+static uint64_t startup_leg_offset(unsigned joint)
+{
+    static const unsigned rank[4]={3,1,0,2};
+    return rank[joint/3]*startup_leg_us();
 }
 static esp_err_t start_rise(const body_request_t *request,uint64_t now)
 {
     motion_t next={.kind=MOTION_POSE,.connection=request->connection,
         .sequence=request->sequence,.face_command="stand",
-        .face_revision=body.motion.face_revision+1,.entering=true,.startup_entry=true,
+        .face_revision=body.motion.face_revision+1,.entering=true,.startup_entry=true,.balance_on_complete=true,
         .entry_start=now,.requested_rate=1.F,.entry_rate=1.F,.playback_rate=1.F};
+    entry_reference(&next);
     if(!ainekio_v2_rise_begin(&next.rise))return ESP_ERR_INVALID_ARG;
     next.entry_from=next.rise.crouch.frame;
     next.entry_to=next.rise.stand.frame;
     const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
     uint16_t initial[AINEKIO_PCA_BODY_CHANNELS];
     if(!calibration.valid || !calibration.profile_confirmed)return ESP_ERR_INVALID_STATE;
-    if(!ainekio_p4_frame_pulses(&next.rise.crouch.frame,initial) ||
-       !ainekio_p4_frame_pulses(&next.rise.stand.frame,next.target))return ESP_ERR_INVALID_ARG;
+    if(!motion_pulses(&next.rise.crouch.frame,initial) ||
+       !motion_pulses(&next.rise.stand.frame,next.target))return ESP_ERR_INVALID_ARG;
+    next.entry_from=next.rise.crouch.frame;next.entry_to=next.rise.stand.frame;
     for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
-        if(calibration.joints[j].channel>=0 && (j%3==0 || startup_pair_offset(j)))
+        if(calibration.joints[j].channel>=0 && (j%3==0 || startup_leg_offset(j)))
             initial[calibration.joints[j].channel]=0;
     ainekio_pca9685_t *output=ainekio_p4_output();
     const bool armed=ainekio_pca_status(output).armed;
@@ -559,7 +767,7 @@ static esp_err_t start_rise(const body_request_t *request,uint64_t now)
     body.motion=next;body.generation=request->generation;
     body.last_frame=esp_timer_get_time();body.motion.entry_start=body.last_frame;
     body.next_frame=body.last_frame+UINT64_C(20000);
-    retain_pose(&next.rise.crouch.frame,&calibration);
+    retain_pose(&next.entry_from,&calibration);
     body.pose_valid=false; /* Shoulders have not been commanded yet. */
     memcpy(body.pulses,initial,sizeof(initial));publish(body.pulses);publish_motion();
     return ESP_OK;
@@ -594,6 +802,8 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         .entry_start=now, .entry_duration=UINT64_C(500000), .entering=true,
         .playback_rate=named ? (override ? override : ainekio_p4_motion_rate()) : 1.F};
     next.requested_rate = next.playback_rate;
+    next.clip_joint_speed=ainekio_v2_gait_joint_speed_limit()*AINEKIO_V2_GESTURE_SPEED_SCALE;
+    entry_reference(&next);
     if(request->intent.kind==AINEKIO_INTENT_STAND)
         next.requested_rate=next.playback_rate=1.F;
     ainekio_v2_frame_t frame = {.geometry_id=ainekio_v2_walk_geometry_id};
@@ -602,6 +812,7 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         next.entering = false;
         next.started = now;
         if (!ainekio_v2_walk_accept(&next.walk, &command, now)) return ESP_ERR_INVALID_ARG;
+        ainekio_p4_learning_begin(&next.walk);
         next.face_command=next.walk.gait_mode==AINEKIO_GAIT_CRAWL ? "crawl" :
             next.walk.gait_mode==AINEKIO_GAIT_CRAB ? "crab" :
             next.walk.gait_mode==AINEKIO_GAIT_RUN ? "run" : "walk";
@@ -618,7 +829,6 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         next.kind = MOTION_CLIP;
         if (!ainekio_v2_clip_request(&command, &next.clip) ||
             !ainekio_v2_clip_sample(next.clip, 0, &frame)) return ESP_ERR_NOT_SUPPORTED;
-        next.playback_rate = ainekio_v2_clip_playback_rate(next.clip, next.playback_rate);
         next.face_command = ainekio_v2_clips[next.clip].command;
         next.face_is_clip = true;
         ainekio_v2_frame_t minimum, maximum;
@@ -630,7 +840,7 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
             !ainekio_p4_frame_pulses(&minimum, checked) ||
             !ainekio_p4_frame_pulses(&maximum, checked)) return ESP_ERR_INVALID_ARG;
     }
-    if (!ainekio_p4_frame_pulses(&frame, next.target) || !any_pulses(next.target))
+    if (!motion_pulses(&frame, next.target) || !any_pulses(next.target))
         return ESP_ERR_INVALID_ARG;
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     if (!calibration.valid || !calibration.profile_confirmed) return ESP_ERR_INVALID_STATE;
@@ -645,10 +855,6 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
     } else memcpy(next.from, body.pulses, sizeof(next.from));
     if (home) next.entry_from=frame;
     else next.entry_from=body.pose;
-    if(request->intent.kind==AINEKIO_INTENT_STAND&&ainekio_p4_feedback_stand_enabled()) {
-        if(!ainekio_p4_feedback_frame(calibration.joints,&next.entry_from))return ESP_ERR_INVALID_STATE;
-        if(!ainekio_p4_frame_pulses(&next.entry_from,next.from))return ESP_ERR_INVALID_ARG;
-    }
     if(!ainekio_v2_limits_frame(&next.entry_from))return AINEKIO_P4_ERR_REFERENCE;
     next.entry_to = frame;
     ainekio_v2_frame_t path_minimum, path_maximum;
@@ -669,7 +875,6 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
             if (at_terminal) {
                 next.reverse_grounded_entry = true;
                 next.recovery_clip = body.motion.clip;
-                next.entry_duration = ainekio_v2_clips[next.recovery_clip].duration_us + GROUNDED_ALIGN_US;
             }
         }
     }
@@ -702,9 +907,11 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
     for(unsigned i=0;i<AINEKIO_PCA_BODY_CHANNELS;i++)if(!next.target[i])next.from[i]=0;
     if(!next.entering)next.entry_rate=next.requested_rate;
     else if(next.contact_entry)next.entry_rate=next.requested_rate;
-    else if (next.reverse_grounded_entry)
-        next.entry_rate = fminf(ainekio_v2_clip_playback_rate(next.recovery_clip, next.requested_rate),
-            ainekio_v2_speed_limited_rate(align_peak,next.requested_rate));
+    else if (next.reverse_grounded_entry) {
+        next.entry_rate=ainekio_v2_speed_limited_rate(align_peak,next.requested_rate);
+        next.entry_duration=(uint64_t)ceil(ainekio_v2_clip_playback_seconds(next.recovery_clip,
+            next.clip_joint_speed,next.requested_rate)*1e6+GROUNDED_ALIGN_US/next.entry_rate);
+    }
     else {
         double entry_peak=0.;
         for(unsigned i=0;i<AINEKIO_BODY_JOINT_COUNT;i++)
@@ -765,7 +972,7 @@ static esp_err_t start_freestyle(const body_request_t *request, uint64_t now)
     else for (unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
         from.position[j] = plan->frames[0].targets[j];
     uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS];
-    if (!ainekio_p4_frame_pulses(&from,pulses)) return ESP_ERR_INVALID_ARG;
+    if (!motion_pulses(&from,pulses)) return ESP_ERR_INVALID_ARG;
     ainekio_pca9685_t *output = ainekio_p4_output();
     const ainekio_pca_status_t status = ainekio_pca_status(output);
     ainekio_pca_result_t result = status.armed ? AINEKIO_PCA_OK :
@@ -807,10 +1014,98 @@ static esp_err_t freestyle_frame(uint64_t now, bool *complete, ainekio_v2_frame_
         frame->position[j]=(float)(start+u*(target->targets[j]-start));
         frame->velocity[j]=u<1. && duration ? (target->targets[j]-start)*1e6/duration : 0;
     }
-    if (!ainekio_p4_frame_pulses(frame,body.pulses)) return ESP_ERR_INVALID_ARG;
+    if (!motion_pulses(frame,body.pulses)) return ESP_ERR_INVALID_ARG;
     /* Emit every authored endpoint even when it falls between 50 Hz output
      * ticks. Advance after the actual write, so an I2C retry cannot skip it. */
     *complete=u==1. && index+1==plan->frame_count;
+    return ESP_OK;
+}
+
+static void stand_verify_after_write(motion_t *motion,const ainekio_v2_frame_t *frame)
+{
+    motion->feedback_pending_write=true;
+    motion->feedback_frame=*frame;
+    memcpy(motion->feedback_targets,body.pulses,sizeof body.pulses);
+}
+
+/* One Stand goal survives every complete pass. Verification selects the legs
+ * still short; every corrective path starts from the last written pose, retaining PWM ownership,
+ * the request/receipt and already engaged shoulders. Try each physical leg
+ * ordering, rather than aborting because one intermediate contact path fails.
+ * A measured discrepancy is not a new commanded pose. Replacing the trajectory
+ * origin with that observation can jump every support joint or construct an
+ * unreachable linkage. Continue the lift/place sequence, then measure again. */
+static bool stand_replan(motion_t *motion,double dt)
+{
+    const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
+    motion->posture_replanning=true;
+    double euler[3];starting_attitude(euler);
+    const unsigned first=ainekio_v2_posture_order_for_joints(motion->feedback_waiting_mask,
+        motion->posture.order_offset+1);
+    for(unsigned leg=0;leg<4;leg++) {
+        ainekio_v2_posture_t candidate;double progress=0.;
+        if(!ainekio_v2_posture_begin_ordered(&candidate,&body.pose,&motion->entry_to,euler,first+leg) ||
+           !ainekio_v2_posture_advance_mapped(&candidate,&progress,dt,posture_fit,(void *)&calibration))
+            continue;
+        motion->posture=candidate;motion->posture_progress=progress;
+        motion->contact_entry=true;motion->entering=true;motion->reverse_grounded_entry=false;
+        motion->feedback_commanded_us=0;motion->feedback_waiting_mask=0;
+        motion->feedback_pending_write=false;motion->posture_replanning=false;
+        motion->feedback_verified=false;
+        motion->posture_replans++;
+        return true;
+    }
+    return false;
+}
+
+static esp_err_t entry_finished(motion_t *motion,uint64_t now,const ainekio_v2_frame_t *entry,bool *complete)
+{
+    motion->entering=false;motion->started=now;
+    motion->clip_updated_us=now;
+    if(motion->kind==MOTION_WALK)motion->walk.last_us=now;
+    *complete=motion->kind==MOTION_POSE;
+    if(motion->balance_on_complete) {
+        const double level[3]={0};
+        if(!ainekio_v2_posture_begin(&motion->posture,entry,entry,level))return ESP_ERR_INVALID_ARG;
+        body.balance_nominal=motion->posture.pose;
+        memcpy(body.balance_anchors,motion->posture.anchors,sizeof body.balance_anchors);
+        body.balance_contacts=body.balance_hold=true;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t posture_output(uint64_t now,bool *complete,ainekio_v2_frame_t *sampled)
+{
+    motion_t *motion=&body.motion;
+    const bool feedback=ainekio_p4_feedback_stand_enabled() || ainekio_p4_feedback_jam_enabled();
+    motion->entry_rate=1.F;
+    balance_frame(&motion->posture.pose,(const double (*)[3])motion->posture.anchors,now,sampled);
+    body.balance_nominal=motion->posture.pose;
+    body.balance_contacts=true;
+    memcpy(body.balance_anchors,motion->posture.anchors,sizeof(body.balance_anchors));
+    if(!motion_pulses(sampled,body.pulses))return ESP_ERR_INVALID_ARG;
+    if(motion->startup_entry) {
+        const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
+        motion->engaged_shoulders|=
+            ainekio_v2_posture_arrival_joints(&motion->posture,motion->posture_progress)&0x249;
+        for(unsigned leg=0;leg<4;leg++) {
+            int ch=calibration.joints[3*leg].channel;
+            bool engaged=(motion->engaged_shoulders&(1U<<(3*leg)))!=0;
+            if(ch>=0 && !engaged)
+                body.pulses[ch]=0;
+        }
+    }
+    if(feedback && motion->posture_progress>=ainekio_v2_posture_path_length() &&
+       !motion->feedback_commanded_us)
+        stand_verify_after_write(motion,sampled);
+    if(motion->posture_progress>=ainekio_v2_posture_path_length() &&
+       !motion->feedback_pending_write) {
+        motion->startup_entry=false;
+        motion->entering=false;motion->started=now;
+        if(motion->kind==MOTION_WALK)motion->walk.last_us=now;
+        *complete=motion->kind==MOTION_POSE;
+        body.balance_hold=*complete;
+    }
     return ESP_OK;
 }
 
@@ -818,52 +1113,58 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
 {
     motion_t *motion = &body.motion;
     *complete = false;
-    if (motion->kind == MOTION_FREESTYLE) return freestyle_frame(now,complete,sampled);
+    if(motion->feedback_pending_write) {
+        *sampled=motion->feedback_frame;
+        memcpy(body.pulses,motion->feedback_targets,sizeof body.pulses);
+        return ESP_OK;
+    }
     const bool feedback=ainekio_p4_feedback_stand_enabled();
     if(motion->feedback_commanded_us) {
-        if(feedback) {
+        if(feedback || ainekio_p4_feedback_jam_enabled()) {
             const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
-            if(!ainekio_p4_feedback_arrived(calibration.joints,motion->feedback_targets,
-                motion->feedback_commanded_us,&motion->feedback_waiting_mask)) {
+            const bool observed=ainekio_p4_feedback_check(calibration.joints,motion->feedback_targets,
+                motion->feedback_commanded_us,&motion->feedback_waiting_mask);
+            motion->feedback_verified=feedback && observed && !motion->feedback_waiting_mask;
+            if(observed && !feedback) {
+                /* With goal verification disabled, retain the independent
+                 * jam-only behavior. Verified Stand owns its discrepancies
+                 * through correction, never the separate release timer. */
+                const uint16_t stalled=ainekio_p4_feedback_stalled(&body.feedback_progress,
+                    calibration.joints,motion->feedback_targets);
+                if(stalled) {
+                    body.stalled_joints=stalled;body.stall_clock_us=now;
+                    return AINEKIO_P4_ERR_STALLED;
+                }
+            }
+            if(feedback && observed && motion->feedback_waiting_mask) {
+                if(stand_replan(motion,(now-body.last_frame)/1e6))
+                    return posture_output(now,complete,sampled);
                 *sampled=body.pose;
                 memcpy(body.pulses,motion->feedback_targets,sizeof(body.pulses));
                 return ESP_OK;
             }
+            /* Missing/untrusted feedback never holds command completion.
+             * Finish the authored path, retain its powered target, and let
+             * the existing goal observer resume when measurements return. */
         }
         motion->feedback_commanded_us=0;motion->feedback_waiting_mask=0;
-        motion->feedback_confirmed_progress=motion->posture_progress;
-        if(motion->startup_entry&&!motion->contact_entry) {
-            if(feedback) {
-                const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
-                if(!ainekio_p4_feedback_frame(calibration.joints,&motion->entry_from))
-                    return ESP_ERR_INVALID_STATE;
-            }
-            double euler[3];starting_attitude(euler);
-            if(!ainekio_v2_posture_begin(&motion->posture,&motion->entry_from,&motion->entry_to,euler))
-                return ESP_ERR_INVALID_ARG;
-            motion->contact_entry=true;motion->posture_progress=0.;
-        } else if(motion->contact_entry &&
-                  motion->posture_progress>=ainekio_v2_posture_path_length()) {
-            /* Complete the target whose physical arrival was just measured.
-             * Standing balance can resume on the following output tick. */
-            *sampled=body.pose;
-            memcpy(body.pulses,motion->feedback_targets,sizeof(body.pulses));
-            motion->startup_entry=false;motion->entering=false;motion->started=now;
-            *complete=motion->kind==MOTION_POSE;body.balance_hold=*complete;
-            return ESP_OK;
-        }
+        *sampled=body.pose;
+        memcpy(body.pulses,motion->feedback_targets,sizeof body.pulses);
+        motion->startup_entry=false;
+        return entry_finished(motion,now,sampled,complete);
     }
+    if(motion->kind==MOTION_FREESTYLE)
+        return freestyle_frame(now,complete,sampled);
     if(motion->startup_entry && !motion->contact_entry) {
         const uint64_t elapsed=now-motion->entry_start;
-        if(feedback || elapsed<startup_fold_us()+STARTUP_PAIR_OFFSET_US) {
+        if(elapsed<4*startup_leg_us()) {
             *sampled=motion->entry_from;
-            if(!ainekio_p4_frame_pulses(sampled,body.pulses))return ESP_ERR_INVALID_ARG;
+            if(!motion_pulses(sampled,body.pulses))return ESP_ERR_INVALID_ARG;
             const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
             for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++) {
                 const int ch=calibration.joints[j].channel;
-                if(ch>=0 && (j%3==0 || elapsed<startup_pair_offset(j)))body.pulses[ch]=0;
+                if(ch>=0 && (j%3==0 || elapsed<startup_leg_offset(j)))body.pulses[ch]=0;
             }
-            if(feedback&&elapsed>=STARTUP_PAIR_OFFSET_US)motion->feedback_pending_write=true;
             return ESP_OK;
         }
         /* Reuse Stand's lift/place/plant path. In particular, do not engage all
@@ -877,37 +1178,19 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
     if (motion->entering) {
         if(motion->contact_entry) {
             const double dt=(now-body.last_frame)/1e6;
-            const bool already_at_end=motion->posture_progress>=ainekio_v2_posture_path_length();
-            if(!ainekio_v2_posture_advance(&motion->posture,&motion->posture_progress,dt))
-                return ESP_ERR_INVALID_ARG;
-            motion->entry_rate=1.F;
-            balance_frame(&motion->posture.pose,(const double (*)[3])motion->posture.anchors,now,sampled);
-            body.balance_nominal=motion->posture.pose;
-            body.balance_contacts=true;
-            memcpy(body.balance_anchors,motion->posture.anchors,sizeof(body.balance_anchors));
-            if(!ainekio_p4_frame_pulses(sampled,body.pulses))return ESP_ERR_INVALID_ARG;
-            if(motion->startup_entry) {
-                const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
-                for(unsigned leg=0;leg<4;leg++) {
-                    int ch=calibration.joints[3*leg].channel;
-                    const double progress=feedback?motion->feedback_confirmed_progress:motion->posture_progress;
-                    if(ch>=0 && !ainekio_v2_posture_shoulder_engaged(progress,leg))
-                        body.pulses[ch]=0;
+            const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
+            if(!ainekio_v2_posture_advance_mapped(&motion->posture,&motion->posture_progress,dt,
+                posture_fit,(void *)&calibration)) {
+                if(!stand_replan(motion,dt)) {
+                    *sampled=body.pose;ainekio_p4_body_pulses(body.pulses);
+                    return ESP_OK;
                 }
-            }
-            if(feedback&&!already_at_end&&ainekio_v2_posture_landmark(motion->posture_progress))
-                motion->feedback_pending_write=true;
-            if(motion->posture_progress>=ainekio_v2_posture_path_length() &&
-               !motion->feedback_pending_write) {
-                motion->startup_entry=false;
-                motion->entering=false;motion->started=now;
-                if(motion->kind==MOTION_WALK)motion->walk.last_us=now;
-                *complete=motion->kind==MOTION_POSE;
-                body.balance_hold=*complete;
-            }
-            return ESP_OK;
+            } else motion->posture_replanning=false;
+            return posture_output(now,complete,sampled);
         }
-        const float u = fminf(1.F, ((float)(now-motion->entry_start)/motion->entry_duration) * motion->entry_rate);
+        double elapsed=(double)(now-motion->entry_start)*
+            (motion->reverse_grounded_entry ? 1. : motion->entry_rate);
+        const float u=fminf(1.F,elapsed/motion->entry_duration);
         /* Evaluate the nearer half in double. Mixed-precision u*u*u rounded
          * the upper end above 1 and rejected otherwise valid entry frames. */
         const double half = u <= .5F ? u : 1.-u;
@@ -916,58 +1199,75 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
         ainekio_v2_frame_t entry;
         bool entry_ok;
         if (motion->reverse_grounded_entry) {
-            const uint64_t clip_duration = ainekio_v2_clips[motion->recovery_clip].duration_us;
-            const double elapsed = fmin((double)motion->entry_duration,
-                (double)(now-motion->entry_start)*motion->entry_rate);
-            if (elapsed < clip_duration)
-                entry_ok = ainekio_v2_clip_sample(motion->recovery_clip,
-                    clip_duration-(uint64_t)elapsed, &entry);
+            const double clip_duration=ainekio_v2_clip_playback_seconds(motion->recovery_clip,
+                motion->clip_joint_speed,motion->requested_rate)*1e6;
+
+            if (elapsed < clip_duration) {
+                uint64_t source_us;
+                entry_ok=ainekio_v2_clip_playback_sample(motion->recovery_clip,elapsed/1e6,
+                    motion->clip_joint_speed,motion->requested_rate,true,&entry,&source_us);
+            }
             else {
                 ainekio_v2_frame_t clip_start;
-                const double align = (elapsed-clip_duration)/GROUNDED_ALIGN_US;
+                const double align=fmin(1.,(elapsed-clip_duration)*motion->entry_rate/GROUNDED_ALIGN_US);
                 const double ease = align*align*align*(10.+align*(-15.+6.*align));
                 entry_ok = ainekio_v2_clip_sample(motion->recovery_clip, 0, &clip_start) &&
                     ainekio_v2_transition(&clip_start, &motion->entry_to, ease, &entry);
             }
         } else entry_ok = ainekio_v2_transition(&motion->entry_from, &motion->entry_to, smooth, &entry);
-        if (!entry_ok || !ainekio_p4_frame_pulses(&entry, body.pulses)) return ESP_ERR_INVALID_ARG;
-        if (u == 1.) {
-            motion->entering = false;
-            motion->started = now;
-            if (motion->kind == MOTION_WALK) motion->walk.last_us = now;
-            *complete = motion->kind == MOTION_POSE;
-            if(motion->balance_on_complete) {
-                const double level[3]={0};
-                if(!ainekio_v2_posture_begin(&motion->posture,&entry,&entry,level))return ESP_ERR_INVALID_ARG;
-                body.balance_nominal=motion->posture.pose;
-                memcpy(body.balance_anchors,motion->posture.anchors,sizeof(body.balance_anchors));
-                body.balance_contacts=body.balance_hold=true;
-            }
+        if (!entry_ok || !motion_pulses(&entry, body.pulses)) return ESP_ERR_INVALID_ARG;
+        if(u==1. && (feedback || ainekio_p4_feedback_jam_enabled()) && motion->kind==MOTION_POSE && motion->balance_on_complete)
+            stand_verify_after_write(motion,&entry);
+        else if(u==1.) {
+            const esp_err_t result=entry_finished(motion,now,&entry,complete);
+            if(result!=ESP_OK)return result;
         }
         *sampled=entry;
         return ESP_OK;
     }
     ainekio_v2_frame_t frame;
     if (motion->kind == MOTION_WALK) {
-        if (!ainekio_v2_walk_tick(&motion->walk, now)) return ESP_FAIL;
+        const ainekio_p4_imu_status_t imu=ainekio_p4_imu_status();
+        const float *q=imu.attitude.orientation_wxyz;
+        const double yaw=atan2(2.*(q[0]*q[3]+q[1]*q[2]),1.-2.*(q[2]*q[2]+q[3]*q[3]));
+        if (!ainekio_v2_walk_feedback_tick(&motion->walk,now,
+            ainekio_p4_walking_feedback_enabled(),usable_attitude(&imu),yaw,
+            walking_frame_valid,NULL)) return ESP_FAIL;
         balance_frame(&motion->walk.pose,NULL,now,&frame);
+        if(!fit_motion_frame(&frame))return ESP_ERR_INVALID_ARG;
+        ainekio_p4_learning_frame(&motion->walk,motion->sequence,now,&frame,walking_frame_valid,NULL);
         motion->face_command=motion->walk.gait_mode==AINEKIO_GAIT_CRAWL ? "crawl" :
             motion->walk.gait_mode==AINEKIO_GAIT_CRAB ? "crab" :
             motion->walk.pose.run_blend>.5 ? "run" : "walk";
         motion->face_elapsed_us=(uint64_t)(motion->walk.phase*1000000.);
         *complete = motion->walk.complete;
         body.balance_hold=*complete;
+    } else if(motion->kind==MOTION_POSE) {
+        /* Retry the completed pose after a failed output write. It must not
+         * enter the gesture player (nor accidentally play clip zero). */
+        frame=motion->feedback_frame;
+        *complete=true;
     } else {
         if (now < motion->started) return ESP_ERR_TIMEOUT;
-        const uint64_t duration = ainekio_v2_clips[motion->clip].duration_us;
-        const uint64_t elapsed = now - motion->started;
-        const float progress = (float)elapsed * motion->playback_rate;
-        const uint64_t sample = progress >= duration ? duration : (uint64_t)progress;
-        if (!ainekio_v2_clip_sample(motion->clip, sample, &frame)) return ESP_FAIL;
-        motion->face_elapsed_us=sample;
+        bool arrived=false;
+        if(motion->clip_commanded_us) {
+            const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
+            arrived=ainekio_p4_feedback_check(calibration.joints,motion->feedback_targets,
+                motion->clip_commanded_us,&motion->feedback_waiting_mask) && !motion->feedback_waiting_mask;
+        }
+        const double dt=(now-motion->clip_updated_us)/1e6;
+        motion->clip_updated_us=now;
+        if(!ainekio_v2_clip_player_tick(motion->clip,&motion->clip_player,dt,motion->clip_joint_speed,
+            motion->playback_rate,arrived,&frame,&motion->face_elapsed_us))return ESP_FAIL;
+        if(arrived) {
+            motion->clip_commanded_us=0;
+            motion->feedback_waiting_mask=0;
+        }
+        if(motion->clip_player.waiting && !motion->clip_commanded_us)
+            motion->clip_pending_write=true;
         *complete = frame.phase == AINEKIO_V2_COMPLETE;
     }
-    if(!ainekio_p4_frame_pulses(&frame,body.pulses))return ESP_ERR_INVALID_ARG;
+    if(!motion_pulses(&frame,body.pulses))return ESP_ERR_INVALID_ARG;
     *sampled=frame;return ESP_OK;
 }
 
@@ -1029,6 +1329,39 @@ static esp_err_t listen_frame(uint64_t now, ainekio_v2_frame_t *sampled, bool *s
     return ESP_OK;
 }
 
+static void release_stalled(uint16_t stalled,uint64_t now)
+{
+    const ainekio_p4_body_event_t event={.connection=body.motion.connection,
+        .sequence=body.motion.kind==MOTION_NONE?0:body.motion.sequence,.result=AINEKIO_P4_ERR_STALLED,
+        .stalled_joints=stalled,.clock_us=now};
+    body.stalled_joints=stalled;body.stall_clock_us=now;
+    const bool has_receipt=body.motion.kind!=MOTION_NONE && body.motion.connection;
+    fail_motion(AINEKIO_P4_ERR_STALLED);
+    if(!has_receipt)xQueueSend(events,&event,0);
+}
+
+/* Completion acknowledges reaching the goal once; it does not abandon that
+ * standing goal. Drift is handled by the same full-pass planner, without a
+ * second externally admitted command or another completion receipt. */
+static void stand_hold_recover(void)
+{
+    if(!body.stand_goal_active || !ainekio_p4_feedback_stand_enabled() ||
+       listen_requested || body.listen.active)return;
+    const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
+    uint16_t remaining=0;
+    if(!ainekio_p4_feedback_check(calibration.joints,body.pulses,
+        body.stand_goal_since,&remaining) || !remaining)return;
+    motion_t *motion=&body.motion;
+    motion->kind=MOTION_POSE;motion->connection=0;motion->sequence=0;
+    motion->entering=true;motion->balance_on_complete=true;
+    motion->entry_to=body.pose;
+    motion->feedback_commanded_us=body.stand_goal_since;
+    motion->feedback_waiting_mask=remaining;
+    memcpy(motion->feedback_targets,body.pulses,sizeof motion->feedback_targets);
+    body.stand_goal_active=false;
+    body.balance_hold=body.balance_settled=false;
+}
+
 /* One local output clock drives entry, algorithms, finite clips and holding.
  * Stop/generation fencing is checked before sampling and again by the driver. */
 static bool output_step(uint64_t now)
@@ -1042,7 +1375,29 @@ static bool output_step(uint64_t now)
         stop_body(error);
     }
     if (!body.active || now < body.next_frame) return false;
+    portENTER_CRITICAL(&pulse_lock);
+    const uint64_t lost=disconnected_through;
+    portEXIT_CRITICAL(&pulse_lock);
+    /* Retain locally accepted work across link changes. Only an open-ended
+     * gait needs an ending: the same Finish trajectory lands its feet and
+     * keeps their final targets powered. A later session is independent. */
+    if(body.motion.kind==MOTION_WALK && body.motion.connection &&
+       body.motion.connection<=lost && !isfinite(body.motion.walk.end_phase) &&
+       !body.motion.walk.stopping && !body.motion.walk.complete)
+        (void)ainekio_v2_walk_update(&body.motion.walk,
+            (ainekio_v2_walk_controls_t){0.,body.motion.walk.target.motion_rate});
     const uint64_t frame_started=esp_timer_get_time();
+    if(body.motion.kind==MOTION_NONE)stand_hold_recover();
+    const ainekio_p4_calibration_t feedback_mapping=ainekio_p4_calibration();
+    uint16_t written[12];ainekio_p4_body_pulses(written);
+    const bool stand_pass=body.motion.kind==MOTION_POSE && body.motion.balance_on_complete;
+    const bool standing_goal=body.stand_goal_active && ainekio_p4_feedback_stand_enabled();
+    const uint16_t stalled=stand_pass || standing_goal?0:
+        ainekio_p4_feedback_stalled(&body.feedback_progress,feedback_mapping.joints,written);
+    if(stalled) {
+        release_stalled(stalled,now);
+        return false;
+    }
     bool complete = false;
     const bool was_ramping=body.ramping;
     ainekio_v2_frame_t sampled=body.pose;
@@ -1056,7 +1411,8 @@ static bool output_step(uint64_t now)
     } else if (body.motion.kind != MOTION_NONE) {
         const esp_err_t error = motion_frame(now, &complete, &sampled);
         if (error != ESP_OK) {
-            fail_motion(error);
+            if(error==AINEKIO_P4_ERR_STALLED)release_stalled(body.stalled_joints,now);
+            else fail_motion(error);
             return false;
         }
     } else {
@@ -1081,13 +1437,14 @@ static bool output_step(uint64_t now)
                 return true;
             }
             sampling=true;
-            if(!ainekio_p4_frame_pulses(&sampled,body.pulses)) {
+            if(!motion_pulses(&sampled,body.pulses)) {
                 ainekio_p4_log_stage("stationary leveling target cannot map to PWM");
                 error=ESP_ERR_INVALID_ARG;
             }
         } else { body.balance_settled=false;error = listen_frame(now, &sampled, &sampling); }
         if (error != ESP_OK) { fail_motion(error); return false; }
     }
+    if(complete && body.motion.kind==MOTION_POSE)body.motion.feedback_frame=sampled;
     const uint64_t calculated=esp_timer_get_time();
     const ainekio_pca_result_t write_result=ainekio_pca_write_frame(output,body.generation,body.pulses);
     record_frame_timing(calculated-frame_started,(uint64_t)esp_timer_get_time()-frame_started);
@@ -1111,6 +1468,14 @@ static bool output_step(uint64_t now)
         body.motion.feedback_commanded_us=esp_timer_get_time();
         memcpy(body.motion.feedback_targets,body.pulses,sizeof(body.pulses));
     }
+    if(body.motion.clip_pending_write) {
+        body.motion.clip_pending_write=false;
+        body.motion.clip_commanded_us=esp_timer_get_time();
+        memcpy(body.motion.feedback_targets,body.pulses,sizeof(body.pulses));
+    }
+    if(body.stand_goal_active && memcmp(written,body.pulses,sizeof written))
+        body.stand_goal_since=esp_timer_get_time();
+    publish_execution(now,sampling,was_ramping || body.ramping);
     publish(body.pulses);
     publish_motion();
     body.last_frame = esp_timer_get_time();
@@ -1278,6 +1643,7 @@ static void output_task(void *arg)
 
 esp_err_t ainekio_p4_body_start(void)
 {
+    disconnected_through=0;
     rest_deadline=0;rest_revision=0;rest_busy=false;rest_eligible=false;
     atomic_store(&activity_revision,0);atomic_store(&rest_expired,false);
     if(!rest_timer) {
@@ -1285,7 +1651,7 @@ esp_err_t ainekio_p4_body_start(void)
         const esp_err_t result=esp_timer_create(&timer,&rest_timer);
         if(result!=ESP_OK)return result;
     } else esp_timer_stop(rest_timer);
-
+    memset(execution_history,0,sizeof execution_history);execution_history_next=0;
     requests = xQueueCreate(1, sizeof(body_request_t));
     results = xQueueCreate(1, sizeof(body_result_t));
     events = xQueueCreate(16, sizeof(ainekio_p4_body_event_t));

@@ -1,4 +1,5 @@
 #include "servo_feedback.h"
+#include "gait_trace_runtime.h"
 #include "board.h"
 #include "body.h"
 #include "config.h"
@@ -39,6 +40,12 @@ bool ainekio_p4_feedback_stand_enabled(void)
     bool enabled=state&&state->config.stand_enabled;
     portEXIT_CRITICAL(&lock);return enabled;
 }
+bool ainekio_p4_feedback_jam_enabled(void)
+{
+    portENTER_CRITICAL(&lock);
+    bool enabled=state&&state->config.enabled&&state->config.jam_enabled&&state->config.no_progress_ms;
+    portEXIT_CRITICAL(&lock);return enabled;
+}
 static esp_err_t initialize_adc(void)
 {
     const adc_oneshot_unit_init_cfg_t unit={.unit_id=ADC_UNIT_2};
@@ -57,6 +64,18 @@ static esp_err_t initialize_adc(void)
     portENTER_CRITICAL(&lock);state->voltage_error=voltage;portEXIT_CRITICAL(&lock);
     return ESP_OK;
 }
+static void wait_for_next_scan(TickType_t *next)
+{
+    const TickType_t period = pdMS_TO_TICKS(20);
+    /* ADC scans measure the present; missed samples cannot be replayed. Flash
+     * writes can put this task many periods behind. Advance to the current
+     * period before waiting, so catch-up scans cannot starve storage/OTA. Keep
+     * the normal 50 Hz phase and use unsigned subtraction across tick wrap. */
+    const TickType_t elapsed = xTaskGetTickCount() - *next;
+    *next += (elapsed / period) * period;
+    vTaskDelayUntil(next, period);
+}
+
 static void acquire(void *unused)
 {
     (void)unused;bool attempted=false;
@@ -105,6 +124,7 @@ static void acquire(void *unused)
                     } else {sample.error=e;filters[channel].initialized=false;}
                 }
                 sample.scan_us=esp_timer_get_time()-start;
+                bool published=false;
                 portENTER_CRITICAL(&lock);
                 /* A configuration write invalidates an in-progress old scan. */
                 if(state->revision==sample.revision&&state->config.enabled) {
@@ -116,12 +136,14 @@ static void acquire(void *unused)
                     memcpy(state->sampled_us,sample.sampled_us,sizeof(sample.sampled_us));
                     state->valid_mask=sample.valid_mask;state->error=sample.error;
                     state->scan_us=sample.scan_us;state->scan++;
+                    sample.scan=state->scan;published=true;
                 }
                 portEXIT_CRITICAL(&lock);
+                if(published)ainekio_p4_gait_trace_sample(&sample);
             }
         }
         /* Sensor scan cadence; never delays the independent body task. */
-        vTaskDelayUntil(&next,pdMS_TO_TICKS(20));
+        wait_for_next_scan(&next);
     }
 }
 esp_err_t ainekio_p4_feedback_start(void)
@@ -140,8 +162,8 @@ esp_err_t ainekio_p4_feedback_start(void)
     if(e==ESP_OK) {
         ainekio_feedback_config_t saved;size_t bytes=sizeof(saved);
         e=nvs_get_blob(handle,"config",&saved,&bytes);nvs_close(handle);
-        if(e==ESP_OK&&bytes==sizeof(saved)&&ainekio_feedback_config_valid(&saved)) {
-            state->config=saved;state->saved=true;
+        if(e==ESP_OK&&ainekio_feedback_config_decode(&saved,bytes,&state->config)) {
+            state->saved=true;
         } else if(e==ESP_OK)e=ESP_ERR_INVALID_ARG;
     }
     state->error=e==ESP_ERR_NVS_NOT_FOUND?ESP_OK:e;
@@ -185,6 +207,24 @@ static esp_err_t change(cJSON *o)
         if(!cJSON_IsBool(enabled)||!cJSON_IsBool(stand)||
            !integer(o,"tolerance_us",1,65535,&tolerance))return ESP_ERR_INVALID_ARG;
         c.enabled=cJSON_IsTrue(enabled);c.stand_enabled=cJSON_IsTrue(stand);c.tolerance_us=tolerance;
+        cJSON *jam=cJSON_GetObjectItemCaseSensitive(o,"jam_enabled");
+        if(jam) {
+            if(!cJSON_IsBool(jam))return ESP_ERR_INVALID_ARG;
+            c.jam_enabled=cJSON_IsTrue(jam);
+        }
+        int value;
+        if(cJSON_HasObjectItem(o,"arrival_tolerance_us")) {
+            if(!integer(o,"arrival_tolerance_us",1,65535,&value))return ESP_ERR_INVALID_ARG;
+            c.arrival_tolerance_us=value;
+        }
+        if(cJSON_HasObjectItem(o,"no_progress_ms")) {
+            if(!integer(o,"no_progress_ms",0,INT32_MAX,&value))return ESP_ERR_INVALID_ARG;
+            c.no_progress_ms=value;
+        }
+        if(cJSON_HasObjectItem(o,"progress_us")) {
+            if(!integer(o,"progress_us",1,65535,&value))return ESP_ERR_INVALID_ARG;
+            c.progress_us=value;
+        }
     } else {
         int id;if(!integer(o,"joint",0,11,&id))return ESP_ERR_INVALID_ARG;
         if(!strcmp(op->valuestring,"map")) {
@@ -208,6 +248,35 @@ static esp_err_t change(cJSON *o)
     }
     return save(&c);
 }
+static cJSON *health_json(const ainekio_p4_feedback_snapshot_t *s)
+{
+    ainekio_p4_feedback_health_t health;ainekio_p4_feedback_health(s,&health);
+    cJSON *o=cJSON_CreateObject();if(!o)return NULL;
+    cJSON_AddBoolToObject(o,"enabled",s->config.enabled);
+    cJSON_AddBoolToObject(o,"usable",s->config.enabled && health.calibrated==0xfff &&
+        !(health.unavailable|health.clipped|health.below_calibration|health.above_calibration));
+    cJSON_AddNumberToObject(o,"scan",s->scan);
+    cJSON_AddNumberToObject(o,"clock_us",esp_timer_get_time());
+    cJSON_AddNumberToObject(o,"calibrated_mask",health.calibrated);
+    cJSON_AddNumberToObject(o,"unavailable_mask",health.unavailable);
+    cJSON_AddNumberToObject(o,"clipped_mask",health.clipped);
+    cJSON_AddNumberToObject(o,"below_calibration_mask",health.below_calibration);
+    cJSON_AddNumberToObject(o,"above_calibration_mask",health.above_calibration);
+    cJSON_AddStringToObject(o,"adc_error",esp_err_to_name(s->error));
+    cJSON_AddBoolToObject(o,"supply_voltage_available",false);
+    cJSON *mv=cJSON_AddArrayToObject(o,"signal_millivolts");
+    for(unsigned j=0;j<12;j++) {
+        unsigned channel=s->config.joint[j].channel;
+        cJSON_AddItemToArray(mv,s->config.enabled && (s->valid_mask&(1U<<channel)) &&
+            s->millivolts[channel]>=0 ? cJSON_CreateNumber(s->millivolts[channel]):cJSON_CreateNull());
+    }
+    return o;
+}
+cJSON *ainekio_p4_feedback_health_json(void)
+{
+    ainekio_p4_feedback_snapshot_t s;ainekio_p4_feedback_snapshot(&s);
+    return health_json(&s);
+}
 static cJSON *status_json(void)
 {
     ainekio_p4_feedback_snapshot_t s;ainekio_p4_feedback_snapshot(&s);
@@ -215,8 +284,13 @@ static cJSON *status_json(void)
     uint16_t targets[12];ainekio_p4_body_pulses(targets);
     cJSON *o=cJSON_CreateObject();if(!o)return NULL;
     cJSON_AddBoolToObject(o,"enabled",s.config.enabled);cJSON_AddBoolToObject(o,"stand_enabled",s.config.stand_enabled);
+    cJSON_AddItemToObject(o,"health",health_json(&s));
+    cJSON_AddBoolToObject(o,"jam_enabled",s.config.jam_enabled);
     cJSON_AddBoolToObject(o,"initialized",s.initialized);cJSON_AddBoolToObject(o,"saved",s.saved);
     cJSON_AddNumberToObject(o,"tolerance_us",s.config.tolerance_us);
+    cJSON_AddNumberToObject(o,"arrival_tolerance_us",s.config.arrival_tolerance_us);
+    cJSON_AddNumberToObject(o,"no_progress_ms",s.config.no_progress_ms);
+    cJSON_AddNumberToObject(o,"progress_us",s.config.progress_us);
     cJSON_AddNumberToObject(o,"scan",s.scan);cJSON_AddNumberToObject(o,"scan_us",s.scan_us);
     cJSON_AddNumberToObject(o,"revision",s.revision);
     cJSON_AddStringToObject(o,"error",esp_err_to_name(s.error));
@@ -226,6 +300,10 @@ static cJSON *status_json(void)
     cJSON_AddBoolToObject(o,"stand_waiting",motion.servo_feedback_waiting);
     cJSON_AddNumberToObject(o,"waiting_joints",motion.servo_feedback_waiting_mask);
     cJSON_AddNumberToObject(o,"stand_progress",motion.stand_progress);
+    cJSON_AddBoolToObject(o,"stand_replanning",motion.stand_replanning);
+    cJSON_AddNumberToObject(o,"stand_replans",motion.stand_replans);
+    cJSON_AddNumberToObject(o,"stalled_joints",motion.stalled_joints);
+    cJSON_AddNumberToObject(o,"stall_clock_us",motion.stall_clock_us);
     cJSON *channels=cJSON_AddArrayToObject(o,"channels"),*joints=cJSON_AddArrayToObject(o,"joints");
     for(unsigned channel=0;channel<16;channel++) {
         bool valid=s.config.enabled&&(s.valid_mask&(1U<<channel));
@@ -293,6 +371,10 @@ esp_err_t ainekio_p4_feedback_http(httpd_req_t *r)
                 cJSON *o=cJSON_Parse(input);
                 if(!o)result=ESP_ERR_INVALID_ARG;
                 else {
+                    const cJSON *op=cJSON_GetObjectItemCaseSensitive(o,"op");
+                    if(cJSON_IsString(op)&&!strncmp(op->valuestring,"trace_",6)) {
+                        result=ainekio_p4_gait_trace_http(r,o);cJSON_Delete(o);return result;
+                    }
                     xSemaphoreTake(config_mutex,portMAX_DELAY);
                     result=change(o);xSemaphoreGive(config_mutex);cJSON_Delete(o);
                 }

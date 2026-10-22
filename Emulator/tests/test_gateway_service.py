@@ -76,9 +76,63 @@ class LifecycleSocket:
 
 
 class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_calibration_readback_preserves_body_command_ownership(self):
+        from protocol.control_v1 import BODY_CALIBRATION_FEATURE
+        class Socket:
+            closed=False
+            async def send(self,raw):pass
+        service=GatewayService(GatewayServiceConfig(tokens={'robot':'test'}))
+        connection=GatewayConnection(service,Socket(),'robot',1,model='v2-12servo',features=(BODY_CALIBRATION_FEATURE,))
+        connection.body_command_sequence=321
+        connection.body_command={'t':'intent','name':'walk','seq':321}
+        await connection.send_command({'t':'calibration','op':'get'},received_at=service.clock())
+        self.assertEqual(connection.body_command_sequence,321)
+        self.assertEqual(connection.body_command['name'],'walk')
+        connection.cancel_pending()
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.library_path = build_core_library()
+
+    async def test_camera_metadata_is_matched_once_to_its_binary_frame(self):
+        from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, encode_binary_frame
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        connection = GatewayConnection(service, object(), "robot", 4)
+        frames = []
+        service.subscribe_frames(frames.append)
+        await connection._handle_control({'t': 'cam_meta', 'res': 'VGA', 'fps': 1,
+            'counter_base': 17, 'origin': 'request', 'origin_id': 31})
+        await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 17, b'\xff\xd8jpeg\xff\xd9'))
+        await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 18, b'\xff\xd8preview\xff\xd9'))
+        self.assertEqual(frames[0]['camera_metadata']['origin_id'], 31)
+        self.assertEqual(frames[0]['epoch'], 4)
+        self.assertNotIn('camera_metadata', frames[1])
+        await connection._handle_control({'t': 'cam_meta', 'res': 'VGA', 'fps': 1,
+            'counter_base': 19, 'origin': 'request', 'origin_id': 32})
+        await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 20, b'\xff\xd8other\xff\xd9'))
+        self.assertNotIn('camera_metadata', frames[2])
+
+    async def test_walking_feedback_does_not_change_leveling_or_motion(self):
+        class Socket:
+            closed = False
+            def __init__(self): self.sent = []
+            async def send(self, raw): self.sent.append(json.loads(raw))
+        service = GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo",
+                                       features=("balance_control_v1", "walking_feedback_v1"))
+        service._connections["robot"] = connection
+        connection.body_command_sequence = 321
+        task = asyncio.create_task(service.body_balance("walking", {"enabled":True}, robot_id="robot"))
+        while not socket.sent: await asyncio.sleep(0)
+        self.assertEqual(socket.sent[-1], {"t":"balance", "op":"walking", "enabled":True, "seq":1})
+        await connection._handle_control({"t":"ack", "seq":1})
+        reply = {"t":"balance_status", "seq":1, "enabled":False, "saved":True, "active":False,
+                 "walking_enabled":True, "walking_saved":True}
+        await connection._handle_control(reply)
+        self.assertEqual(await task, reply)
+        self.assertEqual(connection.body_command_sequence, 321)
+        self.assertFalse(connection.last_balance["enabled"])
 
     async def test_balance_readback_preserves_motion_owner(self):
         class Socket:

@@ -36,9 +36,17 @@ enum { STRIPE_ROWS=16 };
 
 bool ainekio_p4_display_ready(void){return atomic_load(&ready);}
 const char *ainekio_p4_display_face(void){return ainekio_face_name(atomic_load(&shown_face));}
+void ainekio_p4_display_token(uint64_t at_ms, char token[AINEKIO_ASSET_NAME_MAX + 1U])
+{
+    portENTER_CRITICAL(&selection_lock);
+    strcpy(token,ainekio_p4_face_token(&selection,at_ms));
+    portEXIT_CRITICAL(&selection_lock);
+}
 void ainekio_p4_display_restore(void)
 {
-    portENTER_CRITICAL(&selection_lock);selection.active=false;portEXIT_CRITICAL(&selection_lock);
+    portENTER_CRITICAL(&selection_lock);
+    selection.foreground.active=false;selection.background.active=false;
+    portEXIT_CRITICAL(&selection_lock);
 }
 esp_err_t ainekio_p4_display_expression(const char *name)
 {
@@ -80,10 +88,9 @@ static void display_task(void *unused)
 {
     (void)unused;
     bool sleeping=false;
-    bool was_moving=false, was_listening=false;
+    bool was_listening=false;
     uint64_t listening_since=0;
-    uint32_t held_revision=0;
-    uint64_t held_since=0;
+    ainekio_p4_face_clock_t face_clock={0};
     uint64_t connection_since=0;
     int connection_phase=-1;
     TickType_t last=xTaskGetTickCount();
@@ -96,10 +103,7 @@ static void display_task(void *unused)
         if(!sleep){
             const uint64_t now=esp_timer_get_time()/1000;
             const ainekio_p4_body_status_t body=ainekio_p4_body_status();
-            if(body.moving||was_moving||held_revision!=body.face_revision)held_since=now;
-            was_moving=body.moving;held_revision=body.face_revision;
-            ainekio_p4_face_sample_t sample=ainekio_p4_face_sample(&body,
-                body.face_command ? now-held_since : now);
+            ainekio_p4_face_sample_t sample=ainekio_p4_face_sample(&face_clock,&body,now);
             const ainekio_p4_media_status_t media=ainekio_p4_media_status();
             const bool talking=media.speaker_busy;
             portENTER_CRITICAL(&selection_lock);

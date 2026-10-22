@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import http.client
+import importlib.util
 import json
 import math
 import re
 import struct
+import sys
 import threading
 from collections.abc import AsyncIterator
 from http import HTTPStatus
@@ -34,8 +36,10 @@ DEFAULT_TEST_TONE_VOLUME_PERCENT = 15
 PCM_S16_MAX = 32767
 TEST_TONE_FRAME_COUNT = 100
 STATIC_ROOT = Path(__file__).with_name("static")
+FREESTYLE_ROOT = Path(__file__).resolve().parents[3] / "experiments" / "freestyle"
 ROBOT_MAINTENANCE = {
     "/api/robot/idle-rest": "/api/idle-rest",
+    "/api/robot/gait-learning": "/api/gait-learning",
     "/api/robot/servo-feedback": "/api/servo-feedback",
     "/api/robot/logs": "/api/logs",
     "/api/robot/recording": "/api/recording",
@@ -48,6 +52,7 @@ STATIC_FILES = {
     "/login": ("login.html", "text/html; charset=utf-8", False),
     "/assets/dashboard.css": ("dashboard.css", "text/css; charset=utf-8", False),
     "/assets/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8", False),
+    "/assets/gait-history.js": ("gait-history.js", "text/javascript; charset=utf-8", False),
 }
 # Generated from the same face definitions and C renderer used by the P4.
 # Extend the existing explicit static-file map; request paths never become
@@ -80,6 +85,8 @@ class DashboardHttpServer(ThreadingHTTPServer):
             raise ValueError("primary_view must be camera or simulator")
         super().__init__(server_address, DashboardHandler)
         self.gateway = gateway
+        self.freestyle = None
+        self.gait_learning = None
         self.camera_recognition = None
         self.control_settings_path = password_store.path.with_name("sensing-controls.json")
         self.control_settings = (_read_json(self.control_settings_path)
@@ -101,7 +108,8 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.hotspot = hotspot if hotspot is not None else RobotHotspot()
         self.environment_adapter = environment_adapter
         self._camera_condition = threading.Condition()
-        self._camera_frames: dict[str, tuple[int, bytes]] = {}
+        self._camera_frames: dict[str, tuple[int, bytes, dict]] = {}
+        self._camera_snapshots: dict[str, tuple[int, bytes, dict]] = {}
         gateway.subscribe_frames(self._record_camera_frame)
 
     def call_gateway(self, awaitable: Any, *, timeout: float | None = 10.0) -> object:
@@ -142,6 +150,54 @@ class DashboardHttpServer(ThreadingHTTPServer):
             _atomic_secure_json(self.control_settings_path, saved)
             self.control_settings = saved
         return result
+
+    async def trial_status(self):
+        status = await self.gateway.status_snapshot()
+        if (FREESTYLE_ROOT / "bridge.py").is_file():
+            status["freestyle"] = self.freestyle.status() if self.freestyle else {"settings": {}, "jobs": {}}
+        camera = self.camera_recognition
+        for robot_id, robot in status.get("robots", {}).items():
+            robot["locomotion_measurement"] = camera.locomotion_measurement(robot_id) if camera else {
+                "robotId": robot_id, "available": False, "reason": "Camera processing is not configured"}
+            if self.gait_learning:
+                robot["gait_training"] = self.gait_learning.status(robot_id)
+        return status
+
+    async def freestyle_request(self, payload):
+        if not (FREESTYLE_ROOT / "bridge.py").is_file():
+            raise GatewayError("Freestyle experiment is not installed")
+        if self.freestyle is None:
+            # Import only on an explicit experimental request. Deleting the
+            # experiment directory leaves normal controls and startup intact.
+            package = "ainekio_freestyle_experiment"
+            if package not in sys.modules:
+                spec = importlib.util.spec_from_file_location(package, FREESTYLE_ROOT / "__init__.py",
+                    submodule_search_locations=[str(FREESTYLE_ROOT)])
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[package] = module
+                spec.loader.exec_module(module)
+            from importlib import import_module
+            from gateway.gait_learning_service import RobotLearningTransport
+            bridge = import_module(package + ".bridge")
+            self.freestyle = bridge.Bridge(self.gateway, RobotLearningTransport(self.gateway, self.token_store, persistent=False))
+        robot = _required_string(payload, "robot_id")
+        if payload.get("operation") == "configure":
+            return await self.freestyle.configure(robot, _required_string(payload, "endpoint"),
+                                                  _required_bool(payload, "recover_events"))
+        if payload.get("operation") == "trial":
+            return self.freestyle.trial(robot, _required_string(payload, "job_id"))
+        return await self.freestyle.submit(robot, _required_string(payload, "request"),
+                                           _required_bool(payload, "execute"))
+
+    async def depth_motion(self, robot_id, request):
+        if self.camera_recognition is None:
+            raise GatewayError("Camera processing is not configured")
+        config = await self.camera_recognition.configure_depth(robot_id, request)
+        saved = {**self.control_settings, "depth_motion": {
+            **self.control_settings.get("depth_motion", {}), robot_id: config}}
+        _atomic_secure_json(self.control_settings_path, saved)
+        self.control_settings = saved
+        return {"settings": config}
 
     async def set_recognition(self, enabled: bool) -> dict[str, object]:
         if self.camera_recognition is None:
@@ -207,7 +263,11 @@ class DashboardHttpServer(ThreadingHTTPServer):
         ):
             return
         with self._camera_condition:
-            self._camera_frames[robot_id] = (counter, payload)
+            metadata = {"epoch": frame.get("epoch"), **(frame.get("camera_metadata") or {})}
+            observation = (counter, payload, metadata)
+            self._camera_frames[robot_id] = observation
+            if metadata.get("origin") == "request":
+                self._camera_snapshots[robot_id] = observation
             self._camera_condition.notify_all()
 
     def wait_for_camera_frame(
@@ -216,17 +276,21 @@ class DashboardHttpServer(ThreadingHTTPServer):
         after_counter: int | None,
         *,
         timeout: float = 10.0,
-    ) -> tuple[int, bytes] | None:
+        request_sequence: int | None = None,
+        epoch: int | None = None,
+    ) -> tuple[int, bytes, dict] | None:
+        frames = self._camera_snapshots if request_sequence is not None else self._camera_frames
         def frame_is_new() -> bool:
-            frame = self._camera_frames.get(robot_id)
+            frame = frames.get(robot_id)
             return frame is not None and (
                 after_counter is None or frame[0] != after_counter
-            )
+            ) and (request_sequence is None or (
+                frame[2].get("origin_id") == request_sequence and frame[2].get("epoch") == epoch))
 
         with self._camera_condition:
             if not self._camera_condition.wait_for(frame_is_new, timeout=timeout):
                 return None
-            return self._camera_frames[robot_id]
+            return frames[robot_id]
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -235,6 +299,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed_url = urlsplit(self.path)
         path = parsed_url.path
+        if path == "/assets/freestyle.js" and (FREESTYLE_ROOT / "body_control.js").is_file():
+            if self._require_session() is not None:
+                self._send_bytes((FREESTYLE_ROOT / "body_control.js").read_bytes(), "text/javascript; charset=utf-8")
+            return
         if path in ROBOT_MAINTENANCE:
             if self._require_session() is not None:
                 self._robot_maintenance(path)
@@ -263,7 +331,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path == "/api/status":
             if self._require_session() is None:
                 return
-            status = self.server.call_gateway(self.server.gateway.status_snapshot())
+            status = self.server.call_gateway(self.server.trial_status())
             networks = self.server.hotspot.connection_networks() if any(
                 robot.get("local_address") and robot.get("transport", "lan") == "lan"
                 for robot in status.get("robots", {}).values()
@@ -279,6 +347,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
                     "host_network": self.server.hotspot.snapshot(),
                     "camera_settings": self.server.control_settings["cameras"],
+                    "depth_settings": self.server.control_settings.get("depth_motion", {}),
                     "body_events": self.server.call_gateway(self.server.body_event_status()),
                     "person_recognition": self.server.call_gateway(self.server.person_status()),
                     "recognition": self.server.call_gateway(self.server.recognition_status()),
@@ -342,18 +411,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     status=HTTPStatus.BAD_REQUEST,
                 )
                 return
-        frame = self.server.wait_for_camera_frame(robot_ids[0], after_counter)
+        request_sequence = epoch = None
+        if "request_seq" in query or "epoch" in query:
+            try:
+                if len(query.get("request_seq", [])) != 1 or len(query.get("epoch", [])) != 1:
+                    raise ValueError
+                request_sequence, epoch = int(query["request_seq"][0]), int(query["epoch"][0])
+                if request_sequence < 1 or epoch < 0:
+                    raise ValueError
+            except ValueError:
+                self._send_json({"error": "request_seq and epoch must identify one snapshot"}, status=HTTPStatus.BAD_REQUEST)
+                return
+        frame = self.server.wait_for_camera_frame(robot_ids[0], after_counter,
+            request_sequence=request_sequence, epoch=epoch)
         if frame is None:
             self.send_response(HTTPStatus.NO_CONTENT)
             self._security_headers()
             self.end_headers()
             return
-        counter, payload = frame
+        counter, payload, metadata = frame
+        headers = {"X-Ainekio-Camera-Counter": str(counter)}
+        for field, suffix in (("epoch", "Epoch"), ("origin", "Origin"), ("origin_id", "Origin-Id")):
+            if metadata.get(field) is not None:
+                headers["X-Ainekio-Camera-"+suffix] = str(metadata[field])
         try:
             self._send_bytes(
                 payload,
                 "image/jpeg",
-                extra_headers={"X-Ainekio-Camera-Counter": str(counter)},
+                extra_headers=headers,
             )
         except (BrokenPipeError, ConnectionResetError):
             return
@@ -369,6 +454,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if self.headers.get("X-Ainekio-CSRF") != session.csrf_token:
             self._send_json({"error": "csrf"}, status=HTTPStatus.FORBIDDEN)
+            return
+        if path == "/api/gait-learning/train":
+            self._train_gait_learning()
             return
         if path in ROBOT_MAINTENANCE:
             self._robot_maintenance(path, post=True)
@@ -413,6 +501,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "gateway timeout"}, status=HTTPStatus.GATEWAY_TIMEOUT)
             return
         self._send_json(response)
+
+    def _train_gait_learning(self) -> None:
+        """Host-only fit in this request thread; does not submit robot motion."""
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 8*1024*1024:
+                raise ValueError("Upload up to 8 MiB of tracking records per fit")
+            payload = json.loads(self.rfile.read(length))
+            from ..gait_learning import fit
+            result = fit(payload["batches"], float(payload.get("gain", .5)))
+            self._send_json(result)
+        except (ValueError, KeyError, TypeError) as exc:
+            self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        except ImportError:
+            self._send_json({"error": "Install NumPy in the gateway Python environment for training"}, status=HTTPStatus.SERVICE_UNAVAILABLE)
 
     def _robot_maintenance(self, path: str, *, post: bool = False) -> None:
         """Stream between browser and selected robot; credentials stay here.
@@ -462,7 +565,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     payload = self._read_json()
                     if payload is None: return
                     operation = _required_string(payload, "op")
-                    if path in ("/api/robot/servo-feedback", "/api/robot/idle-rest"):
+                    if path in ("/api/robot/servo-feedback", "/api/robot/gait-learning", "/api/robot/idle-rest"):
                         headers["Content-Type"] = "application/json"
                         operation = json.dumps(payload, allow_nan=False)
                     upstream.request("POST", target, operation, headers)
@@ -503,6 +606,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _dispatch_api(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         robot_id = _optional_string(payload, "robot_id")
+        if path == "/api/freestyle":
+            return self.server.call_gateway(self.server.freestyle_request(payload))
+        if path == "/api/gait-learning/service":
+            service = self.server.gait_learning
+            if service is None:
+                raise GatewayError("Host gait learning service is not running")
+            robot_id = _required_string(payload, "robot_id")
+            operation = payload.get("op", "status")
+            if operation == "history":
+                return self.server.call_gateway(service.history(robot_id))
+            if operation == "configure":
+                return self.server.call_gateway(service.configure(robot_id, payload.get("settings", {})))
+            if operation == "analyze":
+                async def analyze():
+                    return service.analyze(robot_id)
+                return self.server.call_gateway(analyze())
+            if operation == "restore":
+                return self.server.call_gateway(service.restore(robot_id,
+                    _required_string(payload, "gait"), _required_string(payload, "model_id")))
+            if operation == "status":
+                async def status():
+                    return service.status(robot_id)
+                return self.server.call_gateway(status())
+            raise ValueError("Unknown host gait-learning operation")
         if path in {"/api/people/enroll", "/api/people/forget"}:
             camera = self.server.camera_recognition
             if camera is None:
@@ -603,6 +730,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return {"ok": True, "seq": sequence}
         if path == "/api/camera/ground-calibration":
             return self.server.call_gateway(self.server.ground_calibration(
+                _required_string(payload, "robot_id"), payload), timeout=None)
+        if path == "/api/camera/depth":
+            return self.server.call_gateway(self.server.depth_motion(
                 _required_string(payload, "robot_id"), payload), timeout=None)
         if path == "/api/camera":
             options = {"snapshot_resolution": _required_string(payload, "snapshot_res")} if "snapshot_res" in payload else {}
@@ -875,6 +1005,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _send_static(self, filename: str, content_type: str) -> None:
         body = (STATIC_ROOT / filename).read_bytes()
         if filename == "dashboard.html":
+            if (FREESTYLE_ROOT / "body_control.js").is_file():
+                body = body.replace(b'<script src="/assets/dashboard.js" defer></script>',
+                    b'<script src="/assets/freestyle.js" defer></script><script src="/assets/dashboard.js" defer></script>')
             body = body.replace(
                 b'data-dashboard-primary="camera"',
                 f'data-dashboard-primary="{self.server.primary_view}"'.encode("ascii"),

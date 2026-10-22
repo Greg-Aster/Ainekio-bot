@@ -262,8 +262,51 @@ static void test_installed_walk_mapping(void)
     assert(ainekio_v2_joint_speed_set((float)ainekio_v2_joint_speed_default()));
 }
 
+
+static void test_installed_mechanical_travel(void)
+{
+    const unsigned home[12]={1760,2750,2870,1650,415,440,1650,2740,2800,1700,560,500};
+    const unsigned invert[12]={0,1,1,1,0,0,1,1,1,0,0,0};
+    ainekio_p4_joint_config_t joints[12];assert(ainekio_p4_joint_defaults(joints));
+    for(unsigned j=0;j<12;j++) {
+        joints[j].home_us=home[j];joints[j].invert=invert[j];
+        joints[j].home_cd=j%3==0?0:j%3==1?-3087:-11768;
+    }
+    /* Shoulder range is explicitly unknown and excluded, even at >2800 us.
+     * Role follows the joint, not its assigned output socket. */
+    joints[0].home_us=3100;joints[0].channel=1;joints[1].channel=0;
+    ainekio_p4_joint_config_t original[12];memcpy(original,joints,sizeof joints);
+    unsigned changed=0,unchanged=0;
+    for(unsigned direction=0;direction<4;direction++)for(unsigned mode=0;mode<3;mode++) {
+        ainekio_command_t cmd={.kind=AINEKIO_COMMAND_INTENT,.sequence=1};
+        cmd.data.intent.kind=AINEKIO_INTENT_WALK;
+        cmd.data.intent.data.walk.direction=direction;cmd.data.intent.data.walk.gait=mode;
+        cmd.data.intent.data.walk.controls=2;cmd.data.intent.data.walk.stride_percent=100;
+        cmd.data.intent.data.walk.motion_rate=2;cmd.data.intent.data.walk.steps=4;
+        ainekio_v2_walk_state_t walk={0};assert(ainekio_v2_walk_accept(&walk,&cmd,0));
+        for(uint64_t now=20000;!walk.complete&&now<30000000;now+=20000) {
+            assert(ainekio_v2_walk_tick(&walk,now));
+            ainekio_v2_frame_t frame=walk.pose.frame;bool fits=ainekio_p4_joint_frame_in_travel(joints,&frame);
+            assert(ainekio_p4_joint_fit_frame(joints,&frame));
+            assert(ainekio_p4_joint_frame_in_travel(joints,&frame));
+            if(!memcmp(&frame,&walk.pose.frame,sizeof frame))unchanged++;else changed++;
+            if(fits)assert(!memcmp(&frame,&walk.pose.frame,sizeof frame));
+            for(unsigned j=0;j<12;j+=3)assert(frame.position[j]==walk.pose.frame.position[j]);
+            float point[4][3];assert(ainekio_v2_feet_forward(&frame,point)==15);
+        }
+        assert(walk.complete);
+    }
+    assert(changed&&unchanged);assert(!memcmp(original,joints,sizeof joints));
+    /* Every authored clip sample still closes with the installed calibration. */
+    for(size_t clip=0;clip<ainekio_v2_clip_count;clip++)for(uint64_t t=0;t<=ainekio_v2_clips[clip].duration_us;t+=20000) {
+        ainekio_v2_frame_t frame;assert(ainekio_v2_clip_sample(clip,t,&frame));
+        assert(ainekio_p4_joint_fit_frame(joints,&frame));assert(ainekio_p4_joint_frame_in_travel(joints,&frame));
+    }
+}
+
 int main(void)
 {
+    test_installed_mechanical_travel();
     test_installed_walk_mapping();
     test_recommended_mounting_home_matches_inversion();
     test_manual_pulse_reference_is_literal();

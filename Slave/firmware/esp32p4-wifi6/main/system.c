@@ -95,11 +95,16 @@ ainekio_p4_system_status_t ainekio_p4_system_status(void)
 
 esp_err_t ainekio_p4_system_profile(ainekio_profile_t requested)
 {
-    if (ainekio_p4_ota_busy()) return ESP_ERR_INVALID_STATE;
     if (requested != AINEKIO_PROFILE_HOME && requested != AINEKIO_PROFILE_TETHER) return ESP_ERR_INVALID_ARG;
     if (!settings_lock || atomic_load(&power_pending)) return ESP_ERR_INVALID_STATE;
     if (xSemaphoreTake(settings_lock, pdMS_TO_TICKS(100)) != pdTRUE) return ESP_ERR_TIMEOUT;
-    if (atomic_load(&power_pending) || ainekio_p4_ota_busy()) { xSemaphoreGive(settings_lock); return ESP_ERR_INVALID_STATE; }
+    /* WELCOME confirms the existing profile on every reconnect. That no-op
+     * must succeed during OTA too, or a brief link loss becomes a reconnect
+     * loop until the upload finishes. Actual changes remain rejected during OTA. */
+    if (atomic_load(&power_pending) ||
+        (ainekio_p4_ota_busy() && (int)requested != atomic_load(&profile))) {
+        xSemaphoreGive(settings_lock); return ESP_ERR_INVALID_STATE;
+    }
     esp_err_t result = ESP_OK;
     if ((int)requested != atomic_load(&profile)) {
         ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
@@ -207,7 +212,8 @@ esp_err_t ainekio_p4_system_state(ainekio_state_request_t requested, uint32_t se
 esp_err_t ainekio_p4_system_authenticated(void)
 {
     if (!atomic_load(&ota_pending)) { ainekio_p4_logs_runtime(); return ESP_OK; }
-    ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
+    /* Accepting a successfully booted image must not drop a standing robot.
+     * Observe the output owner; firmware acceptance does not change its pose. */
     esp_err_t result = ainekio_p4_ota_startup_check();
     if (result == ESP_OK) result = esp_ota_mark_app_valid_cancel_rollback();
     if (result == ESP_OK) {

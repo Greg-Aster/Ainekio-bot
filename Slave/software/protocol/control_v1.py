@@ -86,6 +86,8 @@ EVENT_NAMES = frozenset(
         "tts_orphan",
         "tts_overflow",
         "imu",
+        "servo_stall",
+        "servo_feedback",
         "wake",
     }
 )
@@ -565,8 +567,12 @@ def _balance_tuning(message: Mapping[str, object]) -> None:
 
 def _validate_balance(message: Mapping[str, object]) -> None:
     _seq(message)
-    operation = _string(message, "op", allowed=frozenset({"get", "save", "calibrate_gyro"}))
-    if operation == "save":
+    operation = _string(message, "op", allowed=frozenset({"get", "save", "calibrate_gyro", "walking"}))
+    if operation == "walking":
+        _boolean(message, "enabled")
+        if BALANCE_TUNING_FIELDS.intersection(message):
+            _fail("walking does not change self-leveling")
+    elif operation == "save":
         _boolean(message, "enabled")
         if BALANCE_TUNING_FIELDS.intersection(message):
             _balance_tuning(message)
@@ -578,6 +584,9 @@ def _validate_balance_status(message: Mapping[str, object]) -> None:
     _seq(message)
     for key in ("enabled", "saved", "active"):
         _boolean(message, key)
+    for key in ("walking_enabled", "walking_saved"):
+        if key in message:
+            _boolean(message, key)
     if (BALANCE_TUNING_FIELDS | {"tuning_saved"}).intersection(message):
         _balance_tuning(message)
         _boolean(message, "tuning_saved")
@@ -757,6 +766,8 @@ def _validate_nak(message: Mapping[str, object]) -> None:
 
 def _validate_done(message: Mapping[str, object]) -> None:
     _seq(message)
+    if "position_verified" in message:
+        _boolean(message, "position_verified")
 
 
 def _validate_cancelled(message: Mapping[str, object]) -> None:
@@ -795,6 +806,28 @@ def _validate_status(message: Mapping[str, object]) -> None:
 
 def _validate_event(message: Mapping[str, object]) -> None:
     name = _string(message, "name", allowed=EVENT_NAMES)
+    if name == "servo_feedback":
+        data = message.get("data")
+        if not isinstance(data, dict):
+            _fail("missing:servo_feedback.data")
+        for key in ("enabled", "usable", "supply_voltage_available"):
+            _boolean(data, key)
+        for key in ("calibrated_mask", "unavailable_mask", "clipped_mask",
+                    "below_calibration_mask", "above_calibration_mask"):
+            _integer(data, key, minimum=0, maximum=4095)
+        for key in ("scan", "clock_us"):
+            _integer(data, key, minimum=0, maximum=2**64-1)
+        _string(data, "adc_error")
+        volts = data.get("signal_millivolts")
+        if not isinstance(volts, list) or len(volts) != 12 or any(
+                value is not None and (type(value) is not int or value < 0) for value in volts):
+            _fail("invalid:servo_feedback.signal_millivolts")
+    if name == "servo_stall":
+        _string(message, "event_id")
+        _integer(message, "clock_us", minimum=0, maximum=2**64-1)
+        _integer(message, "seq", minimum=0, maximum=MAX_SEQUENCE)
+        _integer(message, "joint_mask", minimum=1, maximum=4095)
+        _boolean(message, "outputs_released")
     if name == "imu":
         data = message.get("data")
         if not isinstance(data, dict):

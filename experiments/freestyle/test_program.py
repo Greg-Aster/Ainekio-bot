@@ -1,0 +1,178 @@
+import asyncio
+import copy
+import json
+import threading
+import unittest
+
+from experiments.freestyle.bridge import Bridge
+from experiments.freestyle.program import JOINTS, calibrated_positions, frames_for, packets, gait_intents
+from compact import call, move
+from refine import records, POSTURES, GAITS
+from protocol.control_v1 import validate_control_message
+
+
+class ProgramTests(unittest.TestCase):
+    def test_calibrated_home_and_signed_inversion(self):
+        home,current=calibrated_positions({'joints':[{'id':0,'home_cd':2300,'home_us':1500,
+                        'pulse_us':1600,'us_per_degree':10,'invert':True}]})
+        self.assertEqual(home[JOINTS[0]],23)
+        self.assertEqual(current[JOINTS[0]],13)
+
+    def test_compilation_preserves_large_oscillation_and_nonmoving_joints(self):
+        start=dict.fromkeys(JOINTS,7);home=dict.fromkeys(JOINTS,12)
+        chunks=list(packets(frames_for(call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,period_s=2),start,home,90)))
+        self.assertEqual([len(p) for p in chunks],[32,16])
+        all_frames=sum(chunks,[])
+        self.assertEqual(sum(f[0] for f in all_frames),24000)
+        self.assertEqual([f[1][0] for f in all_frames[:4]],[2700,700,-1300,700])
+        self.assertEqual(all_frames[-1][1], [700]*12)
+        for chunk in chunks:
+            validate_control_message({'t':'motion_plan','seq':1,'map':2,'frames':chunk,'end':'hold'})
+
+    def test_percentage_speed_and_home_are_not_zero(self):
+        start=dict.fromkeys(JOINTS,10);home=dict.fromkeys(JOINTS,15)
+        frame=list(frames_for(move(JOINTS[0],20,'home',50),start,home,100))[0]
+        self.assertEqual(frame[0],500)
+        self.assertEqual(frame[1],[3500]+[1000]*11)
+
+    def test_released_output_is_not_a_negative_angle(self):
+        home,current=calibrated_positions({'joints':[{'id':0,'home_cd':2300,'home_us':1500,
+                        'pulse_us':0,'us_per_degree':10,'invert':False}]})
+        self.assertEqual(home[JOINTS[0]],23)
+        self.assertIsNone(current[JOINTS[0]])
+
+    def test_all_gaits_preserve_more_than_ten_cycles(self):
+        for name in GAITS:
+            intents=list(gait_intents({'command':name,'speed_pct':50,'cycles':12}))
+            self.assertEqual([v['steps'] for v in intents],[10,2])
+            for intent in intents:
+                validate_control_message({'t':'intent','seq':1,'name':'walk',**intent})
+
+    def test_recovery_and_novel_sequences_are_in_disjoint_splits(self):
+        splits=[records(s) for s in ('train','evaluation','test')]
+        queries=[{r['query'] for r in rows} for rows in splits]
+        for a,b in ((0,1),(0,2),(1,2)):
+            self.assertFalse(queries[a]&queries[b])
+        for rows in splits:
+            families={r['family'] for r in rows}
+            self.assertTrue({'jam_smaller_wave','jam_backoff','fall_correction','slip_correction','novel_sequence'}<=families)
+        for row in splits[0]:
+            if row['family']=='jam_backoff':
+                obs=json.loads(row['query'])['observation']['joints']
+                action=row['answers'][0]['arguments'];j=obs[action['joint']]
+                self.assertLess((action['angle_deg']-j['model_deg'])*(j['commanded_model_deg']-j['model_deg']),0)
+
+
+class FakeGateway:
+    def __init__(self):
+        self.events=[];self.commands=[];self.sent=[];self.seq=0
+        self.calibration={'joints':[{'id':i,'home_cd':1000,'home_us':1500,'pulse_us':1500,
+                          'invert':False,'us_per_degree':10} for i in range(12)]}
+    def subscribe_events(self,c):self.events.append(c)
+    def subscribe_commands(self,c):self.commands.append(c)
+    def unsubscribe_events(self,c):self.events.remove(c)
+    def unsubscribe_commands(self,c):self.commands.remove(c)
+    async def status_snapshot(self):
+        return {'robots':{'robot':{'model':'v2-12servo','epoch':1,'calibration':self.calibration,
+            'motion_speed':{'joint_speed_limit_deg_s':100},'status':{'imu':{'orientation_wxyz':[1,0,0,0]}},'body_command':None}}}
+    async def queue_motion_plan(self,frames,**kwargs):
+        self.seq+=1;self.sent.append(copy.deepcopy(frames))
+        for c in self.commands:await c({'t':'motion_plan','robot_id':'robot','seq':self.seq})
+        return self.seq
+    async def wait_terminal(self,seq,**kwargs):
+        self.assert_timeout=kwargs['timeout']
+        return {'t':'done','seq':seq}
+
+
+class FakeTransport:
+    async def request(self,*args):
+        return {'joints':[{'id':i,'model_deg':10,'command_us':1500,'calibrated':True} for i in range(12)]}
+    async def close(self):pass
+
+
+class BridgeTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.gateway=FakeGateway()
+        self.generated=[]
+        self.bridge=Bridge(self.gateway,FakeTransport(),self.generate)
+        await self.bridge.configure('robot','http://unused',False)
+    def generate(self,endpoint,request):
+        self.generated.append(request)
+        return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,period_s=2)]}
+    async def asyncTearDown(self):await self.bridge.close()
+    async def test_preview_generates_without_motion(self):
+        job=await self.bridge.submit('robot','new greeting',False)
+        await self.bridge.tasks[job['job_id']]
+        self.assertFalse(self.gateway.sent)
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'generated')
+        self.assertIn('model_deg',self.generated[0]['observation']['joints'][JOINTS[0]])
+    async def test_saved_trial_preserves_evidence_without_claiming_tracking_success(self):
+        job=await self.bridge.submit('robot','new greeting',False)
+        await self.bridge.tasks[job['job_id']]
+        exported=self.bridge.trial('robot',job['job_id'])
+        self.assertFalse(exported['job']['execute'])
+        self.assertEqual(exported['job']['initial_observation']['epoch'],1)
+        self.assertIsNone(exported['evidence']['physical_success'])
+        self.assertFalse(exported['evidence']['continuous_servo_trace'])
+        exported['job']['request']='changed copy'
+        self.assertEqual(self.bridge.jobs[job['job_id']]['request'],'new greeting')
+        self.assertFalse(self.gateway.sent)
+    async def test_execution_preserves_all_packets(self):
+        job=await self.bridge.submit('robot','twelve wiggles',True)
+        await self.bridge.tasks[job['job_id']]
+        self.assertEqual([len(p) for p in self.gateway.sent],[32,16])
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'completed')
+        self.assertIsNone(self.gateway.assert_timeout)
+
+    async def test_released_servos_arm_at_measured_pose_before_correction(self):
+        original=self.bridge.transport.request
+        async def released(*args):
+            value=await original(*args)
+            for j in value['joints']:j['command_us']=0
+            return value
+        self.bridge.transport.request=released
+        job=await self.bridge.submit('robot','twelve wiggles',True)
+        await self.bridge.tasks[job['job_id']]
+        self.assertEqual(self.gateway.sent[0][0],[1,[1000]*12])
+        self.assertEqual(sum(map(len,self.gateway.sent)),49)
+    async def test_events_are_opt_in_and_admit_without_waiting_for_inference(self):
+        event={'robot_id':'robot','name':'body_event','data':{'kind':'servo_stall','joints':[{'id':0}]}}
+        await self.bridge.event(event)
+        self.assertFalse(self.bridge.jobs)
+        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.event(event)
+        tasks=list(self.bridge.tasks.values())
+        self.assertEqual(len(tasks),1)
+        await asyncio.gather(*tasks)
+        self.assertEqual(self.generated[0]['event']['type'],'servo_stall')
+        self.assertEqual(self.generated[0]['event']['joints'],event['data']['joints'])
+    async def test_manual_command_supersedes_pending_generation(self):
+        entered=threading.Event(); release=threading.Event()
+        def slow(*args):
+            entered.set();release.wait();return self.generate(*args)
+        self.bridge.generate=slow
+        job=await self.bridge.submit('robot','wave',True)
+        task=self.bridge.tasks[job['job_id']]
+        await asyncio.to_thread(entered.wait)
+        await self.bridge.command({'robot_id':'robot','t':'stop'})
+        release.set();await task
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'superseded')
+        self.assertFalse(self.gateway.sent)
+    async def test_reassessment_does_not_drop_remaining_actions(self):
+        count=0
+        def generate(*args):
+            nonlocal count
+            count+=1
+            if count==1:return {'program':[call('reassess'),move(JOINTS[0],20,'home',50)]}
+            return {'program':[]}
+        self.bridge.generate=generate
+        job=await self.bridge.submit('robot','reassess then move',True)
+        await self.bridge.tasks[job['job_id']]
+        self.assertEqual(count,2)
+        self.assertEqual(len(self.gateway.sent),1)
+
+    async def test_old_motion_event_does_not_override_replacement_command(self):
+        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_stall','command_sequence':99}})
+        self.assertFalse(self.bridge.jobs)

@@ -84,10 +84,11 @@ void ainekio_connection_page(const ainekio_connection_network_t *n,
         if (!p->page) {
             snprintf(p->heading, sizeof(p->heading), "%s", n->wifi_online ? "Change Wi-Fi" :
                 n->has_saved_wifi ? "Connection not found" : "First-time setup");
-            line(p, 0, "1. Join robot Wi-Fi:");
-            wrapped(p, 1, n->setup_ssid);
-            line(p, 3, n->setup_password[0] ? "Password (case matters):" : "No Wi-Fi password needed");
-            wrapped(p, 4, n->setup_password);
+            char join[sizeof(n->setup_ssid) + 14];
+            snprintf(join, sizeof(join), "Join Wi-Fi: %s", n->setup_ssid);
+            wrapped(p, 0, join);
+            line(p, 2, n->setup_password[0] ? "Password (case matters):" : "No Wi-Fi password needed");
+            wrapped(p, 3, n->setup_password);
             snprintf(p->footer, sizeof(p->footer), "1/2  Browser instructions in %us",
                 12U - (unsigned)(elapsed_ms / 1000 % 12));
         } else {
@@ -202,13 +203,15 @@ void ainekio_connection_render(const ainekio_connection_page_t *p,
 {
     if (p->face_visible) return;
     memset(pixels, 0, AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT * sizeof(*pixels));
-    text(pixels, 10, 9, p->heading, 2, 0x07ff);
+    text(pixels, 10, AINEKIO_LCD_VISIBLE_TOP + 3, p->heading, 2, 0x07ff);
+    unsigned row = 0;
     for (unsigned i = 0; i < AINEKIO_SCREEN_LINES; ++i)
-        text(pixels, 10, 35 + i * 16, p->lines[i], 2, 0xffff);
+        if (p->lines[i][0])
+            text(pixels, 10, AINEKIO_LCD_VISIBLE_TOP + 22 + row++ * 16, p->lines[i], 2, 0xffff);
     /* Instruction pages retain their page/countdown footer. */
-    for (int y = 160; y < AINEKIO_FACE_HEIGHT; ++y)
+    for (int y = AINEKIO_LCD_VISIBLE_BOTTOM - 9; y < AINEKIO_FACE_HEIGHT; ++y)
         memset(pixels + y * AINEKIO_FACE_WIDTH, 0, AINEKIO_FACE_WIDTH * sizeof(*pixels));
-    text(pixels, 10, 162, p->footer, 1, 0xbdf7);
+    text(pixels, 10, AINEKIO_LCD_VISIBLE_BOTTOM - 9, p->footer, 1, 0xbdf7);
 }
 
 static void warning_icon(uint16_t *pixels, int x, const uint32_t rows[20])

@@ -6,25 +6,33 @@ typedef struct {
     ainekio_v2_walk_pose_t start, target, pose;
     double anchors[4][3], shift[4][2];
     ainekio_v2_frame_t from, to;
+    unsigned order_offset;
 } ainekio_v2_posture_t;
 double ainekio_v2_posture_path_length(void);
 bool ainekio_v2_posture_begin(ainekio_v2_posture_t *state,
     const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,const double starting_euler[3]);
+bool ainekio_v2_posture_begin_ordered(ainekio_v2_posture_t *state,
+    const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,
+    const double starting_euler[3],unsigned order_offset);
 /* Geometric path coordinate, not a mandatory wall-clock duration. */
 bool ainekio_v2_posture_sample(ainekio_v2_posture_t *state,double elapsed);
 /* Traverse at the same full nominal joint rate as automatic Walk, independent
  * of the stored slow-motion/playback settings. Emit each lift/place landmark. */
 bool ainekio_v2_posture_advance(ainekio_v2_posture_t *state,double *progress,double seconds);
-/* Startup shoulder PWM may engage once that source leg has been lifted. */
-bool ainekio_v2_posture_shoulder_engaged(double progress,unsigned model_leg);
-bool ainekio_v2_posture_landmark(double progress);
-/* Startup rise: crouch 25 mm below Stand, then raise the body over the same
- * four modeled sole contacts. Shoulder engagement is owned by the body task. */
+/* Include the installed joint mapping in planning, before committing path
+ * progress. A failed candidate leaves both state and progress unchanged. */
+typedef bool (*ainekio_v2_posture_fit_t)(ainekio_v2_frame_t *frame,void *context);
+bool ainekio_v2_posture_advance_mapped(ainekio_v2_posture_t *state,double *progress,
+    double seconds,ainekio_v2_posture_fit_t fit,void *context);
+/* Lift and placement depend on the moving leg, not all supporting joints.
+ * The final target depends on all joints; lowering can load the supporting
+ * legs before the next step redistributes their load. */
+uint16_t ainekio_v2_posture_arrival_joints(const ainekio_v2_posture_t *state,double progress);
+unsigned ainekio_v2_posture_order_for_joints(uint16_t joints,unsigned start);
+/* Target and open-loop startup fold reference, not a second motion planner. */
 typedef struct {
-    ainekio_v2_walk_pose_t crouch, stand, pose;
+    ainekio_v2_walk_pose_t crouch, stand;
     double anchors[4][3];
 } ainekio_v2_rise_t;
 bool ainekio_v2_rise_begin(ainekio_v2_rise_t *state);
-/* Front and rear lift progress produce one rigid body pose with planted feet. */
-bool ainekio_v2_rise_sample(ainekio_v2_rise_t *state,double front_fraction,double rear_fraction);
 #endif

@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,7 +54,27 @@ class GroundPlaneTests(unittest.TestCase):
         self.owner._publish('robot', self.identity, pose, {'ambiguous': False})
         result = self.owner.measurements['robot']['position']
         np.testing.assert_allclose([result['xMetres'], result['yMetres']], [0, 0], atol=1e-12)
+        self.assertAlmostEqual(result['zMetres'], .025)
         self.assertAlmostEqual(result['headingDegrees'], np.degrees(np.arctan2(relative[1, 0], relative[0, 0])))
+
+    def test_measured_rectangle_freeze_capture_and_fit(self):
+        owner = GroundPlane('rectangle-test')
+        points = np.array([[0., 0, 0], [.24, 0, 0], [.24, .18, 0], [0, .18, 0]])
+        for i in range(12):
+            rv = np.array([.3*math.sin(i), .4*math.cos(i), .1*i])
+            pixels = cv2.projectPoints(points, rv, np.array([-.1, -.08, .65+.01*i]), self.k, np.zeros(5))[0].reshape(-1, 2)
+            identity = {**self.identity, 'frameId': str(i)}
+            owner.frames['robot'] = (np.zeros((480, 640), np.uint8), identity)
+            frozen = owner.calibration('robot', {'operation': 'status', 'includeImage': True})
+            self.assertTrue(frozen['image'].startswith('data:image/jpeg;base64,'))
+            owner.frames['robot'] = (np.zeros((480, 640), np.uint8), {**identity, 'frameId': 'newer'})
+            owner.calibration('robot', {'operation': 'capture', 'pattern': 'rectangle', 'frameId': str(i),
+                'pixels': pixels.tolist(), 'widthMetres': .24, 'heightMetres': .18})
+        fitted = owner.calibration('robot', {'operation': 'fit', 'frameId': '11',
+            'cameraToBody': self.c['cameraToBody'], 'geometryId': 'rectangle-test'})['calibration']
+        np.testing.assert_allclose(fitted['cameraMatrix'], self.k, atol=.1)
+        self.assertEqual(fitted['patterns'], ['rectangle'])
+        self.assertIsNone(fitted['metricUncertaintyMetres'])
 
     def test_ambiguous_pose_stays_unavailable(self):
         self.owner._publish('robot', self.identity, self.initial, {'ambiguous': True})
@@ -200,6 +221,20 @@ class CalibrationHttpTests(unittest.IsolatedAsyncioTestCase):
     _request = dashboard_fixture.GatewayDashboardTests._request
     _raw_request = dashboard_fixture.GatewayDashboardTests._raw_request
     _login = dashboard_fixture.GatewayDashboardTests._login
+
+    async def test_depth_settings_use_authenticated_owner_without_robot_commands(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        config = {"mode": "moge-open3d", "resolution_level": 0, "cameraToBody": None}
+        self.server.camera_recognition = SimpleNamespace(configure_depth=AsyncMock(return_value=config))
+        payload = {"robot_id": "ainekio-test-01", **config}
+        self.assertEqual((await self._request("POST", "/api/camera/depth", payload))[0], 401)
+        cookie, csrf = await self._login()
+        self.assertEqual((await self._request("POST", "/api/camera/depth", payload, cookie=cookie))[0], 403)
+        status, response, _ = await self._request("POST", "/api/camera/depth", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(status, 200)
+        self.assertEqual(response["settings"], config)
+        self.assertEqual(self.gateway.calls, [])
 
     async def test_ground_calibration_uses_existing_authenticated_post_owner(self):
         from types import SimpleNamespace

@@ -1990,6 +1990,9 @@
         "t": {
           "const": "done"
         },
+        "position_verified": {
+          "type": "boolean"
+        },
         "seq": {
           "$ref": "#/$defs/sequence"
         }
@@ -2202,6 +2205,8 @@
             "tts_orphan",
             "tts_overflow",
             "imu",
+            "servo_stall",
+            "servo_feedback",
             "wake"
           ]
         },
@@ -2362,7 +2367,8 @@
           "enum": [
             "get",
             "save",
-            "calibrate_gyro"
+            "calibrate_gyro",
+            "walking"
           ]
         },
         "enabled": {
@@ -2386,7 +2392,10 @@
       "if": {
         "properties": {
           "op": {
-            "const": "save"
+            "enum": [
+              "save",
+              "walking"
+            ]
           }
         }
       },
@@ -2438,6 +2447,23 @@
               "pitch_deg"
             ]
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "walking"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "strength": false,
+              "damping": false,
+              "roll_deg": false,
+              "pitch_deg": false
+            }
+          }
         }
       ]
     },
@@ -2483,6 +2509,12 @@
           "type": "number"
         },
         "tuning_saved": {
+          "type": "boolean"
+        },
+        "walking_enabled": {
+          "type": "boolean"
+        },
+        "walking_saved": {
           "type": "boolean"
         }
       },

@@ -3,3 +3,5 @@
 BaseType_t xTaskCreate(void (*function)(void *), const char *name, unsigned stack,
                       void *argument, unsigned priority, void *handle);
 void vTaskDelete(void *task);
+UBaseType_t uxTaskPriorityGet(void *task);
+void vTaskPrioritySet(void *task, UBaseType_t priority);

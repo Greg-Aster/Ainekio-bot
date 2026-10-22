@@ -813,6 +813,24 @@
     }
   }
 
+  function feedbackHealthMessage(health) {
+    if (!health) return "Feedback signal health not reported.";
+    if (!health.enabled) return "Feedback reading off; programmed motion remains available.";
+    const issues = [];
+    for (const [key, label] of [["unavailable_mask", "no sample"], ["clipped_mask", "ADC clipped"],
+      ["below_calibration_mask", "below calibrated signal range"], ["above_calibration_mask", "above calibrated signal range"]]) {
+      const joints = bodyJointNames.flatMap((name, id) => {
+        if (!(health[key] & (1 << id))) return [];
+        const mv = health.signal_millivolts?.[id];
+        return [`${name}${Number.isFinite(mv) ? ` ${(mv / 1000).toFixed(3)} V` : ""}`];
+      });
+      if (joints.length) issues.push(`${label}: ${joints.join(", ")}`);
+    }
+    if (issues.length) return `Feedback unverified — ${issues.join("; ")}. Programmed motion continues. Servo supply voltage is not monitored.`;
+    return health.usable ? "Feedback signals within calibrated ranges. Servo supply voltage is not monitored." :
+      "Feedback calibration incomplete; programmed motion remains available.";
+  }
+
   function renderServoFeedback() {
     const panel = byId("servo-feedback-panel");
     if (!panel) return;
@@ -824,14 +842,25 @@
       text("servo-feedback-status", "Connect a P4 with servo feedback firmware.");
       byId("servo-feedback-rows").replaceChildren();
       text("servo-feedback-motion", ""); text("servo-feedback-raw", ""); text("servo-feedback-points", "");
+      text("servo-feedback-health", "");
       return;
     }
-    if (!data) return;
+    if (!data) { text("servo-feedback-health", ""); return; }
+    const separateJam = typeof data.jam_enabled === "boolean";
+    byId("servo-feedback-config").elements.jam_enabled.disabled =
+      !servoFeedbackSupported || servoFeedbackWriting || !separateJam;
+    text("servo-feedback-jam-support", separateJam ?
+      "Jam protection and final Stand verification can be enabled independently." :
+      "This firmware couples jam protection to measured motion. Install the firmware update for independent switches.");
     text("servo-feedback-status", `${data.enabled ? "Reading enabled" : "Reading off"} · ${data.joints.filter(j => j.calibrated).length}/12 joints calibrated · scan ${data.scan} (${(data.scan_us / 1000).toFixed(2)} ms). ${data.error !== "ESP_OK" ? data.error : ""}`);
+    text("servo-feedback-health", feedbackHealthMessage(data.health));
     const waiting = bodyJointNames.filter((_, id) => data.waiting_joints & (1 << id));
-    text("servo-feedback-motion", data.stand_waiting ?
-      `Stand ${(100 * data.stand_progress).toFixed(0)}%: holding a stage target while waiting for measured arrival${waiting.length ? ": " + waiting.join(", ") : "."}` :
-      `Measured Stand ${data.stand_enabled ? "enabled" : "off"}.`);
+    const stalled = bodyJointNames.filter((_, id) => data.stalled_joints & (1 << id));
+    text("servo-feedback-motion", data.stand_replanning ?
+      "Stand: calculating the next commanded stepping path." : data.stand_waiting ?
+      `Checking commanded joint targets${waiting.length ? ": " + waiting.join(", ") : "."}${data.stand_replans ? ` Stand corrective paths: ${data.stand_replans}.` : ""}` : stalled.length ?
+      `Last stall: ${stalled.join(", ")}. All servo outputs were released (device time ${data.stall_clock_us} µs).` :
+      `Stand verification ${data.stand_enabled ? "enabled" : "off"}.`);
     const rows = byId("servo-feedback-rows"); rows.replaceChildren();
     for (const joint of data.joints) {
       const channel = data.channels[joint.channel];
@@ -853,8 +882,18 @@
       const config = byId("servo-feedback-config");
       config.elements.enabled.checked = data.enabled;
       config.elements.stand_enabled.checked = data.stand_enabled;
+      config.elements.jam_enabled.checked = separateJam ? data.jam_enabled : Boolean(data.stand_enabled && data.no_progress_ms);
       config.elements.tolerance_us.value = data.tolerance_us;
+      config.elements.arrival_tolerance_us.value = data.arrival_tolerance_us ?? data.tolerance_us;
+      config.elements.no_progress_ms.value = data.no_progress_ms ?? 1000;
+      config.elements.progress_us.value = data.progress_us ?? 5;
     }
+    const separateArrival = Number.isFinite(data.arrival_tolerance_us);
+    byId("servo-feedback-config").elements.arrival_tolerance_us.disabled =
+      !servoFeedbackSupported || servoFeedbackWriting || !separateArrival;
+    text("servo-feedback-arrival-support", separateArrival ?
+      "Arrival accuracy and jam detection have independent tolerances." :
+      "This firmware shares one tolerance for arrival and jam detection. A firmware update separates them.");
   }
 
   async function readServoFeedback(operation = null, force = false) {
@@ -919,7 +958,12 @@
     config.addEventListener("submit", event => {
       event.preventDefault();
       void readServoFeedback({op:"configure", enabled:config.elements.enabled.checked,
-        stand_enabled:config.elements.stand_enabled.checked, tolerance_us:Number(config.elements.tolerance_us.value)});
+        stand_enabled:config.elements.stand_enabled.checked,
+        ...(typeof servoFeedbackData?.jam_enabled === "boolean" ? {jam_enabled:config.elements.jam_enabled.checked} : {}),
+        tolerance_us:Number(config.elements.tolerance_us.value),
+        ...(Number.isFinite(servoFeedbackData?.arrival_tolerance_us) ?
+          {arrival_tolerance_us:Number(config.elements.arrival_tolerance_us.value)} : {}),
+        no_progress_ms:Number(config.elements.no_progress_ms.value), progress_us:Number(config.elements.progress_us.value)});
     });
     byId("servo-feedback-read").addEventListener("click", () => readServoFeedback(null, true));
     byId("servo-feedback-map").addEventListener("click", () => {
@@ -948,6 +992,18 @@
   }
 
   function renderBalance() {
+    const learningSupported = (balanceEntry?.features || []).includes("gait_learning_v1");
+    byId("learned-controls").hidden = !learningSupported;
+    if (learnedRobot && learnedRobot !== selectedRobotId) { learnedCandidate=null;learnedRobot=null;byId("learned-install").disabled=true; }
+    if (learningSupported && Date.now()-learnedReadAt>5000) readLearning();
+    if (learningSupported && balanceEntry?.gait_training) renderGaitTraining(balanceEntry.gait_training);
+    const walking = balanceSupported && (balanceEntry?.features || []).includes("walking_feedback_v1");
+    byId("walking-feedback-controls").hidden = !walking;
+    byId("walking-feedback-enabled").disabled = !walking || !balanceData || balanceBusy;
+    byId("walking-feedback-save").disabled = !walking || !balanceData || balanceBusy;
+    const feedback = balanceEntry?.status?.walking_feedback;
+    text("walking-feedback-live", feedback ?
+      `${feedback.active ? "Correcting heading" : "Heading correction inactive"} · Error ${(feedback.heading_error_rad*180/Math.PI).toFixed(1)}° · Turn correction ${feedback.turn_percent.toFixed(1)}%${feedback.reduced ? " · Correction reduced to fit linkage" : ""}` : "");
     byId("balance-enabled").disabled = !balanceSupported || !balanceData || balanceBusy;
     byId("balance-read").disabled = !balanceSupported || balanceBusy;
     byId("balance-save").disabled = !balanceSupported || !balanceData || balanceBusy ||
@@ -958,6 +1014,115 @@
     byId("balance-reference").disabled = !balanceTuningSupported || !balanceData || balanceBusy || !balanceAttitude(balanceEntry);
     byId("balance-gyro-calibrate").disabled = !balanceSupported || balanceBusy ||
       !(balanceEntry?.features || []).includes("balance_feedback_v1");
+  }
+
+  let learnedCandidate = null, learnedRobot = null, learnedReadAt = 0, learnedReading = false;
+  function downloadLearning(name, value) {
+    const url = URL.createObjectURL(new Blob([value], {type: "application/json"}));
+    const link = document.createElement("a"); link.href = url; link.download = name;
+    document.body.appendChild(link); link.click(); link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function readLearning(syncForm = false) {
+    const robot = selectedRobotId;
+    if (learnedReading) return;
+    learnedReading = true; learnedReadAt = Date.now();
+    try {
+      const data = await request(maintenanceUrl("gait-learning", robot));
+      if (robot !== selectedRobotId) return;
+      if (learnedRobot !== robot || syncForm) {
+        learnedRobot = robot;
+        byId("learned-enabled").value = String(data.enabled);
+        byId("learned-amount").value = String(Math.round(data.amount*100));
+      }
+      const lines = [`${data.enabled ? "Enabled" : "Off"} · model ${data.model_id ? data.model_id.slice(0,12) : "not installed"} · trained stride ${data.stride}%${data.model_saved === false ? " · temporary (not saved)" : ""}`,
+        ["gait_learning_v3", "gait_learning_v4"].includes(data.model_schema) ? `Sensor-conditioned policy · live inputs ${data.policy_input_usable ? "available" : "unavailable"}${data.model_schema === "gait_learning_v4" ? " · gait shape selected at Walk start" : ""}` : "Phase-only trajectory model",
+        `Last walking observation: ${data.reason.replaceAll("_", " ")} · applied ${Math.round(data.blend*100)}% · correction fit ${Math.round(data.fit*100)}%${data.range_reduced ? " · learned addition reduced at travel boundary" : ""}`,
+        "Foot tracking error (mm, body x/y/z; inferred from shaft positions):"];
+      ["Rear left", "Rear right", "Front left", "Front right"].forEach((name, l) => {
+        lines.push(`${name}${data.leg_fit ? ` (correction ${Math.round(data.leg_fit[l]*100)}%)` : ""}: ${data.valid_legs & (1<<l) ? data.error_mm.slice(3*l,3*l+3).map(v=>v.toFixed(1)).join(" / ") : "measurement unavailable"}`);
+      });
+      text("learned-live", lines.join("\n"));
+    } catch(error) { if (robot === selectedRobotId) text("learned-live", error.message); }
+    finally { learnedReading = false; }
+  }
+  let gaitTrainingRobot = null;
+  let gaitHistoryView = null;
+  function renderGaitTraining(data, syncForm = false) {
+    if (!data) return;
+    if (gaitTrainingRobot !== selectedRobotId || syncForm) {
+      gaitTrainingRobot = selectedRobotId;
+      byId("gait-log-enabled").checked = !!data.settings.logging;
+      byId("gait-train-enabled").checked = !!data.settings.learning;
+      byId("gait-training-radii").value = JSON.stringify(data.settings.radii || {
+        duty:.03,sweep_mm:8,front_lift_mm:4,rear_lift_mm:4,front_landing_mm:4,rear_landing_mm:4,height_mm:3,tilt_feedback_mm:1,joint_response_mm:1},null,2);
+    }
+    const lines = [`${data.state} · ${data.records} records · ${data.lost_records} lost records`,
+      `Observation windows: forward ${data.coverage.forward}, backward ${data.coverage.backward}, turning ${data.coverage.turning}, Run ${data.coverage.run}`,
+      data.analysis_running ? "Analysis running on this computer." : "Analysis idle.",
+      `Data: ${data.directory}`];
+    if (data.measurement_reason) lines.push(`Measurement: ${data.measurement_reason}`);
+    if (data.analysis_note) lines.push(data.analysis_note);
+    if (data.error) lines.push(`Error: ${data.error}`);
+    const history = byId("gait-training-history"), selected = history.value;
+    history.replaceChildren();
+    for (const [gait,bank] of Object.entries(data.banks || {})) {
+      lines.push(`${gait}: generation ${bank.generation}; ${bank.observations} scored windows; ${bank.converged ? "plateau in tested contexts" : "collecting/evaluating"}; best ${bank.incumbent.slice(0,12)}`);
+      if (bank.proposal) lines.push(`${gait}: analyzed proposal ${bank.proposal.slice(0,12)} (not installed)`);
+      if (bank.fitting) lines.push(`${gait}: ${Math.round(bank.fitting.scale*100)}% of proposed change fits ${bank.fitting.conditions} recorded command conditions; physical loading remains untested.`);
+      const ids = new Set([bank.incumbent,...bank.history.filter(h=>h.promoted).map(h=>h.model.id)]);
+      for (const id of ids) {
+        const option = document.createElement("option");option.value = `${gait}:${id}`;
+        option.textContent = `${gait} · ${id.slice(0,12)}`;history.appendChild(option);
+      }
+    }
+    if ([...history.options].some(o=>o.value===selected)) history.value=selected;
+    text("gait-training-status",lines.join("\n"));
+  }
+  async function gaitTrainingOperation(op) {
+    const robot = selectedRobotId;
+    try {
+      const payload = {robot_id:robot,op};
+      if (op === "configure") payload.settings = {
+        logging:byId("gait-log-enabled").checked,learning:byId("gait-train-enabled").checked,
+        radii:JSON.parse(byId("gait-training-radii").value)};
+      if (op === "restore") [payload.gait,payload.model_id] = byId("gait-training-history").value.split(":");
+      const data = await request("/api/gait-learning/service",{method:"POST",body:JSON.stringify(payload)});
+      if (robot === selectedRobotId && data.settings) renderGaitTraining(data,true);
+    } catch(error) { if (robot === selectedRobotId) text("gait-training-status",error.message); }
+  }
+  async function learningOperation(op) {
+    const robot = selectedRobotId;
+    try {
+      let payload;
+      if (op === "install") {
+        if (!learnedCandidate || learnedCandidate.robot !== robot) throw new Error("Train or load a candidate for the selected robot first");
+        payload = {op, model: learnedCandidate.result.model};
+      } else payload = {op, enabled: byId("learned-enabled").value === "true", amount: Number(byId("learned-amount").value)/100};
+      await request(maintenanceUrl("gait-learning", robot), {method:"POST", body:JSON.stringify(payload)});
+      if (robot === selectedRobotId) { text("learned-result", op === "install" ? "Candidate saved on robot. Compare a recorded trial before claiming improvement." : "Learned correction setting saved."); await readLearning(true); }
+    } catch(error) { if (robot === selectedRobotId) text("learned-result", error.message); }
+  }
+  async function trainLearning() {
+    const robot = selectedRobotId;
+    try {
+      const file = byId("learned-file").files[0];
+      if (!file) throw new Error("Choose a trace.jsonl recording or an exported candidate JSON");
+      const content = await file.text();
+      let parsed; try { parsed = JSON.parse(content); } catch (_) {}
+      let result;
+      if (["gait_learning_v2", "gait_learning_v3", "gait_learning_v4"].includes(parsed?.model?.schema)) result = parsed;
+      else {
+        const batches = content.split(/\r?\n/).filter(s=>s.trim()).map(line=>JSON.parse(line));
+        // Training only needs tracking records; retain headers and loss receipts.
+        for (const batch of batches) batch.records = batch.records.filter((r,i,a) => i===0 || i===a.length-1 || r.kind==="tracking");
+        result = await request("/api/gait-learning/train", {method:"POST", body:JSON.stringify({batches,gain:Number(byId("learned-gain").value)})});
+      }
+      if (robot !== selectedRobotId) return;
+      learnedCandidate = {robot,result}; byId("learned-install").disabled = false;
+      text("learned-result", `Candidate ${result.model.id.slice(0,12)} · forward Walk at ${result.model.stride}%. Training fitted a trajectory correction; physical improvement is not yet demonstrated.`);
+      downloadLearning(`${robot}-learned-candidate.json`, JSON.stringify(result,null,2));
+    } catch(error) { if (robot === selectedRobotId) text("learned-result", error.message); }
   }
 
   function balanceAttitude(entry) {
@@ -1064,6 +1229,7 @@
   async function operateBalance(op) {
     if (!balanceSupported || balanceBusy) return;
     const tuning = {};
+    const walking = op === "walking";
     if (op === "save" && balanceTuningSupported) {
       for (const key of balanceTuningKeys) {
         const input = byId(`balance-${key}`);
@@ -1076,11 +1242,12 @@
     const current = () => generation === balanceGeneration && robotId === selectedRobotId;
     balanceBusy = true;
     renderBalance();
-    text("balance-status", op === "save" ? "Saving self-leveling on robot…" : "Reading self-leveling from robot…");
+    text("balance-status", walking ? "Saving walking feedback on robot…" : op === "save" ? "Saving self-leveling on robot…" : "Reading self-leveling from robot…");
     try {
       const response = await command("/api/balance", {op, robot_id: robotId,
+        ...(walking ? {enabled: byId("walking-feedback-enabled").value === "true"} : {}),
         ...(op === "save" ? {enabled: byId("balance-enabled").value === "true", ...tuning} : {})},
-        op === "save" ? "Self-leveling saved on robot" : "Self-leveling read from robot", current);
+        walking ? "Walking feedback saved on robot" : op === "save" ? "Self-leveling saved on robot" : "Self-leveling read from robot", current);
       if (!current()) return;
       const state = response.balance;
       if (!state || state.seq !== response.seq || typeof state.enabled !== "boolean" ||
@@ -1089,6 +1256,12 @@
       if (balanceTuningSupported && (balanceTuningKeys.some(key => !Number.isFinite(state[key])) ||
           state.strength < 0 || state.damping < 0 || typeof state.tuning_saved !== "boolean"))
         throw new Error("Invalid response settings; read from robot again.");
+      if ((balanceEntry?.features || []).includes("walking_feedback_v1")) {
+        if (typeof state.walking_enabled !== "boolean" || typeof state.walking_saved !== "boolean")
+          throw new Error("Invalid walking feedback readback; read from robot again.");
+        byId("walking-feedback-enabled").value = String(state.walking_enabled);
+        text("walking-feedback-status", `${state.walking_saved ? "Saved on robot" : "Not yet configured"}: ${state.walking_enabled ? "On" : "Off"}.`);
+      }
       balanceData = state;
       if (balanceTuningSupported) {
         for (const key of balanceTuningKeys) byId(`balance-${key}`).value = String(state[key]);
@@ -1122,6 +1295,8 @@
       balanceData = null;
       balanceBusy = balanceEdited = false;
       byId("balance-enabled").value = "";
+      byId("walking-feedback-enabled").value = "";
+      text("walking-feedback-status", "");
       for (const key of balanceTuningKeys) byId(`balance-${key}`).value = "";
       text("balance-reference-status", "");
       text("balance-active", "");
@@ -1276,6 +1451,14 @@
     byId("balance-reference").addEventListener("click", captureBalanceReference);
     byId("balance-gyro-calibrate").addEventListener("click", calibrateBalanceGyro);
     byId("balance-read").addEventListener("click", () => operateBalance("get"));
+    byId("learned-read").addEventListener("click",()=>readLearning(true));
+    byId("learned-save").addEventListener("click",()=>learningOperation("configure"));
+    byId("learned-train").addEventListener("click",trainLearning);
+    byId("learned-install").addEventListener("click",()=>learningOperation("install"));
+    byId("gait-training-save").addEventListener("click",()=>gaitTrainingOperation("configure"));
+    byId("gait-training-analyze").addEventListener("click",()=>gaitTrainingOperation("analyze"));
+    byId("gait-training-restore").addEventListener("click",()=>gaitTrainingOperation("restore"));
+    byId("walking-feedback-save").addEventListener("click", () => operateBalance("walking"));
     byId("balance-save").addEventListener("click", () => operateBalance("save"));
     byId("balance-enabled").addEventListener("change", balanceFormEdited);
     for (const key of balanceTuningKeys) byId(`balance-${key}`).addEventListener("input", balanceFormEdited);
@@ -2186,18 +2369,68 @@
       const name = submitter.value;
       command("/api/intent", { name, params: name === "face" ? { expr: asset } : { asset } }, `${name} sent`);
     });
+    let groundSelection = null;
+    const drawGroundSelection = () => {
+      const canvas = byId("ground-calibration-image");
+      if (!groundSelection || !canvas) return;
+      const context = canvas.getContext("2d");
+      context.drawImage(groundSelection.image, 0, 0);
+      context.font = "20px sans-serif";
+      groundSelection.pixels.forEach(([x, y], index) => {
+        context.fillStyle = "#ff5722";
+        context.beginPath(); context.arc(x, y, 5, 0, Math.PI * 2); context.fill();
+        context.fillText(String(index + 1), x + 8, y - 8);
+      });
+    };
+    byId("ground-calibration-image")?.addEventListener("click", (event) => {
+      if (!groundSelection || groundSelection.robot !== selectedRobotId || groundSelection.pixels.length >= 4) return;
+      const canvas = event.currentTarget, rect = canvas.getBoundingClientRect();
+      groundSelection.pixels.push([Math.min(canvas.width - 1, Math.max(0, (event.clientX - rect.left) * canvas.width / rect.width)),
+        Math.min(canvas.height - 1, Math.max(0, (event.clientY - rect.top) * canvas.height / rect.height))]);
+      drawGroundSelection();
+    });
+    byId("depth-motion-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      try {
+        const transform = form.elements.cameraToBody.value.trim();
+        await request("/api/camera/depth", { method: "POST", body: JSON.stringify({
+          robot_id: selectedRobotId, mode: form.elements.mode.value,
+          resolution_level: Number(form.elements.resolution_level.value),
+          cameraToBody: transform ? JSON.parse(transform) : null
+        }) });
+        text("depth-motion-status", "Distance source saved; waiting for its next camera measurement.");
+      } catch (error) { text("depth-motion-status", error.message); }
+    });
     byId("ground-calibration-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const operation = event.submitter?.value || "status";
       try {
         const post = (payload) => request("/api/camera/ground-calibration", { method: "POST", body: JSON.stringify({ robot_id: selectedRobotId, ...payload }) });
-        const status = await post({ operation: "status" });
+        if (operation === "clearCorners") { if (groundSelection) groundSelection.pixels = []; drawGroundSelection(); return; }
+        if (operation === "freeze") {
+          const robot = selectedRobotId, frozen = await post({ operation: "status", includeImage: true });
+          if (!frozen.image) throw new Error("No camera frame available to select");
+          const image = new Image(); image.src = frozen.image; await image.decode();
+          if (robot !== selectedRobotId) return;
+          groundSelection = { robot, frameId: frozen.frame.frameId, pixels: [], image };
+          const canvas = byId("ground-calibration-image");
+          canvas.width = image.naturalWidth; canvas.height = image.naturalHeight; canvas.hidden = false;
+          drawGroundSelection(); text("ground-calibration-status", "Select corners 1, 2, 3, 4 in the same order on every view."); return;
+        }
+        const values = new FormData(form), rectangle = values.get("pattern") === "rectangle";
+        // Rectangle clicks must stay attached to their frozen frame. Reading status
+        // again would replace that frame with a newer camera view.
+        const status = rectangle && ["capture", "reference", "fit"].includes(operation)
+          ? { frame: { frameId: groundSelection?.robot === selectedRobotId ? groundSelection.frameId : null } }
+          : await post({ operation: "status" });
         if (operation === "status") { text("ground-calibration-status", JSON.stringify(status, null, 2)); return; }
         if (operation === "resetSamples") { text("ground-calibration-status", JSON.stringify(await post({ operation }), null, 2)); return; }
-        const values = new FormData(form);
         const payload = { operation, frameId: status.frame?.frameId, columns: Number(values.get("columns")), rows: Number(values.get("rows")),
           squareMetres: Number(values.get("squareMetres")), geometryId: values.get("geometryId") };
+        if (rectangle) Object.assign(payload, { pattern: "rectangle", pixels: groundSelection?.pixels,
+          widthMetres: Number(values.get("widthMetres")), heightMetres: Number(values.get("heightMetres")) });
         if (operation === "fit") payload.cameraToBody = JSON.parse(values.get("cameraToBody"));
         text("ground-calibration-status", JSON.stringify(await post(payload), null, 2));
       } catch (error) { text("ground-calibration-status", error.message); }
@@ -2457,6 +2690,7 @@
         heading.focus({ preventScroll: true });
       }
       if (compact.matches) showSidebar(false, false);
+      if (name === "learning-history") gaitHistoryView?.refresh();
     }
 
     groups.forEach(group => {
@@ -2738,6 +2972,7 @@
         id: event.event_id, kind: event.data.kind, reason: event.data.reason,
         tiltDegrees: event.data.tilt_degrees, accelerationChangeG: event.data.acceleration_change_g,
         rotationDps: event.data.rotation_dps,
+        joints: event.data.joints, motionPolicy: event.data.motion_policy,
       })), null, 2));
   }
 
@@ -2773,6 +3008,13 @@
     renderBodyEvents(payload, entry);
     renderPeople(payload.person_recognition, recognition?.observation);
     if (cameraSettingsRobotId !== selectedRobotId) {
+      const depth = payload.depth_settings?.[selectedRobotId] || {};
+      const depthForm = byId("depth-motion-form");
+      if (depthForm) {
+        depthForm.elements.mode.value = depth.mode || "ground-plane";
+        depthForm.elements.resolution_level.value = depth.resolution_level ?? 0;
+        depthForm.elements.cameraToBody.value = depth.cameraToBody ? JSON.stringify(depth.cameraToBody) : "";
+      }
       const saved = payload.camera_settings?.[selectedRobotId];
       if (saved) {
         const form = byId("camera-form");
@@ -2785,6 +3027,16 @@
         form.elements.jpeg_quality.value = saved.jpeg_quality || 75;
       }
       cameraSettingsRobotId = selectedRobotId;
+    }
+    const measurement = entry?.locomotion_measurement;
+    if (measurement) {
+      const { depthPreview, camera, ...details } = measurement;
+      text("depth-motion-status", JSON.stringify(details, null, 2));
+      const preview = byId("depth-motion-preview");
+      if (preview) {
+        preview.hidden = !depthPreview;
+        if (depthPreview) preview.src = depthPreview;
+      }
     }
     if (Date.now() - behaviorReadAt > 5000) void refreshBehaviorControl();
     const status = entry && entry.status;
@@ -2928,6 +3180,7 @@
     text("body-state", state);
     byId("body-state").className = `state-chip ${state}`;
     text("status-battery", status ? status.power_monitor_ready === false ? "Not monitored" : `${Number(status.vbat).toFixed(2)} V` : "--");
+    text("status-feedback", feedbackHealthMessage(status?.servo_feedback));
     text("status-rssi", status ? `${status.rssi} dBm` : "--");
     text("status-heap", status ? `${Math.round(status.heap / 1024)} KiB` : "--");
     text("status-uptime", status ? formatDuration(status.uptime) : "--");
@@ -3012,6 +3265,8 @@
         const payload = await request("/api/status");
         if (generation === statusGeneration) {
           renderStatus(payload);
+          gaitHistoryView?.update(selectedRobotId, payload.robots?.[selectedRobotId]?.gait_training);
+          window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
           renderHostNetwork(payload.host_network);
         }
       } catch (error) {
@@ -3249,6 +3504,7 @@
     setupNavigation();
     const session = await request("/api/session");
     csrfToken = session.csrf;
+    gaitHistoryView = window.createGaitHistory({request, getRobot: () => selectedRobotId});
     setupSensingControls();
     setupPrimaryView();
     byId("robot-select").addEventListener("change", (event) => {

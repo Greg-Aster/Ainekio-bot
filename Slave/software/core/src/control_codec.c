@@ -1563,6 +1563,11 @@ static ainekio_decode_result_t decode_control(
         if (!strcmp(op,"calibrate_gyro")) message->command.data.balance.calibrate_gyro=true;
         if (!strcmp(op, "get") || message->command.data.balance.calibrate_gyro)
             return fields==0 && object_get(&parser, root, "enabled") < 0 ? AINEKIO_DECODE_OK : AINEKIO_DECODE_VALUE;
+        if (!strcmp(op,"walking")) {
+            if(fields)return AINEKIO_DECODE_VALUE;
+            message->command.data.balance.walking_feedback=true;
+            return required_boolean(&parser,root,"enabled",&message->command.data.balance.enabled);
+        }
         if (strcmp(op, "save")) return AINEKIO_DECODE_VALUE;
         message->command.data.balance.save = true;
         result=required_boolean(&parser, root, "enabled", &message->command.data.balance.enabled);
