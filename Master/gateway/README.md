@@ -723,6 +723,10 @@ python3 -m venv .venv
 .venv/bin/python3 -m pip install -r Emulator/requirements-host.txt
 ```
 
+Run the pip command again after pulling dependency changes. These requirements
+include NumPy and headless OpenCV for the gateway's ground-plane camera processing;
+the launcher checks their availability before starting services.
+
 Install `cloudflared` using Cloudflare's
 [download instructions](https://developers.cloudflare.com/tunnel/downloads/).
 Import the existing robot pairing/password as described under **Using more than
@@ -777,6 +781,20 @@ connector startup after reboot, use Cloudflare's documented
 with the generated `build/gateway/cloudflare/ainekio-robot.yml` config. Regenerate
 it with the relay's `--check` after changing `.env`, then restart that service;
 use either the service or the foreground relay launcher to own the connector.
+
+To have every Body Control launch also start the installed Cloudflare user
+service, save its unit name in this Q6A checkout's ignored `.env`:
+
+```dotenv
+AINEKIO_CLOUDFLARE_RELAY_SERVICE=ainekio-cloudflare-relay.service
+```
+
+This applies to foreground and supervised gateway launches. The launcher queues
+an idempotent start through systemd; the existing service continues to own the
+connector and its restarts. `--check` starts no services. This setting controls the
+MetaHuman connection independently of the local/LAN/Cloudflare dashboard access
+choice. On the MetaHuman desktop, select **Environment Bridge Remote** for startup;
+that bridge owns the Access forwarder and reconnects when the Q6A returns.
 
 ### Desktop setup and test
 
@@ -1339,6 +1357,9 @@ unbounded burst into the controller's playback queue.
 Current P4 calibration readback separates saved per-joint mappings from recommended mounting offsets and reports `servo_profile_id` and `profile_confirmed`. Calculated targets and fourth-wire measurements are labeled separately. The observed 300–2900 µs span has arithmetic midpoint 1600 µs; the historical mounting reference is 1300 µs. The panel shows the recommended model offset without overwriting restored drafts or transmitting settings automatically. Review the mapping and Save before semantic motion; after outputs are disabled, establish a known reference with Calibration Home/Move. See the [assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md).
 
 ### Physical gateway startup connection choice
+
+See [Restarting Body Control and remote MetaHuman OS](../../docs/STARTUP.md)
+for the restart routine on both computers and connection checks after a reboot.
 
 Running `Master/start-physical-gateway.sh` in a terminal asks how you will open
 Body Control: **This computer**, **LAN / Wi-Fi**, or **Cloudflare**. Press 1, 2 or

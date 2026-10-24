@@ -24,6 +24,7 @@ implementation boundary.
 
 | Document | Current purpose |
 | --- | --- |
+| [Restarting Body Control and remote MetaHuman OS](STARTUP.md) | Restart an existing two-computer installation, check its VPN and bridge, and stop its foreground launchers |
 | [ROBOT_MODELS.md](ROBOT_MODELS.md) | V1/V2 model, board, servo-output, and shared-code boundaries |
 | [V1 hardware bring-up](v1-8servo/HARDWARE_BRINGUP_CHECKLIST.md) | V1 power topology, staged assembly procedure, open physical gates, and recorded board evidence |
 | [V1 pinout diagnostics](v1-8servo/PINOUT_DIAGNOSTICS.md) | V1 Freenove header numbering, the flashed GPIO map, peripheral wiring, and expected diagnostic values |
