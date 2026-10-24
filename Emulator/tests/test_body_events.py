@@ -77,6 +77,40 @@ class BodyEventTests(unittest.TestCase):
         self.assertEqual([e["data"]["kind"] for e in events], ["tipped"])
         self.assertEqual(events[0]["data"]["motion"]["sequence"], 42)
 
+    def test_commanded_poses_clips_and_freestyle_do_not_generate_rapid_reactions(self):
+        for command, activity in [("stand", "pose"), ("neutral", "pose"),
+                                  ("wave", "clip"), ("motion_plan", "freestyle"),
+                                  ("manual", "manual")]:
+            for phase in ("entry", "motion", "replanning"):
+                with self.subTest(command=command, phase=phase):
+                    body = BodyEvents()
+                    motion = executing(command, activity, phase)
+                    self.assertEqual(body.observe("p4", 1, sample(1, rate=4, motion=motion)), [])
+                    body.observe("p4", 1, sample(2, motion=motion))
+                    self.assertEqual(body.observe("p4", 1, sample(3, acceleration=20, motion=motion)), [])
+                    self.assertNotIn("p4", body.last_motion_report)
+                    body.observe("p4", 1, sample(4, 90, motion=motion))
+                    events = body.observe("p4", 1, sample(300004, 90, motion=motion))
+                    self.assertEqual([e["data"]["kind"] for e in events], ["tipped"])
+
+    def test_recorded_stand_entry_does_not_trigger_recovery(self):
+        body = BodyEvents()
+        # 2026-10-23 Stand sequence 12: normal entry was falsely reported at
+        # 0.793 g acceleration change with only 5.14 degrees of unexpected tilt.
+        motion = executing("stand", "pose", "entry", started=1558520678)
+        motion.update(sequence=12, sampled_us=1558562982)
+        imu = sample(1558571303, 5.141701611995355, motion=motion)
+        imu.update(acceleration_m_s2=[0.0478564538, -1.33998072, 1.52662086],
+                   angular_rate_rad_s=[0.117057055, 0.0125752315, -0.247724935])
+        self.assertEqual(body.observe("p4", 2, imu), [])
+        # Do not defer that crossing until completion. A later distinct
+        # disturbance while holding still must continue to be reported.
+        motion = {**motion, "phase":"hold"}
+        self.assertEqual(body.observe("p4", 2, {**imu, "timestamp_us":1558571304, "motion":motion}), [])
+        body.observe("p4", 2, sample(1558571305, motion=motion))
+        events = body.observe("p4", 2, sample(1558571306, rate=4, motion=motion))
+        self.assertEqual([e["data"]["kind"] for e in events], ["rapid_movement"])
+
     def test_intentional_tilt_and_held_posture_use_the_authored_reference(self):
         body = BodyEvents()
         for at, phase in [(1, "motion"), (400001, "motion"), (500001, "hold"), (900001, "hold")]:

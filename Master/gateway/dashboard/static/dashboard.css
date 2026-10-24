@@ -500,3 +500,14 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .gait-history-model { border: 1px solid #64748b55; border-radius: .5rem; padding: .7rem; margin: .6rem 0; overflow-wrap: anywhere; }
 #gait-history-panel select { max-width: 100%; }
 #gait-history-point { overflow-wrap: anywhere; }
+
+/* Optional Freestyle panel; scoped so ordinary controls retain their layout. */
+
+.freestyle-panel > label { display: grid; gap: .4rem; margin: .8rem 0; }
+.freestyle-panel textarea { box-sizing: border-box; width: 100%; min-height: 5rem;
+  padding: .7rem; border: 1px solid #495057; border-radius: .3rem;
+  background: #22272b; color: #eee; font: inherit; resize: vertical; }
+.freestyle-panel > label.freestyle-recovery { display: flex; align-items: center; }
+.freestyle-panel input[type="checkbox"] { width: 1.2rem; height: 1.2rem; min-height: 0; margin: 0; }
+.freestyle-panel button { margin: .2rem .15rem .2rem 0; }
+.freestyle-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; }

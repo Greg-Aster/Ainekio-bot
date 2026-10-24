@@ -1,5 +1,38 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.119-p4-tcp-backpressure` also preserves an unfinished WebSocket frame
+when the TCP readiness poll expires or a write is interrupted. A zero-progress
+poll is backpressure, not evidence that the TCP connection has failed. The
+writer continues the same frame with the existing poll interval; a real socket
+error or the controller's existing connection-retirement state cancels it.
+Incoming command processing retains its separate receive lock. No motion
+timings, camera settings or heartbeat deadlines are changed. Native tests cover
+partial writes, transient zero progress, EAGAIN/EINTR, real socket errors,
+connection retirement and masked-buffer restoration.
+
+This combined build also includes the external-speech capture suppression
+changes: existing welcome/heartbeat messages carry playback state, and the
+microphone owner suppresses capture and wake activation during external
+playback. Disconnect clears that state. There is no additional polling task.
+
+`0.8.118-p4-websocket-writes` corrects partial TCP writes in the pinned IDF
+WebSocket frame writer. Previously a 4,096-byte payload could return a positive
+short write (reproduced with 17 bytes), and the client would insert the next
+fragment header before the declared payload finished. The project-built
+transport now completes header and payload bytes in place before returning;
+zero-progress/errors remain transport failures. Masked buffers are restored on
+both success and failure. The SDK installation stays unchanged.
+Camera resolution, JPEG quality, frame rate, motion settings and existing
+transport timeouts are unchanged. Native tests exercise short headers, short
+payloads, failed writes and empty control frames. This deterministic reproduction
+does not by itself establish the cause of every recorded physical disconnect.
+The Wi-Fi application upload and activation succeeded on 2026-10-23; the body
+reported this version running in `ota_0`, `pending_verify=false`, `ESP_OK`.
+The camera settings remained VGA at 1 FPS with 960P snapshots. Local build and
+activation evidence is in
+`experiments/freestyle/artifacts/production/websocket-write-*.json` at the repo
+root. Longer physical use is still needed to qualify connection stability.
+
 `0.8.37-p4-wifi-recovery` keeps the C6 radio awake and allows the existing TCP
 transport to recover transient packet loss before aborting a WebSocket send.
 Separate send/receive locks preserve incoming command processing during recovery.
@@ -92,6 +125,15 @@ speaker start during inference cannot open a stale recording. Dashboard input
 telemetry distinguishes listening, capturing and speaker playback. Speaker DMA
 writes release the media mutex so incoming audio and status callbacks can run;
 cancellation invalidates the write and mutes it before another playback starts.
+
+Computer/Bluetooth speech routed through Body Control uses the transient
+`external_speech` Boolean in authenticated welcome/ping/pong messages. It suspends
+only microphone capture and wake inference, flushing pre-roll and invalidating
+in-flight wake results. It does not invoke a motion command, disarm outputs,
+write NVS, add a cooldown or require an acknowledgement. Ordinary heartbeats
+repeat the latest state, including `false` after speech ends; disconnect also
+clears it. Audio telemetry reports `external_speech`. MetaHuman's independent
+Browser output is outside this transport and does not send these notifications.
 
 Body Control's Apply microphone button saves the microphone on/off choice,
 Open/VAD/Wake mode and input gain on the P4. These survive power cycles and
@@ -974,7 +1016,12 @@ Active choreography and listening defer rest; successful interaction commands
 and audio completion reset the idle period. Long playback is checked at expiry
 and its completion starts a fresh interval. Camera frames, heartbeats, and
 settings/status reads are not activity. Rest runs once per activity period,
-retains powered outputs, and admits replacement commands normally. It does not
+releases servo outputs after successful completion with `0.8.117-p4-rest-release`,
+and admits replacement commands normally. Release belongs only to the automatic
+rest motion; replacing/cancelling it removes that completion action. Explicit
+lay-down commands retain powered holds. Idle release preserves already-admitted
+commands; explicit disarm and faults still invalidate their generations.
+OE disables drive pulses; it does not switch the servo supply rail. It does not
 wake detached servos or interrupt manual joint calibration. The next normal
 motion restores automatic-rest eligibility. This is a posture change, not
-Doze, deep sleep, or output release.
+Doze or deep sleep; the display, camera, audio and link remain available.

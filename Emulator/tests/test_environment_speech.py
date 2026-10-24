@@ -57,8 +57,18 @@ class FakeGateway:
     def __init__(self) -> None:
         self.instance_id = "fixture-gateway"
         self.frames: list[bytes] = []
+        self.external_speech = set()
+
+    def set_external_speech(self, robot, owner, active):
+        if active:
+            self.external_speech.add((robot,owner))
+        else:
+            self.external_speech.discard((robot,owner))
 
     def subscribe_events(self, _callback: object) -> None:
+        pass
+
+    def subscribe_external_speech(self, callback):
         pass
 
     def subscribe_frames(self, _callback: object) -> None:
@@ -89,6 +99,23 @@ class FakeGateway:
 
 
 class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
+    async def test_external_playback_suppresses_without_robot_reply_and_releases_on_failure(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=':memory:',token='secret'))
+        await adapter.speech_output_settings('computer', computer_device='bluez_output.test')
+        speech = SpeechAudioMessage('ainekio-01','external-audio','utterance',20,bytes(640))
+        adapter.receipts.receive({'id':speech.action_id,'type':'speechAudio'},adapter._feedback(speech.action_id,'accepted','accepted'))
+        async def play(pcm, *, device):
+            self.assertTrue(gateway.external_speech)
+            self.assertEqual(device,'bluez_output.test')
+            raise OSError('Bluetooth disconnected')
+        gateway.wait_terminal = AsyncMock(side_effect=AssertionError('must not await robot'))
+        with patch('gateway.environment_adapter.server.play_computer_speech',side_effect=play):
+            await adapter._process_speech_audio(speech)
+        self.assertFalse(gateway.external_speech)
+        gateway.wait_terminal.assert_not_called()
+        self.assertEqual(json.loads(adapter.receipts.action(speech.action_id)['result'])['type'],'rejected')
+
     def test_long_reply_keeps_every_audio_frame(self) -> None:
         # Exceeds the former duration, PCM and outer WebSocket cutoffs.
         parsed = parse_speech_audio_message(

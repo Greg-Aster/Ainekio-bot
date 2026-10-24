@@ -163,6 +163,31 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_motion_system_selection_is_authenticated_saved_and_robot_scoped(self):
+        cookie, csrf = await self._login()
+        payload = {"robot_id": "ainekio-test-01", "system": "freestyle"}
+        self.assertEqual((await self._request("POST", "/api/motion-system", payload, cookie=cookie))[0], 403)
+        code, result, _ = await self._request("POST", "/api/motion-system", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(code, 200)
+        self.assertEqual(result, payload)
+        saved = json.loads(self.server.control_settings_path.read_text())
+        self.assertEqual(saved["motion_systems"], {"ainekio-test-01": "freestyle"})
+        self.assertEqual(self.gateway.motion_systems, saved["motion_systems"])
+        self.assertEqual(self.gateway.calls, [], "Changing the selector must not start movement")
+        self.assertEqual(self.gateway.published_events[-1], {
+            "t": "motion_system", "robot_id": "ainekio-test-01", "system": "freestyle"})
+        _, status, _ = await self._request("GET", "/api/status", cookie=cookie)
+        self.assertEqual(status["motion_systems"], saved["motion_systems"])
+        self.gateway.motion_systems = {}
+        reloaded = start_dashboard_server("127.0.0.1", 0, gateway=self.gateway,
+            event_loop=asyncio.get_running_loop(), password_store=self.password_store, token_store=self.token_store)
+        try:
+            self.assertEqual(self.gateway.motion_systems, saved["motion_systems"])
+        finally:
+            reloaded.server_close()
+        await self._request("POST", "/api/motion-system", {**payload, "system": "library"}, cookie=cookie, csrf=csrf)
+        self.assertEqual(self.gateway.motion_systems["ainekio-test-01"], "library")
+
     async def test_freestyle_trial_export_does_not_submit_motion(self):
         cookie,csrf=await self._login()
         service=SimpleNamespace(trial=Mock(return_value={'job':{'id':'trial-1','execute':False}}),
@@ -177,11 +202,13 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gateway.calls,[])
 
     async def test_freestyle_lazy_loader_configures_without_contacting_robot(self):
-        events,commands=[],[]
+        events,commands,diagnostics=[],[],[]
         self.gateway.subscribe_events=events.append
         self.gateway.unsubscribe_events=events.remove
         self.gateway.subscribe_commands=commands.append
         self.gateway.unsubscribe_commands=commands.remove
+        self.gateway.subscribe_diagnostics=diagnostics.append
+        self.gateway.unsubscribe_diagnostics=diagnostics.remove
         self.assertIsNone(self.server.freestyle)
         cookie,csrf=await self._login()
         code,result,_=await self._request('POST','/api/freestyle',{
@@ -190,9 +217,10 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(code,200)
         self.assertFalse(result['settings']['ainekio-test-01']['recover_events'])
         self.assertEqual(self.gateway.calls,[])
-        self.assertEqual((len(events),len(commands)),(1,1))
-        await self.server.freestyle.close()
-        self.assertEqual((len(events),len(commands)),(0,0))
+        self.assertEqual((len(events),len(commands),len(diagnostics)),(2,2,1))
+        self.assertTrue(result['recording']['enabled'])
+        await self.server.close_freestyle()
+        self.assertEqual((len(events),len(commands),len(diagnostics)),(0,0,0))
 
     async def test_freestyle_is_optional_authenticated_and_selected_robot_scoped(self):
         route='/api/freestyle'
@@ -348,9 +376,10 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_speech_output_uses_body_control_preference_and_existing_auth(self) -> None:
         preference = {"playbackTarget": "computer"}
-        async def settings(target=None):
+        async def settings(target=None, *, computer_device=None):
             if target is not None:
                 preference["playbackTarget"] = target
+            if computer_device is not None: preference['computerDevice']=computer_device
             return dict(preference)
         bridge = SimpleNamespace(speech_output_settings=AsyncMock(side_effect=settings))
         self.server.environment_adapter = bridge
@@ -367,10 +396,28 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         status, _, _ = await self._request("POST", "/api/speech-output", {"playbackTarget": "invalid"}, cookie=cookie, csrf=csrf)
         self.assertEqual(status, 400)
         self.assertEqual(preference["playbackTarget"], "computer")
+        status,result,_ = await self._request('POST','/api/speech-output',
+            {'playbackTarget':'computer','computerDevice':'bluez_output.speaker'},cookie=cookie,csrf=csrf)
+        self.assertEqual(status,200)
+        self.assertEqual(result['computerDevice'],'bluez_output.speaker')
         bridge.speech_output_settings.side_effect = GatewayError("Bridge disconnected")
         status, result, _ = await self._request("GET", "/api/speech-output", cookie=cookie)
         self.assertEqual((status, result["error"]), (503, "Bridge disconnected"))
         self.assertEqual(self.gateway.calls, [], "Destination preferences must not issue robot commands")
+
+    async def test_host_audio_routes_require_authentication_and_do_not_send_robot_commands(self):
+        audio=SimpleNamespace(snapshot=AsyncMock(return_value={'outputs':[],'devices':[],'errors':[]}),
+            submit=AsyncMock(return_value={'job':'pairing'}))
+        self.server.host_audio=audio
+        self.assertEqual((await self._request('GET','/api/host-audio'))[0],401)
+        cookie,csrf=await self._login()
+        self.assertEqual((await self._request('GET','/api/host-audio',cookie=cookie))[0],200)
+        payload={'op':'pair','address':'AA:BB:CC:DD:EE:FF'}
+        self.assertEqual((await self._request('POST','/api/host-audio',payload,cookie=cookie))[0],403)
+        code,result,_=await self._request('POST','/api/host-audio',payload,cookie=cookie,csrf=csrf)
+        self.assertEqual((code,result),(200,{'job':'pairing'}))
+        audio.submit.assert_awaited_once_with('pair',payload['address'])
+        self.assertFalse(self.gateway.calls)
 
     async def asyncSetUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()

@@ -193,6 +193,7 @@ typedef struct {
     uint32_t sequence;
     bool entering, reverse_grounded_entry, contact_entry, balance_on_complete;
     bool startup_entry;
+    bool release_on_complete; /* Only automatic inactivity lay-down. */
     bool feedback_pending_write;
     bool feedback_verified;
     ainekio_v2_frame_t feedback_frame;
@@ -499,6 +500,8 @@ esp_err_t ainekio_p4_body_execute(uint64_t generation, uint64_t connection,
 
 static void finish_motion(bool completed, esp_err_t result)
 {
+    const bool release=completed && result==ESP_OK && body.motion.release_on_complete;
+    body.motion.release_on_complete=false;
     body.stand_goal_active=completed && body.motion.kind==MOTION_POSE &&
         body.motion.balance_on_complete && ainekio_p4_feedback_stand_enabled();
     if(body.stand_goal_active)body.stand_goal_since=body.last_frame;
@@ -538,6 +541,15 @@ static void finish_motion(bool completed, esp_err_t result)
     }
     body.motion.kind = MOTION_NONE;
     body.motion.entering = false;
+    if(release) {
+        /* The successful final frame owns completion. Leave the final face,
+         * retire the commanded pose (shafts may now sag), and release OE.
+         * Idle release preserves commands admitted just before this frame. */
+        ainekio_pca_idle(ainekio_p4_output());
+        body.active=body.ramping=body.pose_valid=body.listen.active=false;
+        memset(body.pulses,0,sizeof body.pulses);
+        publish(body.pulses);
+    }
     publish_motion();
 }
 
@@ -1612,7 +1624,8 @@ static void rest_step(uint64_t now)
     strcpy(request.intent.data.asset,"lay_down");
     rest_eligible=false; /* One rest per activity period, never repeated clips. */
     const esp_err_t result=start_motion(&request,now);
-    if(result!=ESP_OK)printf("Inactivity lay-down failed: %d\n",(int)result);
+    if(result==ESP_OK)body.motion.release_on_complete=true;
+    else printf("Inactivity lay-down failed: %d\n",(int)result);
 }
 
 static void output_task(void *arg)

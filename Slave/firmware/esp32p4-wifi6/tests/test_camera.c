@@ -24,6 +24,7 @@ static void (*camera_task_entry)(void *);
 static SemaphoreHandle_t initialized;
 static jmp_buf scheduler;
 static bool booting, finished, inject_snapshot, change_session_during_capture;
+static unsigned snapshot_after_frames = 1;
 static unsigned target_frames, received_frames, failures_received;
 static uint16_t *capture_pixels;
 static int64_t clock_us;
@@ -31,7 +32,7 @@ static unsigned jpeg_width, jpeg_height, stream_fps;
 static unsigned sensor_width = 1280, sensor_height = 960, sensor_regs[65536];
 static unsigned sensor_gain = 16, sample_count;
 static unsigned sensor_ae_target;
-static bool changing_light;
+static bool changing_light, change_light_at_snapshot;
 static UBaseType_t camera_priority = 2;
 static bool fail_exposure_read;
 static ainekio_camera_capture_t captures[16];
@@ -290,8 +291,10 @@ static void frame_received(void *context, uint64_t session, ainekio_camera_origi
     char metadata[256];
     assert(ainekio_encode_camera_meta(resolution, stream_fps, counter, origin, id, metadata, sizeof(metadata)));
     assert(strstr(metadata, origin == AINEKIO_CAMERA_ORIGIN_NONE ? "\"fps\":5" : "\"fps\":0"));
-    if (inject_snapshot && received_frames == 1)
+    if (inject_snapshot && received_frames == snapshot_after_frames) {
+        if (change_light_at_snapshot) changing_light = true;
         assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 42) == ESP_OK);
+    }
     if (received_frames == target_frames) finished = true;
 }
 static void frame_failed(void *context, uint64_t session, ainekio_camera_origin_t origin, uint32_t id, esp_err_t error)
@@ -341,6 +344,7 @@ int main(void)
         assert(ainekio_p4_media_snapshot((ainekio_camera_origin_t)(i + 1), i + 3) == ESP_OK);
     capture(4);
     for (unsigned i = 0; i < 3; ++i) assert(frames[i].resolution == xga && frames[i].id == i + 3);
+    assert(captures[1].settle_ms == 50 && captures[2].settle_ms == 50);
     assert(frames[3].origin == AINEKIO_CAMERA_ORIGIN_NONE && frames[3].resolution == AINEKIO_CAMERA_QVGA);
 
     inject_snapshot = true;
@@ -348,6 +352,22 @@ int main(void)
     inject_snapshot = false;
     assert(frames[0].origin == AINEKIO_CAMERA_ORIGIN_NONE && frames[1].id == 42);
     assert(frames[2].origin == AINEKIO_CAMERA_ORIGIN_NONE && frames[2].time - frames[1].time == 50000);
+
+    /* A stable preview already supplies the exposure evidence for a still. */
+    inject_snapshot = true;
+    snapshot_after_frames = 8;
+    capture(10);
+    inject_snapshot = false;
+    snapshot_after_frames = 1;
+    assert(frames[8].id == 42 && captures[8].settled && captures[8].settle_ms == 50);
+
+    /* Prior stable preview must not conceal changing exposure at capture. */
+    inject_snapshot = change_light_at_snapshot = true;
+    snapshot_after_frames = 8;
+    capture(9);
+    inject_snapshot = change_light_at_snapshot = changing_light = false;
+    snapshot_after_frames = 1;
+    assert(frames[8].id == 42 && !captures[8].settled && captures[8].settle_ms == 4000);
 
     assert(ainekio_p4_media_snapshot(AINEKIO_CAMERA_ORIGIN_REQUEST, 6) == ESP_OK);
     configure(true, 5, &vga);

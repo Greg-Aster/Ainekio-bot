@@ -29,6 +29,30 @@
       "known_type": true
     },
     {
+      "name": "valid_camera_chunk_start",
+      "frame": {"type": 3, "counter": 42, "payload_hex": "0600000000000000ffd8"},
+      "valid": true,
+      "known_type": true
+    },
+    {
+      "name": "valid_camera_chunk_end",
+      "frame": {"type": 3, "counter": 42, "payload_hex": "06000000020000006162ffd9"},
+      "valid": true,
+      "known_type": true
+    },
+    {
+      "name": "invalid_camera_chunk_empty",
+      "frame": {"type": 3, "counter": 42, "payload_hex": "0600000000000000"},
+      "valid": false,
+      "known_type": true
+    },
+    {
+      "name": "invalid_camera_chunk_overrun",
+      "frame": {"type": 3, "counter": 42, "payload_hex": "0600000005000000ffd9"},
+      "valid": false,
+      "known_type": true
+    },
+    {
       "name": "unknown_type",
       "frame": {"type": 127, "counter": 3, "payload_hex": "0102"},
       "valid": true,

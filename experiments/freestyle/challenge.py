@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from .generator import Generator
-from .kinematics import ROOT, foot_positions, frames_for_spatial
+from .kinematics import ROOT, foot_positions, frames_for_spatial, mechanism
 from .program import frames_for
 from .runtime import JOINTS, compact
 
@@ -107,20 +107,61 @@ def draw(bank, previous, count, seed):
     return rows
 
 
-def replay(program, observation):
+def replay(program, observation, native_gait=None):
     """Use the same compiler as Body Control, then independently measure FK paths."""
     positions = {j:observation['joints'][j]['model_deg'] for j in JOINTS}
     home = {j:observation['joints'][j]['home_deg'] for j in JOINTS}
     time_s, samples, completed = 0., [], 0
+    gait_segments = []
+    face_events = []
+
+    def gait_evidence():
+        return {**({'native_gait_segments':gait_segments} if gait_segments else {}),
+                **({'face_events':face_events} if face_events else {})}
 
     def sample(index):
         samples.append({'time_s':time_s, 'action_index':index, 'joints_deg':dict(positions),
-                        'feet_body_mm':foot_positions(positions)})
+                        'feet_body_mm':foot_positions(positions, fk_model)})
 
     try:
+        # One independent FK model per replay. IK compilation mutates its own
+        # models; concurrent trials must not share their body-pose state.
+        fk_model = mechanism()
         sample(-1)
         for index, action in enumerate(program):
             name = action['name']
+            if name == 'face':
+                from .face_contract import available_faces
+                expression=action['arguments']['expr']
+                if expression not in available_faces():
+                    raise ValueError(f'Unknown renderer face expression: {expression}')
+                face_events.append({'time_s':time_s,'action_index':index,'expr':expression})
+                sample(index)
+                completed += 1
+                continue
+            if name == 'gait' and native_gait is not None:
+                from .gait_replay import sample_gait
+                result = sample_gait(action['arguments'], observation['joint_speed_limit_deg_s'], native_gait)
+                for segment in result['segments']:
+                    native_samples = segment['samples']
+                    start_time = time_s
+                    entry_delta = (max(abs(q-positions[j]) for j,q in zip(JOINTS,native_samples[0]['model_deg']))
+                                   if native_samples else None)
+                    gait_segments.append({**segment, 'action_index':index, 'start_time_s':start_time,
+                        'entry_target_jump_deg':entry_delta,
+                        'scope':'Command-relative nominal body path; contact and actual chassis travel unmeasured.'})
+                    # The body sends the gait entry target directly. Record its
+                    # discontinuity instead of inventing an entry interpolation.
+                    for point in native_samples:
+                        positions = dict(zip(JOINTS,point['model_deg']))
+                        time_s = start_time + point['time_us']/1e6
+                        sample(index)
+                if result['status'] != 'replayed':
+                    return {'status':result['status'], 'operation':name,
+                            'completed_actions':completed, 'samples':samples,
+                            'reason':result.get('reason'), 'error':result.get('error'), **gait_evidence()}
+                completed += 1
+                continue
             if name == 'hold':
                 time_s += action['arguments']['seconds']
                 sample(index)
@@ -133,22 +174,28 @@ def replay(program, observation):
             else:
                 return {'status':'not_fully_replayed', 'operation':name,
                         'completed_actions':completed, 'samples':samples,
-                        'reason':'This kinematic replay has no firmware gait, named gesture, stop or feedback environment.'}
+                        'reason':'This kinematic replay has no configured replay for this operation.', **gait_evidence()}
             for milliseconds, angles in frames:
                 start, duration = dict(positions), milliseconds/1000
                 # This is a geometric replay, not a time-stepped dynamics engine.
                 # Sample intermediate joint configurations independently of speed.
                 steps = max(1, math.ceil(max(abs(angles[k]/100-start[j]) for k,j in enumerate(JOINTS))/.25))
                 for i in range(1, steps+1):
-                    positions = {j:start[j]+(angles[k]/100-start[j])*i/steps for k,j in enumerate(JOINTS)}
+                    # The emitted endpoint is exact centidegree wire data.
+                    # Interpolation roundoff (e.g. 3e-15 instead of zero) can
+                    # corrupt relative finite differences in the next IK call.
+                    positions = ({j:angles[k]/100 for k,j in enumerate(JOINTS)} if i==steps else
+                                 {j:start[j]+(angles[k]/100-start[j])*i/steps for k,j in enumerate(JOINTS)})
                     time_s += duration/steps
                     sample(index)
             completed += 1
     except (ValueError, KeyError, TypeError, ZeroDivisionError, OverflowError) as error:
         return {'status':'compile_or_replay_error', 'error':str(error),
-                'completed_actions':completed, 'samples':samples}
+                'completed_actions':completed, 'samples':samples, **gait_evidence()}
     return {'status':'replayed', 'completed_actions':completed, 'samples':samples,
-            'sampling':'at most 0.25 degrees between linear joint samples; all packet endpoints retained'}
+            'sampling':('native gait targets at 50 Hz; other operations at most 0.25 degrees between linear joint samples'
+                        if gait_segments else 'at most 0.25 degrees between linear joint samples; all packet endpoints retained'),
+            **gait_evidence()}
 
 
 def trajectory_metrics(trace):
@@ -224,13 +271,16 @@ def exposure(row, state, training_queries, training_groups):
                 'scope':'Supplied fine-tuning files only; no claim about base pretraining or unseen skill semantics.'}}
 
 
-def run(cases, output, contract, endpoint, model, model_file, state_file, training_files, workers=1):
+def run(cases, output, contract, endpoint, model, model_file, state_file, training_files, workers=1, native_gait=None):
     generator = Generator(endpoint, model, contract, model_file)
     state = json.loads(state_file.read_text())
     replay_inputs = {'replay_code_sha256':Path(__file__),
                      'compiler_sha256':Path(__file__).with_name('kinematics.py'),
                      'geometry_sha256':ROOT/'geometry.json',
                      'mechanism_sha256':ROOT/'motions/walk/reference.py'}
+    if native_gait is not None:
+        replay_inputs.update(native_gait_binary_sha256=Path(native_gait),
+                             native_gait_wrapper_sha256=Path(__file__).with_name('gait_replay.py'))
     identity = {'model_sha256':digest(model_file), 'contract_sha256':digest(contract/'system.txt'),
                 'tools_sha256':digest(contract/'tools.json'), 'state_sha256':digest(state_file),
                 'cases_sha256':digest(cases), 'training_files':{str(p):digest(p) for p in training_files},
@@ -256,7 +306,7 @@ def run(cases, output, contract, endpoint, model, model_file, state_file, traini
     def trial(item):
         if 'error' in item:return item
         try:
-            trace = replay(item['program'], state)
+            trace = replay(item['program'], state, native_gait)
             metrics = trajectory_metrics(trace)
             trace_file = output/(item['id'].replace(':','_')+'.trace.json')
             trace_file.write_text(compact(trace)+'\n')
@@ -330,10 +380,11 @@ if __name__ == '__main__':
     p.add_argument('--training-files', type=Path, nargs='+', required=True)
     p.add_argument('--endpoint', required=True); p.add_argument('--model', required=True)
     p.add_argument('--workers', type=int, default=1)
+    p.add_argument('--native-gait', type=Path, help='Offline native_gait executable for finite P4 gait targets')
     p = commands.add_parser('corrections')
     for name in ('trials','reviews','output'): p.add_argument('--'+name, type=Path, required=True)
     a = parser.parse_args()
     if a.command == 'import': print(compact(import_bank(a.source, a.output)))
     elif a.command == 'draw': write_rows(a.output, draw(a.bank, a.previous, a.count, a.seed))
-    elif a.command == 'run': run(a.cases,a.output,a.contract,a.endpoint,a.model,a.model_file,a.state_file,a.training_files,a.workers)
+    elif a.command == 'run': run(a.cases,a.output,a.contract,a.endpoint,a.model,a.model_file,a.state_file,a.training_files,a.workers,a.native_gait)
     else: print(compact(corrections(a.trials,a.reviews,a.output)))

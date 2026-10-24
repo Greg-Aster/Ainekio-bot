@@ -64,6 +64,7 @@ typedef struct {
     uint64_t connection;
     uint8_t *bytes;
     size_t length;
+    size_t offset;
     uint32_t done_sequence;
     bool wake_word;
     bool camera;
@@ -74,6 +75,9 @@ static portMUX_TYPE admission_lock = portMUX_INITIALIZER_UNLOCKED;
 static ainekio_admission_t admission;
 static QueueHandle_t requests, replies;
 static QueueHandle_t audio_packets, camera_packets, media_events;
+static TaskHandle_t link_handle;
+enum { MEDIA_SEND_BYTES = 4096 };
+static uint8_t *camera_send_buffer;
 /* Only this command's completion waits for its ACK/NAK to enter replies.
  * Media streaming and unrelated completions never wait for command execution. */
 static atomic_uint pending_sequence;
@@ -118,6 +122,7 @@ static void telemetry(uint64_t connection);
 static bool current_connection(uint64_t connection);
 
 static uint64_t now_us(void) { return esp_timer_get_time(); }
+static void wake_link(void) { if (link_handle) xTaskNotifyGive(link_handle); }
 static void enter(void) { portENTER_CRITICAL(&admission_lock); }
 static void leave(void) { portEXIT_CRITICAL(&admission_lock); }
 
@@ -152,6 +157,13 @@ static void fail_link(void)
 
 void ainekio_p4_controller_connection_lost(void) { fail_link(); }
 
+/* The transport may wait for TCP buffer space without retiring a healthy
+ * session. Wi-Fi loss, shutdown and the existing supervisor own cancellation. */
+bool ainekio_p4_controller_transport_active(void)
+{
+    return !atomic_load(&reconnect) && !atomic_load(&quiesced);
+}
+
 /* Caller holds admission_lock. Reject a late frame before it can refresh
  * stale admission; the supervisor handles link teardown. */
 static bool control_current(uint64_t connection, uint64_t now)
@@ -181,6 +193,7 @@ static void reply(uint64_t connection, const char *text)
         free(response.text);
         fail_link();
     }
+    wake_link();
 }
 
 static void nak(uint64_t connection, const ainekio_control_message_t *m, ainekio_reject_reason_t reason)
@@ -301,13 +314,13 @@ static void heartbeat(uint64_t connection, bool pong)
                        media.microphone_gate == AINEKIO_MIC_GATE_VAD ? "vad" : "open";
     snprintf(text, sizeof(text), "{\"t\":\"%s\",\"clock_ms\":%" PRIu64
              ",\"audio\":{\"on\":%s,\"listening\":%s,\"gate\":\"%s\",\"gain_db\":%u,"
-             "\"wake_enabled\":%s,\"wake_threshold\":%.5f,\"rms\":%.6f,\"peak\":%.6f,\"capturing\":%s,\"speaker_busy\":%s,\"speaker_volume_percent\":%u}}",
+             "\"wake_enabled\":%s,\"wake_threshold\":%.5f,\"rms\":%.6f,\"peak\":%.6f,\"capturing\":%s,\"speaker_busy\":%s,\"speaker_volume_percent\":%u,\"external_speech\":%s}}",
              pong ? "pong" : "ping", now_us() / 1000U,
              media.microphone_enabled ? "true" : "false", media.microphone_listening ? "true" : "false",
              gate, (unsigned)media.microphone_gain_db, media.wake_enabled ? "true" : "false",
              (double)media.wake_threshold, (double)media.microphone_rms, (double)media.microphone_peak,
              media.utterance_open ? "true" : "false", media.speaker_busy ? "true" : "false",
-             (unsigned)media.speaker_volume_percent);
+             (unsigned)media.speaker_volume_percent, media.external_speech ? "true" : "false");
     reply(connection, text);
 }
 
@@ -374,6 +387,7 @@ static void received(void)
             atomic_store(&display_rejection, 0);
             atomic_store(&stopped_sequence, 0);
             ainekio_p4_media_session(request.connection);
+            if (m->has_external_speech) ainekio_p4_media_external_speech(m->external_speech);
             if (ainekio_p4_system_profile(m->data.welcome.profile) != ESP_OK ||
                 ainekio_p4_system_authenticated() != ESP_OK) { fail_link(); return; }
             /* The status serializer has a 5 KiB workspace. Keep it out of
@@ -408,6 +422,8 @@ static void received(void)
     }
     request.output_generation = ainekio_pca_status(ainekio_p4_output()).generation;
     leave();
+    if ((m->kind == AINEKIO_MESSAGE_PING || m->kind == AINEKIO_MESSAGE_PONG) && m->has_external_speech)
+        ainekio_p4_media_external_speech(m->external_speech);
     if (m->kind == AINEKIO_MESSAGE_PING) heartbeat(request.connection, true);
     else if (m->kind == AINEKIO_MESSAGE_PONG) return;
     else if (m->has_command) {
@@ -485,6 +501,7 @@ static void media_event(uint64_t connection, uint32_t sequence, const char *text
     if (strlen(text) >= sizeof(event.text)) { fail_link(); return; }
     strcpy(event.text, text);
     if (xQueueSend(media_events, &event, 0) != pdTRUE) fail_link();
+    wake_link();
 }
 
 static void microphone(void *context, uint64_t session, const uint8_t *pcm)
@@ -501,6 +518,7 @@ static void microphone(void *context, uint64_t session, const uint8_t *pcm)
         free(packet.bytes);
         atomic_fetch_add(&microphone_tx_drops, 1);
     }
+    wake_link();
 }
 
 static void audio_done(void *context, uint64_t session, uint32_t sequence, esp_err_t result)
@@ -541,6 +559,7 @@ static void gate_event(void *context, uint64_t session, bool open, bool wake_wor
     ainekio_encode_event(open ? AINEKIO_EVENT_VAD_OPEN : AINEKIO_EVENT_VAD_CLOSE,
         correlated, utterance_id, packet.metadata, sizeof(packet.metadata));
     if (xQueueSend(audio_packets, &packet, 0) != pdTRUE) fail_link();
+    wake_link();
     if (!open && correlated) {
         const bool snapshot_due = utterance_wake_triggered &&
             now_us() - utterance_started_us >= UINT64_C(300000); /* S3 speech threshold. */
@@ -585,6 +604,7 @@ static void camera_frame(void *context, uint64_t session, ainekio_camera_origin_
         atomic_fetch_add(&camera_tx_drops, 1);
         camera_failed(NULL, session, origin, origin_id, ESP_ERR_NO_MEM);
     }
+    wake_link();
     if (origin != AINEKIO_CAMERA_ORIGIN_NONE) ainekio_p4_storage_capture(jpeg, length);
     else {
         static const unsigned widths[] = {320, 640, 1024};
@@ -665,12 +685,14 @@ static bool current_connection(uint64_t generation)
     return current;
 }
 
-static void send_packet(esp_websocket_client_handle_t client, packet_t *packet)
+/* One call sends one complete wire message. A JPEG remains owned here across
+ * calls, allowing audio/control messages between its chunks on the same socket. */
+static bool send_packet(esp_websocket_client_handle_t client, packet_t *packet)
 {
     if (current_connection(packet->connection) &&
         (!packet->done_sequence || packet->done_sequence > atomic_load(&stopped_sequence))) {
         const uint64_t started = now_us();
-        const size_t metadata_length = strlen(packet->metadata);
+        const size_t metadata_length = packet->offset ? 0 : strlen(packet->metadata);
         const TickType_t metadata_timeout = pdMS_TO_TICKS(LINK_SEND_TIMEOUT_MS);
         bool metadata_ok = metadata_length == 0 ||
             esp_websocket_client_send_text(client, packet->metadata, metadata_length, metadata_timeout) == (int)metadata_length;
@@ -679,23 +701,57 @@ static void send_packet(esp_websocket_client_handle_t client, packet_t *packet)
             const size_t length = ainekio_encode_event(AINEKIO_EVENT_WAKE_WORD, false, 0, text, sizeof(text));
             metadata_ok = esp_websocket_client_send_text(client, text, length, pdMS_TO_TICKS(LINK_SEND_TIMEOUT_MS)) == (int)length;
         }
-        const bool failed = !metadata_ok || !current_connection(packet->connection) ||
-            (packet->length && esp_websocket_client_send_bin(client, (const char *)packet->bytes,
-                packet->length, pdMS_TO_TICKS(LINK_SEND_TIMEOUT_MS)) != (int)packet->length);
+        const uint8_t *bytes = packet->bytes;
+        size_t length = packet->length;
+        bool encoded = true;
+        if (packet->camera) {
+            const uint8_t *header = packet->bytes;
+            const uint32_t counter = (uint32_t)header[1] | ((uint32_t)header[2] << 8U) |
+                ((uint32_t)header[3] << 16U) | ((uint32_t)header[4] << 24U);
+            encoded = ainekio_camera_chunk_encode(counter, header + AINEKIO_BINARY_HEADER_BYTES,
+                packet->length - AINEKIO_BINARY_HEADER_BYTES, packet->offset,
+                camera_send_buffer, MEDIA_SEND_BYTES, &length) == AINEKIO_BINARY_OK;
+            bytes = camera_send_buffer;
+        }
+        const bool failed = !metadata_ok || !encoded || !current_connection(packet->connection) ||
+            (length && esp_websocket_client_send_bin(client, (const char *)bytes,
+                length, pdMS_TO_TICKS(LINK_SEND_TIMEOUT_MS)) != (int)length);
         last_media_send_us = (uint32_t)(now_us() - started);
-        last_media_send_bytes = packet->length;
+        last_media_send_bytes = length;
         if (failed) {
             ESP_LOGW("controller", "TX media failed: camera=%d bytes=%u elapsed_us=%" PRIu32 " metadata_ok=%d",
                      packet->camera, (unsigned)packet->length, last_media_send_us, metadata_ok);
             fail_link();
         }
-        else if (packet->done_sequence) {
-            char text[80];
-            ainekio_encode_done(packet->done_sequence, text, sizeof(text));
-            reply(packet->connection, text);
+        else {
+            if (packet->camera) {
+                packet->offset += length - AINEKIO_BINARY_HEADER_BYTES - AINEKIO_CAMERA_CHUNK_HEADER_BYTES;
+                if (packet->offset < packet->length - AINEKIO_BINARY_HEADER_BYTES) return false;
+            }
+            if (packet->done_sequence) {
+                char text[80];
+                ainekio_encode_done(packet->done_sequence, text, sizeof(text));
+                reply(packet->connection, text);
+            }
         }
     }
     free(packet->bytes);
+    packet->bytes = NULL;
+    return true;
+}
+
+static void send_media(esp_websocket_client_handle_t client, packet_t *camera)
+{
+    packet_t packet;
+    for (UBaseType_t ready = uxQueueMessagesWaiting(audio_packets);
+         ready && !atomic_load(&reconnect) && xQueueReceive(audio_packets, &packet, 0) == pdTRUE; --ready)
+        send_packet(client, &packet);
+    if (!camera->bytes && xQueuePeek(camera_packets, &packet, 0) == pdTRUE &&
+        (!packet.done_sequence || (packet.done_sequence != atomic_load(&pending_sequence) &&
+                                  uxQueueMessagesWaiting(replies) == 0))) {
+        xQueueReceive(camera_packets, camera, 0);
+    }
+    if (camera->bytes && !atomic_load(&reconnect)) send_packet(client, camera);
 }
 
 static void discovery_task(void *arg)
@@ -760,6 +816,7 @@ static void collect_discovery(ainekio_p4_gateway_selection_t *selection,
 static void link_task(void *arg)
 {
     (void)arg;
+    link_handle = xTaskGetCurrentTaskHandle();
     const ainekio_config_record_t *config = ainekio_p4_config();
     const ainekio_p4_robot_settings_t *settings = ainekio_p4_boot_settings();
     ainekio_p4_gateway_selection_t selection = {.network=-1};
@@ -789,7 +846,7 @@ static void link_task(void *arg)
         atomic_store(&reconnect, false);
         const esp_websocket_client_config_t options = {
             .uri=endpoint, .disable_auto_reconnect=true,
-            .task_prio=5, .task_stack=16384, .buffer_size=4096,
+            .task_prio=5, .task_stack=16384, .buffer_size=MEDIA_SEND_BYTES,
             .network_timeout_ms=1000, .crt_bundle_attach=esp_crt_bundle_attach,
         };
         const uint64_t started = now_us();
@@ -806,6 +863,7 @@ static void link_task(void *arg)
         if (!sensor_boot_id) sensor_boot_id = esp_random();
         ainekio_p4_body_event_t event = {0};
         bool have_body_event = false;
+        packet_t camera = {0};
         while (error == ESP_OK && !atomic_load(&reconnect) && !atomic_load(&quiesced) &&
                ainekio_p4_network_online() && network_generation == ainekio_p4_network_generation()) {
             enter();
@@ -840,7 +898,7 @@ static void link_task(void *arg)
                 last_imu = now_us();
             }
             reply_t message;
-            if (xQueueReceive(replies, &message, pdMS_TO_TICKS(20)) == pdTRUE) {
+            while (xQueueReceive(replies, &message, 0) == pdTRUE) {
                 enter();
                 const bool current = admission.connected && admission.generation == message.connection;
                 leave();
@@ -891,14 +949,7 @@ static void link_task(void *arg)
                 xQueueReceive(media_events, &media, 0);
                 if (current_connection(media.connection)) reply(media.connection, media.text);
             }
-            packet_t packet;
-            if (xQueueReceive(audio_packets, &packet, 0) == pdTRUE) send_packet(client, &packet);
-            if (xQueuePeek(camera_packets, &packet, 0) == pdTRUE &&
-                (!packet.done_sequence || (packet.done_sequence != atomic_load(&pending_sequence) &&
-                                          uxQueueMessagesWaiting(replies) == 0))) {
-                xQueueReceive(camera_packets, &packet, 0);
-                send_packet(client, &packet);
-            }
+            send_media(client, &camera);
             /* The gateway requires a clock observation younger than one second.
              * Leave margin for scheduling and network delay within that window. */
             if (now_us() - last_ping >= UINT64_C(250000)) {
@@ -914,7 +965,14 @@ static void link_task(void *arg)
                 }
                 last_ping = now_us();
             }
+            /* Sleep only when no ready media/control work remains. Producers
+             * wake this task immediately; the timeout services existing IMU telemetry. */
+            if (!camera.bytes && !uxQueueMessagesWaiting(replies) &&
+                !uxQueueMessagesWaiting(audio_packets) && !uxQueueMessagesWaiting(camera_packets) &&
+                !uxQueueMessagesWaiting(media_events))
+                ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(20));
         }
+        free(camera.bytes);
         fail_link();
         enter();
         ainekio_admission_close(&admission, link_generation);
@@ -1311,8 +1369,9 @@ esp_err_t ainekio_p4_controller_start(void)
     replies = xQueueCreate(16, sizeof(reply_t));
     audio_packets = xQueueCreate(8, sizeof(packet_t));
     camera_packets = xQueueCreate(2, sizeof(packet_t));
+    camera_send_buffer = malloc(MEDIA_SEND_BYTES);
     media_events = xQueueCreate(8, sizeof(media_event_t));
-    if (!receive_text || !status_text || !control_request || !requests || !replies || !audio_packets || !camera_packets || !media_events) return ESP_ERR_NO_MEM;
+    if (!receive_text || !status_text || !control_request || !requests || !replies || !audio_packets || !camera_packets || !media_events || !camera_send_buffer) return ESP_ERR_NO_MEM;
     ESP_ERROR_CHECK(ainekio_p4_body_start());
     atomic_store(&initialized, true);
     if (xTaskCreate(control_task, "body_control", 12288, control_request, 5, NULL) != pdPASS ||

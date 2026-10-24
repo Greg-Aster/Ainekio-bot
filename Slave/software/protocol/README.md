@@ -400,7 +400,20 @@ embedding media in JSON. VAD boundary events carry one robot-generated
 {"t":"cam_meta","res":"XGA","fps":0,"counter_base":18,"origin":"audio","origin_id":73}
 ```
 
-The JPEG remains the next bounded camera binary frame with counter `18`.
+The JPEG retains camera counter `18`. A body can send the complete image as
+binary type `0x02`, or interleave it with audio/control using type `0x03` chunks.
+Each chunk uses the existing five-byte type/counter header, followed by a
+little-endian uint32 total JPEG length, uint32 byte offset, and JPEG bytes.
+Offsets are contiguous from zero and all chunks of one image share its counter
+and total length. The existing JPEG size and format contract is unchanged.
+Body Control reassembles within the authenticated connection, then delivers one
+ordinary camera frame with the original `cam_meta` correlation. An incomplete
+image never becomes a camera observation and cannot cross a reconnect.
+P4 uses its 4096-byte WebSocket send-buffer size for each complete chunk message;
+this is a transfer granularity, not a smaller image-size limit. It drains ready
+microphone packets between chunks. Other protocol-v1 bodies can continue sending
+complete images. Deploy the receiving Body Control update before P4 chunk firmware.
+
 Completed physical actions use `origin="action"` and the command sequence as
 `origin_id`; firmware sends the JPEG before `{"t":"done","seq":...}`. An
 explicit `snap` command uses `origin="request"`. These fields are optional for

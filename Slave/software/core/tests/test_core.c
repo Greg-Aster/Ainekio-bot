@@ -3,6 +3,7 @@
 
 #include "ainekio/core.h"
 #include "ainekio/control_codec.h"
+#include "ainekio/binary_codec.h"
 #include <string.h>
 
 static ainekio_command_t intent_command(uint32_t sequence, ainekio_intent_kind_t intent)
@@ -339,8 +340,46 @@ static void test_face_feedback_decode(void)
     assert(!strcmp(m.command.data.intent.data.asset,"bow") && !face->timeout_ms && !face->token[0]);
 }
 
+static void test_camera_chunk_transfer(void)
+{
+    uint8_t jpeg[10000], reconstructed[10000], wire[4096];
+    for (size_t i = 0; i < sizeof(jpeg); ++i) jpeg[i] = (uint8_t)i;
+    jpeg[0] = 0xff; jpeg[1] = 0xd8; jpeg[sizeof(jpeg)-2] = 0xff; jpeg[sizeof(jpeg)-1] = 0xd9;
+    size_t offset = 0, messages = 0;
+    while (offset < sizeof(jpeg)) {
+        size_t length;
+        assert(ainekio_camera_chunk_encode(42, jpeg, sizeof(jpeg), offset, wire, sizeof(wire), &length) == AINEKIO_BINARY_OK);
+        ainekio_binary_frame_t decoded;
+        assert(ainekio_binary_decode(wire, length, &decoded) == AINEKIO_BINARY_OK);
+        assert(decoded.known_type && decoded.type == AINEKIO_FRAME_CAMERA_CHUNK && decoded.counter == 42);
+        const size_t position = (size_t)wire[9] | ((size_t)wire[10] << 8U) | ((size_t)wire[11] << 16U) | ((size_t)wire[12] << 24U);
+        assert(position == offset);
+        const size_t count = length - 13;
+        memcpy(reconstructed + offset, wire + 13, count);
+        offset += count;
+        ++messages;
+    }
+    assert(messages == 3 && !memcmp(jpeg, reconstructed, sizeof(jpeg)));
+    size_t length;
+    assert(ainekio_camera_chunk_encode(42, jpeg, sizeof(jpeg), 0, wire, 13, &length) == AINEKIO_BINARY_CAPACITY);
+    assert(ainekio_camera_chunk_encode(42, jpeg, sizeof(jpeg), sizeof(jpeg), wire, sizeof(wire), &length) == AINEKIO_BINARY_FORMAT);
+}
+
 int main(void)
 {
+    {
+        ainekio_control_message_t notice;
+        const char *start = "{\"t\":\"pong\",\"external_speech\":true}";
+        assert(ainekio_control_decode_for_body(start, strlen(start), &notice) == AINEKIO_DECODE_OK);
+        assert(notice.kind == AINEKIO_MESSAGE_PONG && !notice.has_command && !notice.has_sequence);
+        assert(notice.has_external_speech && notice.external_speech);
+        const char *end = "{\"t\":\"ping\",\"external_speech\":false}";
+        assert(ainekio_control_decode_for_body(end, strlen(end), &notice) == AINEKIO_DECODE_OK);
+        assert(notice.has_external_speech && !notice.external_speech && !notice.has_command);
+        const char *invalid = "{\"t\":\"pong\",\"external_speech\":1}";
+        assert(ainekio_control_decode_for_body(invalid, strlen(invalid), &notice) != AINEKIO_DECODE_OK);
+    }
+    test_camera_chunk_transfer();
     test_balance_setting_decode();
     test_face_feedback_decode();
     test_audio_adjustment_decode_preserves_optional_settings();

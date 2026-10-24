@@ -10,6 +10,8 @@
 #define AINEKIO_MAX_JPEG_BYTES (256U * 1024U)
 #define AINEKIO_FRAME_MIC_PCM 0x01U
 #define AINEKIO_FRAME_CAMERA_JPEG 0x02U
+#define AINEKIO_FRAME_CAMERA_CHUNK 0x03U
+#define AINEKIO_CAMERA_CHUNK_HEADER_BYTES 8U
 #define AINEKIO_FRAME_SPEAKER_PCM 0x10U
 
 typedef enum {
@@ -41,6 +43,12 @@ ainekio_binary_result_t ainekio_binary_encode(
     uint8_t *output,
     size_t capacity,
     size_t *output_length
+);
+
+/* Encode the next part of one JPEG into the caller's transport-sized buffer. */
+ainekio_binary_result_t ainekio_camera_chunk_encode(
+    uint32_t counter, const uint8_t *jpeg, size_t total, size_t offset,
+    uint8_t *output, size_t capacity, size_t *output_length
 );
 
 #endif

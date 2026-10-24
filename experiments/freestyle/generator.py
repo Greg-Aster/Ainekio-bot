@@ -1,14 +1,36 @@
 """Standalone compact-program client/server usable by either host application."""
 import argparse
 import asyncio
+import copy
 import json
 import hashlib
 import time
 import urllib.request
+from uuid import uuid4
 from urllib.parse import urlsplit
 from pathlib import Path
 
 from .runtime import compact
+
+
+def argument_schema(tool):
+    """Express the spatial format's existing one-offset-per-leg requirement.
+
+    Grammar constrains generation itself; no returned motion is trimmed or
+    replaced. The compiler already requires distinct legs from the four-leg
+    vocabulary. Body moves may legitimately have no explicit foot offsets.
+    """
+    parameters = tool['parameters']
+    offset = {'feet':'offsets_mm', 'body':'foot_offsets_mm'}.get(tool['name'])
+    if offset is None:
+        return parameters
+    variants = []
+    for count in range(5):
+        variant = copy.deepcopy(parameters)
+        for name in ('legs', offset):
+            variant['properties'][name].update(minItems=count, maxItems=count)
+        variants.append(variant)
+    return {'oneOf':variants}
 
 
 class IncompleteProgram(ValueError):
@@ -33,8 +55,9 @@ class Generator:
                 self.identity['configured_model_sha256']=hashlib.file_digest(stream,'sha256').hexdigest()
         self.schema = {'type':'array','items':{'oneOf':[
             {'type':'object','additionalProperties':False,'required':['name','arguments'],
-             'properties':{'name':{'type':'string','const':t['name']},'arguments':t['parameters']}}
+             'properties':{'name':{'type':'string','const':t['name']},'arguments':argument_schema(t)}}
             for t in tools]}}
+        self.identity['response_schema_sha256']=hashlib.sha256(compact(self.schema).encode()).hexdigest()
 
     def _payload(self, request, observation=None, event=None, history=None):
         query = request if observation is None and event is None and not history else compact({
@@ -63,7 +86,13 @@ class Generator:
         choice = result['choices'][0]
         if choice['finish_reason'] != 'stop':
             raise IncompleteProgram(result,time.perf_counter()-started,self.identity)
-        return {'program':json.loads(choice['message']['content']),
+        try:
+            program = json.loads(choice['message']['content'])
+        except (ValueError, TypeError) as error:
+            error.evidence = {'response':result, 'generator':self.identity,
+                              'elapsed_s':time.perf_counter()-started}
+            raise
+        return {'program':program,
                 'elapsed_s':time.perf_counter()-started, 'usage':result.get('usage'),
                 'generator':self.identity}
 
@@ -107,26 +136,43 @@ async def _async_json_post(endpoint, request):
         else:
             data=await reader.read()
         result=json.loads(data)
-        if status!=200:raise ValueError(result.get('error',f'Freestyle HTTP {status}'))
+        if status!=200:
+            error=ValueError(result.get('error',f'Freestyle HTTP {status}'))
+            error.evidence=result.get('evidence')
+            raise error
         return result
     finally:
         writer.close()
 
 
-def create_app(generator):
+def create_app(generator, recorder=None):
     from aiohttp import web
 
     async def generate(request):
+        request_id = uuid4().hex
+        def record(kind, payload):
+            if recorder:
+                recorder.record(kind, payload, job_id=request_id)
         try:
             payload = await request.json()
+            record('inference_requested', {'request':payload, 'generator':generator.identity})
             result = await generator.async_generate(**payload)
+            result['inference_id'] = request_id
+            record('inference_completed', result)
             return web.json_response(result)
+        except asyncio.CancelledError:
+            record('inference_cancelled', {'generator':generator.identity})
+            raise
         except Exception as error:
-            return web.json_response({'error':str(error)}, status=400)
+            failure = {'error':str(error), 'evidence':getattr(error,'evidence',None),
+                       'inference_id':request_id}
+            record('inference_failed', failure)
+            return web.json_response(failure, status=400)
 
     async def health(request):
         return web.json_response({'service':'freestyle','model':generator.model,
-                                  'robot_transport':False,'generator':generator.identity})
+                                  'robot_transport':False,'generator':generator.identity,
+                                  'recording':recorder.status() if recorder else {'enabled':False}})
 
     # A replaced request has no recipient. Cancel its inference connection too,
     # instead of leaving a blocking worker to occupy a model slot. Full request
@@ -134,12 +180,16 @@ def create_app(generator):
     app = web.Application(client_max_size=0, handler_args={'handler_cancellation':True})
     app.router.add_post('/generate',generate)
     app.router.add_get('/health',health)
+    if recorder:
+        async def cleanup(app):
+            await asyncio.to_thread(recorder.close)
+        app.on_cleanup.append(cleanup)
     return app
 
 
-def serve(generator, host, port):
+def serve(generator, host, port, recorder=None):
     from aiohttp import web
-    web.run_app(create_app(generator), host=host, port=port,
+    web.run_app(create_app(generator, recorder), host=host, port=port,
                 handler_cancellation=True, print=None)
 
 
@@ -149,4 +199,8 @@ if __name__ == '__main__':
     p.add_argument('--contract',type=Path,required=True)
     p.add_argument('--model-file',type=Path,help='Configured artifact identity for saved trial provenance')
     p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8794)
-    a=p.parse_args();serve(Generator(a.endpoint,a.model,a.contract,a.model_file),a.host,a.port)
+    p.add_argument('--recordings',type=Path,help='Local SQLite store for requests and generated outputs')
+    a=p.parse_args()
+    from .recordings import Recorder
+    serve(Generator(a.endpoint,a.model,a.contract,a.model_file),a.host,a.port,
+          Recorder(a.recordings) if a.recordings else None)

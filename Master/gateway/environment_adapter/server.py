@@ -55,7 +55,6 @@ AUDIO_UTTERANCE_MAGIC = b"AIKAUD01"
 AUDIO_UTTERANCE_HEADER_BYTES = len(AUDIO_UTTERANCE_MAGIC) + 4
 MICROPHONE_LEVEL_INTERVAL_SECONDS = 0.1
 BRIDGE_SEND_TIMEOUT_SECONDS = 2.0
-ACTION_VISUAL_WAIT_SECONDS = 2.0
 CAMERA_DELIVERY_QUEUE_LENGTH = 1
 MAX_PENDING_ACTION_VISUALS = 32
 MAX_WALK_UPDATE_VALIDITY_MS = 2000
@@ -121,13 +120,18 @@ class EnvironmentAdapter:
         self._speech_settings_path = Path(config.receipt_path).with_name('speech-output.json') if config.receipt_path != ':memory:' else None
         self._speech_target = (_read_json(self._speech_settings_path)['playbackTarget']
             if self._speech_settings_path and self._speech_settings_path.exists() else 'robot')
+        self._computer_device = (_read_json(self._speech_settings_path).get('computerDevice', '')
+            if self._speech_settings_path and self._speech_settings_path.exists() else '')
         self._computer_speech: dict[str, asyncio.Task[None]] = {}
         self._locomotion_yaw: dict[str, dict[str, object]] = {}
         self._ground_range_selection: dict[str, object] | None = None
         self._ground_range_measurement: dict[str, object] | None = None
         self.locomotion_measurement: Callable[..., dict[str, object]] | None = None
         self.selected_ground_range: Callable[..., dict[str, object]] | None = None
+        self.depth_demand = None
+        self._depth_consumers: dict[int, dict[str, str]] = {}
         self.recognition_status: Callable[[], dict[str, object]] | None = None
+        self.camera_analysis: Callable[[str | None], CameraAnalysis | None] | None = None
         self.vision_operation = None
         self._websocket: Any | None = None
         self._send_lock = asyncio.Lock()
@@ -148,7 +152,6 @@ class EnvironmentAdapter:
             str,
             asyncio.Future[dict[str, object] | None],
         ] = {}
-        self._action_frames_received: set[str] = set()
         self._camera_delivery_queue: asyncio.Queue[
             tuple[dict[str, object], dict[str, object]]
         ] | None = None
@@ -197,15 +200,20 @@ class EnvironmentAdapter:
             if not future.done():
                 future.cancel()
 
-    async def speech_output_settings(self, playback_target: str | None = None) -> dict[str, object]:
+    async def speech_output_settings(self, playback_target: str | None = None, *, computer_device: str | None = None) -> dict[str, object]:
         if playback_target is not None:
             if playback_target not in {'robot', 'computer'}:
                 raise ValueError('playbackTarget must be robot or computer')
+            device = self._computer_device if computer_device is None else computer_device
+            if not isinstance(device, str) or '\0' in device:
+                raise ValueError('computerDevice must be an audio output name')
             if self._speech_settings_path:
-                await asyncio.to_thread(_atomic_secure_json, self._speech_settings_path, {'playbackTarget': playback_target})
+                await asyncio.to_thread(_atomic_secure_json, self._speech_settings_path,
+                    {'playbackTarget': playback_target, 'computerDevice': device})
             self._speech_target = playback_target
+            self._computer_device = device
             await self._send_observation()
-        return {'playbackTarget': self._speech_target}
+        return {'playbackTarget': self._speech_target, **({'computerDevice':self._computer_device} if self._computer_device else {})}
 
     async def behavior_settings(self, enabled: bool | None = None) -> dict[str, object]:
         result = await self._request_settings("behavior.settings", {} if enabled is None else {"enabled": enabled})
@@ -282,6 +290,9 @@ class EnvironmentAdapter:
                     if recovery is not None:
                         recovery.cancel()
         finally:
+            if self.depth_demand is not None:
+                for consumer_id, robot_id in self._depth_consumers.pop(id(websocket), {}).items():
+                    await self.depth_demand(robot_id, consumer_id, False)
             if self._websocket is websocket:
                 self._bridge_ready = False
                 self._disconnect_settings()
@@ -578,6 +589,10 @@ class EnvironmentAdapter:
     async def _process_computer_speech(self, speech: SpeechAudioMessage) -> None:
         previous = list(self._computer_speech.values())
         self._computer_speech[speech.action_id] = asyncio.current_task()
+        robot_id = self._selected_robot()[0] or self.config.robot_id
+        owner = uuid4().hex
+        if robot_id:
+            self.gateway.set_external_speech(robot_id, owner, True)
         try:
             try:
                 for task in previous:
@@ -588,7 +603,14 @@ class EnvironmentAdapter:
                         {'kind': 'computer-speech', 'gatewayInstance': self.gateway.instance_id}):
                     # Playback starts only after this action's dispatch is recorded.
                     pass
-                await play_computer_speech(speech.pcm)
+                try:
+                    if self._computer_device:
+                        await play_computer_speech(speech.pcm, device=self._computer_device)
+                    else:
+                        await play_computer_speech(speech.pcm)
+                finally:
+                    if robot_id:
+                        self.gateway.set_external_speech(robot_id, owner, False)
                 feedback = self._feedback(speech.action_id, 'completed', 'speech_played', command='speak')
             except asyncio.CancelledError:
                 feedback = self._feedback(speech.action_id, 'cancelled', 'computer speech cancelled', command='speak')
@@ -598,6 +620,8 @@ class EnvironmentAdapter:
             feedback = await self._send_feedback(feedback)
             await self._send_observation(feedback=[feedback])
         finally:
+            if robot_id:
+                self.gateway.set_external_speech(robot_id, owner, False)
             self._computer_speech.pop(speech.action_id, None)
 
     async def _process_environment_action(self, action: dict[str, Any], *, resume: dict[str, Any] | None = None) -> None:
@@ -640,24 +664,8 @@ class EnvironmentAdapter:
                 and row["observation_recorded"] and json.loads(row["result"])["id"] == feedback["id"]):
                 return
             visual: dict[str, object] | None = None
-            if (
-                visual_future is not None
-                and feedback.get("type") == "completed"
-                and (
-                    visual_future.done()
-                    or (
-                        isinstance(action_id, str)
-                        and action_id in self._action_frames_received
-                    )
-                )
-            ):
-                try:
-                    visual = await asyncio.wait_for(
-                        asyncio.shield(visual_future),
-                        timeout=ACTION_VISUAL_WAIT_SECONDS,
-                    )
-                except asyncio.TimeoutError:
-                    visual = None
+            if visual_future is not None and feedback.get("type") == "completed" and visual_future.done():
+                visual = visual_future.result()
             feedback = await self._send_feedback(feedback)
             if visual is not None:
                 await self._send_observation(
@@ -676,7 +684,6 @@ class EnvironmentAdapter:
             if recovered_context_key is not None:
                 self._robot_action_contexts.pop(recovered_context_key, None)
             if isinstance(action_id, str):
-                self._action_frames_received.discard(action_id)
                 pending = self._pending_action_visuals.pop(action_id, None)
                 if pending is not None and not pending.done():
                     pending.cancel()
@@ -784,6 +791,30 @@ class EnvironmentAdapter:
                     check_interpretation_owner, body_command=(translated.kind in {"stop", "motion_plan"}
                         or translated.kind == "intent" and translated.name not in {"face", "say"}))
 
+        if translated.kind == "request_motion":
+            try:
+                def remember_job(job_id):
+                    return self.receipts.dispatch(action_id, {"jobId": job_id, "robotId": robot_id,
+                        "epoch": robot_epoch, "kind": "freestyle", "gatewayInstance": self.gateway.instance_id},
+                        check_interpretation_owner)
+                submission = await self.gateway.request_motion(translated.params["description"], robot_id=robot_id,
+                    job_id=action_id, on_job=remember_job if receipt is not None else None,
+                    on_sequence=remember_sequence)
+                if submission["system"] == "freestyle":
+                    result = await self.gateway.freestyle_result(submission["jobId"])
+                    return self._motion_result(action_id, result)
+                sequence = submission["sequence"]
+                terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, epoch=robot_epoch, timeout=None)
+                return self._terminal_feedback(action_id, terminal, command="requestMotion",
+                    sequence=sequence, robot_id=robot_id, epoch=robot_epoch)
+            except (GatewayError, ConnectionClosed, OSError, KeyError, ValueError) as error:
+                row = await asyncio.to_thread(self.receipts.action, action_id) if receipt is not None else None
+                return self._feedback(action_id, "outcome_unknown" if row and row["wire"] else "rejected",
+                    str(error), command="requestMotion", robot_id=robot_id, epoch=robot_epoch)
+            finally:
+                if action_context_key is not None:
+                    self._robot_action_contexts.pop(action_context_key, None)
+
         if translated.kind == "motion_plan":
             frames = translated.params.get("frames")
             if isinstance(frames, list):
@@ -881,6 +912,23 @@ class EnvironmentAdapter:
                 active_frame=len(frame_durations) if feedback["type"] == "completed" else None,
                 message=feedback["message"],
             )
+        return feedback
+
+    def _motion_result(self, action_id, result):
+        status = {"completed": "completed", "superseded": "cancelled", "error": "failed"}[result["state"]]
+        if status == "failed" and type(result.get("last_sequence")) is int and not any(
+            receipt.get("seq") == result["last_sequence"] for receipt in result.get("receipts", [])
+        ):
+            status = "outcome_unknown"
+        feedback = self._feedback(action_id, status, result.get("error") or result["state"],
+            command="requestMotion", robot_id=result["robot_id"], epoch=result["epoch"])
+        if type(result.get("last_sequence")) is int:
+            feedback["data"]["interpretationBody"] = [self.config.session_id, self.gateway.instance_id,
+                result["robot_id"], result["epoch"], result["last_sequence"]]
+        feedback["data"].update(motionSystem="freestyle", jobId=result["id"],
+            actionResults=result.get("receipts", []), observation=result.get("observation"))
+        if status == "outcome_unknown":
+            feedback["data"]["executionEnded"] = True
         return feedback
 
     async def _report_motion_plan_progress(
@@ -1057,6 +1105,10 @@ class EnvironmentAdapter:
             self._pending_snapshot_context = None
 
     async def _handle_gateway_event(self, event: dict[str, object]) -> None:
+        if event.get("t") == "motion_system":
+            if event.get("robot_id") == self._selected_robot()[0]:
+                await self._send_observation()
+            return
         if event.get("t") == "locomotion_measurement":
             if event.get("robot_id") == self._selected_robot()[0]:
                 if self._ground_range_selection is not None and self.selected_ground_range is not None:
@@ -1073,6 +1125,9 @@ class EnvironmentAdapter:
                     "locomotionMeasurement": self._observation()["state"]["locomotionMeasurement"]})
             return
         if event.get("name") == "body_event" and event.get("robot_id") != self._selected_robot()[0]:
+            return
+        if event.get("name") == "body_event" and (event.get("data") or {}).get("kind") == "wake":
+            self._track_action(f"wake:{event['event_id']}", self._process_wake(event, self._websocket))
             return
         if event.get("t") == "status":
             await self._send_telemetry(
@@ -1202,6 +1257,42 @@ class EnvironmentAdapter:
         if event.get("t") == "connection":
             await self._recover_action_receipts()
 
+    async def _process_wake(self, event: dict[str, object], recipient: Any | None) -> None:
+        # Body Control owns this physical procedure. Only the fresh image is
+        # needed before greeting generation; stretch completion is not a join.
+        action_id = f"wake:{event['event_id']}:photo"
+        visual_future = asyncio.get_running_loop().create_future()
+        self._remember_action_visual(action_id, visual_future)
+        try:
+            capture = await self.handle_action({"id": action_id, "type": "captureImage"})
+            visual = None
+            if capture["type"] == "completed" and visual_future.done():
+                visual = visual_future.result()
+            if visual is not None:
+                visual["metadata"].pop("actionId", None)
+                visual["metadata"].pop("correlationId", None)
+                visual["metadata"]["bodyEventId"] = event["event_id"]
+            startup = {"capture": capture, "imageAvailable": visual is not None}
+            robot_id, robot = self._selected_robot()
+            if robot_id != event["robot_id"] or not robot or robot.get("epoch") != event["epoch"]:
+                # A completed old capture cannot start motion on a replacement body session.
+                startup["stretch"] = {"state": "not_dispatched", "reason": "body_session_ended"}
+            else:
+                try:
+                    submission = await self.gateway.request_motion("stretch", robot_id=robot_id)
+                    startup["stretch"] = {"state": "dispatched", **submission,
+                        "robotId": robot_id, "epoch": event["epoch"], "timestamp": self.utcnow().isoformat()}
+                except (GatewayError, ConnectionClosed, OSError) as exc:
+                    startup["stretch"] = {"state": "dispatch_failed", "error": str(exc)}
+            if recipient is not None and recipient is self._websocket and not recipient.closed:
+                await self._send_observation(visual=visual,
+                    body_event={**event, "data": {**event["data"], "startup": startup}},
+                    metadata={"perceptionEvent": "body_event"})
+        finally:
+            self._pending_action_visuals.pop(action_id, None)
+            if not visual_future.done():
+                visual_future.cancel()
+
     async def _handle_gateway_utterance(self, utterance: AudioUtterance) -> None:
         if self.config.robot_id is not None and utterance.robot_id != self.config.robot_id:
             return
@@ -1279,35 +1370,26 @@ class EnvironmentAdapter:
             return
         self._pending_snapshot_context = None
         self._pending_snapshot_key = None
+        # Correlated captures belong to their action consumer, not the outbound
+        # streaming worker. Resolve them when the complete frame arrives.
+        action_id = snapshot_context.get("actionId")
+        if isinstance(action_id, str):
+            pending = self._pending_action_visuals.get(action_id)
+            if pending is not None and not pending.done():
+                pending.set_result(self._camera_visual(frame, snapshot_context))
+            return
         queue = self._camera_delivery_queue
         if queue is None:
             await self._deliver_camera_frame(frame, snapshot_context)
             return
         item = (dict(frame), snapshot_context)
-        action_id = snapshot_context.get("actionId")
-        if isinstance(action_id, str):
-            self._action_frames_received.add(action_id)
         try:
             queue.put_nowait(item)
         except asyncio.QueueFull:
-            discarded_frame, discarded_context = queue.get_nowait()
+            discarded_frame, _ = queue.get_nowait()
             del discarded_frame
             queue.task_done()
-            self._resolve_action_visual(discarded_context, None)
             queue.put_nowait(item)
-
-    def _resolve_action_visual(
-        self,
-        context: Mapping[str, object],
-        visual: dict[str, object] | None,
-    ) -> bool:
-        action_id = context.get("actionId")
-        if not isinstance(action_id, str):
-            return False
-        pending = self._pending_action_visuals.get(action_id)
-        if pending is not None and not pending.done():
-            pending.set_result(visual)
-        return True
 
     async def _camera_delivery_worker(self, websocket: Any) -> None:
         while self._websocket is websocket:
@@ -1317,8 +1399,10 @@ class EnvironmentAdapter:
             frame, snapshot_context = await queue.get()
             try:
                 await self._deliver_camera_frame(frame, snapshot_context)
-            except Exception:
-                self._resolve_action_visual(snapshot_context, None)
+            except Exception as exc:
+                asyncio.get_running_loop().call_exception_handler({
+                    "message": "Environment camera delivery failed", "exception": exc,
+                })
             finally:
                 queue.task_done()
 
@@ -1328,9 +1412,15 @@ class EnvironmentAdapter:
         snapshot_context: dict[str, object],
     ) -> dict[str, object]:
         payload = frame["payload"]
+        timestamp = frame.get("timestamp") or self._frame_timestamp(frame)
+        analysis = self.camera_analysis(str(frame.get("robot_id"))) if self.camera_analysis else None
+        recognition = {**self._camera_recognition(analysis), "observedAt": timestamp} if (
+            analysis is not None and analysis.robot_id == frame.get("robot_id")
+            and analysis.epoch == frame.get("epoch") and analysis.counter == frame.get("counter")
+        ) else None
         return {
             "id": f"ainekio-camera-{self.gateway.instance_id}-{frame.get('robot_id')}-{frame.get('epoch')}-{frame.get('counter')}",
-            "timestamp": frame.get("timestamp") or self._frame_timestamp(frame),
+            "timestamp": timestamp,
             "mimeType": "image/jpeg",
             "dataUrl": f"data:image/jpeg;base64,{base64.b64encode(payload).decode('ascii')}",
             "source": "robot-camera",
@@ -1340,6 +1430,7 @@ class EnvironmentAdapter:
                 "epoch": frame.get("epoch"),
                 "counter": frame.get("counter"),
                 "bytes": len(payload),
+                **({"recognition": recognition} if recognition is not None else {}),
                 **{
                     key: snapshot_context[key]
                     for key in ("correlationId", "audioUtteranceId", "actionId")
@@ -1364,7 +1455,25 @@ class EnvironmentAdapter:
             response["error"] = "Camera read does not match this bridge session"
         elif message.get("operation") is not None:
             try:
-                if message.get("operation") == "groundRange":
+                if message.get("operation") == "depthDemand":
+                    if self.depth_demand is None:
+                        raise ValueError("Depth demand is not configured")
+                    consumer, enabled = message.get("consumerId"), message.get("enabled")
+                    if not isinstance(consumer, str) or not consumer or type(enabled) is not bool:
+                        raise ValueError("Depth demand requires consumerId and boolean enabled")
+                    robot_id, robot = self._selected_robot()
+                    if enabled and robot is None:
+                        raise ValueError("No selected robot is connected")
+                    owned_id = f"bridge:{id(websocket)}:{consumer}"
+                    consumers = self._depth_consumers.setdefault(id(websocket), {})
+                    if enabled:
+                        consumers[owned_id] = robot_id
+                    else:
+                        robot_id = consumers.pop(owned_id, robot_id)
+                    await self.depth_demand(robot_id, owned_id, enabled)
+                    response["vision"] = {"operation": "depthDemand", "consumerId": consumer,
+                        "enabled": enabled, "locomotionMeasurement": self._observation()["state"]["locomotionMeasurement"]}
+                elif message.get("operation") == "groundRange":
                     if self.selected_ground_range is None:
                         robot_id, robot = self._selected_robot()
                         response["vision"] = {"locomotionMeasurement": {"target": {"available": False,
@@ -1385,6 +1494,13 @@ class EnvironmentAdapter:
         else:
             robot_id, robot = self._selected_robot()
             frame = self._latest_camera_frame
+            # Recognition owns an immutable result and the JPEG it analyzed.
+            # Read that pair together; never label a newer raw frame with it.
+            analysis = self.camera_analysis(robot_id) if self.camera_analysis else None
+            if analysis is not None and analysis.jpeg is not None:
+                frame = {"robot_id": analysis.robot_id, "epoch": analysis.epoch,
+                    "counter": analysis.counter, "received_at": analysis.received_at,
+                    "payload": analysis.jpeg}
             response["visual"] = self._camera_visual(frame, {}) if (
                 frame is not None and robot is not None
                 and frame.get("robot_id") == robot_id and frame.get("epoch") == robot.get("epoch")
@@ -1397,11 +1513,8 @@ class EnvironmentAdapter:
         snapshot_context: dict[str, object],
     ) -> None:
         if not isinstance(frame.get("payload"), bytes):
-            self._resolve_action_visual(snapshot_context, None)
             return
         visual = self._camera_visual(frame, snapshot_context)
-        if self._resolve_action_visual(snapshot_context, visual):
-            return
         await self._send_observation(
             visual=visual,
             metadata=snapshot_context,
@@ -1440,6 +1553,14 @@ class EnvironmentAdapter:
             }
         )
 
+    def _camera_recognition(self, analysis: CameraAnalysis) -> dict[str, object]:
+        # Frame-bound evidence retains its receipt time; it is not a new observation.
+        age = self.gateway.clock() - analysis.received_at
+        return {"version": 1, "robotId": analysis.robot_id, "epoch": analysis.epoch,
+            "gatewayInstance": self.gateway.instance_id, "frameCounter": analysis.counter,
+            "timeBasis": "gateway_receipt", "observedAt": (self.utcnow() - timedelta(seconds=age)).isoformat(),
+            **analysis.result.message()}
+
     async def publish_camera_analysis(self, analysis: CameraAnalysis, *, max_frame_age_s: float) -> None:
         """Send compact current recognition on the existing local bridge, without pixels or replay."""
         robot_id, robot = self._selected_robot()
@@ -1462,11 +1583,8 @@ class EnvironmentAdapter:
             raise ValueError("camera recognition backend must return RecognitionResult")
         # These wall times describe host receipt, not sensor acquisition.
         now = self.utcnow()
-        perception = {"version": 1, "robotId": robot_id, "epoch": analysis.epoch,
-            "gatewayInstance": self.gateway.instance_id, "frameCounter": analysis.counter,
-            "timeBasis": "gateway_receipt", "observedAt": (now - timedelta(seconds=age)).isoformat(),
-            "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat(),
-            **analysis.result.message()}
+        perception = {**self._camera_recognition(analysis),
+            "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat()}
         await self._send_telemetry("vision.recognition", {"perception": perception,
             **({"processing": analysis.processing} if analysis.processing is not None else {})})
 
@@ -1619,7 +1737,11 @@ class EnvironmentAdapter:
         if expression_feedback:
             actions.append("faceExpression")
         robot_commands: list[str] = []
-        if motion_ready:
+        motion_system = getattr(self.gateway, "motion_systems", {}).get(robot_id, "library")
+        state["body"]["motionSystem"] = motion_system
+        if motion_ready and motion_system == "freestyle":
+            actions.extend(["requestMotion", "stop"])
+        elif motion_ready:
             actions.extend(["robotCommand", "move", "stop"])
             robot_commands = list(LEGACY_ROBOT_COMMANDS) if supported is None else [
                 name for name in SUPPORTED_ROBOT_COMMANDS if name in supported
@@ -1632,6 +1754,9 @@ class EnvironmentAdapter:
             "sessionId": self.config.session_id, "observedAt": measurement.get("frameTimestamp", measurement.get("observedAt"))}
         position.pop("position", None)
         position.pop("camera", None)
+        # Dashboard image content stays with CameraFramePlugin; this field carries
+        # physical measurements and their provenance, not encoded preview pixels.
+        position.pop("depthPreview", None)
         if robot is None or measurement.get("robotId") != robot_id or measurement.get("epoch") != robot.get("epoch"):
             position.update({"available": False, "reason": position.get("reason") or "measurement_session_changed"})
         position.update({"sourceRobotId": measurement.get("robotId"), "sourceEpoch": measurement.get("epoch"),
@@ -1653,8 +1778,6 @@ class EnvironmentAdapter:
             state["locomotionMeasurement"]["target"] = target
         if camera_ready:
             actions.append("captureImage")
-        if self._motion_plan_available(gateway_status):
-            actions.append("robotMotionPlan")
         observation: dict[str, object] = {
             "environmentId": self.config.environment_id,
             "adapter": self.config.adapter_id,
@@ -1789,7 +1912,7 @@ class EnvironmentAdapter:
                 return None
             current = {"gatewayInstance": self.gateway.instance_id}
         else:
-            if not isinstance(wire.get("robotId"), str) or type(wire.get("epoch")) is not int or type(wire.get("sequence")) is not int:
+            if not isinstance(wire.get("robotId"), str) or type(wire.get("epoch")) is not int or (wire.get("kind") != "freestyle" and type(wire.get("sequence")) is not int):
                 return None
             robot = self.gateway.status().get("robots", {}).get(wire["robotId"])
             if not isinstance(robot, Mapping) or robot.get("connected") is not True or type(robot.get("epoch")) is not int:
@@ -1816,6 +1939,10 @@ class EnvironmentAdapter:
         action_id = row["id"]
         command = json.loads(row["payload"])
         try:
+            if wire.get("kind") == "freestyle":
+                if wire.get("gatewayInstance") != self.gateway.instance_id:
+                    raise GatewayError("previous gateway session ended; awaiting authenticated robot reconnection")
+                return self._motion_result(action_id, await self.gateway.freestyle_result(wire["jobId"]))
             if wire.get("kind") == "computer-speech":
                 raise GatewayError("Body Control restarted before computer playback completion was recorded")
             if not isinstance(robot_id, str) or type(epoch) is not int or type(sequence) is not int:
@@ -1863,6 +1990,13 @@ class EnvironmentAdapter:
                 try:
                     if row["wire"] is not None:
                         wire = json.loads(row["wire"])
+                        if wire.get("kind") == "freestyle":
+                            if wire.get("gatewayInstance") != self.gateway.instance_id:
+                                raise GatewayError("Cancellation belongs to a previous gateway instance; outcome unknown")
+                            result = await self.gateway.freestyle_cancel(wire["jobId"])
+                            feedback = await self._send_feedback(self._motion_result(action_id, result))
+                            await self._send_observation(feedback=[feedback])
+                            return
                         if wire.get('kind') == 'computer-speech':
                             playback = self._computer_speech.get(action_id)
                             if playback is not None:
@@ -1956,7 +2090,7 @@ class EnvironmentAdapter:
             error = task.exception()
             if error is not None:
                 task.get_loop().call_exception_handler({
-                    "message": "Environment action processing failed; its durable receipt remains available for recovery",
+                    "message": "Environment operation processing failed",
                     "exception": error,
                     "task": task,
                 })

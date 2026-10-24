@@ -94,10 +94,11 @@ async def paced_speaker_frames(pcm: bytes) -> AsyncIterator[bytes]:
         yield pcm[offset:offset + PCM_FRAME_BYTES]
 
 
-async def play_computer_speech(pcm: bytes) -> None:
-    """Play the bridge's existing PCM format on Body Control's default speaker."""
+async def play_computer_speech(pcm: bytes, *, device: str = '') -> None:
+    """Play bridge PCM on the selected host sink, or its system default."""
     process = subprocess.Popen(
-        ['paplay', '--raw', '--format=s16le', '--rate=16000', '--channels=1', '--client-name=Ainekio Body Control'],
+        ['paplay', '--raw', '--format=s16le', '--rate=16000', '--channels=1', '--client-name=Ainekio Body Control'] +
+        (['--device='+device] if device else []),
         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
     )
     communication = asyncio.create_task(asyncio.to_thread(process.communicate, pcm))

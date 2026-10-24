@@ -22,6 +22,8 @@ from gateway.body_events import BodyEvents
 from protocol.binary_helpers import (
     MAX_JPEG_BYTES,
     CAMERA_JPEG_FRAME_TYPE,
+    CAMERA_CHUNK_FRAME_TYPE,
+    BinaryFrameError,
     MIC_PCM_FRAME_TYPE,
     SPEAKER_PCM_FRAME_TYPE,
     encode_binary_frame,
@@ -185,6 +187,7 @@ class GatewayConnection:
         self.camera_received_at: float | None = None
         self.camera_frame_counter: int | None = None
         self.camera_metadata: dict[str, object] | None = None
+        self.camera_chunks: tuple[int, int, bytearray] | None = None
         self.body_command_sequence: int | None = None
         self.body_command_source: str | None = None
         self.body_command: dict[str, object] | None = None
@@ -204,6 +207,9 @@ class GatewayConnection:
         self._send_lock = asyncio.Lock()
         self._speaker_lock = asyncio.Lock()
         self._speaker_task: asyncio.Task[Any] | None = None
+        self.external_speech_error: str | None = None
+        self._external_speech_notification: asyncio.Task | None = None
+        self._external_speech_revision = 0
         self._cancel_code = "disconnect"
 
     def observe_body_clock(self, message: Mapping[str, object]) -> None:
@@ -250,10 +256,17 @@ class GatewayConnection:
         return self.body_clock_ms + elapsed_ms + remaining
 
     async def send_control(self, message: Mapping[str, object]) -> None:
-        validate_control_message(message)
-        encoded = json.dumps(message, separators=(",", ":"))
         async with self._send_lock:
+            message = dict(message)
+            if message.get("t") in {"welcome", "ping", "pong"} and self.model == "v2-12servo":
+                # Snapshot at actual send time, not when a notification was
+                # scheduled. A late end cannot unmute newer speech.
+                message["external_speech"] = self.service.external_speech_active(self.robot_id)
+            validate_control_message(message)
+            encoded = json.dumps(message, separators=(",", ":"))
             await self.websocket.send(encoded)
+            if "external_speech" in message:
+                self.external_speech_error = None
             self.last_sent_at = self.service.clock()
             self.last_command = dict(message)
 
@@ -564,11 +577,12 @@ class GatewayConnection:
             try:
                 message = json.loads(raw)
                 validate_control_message(message)
-            except (json.JSONDecodeError, ProtocolValidationError):
-                await self.websocket.close(code=1002, reason="malformed control frame")
+            except (json.JSONDecodeError, ProtocolValidationError) as error:
+                reason = error.reason if isinstance(error, ProtocolValidationError) else "invalid JSON"
+                await self.close(1002, "malformed control frame: " + reason, cancel_code="disconnect")
                 return
             if not isinstance(message, dict):
-                await self.websocket.close(code=1002, reason="control frame must be an object")
+                await self.close(1002, "control frame must be an object", cancel_code="disconnect")
                 return
             self.last_control_at = self.service.clock()
             self.control_frames_received += 1
@@ -584,11 +598,33 @@ class GatewayConnection:
             return
         if not frame.known_type:
             return
+        if frame.frame_type == CAMERA_CHUNK_FRAME_TYPE:
+            total, offset = struct.unpack_from("<II", raw, 5)
+            if offset == 0:
+                self.camera_chunks = (frame.counter, total, bytearray())
+            current = self.camera_chunks
+            if current is None or current[0] != frame.counter or current[1] != total or len(current[2]) != offset:
+                self.camera_chunks = None
+                return
+            current[2].extend(raw[13:])
+            if len(current[2]) != total:
+                return
+            self.camera_chunks = None
+            try:
+                raw = encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, frame.counter, bytes(current[2]))
+                frame = validate_binary_frame(raw)
+            except (BinaryFrameError, ProtocolValidationError):
+                return
+        elif frame.frame_type == CAMERA_JPEG_FRAME_TYPE:
+            self.camera_chunks = None
         if frame.frame_type == MIC_PCM_FRAME_TYPE and AUDIO_INPUT_FEATURE not in self.features:
             samples = struct.unpack("<320h", raw[5:])
             self.microphone_level = math.sqrt(
                 sum(sample * sample for sample in samples) / len(samples)
             ) / 32768.0
+        if frame.frame_type == MIC_PCM_FRAME_TYPE and self.service.external_speech_active(self.robot_id):
+            self.microphone_level = 0.0
+            return
         camera_metadata = None
         if frame.frame_type == CAMERA_JPEG_FRAME_TYPE:
             self.camera_frames_received += 1
@@ -611,6 +647,9 @@ class GatewayConnection:
 
     async def _handle_control(self, message: dict[str, object]) -> None:
         message_type = message.get("t")
+        if message_type == "event" and message.get("name") in {"wake_word", "vad_open", "vad_close"}:
+            if self.service.external_speech_active(self.robot_id):
+                return
         if message_type in {"ping", "pong"} and "audio" in message and AUDIO_INPUT_FEATURE in self.features:
             self.audio_input = dict(message["audio"])
             self.audio_input_received_at = self.service.clock()
@@ -831,6 +870,8 @@ class GatewayService:
         self._tokens = dict(config.tokens)
         self.token_store = token_store
         self._connections: dict[str, GatewayConnection] = {}
+        self._external_speech: dict[str, set[str]] = {}
+        self._external_speech_callbacks: list[Callable[[str, int, bool], None]] = []
         self._epochs: dict[str, int] = {}
         self._lock = asyncio.Lock()
         self._closing = False
@@ -840,6 +881,10 @@ class GatewayService:
         self._command_callbacks: list[GatewayCallback] = []
         self._diagnostic_callbacks: list[Callable[[dict[str, object]], None]] = []
         self.terminals: list[dict[str, object]] = []
+        self.motion_systems: dict[str, str] = {}
+        self.freestyle_motion: Callable[..., Awaitable[dict[str, object]]] | None = None
+        self.freestyle_result: Callable[..., Awaitable[dict[str, object]]] | None = None
+        self.freestyle_cancel: Callable[..., Awaitable[dict[str, object]]] | None = None
 
     async def handler(
         self,
@@ -906,8 +951,13 @@ class GatewayService:
                 await connection.run()
             except ConnectionClosed as error:
                 if connection.close_code is None:
-                    connection.close_code = error.code
-                    connection.close_reason = error.reason
+                    # A peer that drops TCP without completing the close
+                    # handshake otherwise hides our actual protocol failure
+                    # behind 1006. Retain the close frame we sent or received.
+                    close = error.rcvd or error.sent
+                    connection.close_code = close.code if close is not None else error.code
+                    connection.close_reason = ((close.reason if close is not None else error.reason)
+                                               or (str(error.__cause__) if error.__cause__ is not None else ""))
             finally:
                 connection.cancel_pending()
 
@@ -963,6 +1013,24 @@ class GatewayService:
         await asyncio.gather(*(connection.close(1001, "gateway stopped", cancel_code="disconnect")
                                for connection in connections))
 
+    async def request_motion(self, name: str, *, robot_id: str | None = None,
+                             job_id: str | None = None, on_job=None, on_sequence=None) -> dict[str, object]:
+        """Submit a named motion to the selected owner; admission is not completion."""
+        robot_id = self._connection(robot_id).robot_id
+        system = self.motion_systems.get(robot_id, "library")
+        if system == "freestyle":
+            if self.freestyle_motion is None:
+                raise GatewayError("The selected Freestyle motion system is not loaded")
+            options = {"job_id": job_id, "on_start": on_job} if job_id is not None or on_job is not None else {}
+            result = await self.freestyle_motion(robot_id, name, execute=True, **options)
+            return {"system": system, "jobId": result["job_id"], "state": "submitted"}
+        if system != "library":
+            raise GatewayError(f"Unknown motion system: {system}")
+        sequence = (await self.queue_intent(name, robot_id=robot_id, **({"on_sequence": on_sequence} if on_sequence else {}))
+                    if name in {"stand", "sit", "neutral"}
+                    else await self.emote(name, robot_id=robot_id, **({"on_sequence": on_sequence} if on_sequence else {})))
+        return {"system": system, "sequence": sequence}
+
     async def queue_intent(
         self,
         name: str,
@@ -990,12 +1058,14 @@ class GatewayService:
         *,
         robot_id: str | None = None,
         received_at: float | None = None,
+        on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         return await self.queue_intent(
             "emote",
             {"asset": asset},
             robot_id=robot_id,
             received_at=received_at,
+            on_sequence=on_sequence,
         )
 
     async def queue_motion_plan(
@@ -1106,6 +1176,49 @@ class GatewayService:
         if gain_db is not None:
             command["gain_db"] = gain_db
         return await self._send(command, robot_id=robot_id)
+
+    def external_speech_active(self, robot_id: str) -> bool:
+        return bool(self._external_speech.get(robot_id))
+
+    def subscribe_external_speech(self, callback: Callable[[str, int, bool], None]) -> None:
+        self._external_speech_callbacks.append(callback)
+
+    def set_external_speech(self, robot_id: str, owner: str, active: bool) -> None:
+        """Audio-only state notification. Never await transport or a body reply."""
+        owners = self._external_speech.setdefault(robot_id, set())
+        before = bool(owners)
+        if active:
+            owners.add(owner)
+        else:
+            owners.discard(owner)
+        if not owners:
+            self._external_speech.pop(robot_id, None)
+        if before == bool(owners):
+            return
+        connection = self._connections.get(robot_id)
+        if connection is None:
+            return
+        # Capture state changes synchronously and independently of the socket.
+        # A blocked/failed notification cannot hold host listening suppressed.
+        for callback in self._external_speech_callbacks:
+            callback(robot_id, connection.epoch, bool(owners))
+        connection._external_speech_revision += 1
+        async def notify():
+            try:
+                while True:
+                    revision = connection._external_speech_revision
+                    if connection.model == "v2-12servo":
+                        await connection.send_control({"t":"pong"})
+                    connection.external_speech_error = None
+                    if revision == connection._external_speech_revision:
+                        return
+            except Exception as error:
+                # Playback and motion continue. The regular heartbeat also
+                # carries current state; no acknowledgement/retry timer exists.
+                connection.external_speech_error = str(error)
+        pending = connection._external_speech_notification
+        if pending is None or pending.done():
+            connection._external_speech_notification = asyncio.create_task(notify())
 
     async def set_speaker_volume(self, *, volume_percent: int, robot_id: str | None = None) -> int:
         return await self._send({"t": "speaker", "volume_percent": volume_percent}, robot_id=robot_id)
@@ -1382,6 +1495,10 @@ class GatewayService:
     def subscribe_diagnostics(self, callback: Callable[[dict[str, object]], None]) -> None:
         self._diagnostic_callbacks.append(callback)
 
+    def unsubscribe_diagnostics(self, callback: Callable[[dict[str, object]], None]) -> None:
+        if callback in self._diagnostic_callbacks:
+            self._diagnostic_callbacks.remove(callback)
+
     def _record_diagnostic(self, diagnostic: dict[str, object]) -> None:
         for callback in tuple(self._diagnostic_callbacks):
             callback(dict(diagnostic))
@@ -1449,6 +1566,8 @@ class GatewayService:
                     "body_clock": connection.clock_diagnostics(),
                     "microphone_level": round(connection.microphone_level, 6),
                     "audio_input": connection.audio_input,
+                    "external_speech_active": self.external_speech_active(robot_id),
+                    "external_speech_error": connection.external_speech_error,
                     "audio_input_age_ms": (round((self.clock() - connection.audio_input_received_at) * 1000)
                                            if connection.audio_input is not None else None),
                     "status": connection.last_status,

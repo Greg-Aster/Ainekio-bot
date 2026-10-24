@@ -32,11 +32,18 @@ class FakeGateway:
     def subscribe_events(self, callback: object) -> None:
         self.event_callbacks.append(callback)
 
+    def subscribe_external_speech(self, callback):
+        pass
+
     def subscribe_frames(self, callback: object) -> None:
         self.frame_callbacks.append(callback)
 
     def subscribe_transcripts(self, callback: object) -> None:
         self.transcript_callbacks.append(callback)
+
+    async def request_motion(self, name, *, robot_id=None):
+        sequence = await self.queue_intent("emote", {"asset": name}, robot_id=robot_id)
+        return {"system": "library", "sequence": sequence}
 
     async def queue_intent(
         self,
@@ -212,13 +219,14 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             adapter.receipts.close()
 
     async def test_new_offline_input_is_not_queued_but_existing_input_resumes(self) -> None:
-        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        adapter = EnvironmentAdapter(SnapshotGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
         event = {"t": "event", "name": "body_event", "robot_id": "test-body", "epoch": 1,
                  "event_id": "boot-event", "data": {"kind": "wake", "reason": "boot"}}
         visual = {"dataUrl": "data:image/jpeg;base64," + "a" * 600_000, "timestamp": "2026-10-20T20:18:17Z"}
 
         async def publish():
             await adapter._handle_gateway_event(event)
+            await asyncio.gather(*adapter._action_tasks)
             await adapter._handle_gateway_transcript({"text": "fixture transcript"})
             await adapter._send_observation(visual=visual, metadata={"perceptionEvent": "audio_utterance"})
 
@@ -247,7 +255,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             for item in saved:
                 adapter.receipts.acknowledge(item["observation"]["id"])
             self.assertEqual(adapter.receipts.pending(), [])
-            self.assertEqual(adapter.gateway.calls, [])
+            self.assertEqual([call[0] for call in adapter.gateway.calls], ["snap", "wait", "intent"] * 3)
         finally:
             adapter.receipts.close()
 
@@ -455,7 +463,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 ready = json.loads(await websocket.recv())
                 self.assertEqual(ready["type"], "bridge.ready")
                 self.assertEqual(ready["observation"]["adapter"], "ainekio-gateway")
-                self.assertIn(
+                self.assertNotIn(
                     "robotMotionPlan",
                     ready["observation"]["capabilities"]["actions"],
                 )
@@ -770,7 +778,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             ["intent", "wait"],
         )
 
-    async def test_freestyle_action_translates_dispatches_and_advertises_only_when_enabled(self) -> None:
+    async def test_explicit_trajectory_dispatch_remains_usable_without_advertising_the_retired_generator(self) -> None:
         gateway = FakeGateway()
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
@@ -800,7 +808,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(result["type"], "completed")
-        self.assertIn("robotMotionPlan", adapter._observation()["capabilities"]["actions"])
+        self.assertNotIn("robotMotionPlan", adapter._observation()["capabilities"]["actions"])
         frames, kwargs = gateway.calls[0][1]  # type: ignore[misc]
         self.assertEqual(frames, [[300, [9000] * 8]])
         self.assertEqual(kwargs["end"], "hold")
@@ -1119,6 +1127,46 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.calls, [])
         self.assertEqual(adapter._camera_observation_count, 0)
 
+    async def test_camera_read_carries_recognition_with_its_own_jpeg(self):
+        import base64
+        from gateway.plugins import CameraAnalysis
+        from gateway.perception import RecognitionResult, RecognizedObject
+        gateway = FakeGateway()
+        gateway.clock = lambda: 100.0
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="fixture"),
+            utcnow=lambda: datetime(2026, 10, 11, tzinfo=timezone.utc))
+        socket = FakeWebSocket()
+        adapter._websocket = socket
+        old_jpeg = b"\xff\xd8recognized\xff\xd9"
+        new_jpeg = b"\xff\xd8unprocessed\xff\xd9"
+        identity = {"state": "face_match", "personId": "greg", "name": "Greg",
+                    "trackId": "person-1", "faceAgeMs": 0, "similarity": 0.82}
+        result = RecognitionResult("ultralytics+sface", "fixture", "1 face match",
+            (RecognizedObject("person", 0.9, (0.1, 0.2, 0.3, 0.4), identity),), ())
+        analysis = CameraAnalysis("test-body", 1, 43, 98.0, 99.0, result, jpeg=old_jpeg)
+        adapter.camera_analysis = lambda robot_id: analysis
+        frame = {"robot_id": "test-body", "epoch": 1, "counter": 44,
+            "received_at": 99.0, "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": new_jpeg}
+        await adapter._handle_gateway_frame(frame)
+        self.assertNotIn("recognition", adapter._camera_visual(frame, {})["metadata"])
+        for request_id in ("first", "repeat"):
+            await adapter._read_camera_visual({"type": "environment.visual.read", "version": 1,
+                "requestId": request_id, "sessionId": adapter.config.session_id})
+            visual = json.loads(socket.sent[-1])["visual"]
+            self.assertEqual(base64.b64decode(visual["dataUrl"].split(",")[1]), old_jpeg)
+            self.assertEqual(visual["metadata"]["counter"], 43)
+            recognition = visual["metadata"]["recognition"]
+            self.assertEqual(recognition["frameCounter"], 43)
+            self.assertEqual(recognition["observedAt"], visual["timestamp"])
+            self.assertEqual(recognition["objects"][0]["identity"], identity)
+        adapter.camera_analysis = lambda robot_id: None
+        await adapter._read_camera_visual({"version": 1, "requestId": "unrecognized",
+            "sessionId": adapter.config.session_id})
+        visual = json.loads(socket.sent[-1])["visual"]
+        self.assertEqual(visual["metadata"]["counter"], 44)
+        self.assertNotIn("recognition", visual["metadata"])
+        self.assertEqual(gateway.calls, [])
+
     async def test_camera_read_preserves_missing_frame_and_selected_epoch(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="fixture"))
@@ -1274,14 +1322,17 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
 
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
-        await adapter._deliver_camera_frame(
+        adapter._robot_snapshot_contexts[("test-body", 1, 41)] = {
+            "actionId": "expired-action",
+        }
+        await adapter._handle_gateway_frame(
             {
                 "robot_id": "test-body",
                 "epoch": 1,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE,
                 "counter": 41,
                 "payload": b"\xff\xd8\xff\xd9",
             },
-            {"actionId": "expired-action"},
         )
         self.assertEqual(websocket.sent, [])
         for future in adapter._pending_action_visuals.values():
@@ -1676,6 +1727,31 @@ if __name__ == "__main__":
     unittest.main()
 
 class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_depth_demand_uses_selected_body_and_connection_owns_cleanup(self):
+        from unittest.mock import AsyncMock
+        from websockets.legacy.server import serve
+        from websockets.legacy.client import connect
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        adapter.depth_demand = AsyncMock(return_value={"enabled": True})
+        async with serve(adapter.handler, "127.0.0.1", 0) as server:
+            port = server.sockets[0].getsockname()[1]
+            async with connect(f"ws://127.0.0.1:{port}") as ws:
+                await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "fixture"}))
+                self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
+                await ws.send(json.dumps({"type": "environment.visual.read", "version": 1,
+                    "requestId": "depth-one", "sessionId": adapter.config.session_id,
+                    "operation": "depthDemand", "consumerId": "execution-one", "enabled": True}))
+                result = json.loads(await ws.recv())
+                self.assertEqual(result["vision"]["consumerId"], "execution-one")
+                self.assertTrue(result["vision"]["enabled"])
+                enabled = adapter.depth_demand.await_args.args
+                self.assertEqual(enabled[0], "test-body")
+                self.assertTrue(enabled[2])
+        self.assertEqual(adapter.depth_demand.await_args.args, (enabled[0], enabled[1], False))
+        self.assertEqual(adapter._depth_consumers, {})
+        self.assertEqual(adapter.gateway.calls, [])
+
     async def test_naked_gait_aliases_cannot_dispatch_but_internal_translation_remains(self):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
@@ -1783,6 +1859,26 @@ class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(measurement["position"]["available"])
         self.assertIn("yaw", measurement)
         self.assertEqual(measurement["position"]["sessionId"], adapter.config.session_id)
+        self.assertEqual(gateway.calls, [])
+
+    async def test_depth_preview_stays_in_camera_owner_not_bridge_measurements(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        adapter._websocket = FakeWebSocket()
+        robot_id, robot = adapter._selected_robot()
+        source = {"available": True, "robotId": robot_id, "epoch": robot.get("epoch"),
+                  "frameTimestamp": "2026-10-22T23:01:00Z", "xMetres": 1.25,
+                  "depthPreview": "data:image/png;base64," + "a" * 86000}
+        adapter.locomotion_measurement = lambda _: source
+        position = adapter._observation()["state"]["locomotionMeasurement"]["position"]
+        self.assertNotIn("depthPreview", position)
+        self.assertEqual(position["xMetres"], source["xMetres"])
+        self.assertEqual(position["observedAt"], source["frameTimestamp"])
+        await adapter._handle_gateway_event({"t": "locomotion_measurement", "robot_id": robot_id, "epoch": robot.get("epoch")})
+        telemetry = json.loads(adapter._websocket.sent[-1])["telemetry"]
+        self.assertEqual(telemetry["locomotionMeasurement"]["position"], position)
+        self.assertEqual(len(source["depthPreview"]), 86022, "dashboard's source preview remains intact")
         self.assertEqual(gateway.calls, [])
 
     async def test_measurement_from_previous_body_epoch_is_not_current_progress(self):

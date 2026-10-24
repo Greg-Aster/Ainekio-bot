@@ -153,10 +153,12 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
         depth = Mock()
         depth.process.return_value = {"source": "depth"}
         self.camera._depth_motion = depth
+        self.camera._metric_consumers["navigation"] = "robot"
         await self.camera.configure_depth("robot", {"mode": "moge-open3d"})
         self.assertEqual(self.camera._process_metric(frame, "stamp"), {"source": "depth"})
         self.assertEqual(ground.process.call_count, 1)
         await self.camera.configure_depth("other", {"mode": "moge-open3d"})
+        self.camera._metric_consumers["other-navigation"] = "other"
         await self.camera.configure_depth("robot", {"mode": "ground-plane"})
         depth.close.assert_not_called()  # Other robot still uses the model.
         await self.camera.configure_depth("other", {"mode": "ground-plane"})
@@ -164,6 +166,7 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.camera._depth_motion)
 
     async def test_depth_errors_are_reported_not_replaced_by_other_source(self):
+        self.camera._metric_consumers["navigation"] = "robot"
         self.camera._depth_settings["robot"] = settings({"mode": "moge-open3d"})
         self.camera._depth_motion = Mock()
         self.camera._depth_motion.process.side_effect = ValueError("No image correspondences")
@@ -191,6 +194,7 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(saved["depth_motion"]["robot"]["mode"], "moge-open3d")
 
     async def test_receipt_time_stays_original_and_preview_is_not_logged_in_events(self):
+        self.camera._metric_consumers["navigation"] = "robot"
         self.camera._process_metric = Mock(return_value={
             "available": True, "robotId": "robot", "epoch": 1, "receivedAtMonotonic": 10.,
             "scaleSource": "learned-metric-estimate", "depthPreview": "png"})
@@ -205,6 +209,58 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.camera.locomotion_measurement("robot")["depthPreview"], "png")
         self.gateway.clock = lambda: 12.
         self.assertFalse(self.camera.locomotion_measurement("robot")["available"])
+
+    async def test_idle_camera_does_not_process_depth_and_consumers_share_one_lifetime(self):
+        from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
+        self.camera._depth_settings["robot"] = settings({"mode": "moge-open3d"})
+        self.camera._process_metric = Mock(return_value={"available": True, "robotId": "robot", "epoch": 1,
+            "receivedAtMonotonic": 10., "source": "fixture", "observedAt": "2026-10-22T00:00:00+00:00"})
+        frame = {"frame_type": CAMERA_JPEG_FRAME_TYPE, "robot_id": "robot", "epoch": 1,
+            "counter": 1, "received_at": 10., "payload": b"jpg"}
+        await self.camera._handle_frame(frame)
+        self.camera._process_metric.assert_not_called()
+        self.assertIsNone(self.camera._metric_worker)
+        self.assertTrue(self.camera.camera_measurement("robot")["available"])
+        depth = Mock()
+        self.camera._depth_motion = depth
+        first = await self.camera.depth_demand("robot", "task-a", True)
+        self.assertTrue(first["measurement"]["available"])
+        await self.camera.depth_demand("robot", "task-b", True)
+        self.assertEqual(self.camera._process_metric.call_count, 1)
+        await self.camera.depth_demand("robot", "task-a", False)
+        depth.close.assert_not_called()
+        await self.camera.depth_demand("robot", "task-b", False)
+        depth.close.assert_called_once()
+        self.assertIsNone(self.camera._depth_motion)
+        self.assertFalse(self.camera.locomotion_measurement("robot")["available"])
+        await self.camera._handle_frame({**frame, "counter": 2})
+        self.assertEqual(self.camera._process_metric.call_count, 1)
+        await self.camera.depth_demand("robot", "task-c", True)
+        self.assertEqual(self.camera._process_metric.call_count, 2, "new demand starts a fresh measurement")
+        await self.camera.depth_demand("robot", "task-c", False)
+
+    async def test_dashboard_sample_releases_its_consumer_even_if_measurement_fails(self):
+        server = object.__new__(DashboardHttpServer)
+        server.camera_recognition = SimpleNamespace(depth_demand=AsyncMock(side_effect=[ValueError("measurement failed"), {"enabled": False}]))
+        with self.assertRaisesRegex(ValueError, "measurement failed"):
+            await server.depth_motion("robot", {"operation": "sample"})
+        calls = server.camera_recognition.depth_demand.await_args_list
+        self.assertEqual(calls[0].args[1], calls[1].args[1])
+        self.assertEqual([call.args[2] for call in calls], [True, False])
+
+    async def test_body_disconnect_during_first_measurement_finishes_the_read(self):
+        self.camera._metric_frames["robot"] = (_CameraInput("robot", 1, 1, 10., b"jpg"),
+            "2026-10-22T00:00:00+00:00")
+        def process(*args):
+            self.gateway.status = lambda: {"robots": {}}
+            return {"available": True, "robotId": "robot", "epoch": 1}
+        self.camera._process_metric = process
+        result = await self.camera.depth_demand("robot", "navigation", True)
+        self.assertFalse(result["measurement"]["available"])
+        self.assertIn("disconnected", result["measurement"]["reason"])
+        self.assertNotIn("robot", self.camera._metric_ready)
+        self.assertNotIn("robot", self.camera._metric_latest)
+        await self.camera.depth_demand("robot", "navigation", False)
 
 
 if __name__ == "__main__":

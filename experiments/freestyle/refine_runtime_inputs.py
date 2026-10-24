@@ -23,7 +23,10 @@ def variants(original):
                       'natural_fall_correction', 'natural_slip_correction'):
         return []
     result = []
-    for variant in ('rich_event', 'interrupted_job'):
+    forms = ['rich_event', 'interrupted_job']
+    if family == 'natural_jam_smaller_wave':
+        forms.append('contextual_resume')
+    for variant in forms:
         query = copy.deepcopy(value)
         obs = query['observation']
         event = query['event']
@@ -40,6 +43,11 @@ def variants(original):
             event['reason'] = 'no_position_progress'
             obs['feedback'].update(stalled_joints=event['joint_mask'], no_progress_ms=1000)
         answers = copy.deepcopy(original['answers'])
+        if variant == 'contextual_resume':
+            # The task is identified by observation.action and the measured
+            # history. Teach that inference without spelling out its solution
+            # in the request or importing a held-out request into training.
+            query['request'] = 'Carry on with the movement I asked for.'
         if variant == 'interrupted_job':
             # Bridge.observation has body_command, not the synthetic remaining-
             # cycles descriptor. Relevant program intent lives in job history.
@@ -92,7 +100,9 @@ def build(source, corrections, output, curriculum=None, motion_weight=1):
     originals = read_rows(source/'train.jsonl')
     # Preserve parent weighting, but do not multiply it again while augmenting.
     unique = {r['query']:r for r in originals}
-    additions = [v for r in unique.values() for v in variants(r)]
+    additions = {v['query']:v for r in unique.values() for v in variants(r)
+                 if v['query'] not in unique}
+    additions = list(additions.values())
     corrected = [r for path in corrections for r in read_rows(path)]
     grounded = read_rows(curriculum) if curriculum else []
     rows = originals + additions + (corrected + grounded) * motion_weight

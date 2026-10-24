@@ -162,6 +162,10 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
     if "continuous" in action and type(action["continuous"]) is not bool:
         raise ProtocolValidationError("type:continuous")
     action_type = _normalized(action.get("type"))
+    if action_type == "requestmotion":
+        description = action.get("description")
+        return (BridgeAction("request_motion", "requestMotion", {"description": description.strip()})
+                if isinstance(description, str) and description.strip() else None)
     if action_type == "faceexpression":
         expression = action.get("expression")
         if action.get("displayRelease") is not True and (not isinstance(expression, str) or not expression.strip()):

@@ -76,6 +76,196 @@ class LifecycleSocket:
 
 
 class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_dropped_resume_is_repeated_by_regular_heartbeat(self):
+        service = GatewayService(GatewayServiceConfig(tokens={'robot':'test'}))
+        class Socket:
+            closed = False
+            fail = False
+            def __init__(self): self.sent = []
+            async def send(self, raw):
+                if self.fail: raise OSError('resume notification lost')
+                self.sent.append(json.loads(raw))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, 'robot', 1, model='v2-12servo')
+        service._connections['robot'] = connection
+        service.set_external_speech('robot', 'speech', True)
+        await connection._external_speech_notification
+        self.assertTrue(socket.sent[-1]['external_speech'])
+        socket.fail = True
+        service.set_external_speech('robot', 'speech', False)
+        await connection._external_speech_notification
+        self.assertIn('lost', connection.external_speech_error)
+        socket.fail = False
+        await connection._handle_control({'t':'ping'})
+        self.assertEqual(socket.sent[-1], {'t':'pong', 'external_speech':False})
+        self.assertIsNone(connection.external_speech_error)
+        self.assertFalse(connection.pending)
+
+    async def test_notification_failure_does_not_hold_host_capture_off(self):
+        from gateway.plugins import AudioUtteranceAssembler
+        service=GatewayService(GatewayServiceConfig(tokens={'robot':'test'}))
+        class Socket:
+            closed=False
+            async def send(self,raw): raise OSError('link unavailable')
+        connection=GatewayConnection(service,Socket(),'robot',1,model='v2-12servo')
+        service._connections['robot']=connection
+        captured=[];assembler=AudioUtteranceAssembler(captured.append)
+        service.subscribe_external_speech(assembler.external_speech)
+        service.set_external_speech('robot','one',True)
+        await connection._external_speech_notification
+        self.assertIn('link unavailable',connection.external_speech_error)
+        service.set_external_speech('robot','one',False)
+        self.assertNotIn(('robot',1),assembler._blocked)
+        await connection._external_speech_notification
+        from protocol.binary_helpers import MIC_PCM_FRAME_TYPE
+        await assembler.handle_frame({'robot_id':'robot','epoch':1,'frame_type':MIC_PCM_FRAME_TYPE,'counter':5,'payload':bytes(640)})
+        await assembler.handle_event({'robot_id':'robot','epoch':1,'t':'event','name':'vad_close'})
+        self.assertEqual(len(captured),1)
+        self.assertFalse(service.external_speech_active('robot'))
+
+    async def test_external_speech_notification_never_waits_for_ack_and_uses_latest_state(self):
+        service = GatewayService(GatewayServiceConfig(tokens={'robot':'test'}))
+        class Socket:
+            closed=False
+            def __init__(self): self.sent=[]
+            async def send(self,raw): self.sent.append(json.loads(raw))
+        socket=Socket()
+        connection=GatewayConnection(service,socket,'robot',1,model='v2-12servo')
+        service._connections['robot']=connection
+        await connection._send_lock.acquire()
+        service.set_external_speech('robot','old',True)
+        await asyncio.sleep(0)
+        self.assertTrue(service.external_speech_active('robot'))
+        self.assertFalse(connection.pending)
+        service.set_external_speech('robot','new',True)
+        service.set_external_speech('robot','old',False)
+        self.assertTrue(service.external_speech_active('robot'))
+        connection._send_lock.release()
+        await connection._external_speech_notification
+        self.assertTrue(socket.sent[-1]['external_speech'])
+        self.assertNotIn('seq',socket.sent[-1])
+        service.set_external_speech('robot','new',False)
+        await connection._external_speech_notification
+        self.assertFalse(socket.sent[-1]['external_speech'])
+        self.assertFalse(connection.pending)
+
+    async def test_external_speech_drops_microphone_but_not_camera_and_resumes_new_utterance(self):
+        from protocol.binary_helpers import encode_binary_frame, MIC_PCM_FRAME_TYPE, CAMERA_JPEG_FRAME_TYPE
+        service=GatewayService(GatewayServiceConfig(tokens={'robot':'test'}))
+        class Socket:
+            closed=False
+            async def send(self,raw): pass
+        connection=GatewayConnection(service,Socket(),'robot',1,model='v2-12servo')
+        service._connections['robot']=connection
+        frames=[];events=[]
+        service.subscribe_frames(frames.append);service.subscribe_events(events.append)
+        service.set_external_speech('robot','speech',True)
+        await connection._handle_binary(encode_binary_frame(MIC_PCM_FRAME_TYPE,1,bytes(640)))
+        await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE,1,b'\xff\xd8test\xff\xd9'))
+        self.assertEqual(len(frames),1)
+        self.assertEqual(frames[0]['frame_type'],CAMERA_JPEG_FRAME_TYPE)
+        await connection._handle_control({'t':'event','name':'wake_word'})
+        self.assertFalse(any(e.get('name')=='wake_word' for e in events))
+        service.set_external_speech('robot','speech',False)
+        await connection._external_speech_notification
+        await connection._handle_binary(encode_binary_frame(MIC_PCM_FRAME_TYPE,2,bytes(640)))
+        self.assertEqual(len(frames),2)
+        await connection._handle_control({'t':'event','name':'vad_open'})
+        await connection._handle_binary(encode_binary_frame(MIC_PCM_FRAME_TYPE,3,bytes(640)))
+        self.assertEqual(len(frames),3)
+
+    async def test_disconnect_preserves_protocol_failure_without_peer_close_reply(self):
+        from websockets.frames import Close
+        from websockets.exceptions import ConnectionClosedError, ProtocolError
+        class FailedSocket(LifecycleSocket):
+            async def recv(self):
+                if not self.incoming.empty():
+                    return await super().recv()
+                raise ConnectionClosedError(None, Close(1002, "")) from ProtocolError("invalid opcode")
+        service = GatewayService(GatewayServiceConfig(tokens={"fixture-body": "test"}))
+        events = []
+        service.subscribe_events(events.append)
+        await service.handler(FailedSocket(), '/robot')
+        closed = next(event for event in events if event.get('status') == 'disconnected')
+        self.assertEqual(closed['close_code'], 1002)
+        self.assertEqual(closed['close_reason'], 'invalid opcode')
+
+    async def test_invalid_control_reports_owning_protocol_error_on_disconnect(self):
+        service = GatewayService(GatewayServiceConfig(tokens={"fixture-body": "test"}))
+        socket = LifecycleSocket()
+        socket.incoming.put_nowait('{')
+        events = []
+        service.subscribe_events(events.append)
+        await service.handler(socket, '/robot')
+        closed = next(event for event in events if event.get('status') == 'disconnected')
+        self.assertEqual(closed['close_code'], 1002)
+        self.assertEqual(closed['close_reason'], 'malformed control frame: invalid JSON')
+
+    async def test_named_motion_selection_is_per_robot_and_library_remains_explicit(self):
+        from unittest.mock import AsyncMock
+        service = GatewayService(GatewayServiceConfig(tokens={}))
+        for robot in ("one", "two"):
+            service._connections[robot] = GatewayConnection(service, LifecycleSocket(), robot, 1)
+        service.queue_intent = AsyncMock(return_value=17)
+        service.freestyle_motion = AsyncMock(return_value={"job_id": "model-motion"})
+        service.motion_systems["one"] = "freestyle"
+        self.assertEqual(await service.request_motion("stretch", robot_id="one"),
+                         {"system": "freestyle", "jobId": "model-motion", "state": "submitted"})
+        service.freestyle_motion.assert_awaited_once_with("one", "stretch", execute=True)
+        service.queue_intent.assert_not_awaited()
+        self.assertEqual(await service.request_motion("stretch", robot_id="two"),
+                         {"system": "library", "sequence": 17})
+        service.queue_intent.assert_awaited_once_with("emote", {"asset": "stretch"}, robot_id="two", received_at=None, on_sequence=None)
+        service.motion_systems["one"] = "library"
+        await service.request_motion("stand", robot_id="one")
+        service.queue_intent.assert_awaited_with("stand", robot_id="one")
+        self.assertEqual(service.freestyle_motion.await_count, 1)
+
+    async def test_camera_chunks_deliver_audio_before_complete_image_and_preserve_metadata(self):
+        from protocol.binary_helpers import encode_binary_frame, CAMERA_CHUNK_FRAME_TYPE, MIC_PCM_FRAME_TYPE
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        frames = []
+        async def received(frame):
+            frames.append(frame)
+        service.subscribe_frames(received)
+        connection = GatewayConnection(service, LifecycleSocket(), "robot", 1)
+        jpeg = b"\xff\xd8" + bytes(range(256)) * 40 + b"\xff\xd9"
+        connection.camera_metadata = {"counter_base": 42, "origin": "request", "origin_id": 7}
+        for offset in range(0, len(jpeg), 4083):
+            chunk = struct.pack("<II", len(jpeg), offset) + jpeg[offset:offset+4083]
+            await connection._handle_binary(encode_binary_frame(CAMERA_CHUNK_FRAME_TYPE, 42, chunk))
+            await connection._handle_binary(encode_binary_frame(MIC_PCM_FRAME_TYPE, offset, bytes(640)))
+            if offset + 4083 < len(jpeg):
+                self.assertTrue(all(frame["frame_type"] == MIC_PCM_FRAME_TYPE for frame in frames))
+        image = next(frame for frame in frames if frame["frame_type"] == 2)
+        self.assertEqual(image["payload"], jpeg)
+        self.assertEqual(image["camera_metadata"]["origin_id"], 7)
+        self.assertEqual(connection.camera_frames_received, 1)
+        self.assertEqual(len(frames), 4)
+        self.assertIsNone(connection.camera_chunks)
+
+    async def test_camera_chunks_do_not_cross_connections_or_publish_incomplete_images(self):
+        from protocol.binary_helpers import encode_binary_frame, CAMERA_CHUNK_FRAME_TYPE
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        frames = []
+        async def received(frame):
+            frames.append(frame)
+        service.subscribe_frames(received)
+        old = GatewayConnection(service, LifecycleSocket(), "robot", 1)
+        new = GatewayConnection(service, LifecycleSocket(), "robot", 2)
+        def chunk(counter, total, offset, data):
+            return encode_binary_frame(CAMERA_CHUNK_FRAME_TYPE, counter, struct.pack("<II", total, offset) + data)
+        await old._handle_binary(chunk(1, 6, 0, b"\xff\xd8"))
+        await new._handle_binary(chunk(1, 6, 2, b"ab\xff\xd9"))
+        self.assertEqual(frames, [])
+        await new._handle_binary(chunk(2, 6, 0, b"\xff\xd8"))
+        await new._handle_binary(chunk(2, 6, 3, b"b\xff\xd9"))
+        self.assertEqual(frames, [])
+        await new._handle_binary(chunk(3, 4, 0, b"\xff\xd8\xff\xd9"))
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0]["counter"], 3)
+        self.assertEqual(frames[0]["epoch"], 2)
+
     async def test_calibration_readback_preserves_body_command_ownership(self):
         from protocol.control_v1 import BODY_CALIBRATION_FEATURE
         class Socket:
@@ -287,7 +477,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
                  "speaker_volume_percent": 37}
         # Meter updates without a wake event or any transmitted microphone PCM.
         await connection._handle_control({"t": "ping", "clock_ms": 12000, "audio": audio})
-        self.assertEqual(socket.sent[-1], {"t": "pong"})
+        self.assertEqual(socket.sent[-1], {"t": "pong", "external_speech": False})
         entry = service.status()["robots"]["robot"]
         self.assertEqual(entry["audio_input"], audio)
         self.assertEqual(entry["microphone_level"], 0.08)

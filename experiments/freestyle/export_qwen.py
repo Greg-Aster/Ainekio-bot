@@ -9,7 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
-def export(adapter, base, output, converter, quantizer, compact_artifacts=True, quantization='Q4_K_M'):
+def export(adapter, base, output, converter, quantizer, compact_artifacts=True, quantization='Q8_0'):
     import torch
     from peft import PeftModel
     from transformers import AutoTokenizer, Qwen3_5ForCausalLM
@@ -52,5 +52,6 @@ if __name__=='__main__':
     retention=p.add_mutually_exclusive_group()
     retention.add_argument('--compact-artifacts',action='store_true',default=True)
     retention.add_argument('--keep-intermediates',dest='compact_artifacts',action='store_false')
-    p.add_argument('--quantization',default='Q4_K_M')
+    p.add_argument('--quantization',default='Q8_0',
+                   help='Q8_0 preserves the checked spatial programs; Q4_K_M lost learned motion details')
     a=p.parse_args();print(json.dumps(export(**vars(a))))

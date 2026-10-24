@@ -6,6 +6,13 @@ command lifecycle results, and serves the password-protected local operations
 dashboard. Robot tokens, the dashboard password verifier, and the bounded audit
 log live under the ignored `build/gateway/` runtime directory by default.
 
+Connection-close events preserve the received or locally sent WebSocket close
+code and its underlying protocol error, including when the peer does not finish
+the closing handshake. This prevents a malformed-frame failure from being
+reported only as an unexplained 1006 disconnect. Malformed control JSON also
+reports its existing validator reason. No heartbeat or transport timeout changes
+are involved.
+
 ## Body Control workspace
 
 The **Tools** sidebar groups controls under Operate, Perception, Recordings,
@@ -625,12 +632,27 @@ wait for a new frame, or publish an observation. Session errors return `error`.
 
 Bodies advertising `camera_profiles_v1` expose separate **Stream resolution**
 and **Snapshot resolution** controls in the existing panel. Stream output is
-QVGA or VGA at the selected frame rate; snapshots can also use XGA (1024×768).
-The still profile defaults to VGA and stays unchanged when a gateway caller
-omits `snapshot_resolution`. Both profiles are runtime settings. One P4 camera
+QVGA or VGA at the selected frame rate; P4 snapshots also support XGA (1024×768),
+native 960p (1280×960), cropped 1080p, and Auto. Auto meters in the native mode
+and may change to cropped 1080p in bright light. Selecting 960p preserves the
+wider field of view and avoids that additional sensor-mode change. The P4 still
+profile defaults to Auto and stays unchanged when a gateway caller omits
+`snapshot_resolution`. Saved dashboard settings are restored on connection.
+Exposure stability is measured during preview and reused for subsequent
+snapshots in the same sensor mode. Exposure changes invalidate that stability;
+a sensor restart or mode change restarts the assessment. Shutter and gain remain
+automatic. Both profiles are runtime settings. One P4 camera
 task and JPEG encoder serve both outputs, with no additional image-buffer
 allocation. Disabling preview leaves requested snapshots available. A still
 has explicit request/action/audio correlation, independent of preview FPS.
+
+P4 camera transport uses JPEG chunks on the existing connection, allowing
+microphone packets and control messages between chunks. Body Control reconstructs
+one complete image before notifying the existing camera consumers; image quality,
+resolution and capture correlation are unchanged. Complete JPEG frames from V1
+and older firmware remain supported. Activate this Body Control version before
+the corresponding P4 firmware. TCP loss can still delay transmission; chunking
+removes whole-image scheduling monopolization, not physical network constraints.
 
 This supports a local P4→Q6A preview and occasional remote LLM stills through
 the existing gateway and Environment Bridge. Continuous video is not sent to
@@ -1110,6 +1132,19 @@ explicitly excludes unmeasured sensor/transport age. Results expire from frame
 receipt, not inference completion. Recognition metadata has no image data and
 is not replayed after bridge reconnection.
 
+The existing `environment.visual.read` response also carries frame-bound recognition
+under `visual.metadata.recognition`. When `CameraFramePlugin.current_analysis`
+has an available result, the adapter reads its cached JPEG and recognition together.
+This can be slightly older than the latest unprocessed video frame, and retains
+its original receipt timestamp. No new capture or inference wait is introduced.
+Without an available analysis, the read still returns the raw camera cache without
+recognition metadata. Immediate snapshot delivery attaches recognition only when
+robot ID, epoch and counter identify that exact analyzed frame. The record carries
+backend/model, objects, scores, boxes, identity estimates, uncertainties and source
+identity/time; enrollment images and face embeddings are not transmitted. Live
+telemetry retains its existing expiry, while metadata on an attached image describes
+that dated image rather than claiming a new live recognition measurement.
+
 Recognition telemetry also carries optional `processing` diagnostics outside
 the unchanged perception-v1 payload. `CameraFramePlugin.metrics()` reports input,
 completed processing attempts, fresh results, drops, stale frames and errors;
@@ -1380,13 +1415,40 @@ This local choice can be changed while MetaHuman is disconnected. It no longer
 changes MetaHuman's browser output preference.
 
 Both destinations consume the same authenticated PCM speech messages and action
-receipts. Computer output plays through the gateway user's default PulseAudio or
-PipeWire-Pulse device using `paplay` (16 kHz mono signed 16-bit PCM); the executable
+receipts. Computer output plays through the selected PulseAudio or PipeWire-Pulse
+sink, or **System default**, using `paplay` (16 kHz mono signed 16-bit PCM); the executable
 must be installed on the gateway host. Playback errors remain failed receipts.
 Cancellation terminates the owned playback process; interrupted gateway recovery
 retains an unknown historical outcome and never replays the audio. Computer
 playback needs no connected robot or body clock. Robot playback keeps the existing
 P4 speaker transport and completion receipts.
+
+The Audio panel lists computer outputs and provides Bluetooth discovery,
+pair/connect/disconnect controls through the gateway host's `bluetoothctl`.
+Operations run as background jobs with visible outcomes. Pair the speaker, connect
+it, then save its output in **Computer / Bluetooth speaker**. The sink name is
+saved as `computerDevice`; this does not change the computer's global default.
+A disconnected selected sink reports a playback failure rather than silently
+switching speakers. Bluetooth belongs to the computer, not the robot's ESP32-C6.
+
+For computer speech, host microphone intake is suppressed immediately and the
+P4 receives a transient `external_speech` notification over the authenticated
+controller connection. Playback never waits for delivery or acknowledgement.
+The existing welcome/ping/pong traffic also carries the current state, so a lost
+end notification is corrected by the next delivered heartbeat. Disconnect clears
+the firmware's transient flag. No extra timeout, cooldown, motion pause, servo
+release or saved microphone/wake setting change is introduced. While speech is
+active, host input drops microphone PCM and wake/VAD events; camera and movement
+continue. Overlapping playback owners keep suppression active until all finish.
+Playback failure/cancellation releases host suppression independently of transport.
+
+This applies equally to Bluetooth, wired and built-in computer speakers **when
+speech is routed through Body Control**. MetaHuman's separate **Browser** output,
+other browser tabs and other applications bypass this playback owner and are not
+covered. Select **Body Control** in MetaHuman and **Body Control computer** here
+for normal computer speakers with robot listening suppression. The firmware needs
+the matching external-speech update; older firmware still receives host-side
+suppression but continues its local wake processing.
 
 
 ### V2 body events and IMU status
@@ -1406,10 +1468,12 @@ execution state, including entry, retimed playback, reverse recovery and held
 poses. Queued commands, requested playback rates and face selections are not
 used to infer movement.
 
-Rapid-movement crossings during commanded locomotion (Walk, Run, Crawl and
-Crab, including their entry) update the detector's episode state but do not
-request a reaction or consume its cooldown. A crossing is not deferred until
-walking stops. Unexpected tipping remains reportable during walking. For a
+Rapid-movement crossings during commanded entry, motion or replanning update
+the detector's episode state but do not request a reaction or consume its
+cooldown. This includes locomotion, Stand/Neutral, clips, manual movements and
+Freestyle programs. A crossing is not deferred until the movement finishes;
+a new disturbance after the measurements clear remains reportable. Unexpected
+tipping remains reportable during commanded movement. For a
 calibrated body-frame observation, tipping is the angle between measured and
 authored body vertical rather than absolute tilt from upright. The same saved
 trigger/clear angles and hold duration apply; absolute tilt remains in the
@@ -1458,7 +1522,39 @@ the existing tip-first order uses the interval for the tip notification.
 These settings do not change actuator control or balance behavior.
 **Good morning** submits an explicit wake request through the same event workflow.
 Firmware reports boot/wake events once at the source, rather than treating a
-network reconnect as a wake. Event capture requires the Body Control connection;
+network reconnect as a wake. The existing Environment adapter owns the selected
+body's startup procedure: request a correlated fresh snapshot, submit `stretch`
+through `GatewayService.request_motion`, and send one `environment.observation`
+containing the wake event, image and recorded body state. **Poses and emotes →
+Default motion system** saves a per-robot selection of Freestyle or Motion Library
+in the existing Body Control settings. An unset selection retains Motion Library.
+Freestyle uses the configured generator and its existing execution/recording owner;
+the library uses the existing `emote/stretch` command, which returns to standing.
+The startup procedure has no separate backend preference. MetaHuman's
+`requestMotion` action sends a movement description through the same selection.
+The Environment adapter advertises that description action for Freestyle and the
+named commands for Motion Library; saving the selector refreshes the advertised
+capabilities. The adapter follows the original Freestyle job through completion,
+cancellation or bridge reconnect rather than generating the movement again.
+Generation failures report failure; loss of a dispatched command's receipt keeps
+its physical outcome unknown. Direct library controls,
+low-level motion plans and explicit Environment action commands keep their existing
+contracts; this selector does not intercept the commands generated by Freestyle.
+Selecting Motion Library provides an explicit alternative; a failed Freestyle
+request does not silently dispatch another motion.
+The procedure runs outside the body receive callback, and neither forwarding the
+image nor MetaHuman greeting generation waits for stretch completion.
+`bodyEvent.data.startup` records the capture result, image availability and stretch
+dispatch state (a library sequence or a submitted Freestyle job ID); submission is
+not a completion claim. Freestyle generation/execution outcomes remain in the
+existing Freestyle panel and recordings. Camera or dispatch failure is
+reported in that evidence. Images retain their frame timestamp and identity, plus
+`metadata.bodyEventId`. There is no scripted greeting in Body Control. Choosing
+Freestyle adds its motion-generation call; choosing the library does not.
+The existing snapshot protocol is reused; no firmware update is
+needed for this host change. New wake observations are not retained for an absent
+bridge; already-admitted delivery retains its existing acknowledgement lifecycle.
+ Event capture requires the Body Control connection;
 this transport does not replay sensor samples lost while disconnected.
 
 IMU readings retain acquisition time, reception time, gyro rad/s, acceleration
@@ -1853,9 +1949,19 @@ live steering and self-leveling retain their existing owners. Depth processing
 has no motion authority or inference time cutoff. It uses the existing
 one-pending-frame camera executor; original receipt timestamps and normal
 freshness reporting are retained. The depth image is shown in Body Control, not
-duplicated into every training event. Selecting ground-plane mode releases the
-model once no selected robot uses it. Recognition and robot admission remain
-independent of depth inference.
+duplicated into every training event or text prompt. Processing is on demand:
+distance/metric navigation executions register through the existing camera-read
+bridge using `operation: "depthDemand"`, `consumerId` and `enabled`. Active gait
+recording registers directly with the same camera owner. Consumers share the
+model; releasing the last consumer unloads it. Bridge disconnect releases its
+connection's registrations; reconnect restores only still-active executions.
+Completion, failure and cancellation release execution demand. Ordinary streaming,
+photos and conversation do not load depth. The dashboard's **Measure depth now**
+button acquires one sample and releases its demand; selecting a source only saves
+configuration. First use includes model loading; reactivation starts a new local
+odometry reference. Recognition and robot admission remain independent of depth
+inference. The standalone trial recorder observes available status; it does not
+implicitly enable depth merely because RGB frames are being recorded.
 
 The recorder binds each trace cursor to the device boot/session and reacquires
 the stream after a session change. Live status-clock receipts align queued
@@ -1912,7 +2018,10 @@ In **Mode and power**, supported P4 firmware exposes **Lay down after inactivity
 (minutes)**. Save the desired interval on the robot; the initial default is
 three minutes and `0` disables it. It survives power cycles and works without
 Body Control remaining connected. Active motion and speech defer rest. The
-normal lay-down clip retains powered outputs and accepts new commands.
+automatic lay-down clip releases its servo outputs after successful completion
+with P4 firmware `0.8.117-p4-rest-release` or later. New movement commands
+re-enable outputs; explicitly requested lay-down motions retain their powered
+hold. Output release removes PWM drive, not the physical servo supply voltage.
 Calibration/manual joint moves do not start an automatic rest motion.
 The authenticated maintenance proxy is `/api/robot/idle-rest?robot_id=…`;
 GET returns `{seconds, saved}`, POST accepts

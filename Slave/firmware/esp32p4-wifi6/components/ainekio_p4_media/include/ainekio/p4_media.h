@@ -26,6 +26,7 @@ typedef struct {
     bool vad_ready, wake_ready, speaker_busy;
     bool wake_enabled;
     bool microphone_enabled, microphone_listening, utterance_open;
+    bool external_speech;
     ainekio_microphone_gate_t microphone_gate;
     uint8_t microphone_gain_db;
     uint8_t speaker_volume_percent;
@@ -41,6 +42,8 @@ ainekio_p4_media_status_t ainekio_p4_media_status(void);
 /* Diagnostic low-water mark, in bytes; zero before the task exists. */
 uint32_t ainekio_p4_media_microphone_stack_free(void);
 void ainekio_p4_media_session(uint64_t session);
+/* Volatile audio-only notification; no output, settings or wake-model changes. */
+void ainekio_p4_media_external_speech(bool active);
 /* NULL leaves the saved gain/threshold unchanged. */
 esp_err_t ainekio_p4_media_wake_configure(bool enabled, const char *model, const float *threshold);
 esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t gate, const uint8_t *gain_db);

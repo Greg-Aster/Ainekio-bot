@@ -44,5 +44,23 @@ class SemanticTeacherTests(unittest.TestCase):
         self.assertAlmostEqual(values[0],values[1],delta=.05)
         self.assertGreater(min(values),29.9)
 
+    def test_drinking_and_repeated_salutes_reach_head_height_and_return(self):
+        for family in ('drinking','saluting'):
+            for side in ('left','right'):
+                program=demonstration(family,side,cycles=2,observation=self.state)
+                trace=replay(program,self.state)
+                self.assertEqual(trace['status'],'replayed')
+                holds=[i for i,a in enumerate(program) if a['name']=='hold']
+                self.assertEqual(len(holds),2 if family=='saluting' else 1)
+                for index in holds:
+                    sample=next(s for s in trace['samples'] if s['action_index']==index)
+                    hand=sample['feet_body_mm']['front_'+side]
+                    self.assertAlmostEqual(hand[0],95,delta=.02)
+                    self.assertAlmostEqual(hand[1],90 if side=='left' else -90,delta=.02)
+                    self.assertAlmostEqual(hand[2],105,delta=.02)
+                for leg in ('front_left','front_right','rear_left','rear_right'):
+                    self.assertLess(math.dist(trace['samples'][0]['feet_body_mm'][leg],
+                                              trace['samples'][-1]['feet_body_mm'][leg]),.05)
+
 
 if __name__=='__main__':unittest.main()

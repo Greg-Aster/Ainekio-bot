@@ -121,8 +121,9 @@ class RobotLearningTransport:
 
 class GaitLearningService:
     def __init__(self, gateway, transport, measurement, directory=None, optimizer=propose_worker,
-                 projector=project_candidate):
+                 projector=project_candidate, depth_demand=None):
         self.gateway, self.transport, self.measurement = gateway, transport, measurement
+        self.depth_demand = depth_demand
         self.directory = Path(directory) if directory else default_directory()
         self.settings_path = self.directory/"settings.json"
         self.settings = json.loads(self.settings_path.read_text()) if self.settings_path.exists() else {}
@@ -344,6 +345,8 @@ class GaitLearningService:
                 for gait, bank in r["banks"].items():
                     r["pending"][gait] = (bank["incumbent"] if bank.get("converged") else bank["candidate"], False)
         try:
+            if self.depth_demand is not None:
+                await self.depth_demand(robot, f"gait-learning:{robot}", True)
             while not self.closed:
                 settings = self.settings.get(robot, {})
                 if not (settings.get("logging") or settings.get("learning")) and not r["pending"]:
@@ -418,6 +421,8 @@ class GaitLearningService:
                 except (OSError, ValueError, RuntimeError):
                     pass
             r.update(state="off", owned=False, window=None)
+            if self.depth_demand is not None:
+                await self.depth_demand(robot, f"gait-learning:{robot}", False)
 
     async def _consume(self, robot, batch):
         r = self._runtime(robot)

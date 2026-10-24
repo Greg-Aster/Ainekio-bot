@@ -316,9 +316,6 @@ static void camera_task(void *unused)
         }
         if (new_request) {
             request_start = settle_start = esp_timer_get_time();
-            stable_since = 0;
-            settle_frames = 0;
-            anchor = (exposure_t){0};
             auto_metering = request.resolution == AINEKIO_CAMERA_AUTO;
         }
         const bool fhd = pending && request.resolution == AINEKIO_CAMERA_FHD;
@@ -331,6 +328,11 @@ static void camera_task(void *unused)
         }
         if (!device.streaming || format_changed) {
             if (configure_automatic_sensor(&device)) { failed(request, ESP_FAIL); goto cleanup; }
+            /* Exposure belongs to the running sensor, not each photo request.
+             * Only a sensor restart/mode change invalidates its prior samples. */
+            stable_since = 0;
+            settle_frames = 0;
+            anchor = (exposure_t){0};
         }
         if (!device.streaming) {
             xSemaphoreTake(state_lock, portMAX_DELAY);
@@ -361,8 +363,8 @@ static void camera_task(void *unused)
         bool settled = false;
         if (result == ESP_OK && (pending || now >= next_frame)) {
             if (read_exposure(&device, &measured)) result = ESP_FAIL;
-            else if (pending) {
-                ++settle_frames;
+            else {
+                if (settle_frames < 8) ++settle_frames;
                 if (!anchor.exposure_us || !anchor.gain_x16 ||
                     !close_setting(measured.exposure_us, anchor.exposure_us) ||
                     !close_setting(measured.gain_x16, anchor.gain_x16)) {
@@ -383,9 +385,6 @@ static void camera_task(void *unused)
             if (settled && (uint64_t)measured.exposure_us * measured.gain_x16 <= 33333ULL * 16U) {
                 request.resolution = AINEKIO_CAMERA_FHD;
                 settle_start = now;
-                stable_since = 0;
-                settle_frames = 0;
-                anchor = (exposure_t){0};
                 emit = false;
             } else request.resolution = AINEKIO_CAMERA_960P;
         }
