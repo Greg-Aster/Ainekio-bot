@@ -110,6 +110,37 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         self.assertNotIn("Choose 1", result.stderr)
         self.assertIn("Dashboard access:   lan", result.stdout)
 
+    def test_saved_remote_relay_starts_with_each_gateway_launch(self):
+        self.prepare_start()
+        calls = self.root / "relay-calls"
+        (self.bin / "systemctl").write_text(
+            '#!/bin/sh\nprintf "%s\\n" "$*" >> ' + shlex.quote(str(calls)) + '\n')
+        (self.root / ".env").write_text(
+            "AINEKIO_CLOUDFLARE_RELAY_SERVICE=ainekio-cloudflare-relay.service\n")
+        for _ in range(2):
+            result = self.run_launcher()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Remote MetaHuman:  Cloudflare relay requested", result.stdout)
+            self.assertTrue(self.gateway_args.exists())
+        self.assertEqual(calls.read_text().splitlines(),
+                         ["--user --no-block start -- ainekio-cloudflare-relay.service"] * 2)
+
+    def test_check_does_not_start_configured_remote_relay(self):
+        self.env["AINEKIO_CLOUDFLARE_RELAY_SERVICE"] = "ainekio-cloudflare-relay.service"
+        result = self.run_launcher("--check")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ainekio-cloudflare-relay.service (starts with Body Control)", result.stdout)
+        self.assertFalse((self.root / "build").exists())
+
+    def test_remote_relay_failure_is_reported_before_gateway_starts(self):
+        self.prepare_start()
+        self.env["AINEKIO_CLOUDFLARE_RELAY_SERVICE"] = "ainekio-cloudflare-relay.service"
+        (self.bin / "systemctl").write_text('#!/bin/sh\nexit 1\n')
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Could not start the remote MetaHuman relay", result.stderr)
+        self.assertFalse(self.gateway_args.exists())
+
     def test_timeout_and_enter_reuse_saved_cloudflare_without_starting_a_tunnel(self):
         setting = self.prepare_start()
         self.env["AINEKIO_DASHBOARD_PUBLIC_URL"] = "https://another-machine.example/"
@@ -163,6 +194,17 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Gateway prerequisites passed", result.stdout)
         self.assertFalse((self.root / "build").exists())
+
+    def test_missing_opencv_is_reported_before_startup(self):
+        # Block OpenCV even when it is installed in the test interpreter.
+        (self.root / "cv2.py").write_text("raise ModuleNotFoundError(\"No module named 'cv2'\")\n")
+        self.env["PYTHONPATH"] = str(self.root)
+        for args in (("--check",), ()):
+            result = self.run_launcher(*args)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn("Gateway dependencies are unavailable", result.stderr)
+            self.assertIn("Emulator/requirements-host.txt", result.stderr)
+            self.assertFalse((self.root / "build").exists())
 
     def test_standalone_body_control_does_not_require_metahuman(self):
         del self.env["AINEKIO_ENVIRONMENT_ADAPTER_TOKEN"]
