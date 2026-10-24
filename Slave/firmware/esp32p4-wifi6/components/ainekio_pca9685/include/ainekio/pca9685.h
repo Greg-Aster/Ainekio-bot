@@ -83,7 +83,7 @@ ainekio_pca_result_t ainekio_pca_init(ainekio_pca9685_t *driver,
 bool ainekio_pca_pulse_bounds(const ainekio_pca9685_t *driver,
     uint16_t *minimum_us, uint16_t *maximum_us);
 bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *driver, uint16_t pulse_us);
-/* Capture generation when authorizing work. A later disable invalidates even
+/* Capture generation when authorizing work. Explicit disarm/fault invalidates even
  * work which has not entered the driver yet, including queued recovery. */
 ainekio_pca_result_t ainekio_pca_recover(ainekio_pca9685_t *driver, uint64_t generation);
 ainekio_pca_result_t ainekio_pca_arm(ainekio_pca9685_t *driver, uint64_t generation,
@@ -92,6 +92,10 @@ ainekio_pca_result_t ainekio_pca_write_frame(ainekio_pca9685_t *driver, uint64_t
     const uint16_t pulses_us[AINEKIO_PCA_BODY_CHANNELS]);
 void ainekio_pca_emergency_disable(ainekio_pca9685_t *driver, ainekio_pca_fault_t reason);
 void ainekio_pca_disarm(ainekio_pca9685_t *driver);
+/* Sole output owner: release OE after a completed operation, outside a transfer.
+ * This is normal idle, not cancellation: already-admitted commands retain their
+ * generation and may arm outputs. Explicit disarm/fault still invalidates them. */
+void ainekio_pca_idle(ainekio_pca9685_t *driver);
 ainekio_pca_status_t ainekio_pca_status(ainekio_pca9685_t *driver);
 
 #endif

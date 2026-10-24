@@ -5,7 +5,17 @@
 static bool known_type(uint8_t type)
 {
     return type == AINEKIO_FRAME_MIC_PCM || type == AINEKIO_FRAME_CAMERA_JPEG ||
-           type == AINEKIO_FRAME_SPEAKER_PCM;
+           type == AINEKIO_FRAME_SPEAKER_PCM || type == AINEKIO_FRAME_CAMERA_CHUNK;
+}
+
+static uint32_t read_u32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8U) | ((uint32_t)p[2] << 16U) | ((uint32_t)p[3] << 24U);
+}
+
+static void write_u32(uint8_t *p, uint32_t value)
+{
+    for (unsigned i = 0; i < 4; ++i) p[i] = (uint8_t)(value >> (8U * i));
 }
 
 static ainekio_binary_result_t validate_payload(
@@ -28,6 +38,32 @@ static ainekio_binary_result_t validate_payload(
             return AINEKIO_BINARY_FORMAT;
         }
     }
+    if (type == AINEKIO_FRAME_CAMERA_CHUNK) {
+        if (!payload || length <= AINEKIO_CAMERA_CHUNK_HEADER_BYTES) return AINEKIO_BINARY_LENGTH;
+        const uint32_t total = read_u32(payload), offset = read_u32(payload + 4);
+        if (total < 4 || total > AINEKIO_MAX_JPEG_BYTES || offset >= total ||
+            length - AINEKIO_CAMERA_CHUNK_HEADER_BYTES > total - offset) return AINEKIO_BINARY_LENGTH;
+    }
+    return AINEKIO_BINARY_OK;
+}
+
+ainekio_binary_result_t ainekio_camera_chunk_encode(
+    uint32_t counter, const uint8_t *jpeg, size_t total, size_t offset,
+    uint8_t *output, size_t capacity, size_t *output_length)
+{
+    const size_t header = AINEKIO_BINARY_HEADER_BYTES + AINEKIO_CAMERA_CHUNK_HEADER_BYTES;
+    if (!output || !output_length || !jpeg || offset >= total) return AINEKIO_BINARY_FORMAT;
+    const ainekio_binary_result_t validation = validate_payload(AINEKIO_FRAME_CAMERA_JPEG, jpeg, total);
+    if (validation != AINEKIO_BINARY_OK) return validation;
+    if (capacity <= header) return AINEKIO_BINARY_CAPACITY;
+    const size_t remaining = total - offset;
+    const size_t count = remaining < capacity - header ? remaining : capacity - header;
+    output[0] = AINEKIO_FRAME_CAMERA_CHUNK;
+    write_u32(output + 1, counter);
+    write_u32(output + 5, (uint32_t)total);
+    write_u32(output + 9, (uint32_t)offset);
+    memcpy(output + header, jpeg + offset, count);
+    *output_length = header + count;
     return AINEKIO_BINARY_OK;
 }
 

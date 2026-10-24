@@ -15,6 +15,7 @@ class P4MicrophoneSettingsTests(unittest.TestCase):
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdatomic.h>
 #include "ainekio/p4_media.h"
 #define portMAX_DELAY 0
 #define NVS_READONLY 0
@@ -24,6 +25,8 @@ typedef int nvs_handle_t;
 static ainekio_p4_media_status_t status={.microphone_ready=true,.wake_ready=true,.wake_enabled=true};
 static void *mutex=(void*)1,*codec=(void*)2,*vad=(void*)3;
 static bool suspended,microphone_enabled,microphone_settings_saved;
+static atomic_bool external_speech;
+static atomic_uint external_speech_epoch;
 static ainekio_microphone_gate_t microphone_gate=AINEKIO_MIC_GATE_VAD;
 static uint64_t session=42;
 static uint32_t microphone_epoch;
@@ -56,6 +59,7 @@ static esp_err_t p4_camera_suspend(bool paused) { (void)paused;return ESP_OK; }
 uint32_t ainekio_p4_media_audio_cancel(void) { cancels++;microphone_epoch++;return 0; }
 '''
         for declaration in (
+            "void ainekio_p4_media_external_speech(",
             "static void load_input_settings(",
             "ainekio_p4_media_status_t ainekio_p4_media_status(",
             "esp_err_t ainekio_p4_media_microphone(",
@@ -89,6 +93,11 @@ int main(void)
     ainekio_p4_media_suspend(true);
     assert(microphone_enabled && !ainekio_p4_media_status().microphone_listening);
     ainekio_p4_media_suspend(false);
+    assert(ainekio_p4_media_status().microphone_listening && commits==1);
+    ainekio_p4_media_external_speech(true);
+    assert(!ainekio_p4_media_status().microphone_listening && commits==1);
+    assert(microphone_enabled && microphone_gate==AINEKIO_MIC_GATE_WAKE && status.wake_enabled);
+    ainekio_p4_media_external_speech(false);
     assert(ainekio_p4_media_status().microphone_listening && commits==1);
     assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,&gain)==ESP_OK && commits==1);
     const uint8_t changed_gain=42;fail_save=true;

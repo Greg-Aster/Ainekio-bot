@@ -318,6 +318,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         hotspot=hotspot,
         environment_adapter=adapter,
     )
+    dashboard.start_freestyle()
     dashboard_thread = threading.Thread(
         target=dashboard.serve_forever,
         name="ainekio-dashboard",
@@ -330,6 +331,7 @@ async def _run_production(args: argparse.Namespace) -> None:
     camera = CameraFramePlugin(service, backend, observe=publish_recognition if backend else None,
         max_frame_age_s=args.vision_max_frame_age_s)
     adapter.recognition_status = camera.metrics if backend is not None else None
+    adapter.camera_analysis = camera.current_analysis
     adapter.vision_operation = camera.configure_vision if backend is not None else None
     dashboard.camera_recognition = camera
     if camera is not None:
@@ -338,10 +340,11 @@ async def _run_production(args: argparse.Namespace) -> None:
         await camera.restore_depth(dashboard.control_settings.get("depth_motion", {}))
         adapter.locomotion_measurement = camera.locomotion_measurement
         adapter.selected_ground_range = camera.selected_ground_range
+        adapter.depth_demand = camera.depth_demand
     service.subscribe_events(dashboard.restore_camera)
     from gateway.gait_learning_service import GaitLearningService, RobotLearningTransport
     gait_learning = GaitLearningService(service, RobotLearningTransport(service, token_store),
-                                       camera.locomotion_measurement)
+                                       camera.locomotion_measurement, depth_demand=camera.depth_demand)
     dashboard.gait_learning = gait_learning
     await gait_learning.start()
 
@@ -406,11 +409,11 @@ async def _run_production(args: argparse.Namespace) -> None:
                 await asyncio.gather(*established)
     finally:
         signal.signal(signal.SIGTERM, previous_sigterm)
-        if dashboard.freestyle is not None:
-            await dashboard.freestyle.close()
+        await dashboard.close_freestyle()
         await gait_learning.close()
         if camera is not None:
             await camera.aclose()
+        await dashboard.host_audio.close()
         await asyncio.to_thread(dashboard.shutdown)
         dashboard.server_close()
         dashboard_thread.join(timeout=2.0)

@@ -1,4 +1,4 @@
-"""Continue a pinned Freestyle LoRA with reviewed data using the existing trainer.
+"""Train a fresh or continued Freestyle LoRA using the existing trainer.
 
 This experiment owns its artifacts and never edits the shared trainer, robot
 firmware, model assignments or live serving processes.
@@ -46,7 +46,9 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
     cfg=shared.validate_config(json.loads(config.read_text()))
     provenance=shared.verify_manifest(manifest,data,evaluation,cfg)
     output.mkdir(parents=True,exist_ok=False)
-    result={'status':'running','initial_adapter':str(adapter),'initial_adapter_sha256':sha(adapter/'adapter_model.safetensors'),
+    result={'status':'running','initial_adapter':str(adapter) if adapter else None,
+            'initial_adapter_sha256':sha(adapter/'adapter_model.safetensors') if adapter else None,
+            'initialization':'continued_adapter' if adapter else 'pretrained_base_with_new_lora',
             'config_sha256':sha(config),'dataset_id':provenance['datasetId'],
             'base_model':cfg['base_model'],'base_revision':cfg['base_model_revision'],
             'shared_trainer_sha256':sha(shared_trainer),'activation':'not-activated'}
@@ -55,29 +57,31 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
     def save():report.write_text(json.dumps(result,indent=2)+'\n')
     started=time.time();save()
     try:
-        # The shared factory pins the base before creating the same LoRA modules.
-        # Load the previous learned weights into those trainable modules. This is
-        # a new optimizer run on a new dataset, not a mismatched resume checkpoint.
+        # The shared factory pins the base and creates new LoRA modules. An
+        # optional same-architecture adapter supplies continuation weights; a
+        # different-sized model starts fresh from its own pretrained base.
         model,tokenizer,torch=shared.load_runtime(cfg,training=True)
         result['runtime_adjustments'] = align_qwen_mlp(model, torch)
-        from peft import get_peft_model_state_dict, set_peft_model_state_dict
-        from safetensors.torch import load_file
-        previous=load_file(str(adapter/'adapter_model.safetensors'))
-        expected=get_peft_model_state_dict(model)
-        if set(expected)!=set(previous):
-            raise ValueError('Continuation adapter tensors do not match the configured LoRA architecture')
-        if any(expected[key].shape!=previous[key].shape for key in expected):
-            raise ValueError('Continuation adapter shapes do not match the configured LoRA architecture')
-        set_peft_model_state_dict(model,previous)
-        loaded=get_peft_model_state_dict(model)
-        if any(not torch.equal(loaded[key].detach().cpu(),previous[key].to(loaded[key].dtype)) for key in previous):
-            raise ValueError('Loaded continuation weights differ from the persisted initial adapter')
-        del expected,previous,loaded
+        if adapter is not None:
+            from peft import get_peft_model_state_dict, set_peft_model_state_dict
+            from safetensors.torch import load_file
+            previous=load_file(str(adapter/'adapter_model.safetensors'))
+            expected=get_peft_model_state_dict(model)
+            if set(expected)!=set(previous):
+                raise ValueError('Continuation adapter tensors do not match the configured LoRA architecture')
+            if any(expected[key].shape!=previous[key].shape for key in expected):
+                raise ValueError('Continuation adapter shapes do not match the configured LoRA architecture')
+            set_peft_model_state_dict(model,previous)
+            loaded=get_peft_model_state_dict(model)
+            if any(not torch.equal(loaded[key].detach().cpu(),previous[key].to(loaded[key].dtype)) for key in previous):
+                raise ValueError('Loaded continuation weights differ from the persisted initial adapter')
+            del expected,previous,loaded
+            result['initial_weights_verified']=True
         training=shared.tokenize_rows(tokenizer,shared.read_rows(data),cfg)
         testing=shared.tokenize_rows(tokenizer,shared.read_rows(evaluation),cfg)
         result.update(training_samples=len(training),evaluation_samples=len(testing),
                       supervised_tokens=sum(sum(v!=-100 for v in r['labels']) for r in training),
-                      initial_weights_verified=True,template_options={'enable_thinking':False})
+                      template_options={'enable_thinking':False})
         save()
         trainer=shared.make_trainer(model,tokenizer,cfg,output,training,testing)
         result['before_loss']=shared.finite_loss(trainer.evaluate());save()
@@ -97,8 +101,10 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    for name in ('config','data','evaluation','manifest','adapter','output','shared-trainer'):
+    for name in ('config','data','evaluation','manifest','output','shared-trainer'):
         p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--adapter',type=Path,
+                   help='Optional same-architecture adapter; omit to train a fresh LoRA on the configured base')
     p.add_argument('--logfile',type=Path)
     arguments=vars(p.parse_args());logfile=arguments.pop('logfile')
     if logfile:

@@ -47,7 +47,7 @@ def circle(leg, radius=15, plane='xy', cycles=1):
     return path(leg,points,.25)
 
 
-def demonstration(family, side='right', cycles=2, scale=1.):
+def demonstration(family, side='right', cycles=2, scale=1., observation=None):
     """Authored semantic examples, not aliases of existing named robot emotes."""
     leg='front_'+side
     other='front_'+('left' if side=='right' else 'right')
@@ -57,6 +57,19 @@ def demonstration(family, side='right', cycles=2, scale=1.):
     lift=lambda ls:feet(ls,[[0,0,h] for _ in ls])
     lower=lambda ls:feet(ls,[[0,0,-h] for _ in ls])
     hold=call('hold',seconds=.6)
+    if family in ('drinking','saluting'):
+        from .kinematics import ROOT, foot_positions
+        from .runtime import JOINTS
+        if observation is None:
+            source=json.loads((ROOT/'motions/gestures/wave/source.json').read_text())
+            values=[math.degrees(q) for limb in source['samples'][0]['actuator_angles_rad'] for q in limb]
+            positions=dict(zip(JOINTS,values))
+        else:
+            positions={j:observation['joints'][j]['model_deg'] for j in JOINTS}
+        initial=foot_positions(positions)[leg]
+        # A reachable point beside the head, above the 80.96 mm shoulder
+        # reference. An arbitrary 40-50 mm lift did not reach this region.
+        head=[round(b-a,3) for a,b in zip(initial,[95,sign*90,105])]
     if family=='clapping':
         # Deliberate in/out mime; contact between hands is not claimed.
         return [lift(hands)]+[a for _ in range(cycles) for a in (
@@ -74,7 +87,7 @@ def demonstration(family, side='right', cycles=2, scale=1.):
         return [lift(hands)]+[a for _ in range(cycles) for a in (
             feet(hands,[[direction*d,0,0]]*2),hold,feet(hands,[[-direction*d,0,0]]*2))]+[lower(hands)]
     if family=='drinking':
-        return path(leg,[[0,0,0],[d,0,h],[0,sign*d,h+d]])+[hold]+path(leg,[[0,sign*d,h+d],[d,0,h],[0,0,0]])
+        return path(leg,[[0,0,0],[d,0,h],head])+[hold]+path(leg,[head,[d,0,h],[0,0,0]])
     if family=='draw_then_pull':
         # Place the drawing plane outward from the chosen shoulder. Its left-to-
         # right stroke still spans d mm; neither the vertical nor pull is cut.
@@ -85,8 +98,11 @@ def demonstration(family, side='right', cycles=2, scale=1.):
         return [a for _ in range(cycles) for limb in [leg,other]
                 for a in (feet([limb],[[d/2,0,h]],.3),feet([limb],[[-d/2,0,-h]],.25))]
     if family=='saluting':
+        # Lowering the torso raises fixed foot coordinates by 8 mm relative to
+        # it. Compute the reach from that changed pose, then preserve returns.
+        reach=[head[0],head[1],round(head[2]-8,3)]
         return [body((0,0,-8))]+[a for _ in range(cycles) for a in (
-            feet([leg],[[0,sign*d,h+d/2]],.5),hold,feet([leg],[[0,-sign*d,-h-d/2]],.5))]+[body((0,0,8))]
+            feet([leg],[reach],.5),hold,feet([leg],[[-v for v in reach]],.5))]+[body((0,0,8))]
     if family=='wiping':
         return [lift([leg])]+[a for _ in range(cycles) for a in (
             feet([leg],[[0,d,0]],.4),feet([leg],[[0,-2*d,0]],.7),feet([leg],[[0,d,0]],.4))]+[lower([leg])]
@@ -179,6 +195,29 @@ def source_wave(side='left', cycles=3, period_s=1.5, speed_pct=50):
             call('oscillate',joint=arm[0],amplitude_deg=42,cycles=cycles,period_s=period_s),
             pose(arm,lifted[6:9]),pose(arm,seated[6:9]),
             pose([JOINTS[i] for i in support],[initial[i] for i in support]),call('hold',seconds=.2)]
+
+
+def source_posture(name, speed_pct=50):
+    """Offline endpoint demonstrations for the three single-transition postures.
+
+    These teach the source terminal pose and its hold, using the compact joint
+    contract's travel speed. They do not reproduce the source easing curve or
+    claim that a straight joint path preserves planted-foot contact. Multi-phase
+    gestures must not be reduced to endpoints through this authoring helper.
+    """
+    from .kinematics import ROOT
+    from .runtime import JOINTS
+    if name not in ('sit', 'rest', 'crouch'):
+        raise ValueError('This teacher covers only single-transition postures')
+    source = json.loads((ROOT/'motions/gestures'/name/'source.json').read_text())
+    samples = source['samples']
+    angles = [round(math.degrees(q), 2)
+              for leg in samples[-1]['actuator_angles_rad'] for q in leg]
+    hold_start = next(sample['time_s'] for sample in samples
+                      if sample['phase'].startswith('hold'))
+    return [call('pose', joints=list(JOINTS), angles_deg=angles,
+                 reference='absolute', speed_pct=speed_pct),
+            call('hold', seconds=round(samples[-1]['time_s']-hold_start, 6))]
 
 
 def review_one(item):

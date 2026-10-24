@@ -63,5 +63,18 @@ class SpatialTests(unittest.TestCase):
         self.assertEqual(sum(f[0] for f in frames),3274000)
         self.assertLess(solver.call_count,100)
 
+    def test_short_strokes_do_not_create_frames_faster_than_the_p4_can_write(self):
+        for seconds in (.7,.35):
+            action={'name':'feet','arguments':{'legs':['front_right'],
+                'offsets_mm':[[0,0,35]],'seconds':seconds}}
+            frames=frames_for_spatial(action,self.start)
+            requested=math.ceil(seconds*1000)
+            self.assertEqual(sum(f[0] for f in frames),requested)
+            self.assertTrue(all(f[0]>=20 for f in frames))
+            # The current firmware emits every endpoint on a 50 Hz tick.
+            # Only the final fractional tick may extend the requested time.
+            physical=sum(math.ceil(f[0]/20)*20 for f in frames)
+            self.assertLess(physical-requested,20)
+
 
 if __name__=='__main__':unittest.main()

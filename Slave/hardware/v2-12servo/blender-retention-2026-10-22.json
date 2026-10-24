@@ -1,0 +1,2464 @@
+{
+  "date": "2026-10-22T17:09:49.169013-07:00",
+  "status": "complete",
+  "policy": "Current robot, one rolling recovery, one available snapshot per day, and hardware source references. Unrelated projects and non-blend exports untouched.",
+  "selection": {
+    "current": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend",
+    "recovery": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working-Modeling-Recovery.blend",
+    "daily": {
+      "2026-09-10": "/home/greggles/blender-5.0.0-linux-x64/robot-q6a-port-panel/Complete-WIP-11-Q6A-Port-Panel.blend",
+      "2026-09-11": "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-edge-step/Complete-WIP-22-Single-Edge-Step.blend",
+      "2026-09-12": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/rotation-trial/Fixed-servos-Part009-45deg-REVIEW.blend",
+      "2026-09-13": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/imported-linkage-four-legs-20260913/confirmed-short-test/part024-reversed-180-20260913/Four-Legs-Part024-Reversed-180-REVIEW.blend",
+      "2026-09-14": "/home/greggles/blender-5.0.0-linux-x64/robot-part023-uniform-recess-20260914/flush-outer-ledge/Part023-Flush-Outer-Ledge-Inner-Seat-Retained.blend",
+      "2026-09-15": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260915/Ainekio-Wave-Seated.blend",
+      "2026-09-16": "/home/greggles/blender-5.0.0-linux-x64/robot-bow-20260916/Ainekio-Bow.blend",
+      "2026-09-17": "/home/greggles/blender-5.0.0-linux-x64/carapace-panels-20260917/Saved-Panel-Verification.blend",
+      "2026-09-18": "/home/greggles/blender-5.0.0-linux-x64/robot-continuous-shoulder-plates-20260918/Ainekio-Keyed-Front-Shell.blend",
+      "2026-09-19": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend",
+      "2026-09-06": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1.blend",
+      "2026-09-07": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body-wip.blend",
+      "2026-09-08": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip2 - Blender.blend",
+      "2026-09-09": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Assembly-refined-angled-slots.blend",
+      "2026-09-20": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-20.blend",
+      "2026-09-21": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-21.blend",
+      "2026-09-22": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+      "2026-09-23": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-23.blend",
+      "2026-10-05": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-05.blend",
+      "2026-10-06": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend",
+      "2026-10-09": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-09.blend",
+      "2026-10-10": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-10.blend",
+      "2026-10-12": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-12.blend",
+      "2026-10-13": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery2.blend",
+      "2026-10-14": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-14.blend",
+      "2026-10-15": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-15.blend",
+      "2026-10-21": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-21.blend",
+      "2026-10-22": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend"
+    },
+    "source_assets": [
+      "/home/greggles/blender-5.0.0-linux-x64/reference-models/CD74HC4067/9056.blend",
+      "/home/greggles/blender-5.0.0-linux-x64/reference-models/bar-lcd225-20260917/LCD225-Dimensioned-Reference.blend",
+      "/home/greggles/blender-5.0.0-linux-x64/reference-models/lshil00-quadruped/Quadruped - SPT5425 - Component Study.blend",
+      "/home/greggles/blender-5.0.0-linux-x64/robot-2p8inch-face/Waveshare-2.8inch-LCD-Mesh.blend",
+      "/home/greggles/blender-5.0.0-linux-x64/robot-3p5inch-face/Waveshare-3.5inch-LCD-Mesh.blend"
+    ]
+  },
+  "retained": [
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1.blend",
+      "size": 13924717,
+      "allocated": 13934592,
+      "device": 57,
+      "inode": 14681102,
+      "mtime_ns": 1788732750739410095,
+      "ctime_ns": 1788732750740251004,
+      "sha256": "be7dcedf35e2b78cbefd25abf31e15c406ef3d22040e08fa2e2ec0e7a32c9bc2",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body-wip.blend",
+      "size": 616883,
+      "allocated": 626688,
+      "device": 57,
+      "inode": 14681162,
+      "mtime_ns": 1788837793809759231,
+      "ctime_ns": 1788837793810749031,
+      "sha256": "3355ee56cb9b4dd39218b1a5f93b044a176d0f7eac5d05b78ad8925241cfc5c6",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body-wip.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working-Modeling-Recovery.blend",
+      "size": 464469292,
+      "allocated": 464482304,
+      "device": 57,
+      "inode": 14716907,
+      "mtime_ns": 1792683653994371758,
+      "ctime_ns": 1792683666768483014,
+      "sha256": "0c62247769d0bdb9d144e6754e4b4db411eff7103331bcbbb5ad1c67b0da1e40",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working-Modeling-Recovery.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend",
+      "size": 464269322,
+      "allocated": 464285696,
+      "device": 57,
+      "inode": 14716771,
+      "mtime_ns": 1792710560551585189,
+      "ctime_ns": 1792710560581263865,
+      "sha256": "0b9993b67af98efe42b3a6494bcc9cf9b035a7c2ba2f1a7ddf785e8b11bbcf68",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-20.blend",
+      "size": 261768925,
+      "allocated": 261783552,
+      "device": 57,
+      "inode": 14707691,
+      "mtime_ns": 1789952341000000000,
+      "ctime_ns": 1792714075506844292,
+      "sha256": "e58657deaec4c4c14c9d564642eb7175edc34b27de0057af62623c2beeb2437f",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend1"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend",
+      "size": 240406239,
+      "allocated": 240418816,
+      "device": 57,
+      "inode": 14693148,
+      "mtime_ns": 1789871755504276024,
+      "ctime_ns": 1789871760504231518,
+      "sha256": "432dbaad38be5751379320d1cf1c820247e64f0de92bebe6d2f45bc6bb9b1f48",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Assembly-refined-angled-slots.blend",
+      "size": 34765517,
+      "allocated": 34779136,
+      "device": 57,
+      "inode": 14683198,
+      "mtime_ns": 1789011221224530434,
+      "ctime_ns": 1789011221225662720,
+      "sha256": "a4da1eeaf68ffe456030b53fa058b7c0a39a7b2200b19471e8a1b2d558983a0b",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Assembly-refined-angled-slots.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip2 - Blender.blend",
+      "size": 68438694,
+      "allocated": 68452352,
+      "device": 57,
+      "inode": 14681226,
+      "mtime_ns": 1788899464733644315,
+      "ctime_ns": 1788899464734644151,
+      "sha256": "b49790ec3b3e5d8015c549b6e25bcde6034264a30f3efec9fda12cab24c66a5a",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip2 - Blender.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-05.blend",
+      "size": 378150811,
+      "allocated": 378163200,
+      "device": 57,
+      "inode": 14717113,
+      "mtime_ns": 1791262711000000000,
+      "ctime_ns": 1792714112359434773,
+      "sha256": "932d1b40a8bb63d074a3fe444aa00fe6ec0d4fcb3a1e3ff1abec795584db379c",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend1"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-09.blend",
+      "size": 405711456,
+      "allocated": 405725184,
+      "device": 57,
+      "inode": 14717114,
+      "mtime_ns": 1791605989000000000,
+      "ctime_ns": 1792714125170289539,
+      "sha256": "b365e132defc54770ea39f7e638469a6fdf9591bc0cf6851106892dacf7c93b0",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend1"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery2.blend",
+      "size": 653346488,
+      "allocated": 653361152,
+      "device": 57,
+      "inode": 14716281,
+      "mtime_ns": 1791940615159532260,
+      "ctime_ns": 1791940639479277633,
+      "sha256": "262fef76557fb5f91e148cba9c638da6caeee57e0eacdded0f5076fba21b83fa",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery2.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend",
+      "size": 402513913,
+      "allocated": 402526208,
+      "device": 57,
+      "inode": 14715419,
+      "mtime_ns": 1791309850456153949,
+      "ctime_ns": 1791309863960199732,
+      "sha256": "9fe3b5775772fc0f618ac83dfb1c35d02976f29f0ae438c8e411cb2acdc3fd69",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-23.blend",
+      "size": 362630625,
+      "allocated": 362643456,
+      "device": 57,
+      "inode": 14717112,
+      "mtime_ns": 1790220297000000000,
+      "ctime_ns": 1792714100638566370,
+      "sha256": "69751bf77ae7658df6416d7470d0f0a9b082130f83e75c450e77853d6ebef17e",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend1"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+      "size": 482798634,
+      "allocated": 482811904,
+      "device": 57,
+      "inode": 14693160,
+      "mtime_ns": 1790098390944566732,
+      "ctime_ns": 1790098401184384845,
+      "sha256": "b1f9e618fa382b2dba46cd504fd337efd449aa34233a8bc70dba7f948f4ebe8b",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-21.blend",
+      "size": 426544795,
+      "allocated": 426557440,
+      "device": 57,
+      "inode": 14717111,
+      "mtime_ns": 1790034204000000000,
+      "ctime_ns": 1792714088797698047,
+      "sha256": "14a6fbcf031858e3d75246e7fd1e1a89b9281e7995fc70b8ca42f1d0f53da556",
+      "original_path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend1"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/carapace-panels-20260917/Saved-Panel-Verification.blend",
+      "size": 385785396,
+      "allocated": 385798144,
+      "device": 57,
+      "inode": 17193740,
+      "mtime_ns": 1789693683636846635,
+      "ctime_ns": 1789747231557329927,
+      "sha256": "6a149fc1d230443a8467ffdb70c52a2fe839feea862fc044c1013e3289dd435b",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/carapace-panels-20260917/Saved-Panel-Verification.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/CD74HC4067/9056.blend",
+      "size": 926664,
+      "allocated": 937984,
+      "device": 57,
+      "inode": 18490737,
+      "mtime_ns": 1792185698494903613,
+      "ctime_ns": 1792185698494903613,
+      "sha256": "3fe1b317008027deeb579999ff08cafbd2a5a0270fe0527cf19754ed67408ad0",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/CD74HC4067/9056.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/bar-lcd225-20260917/LCD225-Dimensioned-Reference.blend",
+      "size": 279179,
+      "allocated": 290816,
+      "device": 57,
+      "inode": 17193219,
+      "mtime_ns": 1789679369337411486,
+      "ctime_ns": 1789679369338444239,
+      "sha256": "78ab2fdb82a7d3660291858e186961b76a4c542ac00e5f0030e21a618b3d3384",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/bar-lcd225-20260917/LCD225-Dimensioned-Reference.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/lshil00-quadruped/Quadruped - SPT5425 - Component Study.blend",
+      "size": 186685139,
+      "allocated": 186695680,
+      "device": 57,
+      "inode": 16138289,
+      "mtime_ns": 1788991425050171874,
+      "ctime_ns": 1788991431541016300,
+      "sha256": "603baac4927ecf0f9e12f769d4b34562ac512e6ba4dda65df2a7961a3ad6011e",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/lshil00-quadruped/Quadruped - SPT5425 - Component Study.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-2p8inch-face/Waveshare-2.8inch-LCD-Mesh.blend",
+      "size": 5322006,
+      "allocated": 5332992,
+      "device": 57,
+      "inode": 16142937,
+      "mtime_ns": 1789325736107318828,
+      "ctime_ns": 1789325736108211165,
+      "sha256": "8341628ea366605608a64f306e6a8db9d6677c53766ec1a90929fb83e78e4ec9",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-2p8inch-face/Waveshare-2.8inch-LCD-Mesh.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-3p5inch-face/Waveshare-3.5inch-LCD-Mesh.blend",
+      "size": 5338152,
+      "allocated": 5349376,
+      "device": 57,
+      "inode": 16142753,
+      "mtime_ns": 1789323222795146373,
+      "ctime_ns": 1789323222796784882,
+      "sha256": "841c17c9208a93fd233068d7835061e7bd461db280f325445cb28138ab9cd1b9",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-3p5inch-face/Waveshare-3.5inch-LCD-Mesh.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-bow-20260916/Ainekio-Bow.blend",
+      "size": 313685460,
+      "allocated": 313700352,
+      "device": 57,
+      "inode": 17191121,
+      "mtime_ns": 1789582984637514443,
+      "ctime_ns": 1789582984687514083,
+      "sha256": "88a1e457ba1c94808d9a6f3869ec5c0d7bfee59e3f545949b4fba1414f988396",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-bow-20260916/Ainekio-Bow.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-continuous-shoulder-plates-20260918/Ainekio-Keyed-Front-Shell.blend",
+      "size": 498837898,
+      "allocated": 498851840,
+      "device": 57,
+      "inode": 17194757,
+      "mtime_ns": 1789785914480145205,
+      "ctime_ns": 1789785914481145195,
+      "sha256": "eb739da8bc2719ab3e9c8de33a1f34155398f2b95acee7c66afabf39b47ade0e",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-continuous-shoulder-plates-20260918/Ainekio-Keyed-Front-Shell.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/imported-linkage-four-legs-20260913/confirmed-short-test/part024-reversed-180-20260913/Four-Legs-Part024-Reversed-180-REVIEW.blend",
+      "size": 85681390,
+      "allocated": 85696512,
+      "device": 57,
+      "inode": 16142977,
+      "mtime_ns": 1789326614587697689,
+      "ctime_ns": 1789326614589108178,
+      "sha256": "3aa617015de61cef3d2583e2198a39e1b5cecc6b8a4c8e6092d83159be3e3975",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/imported-linkage-four-legs-20260913/confirmed-short-test/part024-reversed-180-20260913/Four-Legs-Part024-Reversed-180-REVIEW.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/rotation-trial/Fixed-servos-Part009-45deg-REVIEW.blend",
+      "size": 72353708,
+      "allocated": 72368128,
+      "device": 57,
+      "inode": 16142371,
+      "mtime_ns": 1789276290408567390,
+      "ctime_ns": 1789276290409557572,
+      "sha256": "20593ffb0a9e473a70ae36358a30ef4c44bc7aa286082417fbc75ef29cd478e5",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/rotation-trial/Fixed-servos-Part009-45deg-REVIEW.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-part023-uniform-recess-20260914/flush-outer-ledge/Part023-Flush-Outer-Ledge-Inner-Seat-Retained.blend",
+      "size": 82185310,
+      "allocated": 82194432,
+      "device": 57,
+      "inode": 16145792,
+      "mtime_ns": 1789426490643389008,
+      "ctime_ns": 1789426490644994088,
+      "sha256": "b15d2a5af2907c70d501679ecda9d480e62d8b87d29f1924fa4849ed16b7ed6f",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-part023-uniform-recess-20260914/flush-outer-ledge/Part023-Flush-Outer-Ledge-Inner-Seat-Retained.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-q6a-port-panel/Complete-WIP-11-Q6A-Port-Panel.blend",
+      "size": 68634025,
+      "allocated": 68648960,
+      "device": 57,
+      "inode": 16139320,
+      "mtime_ns": 1789085525759008427,
+      "ctime_ns": 1789085525769008310,
+      "sha256": "910a46c4eb8c3e24bf70c25fc56096ec9cc8fffe0f5f3858cda8cd038e9b186d",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-q6a-port-panel/Complete-WIP-11-Q6A-Port-Panel.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-edge-step/Complete-WIP-22-Single-Edge-Step.blend",
+      "size": 71106555,
+      "allocated": 71114752,
+      "device": 57,
+      "inode": 16141326,
+      "mtime_ns": 1789171029414023799,
+      "ctime_ns": 1789171029415082493,
+      "sha256": "60673783afa3a50e52cb3c2186b470545493747594a6025e8149ac5f621fdac4",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-edge-step/Complete-WIP-22-Single-Edge-Step.blend"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260915/Ainekio-Wave-Seated.blend",
+      "size": 185336002,
+      "allocated": 185352192,
+      "device": 57,
+      "inode": 16148863,
+      "mtime_ns": 1789532094813783590,
+      "ctime_ns": 1789532094815105970,
+      "sha256": "b5ed67f83d31065cdd6e66e1c4c2c96f08a25830312f8c202d02b9646bf4a119",
+      "original_path": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260915/Ainekio-Wave-Seated.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-15.blend",
+      "size": 446499406,
+      "allocated": 446513152,
+      "device": 57,
+      "inode": 14717118,
+      "mtime_ns": 1792097223000000000,
+      "ctime_ns": 1792714176156697775,
+      "sha256": "881cb45acd6cc86fb88bba25812affd4e994a18472753b1fd74da450812766b8",
+      "original_path": "/tmp/Ainekio-Motion-Working_383639_autosave.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-21.blend",
+      "size": 463440735,
+      "allocated": 463454208,
+      "device": 57,
+      "inode": 14717119,
+      "mtime_ns": 1792630467000000000,
+      "ctime_ns": 1792714188266554150,
+      "sha256": "abed20c9b8cb8800bb94ca2a9c44bdf012693d686423050cd5e5a7f81fca55ec",
+      "original_path": "/tmp/Ainekio-before-deeper-helmet-relief-20261021-175425.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-12.blend",
+      "size": 70800307,
+      "allocated": 70811648,
+      "device": 57,
+      "inode": 14717116,
+      "mtime_ns": 1791832171000000000,
+      "ctime_ns": 1792714140942108791,
+      "sha256": "041582d983f002f7be8d5680afdbabd3821e5ecc376d7f3ec1118d03c69ee2c4",
+      "original_path": "/tmp/ainekio-faithful/model.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-14.blend",
+      "size": 712017115,
+      "allocated": 712032256,
+      "device": 57,
+      "inode": 14717117,
+      "mtime_ns": 1792024401000000000,
+      "ctime_ns": 1792714161486870218,
+      "sha256": "ef8dd305980d88911016d2fb60b2fb3b0e0fc293050523ba1d32711fb256f49a",
+      "original_path": "/tmp/ainekio-motion-before-cleanup.blend"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-10.blend",
+      "size": 406378817,
+      "allocated": 406392832,
+      "device": 57,
+      "inode": 14717115,
+      "mtime_ns": 1791683085000000000,
+      "ctime_ns": 1792714137680146346,
+      "sha256": "f5fafdad174dc493c0820c292380ec9b3cbbb9499ba421b45e914fb502e76e93",
+      "original_path": "/tmp/ainekio-variable-gait-Recovery_1706481_autosave.blend"
+    }
+  ],
+  "relocations": [
+    {
+      "source": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend1",
+        "size": 261768925,
+        "allocated": 261783552,
+        "device": 57,
+        "inode": 14693961,
+        "mtime_ns": 1789952341458724464,
+        "ctime_ns": 1789957742422842754,
+        "day": "2026-09-20"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-20.blend",
+        "size": 261768925,
+        "allocated": 261783552,
+        "device": 57,
+        "inode": 14707691,
+        "mtime_ns": 1789952341000000000,
+        "ctime_ns": 1792714075506844292
+      },
+      "sha256": "e58657deaec4c4c14c9d564642eb7175edc34b27de0057af62623c2beeb2437f"
+    },
+    {
+      "source": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend1",
+        "size": 426544795,
+        "allocated": 426557440,
+        "device": 57,
+        "inode": 14694087,
+        "mtime_ns": 1790034204291668347,
+        "ctime_ns": 1790034934389632080,
+        "day": "2026-09-21"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-21.blend",
+        "size": 426544795,
+        "allocated": 426557440,
+        "device": 57,
+        "inode": 14717111,
+        "mtime_ns": 1790034204000000000,
+        "ctime_ns": 1792714088797698047
+      },
+      "sha256": "14a6fbcf031858e3d75246e7fd1e1a89b9281e7995fc70b8ca42f1d0f53da556"
+    },
+    {
+      "source": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend1",
+        "size": 362630625,
+        "allocated": 362643456,
+        "device": 57,
+        "inode": 14707390,
+        "mtime_ns": 1790220297199971447,
+        "ctime_ns": 1790270306937908409,
+        "day": "2026-09-23"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-09-23.blend",
+        "size": 362630625,
+        "allocated": 362643456,
+        "device": 57,
+        "inode": 14717112,
+        "mtime_ns": 1790220297000000000,
+        "ctime_ns": 1792714100638566370
+      },
+      "sha256": "69751bf77ae7658df6416d7470d0f0a9b082130f83e75c450e77853d6ebef17e"
+    },
+    {
+      "source": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend1",
+        "size": 378150811,
+        "allocated": 378163200,
+        "device": 57,
+        "inode": 14715331,
+        "mtime_ns": 1791262711586541031,
+        "ctime_ns": 1791302921970319746,
+        "day": "2026-10-05"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-05.blend",
+        "size": 378150811,
+        "allocated": 378163200,
+        "device": 57,
+        "inode": 14717113,
+        "mtime_ns": 1791262711000000000,
+        "ctime_ns": 1792714112359434773
+      },
+      "sha256": "932d1b40a8bb63d074a3fe444aa00fe6ec0d4fcb3a1e3ff1abec795584db379c"
+    },
+    {
+      "source": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend1",
+        "size": 405711456,
+        "allocated": 405725184,
+        "device": 57,
+        "inode": 14715967,
+        "mtime_ns": 1791605989503268393,
+        "ctime_ns": 1791606393031896854,
+        "day": "2026-10-09"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-09.blend",
+        "size": 405711456,
+        "allocated": 405725184,
+        "device": 57,
+        "inode": 14717114,
+        "mtime_ns": 1791605989000000000,
+        "ctime_ns": 1792714125170289539
+      },
+      "sha256": "b365e132defc54770ea39f7e638469a6fdf9591bc0cf6851106892dacf7c93b0"
+    },
+    {
+      "source": {
+        "path": "/tmp/ainekio-variable-gait-Recovery_1706481_autosave.blend",
+        "size": 406378817,
+        "allocated": 406384640,
+        "device": 2050,
+        "inode": 39109438,
+        "mtime_ns": 1791683085019441159,
+        "ctime_ns": 1791683097033850984,
+        "day": "2026-10-10"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-10.blend",
+        "size": 406378817,
+        "allocated": 406392832,
+        "device": 57,
+        "inode": 14717115,
+        "mtime_ns": 1791683085000000000,
+        "ctime_ns": 1792714137680146346
+      },
+      "sha256": "f5fafdad174dc493c0820c292380ec9b3cbbb9499ba421b45e914fb502e76e93"
+    },
+    {
+      "source": {
+        "path": "/tmp/ainekio-faithful/model.blend",
+        "size": 70800307,
+        "allocated": 70807552,
+        "device": 2050,
+        "inode": 39740803,
+        "mtime_ns": 1791832171839580861,
+        "ctime_ns": 1791832171840914738,
+        "day": "2026-10-12"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-12.blend",
+        "size": 70800307,
+        "allocated": 70811648,
+        "device": 57,
+        "inode": 14717116,
+        "mtime_ns": 1791832171000000000,
+        "ctime_ns": 1792714140942108791
+      },
+      "sha256": "041582d983f002f7be8d5680afdbabd3821e5ecc376d7f3ec1118d03c69ee2c4"
+    },
+    {
+      "source": {
+        "path": "/tmp/ainekio-motion-before-cleanup.blend",
+        "size": 712017115,
+        "allocated": 712024064,
+        "device": 2050,
+        "inode": 39111161,
+        "mtime_ns": 1792024401698157602,
+        "ctime_ns": 1792024401700157574,
+        "day": "2026-10-14"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-14.blend",
+        "size": 712017115,
+        "allocated": 712032256,
+        "device": 57,
+        "inode": 14717117,
+        "mtime_ns": 1792024401000000000,
+        "ctime_ns": 1792714161486870218
+      },
+      "sha256": "ef8dd305980d88911016d2fb60b2fb3b0e0fc293050523ba1d32711fb256f49a"
+    },
+    {
+      "source": {
+        "path": "/tmp/Ainekio-Motion-Working_383639_autosave.blend",
+        "size": 446499406,
+        "allocated": 446504960,
+        "device": 2050,
+        "inode": 39112357,
+        "mtime_ns": 1792097223575668084,
+        "ctime_ns": 1792097233372571329,
+        "day": "2026-10-15"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-15.blend",
+        "size": 446499406,
+        "allocated": 446513152,
+        "device": 57,
+        "inode": 14717118,
+        "mtime_ns": 1792097223000000000,
+        "ctime_ns": 1792714176156697775
+      },
+      "sha256": "881cb45acd6cc86fb88bba25812affd4e994a18472753b1fd74da450812766b8"
+    },
+    {
+      "source": {
+        "path": "/tmp/Ainekio-before-deeper-helmet-relief-20261021-175425.blend",
+        "size": 463440735,
+        "allocated": 463446016,
+        "device": 2050,
+        "inode": 39098570,
+        "mtime_ns": 1792630467689561370,
+        "ctime_ns": 1792630467691281244,
+        "day": "2026-10-21"
+      },
+      "destination": {
+        "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Daily-2026-10-21.blend",
+        "size": 463440735,
+        "allocated": 463454208,
+        "device": 57,
+        "inode": 14717119,
+        "mtime_ns": 1792630467000000000,
+        "ctime_ns": 1792714188266554150
+      },
+      "sha256": "abed20c9b8cb8800bb94ca2a9c44bdf012693d686423050cd5e5a7f81fca55ec"
+    }
+  ],
+  "remove": [
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1.blend1",
+      "size": 13923965,
+      "allocated": 13934592,
+      "device": 57,
+      "inode": 14681096,
+      "mtime_ns": 1788728352485007426,
+      "ctime_ns": 1788732750739410095,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body.blend",
+      "size": 469810,
+      "allocated": 479232,
+      "device": 57,
+      "inode": 14681101,
+      "mtime_ns": 1788728358027763782,
+      "ctime_ns": 1788728358028320559,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body.blend1",
+      "size": 469791,
+      "allocated": 479232,
+      "device": 57,
+      "inode": 14681093,
+      "mtime_ns": 1788722164712671230,
+      "ctime_ns": 1788728358027763782,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-45mm-70-vs-82-Stroke-Study.blend",
+      "size": 469235482,
+      "allocated": 469250048,
+      "device": 57,
+      "inode": 14716285,
+      "mtime_ns": 1791938801119781843,
+      "ctime_ns": 1791938801121609283,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-72mm-Animated-Geometry-Reference.blend",
+      "size": 68597840,
+      "allocated": 68612096,
+      "device": 57,
+      "inode": 14716299,
+      "mtime_ns": 1791944758694851674,
+      "ctime_ns": 1791944761072832307,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-82mm-Body-Support-Study.blend",
+      "size": 653327260,
+      "allocated": 653340672,
+      "device": 57,
+      "inode": 14709172,
+      "mtime_ns": 1791940856400015737,
+      "ctime_ns": 1791940856401115493,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Angled-Compact-Reference.blend",
+      "size": 256872100,
+      "allocated": 256884736,
+      "device": 57,
+      "inode": 14693146,
+      "mtime_ns": 1789868465338445568,
+      "ctime_ns": 1789868465338445568,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Compact39-Linkage-Reference.blend",
+      "size": 146992,
+      "allocated": 155648,
+      "device": 57,
+      "inode": 14716302,
+      "mtime_ns": 1791956210467425092,
+      "ctime_ns": 1791956210468425084,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Compact55-Walking-Reference.blend",
+      "size": 2415470,
+      "allocated": 2424832,
+      "device": 57,
+      "inode": 14716300,
+      "mtime_ns": 1791946609769135422,
+      "ctime_ns": 1791946609770622843,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend1",
+      "size": 464468044,
+      "allocated": 464482304,
+      "device": 57,
+      "inode": 14716897,
+      "mtime_ns": 1792683699147599158,
+      "ctime_ns": 1792710560552264106,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery-Backup.blend",
+      "size": 241361324,
+      "allocated": 241377280,
+      "device": 57,
+      "inode": 14693958,
+      "mtime_ns": 1789951721345733298,
+      "ctime_ns": 1789951728375872590,
+      "day": "2026-09-20"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery.blend",
+      "size": 242314108,
+      "allocated": 242327552,
+      "device": 57,
+      "inode": 14693960,
+      "mtime_ns": 1789951843503281319,
+      "ctime_ns": 1789951847653371959,
+      "day": "2026-09-20"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1-Backup.blend",
+      "size": 419963697,
+      "allocated": 419979264,
+      "device": 57,
+      "inode": 14693971,
+      "mtime_ns": 1790022482828898346,
+      "ctime_ns": 1790022492299028532,
+      "day": "2026-09-21"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend",
+      "size": 420588079,
+      "allocated": 420601856,
+      "device": 57,
+      "inode": 14694088,
+      "mtime_ns": 1790022603499296156,
+      "ctime_ns": 1790022613310386781,
+      "day": "2026-09-21"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Recovery.blend",
+      "size": 419796684,
+      "allocated": 419811328,
+      "device": 57,
+      "inode": 14694092,
+      "mtime_ns": 1790022418822915335,
+      "ctime_ns": 1790022429050084971,
+      "day": "2026-09-21"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend1",
+      "size": 256872045,
+      "allocated": 256884736,
+      "device": 57,
+      "inode": 14693147,
+      "mtime_ns": 1789867267029692952,
+      "ctime_ns": 1789867602132748069,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Before-inner-top-overhang-removal-live.blend",
+      "size": 70297804,
+      "allocated": 70311936,
+      "device": 57,
+      "inode": 14683211,
+      "mtime_ns": 1789317127536249855,
+      "ctime_ns": 1789317127537296656,
+      "day": "2026-09-13"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Big and small leg assembly-V2 - Blender.blend",
+      "size": 5680203,
+      "allocated": 5689344,
+      "device": 57,
+      "inode": 14681097,
+      "mtime_ns": 1788724573294137934,
+      "ctime_ns": 1788724573295024766,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Complete-WIP-1.blend",
+      "size": 33263984,
+      "allocated": 33275904,
+      "device": 57,
+      "inode": 14683205,
+      "mtime_ns": 1789066645904001861,
+      "ctime_ns": 1789066645905110194,
+      "day": "2026-09-10"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Complete-WIP-8-User-Part3-All-Legs.blend",
+      "size": 68359926,
+      "allocated": 68374528,
+      "device": 57,
+      "inode": 14683206,
+      "mtime_ns": 1789082057986673148,
+      "ctime_ns": 1789082057988335217,
+      "day": "2026-09-10"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0 - Blender.blend",
+      "size": 8347749,
+      "allocated": 8359936,
+      "device": 57,
+      "inode": 14681099,
+      "mtime_ns": 1788724616203386385,
+      "ctime_ns": 1788724616204758238,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip - Blender.blend",
+      "size": 8346220,
+      "allocated": 8355840,
+      "device": 57,
+      "inode": 14681222,
+      "mtime_ns": 1788893353841107741,
+      "ctime_ns": 1788893353841966969,
+      "day": "2026-09-08"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip - Blender.blend1",
+      "size": 8352878,
+      "allocated": 8364032,
+      "device": 57,
+      "inode": 14681092,
+      "mtime_ns": 1788737122122876152,
+      "ctime_ns": 1788893353841107741,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip2 - Blender.blend1",
+      "size": 38617897,
+      "allocated": 38633472,
+      "device": 57,
+      "inode": 14681160,
+      "mtime_ns": 1788749219463045814,
+      "ctime_ns": 1788899464733644315,
+      "day": "2026-09-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Robot-All-Legs-Facing-Forward.blend",
+      "size": 72545451,
+      "allocated": 72560640,
+      "device": 57,
+      "inode": 14692283,
+      "mtime_ns": 1789504118086136198,
+      "ctime_ns": 1789504118087422657,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Robot-All-Legs-Facing-Forward.blend1",
+      "size": 72454332,
+      "allocated": 72470528,
+      "device": 57,
+      "inode": 14692271,
+      "mtime_ns": 1789503102669295553,
+      "ctime_ns": 1789504118086136198,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend",
+      "size": 381850644,
+      "allocated": 381865984,
+      "device": 57,
+      "inode": 14715321,
+      "mtime_ns": 1791302921970319746,
+      "ctime_ns": 1791302921971915987,
+      "day": "2026-10-06"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Backup.blend",
+      "size": 426483136,
+      "allocated": 426496000,
+      "device": 57,
+      "inode": 14694095,
+      "mtime_ns": 1790034119727108232,
+      "ctime_ns": 1790034130181055691,
+      "day": "2026-09-21"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Modeling-Recovery.blend",
+      "size": 462764357,
+      "allocated": 462778368,
+      "device": 57,
+      "inode": 14716913,
+      "mtime_ns": 1792622935300025604,
+      "ctime_ns": 1792622950238766286,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+      "size": 409543535,
+      "allocated": 409559040,
+      "device": 57,
+      "inode": 14708402,
+      "mtime_ns": 1791938037564034169,
+      "ctime_ns": 1791938051337903769,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/bar-lcd225-20260917/Ainekio-with-LCD225-Reference.blend",
+      "size": 295049123,
+      "allocated": 295063552,
+      "device": 57,
+      "inode": 17193223,
+      "mtime_ns": 1789679470755691428,
+      "ctime_ns": 1789679470756691420,
+      "day": "2026-09-17"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-chassis-width-20260917/Ainekio-51p2mm-Chassis.blend",
+      "size": 303999767,
+      "allocated": 304013312,
+      "device": 57,
+      "inode": 17193425,
+      "mtime_ns": 1789683007161702750,
+      "ctime_ns": 1789683007162702739,
+      "day": "2026-09-17"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-continuous-shoulder-plates-20260918/Keyed-Front-Shell.blend",
+      "size": 1762805,
+      "allocated": 1773568,
+      "device": 57,
+      "inode": 17194760,
+      "mtime_ns": 1789786054867808335,
+      "ctime_ns": 1789786054869808316,
+      "day": "2026-09-18"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-corrected-crawl-current-feet-20260915/Ainekio-Corrected-Crawl-Appended.blend",
+      "size": 76694493,
+      "allocated": 76709888,
+      "device": 57,
+      "inode": 16147709,
+      "mtime_ns": 1789505995125619017,
+      "ctime_ns": 1789505995126271774,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-corrected-crawl-current-feet-20260915/Ainekio-Corrected-Crawl-Live.blend",
+      "size": 165033369,
+      "allocated": 165048320,
+      "device": 57,
+      "inode": 16147726,
+      "mtime_ns": 1789506336943090695,
+      "ctime_ns": 1789506336944581016,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-fit-20260919/Ainekio-Extracted-Plates-Fitted.blend",
+      "size": 255045723,
+      "allocated": 255062016,
+      "device": 57,
+      "inode": 16137603,
+      "mtime_ns": 1789856048752223741,
+      "ctime_ns": 1789856048753223730,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-shells-20260919/Ainekio-Extracted-Carapace.blend",
+      "size": 253250200,
+      "allocated": 253263872,
+      "device": 57,
+      "inode": 16137416,
+      "mtime_ns": 1789855395651356047,
+      "ctime_ns": 1789855395652353459,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-shells-20260919/Extracted-Carapace.blend",
+      "size": 40026251,
+      "allocated": 40042496,
+      "device": 57,
+      "inode": 16137420,
+      "mtime_ns": 1789855351237746547,
+      "ctime_ns": 1789855352676733899,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-shells-20260919/Source-Reference.blend",
+      "size": 103835365,
+      "allocated": 103849984,
+      "device": 57,
+      "inode": 16137397,
+      "mtime_ns": 1789854952340235998,
+      "ctime_ns": 1789854952341985468,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-fairing-design-proposal-20260918/Left-Fin-Design-Study.blend",
+      "size": 1899354,
+      "allocated": 1908736,
+      "device": 57,
+      "inode": 17194643,
+      "mtime_ns": 1789783003370540295,
+      "ctime_ns": 1789783003371258329,
+      "day": "2026-09-18"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-flat-linkage-revision-20260912/User-example-autosave-reference.blend",
+      "size": 71269312,
+      "allocated": 71282688,
+      "device": 57,
+      "inode": 16141545,
+      "mtime_ns": 1789256382845613795,
+      "ctime_ns": 1789256382845613795,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-flat-linkage-revision-20260912/User-example-autosave-reference1.blend",
+      "size": 71257595,
+      "allocated": 71270400,
+      "device": 57,
+      "inode": 16141827,
+      "mtime_ns": 1789265201196091477,
+      "ctime_ns": 1789265201196859237,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-four-leg-layout/Complete-WIP-1-Four-Legs.blend",
+      "size": 11969313,
+      "allocated": 11980800,
+      "device": 57,
+      "inode": 16128575,
+      "mtime_ns": 1789067900510702221,
+      "ctime_ns": 1789067900511854467,
+      "day": "2026-09-10"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Angular-Control-Cages.blend",
+      "size": 66013,
+      "allocated": 77824,
+      "device": 57,
+      "inode": 17194873,
+      "mtime_ns": 1789837660409660509,
+      "ctime_ns": 1789837660410511574,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Front-Carapace-Parts.blend",
+      "size": 241965,
+      "allocated": 253952,
+      "device": 57,
+      "inode": 17194851,
+      "mtime_ns": 1789837254485483978,
+      "ctime_ns": 1789837254486468400,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Front-Refinement-Study.blend",
+      "size": 1767263,
+      "allocated": 1777664,
+      "device": 57,
+      "inode": 17194810,
+      "mtime_ns": 1789835985860528647,
+      "ctime_ns": 1789835985860951705,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Lowpoly-Front-Study.blend",
+      "size": 179394,
+      "allocated": 188416,
+      "device": 57,
+      "inode": 17194841,
+      "mtime_ns": 1789836922753305415,
+      "ctime_ns": 1789836922754607374,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-horn-sleeve-bevel-20260912/User-example-Beveled-Part025-Covered-Horn009.blend",
+      "size": 72118232,
+      "allocated": 72130560,
+      "device": 57,
+      "inode": 16142274,
+      "mtime_ns": 1789271724242472491,
+      "ctime_ns": 1789271724252472428,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-leg-level-shafts-direct-screws-20260918/Ainekio-Level-Shafts-Direct-Screws.blend",
+      "size": 9857385,
+      "allocated": 9867264,
+      "device": 57,
+      "inode": 17194236,
+      "mtime_ns": 1789758662881837271,
+      "ctime_ns": 1789758662988835978,
+      "day": "2026-09-18"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-leg-level-shafts-direct-screws-20260918/bearing-support-refinement-20260918/Ainekio-Level-Shafts-Refined-Bearing-Supports.blend",
+      "size": 9856428,
+      "allocated": 9867264,
+      "device": 57,
+      "inode": 17194031,
+      "mtime_ns": 1789753751310152484,
+      "ctime_ns": 1789753751413151642,
+      "day": "2026-09-18"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+      "size": 443198310,
+      "allocated": 443211776,
+      "device": 57,
+      "inode": 17194417,
+      "mtime_ns": 1789770701281029955,
+      "ctime_ns": 1789770701310029549,
+      "day": "2026-09-18"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-neck-reference-transfer-20260919/Ainekio-Neck-Reference-Roof.blend",
+      "size": 264788539,
+      "allocated": 264802304,
+      "device": 57,
+      "inode": 17173161,
+      "mtime_ns": 1789848624936349559,
+      "ctime_ns": 1789848624937784537,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-neck-refine-20260919/Ainekio-Neck-Reference-Refined.blend",
+      "size": 187028599,
+      "allocated": 187043840,
+      "device": 57,
+      "inode": 17173165,
+      "mtime_ns": 1789848724327443423,
+      "ctime_ns": 1789848730114390752,
+      "day": "2026-09-19"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-part024-two-thirds-length-20260915/Part024-Two-Thirds-Two-Ovals-Aligned.blend",
+      "size": 81462369,
+      "allocated": 81477632,
+      "device": 57,
+      "inode": 16146680,
+      "mtime_ns": 1789494374006267706,
+      "ctime_ns": 1789494374007018447,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-point-20260916/Ainekio-Point.blend",
+      "size": 209292851,
+      "allocated": 209305600,
+      "device": 57,
+      "inode": 17190190,
+      "mtime_ns": 1789579173397240188,
+      "ctime_ns": 1789579173424239697,
+      "day": "2026-09-16"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-20260916/Ainekio-Pushup.blend",
+      "size": 214755171,
+      "allocated": 214769664,
+      "device": 57,
+      "inode": 17190357,
+      "mtime_ns": 1789580197648670520,
+      "ctime_ns": 1789580197649441291,
+      "day": "2026-09-16"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-deep-20260916/Ainekio-Pushup.blend",
+      "size": 285748390,
+      "allocated": 285761536,
+      "device": 57,
+      "inode": 17190580,
+      "mtime_ns": 1789581000769143499,
+      "ctime_ns": 1789581000770400359,
+      "day": "2026-09-16"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-rest-20260915/Ainekio-Rest.blend",
+      "size": 183854855,
+      "allocated": 183869440,
+      "device": 57,
+      "inode": 16148718,
+      "mtime_ns": 1789531080059561147,
+      "ctime_ns": 1789531080060561173,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-short-link-18mm-45deg-example-20260912/User-example-18mm-Drive-45deg-REVIEW.blend",
+      "size": 65564754,
+      "allocated": 65581056,
+      "device": 57,
+      "inode": 16142325,
+      "mtime_ns": 1789273836321564873,
+      "ctime_ns": 1789273836331564747,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-short-link-18mm-45deg-example-20260912/compact-mount-conflict-reference/User-example-18mm-Drive-45deg-REVIEW.blend",
+      "size": 65507720,
+      "allocated": 65519616,
+      "device": 57,
+      "inode": 16142299,
+      "mtime_ns": 1789273426000000000,
+      "ctime_ns": 1789273585216924395,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-flat-back-study-20260912/Socket-Back-Comparison.blend",
+      "size": 1284559,
+      "allocated": 1294336,
+      "device": 57,
+      "inode": 16141459,
+      "mtime_ns": 1789252552129663529,
+      "ctime_ns": 1789252552130371041,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-shallow-review/Shoulder-Socket-1p7mm-ISOLATED.blend",
+      "size": 931999,
+      "allocated": 942080,
+      "device": 57,
+      "inode": 16141492,
+      "mtime_ns": 1789253862648091725,
+      "ctime_ns": 1789253862648437094,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-sit-bored-20260915/Ainekio-Sit-Bored.blend",
+      "size": 183426295,
+      "allocated": 183439360,
+      "device": 57,
+      "inode": 16148640,
+      "mtime_ns": 1789530244955207093,
+      "ctime_ns": 1789530244955974226,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-swim-20260916/Ainekio-Swim.blend",
+      "size": 200263338,
+      "allocated": 200278016,
+      "device": 57,
+      "inode": 16149220,
+      "mtime_ns": 1789578227687122029,
+      "ctime_ns": 1789578227713121922,
+      "day": "2026-09-16"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_15/Ainekio-Turn-Left-15.blend",
+      "size": 180561971,
+      "allocated": 180576256,
+      "device": 57,
+      "inode": 16148500,
+      "mtime_ns": 1789515845766301324,
+      "ctime_ns": 1789515845767742902,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_180/Ainekio-Turn-Left-180.blend",
+      "size": 183075065,
+      "allocated": 183091200,
+      "device": 57,
+      "inode": 16148626,
+      "mtime_ns": 1789518604100381738,
+      "ctime_ns": 1789518604124381656,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_45/Ainekio-Turn-Left-45.blend",
+      "size": 180871069,
+      "allocated": 180883456,
+      "device": 57,
+      "inode": 16148490,
+      "mtime_ns": 1789515826873918550,
+      "ctime_ns": 1789515826874414739,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_90/Ainekio-Turn-Left-90.blend",
+      "size": 181126280,
+      "allocated": 181141504,
+      "device": 57,
+      "inode": 16148480,
+      "mtime_ns": 1789515807491552407,
+      "ctime_ns": 1789515807492764106,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_15/Ainekio-Turn-Right-15.blend",
+      "size": 180557006,
+      "allocated": 180572160,
+      "device": 57,
+      "inode": 16148495,
+      "mtime_ns": 1789515836284611024,
+      "ctime_ns": 1789515836285073266,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_180/Ainekio-Turn-Right-180.blend",
+      "size": 181795371,
+      "allocated": 181809152,
+      "device": 57,
+      "inode": 16148465,
+      "mtime_ns": 1789515774277640128,
+      "ctime_ns": 1789515774278922520,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_45/Ainekio-Turn-Right-45.blend",
+      "size": 180866682,
+      "allocated": 180879360,
+      "device": 57,
+      "inode": 16148485,
+      "mtime_ns": 1789515817371229234,
+      "ctime_ns": 1789515817372479863,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_90/Ainekio-Turn-Right-90.blend",
+      "size": 181126684,
+      "allocated": 181141504,
+      "device": 57,
+      "inode": 16148475,
+      "mtime_ns": 1789515797909865994,
+      "ctime_ns": 1789515797910625195,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-turn-right-20260915/Ainekio-Turn-Right-180.blend",
+      "size": 179822185,
+      "allocated": 179834880,
+      "device": 57,
+      "inode": 16148316,
+      "mtime_ns": 1789515134176226861,
+      "ctime_ns": 1789515134177640266,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-user-outside-linkage-fit-20260912/User-example-reference1-Aligned-Outside-Horn.blend",
+      "size": 71733938,
+      "allocated": 71745536,
+      "device": 57,
+      "inode": 16142052,
+      "mtime_ns": 1789267342192115581,
+      "ctime_ns": 1789267342193115571,
+      "day": "2026-09-12"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-walking-crawl-20260915/Ainekio-Slow-Crawl-Research.blend",
+      "size": 79983146,
+      "allocated": 79998976,
+      "device": 57,
+      "inode": 16147276,
+      "mtime_ns": 1789502022947978203,
+      "ctime_ns": 1789502022949576376,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-20260915/Ainekio-Wave.blend",
+      "size": 184556801,
+      "allocated": 184569856,
+      "device": 57,
+      "inode": 16148777,
+      "mtime_ns": 1789531636593571693,
+      "ctime_ns": 1789531636594430909,
+      "day": "2026-09-15"
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260916/Ainekio-Wave-Seated.blend",
+      "size": 185662343,
+      "allocated": 185675776,
+      "device": 57,
+      "inode": 16148957,
+      "mtime_ns": 1789572521079004986,
+      "ctime_ns": 1789572521079532575,
+      "day": "2026-09-16"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/boot-chevron-latest-before-cleanup.blend",
+      "size": 202327,
+      "allocated": 212992,
+      "device": 57,
+      "inode": 14327105,
+      "mtime_ns": 1792634649193244859,
+      "ctime_ns": 1792634649193675828,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/boot-new-before-inner-edge-cleanup.blend",
+      "size": 1698924,
+      "allocated": 1708032,
+      "device": 57,
+      "inode": 14327104,
+      "mtime_ns": 1792634092941094746,
+      "ctime_ns": 1792634092941994392,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/boot-new-chevron-backing-gap-closed.blend",
+      "size": 2040982,
+      "allocated": 2052096,
+      "device": 57,
+      "inode": 14327114,
+      "mtime_ns": 1792684996043683326,
+      "ctime_ns": 1792684996044074248,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/boot-new-inner-edge-cleaned.blend",
+      "size": 1955112,
+      "allocated": 1966080,
+      "device": 57,
+      "inode": 14327106,
+      "mtime_ns": 1792634687455906778,
+      "ctime_ns": 1792634687456933573,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/boot-new-rectangular-chevron-transition.blend",
+      "size": 1971024,
+      "allocated": 1982464,
+      "device": 57,
+      "inode": 14327116,
+      "mtime_ns": 1792685554492807231,
+      "ctime_ns": 1792685554493921396,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/boot-tread-recovery.blend",
+      "size": 813224,
+      "allocated": 823296,
+      "device": 57,
+      "inode": 14327084,
+      "mtime_ns": 1792628171252659949,
+      "ctime_ns": 1792628171254087089,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/center-shell-07mm-deep-recess.blend",
+      "size": 222129,
+      "allocated": 233472,
+      "device": 57,
+      "inode": 14315155,
+      "mtime_ns": 1792683918882066288,
+      "ctime_ns": 1792683918883179655,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/center-shell-before-07mm-recess.blend",
+      "size": 222129,
+      "allocated": 233472,
+      "device": 57,
+      "inode": 14315148,
+      "mtime_ns": 1792683908573165088,
+      "ctime_ns": 1792683908574165078,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/circular-surrounds-before-recess-edit.blend",
+      "size": 580124,
+      "allocated": 589824,
+      "device": 57,
+      "inode": 14327107,
+      "mtime_ns": 1792684306624462869,
+      "ctime_ns": 1792684306625347159,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/circular-surrounds-wider-07mm-recesses.blend",
+      "size": 580124,
+      "allocated": 589824,
+      "device": 57,
+      "inode": 14327112,
+      "mtime_ns": 1792684306702350230,
+      "ctime_ns": 1792684306702961457,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/foot-backing-before-gap-fill.blend",
+      "size": 1110629,
+      "allocated": 1122304,
+      "device": 57,
+      "inode": 14327113,
+      "mtime_ns": 1792684720328602663,
+      "ctime_ns": 1792684720329632427,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/foot-backing-before-rectangular-redo.blend",
+      "size": 365016,
+      "allocated": 376832,
+      "device": 57,
+      "inode": 14327115,
+      "mtime_ns": 1792685205137562966,
+      "ctime_ns": 1792685205138705398,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/outer-boot-before-chevron.blend",
+      "size": 841229,
+      "allocated": 851968,
+      "device": 57,
+      "inode": 14327087,
+      "mtime_ns": 1792628779296865362,
+      "ctime_ns": 1792628779298349129,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/outer-boot-before-rear-chevron.blend",
+      "size": 813783,
+      "allocated": 823296,
+      "device": 57,
+      "inode": 14327088,
+      "mtime_ns": 1792629259003842018,
+      "ctime_ns": 1792629259005028153,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/outer-boot-before-rear-correction.blend",
+      "size": 814490,
+      "allocated": 823296,
+      "device": 57,
+      "inode": 14327085,
+      "mtime_ns": 1792629676922987733,
+      "ctime_ns": 1792629676924378692,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/outer-boot-chevron-edit.blend",
+      "size": 814490,
+      "allocated": 823296,
+      "device": 57,
+      "inode": 14327089,
+      "mtime_ns": 1792629276272738734,
+      "ctime_ns": 1792629276274301224,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/outer-boot-chevron-proposal.blend",
+      "size": 813783,
+      "allocated": 823296,
+      "device": 57,
+      "inode": 14327086,
+      "mtime_ns": 1792628712534505162,
+      "ctime_ns": 1792628712536085903,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-row-before-shell-alignment.blend",
+      "size": 1280075,
+      "allocated": 1290240,
+      "device": 57,
+      "inode": 14327102,
+      "mtime_ns": 1792633659232704463,
+      "ctime_ns": 1792633659234120500,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-deeper-chamfer-20261021-181038.blend",
+      "size": 1243725,
+      "allocated": 1253376,
+      "device": 57,
+      "inode": 14327092,
+      "mtime_ns": 1792631438112327464,
+      "ctime_ns": 1792631438113002825,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-inner-taper-20261021-182728.blend",
+      "size": 1216511,
+      "allocated": 1224704,
+      "device": 57,
+      "inode": 14327096,
+      "mtime_ns": 1792632448208183916,
+      "ctime_ns": 1792632448209016688,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-inner-taper.blend",
+      "size": 1216511,
+      "allocated": 1224704,
+      "device": 57,
+      "inode": 14327097,
+      "mtime_ns": 1792632502314661153,
+      "ctime_ns": 1792632502316338890,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-part027-20261021-180600.blend",
+      "size": 1110258,
+      "allocated": 1122304,
+      "device": 57,
+      "inode": 14327090,
+      "mtime_ns": 1792631160030430141,
+      "ctime_ns": 1792631160031646439,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-deeper-chamfer-20261021-181146.blend",
+      "size": 1294488,
+      "allocated": 1306624,
+      "device": 57,
+      "inode": 14327093,
+      "mtime_ns": 1792631506413598895,
+      "ctime_ns": 1792631506414598885,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-fitted-part027-20261021-180708.blend",
+      "size": 1217699,
+      "allocated": 1228800,
+      "device": 57,
+      "inode": 14327091,
+      "mtime_ns": 1792631228002647606,
+      "ctime_ns": 1792631228003776030,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-refitted-reshaped-surround.blend",
+      "size": 1280075,
+      "allocated": 1290240,
+      "device": 57,
+      "inode": 14327101,
+      "mtime_ns": 1792633444445375085,
+      "ctime_ns": 1792633444446422210,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-tapered-both-sides-20261021-182917.blend",
+      "size": 1272614,
+      "allocated": 1282048,
+      "device": 57,
+      "inode": 14327098,
+      "mtime_ns": 1792632557200131788,
+      "ctime_ns": 1792632557200941498,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-treads-uniform-shell-fit.blend",
+      "size": 1285640,
+      "allocated": 1294336,
+      "device": 57,
+      "inode": 14327103,
+      "mtime_ns": 1792633864151028347,
+      "ctime_ns": 1792633864151645903,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-two-before-height-fit-20261021-181515.blend",
+      "size": 1109749,
+      "allocated": 1118208,
+      "device": 57,
+      "inode": 14327094,
+      "mtime_ns": 1792631715572424748,
+      "ctime_ns": 1792631715573087906,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-two-before-reposition-20261021-183910.blend",
+      "size": 1110097,
+      "allocated": 1122304,
+      "device": 57,
+      "inode": 14327099,
+      "mtime_ns": 1792633150130434526,
+      "ctime_ns": 1792633150131263661,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-two-raised-to-surround-20261021-181621.blend",
+      "size": 1293595,
+      "allocated": 1302528,
+      "device": 57,
+      "inode": 14327095,
+      "mtime_ns": 1792631781364755057,
+      "ctime_ns": 1792631781366348584,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/home/greggles/blender-5.2.2-linux-x64/upper-two-reposition-recovery.blend",
+      "size": 1110097,
+      "allocated": 1122304,
+      "device": 57,
+      "inode": 14327100,
+      "mtime_ns": 1792633376787876404,
+      "ctime_ns": 1792633376789037525,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_1187843_autosave.blend",
+      "size": 471072701,
+      "allocated": 471076864,
+      "device": 2050,
+      "inode": 39098401,
+      "mtime_ns": 1792595761244689927,
+      "ctime_ns": 1792595772833515494,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_2101432_autosave.blend",
+      "size": 448137856,
+      "allocated": 448143360,
+      "device": 2050,
+      "inode": 39111969,
+      "mtime_ns": 1792090144059721107,
+      "ctime_ns": 1792090155113624738,
+      "day": "2026-10-15"
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_354255_autosave.blend",
+      "size": 466637279,
+      "allocated": 466644992,
+      "device": 2050,
+      "inode": 39098408,
+      "mtime_ns": 1792614986989003148,
+      "ctime_ns": 1792615002744984032,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_515261_autosave.blend",
+      "size": 463154675,
+      "allocated": 463159296,
+      "device": 2050,
+      "inode": 39098434,
+      "mtime_ns": 1792619802488773074,
+      "ctime_ns": 1792619810589741434,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_582132_autosave.blend",
+      "size": 463154974,
+      "allocated": 463159296,
+      "device": 2050,
+      "inode": 39098404,
+      "mtime_ns": 1792621159677714512,
+      "ctime_ns": 1792621159678596309,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_587423_autosave.blend",
+      "size": 464258891,
+      "allocated": 464265216,
+      "device": 2050,
+      "inode": 39098451,
+      "mtime_ns": 1792710543925402522,
+      "ctime_ns": 1792710558293282902,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/tmp/Ainekio-before-full-leg-clearance-20261022-091024.blend",
+      "size": 464496035,
+      "allocated": 464502784,
+      "device": 2050,
+      "inode": 39098568,
+      "mtime_ns": 1792685426199865744,
+      "ctime_ns": 1792685426200865746,
+      "day": "2026-10-22"
+    },
+    {
+      "path": "/tmp/Ainekio-before-helmet-visor-relief-20261021-174049.blend",
+      "size": 463685828,
+      "allocated": 463691776,
+      "device": 2050,
+      "inode": 39098561,
+      "mtime_ns": 1792629652442170916,
+      "ctime_ns": 1792629652443170909,
+      "day": "2026-10-21"
+    },
+    {
+      "path": "/tmp/ainekio-faithful/shell-evaluated.blend",
+      "size": 892842,
+      "allocated": 892928,
+      "device": 2050,
+      "inode": 39740806,
+      "mtime_ns": 1791832424117289860,
+      "ctime_ns": 1791832424118315507,
+      "day": "2026-10-12"
+    },
+    {
+      "path": "/tmp/ainekio-faithful/shell.blend",
+      "size": 891476,
+      "allocated": 892928,
+      "device": 2050,
+      "inode": 39740805,
+      "mtime_ns": 1791832327617628373,
+      "ctime_ns": 1791832327618177335,
+      "day": "2026-10-12"
+    },
+    {
+      "path": "/tmp/ainekio-variable-gait-Recovery2_2101432_autosave.blend",
+      "size": 712012363,
+      "allocated": 712019968,
+      "device": 2050,
+      "inode": 39111096,
+      "mtime_ns": 1792024296252706270,
+      "ctime_ns": 1792024310026498238,
+      "day": "2026-10-14"
+    },
+    {
+      "path": "/tmp/ainekio-variable-gait-Recovery_1415886_autosave.blend",
+      "size": 405700051,
+      "allocated": 405704704,
+      "device": 2050,
+      "inode": 39106904,
+      "mtime_ns": 1791605070363028442,
+      "ctime_ns": 1791605070364028433,
+      "day": "2026-10-09"
+    },
+    {
+      "path": "/tmp/ainekio-variable-gait-Recovery_2101432_autosave.blend",
+      "size": 407362260,
+      "allocated": 407367680,
+      "device": 2050,
+      "inode": 39110560,
+      "mtime_ns": 1791936493831582515,
+      "ctime_ns": 1791936501471509582,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/tmp/ainekio-variable-gait-Recovery_5592_autosave.blend",
+      "size": 405752843,
+      "allocated": 405757952,
+      "device": 2050,
+      "inode": 39105490,
+      "mtime_ns": 1791568416786609314,
+      "ctime_ns": 1791568429638264999,
+      "day": "2026-10-09"
+    },
+    {
+      "path": "/tmp/compact-arch/preedit.blend",
+      "size": 405709651,
+      "allocated": 405716992,
+      "device": 2050,
+      "inode": 39230408,
+      "mtime_ns": 1791671763018396852,
+      "ctime_ns": 1791671763019501913,
+      "day": "2026-10-10"
+    },
+    {
+      "path": "/tmp/gait-candidate/blender-stroke/before-stroke-comparison.blend",
+      "size": 409545160,
+      "allocated": 409550848,
+      "device": 2050,
+      "inode": 40015507,
+      "mtime_ns": 1791938583340853776,
+      "ctime_ns": 1791938583341853767,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/tmp/gait-candidate/blender-stroke/before-stroke-comparison.blend1",
+      "size": 409544391,
+      "allocated": 409550848,
+      "device": 2050,
+      "inode": 40015505,
+      "mtime_ns": 1791938569779982732,
+      "ctime_ns": 1791938583341853767,
+      "day": "2026-10-13"
+    },
+    {
+      "path": "/tmp/quit.blend",
+      "size": 464258776,
+      "allocated": 464265216,
+      "device": 2050,
+      "inode": 39098573,
+      "mtime_ns": 1792710562423248541,
+      "ctime_ns": 1792710576224133788,
+      "day": "2026-10-22"
+    }
+  ],
+  "blender_verification": [
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend",
+      "objects": 2453,
+      "scenes": [
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless",
+        "Wireless - Original 55mm Legs"
+      ],
+      "libraries": [],
+      "missing_libraries": [],
+      "relief_meshes": [
+        {
+          "object": "CARAPACE | Rear helmet - Left",
+          "mesh": "CARAPACE | Rear helmet - Left - faceted full leg clearance",
+          "vertices": 2275
+        },
+        {
+          "object": "CARAPACE | Rear helmet - Right",
+          "mesh": "CARAPACE | Rear helmet - Right - faceted full leg clearance",
+          "vertices": 2040
+        },
+        {
+          "object": "MASK | Upper visor - joined brow and crown",
+          "mesh": "MASK | Upper visor - joined brow and crown - faceted full leg clearance",
+          "vertices": 5169
+        }
+      ]
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working-Modeling-Recovery.blend",
+      "objects": 2453,
+      "scenes": [
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless",
+        "Wireless - Original 55mm Legs"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-q6a-port-panel/Complete-WIP-11-Q6A-Port-Panel.blend",
+      "objects": 257,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-edge-step/Complete-WIP-22-Single-Edge-Step.blend",
+      "objects": 271,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/rotation-trial/Fixed-servos-Part009-45deg-REVIEW.blend",
+      "objects": 312,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-linkages-only-fixed-servos-20260912/imported-linkage-four-legs-20260913/confirmed-short-test/part024-reversed-180-20260913/Four-Legs-Part024-Reversed-180-REVIEW.blend",
+      "objects": 331,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-part023-uniform-recess-20260914/flush-outer-ledge/Part023-Flush-Outer-Ledge-Inner-Seat-Retained.blend",
+      "objects": 314,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260915/Ainekio-Wave-Seated.blend",
+      "objects": 1171,
+      "scenes": [
+        "AINEKIO - Wave Seated",
+        "Source - Existing Range Tests"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-bow-20260916/Ainekio-Bow.blend",
+      "objects": 1202,
+      "scenes": [
+        "AINEKIO - Bow",
+        "Source - Existing Range Tests"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/carapace-panels-20260917/Saved-Panel-Verification.blend",
+      "objects": 1381,
+      "scenes": [
+        "AINEKIO - Motion Library",
+        "Source - Existing Range Tests"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-continuous-shoulder-plates-20260918/Ainekio-Keyed-Front-Shell.blend",
+      "objects": 1789,
+      "scenes": [
+        "AINEKIO - Motion Library",
+        "ANGLE - Flat print faces",
+        "ANGLE - Flat-link assembly",
+        "ANGLED REFINED - Print layout",
+        "ANGLED REFINED - Robot",
+        "DEMO - Recessed horns with level shafts",
+        "Source - Existing Range Tests"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend",
+      "objects": 288,
+      "scenes": [
+        "ANGLED REFINED - Robot"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1.blend",
+      "objects": 65,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body-wip.blend",
+      "objects": 9,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip2 - Blender.blend",
+      "objects": 29,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Assembly-refined-angled-slots.blend",
+      "objects": 49,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend1",
+      "objects": 424,
+      "scenes": [
+        "ANGLED REFINED - Robot"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend1",
+      "objects": 603,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+      "objects": 855,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Motions - Current Geometry",
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend1",
+      "objects": 910,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Motions - Current Geometry",
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend1",
+      "objects": 2075,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Motions - Firmware Remap",
+        "Wired",
+        "Wireless"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend",
+      "objects": 2896,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Motion Library - 35-20-28",
+        "Motions - Firmware Remap",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend1",
+      "objects": 2953,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Motions - Firmware Remap",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/tmp/ainekio-variable-gait-Recovery_1706481_autosave.blend",
+      "objects": 2955,
+      "scenes": [
+        "Gait - Stride and Rate",
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Motions - Firmware Remap",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/tmp/ainekio-faithful/model.blend",
+      "objects": 361,
+      "scenes": [
+        "Website render snapshot"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery2.blend",
+      "objects": 4937,
+      "scenes": [
+        "Gait - 70 vs 82 mm",
+        "Gait - 82 mm body support",
+        "Gait - Stride and Rate",
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Motions - Firmware Remap",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless",
+        "Wireless - Original 55mm Legs"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/tmp/ainekio-motion-before-cleanup.blend",
+      "objects": 5556,
+      "scenes": [
+        "Gait - 70 vs 82 mm",
+        "Gait - 82 mm body support",
+        "Gait - Stride and Rate",
+        "Geometry - 72 mm walking reference",
+        "Geometry - Compact 55 mm walk",
+        "Geometry - Compact linkage detail",
+        "Geometry - Compact39 proposed linkage",
+        "Geometry - Leg dimensions and motion",
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Motions - Firmware Remap",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless",
+        "Wireless - Original 55mm Legs"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/tmp/Ainekio-Motion-Working_383639_autosave.blend",
+      "objects": 2434,
+      "scenes": [
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless",
+        "Wireless - Original 55mm Legs"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/tmp/Ainekio-before-deeper-helmet-relief-20261021-175425.blend",
+      "objects": 2453,
+      "scenes": [
+        "Monitor carrier",
+        "Monitor carrier - Print layout",
+        "Motion Library - 35-20-28",
+        "Seated Support - 35-20-28",
+        "Wired",
+        "Wireless",
+        "Wireless - Original 55mm Legs"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/CD74HC4067/9056.blend",
+      "objects": 2,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/bar-lcd225-20260917/LCD225-Dimensioned-Reference.blend",
+      "objects": 11,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/reference-models/lshil00-quadruped/Quadruped - SPT5425 - Component Study.blend",
+      "objects": 336,
+      "scenes": [
+        "01 - Complete assembly",
+        "02 - Isolated right front leg",
+        "03 - Separated component catalog"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-2p8inch-face/Waveshare-2.8inch-LCD-Mesh.blend",
+      "objects": 1,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    },
+    {
+      "path": "/home/greggles/blender-5.0.0-linux-x64/robot-3p5inch-face/Waveshare-3.5inch-LCD-Mesh.blend",
+      "objects": 1,
+      "scenes": [
+        "Scene"
+      ],
+      "libraries": [],
+      "missing_libraries": []
+    }
+  ],
+  "external_path_review": "Relocated snapshots have no linked libraries or relative external paths. Absolute .blend import-provenance paths are not active linked dependencies.",
+  "free_bytes_before": 7770927104,
+  "free_bytes_before_removal": 7770882048,
+  "deleted": [
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/12degrees1body.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-45mm-70-vs-82-Stroke-Study.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-72mm-Animated-Geometry-Reference.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-82mm-Body-Support-Study.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Angled-Compact-Reference.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Compact39-Linkage-Reference.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Compact55-Walking-Reference.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery-Backup.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1-Backup.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Recovery.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Before-inner-top-overhang-removal-live.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Big and small leg assembly-V2 - Blender.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Complete-WIP-1.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Complete-WIP-8-User-Part3-All-Legs.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0 - Blender.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip - Blender.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip - Blender.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Leg model V2.0-wip2 - Blender.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Robot-All-Legs-Facing-Forward.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Robot-All-Legs-Facing-Forward.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Backup.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Modeling-Recovery.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/reference-models/bar-lcd225-20260917/Ainekio-with-LCD225-Reference.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-chassis-width-20260917/Ainekio-51p2mm-Chassis.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-continuous-shoulder-plates-20260918/Keyed-Front-Shell.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-corrected-crawl-current-feet-20260915/Ainekio-Corrected-Crawl-Appended.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-corrected-crawl-current-feet-20260915/Ainekio-Corrected-Crawl-Live.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-fit-20260919/Ainekio-Extracted-Plates-Fitted.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-shells-20260919/Ainekio-Extracted-Carapace.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-shells-20260919/Extracted-Carapace.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-extracted-shells-20260919/Source-Reference.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-fairing-design-proposal-20260918/Left-Fin-Design-Study.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-flat-linkage-revision-20260912/User-example-autosave-reference.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-flat-linkage-revision-20260912/User-example-autosave-reference1.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-four-leg-layout/Complete-WIP-1-Four-Legs.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Angular-Control-Cages.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Front-Carapace-Parts.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Front-Refinement-Study.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-front-silhouette-match-20260919/Lowpoly-Front-Study.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-horn-sleeve-bevel-20260912/User-example-Beveled-Part025-Covered-Horn009.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-leg-level-shafts-direct-screws-20260918/Ainekio-Level-Shafts-Direct-Screws.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-leg-level-shafts-direct-screws-20260918/bearing-support-refinement-20260918/Ainekio-Level-Shafts-Refined-Bearing-Supports.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-motion-batch-20260916/Ainekio-Motion-Library.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-neck-reference-transfer-20260919/Ainekio-Neck-Reference-Roof.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-neck-refine-20260919/Ainekio-Neck-Reference-Refined.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-part024-two-thirds-length-20260915/Part024-Two-Thirds-Two-Ovals-Aligned.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-point-20260916/Ainekio-Point.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-20260916/Ainekio-Pushup.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-pushup-deep-20260916/Ainekio-Pushup.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-rest-20260915/Ainekio-Rest.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-short-link-18mm-45deg-example-20260912/User-example-18mm-Drive-45deg-REVIEW.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-short-link-18mm-45deg-example-20260912/compact-mount-conflict-reference/User-example-18mm-Drive-45deg-REVIEW.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-flat-back-study-20260912/Socket-Back-Comparison.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-shoulder-shallow-review/Shoulder-Socket-1p7mm-ISOLATED.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-sit-bored-20260915/Ainekio-Sit-Bored.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-swim-20260916/Ainekio-Swim.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_15/Ainekio-Turn-Left-15.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_180/Ainekio-Turn-Left-180.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_45/Ainekio-Turn-Left-45.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_left_90/Ainekio-Turn-Left-90.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_15/Ainekio-Turn-Right-15.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_180/Ainekio-Turn-Right-180.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_45/Ainekio-Turn-Right-45.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-commands-20260915/commands/turn_right_90/Ainekio-Turn-Right-90.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-turn-right-20260915/Ainekio-Turn-Right-180.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-user-outside-linkage-fit-20260912/User-example-reference1-Aligned-Outside-Horn.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-walking-crawl-20260915/Ainekio-Slow-Crawl-Research.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-wave-20260915/Ainekio-Wave.blend",
+    "/home/greggles/blender-5.0.0-linux-x64/robot-wave-seated-20260916/Ainekio-Wave-Seated.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/boot-chevron-latest-before-cleanup.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/boot-new-before-inner-edge-cleanup.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/boot-new-chevron-backing-gap-closed.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/boot-new-inner-edge-cleaned.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/boot-new-rectangular-chevron-transition.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/boot-tread-recovery.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/center-shell-07mm-deep-recess.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/center-shell-before-07mm-recess.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/circular-surrounds-before-recess-edit.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/circular-surrounds-wider-07mm-recesses.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/foot-backing-before-gap-fill.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/foot-backing-before-rectangular-redo.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/outer-boot-before-chevron.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/outer-boot-before-rear-chevron.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/outer-boot-before-rear-correction.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/outer-boot-chevron-edit.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/outer-boot-chevron-proposal.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-row-before-shell-alignment.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-deeper-chamfer-20261021-181038.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-inner-taper-20261021-182728.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-inner-taper.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-before-part027-20261021-180600.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-deeper-chamfer-20261021-181146.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-fitted-part027-20261021-180708.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-refitted-reshaped-surround.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-tapered-both-sides-20261021-182917.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-treads-uniform-shell-fit.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-two-before-height-fit-20261021-181515.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-two-before-reposition-20261021-183910.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-two-raised-to-surround-20261021-181621.blend",
+    "/home/greggles/blender-5.2.2-linux-x64/upper-two-reposition-recovery.blend",
+    "/tmp/Ainekio-Motion-Working_1187843_autosave.blend",
+    "/tmp/Ainekio-Motion-Working_2101432_autosave.blend",
+    "/tmp/Ainekio-Motion-Working_354255_autosave.blend",
+    "/tmp/Ainekio-Motion-Working_515261_autosave.blend",
+    "/tmp/Ainekio-Motion-Working_582132_autosave.blend",
+    "/tmp/Ainekio-Motion-Working_587423_autosave.blend",
+    "/tmp/Ainekio-before-full-leg-clearance-20261022-091024.blend",
+    "/tmp/Ainekio-before-helmet-visor-relief-20261021-174049.blend",
+    "/tmp/ainekio-faithful/shell-evaluated.blend",
+    "/tmp/ainekio-faithful/shell.blend",
+    "/tmp/ainekio-variable-gait-Recovery2_2101432_autosave.blend",
+    "/tmp/ainekio-variable-gait-Recovery_1415886_autosave.blend",
+    "/tmp/ainekio-variable-gait-Recovery_2101432_autosave.blend",
+    "/tmp/ainekio-variable-gait-Recovery_5592_autosave.blend",
+    "/tmp/compact-arch/preedit.blend",
+    "/tmp/gait-candidate/blender-stroke/before-stroke-comparison.blend",
+    "/tmp/gait-candidate/blender-stroke/before-stroke-comparison.blend1",
+    "/tmp/quit.blend",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Ainekio-Neck-Reference-Refined-Live-Recovery1.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Rolling-Recovery.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-Angle-Alignment-Recovery.blend1",
+    "/home/greggles/Ainekio/Slave/hardware/v2-12servo/ainekio-variable-gait-Recovery.blend1",
+    "/tmp/ainekio-variable-gait-Recovery_1706481_autosave.blend",
+    "/tmp/ainekio-faithful/model.blend",
+    "/tmp/ainekio-motion-before-cleanup.blend",
+    "/tmp/Ainekio-Motion-Working_383639_autosave.blend",
+    "/tmp/Ainekio-before-deeper-helmet-relief-20261021-175425.blend"
+  ],
+  "completed_at": "2026-10-22T17:10:28.335745-07:00",
+  "redundant_files_removed": 126,
+  "redundant_allocated_bytes_removed": 19642351616,
+  "free_bytes_after": 29735215104,
+  "retained_hashes_verified": 34
+}

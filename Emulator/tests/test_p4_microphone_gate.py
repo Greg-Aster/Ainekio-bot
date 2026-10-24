@@ -41,6 +41,10 @@ static uint64_t session=42, audio_session;
 static int64_t microphone_after, last_speaker_input, clock_us, microphone_sample_at;
 static FILE *asset_file;
 static atomic_bool audio_tasks_started=true;
+static atomic_bool external_speech;
+static atomic_uint external_speech_epoch;
+static bool use_external;
+static unsigned resume_frame;
 static unsigned input_frame, resets, wake_frames, opens, closes, pcm_frames, mutex_depth;
 static jmp_buf finished;
 static int xSemaphoreTake(void *m,unsigned timeout) { (void)timeout;if(m==mutex)assert(mutex_depth++==0);return 1; }
@@ -52,19 +56,21 @@ static void vTaskDelay(unsigned ms) { clock_us+=ms*1000; }
 '''
         harness += function(source, "static void audio_finish(")
         harness += function(source, "esp_err_t ainekio_p4_media_tts_start(")
+        harness += function(source, "void ainekio_p4_media_external_speech(")
         harness += r'''
 void ainekio_wake_word_reset(ainekio_wake_word_service_t *w) { assert(w==wake);resets++; }
 ainekio_wake_word_result_t ainekio_wake_word_process(ainekio_wake_word_service_t *w,const int16_t *pcm,size_t n)
 {
     assert(w==wake && pcm && n==320);
-    assert(!status.speaker_busy && clock_us>=microphone_after);
-    assert(input_frame<4 || input_frame>=49);wake_frames++;
+    assert(!status.speaker_busy && !atomic_load(&external_speech) && clock_us>=microphone_after);
+    assert(input_frame<4 || input_frame>=resume_frame);wake_frames++;
     if(input_frame==3) {
         /* Playback starts while a previous wake inference is still running. */
-        assert(ainekio_p4_media_tts_start(1)==ESP_OK);
+        if(use_external)ainekio_p4_media_external_speech(true);
+        else assert(ainekio_p4_media_tts_start(1)==ESP_OK);
         return AINEKIO_WAKE_WORD_DETECTED;
     }
-    if(input_frame==50) {
+    if(input_frame==resume_frame+1) {
         assert(resets>=3); /* Initial session, playback start, playback end. */
         return AINEKIO_WAKE_WORD_DETECTED;
     }
@@ -76,12 +82,20 @@ static int i2s_channel_read(void *channel,void *out,size_t size,size_t *received
 {
     assert(channel==rx && size==640 && timeout==40 && mutex_depth==0);
     input_frame++;clock_us+=20000;
-    if(input_frame==60)longjmp(finished,1);
+    if(input_frame==resume_frame+11)longjmp(finished,1);
     if(input_frame==9) {
-        xSemaphoreTake(mutex,0);audio_finish(ESP_OK);
-        assert(microphone_after==clock_us+800000);
+        if(use_external) {
+            ainekio_p4_media_external_speech(false);
+            assert(microphone_after==0); /* No new cooldown or elapsed-time gate. */
+        } else {
+            xSemaphoreTake(mutex,0);audio_finish(ESP_OK);
+            assert(microphone_after==clock_us+800000);
+        }
     }
-    if(input_frame==53)assert(ainekio_p4_media_tts_start(2)==ESP_OK);
+    if(input_frame==resume_frame+4) {
+        if(use_external)ainekio_p4_media_external_speech(true);
+        else assert(ainekio_p4_media_tts_start(2)==ESP_OK);
+    }
     int16_t *pcm=out;
     for(unsigned i=0;i<320;i++)pcm[i]=(int16_t)input_frame;
     *received=size;return ESP_OK;
@@ -90,10 +104,10 @@ static void gate(void *context,uint64_t id,bool open,bool detected)
 {
     (void)context;assert(id==42);
     if(open) {
-        assert(input_frame==50 && detected && mutex_depth==1);
+        assert(input_frame==resume_frame+1 && detected && mutex_depth==1);
         assert(status.utterance_open && !status.speaker_busy);opens++;
     } else {
-        assert(input_frame==53 && !detected && !status.utterance_open);closes++;
+        assert(input_frame==resume_frame+4 && !detected && !status.utterance_open);closes++;
     }
 }
 static void pcm(void *context,uint64_t id,const uint8_t *bytes)
@@ -101,14 +115,15 @@ static void pcm(void *context,uint64_t id,const uint8_t *bytes)
     (void)context;assert(id==42 && mutex_depth==1);
     assert(!status.speaker_busy && clock_us>=microphone_after);
     int16_t sample;memcpy(&sample,bytes,sizeof sample);
-    assert(sample>=49 && sample<=52); /* No playback/cooldown pre-roll leaked. */
+    assert(sample>=(int)resume_frame && sample<=(int)resume_frame+3); /* No playback pre-roll leaked. */
     pcm_frames++;
 }
 '''
         harness += function(source, "static void microphone_task(")
         harness += r'''
-int main(void)
+int main(int argc,char **argv)
 {
+    (void)argv;use_external=argc>1;resume_frame=use_external?10:49;
     callbacks.gate=gate;callbacks.microphone=pcm;
     if(!setjmp(finished))microphone_task(NULL);
     assert(mutex_depth==0 && opens==1 && closes==1 && pcm_frames==4);
@@ -129,3 +144,4 @@ int main(void)
                 "-I", str(ROOT / "Slave/software/core/include"), "-o", str(binary),
             ], check=True, capture_output=True, text=True)
             subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+            subprocess.run([str(binary), "external"], check=True, capture_output=True, text=True)

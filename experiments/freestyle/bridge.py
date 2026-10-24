@@ -1,8 +1,11 @@
 """Opt-in Body Control owner for the removable Freestyle experiment."""
 import asyncio
 import contextvars
+from contextlib import AsyncExitStack
 import copy
 import inspect
+import json
+from pathlib import Path
 from itertools import chain
 from uuid import uuid4
 
@@ -13,9 +16,13 @@ OWNER = contextvars.ContextVar('freestyle_job', default=None)
 
 
 class Bridge:
-    def __init__(self, gateway, transport, generate=async_remote_generate):
+    def __init__(self, gateway, transport, generate=async_remote_generate, *, recorder=None, settings_path=None):
         self.gateway, self.transport, self.generate = gateway, transport, generate
         self.settings, self.jobs, self.tasks, self.active = {}, {}, {}, {}
+        self.recorder = recorder
+        self.settings_path = Path(settings_path) if settings_path else None
+        if self.settings_path and self.settings_path.exists():
+            self.settings = json.loads(self.settings_path.read_text())
         gateway.subscribe_events(self.event)
         gateway.subscribe_commands(self.command)
 
@@ -26,11 +33,42 @@ class Bridge:
                      'error':job.get('error'),'current_action':job.get('current_action'),
                      'latest_generation':job['programs'][-1] if job['programs'] else None,
                      'completed_commands':len(job['receipts'])} for key,job in self.jobs.items()}
-        return {'settings':copy.deepcopy(self.settings), 'jobs':copy.deepcopy(jobs)}
+        return {'settings':copy.deepcopy(self.settings), 'jobs':copy.deepcopy(jobs),
+                'recording':self.recorder.status() if self.recorder else {'enabled':False}}
+
+    def record(self, job, kind, payload, sequence=None):
+        if self.recorder:
+            return self.recorder.record(kind, payload, robot_id=job['robot_id'], epoch=job['epoch'],
+                                        job_id=job['id'], sequence=sequence)
 
     async def configure(self, robot, endpoint, recover_events):
         self.settings[robot] = {'endpoint':endpoint, 'recover_events':bool(recover_events)}
+        if self.settings_path:
+            saved = json.dumps(self.settings)
+            def write():
+                self.settings_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = self.settings_path.with_suffix('.tmp')
+                temporary.write_text(saved)
+                temporary.chmod(0o600)
+                temporary.replace(self.settings_path)
+            await asyncio.to_thread(write)
         return self.status()
+
+    def review(self, robot, job_id, outcome, note='', corrected_request=None, corrected_program=None,
+               generation_index=None):
+        job = self.jobs[job_id]
+        if job['robot_id'] != robot:
+            raise ValueError('This trial belongs to a different selected robot')
+        if outcome not in ('success', 'partial', 'incorrect'):
+            raise ValueError('Choose success, partial, or incorrect')
+        index = len(job['programs'])-1 if generation_index is None else generation_index
+        if type(index) is not int or not 0 <= index < len(job['programs']):
+            raise ValueError('Select an existing generation to review')
+        value = {'generation_index':index, 'outcome':outcome, 'note':note,
+                 'corrected_request':corrected_request, 'corrected_program':corrected_program}
+        identifier = self.record(job, 'review', value)
+        job['review'] = value
+        return {'review_id':identifier, 'saved':identifier is not None, 'review':value}
 
     def trial(self, robot, job_id):
         job = self.jobs[job_id]
@@ -41,8 +79,8 @@ class Bridge:
                             'continuous_servo_trace':False, 'physical_success':None},
                 'note':'Completion receipts and endpoint observations do not prove all intermediate targets were reached.'}
 
-    async def submit(self, robot, request, execute=False, event=None):
-        setting = self.settings[robot]
+    async def submit(self, robot, request, execute=False, event=None, *, job_id=None, on_start=None):
+        setting = self.settings.get(robot, {'endpoint':'http://127.0.0.1:8794', 'recover_events':False})
         previous = self.active.get(robot)
         history = copy.deepcopy(self.jobs[previous]['history']) if event and previous else []
         if event and previous:
@@ -51,18 +89,49 @@ class Bridge:
                             'interrupted_action':copy.deepcopy(interrupted.get('current_action')),
                             'interrupted_program':copy.deepcopy(interrupted['programs'][-1] if interrupted['programs'] else None),
                             'packet_progress':copy.deepcopy(interrupted.get('packet_progress')), 'event':event})
-        if execute and previous and previous in self.tasks:
-            self.tasks[previous].cancel()
-        job_id = uuid4().hex
+        job_id = job_id or uuid4().hex
         epoch=(await self.gateway.status_snapshot())['robots'][robot]['epoch']
-        job = {'id':job_id,'robot_id':robot,'request':request,'execute':execute,'event':event,
-               'epoch':epoch,'state':'generating','history':history,'programs':[],'receipts':[]}
-        self.jobs[job_id] = job
-        if execute:
-            self.active[robot] = job_id
-        task = asyncio.create_task(self._run(job, setting),name='freestyle-'+job_id)
-        self.tasks[job_id] = task
-        return {'job_id':job_id}
+        async with AsyncExitStack() as admission:
+            if on_start is not None:
+                await admission.enter_async_context(on_start(job_id))
+            if execute and previous and previous in self.tasks:
+                self.tasks[previous].cancel()
+            job = {'id':job_id,'robot_id':robot,'request':request,'execute':execute,'event':event,
+                   'epoch':epoch,'state':'generating','history':history,'programs':[],'receipts':[]}
+            self.jobs[job_id] = job
+            self.record(job, 'job_started', job)
+            if execute:
+                self.active[robot] = job_id
+            task = asyncio.create_task(self._run(job, setting),name='freestyle-'+job_id)
+            self.tasks[job_id] = task
+            task.add_done_callback(lambda finished: self._cancelled_before_start(job, finished))
+            return {'job_id':job_id}
+
+    def _cancelled_before_start(self, job, task):
+        if task.cancelled():
+            job['state'] = 'superseded'
+            self.record(job, 'job_finished', {'state':job['state'], 'execute':job['execute']})
+            self.tasks.pop(job['id'], None)
+
+    async def result(self, job_id):
+        job = self.jobs[job_id]
+        task = self.tasks.get(job_id)
+        if task is not None:
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                if not task.cancelled():
+                    raise
+        return copy.deepcopy({key: job[key] for key in
+            ('id', 'robot_id', 'epoch', 'request', 'state', 'receipts', 'observation', 'error', 'last_sequence') if key in job})
+
+    async def cancel(self, job_id):
+        job = self.jobs[job_id]
+        task = self.tasks.get(job_id)
+        if task is not None and self.active.get(job['robot_id']) == job_id:
+            job['cancellation_requested'] = True
+            task.cancel()
+        return await self.result(job_id)
 
     async def observation(self, robot):
         snapshot = (await self.gateway.status_snapshot())['robots'][robot]
@@ -105,9 +174,13 @@ class Bridge:
                 if 'initial_observation' not in job:
                     job['initial_observation'] = copy.deepcopy(obs)
                 request = {'request':job['request'],'observation':obs,'event':event,'history':job['history']}
+                generation_index = len(job['programs'])
+                self.record(job, 'generation_requested', {'generation_index':generation_index,
+                            'execute':job['execute'], 'request':request})
                 result = (await self.generate(setting['endpoint'],request) if inspect.iscoroutinefunction(self.generate)
                           else await asyncio.to_thread(self.generate,setting['endpoint'],request))
                 job['programs'].append(result)
+                self.record(job, 'generation_completed', {'generation_index':generation_index, 'result':result})
                 if not job['execute']:
                     job['state']='generated';return
                 job['state']='executing'
@@ -117,7 +190,22 @@ class Bridge:
                 for index, action in enumerate(program):
                     job['current_action'] = action
                     job['packet_progress'] = None
+                    self.record(job, 'operation_started', {'generation_index':generation_index,
+                                'action_index':index, 'action':action, 'observation':obs})
                     name, args = action['name'], action['arguments']
+                    if name == 'face':
+                        # A token keeps the expression across this program's
+                        # motion_plan revisions. Face receipts are captured by
+                        # the gateway recorder; they never delay body motion.
+                        scoped = any(item['name'] != 'face' for item in program)
+                        face_token = 'fs_' + job['id'][:24] if scoped else None
+                        seq = await self.gateway.queue_intent('face',
+                            {'expr':args['expr'], **({'token':face_token} if scoped else {})}, robot_id=robot)
+                        if scoped:job['face_token'] = face_token
+                        self.record(job, 'face_submitted', {'expression':args['expr'],
+                                    'scope':'program' if scoped else 'normal_face_selection',
+                                    'generation_index':generation_index, 'action_index':index}, sequence=seq)
+                        continue
                     if name == 'reassess':
                         continuation = program[index+1:]
                         reassess=True; break
@@ -184,21 +272,47 @@ class Bridge:
                                angle+(home[j] if args['reference']=='home' else 0)-start[j])
                             for j,angle in zip(moving,targets)}
                     job['history'].extend([initial,sample(obs)])
+                    self.record(job, 'operation_completed', {'generation_index':generation_index,
+                                'action_index':index, 'before':initial, 'after':sample(obs)})
                 if not reassess:
                     job['state']='completed';return
                 job['state']='generating'
                 event={'type':'reassess'}
         except asyncio.CancelledError:
-            job['state']='superseded'
+            if job.get('cancellation_requested') and job['state'] == 'executing' and self.active.get(robot) == job['id']:
+                try:
+                    def still_owned(sequence):
+                        if self.active.get(robot) != job['id']:
+                            raise ValueError('Motion was replaced before cancellation dispatch')
+                    seq = await self.gateway.estop(robot_id=robot, on_sequence=still_owned)
+                    await self._receipt(job, seq, job['epoch'])
+                except Exception as error:
+                    job.update(state='error', error=str(error))
+                else:
+                    job['state']='superseded'
+            else:
+                job['state']='superseded'
         except Exception as error:
             job.update(state='error',error=str(error))
+            self.record(job, 'job_error', {'error':str(error), 'evidence':getattr(error,'evidence',None)})
         finally:
+            if job.get('face_token'):
+                try:
+                    seq = await self.gateway.queue_intent('face',
+                        {'release':True, 'token':job['face_token'], 'if_token':job['face_token']}, robot_id=robot)
+                    self.record(job, 'face_released', {'token':job['face_token']}, sequence=seq)
+                except Exception as error:
+                    self.record(job, 'face_release_error', {'error':str(error)})
+            self.record(job, 'job_finished', {'state':job['state'], 'error':job.get('error'),
+                        'execute':job['execute'], 'current_action':job.get('current_action'),
+                        'packet_progress':job.get('packet_progress')})
             OWNER.reset(token)
             self.tasks.pop(job['id'],None)
 
     async def _receipt(self,job,seq,epoch):
         receipt=await self.gateway.wait_terminal(seq,robot_id=job['robot_id'],epoch=epoch,timeout=None)
         job['receipts'].append(receipt)
+        self.record(job, 'command_receipt', receipt, sequence=seq)
         if receipt.get('t')!='done':
             raise RuntimeError('Body reported '+str(receipt))
 
@@ -233,11 +347,14 @@ class Bridge:
 
     async def command(self,command):
         robot=command.get('robot_id'); previous=self.active.get(robot)
-        if not previous or OWNER.get()==previous:
+        if not previous:
             return
         motion = command.get('t') in ('stop','motion_plan','servo','mode','state') or (
             command.get('t')=='intent' and command.get('name') not in ('face','say')) or (
             command.get('t')=='calibration' and command.get('op')!='get')
+        if motion and OWNER.get() == previous:
+            self.jobs[previous]['last_sequence'] = command.get('seq')
+            return
         if motion:
             task=self.tasks.get(previous)
             if task:task.cancel()

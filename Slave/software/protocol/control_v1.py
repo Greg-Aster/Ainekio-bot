@@ -273,6 +273,8 @@ def _validate_welcome(message: Mapping[str, object]) -> None:
     _string(message, "profile", allowed=PROFILES)
     if COMMAND_DEADLINE_FEATURE in message:
         _boolean(message, COMMAND_DEADLINE_FEATURE)
+    if "external_speech" in message:
+        _boolean(message, "external_speech")
 
 
 def validate_walk_controls(message: Mapping[str, object]) -> None:
@@ -463,6 +465,8 @@ def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
     if "seq" in message:
         _fail("unexpected:seq")
     _optional_integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
+    if "external_speech" in message:
+        _boolean(message, "external_speech")
     if "audio" in message:
         audio = message["audio"]
         if not isinstance(audio, Mapping):
@@ -470,7 +474,7 @@ def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
         _boolean(audio, "on")
         _boolean(audio, "listening")
         _boolean(audio, "wake_enabled")
-        for name in ("capturing", "speaker_busy"):
+        for name in ("capturing", "speaker_busy", "external_speech"):
             if name in audio:
                 _boolean(audio, name)
         _string(audio, "gate", allowed=MIC_GATES)

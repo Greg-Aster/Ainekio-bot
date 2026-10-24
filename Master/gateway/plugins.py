@@ -127,6 +127,20 @@ class AudioUtteranceAssembler:
         self._blocked: set[tuple[str, int]] = set()
         self._pending_wake: set[tuple[str, int]] = set()
 
+    def external_speech(self, robot_id: str, epoch: int, active: bool) -> None:
+        key = (robot_id, epoch)
+        self._pending.pop(key, None)
+        self._pending_wake.discard(key)
+        if active:
+            self._blocked.add(key)
+        else:
+            self._blocked.discard(key)
+            # An older body or a lost notification may leave its VAD stream
+            # open. Accept subsequent real PCM without waiting for a new edge.
+            # This is a fresh host segment, with no invented firmware origin.
+            self._pending[key] = _PendingUtterance(self.id_factory(), None, robot_id,
+                epoch, self.utcnow().isoformat(), False)
+
     async def handle_event(self, event: dict[str, object]) -> None:
         key = self._key(event)
         if key is None:
@@ -289,6 +303,7 @@ class AudioUtterancePlugin:
         )
         gateway.subscribe_events(self.assembler.handle_event)
         gateway.subscribe_frames(self.assembler.handle_frame)
+        gateway.subscribe_external_speech(self.assembler.external_speech)
 
 
 class AudioTranscriptPlugin:
@@ -411,6 +426,9 @@ class CameraFramePlugin:
         self._depth_settings = {}
         self._metric_generation = {}
         self._metric_latest = {}
+        self._metric_consumers = {}
+        self._metric_frames = {}
+        self._metric_ready = {}
         self._camera_latest = {}
         gateway.subscribe_frames(self._handle_frame)
 
@@ -454,12 +472,9 @@ class CameraFramePlugin:
                 "expiresAt": (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()}
             await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": robot_id,
                 "epoch": epoch, "measurement": {"camera": self.camera_measurement(robot_id)}})
-        if self._metric_queue.full():
-            self._metric_queue.get_nowait()
-            self._metric_queue.task_done()
-        self._metric_queue.put_nowait((item, received_iso))
-        if self._metric_worker is None:
-            self._metric_worker = asyncio.create_task(self._run_metrics())
+        self._metric_frames[robot_id] = (item, received_iso)
+        if robot_id in self._metric_consumers.values():
+            self._queue_metric(item, received_iso)
         if not self.enabled:
             return
         self.received_frames += 1
@@ -547,6 +562,11 @@ class CameraFramePlugin:
             self._metric_executor, lambda: getattr(self._metric_owner(), operation)(*args))
 
     async def configure_ground_plane(self, robot_id, request):
+        frame = self._metric_frames.get(robot_id)
+        if frame is not None and self._body_current(frame[0]):
+            item, stamp = frame
+            await self._metric_call("process", item.robot_id, item.epoch, item.counter,
+                item.received_at, item.payload, stamp)
         result = await self._metric_call("calibration", robot_id, request)
         if result.get("measurement") and request.get("operation") != "status":
             measurement = result["measurement"]
@@ -568,17 +588,70 @@ class CameraFramePlugin:
         def update():
             self._depth_settings[robot_id] = config
             if self._depth_motion is not None:
-                if any(c["mode"] == "moge-open3d" for c in self._depth_settings.values()):
+                if any(self._depth_settings.get(robot, {}).get("mode") == "moge-open3d"
+                       for robot in self._metric_consumers.values()):
                     self._depth_motion.reset(robot_id)
                 else:
                     self._depth_motion.close()
                     self._depth_motion = None
             self._metric_latest.pop(robot_id, None)
         await asyncio.get_running_loop().run_in_executor(self._metric_executor, update)
+        ready = self._metric_ready.pop(robot_id, None)
+        if ready is not None and not ready.done():
+            ready.set_result({"available": False, "robotId": robot_id, "reason": "Depth configuration changed"})
         return config
 
     async def restore_depth(self, configurations):
         self._depth_settings = {robot: depth_settings(config) for robot, config in configurations.items()}
+
+    def _queue_metric(self, frame, timestamp):
+        if self._metric_queue.full():
+            self._metric_queue.get_nowait()
+            self._metric_queue.task_done()
+        self._metric_queue.put_nowait((frame, timestamp))
+        if self._metric_worker is None:
+            self._metric_worker = asyncio.create_task(self._run_metrics())
+
+    async def depth_demand(self, robot_id, consumer_id, enabled):
+        """The camera owner retains depth only for explicitly registered consumers."""
+        if not isinstance(consumer_id, str) or not consumer_id or type(enabled) is not bool:
+            raise ValueError("Depth demand requires a consumer identifier and boolean enabled")
+        previous = self._metric_consumers.get(consumer_id)
+        if enabled:
+            self._metric_consumers[consumer_id] = robot_id
+        else:
+            self._metric_consumers.pop(consumer_id, None)
+        released_robots = {robot for robot in {previous, robot_id} - {None}
+                           if robot not in self._metric_consumers.values()}
+        for released in released_robots:
+            self._metric_generation[released] = self._metric_generation.get(released, 0) + 1
+            self._metric_latest.pop(released, None)
+            ready = self._metric_ready.pop(released, None)
+            if ready is not None and not ready.done():
+                ready.set_result({"available": False, "reason": "Depth demand released", "robotId": released})
+        def release_unused_model():
+            if self._depth_motion is not None and not any(
+                    self._depth_settings.get(robot, {}).get("mode") == "moge-open3d"
+                    for robot in self._metric_consumers.values()):
+                self._depth_motion.close()
+                self._depth_motion = None
+            elif self._depth_motion is not None:
+                for released in released_robots:
+                    self._depth_motion.reset(released)
+        await asyncio.get_running_loop().run_in_executor(self._metric_executor, release_unused_model)
+        if not enabled:
+            return {"enabled": False}
+        measurement = self.locomotion_measurement(robot_id)
+        if measurement.get("available"):
+            return {"enabled": True, "measurement": measurement}
+        frame = self._metric_frames.get(robot_id)
+        if frame is None or not self._body_current(frame[0]):
+            return {"enabled": True, "measurement": measurement}
+        ready = self._metric_ready.get(robot_id)
+        if ready is None or ready.done():
+            ready = self._metric_ready[robot_id] = asyncio.get_running_loop().create_future()
+            self._queue_metric(*frame)
+        return {"enabled": True, "measurement": await asyncio.shield(ready)}
 
     def _process_metric(self, frame, received_iso):
         config = self._depth_settings.get(frame.robot_id, {})
@@ -633,11 +706,21 @@ class CameraFramePlugin:
             frame, received_iso = await self._metric_queue.get()
             generation = self._metric_generation.get(frame.robot_id, 0)
             try:
+                if frame.robot_id not in self._metric_consumers.values():
+                    continue
                 result = await asyncio.get_running_loop().run_in_executor(
                     self._metric_executor, self._process_metric, frame, received_iso)
+                if not self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
+                    ready = self._metric_ready.pop(frame.robot_id, None)
+                    if ready is not None and not ready.done():
+                        ready.set_result({"available": False, "robotId": frame.robot_id,
+                            "reason": "Depth observation belongs to disconnected body epoch"})
                 if self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
                     result["expiresAt"] = (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()
                     self._metric_latest[frame.robot_id] = result
+                    ready = self._metric_ready.pop(frame.robot_id, None)
+                    if ready is not None and not ready.done():
+                        ready.set_result(result)
                     await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
                         "epoch": frame.epoch, "measurement": {k: v for k, v in result.items() if k != "depthPreview"}})
             except Exception as error:
@@ -646,6 +729,9 @@ class CameraFramePlugin:
                     "receivedAtMonotonic": frame.received_at, "frameCounter": frame.counter,
                     "frameId": f"ainekio-camera-{self.gateway.instance_id}-{frame.robot_id}-{frame.epoch}-{frame.counter}"}
                 logging.getLogger(__name__).warning("Camera motion measurement failed: %s", error)
+                ready = self._metric_ready.pop(frame.robot_id, None)
+                if ready is not None and not ready.done():
+                    ready.set_result(failed)
                 if self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
                     self._metric_latest[frame.robot_id] = failed
                     await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
@@ -737,6 +823,11 @@ class CameraFramePlugin:
         await asyncio.shield(self._close_task)
 
     async def _finish_close(self) -> None:
+        self._metric_consumers.clear()
+        for ready in self._metric_ready.values():
+            if not ready.done():
+                ready.set_result({"available": False, "reason": "Camera owner closed"})
+        self._metric_ready.clear()
         if self._metric_worker is not None:
             self._metric_worker.cancel()
             await asyncio.gather(self._metric_worker, return_exceptions=True)

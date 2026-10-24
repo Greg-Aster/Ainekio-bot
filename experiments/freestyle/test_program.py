@@ -176,3 +176,72 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
             'data':{'kind':'servo_stall','command_sequence':99}})
         self.assertFalse(self.bridge.jobs)
+
+    async def test_recovery_receives_interrupted_program_and_fresh_observations(self):
+        self.bridge.generate=lambda endpoint,request:self.generate(endpoint,copy.deepcopy(request))
+        for kind in ('servo_stall', 'tipped', 'rapid_movement', 'slip'):
+            with self.subTest(kind=kind):
+                entered=asyncio.Event()
+                original_receipt=self.gateway.wait_terminal
+                async def waiting_receipt(*args, **kwargs):
+                    entered.set()
+                    await asyncio.Future()
+                self.gateway.wait_terminal=waiting_receipt
+                submitted=await self.bridge.submit('robot','wave',True)
+                interrupted=self.bridge.tasks[submitted['job_id']]
+                await entered.wait()
+                prior=self.bridge.jobs[submitted['job_id']]
+                prior['history']=[{'joints':{JOINTS[0]:9}}]
+                self.gateway.wait_terminal=original_receipt
+                async def fresh(*args):
+                    return {'joints':[{'id':i,'model_deg':12,'command_us':1500,
+                                      'calibrated':True} for i in range(12)]}
+                self.bridge.transport.request=fresh
+                await self.bridge.configure('robot','http://unused',True)
+                await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+                    'data':{'kind':kind,'joints':[{'id':0}]}})
+                recovery=self.bridge.tasks[self.bridge.active['robot']]
+                await asyncio.gather(interrupted,recovery)
+                request=self.generated[-1]
+                self.assertEqual(prior['state'],'superseded')
+                self.assertEqual(request['request'],'wave')
+                self.assertEqual(request['event']['type'],kind)
+                self.assertEqual(request['observation']['joints'][JOINTS[0]]['model_deg'],12)
+                self.assertEqual(request['history'][0],{'joints':{JOINTS[0]:9}})
+                self.assertEqual(request['history'][-1]['interrupted_program'],prior['programs'][-1])
+                self.assertEqual(request['history'][-1]['interrupted_action'],prior['current_action'])
+                self.assertIsNotNone(request['history'][-1]['packet_progress']['sequence'])
+
+    async def test_faces_do_not_wait_for_receipts_and_release_only_the_owned_selection(self):
+        sent=[]
+        async def face(name,params,**kwargs):
+            self.assertEqual(name,'face')
+            sent.append(params)
+            return 100+len(sent)
+        self.gateway.queue_intent=face
+        original_receipt=self.gateway.wait_terminal
+        async def receipt(seq,**kwargs):
+            self.assertLess(seq,100,'A face receipt must not block body movement')
+            return await original_receipt(seq,**kwargs)
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[
+            call('face',expr='wave'),move(JOINTS[0],5,'current',50)]}
+        submitted=await self.bridge.submit('robot','wave',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
+        self.assertTrue(self.gateway.sent)
+        self.assertEqual(sent[0]['expr'],'wave')
+        self.assertEqual(sent[1],{'release':True,'token':sent[0]['token'],'if_token':sent[0]['token']})
+        for message in sent:
+            validate_control_message({'t':'intent','name':'face','seq':1,**message})
+
+    async def test_face_only_request_retains_the_normal_visible_face(self):
+        sent=[]
+        async def face(name,params,**kwargs):
+            sent.append(params);return 100
+        self.gateway.queue_intent=face
+        self.bridge.generate=lambda *args:{'program':[call('face',expr='happy')]}
+        submitted=await self.bridge.submit('robot','look happy',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(sent,[{'expr':'happy'}])
+        self.assertFalse(self.gateway.sent)

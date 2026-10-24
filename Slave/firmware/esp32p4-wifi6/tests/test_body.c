@@ -139,6 +139,7 @@ bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *d,uint16_t pulse)
 ainekio_pca_status_t ainekio_pca_status(ainekio_pca9685_t *d) { return d->state; }
 void ainekio_pca_emergency_disable(ainekio_pca9685_t *d,ainekio_pca_fault_t f)
 { d->state.armed=false;d->state.fault=f;++d->state.generation; }
+void ainekio_pca_idle(ainekio_pca9685_t *d) { d->state.armed=false; }
 void ainekio_pca_disarm(ainekio_pca9685_t *d)
 { ainekio_pca_emergency_disable(d,AINEKIO_PCA_FAULT_NONE); }
 ainekio_pca_result_t ainekio_pca_recover(ainekio_pca9685_t *d,uint64_t g)
@@ -1938,12 +1939,20 @@ static void inactivity_rest(void)
     clock_us=rest_timer->due-1;rest_tick();assert(body.motion.kind==MOTION_NONE);
     ++clock_us;rest_tick();assert(body.motion.kind==MOTION_CLIP);
     assert(!strcmp(body.motion.face_command,"lay_down"));assert(driver.state.armed);
-    while(body.motion.kind!=MOTION_NONE)advance(20);
-    assert(driver.state.armed && !rest_timer->due);
+    const uint64_t admitted=driver.state.generation;
+    driver_timeout=true;advance(2000);
+    assert(driver.state.armed && body.motion.kind==MOTION_CLIP && body.motion.release_on_complete);
+    driver_timeout=false;
+    unsigned remaining=15000;
+    while(body.motion.kind!=MOTION_NONE && remaining){advance(20);remaining-=20;}
+    assert(remaining && driver.state.generation==admitted);
+    assert(!driver.state.armed && !body.active && !body.pose_valid && !rest_timer->due);
+    assert(!strcmp(body.motion.face_command,"lay_down"));
+    for(unsigned j=0;j<12;j++)assert(!commanded[j]);
     clock_us+=600000000;rest_tick();assert(body.motion.kind==MOTION_NONE);
     /* New commands remain immediate. A superseded timer notice cannot override them. */
     c.sequence++;assert(execute(&c)==ESP_OK);rest_timeout(NULL);rest_tick();
-    assert(body.motion.kind==MOTION_POSE);assert(finish(15000).completed);
+    assert(body.motion.kind==MOTION_POSE && driver.state.armed);assert(finish(15000).completed);
     assert(rest_timer->due);
     rest_seconds=0;ainekio_p4_body_activity();rest_tick();assert(!rest_timer->due);
     clock_us+=600000000;rest_tick();assert(body.motion.kind==MOTION_NONE);
@@ -1961,7 +1970,17 @@ static void inactivity_rest(void)
     /* Released and manually calibrated outputs are not automatically re-armed. */
     reset();assert(ainekio_p4_body_move(driver.state.generation,0,1600)==ESP_OK);
     rest_tick();assert(!rest_timer->due);
-    puts("Shared one-shot inactivity: timed lay-down, saved selection, active work, replacement and powered rest passed.");
+    /* Manual lay-down still holds; automatic release belongs to its own motion. */
+    reset();c=command(100,AINEKIO_INTENT_EMOTE);strcpy(c.data.intent.data.asset,"lay_down");
+    assert(execute(&c)==ESP_OK);assert(finish(15000).completed);assert(driver.state.armed);
+    c=command(101,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);assert(finish(15000).completed);
+    rest_tick();clock_us=rest_timer->due;rest_tick();assert(body.motion.release_on_complete);
+    advance(100);c=command(102,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
+    assert(!body.motion.release_on_complete);assert(finish(15000).completed && driver.state.armed);
+    rest_tick();clock_us=rest_timer->due;rest_tick();assert(body.motion.release_on_complete);
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    advance(1000);assert(driver.state.armed && !body.motion.release_on_complete);
+    puts("Shared inactivity timer: completion releases outputs; normal motions and replacements retain control.");
 }
 
 int main(int argc,char **argv)

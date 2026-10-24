@@ -15,6 +15,8 @@
   let csrfToken = null;
   let hostNetworkBusy = false;
   let selectedRobotId = null;
+  let motionSystemRobot = null;
+  let motionSystemEdited = false;
   let bodyEventsRobot = null;
   let bodyEventsEdited = false;
   let bodyEventsSaving = false;
@@ -504,9 +506,10 @@
     meter.value = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
     meter.classList.toggle("clipping", clipping);
     text("microphone-level-status", !online ? "Robot offline" : supported && !fresh ? "Waiting for input level" :
+      entry.external_speech_active ? (audio?.external_speech ? "Listening suppressed during external speech" : "External speech: host audio suppressed; robot notification unconfirmed") :
       supported && !audio.on ? "Microphone off" : !listening ? "Listening paused during speaker playback" :
       `${supported ? (audio.capturing ? "Recording" : "Listening") : "Sent audio"} · ${db > -60 ? `${db.toFixed(1)} dBFS` : "below −60 dBFS"}${clipping ? " · Clipping — lower gain" : ""}`);
-    text("microphone-level-help", supported ? "Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping." : "This firmware reports levels only while audio is being sent. Update the robot firmware for input gain, wake sensitivity and levels before detection.");
+    text("microphone-level-help", entry.external_speech_error ? `Speech notification failed: ${entry.external_speech_error}. The next heartbeat carries the current state; playback continues.` : supported ? "Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping." : "This firmware reports levels only while audio is being sent. Update the robot firmware for input gain, wake sensitivity and levels before detection.");
   }
 
   async function command(path, payload = {}, label = "Command sent", canReport = () => true) {
@@ -1447,7 +1450,33 @@
     return command("/api/intent", {name, params}, label);
   }
 
+  function updateMotionSystem(payload) {
+    if (motionSystemRobot !== selectedRobotId) {
+      motionSystemRobot = selectedRobotId;
+      motionSystemEdited = false;
+    }
+    const system = payload.motion_systems?.[selectedRobotId] || "library";
+    if (!motionSystemEdited) byId("motion-system").value = system;
+    text("motion-system-status", selectedRobotId
+      ? `Current: ${system === "freestyle" ? "Freestyle" : "Motion Library"}`
+      : "Select a robot.");
+  }
+
   function setupMotionControls() {
+    byId("motion-system").addEventListener("change", () => { motionSystemEdited = true; });
+    byId("motion-system-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const robot = selectedRobotId;
+      const system = byId("motion-system").value;
+      try {
+        await command("/api/motion-system", {system},
+          "Motion system saved", () => robot === selectedRobotId);
+        if (robot === selectedRobotId) {
+          if (byId("motion-system").value === system) motionSystemEdited = false;
+          await refreshStatus();
+        }
+      } catch (_error) { /* command displays the error */ }
+    });
     byId("balance-reference").addEventListener("click", captureBalanceReference);
     byId("balance-gyro-calibrate").addEventListener("click", calibrateBalanceGyro);
     byId("balance-read").addEventListener("click", () => operateBalance("get"));
@@ -2393,13 +2422,26 @@
       event.preventDefault();
       const form = event.currentTarget;
       try {
+        if (event.submitter?.value === "sample") {
+          const robotId = selectedRobotId;
+          text("depth-sample-status", "Measuring the latest camera frame…");
+          const result = await request("/api/camera/depth", { method: "POST", body: JSON.stringify({
+            robot_id: robotId, operation: "sample"
+          }) });
+          if (robotId !== selectedRobotId) return;
+          const { depthPreview, ...measurement } = result.measurement || {};
+          text("depth-sample-status", JSON.stringify(measurement, null, 2));
+          const preview = byId("depth-motion-preview");
+          if (preview) { preview.hidden = !depthPreview; if (depthPreview) preview.src = depthPreview; }
+          return;
+        }
         const transform = form.elements.cameraToBody.value.trim();
         await request("/api/camera/depth", { method: "POST", body: JSON.stringify({
           robot_id: selectedRobotId, mode: form.elements.mode.value,
           resolution_level: Number(form.elements.resolution_level.value),
           cameraToBody: transform ? JSON.parse(transform) : null
         }) });
-        text("depth-motion-status", "Distance source saved; waiting for its next camera measurement.");
+        text("depth-motion-status", "Distance source saved. Processing starts when a consumer requests measurements.");
       } catch (error) { text("depth-motion-status", error.message); }
     });
     byId("ground-calibration-form")?.addEventListener("submit", async (event) => {
@@ -3008,6 +3050,9 @@
     renderBodyEvents(payload, entry);
     renderPeople(payload.person_recognition, recognition?.observation);
     if (cameraSettingsRobotId !== selectedRobotId) {
+      text("depth-sample-status", "");
+      const preview = byId("depth-motion-preview");
+      if (preview) { preview.hidden = true; preview.removeAttribute("src"); }
       const depth = payload.depth_settings?.[selectedRobotId] || {};
       const depthForm = byId("depth-motion-form");
       if (depthForm) {
@@ -3034,8 +3079,7 @@
       text("depth-motion-status", JSON.stringify(details, null, 2));
       const preview = byId("depth-motion-preview");
       if (preview) {
-        preview.hidden = !depthPreview;
-        if (depthPreview) preview.src = depthPreview;
+        if (depthPreview) { preview.hidden = false; preview.src = depthPreview; }
       }
     }
     if (Date.now() - behaviorReadAt > 5000) void refreshBehaviorControl();
@@ -3265,6 +3309,7 @@
         const payload = await request("/api/status");
         if (generation === statusGeneration) {
           renderStatus(payload);
+          updateMotionSystem(payload);
           gaitHistoryView?.update(selectedRobotId, payload.robots?.[selectedRobotId]?.gait_training);
           window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
           renderHostNetwork(payload.host_network);
@@ -3280,12 +3325,41 @@
     const form = byId("speech-output-form");
     const select = byId("speech-output");
     const button = form.querySelector("button");
+    const device = byId("speech-computer-device");
+    let outputs = [], hostReading = false;
+    function renderDevices(selected = device.value) {
+      device.replaceChildren();
+      const add = (value,label) => { const o=document.createElement("option");o.value=value;o.textContent=label;device.append(o); };
+      add("","System default");
+      for (const output of outputs) add(output.name,`${output.bluetooth ? "Bluetooth · " : ""}${output.description}`);
+      if(selected && !outputs.some(o=>o.name===selected))add(selected,`${selected} (not currently connected)`);
+      device.value=selected;
+    }
+    async function refreshDevices() {
+      if(hostReading)return;hostReading=true;
+      try {
+        const data=await request("/api/host-audio"); outputs=data.outputs;renderDevices();
+        const devices=byId("bluetooth-device"), selected=devices.value;devices.replaceChildren();
+        for(const item of data.devices){const o=document.createElement("option");o.value=item.address;o.textContent=`${item.name} · ${item.address}`;devices.append(o);}
+        if(data.devices.some(d=>d.address===selected))devices.value=selected;
+        const jobs=data.jobs || [], latest=jobs[jobs.length-1];
+        text("host-audio-state",`${data.scanning ? "Discovery active" : "Discovery off"}${latest ? ` · ${latest.operation}: ${latest.state}${latest.error ? ` · ${latest.error}`:""}`:""}${data.errors.length ? ` · ${data.errors.join(" · ")}`:""}`);
+      }catch(error){text("host-audio-state",error.message);}finally{hostReading=false;}
+    }
+    for(const [id,op] of [["scan-start","scan-start"],["scan-stop","scan-stop"],["pair","pair"],["connect","connect"],["disconnect","disconnect"]]) {
+      byId(`bluetooth-${id}`).addEventListener("click",async()=>{
+        try {await request("/api/host-audio",{method:"POST",body:JSON.stringify({op,address:byId("bluetooth-device").value})});text("host-audio-state",`${op} requested`);void refreshDevices();}
+        catch(error){text("host-audio-state",error.message);}
+      });
+    }
+    byId("host-audio-refresh").addEventListener("click",refreshDevices);
     let edited = false;
     let saving = false;
     let reading = false;
     let revision = 0;
     function render(settings) {
       select.value = settings.playbackTarget;
+      renderDevices(settings.computerDevice || "");
       select.disabled = false;
       button.disabled = false;
       const destination = settings.playbackTarget === "robot" ? "Robot speaker" : "Body Control computer";
@@ -3307,6 +3381,7 @@
       revision++;
       text("speech-output-state", "Unsaved speech output selection.");
     });
+    device.addEventListener("change",()=>{edited=true;revision++;text("speech-output-state","Unsaved speech output selection.");});
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (saving) return;
@@ -3316,7 +3391,7 @@
       button.disabled = true;
       try {
         const settings = await request("/api/speech-output", {
-          method: "POST", body: JSON.stringify({playbackTarget: select.value}),
+          method: "POST", body: JSON.stringify({playbackTarget: select.value,computerDevice:device.value}),
         });
         edited = false;
         render(settings);
@@ -3324,7 +3399,8 @@
       finally { saving = false; select.disabled = false; button.disabled = false; }
     });
     void refresh();
-    const timer = window.setInterval(refresh, 5000);
+    void refreshDevices();
+    const timer = window.setInterval(()=>{void refresh();if(!form.closest('[data-workspace-panel]').hidden)void refreshDevices();}, 5000);
     window.addEventListener("beforeunload", () => window.clearInterval(timer));
   }
 

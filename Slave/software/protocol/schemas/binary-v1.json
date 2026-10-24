@@ -47,6 +47,19 @@
       }
     },
     {
+      "id": 3,
+      "hex": "0x03",
+      "name": "camera_jpeg_chunk",
+      "direction": "body-to-brain",
+      "payload": {
+        "encoding": "uint32le totalBytes, uint32le offset, JPEG bytes",
+        "headerBytes": 8,
+        "imageMaximumBytes": 262144,
+        "counterScope": "all chunks of one camera frame",
+        "ordering": "contiguous offsets from zero; audio and control may interleave"
+      }
+    },
+    {
       "id": 16,
       "hex": "0x10",
       "name": "speaker_pcm",

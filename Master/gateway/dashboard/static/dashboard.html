@@ -192,6 +192,16 @@
       </section>
 
 <section class="control-section workspace-section" data-workspace-panel="poses" aria-labelledby="poses-title"><div class="section-heading"><h2 id="poses-title">Poses and emotes</h2></div>
+<form id="motion-system-form">
+  <label for="motion-system">Default motion system</label>
+  <select id="motion-system" name="system">
+    <option value="freestyle">Freestyle — trained motion model</option>
+    <option value="library">Motion Library — saved motions</option>
+  </select>
+  <button type="submit">Save motion system</button>
+  <p id="motion-system-status" aria-live="polite"></p>
+  <p>Startup stretch uses this selection. The library controls below remain direct controls. Freestyle results appear in the Freestyle panel.</p>
+</form>
 <div class="emote-group">
           <span class="field-label">Named poses and emotes</span>
 
@@ -293,7 +303,7 @@
               <button type="submit" id="idle-rest-save">Save on robot</button>
               <button type="button" id="idle-rest-read">Read from robot</button>
             </div>
-            <p class="muted">0 disables automatic rest. Active movement and speech defer rest. The robot lays down normally and keeps its servos powered; new commands remain available. Saved across power cycles.</p>
+            <p class="muted">0 disables automatic rest. Active movement and speech defer rest. The robot lays down normally, then releases its servo outputs after the motion completes. New movement commands re-enable the servos. Servo release requires P4 firmware 0.8.117 or later. Saved across power cycles.</p>
             <p id="idle-rest-status" role="status" class="muted"></p>
           </form>
           <span class="field-label">Power state</span>
@@ -530,14 +540,17 @@
               <label>Camera-to-body transform, if measured (optional 4×4 JSON)
                 <textarea name="cameraToBody" placeholder="Leave empty to track the camera with forward/upright mounting assumed"></textarea>
               </label>
-              <button type="submit">Save distance source / restart depth tracking</button>
+              <button type="submit" value="save">Save distance source</button>
+              <button type="submit" value="sample">Measure depth now</button>
             </form>
             <p>MoGe estimates depth from the existing camera; no depth sensor or checkerboard is needed.
               Distances are model estimates with unknown metric accuracy. Tracking is relative to its starting view;
               it does not recognize a return to an earlier location. Without a measured mounting transform,
               it tracks the camera's position, not the body centre. The selected source supplies gait-learning measurements.
-              This uses the host computer; switch back to ground-plane measurements to unload the depth model.</p>
+              Processing runs only for requested measurements, navigation or active gait recording.
+              The host unloads the depth model after its last consumer finishes. A new measurement may need to load it again.</p>
             <pre id="depth-motion-status" aria-live="polite"></pre>
+            <pre id="depth-sample-status" aria-live="polite"></pre>
             <img id="depth-motion-preview" hidden alt="Estimated scene depth from the identified camera frame" style="max-width:100%">
           </details>
           <details><summary>Metric ground-plane calibration</summary>
@@ -653,10 +666,28 @@
               <option value="robot">Robot speaker</option>
             </select>
           </label>
+          <label for="speech-computer-device">Computer / Bluetooth speaker
+            <select id="speech-computer-device"><option value="">System default</option></select>
+          </label>
           <button type="submit" disabled>Save speech output</button>
-          <p id="speech-output-help" class="audio-help">Choose the speaker for speech sent to Body Control. Computer uses this gateway machine’s default audio device; Robot uses the connected V1 or V2. Saved on Body Control. Select Body Control in MetaHuman’s audio control to use this destination.</p>
+          <p id="speech-output-help" class="audio-help">Choose Robot speaker, or Body Control computer and an audio output. Bluetooth connects to this gateway computer. Speech starts without waiting for the robot; listening suppression is notified separately. Select Body Control in MetaHuman’s audio control to use this destination.</p>
           <p id="speech-output-state" class="audio-help" role="status">Reading Body Control settings…</p>
         </form>
+        <details><summary>Connect a Bluetooth speaker</summary>
+          <p>Put the speaker in pairing mode, start discovery, then refresh devices. Pair it, connect it, and select its audio output above. Each operation runs independently of robot movement and speech.</p>
+          <div class="input-with-actions">
+            <button type="button" id="bluetooth-scan-start">Start discovery</button>
+            <button type="button" id="bluetooth-scan-stop">Stop discovery</button>
+            <button type="button" id="host-audio-refresh">Refresh devices</button>
+          </div>
+          <label>Bluetooth device<select id="bluetooth-device"></select></label>
+          <div class="input-with-actions">
+            <button type="button" id="bluetooth-pair">Pair</button>
+            <button type="button" id="bluetooth-connect">Connect</button>
+            <button type="button" id="bluetooth-disconnect">Disconnect</button>
+          </div>
+          <p id="host-audio-state" role="status"></p>
+        </details>
         <form id="speaker-form" class="settings-form audio-settings-form">
           <label class="audio-adjustment" for="speaker-volume">
             <span class="speaker-test-volume-heading">Robot speaker volume <output id="speaker-volume-output" for="speaker-volume">—</output></span>

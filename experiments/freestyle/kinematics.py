@@ -26,9 +26,10 @@ def mechanism():
     return reference().Mechanism(json.loads((ROOT/'geometry.json').read_text()))
 
 
-def foot_positions(positions):
+def foot_positions(positions, model=None):
+    """Evaluate foot points, optionally using a caller-owned zero-body-pose model."""
     import numpy as np
-    model=mechanism()
+    model=mechanism() if model is None else model
     return {leg:model.reference(cad,np.deg2rad([positions[f'{leg}_{axis}'] for axis in ('shoulder','carrier','crank')]),np.zeros(3)).tolist()
             for leg,cad in CAD_LEGS.items()}
 
@@ -60,10 +61,19 @@ def frames_for_spatial(action, positions):
     rotation=np.deg2rad(args.get('rotation_deg',[0,0,0]))
     q={leg:np.deg2rad([positions[f'{leg}_{axis}'] for axis in ('shoulder','carrier','crank')]) for leg in CAD_LEGS}
     feet={leg:model.reference(cad,q[leg],np.zeros(3)) for leg,cad in CAD_LEGS.items()}
-    # Sample geometry, not elapsed time: a slow path has the same curvature as
-    # a fast path. Refine quarter/midpoint joint interpolation to the existing
-    # 0.005-degree clip error budget. Durations retain the wire's 1 ms resolution.
+    # Refine geometric curvature at the actual P4 output cadence. Each packet
+    # endpoint takes at least one 20 ms output tick; 8 ms subdivision otherwise
+    # stretches a 700 ms stroke into 1.6 seconds. Keep every requested action's
+    # endpoint, but do not create intermediate frames the body cannot emit.
     milliseconds=math.ceil(seconds*1000)
+    tick_ms=20
+    def output_stamp(stamp):
+        if stamp>=milliseconds:return milliseconds
+        value=round(stamp/tick_ms)*tick_ms
+        # Keep any fractional final output tick in the final segment rather
+        # than creating a second short frame before the exact endpoint.
+        if milliseconds-value<tick_ms:value=max(0,(milliseconds//tick_ms-1)*tick_ms)
+        return max(0,value)
     samples={0:np.array([positions[j] for j in JOINTS])}
     def solve_at(stamp, seed):
         if stamp in samples:return samples[stamp]
@@ -80,10 +90,11 @@ def frames_for_spatial(action, positions):
     sections=max(1,math.ceil(np.linalg.norm(translation)/8),
                  math.ceil(float(np.max(np.abs(np.rad2deg(rotation))))/15),
                  *(math.ceil(np.linalg.norm(offset)/8) for offset in delta.values()))
-    initial=sorted({round(i*milliseconds/sections) for i in range(sections+1)})
+    initial=sorted({output_stamp(i*milliseconds/sections) for i in range(sections+1)})
     keep={0}
     def refine(a,b):
-        probes=sorted({a,*(round(a+(b-a)*fraction) for fraction in (.25,.5,.75)),b})
+        probes=sorted({a,*(output_stamp(a+(b-a)*fraction) for fraction in (.25,.5,.75)),b})
+        probes=[stamp for stamp in probes if a<=stamp<=b]
         seed=samples[a]
         for stamp in probes[1:]:seed=solve_at(stamp,seed)
         error=max((float(np.max(np.abs(samples[t]-(samples[a]+(samples[b]-samples[a])*(t-a)/(b-a)))))

@@ -1522,6 +1522,12 @@ static ainekio_decode_result_t decode_control(
         return AINEKIO_DECODE_JSON;
     }
     memset(message, 0, sizeof(*message));
+    if (body_extensions && object_get(&parser, root, "external_speech") >= 0) {
+        const ainekio_decode_result_t audio_result = required_boolean(&parser, root,
+            "external_speech", &message->external_speech);
+        if (audio_result != AINEKIO_DECODE_OK) return audio_result;
+        message->has_external_speech = true;
+    }
     char type[24];
     ainekio_decode_result_t result =
         required_string(&parser, root, "t", type, sizeof(type), 1U, 23U);

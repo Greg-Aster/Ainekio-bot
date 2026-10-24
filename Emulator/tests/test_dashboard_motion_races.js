@@ -27,7 +27,7 @@ source=source.replace('  if (!setupLogin()) {', `
     steering() { steeringSupported=true; setSteeringVector(100,0); },
     state() { return {activeWalkSequence,heldRequestPending,walkRequestPending,activeWalkProfile}; },
     range(supported,crab=false) { runningSupported=supported; crabSupported=crab; updateSpeedRange(); },
-    updateBalance,operateBalance,beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus,updateMotionSpeed,operateMotionSpeed,sendNamedMotion,pollGamepad
+    updateMotionSystem,updateBalance,operateBalance,beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus,updateMotionSpeed,operateMotionSpeed,sendNamedMotion,pollGamepad
   };
   if (false) {`);
 vm.createContext(context);vm.runInContext(source,context);
@@ -417,6 +417,23 @@ async function run() {
   console.log('Live IMU signs, physical leg order, zero-reference save, stale samples and explicit gyro calibration passed.');
   console.log('Self-leveling readback, selected robot races and saving without interrupting Walk passed.');
   console.log('Combined steering, direction presets, coalesced updates, two-key driving, gamepad curves, release-before-ACK and legacy controls passed.');
+
+  api.select('motion-a');
+  api.updateMotionSystem({motion_systems:{'motion-a':'freestyle'}});
+  assert.equal(node('motion-system').value,'freestyle');
+  node('motion-system').value='library';node('motion-system').fire('change');
+  api.updateMotionSystem({motion_systems:{'motion-a':'freestyle'}});
+  assert.equal(node('motion-system').value,'library','poll must preserve an unsaved selection');
+  const saveMotion=node('motion-system-form').fire('submit');
+  assert.equal(requests.at(-1).url,'/api/motion-system');
+  assert.deepEqual(requests.at(-1).body,{system:'library',robot_id:'motion-a'});
+  const savingMotion=requests.at(-1);
+  api.select('motion-b');api.updateMotionSystem({motion_systems:{'motion-b':'freestyle'}});
+  savingMotion.resolve({robot_id:'motion-a',system:'library'});await saveMotion;
+  assert.equal(node('motion-system').value,'freestyle','old save must not change the new robot');
+  api.select('motion-c');api.updateMotionSystem({});
+  assert.equal(node('motion-system').value,'library');
+  console.log('Motion selector: saved status, unsaved edits, per-robot save and delayed replies passed.');
 
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

@@ -6,12 +6,129 @@ the same standalone generator. Ordinary motion buttons retain their existing
 behavior. The generator itself has no robot transport; the explicit Body
 Control execution path sends commands through the existing gateway owner.
 
-The live standalone service still uses the earlier compact-v2-recovery model on
-the GPU. The spatial-v4 continuation is training; spatial candidates remain separate
-until their generated programs have been evaluated. Body Control has loaded the
-optional progress/settings/trial-export integration. No physical robot trials
-have occurred in this refinement. Current run evidence is under ignored
-`artifacts/spatial-v4/`; the external evaluation pipeline is described below.
+The production Freestyle service now uses the **spatial-v7 Qwen3.5-0.8B LoRA,
+merged and exported as Q8_0**, with the matching v7 spatial contract, GPU
+inference and reasoning disabled. The larger/full-weight comparison reports and
+adapters remain separate artifacts; their unused merged weights were removed.
+V7 reproduces learned references better than earlier models;
+its weak unseen-motion results still require the ongoing curriculum repair.
+Activation is not evidence of general physical competence.
+
+Body Control records commands and received motion telemetry automatically while
+the experiment is installed. The standalone API also records requests and model
+outputs, including errors and cancellations, for either caller. Production
+activation was checked with a live-observation **generation-only** foot-lift,
+hold and return request (0.605 seconds for this one request, zero motion commands),
+a visible panel check, and persistence of an explicitly nonphysical review.
+
+## Production and reviewed motion evidence
+
+The workstation units `ainekio-freestyle-model.service` and
+`ainekio-freestyle-api.service` are enabled user services. They point to:
+
+- Model: `artifacts/spatial-v7/final-served/model.Q8_0.gguf`
+- Model SHA256: `261fdcc14049e0435aab3e559e6a12a13a01a25f238f0084d0c5ad88ab58c139`
+- Contract: `artifacts/spatial-v7/dataset/`
+- Standalone generator: `http://127.0.0.1:8794`; llama.cpp: port 8795.
+
+These unit files contain this workstation's Python and llama.cpp paths. Their
+model server retains two inference slots, uses the GGUF's native context capacity
+(`--ctx-size 0 --fit off --kv-unified`), and enables the installed llama.cpp
+build's demand-allocated CUDA KV memory (`LLAMA_CUDA_DYNAMIC_KV=1`). The current
+model advertises 262,144 context tokens; the unified pool lets either slot use
+that capacity without a fixed half-context partition. This is a shared finite
+capacity, not unlimited memory. Full request histories are preserved. No
+output-token or elapsed-time cutoff was added. The
+standalone service generates programs; Body Control retains robot execution.
+Ordinary pose buttons retain their existing owners. Freestyle appears under
+**Poses and emotes**; its default endpoint works without an initial settings
+submission. Explicit recovery settings persist across Body Control restarts.
+
+The previous 8,192-token per-slot configuration rejected recorded recovery
+requests containing 21,683 and 25,676 prompt tokens. Replaying both unchanged,
+concurrently, against the native-context configuration completed in 4.29 seconds
+total with schema-valid programs and no truncation. The test server used
+1,956 MiB GPU memory afterward. These are inference/transport checks, not physical
+recovery qualification. Local evidence is
+`artifacts/production/native-context-replay.json`. The 23 generator/program tests
+also pass, including concurrent request admission and cancellation propagation.
+
+The owner enabled automatic event recovery for `ainekio-p4-e6ebe5` on
+2026-10-23. Its existing jam detector is enabled (3,000 ms without the configured
+position progress); tip and rapid-movement event reporting are also enabled at
+the existing settings. Incoming `servo_stall`, `tipped`, `rapid_movement`, or
+caller-supplied `slip` events request a generated correction with fresh servo/IMU
+observations and the interrupted program, action and packet progress. Manual
+replacement commands retain ownership. This verifies event routing, not physical
+recovery competence. A compilation error is recorded as a failed job; it does
+not itself trigger another generation. There is no dedicated slip detector.
+
+Spatial compilation now schedules intermediate targets at the P4's 20 ms output
+cadence. Previously, 8–9 ms frames each consumed a full output tick and stretched
+recorded 700 ms strokes to roughly 1.5–2 seconds on the wire. Offline tick replay
+of those strokes now preserves 700 ms; compilation and transport still add host
+latency. Requested endpoints, cycles and holds remain in the program.
+
+The optional executor supports generated `face` actions through the existing
+face owner. A program-scoped selection stays visible across its motion packets
+and releases only its own token on completion or interruption; face receipts do
+not delay movement. Face-only requests keep the ordinary visible selection.
+The v7 contract does not yet teach these actions; the revised curriculum adds
+face cues and full twelve-joint native Stand endings, with explicit requested
+endings taking precedence. Native Stand differs from calibration Home.
+
+Recordings live in the ignored Body Control runtime directory, alongside its
+existing configuration, not in tracked training data:
+
+- `build/gateway/physical/freestyle-recordings.sqlite`: Freestyle requests,
+  initial/per-operation observations, generated programs and model identity,
+  operations, receipts, errors, operator reviews, and gateway motion events.
+- `build/gateway/physical/freestyle-inference.sqlite`: standalone requests,
+  generated outputs, incomplete/error evidence and cancellations. The returned
+  `inference_id` links a Body Control generation to this evidence.
+- `build/gateway/physical/freestyle-settings.json`: per-robot endpoint and
+  explicitly selected recovery setting.
+
+The recorder uses a dedicated writer thread, compressed payloads, SQLite WAL
+and wall/monotonic timestamps. It never submits motion or polls the robot.
+Received IMU/status/servo-health events are captured during tracked motion;
+Freestyle also retains before/after servo-position observations. This is not a
+continuous twelve-servo trace or proof that every intermediate target was reached.
+Command sequence, robot, epoch, job ID and timestamps accompany records. Epochs
+restart with the gateway; correlate sequences within a job's time interval.
+Recording failures are visible in dashboard status and logs and do not stop the
+robot. No automatic deletion/retention policy is imposed; monitor store size.
+
+Use **Save motion review** to record correct/partial/incorrect outcomes and a
+plain-language account of the observed failure. Raw failed attempts remain in
+the database. `/api/freestyle` operation `review` additionally accepts an
+explicit `corrected_program`, `corrected_request`, and `generation_index` for
+reviewed corrections. A written description alone is not a corrected target.
+Reviews and proposed corrected programs do not themselves run on the robot.
+
+Export evidence or proposed training rows to a new output file:
+
+```sh
+python3 -m experiments.freestyle.recordings export \
+  --database build/gateway/physical/freestyle-recordings.sqlite \
+  --output /tmp/freestyle-evidence.jsonl
+python3 -m experiments.freestyle.recordings corrections \
+  --database build/gateway/physical/freestyle-recordings.sqlite \
+  --output /tmp/freestyle-reviewed-corrections.jsonl
+```
+
+Only explicit corrections or operator-reported successful, completed physical
+executions become proposed positive rows. Preview-only successes and failed
+attempts without corrections are excluded. The latest review supersedes an
+earlier review of the same generation. Proposed corrections are marked
+unexecuted; operator reports retain that qualification basis. Export does not
+validate geometry or auto-train/deploy a model. Keep failed originals with their
+corrected targets for analysis. In a multi-generation recovery, review each
+relevant generation explicitly; the UI selects the latest generation.
+
+Removing the experiment directory leaves conventional Body Control behavior
+intact on restart. Stop/disable its two user services before removal. Recording
+stores are retained as owner data.
 
 ## Earlier compact Qwen experiment (historical results)
 
@@ -37,8 +154,9 @@ The training run uses the same pinned Qwen3.5-0.8B base, response-only rank-16
 LoRA, three epochs, and effective batch eight (four examples, two accumulation
 steps). Complete examples fit 1,534 native tokens; none are truncated.
 Thinking is disabled at serving. `export_qwen.py` merges the adapter in float32
-before F16 export and Q4 quantization, allowing served F16/Q4 comparisons
-without a separately applied quantized-base adapter.
+before F16 export and quantization, without a separately applied quantized-base
+adapter. The original compact run used Q4; spatial export now defaults to Q8_0
+after the precision comparison described below.
 
 The completed three-epoch training took 1,882 seconds. The original two
 language-model services were restored and both returned healthy responses.
@@ -104,9 +222,10 @@ contract were unchanged. This connection test does not establish motion quality.
 On 2026-10-21 the accepted Q4 model and API were started as transient user
 services `ainekio-freestyle-model` and `ainekio-freestyle-api`. They do not
 start automatically after reboot. The model now offloads all layers to the GPU,
-with four CPU threads, two inference slots and 16,384 total context tokens (8,192 per slot); the
-benchmarks used one slot. This permits overlapping requests without changing
-the trained per-request context capacity. Stop both with:
+with four CPU threads and two inference slots. The original allocation was 16,384
+total context tokens (8,192 per slot); it has been replaced by the native-context,
+demand-allocated configuration described above. The benchmarks used one slot.
+Stop both with:
 
 ```sh
 systemctl --user stop ainekio-freestyle-api ainekio-freestyle-model
@@ -131,8 +250,8 @@ merely adding extra fields at inference is not a demonstrated fix.
 **Poses and emotes** includes
 **Freestyle motions (experimental)** below the named motions, providing the
 generator address, Generate only, Generate and perform,
-and a separate opt-in for responding to existing body events. Settings are
-session-only. No new event thresholds, cooldowns, sensor requirements, or
+and a separate opt-in for responding to existing body events. Settings now
+persist per robot. No new event thresholds, cooldowns, sensor requirements, or
 automatic stops are installed. Existing event detection remains unchanged;
 `rapid_movement` is evidence for the model, not a declaration that a slip was
 proven. MetaHuman can call the standalone API; its production graphs and model
@@ -258,7 +377,7 @@ dataset. It preserves the pinned base revision and response-only supervision.
 `export_qwen.py` retains the quantized model and export hashes, using temporary
 F16/Hugging Face intermediates by default. `--quantization Q8_0` supports precision
 comparisons; `--keep-intermediates` is only for an intentional export investigation.
-The October 21–22 cleanup removed 11.40 GiB of obsolete exports and duplicate completed
+The October 21–22 cleanup removed 14.06 GiB of obsolete exports and duplicate completed
 checkpoint weights/optimizer state. Active serving files, final adapters, datasets,
 metrics and trial evidence remain; the deletion record is
 `artifacts/cleanup-20261021.json`.
@@ -368,31 +487,502 @@ mirrored paths and ordered compositions completed replay and endpoint review.
 Their head-height targets reach Z=105 mm beside the head, rather than merely
 lifting 30 mm from the floor; exact contact, collision and support remain unproven.
 
-The proposed `spatial-v5/dataset/` retains the v3 training fold, adds 492
+The completed `spatial-v5/dataset/` run retains the v3 training fold, adds 492
 constructed host-shaped recovery inputs, and gives the 27 reviewed new motion
 examples eightfold training weight. This is 3,391 training rows, not 3,391
 distinct motion skills. `refine_runtime_inputs.py` records the source/evidence
 hashes and retains the original 446-example evaluation fold. Preparation fits
 all examples within 4,609 tokens without truncation. Sixteen new external source
 groups, with semantic requirements recorded before inference, are frozen in
-`external/round-5-broad-cases.jsonl`. The v5 training has not started.
+`external/round-5-broad-cases.jsonl`. The v5 continuation ran from the
+final v4 adapter, with thinking disabled, the same process-local MLP arithmetic,
+three epochs and 1,272 optimizer steps. `spatial-v5/run-plan.json` records its
+inputs; `qwen-fit/training-result.json` and `training.log` record actual progress.
+The prepared fold contains 2,659 distinct input queries with no conflicting
+targets for identical inputs. Fresh round-five source groups and exact requests
+have zero training overlap. The frozen preparation manifest's
+`training_started: false` describes preparation time, not current run status.
+The 27 reviewed spatial targets and 16 existing held-out host-shaped recovery
+cases are combined in `spatial-v5/refinement-baseline-cases.jsonl` to compare
+parent and continuation outputs. These reference checks remain separate from
+the fresh external requests and their semantic/trajectory review.
+The final-v4 Q8 baseline matched 0/27 new spatial references and 12/16 held-out
+host-shaped recovery references: all four backoff, fall and slip examples, but
+none of the four smaller-wave references. Those four generated a backoff plus
+reassessment without the reduced oscillation. This describes reference matching,
+not proof that a reassessment-based recovery would fail physically.
+`spatial-v5/refinement-baseline-review.json` retains the programs and expected
+targets. The baseline server was stopped after evaluation.
+
+The first v5 checkpoint (step 424) is saved separately from the rotating trainer
+checkpoint and exported to Q8. On the 16 fresh round-five requests, 10 programs
+completed geometric replay, five failed IK, and one generation was incomplete.
+Independent review matched two complete requests: an upper-body stretch and a
+bilateral reach toward the face with a hold. These are held-out source requests,
+not unseen semantic families; related motions occur in training. The other
+requests omitted locomotion or phases, used the wrong direction, over-repeated,
+or failed to finish. `spatial-v5/epoch-1-external/semantic-review.json` ties each
+judgment to the frozen requirements and measured paths. No physical trials took
+place. The completed 156-case reference comparison matched 24/27 new training
+targets, 19/26 retained learned programs, 12/16 held-out host-shaped recovery
+references, and 85/85 structured numeric references. The two legacy spatial Wave
+references did not match; they use a different representation, while the complete
+source Wave reference passed. Parent scores were 0/27, 26/26 and 12/16 respectively
+for the first three groups. The four smaller-wave recovery references remain
+incorrect. These are exact program comparisons, not physical success scores.
+`epoch-1-reference-review.json` records the groups and failures. At that checkpoint,
+this checkpoint has not replaced the deployed generator. Evaluation timing
+includes contention with GPU training.
+Four selected regressions were checked directly with the saved native adapter:
+all four also failed natively. Beckoning, pulling and clapping produced exactly
+the same programs as Q8; the left-step programs differed but both over-repeated.
+`epoch-1-native-regression-review.json` records this limited comparison. Export
+precision alone cannot explain these errors. The native check finished and its
+temporary compilation cache was removed.
+
+The parent Q8 model was also tested on the identical round-five requests. It
+matched 1/16 (a forward kick), versus the new checkpoint's 2/16 (stretch and
+face-region reach). Two gains and one regression do not establish broad
+generalization. `epoch-1-parent-comparison.json` links this comparison to both
+semantic reviews. Both temporary GPU evaluation servers were stopped after use.
+The completed epoch-one GGUF was then removed to reclaim 0.76 GiB; its adapter,
+export hashes and all evaluation evidence remain. The parent final Q8 and active
+served model remain available.
+
+Three more reviewed corrections were saved after the v5 training inputs were frozen:
+a forward kick and a left-hand microphone hold concurrent with a right-arm
+gesture in `spatial-v5/round-5-corrections/`, plus a teapot mime in
+`spatial-v5/round-5-teapot-correction-v3/`. The latter moves the raised hands with
+the torso during its pouring tilt instead of keeping them planted in space.
+Earlier failed paths and the wrong-direction pouring proposal remain labeled as
+rejected evidence. The inward folded-hands proposal still fails IK and is not
+exported for training. New round-six requests and pre-inference requirements are
+saved in `external/round-6-broad-cases.jsonl`; their source groups and exact
+requests overlap neither v5 training nor the eight subsequently prepared
+corrections from rounds four and five.
+
+`spatial-v5/library-coverage-audit.json` found another data gap: request text has
+no explicit standalone Rest, Dance, Swim, Point, Nod, Lay Down or Crouch examples;
+Sit appears only inside Wave instructions. This lexical audit is not a semantic
+competence score, but the current spatial fold must not be described as covering
+the original motion library. Source-grounded library teaching still needs to be
+restored alongside novel compositions, preserving complete phases and holds.
+
+The v5 run completed all 1,272 optimizer steps in 4,957 seconds. Held-out
+teacher-forced loss increased from 0.002048 to 0.003452. Both epoch two and the
+final Q8 export reconstructed 26/26 retained programs, 27/27 newly taught
+programs, 85/85 numerical references, and 12/16 host-shaped recovery references.
+The same four recovery cases calculate the back-off correctly but omit the
+remaining smaller-wave cycles. The two historical Wave representations still
+differ; the complete source Wave reference passes. These are exact output checks,
+not physical motion scores.
+
+On the same sixteen round-five requests, epoch two and final both matched 3/16
+semantic requirements: upper-body stretch, hands held near the face, and a
+forward right-foot kick. Epoch two replayed 13/16 complete programs; final
+replayed 11/16. On sixteen newly drawn round-six requests, final replayed 9/16
+but matched **0/16** complete semantic requirements. Repeated familiar arm
+sweeps often replaced unfamiliar movements; a request for very fast backward
+travel selected backward gait at only 1 percent speed. Reviews, trace hashes
+and frozen requirements are in `spatial-v5/final-external/semantic-review.json`
+and `spatial-v5/final-round-6-external/semantic-review.json`. The new candidate
+has not replaced the active compact model. All temporary evaluation servers
+exited; epoch-two GGUF and the finished training cache were removed, retaining
+the adapters, final Q8, provenance and evaluation evidence.
+
+`spatial-v6/dataset/` retains all v5 training rows and adds 62 constructed
+context-dependent recovery inputs, thirteen reviewed external corrections from
+rounds four through six, and twelve source-posture/composition examples. New
+motion examples receive eightfold weight: 3,653 rows, 2,746 distinct queries,
+no conflicting identical inputs, and the unchanged 446-example evaluation fold.
+The thirteen corrections include a one-hand lifting exercise, brief upper-limb
+flinch, squat/T-like spread, repeated pickups into a common imaginary bin, and
+an arm lowering/raising sequence while squatting. Failed proposals remain
+excluded and recorded. These are kinematic mimes, not contact or balance proof.
+
+`semantic_teachers.source_posture` adds standalone Sit, Rest and Crouch endpoint
+demonstrations with their source two-second holds. Their compact joint travel
+uses the contract's 50-percent default; it does **not** reproduce source easing
+or establish planted-foot equivalence. Three complete seated/crouched
+compositions were also reviewed; an across-body example was rejected because
+its trajectory did not substantiate that wording. Multi-phase Dance, Swim,
+Point and other missing library coverage remains unfinished, rather than being
+silently reduced to endpoint poses.
+
+The v6 continuation starts from the final v5 adapter with unchanged LoRA
+rank, precision, learning rate and three-epoch schedule. Preparation measured
+all 4,099 train/evaluation rows at at most 4,609 tokens without truncation.
+`spatial-v6/run-plan.json` records its process identity and frozen inputs;
+the training result and log report actual status. Sixteen new round-seven
+source groups and their semantic requirements were frozen before inference in
+`external/round-7-broad-cases.jsonl`, with zero source-group or exact-request
+overlap against v6 training. No firmware, conventional robot behavior or active
+service assignment changed for these experiments.
+
+V6 completed all 1,371 optimizer steps and final evaluation in 4,911.6 seconds.
+Held-out teacher-forced loss changed from 0.003452 to 0.003515. The Q8 export
+reproduces 190/193 reference programs: all 26 retained programs, all 27 v5
+targets, all 16 held-out host-shaped recovery cases, all 13 new motion targets,
+all 12 new posture targets and all 12 new contextual recovery targets. Numeric
+references fell from 85/85 to 84/85: one mixed-limb command lifts the rear-left
+foot 15 mm instead of lowering it. The identical error occurs in native adapter
+inference, so Q8 quantization alone does not explain it. The two historical Wave
+representations still differ, while the complete source Wave reference passes.
+Thinking was disabled and no reasoning responses were emitted.
+
+On the same sixteen fresh round-seven requests with identical native/FK replay,
+v5 matched 0/16 complete semantic requirements and v6 matched 1/16: a brief
+bilateral reach beside the face. Complete geometric replays increased from
+10/16 to 11/16. V6 also produced partial improvements, including the Sit prefix
+in a phone mime and more recognizable dribble strokes, but still omitted later
+phases or generated incorrect/unreachable targets. These partial gains are
+described individually, not counted as complete successes. Both candidates had
+zero source-group and exact-query overlap with the fresh requests. The paired
+reviews, trace hashes and reference groups are in `spatial-v6/`; neither model
+was activated. No physical trials took place. Temporary GPU evaluation servers,
+training/native-check compilation caches and the native build directory were
+cleaned up after completion; saved adapters, final exports and evidence remain.
+
+The v7 data audit found inaccurate older teaching targets: drinking and saluting
+stopped near body Z=50 and Z=48 mm respectively, below the 80.96 mm shoulder
+reference. `semantic_teachers.demonstration` now calculates those reaches toward
+the side-of-head landmark [95, +/-90, 105] mm from the supplied starting pose.
+Saluting accounts for the preceding torso lowering. `repair_semantics.py` matches
+exact superseded program segments from a saved catalog, never user wording, and
+replays whole replacements including composed motions. Twenty-three distinct
+program/state combinations were reviewed: original holds and repetitions are
+preserved, unrelated actions remain identical, head holds are within 0.02 mm of
+the authored landmark, and repaired segments return within 0.03 mm. Four semantic
+teacher tests passed, including mirrored head reaches and repeated returns.
+
+`spatial-v7/dataset/` replaces 94 weighted rows covering 47 distinct queries;
+old datasets and reviews remain intact. It adds seven reviewed round-seven
+corrections, the two native-gait walking compositions, and thirty reviewed
+grounding examples: six drinking/saluting examples from changed starting poses
+and twenty-four simultaneous opposite-direction foot commands. Six additional
+posture examples failed IK and remain excluded. The proposed four-stride
+correction was also rejected: four requested P4 loop cycles include entry and
+settling, ending at native phase 8.015, so they cannot substantiate exactly four
+strides. No physical gait behavior was changed to make that example pass.
+
+The v7 fold has 4,127 weighted rows and 2,785 distinct queries, no conflicting
+identical inputs, and the unchanged 446-row evaluation fold. No superseded head
+program remains in its training targets. Sixteen fresh round-eight source groups
+and requirements were frozen before inference, with zero source-group and exact
+request overlap. Its 279 reference cases explicitly separate two superseded
+historical head targets from desired outputs; historical scores are not rewritten.
+All work remains inside the removable experiment and its offline artifacts.
+V7 continuation is launched from the final v6 adapter, with initial weights
+verified, thinking disabled, 830,315 supervised tokens and no truncated examples.
+Exact native tokenization measured a maximum of 4,645 tokens. The three-epoch
+rank-16 LoRA schedule and 8e-5 learning rate remain unchanged; the process and
+input hashes are in `spatial-v7/run-plan.json`. Training status is recorded by
+`qwen-fit/training-result.json` and `training.log`; no v7 quality result is claimed
+before export and held-out evaluation.
+
+During v7 training, `source_teachers.py` and `source_review.py` inspect complete
+authored Point, Nod, Lay Down, Dance and Swim sources offline. Joint-path
+simplification preserves phase boundaries and retraced motion. The spatial
+candidate additionally retains curved body/foot paths within phases; endpoint
+agreement alone had hidden major deviations. Ordered full-path comparisons use
+discrete Frechet distance on stored polylines, densified to 0.25 degrees/mm;
+this does not add source measurements or establish physical contact/stability.
+Six focused tests cover reversals, phase retention and unequal sampling rates.
+
+The revised spatial candidates replay Point, Lay Down, Dance and Swim with
+maximum ordered foot-coordinate distances of 0.431, 0.277, 0.139 and 0.236 mm
+respectively, including comparison sampling error. All authored phases and
+holds remain represented. Nod still fails its opening crouch IK, including a
+finer geometric subdivision; it is not an accepted teaching target. These
+candidates remain outside the frozen v7 training fold. They also expose an
+output-size problem: complete spatial Point/Dance/Swim programs require about
+6,901/9,846/29,577 response tokens with the current schema. They are not ready
+for fast generation merely because their geometric replays complete. Raw
+candidates, source/code hashes, path reviews and token counts are retained in
+`spatial-v7/source-*-review/`. No runtime or conventional motion behavior was
+changed by this offline authoring work.
+
+The owner requested a Qwen3.5-2B alternative after v7 finishes and unused-run
+artifacts are cleaned up. `artifacts/spatial-2b-v1/qwen-data/` is prepared from
+the same corrected fold: its 4,127 training and 446 evaluation message records
+are byte-identical to v7, with a 4,645-token maximum and no truncation. The
+cached 2B base is pinned to `fffbc0d8711cf87df6d1f97938c5e50ef94aadc7`.
+The run plan retains rank-16 LoRA, three epochs, batch one/accumulation eight,
+8e-5 learning rate, and thinking disabled. The isolated GPU run was launched
+after v7 evaluation and cleanup. The first terminal-owned process disappeared
+at step 55 without a checkpoint or recorded exception; its evidence is retained
+under `spatial-2b-v1/interrupted-attempt-1/`. The identical configuration was
+restarted as the transient user service `ainekio-freestyle-train-2b-v1`.
+`spatial-2b-v1/qwen-fit/training-result.json` and `training.log` record progress;
+service state must also be checked because a forcibly terminated process can
+leave a stale `running` result. The transient `ainekio-freestyle-eval-2b-v1`
+service waits for training completion, then exports Q8, runs the reference and
+unseen-motion tests, and repeats the 0.8B unseen requests for paired latency
+measurement. It stops its temporary inference servers after each comparison.
+`evaluation-progress.json` and `evaluation.log` record these offline phases;
+semantic review is still required after automatic replay. The same
+round-eight requests and reference cases are pinned for comparison. This tests
+a practical alternative: the 0.8B model has prior continuation training, whereas
+the 2B model starts from its pretrained weights, so the comparison does not
+isolate parameter count alone.
+
+The 2B run completed all 1,548 optimizer steps and saved identical root/final
+checkpoint adapters (SHA-256
+`ee7b3d3992ea7f88879e1cf109ed76fa3b86cf13959b6f27583b24b26b3d7e3e`).
+The subsequent held-out loss evaluation ran out of GPU memory after other
+processes increased GPU usage. Its original error report is retained in
+`post-training-loss-failure.json`; final held-out loss is unavailable. No
+training was repeated for that error. The saved weights were verified, exported
+and evaluated successfully in serving. Mean training-batch losses by epoch were
+0.04002, 0.002836 and 0.0005257; these are not motion-success scores.
+
+The completed comparison is in `spatial-2b-v1/comparison-summary.json`:
+
+| Measure | 0.8B spatial-v7 | First 2B run |
+| --- | ---: | ---: |
+| Exact reference programs | 273/279 | 259/279 |
+| Unseen requests matching frozen coarse requirements | 2/16 | 2/16 |
+| Full kinematic replays in the paired run | 14/16 | 13/16 |
+| Median generated-program response | 1.706 s | 1.914 s |
+| p95 generated-program response | 4.810 s | 5.004 s |
+| Q8 file size | 811,843,168 bytes | 2,012,012,128 bytes |
+
+The reference suite includes training targets; it is not an independent
+generalization score. Both models miss the same two superseded head targets,
+two older wave representations and two posture-dependent drinking targets.
+The 2B run additionally misses ten recovery references/envelopes, two pose
+reference frames and two spatial-coordination directions. Several recovery
+outputs reverse the required correction signs. Both reproduce the full-source
+Wave reference and all 47 corrected head targets.
+
+In the unseen set, 2B produces a small bilateral vertical greeting wave and a
+20 mm squat-and-rise; 0.8B matches bilateral outward extension and an 8 mm
+squat-and-rise. Both still omit major requested phases elsewhere. All semantic
+scores are coarse kinematic reviews, with no physical contact, balance, recovery
+or motion-recognition qualification. Three 0.8B programs varied in its repeated
+greedy run: replay completion rose from 13 to 14, while the semantic score stayed
+2/16. The cause of that variation was not isolated.
+
+Latency was measured sequentially on this workstation's GPU, using Q8,
+reasoning disabled and two workers, after training finished. Other workstation
+services remained active. Median output lengths were 315 tokens for 0.8B and
+235 for 2B, so these are end-to-end generated-program timings, not fixed-token
+throughput. Q6A performance remains unmeasured. The first 2B run is not an
+overall improvement; differing accumulated training histories prevent treating
+this as a parameter-count-only result. Neither spatial candidate was activated.
+The temporary comparison server has stopped and both jobs are finished.
+
+The final v7 adapter completed 1,548 optimizer steps in 5,732 seconds. Held-out
+loss changed from 0.003515 to 0.004528. Its Q8 export reproduces **273/279**
+references, versus 264/279 at epoch one: all 47 corrected head targets, all 85
+numerical references and 37/39 new targets match. Two misses are superseded
+historical head targets; two are older wave representations; the remaining two
+confuse posture-dependent drinking targets. Full-source Wave matches. These
+reference cases include training targets, so this is retention/reproduction,
+not a generalization score.
+
+On the same sixteen frozen round-eight requests, the parent, epoch-one and final
+models each match only **2/16** coarse requirements. Complete kinematic replays
+are respectively 12, 10 and 13. The final model still omits sitting, turning,
+wave reversals or other requested phases in most unseen compositions. Evidence
+is in `spatial-v7/final-reference-review.json`,
+`final-external/semantic-review.json` and `final-parent-comparison.json`.
+The candidate was not activated, and no physical trials were performed.
+
+### Direct full-weight 0.8B comparison (October 2026)
+
+`artifacts/full-v7-vs-lora/` compares a direct full-weight fine-tune with the
+v7 LoRA. Both start from the same pinned Qwen3.5-0.8B base plus the v6 adapter;
+the direct run merges that adapter and updates all 752,393,024 weights. Both
+use the same 4,127 training messages, three epochs, effective batch size of
+eight, frozen 279 reference requests, 16 unseen requests, Q8 serving format,
+and disabled thinking. Full tuning uses a lower learning rate (1e-5 versus
+8e-5 for LoRA), so this is a practical comparison, not a learning-rate-matched
+ablation.
+
+| Measure | Direct full weights | v7 LoRA |
+| --- | ---: | ---: |
+| Exact reference programs | 270/279 | 273/279 |
+| Unseen coarse motion requirements met | 3/16 | 2/16 |
+| Complete native kinematic replays | 16/16 | 14/16 |
+| Median generated-program response | 1.551 s | 1.674 s |
+| Median output length | 279 tokens | 315 tokens |
+| Q8 model size | 811,843,168 bytes | 811,843,168 bytes |
+
+Direct tuning adds a shallow backward-step/sit/stand mime and a cross-body
+throw mime on the unseen set, but loses the LoRA's bilateral outward-extension
+mime. Both retain the shallow squat. It also misses three additional exact
+references, including two smaller-wave jam variants that now request a
+larger oscillation. These are reference regressions even though the output
+still parses and replays. The small 16-case semantic difference does not
+establish a reliable generalization advantage. Shorter outputs account for
+some or all of the 0.12 s median response difference; the architecture and
+Q8 byte size are identical.
+
+All semantic scores are reviews of generated programs and FK/native gait
+replays. There were no physical robot trials, balance/contact measurements,
+or recovery demonstrations. The 279 reference requests include training
+targets, so they measure retention as well as response formatting. The direct
+run's training loss is not a task-success score, and posttraining held-out
+loss was not measured. `comparison-summary.json`, each `semantic-review.json`,
+and the complete traces record the evidence. The direct candidate was not
+activated; v7 LoRA remains the baseline. The temporary inference servers
+stopped, and the paused 2B service was restored after training.
+The finished optimizer checkpoint was removed after confirming its model
+weights exactly match the retained root weights. This reclaimed about 4 GiB;
+the full model, Q8 export, source data and evaluation traces remain.
+
+After final evaluation, the temporary server was stopped and 179 unused files
+were removed, reclaiming 4,172,889,050 bytes (3.89 GiB). Cleanup includes obsolete
+Q8 exports, finished optimizer checkpoints, regenerable message exports and
+unused LFM/Needle serving artifacts. Source datasets, evaluation evidence,
+retained adapters, current v7 export, shared pretrained caches and the active
+compact service model remain. Exact file hashes and deletion results are in
+`spatial-2b-v1/cleanup-result.json`.
+
+V7 epoch one (step 516) is saved separately from rotating checkpoints and
+exported as Q8 for GPU evaluation. On sixteen frozen round-eight requests,
+ten complete geometric replay and two match their coarse motion requirements:
+bilateral outward hand extension and a shallow 8 mm squat-and-rise. Other
+requests omit phases, generate unreachable targets, or fail to finish generation.
+These are not physical successes and are not a direct improvement comparison
+with earlier scores on different request sets. The completed reference check
+reproduces 264/279 targets, with the two superseded head targets reported
+separately. It reproduces 46/47 corrected head examples, all 85 numerical
+references and 32/39 new targets. Three investigated deviations include extra
+boxing punches that fail IK, extra torso yaw during a stepping/forehand sequence,
+and a weight-lift shrinking from 35 to 5 mm with its holds omitted. Their actual
+and expected replays are in `epoch-1-reference-deviations/`; exact reproduction
+and semantic success remain separate. Evidence is in
+`spatial-v7/epoch-1-external/semantic-review.json`;
+both evaluation and training share the GPU, so timings are not isolated inference
+benchmarks. The final v7 checkpoint and 2B alternative will use the same requests.
+The direct parent-v6 comparison on those same sixteen requests also matches the
+same two mimes, with twelve complete geometric replays versus ten at v7 epoch
+one. Thus epoch one shows no complete semantic gain on this set. The paired
+reviews and hashes are in `spatial-v7/epoch-1-parent-comparison.json`. Both
+temporary evaluation servers were stopped after their checks completed.
+
+Finite gait simulation is now available through the optional `--native-gait`
+argument to `challenge run` and `external_teachers`. `native_gait.c` samples the
+production V2 parser and gait clock at 50 Hz without opening a robot transport.
+`gait_replay.py` uses the existing command translator, including its ten-cycle
+packet batching, and passes the final native joint target into subsequent
+generated operations. Gait entry target jumps are recorded rather than replaced
+with invented interpolation. Ongoing commands remain explicitly incomplete
+because their termination needs an external command.
+
+Build the offline sampler with the repository's native libraries:
+
+```bash
+cmake -S Slave/software/models/v2-12servo -B /tmp/freestyle-native-gait-build \
+  -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE=/path/to/python-with-numpy
+cmake --build /tmp/freestyle-native-gait-build --target v2_walk_command -j4
+cc -std=c11 -O2 -Wall -Wextra -Werror -Wpedantic \
+  -I Slave/software/models/v2-12servo/include -I Slave/software/core/include \
+  experiments/freestyle/native_gait.c \
+  /tmp/freestyle-native-gait-build/libainekio_v2_motion.a \
+  /tmp/freestyle-native-gait-build/core/libainekio_core.a -lm \
+  -o /tmp/freestyle-native-gait-build/freestyle_native_gait
+FREESTYLE_NATIVE_GAIT=/tmp/freestyle-native-gait-build/freestyle_native_gait \
+  python -m unittest experiments.freestyle.test_native_gait
+```
+
+`artifacts/native-gait/build.json` records the tested binary and input hashes.
+Nine gait/packet cases matched the existing `v2_walk_command` executable within
+6.4e-10 degrees, with matching timestamps and nominal body paths. Three native
+integration tests cover packet preservation, a gait followed by a hold and
+relative joint movement, and incomplete ongoing motion. The existing twenty
+challenge/program tests passed outside the sandbox; inside it, Python's async
+runner hung during shutdown after an assertion-passing test. No production
+timeouts or workarounds were added for that test-environment issue.
+
+These traces describe **nominal targets**, using the default zero learned gait
+profile. Body paths are command-relative per packet; they are not composed world
+odometry. Feedback, contact forces, balance, collision clearance and physical
+travel remain unverified. `native-gait/walking-corrections/` contains two reviewed
+walking-plus-gesture examples previously blocked by missing gait replay: a reach
+beside the head and two rightward stumbling mimes. Their training exports are
+pending a later fold and do not change the running v6 inputs. The stumbling mime
+does not establish actual recovery from a fall or slip.
+
+Simulation profiling found repeated parsing/construction of the 380 KB geometry
+for every sampled pose. Replay now owns one independent FK model per trial;
+inverse-kinematics compilation still owns separate mutable models. Sampling,
+target angles and durations are unchanged. The profiled 2,961-sample motion took
+16.2 seconds instead of 29.5, and replaying all 16 saved round-four programs
+produced exactly identical traces, including the three original compilation
+failures. All 10 challenge/kinematics tests passed. Timing and trace-equivalence
+evidence is in `spatial-v5/replay-profile-{before,after}.json` and
+`spatial-v5/replay-regression.json`. No physical controller behavior changed.
+
+While v5 runs, five more observed round-four failures have authored, replayed and
+independently reviewed corrections: head-height drinking, a left chest-level
+wave, shirt-removal mime, arm/squat exercise, and a seated cringe using the
+existing sit endpoint. Evidence and exported examples are in
+`spatial-v4/round-4-additional-corrections-v2/` and
+`spatial-v4/round-4-posture-corrections/`. They are separate from the frozen v5
+training inputs, and have no source-group or request overlap with fresh round
+five. The direct arm-crossing proposal remains an IK failure and is excluded.
+These examples describe coarse geometric mimes, not verified physical skills;
+hand/head contact, balance, collisions and electrical travel remain unmeasured.
 
 At the owner's requested pause point, v4 finished all 1,008 steps and final
 evaluation in 3,859 seconds. The final adapter is saved in `spatial-v4/qwen-fit/`
 (SHA-256 `77ec3f0efca1b23f039bb9ca859f20194b71fd4800f4fa83095ab38ee2bea9f7`).
-It has not been exported or evaluated in serving. Final numeric evaluation loss
-was 0.002048; that is not a motion-success score.
+At that pause it had not been exported or evaluated in serving; the resumed Q8
+results below supersede that state. Final numeric evaluation loss was 0.002048;
+that is not a motion-success score.
 
 The completed epoch-two native-adapter comparison matched 3/4 checked references
 (drinking, hand-circle and complete source Wave), versus 0/4 through Q4 serving.
 Clapping still had an incorrect repeat count in the native output. Backend,
-quantization and schema-constrained decoding differ in this comparison, so the
-cause is not isolated. Investigate that mismatch before launching v5 training.
-The epoch-two adapter, Q4 artifact and both outputs are retained for that work.
+quantization and schema-constrained decoding differed in that initial comparison,
+so it did not isolate the cause. The investigation below resolved this before
+v5 training started.
+At that pause, the epoch-two adapter, Q4 artifact and both outputs were retained
+for that work.
 The temporary spatial comparison server and unused LFM baseline server were
-stopped; the deployed compact Freestyle service remains available. No training
-or evaluation job is intentionally left running. `spatial-v4/pause-point.json`
+stopped; the deployed compact Freestyle service remained available. At that
+historical pause no training or evaluation job was left running.
+`spatial-v4/pause-point.json`
 records the completed runs, prepared-data hashes and next actions.
+
+The resumed precision investigation isolated Q4 damage on the same epoch-two
+checkpoint. Training and serving prompt text and token IDs match exactly.
+Giving llama.cpp the native token IDs directly, without JSON grammar, still
+matched 0/4 references in Q4. F16 matched 3/4 both with and without JSON grammar;
+all four generated programs, including the remaining clapping error, were
+identical to native inference. Q8 also reproduced those four native outputs.
+Across the existing 25 learned examples, F16 and Q8 produced identical programs
+and matched 24/25 references, versus Q4's 19/25. This isolates precision loss in
+this export; it does not establish that every future Q8 export will be identical
+to native inference or that learned-example reconstruction proves generalization.
+
+`export_qwen.py` now defaults to Q8_0. The final v4 adapter was exported with that
+default and matches all 26 reconstruction cases (the 25 above plus full source
+Wave). The Q8 artifact is 811,843,328 bytes, versus 1,516,744,448 for F16 and
+529,297,152 for Q4. Its identity and export provenance are in
+`spatial-v4/final-served/export.json`; it has not replaced the active generator.
+The final native adapter and Q8 output also match on all four comparison cases,
+now including the correct clap count. Median reconstruction latency was 1.623
+seconds with two concurrent GPU serving slots on this machine; Q6A latency is
+unmeasured. `spatial-v4/precision-investigation.json` records the controls,
+results and evidence hashes.
+`inference_parity.py` reproduces the raw-token and schema comparisons without
+robot dispatch. The completed epoch-two comparison exports were removed after
+verification; their adapters, hashes and results remain. The earlier
+`pause-point.json` records historical state rather than current activation.
+The final Q8 model was also evaluated against the same 16 round-four external
+requests, with no source-group or exact-request training overlap. Thirteen
+completed geometric replay; independent review found zero full semantic matches.
+Missing walk/dip/squat phases, low hand targets and unrelated repeated motions
+remain. `spatial-v4/final-q8-external/semantic-review.json` records each failure
+against the pre-recorded requirements and measured foot paths. This confirms
+that the precision fix preserves learned programs but does not solve novel-motion
+composition. Those v4 comparison servers and evaluation processes finished;
+v5 now has its own isolated checkpoint evaluation. The deployed compact service
+remains unchanged.
 The fresh third-round external fold remains separate from training. A component
 check using Body Control-shaped event envelopes matched 13/16 recovery references;
 this retains synthetic histories and does not establish real recovery ability.
@@ -462,8 +1052,9 @@ does not imply physical trajectory equivalence beyond the declared operations.
 
 All three three-epoch runs completed. Qwen and LFM overlapped on the RTX 4080;
 Needle setup finished later, so this run did **not** demonstrate three simultaneous
-training jobs. The candidates and all frozen source data are retained under
-`artifacts/compact-v1/`. Both previously active production model services were
+training jobs. Original adapters, results and frozen source data remain under
+`artifacts/compact-v1/`; unused serving exports were subsequently cleaned up.
+Both previously active production model services were
 restored and their health endpoints returned `ok`. Experimental inference
 servers were stopped after testing.
 
@@ -500,9 +1091,10 @@ is not included in the timing table.
 
 Results are in `comparison-summary.json`, with full responses and per-family
 scores in `benchmark-results-v2/`, and hashes/settings in
-`comparison-provenance.json`. Candidate paths are `qwen-fit/adapter.F16.gguf`,
-`lfm-fit-v2/adapter.F16.gguf`, and `needle-fit/model.W4.cact`. Original training
-adapters are retained alongside those exports. Twelve source/contract/grading
+`comparison-provenance.json`. Historical serving paths were
+`qwen-fit/adapter.F16.gguf`, `lfm-fit-v2/adapter.F16.gguf`, and
+`needle-fit/model.W4.cact`; these are not a current export inventory. Original
+training adapters are retained. Twelve source/contract/grading
 tests pass. No candidate has been activated in Body Control, MetaHuman or P4.
 
 Source tests:

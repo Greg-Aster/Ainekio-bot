@@ -3,6 +3,7 @@
 from .frame_v1 import (
     AUDIO_PAYLOAD_BYTES,
     CAMERA_JPEG_FRAME_TYPE,
+    CAMERA_CHUNK_FRAME_TYPE,
     HEADER_BYTES,
     MAX_BINARY_COUNTER,
     MAX_JPEG_BYTES,
@@ -17,6 +18,7 @@ from .frame_v1 import (
 __all__ = [
     "AUDIO_PAYLOAD_BYTES",
     "CAMERA_JPEG_FRAME_TYPE",
+    "CAMERA_CHUNK_FRAME_TYPE",
     "HEADER_BYTES",
     "MAX_BINARY_COUNTER",
     "MAX_JPEG_BYTES",

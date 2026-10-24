@@ -13,11 +13,11 @@
 static void lock(ainekio_pca9685_t *d) { d->port.lock(d->port.context); }
 static void unlock(ainekio_pca9685_t *d) { d->port.unlock(d->port.context); }
 
-static void disable_locked(ainekio_pca9685_t *d, ainekio_pca_fault_t fault)
+static void disable_locked(ainekio_pca9685_t *d, ainekio_pca_fault_t fault, bool cancel_queued)
 {
     d->port.disable_output(d->port.context, true);
     d->state.armed = false;
-    ++d->state.generation;
+    if(cancel_queued)++d->state.generation;
     if (fault != AINEKIO_PCA_FAULT_NONE) {
         /* A caller's generic shutdown must not erase the bus/timing failure
          * that triggered it. A new recovery failure can replace that cause. */
@@ -31,14 +31,21 @@ static void disable_locked(ainekio_pca9685_t *d, ainekio_pca_fault_t fault)
 void ainekio_pca_emergency_disable(ainekio_pca9685_t *d, ainekio_pca_fault_t reason)
 {
     lock(d);
-    disable_locked(d, reason == AINEKIO_PCA_FAULT_NONE ? AINEKIO_PCA_FAULT_EMERGENCY : reason);
+    disable_locked(d, reason == AINEKIO_PCA_FAULT_NONE ? AINEKIO_PCA_FAULT_EMERGENCY : reason, true);
     unlock(d);
 }
 
 void ainekio_pca_disarm(ainekio_pca9685_t *d)
 {
     lock(d);
-    disable_locked(d, AINEKIO_PCA_FAULT_NONE);
+    disable_locked(d, AINEKIO_PCA_FAULT_NONE, true);
+    unlock(d);
+}
+
+void ainekio_pca_idle(ainekio_pca9685_t *d)
+{
+    lock(d);
+    disable_locked(d, AINEKIO_PCA_FAULT_NONE, false);
     unlock(d);
 }
 
@@ -95,7 +102,7 @@ static ainekio_pca_result_t transfer(ainekio_pca9685_t *d, uint64_t generation,
          * completed frame. A later ordinary write can resume directly. */
         result = AINEKIO_PCA_TIMEOUT;
     } else if (bus_result != AINEKIO_PCA_BUS_OK) {
-        disable_locked(d, AINEKIO_PCA_FAULT_IO);
+        disable_locked(d, AINEKIO_PCA_FAULT_IO, true);
         result = AINEKIO_PCA_IO;
     }
     d->state.last_io_us = elapsed;

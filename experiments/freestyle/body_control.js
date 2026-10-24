@@ -2,18 +2,27 @@
 (function () {
   "use strict";
   const panel = document.createElement("section");
-  panel.className = "control-section";
+  panel.className = "control-section freestyle-panel";
   panel.dataset.workspacePanel = "poses";
   panel.hidden = true;
   panel.innerHTML = `<h2>Freestyle motions (experimental)</h2>
     <label>Generator address <input data-field="endpoint" value="http://127.0.0.1:8794"></label>
-    <label><input data-field="recovery" type="checkbox"> Let Freestyle respond to body events</label>
+    <label class="freestyle-recovery"><input data-field="recovery" type="checkbox"> Let Freestyle respond to body events</label>
     <button data-action="configure" type="button">Apply Freestyle settings</button>
     <label>Requested movement <textarea data-field="request" placeholder="Wave hello, then stretch both front legs"></textarea></label>
     <button data-action="generate" type="button">Generate only</button>
     <button data-action="execute" type="button">Generate and perform</button>
     <button data-action="refresh" type="button">Refresh result</button>
     <button data-action="save" type="button">Save trial data</button>
+    <p data-field="recording" aria-live="polite"></p>
+    <label>What happened? <select data-field="outcome">
+      <option value="success">Performed correctly</option>
+      <option value="partial">Partly correct</option>
+      <option value="incorrect">Incorrect movement</option>
+    </select></label>
+    <label>Observed result or correction <textarea data-field="note" placeholder="Describe what moved incorrectly and what you expected"></textarea></label>
+    <button data-action="review" type="button">Save motion review</button>
+    <p data-field="review" aria-live="polite"></p>
     <pre data-field="result" aria-live="polite"></pre>`;
   document.querySelector('[data-workspace-panel="poses"]').after(panel);
   const field = name => panel.querySelector(`[data-field="${name}"]`);
@@ -25,6 +34,11 @@
     if (["endpoint", "recovery"].includes(event.target.dataset.field)) settingsEdited = true;
   });
   window.renderFreestyleStatus = (status, robot) => {
+    const recording = status?.recording;
+    field("recording").textContent = recording?.error
+      ? `Recording error: ${recording.error}`
+      : recording?.enabled ? `Recording commands, generated motions and received feedback automatically (${recording.written} records saved).`
+      : "Motion recording is not active.";
     const settings = status?.settings?.[robot] || {};
     const serialized = JSON.stringify(settings);
     if (displayedRobot !== robot || (!settingsEdited && displayedSettings !== serialized)) {
@@ -40,6 +54,7 @@
     } else if (displayedRobot !== robot) {
       field("result").textContent = "";
     }
+    if (displayedRobot !== robot) field("review").textContent = "";
     displayedRobot = robot;
   };
   async function post(payload) {
@@ -64,6 +79,10 @@
           recover_events:field("recovery").checked});
         settingsEdited = false;
         displayedSettings = null;
+      } else if (action === "review") {
+        result = await post({operation:"review",robot_id:robot,job_id:jobs.get(robot),
+          outcome:field("outcome").value,note:field("note").value});
+        field("review").textContent = result.saved ? "Review saved with this motion's evidence." : "Review was not saved; check recording status.";
       } else if (action === "save") {
         result = await post({operation:"trial",robot_id:robot,job_id:jobs.get(robot)});
         const url = URL.createObjectURL(new Blob([JSON.stringify(result,null,2)], {type:"application/json"}));
@@ -71,6 +90,12 @@
         link.href=url;link.download=`freestyle-${result.job.id}.json`;link.click();
         URL.revokeObjectURL(url);
       } else {
+        if (settingsEdited) {
+          await post({operation:"configure",robot_id:robot,endpoint:field("endpoint").value,
+            recover_events:field("recovery").checked});
+          settingsEdited = false;
+          displayedSettings = null;
+        }
         result = await post({robot_id:robot,request:field("request").value,execute:action === "execute"});
         jobs.set(robot,result.job_id);
       }

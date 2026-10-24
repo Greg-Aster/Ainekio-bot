@@ -19,6 +19,9 @@ class FakeGateway:
     def subscribe_events(self, _callback: object) -> None:
         return None
 
+    def subscribe_external_speech(self, callback):
+        pass
+
     def subscribe_frames(self, _callback: object) -> None:
         return None
 

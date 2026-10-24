@@ -15,7 +15,9 @@ def export_shared(source, output, base, revision, trainer):
     manifest = {'version': 2, 'supervision': 'final-assistant-only', 'baseModel': base,
                 'systemPrompt': system, 'settings': {'objective': 'assistant-continuation'},
                 'sourceHashes': {}, 'generatorManifestSha256': sha(source/'manifest.json')}
-    for split in ('train', 'evaluation'):
+    splits = ['train', 'evaluation']
+    splits.extend(name for name in ('test', 'regression-evaluation', 'recovery-probe') if (source/(name+'.jsonl')).exists())
+    for split in splits:
         originals = [json.loads(line) for line in (source/(split+'.jsonl')).read_text().splitlines()]
         rows = []
         for r in originals:
@@ -25,7 +27,14 @@ def export_shared(source, output, base, revision, trainer):
                 {'role': 'assistant', 'content': compact(r['answers'])}],
                 'metadata': {'sourceIds': [r['source_id']], 'sourceHashes': {r['source_id']: r['source_hash']},
                              'objective': 'assistant-continuation', 'targetAuthor': 'assistant',
-                             'mode': 'freestyle-compact', 'family': r['family'], 'synthetic': True}})
+                             'mode': 'freestyle-compact', 'family': r['family'],
+                             'synthetic': r.get('synthetic'),
+                             # targetAuthor above is the trainer's response role,
+                             # not a claim that an LLM authored these labels.
+                             'labelOrigin': r.get('teacher', r['source_id'].split(':')[0]),
+                             'physicalQualification': r.get('physical_qualification', False),
+                             'compositionGroup': r.get('composition_group'),
+                             'motionStructureSha256': r.get('motion_structure_sha256')}})
         path = output/(split+'.jsonl')
         path.write_text(''.join(compact(row)+'\n' for row in rows))
         manifest[split] = {'count': len(rows), 'sha256': sha(path),

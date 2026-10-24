@@ -6,12 +6,27 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from experiments.freestyle.generator import Generator, IncompleteProgram, async_remote_generate, create_app
+from experiments.freestyle.generator import Generator, IncompleteProgram, async_remote_generate, create_app, argument_schema
 from experiments.freestyle.observations import enrich
+from experiments.freestyle.recordings import Recorder, read_records
 import math
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_spatial_generation_schema_pairs_every_named_leg_with_its_offset(self):
+        from jsonschema import Draft202012Validator
+        for name,offset in [('feet','offsets_mm'),('body','foot_offsets_mm')]:
+            tool={'name':name,'parameters':{'type':'object','properties':{
+                'legs':{'type':'array','items':{'type':'string'}},
+                offset:{'type':'array','items':{'type':'array','items':{'type':'number'}}}},
+                'required':['legs',offset],'additionalProperties':False}}
+            validator=Draft202012Validator(argument_schema(tool))
+            for count in range(5):
+                for offsets in range(5):
+                    value={'legs':['front_left']*count,offset:[[0,0,30]]*offsets}
+                    self.assertEqual(validator.is_valid(value),count==offsets)
+            self.assertNotIn('maxItems',tool['parameters']['properties']['legs'])
+
     def test_incomplete_generation_retains_diagnostic_evidence_without_returning_a_program(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
@@ -103,7 +118,8 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
                 (root/'tools.json').write_text('[]')
                 model_port=model_server.sockets[0].getsockname()[1]
                 generator=Generator(f'http://127.0.0.1:{model_port}/v1','test',root)
-                runner=web.AppRunner(create_app(generator))
+                evidence_path=root/'inference.sqlite'
+                runner=web.AppRunner(create_app(generator, Recorder(evidence_path)))
                 await runner.setup()
                 site=web.TCPSite(runner,'127.0.0.1',0)
                 await site.start()
@@ -127,6 +143,14 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
                     pending.cancel()
                     with suppress(asyncio.CancelledError):await pending
                     await runner.cleanup()
+                recorded=list(read_records(evidence_path))
+                self.assertEqual(sum(r['kind']=='inference_requested' for r in recorded),2)
+                self.assertEqual(sum(r['kind']=='inference_cancelled' for r in recorded),1)
+                completed=next(r for r in recorded if r['kind']=='inference_completed')
+                self.assertEqual(completed['job_id'],result['inference_id'])
+                full=next(r for r in recorded if r['kind']=='inference_requested' and
+                          r['payload']['request']['request']=='new')
+                self.assertEqual(full['payload']['request']['history'],history)
 
     async def test_cancel_closes_pending_inference_connection(self):
         arrived=asyncio.Event();closed=asyncio.Event()

@@ -298,8 +298,24 @@ static void test_hardware_pulse_bounds(void)
     assert(!ainekio_pca_pulse_valid(&f.driver, 1500));
 }
 
+static void test_idle_release_keeps_admitted_commands(void)
+{
+    fixture_t f={0};assert(initialize(&f)==AINEKIO_PCA_OK);
+    const uint64_t admitted=ainekio_pca_status(&f.driver).generation;
+    uint16_t pulses[12]={1500};
+    assert(ainekio_pca_arm(&f.driver,admitted,pulses)==AINEKIO_PCA_OK);
+    ainekio_pca_idle(&f.driver);
+    const ainekio_pca_status_t idle=ainekio_pca_status(&f.driver);
+    assert(f.disabled && !idle.armed && idle.ready && idle.generation==admitted);
+    assert(ainekio_pca_arm(&f.driver,admitted,pulses)==AINEKIO_PCA_OK);
+    assert(!f.disabled && ainekio_pca_status(&f.driver).armed);
+    ainekio_pca_disarm(&f.driver);
+    assert(ainekio_pca_arm(&f.driver,admitted,pulses)==AINEKIO_PCA_STALE);
+}
+
 int main(void)
 {
+    test_idle_release_keeps_admitted_commands();
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
     const uint64_t queued = ainekio_pca_status(&f.driver).generation;

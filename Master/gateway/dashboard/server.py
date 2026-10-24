@@ -22,6 +22,7 @@ from uuid import uuid4
 from gateway.security import DashboardPasswordStore, RobotTokenStore, _atomic_secure_json, _read_json
 from gateway.environment_adapter import EnvironmentAdapter
 from gateway.hotspot import RobotHotspot
+from gateway.host_audio import HostAudio
 from gateway.body_events import validate_settings
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
@@ -85,6 +86,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
             raise ValueError("primary_view must be camera or simulator")
         super().__init__(server_address, DashboardHandler)
         self.gateway = gateway
+        self.host_audio = HostAudio()
         self.freestyle = None
         self.gait_learning = None
         self.camera_recognition = None
@@ -93,6 +95,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
             if self.control_settings_path.exists() else {"recognition": True, "cameras": {}})
         for robot_id, settings in self.control_settings.get("body_events", {}).items():
             self.gateway.body_events.configure(robot_id, settings)
+        self.gateway.motion_systems = dict(self.control_settings.get("motion_systems", {}))
         self.event_loop = event_loop
         self.password_store = password_store
         self.token_store = token_store
@@ -111,10 +114,64 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self._camera_frames: dict[str, tuple[int, bytes, dict]] = {}
         self._camera_snapshots: dict[str, tuple[int, bytes, dict]] = {}
         gateway.subscribe_frames(self._record_camera_frame)
+        self.freestyle_recorder = None
+
+    def start_freestyle(self):
+        if (FREESTYLE_ROOT / "bridge.py").is_file():
+            self._setup_freestyle()
+
+    def _setup_freestyle(self):
+        # The experiment owns its model, recording, and optional execution.
+        # Removing its directory leaves ordinary Body Control startup intact.
+        package = "ainekio_freestyle_experiment"
+        if package not in sys.modules:
+            spec = importlib.util.spec_from_file_location(package, FREESTYLE_ROOT / "__init__.py",
+                submodule_search_locations=[str(FREESTYLE_ROOT)])
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[package] = module
+            spec.loader.exec_module(module)
+        from importlib import import_module
+        from gateway.gait_learning_service import RobotLearningTransport
+        recorder = import_module(package + ".recordings").Recorder(
+            self.password_store.path.with_name("freestyle-recordings.sqlite"))
+        self.freestyle_recorder = recorder
+        self.gateway.subscribe_commands(recorder.command)
+        self.gateway.subscribe_events(recorder.event)
+        self.gateway.subscribe_diagnostics(recorder.diagnostic)
+        self.freestyle = import_module(package + ".bridge").Bridge(
+            self.gateway, RobotLearningTransport(self.gateway, self.token_store, persistent=False),
+            recorder=recorder, settings_path=self.password_store.path.with_name("freestyle-settings.json"))
+        self.gateway.freestyle_motion = self.freestyle.submit
+        self.gateway.freestyle_result = self.freestyle.result
+        self.gateway.freestyle_cancel = self.freestyle.cancel
+
+    async def close_freestyle(self):
+        self.gateway.freestyle_motion = None
+        self.gateway.freestyle_result = None
+        self.gateway.freestyle_cancel = None
+        if self.freestyle is not None:
+            await self.freestyle.close()
+        if self.freestyle_recorder is not None:
+            recorder = self.freestyle_recorder
+            self.gateway.unsubscribe_commands(recorder.command)
+            self.gateway.unsubscribe_events(recorder.event)
+            self.gateway.unsubscribe_diagnostics(recorder.diagnostic)
+            await asyncio.to_thread(recorder.close)
 
     def call_gateway(self, awaitable: Any, *, timeout: float | None = 10.0) -> object:
         future = asyncio.run_coroutine_threadsafe(awaitable, self.event_loop)
         return future.result(timeout=timeout)
+
+    async def set_motion_system(self, robot_id, system):
+        if system not in {"library", "freestyle"}:
+            raise ValueError("Choose library or freestyle")
+        saved = {**self.control_settings, "motion_systems": {
+            **self.control_settings.get("motion_systems", {}), robot_id: system}}
+        _atomic_secure_json(self.control_settings_path, saved)
+        self.control_settings = saved
+        self.gateway.motion_systems[robot_id] = system
+        await self.gateway._publish_event({"t": "motion_system", "robot_id": robot_id, "system": system})
+        return {"robot_id": robot_id, "system": system}
 
     async def body_event_status(self):
         return self.gateway.body_events.status()
@@ -167,31 +224,30 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if not (FREESTYLE_ROOT / "bridge.py").is_file():
             raise GatewayError("Freestyle experiment is not installed")
         if self.freestyle is None:
-            # Import only on an explicit experimental request. Deleting the
-            # experiment directory leaves normal controls and startup intact.
-            package = "ainekio_freestyle_experiment"
-            if package not in sys.modules:
-                spec = importlib.util.spec_from_file_location(package, FREESTYLE_ROOT / "__init__.py",
-                    submodule_search_locations=[str(FREESTYLE_ROOT)])
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[package] = module
-                spec.loader.exec_module(module)
-            from importlib import import_module
-            from gateway.gait_learning_service import RobotLearningTransport
-            bridge = import_module(package + ".bridge")
-            self.freestyle = bridge.Bridge(self.gateway, RobotLearningTransport(self.gateway, self.token_store, persistent=False))
+            self._setup_freestyle()
         robot = _required_string(payload, "robot_id")
         if payload.get("operation") == "configure":
             return await self.freestyle.configure(robot, _required_string(payload, "endpoint"),
                                                   _required_bool(payload, "recover_events"))
         if payload.get("operation") == "trial":
             return self.freestyle.trial(robot, _required_string(payload, "job_id"))
+        if payload.get("operation") == "review":
+            return self.freestyle.review(robot, _required_string(payload, "job_id"),
+                _required_string(payload, "outcome"), payload.get("note", ""),
+                payload.get("corrected_request"), payload.get("corrected_program"), payload.get("generation_index"))
         return await self.freestyle.submit(robot, _required_string(payload, "request"),
                                            _required_bool(payload, "execute"))
 
     async def depth_motion(self, robot_id, request):
         if self.camera_recognition is None:
             raise GatewayError("Camera processing is not configured")
+        if request.get("operation") == "sample":
+            consumer = f"dashboard-depth:{uuid4()}"
+            try:
+                result = await self.camera_recognition.depth_demand(robot_id, consumer, True)
+                return {"measurement": result.get("measurement")}
+            finally:
+                await self.camera_recognition.depth_demand(robot_id, consumer, False)
         config = await self.camera_recognition.configure_depth(robot_id, request)
         saved = {**self.control_settings, "depth_motion": {
             **self.control_settings.get("depth_motion", {}), robot_id: config}}
@@ -347,6 +403,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
                     "host_network": self.server.hotspot.snapshot(),
                     "camera_settings": self.server.control_settings["cameras"],
+                    "motion_systems": self.server.control_settings.get("motion_systems", {}),
                     "depth_settings": self.server.control_settings.get("depth_motion", {}),
                     "body_events": self.server.call_gateway(self.server.body_event_status()),
                     "person_recognition": self.server.call_gateway(self.server.person_status()),
@@ -362,6 +419,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except GatewayError as exc:
                 self._send_json({"error": str(exc)}, status=HTTPStatus.SERVICE_UNAVAILABLE)
             return
+        if path == "/api/host-audio":
+            if self._require_session() is None:
+                return
+            self._send_json(self.server.call_gateway(self.server.host_audio.snapshot()))
+            return
         if path == "/api/camera/frame":
             if self._require_session() is None:
                 return
@@ -369,11 +431,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         self._send_json({"error": "not_found"}, status=HTTPStatus.NOT_FOUND)
 
-    def _speech_output(self, playback_target: str | None = None) -> dict[str, object]:
+    def _speech_output(self, playback_target: str | None = None, computer_device: str | None = None) -> dict[str, object]:
         adapter = self.server.environment_adapter
         if adapter is None:
             raise GatewayError("MetaHuman Environment Bridge is not configured")
-        return self.server.call_gateway(adapter.speech_output_settings(playback_target))
+        return self.server.call_gateway(adapter.speech_output_settings(playback_target,
+            **({'computer_device':computer_device} if computer_device is not None else {})))
 
     def _camera_frame(self, query_string: str) -> None:
         query = parse_qs(query_string, keep_blank_values=True)
@@ -606,6 +669,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _dispatch_api(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         robot_id = _optional_string(payload, "robot_id")
+        if path == "/api/host-audio":
+            try:
+                return self.server.call_gateway(self.server.host_audio.submit(
+                    _required_string(payload, "op"), payload.get("address")))
+            except OSError as error:
+                raise GatewayError(str(error)) from error
+        if path == "/api/motion-system":
+            return self.server.call_gateway(self.server.set_motion_system(
+                _required_string(payload, "robot_id"), _required_string(payload, "system")))
         if path == "/api/freestyle":
             return self.server.call_gateway(self.server.freestyle_request(payload))
         if path == "/api/gait-learning/service":
@@ -659,7 +731,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             target = _required_string(payload, "playbackTarget")
             if target not in {"computer", "robot"}:
                 raise ValueError("playbackTarget must be computer or robot")
-            response = self._speech_output(target)
+            device = payload.get('computerDevice')
+            if device is not None and not isinstance(device,str):
+                raise ValueError('computerDevice must be an audio output name')
+            response = self._speech_output(target, device)
             self.server.audit_log.record("speech_output_changed", output_target=target)
             return response
         if path == "/api/settings/network":

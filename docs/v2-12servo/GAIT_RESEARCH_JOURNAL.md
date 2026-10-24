@@ -7547,3 +7547,28 @@ opened the new page, displayed the current Walk chart and downloaded matching
 history JSON. No browser exceptions or motion requests occurred in this check.
 Private screenshots: `/tmp/ainekio-learning-history.png` and
 `/tmp/ainekio-learning-history-live.png`.
+
+
+## 2026-10-22 — Release servo drive after automatic rest
+
+The owner requested reduced holding power after the inactivity lay-down.
+`0.8.117-p4-rest-release` marks only the timer-started lay-down for output release
+on successful completion. The same motion's cancellation/replacement discards
+that action. Explicit lay-down commands retain their powered hold. The final
+face remains available, commanded pulses become zero, and the unpowered pose
+is no longer treated as a known shaft reference. A subsequent movement command
+uses its normal output engagement path.
+
+The PCA output owner releases OE through the existing disable implementation,
+without cancelling already-admitted commands. Explicit detach and fault paths
+still retire their generations. This avoids rejecting a command admitted just
+before the automatic rest finishes. No timer, polling task, or extra hold delay
+was added. Disabling PWM removes active holding drive; this hardware does not
+switch off the servo supply rail, so zero standby current is not claimed.
+
+Focused native body/feedback and PCA driver tests pass: automatic release,
+restart via Stand, no release while frame writes time out, normal manual
+lay-down hold, replacement/cancellation, and command-generation continuity.
+Integrated ESP-IDF application build passed. The installable app is preserved
+in `/tmp/ainekio-rest-release-20261022/ainekio_p4_body.bin`. Physical power
+reduction and installation remain pending.

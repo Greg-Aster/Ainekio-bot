@@ -9,11 +9,12 @@ HEADER_BYTES = 5
 MAX_BINARY_COUNTER = (1 << 32) - 1
 MIC_PCM_FRAME_TYPE = 0x01
 CAMERA_JPEG_FRAME_TYPE = 0x02
+CAMERA_CHUNK_FRAME_TYPE = 0x03
 SPEAKER_PCM_FRAME_TYPE = 0x10
 AUDIO_PAYLOAD_BYTES = 640
 MAX_JPEG_BYTES = 256 * 1024
 KNOWN_FRAME_TYPES = frozenset(
-    {MIC_PCM_FRAME_TYPE, CAMERA_JPEG_FRAME_TYPE, SPEAKER_PCM_FRAME_TYPE}
+    {MIC_PCM_FRAME_TYPE, CAMERA_JPEG_FRAME_TYPE, CAMERA_CHUNK_FRAME_TYPE, SPEAKER_PCM_FRAME_TYPE}
 )
 
 
@@ -36,6 +37,14 @@ def _fail(reason: str) -> None:
 
 
 def _validate_payload(frame_type: int, payload: bytes) -> None:
+    if frame_type == CAMERA_CHUNK_FRAME_TYPE:
+        if len(payload) <= 8:
+            _fail("length:camera_chunk")
+        total = int.from_bytes(payload[:4], "little")
+        offset = int.from_bytes(payload[4:8], "little")
+        if not 4 <= total <= MAX_JPEG_BYTES or not 0 <= offset < total or len(payload) - 8 > total - offset:
+            _fail("length:camera_chunk")
+        return
     if frame_type in {MIC_PCM_FRAME_TYPE, SPEAKER_PCM_FRAME_TYPE}:
         if len(payload) != AUDIO_PAYLOAD_BYTES:
             _fail("length:audio")

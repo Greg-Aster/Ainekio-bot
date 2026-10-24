@@ -150,8 +150,11 @@ class BodyEvents:
         reference = motion.get("expected_up") if motion and imu.get("calibration_applied") else None
         unexpected_tilt = math.degrees(math.acos(max(-1.0, min(1.0,
             sum(a*b for a, b in zip(actual_up, reference)))))) if reference is not None else tilt
-        commanded_locomotion = bool(motion and motion["activity"] == "locomotion"
-                                    and motion["phase"] in {"entry", "motion"})
+        # Acceleration/rotation alone cannot identify an outside disturbance
+        # while the body is executing a requested movement. Use the firmware's
+        # sampled execution phase for poses, clips, manual and generated motion
+        # as well as locomotion. Tilt is still checked against expected_up.
+        commanded_movement = bool(motion and motion["phase"] in {"entry", "motion", "replanning"})
         reacting = imu.get("face_token", "").startswith("be_")
         accel = abs(math.hypot(*imu["acceleration_m_s2"])/9.80665 - 1)
         rotation = math.degrees(math.hypot(*imu["angular_rate_rad_s"]))
@@ -174,7 +177,7 @@ class BodyEvents:
         if (config["rapid_enabled"] and not state["rapid"] and
                 (accel > config["rapid_accel_g"] or rotation > config["rapid_rotation_dps"])):
             state["rapid"] = True
-            if not commanded_locomotion:
+            if not commanded_movement:
                 candidates.append("rapid_movement")
         # Both detectors keep their rearm state current during suppression.
         # Only emitted notifications start the shared interval; nothing queues.

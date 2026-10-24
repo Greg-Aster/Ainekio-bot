@@ -21,7 +21,7 @@ CORE = ROOT / "Slave/software/core"
 
 
 def controller_function(source: str, name: str) -> str:
-    start = source.index(f"static void {name}(")
+    start = re.search(rf"static (?:void|bool) {name}\(", source).start()
     # These functions all end at the unindented closing brace.
     end = source.index("\n}", start) + 2
     return source[start:end]
@@ -51,6 +51,7 @@ class P4AudioTransportTests(unittest.IsolatedAsyncioTestCase):
 #include "ainekio/p4_media.h"
 typedef void *esp_websocket_client_handle_t;
 typedef unsigned TickType_t;
+typedef unsigned UBaseType_t;
 #define pdTRUE 1
 #define pdMS_TO_TICKS(ms) (ms)
 #define LINK_SEND_TIMEOUT_MS 2000
@@ -58,6 +59,13 @@ typedef unsigned TickType_t;
 '''+packet+r'''
 static packet_t queue[50];
 static unsigned queued, failures;
+static unsigned queue_capacity = 50;
+static bool camera_test;
+static uint64_t next_microphone_us;
+static unsigned produced_frames;
+enum { MEDIA_SEND_BYTES = 4096 };
+static uint8_t camera_buffer[MEDIA_SEND_BYTES];
+static uint8_t *camera_send_buffer = camera_buffer;
 static uint32_t last_media_send_us, last_media_send_bytes;
 static uint64_t clock_us;
 static esp_err_t snapshot_result = ESP_OK;
@@ -70,7 +78,12 @@ esp_err_t ainekio_p4_media_snapshot(ainekio_camera_origin_t origin, uint32_t id)
     return snapshot_result;
 }
 static void *audio_packets = queue;
-static atomic_uint microphone_counter, microphone_tx_drops, stopped_sequence;
+static void *camera_packets = (void *)1, *replies = (void *)2;
+static atomic_uint microphone_counter, microphone_tx_drops, stopped_sequence, pending_sequence;
+static atomic_bool reconnect;
+static void wake_link(void) {}
+static void ainekio_p4_body_activity(void) {}
+static void microphone(void *context, uint64_t session, const uint8_t *pcm);
 static bool current_connection(uint64_t session) { return session == 42; }
 static struct { struct { ainekio_mode_t mode; } core; } admission;
 static void enter(void) {}
@@ -82,8 +95,19 @@ static int xQueueSend(void *handle, const void *item, unsigned timeout)
 {
     (void)timeout;
     assert(handle == audio_packets);
-    if (queued == 50) return 0;
+    if (queued == queue_capacity) return 0;
     queue[queued++] = *(const packet_t *)item;
+    return pdTRUE;
+}
+static unsigned uxQueueMessagesWaiting(void *handle) { return handle == audio_packets ? queued : 0; }
+static int xQueuePeek(void *handle, void *item, unsigned timeout)
+{ (void)handle; (void)item; (void)timeout; return 0; }
+static int xQueueReceive(void *handle, void *item, unsigned timeout)
+{
+    (void)timeout;
+    if (handle != audio_packets || !queued) return 0;
+    *(packet_t *)item = queue[0];
+    memmove(queue, queue+1, --queued * sizeof(packet_t));
     return pdTRUE;
 }
 static int esp_websocket_client_send_text(void *client, const char *text, size_t size, unsigned timeout)
@@ -99,6 +123,14 @@ static int esp_websocket_client_send_bin(void *client, const char *data, size_t 
     printf("PCM ");
     for (size_t i = 0; i < size; ++i) printf("%02x", (unsigned char)data[i]);
     putchar('\n');
+    if (camera_test) {
+        clock_us += size * 2; /* Simulated 500 KB/s link; capture continues during send. */
+        while (next_microphone_us <= clock_us && produced_frames < 117) {
+            uint8_t pcm[640]; memset(pcm, ++produced_frames, sizeof(pcm));
+            microphone(NULL, 42, pcm);
+            next_microphone_us += 20000;
+        }
+    }
     return (int)size;
 }
 static void reply(uint64_t session, const char *text)
@@ -115,13 +147,32 @@ void media_event(uint64_t session, uint32_t sequence, const char *text)
 }
 '''
         harness += "\n".join(controller_function(source, name) for name in (
-            "microphone", "gate_event", "send_packet",
+            "microphone", "gate_event", "send_packet", "send_media",
         ))
         harness += r'''
 int main(int argc, char **argv)
 {
     assert(argc == 2);
     admission.core.mode = AINEKIO_MODE_NORMAL;
+    if (strcmp(argv[1], "camera") == 0) {
+        camera_test = true; queue_capacity = 8; next_microphone_us = 20000;
+        gate_event(NULL, 42, true, false);
+        packet_t camera = {0};
+        for (unsigned image = 0; image < 5; ++image) {
+            const size_t size = 250000;
+            camera = (packet_t){.connection=42, .camera=true, .length=size+5};
+            camera.bytes = calloc(1, camera.length);
+            camera.bytes[0] = AINEKIO_FRAME_CAMERA_JPEG;
+            camera.bytes[1] = (uint8_t)image;
+            camera.bytes[5] = 0xff; camera.bytes[6] = 0xd8;
+            camera.bytes[size+3] = 0xff; camera.bytes[size+4] = 0xd9;
+            while (camera.bytes) send_media(NULL, &camera);
+        }
+        gate_event(NULL, 42, false, false);
+        while (queued) send_media(NULL, &camera);
+        assert(produced_frames == 117 && atomic_load(&microphone_tx_drops) == 0 && failures == 0);
+        return 0;
+    }
     const bool wake = strncmp(argv[1], "vad", 3) != 0;
     const uint64_t session = strncmp(argv[1], "stale", 5) ? 42 : 41;
     const bool photo = strstr(argv[1], "photo") != NULL;
@@ -194,6 +245,28 @@ int main(int argc, char **argv)
                 self.assertEqual(recording.missing_frames, 0)
                 self.assertEqual(recording.wake_triggered, mode == "wake")
                 self.assertFalse(recording.truncated)
+
+    async def test_camera_transfer_does_not_lose_live_microphone_frames(self):
+        from gateway.server.service import GatewayService, GatewayServiceConfig, GatewayConnection
+        from Emulator.tests.test_gateway_service import LifecycleSocket
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        connection = GatewayConnection(service, LifecycleSocket(), "robot", 1)
+        completed, frames = [], []
+        assembler = AudioUtteranceAssembler(completed.append)
+        async def received(frame):
+            frames.append(frame)
+            await assembler.handle_frame(frame)
+        service.subscribe_frames(received)
+        for line in subprocess.check_output([str(self.binary), "camera"], text=True).splitlines():
+            if line.startswith("PCM "):
+                await connection._handle_binary(bytes.fromhex(line[4:]))
+            else:
+                await assembler.handle_event({"robot_id": "robot", "epoch": 1, **json.loads(line)})
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0].frame_count, 117)
+        self.assertEqual(completed[0].missing_frames, 0)
+        self.assertEqual(completed[0].pcm, b"".join(bytes([i])*640 for i in range(1,118)))
+        self.assertEqual(sum(frame["frame_type"] == 2 for frame in frames), 5)
 
     async def test_old_connection_cannot_deliver_audio_or_boundaries(self) -> None:
         for mode in ("stale", "stale-photo"):
