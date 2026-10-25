@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const nodes = new Map(), created = [], calls = [];
 function node(id) {
   if (!nodes.has(id)) nodes.set(id,{value:'',checked:false,dataset:{},listeners:{},children:[],
-    append(child){this.children.push(child);}, addEventListener(type,handler){this.listeners[type]=handler;},
+    append(child){this.children.push(child);}, replaceChildren(){this.children=[];}, addEventListener(type,handler){this.listeners[type]=handler;},
     after(child){this.nextSibling=child;},click(){this.clicked=true;},
     querySelector(selector){return node(selector);}});
   return nodes.get(id);
@@ -15,7 +15,8 @@ const context = {window:{},Blob,URL:{createObjectURL(){return 'blob:test';},revo
     const payload=options.body ? JSON.parse(options.body) : null;
     calls.push({url,payload,headers:options.headers});
     return {ok:true,json:async()=>url==='/api/session' ? {csrf:'test-csrf'} :
-      payload?.operation==='trial' ? {job:{id:'test-job',execute:false}} : {job_id:'test-job'}};
+      payload?.operation==='trial' ? {job:{id:'test-job',execute:false}} :
+      payload?.operation==='corrections' ? {corrections:[{review_id:'review-1',request:'Wave to an audience'}]} : {job_id:'test-job'}};
   }};
 vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8'),context);
 (async()=>{
@@ -36,6 +37,12 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   assert.deepEqual(calls.at(-1).payload,{operation:'trial',robot_id:'another-body',job_id:'test-job'});
   assert.equal(created.at(-1).download,'freestyle-test-job.json');
   assert.equal(created.at(-1).clicked,true);
+  await panel.listeners.click({target:{dataset:{action:'corrections'}}});
+  assert.deepEqual(calls.at(-1).payload,{operation:'corrections',robot_id:'another-body'});
+  assert.equal(node('[data-field="correction"]').children[0].textContent,'Wave to an audience');
+  node('[data-field="correction"]').value='review-1';
+  await panel.listeners.click({target:{dataset:{action:'test-correction'}}});
+  assert.deepEqual(calls.at(-1).payload,{operation:'test-correction',robot_id:'another-body',review_id:'review-1'});
   const count=calls.length;
   context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794',recover_events:true}},jobs:{one:{id:'one',robot_id:'p4',state:'generated'},
     two:{id:'two',robot_id:'another-body',state:'executing'}}},'p4');

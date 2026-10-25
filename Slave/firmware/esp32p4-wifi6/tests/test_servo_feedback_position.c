@@ -73,9 +73,18 @@ int main(void)
             sample.filtered_raw[c]=2000+(j%2?-1:1)*(pulse-1500)*1.5;
         }
         uint16_t mask=ainekio_p4_feedback_stalled(&progress,mapping,targets);
-        if(n>55)assert(mask==(1U<<4));
-        if(n<50)assert(!mask);
+        assert(mask==(n==51?(1U<<4):0));
     }
+    /* A genuine new high-water mark starts a new episode; static noise and
+     * repeated samples cannot repeatedly restart model recovery. */
+    const unsigned stuck=sample.config.joint[4].channel;
+    sample.filtered_raw[stuck]=2000+(1610-1500)*1.5;
+    sample.sampled_us[stuck]+=20000;
+    assert(!ainekio_p4_feedback_stalled(&progress,mapping,targets));
+    sample.sampled_us[stuck]+=1000000;
+    assert(ainekio_p4_feedback_stalled(&progress,mapping,targets)==(1U<<4));
+    sample.sampled_us[stuck]+=20000;
+    assert(!ainekio_p4_feedback_stalled(&progress,mapping,targets));
     /* Jam-only mode above detects blocked travel without coordinating targets.
      * Conversely, measured coordination alone must never release outputs. */
     sample.config.jam_enabled=false;sample.config.stand_enabled=true;

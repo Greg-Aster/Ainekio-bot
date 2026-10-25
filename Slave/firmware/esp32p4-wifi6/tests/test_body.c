@@ -58,7 +58,17 @@ static ainekio_v2_frame_t shaft_measured;
 static uint16_t shaft_wait_mask, shaft_stalled_mask;
 uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *progress,
     const ainekio_p4_joint_config_t *mapping,const uint16_t *targets)
-{ (void)progress;(void)mapping;(void)targets;shaft_jam_checks++;return shaft_jam_enabled?shaft_stalled_mask:0; }
+{
+    (void)mapping;(void)targets;shaft_jam_checks++;
+    uint16_t observed=0;
+    for(unsigned j=0;j<12;j++) {
+        if(!shaft_jam_enabled || !(shaft_stalled_mask&(1U<<j)))progress->joint[j].reported=false;
+        else if(!progress->joint[j].reported) {
+            observed|=1U<<j;progress->joint[j].reported=true;
+        }
+    }
+    return observed;
+}
 bool ainekio_p4_feedback_stand_enabled(void){return shaft_feedback_enabled;}
 bool ainekio_p4_feedback_jam_enabled(void){return shaft_jam_enabled;}
 bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,ainekio_v2_frame_t *frame)
@@ -1384,6 +1394,56 @@ static void freestyle_execution(void)
     }
 }
 
+static void stand_lifts_and_settles(void)
+{
+    for(unsigned feedback=0;feedback<2;feedback++) {
+        reset();leveling_enabled=false;
+        shaft_feedback_enabled=feedback;shaft_feedback_reached=true;
+        assert(ainekio_p4_joint_defaults(mapped_joints));
+        ainekio_command_t c=command(443,AINEKIO_INTENT_STAND);
+        assert(execute(&c)==ESP_OK);
+        unsigned elapsed=0;
+        while(!body.motion.settle_phase && elapsed<10000){advance(20);elapsed+=20;}
+        assert(elapsed<10000 && body.motion.settle_phase==1 && !shaft_goal_checks);
+        const ainekio_v2_frame_t base=body.motion.settle_base,peak=body.motion.settle_peak;
+        const double level[3]={0};ainekio_v2_posture_t geometry;
+        assert(ainekio_v2_posture_begin(&geometry,&base,&peak,level));
+        assert(fabs(geometry.target.body[2]-geometry.start.body[2]-2.)<.1);
+        for(unsigned l=0;l<4;l++)for(unsigned axis=0;axis<2;axis++)
+            assert(fabs(geometry.start.feet[l][axis]-geometry.target.feet[l][axis])<.1);
+        uint16_t base_pulses[12],peak_pulses[12];
+        assert(ainekio_p4_frame_pulses(&base,base_pulses));
+        assert(ainekio_p4_frame_pulses(&peak,peak_pulses));
+        assert(memcmp(base_pulses,peak_pulses,sizeof base_pulses));
+        /* The reversal must follow an actual peak write, including I2C retry. */
+        driver_timeout=true;advance(240);
+        assert(body.motion.settle_phase==1 && body.motion.settle_pending_write);
+        assert(!body.motion.feedback_commanded_us && !shaft_goal_checks);
+        assert(!memcmp(base_pulses,last_written,sizeof base_pulses));
+        driver_timeout=false;advance(20);
+        assert(body.motion.settle_phase==2 && !memcmp(peak_pulses,last_written,sizeof peak_pulses));
+        advance(180);assert(body.motion.settle_phase==2 && !shaft_goal_checks);
+        ainekio_p4_body_event_t e;assert(!ainekio_p4_body_event(&e));
+        advance(20);assert(body.motion.settle_phase==3 && !shaft_goal_checks);
+        assert(!memcmp(base_pulses,last_written,sizeof base_pulses));
+        e=finish(1000);assert(e.completed && e.sequence==443);
+        assert(body.balance_hold && driver.state.armed);
+        assert(!memcmp(base_pulses,last_written,sizeof base_pulses));
+    }
+    /* The small terminal motion is replaceable in either direction. */
+    for(unsigned phase=1;phase<=2;phase++) {
+        reset();leveling_enabled=false;
+        ainekio_command_t c=command(440,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
+        unsigned elapsed=0;
+        while(body.motion.settle_phase!=phase && elapsed<10000){advance(20);elapsed+=20;}
+        assert(elapsed<10000);
+        c=command(441,AINEKIO_INTENT_NEUTRAL);assert(execute(&c)==ESP_OK);
+        ainekio_p4_body_event_t e;assert(ainekio_p4_body_event(&e) && !e.completed && e.sequence==440);
+        assert(!body.motion.settle_phase && finish(2000).completed);
+    }
+    puts("Stand settling: 2 mm lift, written reversal, exact return, final-only feedback and immediate replacement passed.");
+}
+
 static void measured_stand_arrival(void)
 {
     reset();leveling_enabled=false;shaft_feedback_enabled=true;shaft_sample_available=false;
@@ -1562,18 +1622,19 @@ static void measured_stand_with_servo_lag(void)
     while(!ainekio_p4_body_event(&event) && elapsed<20000) {
         advance(20);elapsed+=20;assert(driver.state.armed);
     }
-    /* This deliberately slower plant cannot follow the complete path. It must
-     * keep correcting, never report arrival or hit an invented retry limit. */
-    assert(!event.completed && body.motion.kind==MOTION_POSE && body.motion.posture_replans>1);
-    while(!body.motion.feedback_commanded_us && elapsed<30000){advance(20);elapsed+=20;}
-    assert(body.motion.feedback_commanded_us);
-    /* Explicitly place the simulated shafts at the goal to test the eventual
-     * receipt. This is not evidence of autonomous plant convergence. */
-    for(unsigned ch=0;ch<12;ch++)shaft_pulses[ch]=last_written[ch];
-    advance(20);assert(ainekio_p4_body_event(&event) && event.completed && event.sequence==449);
+    /* Settling can let this slower plant catch up. Whether it converges or
+     * needs another pass, completion must describe the measured final goal. */
+    if(!event.completed) {
+        assert(body.motion.kind==MOTION_POSE && body.motion.posture_replans>1);
+        while(!body.motion.feedback_commanded_us && elapsed<30000){advance(20);elapsed+=20;}
+        assert(body.motion.feedback_commanded_us);
+        for(unsigned ch=0;ch<12;ch++)shaft_pulses[ch]=last_written[ch];
+        advance(20);assert(ainekio_p4_body_event(&event) && event.completed);
+    }
+    assert(event.sequence==449 && body.motion.settle_phase==3);
     for(unsigned joint=0;joint<12;joint++)
         assert(fabs(shaft_pulses[mapped_joints[joint].channel]-last_written[mapped_joints[joint].channel])<=30.);
-    puts("Lagging Stand plant: continued corrective passes, no false completion, eventual goal receipt passed.");
+    puts("Lagging Stand plant: measured final arrival after settling, no false completion passed.");
 }
 
 static void standing_tracks_measured_joints(void)
@@ -1744,16 +1805,35 @@ static void stall_release_event(void)
             assert(elapsed<10000);
         }
         advance(20);
-        assert(!driver.state.armed && !body.active && body.motion.kind==MOTION_NONE);
+        assert(driver.state.armed && body.active && driver.state.fault==AINEKIO_PCA_FAULT_NONE);
         ainekio_p4_body_event_t e;assert(ainekio_p4_body_event(&e));
-        assert(e.result==AINEKIO_P4_ERR_STALLED && !e.completed);
+        assert(e.result==ESP_OK && !e.completed && e.jam_observation);
         assert(e.stalled_joints==shaft_stalled_mask && e.clock_us);
         assert(e.sequence==(startup==0 || startup==3?944:0));
-        uint16_t released[12];ainekio_p4_body_pulses(released);
-        for(unsigned j=0;j<12;j++)assert(!released[j]);
+        uint16_t powered[12];ainekio_p4_body_pulses(powered);
+        bool any=false;for(unsigned j=0;j<12;j++)any|=powered[j]!=0;assert(any);
         assert(ainekio_p4_body_status().stalled_joints==shaft_stalled_mask);
-        advance(2000);assert(!ainekio_p4_body_event(&e));
+        advance(2000);
+        while(ainekio_p4_body_event(&e))assert(e.result==ESP_OK);
+        assert(driver.state.armed && body.active);
     }
+    /* Jam observations cannot consume the command's reserved receipt slots.
+     * The body retains a pending observation until its existing reader drains. */
+    reset();leveling_enabled=false;shaft_jam_enabled=true;shaft_stalled_mask=1;
+    ainekio_p4_body_event_t filler={0};
+    while(uxQueueSpacesAvailable(events)>2)assert(xQueueSend(events,&filler,0)==pdTRUE);
+    advance(20);assert(body.pending_jam.stalled_joints==1 && driver.state.armed);
+    while(ainekio_p4_body_event(&filler))assert(!filler.jam_observation);
+    advance(20);assert(!body.pending_jam.stalled_joints && driver.state.armed);
+    assert(ainekio_p4_body_event(&filler) && filler.jam_observation && filler.stalled_joints==1);
+    advance(2000);assert(!ainekio_p4_body_event(&filler));
+    /* Explicit output shutdown still wins over an undelivered observation. */
+    reset();leveling_enabled=false;shaft_jam_enabled=true;shaft_stalled_mask=1;
+    while(uxQueueSpacesAvailable(events)>2)assert(xQueueSend(events,&filler,0)==pdTRUE);
+    advance(20);assert(body.pending_jam.stalled_joints);
+    ainekio_pca_emergency_disable(&driver,AINEKIO_PCA_FAULT_EMERGENCY);
+    advance(20);assert(!body.pending_jam.stalled_joints && !driver.state.armed && !body.active);
+
     /* An in-pass dip cannot enter the observer. Recovered end-of-pass
      * feedback completes normally instead of retaining a false stall. */
     reset();leveling_enabled=false;shaft_feedback_enabled=shaft_jam_enabled=true;
@@ -1773,7 +1853,7 @@ static void stall_release_event(void)
     c=command(946,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
     event=finish(10000);
     assert(event.completed && event.sequence==946 && driver.state.armed);
-    puts("Stall: independent jam-only completion, non-Stand holding checks and one joint-specific event passed.");
+    puts("Stall: nonterminal jam observations preserve motion, powered holds and completion receipts.");
 }
 
 static void persistent_standing_goal(void)
@@ -1919,8 +1999,11 @@ static void measured_clip_targets(void)
     /* A failed final write cannot start verification or claim completion. */
     reset();leveling_enabled=false;shaft_feedback_enabled=shaft_feedback_reached=true;
     ainekio_command_t c=command(546,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
-    driver_timeout=true;
     unsigned elapsed=0;
+    while(body.motion.settle_phase!=2 && elapsed<10000){advance(20);elapsed+=20;}
+    assert(elapsed<10000 && !shaft_goal_checks);
+    driver_timeout=true;
+    elapsed=0;
     while(!body.motion.feedback_pending_write && elapsed<10000){advance(20);elapsed+=20;}
     assert(elapsed<10000 && !body.motion.feedback_commanded_us && !shaft_goal_checks);
     const ainekio_v2_frame_t target=body.motion.feedback_frame;
@@ -1985,6 +2068,7 @@ static void inactivity_rest(void)
 
 int main(int argc,char **argv)
 {
+    stand_lifts_and_settles();
     inactivity_rest();
     disconnected_motion_keeps_outputs();
     measured_walk_finish();

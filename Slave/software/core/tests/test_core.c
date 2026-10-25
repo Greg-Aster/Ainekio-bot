@@ -369,10 +369,10 @@ int main(void)
 {
     {
         ainekio_control_message_t notice;
-        const char *start = "{\"t\":\"pong\",\"external_speech\":true}";
+        const char *start = "{\"t\":\"pong\",\"external_speech\":true,\"external_speech_ms\":1500}";
         assert(ainekio_control_decode_for_body(start, strlen(start), &notice) == AINEKIO_DECODE_OK);
         assert(notice.kind == AINEKIO_MESSAGE_PONG && !notice.has_command && !notice.has_sequence);
-        assert(notice.has_external_speech && notice.external_speech);
+        assert(notice.has_external_speech && notice.external_speech && notice.external_speech_ms == 1500);
         const char *end = "{\"t\":\"ping\",\"external_speech\":false}";
         assert(ainekio_control_decode_for_body(end, strlen(end), &notice) == AINEKIO_DECODE_OK);
         assert(notice.has_external_speech && !notice.external_speech && !notice.has_command);

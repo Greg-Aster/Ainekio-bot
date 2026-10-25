@@ -76,7 +76,9 @@ class FakeGateway:
         return {'robots':{'robot':{'model':'v2-12servo','epoch':1,'calibration':self.calibration,
             'motion_speed':{'joint_speed_limit_deg_s':100},'status':{'imu':{'orientation_wxyz':[1,0,0,0]}},'body_command':None}}}
     async def queue_motion_plan(self,frames,**kwargs):
-        self.seq+=1;self.sent.append(copy.deepcopy(frames))
+        self.seq+=1
+        if kwargs.get('on_sequence'):kwargs['on_sequence'](self.seq)
+        self.sent.append(copy.deepcopy(frames))
         for c in self.commands:await c({'t':'motion_plan','robot_id':'robot','seq':self.seq})
         return self.seq
     async def wait_terminal(self,seq,**kwargs):
@@ -158,6 +160,116 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         release.set();await task
         self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'superseded')
         self.assertFalse(self.gateway.sent)
+
+    async def test_recovery_plans_concurrently_then_replaces_with_fresh_positions(self):
+        first_packet=asyncio.Event(); allow_first=asyncio.Event(); second_packet=asyncio.Event()
+        model_entered=asyncio.Event(); model_release=asyncio.Event()
+        original_receipt=self.gateway.wait_terminal
+        async def receipt(sequence,**kwargs):
+            if sequence==1:
+                first_packet.set();await allow_first.wait()
+            elif sequence==2:
+                second_packet.set();await asyncio.Future()
+            return await original_receipt(sequence,**kwargs)
+        self.gateway.wait_terminal=receipt
+        async def generate(endpoint,request):
+            if request['event']:
+                model_entered.set();await model_release.wait()
+                return {'program':[move(JOINTS[0],20,'current',50)]}
+            return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=20,period_s=1)]}
+        self.bridge.generate=generate
+        await self.bridge.configure('robot','http://unused',True)
+        submitted=await self.bridge.submit('robot','wave',True)
+        original=self.bridge.tasks[submitted['job_id']]
+        await first_packet.wait()
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_stall','outputs_released':False,'joints':[{'id':0}]}})
+        await model_entered.wait()
+        recovery=next(task for key,task in self.bridge.tasks.items() if key!=submitted['job_id'])
+        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
+        allow_first.set();await second_packet.wait()
+        self.assertFalse(original.done(),'Existing packets continue while recovery inference runs')
+        async def fresh(*args):
+            return {'joints':[{'id':i,'model_deg':18,'command_us':1500,'calibrated':True} for i in range(12)]}
+        self.bridge.transport.request=fresh
+        model_release.set();await asyncio.gather(original,recovery)
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'superseded')
+        self.assertEqual(self.gateway.sent[-1][-1][1][0],3800)
+
+    async def test_manual_stop_cancels_pending_recovery_without_an_active_job(self):
+        entered=asyncio.Event()
+        async def generate(*args):
+            entered.set();await asyncio.Future()
+        self.bridge.generate=generate
+        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_stall','outputs_released':False}})
+        await entered.wait();identifier=next(iter(self.bridge.tasks));task=self.bridge.tasks[identifier]
+        await self.bridge.command({'robot_id':'robot','t':'stop'})
+        await task
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'superseded')
+        self.assertFalse(self.gateway.sent)
+
+    async def test_recovery_generation_error_preserves_existing_motion(self):
+        entered=asyncio.Event()
+        async def receipt(*args,**kwargs):
+            entered.set();await asyncio.Future()
+        self.gateway.wait_terminal=receipt
+        async def generate(endpoint,request):
+            if request['event']:raise ValueError('model unavailable')
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        await self.bridge.configure('robot','http://unused',True)
+        submitted=await self.bridge.submit('robot','wave',True)
+        current=self.bridge.tasks[submitted['job_id']];await entered.wait()
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_stall','outputs_released':False}})
+        identifier=next(key for key in self.bridge.tasks if key!=submitted['job_id'])
+        await self.bridge.tasks[identifier]
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'error')
+        self.assertFalse(current.done())
+        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
+
+    async def test_empty_recovery_does_not_cancel_existing_motion(self):
+        entered=asyncio.Event()
+        async def receipt(*args,**kwargs):
+            entered.set();await asyncio.Future()
+        self.gateway.wait_terminal=receipt
+        async def generate(endpoint,request):
+            return {'program':[] if request['event'] else [move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        await self.bridge.configure('robot','http://unused',True)
+        submitted=await self.bridge.submit('robot','wave',True)
+        current=self.bridge.tasks[submitted['job_id']];await entered.wait()
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_stall','outputs_released':False}})
+        identifier=next(key for key in self.bridge.tasks if key!=submitted['job_id'])
+        await self.bridge.tasks[identifier]
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'completed')
+        self.assertFalse(current.done())
+        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
+
+    async def test_recovery_admission_failure_keeps_original_program_running(self):
+        entered=asyncio.Event()
+        async def receipt(*args,**kwargs):
+            entered.set();await asyncio.Future()
+        self.gateway.wait_terminal=receipt
+        async def generate(endpoint,request):
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        await self.bridge.configure('robot','http://unused',True)
+        submitted=await self.bridge.submit('robot','wave',True)
+        current=self.bridge.tasks[submitted['job_id']];await entered.wait()
+        async def unavailable(*args,**kwargs):
+            raise ValueError('Robot disconnected before admission')
+        self.gateway.queue_motion_plan=unavailable
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_stall','outputs_released':False}})
+        identifier=next(key for key in self.bridge.tasks if key!=submitted['job_id'])
+        await self.bridge.tasks[identifier]
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'error')
+        self.assertFalse(current.done())
+        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
     async def test_reassessment_does_not_drop_remaining_actions(self):
         count=0
         def generate(*args):
@@ -200,7 +312,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
                 await self.bridge.configure('robot','http://unused',True)
                 await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
                     'data':{'kind':kind,'joints':[{'id':0}]}})
-                recovery=self.bridge.tasks[self.bridge.active['robot']]
+                recovery=next(task for identifier,task in self.bridge.tasks.items() if identifier!=submitted['job_id'])
                 await asyncio.gather(interrupted,recovery)
                 request=self.generated[-1]
                 self.assertEqual(prior['state'],'superseded')

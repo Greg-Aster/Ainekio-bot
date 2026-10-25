@@ -41,9 +41,9 @@ static uint64_t session=42, audio_session;
 static int64_t microphone_after, last_speaker_input, clock_us, microphone_sample_at;
 static FILE *asset_file;
 static atomic_bool audio_tasks_started=true;
-static atomic_bool external_speech;
+static atomic_uint external_speech_until_ms;
 static atomic_uint external_speech_epoch;
-static bool use_external;
+static bool use_external, use_expiry;
 static unsigned resume_frame;
 static unsigned input_frame, resets, wake_frames, opens, closes, pcm_frames, mutex_depth;
 static jmp_buf finished;
@@ -56,17 +56,18 @@ static void vTaskDelay(unsigned ms) { clock_us+=ms*1000; }
 '''
         harness += function(source, "static void audio_finish(")
         harness += function(source, "esp_err_t ainekio_p4_media_tts_start(")
+        harness += function(source, "static bool external_speech_active(")
         harness += function(source, "void ainekio_p4_media_external_speech(")
         harness += r'''
 void ainekio_wake_word_reset(ainekio_wake_word_service_t *w) { assert(w==wake);resets++; }
 ainekio_wake_word_result_t ainekio_wake_word_process(ainekio_wake_word_service_t *w,const int16_t *pcm,size_t n)
 {
     assert(w==wake && pcm && n==320);
-    assert(!status.speaker_busy && !atomic_load(&external_speech) && clock_us>=microphone_after);
+    assert(!status.speaker_busy && !external_speech_active() && clock_us>=microphone_after);
     assert(input_frame<4 || input_frame>=resume_frame);wake_frames++;
     if(input_frame==3) {
         /* Playback starts while a previous wake inference is still running. */
-        if(use_external)ainekio_p4_media_external_speech(true);
+        if(use_external)ainekio_p4_media_external_speech(true, use_expiry ? 120 : 1000);
         else assert(ainekio_p4_media_tts_start(1)==ESP_OK);
         return AINEKIO_WAKE_WORD_DETECTED;
     }
@@ -85,7 +86,7 @@ static int i2s_channel_read(void *channel,void *out,size_t size,size_t *received
     if(input_frame==resume_frame+11)longjmp(finished,1);
     if(input_frame==9) {
         if(use_external) {
-            ainekio_p4_media_external_speech(false);
+            if(!use_expiry)ainekio_p4_media_external_speech(false, 0);
             assert(microphone_after==0); /* No new cooldown or elapsed-time gate. */
         } else {
             xSemaphoreTake(mutex,0);audio_finish(ESP_OK);
@@ -93,7 +94,7 @@ static int i2s_channel_read(void *channel,void *out,size_t size,size_t *received
         }
     }
     if(input_frame==resume_frame+4) {
-        if(use_external)ainekio_p4_media_external_speech(true);
+        if(use_external)ainekio_p4_media_external_speech(true, 1000);
         else assert(ainekio_p4_media_tts_start(2)==ESP_OK);
     }
     int16_t *pcm=out;
@@ -123,7 +124,18 @@ static void pcm(void *context,uint64_t id,const uint8_t *bytes)
         harness += r'''
 int main(int argc,char **argv)
 {
-    (void)argv;use_external=argc>1;resume_frame=use_external?10:49;
+    (void)argv;use_expiry=argc>2;use_external=argc>1;resume_frame=use_external?10:49;
+    /* 32-bit clock rollover and a renewal that must not reset wake history. */
+    clock_us=(int64_t)(UINT32_MAX-10)*1000;
+    ainekio_p4_media_external_speech(true,20);
+    assert(external_speech_active());
+    clock_us+=15000;
+    unsigned epoch=atomic_load(&external_speech_epoch);
+    ainekio_p4_media_external_speech(true,20);
+    assert(atomic_load(&external_speech_epoch)==epoch);
+    clock_us+=19000;assert(external_speech_active());
+    clock_us+=1000;assert(!external_speech_active());
+    ainekio_p4_media_external_speech(false,0);clock_us=0;
     callbacks.gate=gate;callbacks.microphone=pcm;
     if(!setjmp(finished))microphone_task(NULL);
     assert(mutex_depth==0 && opens==1 && closes==1 && pcm_frames==4);
@@ -145,3 +157,4 @@ int main(int argc,char **argv)
             ], check=True, capture_output=True, text=True)
             subprocess.run([str(binary)], check=True, capture_output=True, text=True)
             subprocess.run([str(binary), "external"], check=True, capture_output=True, text=True)
+            subprocess.run([str(binary), "external", "expire"], check=True, capture_output=True, text=True)

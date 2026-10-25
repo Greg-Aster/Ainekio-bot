@@ -375,6 +375,24 @@ are distinct: waiting for the wake word is listening but is not yet capturing. T
 scale and discards stale display readings. The gateway keeps these scalar
 readings separate from the existing PCM utterance/recording boundary.
 
+For computer/Bluetooth playback, P4 accepts optional transient audio state on
+authenticated `welcome`, `ping`, and `pong` messages:
+
+```json
+{"t":"pong","external_speech":true,"external_speech_ms":3500}
+{"t":"pong","external_speech":false}
+```
+
+These are unsequenced notifications, not acknowledged commands. `true` suppresses
+microphone capture/wake inference for the supplied local-clock duration (integer
+milliseconds, 0..2147483647); zero or omitted duration does not latch suppression.
+`false` resumes immediately. Existing heartbeat traffic renews state while the
+host playback process is active. Host duration is remaining 16 kHz mono s16 PCM
+time plus two heartbeat intervals; local expiry also resumes without a later
+message. Firmware checks expiry in its existing microphone loop and clears the
+state on disconnect. Nothing is persisted, and playback or motion never waits
+for this exchange. `audio.external_speech` reports actual temporary suppression.
+
 Wake-word preferences use a separate persistent command from the session-only
 microphone stream command:
 

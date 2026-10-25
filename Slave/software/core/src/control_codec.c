@@ -1527,6 +1527,13 @@ static ainekio_decode_result_t decode_control(
             "external_speech", &message->external_speech);
         if (audio_result != AINEKIO_DECODE_OK) return audio_result;
         message->has_external_speech = true;
+        if (object_get(&parser, root, "external_speech_ms") >= 0) {
+            int64_t duration = 0;
+            const ainekio_decode_result_t duration_result = required_integer(
+                &parser, root, "external_speech_ms", 0, INT32_MAX, &duration);
+            if (duration_result != AINEKIO_DECODE_OK) return duration_result;
+            message->external_speech_ms = (uint32_t)duration;
+        }
     }
     char type[24];
     ainekio_decode_result_t result =

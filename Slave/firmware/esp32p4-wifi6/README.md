@@ -1,5 +1,49 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.121-p4-stand-settle` finishes Stand with a modeled 2 mm body lift and
+return to the same standing target, eased over 200 ms in each direction.
+The existing contact kinematics determine the mirrored joint directions.
+Startup Stand, explicit Stand and Freestyle's Stand ending share this output
+owner; the preceding travel speed and final standing height are unchanged.
+The peak must be written before reversal, and the returned target must be
+written before final position verification. New commands and Stop remain
+immediately available. Existing measured-goal correction resumes afterward
+when needed. Completion retains the original nominal pose for leveling instead
+of applying its correction again to an already adjusted frame.
+
+This is an owner-requested settling motion, not a chatter classifier. The
+nominal 50 Hz analog feedback can expose shaft oscillation but cannot reliably
+distinguish every vibration from electrical noise or detect internal buzzing
+without observable shaft travel. Native tests cover geometry, exact target
+return, write retries, feedback ordering, replacement and the existing motion
+catalog. Installed over Wi-Fi on 2026-10-25: the robot reported this version in
+`ota_1`, `pending_verify:false`, and `ESP_OK`. The native suite's six Python
+geometry checks passed after selecting the documented `build/native-tests-venv`
+interpreter (NumPy 2.3.5 / SciPy 1.17.0); the other 55 tests passed previously.
+The owner reports no visible settling movement after boot and continued loaded
+servo chatter. Firmware installation is verified; physical chatter reduction is
+not. The requested 2 mm is a modeled command, not proof of loaded shaft travel.
+
+`0.8.120-p4-recovery-first` reports a possible jam without terminating motion
+or releasing servo outputs. The existing no-progress settings identify a new
+episode; measured progress/arrival rearms it. The event carries
+`outputs_released:false`, the relevant command sequence and joint mask, and
+does not generate a cancellation/completion receipt. The body retains pending
+observations without consuming the two reserved command receipt slots.
+Manual Stop and driver-fault output shutdown remain unchanged. Body Control's
+existing Freestyle owner admits trained corrections while the current motion
+or powered hold continues during inference. This preserves the earlier TCP
+backpressure and external-speech work described below.
+
+Installed on `ainekio-p4-e6ebe5` on 2026-10-25 through the existing OTA owner;
+the robot reported `accepted`, `pending_verify:false` and `ESP_OK` in `ota_0`.
+The approved fast wave completed all eight motion receipts and retained powered
+outputs with fault zero afterward. Native tests cover jam reporting, continued
+motion/hold, queue backpressure and immediate shutdown. No new physical jam was
+observed during the post-update check, so generated physical recovery remains
+unqualified. Deployment evidence is under
+`experiments/freestyle/artifacts/production/recovery-first-20261025/` on DNDIY.
+
 `0.8.119-p4-tcp-backpressure` also preserves an unfinished WebSocket frame
 when the TCP readiness poll expires or a write is interrupted. A zero-progress
 poll is backpressure, not evidence that the TCP connection has failed. The
@@ -13,7 +57,21 @@ connection retirement and masked-buffer restoration.
 This combined build also includes the external-speech capture suppression
 changes: existing welcome/heartbeat messages carry playback state, and the
 microphone owner suppresses capture and wake activation during external
-playback. Disconnect clears that state. There is no additional polling task.
+playback. Disconnect clears that state. Playback duration supplies a local
+expiry checked by the existing microphone loop, so a lost resume notification
+does not leave capture suppressed indefinitely. Existing heartbeats refresh
+the expiry while playback continues; there is no additional polling task.
+
+The combined application was uploaded once and activated once on 2026-10-24
+(SHA-256 `a0a139c23bafbef88f65c086939ace5b5bf00aaa0f30f142c2b8d708ad962e9a`).
+The body accepted it in `ota_1`, with `pending_verify=false` and `ESP_OK`.
+During 175 seconds of observation, its connection epoch remained unchanged,
+122 media frames arrived, and no post-boot transport errors were recorded.
+Computer-speaker playback correctly enabled and cleared microphone suppression.
+Three read-only servo-feedback requests took 43–56 ms. These checks establish
+activation and the observed connection interval, not long-term stability or
+physical Freestyle motion speed. Local evidence is in
+`experiments/freestyle/artifacts/production/tcp-backpressure-*.json`.
 
 `0.8.118-p4-websocket-writes` corrects partial TCP writes in the pinned IDF
 WebSocket frame writer. Previously a 4,096-byte payload could return a positive
@@ -129,11 +187,26 @@ cancellation invalidates the write and mutes it before another playback starts.
 Computer/Bluetooth speech routed through Body Control uses the transient
 `external_speech` Boolean in authenticated welcome/ping/pong messages. It suspends
 only microphone capture and wake inference, flushing pre-roll and invalidating
-in-flight wake results. It does not invoke a motion command, disarm outputs,
+in-flight wake results. `external_speech_ms` sets a local-clock expiry checked
+inside the existing microphone loop, including when no resume or further
+heartbeat arrives. Renewal does not reset wake history; expiry does. The host
+supplies remaining PCM duration plus two existing heartbeat intervals, renewing
+while its playback process drains. Normal completion clears suppression at once.
+No timer task or additional polling loop is created. A start without a duration
+does not latch suppression indefinitely. It does not invoke a motion command, disarm outputs,
 write NVS, add a cooldown or require an acknowledgement. Ordinary heartbeats
 repeat the latest state, including `false` after speech ends; disconnect also
 clears it. Audio telemetry reports `external_speech`. MetaHuman's independent
 Browser output is outside this transport and does not send these notifications.
+
+Verified on the physical P4 with combined firmware `0.8.119-p4-tcp-backpressure`
+on 2026-10-24: computer PCM playback completed through the existing Environment
+Bridge, `external_speech` became true with listening false during playback, and
+listening resumed afterward. The controller epoch stayed unchanged with no
+pending robot commands. Native microphone tests separately cover lost-resume
+expiry without further messages, renewal, 32-bit clock rollover and in-flight
+wake detection. Bluetooth pairing/audibility requires a selected physical speaker;
+the live playback check used the computer output path.
 
 Body Control's Apply microphone button saves the microphone on/off choice,
 Open/VAD/Wake mode and input gain on the P4. These survive power cycles and

@@ -76,6 +76,22 @@ class LifecycleSocket:
 
 
 class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_speech_expiry_uses_pcm_duration_and_existing_heartbeat_cadence(self):
+        now = [0.0]
+        service = GatewayService(GatewayServiceConfig(tokens={'robot':'test'}, ping_interval_s=1), clock=lambda:now[0])
+        service.set_external_speech('robot', 'first', True, duration_ms=5000)
+        self.assertEqual(service.external_speech_remaining_ms('robot'), 7000)
+        now[0] = 4.0
+        self.assertEqual(service.external_speech_remaining_ms('robot'), 3000)
+        now[0] = 6.0  # Playback process is still draining; no speech timeout.
+        self.assertTrue(service.external_speech_active('robot'))
+        self.assertEqual(service.external_speech_remaining_ms('robot'), 2000)
+        service.set_external_speech('robot', 'replacement', True, duration_ms=10000)
+        service.set_external_speech('robot', 'first', False)
+        self.assertEqual(service.external_speech_remaining_ms('robot'), 12000)
+        service.set_external_speech('robot', 'replacement', False)
+        self.assertEqual(service.external_speech_remaining_ms('robot'), 0)
+
     async def test_dropped_resume_is_repeated_by_regular_heartbeat(self):
         service = GatewayService(GatewayServiceConfig(tokens={'robot':'test'}))
         class Socket:

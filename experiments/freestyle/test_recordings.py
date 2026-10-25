@@ -41,6 +41,46 @@ class RecordingTests(unittest.TestCase):
 
 
 class RecordedBridgeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_saved_correction_executes_exactly_and_exports_only_after_operator_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'evidence.sqlite'
+            program = [{'name':'move','arguments':{'joint':'front_right_shoulder',
+                'angle_deg':20,'reference':'current','speed_pct':50}}]
+            recorder = Recorder(path)
+            recorder.record('generation_requested', {'generation_index':0, 'execute':True,
+                'request':{'request':'wave', 'observation':{}, 'history':[]}}, robot_id='robot', job_id='original')
+            review_id = recorder.record('review', {'generation_index':0, 'outcome':'partial',
+                'corrected_program':program, 'training_status':'awaiting_physical_trial'},
+                robot_id='robot', job_id='original')
+            recorder.close()
+            self.assertEqual(list(corrected_rows(path)), [])
+            recorder = Recorder(path)
+            async def generate(*args):
+                self.fail('A correction test must execute the saved program without model generation')
+            bridge = Bridge(FakeGateway(), FakeTransport(), generate, recorder=recorder)
+            self.assertEqual(await bridge.corrections('other-robot'), [])
+            with self.assertRaises(ValueError):
+                await bridge.test_correction('other-robot', review_id)
+            result = await bridge.test_correction('robot', review_id)
+            identifier = result['job_id']
+            await bridge.tasks[identifier]
+            self.assertEqual(bridge.jobs[identifier]['state'], 'completed')
+            self.assertEqual(bridge.jobs[identifier]['programs'][0]['program'], program)
+            self.assertEqual(bridge.gateway.sent[0][-1][1][9], 3000)
+            await asyncio.to_thread(recorder.pending.join)
+            self.assertEqual(list(corrected_rows(path)), [], 'Receipts alone must not qualify a correction')
+            bridge.review('robot', identifier, 'partial', 'Too brief')
+            await asyncio.to_thread(recorder.pending.join)
+            self.assertEqual(list(corrected_rows(path)), [])
+            bridge.review('robot', identifier, 'success', 'Observed the intended wave and return')
+            await bridge.close()
+            await asyncio.to_thread(recorder.close)
+            rows = list(corrected_rows(path))
+            self.assertEqual(len(rows), 1)
+            self.assertTrue(rows[0]['physical_qualification'])
+            self.assertEqual(rows[0]['execution_source']['review_id'], review_id)
+            self.assertEqual(rows[0]['answers'], program)
+
     async def test_reviews_preserve_failures_and_only_export_executed_success(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'evidence.sqlite'

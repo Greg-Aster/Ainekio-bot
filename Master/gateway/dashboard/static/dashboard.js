@@ -509,7 +509,7 @@
       entry.external_speech_active ? (audio?.external_speech ? "Listening suppressed during external speech" : "External speech: host audio suppressed; robot notification unconfirmed") :
       supported && !audio.on ? "Microphone off" : !listening ? "Listening paused during speaker playback" :
       `${supported ? (audio.capturing ? "Recording" : "Listening") : "Sent audio"} · ${db > -60 ? `${db.toFixed(1)} dBFS` : "below −60 dBFS"}${clipping ? " · Clipping — lower gain" : ""}`);
-    text("microphone-level-help", entry.external_speech_error ? `Speech notification failed: ${entry.external_speech_error}. The next heartbeat carries the current state; playback continues.` : supported ? "Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping." : "This firmware reports levels only while audio is being sent. Update the robot firmware for input gain, wake sensitivity and levels before detection.");
+    text("microphone-level-help", !online ? "Input level will resume when the robot reconnects." : entry?.external_speech_error ? `Speech notification failed: ${entry.external_speech_error}. The next heartbeat carries the current state; playback continues.` : supported ? "Input level before wake detection. The scale runs from −60 to 0 dBFS; near 0 means the input is clipping." : "This firmware reports levels only while audio is being sent. Update the robot firmware for input gain, wake sensitivity and levels before detection.");
   }
 
   async function command(path, payload = {}, label = "Command sent", canReport = () => true) {
@@ -853,7 +853,9 @@
     byId("servo-feedback-config").elements.jam_enabled.disabled =
       !servoFeedbackSupported || servoFeedbackWriting || !separateJam;
     text("servo-feedback-jam-support", separateJam ?
-      "Jam protection and final Stand verification can be enabled independently." :
+      (data.jam_policy === "recovery_first"
+        ? "Jam reports retain the current motion and powered hold. Enable Freestyle body-event recovery to request generated corrections."
+        : "This firmware releases outputs on a detected jam. Recovery-first behavior requires the firmware update.") :
       "This firmware couples jam protection to measured motion. Install the firmware update for independent switches.");
     text("servo-feedback-status", `${data.enabled ? "Reading enabled" : "Reading off"} · ${data.joints.filter(j => j.calibrated).length}/12 joints calibrated · scan ${data.scan} (${(data.scan_us / 1000).toFixed(2)} ms). ${data.error !== "ESP_OK" ? data.error : ""}`);
     text("servo-feedback-health", feedbackHealthMessage(data.health));

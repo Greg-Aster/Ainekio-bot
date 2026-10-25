@@ -387,7 +387,7 @@ static void received(void)
             atomic_store(&display_rejection, 0);
             atomic_store(&stopped_sequence, 0);
             ainekio_p4_media_session(request.connection);
-            if (m->has_external_speech) ainekio_p4_media_external_speech(m->external_speech);
+            if (m->has_external_speech) ainekio_p4_media_external_speech(m->external_speech, m->external_speech_ms);
             if (ainekio_p4_system_profile(m->data.welcome.profile) != ESP_OK ||
                 ainekio_p4_system_authenticated() != ESP_OK) { fail_link(); return; }
             /* The status serializer has a 5 KiB workspace. Keep it out of
@@ -423,7 +423,7 @@ static void received(void)
     request.output_generation = ainekio_pca_status(ainekio_p4_output()).generation;
     leave();
     if ((m->kind == AINEKIO_MESSAGE_PING || m->kind == AINEKIO_MESSAGE_PONG) && m->has_external_speech)
-        ainekio_p4_media_external_speech(m->external_speech);
+        ainekio_p4_media_external_speech(m->external_speech, m->external_speech_ms);
     if (m->kind == AINEKIO_MESSAGE_PING) heartbeat(request.connection, true);
     else if (m->kind == AINEKIO_MESSAGE_PONG) return;
     else if (m->has_command) {
@@ -920,11 +920,12 @@ static void link_task(void *arg)
                     char notice[320];
                     snprintf(notice,sizeof notice,
                         "{\"t\":\"event\",\"name\":\"servo_stall\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":true}",
-                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints);
+                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":%s}",
+                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints,
+                        event.jam_observation?"false":"true");
                     reply(link_generation,notice);
                 }
-                if (event.sequence && current_connection(event.connection)) {
+                if (!event.jam_observation && event.sequence && current_connection(event.connection)) {
                     char result[192];
                     const bool stopped = event.sequence <= atomic_load(&stopped_sequence);
                     if (stopped)

@@ -42,8 +42,9 @@ ainekio_p4_media_status_t ainekio_p4_media_status(void);
 /* Diagnostic low-water mark, in bytes; zero before the task exists. */
 uint32_t ainekio_p4_media_microphone_stack_free(void);
 void ainekio_p4_media_session(uint64_t session);
-/* Volatile audio-only notification; no output, settings or wake-model changes. */
-void ainekio_p4_media_external_speech(bool active);
+/* Volatile audio-only notification. Zero duration resumes immediately; positive
+ * durations up to INT32_MAX expire locally. No output/settings/model changes. */
+void ainekio_p4_media_external_speech(bool active, uint32_t duration_ms);
 /* NULL leaves the saved gain/threshold unchanged. */
 esp_err_t ainekio_p4_media_wake_configure(bool enabled, const char *model, const float *threshold);
 esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t gate, const uint8_t *gain_db);

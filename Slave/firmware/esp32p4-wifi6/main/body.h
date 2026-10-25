@@ -40,6 +40,8 @@ typedef struct {
     uint64_t connection;
     uint32_t sequence;
     bool completed;
+    /* Nonterminal no-progress evidence; execution and powered hold continue. */
+    bool jam_observation;
     /* 0: authored completion; 1: requested but unavailable; 2: measured. */
     uint8_t position_verification;
     ainekio_cancel_code_t reason;

@@ -6,18 +6,18 @@ the same standalone generator. Ordinary motion buttons retain their existing
 behavior. The generator itself has no robot transport; the explicit Body
 Control execution path sends commands through the existing gateway owner.
 
-The production Freestyle service now uses the **spatial-v7 Qwen3.5-0.8B LoRA,
-merged and exported as Q8_0**, with the matching v7 spatial contract, GPU
+The production Freestyle service now uses the **spatial-v8 Qwen3.5-0.8B LoRA,
+merged and exported as Q8_0**, with the matching v8 spatial contract, GPU
 inference and reasoning disabled. The larger/full-weight comparison reports and
 adapters remain separate artifacts; their unused merged weights were removed.
-V7 reproduces learned references better than earlier models;
-its weak unseen-motion results still require the ongoing curriculum repair.
+V8 continues the v7 adapter on 879 revised examples, including face cues and
+full standing endings. Unseen-motion competence still needs ongoing review.
 Activation is not evidence of general physical competence.
 
 Body Control records commands and received motion telemetry automatically while
 the experiment is installed. The standalone API also records requests and model
 outputs, including errors and cancellations, for either caller. Production
-activation was checked with a live-observation **generation-only** foot-lift,
+v7 activation was checked with a live-observation **generation-only** foot-lift,
 hold and return request (0.605 seconds for this one request, zero motion commands),
 a visible panel check, and persistence of an explicitly nonphysical review.
 
@@ -26,10 +26,19 @@ a visible panel check, and persistence of an explicitly nonphysical review.
 The workstation units `ainekio-freestyle-model.service` and
 `ainekio-freestyle-api.service` are enabled user services. They point to:
 
-- Model: `artifacts/spatial-v7/final-served/model.Q8_0.gguf`
-- Model SHA256: `261fdcc14049e0435aab3e559e6a12a13a01a25f238f0084d0c5ad88ab58c139`
-- Contract: `artifacts/spatial-v7/dataset/`
+- Model: `artifacts/spatial-v8/final-served/model.Q8_0.gguf`
+- Model SHA256: `06435179aa494db8311fce73d74e5bae8fffb9eb53e8e17c9c0646173f78a6da`
+- Contract: `artifacts/spatial-v8/final-dataset/`
 - Standalone generator: `http://127.0.0.1:8794`; llama.cpp: port 8795.
+
+V8 was activated at the owner's request on 2026-10-24. Generation-only checks
+for wave, stretch and left pointing all replayed fully (1.24–3.00 seconds to
+generate), with face cues. Wave and stretch ended in exact Stand; pointing ended
+near Stand without an explicit final full-pose command. This small check is not
+a held-out benchmark or physical qualification. Evidence is in
+`artifacts/production/v8-activation-generations.json`; the 22 later reviewed
+corrections remain pending a subsequent training pass. Export intermediates
+were removed automatically; the prior v7 artifact remains available.
 
 These unit files contain this workstation's Python and llama.cpp paths. Their
 model server retains two inference slots, uses the GGUF's native context capacity
@@ -63,6 +72,18 @@ replacement commands retain ownership. This verifies event routing, not physical
 recovery competence. A compilation error is recorded as a failed job; it does
 not itself trigger another generation. There is no dedicated slip detector.
 
+Recovery-first firmware (`0.8.120`) sends these jam observations with
+`outputs_released:false`. The current motion and powered hold continue while
+the model generates a correction. Recovery claims the existing executor only
+when its program is available and reads fresh joint positions before dispatch.
+Manual replacement/Stop cancels pending recovery. A model failure does not
+release outputs or abandon current execution. A newer event retains earlier
+event evidence while replacing its pending inference; no timeout or retry-count
+policy is imposed on model decisions. Genuine driver faults and explicit Stop
+retain their existing physical authority. The feedback panel reads the installed
+jam policy rather than assuming every firmware uses recovery-first reporting.
+
+
 Spatial compilation now schedules intermediate targets at the P4's 20 ms output
 cadence. Previously, 8–9 ms frames each consumed a full output tick and stretched
 recorded 700 ms strokes to roughly 1.5–2 seconds on the wire. Offline tick replay
@@ -73,8 +94,8 @@ The optional executor supports generated `face` actions through the existing
 face owner. A program-scoped selection stays visible across its motion packets
 and releases only its own token on completion or interruption; face receipts do
 not delay movement. Face-only requests keep the ordinary visible selection.
-The v7 contract does not yet teach these actions; the revised curriculum adds
-face cues and full twelve-joint native Stand endings, with explicit requested
+The active v8 contract teaches face cues and full twelve-joint native Stand
+endings, with explicit requested
 endings taking precedence. Native Stand differs from calibration Home.
 
 Recordings live in the ignored Body Control runtime directory, alongside its
@@ -1276,3 +1297,36 @@ For removal, stop only the dedicated experimental llama.cpp process, then
 remove this directory and the explicitly chosen experiment artifact directories.
 The ordinary robot library, walking, Body Control and MetaHuman remain as they
 were; there are no registrations to uninstall or production defaults to revert.
+
+### Q6A corrected-motion live-test protocol
+
+Corrected-motion test protocol
+
+New corrected programs remain `awaiting_physical_trial` in the existing review
+record and are excluded by the training export. First replay the complete
+program offline: check geometry, requested side, repetitions, authored timing
+and ending. Keep the original request, observations, program and correction ID.
+
+In Body Control's Freestyle panel, use **Load saved corrections**, select the
+correction, then **Test selected correction**. This runs the exact saved program
+through the existing executor with fresh observations; it does not regenerate
+the movement. The ordinary Stop and command replacement owners still apply.
+Receipts, feedback, faults and timing remain in the existing recording database.
+The model server is not needed to test a saved correction.
+
+Watch the physical trial. Save **Performed correctly** only after observing the
+intended movement, timing, repetitions and ending. Record **Partly correct** or
+**Incorrect movement** with what differed when another correction is needed.
+Inspect the ending after the final receipt: a later output release, reported
+stall, or loss of the requested posture is part of the trial result.
+Completion receipts alone do not approve a training target. Only a completed
+trial with an explicit successful operator review is exported as a physically
+qualified positive example; its source correction IDs remain attached.
+
+Keep candidate programs and trial evidence on DNDIY under the existing
+`experiments/freestyle/artifacts/spatial-v8/pending-motion-review/` tree. The
+Q6A audience-wave batch is `q6a-20261025-audience-wave/`; its `candidates.jsonl`
+is staged evidence, not an addition to `train.jsonl`. Copy consistent SQLite
+backups including committed WAL data and verify transfer checksums. After the
+live trial and operator assessment, export the approved trial to the pending
+training set there. Preserve failed attempts; do not rewrite the frozen v8 run.
