@@ -1,5 +1,18 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.123-p4-motion-stack` moves the candidate motion planner out of the body
+task's stack into a workspace owned exclusively by that task. The active motion
+remains separate until acceptance, so rejected commands preserve it. The
+installed `0.8.122` image rebooted on Stand/Walk with an ESP32-P4 stack-protection
+fault (MCAUSE 27); the Walk path reserved 5,600 + 8,496 + 2,240 bytes on a
+16,384-byte task stack before nested library calls. The same compiler reports
+3,760 bytes for `start_motion` after this change, down from 8,496. Task stack
+allocation, command admission, target geometry and motion timing are unchanged.
+The firmware build and both native body execution suites passed. Installed over
+Wi-Fi on 2026-10-25 and verified running/selected in `ota_0` with
+`pending_verify:false` and `ESP_OK`. The owner powered the robot off before the
+post-flash Stand/Walk trial; physical command execution remains unverified.
+
 `0.8.122-p4-targets-settle` combines Q6A measured-target execution and recovery
 with DNDIY Stand settling and microphone updates. This source merge is not a
 firmware activation. On 2026-10-25 the robot was found running
