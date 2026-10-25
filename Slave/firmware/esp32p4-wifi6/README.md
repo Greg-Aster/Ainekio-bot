@@ -1,5 +1,25 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.120-p4-recovery-first` reports a possible jam without terminating motion
+or releasing servo outputs. The existing no-progress settings identify a new
+episode; measured progress/arrival rearms it. The event carries
+`outputs_released:false`, the relevant command sequence and joint mask, and
+does not generate a cancellation/completion receipt. The body retains pending
+observations without consuming the two reserved command receipt slots.
+Manual Stop and driver-fault output shutdown remain unchanged. Body Control's
+existing Freestyle owner admits trained corrections while the current motion
+or powered hold continues during inference. This preserves the earlier TCP
+backpressure and external-speech work described below.
+
+Installed on `ainekio-p4-e6ebe5` on 2026-10-25 through the existing OTA owner;
+the robot reported `accepted`, `pending_verify:false` and `ESP_OK` in `ota_0`.
+The approved fast wave completed all eight motion receipts and retained powered
+outputs with fault zero afterward. Native tests cover jam reporting, continued
+motion/hold, queue backpressure and immediate shutdown. No new physical jam was
+observed during the post-update check, so generated physical recovery remains
+unqualified. Deployment evidence is under
+`experiments/freestyle/artifacts/production/recovery-first-20261025/` on DNDIY.
+
 `0.8.119-p4-tcp-backpressure` also preserves an unfinished WebSocket frame
 when the TCP readiness poll expires or a write is interrupted. A zero-progress
 poll is backpressure, not evidence that the TCP connection has failed. The

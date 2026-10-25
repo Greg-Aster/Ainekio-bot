@@ -66,6 +66,19 @@ for _face_file in (STATIC_ROOT / "faces").glob("*"):
         )
 
 
+def freestyle_module(name):
+    """Load the optional experiment without starting inference or robot execution."""
+    package = "ainekio_freestyle_experiment"
+    if package not in sys.modules:
+        spec = importlib.util.spec_from_file_location(package, FREESTYLE_ROOT / "__init__.py",
+            submodule_search_locations=[str(FREESTYLE_ROOT)])
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[package] = module
+        spec.loader.exec_module(module)
+    from importlib import import_module
+    return import_module(package + "." + name)
+
+
 class DashboardHttpServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -123,27 +136,32 @@ class DashboardHttpServer(ThreadingHTTPServer):
     def _setup_freestyle(self):
         # The experiment owns its model, recording, and optional execution.
         # Removing its directory leaves ordinary Body Control startup intact.
-        package = "ainekio_freestyle_experiment"
-        if package not in sys.modules:
-            spec = importlib.util.spec_from_file_location(package, FREESTYLE_ROOT / "__init__.py",
-                submodule_search_locations=[str(FREESTYLE_ROOT)])
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[package] = module
-            spec.loader.exec_module(module)
-        from importlib import import_module
         from gateway.gait_learning_service import RobotLearningTransport
-        recorder = import_module(package + ".recordings").Recorder(
+        recorder = freestyle_module("recordings").Recorder(
             self.password_store.path.with_name("freestyle-recordings.sqlite"))
         self.freestyle_recorder = recorder
         self.gateway.subscribe_commands(recorder.command)
         self.gateway.subscribe_events(recorder.event)
         self.gateway.subscribe_diagnostics(recorder.diagnostic)
-        self.freestyle = import_module(package + ".bridge").Bridge(
+        self.freestyle = freestyle_module("bridge").Bridge(
             self.gateway, RobotLearningTransport(self.gateway, self.token_store, persistent=False),
             recorder=recorder, settings_path=self.password_store.path.with_name("freestyle-settings.json"))
         self.gateway.freestyle_motion = self.freestyle.submit
         self.gateway.freestyle_result = self.freestyle.result
         self.gateway.freestyle_cancel = self.freestyle.cancel
+
+    def motion_library(self):
+        # HTTP worker threads own dataset I/O, never the gateway event loop.
+        return freestyle_module("motion_library").MotionLibrary(
+            self.password_store.path.with_name("motion-library.sqlite"))
+
+    async def play_library_motion(self, robot, example, program, request):
+        if self.freestyle is None:
+            self._setup_freestyle()
+        return await self.freestyle.submit(robot, request, True, program=program,
+            source={"kind": "motion_library", "example_id": example["id"],
+                    "revision": example["revision"], "title": example["title"],
+                    "unsaved_draft": program != example["program"] or request != example["request"]})
 
     async def close_freestyle(self):
         self.gateway.freestyle_motion = None
@@ -226,6 +244,11 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if self.freestyle is None:
             self._setup_freestyle()
         robot = _required_string(payload, "robot_id")
+        if payload.get("operation") == "corrections":
+            return {"corrections": [{"review_id":r["id"], "job_id":r["job_id"], "request":r["request"]}
+                    for r in await self.freestyle.corrections(robot)]}
+        if payload.get("operation") == "test-correction":
+            return await self.freestyle.test_correction(robot, _required_string(payload, "review_id"))
         if payload.get("operation") == "configure":
             return await self.freestyle.configure(robot, _required_string(payload, "endpoint"),
                                                   _required_bool(payload, "recover_events"))
@@ -355,9 +378,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed_url = urlsplit(self.path)
         path = parsed_url.path
-        if path == "/assets/freestyle.js" and (FREESTYLE_ROOT / "body_control.js").is_file():
+        experiment_assets = {"/assets/freestyle.js": "body_control.js",
+                             "/assets/motion-library.js": "motion_library.js"}
+        if path in experiment_assets and (FREESTYLE_ROOT / experiment_assets[path]).is_file():
             if self._require_session() is not None:
-                self._send_bytes((FREESTYLE_ROOT / "body_control.js").read_bytes(), "text/javascript; charset=utf-8")
+                self._send_bytes((FREESTYLE_ROOT / experiment_assets[path]).read_bytes(), "text/javascript; charset=utf-8")
+            return
+        if path in {"/api/motion-library", "/api/motion-library/export"}:
+            if self._require_session() is None:
+                return
+            try:
+                library = self.server.motion_library()
+                if path.endswith("/export"):
+                    self._send_bytes(library.export(), "application/zip", extra_headers={
+                        "Content-Disposition": 'attachment; filename="motion-training-library.zip"'})
+                else:
+                    query = parse_qs(parsed_url.query)
+                    identifier = query.get("id", [None])[0]
+                    self._send_json(library.get(identifier) if identifier else library.list(
+                        int(query.get("page", ["1"])[0]), query.get("search", [""])[0],
+                        query.get("sort", ["name_asc"])[0]))
+            except ValueError as error:
+                self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
             return
         if path in ROBOT_MAINTENANCE:
             if self._require_session() is not None:
@@ -678,6 +720,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path == "/api/motion-system":
             return self.server.call_gateway(self.server.set_motion_system(
                 _required_string(payload, "robot_id"), _required_string(payload, "system")))
+        if path == "/api/motion-library":
+            library = self.server.motion_library()
+            identifier = _required_string(payload, "id")
+            operation = _required_string(payload, "operation")
+            if operation == "save":
+                return library.save(identifier, payload.get("revision"),
+                    _required_string(payload, "title"), _required_string(payload, "request"), payload.get("program"))
+            if operation == "run":
+                example = library.get(identifier)
+                program = library.validate(payload.get("program", example["program"]))
+                request = payload.get("request", example["request"])
+                if not isinstance(request, str) or not request.strip():
+                    raise ValueError("Training request is required")
+                return self.server.call_gateway(self.server.play_library_motion(
+                    _required_string(payload, "robot_id"), example, program, request), timeout=None)
+            raise ValueError("Choose save or run")
         if path == "/api/freestyle":
             return self.server.call_gateway(self.server.freestyle_request(payload))
         if path == "/api/gait-learning/service":
@@ -1064,7 +1122,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return None
         from protocol.binary_helpers import MAX_JPEG_BYTES
         limit = (MAX_JPEG_BYTES * 4 // 3 + 4096) if urlsplit(self.path).path in {"/api/people/enroll", "/api/vision/target"} else MAX_REQUEST_BODY_BYTES
-        if length <= 0 or length > limit:
+        # Authenticated motion editing accepts a complete program, rather than
+        # the small scalar-command body limit. No sequence is truncated.
+        if length <= 0 or (urlsplit(self.path).path != "/api/motion-library" and length > limit):
             self._send_json({"error": "invalid_body_size"}, status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             return None
         try:
@@ -1082,7 +1142,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if filename == "dashboard.html":
             if (FREESTYLE_ROOT / "body_control.js").is_file():
                 body = body.replace(b'<script src="/assets/dashboard.js" defer></script>',
-                    b'<script src="/assets/freestyle.js" defer></script><script src="/assets/dashboard.js" defer></script>')
+                    b'<script src="/assets/freestyle.js" defer></script><script src="/assets/motion-library.js" defer></script><script src="/assets/dashboard.js" defer></script>')
             body = body.replace(
                 b'data-dashboard-primary="camera"',
                 f'data-dashboard-primary="{self.server.primary_view}"'.encode("ascii"),

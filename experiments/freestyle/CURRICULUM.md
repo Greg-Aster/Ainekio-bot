@@ -173,3 +173,151 @@ logs. `cleanup.json` lists exactly what was removed. Active v7, adapters, final
 inputs, structured rejection evidence, source snapshots and all real recordings
 were preserved. Training run status belongs to `run-plan.json`; evaluation and
 physical trials remain necessary before claiming improved robot behavior.
+
+## Q6A audience-wave correction and live-test protocol, 2026-10-25
+
+The canonical evidence batch is on DNDIY at
+`artifacts/spatial-v8/pending-motion-review/q6a-20261025-audience-wave/`.
+It retains the original request/output, candidate revisions, recording snapshots,
+offline replay, three live correction trials and explicit operator assessments.
+
+The Cartesian revision failed live IK. The first joint-reference revision
+completed in 11.45 seconds; the owner found the sequence good but too slow and
+reported a sitting ending. A subsequent rear-right crank stall released outputs.
+The faster revision completed in 6.56 seconds with all eight motion receipts.
+The owner explicitly approved that last command as excellent. Its exact program
+and actual starting observations are the single approved training addition
+`93605debe36c7b1a`, trial `ab07f9ee990e46be8a23bdd79252ae91`.
+DNDIY's existing pending `train.jsonl` now contains 14 rows. The frozen v8 run
+and held-out folds remain unchanged; no training run was started.
+
+New corrections remain `awaiting_physical_trial` and are excluded from the
+training export. Replay the program offline, use **Test selected correction**,
+observe the physical motion and ending, then save the operator's outcome.
+Only a completed trial explicitly reviewed as successful becomes a physically
+qualified positive row. Earlier failures and source correction IDs remain linked.
+Recovery-first stall behavior is a separate firmware/executor repair, not a
+training label inferred from these trials.
+
+## Next dataset with the 14 reviewed examples, 2026-10-25
+
+On DNDIY, `artifacts/spatial-v9-compact/next-reviewed/dataset/` contains the
+879 existing balanced compact examples plus all 14 rows from
+`artifacts/spatial-v8/pending-motion-review/train.jsonl`: 893 training rows.
+Use `artifacts/spatial-v9-compact/next-reviewed/qwen-data/` for the next trainer
+input, including its `train.jsonl`, `evaluation.jsonl`, `manifest.json` and
+`training-config.json`. Paths are relative to `experiments/freestyle/` in
+`/home/greggles/Ainekio` on DNDIY.
+
+`next-reviewed/preparation-result.json` maps all 14 source IDs to compact IDs.
+Their decoded motion targets and physical-qualification labels are preserved;
+only the approved audience wave is marked physically qualified. Existing 879
+examples and held-out files are retained. Exact tokenization fits 3,412 tokens
+without truncation. This dataset is prepared for the next run; preparation did
+not start training or activate a model.
+
+## Counterbalanced foot-lift correction, 2026-10-25
+
+The owner observed the compact model's happy and surprised foot lifts. Both
+faces and small movements worked after a robot power cycle, but the owner
+reported insufficient visible lift, slow movement and disturbed balance. Those
+programs are now partial outcomes rather than fully satisfactory training labels.
+
+The reviewed correction uses the previously approved wave's rear-crouch and
+Stand targets, with a 25 mm front-left foot lift/lower at 0.35 seconds each and
+a 0.2-second hold. It is an authored teaching correction, not a new model output.
+Trial `59e571979b1d4f6bbb8dd22913a1919c` completed in 2.745 seconds including
+execution/feedback overhead (1.35 seconds in replay from its actual start).
+The owner confirmed: "Good balance, lift, speed, and ending". This is visual
+operator qualification, not measured center-of-mass or millimeter accuracy.
+
+Approved row `f2e44c4751fbb2cc` is the fifteenth pending reviewed example.
+Its evidence batch is DNDIY's
+`artifacts/spatial-v8/pending-motion-review/q6a-20261025-counterbalanced-lift/`.
+The Q6A copy is `build/gateway/physical/reviews/counterbalanced-lift-20261025/`.
+Failed attempts, partial outcomes and the approved correction remain separate.
+
+The next training input is now
+`artifacts/spatial-v9-compact/next-reviewed-counterbalanced/qwen-data/` on DNDIY:
+894 training rows (879 balanced-face rows plus 15 reviewed additions).
+
+All examples start with a face; all 15 added programs round-trip unchanged.
+Held-out files are unchanged, with no exact-query or motion-structure overlap
+for the new correction. The 3,412-token maximum requires no truncation.
+This prepares the correction for training; it has not been trained into the
+candidate or production model. The previous 893-row preparation is preserved.
+
+## Owner-approved fast rear sway, 2026-10-25
+
+The request `wiggle your butt` is now paired with the owner-approved correction:
+happy face, Stand, two rapid sideways rear sways about the front shoulder
+midpoint, then Stand. It uses generated body translation/yaw segments with
+durations 0.16/0.32/0.16 seconds per cycle. No request-to-motion lookup was added.
+
+The final physical trial `39894b0c9f794cdba6f3404d3709f469` took 2.543 seconds and
+received eight completion receipts. The owner approved it with “good enough!
+lets save it for the training data.” Review `92552132662a43148ec294213f5215f9`
+exports canonical training row `2eb4726c09394346`, family
+`reviewed_fast_rear_sway`, with operator-reported physical qualification.
+The failed pitch response and the two slower corrected trials remain separate
+evidence. The training row includes the original observation and exact approved
+program; measured endpoint errors remain evidence, not a claim of precise tracking.
+
+The Q6A evidence is in `build/gateway/physical/reviews/rear-sway-20261025/`.
+DNDIY's canonical pending dataset now contains 16 rows, including three approved
+physical examples. The next compact preparation is
+`artifacts/spatial-v9-compact/next-reviewed-fast-wiggle/`: 895 training rows
+(879 balanced-face rows plus 16 pending additions). Canonical/compact targets
+round-trip exactly, and held-out files remain unchanged. No training was launched;
+the active 879-example compact model has not learned this correction yet.
+
+The prepared fast-wiggle example contains 1,224 tokens, including 397 response
+tokens, under the native training tokenizer. This is a dataset measurement, not
+a fresh inference benchmark. The full preparation still fits 3,412 tokens with
+no truncation; `next-reviewed-fast-wiggle/preparation-result.json` records the checks.
+
+## Current targets only: library merge, 2026-10-25
+
+The owner explicitly discarded failed and superseded refinements for all motions.
+The working library and training exports now retain only current targets. Saving
+an edit replaces its older versions; discarded example IDs and their source IDs
+are retained as exclusion records so re-importing an older dataset cannot restore
+them. Old original-program metadata is removed from the working rows and exports.
+
+Six obsolete targets were removed: three earlier hip-wiggle proposals/contrasts,
+both small open-ended hand lifts, and the original clap target that was replaced
+by the elevated-hand correction. The hand-lift and clap matches were checked
+against the recorded originals and their corresponding refined requests. A
+sideways wiping program also matched the original incorrect *sawing* response,
+but remains a distinct wiping example; it is not an obsolete sawing label.
+Eight other repaired examples retain their accepted correction; their ancestor
+targets were not present. No identical complete-input duplicate rows were found.
+
+`wiggle your butt`, example `00b7c60fb57221bf`, retains only library revision 5:
+one happy face, initial Stand, twelve body segments (four cycles), and final
+Stand. Each cycle uses 0.071111/0.142222/0.071111 seconds. This latest saved edit
+has no new recorded physical trial and does not inherit an older trial's
+physical-success label. Older edit targets were discarded.
+
+The desktop's next trainer input is
+`artifacts/spatial-v9-compact/next-library-current-20261025/qwen-data/` under
+`/home/greggles/Ainekio/experiments/freestyle/`. It contains **889 current training
+examples**; the canonical pending subset contains 13. Older untrained
+`next-reviewed*` and `next-library-reviewed-20261025` train files are discarded
+and marked retired. Their hashes/receipts remain for provenance. The frozen
+inputs used to produce deployed models remain unchanged, outside the working
+library. Diagnostic recordings are not positive training labels.
+
+Export verification checks exact target preservation and source identities.
+The current library remains the editable source; export it again after further
+edits. No training was launched and the deployed model was not changed. Raw
+observations, local databases and model weights remain outside Git. The private
+snapshot, discard list and merge receipt are under
+`build/gateway/physical/reviews/training-merge-20261025/` on Q6A.
+
+Current-only snapshot SHA256:
+`ad07456ff512fd2f41675d5a0df76ef7a1698c0c880977cc4bfe1455b4bd3237`.
+
+The verified export includes 889 training and 28 evaluation examples. Maximum
+sequence length is 3,412 tokens, with zero truncation. Compact training JSONL
+SHA256: `bc9eedb2002c30ae6e7d30aa004128d9e22cecf3a41da72eec684aa07a268064`.
