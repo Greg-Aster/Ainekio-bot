@@ -6,20 +6,15 @@ the same standalone generator. Ordinary motion buttons retain their existing
 behavior. The generator itself has no robot transport; the explicit Body
 Control execution path sends commands through the existing gateway owner.
 
-The historical workstation deployment described below used the **spatial-v7 Qwen3.5-0.8B LoRA,
-merged and exported as Q8_0**, with the matching v7 spatial contract, GPU
-inference and reasoning disabled. The larger/full-weight comparison reports and
-adapters remain separate artifacts; their unused merged weights were removed.
-V7 reproduces learned references better than earlier models;
-its weak unseen-motion results still require the ongoing curriculum repair.
-Activation is not evidence of general physical competence.
+The Q6A currently serves the balanced spatial-v9 compact model locally through
+llama.cpp on port 8795 and the generator API on port 8794. The live editor exposes
+the exact compact training input and target. Saving edits changes the working
+training dataset; it does not change the running weights.
 
-Body Control records commands and received motion telemetry automatically while
-the experiment is installed. The standalone API also records requests and model
-outputs, including errors and cancellations, for either caller. Production
-activation was checked with a live-observation **generation-only** foot-lift,
-hold and return request (0.605 seconds for this one request, zero motion commands),
-a visible panel check, and persistence of an explicitly nonphysical review.
+The target-and-speed model and firmware are being built from
+`fix/measured-target-recovery`. Until that coordinated rollout completes, the
+installed model and compiler retain their existing `motion-arrays-v1` contract.
+Compact recovery-input projection is already compatible with that model.
 
 ## Editable training motion library
 
@@ -61,11 +56,11 @@ fresh library export, rather than an older `next-reviewed-*` snapshot. Exporting
 or saving does not train or activate a model.
 
 The target-control migration is prepared in
-`artifacts/spatial-v10-targets/library-20261025-audit/`. It converts all 889 active
+`artifacts/spatial-v10-targets/library-20261025-compact-speeds/`. It converts all 889 active
 examples, adds 24 synthetic multi-step wave adaptations (913 training rows), and
 adds 16 separate recovery probes. The new examples are not physically qualified.
 Movement targets use `speed_pct`; only explicit `hold` calls have durations.
-The editor's target arrays use `motion-targets-v1`. Target packets use
+The candidate's target arrays use `motion-targets-v1`. Target packets use
 `control: "targets"` with `[speed_centidegrees_per_second, twelve_joint_targets]`.
 The P4 ramps toward targets at that speed and advances on fresh shaft arrival.
 Missing feedback or a jam never fabricates arrival or disables outputs; the goal
