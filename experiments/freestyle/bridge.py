@@ -275,7 +275,8 @@ class Bridge:
             event = ({'type':original_event['data']['kind'], **original_event['data'],
                       'event_id':original_event.get('event_id'),'epoch':original_event.get('epoch')}
                      if original_event and original_event.get('name')=='body_event' else original_event)
-            continuation = []
+            continuation = copy.deepcopy(next((h['remaining_program'] for h in reversed(job['history'])
+                if isinstance(h,dict) and h.get('remaining_program')), []))
             while True:
                 obs = await self.connected_observation(job)
                 if continuation:obs={**obs,'pending_actions':continuation}
@@ -306,8 +307,11 @@ class Bridge:
                 reassess = False
                 # A generated plan owns the next actions. Appending the old
                 # tail could repeat the obstruction the model just adapted.
-                # An empty reassessment leaves the pending plan unchanged.
-                program = result['program'] or continuation
+                # Pending actions are goal context, not an automatic replay.
+                # Reassessment can retain that context without making the LLM
+                # emit another copy of it in every correction.
+                pending_goal = continuation
+                program = result['program']
                 continuation = []
                 planned = None
                 planning_epoch = obs['epoch']
@@ -344,7 +348,7 @@ class Bridge:
                                     'generation_index':generation_index, 'action_index':index}, sequence=seq)
                         continue
                     if name == 'reassess':
-                        continuation = program[index+1:]
+                        continuation = program[index+1:] or pending_goal
                         reassess=True; break
                     before = obs
                     if name == 'hold':

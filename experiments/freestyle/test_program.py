@@ -494,7 +494,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[identifier]['state'],'error')
         self.assertFalse(current.done())
         self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
-    async def test_reassessment_does_not_drop_remaining_actions(self):
+    async def test_empty_reassessment_does_not_automatically_replay_old_actions(self):
         count=0
         def generate(*args):
             nonlocal count
@@ -505,7 +505,23 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         job=await self.bridge.submit('robot','reassess then move',True)
         await self.bridge.tasks[job['job_id']]
         self.assertEqual(count,2)
-        self.assertEqual(len(self.gateway.sent),1)
+        self.assertEqual(len(self.gateway.sent),0)
+
+    async def test_short_corrections_retain_pending_goal_across_reassessments(self):
+        requests=[]
+        def generate(endpoint,request):
+            requests.append(copy.deepcopy(request))
+            if len(requests)==1:
+                return {'program':[call('reassess'),move(JOINTS[0],40,'home',50)]}
+            if len(requests)==2:
+                return {'program':[move(JOINTS[0],-4,'current',25),call('reassess')]}
+            return {'program':[move(JOINTS[0],10,'home',50)]}
+        self.bridge.generate=generate
+        job=await self.bridge.submit('robot','adapt the movement',True)
+        await self.bridge.tasks[job['job_id']]
+        for request in requests[1:]:
+            self.assertEqual(request['observation']['pending_actions'],[move(JOINTS[0],40,'home',50)])
+        self.assertEqual(len(self.gateway.sent),2)
 
     async def test_reassessment_replaces_old_path_instead_of_repeating_it(self):
         requests=[]
