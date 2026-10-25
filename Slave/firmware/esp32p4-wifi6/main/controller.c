@@ -287,8 +287,7 @@ static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t e
     const ainekio_pca_status_t output = ainekio_pca_status(ainekio_p4_output());
     const ainekio_nak_code_t code = error == ESP_ERR_INVALID_ARG || error == AINEKIO_P4_ERR_REFERENCE ? AINEKIO_NAK_LIMIT :
         error == ESP_ERR_NOT_FOUND ? AINEKIO_NAK_ASSET_MISSING : AINEKIO_NAK_BUSY;
-    const char *detail = error == AINEKIO_P4_ERR_STALLED ? "Servo position stopped progressing; all outputs released" :
-        error == AINEKIO_P4_ERR_REFERENCE ? "Commanded pose cannot close the leg linkage" :
+    const char *detail = error == AINEKIO_P4_ERR_REFERENCE ? "Commanded pose cannot close the leg linkage" :
         error == ESP_ERR_INVALID_ARG ? "Motion mapping failed or pulse exceeds PWM timer capacity" :
         error == ESP_ERR_NOT_FOUND ? "Requested asset is unavailable" :
         output.fault == AINEKIO_PCA_FAULT_IO ? "Servo controller I2C transfer failed" :
@@ -920,9 +919,8 @@ static void link_task(void *arg)
                     char notice[320];
                     snprintf(notice,sizeof notice,
                         "{\"t\":\"event\",\"name\":\"servo_stall\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":%s}",
-                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints,
-                        event.jam_observation?"false":"true");
+                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":false}",
+                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints);
                     reply(link_generation,notice);
                 }
                 if (!event.jam_observation && event.sequence && current_connection(event.connection)) {
