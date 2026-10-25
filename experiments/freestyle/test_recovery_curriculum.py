@@ -3,13 +3,22 @@ import unittest
 from collections import Counter
 
 from .recovery_curriculum import examples
-from .migrate_targets import CONTRACT
+from .migrate_targets import CONTRACT, compact_speed
 from .compact_wire import ProgramEncoding
 from .program import compile_motion
 from .runtime import JOINTS
 
 
 class RecoveryCurriculumTests(unittest.TestCase):
+    def test_shorter_speed_values_preserve_the_actual_wire_command(self):
+        from .program import target
+        positions=dict.fromkeys(JOINTS,0)
+        for base in (1,90,180,1000,3600):
+            for original in (.000001,.062133,12.345678,116.666667,300.123456):
+                shortened=compact_speed(original,base)
+                self.assertGreater(shortened,0)
+                self.assertEqual(target(base*original/100,positions),target(base*shortened/100,positions))
+
     def test_adaptation_retreats_then_finishes_the_goal_without_repeating_the_failed_extreme(self):
         train=list(examples());evaluation=list(examples(True))
         self.assertEqual(len(train),24)
