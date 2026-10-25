@@ -10,7 +10,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from .compact_wire import FORMAT, ProgramEncoding, observation
+from .compact_wire import LEGACY_FORMAT as FORMAT, ProgramEncoding, model_query
 from .runtime import compact, JOINTS
 
 
@@ -50,11 +50,7 @@ def build(source, contract, output):
             wire=encoding.encode(program)
             if encoding.decode(wire)!=program:
                 raise ValueError('Motion serialization changed a target: '+row['id'])
-            # Only measurements are projected; request text, event and history
-            # length remain unchanged. No sequence/token truncation.
-            if isinstance(query,dict):
-                if 'observation' in query: query['observation']=observation(query['observation'])
-                if 'history' in query: query['history']=observation(query['history'])
+            query=model_query(query,encoding)
             row['query']=compact(query) if not isinstance(query,str) else query
             row['answers']=wire
             row['parent_example_id']=original['id']

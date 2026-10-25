@@ -45,7 +45,7 @@ class Bridge:
 
     def status(self):
         # The dashboard polls this summary. Full observations/history remain in
-        # the inference request; they are not retransmitted on each UI refresh.
+        # the recorder; they are not retransmitted on each UI refresh.
         jobs = {key:{**{k:job[k] for k in ('id','robot_id','request','execute','state')},
                      'error':job.get('error'),'current_action':job.get('current_action'),
                      'latest_generation':job['programs'][-1] if job['programs'] else None,
@@ -129,17 +129,11 @@ class Bridge:
         previous = self.active.get(robot)
         pending = [job for identifier,job in self.jobs.items() if identifier in self.tasks
                    and job['robot_id']==robot and 'recovery_owner' in job]
-        history = copy.deepcopy(self.jobs[previous]['history']) if event and previous else []
-        if event and pending:
-            history = copy.deepcopy(pending[-1]['history'])
-            history.append({'event':copy.deepcopy(pending[-1]['event']),
-                            'observation':copy.deepcopy(pending[-1].get('observation'))})
+        history = []
         if event and previous:
             interrupted = self.jobs[previous]
-            history.append({'observation':copy.deepcopy(interrupted.get('observation')),
-                            'interrupted_action':copy.deepcopy(interrupted.get('current_action')),
-                            'interrupted_program':copy.deepcopy(interrupted['programs'][-1] if interrupted['programs'] else None),
-                            'packet_progress':copy.deepcopy(interrupted.get('packet_progress')), 'event':event})
+            history.append({'interrupted_action':copy.deepcopy(interrupted.get('current_action')),
+                            'remaining_program':copy.deepcopy(interrupted.get('remaining_program') or [])})
         job_id = job_id or uuid4().hex
         epoch=(await self.gateway.status_snapshot())['robots'][robot]['epoch']
         async with AsyncExitStack() as admission:
@@ -321,6 +315,7 @@ class Bridge:
                             await asyncio.gather(prepared[1],return_exceptions=True)
                             prepared = None
                     job['current_action'] = action
+                    job['remaining_program'] = copy.deepcopy(program[index+1:])
                     job['packet_progress'] = None
                     self.record(job, 'operation_started', {'generation_index':generation_index,
                                 'action_index':index, 'action':action, 'observation':obs})

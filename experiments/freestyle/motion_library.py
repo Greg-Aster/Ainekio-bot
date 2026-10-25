@@ -18,7 +18,7 @@ import zipfile
 
 from jsonschema import Draft202012Validator
 
-from .compact_wire import FORMAT, ProgramEncoding, observation
+from .compact_wire import FORMAT, LEGACY_FORMAT, ProgramEncoding
 from .runtime import compact
 
 PAGE_SIZE = 25
@@ -94,31 +94,32 @@ class MotionLibrary:
             raise ValueError('Import the training dataset before using the motion library')
         return json.loads(row[0])
 
-    def validate(self, program):
+    def validate(self, answers):
         # Same operation/argument vocabulary as training; no motion limits or IK
         # execution here. Invalid command syntax is reported without rewriting it.
         with closing(self.connect()) as db:
             tools = self.tools(db)
-        compact(program)  # Reject non-finite JSON numbers.
-        schema = {'type': 'array', 'items': {'oneOf': [
-            {'type': 'object', 'additionalProperties': False, 'required': ['name', 'arguments'],
-             'properties': {'name': {'const': tool['name']}, 'arguments': tool['parameters']}}
-            for tool in tools]}}
-        error = next(Draft202012Validator(schema).iter_errors(program), None)
+        compact(answers)  # Reject non-finite JSON numbers.
+        schema = ProgramEncoding(tools).schema(lambda tool: tool['parameters'])
+        error = next(Draft202012Validator(schema).iter_errors(answers), None)
         if error:
             location = '.'.join(str(part) for part in error.absolute_path) or 'program'
             raise ValueError(f'Invalid command at {location}: {error.message}')
-        ProgramEncoding(tools).encode(program)
-        return program
+        return answers
+
+    def execution_program(self, answers):
+        """Decode only at the existing robot executor boundary."""
+        self.validate(answers)
+        with closing(self.connect()) as db:
+            return ProgramEncoding(self.tools(db)).decode(answers)
 
     def import_dataset(self, dataset):
         dataset = Path(dataset)
         tools = json.loads((dataset/'tools.json').read_text())
         encoding = ProgramEncoding(tools)
         wire = dataset/'wire.json'
-        packed = wire.exists()
-        if packed and json.loads(wire.read_text())['format'] != FORMAT:
-            raise ValueError('Unknown training wire format')
+        if not wire.exists() or json.loads(wire.read_text())['format'] not in (FORMAT, LEGACY_FORMAT):
+            raise ValueError('Import the actual compact training dataset with its wire.json contract')
         source = dataset/'train.jsonl'
         inserted = 0
         with closing(self.connect()) as db, db:
@@ -155,8 +156,7 @@ class MotionLibrary:
                     continue
                 if row['id'] in existing_aliases or row.get('parent_example_id') in existing_aliases:
                     continue
-                if packed:
-                    row['answers'] = encoding.decode(row['answers'])
+                Draft202012Validator(encoding.schema(lambda tool: tool['parameters'])).validate(row['answers'])
                 request = request_text(row['query'])
                 title = row.get('title') or request
                 row['title'] = title
@@ -195,14 +195,18 @@ class MotionLibrary:
             raise ValueError('Training example not found')
         row = json.loads(stored['payload'])
         return {'id': identifier, 'title': stored['title'], 'request': stored['request'],
-                'family': stored['family'], 'revision': stored['revision'], 'program': row['answers'],
+                'family': stored['family'], 'revision': stored['revision'],
+                'query': row['query'], 'answers': row['answers'],
                 'physical_qualification': row.get('physical_qualification', False),
                 'qualification_basis': row.get('qualification_basis'), **dates(stored), 'example': row}
 
-    def save(self, identifier, revision, title, request, program):
-        if not isinstance(title, str) or not title.strip() or not isinstance(request, str) or not request.strip():
-            raise ValueError('Title and training request are required')
-        self.validate(program)
+    def save(self, identifier, revision, title, query, answers):
+        if not isinstance(title, str) or not title.strip() or not isinstance(query, str) or not query.strip():
+            raise ValueError('Title and training input are required')
+        request = request_text(query)
+        if not isinstance(request, str) or not request.strip():
+            raise ValueError('Training input must contain a text request')
+        self.validate(answers)
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             stored = db.execute('SELECT * FROM examples WHERE id=?', (identifier,)).fetchone()
@@ -211,21 +215,13 @@ class MotionLibrary:
             if type(revision) is not int or stored['revision'] != revision:
                 raise ValueError('This example was edited elsewhere. Reopen it before saving your changes.')
             row = current_target(json.loads(stored['payload']))
-            changed = program != row['answers'] or request != stored['request']
+            changed = answers != row['answers'] or query != row['query']
             row.setdefault('library_origin', {key: row[key] for key in ('id', 'source_id', 'source_hash')})
-            try:
-                query = json.loads(row['query'])
-            except ValueError:
-                query = row['query']
-            if isinstance(query, dict):
-                query['request'] = request
-                row['query'] = compact(query)
-            else:
-                row['query'] = request
-            row['answers'], row['title'] = program, title.strip()
+            row['query'] = query
+            row['answers'], row['title'] = answers, title.strip()
             row['library_revision'] = revision+1
             row['source_id'] = f'motion-library:{identifier}:{revision+1}'
-            row['source_hash'] = hashlib.sha256(compact([row['query'], program]).encode()).hexdigest()
+            row['source_hash'] = hashlib.sha256(compact([row['query'], answers]).encode()).hexdigest()
             if changed:
                 # Edited targets must not inherit a physical-success claim
                 # from a different motion.
@@ -276,41 +272,24 @@ class MotionLibrary:
         return {'discarded': len(replacements), 'total': self.list()['total']}
 
     def export(self):
-        """One consistent snapshot with readable rows and the existing compact trainer format."""
+        """Export the exact input and target stored in the editor, without rewriting either."""
         with closing(self.connect()) as db, db:
             db.execute('BEGIN')
             tools = self.tools(db)
             rows = [current_target(json.loads(row[0])) for row in db.execute('SELECT payload FROM examples ORDER BY id')]
             discarded = [dict(row) for row in db.execute('SELECT * FROM discarded_examples ORDER BY id')]
             files = {row['key'][5:]: row['value'] for row in db.execute("SELECT * FROM metadata WHERE key LIKE 'file:%'")}
-        encoding = ProgramEncoding(tools)
-        packed = []
-        for original in rows:
-            row = copy.deepcopy(original)
-            row['answers'] = encoding.encode(row['answers'])
-            assert encoding.decode(row['answers']) == original['answers']
-            try:
-                query = json.loads(row['query'])
-            except ValueError:
-                query = row['query']
-            if isinstance(query, dict):
-                for key in ('observation', 'history'):
-                    if key in query:
-                        query[key] = observation(query[key])
-                row['query'] = compact(query)
-            packed.append(row)
-        files['train.jsonl'] = ''.join(compact(row)+'\n' for row in packed)
+        files['train.jsonl'] = ''.join(compact(row)+'\n' for row in rows)
         files['tools.json'] = compact(tools)+'\n'
         files['system.txt'] = ''
-        files['wire.json'] = compact({'format': FORMAT})+'\n'
-        manifest = {'version': FORMAT, 'source': 'Body Control editable motion library',
+        wire_format = json.loads(files['wire.json'])['format']
+        manifest = {'version': wire_format, 'source': 'Body Control editable motion library',
                     'training_rows': len(rows), 'training_launched': False, 'discarded_examples': discarded,
                     'encoding_sha256': hashlib.sha256(Path(__file__).with_name('compact_wire.py').read_bytes()).hexdigest(),
                     'files': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in files.items()}}
         files['manifest.json'] = json.dumps(manifest, indent=2)+'\n'
         output = io.BytesIO()
         with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr('canonical/train.jsonl', ''.join(compact(row)+'\n' for row in rows))
             for name, text in files.items():
                 archive.writestr('dataset/'+name, text)
         return output.getvalue()

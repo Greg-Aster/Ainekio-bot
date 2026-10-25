@@ -209,9 +209,9 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         identifier = listing['items'][0]['id']
         code, original, _ = await self._request('GET', route+'?id='+identifier, cookie=cookie)
         self.assertEqual(code, 200)
-        self.assertEqual(original['program'], program)
+        self.assertEqual(original['answers'], program)
         payload = {'operation': 'save', 'id': identifier, 'revision': original['revision'],
-                   'title': 'My wiggle', 'request': 'Wiggle quickly', 'program': program}
+                   'title': 'My wiggle', 'query': 'Wiggle quickly', 'answers': program}
         self.assertEqual((await self._request('POST', route, payload, cookie=cookie))[0], 403)
         code, saved, _ = await self._request('POST', route, payload, cookie=cookie, csrf=csrf)
         self.assertEqual((code, saved['revision']), (200, 2))
@@ -219,22 +219,22 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.server.freestyle, 'Browsing/editing does not start the executor')
         service = SimpleNamespace(submit=AsyncMock(return_value={'job_id': 'library-trial'}))
         self.server.freestyle = service
-        draft = [{'name': 'face', 'arguments': {'expr': 'surprised'}}, *program[1:]]
+        draft = [['face', 'surprised'], *program[1:]]
         code, result, _ = await self._request('POST', route, {'operation': 'run', 'id': identifier,
-            'robot_id': 'selected-other-robot', 'program': draft, 'request': 'Try this draft'}, cookie=cookie, csrf=csrf)
+            'robot_id': 'selected-other-robot', 'answers': draft, 'query': 'Try this draft'}, cookie=cookie, csrf=csrf)
         self.assertEqual((code, result['job_id']), (200, 'library-trial'))
         service.submit.assert_awaited_once_with('selected-other-robot', 'Try this draft', True,
-            program=draft, source={'kind': 'motion_library', 'example_id': identifier, 'revision': 2,
+            program=library.execution_program(draft), source={'kind': 'motion_library', 'example_id': identifier, 'revision': 2,
                                    'title': 'My wiggle', 'unsaved_draft': True})
-        self.assertEqual(library.get(identifier)['program'], program, 'Playing drafts must not save them')
+        self.assertEqual(library.get(identifier)['answers'], program, 'Playing drafts must not save them')
         service.submit.reset_mock()
         code, _, _ = await self._request('POST', route, {'operation': 'run', 'id': identifier,
             'robot_id': 'selected-other-robot'}, cookie=cookie, csrf=csrf)
         self.assertEqual(code, 200)
-        self.assertEqual(service.submit.call_args.kwargs['program'], program)
+        self.assertEqual(service.submit.call_args.kwargs['program'], library.execution_program(program))
         self.assertFalse(service.submit.call_args.kwargs['source']['unsaved_draft'])
         code, _, _ = await self._request('POST', route, {'operation': 'run', 'id': identifier,
-            'robot_id': 'selected-other-robot', 'program': [{'name': 'unknown', 'arguments': {}}]}, cookie=cookie, csrf=csrf)
+            'robot_id': 'selected-other-robot', 'answers': [{'name': 'unknown', 'arguments': {}}]}, cookie=cookie, csrf=csrf)
         self.assertEqual(code, 400)
         self.assertEqual(service.submit.await_count, 1)
 
@@ -244,13 +244,13 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         library = self.server.motion_library()
         library.import_dataset(source)
         cookie, csrf = await self._login()
-        large = program * 400
+        large = program * 600
         payload = {'operation': 'save', 'id': 'example-00000', 'revision': 1,
-                   'title': 'Long sequence', 'request': 'Do the full sequence', 'program': large}
+                   'title': 'Long sequence', 'query': 'Do the full sequence', 'answers': large}
         self.assertGreater(len(json.dumps(payload)), 16384)
         code, saved, _ = await self._request('POST', '/api/motion-library', payload, cookie=cookie, csrf=csrf)
         self.assertEqual(code, 200)
-        self.assertEqual(saved['program'], large)
+        self.assertEqual(saved['answers'], large)
         self.assertEqual(self.gateway.calls, [])
 
     async def test_freestyle_trial_export_does_not_submit_motion(self):
