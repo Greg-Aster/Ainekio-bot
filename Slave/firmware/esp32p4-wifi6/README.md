@@ -10,8 +10,12 @@ fault (MCAUSE 27); the Walk path reserved 5,600 + 8,496 + 2,240 bytes on a
 allocation, command admission, target geometry and motion timing are unchanged.
 The firmware build and both native body execution suites passed. Installed over
 Wi-Fi on 2026-10-25 and verified running/selected in `ota_0` with
-`pending_verify:false` and `ESP_OK`. The owner powered the robot off before the
-post-flash Stand/Walk trial; physical command execution remains unverified.
+`pending_verify:false` and `ESP_OK`. After the owner reconnected the supported
+robot with its feet clear, Stand and one finite Walk cycle completed in the same
+connection epoch without reboot or disconnect. Device traces recorded shaft
+movement and Stand's terminal extension/reversal, with no lost trace records.
+This verifies those supported command trials; loaded chatter reduction and
+walking on the floor remain unverified. Trace acquisition was stopped afterward.
 
 `0.8.122-p4-targets-settle` combines Q6A measured-target execution and recovery
 with DNDIY Stand settling and microphone updates. This source merge is not a
