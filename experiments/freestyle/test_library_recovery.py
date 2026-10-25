@@ -4,12 +4,19 @@ import unittest
 from unittest.mock import patch
 
 from .compact_wire import ProgramEncoding
-from .library_recovery import scenarios, validate_prefix
+from .library_recovery import scenarios, validate_prefix, deduplicate
 from .migrate_targets import CONTRACT, STAND
 from .runtime import JOINTS
 
 
 class LibraryRecoveryTests(unittest.TestCase):
+    def test_shared_recovery_keeps_every_source_without_duplicate_training_rows(self):
+        rows=[{'id':'same-content','parent_example_id':p,'parent_source_hash':p+'-hash'} for p in ('a','b')]
+        unique=deduplicate(rows)
+        self.assertEqual(len(unique),1)
+        self.assertEqual(unique[0]['parent_examples'],[
+            {'id':'a','source_hash':'a-hash'},{'id':'b','source_hash':'b-hash'}])
+
     def source(self, operation):
         state={'joints':{j:{'model_deg':q,'commanded_model_deg':q,'home_deg':q} for j,q in STAND.items()},
                'joint_speed_limit_deg_s':180}
