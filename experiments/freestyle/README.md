@@ -1508,3 +1508,42 @@ For removal, stop only the dedicated experimental llama.cpp process, then
 remove this directory and the explicitly chosen experiment artifact directories.
 The ordinary robot library, walking, Body Control and MetaHuman remain as they
 were; there are no registrations to uninstall or production defaults to revert.
+
+### Per-motion recovery curriculum (target-control candidate)
+
+`library_recovery.py` derives one jam and one measured-effect fall example per
+current motion-bearing training row. It excludes face-only/Stop rows and
+existing recovery rows. `recovery-coverage.json` links every derived row to its
+source ID and content hash, lists omissions, and counts joint coverage. It also
+adds a resumption pair per source family. Separate probes change the sensor
+values; they share source goals and do not measure unseen-motion generalization.
+
+```sh
+python -m experiments.freestyle.library_recovery \
+  --source /path/to/migrated-target-dataset \
+  --output /path/to/recovery-dataset \
+  --native-gait /path/to/freestyle_native_gait
+```
+
+Build the native sampler against matching current headers/libraries. Its output
+is nominal gait geometry, not measured robot motion. Jam prefixes retreat from
+the blocked direction and shorten the affected target while continuing the other
+participating joints, or reduce an oscillation's excursion. They then reassess.
+Fall examples repeat or reverse a preceding correction according to its supplied
+before/after IMU orientation. Upright feedback examples resume the pending goal.
+Faces vary across corrections. No new slip examples or detector are added.
+
+Recovery compression retains the last measured correction/effect and the affected
+shafts' recent distinct positions. The bridge keeps unfinished actions as input
+context across reassessment. A new generated plan replaces the previous plan;
+an empty response does not replay it. Correction targets therefore need not
+repeat the unfinished library program merely to keep its goal available.
+
+All new feedback is synthetic and explicitly unqualified. Prefix target/FK checks
+do not establish ground contact, balance, collision clearance, or successful
+righting. An initial arbitrary fallen pose with no preceding measured correction
+is still an uncovered training case. Native emotes absent from the editable
+training library are not covered merely because their firmware names exist.
+Existing nonterminal jam observations remain the recovery trigger. Obsolete
+terminal-stall error/release reporting has been removed from the candidate;
+explicit Stop and actual output-driver failures remain separate.

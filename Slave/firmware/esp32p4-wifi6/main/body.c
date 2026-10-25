@@ -529,7 +529,7 @@ static void finish_motion(bool completed, esp_err_t result)
         .position_verification=completed && (body.motion.kind==MOTION_FREESTYLE ||
             (body.motion.kind==MOTION_POSE && body.motion.balance_on_complete && ainekio_p4_feedback_stand_enabled())) ?
             (body.motion.feedback_verified?2:1):0,
-        .result=result,.stalled_joints=result==AINEKIO_P4_ERR_STALLED?body.stalled_joints:0,
+        .result=result,
         .clock_us=(uint64_t)esp_timer_get_time()};
     /* Admission reserves two slots: replacement and eventual completion. There
      * is one producer, and a reader can only increase the available space. */
