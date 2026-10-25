@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from .generator import async_remote_generate
+from .compact_wire import latest_correction, joint_progress
 from .recordings import read_records
 from .program import JOINTS, calibrated_positions, compile_motion, packets, gait_intents
 
@@ -134,6 +135,13 @@ class Bridge:
             interrupted = self.jobs[previous]
             history.append({'interrupted_action':copy.deepcopy(interrupted.get('current_action')),
                             'remaining_program':copy.deepcopy(interrupted.get('remaining_program') or [])})
+            effect = latest_correction(interrupted.get('history'))
+            if effect:
+                history[-1]['last_correction'] = effect
+            progress = joint_progress([*interrupted.get('history', []),
+                {'joints':interrupted.get('observation', {}).get('joints')}], event.get('data', event))
+            if progress:
+                history[-1]['joint_progress'] = progress
         job_id = job_id or uuid4().hex
         epoch=(await self.gateway.status_snapshot())['robots'][robot]['epoch']
         async with AsyncExitStack() as admission:
@@ -296,7 +304,10 @@ class Bridge:
                 job['observation'] = obs
                 job['state']='executing'
                 reassess = False
-                program = result['program']+continuation
+                # A generated plan owns the next actions. Appending the old
+                # tail could repeat the obstruction the model just adapted.
+                # An empty reassessment leaves the pending plan unchanged.
+                program = result['program'] or continuation
                 continuation = []
                 planned = None
                 planning_epoch = obs['epoch']

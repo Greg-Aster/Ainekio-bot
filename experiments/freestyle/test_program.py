@@ -519,6 +519,20 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(count,2)
         self.assertEqual(len(self.gateway.sent),1)
 
+    async def test_reassessment_replaces_old_path_instead_of_repeating_it(self):
+        requests=[]
+        def generate(endpoint,request):
+            requests.append(copy.deepcopy(request))
+            if len(requests)==1:
+                return {'program':[call('reassess'),move(JOINTS[0],40,'home',50)]}
+            return {'program':[move(JOINTS[0],-4,'current',25)]}
+        self.bridge.generate=generate
+        job=await self.bridge.submit('robot','adapt the movement',True)
+        await self.bridge.tasks[job['job_id']]
+        self.assertEqual(requests[1]['observation']['pending_actions'],[move(JOINTS[0],40,'home',50)])
+        self.assertEqual(len(self.gateway.sent),1)
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'completed')
+
     async def test_old_motion_event_does_not_override_replacement_command(self):
         await self.bridge.configure('robot','http://unused',True)
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
