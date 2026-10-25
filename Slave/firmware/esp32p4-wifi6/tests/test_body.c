@@ -1542,26 +1542,39 @@ static void stand_continues_without_feedback(void)
     shaft_sample_available=false;shaft_stalled_mask=0xfff;
     ainekio_command_t c=command(451,AINEKIO_INTENT_STAND);
     assert(execute(&c)==ESP_OK);
-    ainekio_p4_body_event_t event=finish(10000);
-    assert(event.completed && event.sequence==451 && event.position_verification==1);
-    assert(driver.state.armed && body.motion.kind==MOTION_NONE && body.stand_goal_active);
-    assert(!shaft_jam_checks);
+    advance(10000);
+    ainekio_p4_body_event_t event;
+    assert(!ainekio_p4_body_event(&event));
+    assert(driver.state.armed && body.motion.kind==MOTION_POSE);
+    assert(body.motion.feedback_commanded_us && !body.motion.feedback_verified);
+    assert(body.motion.sequence==451 && !shaft_jam_checks);
+    const uint64_t written_at=body.motion.feedback_commanded_us;
+    const ainekio_v2_frame_t goal=body.motion.entry_to;
     uint16_t held[12];memcpy(held,last_written,sizeof held);advance(2000);
     assert(!memcmp(held,last_written,sizeof held) && !body.motion.posture_replans);
-    /* A returned discrepancy resumes correction with the same held goal.
-     * It does not create a second external completion. */
+    assert(body.motion.feedback_commanded_us==written_at && !ainekio_p4_body_event(&event));
+    /* Fresh feedback which is still short corrects the original goal rather
+     * than retroactively accepting the previously unobserved arrival. */
     shaft_sample_available=true;shaft_feedback_reached=false;shaft_wait_mask=1;
-    advance(20);assert(body.motion.kind==MOTION_POSE && body.motion.posture_replans);
-    shaft_feedback_reached=true;advance(5000);
+    advance(20);
+    assert(body.motion.kind==MOTION_POSE && body.motion.posture_replans);
+    assert(body.motion.sequence==451 && !memcmp(&goal,&body.motion.entry_to,sizeof goal));
+    advance(4000);assert(!ainekio_p4_body_event(&event));
+    shaft_feedback_reached=true;event=finish(10000);
+    assert(event.completed && event.sequence==451 && event.position_verification==2);
     assert(body.stand_goal_active && body.motion.kind==MOTION_NONE);
     assert(!ainekio_p4_body_event(&event));
-    /* Missing observations do not prevent a new movement command. */
+    /* Pending verification belongs only to this command; replacement remains
+     * immediately available even with no usable position observations. */
     shaft_sample_available=false;shaft_stalled_mask=0;shaft_jam_enabled=false;
-    c=command(452,AINEKIO_INTENT_WALK);c.data.intent.data.walk.controls=1;
+    c=command(452,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
+    advance(5000);assert(body.motion.feedback_commanded_us && !ainekio_p4_body_event(&event));
+    c=command(453,AINEKIO_INTENT_WALK);c.data.intent.data.walk.controls=1;
     c.data.intent.data.walk.speed_percent=50;
-    assert(execute(&c)==ESP_OK);advance(100);
-    assert(body.motion.kind==MOTION_WALK && driver.state.armed);
-    puts("Feedback loss: authored Stand completes unverified, powered hold and new commands continue, recovery resumes without duplicate receipt.");
+    assert(execute(&c)==ESP_OK);
+    assert(ainekio_p4_body_event(&event) && !event.completed && event.sequence==452);
+    advance(100);assert(body.motion.kind==MOTION_WALK && driver.state.armed);
+    puts("Feedback loss: Stand retains its goal and completion until measured arrival; correction and replacement remain available.");
 }
 
 static void stand_correction_keeps_commanded_reference(void)

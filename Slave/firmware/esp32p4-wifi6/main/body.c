@@ -1209,6 +1209,14 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
             const bool observed=ainekio_p4_feedback_check(calibration.joints,motion->feedback_targets,
                 motion->feedback_commanded_us,&motion->feedback_waiting_mask);
             motion->feedback_verified=feedback && observed && !motion->feedback_waiting_mask;
+            if(feedback && !observed) {
+                /* A missing/stale sample cannot complete a measured Stand.
+                 * Keep the original write timestamp and goal while the sensor
+                 * catches up; the output owner and new commands keep running. */
+                *sampled=body.pose;
+                memcpy(body.pulses,motion->feedback_targets,sizeof(body.pulses));
+                return ESP_OK;
+            }
             if(observed && !feedback) {
                 /* With goal verification disabled, retain the independent
                  * jam-only behavior. Verified Stand owns its discrepancies
@@ -1226,9 +1234,8 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
                 memcpy(body.pulses,motion->feedback_targets,sizeof(body.pulses));
                 return ESP_OK;
             }
-            /* Missing/untrusted feedback never holds command completion.
-             * Finish the authored path, retain its powered target, and let
-             * the existing goal observer resume when measurements return. */
+            /* With Stand verification disabled, retain authored completion
+             * and the independent jam-only behavior. */
         }
         motion->feedback_commanded_us=0;motion->feedback_waiting_mask=0;
         *sampled=body.pose;

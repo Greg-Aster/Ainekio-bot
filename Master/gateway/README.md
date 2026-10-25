@@ -46,11 +46,12 @@ compare a subsequent feedback snapshot with all final joint targets. A measured
 shortfall starts another full stepping pass from the last commanded pose
 toward the unchanged goal. There is no jam-timer dependency or retry-count limit.
 Repeated measured correction passes keep the same request and completion receipt.
-Missing or untrusted observations never hold command completion: the authored
-sequence finishes, outputs remain powered at its target, and `done` reports
-`position_verified:false`. Measured arrival reports `position_verified:true`.
-Stop and replacement commands remain available. The retained goal observer can
-resume correction when usable observations return; it emits no duplicate receipt.
+With Stand verification enabled, missing, stale or untrusted observations leave
+the request pending at its powered target. A fresh measured arrival reports
+`done` with `position_verified:true`; a measured shortfall continues correction
+before completion. Stop and replacement commands remain available throughout.
+After verified completion, the retained goal observer can correct later drift
+without emitting another completion receipt.
 
 Named clips, reverse lay-down recovery, custom sequences and finite gait endings
 run through their authored paths without feedback checkpoints. Their completion
