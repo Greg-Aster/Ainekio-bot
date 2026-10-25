@@ -82,6 +82,46 @@ in the training targets and source hashes. Training input preparation must use a
 fresh library export, rather than an older `next-reviewed-*` snapshot. Exporting
 or saving does not train or activate a model.
 
+### Training data in Git
+
+`experiments/freestyle/training-data/` contains the committed motion-library
+snapshot: exact compact training examples, held-out splits, tool/wire contracts,
+and a manifest with file hashes and retired example IDs. These text files travel
+with the repository. The working SQLite database remains local; saving in Body
+Control does not automatically update the committed snapshot.
+
+After editing the library, refresh the snapshot from the repository root before
+committing and pushing:
+
+```bash
+.venv/bin/python - <<'PY'
+import io
+from pathlib import Path
+import zipfile
+from experiments.freestyle.motion_library import MotionLibrary
+
+library = MotionLibrary('build/gateway/physical/motion-library.sqlite')
+destination = Path('experiments/freestyle/training-data')
+destination.mkdir(parents=True, exist_ok=True)
+with zipfile.ZipFile(io.BytesIO(library.export())) as archive:
+    for name in archive.namelist():
+        (destination / Path(name).name).write_bytes(archive.read(name))
+PY
+git diff --stat -- experiments/freestyle/training-data
+git add experiments/freestyle/training-data
+git commit -m "Update motion library training data"
+git push origin HEAD:dev
+```
+
+On another checkout, pass `experiments/freestyle/training-data` directly as
+`prepare_compact.py --source` with the existing trainer/base/revision arguments.
+This preserves the complete training split, including linked recovery examples.
+The existing `motion_library import` command is a merge operation: it preserves
+local edits and deduplicates shared parent IDs. It is not an exact restore of this
+snapshot (the initial 2,506-row snapshot imports as 913 editor examples), so do
+not re-export through it to prepare training data. Model weights and runtime
+recordings remain outside Git.
+
 The target-control migration is prepared in
 `artifacts/spatial-v10-targets/library-20261025-compact-speeds/`. It converts all 889 active
 examples, adds 24 synthetic multi-step wave adaptations (913 training rows), and

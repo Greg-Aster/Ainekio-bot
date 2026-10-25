@@ -1,0 +1,79 @@
+{
+  "version": "motion-targets-v1",
+  "source": "Body Control editable motion library",
+  "training_rows": 2506,
+  "training_launched": false,
+  "discarded_examples": [
+    {
+      "id": "0508165d2e189b75",
+      "replacement_id": "e143d29cde53307c",
+      "reason": "Superseded small unbalanced hand lift; refined counterbalanced lift retained"
+    },
+    {
+      "id": "08bf55fe801aff80",
+      "replacement_id": "7f6758be34477b04",
+      "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
+    },
+    {
+      "id": "13fb4582a901b35f",
+      "replacement_id": "aee5d1155c1b8e62",
+      "reason": "Exact original 12mm hand-lift target replaced by its recorded correction"
+    },
+    {
+      "id": "5cf154868c43d0f7",
+      "replacement_id": "e143d29cde53307c",
+      "reason": "Superseded small unbalanced hand lift; refined counterbalanced lift retained"
+    },
+    {
+      "id": "608e940997758e5e",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Owner discarded older hip-wiggle attempts after the version-5 refinement"
+    },
+    {
+      "id": "6d9c29b9ab3bb38e",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Owner discarded older hip-wiggle attempts after the version-5 refinement"
+    },
+    {
+      "id": "b429b1fc5ce5f28a",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
+    },
+    {
+      "id": "d1e61bcedb052866",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
+    },
+    {
+      "id": "db822de5488f1460",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
+    },
+    {
+      "id": "e1d04ae351b12f03",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
+    },
+    {
+      "id": "e782b13144fb6788",
+      "replacement_id": "aee5d1155c1b8e62",
+      "reason": "Exact original 12mm hand-lift target replaced by its recorded correction"
+    },
+    {
+      "id": "fba4b6f01b3614f0",
+      "replacement_id": "7f6758be34477b04",
+      "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
+    }
+  ],
+  "encoding_sha256": "10854be5e646590d0cbf3604caefbc15cac7c5c9e86afcf9b155069ff0746faf",
+  "files": {
+    "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
+    "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evaluation.jsonl": "5323bd648a63e503ee70aa74be67a1b6e623ef84d57beb17e010185949a31284",
+    "test.jsonl": "430a2fc043476ef7fe066cae147aa9cddce53185ac70956f05796bf173a3f311",
+    "recovery-probe.jsonl": "dab9e5c18dc0dbe0a1654360521bfcdb4bbdfeeebdf0da6ca270c87d63dc65f7",
+    "regression-evaluation.jsonl": "a63108c55e032a362b83a831ca794915dfde051cbaa76c903552b3070754b085",
+    "train.jsonl": "a613556c876368bd2ec25ee5244952146f437482ab55bde877cd69964566ce1f",
+    "tools.json": "69f4fb2dc98516ca1f17c3ba8f05913ffe42444033af522fbb8452d85f24a01e"
+  }
+}
