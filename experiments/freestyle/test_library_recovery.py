@@ -68,3 +68,28 @@ class LibraryRecoveryTests(unittest.TestCase):
         self.assertEqual(oscillation['answers'][2][0],'oscillate')
         self.assertEqual(oscillation['answers'][2][3],4)
         self.assertLess(oscillation['answers'][2][2],12)
+
+    def test_jam_feedback_retains_all_commanded_targets_distinct_from_measurements(self):
+        source=self.source(['pose',[1,7],[12,-12],'current',50])
+        with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
+            jam=list(scenarios(source,None))[0]
+        joints=json.loads(jam['query'])['observation']['joints']
+        for joint,delta in ((1,12),(7,-12)):
+            self.assertAlmostEqual(joints['commanded_model_deg'][joint],STAND[JOINTS[joint]]+delta)
+            self.assertAlmostEqual(joints['model_deg'][joint],STAND[JOINTS[joint]]+.75*delta)
+
+    def test_fall_magnitude_varies_and_tracks_the_supplied_effect(self):
+        magnitudes={False:set(),True:set()}
+        with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
+            for seed in range(30):
+                source=self.source(['move',0,12,'current',50])
+                source['id']=format(seed,'08x')+'00000000'
+                for probe in (False,True):
+                    fall=list(scenarios(source,None,probe))[1]
+                    effect=json.loads(fall['query'])['history'][0]['last_correction']
+                    expected=[v*(1 if fall['recovery_evidence']['improved'] else -1)
+                              for _,v in effect['delta_deg']]
+                    self.assertEqual(fall['answers'][1][2],expected)
+                    magnitudes[probe].add(abs(expected[0]))
+        self.assertEqual(magnitudes[False],{1,2,3,4,6})
+        self.assertEqual(magnitudes[True],{1.5,2.5,3.5,4.5,6.5})
