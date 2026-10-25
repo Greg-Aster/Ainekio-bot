@@ -17,10 +17,16 @@ v8 run and not deployed. Replay proves geometric reach and the requested
 endpoint, not balance, shell clearance, or physical recognition. The review
 also corrected replay's final interpolation sample to use the exact emitted
 centidegree endpoint, avoiding numerical residue in the next IK solve. The
-running dataset remains frozen with its original audit provenance.
+completed run's dataset remains frozen with its original audit provenance.
 
-The finalized candidate is training as a LoRA continuation of v7. Production
-continues serving v7; the candidate has not been evaluated or deployed. Current
+The finalized candidate finished training as a LoRA continuation of v7 in
+1,553.8 seconds on 879 examples. On 2026-10-24 the owner requested production
+activation: the Q8_0 export and matching final contract now serve on the desktop
+GPU. Three generation-only checks (wave, stretch and left point) replayed fully
+in 1.24–3.00 seconds of generation. Wave and stretch ended in exact native Stand;
+the point ended near Stand with a zero-offset foot call, rather than the explicit
+full pose. These are activation checks, not a held-out benchmark or physical
+qualification. Current
 source data and native trainer input are `artifacts/spatial-v8/final-dataset/`
 and `artifacts/spatial-v8/final-qwen-data/`. These artifacts are ignored by Git.
 `run-plan.json` records the training run and frozen input hashes.
@@ -173,3 +179,130 @@ logs. `cleanup.json` lists exactly what was removed. Active v7, adapters, final
 inputs, structured rejection evidence, source snapshots and all real recordings
 were preserved. Training run status belongs to `run-plan.json`; evaluation and
 physical trials remain necessary before claiming improved robot behavior.
+
+## Pending next-pass corrections
+
+The frozen v8 inputs and adapter remain unchanged. The separate
+`artifacts/spatial-v8/apple-review/` contains seven earlier proposed apple-mime
+rows. `artifacts/spatial-v8/pending-motion-review/` now adds thirteen reviewed
+proposals: five actual recorded requests (bread selection, sigh, hip wiggle and
+two right-hand raises), plus eight meaningful handedness, repetition-count and
+explicit-ending contrasts. These additions are pending another training pass;
+they are not part of the completed v8 training run.
+
+The bread teacher surveys two imaginary choices before reaching, miming a gentle
+grasp and lifting. It assumes no fingers or gripper. The sigh keeps the original
+0.8/0.6/0.8-second inhale/hold/exhale, lowering the torso and attached shoulders
+below their preparatory height before settling. The hip wiggle uses alternating
+20 mm lateral body excursions instead of diagonal-foot shuffling. Hand raises
+use a visible elevated front-foot target and retain the original one-second
+outward travel. Nine proposals finish with all twelve native Stand targets;
+four explicitly request that the hand remain raised and preserve that ending.
+
+All thirteen pass complete replay, independent Cartesian phase-target/timing
+checks and their specified ending checks. Maximum endpoint error is 0.0154 mm;
+final standing-joint error is zero. They contain thirteen distinct queries and
+eleven distinct programs; neither query nor normalized motion structure overlaps
+v8 development/test folds. Five focused tests verify choosing/lifting phases,
+wiggle excursion/count semantics, reviewed handedness/explicit endings and
+telemetry association across reused epoch/sequence identifiers. Both recorded
+hand requests say exactly "Raise your right hand."; left-hand requests in this
+overlay are explicitly synthetic contrasts. The five original requests specify
+no repetition count or raised final pose; the hip-wiggle request explicitly
+asks to settle standing. Reviewed side/ending/count choices are stored in each
+recorded proposal rather than inherited silently from teacher defaults.
+
+These labels are agent interpretations of the requested semantics, not inferred
+operator judgments or demonstrated physical successes. The five recorded rows
+preserve the actual initial observations, requests and original program IDs.
+The separate evidence snapshot contains 539 records and associates raw telemetry
+only within each operation's wall-clock and monotonic packet interval. This
+avoids mixing packets when gateway restarts reuse epoch/sequence counters.
+
+Recent execution timing must be fixed at its owning layer rather than encoded
+as shorter gestures. The latest reviewed stretch transmitted exactly 2.8 seconds
+of frames but consumed 7.348 seconds across operations: 1.069 seconds before
+dispatch, 4.385 seconds dispatch-to-receipt including the travel, and 1.894
+seconds obtaining/completing subsequent observations. Hip wiggle transmitted
+3.4 seconds but consumed 5.964 seconds. Those measurements do not establish
+physical trajectory duration or recognition. The pending teachers preserve
+corresponding authored travel durations and do not train around transport delays.
+
+`pending_motion_review.py` builds only this offline proposal set. It is never
+imported by serving code and introduces no runtime request-keyword routing.
+
+### October 24 recorded requests
+
+The Body Control and inference recording databases contain no October 24
+00:00–12:00 America/Los_Angeles requests at this review point. The new records
+are from 14:31–14:36 PDT; earlier apple/bread/wiggle/hand requests occurred on
+October 23 evening PDT. This time distinction is preserved rather than treating
+UTC dates as local morning activity.
+
+`artifacts/spatial-v8/oct24-motion-review/` adds two proposed corrections from
+those new actual observations, separate from the previous thirteen-row overlay:
+
+- `d468768b64e04d44bb21d721443e9bab`, "stretch": seven operations completed,
+  then the arm return failed IK (1.37293 mm residual). The new teacher prepares
+  Stand, retains the 30 mm front lift, two 20 mm forward stretches, both holds
+  and every 0.6-second phase (4.8 seconds total), and finishes full Stand.
+- `0c679e2d9560457c8fa0811ad95ce737`, "stretch": six operations reported
+  completion, but the program lifted all four legs and returned only the front
+  pair. The proposal retains the full 30 mm lift and both 20 mm spread cycles,
+  restores all four legs and finishes full Stand. Spatial/hold timing remains
+  2.8 seconds; measured original operation wall time was 4.621 seconds.
+
+Both proposals pass complete phase/endpoint/timing replay with no overlap with
+v8 development/test queries or normalized motion structures. They remain
+unexecuted proposals. No operator review labels were present for these trials.
+
+The third new job, `81cd66f2d9694a18a5529553f9c3fe65`, requested recovery from
+a rapid-movement event while measured tilt was only 1.94 degrees and yaw rate
+was high. It generated a large relative joint pose and repeated rotations before
+being superseded. This is retained as reviewed, unlabeled evidence: the event's
+cause and an effective physical recovery are unknown, so no successful recovery
+target is invented. The new snapshot includes all three jobs with bounded
+packet association. Frozen v8 data, its adapter and the seven apple proposals
+remain unchanged; all twenty-two pending rows await a subsequent training pass.
+
+## Q6A audience-wave correction and live-test protocol, 2026-10-25
+
+The canonical evidence batch is on DNDIY at
+`artifacts/spatial-v8/pending-motion-review/q6a-20261025-audience-wave/`.
+It retains the original request/output, candidate revisions, recording snapshots,
+offline replay, three live correction trials and explicit operator assessments.
+
+The Cartesian revision failed live IK. The first joint-reference revision
+completed in 11.45 seconds; the owner found the sequence good but too slow and
+reported a sitting ending. A subsequent rear-right crank stall released outputs.
+The faster revision completed in 6.56 seconds with all eight motion receipts.
+The owner explicitly approved that last command as excellent. Its exact program
+and actual starting observations are the single approved training addition
+`93605debe36c7b1a`, trial `ab07f9ee990e46be8a23bdd79252ae91`.
+DNDIY's existing pending `train.jsonl` now contains 14 rows. The frozen v8 run
+and held-out folds remain unchanged; no training run was started.
+
+New corrections remain `awaiting_physical_trial` and are excluded from the
+training export. Replay the program offline, use **Test selected correction**,
+observe the physical motion and ending, then save the operator's outcome.
+Only a completed trial explicitly reviewed as successful becomes a physically
+qualified positive row. Earlier failures and source correction IDs remain linked.
+Recovery-first stall behavior is a separate firmware/executor repair, not a
+training label inferred from these trials.
+
+## Next dataset with the 14 reviewed examples, 2026-10-25
+
+On DNDIY, `artifacts/spatial-v9-compact/next-reviewed/dataset/` contains the
+879 existing balanced compact examples plus all 14 rows from
+`artifacts/spatial-v8/pending-motion-review/train.jsonl`: 893 training rows.
+Use `artifacts/spatial-v9-compact/next-reviewed/qwen-data/` for the next trainer
+input, including its `train.jsonl`, `evaluation.jsonl`, `manifest.json` and
+`training-config.json`. Paths are relative to `experiments/freestyle/` in
+`/home/greggles/Ainekio` on DNDIY.
+
+`next-reviewed/preparation-result.json` maps all 14 source IDs to compact IDs.
+Their decoded motion targets and physical-qualification labels are preserved;
+only the approved audience wave is marked physically qualified. Existing 879
+examples and held-out files are retained. Exact tokenization fits 3,412 tokens
+without truncation. This dataset is prepared for the next run; preparation did
+not start training or activate a model.

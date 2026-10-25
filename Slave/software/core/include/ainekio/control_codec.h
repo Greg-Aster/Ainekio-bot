@@ -73,6 +73,7 @@ typedef struct {
     bool has_deadline;
     bool has_external_speech;
     bool external_speech;
+    uint32_t external_speech_ms;
     uint64_t deadline_ms;
     ainekio_command_t command;
     union {

@@ -262,6 +262,8 @@ class GatewayConnection:
                 # Snapshot at actual send time, not when a notification was
                 # scheduled. A late end cannot unmute newer speech.
                 message["external_speech"] = self.service.external_speech_active(self.robot_id)
+                if message["external_speech"]:
+                    message["external_speech_ms"] = self.service.external_speech_remaining_ms(self.robot_id)
             validate_control_message(message)
             encoded = json.dumps(message, separators=(",", ":"))
             await self.websocket.send(encoded)
@@ -870,7 +872,7 @@ class GatewayService:
         self._tokens = dict(config.tokens)
         self.token_store = token_store
         self._connections: dict[str, GatewayConnection] = {}
-        self._external_speech: dict[str, set[str]] = {}
+        self._external_speech: dict[str, dict[str, float]] = {}
         self._external_speech_callbacks: list[Callable[[str, int, bool], None]] = []
         self._epochs: dict[str, int] = {}
         self._lock = asyncio.Lock()
@@ -1180,28 +1182,39 @@ class GatewayService:
     def external_speech_active(self, robot_id: str) -> bool:
         return bool(self._external_speech.get(robot_id))
 
+    def external_speech_remaining_ms(self, robot_id: str) -> int:
+        owners = self._external_speech.get(robot_id)
+        if not owners:
+            return 0
+        # PCM duration estimates the end. While the playback process is still
+        # draining, existing heartbeats cover the next interval plus one missed
+        # heartbeat. This is a local microphone expiry, never a playback timeout.
+        remaining = max(0.0, max(owners.values()) - self.clock())
+        return math.ceil((remaining + 2 * self.config.ping_interval_s) * 1000)
+
     def subscribe_external_speech(self, callback: Callable[[str, int, bool], None]) -> None:
         self._external_speech_callbacks.append(callback)
 
-    def set_external_speech(self, robot_id: str, owner: str, active: bool) -> None:
+    def set_external_speech(self, robot_id: str, owner: str, active: bool, *, duration_ms: int = 0) -> None:
         """Audio-only state notification. Never await transport or a body reply."""
-        owners = self._external_speech.setdefault(robot_id, set())
+        owners = self._external_speech.setdefault(robot_id, {})
         before = bool(owners)
         if active:
-            owners.add(owner)
+            owners[owner] = self.clock() + duration_ms / 1000
         else:
-            owners.discard(owner)
+            owners.pop(owner, None)
         if not owners:
             self._external_speech.pop(robot_id, None)
-        if before == bool(owners):
+        if not before and not owners:
             return
         connection = self._connections.get(robot_id)
         if connection is None:
             return
         # Capture state changes synchronously and independently of the socket.
         # A blocked/failed notification cannot hold host listening suppressed.
-        for callback in self._external_speech_callbacks:
-            callback(robot_id, connection.epoch, bool(owners))
+        if before != bool(owners):
+            for callback in self._external_speech_callbacks:
+                callback(robot_id, connection.epoch, bool(owners))
         connection._external_speech_revision += 1
         async def notify():
             try:

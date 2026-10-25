@@ -226,6 +226,11 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if self.freestyle is None:
             self._setup_freestyle()
         robot = _required_string(payload, "robot_id")
+        if payload.get("operation") == "corrections":
+            return {"corrections": [{"review_id":r["id"], "job_id":r["job_id"], "request":r["request"]}
+                    for r in await self.freestyle.corrections(robot)]}
+        if payload.get("operation") == "test-correction":
+            return await self.freestyle.test_correction(robot, _required_string(payload, "review_id"))
         if payload.get("operation") == "configure":
             return await self.freestyle.configure(robot, _required_string(payload, "endpoint"),
                                                   _required_bool(payload, "recover_events"))

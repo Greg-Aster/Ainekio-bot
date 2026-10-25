@@ -49,7 +49,7 @@ static SemaphoreHandle_t wake_mutex;
 static FILE *asset_file;
 static uint32_t asset_remaining;
 static atomic_bool audio_tasks_started;
-static atomic_bool external_speech;
+static atomic_uint external_speech_until_ms;
 static atomic_uint external_speech_epoch;
 static bool suspended, microphone_enabled, ending, buffering, dma_dirty;
 static bool microphone_settings_saved;
@@ -250,6 +250,21 @@ static void speaker_task(void *unused)
     }
 }
 
+static bool external_speech_active(void)
+{
+    uint32_t until = atomic_load(&external_speech_until_ms);
+    const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if (until && (int32_t)(until - now) <= 0) {
+        /* Do not erase a concurrent renewal; clear expired state so it cannot
+         * become active again after another 32-bit clock wrap. */
+        if (atomic_compare_exchange_strong(&external_speech_until_ms, &until, 0)) {
+            atomic_fetch_add(&external_speech_epoch, 1);
+            return false;
+        }
+    }
+    return until != 0 && (int32_t)(until - now) > 0;
+}
+
 static void microphone_task(void *unused)
 {
     (void)unused;
@@ -262,12 +277,14 @@ static void microphone_task(void *unused)
     uint64_t previous_session = 0;
     uint32_t previous_epoch = 0;
     unsigned previous_external_epoch = 0;
+    bool previous_external_active = false;
     bool wake_latched = false;
     int64_t wake_deadline = 0;
     for (;;) {
         xSemaphoreTake(mutex, portMAX_DELAY);
         const uint64_t capture_session = session;
         const uint32_t capture_epoch = microphone_epoch;
+        const bool capture_external_active = external_speech_active();
         const unsigned capture_external_epoch = atomic_load(&external_speech_epoch);
         xSemaphoreGive(mutex);
         size_t received = 0;
@@ -292,7 +309,8 @@ static void microphone_task(void *unused)
         }
         const float rms = (float)(sqrt(squares / FRAME_SAMPLES) / 32768.0);
         xSemaphoreTake(mutex, portMAX_DELAY);
-        const bool enabled = microphone_enabled && session && !suspended && !status.speaker_busy && !atomic_load(&external_speech) &&
+        const bool current_external_active = external_speech_active();
+        const bool enabled = microphone_enabled && session && !suspended && !status.speaker_busy && !current_external_active &&
                              esp_timer_get_time() >= microphone_after;
         const ainekio_microphone_gate_t gate = microphone_gate;
         const uint64_t frame_session = session;
@@ -305,9 +323,11 @@ static void microphone_task(void *unused)
         xSemaphoreGive(mutex);
         if (!enabled || !frame_session || capture_session != frame_session || capture_epoch != current_epoch ||
             previous_session != frame_session || previous_epoch != current_epoch ||
+            capture_external_active != current_external_active || previous_external_active != current_external_active ||
             capture_external_epoch != current_external_epoch || previous_external_epoch != current_external_epoch) {
             const bool reset_gate = was_open || wake_latched || previous_session != frame_session ||
-                                    previous_epoch != current_epoch || previous_external_epoch != current_external_epoch;
+                                    previous_epoch != current_epoch || previous_external_epoch != current_external_epoch ||
+                                    previous_external_active != current_external_active;
             xSemaphoreTake(mutex, portMAX_DELAY);
             status.utterance_open = false;
             xSemaphoreGive(mutex);
@@ -320,6 +340,7 @@ static void microphone_task(void *unused)
             previous_session = frame_session;
             previous_epoch = current_epoch;
             previous_external_epoch = current_external_epoch;
+            previous_external_active = current_external_active;
             if (reset_gate) {
                 xSemaphoreTake(wake_mutex, portMAX_DELAY);
                 if (wake) ainekio_wake_word_reset(wake);
@@ -364,7 +385,7 @@ static void microphone_task(void *unused)
          * begin during it: discard that result and its PCM before callbacks.
          * Serialize the nonblocking FIFO writes with the speaker-start boundary. */
         xSemaphoreTake(mutex, portMAX_DELAY);
-        if (!microphone_enabled || suspended || status.speaker_busy || atomic_load(&external_speech) ||
+        if (!microphone_enabled || suspended || status.speaker_busy || external_speech_active() ||
             atomic_load(&external_speech_epoch) != current_external_epoch ||
             esp_timer_get_time() < microphone_after || session != frame_session || microphone_epoch != current_epoch) {
             xSemaphoreGive(mutex);
@@ -520,7 +541,7 @@ ainekio_p4_media_status_t ainekio_p4_media_status(void)
     result = status;
     result.microphone_enabled = microphone_enabled;
     result.microphone_gate = microphone_gate;
-    result.external_speech = atomic_load(&external_speech);
+    result.external_speech = external_speech_active();
     const int64_t now = esp_timer_get_time();
     result.microphone_listening = microphone_enabled && session && status.microphone_ready && !suspended &&
         !status.speaker_busy && !result.external_speech && now >= microphone_after && microphone_sample_at && now - microphone_sample_at < 250000;
@@ -746,7 +767,7 @@ uint32_t ainekio_p4_media_audio_cancel(void)
 
 void ainekio_p4_media_disconnect(void)
 {
-    ainekio_p4_media_external_speech(false);
+    ainekio_p4_media_external_speech(false, 0);
     ainekio_p4_media_audio_cancel();
     if (mutex) {
         xSemaphoreTake(mutex, portMAX_DELAY);
@@ -757,10 +778,16 @@ void ainekio_p4_media_disconnect(void)
     p4_camera_session(0);
 }
 
-void ainekio_p4_media_external_speech(bool active)
+void ainekio_p4_media_external_speech(bool active, uint32_t duration_ms)
 {
-    if (atomic_exchange(&external_speech, active) != active)
-        atomic_fetch_add(&external_speech_epoch, 1);
+    const bool before = external_speech_active();
+    uint32_t until = 0;
+    if (active && duration_ms) {
+        until = (uint32_t)(esp_timer_get_time() / 1000) + duration_ms;
+        if (!until) until = 1; /* Zero denotes inactive across clock wrap. */
+    }
+    atomic_store(&external_speech_until_ms, until);
+    if (before != (until != 0)) atomic_fetch_add(&external_speech_epoch, 1);
 }
 
 void ainekio_p4_media_session(uint64_t next_session)

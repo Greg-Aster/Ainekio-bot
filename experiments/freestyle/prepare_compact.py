@@ -13,7 +13,7 @@ def export_shared(source, output, base, revision, trainer):
     output.mkdir(parents=True, exist_ok=False)
     system = (source/'system.txt').read_text() if (source/'system.txt').exists() else SYSTEM
     manifest = {'version': 2, 'supervision': 'final-assistant-only', 'baseModel': base,
-                'systemPrompt': system, 'settings': {'objective': 'assistant-continuation'},
+                'systemPrompt': system or None, 'settings': {'objective': 'assistant-continuation'},
                 'sourceHashes': {}, 'generatorManifestSha256': sha(source/'manifest.json')}
     splits = ['train', 'evaluation']
     splits.extend(name for name in ('test', 'regression-evaluation', 'recovery-probe') if (source/(name+'.jsonl')).exists())
@@ -22,8 +22,8 @@ def export_shared(source, output, base, revision, trainer):
         rows = []
         for r in originals:
             manifest['sourceHashes'][r['source_id']] = r['source_hash']
-            rows.append({'id': r['id'], 'messages': [
-                {'role': 'system', 'content': system}, {'role': 'user', 'content': r['query']},
+            rows.append({'id': r['id'], 'messages': ([{'role': 'system', 'content': system}] if system else []) + [
+                {'role': 'user', 'content': r['query']},
                 {'role': 'assistant', 'content': compact(r['answers'])}],
                 'metadata': {'sourceIds': [r['source_id']], 'sourceHashes': {r['source_id']: r['source_hash']},
                              'objective': 'assistant-continuation', 'targetAuthor': 'assistant',

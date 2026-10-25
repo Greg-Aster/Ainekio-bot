@@ -35,7 +35,7 @@ raw multiplexer inputs, calibration and Stand progress. Reader enable, joint
 mapping, three-point calibration and verification settings persist separately
 from motor calibration. The existing `stand_enabled` field now selects final
 Stand verification; `arrival_tolerance_us` is the final joint-goal tolerance.
-`jam_enabled` independently selects no-progress detection and output release;
+`jam_enabled` independently selects no-progress detection;
 `tolerance_us` is its error band. Existing settings migration preserves enable
 flags, calibration and both tolerances; it never tightens saved settings.
 Firmware without `jam_enabled` exposes the older coupled behavior.
@@ -112,24 +112,32 @@ landmarks. This reduces overlapping initial travel commands but neither measures
 current nor guarantees a shaft has arrived. The subsequent contact-aware rise
 still coordinates supporting legs to raise the body.
 
-Outside the verified Stand goal, enabled jam protection can end motion and release every servo output on observed non-progress.
-It emits one `servo_stall` notification for that stopped execution, including
-startup/holding without a command ID. Body Control routes it through the existing
+From firmware `0.8.120-p4-recovery-first`, observed non-progress emits a
+nonterminal `servo_stall` notification while the current motion or powered hold
+continues. A joint reports once per episode and rearms after measured progress
+or arrival. Pending reports retain the command's receipt queue capacity.
+Older firmware releases outputs on detection; the feedback readback reports
+`jam_policy: recovery_first` on the new firmware. Body Control uses the existing
 `body_event` path to the environment bridge (`metadata.perceptionEvent=body_event`).
 The workflow sees `state.bodyEvent.data` with:
 
 ```json
 {"kind":"servo_stall","joints":[{"id":4,"name":"rear_right_carrier"}],
  "joint_mask":16,"command_sequence":0,"clock_us":1234567,
- "outputs_released":true,"reason":"no_position_progress"}
+ "outputs_released":false,"reason":"no_position_progress"}
 ```
 
 Joint IDs use the physical V2 joint order, independent of PCA output and ADC mux
 channel mappings. Sequence zero covers startup/no active user command. The outer
 `event_id` combines the firmware boot identity and occurrence timestamp. The
 reaction workflow remains owned by MetaHuman; firmware does not choose an
-expression, recovery movement or retry. Shake/tip notification suppression does
-not hide this execution fault. Existing calibration curves survive the NVS
+expression or recovery movement. When Freestyle body-event recovery is enabled,
+its existing trained generator receives the observations and interrupted program.
+Current execution continues during inference; only an available correction
+replaces it, with fresh measured positions. Model errors retain current execution.
+Manual Stop/replacement and existing driver-fault shutdowns remain immediate.
+No model-time cutoff, retry-count limit or changed jam threshold is added.
+Shake/tip notification suppression does not hide this observation. Existing calibration curves survive the NVS
 configuration upgrade. These
 controls use the existing authenticated maintenance proxy
 `/api/robot/servo-feedback?robot_id=…` → `/api/servo-feedback` (GET/POST JSON);
@@ -1456,8 +1464,14 @@ For computer speech, host microphone intake is suppressed immediately and the
 P4 receives a transient `external_speech` notification over the authenticated
 controller connection. Playback never waits for delivery or acknowledgement.
 The existing welcome/ping/pong traffic also carries the current state, so a lost
-end notification is corrected by the next delivered heartbeat. Disconnect clears
-the firmware's transient flag. No extra timeout, cooldown, motion pause, servo
+end notification is corrected by the next delivered heartbeat. The matching P4
+also receives `external_speech_ms`: remaining PCM duration plus two existing
+heartbeat intervals. Its existing microphone loop checks a 32-bit local-clock
+expiry, so listening recovers even without a later message. Existing heartbeats
+renew the expiry while the playback process is still running or draining; normal
+completion clears it immediately. This expiry never stops playback or motion.
+Disconnect clears the firmware's transient flag. No extra task, polling timer,
+cooldown, motion pause, servo
 release or saved microphone/wake setting change is introduced. While speech is
 active, host input drops microphone PCM and wake/VAD events; camera and movement
 continue. Overlapping playback owners keep suppression active until all finish.

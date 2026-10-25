@@ -275,6 +275,7 @@ def _validate_welcome(message: Mapping[str, object]) -> None:
         _boolean(message, COMMAND_DEADLINE_FEATURE)
     if "external_speech" in message:
         _boolean(message, "external_speech")
+        _optional_integer(message, "external_speech_ms", minimum=0, maximum=2147483647)
 
 
 def validate_walk_controls(message: Mapping[str, object]) -> None:
@@ -467,6 +468,7 @@ def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
     _optional_integer(message, "clock_ms", minimum=0, maximum=MAX_MONOTONIC_MS)
     if "external_speech" in message:
         _boolean(message, "external_speech")
+        _optional_integer(message, "external_speech_ms", minimum=0, maximum=2147483647)
     if "audio" in message:
         audio = message["audio"]
         if not isinstance(audio, Mapping):

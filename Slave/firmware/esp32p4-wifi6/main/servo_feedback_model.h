@@ -18,7 +18,7 @@ typedef struct {
     uint8_t enabled, stand_enabled;
     uint16_t tolerance_us; /* Jam error band; retained wire/NVS name. */
     ainekio_feedback_joint_t joint[AINEKIO_FEEDBACK_JOINTS];
-    uint32_t no_progress_ms; /* Owner-selected observation window; 0 disables release. */
+    uint32_t no_progress_ms; /* Owner-selected observation window; 0 disables jam reports. */
     uint16_t progress_us; /* Minimum new shaft travel toward target. */
     uint8_t jam_enabled, reserved; /* Independent of measured motion coordination. */
     uint16_t arrival_tolerance_us, reserved_arrival;

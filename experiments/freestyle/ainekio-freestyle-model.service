@@ -1,12 +1,12 @@
 [Unit]
-Description=Ainekio Freestyle Qwen 0.8B v7 LoRA (GPU)
+Description=Ainekio Freestyle Qwen 0.8B v8 LoRA (GPU)
 
 [Service]
 WorkingDirectory=%h/Ainekio
 Environment=LD_LIBRARY_PATH=%h/metahuman/external/llama.cpp/dynamic-kv-05c0a5e-r2/bin
 Environment=CUDA_VISIBLE_DEVICES=0
 Environment=LLAMA_CUDA_DYNAMIC_KV=1
-ExecStart=%h/metahuman/external/llama.cpp/dynamic-kv-05c0a5e-r2/bin/llama-server --model %h/Ainekio/experiments/freestyle/artifacts/spatial-v7/final-served/model.Q8_0.gguf --alias freestyle-qwen --host 127.0.0.1 --port 8795 --ctx-size 0 --fit off --kv-unified --parallel 2 --gpu-layers 99 --flash-attn on --threads 4 --threads-batch 4 --jinja --reasoning off
+ExecStart=%h/metahuman/external/llama.cpp/dynamic-kv-05c0a5e-r2/bin/llama-server --model %h/Ainekio/experiments/freestyle/artifacts/spatial-v8/final-served/model.Q8_0.gguf --alias freestyle-qwen --host 127.0.0.1 --port 8795 --ctx-size 0 --fit off --kv-unified --parallel 2 --gpu-layers 99 --flash-attn on --threads 4 --threads-batch 4 --jinja --reasoning off
 
 [Install]
 WantedBy=default.target

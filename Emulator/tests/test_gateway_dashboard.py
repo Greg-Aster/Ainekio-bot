@@ -201,6 +201,24 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         service.submit.assert_not_awaited()
         self.assertEqual(self.gateway.calls,[])
 
+    async def test_freestyle_saved_correction_listing_and_trial_use_existing_owner(self):
+        cookie,csrf=await self._login()
+        service=SimpleNamespace(corrections=AsyncMock(return_value=[{
+            'id':'review-1','job_id':'original','request':'Wave to an audience'}]),
+            test_correction=AsyncMock(return_value={'job_id':'corrected-trial'}), submit=AsyncMock())
+        self.server.freestyle=service
+        payload={'operation':'corrections','robot_id':'ainekio-test-01'}
+        self.assertEqual((await self._request('POST','/api/freestyle',payload,cookie=cookie))[0],403)
+        code,result,_=await self._request('POST','/api/freestyle',payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result['corrections'][0]['review_id'],'review-1')
+        code,result,_=await self._request('POST','/api/freestyle',{
+            'operation':'test-correction','robot_id':'ainekio-test-01','review_id':'review-1'},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result['job_id'],'corrected-trial')
+        service.test_correction.assert_awaited_once_with('ainekio-test-01','review-1')
+        service.submit.assert_not_awaited()
+
     async def test_freestyle_lazy_loader_configures_without_contacting_robot(self):
         events,commands,diagnostics=[],[],[]
         self.gateway.subscribe_events=events.append

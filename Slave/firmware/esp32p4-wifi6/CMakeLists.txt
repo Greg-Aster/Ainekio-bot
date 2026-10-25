@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.8.119-p4-tcp-backpressure")
+set(PROJECT_VER "0.8.121-p4-stand-settle")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/faces"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/imu"

@@ -59,7 +59,7 @@ class FakeGateway:
         self.frames: list[bytes] = []
         self.external_speech = set()
 
-    def set_external_speech(self, robot, owner, active):
+    def set_external_speech(self, robot, owner, active, *, duration_ms=0):
         if active:
             self.external_speech.add((robot,owner))
         else:

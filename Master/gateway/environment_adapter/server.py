@@ -592,7 +592,7 @@ class EnvironmentAdapter:
         robot_id = self._selected_robot()[0] or self.config.robot_id
         owner = uuid4().hex
         if robot_id:
-            self.gateway.set_external_speech(robot_id, owner, True)
+            self.gateway.set_external_speech(robot_id, owner, True, duration_ms=(len(speech.pcm) + 31) // 32)
         try:
             try:
                 for task in previous:
@@ -604,6 +604,8 @@ class EnvironmentAdapter:
                     # Playback starts only after this action's dispatch is recorded.
                     pass
                 try:
+                    if robot_id:
+                        self.gateway.set_external_speech(robot_id, owner, True, duration_ms=(len(speech.pcm) + 31) // 32)
                     if self._computer_device:
                         await play_computer_speech(speech.pcm, device=self._computer_device)
                     else:
