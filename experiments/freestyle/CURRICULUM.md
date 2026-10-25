@@ -367,3 +367,18 @@ does not claim to preserve straight Cartesian paths or physical qualification.
 Host validation passed all 61 native tests; updated target wire fixtures and
 focused Python/UI checks also passed. Firmware cross-build, model training,
 serving validation and physical qualification are separate rollout steps.
+
+The final refinement dataset is `artifacts/spatial-v10-targets/library-20261025-compact-speeds/`.
+Speeds use the shortest decimal that produces exactly the same integer wire rate
+at the recorded reference speed. This removes redundant digits from 8,184
+training movement calls without changing their encoded speed. The final 913-row
+training JSONL SHA256 is
+`a94a275122a34ab86045660b8fb974b9fe1962c7a58c45f7bcd29385a1fdbd3c`.
+Mean assistant targets are 322.6 tokens (previous library: 332.7); the current
+four-cycle wiggle is 464 target tokens (previously 663). Maximum complete
+sequence length is 3,453, without truncation. These are tokenizer measurements,
+not inference timings or physical-motion results.
+
+The first target-contract continuation completed three epochs with held-out
+loss 0.59746 → 0.11163. A final two-epoch continuation at 8e-5 trains the shorter
+speed values. Its final weights still require serialized-serving validation.
