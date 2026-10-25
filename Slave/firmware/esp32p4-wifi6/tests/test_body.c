@@ -58,7 +58,17 @@ static ainekio_v2_frame_t shaft_measured;
 static uint16_t shaft_wait_mask, shaft_stalled_mask;
 uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *progress,
     const ainekio_p4_joint_config_t *mapping,const uint16_t *targets)
-{ (void)progress;(void)mapping;(void)targets;shaft_jam_checks++;return shaft_jam_enabled?shaft_stalled_mask:0; }
+{
+    (void)mapping;(void)targets;shaft_jam_checks++;
+    uint16_t observed=0;
+    for(unsigned j=0;j<12;j++) {
+        if(!shaft_jam_enabled || !(shaft_stalled_mask&(1U<<j)))progress->joint[j].reported=false;
+        else if(!progress->joint[j].reported) {
+            observed|=1U<<j;progress->joint[j].reported=true;
+        }
+    }
+    return observed;
+}
 bool ainekio_p4_feedback_stand_enabled(void){return shaft_feedback_enabled;}
 bool ainekio_p4_feedback_jam_enabled(void){return shaft_jam_enabled;}
 bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,ainekio_v2_frame_t *frame)
@@ -1744,16 +1754,35 @@ static void stall_release_event(void)
             assert(elapsed<10000);
         }
         advance(20);
-        assert(!driver.state.armed && !body.active && body.motion.kind==MOTION_NONE);
+        assert(driver.state.armed && body.active && driver.state.fault==AINEKIO_PCA_FAULT_NONE);
         ainekio_p4_body_event_t e;assert(ainekio_p4_body_event(&e));
-        assert(e.result==AINEKIO_P4_ERR_STALLED && !e.completed);
+        assert(e.result==ESP_OK && !e.completed && e.jam_observation);
         assert(e.stalled_joints==shaft_stalled_mask && e.clock_us);
         assert(e.sequence==(startup==0 || startup==3?944:0));
-        uint16_t released[12];ainekio_p4_body_pulses(released);
-        for(unsigned j=0;j<12;j++)assert(!released[j]);
+        uint16_t powered[12];ainekio_p4_body_pulses(powered);
+        bool any=false;for(unsigned j=0;j<12;j++)any|=powered[j]!=0;assert(any);
         assert(ainekio_p4_body_status().stalled_joints==shaft_stalled_mask);
-        advance(2000);assert(!ainekio_p4_body_event(&e));
+        advance(2000);
+        while(ainekio_p4_body_event(&e))assert(e.result==ESP_OK);
+        assert(driver.state.armed && body.active);
     }
+    /* Jam observations cannot consume the command's reserved receipt slots.
+     * The body retains a pending observation until its existing reader drains. */
+    reset();leveling_enabled=false;shaft_jam_enabled=true;shaft_stalled_mask=1;
+    ainekio_p4_body_event_t filler={0};
+    while(uxQueueSpacesAvailable(events)>2)assert(xQueueSend(events,&filler,0)==pdTRUE);
+    advance(20);assert(body.pending_jam.stalled_joints==1 && driver.state.armed);
+    while(ainekio_p4_body_event(&filler))assert(!filler.jam_observation);
+    advance(20);assert(!body.pending_jam.stalled_joints && driver.state.armed);
+    assert(ainekio_p4_body_event(&filler) && filler.jam_observation && filler.stalled_joints==1);
+    advance(2000);assert(!ainekio_p4_body_event(&filler));
+    /* Explicit output shutdown still wins over an undelivered observation. */
+    reset();leveling_enabled=false;shaft_jam_enabled=true;shaft_stalled_mask=1;
+    while(uxQueueSpacesAvailable(events)>2)assert(xQueueSend(events,&filler,0)==pdTRUE);
+    advance(20);assert(body.pending_jam.stalled_joints);
+    ainekio_pca_emergency_disable(&driver,AINEKIO_PCA_FAULT_EMERGENCY);
+    advance(20);assert(!body.pending_jam.stalled_joints && !driver.state.armed && !body.active);
+
     /* An in-pass dip cannot enter the observer. Recovered end-of-pass
      * feedback completes normally instead of retaining a false stall. */
     reset();leveling_enabled=false;shaft_feedback_enabled=shaft_jam_enabled=true;
@@ -1773,7 +1802,7 @@ static void stall_release_event(void)
     c=command(946,AINEKIO_INTENT_STAND);assert(execute(&c)==ESP_OK);
     event=finish(10000);
     assert(event.completed && event.sequence==946 && driver.state.armed);
-    puts("Stall: independent jam-only completion, non-Stand holding checks and one joint-specific event passed.");
+    puts("Stall: nonterminal jam observations preserve motion, powered holds and completion receipts.");
 }
 
 static void persistent_standing_goal(void)

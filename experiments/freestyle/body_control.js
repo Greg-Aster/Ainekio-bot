@@ -14,6 +14,10 @@
     <button data-action="execute" type="button">Generate and perform</button>
     <button data-action="refresh" type="button">Refresh result</button>
     <button data-action="save" type="button">Save trial data</button>
+    <button data-action="corrections" type="button">Load saved corrections</button>
+    <label>Corrected motion <select data-field="correction"></select></label>
+    <button data-action="test-correction" type="button">Test selected correction</button>
+    <p>Test the saved program, then record how it looked before adding it to training data.</p>
     <p data-field="recording" aria-live="polite"></p>
     <label>What happened? <select data-field="outcome">
       <option value="success">Performed correctly</option>
@@ -79,6 +83,22 @@
           recover_events:field("recovery").checked});
         settingsEdited = false;
         displayedSettings = null;
+      } else if (action === "corrections") {
+        result = await post({operation:"corrections",robot_id:robot});
+        field("correction").replaceChildren();
+        for (const correction of result.corrections) {
+          const option = document.createElement("option");
+          option.value = correction.review_id;
+          option.textContent = correction.request;
+          field("correction").append(option);
+        }
+        field("correction").dataset.robot = robot;
+      } else if (action === "test-correction") {
+        if (field("correction").dataset.robot !== robot || !field("correction").value) {
+          throw new Error("Load and select a saved correction for this robot first.");
+        }
+        result = await post({operation:"test-correction",robot_id:robot,review_id:field("correction").value});
+        jobs.set(robot,result.job_id);
       } else if (action === "review") {
         result = await post({operation:"review",robot_id:robot,job_id:jobs.get(robot),
           outcome:field("outcome").value,note:field("note").value});

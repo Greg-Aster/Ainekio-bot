@@ -35,7 +35,7 @@ raw multiplexer inputs, calibration and Stand progress. Reader enable, joint
 mapping, three-point calibration and verification settings persist separately
 from motor calibration. The existing `stand_enabled` field now selects final
 Stand verification; `arrival_tolerance_us` is the final joint-goal tolerance.
-`jam_enabled` independently selects no-progress detection and output release;
+`jam_enabled` independently selects no-progress detection;
 `tolerance_us` is its error band. Existing settings migration preserves enable
 flags, calibration and both tolerances; it never tightens saved settings.
 Firmware without `jam_enabled` exposes the older coupled behavior.
@@ -112,24 +112,32 @@ landmarks. This reduces overlapping initial travel commands but neither measures
 current nor guarantees a shaft has arrived. The subsequent contact-aware rise
 still coordinates supporting legs to raise the body.
 
-Outside the verified Stand goal, enabled jam protection can end motion and release every servo output on observed non-progress.
-It emits one `servo_stall` notification for that stopped execution, including
-startup/holding without a command ID. Body Control routes it through the existing
+From firmware `0.8.120-p4-recovery-first`, observed non-progress emits a
+nonterminal `servo_stall` notification while the current motion or powered hold
+continues. A joint reports once per episode and rearms after measured progress
+or arrival. Pending reports retain the command's receipt queue capacity.
+Older firmware releases outputs on detection; the feedback readback reports
+`jam_policy: recovery_first` on the new firmware. Body Control uses the existing
 `body_event` path to the environment bridge (`metadata.perceptionEvent=body_event`).
 The workflow sees `state.bodyEvent.data` with:
 
 ```json
 {"kind":"servo_stall","joints":[{"id":4,"name":"rear_right_carrier"}],
  "joint_mask":16,"command_sequence":0,"clock_us":1234567,
- "outputs_released":true,"reason":"no_position_progress"}
+ "outputs_released":false,"reason":"no_position_progress"}
 ```
 
 Joint IDs use the physical V2 joint order, independent of PCA output and ADC mux
 channel mappings. Sequence zero covers startup/no active user command. The outer
 `event_id` combines the firmware boot identity and occurrence timestamp. The
 reaction workflow remains owned by MetaHuman; firmware does not choose an
-expression, recovery movement or retry. Shake/tip notification suppression does
-not hide this execution fault. Existing calibration curves survive the NVS
+expression or recovery movement. When Freestyle body-event recovery is enabled,
+its existing trained generator receives the observations and interrupted program.
+Current execution continues during inference; only an available correction
+replaces it, with fresh measured positions. Model errors retain current execution.
+Manual Stop/replacement and existing driver-fault shutdowns remain immediate.
+No model-time cutoff, retry-count limit or changed jam threshold is added.
+Shake/tip notification suppression does not hide this observation. Existing calibration curves survive the NVS
 configuration upgrade. These
 controls use the existing authenticated maintenance proxy
 `/api/robot/servo-feedback?robot_id=…` → `/api/servo-feedback` (GET/POST JSON);
@@ -578,6 +586,11 @@ for valid interface combinations. The installer adds `aineap0`, leaves the
 station connection intact and defaults to 2.4 GHz channel 1. Use `--channel`
 for another permitted channel (1–11); hardware limited to one channel requires
 a compatible uplink channel or another adapter. Verify actual radio operation.
+The hotspot enables 802.11n with WMM at 20 MHz. Both settings belong in
+`/etc/ainekio-network/hostapd.conf` (`ieee80211n=1`, `wmm_enabled=1`): the Q6A
+AIC8800/P4 link exhibited repeated TCP stalls with the former legacy-mode
+configuration. Check `iw dev aineap0 station dump` for an MCS rate after the
+robot associates; an active hostapd service alone does not verify the mode.
 The separate interface serves the private `10.42.77.0/24` robot LAN, with the
 gateway at `ws://10.42.77.1:8790/robot`. DHCP is confined to that interface and
 does not advertise Internet routing or DNS. This is the robot-to-gateway link;

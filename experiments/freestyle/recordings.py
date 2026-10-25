@@ -171,12 +171,14 @@ The latest review of a generation supersedes earlier reviews in this export.
     for item in records:
         value = item['payload']
         key = (item['job_id'], value.get('generation_index', 0))
-        if item['kind'] == 'generation_requested': requests[key] = item
-        elif item['kind'] == 'generation_completed': results[key] = item
+        if item['kind'] in ('generation_requested', 'correction_trial_requested'): requests[key] = item
+        elif item['kind'] in ('generation_completed', 'correction_trial_program'): results[key] = item
         elif item['kind'] == 'review': reviews[key] = item
         elif item['kind'] == 'job_finished': endings[item['job_id']] = value
     for key, review in reviews.items():
         value = review['payload']
+        if value.get('training_status') == 'awaiting_physical_trial':
+            continue
         request = requests.get(key)
         if request is None:
             continue
@@ -202,7 +204,8 @@ The latest review of a generation supersedes earlier reviews in this export.
                'synthetic': not measured, 'physical_qualification': measured,
                'qualification_basis': 'operator_reported_success' if measured else 'proposed_correction_not_executed',
                'job_id': key[0], 'generation_index': key[1], 'review': value,
-               'request_evidence_id': request['id'], 'review_evidence_id': review['id']}
+               'request_evidence_id': request['id'], 'review_evidence_id': review['id'],
+               **({'execution_source':request['payload']['source']} if 'source' in request['payload'] else {})}
 
 
 if __name__ == '__main__':

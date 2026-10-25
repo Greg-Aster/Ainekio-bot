@@ -244,6 +244,7 @@ typedef struct {
     ainekio_p4_feedback_progress_t feedback_progress;
     uint16_t stalled_joints;
     uint64_t stall_clock_us;
+    ainekio_p4_body_event_t pending_jam;
     ainekio_p4_execution_t execution;
     struct {
         bool active, engaged;
@@ -265,6 +266,7 @@ typedef struct {
     bool balance_target_valid, balance_tracking_available, balance_tracking_active;
 } body_state_t;
 static body_state_t body;
+static void report_stalled(uint16_t stalled,uint64_t now);
 
 static void up_from_euler(const double euler[3],float up[3])
 {
@@ -500,6 +502,7 @@ esp_err_t ainekio_p4_body_execute(uint64_t generation, uint64_t connection,
 
 static void finish_motion(bool completed, esp_err_t result)
 {
+    if(!completed)body.pending_jam=(ainekio_p4_body_event_t){0};
     const bool release=completed && result==ESP_OK && body.motion.release_on_complete;
     body.motion.release_on_complete=false;
     body.stand_goal_active=completed && body.motion.kind==MOTION_POSE &&
@@ -1144,8 +1147,7 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
                 const uint16_t stalled=ainekio_p4_feedback_stalled(&body.feedback_progress,
                     calibration.joints,motion->feedback_targets);
                 if(stalled) {
-                    body.stalled_joints=stalled;body.stall_clock_us=now;
-                    return AINEKIO_P4_ERR_STALLED;
+                    report_stalled(stalled,now);
                 }
             }
             if(feedback && observed && motion->feedback_waiting_mask) {
@@ -1341,15 +1343,20 @@ static esp_err_t listen_frame(uint64_t now, ainekio_v2_frame_t *sampled, bool *s
     return ESP_OK;
 }
 
-static void release_stalled(uint16_t stalled,uint64_t now)
+static void report_stalled(uint16_t stalled,uint64_t now)
 {
-    const ainekio_p4_body_event_t event={.connection=body.motion.connection,
-        .sequence=body.motion.kind==MOTION_NONE?0:body.motion.sequence,.result=AINEKIO_P4_ERR_STALLED,
-        .stalled_joints=stalled,.clock_us=now};
-    body.stalled_joints=stalled;body.stall_clock_us=now;
-    const bool has_receipt=body.motion.kind!=MOTION_NONE && body.motion.connection;
-    fail_motion(AINEKIO_P4_ERR_STALLED);
-    if(!has_receipt)xQueueSend(events,&event,0);
+    if(stalled) {
+        body.stalled_joints=stalled;body.stall_clock_us=now;
+        if(!body.pending_jam.stalled_joints)
+            body.pending_jam=(ainekio_p4_body_event_t){.connection=body.motion.connection,
+                .sequence=body.motion.sequence,.jam_observation=true,.clock_us=now};
+        body.pending_jam.stalled_joints|=stalled;
+    }
+    /* Retain an undelivered observation in this owner. The existing command
+     * lifecycle reserves two queue slots for replacement/completion receipts. */
+    if(body.pending_jam.stalled_joints && uxQueueSpacesAvailable(events)>2 &&
+       xQueueSend(events,&body.pending_jam,0)==pdTRUE)
+        body.pending_jam=(ainekio_p4_body_event_t){0};
 }
 
 /* Completion acknowledges reaching the goal once; it does not abandon that
@@ -1378,6 +1385,7 @@ static void stand_hold_recover(void)
  * Stop/generation fencing is checked before sampling and again by the driver. */
 static bool output_step(uint64_t now)
 {
+    report_stalled(0,now);
     ainekio_pca9685_t *output = ainekio_p4_output();
     ainekio_pca_status_t status = ainekio_pca_status(output);
     if (body.active && (!status.armed || status.generation != body.generation)) {
@@ -1407,8 +1415,7 @@ static bool output_step(uint64_t now)
     const uint16_t stalled=stand_pass || standing_goal?0:
         ainekio_p4_feedback_stalled(&body.feedback_progress,feedback_mapping.joints,written);
     if(stalled) {
-        release_stalled(stalled,now);
-        return false;
+        report_stalled(stalled,now);
     }
     bool complete = false;
     const bool was_ramping=body.ramping;
@@ -1423,8 +1430,7 @@ static bool output_step(uint64_t now)
     } else if (body.motion.kind != MOTION_NONE) {
         const esp_err_t error = motion_frame(now, &complete, &sampled);
         if (error != ESP_OK) {
-            if(error==AINEKIO_P4_ERR_STALLED)release_stalled(body.stalled_joints,now);
-            else fail_motion(error);
+            fail_motion(error);
             return false;
         }
     } else {

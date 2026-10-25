@@ -341,12 +341,12 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(receipt["data"]["position_verified"])
 
     async def test_stall_uses_the_existing_body_event_bridge_with_joint_identity(self):
-        for sequence in (0, 941):
+        for sequence,released in ((0,True),(941,True),(0,False),(941,False)):
             connection = object.__new__(GatewayConnection)
             connection.robot_id, connection.epoch = "p4", 17
             connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock())
             message = {"t": "event", "name": "servo_stall", "event_id": "7:1200000",
-                       "clock_us": 1200000, "seq": sequence, "joint_mask": 48, "outputs_released": True}
+                       "clock_us": 1200000, "seq": sequence, "joint_mask": 48, "outputs_released": released}
             validate_control_message(message)
             await connection._handle_control(message)
             event = connection.service._publish_event.call_args.args[0]
@@ -355,7 +355,7 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(event["event_id"], "7:1200000")
             self.assertEqual(event["data"]["joints"], [
                 {"id": 4, "name": "rear_right_carrier"}, {"id": 5, "name": "rear_right_crank"}])
-            self.assertTrue(event["data"]["outputs_released"])
+            self.assertEqual(event["data"]["outputs_released"],released)
             self.assertEqual(event["data"]["command_sequence"], sequence)
             adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
             adapter._selected_robot = lambda: ("p4", 17)

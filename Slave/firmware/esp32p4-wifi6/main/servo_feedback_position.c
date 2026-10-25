@@ -124,12 +124,15 @@ uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *p,
         const int direction=fabs(error)<=s.config.tolerance_us ? 0 : error>0 ? 1 : -1;
         if(!direction || direction!=p->joint[j].direction || !p->joint[j].progress_at) {
             p->joint[j].direction=direction;p->joint[j].best=measured;p->joint[j].progress_at=at;
+            p->joint[j].reported=false;
         } else if(direction*(measured-p->joint[j].best)>=s.config.progress_us) {
             /* A high-water mark: oscillating noise cannot repeatedly claim
              * progress by moving back and forth over the same position. */
             p->joint[j].best=measured;p->joint[j].progress_at=at;
-        } else if(at-p->joint[j].progress_at>=(int64_t)s.config.no_progress_ms*1000) {
+            p->joint[j].reported=false;
+        } else if(!p->joint[j].reported && at-p->joint[j].progress_at>=(int64_t)s.config.no_progress_ms*1000) {
             stalled|=1U<<j;
+            p->joint[j].reported=true;
         }
     }
     return stalled;

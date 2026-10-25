@@ -920,11 +920,12 @@ static void link_task(void *arg)
                     char notice[320];
                     snprintf(notice,sizeof notice,
                         "{\"t\":\"event\",\"name\":\"servo_stall\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":true}",
-                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints);
+                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":%s}",
+                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints,
+                        event.jam_observation?"false":"true");
                     reply(link_generation,notice);
                 }
-                if (event.sequence && current_connection(event.connection)) {
+                if (!event.jam_observation && event.sequence && current_connection(event.connection)) {
                     char result[192];
                     const bool stopped = event.sequence <= atomic_load(&stopped_sequence);
                     if (stopped)

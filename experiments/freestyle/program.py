@@ -53,6 +53,36 @@ def packets(frames):
         yield packet
 
 
+def compile_motion(action, observation, planned=None):
+    """Continue authored motion from its previous target, not tracking error.
+
+    The first motion (and motion after reassessment) uses measured positions
+    for moving joints. Feedback remains evidence; it does not silently rewrite
+    the remaining relative path on every segment.
+    """
+    name, args = action['name'], action['arguments']
+    joints = observation['joints']
+    home = {j:v['home_deg'] for j,v in joints.items()}
+    moving = (list(JOINTS) if name=='body' else
+              [f'{leg}_{axis}' for leg in args['legs'] for axis in ('shoulder','carrier','crank')] if name=='feet' else
+              args['joints'] if name=='pose' else [args['joint']])
+    if planned is None:
+        start = {j:(v['commanded_model_deg'] if v['commanded_model_deg'] is not None else v.get('model_deg'))
+                 for j,v in joints.items()}
+        start.update({j:joints[j].get('model_deg',joints[j]['commanded_model_deg']) for j in moving})
+    else:
+        start = dict(planned)
+    if name in ('feet','body'):
+        from .kinematics import frames_for_spatial
+        frames = frames_for_spatial(action,start)
+    else:
+        frames = list(frames_for(action,start,home,observation['joint_speed_limit_deg_s']))
+    if planned is None and any(v.get('command_us')==0 for v in joints.values()):
+        frames.insert(0,frame(1,start))
+    end = dict(zip(JOINTS,[v/100 for v in frames[-1][1]])) if frames else dict(start)
+    return {'frames':frames,'start':start,'home':home,'moving':moving,'end':end}
+
+
 def gait_intent(args):
     command = args['command']
     direction = {'backward':'back', 'left':'turn_l', 'right':'turn_r', 'crab':'side_l',

@@ -25,7 +25,7 @@ def run(config, adapter, data, contract, output, shared_trainer, context_tokens)
         for line in data.read_text().splitlines():
             row = json.loads(line)
             prompt = tokenizer.apply_chat_template(
-                [{'role': 'system', 'content': system}, {'role': 'user', 'content': row['query']}],
+                ([{'role':'system','content':system}] if system else [])+[{'role':'user','content':row['query']}],
                 tokenize=False, add_generation_prompt=True, enable_thinking=False)
             encoded = tokenizer(prompt, add_special_tokens=False, return_tensors='pt')
             encoded = {key: value.to(model.device) for key, value in encoded.items()}

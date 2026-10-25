@@ -35,9 +35,10 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
  * False means no complete post-write observation yet, not physical failure. */
 bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,
     const uint16_t *targets,int64_t commanded_us,uint16_t *remaining);
-/* Optional jam protection only; sequence verification does not use this timer. */
+/* Jam observations only; sequence verification does not use this timer.
+ * Each joint reports once until measured progress/arrival starts a new episode. */
 typedef struct {
-    struct { double best; int direction; int64_t sampled_us, progress_at; } joint[12];
+    struct { double best; int direction; int64_t sampled_us, progress_at; bool reported; } joint[12];
 } ainekio_p4_feedback_progress_t;
 uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *progress,
     const ainekio_p4_joint_config_t *mapping,const uint16_t *targets);

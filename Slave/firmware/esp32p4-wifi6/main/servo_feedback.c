@@ -286,6 +286,7 @@ static cJSON *status_json(void)
     cJSON_AddBoolToObject(o,"enabled",s.config.enabled);cJSON_AddBoolToObject(o,"stand_enabled",s.config.stand_enabled);
     cJSON_AddItemToObject(o,"health",health_json(&s));
     cJSON_AddBoolToObject(o,"jam_enabled",s.config.jam_enabled);
+    cJSON_AddStringToObject(o,"jam_policy","recovery_first");
     cJSON_AddBoolToObject(o,"initialized",s.initialized);cJSON_AddBoolToObject(o,"saved",s.saved);
     cJSON_AddNumberToObject(o,"tolerance_us",s.config.tolerance_us);
     cJSON_AddNumberToObject(o,"arrival_tolerance_us",s.config.arrival_tolerance_us);
