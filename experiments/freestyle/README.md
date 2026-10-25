@@ -1533,6 +1533,21 @@ Fall examples repeat or reverse a preceding correction according to its supplied
 before/after IMU orientation. Upright feedback examples resume the pending goal.
 Faces vary across corrections. No new slip examples or detector are added.
 
+Jam observations retain the commanded target of every participating shaft,
+separately from its measured partial progress. This lets the correction continue
+the other joints without asking the model to reconstruct their inverse kinematics.
+Fall corrections vary between 1, 2, 3, 4, and 6 degrees in training; probes use
+intermediate magnitudes. A constant three-degree response does not demonstrate
+that the model used the supplied measured correction.
+
+Evaluate complete generated programs as well as teacher-forced loss. In the
+first recovery candidate, the reviewed wiggle predicted 463/464 reference tokens
+correctly with the preceding reference tokens supplied, yet free generation chose
+a different face and then emitted an invalid motion. Constrained generation also
+repeated motion output indefinitely in one test. Neither low loss nor grammar
+conformance establishes learned motion correctness. These were offline tests;
+the failed candidate was not activated and no physical trial was performed.
+
 Recovery compression retains the last measured correction/effect and the affected
 shafts' recent distinct positions. The bridge keeps unfinished actions as input
 context across reassessment. A new generated plan replaces the previous plan;

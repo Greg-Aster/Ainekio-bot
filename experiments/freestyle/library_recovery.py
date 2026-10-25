@@ -132,7 +132,10 @@ def scenarios(source, native_gait, probe=False):
     present = {j:round(start[j]+portion*(goal[j]-start[j]),2) for j in JOINTS}
     present[joint] = measured
     jam_state = state_at(state, present)
-    jam_state['joints'][joint]['commanded_model_deg'] = goal[joint]
+    # Every shaft retains the coordinated command, including the shafts still
+    # progressing. Measured positions must not replace their intended targets.
+    for j in JOINTS:
+        jam_state['joints'][j]['commanded_model_deg'] = goal[j]
     jam_state['feedback'] = {'enabled':True, 'stalled_joints':1<<JOINTS.index(joint), 'no_progress_ms':1000}
     jam_state['imu'] = imu(0,'roll')
     history = [{'joints':{joint:start[joint]}}, {'joints':{joint:measured}},
@@ -173,7 +176,11 @@ def scenarios(source, native_gait, probe=False):
     before = sign*(80 if not probe else 92)
     after = before-sign*12 if improved else before+sign*12
     pair = ('rear_left_carrier','rear_right_carrier') if axis=='roll' else ('front_left_carrier','rear_left_carrier')
-    delta = {pair[0]:sign*(3 if not probe else 2), pair[1]:-sign*(3 if not probe else 2)}
+    # Vary the measured correction independently of direction and outcome.
+    # Probe magnitudes interpolate between training values, so a constant
+    # correction cannot pass as learning from the measured effect.
+    magnitude = (1,2,3,4,6)[(seed//6)%5] + (.5 if probe else 0)
+    delta = {pair[0]:sign*magnitude, pair[1]:-sign*magnitude}
     fallen = state_at(state,start); fallen['imu']=imu(after,axis); fallen['expected_up']=[0,0,1]
     pending = [copy.deepcopy(action),*copy.deepcopy(tail)]
     history = [{'imu':imu(before,axis),'correction_delta_deg':delta}, {'imu':fallen['imu']},
