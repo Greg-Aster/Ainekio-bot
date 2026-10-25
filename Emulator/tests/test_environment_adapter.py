@@ -836,18 +836,24 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         class P4Gateway(FakeGateway):
             def status(self):
                 status=super().status()
-                status["robots"]["test-body"].update(model="v2-12servo",features=["motion_plan_v2"])
+                status["robots"]["test-body"].update(model="v2-12servo",features=["motion_targets_v1"])
                 return status
         gateway=P4Gateway()
         adapter=EnvironmentAdapter(gateway,EnvironmentAdapterConfig(
             receipt_path=":memory:",token="test",robot_id="test-body"))
         self.addCleanup(adapter.receipts.close)
         action={"id":"p4-plan","type":"robotMotionPlan","endPose":"hold",
-            "frames":[{"durationMs":12000,"targets":[{"joint":j,"degrees":-117.68}
+            "frames":[{"speedDegS":120,"targets":[{"joint":j,"degrees":-117.68}
                 for j in reversed(JOINT_LABELS)]}]}
         result=await adapter.handle_action(action)
         self.assertEqual(result["type"],"completed")
         self.assertEqual(gateway.calls[0][1][0],[[12000,[-11768]*12]])
+        self.assertEqual(gateway.calls[0][1][1]["control"], "targets")
+        for rate in (0, -1, float('inf'), .001):
+            invalid = {**action, 'frames': [{**action['frames'][0], 'speedDegS': rate}]}
+            self.assertIsNone(translate_environment_action(invalid, model='v2-12servo'))
+        timed = {**action, 'frames': [{'durationMs': 120, 'targets': action['frames'][0]['targets']}]}
+        self.assertIsNone(translate_environment_action(timed, model='v2-12servo'))
         state=adapter._observation()["state"]["freestyleMovement"]
         self.assertTrue(state["available"])
         self.assertEqual(state["jointMap"]["version"],2)

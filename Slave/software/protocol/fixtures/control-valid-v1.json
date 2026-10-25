@@ -1,6 +1,7 @@
 {
   "protocol": 1,
   "cases": [
+    {"name":"v2_measured_speed_targets","requires_feature":"motion_targets_v1","message":{"t":"motion_plan","seq":97,"map":2,"control":"targets","frames":[[9000,[0,0,0,0,0,0,0,0,0,0,0,0]],[4500,[100,100,100,100,100,100,100,100,100,100,100,100]]],"end":"hold"}},
     {"name": "crab_lateral_update", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "forward": 25, "turn": 0, "lateral": -80, "update": 50}},
 
     {"name": "camera_hd_manual_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000, "gain_x16": 64, "jpeg_quality": 85}},

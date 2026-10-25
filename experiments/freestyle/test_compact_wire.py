@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from jsonschema import Draft202012Validator
-from .compact_wire import ProgramEncoding, observation
+from .compact_wire import ProgramEncoding, observation, model_query
 from .generator import argument_schema, Generator
 from .runtime import JOINTS
 from .motion_space import TOOLS
@@ -15,6 +15,30 @@ from .prepare_wire import build
 
 
 class CompactWireTests(unittest.TestCase):
+    def test_recovery_keeps_goal_and_unfinished_complex_plan_without_copied_logs(self):
+        encoding=ProgramEncoding([*TOOLS,face_tool()])
+        move={'name':'move','arguments':{'joint':JOINTS[6],'angle_deg':-60,'reference':'absolute','speed_pct':20}}
+        wave={'name':'oscillate','arguments':{'joint':JOINTS[6],'amplitude_deg':4,'cycles':3,'speed_pct':15}}
+        query={'request':'Wave then stand','event':{'type':'servo_stall','joints':[6],
+               'outputs_released':False,'event_id':'diagnostic','thresholds':{'unused':10}},
+               'observation':{'joints':{JOINTS[6]:{'model_deg':-50.,'commanded_model_deg':-60.,
+                   'calibrated':True,'in_calibrated_range':True}},
+                   'imu':{'available':True,'fresh':True,'orientation_wxyz':[1.,0.,0.,0.]},
+                   'feedback':{'enabled':True,'no_progress_ms':3000,'device_us':123456}},
+               'history':[{'imu':{'old':True}}]*20+[{'interrupted_action':move,
+                    'remaining_program':[wave,{'name':'stand','arguments':{}}],
+                    'interrupted_program':{'program':[move]*100},'packet_progress':{'frames':[0]*1000}}]}
+        original=copy.deepcopy(query)
+        projected=model_query(query,encoding)
+        self.assertEqual(query,original)
+        self.assertEqual(projected['request'],'Wave then stand')
+        self.assertFalse(projected['event']['outputs_released'])
+        self.assertEqual(projected['history'],[{'interrupted_action':encoding.encode([move])[0],
+            'remaining_program':encoding.encode([wave,{'name':'stand','arguments':{}}])}])
+        self.assertEqual(projected,model_query(projected,encoding))
+        self.assertNotIn('device_us',projected['observation']['feedback'])
+        self.assertNotIn('thresholds',projected['event'])
+
     def test_missing_faces_are_balanced_and_explicit_without_rewriting_motion_targets(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); source=root/'source'; source.mkdir()
@@ -75,7 +99,7 @@ class CompactWireTests(unittest.TestCase):
             {'name':'face','arguments':{'expr':'wave'}},
             {'name':'pose','arguments':{'joints':[JOINTS[0],JOINTS[11]],'angles_deg':[-3.14159265,42.1234567],
                                        'reference':'current','speed_pct':72}},
-            {'name':'feet','arguments':{'legs':['front_left','rear_right'],'offsets_mm':[[1,2,3],[-1,-2,-3]],'seconds':.327}},
+            {'name':'feet','arguments':{'legs':['front_left','rear_right'],'offsets_mm':[[1,2,3],[-1,-2,-3]],'speed_pct':32.7}},
             {'name':'hold','arguments':{'seconds':2.45}},
             {'name':'face','arguments':{'expr':'happy'}}]
         original = copy.deepcopy(program)

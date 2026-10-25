@@ -297,16 +297,25 @@ def _translate_motion_plan(action: Mapping[str, object], *, model: str | None = 
     for raw_frame in raw_frames:
         if not isinstance(raw_frame, Mapping):
             return None
-        duration_ms = raw_frame.get("durationMs")
+        if v2:
+            speed = raw_frame.get("speedDegS")
+            if ("durationMs" in raw_frame or type(speed) not in {int, float}
+                    or not math.isfinite(speed) or not 0 < speed * 100 <= (1 << 32) - 1
+                    or abs(speed * 100 - round(speed * 100)) > 1e-6):
+                return None
+            frame_rate = round(speed * 100)
+        else:
+            frame_rate = raw_frame.get("durationMs")
         targets = raw_frame.get("targets")
         if (
-            type(duration_ms) is not int
-            or not (1 if v2 else MOTION_PLAN_MIN_FRAME_MS) <= duration_ms <= ((1 << 32) - 1 if v2 else MOTION_PLAN_MAX_FRAME_MS)
+            type(frame_rate) is not int
+            or not (1 if v2 else MOTION_PLAN_MIN_FRAME_MS) <= frame_rate <= ((1 << 32) - 1 if v2 else MOTION_PLAN_MAX_FRAME_MS)
             or not isinstance(targets, list)
             or len(targets) != len(labels)
         ):
             return None
-        total_duration_ms += duration_ms
+        if not v2:
+            total_duration_ms += frame_rate
         if not v2 and total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
             return None
         compact_targets: list[int | None] = [None] * len(labels)
@@ -335,7 +344,7 @@ def _translate_motion_plan(action: Mapping[str, object], *, model: str | None = 
             compact_targets[joint_id] = centidegrees
         if any(target is None for target in compact_targets):
             return None
-        frames.append([duration_ms, compact_targets])
+        frames.append([frame_rate, compact_targets])
 
     end = action.get("endPose", "hold")
     if end not in {"hold", "stand", "neutral"}:
@@ -347,6 +356,7 @@ def _translate_motion_plan(action: Mapping[str, object], *, model: str | None = 
             "map": 2 if v2 else MOTION_PLAN_JOINT_MAP,
             "frames": frames,
             "end": end,
+            **({"control": "targets"} if v2 else {}),
         },
     )
 

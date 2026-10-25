@@ -321,3 +321,49 @@ Current-only snapshot SHA256:
 The verified export includes 889 training and 28 evaluation examples. Maximum
 sequence length is 3,412 tokens, with zero truncation. Compact training JSONL
 SHA256: `bc9eedb2002c30ae6e7d30aa004128d9e22cecf3a41da72eec684aa07a268064`.
+
+## Measured target control and adaptive recovery, 2026-10-25
+
+The target-control candidate is `artifacts/spatial-v10-targets/library-20261025-audit/`.
+All 889 active examples converted to targets and speed; explicit holds retain
+their durations. There are 24 new synthetic wave-adaptation training examples and
+16 disjoint probes. Expressions vary across angry, confused and sad, followed by
+a wave expression. Both front shoulders, obstruction directions, and standing or
+raised-foot endings are represented. A retreat and reduced sweep remain inside
+the observed obstruction. These examples are not physically qualified.
+
+The new dataset contains 913 training, 28 evaluation, 47 test, 44 recovery-probe
+and 355 older regression examples. Another 91 old regression cases have unresolved
+IK conversion errors recorded in the manifest; none is an active training row.
+The discard ledger is retained. Regenerate from the current library after edits;
+do not restore superseded snapshots. `migrate_targets.py` builds the dataset and
+adds the recovery curriculum reproducibly.
+
+The editor now stores and exports the compact input/target directly. Its former
+expanded representation and expanded canonical export were removed. The separate
+one-time `migrate_library_storage.py` representation migration reproduces the
+previous 889-row training JSONL hash exactly:
+`bc9eedb2002c30ae6e7d30aa004128d9e22cecf3a41da72eec684aa07a268064`.
+That storage migration alone does not change movement semantics or model weights.
+
+Recovery projection keeps current joints and IMU, event facts, requested goal,
+interrupted action and unfinished program. It omits repeated sensor histories
+and packet buffers; full evidence stays in the recorder. The recorded recovery
+used 4,975 prompt tokens, 278 output tokens and 90.869 seconds. A generation-only
+replay with the compact input used 1,004 prompt tokens, 110 output tokens and
+17.346 seconds on the existing Q6A model, with zero cached prompt tokens. Output
+length changed too, so the timing difference is not solely input savings. This
+is not a benchmark of the new, not-yet-trained target model.
+
+Target firmware uses `motion_targets_v1`, `control: targets`, and speed in
+centidegrees/second. Shaft arrival advances targets; elapsed time controls the
+rate only. Jam observations remain nonterminal and replacement remains available.
+The direct V2 Environment Bridge accepts `speedDegS` and no longer estimates
+progress from elapsed frame durations. V1 body semantics remain separate.
+The existing native Stand and balance owners remain in place. Spatial endpoints
+are solved by IK; interpolation between them is joint-space, so this migration
+does not claim to preserve straight Cartesian paths or physical qualification.
+
+Host validation passed all 61 native tests; updated target wire fixtures and
+focused Python/UI checks also passed. Firmware cross-build, model training,
+serving validation and physical qualification are separate rollout steps.

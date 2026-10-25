@@ -24,7 +24,7 @@ TOOLS = [
     operation('pose','Move several joints together; each angle pairs with the same-index joint.',
               {'joints':{'type':'array','items':JOINT},'angles_deg':{'type':'array','items':NUMBER},'reference':REF,'speed_pct':NUMBER}),
     operation('oscillate','Move a joint back and forth around its starting angle for complete cycles, returning to that angle.',
-              {'joint':JOINT,'amplitude_deg':NUMBER,'cycles':{'type':'integer'},'period_s':NUMBER}),
+              {'joint':JOINT,'amplitude_deg':NUMBER,'cycles':{'type':'integer'},'speed_pct':NUMBER}),
     operation('hold','Hold the preceding target for the requested duration.',{'seconds':NUMBER}),
     operation('gait','Use the existing P4 walking system when ordinary locomotion is requested.',
               {'command':{'type':'string','enum':['walk','backward','left','right','crawl','run','crab','crab_right','crab_forward','crab_backward','crab_turn_left','crab_turn_right']},
@@ -34,16 +34,17 @@ TOOLS = [
     operation('feet',
         'Translate the listed foot reference points together from their measured starting positions. '
         'Each offset_mm corresponds to the leg at the same index. Robot frame: X forward, Y left, Z up. '
-        'Leave other foot targets unchanged. seconds is the duration of this movement.',
-        {'legs':LEG_LIST,'offsets_mm':VECTORS,'seconds':{'type':'number'}}),
+        'Leave other foot targets unchanged. Advance on measured arrival; speed_pct sets the joint travel rate.',
+        {'legs':LEG_LIST,'offsets_mm':VECTORS,'speed_pct':NUMBER}),
     operation('body',
         'Change body translation and roll/pitch/yaw from the starting pose. '
         'Keep foot reference points fixed unless a listed foot_offsets_mm explicitly moves them too. '
         'The foot offsets use the starting robot frame and pair with legs. '
-        'Translations are millimetres, rotations are degrees about X/Y/Z, duration is seconds. '
+        'Translations are millimetres, rotations are degrees about X/Y/Z; speed_pct sets the joint travel rate. '
         'These are geometric targets, not claims that feet are touching the floor.',
         {'translation_mm':VECTOR,'rotation_deg':VECTOR,'legs':LEG_LIST,
-         'foot_offsets_mm':VECTORS,'seconds':{'type':'number'}}),
+         'foot_offsets_mm':VECTORS,'speed_pct':NUMBER}),
+    operation('stand','Achieve standing through the existing feedback-based body posture controller.',{}),
 ]
 
 INSTRUCTIONS = (

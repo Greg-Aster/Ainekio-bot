@@ -49,61 +49,27 @@ def solve_reference(model, leg, seed, body, target):
     return result.x
 
 
-def frames_for_spatial(action, positions):
+def target_for_spatial(action, positions):
+    """Resolve a spatial objective to joint targets; no duration or timed frames."""
     import numpy as np
-    model=mechanism();args=action['arguments'];seconds=args['seconds']
-    if not math.isfinite(seconds) or seconds<=0:raise ValueError('Spatial movement duration must be positive seconds')
+    model=mechanism();args=action['arguments']
     legs=args['legs'];offsets=args['offsets_mm'] if action['name']=='feet' else args['foot_offsets_mm']
-    if len(legs)!=len(offsets) or len(set(legs))!=len(legs):raise ValueError('Each named leg needs one corresponding foot offset')
+    if len(legs)!=len(offsets) or len(set(legs))!=len(legs):
+        raise ValueError('Each named leg needs one corresponding foot offset')
     delta={leg:np.asarray(offset,dtype=float) for leg,offset in zip(legs,offsets)}
     if set(delta)-set(CAD_LEGS):raise ValueError('Unknown physical leg')
     translation=np.asarray(args.get('translation_mm',[0,0,0]),dtype=float)
     rotation=np.deg2rad(args.get('rotation_deg',[0,0,0]))
     q={leg:np.deg2rad([positions[f'{leg}_{axis}'] for axis in ('shoulder','carrier','crank')]) for leg in CAD_LEGS}
     feet={leg:model.reference(cad,q[leg],np.zeros(3)) for leg,cad in CAD_LEGS.items()}
-    # Refine geometric curvature at the actual P4 output cadence. Each packet
-    # endpoint takes at least one 20 ms output tick; 8 ms subdivision otherwise
-    # stretches a 700 ms stroke into 1.6 seconds. Keep every requested action's
-    # endpoint, but do not create intermediate frames the body cannot emit.
-    milliseconds=math.ceil(seconds*1000)
-    tick_ms=20
-    def output_stamp(stamp):
-        if stamp>=milliseconds:return milliseconds
-        value=round(stamp/tick_ms)*tick_ms
-        # Keep any fractional final output tick in the final segment rather
-        # than creating a second short frame before the exact endpoint.
-        if milliseconds-value<tick_ms:value=max(0,(milliseconds//tick_ms-1)*tick_ms)
-        return max(0,value)
-    samples={0:np.array([positions[j] for j in JOINTS])}
-    def solve_at(stamp, seed):
-        if stamp in samples:return samples[stamp]
-        u=stamp/milliseconds;model.body_euler=u*rotation;body=u*translation
-        solved={leg:np.deg2rad(seed[3*i:3*i+3]) for i,leg in enumerate(CAD_LEGS)}
-        for leg,cad in CAD_LEGS.items():
-            if action['name']=='body' or leg in delta:
-                solved[leg]=solve_reference(model,cad,solved[leg],body,feet[leg]+u*delta.get(leg,np.zeros(3)))
-        samples[stamp]=np.rad2deg(np.concatenate(list(solved.values())))
-        return samples[stamp]
-
-    # Initial geometric intervals keep IK seeds continuous through larger paths
-    # and rotations; they are sampling intervals, not motion-range restrictions.
+    # Geometric continuation keeps the IK on the same linkage branch. These
+    # solver steps are never transmitted as timed movement instructions.
     sections=max(1,math.ceil(np.linalg.norm(translation)/8),
                  math.ceil(float(np.max(np.abs(np.rad2deg(rotation))))/15),
                  *(math.ceil(np.linalg.norm(offset)/8) for offset in delta.values()))
-    initial=sorted({output_stamp(i*milliseconds/sections) for i in range(sections+1)})
-    keep={0}
-    def refine(a,b):
-        probes=sorted({a,*(output_stamp(a+(b-a)*fraction) for fraction in (.25,.5,.75)),b})
-        probes=[stamp for stamp in probes if a<=stamp<=b]
-        seed=samples[a]
-        for stamp in probes[1:]:seed=solve_at(stamp,seed)
-        error=max((float(np.max(np.abs(samples[t]-(samples[a]+(samples[b]-samples[a])*(t-a)/(b-a)))))
-                   for t in probes[1:-1]),default=0.)
-        if error<=.005:
-            keep.add(b)
-        else:
-            for start,end in zip(probes,probes[1:]):refine(start,end)
-    for a,b in zip(initial,initial[1:]):refine(a,b)
-    keep=sorted(keep)
-    return [[b-a,[round(float(v)*100) for v in samples[b]]]
-            for a,b in zip(keep,keep[1:])]
+    for step in range(1,sections+1):
+        u=step/sections;model.body_euler=u*rotation;body=u*translation
+        for leg,cad in CAD_LEGS.items():
+            if action['name']=='body' or leg in delta:
+                q[leg]=solve_reference(model,cad,q[leg],body,feet[leg]+u*delta.get(leg,np.zeros(3)))
+    return [round(float(v)*100) for v in np.rad2deg(np.concatenate(list(q.values())))]

@@ -132,7 +132,7 @@ channel mappings. Sequence zero covers startup/no active user command. The outer
 `event_id` combines the firmware boot identity and occurrence timestamp. The
 reaction workflow remains owned by MetaHuman; firmware does not choose an
 expression or recovery movement. When Freestyle body-event recovery is enabled,
-its existing trained generator receives the observations and interrupted program.
+its trained generator receives current observations, the interrupted action and the compact unfinished plan; full programs and packet buffers are not repeated in recovery input.
 Current execution continues during inference; only an available correction
 replaces it, with fresh measured positions. Model errors retain current execution.
 Manual Stop/replacement and existing driver-fault shutdowns remain immediate.

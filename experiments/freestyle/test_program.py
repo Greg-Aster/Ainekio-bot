@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from experiments.freestyle.bridge import Bridge
-from experiments.freestyle.program import JOINTS, calibrated_positions, compile_motion, frames_for, packets, gait_intents
+from experiments.freestyle.program import JOINTS, calibrated_positions, compile_motion, targets_for, packets, gait_intents
 from compact import call, move
 from refine import records, POSTURES, GAITS
 from protocol.control_v1 import validate_control_message
@@ -21,19 +21,19 @@ class ProgramTests(unittest.TestCase):
 
     def test_compilation_preserves_large_oscillation_and_nonmoving_joints(self):
         start=dict.fromkeys(JOINTS,7);home=dict.fromkeys(JOINTS,12)
-        chunks=list(packets(frames_for(call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,period_s=2),start,home,90)))
+        chunks=list(packets(targets_for(call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50),start,home,90)))
         self.assertEqual([len(p) for p in chunks],[32,16])
         all_frames=sum(chunks,[])
-        self.assertEqual(sum(f[0] for f in all_frames),24000)
+        self.assertTrue(all(f[0]==4500 for f in all_frames))
         self.assertEqual([f[1][0] for f in all_frames[:4]],[2700,700,-1300,700])
         self.assertEqual(all_frames[-1][1], [700]*12)
         for chunk in chunks:
-            validate_control_message({'t':'motion_plan','seq':1,'map':2,'frames':chunk,'end':'hold'})
+            validate_control_message({'t':'motion_plan','seq':1,'map':2,'control':'targets','frames':chunk,'end':'hold'})
 
     def test_percentage_speed_and_home_are_not_zero(self):
         start=dict.fromkeys(JOINTS,10);home=dict.fromkeys(JOINTS,15)
-        frame=list(frames_for(move(JOINTS[0],20,'home',50),start,home,100))[0]
-        self.assertEqual(frame[0],500)
+        frame=list(targets_for(move(JOINTS[0],20,'home',50),start,home,100))[0]
+        self.assertEqual(frame[0],5000)
         self.assertEqual(frame[1],[3500]+[1000]*11)
 
     def test_released_output_is_not_a_negative_angle(self):
@@ -106,7 +106,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.bridge.configure('robot','http://unused',False)
     def generate(self,endpoint,request):
         self.generated.append(request)
-        return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,period_s=2)]}
+        return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50)]}
     async def asyncTearDown(self):await self.bridge.close()
     async def test_preview_generates_without_motion(self):
         job=await self.bridge.submit('robot','new greeting',False)
@@ -221,8 +221,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.bridge.transport.request=released
         job=await self.bridge.submit('robot','twelve wiggles',True)
         await self.bridge.tasks[job['job_id']]
-        self.assertEqual(self.gateway.sent[0][0],[1,[1000]*12])
-        self.assertEqual(sum(map(len,self.gateway.sent)),49)
+        # The P4 seeds its speed ramp from shaft feedback; no synthetic 1ms frame.
+        self.assertEqual(self.gateway.sent[0][0],[5000,[3000]+[1000]*11])
+        self.assertEqual(sum(map(len,self.gateway.sent)),48)
     async def test_events_are_opt_in_and_admit_without_waiting_for_inference(self):
         event={'robot_id':'robot','name':'body_event','data':{'kind':'servo_stall','joints':[{'id':0}]}}
         await self.bridge.event(event)
@@ -388,6 +389,12 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_recovery_plans_concurrently_then_replaces_with_fresh_positions(self):
         first_packet=asyncio.Event(); allow_first=asyncio.Event(); second_packet=asyncio.Event()
         model_entered=asyncio.Event(); model_release=asyncio.Event()
+        faces=[]
+        async def face(name,args,**kwargs):
+            self.assertEqual(name,'face')
+            if 'expr' in args:faces.append(args['expr'])
+            return 0
+        self.gateway.queue_intent=face
         original_receipt=self.gateway.wait_terminal
         async def receipt(sequence,**kwargs):
             if sequence==1:
@@ -399,8 +406,10 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         async def generate(endpoint,request):
             if request['event']:
                 model_entered.set();await model_release.wait()
-                return {'program':[move(JOINTS[0],20,'current',50)]}
-            return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=20,period_s=1)]}
+                return {'program':[call('face',expr='angry'),move(JOINTS[0],-4,'current',50),
+                    call('face',expr='wave'),
+                    call('oscillate',joint=JOINTS[0],amplitude_deg=2,cycles=3,speed_pct=50)]}
+            return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=20,speed_pct=50)]}
         self.bridge.generate=generate
         await self.bridge.configure('robot','http://unused',True)
         submitted=await self.bridge.submit('robot','wave',True)
@@ -418,7 +427,10 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.bridge.transport.request=fresh
         model_release.set();await asyncio.gather(original,recovery)
         self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'superseded')
-        self.assertEqual(self.gateway.sent[-1][-1][1][0],3800)
+        self.assertEqual(self.gateway.sent[-1][-1][1][0],1400)
+        self.assertEqual(len(self.gateway.sent[-1]),12)
+        self.assertTrue(all(frame[1][0]<1800 for frame in self.gateway.sent[-1]))
+        self.assertEqual(faces,['angry','wave'])
 
     async def test_manual_stop_cancels_pending_recovery_without_an_active_job(self):
         entered=asyncio.Event()
@@ -543,10 +555,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(request['request'],'wave')
                 self.assertEqual(request['event']['type'],kind)
                 self.assertEqual(request['observation']['joints'][JOINTS[0]]['model_deg'],12)
-                self.assertEqual(request['history'][0],{'joints':{JOINTS[0]:9}})
-                self.assertEqual(request['history'][-1]['interrupted_program'],prior['programs'][-1])
+                self.assertEqual(len(request['history']),1)
+                self.assertNotIn('interrupted_program',request['history'][0])
                 self.assertEqual(request['history'][-1]['interrupted_action'],prior['current_action'])
-                self.assertIsNotNone(request['history'][-1]['packet_progress']['sequence'])
+                self.assertNotIn('packet_progress',request['history'][-1])
+                self.assertEqual(request['history'][-1]['remaining_program'],prior['remaining_program'])
 
     async def test_faces_do_not_wait_for_receipts_and_release_only_the_owned_selection(self):
         sent=[]

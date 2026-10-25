@@ -14,32 +14,30 @@ def calibrated_positions(calibration):
     return home, commanded
 
 
-def frame(duration_ms, positions):
-    return [duration_ms, [round(positions[j]*100) for j in JOINTS]]
+def target(speed_deg_s, positions):
+    if not math.isfinite(speed_deg_s) or speed_deg_s <= 0:
+        raise ValueError('Movement speed must be positive degrees per second')
+    return [max(1,round(speed_deg_s*100)), [round(positions[j]*100) for j in JOINTS]]
 
 
-def frames_for(operation, positions, home, speed_deg_s):
-    """Yield every requested target. positions is the caller's current model pose."""
+def targets_for(operation, positions, home, speed_deg_s):
+    """Targets and speed only. The P4 owns measured arrival, not elapsed time."""
     name, args = operation['name'], operation['arguments']
+    speed=speed_deg_s*args['speed_pct']/100
     if name == 'oscillate':
-        joint = args['joint']; center = positions[joint]
-        # Quarter-period endpoints preserve all reversals and return to center.
+        joint=args['joint'];center=positions[joint]
         for _ in range(args['cycles']):
             for phase in (1,0,-1,0):
-                positions = {**positions, joint:center+phase*args['amplitude_deg']}
-                yield frame(math.ceil(args['period_s']*250), positions)
+                yield target(speed,{**positions,joint:center+phase*args['amplitude_deg']})
         return
-    joints = [args['joint']] if name == 'move' else args['joints']
-    angles = [args['angle_deg']] if name == 'move' else args['angles_deg']
-    if len(joints) != len(angles):
-        raise ValueError('Each pose joint needs its corresponding angle')
-    target = dict(positions)
-    for joint, angle in zip(joints, angles):
-        reference = {'current':positions, 'home':home, 'absolute':dict.fromkeys(JOINTS,0)}[args['reference']]
-        target[joint] = reference[joint]+angle
-    travel = max(abs(target[j]-positions[j]) for j in joints)
-    duration = math.ceil(1000*travel/(speed_deg_s*args['speed_pct']/100)) if travel else 1
-    yield frame(duration, target)
+    joints=[args['joint']] if name=='move' else args['joints']
+    angles=[args['angle_deg']] if name=='move' else args['angles_deg']
+    if len(joints)!=len(angles):raise ValueError('Each pose joint needs its corresponding angle')
+    goal=dict(positions)
+    for joint,angle in zip(joints,angles):
+        reference={'current':positions,'home':home,'absolute':dict.fromkeys(JOINTS,0)}[args['reference']]
+        goal[joint]=reference[joint]+angle
+    yield target(speed,goal)
 
 
 def packets(frames):
@@ -73,12 +71,12 @@ def compile_motion(action, observation, planned=None):
     else:
         start = dict(planned)
     if name in ('feet','body'):
-        from .kinematics import frames_for_spatial
-        frames = frames_for_spatial(action,start)
+        from .kinematics import target_for_spatial
+        goal=target_for_spatial(action,start)
+        frames=[target(observation['joint_speed_limit_deg_s']*args['speed_pct']/100,
+                       dict(zip(JOINTS,[v/100 for v in goal])))]
     else:
-        frames = list(frames_for(action,start,home,observation['joint_speed_limit_deg_s']))
-    if planned is None and any(v.get('command_us')==0 for v in joints.values()):
-        frames.insert(0,frame(1,start))
+        frames = list(targets_for(action,start,home,observation['joint_speed_limit_deg_s']))
     end = dict(zip(JOINTS,[v/100 for v in frames[-1][1]])) if frames else dict(start)
     return {'frames':frames,'start':start,'home':home,'moving':moving,'end':end}
 

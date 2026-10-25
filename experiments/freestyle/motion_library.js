@@ -35,10 +35,9 @@
       <fieldset data-field="editor" hidden>
         <legend>Edit training example</legend>
         <label>Title <input data-field="title"></label>
-        <label>Training request <textarea data-field="request" rows="2"></textarea></label>
-        <label>Motion commands (JSON) <textarea data-field="program" rows="18" spellcheck="false"></textarea></label>
-        <p class="field-help">Commands run in order. Edit face expressions, joint targets, offsets and durations here.</p>
-        <details><summary>Recorded training context</summary><pre data-field="context"></pre></details>
+        <label>Training input — exact user-message text <textarea data-field="query" rows="8" spellcheck="false"></textarea></label>
+        <label>Training target — exact compact JSON <textarea data-field="answers" rows="12" spellcheck="false"></textarea></label>
+        <p class="field-help">These are the input and assistant target exported for training. Edit the compact arrays directly. Saving does not change the model already running.</p>
         <p data-field="qualification"></p>
         <div class="motion-library-actions">
           <button type="button" data-action="save">Save training example</button>
@@ -108,11 +107,8 @@
     selected = example; dirty = false;
     field("editor").hidden = false;
     field("title").value = example.title;
-    field("request").value = example.request;
-    field("program").value = JSON.stringify(example.program, null, 2);
-    let context = example.example.query;
-    try { context = JSON.parse(context); } catch (_) { /* Plain requests have no extra context. */ }
-    field("context").textContent = JSON.stringify(context, null, 2);
+    field("query").value = example.query;
+    field("answers").value = JSON.stringify(example.answers);
     field("qualification").textContent = example.physical_qualification
       ? "This saved version has an operator-approved physical trial."
       : "This saved version has no operator-approved physical trial.";
@@ -123,7 +119,7 @@
   }
 
   panel.addEventListener("input", event => {
-    if (["title", "request", "program"].includes(event.target.dataset.field)) {
+    if (["title", "query", "answers"].includes(event.target.dataset.field)) {
       dirty = true;
       field("edit-status").textContent = "Unsaved changes";
     }
@@ -178,15 +174,15 @@
         }
       } else if (action === "save" || action === "run") {
         if (!selected) return;
-        const program = JSON.parse(field("program").value);
-        const request = field("request").value;
+        const answers = JSON.parse(field("answers").value);
+        const query = field("query").value;
         if (action === "save") {
           const version = ++selectionVersion;
           // Keep the submitted edit stable while the atomic save is in flight.
           field("editor").disabled = true;
           try {
             const result = await api("/api/motion-library", {operation: "save", id: selected.id,
-              revision: selected.revision, title: field("title").value, request, program});
+              revision: selected.revision, title: field("title").value, query, answers});
             if (version === selectionVersion) {
               showExample(result); field("edit-status").textContent = "Saved to training data.";
               await loadPage(page);
@@ -201,7 +197,7 @@
           try {
             const title = field("title").value;
             const result = await api("/api/motion-library", {operation: "run", id: selected.id,
-              robot_id: robot, request, program});
+              robot_id: robot, query, answers});
             jobs.set(robot, {id: result.job_id, title});
             if (robot === displayedRobot) field("play-status").textContent = `${title} submitted to ${robot}.`;
           } finally { target.disabled = !document.getElementById("robot-select").value; }

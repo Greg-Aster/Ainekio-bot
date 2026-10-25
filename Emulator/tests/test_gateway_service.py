@@ -639,16 +639,17 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             async def send(self,raw): self.sent.append(json.loads(raw))
         service=GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
         socket=Socket()
-        connection=GatewayConnection(service,socket,"robot",1,model="v2-12servo",features=("motion_plan_v2",))
+        connection=GatewayConnection(service,socket,"robot",1,model="v2-12servo",features=("motion_targets_v1",))
         service._connections["robot"]=connection
-        seq=await service.queue_motion_plan([[12000,[-11768]*12]],end="hold",robot_id="robot")
+        seq=await service.queue_motion_plan([[12000,[-11768]*12]],end="hold",control="targets",robot_id="robot")
         self.assertEqual(socket.sent[-1]["map"],2)
+        self.assertEqual(socket.sent[-1]["control"],"targets")
         self.assertEqual(socket.sent[-1]["frames"],[[12000,[-11768]*12]])
         self.assertTrue(connection.pending[seq].needs_done)
         self.assertFalse(connection.pending[seq].future.done())
         next_seq=connection.next_sequence
         with self.assertRaises(ValueError):
-            await service.queue_motion_plan([[100,[9000]*8]],end="hold",robot_id="robot")
+            await service.queue_motion_plan([[100,[9000]*8]],end="hold",control="targets",robot_id="robot")
         self.assertEqual(connection.next_sequence,next_seq)
 
     async def test_gateway_motion_plan_requires_feature_and_tracks_done(self) -> None:

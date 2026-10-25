@@ -936,6 +936,14 @@ static ainekio_decode_result_t decode_motion_plan(
     plan->joint_map_version = (uint8_t)joint_map;
     plan->frame_count = (uint8_t)parser->tokens[frames].children;
     const bool v2 = joint_map == AINEKIO_V2_JOINT_MAP_VERSION;
+    const int control = object_get(parser, root, "control");
+    if (control >= 0) {
+        char mode[16];
+        result = required_string(parser, root, "control", mode, sizeof(mode), 7U, 7U);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (!v2 || strcmp(mode, "targets")) return AINEKIO_DECODE_VALUE;
+        plan->target_control = true;
+    }
     const unsigned joints = v2 ? AINEKIO_MOTION_PLAN_JOINT_CAPACITY : AINEKIO_SERVO_COUNT;
     uint64_t total_duration_ms = 0U;
     for (uint8_t frame_index = 0U; frame_index < plan->frame_count; ++frame_index) {
@@ -963,7 +971,8 @@ static ainekio_decode_result_t decode_motion_plan(
             return AINEKIO_DECODE_RANGE;
         }
         ainekio_motion_plan_frame_t *output_frame = &plan->frames[frame_index];
-        output_frame->duration_ms = (uint32_t)duration_ms;
+        if (plan->target_control) output_frame->speed_cd_s = (uint32_t)duration_ms;
+        else output_frame->duration_ms = (uint32_t)duration_ms;
         for (uint8_t joint_id = 0U; joint_id < joints; ++joint_id) {
             int64_t centidegrees = 0;
             if (!token_integer(parser, array_get(parser, targets, joint_id), &centidegrees)) {
@@ -976,7 +985,7 @@ static ainekio_decode_result_t decode_motion_plan(
             output_frame->targets[joint_id] = (int32_t)centidegrees;
         }
     }
-    plan->total_duration_ms = total_duration_ms;
+    plan->total_duration_ms = plan->target_control ? 0U : total_duration_ms;
 
     char end[8];
     result = required_string(parser, root, "end", end, sizeof(end), 4U, 7U);

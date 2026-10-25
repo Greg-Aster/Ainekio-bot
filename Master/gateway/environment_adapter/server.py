@@ -756,6 +756,9 @@ class EnvironmentAdapter:
         snapshot_lock_acquired = False
         snapshot_context = self._snapshot_context(action)
         frame_durations: list[int] = []
+        frame_count = 0
+        target_control = translated.params.get("control") == "targets"
+        plan_duration = None
         sequence: int | None = None
         action_context_key: tuple[str, int, int] | None = None
         recorded_sequence: int | None = None
@@ -818,18 +821,21 @@ class EnvironmentAdapter:
         if translated.kind == "motion_plan":
             frames = translated.params.get("frames")
             if isinstance(frames, list):
+                frame_count = len(frames)
                 frame_durations = [
                     int(frame[0])
                     for frame in frames
                     if isinstance(frame, list)
                     and len(frame) == 2
                     and type(frame[0]) is int
+                    and not target_control
                 ]
+                plan_duration = None if target_control else sum(frame_durations)
             await self._send_motion_plan_status(
                 action_id,
                 "validating",
-                frame_count=len(frame_durations),
-                duration_ms=sum(frame_durations),
+                frame_count=frame_count,
+                duration_ms=plan_duration,
             )
         elif translated.kind == "stop":
             await self._send_telemetry(
@@ -856,11 +862,11 @@ class EnvironmentAdapter:
                     action_id,
                     "active",
                     sequence=sequence,
-                    frame_count=len(frame_durations),
-                    duration_ms=sum(frame_durations),
+                    frame_count=frame_count,
+                    duration_ms=plan_duration,
                     active_frame=1,
                 )
-                progress_task = asyncio.create_task(
+                progress_task = None if target_control else asyncio.create_task(
                     self._report_motion_plan_progress(
                         action_id,
                         sequence,
@@ -878,8 +884,8 @@ class EnvironmentAdapter:
                 await self._send_motion_plan_status(
                     action_id,
                     "rejected",
-                    frame_count=len(frame_durations),
-                    duration_ms=sum(frame_durations),
+                    frame_count=frame_count,
+                    duration_ms=plan_duration,
                     message=str(exc),
                 )
             receipt = await asyncio.to_thread(self.receipts.action, action_id) if isinstance(action_id, str) else None
@@ -907,9 +913,9 @@ class EnvironmentAdapter:
                 action_id,
                 feedback["type"],
                 sequence=sequence,
-                frame_count=len(frame_durations),
-                duration_ms=sum(frame_durations),
-                active_frame=len(frame_durations) if feedback["type"] == "completed" else None,
+                frame_count=frame_count,
+                duration_ms=plan_duration,
+                active_frame=frame_count if feedback["type"] == "completed" else None,
                 message=feedback["message"],
             )
         return feedback
@@ -1007,6 +1013,7 @@ class EnvironmentAdapter:
             return await self.gateway.queue_motion_plan(
                 frames,
                 end=end,
+                **({"control": action.params["control"]} if "control" in action.params else {}),
                 robot_id=robot_id,
                 received_at=received_at,
                 on_sequence=on_sequence,
@@ -1854,12 +1861,13 @@ class EnvironmentAdapter:
             }
         features = robot.get("features")
         v2 = robot.get("model") == "v2-12servo"
-        feature = "motion_plan_v2" if v2 else "motion_plan_v1"
+        feature = "motion_targets_v1" if v2 else "motion_plan_v1"
         supported = isinstance(features, list) and feature in features
         details = {}
         if v2:
             from protocol.joints_v2 import joint_contract
-            details = {"jointMap": joint_contract(), "feature": feature}
+            details = {"jointMap": joint_contract(), "feature": feature,
+                       "frameRate": "speedDegS", "completion": "measured_target_arrival"}
         return {
             **details,
             "supported": supported,
