@@ -22,6 +22,17 @@ CONTRACT = [*TOOLS, face_tool()]
 STAND = dict(zip(JOINTS, [0,3.46,-21.63]*4))
 
 
+def compact_speed(percent, base_speed):
+    """Drop decimal digits that do not change the compiler's wire rate."""
+    wire = lambda value: max(1, round((base_speed*value/100)*100))
+    expected = wire(percent)
+    for digits in range(7):
+        candidate = round(percent, digits)
+        if candidate > 0 and wire(candidate) == expected:
+            return int(candidate) if digits == 0 else candidate
+    return percent
+
+
 def joint_state(observation):
     joints = observation['joints']
     if 'ids' in joints:
@@ -39,12 +50,12 @@ def convert_action(action, positions, home, base_speed):
         goal=dict(zip(JOINTS,[x/100 for x in target_for_spatial(action,positions)]))
         travel=max(abs(goal[j]-positions[j]) for j in JOINTS)
         if not travel:return {'name':'hold','arguments':{'seconds':seconds}},goal
-        args['speed_pct']=round(100*travel/seconds/base_speed,6)
+        args['speed_pct']=compact_speed(round(100*travel/seconds/base_speed,6),base_speed)
         return action,goal
     if name=='oscillate' and 'period_s' in args:
         period=args.pop('period_s')
         if period<=0:raise ValueError('Nonpositive legacy oscillation period')
-        args['speed_pct']=round(400*abs(args['amplitude_deg'])/period/base_speed,6)
+        args['speed_pct']=compact_speed(round(400*abs(args['amplitude_deg'])/period/base_speed,6),base_speed)
         return action,positions
     if name in ('move','pose'):
         frames=list(targets_for(action,positions,home,base_speed))
