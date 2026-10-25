@@ -543,10 +543,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(request['request'],'wave')
                 self.assertEqual(request['event']['type'],kind)
                 self.assertEqual(request['observation']['joints'][JOINTS[0]]['model_deg'],12)
-                self.assertEqual(request['history'][0],{'joints':{JOINTS[0]:9}})
-                self.assertEqual(request['history'][-1]['interrupted_program'],prior['programs'][-1])
+                self.assertEqual(len(request['history']),1)
+                self.assertNotIn('interrupted_program',request['history'][0])
                 self.assertEqual(request['history'][-1]['interrupted_action'],prior['current_action'])
-                self.assertIsNotNone(request['history'][-1]['packet_progress']['sequence'])
+                self.assertNotIn('packet_progress',request['history'][-1])
+                self.assertEqual(request['history'][-1]['remaining_program'],prior['remaining_program'])
 
     async def test_faces_do_not_wait_for_receipts_and_release_only_the_owned_selection(self):
         sent=[]

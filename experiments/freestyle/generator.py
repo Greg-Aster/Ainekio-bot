@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 
 from .runtime import compact
-from .compact_wire import FORMAT, ProgramEncoding, observation as compact_observation
+from .compact_wire import FORMAT, LEGACY_FORMAT, ProgramEncoding, model_query
 
 
 def argument_schema(tool):
@@ -52,7 +52,7 @@ class Generator:
         self.encoding = None
         if wire_path.exists():
             wire = json.loads(wire_path.read_text())
-            if wire['format'] != FORMAT:
+            if wire['format'] not in (FORMAT, LEGACY_FORMAT):
                 raise ValueError('Unknown Freestyle model representation: '+wire['format'])
             self.encoding = ProgramEncoding(tools)
         self.identity = {'model_alias':model,
@@ -67,16 +67,17 @@ class Generator:
             for t in tools]}}
         if self.encoding:
             self.schema = self.encoding.schema(argument_schema)
-            self.identity['format'] = FORMAT
+            self.identity['format'] = wire['format']
             self.identity['encoding_sha256'] = hashlib.sha256(Path(__file__).with_name('compact_wire.py').read_bytes()).hexdigest()
         self.identity['response_schema_sha256']=hashlib.sha256(compact(self.schema).encode()).hexdigest()
 
     def _payload(self, request, observation=None, event=None, history=None):
+        query = request if observation is None and event is None and not history else {
+            'request':request,'event':event,'observation':observation,'history':history or []}
         if self.encoding:
-            observation = compact_observation(observation)
-            history = compact_observation(history)
-        query = request if observation is None and event is None and not history else compact({
-            'request':request,'event':event,'observation':observation,'history':history or []})
+            query = model_query(query, self.encoding)
+        if not isinstance(query, str):
+            query = compact(query)
         return {'model':self.model,'temperature':0,'chat_template_kwargs':{'enable_thinking':False},
                    'messages':([{'role':'system','content':self.system}] if self.system else [])+[
                        {'role':'user','content':query}],

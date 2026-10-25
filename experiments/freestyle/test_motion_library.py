@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import zipfile
 
-from .compact_wire import ProgramEncoding
+from .compact_wire import FORMAT, ProgramEncoding
 from .motion_library import MotionLibrary
 from .motion_space import TOOLS
 from .face_contract import face_tool
@@ -28,11 +28,11 @@ def dataset(root, count=1):
              'physical_qualification': True, 'expected_final_angles_deg': [1, 2],
              'kinematic_evidence': {'trial': 'old'}} for i in range(count)]
     (source/'tools.json').write_text(json.dumps(tools))
-    (source/'wire.json').write_text('{"format":"motion-arrays-v1"}')
+    (source/'wire.json').write_text(json.dumps({'format':FORMAT}))
     (source/'system.txt').write_text('')
     (source/'train.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows))
     (source/'evaluation.jsonl').write_text(json.dumps({**rows[0], 'id': 'held-out'})+'\n')
-    return source, program
+    return source, encoding.encode(program)
 
 
 class MotionLibraryTests(unittest.TestCase):
@@ -46,14 +46,15 @@ class MotionLibraryTests(unittest.TestCase):
 
     def save(self, example, **kwargs):
         return self.library.save(example['id'], example['revision'], kwargs.get('title', example['title']),
-            kwargs.get('request', example['request']), kwargs.get('program', example['program']))
+            kwargs.get('query', example['query']), kwargs.get('answers', example['answers']))
 
     def test_edit_persists_and_export_preserves_context_and_exact_commands(self):
         original = self.library.get('example-00000')
         program = copy.deepcopy(self.program)
-        program[0]['arguments']['expr'] = 'surprised'
-        program[1]['arguments']['seconds'] = .08
-        edited = self.save(original, title='Fast wiggle', request='Wiggle faster', program=program)
+        program[0][1] = 'surprised'
+        program[1][1] = .08
+        query = json.loads(original['query']); query['request'] = 'Wiggle faster'
+        edited = self.save(original, title='Fast wiggle', query=json.dumps(query), answers=program)
         self.assertEqual(edited, MotionLibrary(self.library.path).get(original['id']))
         query = json.loads(edited['example']['query'])
         self.assertEqual(query['observation'], {'marker': 'preserve'})
@@ -67,11 +68,12 @@ class MotionLibraryTests(unittest.TestCase):
         self.assertEqual(history[0][0], edited['revision'])
         self.assertEqual(json.loads(history[0][1])['answers'], program)
         with zipfile.ZipFile(io.BytesIO(self.library.export())) as archive:
-            canonical = json.loads(archive.read('canonical/train.jsonl'))
+            self.assertNotIn('canonical/train.jsonl', archive.namelist())
             compact = json.loads(archive.read('dataset/train.jsonl'))
             encoding = ProgramEncoding(json.loads(archive.read('dataset/tools.json')))
-            self.assertEqual(canonical['answers'], program)
-            self.assertEqual(encoding.decode(compact['answers']), program)
+            self.assertEqual(compact['answers'], program)
+            self.assertEqual(compact['query'], edited['query'])
+            self.assertEqual(library_program := self.library.execution_program(program), encoding.decode(program))
             self.assertEqual(compact['source_hash'], edited['example']['source_hash'])
             self.assertEqual(archive.read('dataset/evaluation.jsonl'), (self.source/'evaluation.jsonl').read_bytes())
         self.assertEqual(self.library.import_dataset(self.source)['imported'], 0)
@@ -81,15 +83,22 @@ class MotionLibraryTests(unittest.TestCase):
         edited = self.save(self.library.get('example-00000'), title='Approved happy wiggle')
         self.assertTrue(edited['physical_qualification'])
 
+    def test_import_preserves_exact_input_and_target_without_projection(self):
+        row = json.loads((self.source/'train.jsonl').read_text())
+        stored = self.library.get(row['id'])
+        self.assertEqual(stored['query'], row['query'])
+        self.assertEqual(stored['answers'], row['answers'])
+        self.assertNotIn('program', stored)
+
     def test_invalid_commands_and_stale_save_do_not_overwrite(self):
         original = self.library.get('example-00000')
         edited = self.save(original, title='New title')
         with self.assertRaisesRegex(ValueError, 'edited elsewhere'):
             self.save(original, title='Lost update')
-        for program in (None, [{'name': 'face', 'arguments': {'expr': 'nonexistent'}}],
-                        [{'name': 'hold', 'arguments': {'seconds': float('nan')}}]):
+        for program in (None, [['face', 'nonexistent']], [['hold', float('nan')]],
+                        [{'name': 'face', 'arguments': {'expr': 'happy'}}]):
             with self.assertRaises(ValueError):
-                self.save(edited, program=program)
+                self.save(edited, answers=program)
         self.assertEqual(self.library.get(original['id']), edited)
 
     def test_discarded_targets_and_old_revisions_cannot_return_through_import_or_export(self):

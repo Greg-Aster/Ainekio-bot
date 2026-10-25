@@ -19,7 +19,7 @@ function element() {
 }
 const host=element(), robot=element(); robot.value='robot-a';
 const example={id:'one',title:'Happy wiggle',request:'Wiggle',revision:1,physical_qualification:true,
-  program:[{name:'face',arguments:{expr:'happy'}},{name:'hold',arguments:{seconds:.16}}],
+  answers:[['face','happy'],['hold',.16]],query:JSON.stringify({request:'Wiggle',observation:{preserve:true}}),
   example:{query:JSON.stringify({request:'Wiggle',observation:{preserve:true}})}};
 let nextSaveError=null, confirmResult=false;
 const listeners={};
@@ -63,14 +63,14 @@ const click=(action, data={})=>panel.listeners.click({target:{dataset:{action,..
  await click('last');
  assert.equal(new URL(calls.at(-1).url,'http://test').searchParams.get('sort'),'edited_desc');
  await click('select',{id:'one'});
- assert.deepEqual(JSON.parse(field('program').value),example.program);
- field('program').value=JSON.stringify([{name:'face',arguments:{expr:'surprised'}}]);
- panel.listeners.input({target:{dataset:{field:'program'}}});
+ assert.deepEqual(JSON.parse(field('answers').value),example.answers);
+ field('answers').value=JSON.stringify([['face','surprised']]);
+ panel.listeners.input({target:{dataset:{field:'answers'}}});
  context.window.renderMotionLibraryStatus({jobs:{}},robot.value);
- assert.equal(JSON.parse(field('program').value)[0].arguments.expr,'surprised','Polling preserves draft edits');
+ assert.equal(JSON.parse(field('answers').value)[0][1],'surprised','Polling preserves draft edits');
  await click('run');
  assert.equal(calls.at(-1).payload.operation,'run');
- assert.equal(calls.at(-1).payload.program[0].arguments.expr,'surprised');
+ assert.equal(calls.at(-1).payload.answers[0][1],'surprised');
  assert.equal(calls.at(-1).payload.robot_id,'robot-a');
  assert.equal(calls.at(-1).headers['X-Ainekio-CSRF'],'test-csrf');
  assert.equal(calls.filter(c=>c.payload?.operation==='save').length,0,'Draft playback must not save');
@@ -82,11 +82,11 @@ const click=(action, data={})=>panel.listeners.click({target:{dataset:{action,..
  await click('select',{id:'one'});assert.equal(calls.length,count,'Unsaved edit is retained when navigation is declined');
  nextSaveError='Edited elsewhere';
  await click('save');assert.equal(field('edit-status').textContent,'Edited elsewhere');
- assert.equal(JSON.parse(field('program').value)[0].arguments.expr,'surprised');
+ assert.equal(JSON.parse(field('answers').value)[0][1],'surprised');
  await click('save');assert.equal(field('edit-status').textContent,'Saved to training data.');
  const saved=calls.findLast(c=>c.payload?.operation==='save').payload;
- assert.equal(saved.revision,1);assert.equal(saved.program[0].arguments.expr,'surprised');
- field('program').value='bad json';
+ assert.equal(saved.revision,1);assert.equal(saved.answers[0][1],'surprised');
+ field('answers').value='bad json';
  const before=calls.length;await click('run');assert.equal(calls.length,before,'Invalid JSON never reaches the robot API');
  console.log('Motion library UI: pagination, edits, save failures, draft playback and selected robot passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -155,13 +155,13 @@ class DashboardHttpServer(ThreadingHTTPServer):
         return freestyle_module("motion_library").MotionLibrary(
             self.password_store.path.with_name("motion-library.sqlite"))
 
-    async def play_library_motion(self, robot, example, program, request):
+    async def play_library_motion(self, robot, example, program, request, unsaved_draft):
         if self.freestyle is None:
             self._setup_freestyle()
         return await self.freestyle.submit(robot, request, True, program=program,
             source={"kind": "motion_library", "example_id": example["id"],
                     "revision": example["revision"], "title": example["title"],
-                    "unsaved_draft": program != example["program"] or request != example["request"]})
+                    "unsaved_draft": unsaved_draft})
 
     async def close_freestyle(self):
         self.gateway.freestyle_motion = None
@@ -726,15 +726,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             operation = _required_string(payload, "operation")
             if operation == "save":
                 return library.save(identifier, payload.get("revision"),
-                    _required_string(payload, "title"), _required_string(payload, "request"), payload.get("program"))
+                    _required_string(payload, "title"), _required_string(payload, "query"), payload.get("answers"))
             if operation == "run":
                 example = library.get(identifier)
-                program = library.validate(payload.get("program", example["program"]))
-                request = payload.get("request", example["request"])
+                answers = payload.get("answers", example["answers"])
+                program = library.execution_program(answers)
+                query = payload.get("query", example["query"])
+                request = freestyle_module("motion_library").request_text(query)
                 if not isinstance(request, str) or not request.strip():
                     raise ValueError("Training request is required")
                 return self.server.call_gateway(self.server.play_library_motion(
-                    _required_string(payload, "robot_id"), example, program, request), timeout=None)
+                    _required_string(payload, "robot_id"), example, program, request,
+                    answers != example["answers"] or query != example["query"]), timeout=None)
             raise ValueError("Choose save or run")
         if path == "/api/freestyle":
             return self.server.call_gateway(self.server.freestyle_request(payload))
