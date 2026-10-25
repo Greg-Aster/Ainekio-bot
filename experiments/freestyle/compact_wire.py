@@ -16,7 +16,55 @@ JOINT_FIELDS = ('model_deg', 'commanded_model_deg', 'home_deg', 'velocity_deg_s'
 # Raw acquisition/transport diagnostics remain in the unmodified recorder input.
 IMU_DIAGNOSTICS = {'boot_id', 'accepted_samples', 'rejected_samples', 'gap_restarts',
                    'acquisition', 'received_at', 'face_token'}
-RECOVERY_EVENTS = {'servo_stall', 'tipped', 'rapid_movement', 'slip'}
+RECOVERY_EVENTS = {'servo_stall', 'tipped', 'rapid_movement', 'slip', 'reassess'}
+
+
+def joint_progress(history, event):
+    """Last distinct measured positions for affected shafts, in sample order."""
+    ids = []
+    for joint in event.get('joints', []):
+        if isinstance(joint, dict): joint = joint.get('id', joint.get('name'))
+        if joint in JOINTS: joint = JOINTS.index(joint)
+        if type(joint) is int and 0 <= joint < len(JOINTS): ids.append(joint)
+    if not ids:
+        return []
+    samples = []
+    for item in history or []:
+        if not isinstance(item, dict): continue
+        candidates = item.get('joint_progress') or [item.get('joints')]
+        for candidate in candidates:
+            if not isinstance(candidate, dict): continue
+            packed = observation({'joints':candidate})['joints']
+            positions = dict(zip(packed.get('ids', []), packed.get('model_deg', [])))
+            present = [i for i in ids if positions.get(i) is not None]
+            if not present: continue
+            sample = {'ids':present, 'model_deg':[round(positions[i],2) for i in present]}
+            if not samples or sample != samples[-1]: samples.append(sample)
+    return samples[-2:]
+
+
+def latest_correction(history):
+    """Retain the most recent measured action/effect pair, not the sensor log."""
+    history = history or []
+    for index in range(len(history)-1, -1, -1):
+        item = history[index]
+        if not isinstance(item, dict):
+            continue
+        if item.get('last_correction'):
+            return copy.deepcopy(item['last_correction'])
+        delta = item.get('correction_delta_deg')
+        if not isinstance(delta, dict) or not delta:
+            continue
+        after = next((h for h in history[index+1:] if isinstance(h, dict) and h.get('imu')), None)
+        if after is None or not item.get('imu'):
+            continue
+        def attitude(sample):
+            imu = observation({'imu':sample['imu']})['imu']
+            return {k:imu[k] for k in ('available','fresh','frame','orientation_wxyz',
+                'calibration_applied','gyro_recovery','acceleration_recovery') if k in imu}
+        return {'delta_deg':[[JOINTS.index(j),round(value,2)] for j,value in delta.items()],
+                'before':attitude(item),'after':attitude(after)}
+    return None
 
 
 def recovery_state(value):
@@ -70,7 +118,7 @@ def model_query(query, encoding):
         result['event']['imu'] = recovery_state({'imu':event['imu']})['imu']
     # Keep the unfinished intent, not copies of already executed commands.
     interrupted = next((h for h in reversed(result.get('history') or [])
-                        if isinstance(h, dict) and (h.get('interrupted_action') or h.get('action'))), {})
+                        if isinstance(h, dict) and (h.get('interrupted_action') or h.get('action') or 'remaining_program' in h)), {})
     current = interrupted.get('interrupted_action') or interrupted.get('action')
     remaining = interrupted.get('remaining_program')
     if remaining is None and isinstance(interrupted.get('interrupted_program'), dict):
@@ -80,9 +128,17 @@ def model_query(query, encoding):
     if isinstance(current, dict) and current.get('name') in encoding.tools:
         current = encoding.encode([current])[0]
     summary = {'interrupted_action':current} if current is not None else {}
+    if isinstance(state, dict) and state.get('pending_actions'):
+        remaining = state['pending_actions']
     if remaining:
         summary['remaining_program'] = (encoding.encode(remaining)
             if isinstance(remaining[0], dict) else remaining)
+    effect = latest_correction(result.get('history'))
+    if effect:
+        summary['last_correction'] = effect
+    progress = joint_progress(result.get('history'), event)
+    if progress:
+        summary['joint_progress'] = progress
     result['history'] = [summary] if summary else []
     return result
 
