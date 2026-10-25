@@ -306,3 +306,170 @@ only the approved audience wave is marked physically qualified. Existing 879
 examples and held-out files are retained. Exact tokenization fits 3,412 tokens
 without truncation. This dataset is prepared for the next run; preparation did
 not start training or activate a model.
+
+## Counterbalanced foot-lift correction, 2026-10-25
+
+The owner observed the compact model's happy and surprised foot lifts. Both
+faces and small movements worked after a robot power cycle, but the owner
+reported insufficient visible lift, slow movement and disturbed balance. Those
+programs are now partial outcomes rather than fully satisfactory training labels.
+
+The reviewed correction uses the previously approved wave's rear-crouch and
+Stand targets, with a 25 mm front-left foot lift/lower at 0.35 seconds each and
+a 0.2-second hold. It is an authored teaching correction, not a new model output.
+Trial `59e571979b1d4f6bbb8dd22913a1919c` completed in 2.745 seconds including
+execution/feedback overhead (1.35 seconds in replay from its actual start).
+The owner confirmed: "Good balance, lift, speed, and ending". This is visual
+operator qualification, not measured center-of-mass or millimeter accuracy.
+
+Approved row `f2e44c4751fbb2cc` is the fifteenth pending reviewed example.
+Its evidence batch is DNDIY's
+`artifacts/spatial-v8/pending-motion-review/q6a-20261025-counterbalanced-lift/`.
+The Q6A copy is `build/gateway/physical/reviews/counterbalanced-lift-20261025/`.
+Failed attempts, partial outcomes and the approved correction remain separate.
+
+The next training input is now
+`artifacts/spatial-v9-compact/next-reviewed-counterbalanced/qwen-data/` on DNDIY:
+894 training rows (879 balanced-face rows plus 15 reviewed additions).
+
+All examples start with a face; all 15 added programs round-trip unchanged.
+Held-out files are unchanged, with no exact-query or motion-structure overlap
+for the new correction. The 3,412-token maximum requires no truncation.
+This prepares the correction for training; it has not been trained into the
+candidate or production model. The previous 893-row preparation is preserved.
+
+## Owner-approved fast rear sway, 2026-10-25
+
+The request `wiggle your butt` is now paired with the owner-approved correction:
+happy face, Stand, two rapid sideways rear sways about the front shoulder
+midpoint, then Stand. It uses generated body translation/yaw segments with
+durations 0.16/0.32/0.16 seconds per cycle. No request-to-motion lookup was added.
+
+The final physical trial `39894b0c9f794cdba6f3404d3709f469` took 2.543 seconds and
+received eight completion receipts. The owner approved it with “good enough!
+lets save it for the training data.” Review `92552132662a43148ec294213f5215f9`
+exports canonical training row `2eb4726c09394346`, family
+`reviewed_fast_rear_sway`, with operator-reported physical qualification.
+The failed pitch response and the two slower corrected trials remain separate
+evidence. The training row includes the original observation and exact approved
+program; measured endpoint errors remain evidence, not a claim of precise tracking.
+
+The Q6A evidence is in `build/gateway/physical/reviews/rear-sway-20261025/`.
+DNDIY's canonical pending dataset now contains 16 rows, including three approved
+physical examples. The next compact preparation is
+`artifacts/spatial-v9-compact/next-reviewed-fast-wiggle/`: 895 training rows
+(879 balanced-face rows plus 16 pending additions). Canonical/compact targets
+round-trip exactly, and held-out files remain unchanged. No training was launched;
+the active 879-example compact model has not learned this correction yet.
+
+The prepared fast-wiggle example contains 1,224 tokens, including 397 response
+tokens, under the native training tokenizer. This is a dataset measurement, not
+a fresh inference benchmark. The full preparation still fits 3,412 tokens with
+no truncation; `next-reviewed-fast-wiggle/preparation-result.json` records the checks.
+
+## Current targets only: library merge, 2026-10-25
+
+The owner explicitly discarded failed and superseded refinements for all motions.
+The working library and training exports now retain only current targets. Saving
+an edit replaces its older versions; discarded example IDs and their source IDs
+are retained as exclusion records so re-importing an older dataset cannot restore
+them. Old original-program metadata is removed from the working rows and exports.
+
+Six obsolete targets were removed: three earlier hip-wiggle proposals/contrasts,
+both small open-ended hand lifts, and the original clap target that was replaced
+by the elevated-hand correction. The hand-lift and clap matches were checked
+against the recorded originals and their corresponding refined requests. A
+sideways wiping program also matched the original incorrect *sawing* response,
+but remains a distinct wiping example; it is not an obsolete sawing label.
+Eight other repaired examples retain their accepted correction; their ancestor
+targets were not present. No identical complete-input duplicate rows were found.
+
+`wiggle your butt`, example `00b7c60fb57221bf`, retains only library revision 5:
+one happy face, initial Stand, twelve body segments (four cycles), and final
+Stand. Each cycle uses 0.071111/0.142222/0.071111 seconds. This latest saved edit
+has no new recorded physical trial and does not inherit an older trial's
+physical-success label. Older edit targets were discarded.
+
+The desktop's next trainer input is
+`artifacts/spatial-v9-compact/next-library-current-20261025/qwen-data/` under
+`/home/greggles/Ainekio/experiments/freestyle/`. It contains **889 current training
+examples**; the canonical pending subset contains 13. Older untrained
+`next-reviewed*` and `next-library-reviewed-20261025` train files are discarded
+and marked retired. Their hashes/receipts remain for provenance. The frozen
+inputs used to produce deployed models remain unchanged, outside the working
+library. Diagnostic recordings are not positive training labels.
+
+Export verification checks exact target preservation and source identities.
+The current library remains the editable source; export it again after further
+edits. No training was launched and the deployed model was not changed. Raw
+observations, local databases and model weights remain outside Git. The private
+snapshot, discard list and merge receipt are under
+`build/gateway/physical/reviews/training-merge-20261025/` on Q6A.
+
+Current-only snapshot SHA256:
+`ad07456ff512fd2f41675d5a0df76ef7a1698c0c880977cc4bfe1455b4bd3237`.
+
+The verified export includes 889 training and 28 evaluation examples. Maximum
+sequence length is 3,412 tokens, with zero truncation. Compact training JSONL
+SHA256: `bc9eedb2002c30ae6e7d30aa004128d9e22cecf3a41da72eec684aa07a268064`.
+
+## Measured target control and adaptive recovery, 2026-10-25
+
+The target-control candidate is `artifacts/spatial-v10-targets/library-20261025-audit/`.
+All 889 active examples converted to targets and speed; explicit holds retain
+their durations. There are 24 new synthetic wave-adaptation training examples and
+16 disjoint probes. Expressions vary across angry, confused and sad, followed by
+a wave expression. Both front shoulders, obstruction directions, and standing or
+raised-foot endings are represented. A retreat and reduced sweep remain inside
+the observed obstruction. These examples are not physically qualified.
+
+The new dataset contains 913 training, 28 evaluation, 47 test, 44 recovery-probe
+and 355 older regression examples. Another 91 old regression cases have unresolved
+IK conversion errors recorded in the manifest; none is an active training row.
+The discard ledger is retained. Regenerate from the current library after edits;
+do not restore superseded snapshots. `migrate_targets.py` builds the dataset and
+adds the recovery curriculum reproducibly.
+
+The editor now stores and exports the compact input/target directly. Its former
+expanded representation and expanded canonical export were removed. The separate
+one-time `migrate_library_storage.py` representation migration reproduces the
+previous 889-row training JSONL hash exactly:
+`bc9eedb2002c30ae6e7d30aa004128d9e22cecf3a41da72eec684aa07a268064`.
+That storage migration alone does not change movement semantics or model weights.
+
+Recovery projection keeps current joints and IMU, event facts, requested goal,
+interrupted action and unfinished program. It omits repeated sensor histories
+and packet buffers; full evidence stays in the recorder. The recorded recovery
+used 4,975 prompt tokens, 278 output tokens and 90.869 seconds. A generation-only
+replay with the compact input used 1,004 prompt tokens, 110 output tokens and
+17.346 seconds on the existing Q6A model, with zero cached prompt tokens. Output
+length changed too, so the timing difference is not solely input savings. This
+is not a benchmark of the new, not-yet-trained target model.
+
+Target firmware uses `motion_targets_v1`, `control: targets`, and speed in
+centidegrees/second. Shaft arrival advances targets; elapsed time controls the
+rate only. Jam observations remain nonterminal and replacement remains available.
+The direct V2 Environment Bridge accepts `speedDegS` and no longer estimates
+progress from elapsed frame durations. V1 body semantics remain separate.
+The existing native Stand and balance owners remain in place. Spatial endpoints
+are solved by IK; interpolation between them is joint-space, so this migration
+does not claim to preserve straight Cartesian paths or physical qualification.
+
+Host validation passed all 61 native tests; updated target wire fixtures and
+focused Python/UI checks also passed. Firmware cross-build, model training,
+serving validation and physical qualification are separate rollout steps.
+
+The final refinement dataset is `artifacts/spatial-v10-targets/library-20261025-compact-speeds/`.
+Speeds use the shortest decimal that produces exactly the same integer wire rate
+at the recorded reference speed. This removes redundant digits from 8,184
+training movement calls without changing their encoded speed. The final 913-row
+training JSONL SHA256 is
+`a94a275122a34ab86045660b8fb974b9fe1962c7a58c45f7bcd29385a1fdbd3c`.
+Mean assistant targets are 322.6 tokens (previous library: 332.7); the current
+four-cycle wiggle is 464 target tokens (previously 663). Maximum complete
+sequence length is 3,453, without truncation. These are tokenizer measurements,
+not inference timings or physical-motion results.
+
+The first target-contract continuation completed three epochs with held-out
+loss 0.59746 → 0.11163. A final two-epoch continuation at 8e-5 trains the shorter
+speed values. Its final weights still require serialized-serving validation.

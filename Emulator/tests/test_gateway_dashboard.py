@@ -188,6 +188,71 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         await self._request("POST", "/api/motion-system", {**payload, "system": "library"}, cookie=cookie, csrf=csrf)
         self.assertEqual(self.gateway.motion_systems["ainekio-test-01"], "library")
 
+    async def test_motion_library_authentication_save_and_direct_draft_playback(self):
+        from experiments.freestyle.test_motion_library import dataset
+        root = self.server.password_store.path.parent
+        source, program = dataset(root)
+        library = self.server.motion_library()
+        library.import_dataset(source)
+        route = '/api/motion-library'
+        self.assertEqual((await self._request('GET', route))[0], 401)
+        self.assertEqual((await self._request('GET', route+'/export'))[0], 401)
+        self.assertEqual((await self._request('GET', '/assets/motion-library.js'))[0], 401)
+        cookie, csrf = await self._login()
+        code, listing, _ = await self._request('GET', route, cookie=cookie)
+        self.assertEqual((code, listing['total']), (200, 1))
+        code, sorted_list, _ = await self._request('GET', route+'?page=999&sort=added_desc', cookie=cookie)
+        self.assertEqual((code, sorted_list['sort'], sorted_list['page']), (200, 'added_desc', 1))
+        self.assertIsNotNone(sorted_list['items'][0]['added_at'])
+        self.assertIsNone(sorted_list['items'][0]['edited_at'])
+        self.assertEqual((await self._request('GET', route+'?sort=unknown', cookie=cookie))[0], 400)
+        identifier = listing['items'][0]['id']
+        code, original, _ = await self._request('GET', route+'?id='+identifier, cookie=cookie)
+        self.assertEqual(code, 200)
+        self.assertEqual(original['answers'], program)
+        payload = {'operation': 'save', 'id': identifier, 'revision': original['revision'],
+                   'title': 'My wiggle', 'query': 'Wiggle quickly', 'answers': program}
+        self.assertEqual((await self._request('POST', route, payload, cookie=cookie))[0], 403)
+        code, saved, _ = await self._request('POST', route, payload, cookie=cookie, csrf=csrf)
+        self.assertEqual((code, saved['revision']), (200, 2))
+        self.assertEqual(self.gateway.calls, [])
+        self.assertIsNone(self.server.freestyle, 'Browsing/editing does not start the executor')
+        service = SimpleNamespace(submit=AsyncMock(return_value={'job_id': 'library-trial'}))
+        self.server.freestyle = service
+        draft = [['face', 'surprised'], *program[1:]]
+        code, result, _ = await self._request('POST', route, {'operation': 'run', 'id': identifier,
+            'robot_id': 'selected-other-robot', 'answers': draft, 'query': 'Try this draft'}, cookie=cookie, csrf=csrf)
+        self.assertEqual((code, result['job_id']), (200, 'library-trial'))
+        service.submit.assert_awaited_once_with('selected-other-robot', 'Try this draft', True,
+            program=library.execution_program(draft), source={'kind': 'motion_library', 'example_id': identifier, 'revision': 2,
+                                   'title': 'My wiggle', 'unsaved_draft': True})
+        self.assertEqual(library.get(identifier)['answers'], program, 'Playing drafts must not save them')
+        service.submit.reset_mock()
+        code, _, _ = await self._request('POST', route, {'operation': 'run', 'id': identifier,
+            'robot_id': 'selected-other-robot'}, cookie=cookie, csrf=csrf)
+        self.assertEqual(code, 200)
+        self.assertEqual(service.submit.call_args.kwargs['program'], library.execution_program(program))
+        self.assertFalse(service.submit.call_args.kwargs['source']['unsaved_draft'])
+        code, _, _ = await self._request('POST', route, {'operation': 'run', 'id': identifier,
+            'robot_id': 'selected-other-robot', 'answers': [{'name': 'unknown', 'arguments': {}}]}, cookie=cookie, csrf=csrf)
+        self.assertEqual(code, 400)
+        self.assertEqual(service.submit.await_count, 1)
+
+    async def test_motion_library_accepts_complete_large_training_programs(self):
+        from experiments.freestyle.test_motion_library import dataset
+        source, program = dataset(self.server.password_store.path.parent)
+        library = self.server.motion_library()
+        library.import_dataset(source)
+        cookie, csrf = await self._login()
+        large = program * 600
+        payload = {'operation': 'save', 'id': 'example-00000', 'revision': 1,
+                   'title': 'Long sequence', 'query': 'Do the full sequence', 'answers': large}
+        self.assertGreater(len(json.dumps(payload)), 16384)
+        code, saved, _ = await self._request('POST', '/api/motion-library', payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(code, 200)
+        self.assertEqual(saved['answers'], large)
+        self.assertEqual(self.gateway.calls, [])
+
     async def test_freestyle_trial_export_does_not_submit_motion(self):
         cookie,csrf=await self._login()
         service=SimpleNamespace(trial=Mock(return_value={'job':{'id':'trial-1','execute':False}}),
@@ -321,7 +386,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         status,result,_=await self._request("POST","/api/motion-plan",payload,cookie=cookie,csrf=csrf)
         self.assertEqual(status,200)
         self.assertEqual(result,{"ok":True,"seq":42})
-        self.gateway.queue_motion_plan.assert_awaited_once_with(payload["frames"],end="hold",robot_id="ainekio-test-01")
+        self.gateway.queue_motion_plan.assert_awaited_once_with(payload["frames"],end="hold",control=None,robot_id="ainekio-test-01")
 
     async def test_recognition_view_pairs_boxes_with_the_analyzed_frame_and_requires_login(self):
         from gateway.plugins import CameraFramePlugin

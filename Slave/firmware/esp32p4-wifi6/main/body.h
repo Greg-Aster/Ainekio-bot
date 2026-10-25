@@ -11,7 +11,7 @@
 #include "esp_err.h"
 
 /* The saved/commanded joint reference cannot be expressed by the motion model. */
-enum { AINEKIO_P4_ERR_REFERENCE = 0x20000, AINEKIO_P4_ERR_STALLED };
+enum { AINEKIO_P4_ERR_REFERENCE = 0x20000 };
 
 /* The body task is the only I2C/PWM writer. Callers carry the generation from
  * admission, so explicit output release invalidates queued output writes. */

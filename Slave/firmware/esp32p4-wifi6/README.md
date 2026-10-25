@@ -1,5 +1,11 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.122-p4-targets-settle` combines Q6A measured-target execution and recovery
+with DNDIY Stand settling and microphone updates. This source merge is not a
+firmware activation. On 2026-10-25 the robot was found running
+`0.8.121-p4-targets`; the older standalone settling image was staged but not
+activated. Build and deploy the combined image to retain both sets of changes.
+
 `0.8.121-p4-stand-settle` finishes Stand with a modeled 2 mm body lift and
 return to the same standing target, eased over 200 ms in each direction.
 The existing contact kinematics determine the mirrored joint directions.

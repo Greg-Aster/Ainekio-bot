@@ -2655,6 +2655,9 @@
             "stand",
             "neutral"
           ]
+        },
+        "control": {
+          "const": "targets"
         }
       }
     }

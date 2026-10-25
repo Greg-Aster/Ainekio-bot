@@ -21,6 +21,7 @@ MAX_FEATURES = 32
 MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
 MOTION_PLAN_V2_FEATURE = "motion_plan_v2"
+MOTION_TARGETS_FEATURE = "motion_targets_v1"
 MOTION_PLAN_V2_JOINT_MAP = 2
 MOTION_PLAN_V2_JOINTS = 12
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
@@ -367,6 +368,10 @@ def _validate_motion_plan(message: Mapping[str, object]) -> None:
         maximum=MOTION_PLAN_V2_JOINT_MAP,
     )
     v2 = message["map"] == MOTION_PLAN_V2_JOINT_MAP
+    if "control" in message:
+        _string(message, "control", allowed=frozenset({"targets"}))
+        if not v2:
+            _fail("value:control")
     frames = _required(message, "frames")
     if not isinstance(frames, list):
         _fail("type:frames")

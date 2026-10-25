@@ -17,17 +17,14 @@ def post(endpoint, path, payload):
 
 def run(args):
     from transformers import AutoTokenizer
+    from .generator import Generator
     tokenizer = AutoTokenizer.from_pretrained(args.adapter, local_files_only=True)
-    system = (args.contract / 'system.txt').read_text()
-    tools = json.loads((args.contract / 'tools.json').read_text())
-    schema = {'type': 'array', 'items': {'oneOf': [
-        {'type': 'object', 'additionalProperties': False, 'required': ['name', 'arguments'],
-         'properties': {'name': {'type': 'string', 'const': tool['name']},
-                        'arguments': tool['parameters']}} for tool in tools]}}
+    generator = Generator(args.endpoint+'/v1',args.model,args.contract)
+    schema = generator.schema
     rows = [json.loads(line) for line in args.data.read_text().splitlines()]
 
     def evaluate(row):
-        messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': row['query']}]
+        messages = generator._payload(row['query'])['messages']
         prompt = tokenizer.apply_chat_template(messages, tokenize=False,
                     add_generation_prompt=True, enable_thinking=False)
         ids = tokenizer(prompt, add_special_tokens=False)['input_ids']
