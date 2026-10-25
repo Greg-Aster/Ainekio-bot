@@ -211,6 +211,18 @@ def audit_source(task):
         return {'source_id':source['id'],'source_hash':source['source_hash'],'error':str(error)}
 
 
+def deduplicate(rows):
+    """Shared teaching content can cover several source motions without repeats."""
+    unique = {}
+    for row in rows:
+        parent={'id':row['parent_example_id'],'source_hash':row['parent_source_hash']}
+        if row['id'] not in unique:
+            unique[row['id']]={**row,'parent_examples':[parent]}
+        elif parent not in unique[row['id']]['parent_examples']:
+            unique[row['id']]['parent_examples'].append(parent)
+    return list(unique.values())
+
+
 def build(source, output, native_gait, workers=4):
     source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=False)
     rows=[json.loads(s) for s in (source/'train.jsonl').read_text().splitlines()]
@@ -234,8 +246,8 @@ def build(source, output, native_gait, workers=4):
         if result['source_id'] not in resume_ids:
             for split in ('train','probe'):
                 if split in result:result[split]=[r for r in result[split] if r['family']!='library_recovery_resume']
-    new_train=[r for result in results for r in result.get('train',[])]
-    new_probe=[r for result in results for r in result.get('probe',[])]
+    new_train=deduplicate(r for result in results for r in result.get('train',[]))
+    new_probe=deduplicate(r for result in results for r in result.get('probe',[]))
     manifest=json.loads((source/'manifest.json').read_text())
     for path in source.iterdir():
         if path.is_file() and path.name!='manifest.json':(output/path.name).write_bytes(path.read_bytes())
