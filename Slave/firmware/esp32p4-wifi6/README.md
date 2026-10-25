@@ -1,5 +1,16 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.124-p4-stand-arrival` keeps a feedback-controlled Stand pending until a
+fresh usable observation confirms all commanded joints within the configured
+arrival tolerance. Previously a stale/missing sample at the end of the sequence
+reported `done` with `position_verified:false`. That could complete the request
+before the shaft reader caught up. Pending verification now retains the original
+target and write timestamp; a measured shortfall keeps the existing correction
+sequence, and Stop/new commands remain immediately available. Verification-off
+behavior is unchanged. A regression test reproduces premature completion before
+the fix and verifies delayed observations, a joint shortfall, eventual verified
+completion and immediate replacement afterward.
+
 `0.8.123-p4-motion-stack` moves the candidate motion planner out of the body
 task's stack into a workspace owned exclusively by that task. The active motion
 remains separate until acceptance, so rejected commands preserve it. The
