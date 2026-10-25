@@ -132,7 +132,7 @@ channel mappings. Sequence zero covers startup/no active user command. The outer
 `event_id` combines the firmware boot identity and occurrence timestamp. The
 reaction workflow remains owned by MetaHuman; firmware does not choose an
 expression or recovery movement. When Freestyle body-event recovery is enabled,
-its existing trained generator receives the observations and interrupted program.
+its trained generator receives current observations, the interrupted action and the compact unfinished plan; full programs and packet buffers are not repeated in recovery input.
 Current execution continues during inference; only an available correction
 replaces it, with fresh measured positions. Model errors retain current execution.
 Manual Stop/replacement and existing driver-fault shutdowns remain immediate.
@@ -586,6 +586,11 @@ for valid interface combinations. The installer adds `aineap0`, leaves the
 station connection intact and defaults to 2.4 GHz channel 1. Use `--channel`
 for another permitted channel (1–11); hardware limited to one channel requires
 a compatible uplink channel or another adapter. Verify actual radio operation.
+The hotspot enables 802.11n with WMM at 20 MHz. Both settings belong in
+`/etc/ainekio-network/hostapd.conf` (`ieee80211n=1`, `wmm_enabled=1`): the Q6A
+AIC8800/P4 link exhibited repeated TCP stalls with the former legacy-mode
+configuration. Check `iw dev aineap0 station dump` for an MCS rate after the
+robot associates; an active hostapd service alone does not verify the mode.
 The separate interface serves the private `10.42.77.0/24` robot LAN, with the
 gateway at `ws://10.42.77.1:8790/robot`. DHCP is confined to that interface and
 does not advertise Internet routing or DNS. This is the robot-to-gateway link;

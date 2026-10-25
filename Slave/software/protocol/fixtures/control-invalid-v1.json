@@ -1,6 +1,8 @@
 {
   "protocol": 1,
   "cases": [
+    {"name":"v1_cannot_interpret_target_speed_as_duration","message":{"t":"motion_plan","seq":97,"map":1,"control":"targets","frames":[[100,[9000,9000,9000,9000,9000,9000,9000,9000]]],"end":"hold"},"reason":"value:control"},
+    {"name":"v2_unknown_control_semantics","message":{"t":"motion_plan","seq":97,"map":2,"control":"deadline","frames":[[100,[0,0,0,0,0,0,0,0,0,0,0,0]]],"end":"hold"},"reason":"value:control"},
     {"name": "lateral_out_of_range", "reason": "range:walk.lateral", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "forward": 0, "turn": 0, "lateral": 101}},
     {"name": "lateral_without_paired_steering", "reason": "type:walk.forward", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "lateral": 50}},
 

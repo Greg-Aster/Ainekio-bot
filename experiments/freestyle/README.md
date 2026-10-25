@@ -6,6 +6,16 @@ the same standalone generator. Ordinary motion buttons retain their existing
 behavior. The generator itself has no robot transport; the explicit Body
 Control execution path sends commands through the existing gateway owner.
 
+Repository synchronization on 2026-10-25 combines the Q6A target-control
+compiler and recovery work with DNDIY updates. Running model weights and
+host-specific service configuration are separate from this source merge.
+The imported Q6A revision still has an offline migration gap: `challenge.py`
+imports the removed `frames_for_spatial` and `frames_for` helpers. Legacy
+replay/curriculum tools depending on it need migration to the target contract;
+the source synchronization does not establish that those tools work.
+
+DNDIY deployment recorded before synchronization:
+
 The production Freestyle service now uses the **spatial-v8 Qwen3.5-0.8B LoRA,
 merged and exported as Q8_0**, with the matching v8 spatial contract, GPU
 inference and reasoning disabled. The larger/full-weight comparison reports and
@@ -21,7 +31,115 @@ v7 activation was checked with a live-observation **generation-only** foot-lift,
 hold and return request (0.605 seconds for this one request, zero motion commands),
 a visible panel check, and persistence of an explicitly nonphysical review.
 
-## Production and reviewed motion evidence
+Q6A deployment notes recorded before synchronization:
+
+The Q6A currently serves the balanced spatial-v9 compact model locally through
+llama.cpp on port 8795 and the generator API on port 8794. The live editor exposes
+the exact compact training input and target. Saving edits changes the working
+training dataset; it does not change the running weights.
+
+The target-and-speed model and firmware are being built from
+`fix/measured-target-recovery`. Until that coordinated rollout completes, the
+installed model and compiler retain their existing `motion-arrays-v1` contract.
+Compact recovery-input projection is already compatible with that model.
+
+## Editable training motion library
+
+Body Control → **Poses and emotes → View training data** opens the Q6A's working
+training library. It searches titles, requests and families, and fetches 25
+summaries per page. First/Previous/Next/Last navigation appears above and below
+the list. Sort by name, date added to this library, or last edited, in either
+direction. Unedited examples follow edited examples in last-edited sorting.
+Selecting an example loads the exact training input text and compact assistant-target
+JSON. These are the stored/exported values, not an expanded command editor.
+Both input and target are editable; the title is library metadata. The existing base gesture buttons remain
+available above the expanded library.
+
+**Save training example** updates the canonical working dataset in
+`build/gateway/physical/motion-library.sqlite` (beside dashboard authentication
+state if the data directory is overridden). Saves are transactional, replace superseded versions, and report conflicting
+edits without overwriting the current target. Previous edit targets are discarded.
+Explicitly retired examples retain only their IDs/reasons so importing an older
+dataset cannot restore them. Failed original-program metadata is excluded from
+training exports. This policy applies to every refined motion.
+Editing the input changes its actual training context. Edited targets do not inherit
+an older target's physical-success label or trajectory claims. Viewing and saving
+require no connected robot and make no inference or motion request.
+
+**Send motion to robot** decodes the editor's compact target only at the existing
+execution boundary and submits it through `Bridge.submit(program=...)`, including
+unsaved changes. It uses fresh
+robot observations and the existing asynchronous compiler/executor. It does not
+call the LLM or save the draft. Job progress appears in the editor through the
+existing dashboard status updates; browser closure does not cancel execution.
+The existing Stop and replacement-command behavior still applies.
+
+**Export training data** downloads a consistent ZIP snapshot with the exact stored
+`dataset/train.jsonl`, suitable for `prepare_compact.py`. The expanded canonical
+export and expanded editor were removed.
+The held-out files and tools travel with the export; saved edits are represented
+in the training targets and source hashes. Training input preparation must use a
+fresh library export, rather than an older `next-reviewed-*` snapshot. Exporting
+or saving does not train or activate a model.
+
+The target-control migration is prepared in
+`artifacts/spatial-v10-targets/library-20261025-compact-speeds/`. It converts all 889 active
+examples, adds 24 synthetic multi-step wave adaptations (913 training rows), and
+adds 16 separate recovery probes. The new examples are not physically qualified.
+Movement targets use `speed_pct`; only explicit `hold` calls have durations.
+The candidate's target arrays use `motion-targets-v1`. Target packets use
+`control: "targets"` with `[speed_centidegrees_per_second, twelve_joint_targets]`.
+The P4 ramps toward targets at that speed and advances on fresh shaft arrival.
+Missing feedback or a jam never fabricates arrival or disables outputs; the goal
+remains replaceable while the normal event/command tasks keep running.
+
+Recovery input keeps the requested goal, current state, interrupted action and
+compact unfinished plan. It does not copy full programs, packet buffers, old
+sensor streams or repeated events. There is no one-action output restriction.
+The full evidence remains in the recorder. New training and serving share
+`compact_wire.model_query` for the same input projection.
+
+The native Stand controller is an explicit `stand` operation. Balance remains
+owned by the existing configured body controller. The migration does not silently
+enable balance or add a competing leveling loop. The model, gateway contract and
+P4 firmware must be deployed together; a `motion_plan_v2` advertisement alone
+does not mean the body understands speed targets (`motion_targets_v1`).
+
+The target model and firmware are staged for coordinated deployment after training and validation.
+The old weights are not a trained target-control model. A separate older
+regression split has 91 unresolved IK conversion cases recorded in the manifest;
+none belongs to the 889 active training examples, and none was added to training.
+
+The 2026-10-25 version-5 library export is merged on DNDIY in
+`artifacts/spatial-v9-compact/next-library-current-20261025/qwen-data/`: 889 rows,
+including the faster four-cycle wiggle. Six superseded targets and old edit
+versions were discarded at the owner's request. See `CURRICULUM.md` for the merge receipt
+and hashes. Later edits still require a fresh export before the next training run.
+
+This installation was seeded with the 895 examples from the reviewed fast-wiggle
+preparation. The current library has 889 examples after removing six superseded
+targets, and uses the faster four-cycle wiggle (version 5). Deployed model weights
+and the frozen inputs that produced them remain unchanged. Import only a dataset's training split; held-out examples
+are retained for export, not offered as library commands. Future batches can be
+added without overwriting existing library edits:
+
+```bash
+.venv/bin/python -m experiments.freestyle.motion_library import \
+  --database build/gateway/physical/motion-library.sqlite --dataset /path/to/dataset
+.venv/bin/python -m experiments.freestyle.motion_library export \
+  --database build/gateway/physical/motion-library.sqlite --output /path/to/new-snapshot.zip
+```
+
+The authenticated API is `GET /api/motion-library?page=1&search=wiggle`,
+`GET /api/motion-library?id=EXAMPLE_ID`, and `GET /api/motion-library/export`.
+Listing also accepts `sort=name_asc|name_desc|added_asc|added_desc|edited_asc|edited_desc`.
+CSRF-protected `POST /api/motion-library` accepts `operation: "save"` with
+`id, revision, title, query, answers`, or `operation: "run"` with `id, robot_id`.
+Run optionally accepts `query, answers` for an unsaved trial; omitted fields
+use the saved example. Playback evidence records the example ID, revision and
+draft status. Dataset I/O stays on HTTP worker threads, outside the motion loop.
+
+## Historical workstation production and reviewed motion evidence
 
 The workstation units `ainekio-freestyle-model.service` and
 `ainekio-freestyle-api.service` are enabled user services. They point to:
@@ -127,6 +245,37 @@ explicit `corrected_program`, `corrected_request`, and `generation_index` for
 reviewed corrections. A written description alone is not a corrected target.
 Reviews and proposed corrected programs do not themselves run on the robot.
 
+### Corrected-motion test protocol
+
+New corrected programs remain `awaiting_physical_trial` in the existing review
+record and are excluded by the training export. First replay the complete
+program offline: check geometry, requested side, repetitions, authored timing
+and ending. Keep the original request, observations, program and correction ID.
+
+In Body Control's Freestyle panel, use **Load saved corrections**, select the
+correction, then **Test selected correction**. This runs the exact saved program
+through the existing executor with fresh observations; it does not regenerate
+the movement. The ordinary Stop and command replacement owners still apply.
+Receipts, feedback, faults and timing remain in the existing recording database.
+The model server is not needed to test a saved correction.
+
+Watch the physical trial. Save **Performed correctly** only after observing the
+intended movement, timing, repetitions and ending. Record **Partly correct** or
+**Incorrect movement** with what differed when another correction is needed.
+Inspect the ending after the final receipt: a later output release, reported
+stall, or loss of the requested posture is part of the trial result.
+Completion receipts alone do not approve a training target. Only a completed
+trial with an explicit successful operator review is exported as a physically
+qualified positive example; its source correction IDs remain attached.
+
+Keep candidate programs and trial evidence on DNDIY under the existing
+`experiments/freestyle/artifacts/spatial-v8/pending-motion-review/` tree. The
+Q6A audience-wave batch is `q6a-20261025-audience-wave/`; its `candidates.jsonl`
+is staged evidence, not an addition to `train.jsonl`. Copy consistent SQLite
+backups including committed WAL data and verify transfer checksums. After the
+live trial and operator assessment, export the approved trial to the pending
+training set there. Preserve failed attempts; do not rewrite the frozen v8 run.
+
 Export evidence or proposed training rows to a new output file:
 
 ```sh
@@ -150,6 +299,73 @@ relevant generation explicitly; the UI selects the latest generation.
 Removing the experiment directory leaves conventional Body Control behavior
 intact on restart. Stop/disable its two user services before removal. Recording
 stores are retained as owner data.
+
+## Q6A compact motion deployment (2026-10-25)
+
+`prepare_wire.py` converts the frozen v8 examples into `motion-arrays-v1`:
+generated operation arrays with indexed joints/legs, decoded by `compact_wire.py`
+into the existing executor's commands. Motion targets, timing, operation order
+and existing face changes are retained. This is not a named-motion lookup.
+The candidate has no system message or face catalogue in its prompt; the
+operation format and face choices are taught in the training examples.
+
+The revised candidate is
+`artifacts/spatial-v9-compact/dataset-balanced/`. Its 200 missing initial face
+labels are spread deterministically across all 59 renderer expressions, with
+3–4 additions per expression. Each added target has a matching explicit face
+request in its training input. Existing expressive examples remain intact.
+Neutral starts 5 of the 879 training examples; the complete dataset is not
+uniform because its original curious/thinking examples are preserved. The
+earlier all-neutral additions and their interrupted training run are superseded.
+
+Joint observations use compact columns and five decimal places; IMU measurement
+vectors use six. Redundant raw servo pulse widths and IMU transport/acquisition
+diagnostics remain in recordings but are omitted from candidate model input.
+Measurement availability, freshness, events, unknown metadata and full histories
+remain available. Generated motion targets are not rounded or truncated.
+
+Training artifacts, served-model measurements and physical trials are distinct.
+The owner requested activation on 2026-10-25. The Q6A model and generator services
+now use `balanced-served/model.Q8_0.gguf` and `dataset-balanced`, respectively,
+on the existing ports 8795 and 8794. Both are active and enabled. The model SHA256
+is `8de6027ed46a5edc0687c0102627a9a1619911cbbb3808134947647e9608ae09`.
+Previous service units are retained for rollback under
+`build/gateway/physical/deployments/compact-20261025T044343Z/`.
+
+The balanced run completed three epochs on 879 examples. A served-model recall
+check covering all 59 initial expressions and all ten operations produced the
+correct initial face in 68/68 cases and exact complete targets in 66/68. These
+are training-recall checks, not unseen-motion qualification. A new dance request
+repeated a leg identifier, and the recorded cheese request produced a target
+that failed IK replay; these known limitations remain in the deployed model.
+
+On the Q6A CPU, the same happy-face/10 mm foot-lift request with no prompt cache
+took 72.89 seconds with v8 (3,154 input / 91 output tokens), and 17.90 seconds
+with the compact candidate (823 input / 49 output tokens). Both decoded to the
+same four operations and a planned two-second movement. These are individual
+measurements, not a latency guarantee. The isolated candidate test used an
+8,192-token context; production retains its native 262,144-token capacity.
+A live-state candidate request took
+16.25 seconds (741 input / 49 output tokens). Its first physical trial failed
+the owner's visual assessment; after a power cycle and native Stand setup, the
+owner confirmed the repeated lift and happy face worked. The failed attempt
+and successful repeat remain separate recorded trials.
+
+Subsequent owner feedback marked the small lifts partial: insufficient visible
+movement, slow timing and disturbed balance. A rear-crouch/25 mm brisk-lift
+correction then passed the owner's live review and was added to the pending
+training data. `next-reviewed-counterbalanced/qwen-data/` on DNDIY contains
+894 examples, including that correction; no further training has run. The active
+879-example model has not learned this correction. See `CURRICULUM.md` for trial
+IDs and qualification details.
+
+After activation, the same frozen happy-foot-lift request completed in 10.23
+seconds with 823 input tokens, 49 output tokens and zero cached tokens. The
+decoded four-operation program matched the requested face, lift, hold and lower.
+This generation-only check used the unchanged native context capacity and sent
+no motion to the robot. All 14 compact-wire, generator and compact-dataset tests
+passed. The request, response and model identity are saved in the deployment
+directory above; this single timing is not a latency guarantee.
 
 ## Earlier compact Qwen experiment (historical results)
 
@@ -233,7 +449,39 @@ The service listens on `127.0.0.1:8794`. Both host applications can POST
 the other fields. `/health` reports service identity, not model qualification.
 There is no application inference deadline, token cap, history truncation,
 robot dispatch, or fallback motion in this service.
-Client disconnection cancels the pending downstream model connection. A two-hop
+The Q6A owns generation independently of the robot's transport session. Robot
+disconnect/reconnect events do not cancel inference or discard its result.
+If generation finishes offline, the job reports `awaiting_connection`; its
+delivery coroutine resumes on a connection event and obtains current joint
+measurements before compiling the generated sequence. This has no polling loop,
+reconnect timeout or global command barrier. Explicit cancellation, replacement
+commands and gateway shutdown still retire their owned jobs. A packet already
+sent before a disconnect retains its actual receipt or unknown outcome; this
+change does not replay possibly executed motion or invent a completion receipt.
+
+Contiguous generated joint/foot/body segments continue from their planned
+endpoints, anchored at measured positions when the sequence starts. Measurement
+error is recorded rather than added to the next relative target. Explicit
+`reassess`, native motions, and a changed robot session establish a fresh anchor.
+One successor is prepared concurrently with playback in a spawned compiler
+process, keeping Python-heavy IK outside the gateway interpreter. Face changes
+and authored holds preserve their order. Cancellation discards prepared work;
+preparation does not dispatch packets. Existing 32-frame packet capacity and
+replacement semantics still require the current packet's receipt before sending
+the next packet. No new timeout, stop, range restriction or motion lookup is added.
+
+The owner-approved rear-sway trial on 2026-10-25 improved from 9.96 seconds with
+threaded preparation to 5.03 seconds with the separate process, for the same
+2.8-second authored sway. At the owner's request, the sway duration was then
+shortened to 1.28 seconds; that full trial finished in 2.54 seconds and was approved
+for training. Endpoint feedback discrepancies remain recorded; operator approval
+does not establish exact joint tracking. Evidence and the pending training row
+are in `build/gateway/physical/reviews/rear-sway-20261025/`. The runtime changes are
+deployed; the corrected natural-language target has not yet been retrained into
+the active model.
+
+Disconnection of the **local HTTP caller** (for example, explicit job cancellation)
+cancels the pending downstream model connection. A two-hop
 HTTP integration test verifies that cancellation reaches the model socket,
 another request can complete concurrently, and a 1.1 MB history is preserved.
 On 2026-10-22 the transient API service was restarted with the existing
@@ -1330,3 +1578,56 @@ is staged evidence, not an addition to `train.jsonl`. Copy consistent SQLite
 backups including committed WAL data and verify transfer checksums. After the
 live trial and operator assessment, export the approved trial to the pending
 training set there. Preserve failed attempts; do not rewrite the frozen v8 run.
+### Per-motion recovery curriculum (target-control candidate)
+
+`library_recovery.py` derives one jam and one measured-effect fall example per
+current motion-bearing training row. It excludes face-only/Stop rows and
+existing recovery rows. `recovery-coverage.json` links every derived row to its
+source ID and content hash, lists omissions, and counts joint coverage. It also
+adds a resumption pair per source family. Separate probes change the sensor
+values; they share source goals and do not measure unseen-motion generalization.
+
+```sh
+python -m experiments.freestyle.library_recovery \
+  --source /path/to/migrated-target-dataset \
+  --output /path/to/recovery-dataset \
+  --native-gait /path/to/freestyle_native_gait
+```
+
+Build the native sampler against matching current headers/libraries. Its output
+is nominal gait geometry, not measured robot motion. Jam prefixes retreat from
+the blocked direction and shorten the affected target while continuing the other
+participating joints, or reduce an oscillation's excursion. They then reassess.
+Fall examples repeat or reverse a preceding correction according to its supplied
+before/after IMU orientation. Upright feedback examples resume the pending goal.
+Faces vary across corrections. No new slip examples or detector are added.
+
+Jam observations retain the commanded target of every participating shaft,
+separately from its measured partial progress. This lets the correction continue
+the other joints without asking the model to reconstruct their inverse kinematics.
+Fall corrections vary between 1, 2, 3, 4, and 6 degrees in training; probes use
+intermediate magnitudes. A constant three-degree response does not demonstrate
+that the model used the supplied measured correction.
+
+Evaluate complete generated programs as well as teacher-forced loss. In the
+first recovery candidate, the reviewed wiggle predicted 463/464 reference tokens
+correctly with the preceding reference tokens supplied, yet free generation chose
+a different face and then emitted an invalid motion. Constrained generation also
+repeated motion output indefinitely in one test. Neither low loss nor grammar
+conformance establishes learned motion correctness. These were offline tests;
+the failed candidate was not activated and no physical trial was performed.
+
+Recovery compression retains the last measured correction/effect and the affected
+shafts' recent distinct positions. The bridge keeps unfinished actions as input
+context across reassessment. A new generated plan replaces the previous plan;
+an empty response does not replay it. Correction targets therefore need not
+repeat the unfinished library program merely to keep its goal available.
+
+All new feedback is synthetic and explicitly unqualified. Prefix target/FK checks
+do not establish ground contact, balance, collision clearance, or successful
+righting. An initial arbitrary fallen pose with no preceding measured correction
+is still an uncovered training case. Native emotes absent from the editable
+training library are not covered merely because their firmware names exist.
+Existing nonterminal jam observations remain the recovery trigger. Obsolete
+terminal-stall error/release reporting has been removed from the candidate;
+explicit Stop and actual output-driver failures remain separate.

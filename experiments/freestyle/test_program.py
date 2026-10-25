@@ -3,9 +3,10 @@ import copy
 import json
 import threading
 import unittest
+from unittest.mock import patch
 
 from experiments.freestyle.bridge import Bridge
-from experiments.freestyle.program import JOINTS, calibrated_positions, frames_for, packets, gait_intents
+from experiments.freestyle.program import JOINTS, calibrated_positions, compile_motion, targets_for, packets, gait_intents
 from compact import call, move
 from refine import records, POSTURES, GAITS
 from protocol.control_v1 import validate_control_message
@@ -20,19 +21,19 @@ class ProgramTests(unittest.TestCase):
 
     def test_compilation_preserves_large_oscillation_and_nonmoving_joints(self):
         start=dict.fromkeys(JOINTS,7);home=dict.fromkeys(JOINTS,12)
-        chunks=list(packets(frames_for(call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,period_s=2),start,home,90)))
+        chunks=list(packets(targets_for(call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50),start,home,90)))
         self.assertEqual([len(p) for p in chunks],[32,16])
         all_frames=sum(chunks,[])
-        self.assertEqual(sum(f[0] for f in all_frames),24000)
+        self.assertTrue(all(f[0]==4500 for f in all_frames))
         self.assertEqual([f[1][0] for f in all_frames[:4]],[2700,700,-1300,700])
         self.assertEqual(all_frames[-1][1], [700]*12)
         for chunk in chunks:
-            validate_control_message({'t':'motion_plan','seq':1,'map':2,'frames':chunk,'end':'hold'})
+            validate_control_message({'t':'motion_plan','seq':1,'map':2,'control':'targets','frames':chunk,'end':'hold'})
 
     def test_percentage_speed_and_home_are_not_zero(self):
         start=dict.fromkeys(JOINTS,10);home=dict.fromkeys(JOINTS,15)
-        frame=list(frames_for(move(JOINTS[0],20,'home',50),start,home,100))[0]
-        self.assertEqual(frame[0],500)
+        frame=list(targets_for(move(JOINTS[0],20,'home',50),start,home,100))[0]
+        self.assertEqual(frame[0],5000)
         self.assertEqual(frame[1],[3500]+[1000]*11)
 
     def test_released_output_is_not_a_negative_angle(self):
@@ -66,6 +67,7 @@ class ProgramTests(unittest.TestCase):
 class FakeGateway:
     def __init__(self):
         self.events=[];self.commands=[];self.sent=[];self.seq=0
+        self.connected=True;self.epoch=1
         self.calibration={'joints':[{'id':i,'home_cd':1000,'home_us':1500,'pulse_us':1500,
                           'invert':False,'us_per_degree':10} for i in range(12)]}
     def subscribe_events(self,c):self.events.append(c)
@@ -73,7 +75,8 @@ class FakeGateway:
     def unsubscribe_events(self,c):self.events.remove(c)
     def unsubscribe_commands(self,c):self.commands.remove(c)
     async def status_snapshot(self):
-        return {'robots':{'robot':{'model':'v2-12servo','epoch':1,'calibration':self.calibration,
+        if not self.connected:return {'robots':{}}
+        return {'robots':{'robot':{'model':'v2-12servo','epoch':self.epoch,'calibration':self.calibration,
             'motion_speed':{'joint_speed_limit_deg_s':100},'status':{'imu':{'orientation_wxyz':[1,0,0,0]}},'body_command':None}}}
     async def queue_motion_plan(self,frames,**kwargs):
         self.seq+=1
@@ -96,11 +99,14 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.gateway=FakeGateway()
         self.generated=[]
-        self.bridge=Bridge(self.gateway,FakeTransport(),self.generate)
+        async def compiler(*args):
+            from experiments.freestyle import bridge
+            return await asyncio.to_thread(bridge.compile_motion,*args)
+        self.bridge=Bridge(self.gateway,FakeTransport(),self.generate,compiler=compiler)
         await self.bridge.configure('robot','http://unused',False)
     def generate(self,endpoint,request):
         self.generated.append(request)
-        return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,period_s=2)]}
+        return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50)]}
     async def asyncTearDown(self):await self.bridge.close()
     async def test_preview_generates_without_motion(self):
         job=await self.bridge.submit('robot','new greeting',False)
@@ -126,6 +132,86 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'completed')
         self.assertIsNone(self.gateway.assert_timeout)
 
+    async def test_spawned_compiler_executes_the_same_generated_targets(self):
+        self.bridge.compiler=self.bridge._compile_motion
+        self.bridge.generate=lambda *args:{'program':[
+            move(JOINTS[0],20,'current',50),move(JOINTS[0],-20,'current',50)]}
+        submitted=await self.bridge.submit('robot','out and back',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
+        self.assertEqual(self.gateway.sent[0][-1][1],[3000]+[1000]*11)
+        self.assertEqual(self.gateway.sent[1][-1][1],[1000]*12)
+
+    async def test_relative_sequence_returns_to_anchor_despite_feedback_error(self):
+        self.bridge.generate=lambda *args:{'program':[
+            move(JOINTS[0],20,'current',50),move(JOINTS[0],-20,'current',50)]}
+        async def feedback(*args):
+            angle=-30 if self.gateway.sent else 10
+            return {'joints':[{'id':i,'model_deg':angle,'command_us':1500,'calibrated':True} for i in range(12)]}
+        self.bridge.transport.request=feedback
+        submitted=await self.bridge.submit('robot','out and back',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.gateway.sent[0][-1][1],[3000]+[1000]*11)
+        self.assertEqual(self.gateway.sent[1][-1][1],[1000]*12)
+        # Actual feedback is still retained; planned endpoints do not masquerade as measurements.
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['history'][-1]['joints'][JOINTS[0]],-30)
+
+    async def test_next_motion_compiles_while_current_receipt_is_pending(self):
+        prepared=threading.Event()
+        def compile_ahead(action,*args):
+            result=compile_motion(action,*args)
+            if action['arguments']['angle_deg']==-20:prepared.set()
+            return result
+        original=self.gateway.wait_terminal
+        async def receipt(seq,**kwargs):
+            if seq==1:
+                self.assertTrue(await asyncio.to_thread(prepared.wait,2),
+                                'The next computation must overlap the current movement')
+            return await original(seq,**kwargs)
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[
+            move(JOINTS[0],20,'current',50),move(JOINTS[0],-20,'current',50)]}
+        with patch('experiments.freestyle.bridge.compile_motion',compile_ahead):
+            submitted=await self.bridge.submit('robot','out and back',True)
+            await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
+
+    async def test_reassessment_reanchors_to_measured_pose(self):
+        def generate(endpoint,request):
+            if request['event']:
+                return {'program':[move(JOINTS[0],5,'current',50)]}
+            return {'program':[move(JOINTS[0],20,'current',50),call('reassess')]}
+        async def feedback(*args):
+            angle=18 if self.gateway.sent else 10
+            return {'joints':[{'id':i,'model_deg':angle,'command_us':1500,'calibrated':True} for i in range(12)]}
+        self.bridge.generate=generate;self.bridge.transport.request=feedback
+        submitted=await self.bridge.submit('robot','move then reassess',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.gateway.sent[1][-1][1][0],2300)
+
+    async def test_stop_discards_speculative_motion_without_delaying_command(self):
+        prepared=threading.Event();release=threading.Event();sent=asyncio.Event()
+        def compile_ahead(action,*args):
+            if action['arguments']['angle_deg']==-20:
+                prepared.set();release.wait()
+            return compile_motion(action,*args)
+        async def receipt(*args,**kwargs):
+            sent.set();await asyncio.Future()
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[
+            move(JOINTS[0],20,'current',50),move(JOINTS[0],-20,'current',50)]}
+        with patch('experiments.freestyle.bridge.compile_motion',compile_ahead):
+            try:
+                submitted=await self.bridge.submit('robot','out and back',True)
+                task=self.bridge.tasks[submitted['job_id']]
+                await sent.wait()
+                self.assertTrue(await asyncio.to_thread(prepared.wait,2))
+                await self.bridge.command({'robot_id':'robot','t':'stop'})
+                await task
+                self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'superseded')
+                self.assertEqual(len(self.gateway.sent),1)
+            finally:release.set()
+
     async def test_released_servos_arm_at_measured_pose_before_correction(self):
         original=self.bridge.transport.request
         async def released(*args):
@@ -135,8 +221,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.bridge.transport.request=released
         job=await self.bridge.submit('robot','twelve wiggles',True)
         await self.bridge.tasks[job['job_id']]
-        self.assertEqual(self.gateway.sent[0][0],[1,[1000]*12])
-        self.assertEqual(sum(map(len,self.gateway.sent)),49)
+        # The P4 seeds its speed ramp from shaft feedback; no synthetic 1ms frame.
+        self.assertEqual(self.gateway.sent[0][0],[5000,[3000]+[1000]*11])
+        self.assertEqual(sum(map(len,self.gateway.sent)),48)
     async def test_events_are_opt_in_and_admit_without_waiting_for_inference(self):
         event={'robot_id':'robot','name':'body_event','data':{'kind':'servo_stall','joints':[{'id':0}]}}
         await self.bridge.event(event)
@@ -161,9 +248,153 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'superseded')
         self.assertFalse(self.gateway.sent)
 
+    async def connection(self, connected, epoch):
+        self.gateway.connected=connected;self.gateway.epoch=epoch
+        await self.bridge.event({'t':'connection','robot_id':'robot','epoch':epoch,
+                                 'status':'connected' if connected else 'disconnected'})
+
+    async def test_generation_survives_disconnect_and_reconnect_uses_fresh_pose(self):
+        entered=asyncio.Event();release=asyncio.Event()
+        async def generate(endpoint, request):
+            self.generated.append(request);entered.set();await release.wait()
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        submitted=await self.bridge.submit('robot','lift',True)
+        identifier=submitted['job_id'];task=self.bridge.tasks[identifier]
+        await entered.wait()
+        await self.connection(False,1)
+        await asyncio.sleep(0)
+        self.assertFalse(task.done())
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'generating')
+        self.assertEqual(self.bridge.active['robot'],identifier)
+        release.set()
+        # The model completes even while the robot is offline. Only delivery waits.
+        for _ in range(10):
+            if self.bridge.jobs[identifier]['state']=='awaiting_connection':break
+            await asyncio.sleep(0)
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'awaiting_connection')
+        self.assertEqual(len(self.bridge.jobs[identifier]['programs']),1)
+        self.assertFalse(self.gateway.sent)
+        async def fresh(*args):
+            return {'joints':[{'id':i,'model_deg':18,'command_us':1500,'calibrated':True} for i in range(12)]}
+        self.bridge.transport.request=fresh
+        await self.connection(True,2)
+        await task
+        self.assertEqual(len(self.generated),1)
+        self.assertEqual(self.gateway.sent[0][-1][1][0],3800)
+        self.assertEqual(self.bridge.jobs[identifier]['epoch'],2)
+        self.assertEqual(self.bridge.jobs[identifier]['state'],'completed')
+
+    async def test_preview_finishes_offline_and_stop_still_cancels_execution(self):
+        entered=asyncio.Event();release=asyncio.Event()
+        async def generate(*args):
+            entered.set();await release.wait()
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        preview=await self.bridge.submit('robot','preview',False)
+        preview_task=self.bridge.tasks[preview['job_id']]
+        await entered.wait();entered.clear()
+        executing=await self.bridge.submit('robot','execute',True)
+        task=self.bridge.tasks[executing['job_id']]
+        await entered.wait();await self.connection(False,1)
+        release.set();await preview_task
+        self.assertEqual(self.bridge.jobs[preview['job_id']]['state'],'generated')
+        self.assertFalse(task.done())
+        await self.bridge.command({'robot_id':'robot','t':'stop'})
+        await task
+        await self.connection(True,2)
+        self.assertEqual(self.bridge.jobs[executing['job_id']]['state'],'superseded')
+        self.assertFalse(self.gateway.sent)
+
+    async def test_reconnect_before_generation_finishes_does_not_restart_or_cancel_it(self):
+        entered=asyncio.Event();release=asyncio.Event()
+        async def generate(endpoint,request):
+            self.generated.append(request);entered.set();await release.wait()
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        submitted=await self.bridge.submit('robot','lift',True)
+        task=self.bridge.tasks[submitted['job_id']]
+        await entered.wait()
+        await self.connection(False,1);await self.connection(True,2)
+        # A delayed old-session disconnect cannot cancel the new delivery.
+        await self.bridge.event({'t':'connection','robot_id':'robot','epoch':1,'status':'disconnected'})
+        release.set();await task
+        self.assertEqual(len(self.generated),1)
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['epoch'],2)
+
+    async def test_replacement_supersedes_offline_delivery_without_replaying_it(self):
+        entered=asyncio.Event();release=asyncio.Event()
+        async def generate(*args):
+            entered.set();await release.wait()
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        first=await self.bridge.submit('robot','old',True)
+        first_task=self.bridge.tasks[first['job_id']]
+        await entered.wait();await self.connection(False,1);release.set()
+        for _ in range(10):
+            if self.bridge.jobs[first['job_id']]['state']=='awaiting_connection':break
+            await asyncio.sleep(0)
+        self.gateway.connected=True;self.gateway.epoch=2
+        second=await self.bridge.submit('robot','replacement',True)
+        second_task=self.bridge.tasks[second['job_id']]
+        await self.connection(True,2)
+        await asyncio.gather(first_task,second_task)
+        self.assertEqual(self.bridge.jobs[first['job_id']]['state'],'superseded')
+        self.assertEqual(self.bridge.jobs[second['job_id']]['state'],'completed')
+        self.assertEqual(len(self.gateway.sent),1)
+
+    async def test_disconnect_during_feedback_read_retries_on_new_connection(self):
+        entered=asyncio.Event();release=asyncio.Event()
+        original=self.bridge.transport.request
+        reads=0
+        async def interrupted(*args):
+            nonlocal reads
+            reads+=1
+            if reads==1:
+                entered.set();await release.wait()
+                raise ConnectionError('measurement connection ended')
+            return await original(*args)
+        self.bridge.transport.request=interrupted
+        submitted=await self.bridge.submit('robot','preview',False)
+        task=self.bridge.tasks[submitted['job_id']]
+        await entered.wait();await self.connection(False,1);release.set()
+        for _ in range(10):
+            if self.bridge.jobs[submitted['job_id']]['state']=='awaiting_connection':break
+            await asyncio.sleep(0)
+        self.assertFalse(task.done())
+        await self.connection(True,2);await task
+        self.assertEqual(len(self.generated),1)
+        self.assertEqual(self.generated[0]['observation']['epoch'],2)
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'generated')
+
+    async def test_explicit_cancel_retires_finished_generation_awaiting_delivery(self):
+        entered=asyncio.Event();release=asyncio.Event()
+        async def generate(*args):
+            entered.set();await release.wait()
+            return {'program':[move(JOINTS[0],20,'current',50)]}
+        self.bridge.generate=generate
+        submitted=await self.bridge.submit('robot','lift',True)
+        identifier=submitted['job_id']
+        await entered.wait();await self.connection(False,1);release.set()
+        for _ in range(10):
+            if self.bridge.jobs[identifier]['state']=='awaiting_connection':break
+            await asyncio.sleep(0)
+        self.assertEqual(len(self.bridge.jobs[identifier]['programs']),1)
+        result=await self.bridge.cancel(identifier)
+        await self.connection(True,2)
+        self.assertEqual(result['state'],'superseded')
+        self.assertFalse(self.gateway.sent)
+
     async def test_recovery_plans_concurrently_then_replaces_with_fresh_positions(self):
         first_packet=asyncio.Event(); allow_first=asyncio.Event(); second_packet=asyncio.Event()
         model_entered=asyncio.Event(); model_release=asyncio.Event()
+        faces=[]
+        async def face(name,args,**kwargs):
+            self.assertEqual(name,'face')
+            if 'expr' in args:faces.append(args['expr'])
+            return 0
+        self.gateway.queue_intent=face
         original_receipt=self.gateway.wait_terminal
         async def receipt(sequence,**kwargs):
             if sequence==1:
@@ -175,8 +406,10 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         async def generate(endpoint,request):
             if request['event']:
                 model_entered.set();await model_release.wait()
-                return {'program':[move(JOINTS[0],20,'current',50)]}
-            return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=20,period_s=1)]}
+                return {'program':[call('face',expr='angry'),move(JOINTS[0],-4,'current',50),
+                    call('face',expr='wave'),
+                    call('oscillate',joint=JOINTS[0],amplitude_deg=2,cycles=3,speed_pct=50)]}
+            return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=20,speed_pct=50)]}
         self.bridge.generate=generate
         await self.bridge.configure('robot','http://unused',True)
         submitted=await self.bridge.submit('robot','wave',True)
@@ -194,7 +427,10 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.bridge.transport.request=fresh
         model_release.set();await asyncio.gather(original,recovery)
         self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'superseded')
-        self.assertEqual(self.gateway.sent[-1][-1][1][0],3800)
+        self.assertEqual(self.gateway.sent[-1][-1][1][0],1400)
+        self.assertEqual(len(self.gateway.sent[-1]),12)
+        self.assertTrue(all(frame[1][0]<1800 for frame in self.gateway.sent[-1]))
+        self.assertEqual(faces,['angry','wave'])
 
     async def test_manual_stop_cancels_pending_recovery_without_an_active_job(self):
         entered=asyncio.Event()
@@ -270,7 +506,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[identifier]['state'],'error')
         self.assertFalse(current.done())
         self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
-    async def test_reassessment_does_not_drop_remaining_actions(self):
+    async def test_empty_reassessment_does_not_automatically_replay_old_actions(self):
         count=0
         def generate(*args):
             nonlocal count
@@ -281,7 +517,37 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         job=await self.bridge.submit('robot','reassess then move',True)
         await self.bridge.tasks[job['job_id']]
         self.assertEqual(count,2)
+        self.assertEqual(len(self.gateway.sent),0)
+
+    async def test_short_corrections_retain_pending_goal_across_reassessments(self):
+        requests=[]
+        def generate(endpoint,request):
+            requests.append(copy.deepcopy(request))
+            if len(requests)==1:
+                return {'program':[call('reassess'),move(JOINTS[0],40,'home',50)]}
+            if len(requests)==2:
+                return {'program':[move(JOINTS[0],-4,'current',25),call('reassess')]}
+            return {'program':[move(JOINTS[0],10,'home',50)]}
+        self.bridge.generate=generate
+        job=await self.bridge.submit('robot','adapt the movement',True)
+        await self.bridge.tasks[job['job_id']]
+        for request in requests[1:]:
+            self.assertEqual(request['observation']['pending_actions'],[move(JOINTS[0],40,'home',50)])
+        self.assertEqual(len(self.gateway.sent),2)
+
+    async def test_reassessment_replaces_old_path_instead_of_repeating_it(self):
+        requests=[]
+        def generate(endpoint,request):
+            requests.append(copy.deepcopy(request))
+            if len(requests)==1:
+                return {'program':[call('reassess'),move(JOINTS[0],40,'home',50)]}
+            return {'program':[move(JOINTS[0],-4,'current',25)]}
+        self.bridge.generate=generate
+        job=await self.bridge.submit('robot','adapt the movement',True)
+        await self.bridge.tasks[job['job_id']]
+        self.assertEqual(requests[1]['observation']['pending_actions'],[move(JOINTS[0],40,'home',50)])
         self.assertEqual(len(self.gateway.sent),1)
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'completed')
 
     async def test_old_motion_event_does_not_override_replacement_command(self):
         await self.bridge.configure('robot','http://unused',True)
@@ -319,10 +585,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(request['request'],'wave')
                 self.assertEqual(request['event']['type'],kind)
                 self.assertEqual(request['observation']['joints'][JOINTS[0]]['model_deg'],12)
-                self.assertEqual(request['history'][0],{'joints':{JOINTS[0]:9}})
-                self.assertEqual(request['history'][-1]['interrupted_program'],prior['programs'][-1])
+                self.assertEqual(len(request['history']),1)
+                self.assertNotIn('interrupted_program',request['history'][0])
                 self.assertEqual(request['history'][-1]['interrupted_action'],prior['current_action'])
-                self.assertIsNotNone(request['history'][-1]['packet_progress']['sequence'])
+                self.assertNotIn('packet_progress',request['history'][-1])
+                self.assertEqual(request['history'][-1]['remaining_program'],prior['remaining_program'])
 
     async def test_faces_do_not_wait_for_receipts_and_release_only_the_owned_selection(self):
         sent=[]

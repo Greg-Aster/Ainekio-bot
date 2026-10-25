@@ -3314,6 +3314,7 @@
           updateMotionSystem(payload);
           gaitHistoryView?.update(selectedRobotId, payload.robots?.[selectedRobotId]?.gait_training);
           window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
+          window.renderMotionLibraryStatus?.(payload.freestyle, selectedRobotId);
           renderHostNetwork(payload.host_network);
         }
       } catch (error) {

@@ -54,6 +54,7 @@ from protocol.control_v1 import (
     MAX_SEQUENCE,
     MOTION_PLAN_FEATURE,
     MOTION_PLAN_V2_FEATURE,
+    MOTION_TARGETS_FEATURE,
     MOTION_PLAN_V2_JOINT_MAP,
     MOTION_PLAN_JOINT_MAP,
     PROTOCOL_VERSION,
@@ -1075,13 +1076,14 @@ class GatewayService:
         frames: list[object],
         *,
         end: str,
+        control: str | None = None,
         robot_id: str | None = None,
         received_at: float | None = None,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         v2 = connection.model == "v2-12servo"
-        feature = MOTION_PLAN_V2_FEATURE if v2 else MOTION_PLAN_FEATURE
+        feature = MOTION_TARGETS_FEATURE if control == "targets" else MOTION_PLAN_V2_FEATURE if v2 else MOTION_PLAN_FEATURE
         if feature not in connection.features:
             raise GatewayError(f"robot {connection.robot_id} does not advertise {feature}")
         return await connection.send_command(
@@ -1090,6 +1092,7 @@ class GatewayService:
                 "map": MOTION_PLAN_V2_JOINT_MAP if v2 else MOTION_PLAN_JOINT_MAP,
                 "frames": frames,
                 "end": end,
+                **({"control": control} if control is not None else {}),
             },
             received_at=self.clock() if received_at is None else received_at,
             on_sequence=on_sequence,

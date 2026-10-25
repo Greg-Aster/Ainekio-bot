@@ -511,3 +511,23 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .freestyle-panel input[type="checkbox"] { width: 1.2rem; height: 1.2rem; min-height: 0; margin: 0; }
 .freestyle-panel button { margin: .2rem .15rem .2rem 0; }
 .freestyle-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.motion-training-library { margin-top: 1.5rem; border-top: 1px solid var(--line, #445); padding-top: 1rem; }
+.motion-library-search, .motion-library-pages, .motion-library-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.motion-library-search label { flex: 1 1 16rem; }
+.motion-library-list { list-style: none; padding: 0; display: grid; gap: .4rem; }
+.motion-library-list li { display: grid; gap: .2rem; padding-bottom: .4rem; }
+.motion-library-list button { text-align: left; white-space: normal; overflow-wrap: anywhere; width: 100%; }
+.motion-library-list button[aria-pressed="true"] { outline: 2px solid currentColor; }
+.motion-library-list small { opacity: .7; padding-left: .5rem; }
+.motion-training-library fieldset { min-width: 0; margin-top: 1.2rem; }
+.motion-training-library label { display: grid; gap: .4rem; margin: .75rem 0; }
+.motion-training-library input, .motion-training-library textarea { box-sizing: border-box; width: 100%; }
+.motion-training-library textarea[data-field="program"] { font-family: monospace; tab-size: 2; min-height: 22rem; }
+.motion-training-library pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.motion-training-library [hidden] { display: none !important; }
+
+.motion-training-library textarea { padding: .7rem; border: 1px solid #495057; border-radius: .3rem; background: #22272b; color: #eee; font: inherit; resize: vertical; }
+.motion-library-pages { margin: .75rem 0; }
+.motion-library-pages button { flex: 0 1 auto; width: auto; padding-inline: .65rem; }
+.motion-library-pages [data-field="page"] { white-space: nowrap; }

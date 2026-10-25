@@ -287,8 +287,7 @@ static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t e
     const ainekio_pca_status_t output = ainekio_pca_status(ainekio_p4_output());
     const ainekio_nak_code_t code = error == ESP_ERR_INVALID_ARG || error == AINEKIO_P4_ERR_REFERENCE ? AINEKIO_NAK_LIMIT :
         error == ESP_ERR_NOT_FOUND ? AINEKIO_NAK_ASSET_MISSING : AINEKIO_NAK_BUSY;
-    const char *detail = error == AINEKIO_P4_ERR_STALLED ? "Servo position stopped progressing; all outputs released" :
-        error == AINEKIO_P4_ERR_REFERENCE ? "Commanded pose cannot close the leg linkage" :
+    const char *detail = error == AINEKIO_P4_ERR_REFERENCE ? "Commanded pose cannot close the leg linkage" :
         error == ESP_ERR_INVALID_ARG ? "Motion mapping failed or pulse exceeds PWM timer capacity" :
         error == ESP_ERR_NOT_FOUND ? "Requested asset is unavailable" :
         output.fault == AINEKIO_PCA_FAULT_IO ? "Servo controller I2C transfer failed" :
@@ -359,7 +358,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {AINEKIO_MOTION_PLAN_V2_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "idle_rest_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "idle_rest_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -920,9 +919,8 @@ static void link_task(void *arg)
                     char notice[320];
                     snprintf(notice,sizeof notice,
                         "{\"t\":\"event\",\"name\":\"servo_stall\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":%s}",
-                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints,
-                        event.jam_observation?"false":"true");
+                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":false}",
+                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints);
                     reply(link_generation,notice);
                 }
                 if (!event.jam_observation && event.sequence && current_connection(event.connection)) {

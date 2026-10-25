@@ -9,6 +9,7 @@ import importlib.util
 import json
 import time
 from contextlib import redirect_stderr, redirect_stdout
+from functools import wraps
 from pathlib import Path
 from types import MethodType
 
@@ -40,6 +41,25 @@ def align_qwen_mlp(model, torch):
             'scope': 'process-local feed-forward arithmetic; other kernels unchanged'}
 
 
+def loss_only_evaluation(model):
+    """Do not retain/cast vocabulary logits that this loss-only evaluator discards.
+
+    Accelerate otherwise makes an additional full FP32 logits tensor. Loss is
+    already computed by the model; retain that exact tensor. Training forwards
+    and unlabeled generation keep their original outputs.
+    """
+    forward = model.forward
+
+    @wraps(forward)
+    def evaluate(*args, **kwargs):
+        result = forward(*args, **kwargs)
+        if not model.training and kwargs.get('labels') is not None and result.get('loss') is not None:
+            return {'loss': result['loss']}
+        return result
+
+    model.forward = evaluate
+
+
 def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
     spec=importlib.util.spec_from_file_location('freestyle_shared_trainer',shared_trainer)
     shared=importlib.util.module_from_spec(spec);spec.loader.exec_module(shared)
@@ -62,6 +82,8 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
         # different-sized model starts fresh from its own pretrained base.
         model,tokenizer,torch=shared.load_runtime(cfg,training=True)
         result['runtime_adjustments'] = align_qwen_mlp(model, torch)
+        loss_only_evaluation(model)
+        result['runtime_adjustments']['loss_only_evaluation'] = True
         if adapter is not None:
             from peft import get_peft_model_state_dict, set_peft_model_state_dict
             from safetensors.torch import load_file
