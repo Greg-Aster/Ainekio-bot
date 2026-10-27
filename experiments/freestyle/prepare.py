@@ -31,7 +31,10 @@ def prepare(dataset, trainer_path, base, revision):
     if base != manifest["baseModel"]:
         raise ValueError("Base must match the frozen dataset manifest")
     measurements = []
-    for split in ("train", "evaluation"):
+    splits = [name for name in ('train', 'evaluation', 'test', 'regression-evaluation',
+                                'recovery-probe', 'stand-evaluation', 'stand-test')
+              if (dataset/(name+'.jsonl')).exists()]
+    for split in splits:
         for row in trainer.read_rows(dataset/(split+".jsonl")):
             tokens = trainer.tokenize_row(tokenizer, row, None)
             measurements.append({"id": row["id"], "split": split,
@@ -47,6 +50,9 @@ def prepare(dataset, trainer_path, base, revision):
     report = {"examples": len(measurements), "max_sequence_tokens": config["max_seq_length"],
               "max_response_tokens": max(row["response_tokens"] for row in measurements),
               "base_revision": revision, "truncated_examples": 0, "records": measurements}
+    report['folds'] = {split: {'count': sum(r['split']==split for r in measurements),
+                              'max_tokens': max((r['tokens'] for r in measurements if r['split']==split), default=0)}
+                       for split in splits}
     (dataset/"token-report.json").write_text(compact(report)+"\n")
     return {k: v for k, v in report.items() if k != "records"}
 

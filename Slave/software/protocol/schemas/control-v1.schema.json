@@ -1993,6 +1993,11 @@
         "position_verified": {
           "type": "boolean"
         },
+        "target_adjusted_joints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
         "seq": {
           "$ref": "#/$defs/sequence"
         }
@@ -2206,6 +2211,7 @@
             "tts_overflow",
             "imu",
             "servo_stall",
+            "idle_rest",
             "servo_feedback",
             "wake"
           ]

@@ -36,7 +36,6 @@ from .speech_transport import (
     parse_speech_audio_message,
 )
 from .translation import (
-    LEGACY_ROBOT_COMMANDS,
     ROBOT_COMMAND_DESCRIPTIONS,
     V2_COMMAND_DESCRIPTIONS,
     SUPPORTED_ROBOT_COMMANDS,
@@ -132,8 +131,10 @@ class EnvironmentAdapter:
         self._depth_consumers: dict[int, dict[str, str]] = {}
         self.recognition_status: Callable[[], dict[str, object]] | None = None
         self.camera_analysis: Callable[[str | None], CameraAnalysis | None] | None = None
+        self.camera_capture: Callable[[dict[str, object]], asyncio.Future[CameraAnalysis] | None] | None = None
         self.vision_operation = None
         self._websocket: Any | None = None
+        self._availability_watchers: set[Any] = set()
         self._send_lock = asyncio.Lock()
         self._cancelling_actions: set[str] = set()
         self._camera_observation_count = 0
@@ -237,12 +238,21 @@ class EnvironmentAdapter:
 
         supplied = hello.get("token")
         if (
-            hello.get("type") != "bridge.connect"
+            hello.get("type") not in {"bridge.connect", "bridge.watch"}
             or hello.get("version") != ADAPTER_PROTOCOL_VERSION
             or not isinstance(supplied, str)
             or not hmac.compare_digest(self.config.token, supplied)
         ):
             await websocket.close(code=4001, reason="environment authentication failed")
+            return
+
+        if hello["type"] == "bridge.watch":
+            self._availability_watchers.add(websocket)
+            try:
+                await websocket.send(json.dumps(self._availability()))
+                await websocket.wait_closed()
+            finally:
+                self._availability_watchers.discard(websocket)
             return
 
         previous = self._websocket
@@ -667,7 +677,7 @@ class EnvironmentAdapter:
                 return
             visual: dict[str, object] | None = None
             if visual_future is not None and feedback.get("type") == "completed" and visual_future.done():
-                visual = visual_future.result()
+                visual = await self._complete_camera_visual(visual_future.result())
             feedback = await self._send_feedback(feedback)
             if visual is not None:
                 await self._send_observation(
@@ -720,6 +730,14 @@ class EnvironmentAdapter:
             # Goal completion belongs to the existing task owner, which sends Finish.
             # Manual translation keeps its finite-cycle semantics.
             translated = translate_environment_action({**action, "continuous": True}, model=(self._selected_robot()[1] or {}).get("model"))
+        # Older clients may still send a named pose/emote. Route that request
+        # through the same generator; only Body Control's manual library may
+        # dispatch prerecorded choreography. Walking is the shared P4 primitive.
+        if (translated.kind == "intent" and translated.name in {"stand", "sit", "neutral", "emote"}):
+            description = str(translated.params.get("asset", translated.name)).replace("_", " ")
+            if is_locomotion_translation(translated):
+                description += ". Locomotion goal: " + json.dumps(action["locomotionGoal"], separators=(",", ":"))
+            translated = BridgeAction("request_motion", "requestMotion", {"description": description})
         if translated.kind == "text":
             await self.gateway.publish_transcript(
                 {
@@ -803,15 +821,9 @@ class EnvironmentAdapter:
                         "epoch": robot_epoch, "kind": "freestyle", "gatewayInstance": self.gateway.instance_id},
                         check_interpretation_owner)
                 submission = await self.gateway.request_motion(translated.params["description"], robot_id=robot_id,
-                    job_id=action_id, on_job=remember_job if receipt is not None else None,
-                    on_sequence=remember_sequence)
-                if submission["system"] == "freestyle":
-                    result = await self.gateway.freestyle_result(submission["jobId"])
-                    return self._motion_result(action_id, result)
-                sequence = submission["sequence"]
-                terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, epoch=robot_epoch, timeout=None)
-                return self._terminal_feedback(action_id, terminal, command="requestMotion",
-                    sequence=sequence, robot_id=robot_id, epoch=robot_epoch)
+                    job_id=action_id, on_job=remember_job if receipt is not None else None)
+                result = await self.gateway.freestyle_result(submission["jobId"])
+                return self._motion_result(action_id, result)
             except (GatewayError, ConnectionClosed, OSError, KeyError, ValueError) as error:
                 row = await asyncio.to_thread(self.receipts.action, action_id) if receipt is not None else None
                 return self._feedback(action_id, "outcome_unknown" if row and row["wire"] else "rejected",
@@ -1113,7 +1125,24 @@ class EnvironmentAdapter:
             self._pending_snapshot_key = None
             self._pending_snapshot_context = None
 
+    def _availability(self) -> dict[str, object]:
+        robot_id, robot = self._selected_robot()
+        return {"type": "bridge.availability", "version": ADAPTER_PROTOCOL_VERSION,
+                "sessionId": self.config.session_id, "gatewayInstance": self.gateway.instance_id,
+                "robotId": robot_id, "connected": robot is not None}
+
+    async def _publish_availability(self) -> None:
+        message = json.dumps(self._availability())
+        async def send(websocket: Any) -> None:
+            try:
+                await websocket.send(message)
+            except ConnectionClosed:
+                self._availability_watchers.discard(websocket)
+        await asyncio.gather(*(send(websocket) for websocket in tuple(self._availability_watchers)))
+
     async def _handle_gateway_event(self, event: dict[str, object]) -> None:
+        if event.get("t") == "connection":
+            await self._publish_availability()
         if event.get("t") == "motion_system":
             if event.get("robot_id") == self._selected_robot()[0]:
                 await self._send_observation()
@@ -1132,6 +1161,14 @@ class EnvironmentAdapter:
                 await self._send_telemetry("robot.status", {**{key: event[key]
                     for key in ("robot_id", "epoch", "imu") if key in event},
                     "locomotionMeasurement": self._observation()["state"]["locomotionMeasurement"]})
+            return
+        if event.get("t") == "servo_feedback":
+            robot_id, robot = self._selected_robot()
+            if (robot is not None and event.get("robot_id") == robot_id
+                    and event.get("epoch") == robot.get("epoch")):
+                await self._send_telemetry("robot.status", {
+                    "robot_id": robot_id, "epoch": event["epoch"], "servo_feedback": event["data"],
+                })
             return
         if event.get("name") == "body_event" and event.get("robot_id") != self._selected_robot()[0]:
             return
@@ -1267,8 +1304,20 @@ class EnvironmentAdapter:
             await self._recover_action_receipts()
 
     async def _process_wake(self, event: dict[str, object], recipient: Any | None) -> None:
-        # Body Control owns this physical procedure. Only the fresh image is
-        # needed before greeting generation; stretch completion is not a join.
+        # Submit the Freestyle request without waiting for the camera. Only
+        # the fresh image is needed before greeting generation; neither
+        # motion generation nor completion is a camera/greeting dependency.
+        startup = {}
+        robot_id, robot = self._selected_robot()
+        if robot_id != event["robot_id"] or not robot or robot.get("epoch") != event["epoch"]:
+            startup["stretch"] = {"state": "not_dispatched", "reason": "body_session_ended"}
+        else:
+            try:
+                submission = await self.gateway.request_motion("Stand up, stretch, and finish standing.", robot_id=robot_id)
+                startup["stretch"] = {"state": "dispatched", **submission,
+                    "robotId": robot_id, "epoch": event["epoch"], "timestamp": self.utcnow().isoformat()}
+            except (GatewayError, ConnectionClosed, OSError) as exc:
+                startup["stretch"] = {"state": "dispatch_failed", "error": str(exc)}
         action_id = f"wake:{event['event_id']}:photo"
         visual_future = asyncio.get_running_loop().create_future()
         self._remember_action_visual(action_id, visual_future)
@@ -1276,23 +1325,12 @@ class EnvironmentAdapter:
             capture = await self.handle_action({"id": action_id, "type": "captureImage"})
             visual = None
             if capture["type"] == "completed" and visual_future.done():
-                visual = visual_future.result()
+                visual = await self._complete_camera_visual(visual_future.result())
             if visual is not None:
                 visual["metadata"].pop("actionId", None)
                 visual["metadata"].pop("correlationId", None)
                 visual["metadata"]["bodyEventId"] = event["event_id"]
-            startup = {"capture": capture, "imageAvailable": visual is not None}
-            robot_id, robot = self._selected_robot()
-            if robot_id != event["robot_id"] or not robot or robot.get("epoch") != event["epoch"]:
-                # A completed old capture cannot start motion on a replacement body session.
-                startup["stretch"] = {"state": "not_dispatched", "reason": "body_session_ended"}
-            else:
-                try:
-                    submission = await self.gateway.request_motion("stretch", robot_id=robot_id)
-                    startup["stretch"] = {"state": "dispatched", **submission,
-                        "robotId": robot_id, "epoch": event["epoch"], "timestamp": self.utcnow().isoformat()}
-                except (GatewayError, ConnectionClosed, OSError) as exc:
-                    startup["stretch"] = {"state": "dispatch_failed", "error": str(exc)}
+            startup.update(capture=capture, imageAvailable=visual is not None)
             if recipient is not None and recipient is self._websocket and not recipient.closed:
                 await self._send_observation(visual=visual,
                     body_event={**event, "data": {**event["data"], "startup": startup}},
@@ -1379,17 +1417,27 @@ class EnvironmentAdapter:
             return
         self._pending_snapshot_context = None
         self._pending_snapshot_key = None
-        # Correlated captures belong to their action consumer, not the outbound
-        # streaming worker. Resolve them when the complete frame arrives.
+        analysis = self.camera_capture(frame) if self.camera_capture else None
+        frame = {**frame, "_recognition_result": analysis}
+        # Only this still depends on recognition; robot receive and other actions
+        # continue while the existing camera worker produces its paired result.
         action_id = snapshot_context.get("actionId")
         if isinstance(action_id, str):
             pending = self._pending_action_visuals.get(action_id)
             if pending is not None and not pending.done():
-                pending.set_result(self._camera_visual(frame, snapshot_context))
+                visual = self._camera_visual(frame, snapshot_context)
+                if analysis is not None:
+                    visual["_recognition_result"] = analysis
+                pending.set_result(visual)
             return
         queue = self._camera_delivery_queue
         if queue is None:
-            await self._deliver_camera_frame(frame, snapshot_context)
+            if analysis is None:
+                await self._deliver_camera_frame(frame, snapshot_context)
+            else:
+                task = asyncio.create_task(self._deliver_camera_frame(frame, snapshot_context))
+                self._action_tasks.add(task)
+                task.add_done_callback(self._action_finished)
             return
         item = (dict(frame), snapshot_context)
         try:
@@ -1448,6 +1496,18 @@ class EnvironmentAdapter:
                 },
             },
         }
+
+    async def _complete_camera_visual(self, visual: dict[str, object] | None) -> dict[str, object] | None:
+        if visual is None:
+            return None
+        pending = visual.pop("_recognition_result", None)
+        if pending is not None:
+            analysis = await asyncio.shield(pending)
+            if analysis.error is not None:
+                visual["metadata"]["recognitionFailure"] = {"reason": analysis.error}
+            else:
+                visual["metadata"]["recognition"] = {**self._camera_recognition(analysis), "observedAt": visual["timestamp"]}
+        return visual
 
     def _frame_timestamp(self, frame: Mapping[str, object]) -> str:
         received_at = frame.get("received_at")
@@ -1524,6 +1584,9 @@ class EnvironmentAdapter:
         if not isinstance(frame.get("payload"), bytes):
             return
         visual = self._camera_visual(frame, snapshot_context)
+        if frame.get("_recognition_result") is not None:
+            visual["_recognition_result"] = frame["_recognition_result"]
+        visual = await self._complete_camera_visual(visual)
         await self._send_observation(
             visual=visual,
             metadata=snapshot_context,
@@ -1746,16 +1809,10 @@ class EnvironmentAdapter:
         if expression_feedback:
             actions.append("faceExpression")
         robot_commands: list[str] = []
-        motion_system = getattr(self.gateway, "motion_systems", {}).get(robot_id, "library")
-        state["body"]["motionSystem"] = motion_system
-        if motion_ready and motion_system == "freestyle":
+        state["body"]["motionSystem"] = "freestyle"
+        if motion_ready:
             actions.extend(["requestMotion", "stop"])
-        elif motion_ready:
-            actions.extend(["robotCommand", "move", "stop"])
-            robot_commands = list(LEGACY_ROBOT_COMMANDS) if supported is None else [
-                name for name in SUPPORTED_ROBOT_COMMANDS if name in supported
-            ]
-        gait_commands = locomotion_commands(robot_commands, str(robot.get("model")) if robot else None)
+        gait_commands = locomotion_commands(list(supported or ()), str(robot.get("model")) if robot else None) if motion_ready else []
         robot_commands = [command for command in robot_commands if command not in gait_commands]
         measurement = self.locomotion_measurement(robot_id) if self.locomotion_measurement is not None else {
             "available": False, "reason": "locomotion_measurement_not_configured", "robotId": robot_id}
@@ -2166,6 +2223,8 @@ class EnvironmentAdapter:
             feedback["data"]["code"] = terminal["code"]
         if "position_verified" in terminal:
             feedback["data"]["position_verified"] = terminal["position_verified"]
+        if "target_adjusted_joints" in terminal:
+            feedback["data"]["target_adjusted_joints"] = terminal["target_adjusted_joints"]
         return feedback
 
     def _feedback(

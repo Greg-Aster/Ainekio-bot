@@ -3,7 +3,7 @@ Description=Ainekio Freestyle generator and inference recording
 
 [Service]
 WorkingDirectory=%h/Ainekio
-ExecStart=%h/ComfyUI/venv/bin/python -m experiments.freestyle.generator --endpoint http://127.0.0.1:8795/v1 --model freestyle-qwen --contract %h/Ainekio/experiments/freestyle/artifacts/spatial-v8/final-dataset --model-file %h/Ainekio/experiments/freestyle/artifacts/spatial-v8/final-served/model.Q8_0.gguf --recordings %h/Ainekio/build/gateway/physical/freestyle-inference.sqlite
+ExecStart=%h/ComfyUI/venv/bin/python -m experiments.freestyle.generator --endpoint http://127.0.0.1:8795/v1 --model freestyle-qwen --contract %h/Ainekio/experiments/freestyle/artifacts/finite-programs/contract --model-file %h/Ainekio/experiments/freestyle/artifacts/recovery-completion/final/served/model.Q8_0.gguf --recordings %h/Ainekio/build/gateway/physical/freestyle-inference.sqlite
 
 [Install]
 WantedBy=default.target

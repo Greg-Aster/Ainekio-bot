@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.server.service import GatewayService
 from experiments.freestyle.bridge import Bridge
+from experiments.freestyle.program import compile_motion
 from experiments.freestyle.test_program import FakeGateway, FakeTransport
 
 
@@ -59,7 +60,9 @@ class MotionRequestTests(unittest.IsolatedAsyncioTestCase):
             self.generated.append(request)
             return {'program': [{'name': 'move', 'arguments': {
                 'joint': 'front_right_shoulder', 'angle_deg': 15, 'reference': 'current', 'speed_pct': 50}}]}
-        self.bridge = Bridge(self.gateway, FakeTransport(), generate)
+        async def compiler(*args):
+            return compile_motion(*args)
+        self.bridge = Bridge(self.gateway, FakeTransport(), generate, compiler=compiler)
         self.gateway.freestyle_motion = self.bridge.submit
         self.gateway.freestyle_result = self.bridge.result
         self.gateway.freestyle_cancel = self.bridge.cancel
@@ -141,15 +144,32 @@ class MotionRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('fixture inference failed', result['message'])
         self.assertFalse(self.gateway.sent)
 
-    async def test_capabilities_follow_the_configured_system(self):
+    async def test_old_named_command_uses_generator_even_with_manual_library_selected(self):
+        self.gateway.motion_systems['robot'] = 'library'
+        self.action.update(type='robotCommand', command='wave')
+        task = await self.dispatched()
+        self.assertEqual(self.generated[0]['request'], 'wave')
+        self.gateway.motion_done.set()
+        self.assertEqual((await task)['type'], 'completed')
+
+    async def test_old_named_turn_cannot_bypass_freestyle_with_a_library_asset(self):
+        self.action.update(type='robotCommand',command='turn_left_90',
+            locomotionGoal={'kind':'relativeTurn','degrees':90,'tolerance':3})
+        task=await self.dispatched()
+        self.assertIn('turn left 90',self.generated[0]['request'])
+        self.assertIn('"degrees":90',self.generated[0]['request'])
+        self.gateway.motion_done.set()
+        self.assertEqual((await task)['type'],'completed')
+
+    async def test_capabilities_always_use_freestyle_independent_of_manual_selection(self):
         freestyle = self.adapter._observation()['capabilities']
         self.assertIn('requestMotion', freestyle['actions'])
         self.assertNotIn('robotCommand', freestyle['actions'])
         self.assertNotIn('robotMotionPlan', freestyle['actions'])
         self.gateway.motion_systems['robot'] = 'library'
         library = self.adapter._observation()['capabilities']
-        self.assertIn('robotCommand', library['actions'])
-        self.assertNotIn('requestMotion', library['actions'])
+        self.assertNotIn('robotCommand', library['actions'])
+        self.assertIn('requestMotion', library['actions'])
 
     async def test_selection_change_publishes_current_capabilities_only_for_selected_robot(self):
         observations = []
@@ -162,8 +182,8 @@ class MotionRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('requestMotion', observations[-1]['capabilities']['actions'])
         self.gateway.motion_systems['robot'] = 'library'
         await self.adapter._handle_gateway_event({'t': 'motion_system', 'robot_id': 'robot'})
-        self.assertIn('robotCommand', observations[-1]['capabilities']['actions'])
-        self.assertNotIn('requestMotion', observations[-1]['capabilities']['actions'])
+        self.assertNotIn('robotCommand', observations[-1]['capabilities']['actions'])
+        self.assertIn('requestMotion', observations[-1]['capabilities']['actions'])
 
     async def test_lost_receipt_preserves_unknown_physical_outcome_and_ends_job(self):
         async def lost(*args, **kwargs):

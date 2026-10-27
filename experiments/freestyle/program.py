@@ -54,7 +54,7 @@ def packets(frames):
 def compile_motion(action, observation, planned=None):
     """Continue authored motion from its previous target, not tracking error.
 
-    The first motion (and motion after reassessment) uses measured positions
+    The first motion uses measured positions
     for moving joints. Feedback remains evidence; it does not silently rewrite
     the remaining relative path on every segment.
     """

@@ -16,7 +16,8 @@ def export_shared(source, output, base, revision, trainer):
                 'systemPrompt': system or None, 'settings': {'objective': 'assistant-continuation'},
                 'sourceHashes': {}, 'generatorManifestSha256': sha(source/'manifest.json')}
     splits = ['train', 'evaluation']
-    splits.extend(name for name in ('test', 'regression-evaluation', 'recovery-probe') if (source/(name+'.jsonl')).exists())
+    splits.extend(name for name in ('test', 'regression-evaluation', 'recovery-probe',
+                                   'stand-evaluation', 'stand-test') if (source/(name+'.jsonl')).exists())
     for split in splits:
         originals = [json.loads(line) for line in (source/(split+'.jsonl')).read_text().splitlines()]
         rows = []

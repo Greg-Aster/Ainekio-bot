@@ -63,7 +63,7 @@ def row(family, request, program, observation, **metadata):
 def audit(item):
     value=json.loads(item['query']);state=value['observation']
     trace=replay(item['answers'],state)
-    allowed_partial=trace['status']=='not_fully_replayed' and trace.get('operation') in ('gait','stop','reassess')
+    allowed_partial=trace['status']=='not_fully_replayed' and trace.get('operation') in ('gait','stop')
     # Prefix-only evidence is identified separately for feedback/gait examples.
     return item, {'id':item['id'],'family':item['family'],'status':trace['status'],
                   'completed_actions':trace['completed_actions'],'error':trace.get('error'),

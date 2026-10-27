@@ -9,6 +9,7 @@ import random
 
 from compact import call, move
 from runtime import JOINTS, compact
+from experiments.freestyle.migrate_targets import standing_pose
 
 
 def request_text(request, observation=None, event=None, history=None):
@@ -54,15 +55,15 @@ def records(split):
                    {'time_us':3000000,'joints':{joint:measured},'target_deg':target}]
         request = ('Finish the greeting with a smaller wave in the recently traversed free range; '
                    'back off to its midpoint, then use half that free range as the amplitude. '
-                   'Keep the remaining cycles and period, then reassess.')
+                   'Keep the remaining cycles and period.')
         add('jam_smaller_wave',request,observation,{'type':'servo_stall','joints':[joint]},history,
             [move(joint,measured-direction*backoff,'absolute',speed),
              call('oscillate',joint=joint,amplitude_deg=backoff,cycles=original['remaining_cycles'],period_s=original['period_s']),
-             call('reassess')])
+             standing_pose()])
         # General obstruction: compute a reversal from measured position/history.
-        add('jam_backoff',f'Clear the obstruction by retreating {backoff} degrees opposite the blocked travel direction, then reassess.',
+        add('jam_backoff',f'Clear the obstruction by retreating {backoff} degrees opposite the blocked travel direction.',
             observation,{'type':'servo_stall','joints':[joint]},history,
-            [move(joint,measured-direction*backoff,'absolute',speed),call('reassess')])
+            [move(joint,measured-direction*backoff,'absolute',speed),standing_pose()])
 
         # Recoveries use the measured effect of a preceding correction. This is
         # supervision for feedback reasoning, not a fabricated universal get-up.
@@ -85,15 +86,10 @@ def records(split):
                'action':{'command':'walk','speed_pct':50,'remaining_cycles':3}}
         hist = [{'imu':imu(before),'correction_delta_deg':correction}, {'imu':imu(after)}]
         answers = [call('pose',joints=[joint,joint2],angles_deg=[delta if improved else -delta,-delta if improved else delta],
-                        reference='current',speed_pct=speed),call('reassess')]
+                        reference='current',speed_pct=speed),standing_pose()]
         add('slip_correction' if event_type=='slip' else 'fall_correction',
-            'Use the previous correction and measured body orientation: repeat its joint deltas if it brought the body closer to upright; reverse them if it made the tilt worse. Then reassess.',
+            'Use the previous correction and measured body orientation: repeat its joint deltas if it brought the body closer to upright; reverse them if it made the tilt worse.',
             obs,{'type':event_type},hist,answers)
-
-        add('recovery_resume','The recovery has restored the intended upright posture and the joints track their targets. Complete the remaining requested walking cycles.',
-            {'imu':imu(0),'joints':{joint:{'model_deg':measured,'commanded_model_deg':measured}},
-             'action':{'command':'walk','speed_pct':speed,'remaining_cycles':gap}},
-            {'type':'reassess'},hist,[call('gait',command='walk',speed_pct=speed,cycles=gap)])
 
         # Free-form compositions not represented by a named gesture call.
         add('novel_sequence',f'Invent a two-joint greeting: send {joint} {gap} degrees from its current angle while {joint2} moves {-gap} degrees, hold 1 second, wiggle {joint} twice with amplitude {backoff} and period 1.5 seconds, then move both to calibrated home at {speed}% speed. Use {speed}% for the opening pose too.',

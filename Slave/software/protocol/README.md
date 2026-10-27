@@ -633,13 +633,19 @@ thermal measurement is implied.
 
 ### V2 feedback confidence and unverified completion
 
-From `0.8.112-p4-feedback-fallback`, coordinated Stand can complete its authored
-path with `{"t":"done","seq":7,"position_verified":false}` when usable
-post-command observations are unavailable. Outputs stay powered and new commands
-remain available. `position_verified:true` means the final measured joint targets
-matched. The optional field is retained in Environment Bridge receipt data.
-A retained Stand goal may resume correction when observations return, without a
-second receipt for the same request. Ordinary trajectory completion omits the field.
+Freestyle target execution waits for fresh measured arrival at the applied
+endpoint. If the existing calibration fitter changes an authored target, the
+same resolved endpoint drives ramping and arrival; the body never waits for an
+unapplied target. Completion reports `position_verified:false` and the optional
+`target_adjusted_joints` mask (bits 0–11, model joint order) when any target in
+the packet was changed. This reports completed applied execution, not attainment
+of the original authored pose. Measured unadjusted endpoints report
+`position_verified:true`. Both fields reach Environment Bridge receipt data and
+Freestyle operation history. Current post-operation shaft/commanded positions
+remain separate evidence for the model's assessment of the overall goal.
+Unavailable feedback does not complete a Freestyle target. Stop, replacement
+and the existing event-driven recovery remain available. Ordinary authored
+trajectory completion omits the verification field.
 
 The existing telemetry cadence also carries `event`, `name:"servo_feedback"`.
 Its `data` includes `enabled`, `usable`, `scan`, `clock_us`, `calibrated_mask`,
@@ -655,3 +661,13 @@ Body Control retains current health in robot status and emits
 route. Fault notices share the existing event cooldown and reaction-face
 suppression and do not command any motion or output release. Signal voltage is
 not battery or servo-rail voltage and cannot identify the electrical cause alone.
+
+### Freestyle inactivity request
+
+Firmware 0.8.127 emits `{"t":"event","name":"idle_rest","event_id":"BOOT:CLOCK",
+"clock_us":1234,"seq":7}` from its existing inactivity timer. `seq` identifies
+the last body motion; it is not a new command or completion receipt. The host
+Freestyle owner generates resting movement and explicit output release. A later
+Stop/Release or movement supersedes the request. Firmware does not play a legacy
+clip or release servos when emitting this event. Boot/wake movement likewise
+belongs to the host owner; the P4 retains the shared target/gait/output services.

@@ -11,12 +11,14 @@ FORMAT = 'motion-targets-v1'
 LEGACY_FORMAT = 'motion-arrays-v1'
 LEGS = tuple(dict.fromkeys(j.rsplit('_', 1)[0] for j in JOINTS))
 JOINT_FIELDS = ('model_deg', 'commanded_model_deg', 'home_deg', 'velocity_deg_s',
-                'calibrated', 'in_calibrated_range')
+                'calibrated', 'in_calibrated_range', 'feedback_range_deg',
+                'arrival_tolerance_deg', 'feedback_usable', 'feedback_faults',
+                'tracking_error_deg', 'within_arrival_tolerance')
 # The measurements and their availability/freshness remain model-visible.
 # Raw acquisition/transport diagnostics remain in the unmodified recorder input.
 IMU_DIAGNOSTICS = {'boot_id', 'accepted_samples', 'rejected_samples', 'gap_restarts',
                    'acquisition', 'received_at', 'face_token'}
-RECOVERY_EVENTS = {'servo_stall', 'tipped', 'rapid_movement', 'slip', 'reassess'}
+RECOVERY_EVENTS = {'servo_stall', 'servo_feedback_fault', 'tipped', 'rapid_movement', 'slip'}
 
 
 def joint_progress(history, event):
@@ -61,9 +63,10 @@ def latest_correction(history):
         def attitude(sample):
             imu = observation({'imu':sample['imu']})['imu']
             return {k:imu[k] for k in ('available','fresh','frame','orientation_wxyz',
-                'calibration_applied','gyro_recovery','acceleration_recovery') if k in imu}
+                'calibration_applied','gyro_recovery','acceleration_recovery','derived_orientation') if k in imu}
         return {'delta_deg':[[JOINTS.index(j),round(value,2)] for j,value in delta.items()],
-                'before':attitude(item),'after':attitude(after)}
+                'before':attitude(item),'after':attitude(after),
+                **({'receipts':copy.deepcopy(after['receipts'])} if 'receipts' in after else {})}
     return None
 
 
@@ -72,15 +75,17 @@ def recovery_state(value):
     if not isinstance(value, dict):
         return value
     state = observation(value)
-    result = {k:state[k] for k in ('joints', 'expected_up', 'joint_speed_limit_deg_s') if k in state}
+    result = {k:state[k] for k in ('joints', 'expected_up', 'joint_speed_limit_deg_s', 'shaft_tracking') if k in state}
     imu = state.get('imu')
     if isinstance(imu, dict):
         result['imu'] = {k:imu[k] for k in ('available', 'fresh', 'age_us', 'frame',
             'orientation_wxyz', 'angular_rate_rad_s', 'acceleration_m_s2',
-            'calibration_applied', 'gyro_recovery', 'acceleration_recovery', 'accelerometer_ignored') if k in imu}
+            'calibration_applied', 'gyro_recovery', 'acceleration_recovery', 'accelerometer_ignored',
+            'derived_orientation') if k in imu}
     feedback = state.get('feedback')
     if isinstance(feedback, dict):
-        result['feedback'] = {k:feedback[k] for k in ('enabled', 'stalled_joints', 'no_progress_ms') if k in feedback}
+        result['feedback'] = {k:feedback[k] for k in ('enabled', 'stalled_joints', 'no_progress_ms',
+            'waiting_joints') if k in feedback}
     # Servo precision is hundredths of a degree; raw precision remains recorded.
     def rounded(item):
         if isinstance(item, float): return round(item, 2)

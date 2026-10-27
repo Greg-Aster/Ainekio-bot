@@ -60,7 +60,8 @@ class CurriculumTests(unittest.TestCase):
             stamps=[h['time_us'] for h in q['history']]
             self.assertEqual(stamps,sorted(set(stamps)))
             self.assertFalse(row['physical_qualification'])
-            self.assertEqual(row['answers'][-1]['name'],'reassess')
+            self.assertEqual(row['answers'][-1]['name'],'pose')
+            self.assertEqual(row['answers'][-1]['arguments']['angles_deg'],[0,3.46,-21.63]*4)
             if row['family']=='recovery_wave':
                 self.assertTrue(row['answers'][0]['arguments']['joint'].startswith('front_'))
             else:

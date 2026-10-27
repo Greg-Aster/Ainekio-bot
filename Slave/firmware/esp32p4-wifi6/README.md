@@ -1,5 +1,39 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.128-p4-resolved-target` resolves each Freestyle endpoint once through the
+existing calibrated pose fitter. Ramping, successful-output detection and fresh
+shaft arrival use that same resolved goal. The authored target remains intact.
+If fitting changed any joint in the packet, completion includes its
+`target_adjusted_joints` mask and `position_verified:false`; reaching an applied
+pose is not reported as verification of a different authored pose. No elapsed
+completion cutoff or stall-sensitivity change is introduced. Native replay of
+the recorded October 26 Wave covers the fitted rear-right carrier, missing
+feedback and subsequent target completion. This describes source behavior;
+firmware activation and loaded physical behavior require separate verification.
+
+`0.8.127-p4-freestyle-owner` removes automatic native Stand at boot and automatic
+stored Lay Down playback at inactivity. Boot/wake and the existing inactivity
+timer notify the host Freestyle owner. Generated speed targets continue through
+the existing fourth-wire arrival executor; native gait/output/feedback services
+remain shared. The legacy motion library, including its 0.8.125 foot checkpoints,
+remains for explicit manual Body Control use. Inactivity emits `idle_rest` with
+its originating command identity; it does not actuate or release outputs itself.
+Freestyle chooses the requested resting motion and explicitly releases afterward.
+Without a connected host/model, no legacy behavior is substituted.
+
+`0.8.125-p4-foot-arrival` verifies the moving leg at each Stand lift and inward
+placement landmark, after the PWM write and before advancing to the next segment.
+Missing observations or a short joint retain that stage's exact targets instead
+of advancing sideways or starting another pass. Supporting joints do not block
+the moving leg's checkpoint. Stop and replacement commands remain available.
+The existing 8 mm modeled lift, travel speed, terminal 2 mm settle and final-goal
+verification remain unchanged. Shaft arrival does not measure carpet clearance.
+The owner's requested 100 us arrival tolerance was saved and confirmed after
+the 0.8.125 reboot. Firmware does not overwrite the robot's saved setting.
+Native tests cover all eight lift/place checkpoints, missing and short feedback,
+support-joint discrepancies, failed writes, Stop and command replacement. Physical
+loaded behavior remains to be verified after installation.
+
 `0.8.124-p4-stand-arrival` keeps a feedback-controlled Stand pending until a
 fresh usable observation confirms all commanded joints within the configured
 arrival tolerance. Previously a stale/missing sample at the end of the sequence

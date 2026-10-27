@@ -88,6 +88,7 @@ EVENT_NAMES = frozenset(
         "tts_overflow",
         "imu",
         "servo_stall",
+        "idle_rest",
         "servo_feedback",
         "wake",
     }
@@ -779,6 +780,7 @@ def _validate_done(message: Mapping[str, object]) -> None:
     _seq(message)
     if "position_verified" in message:
         _boolean(message, "position_verified")
+    _optional_integer(message, "target_adjusted_joints", minimum=0, maximum=4095)
 
 
 def _validate_cancelled(message: Mapping[str, object]) -> None:
@@ -833,10 +835,11 @@ def _validate_event(message: Mapping[str, object]) -> None:
         if not isinstance(volts, list) or len(volts) != 12 or any(
                 value is not None and (type(value) is not int or value < 0) for value in volts):
             _fail("invalid:servo_feedback.signal_millivolts")
-    if name == "servo_stall":
+    if name in {"servo_stall", "idle_rest"}:
         _string(message, "event_id")
         _integer(message, "clock_us", minimum=0, maximum=2**64-1)
         _integer(message, "seq", minimum=0, maximum=MAX_SEQUENCE)
+    if name == "servo_stall":
         _integer(message, "joint_mask", minimum=1, maximum=4095)
         _boolean(message, "outputs_released")
     if name == "imu":

@@ -1,4 +1,84 @@
-# Freestyle v8 data revision
+# Freestyle data and training revisions
+
+## Complete programs and standing endings, October 26
+
+The current curriculum removes internal continuation triggers. Ordinary requests
+and real body fault events receive complete target/speed programs. Former
+continuation endpoints are explicit normal standing poses. The training snapshot
+and editable library remove synthetic rows whose only input was that retired
+trigger; actual stall/fall examples retain their event attribution. Partial
+Stand-prefix generators are replaced by complete ordered native target programs,
+including the final standing target. Runtime does not append hidden motions.
+
+The following training runs are historical, with their original frozen inputs.
+They must not be treated as the current curriculum or as evidence that the revised
+contract has been trained. Current training remains unlaunched; updated target
+labels have no new physical qualification.
+
+## Wave target and recovery repair, October 26
+
+`artifacts/wave-tracking-repair/` freezes the 17:03 failed Wave and its recovery
+requests. The first whole-body target requested rear-right carrier -28.76°;
+the existing firmware fitter applied -23.22° and changed its coupled crank,
+while output completion still compared against the original target. Native
+before/after replay isolates that mismatch. Subsequent shoulder recovery moved
+farther into the measured tracking error and repeatedly received stale pending
+actions. The firmware now shares one resolved goal between ramping and arrival,
+reports adjusted-target masks, and the host keeps pending actions owned by the
+replacement program. Stall thresholds and saved calibration are unchanged.
+
+The corrective dataset removes 44 conflicting old wave labels and contains
+404 training and 139 evaluation rows. New teaching examples use compiled
+spatial foot lifts, complete sweeps and Stand returns, plus signed tracking
+corrections across all twelve joints and measured-completion contrasts.
+Recorded observations are retained with provenance; corrected outcomes are
+authored and **not physically qualified**. Eight left/right/count combinations
+compile inside the recorded feedback domain and return to nominal Stand.
+That is a measurement-domain/geometry check, not proof of mechanical clearance.
+The dataset manifest preserves every pruned label ID and its review reason.
+Production status remains the model/service assignment documented in README;
+training loss alone does not authorize a deployment claim.
+
+## Recovery completion, October 26
+
+`artifacts/recovery-completion/` retains the periodic-twitch incident, reviewed
+completion labels, synthetic paired contrasts, training, and offline executor
+replays. The first focused continuation improved the 36-case next-step comparison
+from 13 to 30 matches, but failed all three untrained continuations from the
+recorded long loop. It was not deployed. These three requests are from the same
+incident, not three independent physical trials.
+
+The continuation in `balanced/` uses the same 286 examples: 110 new/reviewed
+cases and 176 rehearsal examples covering every parent motion family. Its
+36 development cases use different tolerances, errors and orientations.
+Completed recovery is `[]`; pending gestures retain their remaining operations,
+and newly disturbed shafts require a correction. Physical qualification remains
+separate from synthetic geometry and recorded endpoint evidence.
+
+The experiment's existing continuation trainer supports `loss_weighting=example`
+with one-example microbatches. This uses each example's mean response loss and
+the installed Trainer's normal accumulation scaling. Token-normalized batches
+underweight a 3-token completion relative to a 294-token continuing wave.
+The gradient comparison is tested against the installed Trainer; the shared
+MetaHuman trainer is unchanged. Frozen manifests record the selected objective,
+adapter ancestry, observation transform and complete untruncated input sizes.
+
+The balanced candidate passed all three recorded completion replays and 35/36
+recovery contrasts, but the broader regression check found altered wave targets
+and endings. It was also withheld from production. `final/` retains the next
+329-row pass, including reviewed motion regressions and additional examples
+from those existing motion families. Its 71-case development fold excludes the
+one reviewed recovery miss and adds 36 fresh tolerance/noise combinations.
+The reviewed motion cases remain regression checks, not unseen-motion claims.
+
+The final export was activated on DNDIY after 71/71 held-out recovery cases,
+13/13 reviewed motion regressions and 3/3 recorded no-repeat executor replays
+passed. The production generation-only replay also returned an empty program.
+This does not qualify physical recovery or the remaining old-sequence failure;
+deployment evidence and exact limitations are in `final/release-review.json`
+and `final/activation/` under the artifact directory above.
+
+The following v8 sections describe the earlier revision and its evidence.
 
 ## Pending apple correction
 
@@ -473,3 +553,232 @@ not inference timings or physical-motion results.
 The first target-contract continuation completed three epochs with held-out
 loss 0.59746 → 0.11163. A final two-epoch continuation at 8e-5 trains the shorter
 speed values. Its final weights still require serialized-serving validation.
+
+## Local feedback-conditioned Stand continuation, October 25
+
+`artifacts/stand-feedback-v1/final-dataset/` is a separate local candidate,
+continuing the verified local `spatial-v8/qwen-fit` adapter. The historical
+Q6A/v10 notes above are retained; their artifact directory is not present on
+this workstation. The live local v8 service was inspected and still uses the
+older duration-based JSON contract. It has not been replaced by this candidate.
+
+The candidate contains 1,270 training rows, 28 original development rows,
+47 original test rows, 355 comparable older regression rows, 28 recovery probes,
+40 Stand development contrasts and 159 Stand test contrasts. Every retained
+answer validates against the current speed-only serving schema. Exact input
+queries do not overlap training and held-out folds. Stand folds hold out native
+ordering/observation episodes, not unseen motion primitives or unseen hardware.
+
+`stand_geometry.c` links the production posture/contact solver and recorded
+installed calibration. Fourteen level acquisition cases from nominal Stand and
+5/10/15mm below it preserve the requested 8mm lift (minimum reconstructed
+clearance 7.989mm). All 238 quantized acquisition targets pass native FK and
+installed travel without fitting. Forty-six other acquisition cases remain
+excluded with reasons: invalid 25mm-low starts, tilted-plane clearance deficits,
+or nonzero target fitting. Eight additional native leveling contrasts teach
+attitude-dependent correction. These results do not establish swept-path
+clearance, carpet contact, successful recovery or floor-to-Stand capability.
+The separate `mapped-sweep/` audit additionally checks 21 quantized interpolation
+samples on each of 56 airborne placement segments across the accepted cases.
+All 1,176 samples pass native FK and installed travel; minimum modeled clearance
+is 7.984404mm. Native stage support flags are used and audited endpoints exactly
+match the frozen teacher. This adds sampled placement-path evidence, not a
+continuous-path, loaded-dynamics or physical contact guarantee.
+
+Labels emit explicit poses plus reassessment, with no native Stand shortcut.
+They contrast lagged and arrived shafts, loss of a lifted position, high versus
+settled posture and gyro tilt. Histories retain accumulated prior action/effect
+pairs and the bridge's `correction_delta_deg` fields. Fresh requests have no
+pretend active command and commanded angles equal measured starting angles;
+the proposed target never appears as a preexisting command. Sixty reviewed
+default gesture endings hand off to learned Stand acquisition while preserving
+gesture phases and explicit holds. Explicit endings remain unchanged.
+
+Legacy spatial travel is converted to 50% speed when unspecified; explicit
+travel durations become equivalent nominal joint rates. Holds retain seconds.
+Four ambiguous slow-motion proposals remain review-only. Ninety-one old
+regression references with IK conversion failures are listed individually in
+the manifest rather than counted as valid targets. The full idle lie-down
+sequence remains unlabelled because its resting endpoint is not validated;
+explicit release, hold-then-release and keep-engaged contrasts are included.
+Face remains operation9 and the new release operation is appended afterward.
+
+`final-qwen-data/` contains the native trainer export of all 1,927 rows, with
+no truncation. The longest complete example is 19,418 tokens. The run uses
+rank16/alpha32, learning rate8e-5, three epochs, batch1/accumulation8, existing
+Unsloth gradient checkpointing and one retained checkpoint. The corrected run
+is `ainekio-freestyle-train-stand-v1-fixed.service`; its script restores the two
+previously active general model services when it exits. An initialization
+stopped before optimizer progress is retained as evidence of the corrected
+initial-observation leak. No candidate is deployed or physically qualified.
+
+Evaluation includes target compilation plus native FK/travel checks, matched
+full-history reference prefixes, and self-fed idealized shaft rollouts. The
+earlier 68-case short-history baseline is supplementary only. Per-generation
+latency is insufficient: a complete learned acquisition can require about
+20 inference rounds. Small-angle perturbations check the gap between nearly
+exact teacher arrival and the robot's broader saved arrival tolerance. Any
+finite rollout budget belongs only to this offline test, never robot runtime.
+
+A late audit found seven zero-distance placement contrasts where synthetic
+lagged and arrived measurements were identical. The frozen run retained four
+incorrect reissue labels in training and three in the Stand test fold. Separate
+corrected advancement references and their original IDs are saved under
+`identical-state-corrections/`; frozen-label agreement cannot qualify those
+cases. Four Wave-ending begin examples also used a fresh-request event despite
+completed same-job Wave context. The offline builder now fixes both issues.
+Its separate 569-row parity revision additionally carries complete Wave
+before/after pairs, full wire motion commands, and commanded angles reconstructed
+from integer PWM. These rows have not changed the running training input.
+Actual generated lower-start behavior decides whether a short correction and
+rehearsal continuation is needed. The active compact MotionLibrary editor and
+canonical SQLite contents have not been overwritten by this expanded-JSON
+experiment.
+
+### Stand correction continuation
+
+The first Stand adapter completed three epochs: evaluation loss decreased from
+0.352766 to 0.083291 in 4,168 seconds. It is not ready for deployment: all seven
+corrected placement probes reissued an already-reached target, and all four
+self-fed nominal/lower-start trials exhausted their offline 24-round budget.
+The nominal case used 26.23 seconds of inference while repeating effectively
+the same pose. Loss and schema validity did not establish progress or completion.
+Its frozen adapter, export hashes and failure traces remain in `stand-feedback-v1/`;
+the failed Q8 file was removed after confirming it was unused.
+
+`stand-feedback-correction/final-dataset/` is the separate correction candidate:
+1,677 training rows, 174 Stand development rows and 580 Stand test rows, plus
+the preserved 28 general development, 47 test, 28 recovery and 355 regression
+rows. All 1,531 feedback rows pass current target compilation and native
+measured-pose/target FK and installed-travel checks. This includes corrected
+wire/PWM histories, noncontradictory progress labels, 0.1-degree near-arrival
+contrasts, and short nominal-start high→nominal→finish histories. A fresh
+nominal Stand request still performs the requested rise/settle; completed-goal
+history teaches termination. Five actual failed offline contexts receive
+proposed corrections. Three sampled off-path lower15 contexts remain unresolved:
+their supplied-angle native paths failed the requested clearance qualification.
+
+The new splayed starts exercise inward foot placement. Crank3200/4800 cases
+provide training, while the entire crank4041 variant stays held out. Within
+episode lift→place XY displacement is respectively 6.2185, 15.5889 and
+11.1629mm. Separate 21-sample native sweeps found minimum modeled clearance
+7.91769, 7.50294 and 7.75156mm: these paths stay above the modeled floor but
+do not maintain 8mm throughout. Earlier near-Stand sweep cases had almost zero
+horizontal reposition and cannot establish inward-step performance. No dataset
+row claims physical clearance, carpet contact, loaded stability or successful
+recovery. Noise magnitudes 0.25 and 1 degree remain held out.
+
+The corrective run uses the first Stand adapter as parent, one epoch at 8e-5,
+rank16/alpha32 and batch1/accumulation8. All 2,889 exported examples are measured
+without truncation; the largest is 19,867 tokens. The one-epoch run completed
+in 2,332 seconds; held-out general loss changed from 0.083291 to 0.077164,
+with peak Torch allocation 5,190,434,304 bytes. Both approved general model
+services were restored. Its adapter/export hashes remain; after the October 26
+native/Q8 parity check, the unused failed Q8 file was removed. Temporary
+merge/F16 files were removed by the exporter.
+
+The first three corrected self-fed tests still failed completion within their
+24-round offline trial budgets. Nominal start now produces high→nominal, then
+repeats nominal instead of finishing. Lower15 and held-out crank4041 both jump
+directly high, skipping stepping acquisition; lower15 finishes the trial about
+8 degrees from nominal. Terminal nominal angles therefore cannot qualify the
+splayed trial. These failures block production qualification despite lower loss.
+On October 26, three direct saved-adapter checks (lower15 entry, held-out
+crank4041 entry, and a training short-settled context) produced exactly the same
+programs as Q8 inference. All three made the wrong next decision. This isolates
+these failures to learned behavior rather than an export-only discrepancy;
+the outputs and hashes are retained in `stand-feedback-correction/parity-review.json`.
+The isolated candidate server was stopped after the check. An original-contract
+v8 comparison is separate; production remains unchanged and no physical success
+is claimed.
+
+`state-diversity-review.json` records the remaining distribution weakness:
+the 11 entry examples expose only six distinct measured starting joint vectors,
+all level, while 659 rows teach lagged/arrived/near-arrived intermediate decisions.
+There are only four short-settle examples. The model sees shaft angles, PWM,
+attitude and action/effect history; Cartesian positions and native phase metadata
+are not included in its prompt. This is evidence for balancing varied entry and
+completion states, not yet evidence that model capacity or LoRA is the limit.
+
+### Balanced Stand continuation, 2026-10-26
+
+`stand-entry-balanced/dataset/` retains all 900 general-motion rehearsal rows
+unchanged and replaces the intermediate-heavy feedback sampling with 361 rows:
+86 entry, 117 intermediate, 54 settling, 97 completion and 7 attitude decisions.
+Forty distinct synthetic starting geometries contribute fresh-Stand and
+completed-Wave contexts. Selected contrasts cover every leg's lift/place/lower
+phases; the complete qualified lower15 episode remains. Completed short and
+full histories, small shaft-reading perturbations, and three actual nominal-loop
+contexts teach ending the operation after the requested rise and settle.
+
+All 361 feedback rows pass native measured-pose/target FK and installed-travel
+checks. Reference swept-clearance evidence is retained separately; these are
+not physical success labels. Reserved crank angles from -42 through -39 degrees,
+the existing evaluation folds and 0.25/1-degree noise trials remain held out.
+Twelve focused curriculum/evaluation tests pass. The trainer export contains
+2,473 total examples across folds with a 19,866-token maximum and no truncation.
+
+The continuation uses the corrected adapter as parent, two epochs at 8e-5,
+rank16/alpha32 and batch1/accumulation8. Its run plan records weights, data and
+configuration hashes. Production remains v8 while this candidate is trained and
+assessed. Model quality requires generated trajectories and completion evidence;
+the training loss is not a motion-success score.
+
+The two-epoch run completed in 2,869.73 seconds. General evaluation loss changed
+from 0.077164 to 0.069928; peak Torch allocation was 5,653,916,160 bytes. The
+first-epoch checkpoint failed all three self-fed trials, despite learning one
+previously failed short-completion probe. The final checkpoint completes the
+already-standing high→nominal→finish trial in three responses. Lower15 instead
+ends after four responses with a 53.51-degree maximum nominal-joint error, and
+held-out crank4041 repeats an off-target pose throughout the 24-round offline
+trial. Only the already-standing trial demonstrates the requested geometric
+goal; none establishes physical behavior.
+
+The final candidate matches 15/34 sampled known training decisions. Arrival
+transitions match 0/5 (target errors 0.8–25.48 degrees); entry decisions match
+1/10. High→nominal and terminal completion examples improve, so lower loss and
+a learned ending alone do not establish acquisition. The model remains outside
+production. Production v8 is unchanged, and both paused general LLM services
+were restored after training.
+
+A read-only data audit found no remaining duplicate-input contradictions, but
+three older rehearsal examples bypassed the handoff migration: two used the
+existing explicit `stand` ending policy, and one reviewed lift lacked an ending
+annotation. The migration now accepts `stand` and `default_stand` while preserving
+explicit numeric, return-to-start and keep-raised overrides. Separate reviewed
+corrections and originals are in `stand-entry-balanced/ending-review/`; they were
+found after this run began and are **not learned by this checkpoint**. Frozen
+training data and exports were not changed. Fifteen focused tests pass.
+
+The old correction Q8 and first-epoch Q8 were deleted only after verifying their
+hashes and absence of open handles, reclaiming 1,623,686,336 bytes. Their adapters,
+data and failed outputs remain, along with active v8 and the final candidate Q8.
+
+The broader comparison attempted the same 148 requests on v8 and the final
+candidate. V8 completed 147 outputs and the candidate 146; one v8 and two
+candidate requests were manually cancelled while still generating long compound
+programs. On the 145 mutually completed cases, reference-program matches improve
+from 26 to 59. Target translation/compilation failures decrease from 26 to 12.
+These counts are not physical success rates, and unmatched reference programs
+can include valid alternatives. One completed candidate output also expands a
+58-call reference into 476 calls and takes 90.59 seconds. The failed acquisition
+trials and compound-generation failures still prevent deployment.
+
+`stand-entry-balanced/final-review.json` records the full decision, hashes,
+data corrections not yet trained, cleanup and runtime state. Temporary candidate
+servers and training/evaluation processes have stopped; production remains v8.
+The next data work is entry/reached-target advancement and the three reviewed
+ending corrections. No noise-robustness or physical-recovery success is claimed.
+
+### Owner-requested production activation, 2026-10-26
+
+After reviewing those results, the owner explicitly directed deployment of the
+trained model. The existing DNDIY Freestyle model and generator units now select
+`stand-entry-balanced/served/model.Q8_0.gguf` and its matching `dataset/` contract.
+The prior evaluation above remains unchanged historical evidence; activation is
+not a claim that the failed tests passed. Both services are enabled and active.
+Live API identity matched the exported Q8 hash, and a generation-only nominal
+Stand request returned `pose` then `reassess` in 0.663 seconds. No robot commands
+or firmware flash were issued. Inference recording remains enabled. Verification
+and the prior service configurations are retained in
+`stand-entry-balanced/activation/`; remote Q6A services were not modified.

@@ -27,6 +27,23 @@ def accepted(identifier: str) -> dict:
 
 
 class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
+    async def test_applied_target_adjustments_remain_visible_in_terminal_feedback(self):
+        from protocol.control_v1 import validate_control_message
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+        try:
+            terminal = {"t":"done", "seq":12, "position_verified":False,
+                        "target_adjusted_joints":48}
+            validate_control_message(terminal)
+            result = adapter._terminal_feedback("wave", terminal, command="motion_plan",
+                sequence=12, robot_id="test-body", epoch=2)
+            self.assertFalse(result["data"]["position_verified"])
+            self.assertEqual(result["data"]["target_adjusted_joints"],48)
+            for mask in (-1,4096,True):
+                with self.assertRaises(ValueError):
+                    validate_control_message({**terminal,"target_adjusted_joints":mask})
+        finally:
+            adapter.receipts.close()
+
     async def test_status_receipt_timestamp_reaches_snapshot_and_bridge_unchanged(self) -> None:
         gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "test"}))
         connection = GatewayConnection(gateway, FakeWebSocket(), "test-body", 1)
@@ -627,8 +644,11 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(wire_failure=fail):
                 service = GatewayService(GatewayServiceConfig(tokens={"fixture": "fixture"}))
 
+                wire_attempts = []
+
                 class Wire(FakeWebSocket):
                     async def send(self, value):
+                        wire_attempts.append(value)
                         if fail:
                             raise OSError("controlled wire disconnect")
                         await super().send(value)
@@ -639,10 +659,14 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                 adapter = EnvironmentAdapter(service, EnvironmentAdapterConfig(token="fixture", robot_id="body", receipt_path=":memory:"))
                 socket = FakeWebSocket()
                 adapter._websocket, adapter._bridge_ready = socket, True
-                original = {**action("transport"), "command": "stand"}
+                # Stand now belongs to Freestyle. Use the direct Stop wire path
+                # for transport failure, retaining Stand for the legacy receipt.
+                original = {**action("transport"), "command": "stop" if fail else "stand"}
                 adapter.receipts.receive(original, accepted("transport"))
                 if fail:
                     await adapter._process_environment_action(original)
+                    self.assertEqual(len(wire_attempts), 1, "The failure must occur after dispatch reaches the wire")
+                    self.assertEqual(json.loads(wire_attempts[0])["t"], "stop")
                     expected = "outcome_unknown"
                 else:
                     adapter.receipts.begin("transport", {"robotId": "body", "sequence": 9, "kind": "intent"})

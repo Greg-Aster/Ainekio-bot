@@ -1,7 +1,7 @@
 {
   "version": "motion-targets-v1",
   "source": "Body Control editable motion library",
-  "training_rows": 2506,
+  "training_rows": 2402,
   "training_launched": false,
   "discarded_examples": [
     {
@@ -63,17 +63,569 @@
       "id": "fba4b6f01b3614f0",
       "replacement_id": "7f6758be34477b04",
       "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
+    },
+    {
+      "id": "031b0d23988a9e90",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "058a0e9f3eed0646",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "061117ec70263331",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "0b46516aae418944",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "0cb30aeaa7210c87",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "0ddc336492fef9b1",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "0ef1824c69f2eecb",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "18219286c88cffc1",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "1896647d35b2f79c",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "18cac8c23e860849",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "19df39da5fc67f19",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "250cd305110730a3",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "251587b2391b5b8f",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "330a35041785b60c",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "331f120a60000bfc",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3a69e933c074a802",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3b4aa3dbc7afd550",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3bad55bc4b1e1a88",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3c51bcd0457991c1",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3e97cd32b86e910e",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "40adabc54d100d75",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "416739d0c0645700",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "4182068db614d530",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "44127a255ca1ccd9",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "47104127e5c12075",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "496d70dc4cc36849",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "4ab029cc7d6862a9",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "4f28d03b9606153b",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "544fd397dbad2445",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "54c91f89b440a6e5",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "55eda01836b3edbb",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "56cebf92950f2d95",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "575aa7ad67636a0a",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "5ba88641ca475a3f",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "5ccf99fac036368b",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "5de7188d8dc801f3",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "60ccf8c4ae83be5c",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "6291501292b78b87",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "66a56b26940077e0",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "66c2e3cd9987d68a",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "6df44de6b013dfb5",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "6f2d2e51b7fc5140",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "7277af1e960a1a65",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "7336e5e23b09d5a0",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "7461e7a67849752c",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "784368722aa26564",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "79392e08c8c4a2a5",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "7fd4dd07d75daa9a",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "80f1cace77c3ed97",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "825c165f1d8670cd",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "830f26ed0e1ca3b0",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "8980380559fef782",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "8abc33ecd7fdb554",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "93cb06bf1f7805ff",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "973401c2f669cb88",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9857bd3a67038a18",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "991d5bff54159d8f",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9b68678aeafc325d",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9f4a20a5eb3d6fe6",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9fd79d8c2fc2b863",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "a1f73b3e9e2d9622",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "a20ad7a6b0b2f0ce",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "a4f6d4771e5cf60c",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "a6093540d55f4d0f",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "a79299b60989f426",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "ac9490d562d19e17",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "af21d2d34c924c42",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "b874826504c0ceaf",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "b876ffd2a2b392aa",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "bb2bab8cd8ea2913",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "bc04792fe4581dbc",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "c1a0f65963ce0f82",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "c68e16b75a022162",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "c7a464ae06dcb316",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "c89e402a96f70a87",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "c8f84bf62e55dd10",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "cb5c3f2711898fd9",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "cbb2e74f1b4814fc",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "cffcd9f9c0952be2",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d0df5f87e3748426",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d305cc2d00fcf905",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d33eec5f44553a3f",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d71ffb73ad7211ed",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d93e7a863765ddf3",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d9c988ff34bd06d1",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "dd34d5236ac5d0db",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "df4a59726b244eeb",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "dff47a756e98221f",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e40947bf5cddd455",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e445596c7725b805",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e6383fcef74d4d0e",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e6fe74b3f7cfa6a3",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e700a80cd44c0b1a",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e784668a8bad02e7",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e79476bec18b1f68",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "ea8689b7812517e5",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "eb8e52f1cc1a963b",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "eed00fa89152a7de",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "efe10edd4eea5c85",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "fa32ed9aafcb0d7d",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "faaffeaecf32f2c9",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "fe2105880a716b4e",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "fe464d919e8becce",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "ff3397748fc64ebe",
+      "replacement_id": null,
+      "reason": "Retired internal continuation trigger; no external request or fault event"
     }
   ],
-  "encoding_sha256": "10854be5e646590d0cbf3604caefbc15cac7c5c9e86afcf9b155069ff0746faf",
+  "encoding_sha256": "58c1b43a3b27d6bdcc5e3a9f2a43dd9043a07306a5c27a374451e412b768e545",
   "files": {
-    "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
-    "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "evaluation.jsonl": "5323bd648a63e503ee70aa74be67a1b6e623ef84d57beb17e010185949a31284",
-    "test.jsonl": "430a2fc043476ef7fe066cae147aa9cddce53185ac70956f05796bf173a3f311",
-    "recovery-probe.jsonl": "dab9e5c18dc0dbe0a1654360521bfcdb4bbdfeeebdf0da6ca270c87d63dc65f7",
-    "regression-evaluation.jsonl": "a63108c55e032a362b83a831ca794915dfde051cbaa76c903552b3070754b085",
-    "train.jsonl": "a613556c876368bd2ec25ee5244952146f437482ab55bde877cd69964566ce1f",
-    "tools.json": "69f4fb2dc98516ca1f17c3ba8f05913ffe42444033af522fbb8452d85f24a01e"
+    "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "train.jsonl": "d74c2f10cae838a93c7f1883888b5ec314d729576f67560743a30b764e5e1879",
+    "recovery-probe.jsonl": "572c3e1734e66f95d0ecbe7ce784512dc153737b41a505a75c64881473d8ff28",
+    "tools.json": "b75521e9647fb9950af14a1046aa9112e36d253447f595fded4e2651c6f05cdf",
+    "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
+    "regression-evaluation.jsonl": "0141b914ab491358a8d41dfa61549036a7ae13c7448c143a5674a5c8bb500b3e",
+    "test.jsonl": "430a2fc043476ef7fe066cae147aa9cddce53185ac70956f05796bf173a3f311"
+  },
+  "program_completion_revision": {
+    "source": "Owner-authorized terminal standing targets",
+    "splits": {
+      "evaluation": {
+        "rows": 28,
+        "changed": 0,
+        "removed_event_only_rows": 0
+      },
+      "train": {
+        "rows": 2402,
+        "changed": 1648,
+        "removed_event_only_rows": 104
+      },
+      "recovery-probe": {
+        "rows": 1533,
+        "changed": 1525,
+        "removed_event_only_rows": 104
+      },
+      "regression-evaluation": {
+        "rows": 343,
+        "changed": 40,
+        "removed_event_only_rows": 12
+      },
+      "test": {
+        "rows": 47,
+        "changed": 0,
+        "removed_event_only_rows": 0
+      }
+    },
+    "training_launched": false,
+    "physical_trials": 0
   }
 }

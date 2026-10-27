@@ -17,8 +17,7 @@ TOOLS = copy.deepcopy(V1_TOOLS)
 TOOLS[2]['parameters']['properties']['name']['enum'] = POSTURES
 TOOLS += [tool('gait', 'Call the existing P4 gait. cycles=0 means ongoing; positive cycles requests that many gait cycles.', {
     'command': {'type':'string','enum':GAITS}, 'speed_pct':{'type':'number'}, 'cycles':{'type':'integer'}}),
-    tool('stop', 'Stop body motion when the user requests stopping.', {}),
-    tool('reassess', 'Request fresh servo and IMU observations and generate the next correction for the original goal.', {})]
+    tool('stop', 'Stop body motion when the user requests stopping.', {})]
 SYSTEM = ('Translate the request into a JSON array of calls, each with name and arguments. '
           'Output only requested actions, in requested order. Preserve holds, repetitions, and return targets. '
           'Use move for one joint, pose for joints moving together, oscillate for repeated back-and-forth joint movement, '
@@ -31,7 +30,7 @@ SYSTEM = ('Translate the request into a JSON array of calls, each with name and 
           'A stall means lack of measured progress toward a target; compare recent samples and commanded direction. '
           'For obstruction use the measured free-side range to retreat and adapt the gesture. '
           'IMU orientation_wxyz is a body quaternion; compare body-up with expected_up and the previous correction. '
-          'Use reassess when further feedback is needed; a correction is not proof of recovery. '
+          'A correction is not proof of recovery. '
           'Return calls only, without reasoning or prose. Tools: '+compact(TOOLS))
 
 PHRASES = {

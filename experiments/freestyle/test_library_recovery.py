@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from .compact_wire import ProgramEncoding
 from .library_recovery import scenarios, validate_prefix, deduplicate
-from .migrate_targets import CONTRACT, STAND
+from .migrate_targets import CONTRACT, STAND, standing_pose
 from .runtime import JOINTS
 
 
@@ -22,7 +22,7 @@ class LibraryRecoveryTests(unittest.TestCase):
                'joint_speed_limit_deg_s':180}
         return {'id':'0102030405060708','source_hash':'current-reviewed-example',
                 'query':json.dumps({'request':'Perform my motion and then stand','observation':state}),
-                'answers':[['face','happy'],operation,['stand']]}
+                'answers':[['face','happy'],operation,ProgramEncoding(CONTRACT).encode([standing_pose()])[0]]}
 
     def test_every_joint_direction_retreats_and_preserves_goal_and_tail(self):
         for joint in range(12):
@@ -36,11 +36,11 @@ class LibraryRecoveryTests(unittest.TestCase):
                 self.assertFalse({r['id'] for r in train}&{r['id'] for r in probe})
                 self.assertEqual(jam['parent_source_hash'],source['source_hash'])
                 self.assertEqual(jam['recovery_evidence']['joint'],joint)
-                self.assertTrue(all(direction*(p[JOINTS[joint]]-jam['recovery_evidence']['blocked_deg'])<0 for p in targets))
-                self.assertEqual(jam['answers'][-1],['reassess'])
+                self.assertTrue(all(direction*(p[JOINTS[joint]]-jam['recovery_evidence']['blocked_deg'])<0 for p in targets[:-1]))
+                self.assertEqual(jam['answers'][-1],ProgramEncoding(CONTRACT).encode([standing_pose()])[0])
                 query=json.loads(jam['query'])
                 self.assertEqual(query['request'],'Perform my motion and then stand')
-                self.assertEqual(query['history'][0]['remaining_program'],[['stand']])
+                self.assertEqual(query['history'][0]['remaining_program'],[ProgramEncoding(CONTRACT).encode([standing_pose()])[0]])
                 self.assertNotIn('stop',[a[0] for a in jam['answers']])
 
     def test_fall_changes_direction_when_measured_effect_worsens(self):
@@ -53,7 +53,7 @@ class LibraryRecoveryTests(unittest.TestCase):
             correction=row['answers'][1]
             expected=[v*(1 if row['recovery_evidence']['improved'] else -1) for _,v in effect['delta_deg']]
             self.assertEqual(correction[2],expected)
-            self.assertEqual(row['answers'][2],['reassess'])
+            self.assertEqual(row['answers'][2],ProgramEncoding(CONTRACT).encode([standing_pose()])[0])
             self.assertEqual(query['event']['type'],'tipped')
             self.assertFalse(row['physical_qualification'])
 

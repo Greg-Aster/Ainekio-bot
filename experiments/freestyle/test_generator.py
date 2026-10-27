@@ -7,12 +7,33 @@ import unittest
 from unittest.mock import patch
 
 from experiments.freestyle.generator import Generator, IncompleteProgram, async_remote_generate, create_app, argument_schema
-from experiments.freestyle.observations import enrich
+from experiments.freestyle.observations import enrich, feedback_geometry
 from experiments.freestyle.recordings import Recorder, read_records
 import math
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_motion_contract_has_no_model_reentry_operation(self):
+        from experiments.freestyle.motion_space import TOOLS, INSTRUCTIONS, COMPLETION_INSTRUCTIONS
+        from experiments.freestyle.compact_wire import ProgramEncoding
+        from jsonschema import Draft202012Validator
+        encoding = ProgramEncoding(TOOLS)
+        self.assertNotIn('reassess', encoding.tools)
+        self.assertNotIn('reassess', (INSTRUCTIONS + COMPLETION_INSTRUCTIONS).lower())
+        validator = Draft202012Validator(encoding.schema(argument_schema))
+        self.assertFalse(validator.is_valid([['reassess']]))
+        self.assertTrue(validator.is_valid([['move', 9, 20, 'current', 50]]))
+
+    def test_feedback_domain_uses_each_servo_mapping_and_never_invents_missing_calibration(self):
+        joint={'id':7,'calibrated':True,'points':[{'pulse_us':500},{'pulse_us':1650},{'pulse_us':2800}]}
+        mapping={'home_cd':-3087,'home_us':2740,'us_per_degree':100/9,'invert':True}
+        value=feedback_geometry(mapping,joint,{'arrival_tolerance_us':100})
+        self.assertAlmostEqual(value['feedback_range_deg'][0],-36.27)
+        self.assertAlmostEqual(value['feedback_range_deg'][1],170.73)
+        self.assertNotIn('feedback_usable',value)
+        self.assertNotIn('feedback_range_deg',feedback_geometry(mapping,{**joint,'calibrated':False},{}))
+        self.assertNotIn('feedback_range_deg',feedback_geometry(mapping,{**joint,'points':[None,None,None]},{}))
+
     def test_spatial_generation_schema_pairs_every_named_leg_with_its_offset(self):
         from jsonschema import Draft202012Validator
         for name,offset in [('feet','offsets_mm'),('body','foot_offsets_mm')]:
@@ -83,6 +104,36 @@ class GeneratorTests(unittest.TestCase):
             message=json.loads(payload['messages'][1]['content'])
             self.assertEqual(message['history'],history)
             self.assertEqual(message['observation']['imu'],{'available':False})
+
+    def test_model_receives_measured_error_and_configured_tolerance_without_claiming_arrival(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'system.txt').write_text('test');(root/'tools.json').write_text('[]')
+            generator=Generator('http://model/v1','test',root)
+            joints={'a':{'model_deg':13,'commanded_model_deg':20,'arrival_tolerance_deg':9,'feedback_usable':False},
+                    'b':{'model_deg':10,'commanded_model_deg':20,'arrival_tolerance_deg':9},
+                    'c':{'model_deg':10,'commanded_model_deg':None}}
+            payload=generator._payload('recover',{'joints':joints,'imu':{'orientation_wxyz':[1,0,0,0]}},
+                {'type':'servo_stall'},[{'receipts':[{'t':'done','seq':7,'position_verified':True}]}])
+            query=json.loads(payload['messages'][-1]['content'])
+            values=query['observation']['joints']
+            self.assertEqual(values['a']['tracking_error_deg'],7)
+            self.assertTrue(values['a']['within_arrival_tolerance'])
+            self.assertFalse(values['a']['feedback_usable'])
+            self.assertFalse(values['b']['within_arrival_tolerance'])
+            self.assertNotIn('within_arrival_tolerance',values['c'])
+            self.assertEqual(query['history'][0]['receipts'][0]['seq'],7)
+            self.assertEqual(query['observation']['imu']['derived_orientation']['tilt_degrees'],0)
+            serialized=generator._payload(json.dumps({'request':'recover','observation':{'joints':joints}}))
+            self.assertEqual(json.loads(serialized['messages'][-1]['content'])['observation']['joints'],values)
+            columns=enrich({'model_deg':[1,None,3],'commanded_model_deg':[2,2,None]})
+            self.assertEqual(columns['tracking_error_deg'],[1,None,None])
+            self.assertEqual(query['observation']['shaft_tracking']['outside_arrival_tolerance'],['b'])
+            self.assertEqual(query['observation']['shaft_tracking']['unusable_feedback'],['a'])
+            self.assertEqual(query['observation']['shaft_tracking']['unknown_arrival_tolerance'],['c'])
+            self.assertEqual(list(query)[-1],'observation')
+            self.assertNotIn('within_arrival_tolerance',enrich({'model_deg':None,
+                'commanded_model_deg':10,'within_arrival_tolerance':True}))
 
 
 class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):

@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 
 from .runtime import compact
+from .observations import enrich
 from .compact_wire import FORMAT, LEGACY_FORMAT, ProgramEncoding, model_query
 
 
@@ -74,6 +75,14 @@ class Generator:
     def _payload(self, request, observation=None, event=None, history=None):
         query = request if observation is None and event is None and not history else {
             'request':request,'event':event,'observation':observation,'history':history or []}
+        if isinstance(query,str):
+            try:
+                decoded=json.loads(query)
+            except ValueError:
+                pass
+            else:
+                if isinstance(decoded,dict):query=decoded
+        query = enrich(query)
         if self.encoding:
             query = model_query(query, self.encoding)
         if not isinstance(query, str):

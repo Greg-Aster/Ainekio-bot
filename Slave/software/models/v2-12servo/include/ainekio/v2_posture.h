@@ -29,6 +29,18 @@ bool ainekio_v2_posture_advance_mapped(ainekio_v2_posture_t *state,double *progr
  * legs before the next step redistributes their load. */
 uint16_t ainekio_v2_posture_arrival_joints(const ainekio_v2_posture_t *state,double progress);
 unsigned ainekio_v2_posture_order_for_joints(uint16_t joints,unsigned start);
+/* Geometric targets for measured execution. The coordinate is not elapsed
+ * time: the caller advances it only after the preceding target is observed. */
+bool ainekio_v2_posture_next_target(ainekio_v2_posture_t *state,double *progress,
+    uint16_t *moving_joints);
+bool ainekio_v2_posture_next_target_mapped(ainekio_v2_posture_t *state,double *progress,
+    uint16_t *moving_joints,ainekio_v2_posture_fit_t fit,void *context);
+/* Reconstruct sole clearance and body height from shafts and attitude using
+ * the current supporting feet as the estimated ground plane. No contact sensor
+ * is implied by this estimate. */
+bool ainekio_v2_posture_observe(const ainekio_v2_posture_t *state,
+    const ainekio_v2_frame_t *measured,const double euler[3],
+    ainekio_v2_walk_pose_t *observed);
 /* Target and open-loop startup fold reference, not a second motion planner. */
 typedef struct {
     ainekio_v2_walk_pose_t crouch, stand;

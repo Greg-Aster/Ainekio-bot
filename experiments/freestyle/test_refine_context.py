@@ -41,7 +41,7 @@ class ContextDataTests(unittest.TestCase):
         for r in jam:
             value=json.loads(r['query'])
             self.assertEqual(value['event']['type'],'servo_stall')
-            self.assertEqual([a['name'] for a in r['answers']],['move','oscillate','reassess'])
+            self.assertEqual([a['name'] for a in r['answers']],['move','oscillate','pose'])
             self.assertTrue(value['history'])
 
     def test_lift_targets_come_from_authored_sample_and_keep_order(self):

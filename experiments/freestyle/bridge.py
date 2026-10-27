@@ -1,4 +1,4 @@
-"""Opt-in Body Control owner for the removable Freestyle experiment."""
+"""Freestyle generation and execution owner shared by Body Control and MetaHuman."""
 import asyncio
 import contextvars
 from contextlib import AsyncExitStack
@@ -13,9 +13,20 @@ from uuid import uuid4
 from .generator import async_remote_generate
 from .compact_wire import latest_correction, joint_progress
 from .recordings import read_records
+from .observations import feedback_geometry
 from .program import JOINTS, calibrated_positions, compile_motion, packets, gait_intents
 
 OWNER = contextvars.ContextVar('freestyle_job', default=None)
+
+
+def recovery_has_motion_owner(snapshot):
+    """Recovery cannot undo a later Stop, Release or manual control handoff.
+
+    Use the gateway's existing command ownership, not a separate stop latch.
+    An explicit new motion changes that owner through ordinary admission.
+    """
+    command = snapshot.get('body_command') or {}
+    return command.get('t') not in ('stop', 'state', 'mode', 'calibration')
 
 
 class Bridge:
@@ -206,6 +217,7 @@ class Bridge:
             j=JOINTS[item['id']]
             joints[j].update({k:item[k] for k in ('model_deg','calibrated','in_calibrated_range','command_us') if k in item})
             mapping = next(v for v in calibration['joints'] if v['id']==item['id'])
+            joints[j].update(feedback_geometry(mapping, item, feedback))
             joints[j]['commanded_model_deg'] = (home[j]+(-1 if mapping['invert'] else 1)*(item['command_us']-mapping['home_us'])/mapping['us_per_degree']
                                                  if item['command_us'] else None)
             if 'velocity_us_s' in item:
@@ -214,7 +226,8 @@ class Bridge:
         imu = status.get('imu')
         return {'epoch':snapshot['epoch'],'joints':joints,'imu':imu,
                 'expected_up':((imu or {}).get('motion') or {}).get('expected_up'),
-                'feedback':{k:feedback[k] for k in ('device_us','scan_us','enabled','stalled_joints','no_progress_ms') if k in feedback},
+                'feedback':{k:feedback[k] for k in ('device_us','scan_us','enabled','stalled_joints','no_progress_ms',
+                    'waiting_joints','health') if k in feedback},
                 'joint_speed_limit_deg_s':speed['joint_speed_limit_deg_s'],
                 'action':snapshot.get('body_command'), 'model':'v2-12servo'}
 
@@ -275,155 +288,151 @@ class Bridge:
             event = ({'type':original_event['data']['kind'], **original_event['data'],
                       'event_id':original_event.get('event_id'),'epoch':original_event.get('epoch')}
                      if original_event and original_event.get('name')=='body_event' else original_event)
-            continuation = copy.deepcopy(next((h['remaining_program'] for h in reversed(job['history'])
-                if isinstance(h,dict) and h.get('remaining_program')), []))
-            while True:
-                obs = await self.connected_observation(job)
-                if continuation:obs={**obs,'pending_actions':continuation}
-                job['observation'] = obs
-                if 'initial_observation' not in job:
-                    job['initial_observation'] = copy.deepcopy(obs)
-                request = {'request':job['request'],'observation':obs,'event':event,'history':job['history']}
-                generation_index = len(job['programs'])
-                supplied = 'supplied_program' in job and not job['programs']
-                self.record(job, 'correction_trial_requested' if supplied else 'generation_requested',
-                            {'generation_index':generation_index, 'execute':job['execute'],
-                             'request':request, **({'source':job['source']} if supplied else {})})
-                if supplied:
-                    result = {'program':copy.deepcopy(job['supplied_program']), 'source':job['source']}
-                else:
-                    result = (await self.generate(setting['endpoint'],request) if inspect.iscoroutinefunction(self.generate)
-                              else await asyncio.to_thread(self.generate,setting['endpoint'],request))
-                job['programs'].append(result)
-                self.record(job, 'correction_trial_program' if supplied else 'generation_completed',
-                            {'generation_index':generation_index, 'result':result})
-                if not job['execute']:
-                    job['state']='generated';return
-                # Generation survives robot session changes. Compile its result
-                # from current measurements, not the pre-inference body pose.
-                obs = await self.connected_observation(job)
-                job['observation'] = obs
-                job['state']='executing'
-                reassess = False
-                # A generated plan owns the next actions. Appending the old
-                # tail could repeat the obstruction the model just adapted.
-                # Pending actions are goal context, not an automatic replay.
-                # Reassessment can retain that context without making the LLM
-                # emit another copy of it in every correction.
-                pending_goal = continuation
-                program = result['program']
-                continuation = []
-                planned = None
-                planning_epoch = obs['epoch']
-                for index, action in enumerate(program):
-                    name, args = action['name'], action['arguments']
-                    if 'recovery_owner' in job and name in (
-                            'move','pose','oscillate','feet','body','gait','gesture','stand','stop'):
-                        obs = await self.connected_observation(job)
-                        job['observation'] = obs
-                        planned = None
-                    if obs['epoch'] != planning_epoch:
-                        planned = None
-                        planning_epoch = obs['epoch']
-                        if prepared is not None:
-                            prepared[1].cancel()
-                            await asyncio.gather(prepared[1],return_exceptions=True)
-                            prepared = None
-                    job['current_action'] = action
-                    job['remaining_program'] = copy.deepcopy(program[index+1:])
-                    job['packet_progress'] = None
-                    self.record(job, 'operation_started', {'generation_index':generation_index,
-                                'action_index':index, 'action':action, 'observation':obs})
-                    if name == 'face':
-                        # A token keeps the expression across this program's
-                        # motion_plan revisions. Face receipts are captured by
-                        # the gateway recorder; they never delay body motion.
-                        scoped = any(item['name'] != 'face' for item in program)
-                        face_token = 'fs_' + job['id'][:24] if scoped else None
-                        seq = await self.gateway.queue_intent('face',
-                            {'expr':args['expr'], **({'token':face_token} if scoped else {})}, robot_id=robot)
-                        if scoped:job['face_token'] = face_token
-                        self.record(job, 'face_submitted', {'expression':args['expr'],
-                                    'scope':'program' if scoped else 'normal_face_selection',
-                                    'generation_index':generation_index, 'action_index':index}, sequence=seq)
-                        continue
-                    if name == 'reassess':
-                        continuation = program[index+1:] or pending_goal
-                        reassess=True; break
-                    before = obs
-                    if name == 'hold':
-                        await asyncio.sleep(args['seconds'])
-                    elif name in motion_names:
-                        if prepared is not None:
-                            prepared_index, compiling = prepared
-                            assert prepared_index == index
-                            compiled = await compiling
-                            prepared = None
-                        else:
-                            compiled = await self.compiler(action,obs,planned)
-                        frames = compiled['frames']
-                        start, home, moving = (compiled[key] for key in ('start','home','moving'))
-                        planned = compiled['end']
-                        self.record(job,'motion_prepared',{'action_index':index,'start':start,
-                                    'target':planned,'speed_deg_s':[f[0]/100 for f in frames]})
-                        # Prepare one successor during playback. Faces and
-                        # authored holds retain their order; reassessment and
-                        # native motions establish a new measured starting pose.
-                        for following in range(index+1,len(program)):
-                            next_action = program[following]
-                            if next_action['name'] in motion_names:
-                                prepared = (following,asyncio.create_task(
-                                    self.compiler(next_action,obs,dict(planned))))
-                                break
-                            if next_action['name'] not in ('face','hold'):
-                                break
-                        progress = {'completed_frames':0,'submitted_frames':None,'sequence':None}
-                        job['packet_progress'] = progress
-                        for packet in packets(frames):
-                            progress['submitted_frames'] = packet
-                            seq = await self.gateway.queue_motion_plan(packet,end='hold',control='targets',robot_id=robot,**sequence_options)
-                            progress['sequence'] = seq
-                            await self._receipt(job,seq,obs['epoch'])
-                            progress['completed_frames'] += len(packet)
-                    elif name == 'gait':
-                        planned = None
-                        for intent in gait_intents(args):
-                            seq = await self.gateway.queue_intent('walk',intent,robot_id=robot,**sequence_options)
-                            await self._receipt(job,seq,obs['epoch'])
-                    else:
-                        planned = None
-                        if name == 'stand':
-                            seq = await self.gateway.queue_intent('stand',robot_id=robot,**sequence_options)
-                        elif name == 'gesture':
-                            gesture=args['name']
-                            seq = await self.gateway.queue_intent(gesture,robot_id=robot,**sequence_options) if gesture in ('stand','neutral','sit') else await self.gateway.emote(gesture,robot_id=robot,**sequence_options)
-                        elif name == 'stop':
-                            seq = await self.gateway.estop(robot_id=robot,**sequence_options)
-                        else:
-                            raise ValueError('Unknown program operation '+name)
-                        await self._receipt(job,seq,obs['epoch'])
+            obs = await self.connected_observation(job)
+            if job['event'] and not recovery_has_motion_owner({'body_command':obs.get('action')}):
+                job['state']='superseded'
+                return
+            expected = (job.get('event') or {}).get('data', {}).get('command_sequence')
+            if ('recovery_owner' in job and expected is not None
+                and (obs.get('action') or {}).get('seq') != expected):
+                job['state']='superseded'
+                return
+            job['observation'] = obs
+            if 'initial_observation' not in job:
+                job['initial_observation'] = copy.deepcopy(obs)
+            request = {'request':job['request'],'observation':obs,'event':event,'history':job['history']}
+            generation_index = len(job['programs'])
+            supplied = 'supplied_program' in job and not job['programs']
+            self.record(job, 'correction_trial_requested' if supplied else 'generation_requested',
+                        {'generation_index':generation_index, 'execute':job['execute'],
+                         'request':request, **({'source':job['source']} if supplied else {})})
+            if supplied:
+                result = {'program':copy.deepcopy(job['supplied_program']), 'source':job['source']}
+            else:
+                result = (await self.generate(setting['endpoint'],request) if inspect.iscoroutinefunction(self.generate)
+                          else await asyncio.to_thread(self.generate,setting['endpoint'],request))
+            job['programs'].append(result)
+            self.record(job, 'correction_trial_program' if supplied else 'generation_completed',
+                        {'generation_index':generation_index, 'result':result})
+            if not job['execute']:
+                job['state']='generated';return
+            # Generation survives robot session changes. Compile its result
+            # from current measurements, not the pre-inference body pose.
+            obs = await self.connected_observation(job)
+            job['observation'] = obs
+            job['state']='executing'
+            program = result['program']
+            planned = None
+            planning_epoch = obs['epoch']
+            for index, action in enumerate(program):
+                name, args = action['name'], action['arguments']
+                if 'recovery_owner' in job and name in (
+                        'move','pose','oscillate','feet','body','gait','stop','release'):
                     obs = await self.connected_observation(job)
                     job['observation'] = obs
-                    # Preserve each measured before/after sample without copying
-                    # calibration tables or the entire previous program again.
-                    def sample(value):
-                        return {'time_us':value['feedback'].get('device_us'),
-                                'joints':{j:v.get('model_deg') for j,v in value['joints'].items()},
-                                'imu':value['imu']}
-                    initial = {**sample(before),'action':action}
-                    if name in ('move','pose'):
-                        targets = args['angles_deg'] if name=='pose' else [args['angle_deg']]
-                        initial['correction_delta_deg'] = {
-                            j:(angle if args['reference']=='current' else
-                               angle+(home[j] if args['reference']=='home' else 0)-start[j])
-                            for j,angle in zip(moving,targets)}
-                    job['history'].extend([initial,sample(obs)])
-                    self.record(job, 'operation_completed', {'generation_index':generation_index,
-                                'action_index':index, 'before':initial, 'after':sample(obs)})
-                if not reassess:
-                    job['state']='completed';return
-                job['state']='generating'
-                event={'type':'reassess'}
+                    planned = None
+                if obs['epoch'] != planning_epoch:
+                    planned = None
+                    planning_epoch = obs['epoch']
+                    if prepared is not None:
+                        prepared[1].cancel()
+                        await asyncio.gather(prepared[1],return_exceptions=True)
+                        prepared = None
+                job['current_action'] = action
+                job['remaining_program'] = copy.deepcopy(program[index+1:])
+                job['packet_progress'] = None
+                self.record(job, 'operation_started', {'generation_index':generation_index,
+                            'action_index':index, 'action':action, 'observation':obs})
+                if name == 'face':
+                    # A token keeps the expression across this program's
+                    # motion_plan revisions. Face receipts are captured by
+                    # the gateway recorder; they never delay body motion.
+                    scoped = any(item['name'] != 'face' for item in program)
+                    # Request IDs are opaque caller correlation IDs, not
+                    # protocol asset names. Own a separate wire-valid token
+                    # and reuse it for this job's selections and release.
+                    face_token = (job.get('face_token') or 'fs_' + uuid4().hex[:24]) if scoped else None
+                    seq = await self.gateway.queue_intent('face',
+                        {'expr':args['expr'], **({'token':face_token} if scoped else {})}, robot_id=robot)
+                    if scoped:job['face_token'] = face_token
+                    self.record(job, 'face_submitted', {'expression':args['expr'],
+                                'scope':'program' if scoped else 'normal_face_selection',
+                                'generation_index':generation_index, 'action_index':index}, sequence=seq)
+                    continue
+                before = obs
+                receipt_start = len(job['receipts'])
+                if name == 'hold':
+                    await asyncio.sleep(args['seconds'])
+                elif name in motion_names:
+                    if prepared is not None:
+                        prepared_index, compiling = prepared
+                        assert prepared_index == index
+                        compiled = await compiling
+                        prepared = None
+                    else:
+                        compiled = await self.compiler(action,obs,planned)
+                    frames = compiled['frames']
+                    start, home, moving = (compiled[key] for key in ('start','home','moving'))
+                    planned = compiled['end']
+                    self.record(job,'motion_prepared',{'action_index':index,'start':start,
+                                'target':planned,'speed_deg_s':[f[0]/100 for f in frames]})
+                    # Prepare one successor during playback. Faces and
+                    # authored holds retain their order; native motions
+                    # establish a new measured starting pose.
+                    for following in range(index+1,len(program)):
+                        next_action = program[following]
+                        if next_action['name'] in motion_names:
+                            prepared = (following,asyncio.create_task(
+                                self.compiler(next_action,obs,dict(planned))))
+                            break
+                        if next_action['name'] not in ('face','hold'):
+                            break
+                    progress = {'completed_frames':0,'submitted_frames':None,'sequence':None}
+                    job['packet_progress'] = progress
+                    for packet in packets(frames):
+                        progress['submitted_frames'] = packet
+                        seq = await self.gateway.queue_motion_plan(packet,end='hold',control='targets',robot_id=robot,**sequence_options)
+                        progress['sequence'] = seq
+                        await self._receipt(job,seq,obs['epoch'])
+                        progress['completed_frames'] += len(packet)
+                elif name == 'gait':
+                    planned = None
+                    for intent in gait_intents(args):
+                        seq = await self.gateway.queue_intent('walk',intent,robot_id=robot,**sequence_options)
+                        await self._receipt(job,seq,obs['epoch'])
+                else:
+                    planned = None
+                    if name == 'release':
+                        seq = await self.gateway.estop(robot_id=robot,detach=True,**sequence_options)
+                    elif name == 'stop':
+                        seq = await self.gateway.estop(robot_id=robot,**sequence_options)
+                    else:
+                        raise ValueError('Unknown program operation '+name)
+                    await self._receipt(job,seq,obs['epoch'])
+                obs = await self.connected_observation(job)
+                job['observation'] = obs
+                # Preserve each measured before/after sample without copying
+                # calibration tables or the entire previous program again.
+                def sample(value):
+                    return {'time_us':value['feedback'].get('device_us'),
+                            'joints':{j:v.get('model_deg') for j,v in value['joints'].items()},
+                            'imu':value['imu']}
+                initial = {**sample(before),'action':action}
+                if name in ('move','pose'):
+                    targets = args['angles_deg'] if name=='pose' else [args['angle_deg']]
+                    initial['correction_delta_deg'] = {
+                        j:(angle if args['reference']=='current' else
+                           angle+(home[j] if args['reference']=='home' else 0)-start[j])
+                        for j,angle in zip(moving,targets)}
+                after = sample(obs)
+                # Correlate the actual body results with this operation.
+                # A completed packet is evidence, not proof that the whole
+                # requested gesture or recovery is finished.
+                after['receipts'] = copy.deepcopy(job['receipts'][receipt_start:])
+                job['history'].extend([initial,after])
+                self.record(job, 'operation_completed', {'generation_index':generation_index,
+                            'action_index':index, 'before':initial, 'after':after})
+            job['state']='completed'
         except asyncio.CancelledError:
             if job.get('cancellation_requested') and job['state'] == 'executing' and self.active.get(robot) == job['id']:
                 try:
@@ -472,13 +481,22 @@ class Bridge:
             if changed is not None:
                 changed.set()
             return
+        if event.get('t')=='event' and event.get('name')=='idle_rest':
+            snapshot=(await self.gateway.status_snapshot())['robots'].get(robot)
+            if (snapshot and snapshot['epoch']==event.get('epoch') and recovery_has_motion_owner(snapshot)
+                and event.get('seq')==snapshot.get('body_command_sequence')):
+                await self.submit(robot,'Lie down comfortably, then release the servo outputs.',True,
+                    {**event,'name':'body_event','data':{'kind':'idle_rest','command_sequence':event.get('seq')}})
+            return
         if not setting.get('recover_events') or event.get('name')!='body_event':
             return
         data=event.get('data',{})
-        if data.get('kind') not in ('servo_stall','tipped','rapid_movement','slip'):
+        if data.get('kind') not in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
             return
         snapshot=(await self.gateway.status_snapshot())['robots'].get(robot)
         if snapshot is None or event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
+            return
+        if not recovery_has_motion_owner(snapshot):
             return
         sequence=data.get('command_sequence')
         if sequence and sequence!=snapshot.get('body_command_sequence'):
@@ -487,7 +505,8 @@ class Bridge:
             return
         previous=self.jobs.get(self.active.get(robot),{})
         request=previous.get('request') or 'Recover from the reported body event using the available observations.'
-        await self.submit(robot,request,True,event)
+        await self.submit(robot,request,True,{**event,'data':{**data,
+            'command_sequence':data.get('command_sequence',snapshot.get('body_command_sequence'))}})
 
     async def command(self,command):
         robot=command.get('robot_id'); previous=self.active.get(robot)

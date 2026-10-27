@@ -182,3 +182,84 @@ unsigned ainekio_v2_posture_order_for_joints(uint16_t mask,unsigned start)
     }
     return start%4;
 }
+
+/* A measured step must retain its Cartesian clearance. If the installed
+ * travel cannot realize it at the current height, solve a higher supporting
+ * body position within the requested final elevation instead of clipping the
+ * leg and declaring that shortened lift to be the new goal. */
+static bool target_fits(const ainekio_v2_walk_pose_t *pose,
+    ainekio_v2_posture_fit_t fit,void *context)
+{
+    if(!fit)return true;
+    ainekio_v2_frame_t fitted=pose->frame;
+    if(!fit(&fitted,context))return false;
+    for(unsigned j=0;j<12;j++)if(fabs(fitted.position[j]-pose->frame.position[j])>.1)return false;
+    return true;
+}
+static bool sample_target(ainekio_v2_posture_t *s,double at,
+    ainekio_v2_posture_fit_t fit,void *context)
+{
+    const double previous_height=s->pose.body[2];
+    if(!ainekio_v2_posture_sample(s,at))return false;
+    ainekio_v2_walk_pose_t pose=s->pose;
+    if(s->target.body[2]>=s->start.body[2] && pose.body[2]<previous_height) {
+        pose.body[2]=previous_height;
+        if(!ainekio_v2_contact_solve(&pose,(const double (*)[3])s->anchors))return false;
+    }
+    if(target_fits(&pose,fit,context)){s->pose=pose;return true;}
+    double lower=pose.body[2],upper=s->target.body[2];
+    if(upper<=lower)return false;
+    ainekio_v2_walk_pose_t raised=pose;raised.body[2]=upper;
+    if(!ainekio_v2_contact_solve(&raised,(const double (*)[3])s->anchors) ||
+       !target_fits(&raised,fit,context))return false;
+    while(upper-lower>.01) {
+        ainekio_v2_walk_pose_t candidate=pose;candidate.body[2]=(lower+upper)/2.;
+        if(ainekio_v2_contact_solve(&candidate,(const double (*)[3])s->anchors) &&
+           target_fits(&candidate,fit,context)){upper=candidate.body[2];raised=candidate;}
+        else lower=candidate.body[2];
+    }
+    s->pose=raised;return true;
+}
+
+bool ainekio_v2_posture_next_target_mapped(ainekio_v2_posture_t *s,double *progress,
+    uint16_t *moving,ainekio_v2_posture_fit_t fit,void *context)
+{
+    const double landmarks[]={shift_s,shift_s+lift_s,shift_s+lift_s+place_s,step_s()};
+    double next=ainekio_v2_posture_path_length();
+    for(unsigned leg=0;leg<4;leg++)for(unsigned k=0;k<4;k++) {
+        const double at=leg*step_s()+landmarks[k];
+        if(at>*progress+1e-9)next=fmin(next,at);
+    }
+    ainekio_v2_posture_t candidate=*s;
+    /* Preserve the linkage branch through the existing geometric sampling
+     * resolution. This is planning, not a wall-clock motion sequence. */
+    for(double at=*progress;at<next;) {
+        at=fmin(next,at+.01);
+        if(!sample_target(&candidate,at,fit,context))return false;
+    }
+    *s=candidate;*progress=next;
+    *moving=ainekio_v2_posture_arrival_joints(s,next);
+    if(!*moving)*moving=0xfff;
+    return true;
+}
+
+bool ainekio_v2_posture_next_target(ainekio_v2_posture_t *s,double *progress,uint16_t *moving)
+{
+    return ainekio_v2_posture_next_target_mapped(s,progress,moving,NULL,NULL);
+}
+
+bool ainekio_v2_posture_observe(const ainekio_v2_posture_t *s,
+    const ainekio_v2_frame_t *measured,const double euler[3],ainekio_v2_walk_pose_t *out)
+{
+    *out=s->pose;joints(out,measured);
+    memcpy(out->euler,euler,sizeof out->euler);out->body[2]=0.;
+    double anchors[4][3];memcpy(anchors,s->anchors,sizeof anchors);
+    if(!ainekio_v2_contact_forward(out,anchors,false))return false;
+    double ground=0.;unsigned contacts=0;
+    for(unsigned leg=0;leg<4;leg++)if(s->pose.grounded[leg]) {
+        ground+=out->sole_height[leg];contacts++;
+    }
+    if(!contacts)return false;
+    out->body[2]=-ground/contacts;
+    return ainekio_v2_contact_forward(out,anchors,false);
+}
