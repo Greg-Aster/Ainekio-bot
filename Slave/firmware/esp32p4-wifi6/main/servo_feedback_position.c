@@ -81,9 +81,9 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
     }
     *frame=result;return true;
 }
-/* Check only after a complete pass has been written. Return whether the
- * snapshot contains observations for that pass; remaining describes the goal
- * error. Observations do not replace the next pass's commanded trajectory. */
+/* Check targets after their successful output write. Zero targets omit joints,
+ * allowing a moving leg's lift/place check without requiring support arrival.
+ * Remaining describes goal error; observations never replace the trajectory. */
 bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,
     const uint16_t *targets,int64_t commanded_us,uint16_t *remaining)
 {

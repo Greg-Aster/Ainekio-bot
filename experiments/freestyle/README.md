@@ -1,28 +1,141 @@
 # Experimental V2 Freestyle
 
-A removable dataset, generator, and opt-in Body Control executor for a
-request-driven, twelve-joint motion model. Body Control and MetaHuman can call
-the same standalone generator. Ordinary motion buttons retain their existing
-behavior. The generator itself has no robot transport; the explicit Body
-Control execution path sends commands through the existing gateway owner.
+A dataset, standalone generator, and shared Body Control executor for a
+request-driven, twelve-joint motion model. Freestyle owns semantic motion
+requests from Body Control and MetaHuman. Body Control's manual selector also
+offers the retained legacy library; that selection does not change MetaHuman,
+startup, recovery, or inactivity requests. An unavailable generator is reported
+as unavailable, without substituting a legacy motion. The generator itself has
+no robot transport; execution uses the existing gateway and P4 target owner.
+
+The Freestyle observation includes each joint's live `feedback_range_deg`,
+`arrival_tolerance_deg`, `feedback_usable` and `feedback_faults`. The existing
+saved servo mapping converts feedback calibration pulses into signed model
+degrees, including inversion. The range describes where shaft arrival can be
+observed; it is not a mechanical limit and does not clamp generated commands.
+Missing calibration remains unknown. `servo_feedback_fault` uses the same
+opt-in recovery and command ownership as jams and slips: inference can run
+while the previous command is pending, and a generated correction replaces it
+through the existing target executor. Stop/Release still cancels recovery.
+Feedback-health transitions are independent of reaction faces and motion-event
+cooldowns; repeated identical health samples are not new events.
+
+A generated program runs once. The P4 receives movement targets and speeds,
+uses fourth-wire feedback to establish shaft arrival, and returns the correlated
+receipts. Program completion does not invoke the model again. Actual stall,
+feedback-fault, tipping and slip events retain the existing event-triggered
+Freestyle recovery path. A correction remains a generated movement, not a claim
+that the body recovered physically.
+
+The owner removed the model-requested continuation operation on October 26.
+Its executor loop, tool/schema entry, prompt directives and maintained training
+labels are removed. Affected training programs now finish with explicit normal
+standing targets through the same measured-target executor. Existing explicit
+endings without that operation remain unchanged. Stand geometry is represented
+by target poses; there is no new posture shortcut or response filter.
+
+`training-data/` is the maintained snapshot for subsequent training. The editable
+Body Control library uses the same revised contract. Completed training runs and
+running qualification artifacts retain their historical inputs and model hashes;
+they are evidence, not the current curriculum. Existing weights require retraining
+to change learned behavior. The revised serving contract is staged at
+`artifacts/finite-programs/contract`; activation and physical qualification must
+be reported separately from source and model-free tests.
+
+The 84 focused executor and training-source tests pass. Serving qualification is
+separate: deletion-only contract replays completed in 0.17 seconds (hand raise),
+1.42 seconds (wave), and 2.93 seconds (stretch), and all compiled. None ended at
+the requested normal standing targets. These were generation-only tests, not
+physical trials. The changed executor/contract remain unactivated; the current
+weights need corrected-ending training and qualification. An earlier diagnostic inadvertently reordered the two
+last tool definitions and produced repeated output; the staged contract restores
+the production order and preserves every remaining definition. Eight legacy
+duration-format failures in the broader training suite also reproduce with the
+pre-removal source. No output truncation or substitute motion was added.
+
+The October 26 periodic-twitch incident is retained under
+`artifacts/recovery-completion/`: one recovery repeatedly emitted a standing
+pose and `reassess` despite successful target receipts. That run used paired
+completion and disturbed-target examples for its former continuation contract.
+Recorded requests and synthetic examples are labeled separately. The initial
+calibration-aware candidate also reproduced the loop and was not activated.
+
+The October 26 startup review and calibration-aware candidate are under
+`artifacts/feedback-calibration-repair/`. The recorded 30 mm front lift requested
+about 463 µs at the front-right carrier, outside the documented feedback sample
+domain. The owner powered the unloaded robot off; the resulting disconnect is
+not evidence of a Wi-Fi failure. Replacement stretch labels retain excursions,
+holds and a feedback-confirmed high/nominal ending. Separate fault examples vary
+joint, direction and calibration domain. Offline replay feeds an unverifiable
+target back as a feedback fault instead of crediting a completed sequence.
+These checks do not establish loaded stability, contact, or physical recovery.
+
+The target/speed source contract and firmware 0.8.127 move boot/wake Stand and
+inactivity rest to Freestyle. The model generates joint/foot/body targets and
+does not invoke a native Stand or stored gesture shortcut. The shared P4 executor verifies measured shaft
+arrival, and the model receives shaft positions and IMU attitude. Generated
+`release` explicitly releases outputs through the existing Stop/Release owner.
+The P4 gait executor remains shared. These source changes require coordinated
+model, host, and firmware activation; the deployment records below describe
+older installed contracts, not proof that this update is active.
+
+`stand_curriculum.py` exports the existing native posture geometry using the
+installed servo mapping, then prepares feedback-conditioned Stand labels:
+lift/place/lower targets, a slightly higher Stand target, nominal settle,
+lag/slip contrasts, and gyro leveling. Targets with clipped travel or lost
+clearance are excluded. These are geometric teacher examples, not physical
+success recordings. Shaft positions and attitude estimate sole clearance;
+the robot has no measured foot-contact signal. Training and held-out replay
+must precede deployment and supported physical verification.
+
+The same native exporter accepts `--splayed` to audit synthetic spread-foot
+starts under the installed mapping. Unlike vertical offsets that preserve foot
+anchors, these cases require inward foot repositioning. Its placement sweep
+samples the actual joint interpolation and reports the minimum modeled sole
+clearance; an 8 mm endpoint lift is not a promise of constant clearance between
+endpoints. These fixtures are not calibrated Home or recorded physical poses.
+`--from-angles` audits an unintended generated posture through that same solver:
+after the mapping rows, stdin supplies twelve model angles in degrees and
+roll/pitch/yaw in radians (yaw zero for this local fixture exporter). Rejected
+paths remain failure evidence rather than becoming shortened training targets.
 
 Repository synchronization on 2026-10-25 combines the Q6A target-control
 compiler and recovery work with DNDIY updates. Running model weights and
 host-specific service configuration are separate from this source merge.
-The imported Q6A revision still has an offline migration gap: `challenge.py`
-imports the removed `frames_for_spatial` and `frames_for` helpers. Legacy
-replay/curriculum tools depending on it need migration to the target contract;
-the source synchronization does not establish that those tools work.
+Offline challenge replay now uses the shared target compiler. Reviewed
+duration-based labels are migrated offline by `speed_curriculum.py`; deliberate
+holds retain their durations. The training export carries its matching tool
+contract, rather than relying on the currently served model's older contract.
 
-DNDIY deployment recorded before synchronization:
+DNDIY production deployment, 2026-10-26:
 
-The production Freestyle service now uses the **spatial-v8 Qwen3.5-0.8B LoRA,
-merged and exported as Q8_0**, with the matching v8 spatial contract, GPU
-inference and reasoning disabled. The larger/full-weight comparison reports and
-adapters remain separate artifacts; their unused merged weights were removed.
-V8 continues the v7 adapter on 879 revised examples, including face cues and
-full standing endings. Unseen-motion competence still needs ongoing review.
-Activation is not evidence of general physical competence.
+At the owner's explicit request, the existing production services now use the
+**recovery-completion/final Qwen3.5-0.8B LoRA, exported as Q8_0**, with its matching
+target-and-speed contract, GPU inference and reasoning disabled. The model is
+`artifacts/recovery-completion/final/served/model.Q8_0.gguf`; the contract is
+`artifacts/recovery-completion/final/dataset/`. The model SHA256 is
+`a8a9b7e2da6f40f1597e43ac7af46e82a779a5973bd5bf679248c7b75bf94943`.
+Both existing services are active and enabled. Body Control retains its configured
+`http://127.0.0.1:8794` endpoint; inference recording remains enabled.
+
+The final two-epoch continuation used 329 examples after calibration and
+completion training. It passes 71/71 held-out completion/pending-work cases,
+13/13 reviewed motion regressions and three full recorded loop continuations
+through the executor with a fake body. Reviewed regressions are not unseen
+motion claims. The live production API also returned `[]` for a recorded
+completed recovery in 1.25 seconds, with zero physical test motions. Body
+Control was restarted to load operation-scoped receipts. Verification and
+retirement of unused test exports are in
+`artifacts/recovery-completion/final/activation/`; the previous production
+weights remain available for rollback. The paused language-model services
+were restored. Remote Q6A deployment was not changed.
+
+This qualifies the recorded periodic-twitch failure, not universal recovery.
+One old interrupted-sequence calibration-recovery replay still fails native
+target validation; another reviewed fault replay ends near the high Stand
+target rather than exact nominal settling. Those limits and the lack of
+physical loaded/unloaded validation are recorded in
+`artifacts/recovery-completion/final/release-review.json`.
 
 Body Control records commands and received motion telemetry automatically while
 the experiment is installed. The standalone API also records requests and model
@@ -139,9 +252,10 @@ sensor streams or repeated events. There is no one-action output restriction.
 The full evidence remains in the recorder. New training and serving share
 `compact_wire.model_query` for the same input projection.
 
-The native Stand controller is an explicit `stand` operation. Balance remains
-owned by the existing configured body controller. The migration does not silently
-enable balance or add a competing leveling loop. The model, gateway contract and
+That historical migration used an explicit native `stand` operation. The current
+Freestyle contract above instead generates complete posture-target programs;
+it cannot invoke that removed shortcut. Balance remains owned by the existing
+configured body controller. The model, gateway contract and
 P4 firmware must be deployed together; a `motion_plan_v2` advertisement alone
 does not mean the body understands speed targets (`motion_targets_v1`).
 
@@ -181,8 +295,9 @@ draft status. Dataset I/O stays on HTTP worker threads, outside the motion loop.
 
 ## Historical workstation production and reviewed motion evidence
 
-The workstation units `ainekio-freestyle-model.service` and
-`ainekio-freestyle-api.service` are enabled user services. They point to:
+On 2026-10-24, the workstation units `ainekio-freestyle-model.service` and
+`ainekio-freestyle-api.service` pointed to the following v8 deployment, superseded
+by the owner-requested activation above:
 
 - Model: `artifacts/spatial-v8/final-served/model.Q8_0.gguf`
 - Model SHA256: `06435179aa494db8311fce73d74e5bae8fffb9eb53e8e17c9c0646173f78a6da`
@@ -250,11 +365,15 @@ latency. Requested endpoints, cycles and holds remain in the program.
 
 The optional executor supports generated `face` actions through the existing
 face owner. A program-scoped selection stays visible across its motion packets
-and releases only its own token on completion or interruption; face receipts do
+and releases only its own token on completion or interruption. The bridge creates
+that protocol token independently of caller request IDs, which remain unchanged
+for correlation. Face receipts do
 not delay movement. Face-only requests keep the ordinary visible selection.
-The active v8 contract teaches face cues and full twelve-joint native Stand
-endings, with explicit requested
-endings taking precedence. Native Stand differs from calibration Home.
+Interrupted actions remain recovery context; a new event-driven recovery plan
+owns its remaining program. Body target-adjustment receipts remain in operation
+history alongside measured endpoints, so applied execution is distinguishable
+from attainment of an original authored pose. Normal standing differs from
+calibration Home and all-zero Neutral.
 
 Recordings live in the ignored Body Control runtime directory, alongside its
 existing configuration, not in tracked training data:
@@ -502,7 +621,7 @@ change does not replay possibly executed motion or invent a completion receipt.
 Contiguous generated joint/foot/body segments continue from their planned
 endpoints, anchored at measured positions when the sequence starts. Measurement
 error is recorded rather than added to the next relative target. Explicit
-`reassess`, native motions, and a changed robot session establish a fresh anchor.
+Native motions and a changed robot session establish a fresh anchor.
 One successor is prepared concurrently with playback in a spawned compiler
 process, keeping Python-heavy IK outside the gateway interpreter. Face changes
 and authored holds preserve their order. Cancellation discards prepared work;
@@ -575,9 +694,9 @@ feedback readback and IMU state. It retains unknown positions as unknown and
 does not interpret zero PWM after output release as a negative joint angle.
 When rearming released servos, the first packet target is the measured starting
 pose, followed by generated travel. One millisecond is the existing minimum
-wire duration for that initial target. `reassess` requests fresh observations
-and another generation; the model chooses the correction and whether to request
-more feedback. All caller history is retained in that inference context.
+wire duration for that initial target. Actual body fault events supply current
+observations and interrupted work to a recovery request; normal program
+completion does not request another generation.
 
 The P4 supports one physical body sequence at a time and 32 frames per packet.
 Longer generated sequences are packetized with no omitted targets. The existing
@@ -1623,8 +1742,8 @@ training set there. Preserve failed attempts; do not rewrite the frozen v8 run.
 `library_recovery.py` derives one jam and one measured-effect fall example per
 current motion-bearing training row. It excludes face-only/Stop rows and
 existing recovery rows. `recovery-coverage.json` links every derived row to its
-source ID and content hash, lists omissions, and counts joint coverage. It also
-adds a resumption pair per source family. Separate probes change the sensor
+source ID and content hash, lists omissions, and counts joint coverage.
+Separate probes change the sensor
 values; they share source goals and do not measure unseen-motion generalization.
 
 ```sh
@@ -1637,9 +1756,9 @@ python -m experiments.freestyle.library_recovery \
 Build the native sampler against matching current headers/libraries. Its output
 is nominal gait geometry, not measured robot motion. Jam prefixes retreat from
 the blocked direction and shorten the affected target while continuing the other
-participating joints, or reduce an oscillation's excursion. They then reassess.
-Fall examples repeat or reverse a preceding correction according to its supplied
-before/after IMU orientation. Upright feedback examples resume the pending goal.
+participating joints, or reduce an oscillation's excursion. The revised programs
+end with normal standing targets. Fall examples repeat or reverse a preceding
+correction according to its supplied before/after IMU orientation.
 Faces vary across corrections. No new slip examples or detector are added.
 
 Jam observations retain the commanded target of every participating shaft,
@@ -1659,7 +1778,7 @@ the failed candidate was not activated and no physical trial was performed.
 
 Recovery compression retains the last measured correction/effect and the affected
 shafts' recent distinct positions. The bridge keeps unfinished actions as input
-context across reassessment. A new generated plan replaces the previous plan;
+context for a real body fault. A new generated plan replaces the previous plan;
 an empty response does not replay it. Correction targets therefore need not
 repeat the unfinished library program merely to keep its goal available.
 

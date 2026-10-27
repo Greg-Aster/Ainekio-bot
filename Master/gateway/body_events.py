@@ -40,7 +40,7 @@ def validate_settings(value):
 
 
 class BodyEvents:
-    """Measurements to events only; behavior selection belongs to the OS graph."""
+    """Measurements to events; behavior belongs to the consuming model owners."""
     def __init__(self, clock=time.monotonic):
         self.clock = clock
         self.last_motion_report = {}
@@ -75,31 +75,28 @@ class BodyEvents:
             "reason": "no_position_progress",
         }, message["event_id"])
 
-    def observe_feedback(self, robot_id, epoch, health, face_token=""):
+    def observe_feedback(self, robot_id, epoch, health):
         state = self.feedback_states.setdefault(robot_id, {})
         if state.get("epoch") != epoch:
             state.clear()
-            state.update(epoch=epoch, reported=False)
+            state.update(epoch=epoch, reported=None)
         if not health["enabled"]:
             state.clear()
             return []
         # Acquisition can fail without advancing its scan. Episode state below
         # suppresses repeats without hiding a newly unavailable reader.
         reasons = ("unavailable", "clipped", "below_calibration", "above_calibration")
+        signature=tuple(health[reason + "_mask"] for reason in reasons)
         mask = 0
-        for reason in reasons:
-            mask |= health[reason + "_mask"]
+        for value in signature:
+            mask |= value
         fault = bool(mask)
-        if fault == state["reported"]:
+        if signature == state["reported"] or (not fault and state["reported"] is None):
             return []
-        now = self.clock()
-        if fault:
-            last = self.last_motion_report.get(robot_id)
-            if face_token.startswith("be_") or (last is not None and
-                    now-last < self.config(robot_id)["motion_cooldown_s"]):
-                return []
-            self.last_motion_report[robot_id] = now
-        state["reported"] = fault
+        # Feedback health is execution evidence. A reaction face or a recent
+        # motion notification must not hide it from the motion recovery owner.
+        # Report changed affected joints/reasons, not repeated sensor samples.
+        state["reported"] = signature
         legs = ("rear_left", "rear_right", "front_left", "front_right")
         roles = ("shoulder", "carrier", "crank")
         return [self.event(robot_id, epoch,

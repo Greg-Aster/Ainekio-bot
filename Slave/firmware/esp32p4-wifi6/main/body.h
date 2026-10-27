@@ -19,8 +19,6 @@ esp_err_t ainekio_p4_body_start(void);
 /* Connection loss preserves finite work and powered holds. The output owner
  * uses the existing Finish path for an open-ended gait from this session. */
 void ainekio_p4_body_connection_lost(uint64_t connection);
-/* Asynchronous startup choreography; calibration Home is separate. */
-esp_err_t ainekio_p4_body_startup(uint64_t generation);
 /* Re-probe/reinitialize the driver with every channel off. Never enables OE. */
 esp_err_t ainekio_p4_body_prepare(uint64_t generation);
 /* Cancel choreography and retain only the already energized commanded pose. */
@@ -42,8 +40,10 @@ typedef struct {
     bool completed;
     /* Nonterminal no-progress evidence; execution and powered hold continue. */
     bool jam_observation;
-    /* 0: authored completion; 1: requested but unavailable; 2: measured. */
+    bool idle_request; /* Shared timer asks the Freestyle owner to rest. */
+    /* 0: authored completion; 1: original target not verified; 2: measured. */
     uint8_t position_verification;
+    uint16_t target_adjusted_joints; /* Existing pose fitting changed these goals. */
     ainekio_cancel_code_t reason;
     esp_err_t result;
     uint16_t stalled_joints;

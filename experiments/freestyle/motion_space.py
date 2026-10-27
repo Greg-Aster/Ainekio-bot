@@ -30,7 +30,6 @@ TOOLS = [
               {'command':{'type':'string','enum':['walk','backward','left','right','crawl','run','crab','crab_right','crab_forward','crab_backward','crab_turn_left','crab_turn_right']},
                'speed_pct':NUMBER,'cycles':{'type':'integer'}}),
     operation('stop','Stop body movement when stopping is requested.',{}),
-    operation('reassess','Request current feedback and generate the next part of the requested motion or correction.',{}),
     operation('feet',
         'Translate the listed foot reference points together from their measured starting positions. '
         'Each offset_mm corresponds to the leg at the same index. Robot frame: X forward, Y left, Z up. '
@@ -44,8 +43,15 @@ TOOLS = [
         'These are geometric targets, not claims that feet are touching the floor.',
         {'translation_mm':VECTOR,'rotation_deg':VECTOR,'legs':LEG_LIST,
          'foot_offsets_mm':VECTORS,'speed_pct':NUMBER}),
-    operation('stand','Achieve standing through the existing feedback-based body posture controller.',{}),
+    operation('release','Release servo outputs when the request explicitly asks to release them, including after resting.',{}),
 ]
+
+COMPLETION_INSTRUCTIONS = (
+    'An empty array [] completes the current request without issuing another movement. '
+    'A position_verified receipt confirms that packet, not the whole goal; preserve unfinished gesture phases and pending actions. '
+    'Use the supplied arrival tolerance and feedback usability when interpreting shaft errors; do not chase exact zero error. '
+    'Use current attitude and motion measurements to assess recovery, not an old event as evidence of a new fall or jam. '
+)
 
 INSTRUCTIONS = (
     'Generate a JSON array of motion calls for this twelve-joint robot. '
@@ -62,6 +68,6 @@ INSTRUCTIONS = (
     'There is no named-emote lookup operation in this generated-motion contract. '
     'Existing P4 gaits remain available for ordinary locomotion; do not substitute them for a requested dance or unfamiliar motion. '
     'Use complete multi-step programs when needed. Never interpret a new wave request as continuing an old walk. '
-    'Interpret jam/fall/slip events from measured positions, orientation and history; reassess requests fresh feedback. '
+    'Interpret jam/fall/slip events from measured positions, orientation and history. '
     'A correction is not proof of recovery. Output calls only, without reasoning or prose. '
-)
+) + COMPLETION_INSTRUCTIONS

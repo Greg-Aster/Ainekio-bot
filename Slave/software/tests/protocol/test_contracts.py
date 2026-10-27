@@ -261,7 +261,9 @@ class ControlSchemaTests(unittest.TestCase):
                   "signal_millivolts": [None]*12}
         for message in [{"t": "event", "name": "servo_feedback", "data": health},
                         {"t": "done", "seq": 7, "position_verified": False},
-                        {"t": "done", "seq": 8, "position_verified": True}]:
+                        {"t": "done", "seq": 8, "position_verified": True},
+                        {"t": "done", "seq": 9, "position_verified": False,
+                         "target_adjusted_joints":48}]:
             validate_control_message(message)
             assert_matches_schema(message, self.schema, self.schema)
         invalid = {"t": "done", "seq": 7, "position_verified": "false"}

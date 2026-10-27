@@ -14,12 +14,12 @@ class RecoveryContextTests(unittest.TestCase):
             {'ids':[6],'model_deg':[10]},{'ids':[6],'model_deg':[18]}])
         self.assertEqual(result,model_query(result,ProgramEncoding([])))
 
-    def test_latest_measured_effect_survives_compression_and_reassessment(self):
+    def test_latest_measured_effect_survives_compression_and_event_recovery(self):
         before={'available':True,'fresh':True,'orientation_wxyz':[.8,0,.6,0]}
         after={'available':True,'fresh':True,'orientation_wxyz':[.9,0,.43589,0]}
         history=[{'imu':before,'correction_delta_deg':{JOINTS[1]:3,JOINTS[7]:-3}},
                  {'imu':after}]
-        for event in ('tipped','servo_stall','reassess'):
+        for event in ('tipped','servo_stall','servo_feedback_fault'):
             query={'request':'Finish the original motion','event':{'type':event},
                    'observation':{'imu':after,'pending_actions':[['stand']]},'history':history}
             original=copy.deepcopy(query)

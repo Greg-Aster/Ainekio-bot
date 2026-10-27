@@ -915,6 +915,14 @@ static void link_task(void *arg)
             }
             if (!have_body_event) have_body_event = ainekio_p4_body_event(&event);
             if (authenticated && have_body_event && (!event.sequence || event.sequence != atomic_load(&pending_sequence))) {
+                if(event.idle_request) {
+                    char notice[240];
+                    snprintf(notice,sizeof notice,
+                        "{\"t\":\"event\",\"name\":\"idle_rest\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
+                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 "}",
+                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence);
+                    reply(link_generation,notice);
+                }
                 if(event.stalled_joints) {
                     char notice[320];
                     snprintf(notice,sizeof notice,
@@ -923,7 +931,7 @@ static void link_task(void *arg)
                         sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints);
                     reply(link_generation,notice);
                 }
-                if (!event.jam_observation && event.sequence && current_connection(event.connection)) {
+                if (!event.jam_observation && !event.idle_request && event.sequence && current_connection(event.connection)) {
                     char result[192];
                     const bool stopped = event.sequence <= atomic_load(&stopped_sequence);
                     if (stopped)
@@ -933,8 +941,9 @@ static void link_task(void *arg)
                     else if (event.completed) {
                         if(event.position_verification)
                             snprintf(result,sizeof result,
-                                "{\"t\":\"done\",\"seq\":%" PRIu32 ",\"position_verified\":%s}",
-                                event.sequence,event.position_verification==2?"true":"false");
+                                "{\"t\":\"done\",\"seq\":%" PRIu32 ",\"position_verified\":%s,\"target_adjusted_joints\":%u}",
+                                event.sequence,event.position_verification==2?"true":"false",
+                                (unsigned)event.target_adjusted_joints);
                         else ainekio_encode_done(event.sequence, result, sizeof(result));
                     }
                     else ainekio_encode_cancelled(event.sequence, event.reason, result, sizeof(result));

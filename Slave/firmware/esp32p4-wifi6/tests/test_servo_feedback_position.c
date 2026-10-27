@@ -43,6 +43,20 @@ int main(void)
      * output's target; mirrored model angles do not become trajectory inputs. */
     assert(ainekio_p4_feedback_check(mapping,targets,1000,&waiting));
     assert(!waiting);
+    /* A foot checkpoint uses the installed PCA/mux mapping and ignores other
+     * legs. A stale or short joint on the moving leg still prevents arrival. */
+    uint16_t foot_targets[12]={0};
+    for(unsigned j=6;j<9;j++)foot_targets[mapping[j].channel]=1600;
+    const unsigned support=sample.config.joint[0].channel;
+    sample.sampled_us[support]=1000;
+    assert(arrived(mapping,foot_targets,1000,&waiting));
+    const unsigned moving=sample.config.joint[7].channel;
+    sample.sampled_us[moving]=1000;
+    assert(!arrived(mapping,foot_targets,1000,&waiting) && waiting==(1U<<7));
+    sample.sampled_us[moving]=1001;
+    foot_targets[mapping[7].channel]=1750;
+    assert(!arrived(mapping,foot_targets,1000,&waiting) && waiting==(1U<<7));
+    sample.sampled_us[support]=1001;
     /* A physically wrong target, not the command receipt, controls arrival. */
     targets[mapping[4].channel]=1700;
     assert(ainekio_p4_feedback_check(mapping,targets,1000,&waiting));assert(waiting==(1U<<4));

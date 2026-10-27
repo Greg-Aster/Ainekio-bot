@@ -22,6 +22,11 @@ CONTRACT = [*TOOLS, face_tool()]
 STAND = dict(zip(JOINTS, [0,3.46,-21.63]*4))
 
 
+def standing_pose(speed_pct=50):
+    return {'name':'pose','arguments':{'joints':list(JOINTS),
+        'angles_deg':list(STAND.values()),'reference':'absolute','speed_pct':speed_pct}}
+
+
 def compact_speed(percent, base_speed):
     """Drop decimal digits that do not change the compiler's wire rate."""
     wire = lambda value: max(1, round((base_speed*value/100)*100))
@@ -60,8 +65,6 @@ def convert_action(action, positions, home, base_speed):
     if name in ('move','pose'):
         frames=list(targets_for(action,positions,home,base_speed))
         goal=dict(zip(JOINTS,[x/100 for x in frames[-1][1]]))
-        if name=='pose' and set(args['joints'])==set(JOINTS) and goal==STAND:
-            return {'name':'stand','arguments':{}},goal
         return action,goal
     return action,positions
 

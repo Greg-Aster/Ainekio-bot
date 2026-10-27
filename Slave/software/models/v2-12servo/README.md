@@ -23,9 +23,12 @@ tracking remain unqualified. Body Control owns the saved per-joint mapping;
 firmware defaults preserve existing NVS calibration. Remounting and calibration
 are deliberate operations, rather than automatic replacements.
 
-`geometry.json` owns the 40/24/38/24 mm four-bar, 55 mm distal link, recorded CAD
-frames and current complete sole hulls. Model coordinates remain signed CAD
-centidegrees. Geometric zero, solved Stand, calibration Home, Sit and Rest are
+`geometry.json` owns the linkage dimensions in `parameters` and
+`linkage_revision.dimensions_mm`, recorded CAD frames and current complete sole
+hulls. The readable [V2 geometry specification](../../../../docs/v2-12servo/SPECIFICATIONS.md#geometry-and-dimensions)
+summarizes those fields; the former 40/24/38/24 mm linkage description is
+superseded by the current compact geometry. Model coordinates remain signed
+CAD centidegrees. Geometric zero, solved Stand, calibration Home, Sit and Rest are
 separate poses. Electrical conversion belongs to the device's measured per-joint
 mapping; changing calibration never stretches or clamps a motion to fit.
 

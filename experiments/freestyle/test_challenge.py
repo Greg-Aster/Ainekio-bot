@@ -54,7 +54,7 @@ class ChallengeTests(unittest.TestCase):
         criteria = [{'metric':'foot.front_right.z.peak_delta','min':4.9},
                     {'metric':'foot.front_right.z.end_delta','min':-.05,'max':.05}]
         def operation(height):
-            return {'name':'feet','arguments':{'legs':['front_right'],'offsets_mm':[[0,0,height]],'seconds':.1}}
+            return {'name':'feet','arguments':{'legs':['front_right'],'offsets_mm':[[0,0,height]],'speed_pct':50}}
         good = replay([operation(5),operation(-5)],self.state())
         wrong = replay([operation(-5),operation(5)],self.state())
         hold = replay([{'name':'hold','arguments':{'seconds':.2}}],self.state())

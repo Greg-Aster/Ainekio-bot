@@ -15,7 +15,7 @@ from pathlib import Path
 from .compact_wire import ProgramEncoding, model_query
 from .gait_replay import sample_gait
 from .kinematics import foot_positions
-from .migrate_targets import CONTRACT, STAND, joint_state
+from .migrate_targets import CONTRACT, STAND, joint_state, standing_pose
 from .program import compile_motion
 from .runtime import JOINTS, compact
 
@@ -103,7 +103,6 @@ def validate_prefix(row):
     state['joints'] = joint_state(state)
     planned = None; targets=[]
     for action in ENCODING.decode(row['answers']):
-        if action['name'] == 'reassess': break
         if action['name'] in ('move','pose','oscillate','feet','body'):
             result = compile_motion(action, state, planned); planned=result['end']
             for _,frame in result['frames']:
@@ -157,19 +156,19 @@ def scenarios(source, native_gait, probe=False):
         adapted[joint] = round(measured-direction*retreat/2,2)
         recovery.append(call('pose',joints=list(adapted),angles_deg=list(adapted.values()),
                              reference='absolute',speed_pct=speed))
-    recovery.append(call('reassess'))
+    recovery.append(standing_pose())
     variant = 'held_out_feedback' if probe else 'training_feedback'
     jam = row_for(source,'library_jam_recovery',query,recovery,index,variant,
         {'joint':JOINTS.index(joint), 'blocked_deg':measured, 'direction':direction,
          'traversed_start_deg':start[joint], 'checkpoint_operation':action['name'],
-         'scope':'retreat and reduced excursion; continuation requires reassessment'})
+         'scope':'retreat and reduced excursion; complete program ends standing'})
     targets = validate_prefix(jam)
-    if not targets or any(direction*(p[joint]-measured)>=0 for p in targets):
+    if not targets or any(direction*(p[joint]-measured)>=0 for p in targets[:-1]):
         raise ValueError('Recovery prefix repeats the blocked extreme')
     yield jam
 
     # A fall correction is chosen from an observed effect, never an invented
-    # universal righting pose. The unfinished goal stays behind reassessment.
+    # universal righting pose. The complete correction ends standing.
     axis = ('pitch' if seed%2 else 'roll') if not probe else ('roll' if seed%2 else 'pitch')
     sign = 1 if seed%3 else -1
     improved = bool(seed%2) if not probe else not bool(seed%2)
@@ -188,24 +187,12 @@ def scenarios(source, native_gait, probe=False):
     query = {'request':original['request'],'event':{'type':'tipped'},'observation':fallen,'history':history}
     recovery = [call('face',expr=FACES[(seed+1)%len(FACES)]),
         call('pose',joints=list(pair),angles_deg=[d*(1 if improved else -1) for d in delta.values()],
-             reference='current',speed_pct=50),call('reassess')]
+             reference='current',speed_pct=50),standing_pose()]
     fall = row_for(source,'library_fall_recovery',query,recovery,index,variant,
         {'axis':axis,'before_tilt_deg':before,'after_tilt_deg':after,'improved':improved,
          'scope':'measured correction effect; no initial get-up policy or contact proof'})
     validate_prefix(fall)
     yield fall
-
-    # Teach the other side of reassessment: when the supplied feedback is
-    # upright and tracks the targets, actually continue the pending goal.
-    resumed = state_at(state,start)
-    resumed['imu']=imu(0,axis); resumed['expected_up']=[0,0,1]
-    resumed['pending_actions']=pending
-    history=[{'imu':imu(sign*(11 if probe else 12),axis),'correction_delta_deg':delta},
-             {'imu':resumed['imu']}]
-    query={'request':original['request'],'event':{'type':'reassess'},'observation':resumed,'history':history}
-    expression=next((a[1] for a in source['answers'] if a[0]=='face'),'happy')
-    yield row_for(source,'library_recovery_resume',query,[call('face',expr=expression),*pending],index,variant,
-        {'scope':'synthetic upright tracking feedback; resume the pending source goal'})
 
 
 def audit_source(task):
@@ -244,15 +231,6 @@ def build(source, output, native_gait, workers=4):
         for result in pool.map(audit_source,((r,str(native_gait)) for r in eligible)):
             results.append(result)
             if len(results)%100==0:print('recovery sources',len(results),flush=True)
-    # A resumption pair per source family teaches completion without letting
-    # copies of long nominal plans dominate correction supervision.
-    resume_sources={}
-    for row in eligible:resume_sources.setdefault(row['family'],row['id'])
-    resume_ids=set(resume_sources.values())
-    for result in results:
-        if result['source_id'] not in resume_ids:
-            for split in ('train','probe'):
-                if split in result:result[split]=[r for r in result[split] if r['family']!='library_recovery_resume']
     new_train=deduplicate(r for result in results for r in result.get('train',[]))
     new_probe=deduplicate(r for result in results for r in result.get('probe',[]))
     manifest=json.loads((source/'manifest.json').read_text())
@@ -274,7 +252,7 @@ def build(source, output, native_gait, workers=4):
         'scope':'Current motion-bearing training rows; probe shares source goals but holds out feedback values. Native emotes absent from the source library are not claimed covered.',
         'limitations':['No contact/dynamics simulation or physical success labels.',
             'Fall examples require a preceding measured correction; initial arbitrary fallen-pose righting remains unqualified.',
-            'Only recovery prefixes before reassessment are validated; later plans must use fresh feedback.']}
+            'Geometric replay does not establish physical recovery.']}
     (output/'recovery-coverage.json').write_text(json.dumps(report,indent=2)+'\n')
     manifest['library_recovery']={k:v for k,v in report.items() if k not in ('coverage','excluded')}
     manifest['library_recovery']['generator_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()

@@ -296,7 +296,9 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
         now = [0.0]
         body = BodyEvents(clock=lambda: now[0])
         connection = object.__new__(GatewayConnection)
-        connection.robot_id, connection.epoch, connection.last_status = "p4", 17, None
+        connection.robot_id, connection.epoch = "p4", 17
+        connection.last_status = {"imu":{"face_token":"be_reaction"}}
+        body.last_motion_report["p4"]=now[0]
         connection.service = SimpleNamespace(body_events=body, _publish_event=AsyncMock())
         health = {"enabled": True, "usable": False, "scan": 1, "clock_us": 1000,
                   "calibrated_mask": 4095, "unavailable_mask": 0, "clipped_mask": 0,
@@ -317,10 +319,13 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
         clear = {**health, "scan": 3, "usable": True, "below_calibration_mask": 0}
         restored = body.observe_feedback("p4", 17, clear)
         self.assertEqual(restored[0]["data"]["kind"], "servo_feedback_restored")
-        self.assertEqual(body.observe_feedback("p4", 17, {**health, "scan": 4}), [])
+        self.assertEqual(len(body.observe_feedback("p4", 17, {**health, "scan": 4})), 1)
         now[0] = DEFAULTS["motion_cooldown_s"]
-        self.assertEqual(body.observe_feedback("p4", 17, {**health, "scan": 5}, "be_reaction"), [])
-        self.assertEqual(len(body.observe_feedback("p4", 17, {**health, "scan": 6})), 1)
+        self.assertEqual(body.observe_feedback("p4", 17, {**health, "scan": 5}), [])
+        # Same fault is deduplicated; changed health is never hidden by a face.
+        changed={**health,"scan":6,"below_calibration_mask":1}
+        self.assertEqual(len(body.observe_feedback("p4", 17, changed)), 1)
+        self.assertEqual(body.observe_feedback("p4", 17, changed), [])
         # A stopped reader can change health without completing another scan.
         body.observe_feedback("p4", 17, {**clear, "scan": 6})
         now[0] += DEFAULTS["motion_cooldown_s"]
@@ -339,6 +344,17 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
             "position_verified": False}, command="stand", sequence=7, robot_id="p4", epoch=17)
         self.assertEqual(receipt["type"], "completed")
         self.assertFalse(receipt["data"]["position_verified"])
+
+    async def test_idle_rest_preserves_originating_command_for_freestyle_owner(self):
+        connection = object.__new__(GatewayConnection)
+        connection.robot_id, connection.epoch = "p4", 17
+        connection.service = SimpleNamespace(_publish_event=AsyncMock())
+        message = {"t":"event","name":"idle_rest","event_id":"7:1200000",
+                   "clock_us":1200000,"seq":941}
+        validate_control_message(message)
+        await connection._handle_control(message)
+        connection.service._publish_event.assert_awaited_once_with(
+            {"robot_id":"p4","epoch":17,**message})
 
     async def test_stall_uses_the_existing_body_event_bridge_with_joint_identity(self):
         for sequence,released in ((0,True),(941,True),(0,False),(941,False)):

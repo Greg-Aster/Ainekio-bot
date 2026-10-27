@@ -17,8 +17,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from .generator import Generator
-from .kinematics import ROOT, foot_positions, frames_for_spatial, mechanism
-from .program import frames_for
+from .kinematics import ROOT, foot_positions, mechanism
+from .program import compile_motion
 from .runtime import JOINTS, compact
 
 
@@ -117,7 +117,8 @@ def replay(program, observation, native_gait=None):
 
     def gait_evidence():
         return {**({'native_gait_segments':gait_segments} if gait_segments else {}),
-                **({'face_events':face_events} if face_events else {})}
+                **({'face_events':face_events} if face_events else {}),
+                'timing_scope':'nominal travel at commanded joint rate plus explicit holds; measured arrival unmodeled'}
 
     def sample(index):
         samples.append({'time_s':time_s, 'action_index':index, 'joints_deg':dict(positions),
@@ -167,16 +168,18 @@ def replay(program, observation, native_gait=None):
                 sample(index)
                 completed += 1
                 continue
-            if name in ('feet', 'body'):
-                frames = frames_for_spatial(action, positions)
-            elif name in ('move', 'pose', 'oscillate'):
-                frames = frames_for(action, positions, home, observation['joint_speed_limit_deg_s'])
+            if name in ('feet', 'body', 'move', 'pose', 'oscillate'):
+                current = {**observation, 'joints': {
+                    j:{**observation['joints'][j], 'model_deg':positions[j],
+                       'commanded_model_deg':positions[j]} for j in JOINTS}}
+                frames = compile_motion(action, current, positions)['frames']
             else:
                 return {'status':'not_fully_replayed', 'operation':name,
                         'completed_actions':completed, 'samples':samples,
                         'reason':'This kinematic replay has no configured replay for this operation.', **gait_evidence()}
-            for milliseconds, angles in frames:
-                start, duration = dict(positions), milliseconds/1000
+            for speed_cd_s, angles in frames:
+                start = dict(positions)
+                duration = max(abs(angles[k]/100-start[j]) for k,j in enumerate(JOINTS))/(speed_cd_s/100)
                 # This is a geometric replay, not a time-stepped dynamics engine.
                 # Sample intermediate joint configurations independently of speed.
                 steps = max(1, math.ceil(max(abs(angles[k]/100-start[j]) for k,j in enumerate(JOINTS))/.25))

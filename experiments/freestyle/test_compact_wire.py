@@ -15,10 +15,47 @@ from .prepare_wire import build
 
 
 class CompactWireTests(unittest.TestCase):
+    def test_recovery_projection_preserves_current_measurements_and_correlated_receipts(self):
+        from .observations import enrich
+        encoding=ProgramEncoding([*TOOLS,face_tool()])
+        imu={'orientation_wxyz':[1,0,0,0],'available':True,'fresh':True}
+        receipt={'t':'done','seq':7,'position_verified':True}
+        query=enrich({'request':'recover','event':{'type':'servo_stall'},
+            'observation':{'imu':imu,'joints':{JOINTS[0]:{'model_deg':4,'commanded_model_deg':5,
+                'arrival_tolerance_deg':2,'feedback_usable':True}}},
+            'history':[{'imu':imu,'correction_delta_deg':{JOINTS[0]:2}},
+                       {'imu':imu,'receipts':[receipt]}]})
+        projected=model_query(query,encoding)
+        self.assertEqual(projected['observation']['joints']['tracking_error_deg'],[1])
+        self.assertEqual(projected['observation']['joints']['within_arrival_tolerance'],[True])
+        self.assertEqual(projected['observation']['imu']['derived_orientation']['tilt_degrees'],0)
+        self.assertEqual(projected['history'][0]['last_correction']['receipts'],[receipt])
+
+    def test_feedback_fault_keeps_calibrated_domain_and_interrupted_goal(self):
+        encoding=ProgramEncoding([*TOOLS,face_tool()])
+        action={'name':'feet','arguments':{'legs':['front_right'],
+            'offsets_mm':[[0,0,30]],'speed_pct':50}}
+        query={'request':'stretch then stand','event':{'type':'servo_feedback_fault',
+            'joints':[{'id':10,'reasons':['below_calibration']}],'outputs_released':False},
+            'observation':{'joints':{JOINTS[10]:{'model_deg':-39.57,
+                'feedback_range_deg':[-36.27,170.73],'feedback_usable':False,
+                'feedback_faults':['below_calibration'],'arrival_tolerance_deg':9}},
+                'feedback':{'enabled':True,'waiting_joints':1024}},
+            'history':[{'interrupted_action':action,'remaining_program':[{'name':'hold','arguments':{'seconds':.6}}]}]}
+        packed=model_query(query,encoding)
+        self.assertEqual(packed['observation']['joints']['feedback_range_deg'],[[-36.27,170.73]])
+        self.assertEqual(packed['observation']['joints']['feedback_usable'],[False])
+        self.assertEqual(packed['observation']['feedback']['waiting_joints'],1024)
+        self.assertEqual(packed['event']['joints'][0]['reasons'],['below_calibration'])
+        self.assertEqual(packed['history'][0]['interrupted_action'],encoding.encode([action])[0])
+        self.assertEqual(packed,model_query(packed,encoding))
+
     def test_recovery_keeps_goal_and_unfinished_complex_plan_without_copied_logs(self):
         encoding=ProgramEncoding([*TOOLS,face_tool()])
         move={'name':'move','arguments':{'joint':JOINTS[6],'angle_deg':-60,'reference':'absolute','speed_pct':20}}
         wave={'name':'oscillate','arguments':{'joint':JOINTS[6],'amplitude_deg':4,'cycles':3,'speed_pct':15}}
+        finish={'name':'pose','arguments':{'joints':list(JOINTS),
+            'angles_deg':[0,3.46,-21.63]*4,'reference':'absolute','speed_pct':50}}
         query={'request':'Wave then stand','event':{'type':'servo_stall','joints':[6],
                'outputs_released':False,'event_id':'diagnostic','thresholds':{'unused':10}},
                'observation':{'joints':{JOINTS[6]:{'model_deg':-50.,'commanded_model_deg':-60.,
@@ -26,7 +63,7 @@ class CompactWireTests(unittest.TestCase):
                    'imu':{'available':True,'fresh':True,'orientation_wxyz':[1.,0.,0.,0.]},
                    'feedback':{'enabled':True,'no_progress_ms':3000,'device_us':123456}},
                'history':[{'imu':{'old':True}}]*20+[{'interrupted_action':move,
-                    'remaining_program':[wave,{'name':'stand','arguments':{}}],
+                    'remaining_program':[wave,finish],
                     'interrupted_program':{'program':[move]*100},'packet_progress':{'frames':[0]*1000}}]}
         original=copy.deepcopy(query)
         projected=model_query(query,encoding)
@@ -34,7 +71,7 @@ class CompactWireTests(unittest.TestCase):
         self.assertEqual(projected['request'],'Wave then stand')
         self.assertFalse(projected['event']['outputs_released'])
         self.assertEqual(projected['history'],[{'interrupted_action':encoding.encode([move])[0],
-            'remaining_program':encoding.encode([wave,{'name':'stand','arguments':{}}])}])
+            'remaining_program':encoding.encode([wave,finish])}])
         self.assertEqual(projected,model_query(projected,encoding))
         self.assertNotIn('device_us',projected['observation']['feedback'])
         self.assertNotIn('thresholds',projected['event'])

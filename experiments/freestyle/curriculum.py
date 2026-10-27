@@ -18,6 +18,7 @@ from pathlib import Path
 from .challenge import digest, read_rows, replay, write_rows
 from .kinematics import ROOT, foot_positions
 from .runtime import JOINTS, compact
+from .migrate_targets import standing_pose
 from .semantic_teachers import call, feet, body
 
 
@@ -286,7 +287,7 @@ def recovery_examples():
                     center = round((start+blocked)/2, 4)
                     program = [call('move', joint=joint, angle_deg=center, reference='absolute', speed_pct=50),
                                call('oscillate', joint=joint, amplitude_deg=span/2, cycles=cycles, period_s=1.5),
-                               call('reassess')]
+                               standing_pose()]
                     yield example(f'Finish waving with the {side} hand despite the jam; adapt the remaining {cycles} cycles to the range just traversed.',
                                   state, program, 'recovery_wave', event={'type':'servo_stall','joints':[joint]}, history=history,
                                   episode_group=f'wave:{side}:{span}:{direction}', split='train',
@@ -309,7 +310,7 @@ def recovery_examples():
                         state['imu'] = imu(after, axis, 3000000); state['expected_up'] = [0, 0, 1]
                         state['action'] = {'name':'walk' if event=='slip' else 'freestyle', 'remaining_cycles':2}
                         program = [call('pose', joints=joints, angles_deg=[delta[j]*(1 if improved else -1) for j in joints],
-                                        reference='current', speed_pct=50), call('reassess')]
+                                        reference='current', speed_pct=50), standing_pose()]
                         yield example('Adapt the correction after this '+('slip while walking.' if event=='slip' else 'fall onto my side.')+
                                       ' Use the measured effect of the previous attempt and observe again.',
                                       state, program, 'recovery_'+event, event={'type':event}, history=history,
@@ -319,7 +320,7 @@ def recovery_examples():
 
 def audit(item):
     trace = replay(item['answers'], json.loads(item['query'])['observation'])
-    allowed_prefix = trace['status']=='not_fully_replayed' and trace.get('operation') in ('reassess', 'gait', 'stop')
+    allowed_prefix = trace['status']=='not_fully_replayed' and trace.get('operation') in ('gait', 'stop')
     accepted = trace['status']=='replayed' or allowed_prefix
     evidence = {'id':item['id'], 'status':trace['status'], 'completed_actions':trace['completed_actions'],
                 'error':trace.get('error'), 'operation':trace.get('operation'), 'accepted':accepted,

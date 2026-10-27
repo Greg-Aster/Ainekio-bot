@@ -60,6 +60,27 @@ def loss_only_evaluation(model):
     model.forward = evaluate
 
 
+def configure_loss_weighting(trainer, cfg):
+    """Give each task example equal weight when learning short completions.
+
+    The shared Trainer normally normalizes by all supervised tokens in the
+    accumulation batch. A two-token ending then contributes far less than a
+    long motion program. With the existing one-example microbatches, native
+    per-forward mean loss and Trainer's accumulation scaling give equal task
+    weight, without duplicating examples or changing the shared trainer.
+    """
+    mode=cfg.get('loss_weighting','tokens')
+    original=trainer.model_accepts_loss_kwargs
+    if mode=='example':
+        if cfg['per_device_train_batch_size']!=1:
+            raise ValueError('Equal-example loss requires one example per microbatch')
+        trainer.model_accepts_loss_kwargs=False
+    elif mode!='tokens':
+        raise ValueError('Unknown loss weighting '+str(mode))
+    return {'loss_weighting':mode,'original_model_accepts_loss_kwargs':original,
+            'model_accepts_loss_kwargs':trainer.model_accepts_loss_kwargs}
+
+
 def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
     spec=importlib.util.spec_from_file_location('freestyle_shared_trainer',shared_trainer)
     shared=importlib.util.module_from_spec(spec);spec.loader.exec_module(shared)
@@ -106,6 +127,7 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
                       template_options={'enable_thinking':False})
         save()
         trainer=shared.make_trainer(model,tokenizer,cfg,output,training,testing)
+        result['runtime_adjustments'].update(configure_loss_weighting(trainer,cfg))
         result['before_loss']=shared.finite_loss(trainer.evaluate());save()
         torch.cuda.reset_peak_memory_stats()
         trainer.train()
