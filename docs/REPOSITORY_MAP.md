@@ -1,153 +1,97 @@
 # Ainekio Repository Map
 
-All project code belongs to one of three runtime owners: `Master/`, `Slave/`, or
-`Emulator/`. Project documentation and external reference material belong in
-`docs/`.
-
-The repository supports ongoing V1 development alongside the new V2 frame.
-[Robot Models](ROBOT_MODELS.md) records the approved model/board/output boundaries
-and identifies the code extraction still needed for V2. The trees below show
-existing directories, not future firmware scaffolding.
+**V2 is active; V1 work is paused.** This map describes the current source owners.
+Start with the cross-repository [software architecture](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md)
+for processes, interfaces and complete request/result paths. [Robot Models](ROBOT_MODELS.md)
+defines V1/V2 boundaries; [V2 specifications](v2-12servo/SPECIFICATIONS.md) defines
+the physical assembly. Source support and installed qualification are separate.
 
 ## Robot Code
 
-The physical robot's code is under `Slave/`.
+| Path | Responsibility |
+| --- | --- |
+| `Slave/hardware/v2-12servo/` | Current V2 Blender, STEP, GLB and printable geometry |
+| `Slave/firmware/esp32p4-wifi6/main/app_main.c` | Physical V2 firmware entrypoint; initializes board, controller, feedback, media, IMU, display and network |
+| `Slave/firmware/esp32p4-wifi6/main/controller.c` | Robot WebSocket session, command admission, observations and receipts |
+| `Slave/firmware/esp32p4-wifi6/main/body.c` | V2 device motion lifecycle, target tracking, calibration-to-output handoff |
+| `Slave/firmware/esp32p4-wifi6/components/` | PCA9685 driver, media and assets |
+| `Slave/software/models/v2-12servo/` | V2 geometry, kinematics, postures, native motion and tests |
+| `Slave/software/imu/` | Shared attitude mathematics; P4 acquisition lives in `components/ainekio_p4_media/imu.c` |
+| `Slave/software/protocol/` | Wire schemas, helpers, validators and model-specific joint contracts |
+| `Slave/software/core/` | Portable command/core functions, including retained V1 body assumptions; not a universal V2 motion executor |
+| `Slave/firmware/esp32s3/`, `Slave/hardware/v1-8servo/` | Retained V1 firmware and physical assets |
+| `Slave/software/assets/`, `Slave/software/tests/`, `Slave/software/tools/` | Seed assets, portable tests and deterministic asset tooling |
 
-```text
-Slave/
-  hardware/
-    README.md                 Model-specific asset guide
-    v1-8servo/
-      3d-print/               Existing V1 Blender and STL assets
-      Parts/                  Existing V1 OBJ and material assets
-    v2-12servo/               V2 STEP, Blender, GLB, STL, and source archive
-  software/
-    assets/                   Current V1 motion, face, and PCM assets
-    core/                     Portable C lifecycle/safety with V1 body assumptions
-    imu/                      Portable six-axis attitude estimator and native tests; acquisition not integrated
-    models/v2-12servo/        Twelve-joint geometry, first walk source, compiler and sampler
-    protocol/                 Protocol-v1 schemas, validator, helpers, fixtures
-    tests/                    Portable slave-software protocol tests
-    tools/                    Deterministic asset conversion and validation
-  firmware/
-    esp32s3/                  Existing V1 ESP-IDF project
-      components/             ESP32-S3 platform services and hardware ports
-      main/app_main.c         Physical robot firmware entry point
-    esp32p4-wifi6/            Native V2 board/network/output-disable bring-up
-      components/ainekio_pca9685/  Real register driver, output gate and tests
-      main/                   P4 startup, resources, configuration, network and admission adapter
-```
-
-`Slave/firmware/esp32s3/main/app_main.c` is where the ESP32-S3 robot starts.
-`Slave/software/core/` is linked into that firmware. Neither `Master/` nor
-`Emulator/` is flashed to the robot.
-
-The firmware, protocol, core, and runtime asset paths retain their existing
-build/import behavior. `Slave/software/models/v2-12servo/` owns the first V2 gait;
-V1 model extraction remains pending.
-The native P4 target exists; its [Step 1 record](v2-12servo/STEP1_EVIDENCE.md)
-separates software/network checks from outstanding electrical acceptance.
+Only the selected firmware image runs on the microcontroller. MetaHuman, the
+gateway and the host emulator are not flashed into it.
 
 ## Master
 
-```text
-Master/
-  gateway/                    Brain-side protocol-v1 WebSocket owner
-    server/                   Production gateway service and focused test stub
-    dashboard/                Authenticated operator dashboard
-    environment_adapter/      Authenticated environment WebSocket and semantic translation
-```
+[`Master/gateway/server/__main__.py`](../Master/gateway/server/__main__.py) composes
+the Python Body Control application:
 
-The production gateway, dashboard, plugins, security stores, and generic
-environment adapter stay under `Master/`.
+| Path | Responsibility |
+| --- | --- |
+| `Master/gateway/server/service.py` | Robot sessions, epochs, command sequences, capabilities and receipts |
+| `Master/gateway/environment_adapter/` | Semantic `/environment` protocol, translation and persistent action-result correlation |
+| `Master/gateway/dashboard/` | Operator HTTP API/browser UI; wires the existing Freestyle executor into GatewayService |
+| `Master/gateway/plugins.py`, `perception.py` | Camera processing and configured perception |
+| `Master/start-physical-gateway.sh` | Physical Body Control launcher with saved configuration |
 
-Both robot models use this owner. Legacy V1 retains its motion catalog; negotiated
-P4 readiness suppresses unimplemented motion/media. The first V2 walk sampler
-has twelve geometric joints; measured calibration, its operator controls and
-powered execution remain subsequent work. `body_capabilities.py` selects the
-connected body's subset of the existing gateway semantic catalog.
+Both bodies use this gateway. `body_capabilities.py` derives the selected body's
+capabilities; twelve-joint commands, feedback/calibration controls and P4 media
+are implemented. Their per-device qualification belongs to dated evidence.
+
+## Freestyle
+
+[`experiments/freestyle/`](../experiments/freestyle/README.md) is an **active runtime
+dependency**, not an orphaned experiment. `dashboard/server.py` imports its
+`bridge.py`; `GatewayService.request_motion` calls that executor. `generator.py`
+serves the model-backed generation API. Program compilation, observation-driven
+continuation, datasets and recording belong to this owner. Execution uses the
+existing gateway/P4 path. MetaHuman supplies semantic requests, not joint frames.
 
 ## Emulator
 
-```text
-Emulator/
-  emulator/                   Protocol-v1 host body emulator
-    body/                     Host session, client, and portable-core bridge
-    backends/                 Optional Sesame renderer backend and HTTP/SSE shim
-  tests/                      Host emulator and gateway integration tests
-  sesame-robot-sim/           Runnable browser/WASM visual simulator
-  requirements-host.txt       Host-only Python dependency pin
-  start-protocol-v1-stack.sh  Complete local inspection stack
-  start-protocol-v1-emulator.sh
-  start-simulator-shim.sh
-```
-
-The host emulator uses the portable core from `Slave/software/core/`. The Sesame
-browser renders accepted commands but does not own protocol or safety decisions.
-The current body and Sesame backend implement V1; a V2 visual backend is pending.
+`Emulator/emulator/body/` implements the host protocol body, `backends/` supplies
+the Sesame adapter, and `sesame-robot-sim/` supplies its browser renderer.
+`Emulator/tests/` also contains gateway and V2 integration tests; its directory
+name does not mean all those tests concern the V1 renderer. The Sesame visual
+body is V1; native V2 tests and Freestyle simulation are separate test surfaces.
 
 ## Documentation
 
-```text
-docs/
-  README.md                   Normative-document authority
-  ROBOT_MODELS.md             Approved model/board/output separation
-  Ainekio - System Specification v1.0.docx
-  v1-8servo/
-    HARDWARE_BRINGUP_CHECKLIST.md
-    PINOUT_DIAGNOSTICS.md
-  v2-12servo/
-    README.md                 Selected hardware and current design status
-    FIRMWARE_DESIGN.md         V1 review, P4 design and optional Q6A boundaries
-    STEP1_EVIDENCE.md          Board bring-up evidence and open electrical checks
-  BODY_CONTROL_INTEGRATION.md  ROS 2 role, transport and operating targets
-  LOCAL_WAKE_WORD.md
-  freestyle-movement.md
-  SLAVE_BRAIN_PROGRESS.md
-  REPOSITORY_MAP.md
-  Freenove_ESP32_S3_WROOM_Board-main/
-                              Current vendor board reference bundle
-  archive/                    Superseded specifications and historical notes
-  sesame-robot/               Ignored upstream Sesame reference clone
-```
-
-`docs/sesame-robot/` supplies upstream seed material to the deterministic asset
-conversion tools, but it is not imported, linked, or built into Ainekio. The
-Freenove bundle identifies the delivered board's physical headers and onboard
-buses; neither reference directory owns Ainekio behavior or safety decisions.
+`docs/README.md` names document authority. Model-specific specifications and
+wiring live in `docs/v1-8servo/` and `docs/v2-12servo/`. Firmware/model READMEs
+describe their owners. Dated research and bring-up records retain their original
+conditions; old pending-work statements are not the current implementation map.
+`docs/sesame-robot/` and the Freenove reference bundle supply reference material,
+not Ainekio runtime behavior. [Startup](STARTUP.md) describes an existing physical
+installation; the root `start.sh` starts the simulator inspection stack.
 
 ## Runtime Paths
 
-Current V1 physical robot:
-
 ```text
-Slave/software/protocol
-  -> Slave/software/core
-  -> Slave/firmware/esp32s3/main/app_main.c
-  -> ESP-IDF hardware services
+MetaHuman graph / Core action
+  <-> MetaHuman Environment Bridge
+  <-> gateway environment adapter
+  <-> GatewayService / Freestyle executor when movement is requested
+  <-> P4 controller -> body executor -> PCA9685/peripherals
+  <-> correlated receipts and observations back to the same Core execution
 ```
 
-Host test path:
-
-```text
-Master/gateway
-  -> WebSocket protocol v1
-  -> Emulator/emulator/body
-  -> Slave/software/core
-  -> Emulator/emulator/backends
-  -> Emulator/sesame-robot-sim
-```
+Manual Body Control enters at the gateway. V1 instead uses ESP32-S3 `app_main.c`
+and its platform/core path; its eight-joint conventions are retained. Host
+simulation substitutes the emulator for the physical body connection.
 
 ## Non-Source Root Paths
 
 | Path | Purpose |
 | --- | --- |
-| `README.md` | Project introduction and short folder guide. |
-| `AGENTS.md`, `.agents/`, `.codex/` | Local collaboration instructions and agent tooling. |
-| `.git/` | Git metadata. |
-| `build/` | Generated acceptance reports, host builds, credentials, and runtime data. |
-| `node_modules/` | Generated JavaScript dependencies. |
-| `packages/` | Existing generated dependency links; no current Ainekio source owner. |
+| `AGENTS.md`, `.agents/`, `.codex/` | Local contributor instructions/tooling; Ainekio `AGENTS.md` remains ignored |
+| `.git/` | Repository metadata |
+| `build/` | Runtime stores, credentials, recordings, generated builds and reports; not disposable merely because ignored |
 
-Generated output is not a fifth code owner and should not contain authoritative
-robot implementation.
+Determine readers, lifecycle and retention before removing data. Active receipts,
+recovery state, training evidence and other tasks' artifacts are not orphaned
+merely because they are absent from the source import graph.

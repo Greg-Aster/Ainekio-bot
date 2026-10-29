@@ -7,6 +7,7 @@ typedef struct {
     double anchors[4][3], shift[4][2];
     ainekio_v2_frame_t from, to;
     unsigned order_offset;
+    bool initial_landing; /* Optional geometric segment -1..0; ordinary path unchanged. */
 } ainekio_v2_posture_t;
 double ainekio_v2_posture_path_length(void);
 bool ainekio_v2_posture_begin(ainekio_v2_posture_t *state,
@@ -14,6 +15,11 @@ bool ainekio_v2_posture_begin(ainekio_v2_posture_t *state,
 bool ainekio_v2_posture_begin_ordered(ainekio_v2_posture_t *state,
     const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,
     const double starting_euler[3],unsigned order_offset);
+/* Begin at progress -1: lower raised modeled soles vertically to the lowest
+ * starting sole plane before lifting/placing toward the final posture. The
+ * caller supplies measured shafts when available; this is not contact sensing. */
+bool ainekio_v2_posture_begin_landing(ainekio_v2_posture_t *state,
+    const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,const double starting_euler[3]);
 /* Geometric path coordinate, not a mandatory wall-clock duration. */
 bool ainekio_v2_posture_sample(ainekio_v2_posture_t *state,double elapsed);
 /* Traverse at the same full nominal joint rate as automatic Walk, independent

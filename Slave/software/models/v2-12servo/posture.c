@@ -24,12 +24,6 @@ bool ainekio_v2_rise_begin(ainekio_v2_rise_t *s)
 }
 static double step_s(void){return shift_s+lift_s+place_s+lower_s;}
 double ainekio_v2_posture_path_length(void){return 4.*step_s()+settle_s;}
-static void joints(ainekio_v2_walk_pose_t *p,const ainekio_v2_frame_t *f)
-{
-    for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
-        p->joints[l][j]=f->position[3*(l<2?l+2:l-2)+j]*0.00017453292519943296;
-    p->frame=*f;
-}
 bool ainekio_v2_posture_begin(ainekio_v2_posture_t *s,
     const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,const double euler[3])
 {
@@ -41,7 +35,7 @@ bool ainekio_v2_posture_begin_ordered(ainekio_v2_posture_t *s,
 {
     if(!s||!from||!to||!euler)return false;
     *s=(ainekio_v2_posture_t){.from=*from,.to=*to,.order_offset=order_offset%4};
-    joints(&s->start,from);joints(&s->target,to);
+    ainekio_v2_pose_from_frame(&s->start,from);ainekio_v2_pose_from_frame(&s->target,to);
     memcpy(s->start.euler,euler,sizeof(s->start.euler));
     if(!ainekio_v2_contact_forward(&s->start,s->anchors,true)||
        !ainekio_v2_contact_forward(&s->target,s->anchors,false))return false;
@@ -66,12 +60,33 @@ bool ainekio_v2_posture_begin_ordered(ainekio_v2_posture_t *s,
     }
     s->pose=s->start;return true;
 }
+bool ainekio_v2_posture_begin_landing(ainekio_v2_posture_t *s,
+    const ainekio_v2_frame_t *from,const ainekio_v2_frame_t *to,const double euler[3])
+{
+    if(!ainekio_v2_posture_begin(s,from,to,euler))return false;
+    s->initial_landing=true;
+    for(unsigned l=0;l<4;l++)s->start.grounded[l]=s->start.sole_height[l]<=0.;
+    s->pose=s->start;
+    return true;
+}
 bool ainekio_v2_posture_sample(ainekio_v2_posture_t *s,double elapsed)
 {
-    if(!s||!isfinite(elapsed)||elapsed<0.)return false;
+    if(!s||!isfinite(elapsed)||elapsed<(s->initial_landing?-1.:0.))return false;
+    if(s->initial_landing && elapsed<=0.) {
+        if(elapsed==-1.){s->pose=s->start;return true;}
+        ainekio_v2_walk_pose_t p=s->start;
+        memcpy(p.joints,s->pose.joints,sizeof p.joints);
+        for(unsigned l=0;l<4;l++) {
+            p.sole_height[l]=-elapsed*s->start.sole_height[l];
+            p.grounded[l]=elapsed==0. || s->start.grounded[l];
+        }
+        if(!ainekio_v2_contact_solve(&p,(const double (*)[3])s->anchors))return false;
+        s->pose=p;return true;
+    }
     if(elapsed==0.){s->pose=s->start;return true;}
     if(elapsed>=ainekio_v2_posture_path_length()){s->pose=s->target;return true;}
     ainekio_v2_walk_pose_t p=s->start;
+    if(s->initial_landing)for(unsigned l=0;l<4;l++)p.sole_height[l]=0.;
     memcpy(p.joints,s->pose.joints,sizeof(p.joints));
     const unsigned step=(unsigned)fmin(4.,floor(elapsed/step_s()));
     double local=elapsed-step*step_s();
@@ -93,8 +108,9 @@ bool ainekio_v2_posture_sample(ainekio_v2_posture_t *s,double elapsed)
         if(swing>0.) {
             double xy=fraction((swing-lift_s)/place_s);
             for(unsigned axis=0;axis<2;axis++)p.feet[l][axis]=s->start.feet[l][axis]+xy*(s->target.feet[l][axis]-s->start.feet[l][axis]);
-            double clear=fmax(s->start.sole_height[l],s->target.sole_height[l])+lift_mm;
-            if(swing<lift_s)p.sole_height[l]=s->start.sole_height[l]+fraction(swing/lift_s)*(clear-s->start.sole_height[l]);
+            const double start_height=s->initial_landing?0.:s->start.sole_height[l];
+            double clear=fmax(start_height,s->target.sole_height[l])+lift_mm;
+            if(swing<lift_s)p.sole_height[l]=start_height+fraction(swing/lift_s)*(clear-start_height);
             else if(swing<lift_s+place_s)p.sole_height[l]=clear;
             else p.sole_height[l]=clear+fraction((swing-lift_s-place_s)/lower_s)*(s->target.sole_height[l]-clear);
             p.grounded[l]=swing>=lift_s+place_s+lower_s;
@@ -111,7 +127,7 @@ static bool sample_mapped(ainekio_v2_posture_t *s,double progress,
     if(!fit)return true;
     ainekio_v2_frame_t frame=s->pose.frame;
     if(!fit(&frame,context))return false;
-    joints(&s->pose,&frame);
+    ainekio_v2_pose_from_frame(&s->pose,&frame);
     return ainekio_v2_contact_forward(&s->pose,s->anchors,false);
 }
 static bool advance(ainekio_v2_posture_t *s,double *progress,double seconds,
@@ -121,7 +137,7 @@ static bool advance(ainekio_v2_posture_t *s,double *progress,double seconds,
     const double end=ainekio_v2_posture_path_length();
     double remaining=seconds;
     while(remaining>0. && *progress<end) {
-        double event=end;
+        double event=*progress<0.?0.:end;
         const double landmarks[4]={shift_s,shift_s+lift_s,
             shift_s+lift_s+place_s,step_s()};
         for(unsigned leg=0;leg<4;leg++)for(unsigned k=0;k<4;k++) {
@@ -163,6 +179,11 @@ bool ainekio_v2_posture_advance(ainekio_v2_posture_t *s,double *progress,double 
 }
 uint16_t ainekio_v2_posture_arrival_joints(const ainekio_v2_posture_t *s,double progress)
 {
+    if(s->initial_landing && progress==0.) {
+        uint16_t moving=0;
+        for(unsigned l=0;l<4;l++)if(!s->start.grounded[l])moving|=7U<<(3*((l+2)%4));
+        return moving;
+    }
     if(progress>=ainekio_v2_posture_path_length())return 0xfff;
     for(unsigned k=0;k<4;k++) {
         double local=progress-k*step_s();
@@ -225,7 +246,7 @@ bool ainekio_v2_posture_next_target_mapped(ainekio_v2_posture_t *s,double *progr
     uint16_t *moving,ainekio_v2_posture_fit_t fit,void *context)
 {
     const double landmarks[]={shift_s,shift_s+lift_s,shift_s+lift_s+place_s,step_s()};
-    double next=ainekio_v2_posture_path_length();
+    double next=*progress<0.?0.:ainekio_v2_posture_path_length();
     for(unsigned leg=0;leg<4;leg++)for(unsigned k=0;k<4;k++) {
         const double at=leg*step_s()+landmarks[k];
         if(at>*progress+1e-9)next=fmin(next,at);
@@ -251,7 +272,7 @@ bool ainekio_v2_posture_next_target(ainekio_v2_posture_t *s,double *progress,uin
 bool ainekio_v2_posture_observe(const ainekio_v2_posture_t *s,
     const ainekio_v2_frame_t *measured,const double euler[3],ainekio_v2_walk_pose_t *out)
 {
-    *out=s->pose;joints(out,measured);
+    *out=s->pose;ainekio_v2_pose_from_frame(out,measured);
     memcpy(out->euler,euler,sizeof out->euler);out->body[2]=0.;
     double anchors[4][3];memcpy(anchors,s->anchors,sizeof anchors);
     if(!ainekio_v2_contact_forward(out,anchors,false))return false;

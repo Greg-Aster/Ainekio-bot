@@ -1,0 +1,12 @@
+[Unit]
+Description=Ainekio neural gait training and inference
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Ainekio
+ExecStart=%h/Ainekio/Master/start-neural-gait.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

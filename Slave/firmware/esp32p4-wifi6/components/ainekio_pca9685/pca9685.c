@@ -183,6 +183,21 @@ ainekio_pca_result_t ainekio_pca_recover(ainekio_pca9685_t *d, uint64_t expected
     return finish(d, generation, result, true, false);
 }
 
+bool ainekio_pca_config_prescale(const ainekio_pca_config_t *config, uint8_t *prescale)
+{
+    if (!config || !prescale || config->frequency_hz == 0 || config->oscillator_hz == 0) return false;
+    const uint64_t divisor = UINT64_C(4096) * config->frequency_hz;
+    const uint64_t divider = ((uint64_t)config->oscillator_hz + divisor / 2U) / divisor;
+    if (divider < 4U || divider > 256U) return false;
+    *prescale = (uint8_t)(divider - 1U);
+    return true;
+}
+
+uint16_t ainekio_pca_channel_phase(unsigned channel)
+{
+    return (uint16_t)(4096U * channel / AINEKIO_PCA_BODY_CHANNELS);
+}
+
 ainekio_pca_result_t ainekio_pca_init(ainekio_pca9685_t *d,
     const ainekio_pca_port_t *port, const ainekio_pca_config_t *config)
 {
@@ -191,15 +206,11 @@ ainekio_pca_result_t ainekio_pca_init(ainekio_pca9685_t *d,
         return AINEKIO_PCA_INVALID;
     *d = (ainekio_pca9685_t){.port = *port, .config = *config};
     port->disable_output(port->context, true);
-    if (config->frequency_hz == 0 || config->oscillator_hz == 0) return AINEKIO_PCA_INVALID;
-    const uint64_t divisor = UINT64_C(4096) * config->frequency_hz;
-    const uint64_t divider = ((uint64_t)config->oscillator_hz + divisor / 2U) / divisor;
-    if (divider < 4U || divider > 256U) return AINEKIO_PCA_INVALID;
-    d->prescale = (uint8_t)(divider - 1U);
+    if (!ainekio_pca_config_prescale(config, &d->prescale)) return AINEKIO_PCA_INVALID;
     return ainekio_pca_recover(d, 0);
 }
 
-static uint64_t pulse_ticks(const ainekio_pca9685_t *d, uint16_t pulse_us)
+uint64_t ainekio_pca_pulse_ticks(const ainekio_pca9685_t *d, uint16_t pulse_us)
 {
     const uint64_t denominator = UINT64_C(1000000) * (d->prescale + 1U);
     return ((uint64_t)pulse_us * d->config.oscillator_hz + denominator / 2U) / denominator;
@@ -223,7 +234,7 @@ bool ainekio_pca_pulse_bounds(const ainekio_pca9685_t *d,
 bool ainekio_pca_pulse_valid(const ainekio_pca9685_t *d, uint16_t pulse_us)
 {
     if (!d || !pulse_us || !d->config.oscillator_hz) return false;
-    const uint64_t ticks = pulse_ticks(d, pulse_us);
+    const uint64_t ticks = ainekio_pca_pulse_ticks(d, pulse_us);
     return ticks > 0 && ticks < 4096U;
 }
 
@@ -237,12 +248,12 @@ static ainekio_pca_result_t frame(ainekio_pca9685_t *d, uint64_t expected,
             bytes[4U * i + 3U] = 0x10U;
             continue;
         }
-        const uint64_t ticks = pulse_ticks(d, pulses[i]);
+        const uint64_t ticks = ainekio_pca_pulse_ticks(d, pulses[i]);
         if (ticks == 0 || ticks >= 4096U) return AINEKIO_PCA_INVALID;
         /* Spread the twelve body signal pulses across the PWM period. Keep
          * pulse width exact even when OFF wraps through counter zero. This
          * changes signal phase, not joint targets, frame cadence or I2C order. */
-        const uint16_t on = (uint16_t)(4096U * i / AINEKIO_PCA_BODY_CHANNELS);
+        const uint16_t on = ainekio_pca_channel_phase((unsigned)i);
         const uint16_t off = (uint16_t)((on + ticks) & 0x0fffU);
         bytes[4U * i] = (uint8_t)on;
         bytes[4U * i + 1U] = (uint8_t)(on >> 8U);

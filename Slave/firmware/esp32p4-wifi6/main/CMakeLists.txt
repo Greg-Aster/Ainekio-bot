@@ -1,4 +1,4 @@
-idf_component_register(SRCS "app_main.c" "board.c" "body.c" "config.c" "joint_calibration.c" "network.c" "controller.c"
+idf_component_register(SRCS "app_main.c" "board.c" "body.c" "config.c" "joint_calibration.c" "network.c" "controller.c" "controller_motion.c" "body_readings.c"
                            "system.c" "idle_rest.c" "storage.c" "video_avi.c" "ota.c" "logs.c" "portal.c" "robot_settings.c" "gateway_selection.c"
                            "display.c" "face_timeline.c" "connection_screen.c" "imu_diagnostics.c" "imu_telemetry.c"
                            "servo_feedback.c" "servo_feedback_model.c" "servo_feedback_position.c"

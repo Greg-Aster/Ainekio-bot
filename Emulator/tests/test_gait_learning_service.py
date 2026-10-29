@@ -2,12 +2,16 @@ import asyncio
 import copy
 import json
 import math
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch, Mock, AsyncMock
 
+from gateway.plugins import CameraFramePlugin, _CameraInput
+from gateway.server.service import GatewayConnection, GatewayService, GatewayServiceConfig
 from gateway.gait_learning import policy_seed
 from gateway.gait_optimizer import candidate, context, DEFAULT_RADII, DEFAULT_WEIGHTS, measured_score, compare, project_candidate
 from gateway.gait_learning_service import GaitLearningService, TraceSessionChanged, RobotLearningTransport
@@ -145,10 +149,17 @@ class ObjectiveTests(unittest.TestCase):
 
 class Gateway:
     def __init__(self):
-        self.commands, self.events, self.frames = [], [], []
+        self.commands, self.events, self.frames, self.diagnostics = [], [], [], []
+    def status(self):
+        return {"robots": {"robot": {"epoch": 1, "features": ["walk_nominal_v1"],
+            "motion_speed": {"joint_speed_limit_deg_s": 545.45},
+            "balance_settings": {"enabled": True}, "walking_source": {"source": "native"},
+            "unrelated_private_data": "do-not-record"}}}
     def subscribe_commands(self, fn): self.commands.append(fn)
     def subscribe_events(self, fn): self.events.append(fn)
     def subscribe_frames(self, fn): self.frames.append(fn)
+    def subscribe_diagnostics(self, fn): self.diagnostics.append(fn)
+    def unsubscribe_diagnostics(self, fn): self.diagnostics.remove(fn)
     async def body_calibration(self, op, values, robot_id=None):
         assert op == "get"
         return {"robot_id": robot_id, "joints": []}
@@ -287,6 +298,10 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         await self.service.writes.join()
         folder = Path(self.service.status("robot")["recording"])
         self.assertTrue((folder/"trace.jsonl").exists())
+        metadata = json.loads((folder/"metadata.jsonl").read_text().splitlines()[0])
+        self.assertEqual(metadata["execution_settings"]["balance_settings"], {"enabled": True})
+        self.assertEqual(metadata["execution_settings"]["motion_speed"], {"joint_speed_limit_deg_s": 545.45})
+        self.assertNotIn("unrelated_private_data", metadata["execution_settings"])
         self.assertTrue((folder/"commands.jsonl").exists())
         self.assertEqual(len(list((folder/"camera").glob("*.jpg"))), 1)
         persisted = json.loads((Path(self.temp.name)/"settings.json").read_text())
@@ -297,6 +312,58 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(.15)
         self.assertEqual(self.service.status("robot")["state"], "off")
         self.assertEqual(self.transport.calls[-1][2]["op"], "trace_stop")
+
+    async def test_neural_trial_preserves_requested_consumed_and_fault_evidence(self):
+        self.service.settings["robot"] = {"logging": True, "learning": False}
+        folder = Path(self.temp.name)/"physical-trial"
+        self.service._runtime("robot")["recording"] = folder
+        start = {"t": "intent", "robot_id": "robot", "epoch": 3, "seq": 41,
+                 "name": "walk", "source": "host", "geometry": "measured-v2",
+                 "reference_cd": [0]*12, "twist": [.015, 0, 0], "token": "not-recorded"}
+        target = {"t": "walk_target", "robot_id": "robot", "epoch": 3, "seq": 42,
+                  "walk": 41, "sample": 7, "geometry": "measured-v2", "feet_mm": [1]*12}
+        self.gateway.commands[0](start)
+        self.gateway.commands[0](target)
+        diagnostic = {"event": "neural_gait", "robot_id": "robot", "epoch": 3,
+                      "walk": 41, "sample": 7, "model_id": "candidate", "action": [.1]*12,
+                      "requested_foot_offset_mm": [1]*12, "observation_device_us": 100000,
+                      "scan": 12, "consumed_sample": 6,
+                      "orientation_reference_yaw_rad": 1.2, "orientation_reference_sign": -1,
+                      "inference_elapsed_s": .003, "token": "not-recorded"}
+        self.gateway.diagnostics[0](diagnostic)
+        diagnostic["action"][0] = 999  # Async storage retains the inference as observed.
+        self.gateway.diagnostics[0]({"event": "unrelated", "robot_id": "robot", "token": "secret"})
+        failed = {"event": "neural_gait", "robot_id": "robot", "epoch": 3,
+                  "walk": 41, "model_id": "candidate", "error": "Inference unavailable",
+                  "finish_sequence": 44}
+        self.gateway.diagnostics[0](failed)
+        consumed = {"t": "imu", "robot_id": "robot", "epoch": 3,
+                    "imu": {"motion": {"seq": 41, "walk_source": "host", "nominal_sample": 7,
+                                       "sampled_us": 120000}, "joint_feedback": {"scan": 13}}}
+        fault = {"t": "event", "name": "body_event", "robot_id": "robot", "epoch": 3,
+                 "data": {"kind": "servo_stall", "command_sequence": 41, "joint_mask": 1}}
+        rejected = {"t": "nak", "robot_id": "robot", "epoch": 3, "seq": 43, "code": "owner"}
+        cancelled = {"t": "cancelled", "robot_id": "robot", "epoch": 3, "seq": 41, "code": "stop"}
+        for event in (consumed, fault, rejected, cancelled):
+            self.gateway.events[0](event)
+        await self.service.writes.join()
+        rows = lambda name: [json.loads(line)["value"] for line in (folder/name).read_text().splitlines()]
+        commands, neural, events = rows("commands.jsonl"), rows("neural.jsonl"), rows("events.jsonl")
+        self.assertEqual(commands[0], {k: v for k, v in start.items() if k != "token"})
+        self.assertEqual(commands[1], target)
+        self.assertEqual(len(neural), 2)
+        self.assertEqual(neural[0]["action"], [.1]*12)
+        self.assertEqual(neural[0]["consumed_sample"], 6)
+        self.assertEqual(neural[0]["orientation_reference_yaw_rad"], 1.2)
+        self.assertEqual(neural[0]["orientation_reference_sign"], -1)
+        self.assertEqual(neural[1], failed)
+        self.assertNotIn("token", neural[0])
+        self.assertEqual(events, [consumed, fault, rejected, cancelled])
+        self.assertEqual(neural[0]["sample"], events[0]["imu"]["motion"]["nominal_sample"])
+        self.assertFalse(self.transport.calls)
+        self.assertFalse(self.optimizer_calls)
+        await self.service.close()
+        self.assertEqual(self.gateway.diagnostics, [])
 
     async def test_ordinary_walk_windows_score_all_directions_without_moving_robot(self):
         self.service.settings["robot"] = dict(logging=True, learning=False, window_cycles=1,
@@ -497,6 +564,235 @@ class CandidateProjectionTests(unittest.TestCase):
         self.assertAlmostEqual(model["gait_profile"][1]-base["gait_profile"][1],4)
         self.assertTrue(all(c["gait"] == "run" for c in calls))
         self.assertEqual(base["gait_profile"],[0.]*33)
+
+
+class RecordingDepthTests(unittest.IsolatedAsyncioTestCase):
+    """Exercise the production camera/recorder handoff with real recording files."""
+
+    async def asyncSetUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.gateway = Gateway()
+        self.gateway.instance_id = "recording-depth-test"
+        self.gateway.unsubscribe_frames = self.gateway.frames.remove
+        self.gateway.clock = time.monotonic
+        self.body = {"epoch": 1, "connection_state": "online", "active_walk": None}
+        self.gateway.status = lambda: {"robots": {"robot": self.body}}
+        async def publish(event):
+            for callback in self.gateway.events:
+                callback(event)
+        self.gateway._publish_event = publish
+        self.camera = CameraFramePlugin(self.gateway, None, max_frame_age_s=30)
+        self.addAsyncCleanup(self.camera.aclose)
+        self.entered = asyncio.Event()
+        self.release = threading.Event()
+        self.fail_depth = False
+        loop = asyncio.get_running_loop()
+        def process(robot, epoch, counter, received, payload, stamp, config):
+            loop.call_soon_threadsafe(self.entered.set)
+            if not self.release.wait(10):
+                raise AssertionError("Test did not release depth inference")
+            if self.fail_depth:
+                raise ValueError("Depth fixture failed")
+            return {"available": True, "robotId": robot, "epoch": epoch,
+                "receivedAtMonotonic": received, "observedAt": stamp,
+                "referenceId": "navigation-reference", "position": {"xMetres": 0., "yMetres": 0.}}
+        self.depth = Mock(process=Mock(side_effect=process))
+        self.camera._depth_motion = self.depth
+        self.camera._depth_settings["robot"] = {"mode": "moge-open3d"}
+        self.camera._metric_frames["robot"] = (_CameraInput("robot", 1, 1, time.monotonic(), b"fixture"),
+            datetime.now(timezone.utc).isoformat())
+        self.transport = Transport()
+        self.started = asyncio.Event()
+        original = self.transport.request
+        async def request(robot, endpoint, payload):
+            result = await original(robot, endpoint, payload)
+            if payload and payload["op"] in {"trace_start", "trace_read"} and self.transport.active:
+                result.insert(1, {"kind": "sample", "time_us": 1,
+                    "joint_position_cd": [0]*12, "joint_target_cd": [0]*12,
+                    "pulse_us": [1500]*12, "imu": {"available": False}})
+                self.started.set()
+            return result
+        self.transport.request = request
+        self.service = GaitLearningService(self.gateway, self.transport, self.camera.locomotion_measurement,
+            Path(self.temp.name), depth_demand=self.camera.depth_demand)
+        self.addAsyncCleanup(self.service.close)
+        # Release first even when a baseline assertion fails, so cleanup cannot
+        # conceal the failure by hanging behind the deliberately held model.
+        self.addCleanup(self.release.set)
+        await self.service.start()
+
+    async def test_stationary_logging_does_not_request_depth(self):
+        await self.service.configure("robot", {"logging": True})
+        await asyncio.wait_for(self.started.wait(), 1)
+        await self.service.writes.join()
+        self.assertNotIn("gait-learning:robot", self.camera._metric_consumers)
+        self.depth.process.assert_not_called()
+        recording = self.service._runtime("robot")["recording"]
+        self.assertTrue((recording/"trace.jsonl").is_file())
+        await self.disable()
+
+    async def test_gait_receipts_release_depth_while_logging_stays_enabled(self):
+        owner = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        connection = GatewayConnection(owner, Mock(closed=False, send=AsyncMock()), "robot", 1)
+        owner._connections["robot"] = connection
+        self.gateway.status = owner.status
+        self.release.set()
+        await self.service.configure("robot", {"logging": True})
+        await asyncio.wait_for(self.started.wait(), 1)
+        self.assertFalse(self.camera._metric_consumers)
+        with patch("gateway.plugins.DepthMotion", return_value=self.depth):
+            for outcome in ("done", "cancelled", "nak", "disconnect"):
+                seq = await connection.send_command(
+                    {"t": "intent", "name": "walk", "dir": "fwd", "steps": 2},
+                    received_at=owner.clock())
+                self.started.clear()
+                await asyncio.wait_for(self.started.wait(), 1)
+                await self.camera._metric_queue.join()
+                self.assertIn("gait-learning:robot", self.camera._metric_consumers)
+                if outcome == "disconnect":
+                    connection.cancel_pending("disconnect")
+                    owner._connections.pop("robot")
+                else:
+                    await connection._handle_control({"t": "ack", "seq": seq})
+                    await connection._handle_control({"t": outcome, "seq": seq})
+                self.started.clear()
+                await asyncio.wait_for(self.started.wait(), 1)
+                await asyncio.get_running_loop().run_in_executor(self.camera._metric_executor, lambda: None)
+                self.assertNotIn("gait-learning:robot", self.camera._metric_consumers)
+                self.assertIsNone(self.camera._depth_motion)
+                self.assertTrue(self.service.settings["robot"]["logging"])
+                self.assertFalse(self.service.tasks["robot"].done())
+        self.assertEqual(self.depth.close.call_count, 4)
+        await self.disable()
+
+    async def test_learning_alone_does_not_request_depth_without_a_gait(self):
+        await self.service.configure("robot", {"learning": True})
+        await asyncio.wait_for(self.started.wait(), 1)
+        self.assertNotIn("gait-learning:robot", self.camera._metric_consumers)
+        self.depth.process.assert_not_called()
+        await self.service.configure("robot", {"learning": False})
+        await asyncio.wait_for(asyncio.shield(self.service.tasks["robot"]), 1)
+
+    async def test_restored_logging_stays_passive_until_a_gait_is_active(self):
+        await self.service.configure("robot", {"logging": True})
+        await asyncio.wait_for(self.started.wait(), 1)
+        await self.service.close()
+        self.started.clear()
+        self.service = GaitLearningService(self.gateway, self.transport, self.camera.locomotion_measurement,
+            Path(self.temp.name), depth_demand=self.camera.depth_demand)
+        self.addAsyncCleanup(self.service.close)
+        await self.service.start()
+        await asyncio.wait_for(self.started.wait(), 1)
+        self.assertTrue(self.service.settings["robot"]["logging"])
+        self.assertNotIn("gait-learning:robot", self.camera._metric_consumers)
+        self.depth.process.assert_not_called()
+        await self.disable()
+
+    async def enable(self):
+        self.body["active_walk"] = {"t": "intent", "name": "walk", "seq": 1}
+        self.started.clear()
+        await self.service.configure("robot", {"logging": True})
+        await asyncio.wait_for(self.started.wait(), 1)
+        await asyncio.wait_for(self.entered.wait(), 1)
+        self.assertFalse(self.release.is_set())
+        await self.service.writes.join()
+        recording = self.service._runtime("robot")["recording"]
+        rows = [json.loads(row) for row in (recording/"trace.jsonl").read_text().splitlines()]
+        self.assertTrue(any(len(row["records"]) > 2 for row in rows))
+        return recording
+
+    async def disable(self):
+        task = self.service.tasks["robot"]
+        await self.service.configure("robot", {"logging": False})
+        await asyncio.wait_for(asyncio.shield(task), 1)
+        await self.service.writes.join()
+        self.assertNotIn("gait-learning:robot", self.camera._metric_consumers)
+        self.assertFalse(self.transport.active)
+        self.assertEqual(self.service.status("robot")["state"], "off")
+        self.assertTrue(self.service.writes.empty())
+        self.assertLessEqual({payload["op"] for _, _, payload in self.transport.calls if payload},
+                            {"trace_start", "trace_read", "trace_stop"})
+
+    async def test_cold_depth_does_not_block_trace_or_recording_shutdown(self):
+        await self.enable()
+        await self.disable()
+        self.depth.close.assert_not_called()
+        self.release.set()
+        await self.camera.aclose()
+        self.depth.close.assert_called_once()
+        self.assertNotIn("robot", self.camera._metric_latest)
+
+    async def test_busy_navigation_keeps_its_reference_through_repeated_recordings(self):
+        navigation = asyncio.create_task(self.camera.depth_demand("robot", "navigation", True))
+        await asyncio.wait_for(self.entered.wait(), 1)
+        recordings = []
+        for _ in range(3):
+            recordings.append(await self.enable())
+            await self.disable()
+            self.assertEqual(self.camera._metric_consumers, {"navigation": "robot"})
+            self.assertFalse(navigation.done())
+            self.depth.reset.assert_not_called()
+            self.depth.close.assert_not_called()
+        self.assertEqual(len(set(recordings)), 3)
+        self.release.set()
+        result = await asyncio.wait_for(navigation, 1)
+        self.assertTrue(result["measurement"]["available"])
+        self.assertEqual(result["measurement"]["referenceId"], "navigation-reference")
+        self.depth.reset.assert_not_called()
+        self.depth.close.assert_not_called()
+        await self.camera.depth_demand("robot", "navigation", False)
+        self.depth.close.assert_called_once()
+
+    async def test_depth_failure_remains_visible_and_trace_continues(self):
+        self.fail_depth = True
+        recording = await self.enable()
+        self.release.set()
+        with self.assertLogs("gateway.plugins", level="WARNING"):
+            await self.camera._metric_queue.join()
+        measurement = self.camera.locomotion_measurement("robot")
+        self.assertFalse(measurement["available"])
+        self.assertEqual(measurement["reason"], "Depth fixture failed")
+        self.assertTrue(self.transport.active)
+        self.assertFalse(self.service.tasks["robot"].done())
+        await self.disable()
+        self.assertTrue((recording/"trace.jsonl").is_file())
+
+    async def test_service_close_cancels_recording_without_waiting_for_depth(self):
+        await self.enable()
+        await asyncio.wait_for(self.service.close(), 1)
+        self.assertTrue(self.service.tasks["robot"].done())
+        self.assertNotIn("gait-learning:robot", self.camera._metric_consumers)
+        self.assertFalse(self.transport.active)
+        self.assertTrue(self.service.writes.empty())
+        self.depth.close.assert_not_called()
+        self.release.set()
+        await self.camera.aclose()
+        self.depth.close.assert_called_once()
+
+    async def test_enable_while_previous_trace_stops_starts_the_next_recording(self):
+        first = await self.enable()
+        stop_entered, finish_stop = asyncio.Event(), asyncio.Event()
+        original = self.transport.request
+        async def request(robot, endpoint, payload):
+            if payload and payload["op"] == "trace_stop":
+                stop_entered.set()
+                await finish_stop.wait()
+            return await original(robot, endpoint, payload)
+        self.transport.request = request
+        self.addCleanup(finish_stop.set)
+        previous = self.service.tasks["robot"]
+        await self.service.configure("robot", {"logging": False})
+        await asyncio.wait_for(stop_entered.wait(), 1)
+        self.started.clear()
+        await self.service.configure("robot", {"logging": True})
+        finish_stop.set()
+        await asyncio.wait_for(asyncio.shield(previous), 1)
+        await asyncio.wait_for(self.started.wait(), 1)
+        self.assertIsNot(self.service.tasks["robot"], previous)
+        self.assertNotEqual(first, self.service._runtime("robot")["recording"])
+        self.assertIn("gait-learning:robot", self.camera._metric_consumers)
+        await self.disable()
 
 
 if __name__ == "__main__":

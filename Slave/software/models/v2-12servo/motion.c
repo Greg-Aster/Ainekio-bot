@@ -1,4 +1,5 @@
 #include "ainekio/v2_walk.h"
+#include "ainekio/v2_balance.h"
 #include "walk_data.h"
 #include "servo_data.h"
 #include <math.h>
@@ -651,6 +652,58 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *s,uint64_t now)
     }
     return true;
 }
+void ainekio_v2_walk_heading_observe(ainekio_v2_walk_state_t *s,
+    bool enabled,bool usable,double yaw,double reference_delta)
+{
+    s->heading_active=enabled && usable && isfinite(yaw);
+    if(s->heading_active) {
+        if(!s->heading_acquired) {
+            s->heading_reference=s->heading_measured=0.;
+            s->heading_integral=0.;s->heading_last_yaw=yaw;
+        }
+        s->heading_measured+=atan2(sin(yaw-s->heading_last_yaw),cos(yaw-s->heading_last_yaw));
+        s->heading_last_yaw=yaw;s->heading_acquired=true;
+        s->heading_reference+=reference_delta;
+        s->heading_error=s->heading_reference-s->heading_measured;
+    } else {
+        s->heading_acquired=false;s->heading_error=s->heading_integral=0.;
+    }
+}
+
+bool ainekio_v2_walk_host_heading(ainekio_v2_walk_state_t *s,uint64_t now,
+    bool enabled,bool usable,double yaw,bool (*valid)(const ainekio_v2_frame_t *,void *),void *context)
+{
+    if(!s||!s->host_nominal||now<s->last_us)return false;
+    const double dt=(now-s->last_us)/1e6;
+    const bool acquired=s->heading_acquired;
+    const double previous_yaw=s->heading_measured;
+    ainekio_v2_walk_heading_observe(s,enabled,usable,yaw,dt*s->host_twist[2]);
+    /* Nominal host samples describe an absolute pose, rebuilt every frame.
+     * Applying the entire yaw error to that pose is a unity-gain outer loop:
+     * even an ideal one-frame delayed body alternates equal opposite errors.
+     * Reuse moving balance's damped correction response instead. A turn's
+     * requested rate is part of its reference, not an unwanted disturbance. */
+    const double rate=s->heading_active&&acquired&&dt>0. ?
+        (s->heading_measured-previous_yaw)/dt-s->host_twist[2] : 0.;
+    const double desired=s->heading_active ?
+        ainekio_v2_moving_attitude_response(s->host_heading_correction,
+            s->heading_error,rate,true,dt,1.,1.) : 0.;
+    const ainekio_v2_walk_pose_t nominal=s->pose;
+    double fraction=1.;
+    for(unsigned attempt=0;attempt<=13;attempt++,fraction*=.5) {
+        ainekio_v2_walk_pose_t candidate=nominal;
+        const double added=attempt==13||!s->heading_active?0.:fraction*desired;
+        candidate.euler[2]+=added;
+        if((added==0. || ainekio_v2_contact_solve(&candidate,(const double (*)[3])s->host_anchors)) &&
+           (!valid||valid(&candidate.frame,context))) {
+            s->pose=candidate;s->host_heading_correction=added;
+            s->heading_reduced=s->heading_active&&fabs(added-desired)>1e-9;
+            s->last_us=now;return true;
+        }
+    }
+    return false;
+}
+
 /* PI steering in gait-cycle coordinates: one full turn command is the
  * available yaw per cycle. The quarter-cycle filter blends trajectory changes;
  * it never eases PWM targets or waits for a joint. Integral tracks persistent
@@ -675,18 +728,7 @@ bool ainekio_v2_walk_feedback_tick(ainekio_v2_walk_state_t *s,uint64_t now,
     const double old_integral=s->heading_integral;
     const double dt=(now-s->last_us)/1e6;
     const double dp=dt*s->cycles_s;
-    s->heading_active=enabled && usable && isfinite(yaw);
-    if(s->heading_active) {
-        if(!s->heading_acquired) {
-            s->heading_reference=s->heading_measured=0.;
-            s->heading_integral=0.;s->heading_last_yaw=yaw;
-        }
-        s->heading_measured+=atan2(sin(yaw-s->heading_last_yaw),cos(yaw-s->heading_last_yaw));
-        s->heading_last_yaw=yaw;s->heading_acquired=true;
-        s->heading_error=s->heading_reference-s->heading_measured;
-    } else {
-        s->heading_acquired=false;s->heading_error=s->heading_integral=0.;
-    }
+    ainekio_v2_walk_heading_observe(s,enabled,usable,yaw,0.);
     const double authority=mixed(s,s->phase,V2_WALK_TURN,V2_RUN_TURN);
     const double operator_turn=operator_steering_at(s,s->phase,1);
     double target=0.;
@@ -730,6 +772,33 @@ bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *s,const ainekio_command_t *
     uint8_t cycles;ainekio_v2_walk_controls_t controls={100.,1.};
     if(!s||!ainekio_v2_walk_request(command,&cycles)||command->sequence<1||command->sequence>AINEKIO_MAX_SEQUENCE)return false;
     const ainekio_intent_t *intent=&command->data.intent;
+    if(intent->data.walk.host_nominal) {
+        if(intent->data.walk.steps)return false; /* Task owner finishes continuous host Walk. */
+        for(unsigned a=0;a<3;a++)if(!isfinite(intent->data.walk.twist[a]))return false;
+        if(intent->data.walk.update_sequence) {
+            if(!s->initialized||!s->host_nominal||s->complete||s->failed||
+               s->command_sequence!=intent->data.walk.update_sequence||command->sequence<=s->latest_sequence||
+               now!=s->last_us||intent->data.walk.direction!=s->direction||intent->data.walk.gait!=s->gait_mode)
+                return false;
+            const bool finish=intent->data.walk.controls==1 && intent->data.walk.speed_percent==0.;
+            if(s->stopping&&!finish)return false;
+            s->stopping|=finish;
+        } else {
+            if((s->initialized&&!s->complete)||strcmp(intent->data.walk.geometry,ainekio_v2_walk_geometry_id))return false;
+            for(unsigned j=0;j<12;j++)if(!isfinite(intent->data.walk.reference_cd[j]))return false;
+            *s=(ainekio_v2_walk_state_t){.initialized=true,.host_nominal=true,.last_us=now,
+                .command_sequence=command->sequence,.direction=intent->data.walk.direction,
+                .gait_mode=intent->data.walk.gait,.end_phase=INFINITY,.target={100.,2.}};
+            s->host_reference.geometry_id=ainekio_v2_walk_geometry_id;
+            memcpy(s->host_reference.position,intent->data.walk.reference_cd,sizeof s->host_reference.position);
+            ainekio_v2_pose_from_frame(&s->pose,&s->host_reference);
+            if(!ainekio_v2_contact_forward(&s->pose,s->host_anchors,true))return false;
+            s->stopping=intent->data.walk.controls==1&&intent->data.walk.speed_percent==0.;
+        }
+        memcpy(s->host_twist,intent->data.walk.twist,sizeof s->host_twist);
+        s->latest_sequence=command->sequence;return true;
+    }
+    if(s->host_nominal)return false; /* Updates cannot silently switch source. */
     double run_target=intent->data.walk.gait==AINEKIO_GAIT_RUN?1.:0.;
     if(intent->data.walk.controls==1){
         double speed=intent->data.walk.speed_percent;

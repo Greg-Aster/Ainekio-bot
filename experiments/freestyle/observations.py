@@ -10,6 +10,17 @@ def feedback_geometry(mapping, joint, feedback):
     visible and separately report whether the body can use them for arrival.
     """
     result = {}
+    # The firmware publishes both raw model_deg and its production filter's
+    # pulse estimate. Preserve raw diagnostics; expose the filtered position in
+    # the same calibrated coordinates used by balance and gait observations.
+    if 'filtered_us' in joint:
+        direction = -1 if mapping['invert'] else 1
+        result['filtered_model_deg'] = (mapping['home_cd']/100 +
+            direction*(joint['filtered_us']-mapping['home_us'])/mapping['us_per_degree'])
+    channel = next((item for item in feedback.get('channels', [])
+                    if item.get('channel') == joint.get('channel')), None)
+    if channel is not None and channel.get('valid') and 'sampled_us' in channel:
+        result['sampled_us'] = channel['sampled_us']
     points = joint.get('points', [])
     if joint.get('calibrated') and points and all(p is not None for p in points):
         direction = -1 if mapping['invert'] else 1

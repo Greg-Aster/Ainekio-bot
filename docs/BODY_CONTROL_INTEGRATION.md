@@ -1050,6 +1050,11 @@ not supply a tuned balance controller for this robot.
 
 ## Power and weight: SHARGE Pouch
 
+**Historical design, superseded:** the owner confirms SHARGE is no longer used.
+See [current V2 power and mass](v2-12servo/SPECIFICATIONS.md#electrical-connections-and-power)
+for the 2S battery / Mini560 / HiLetgo assembly. The September calculations below
+retain their original inputs and do not describe the current robot.
+
 Research added 2026-09-28. The owner identified the battery as SHARGE Pouch and
 confirmed the proposed load is all twelve MG90 servos plus the P4 on one 3 A
 output, using staggered servo activity to reduce peaks.

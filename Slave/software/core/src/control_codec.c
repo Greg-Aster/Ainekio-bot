@@ -613,6 +613,19 @@ static ainekio_decode_result_t required_number(
     return token_number(parser, token, output) ? AINEKIO_DECODE_OK : AINEKIO_DECODE_TYPE;
 }
 
+static ainekio_decode_result_t required_numbers(const json_parser_t *parser,int object,
+    const char *name,float *out,unsigned count)
+{
+    int array=-1;
+    ainekio_decode_result_t result=required_token(parser,object,name,&array);
+    if(result!=AINEKIO_DECODE_OK)return result;
+    if(parser->tokens[array].type!=JSON_TOKEN_ARRAY || parser->tokens[array].children!=count)
+        return AINEKIO_DECODE_RANGE;
+    for(unsigned i=0;i<count;i++)
+        if(!token_number(parser,array_get(parser,array,i),&out[i]))return AINEKIO_DECODE_TYPE;
+    return AINEKIO_DECODE_OK;
+}
+
 static ainekio_decode_result_t required_boolean(
     const json_parser_t *parser,
     int object,
@@ -834,6 +847,25 @@ static ainekio_decode_result_t decode_intent(
             result = required_integer(parser, root, "update", 1, AINEKIO_MAX_SEQUENCE, &seq);
             intent->data.walk.update_sequence = (uint32_t)seq;
         }
+        if(result==AINEKIO_DECODE_OK && object_get(parser,root,"source")>=0) {
+            char source[8];
+            result=required_string(parser,root,"source",source,sizeof source,4U,6U);
+            if(result!=AINEKIO_DECODE_OK)return result;
+            if(strcmp(source,"native") && strcmp(source,"host"))return AINEKIO_DECODE_VALUE;
+            intent->data.walk.host_nominal=!strcmp(source,"host");
+        }
+        if(result==AINEKIO_DECODE_OK && intent->data.walk.host_nominal) {
+            if(intent->data.walk.steps)return AINEKIO_DECODE_VALUE;
+            if(update && (object_get(parser,root,"geometry")>=0 || object_get(parser,root,"reference_cd")>=0))
+                return AINEKIO_DECODE_VALUE;
+            result=required_numbers(parser,root,"twist",intent->data.walk.twist,3);
+            if(!update && result==AINEKIO_DECODE_OK)
+                result=required_string(parser,root,"geometry",intent->data.walk.geometry,
+                    sizeof intent->data.walk.geometry,1U,AINEKIO_WALK_GEOMETRY_BYTES-1U);
+            if(!update && result==AINEKIO_DECODE_OK)
+                result=required_numbers(parser,root,"reference_cd",intent->data.walk.reference_cd,12);
+        } else if(object_get(parser,root,"twist")>=0 || object_get(parser,root,"reference_cd")>=0 ||
+                  object_get(parser,root,"geometry")>=0)return AINEKIO_DECODE_VALUE;
         return result;
     } else if (strcmp(name, "emote") == 0) {
         intent->kind = AINEKIO_INTENT_EMOTE;
@@ -1554,7 +1586,7 @@ static ainekio_decode_result_t decode_control(
         "hello", "err", "welcome", "intent", "stop", "motion_plan", "tts", "cam", "snap",
         "mic", "wake", "profile", "state", "ping", "mode", "servo", "limits",
         "pose_save", "cal_save", "ack", "nak", "done", "cancelled", "status",
-        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings", "speaker", "balance",
+        "event", "cam_meta", "pong", "calibration", "storage", "motion_speed", "robot_settings", "speaker", "balance", "walk_target",
     };
     size_t kind = sizeof(types) / sizeof(types[0]);
     for (size_t index = 0U; index < sizeof(types) / sizeof(types[0]); ++index) {
@@ -1571,9 +1603,22 @@ static ainekio_decode_result_t decode_control(
         return AINEKIO_DECODE_VALUE;
     if ((message->kind == AINEKIO_MESSAGE_BODY_CALIBRATION || message->kind == AINEKIO_MESSAGE_STORAGE ||
          message->kind == AINEKIO_MESSAGE_MOTION_SPEED || message->kind == AINEKIO_MESSAGE_ROBOT_SETTINGS ||
-         message->kind == AINEKIO_MESSAGE_SPEAKER || message->kind == AINEKIO_MESSAGE_BALANCE) &&
+         message->kind == AINEKIO_MESSAGE_SPEAKER || message->kind == AINEKIO_MESSAGE_BALANCE ||
+         message->kind == AINEKIO_MESSAGE_WALK_TARGET) &&
         !body_extensions) return AINEKIO_DECODE_VALUE;
     switch (message->kind) {
+    case AINEKIO_MESSAGE_WALK_TARGET: {
+        result=decode_simple_command(&parser,root,message,AINEKIO_COMMAND_WALK_TARGET);
+        ainekio_walk_target_t *target=&message->command.data.walk_target;
+        int64_t walk=0,sample=0;
+        if(result==AINEKIO_DECODE_OK)result=required_integer(&parser,root,"walk",1,AINEKIO_MAX_SEQUENCE,&walk);
+        if(result==AINEKIO_DECODE_OK)result=required_integer(&parser,root,"sample",1,UINT32_MAX,&sample);
+        if(result==AINEKIO_DECODE_OK)result=required_string(&parser,root,"geometry",target->geometry,
+            sizeof target->geometry,1U,AINEKIO_WALK_GEOMETRY_BYTES-1U);
+        if(result==AINEKIO_DECODE_OK)result=required_numbers(&parser,root,"feet_mm",&target->feet_mm[0][0],12);
+        target->walk_sequence=(uint32_t)walk;target->sample=(uint32_t)sample;
+        return result;
+    }
     case AINEKIO_MESSAGE_BALANCE: {
         result = decode_simple_command(&parser, root, message, AINEKIO_COMMAND_BALANCE);
         char op[16];
@@ -1764,7 +1809,7 @@ static ainekio_decode_result_t decode_control(
         if (result == AINEKIO_DECODE_OK && !body_extensions && message->command.data.intent.playback_rate)
             return AINEKIO_DECODE_VALUE;
         if (result == AINEKIO_DECODE_OK && !walk_controls && message->command.data.intent.kind == AINEKIO_INTENT_WALK &&
-            (message->command.data.intent.data.walk.controls || message->command.data.intent.data.walk.steering || message->command.data.intent.data.walk.update_sequence ||
+            (message->command.data.intent.data.walk.host_nominal || message->command.data.intent.data.walk.controls || message->command.data.intent.data.walk.steering || message->command.data.intent.data.walk.update_sequence ||
              message->command.data.intent.data.walk.steps == 0 || object_get(&parser, root, "gait") >= 0)) return AINEKIO_DECODE_VALUE;
         return result;
     case AINEKIO_MESSAGE_STOP:

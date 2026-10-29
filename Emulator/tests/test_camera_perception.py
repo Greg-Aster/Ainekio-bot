@@ -16,6 +16,171 @@ class Socket:
 
 
 class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cached_image_keeps_dated_recognition_after_live_expiry(self):
+        import base64
+        from datetime import datetime, timedelta, timezone
+        from gateway.perception import RecognitionResult, RecognizedObject
+
+        class BridgeSocket:
+            closed = False
+
+            def __init__(self):
+                self.sent = []
+
+            async def send(self, raw):
+                self.sent.append(json.loads(raw))
+
+        started, release = asyncio.Event(), asyncio.Event()
+        calls = []
+        identity = {"state": "face_match", "personId": "fixture-person", "name": "Fixture Person",
+                    "trackId": "fixture-track", "faceAgeMs": 0, "similarity": .8}
+
+        async def recognize(jpeg):
+            calls.append(jpeg)
+            if jpeg == b"new-frame":
+                started.set()
+                await release.wait()
+            return RecognitionResult("fixture", "fixture", "one face match",
+                (RecognizedObject("person", .9, (.1, .1, .5, .8), identity),), ())
+
+        camera = self.plugin(recognize)
+        adapter = EnvironmentAdapter(self.gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"),
+            utcnow=lambda: datetime(2026, 10, 26, tzinfo=timezone.utc) + timedelta(seconds=self.now - 10))
+        self.addCleanup(adapter.receipts.close)
+        socket = BridgeSocket()
+        adapter._websocket = socket
+        adapter.camera_analysis = camera.latest_analysis
+        await self.frame(9, payload=b"analyzed-frame")
+        await camera._queue.join()
+        self.now += 1.4
+        self.assertIsNone(camera.recognition_status()["observation"], "Live status must still report expiry")
+
+        async def read(request_id):
+            await adapter._read_camera_visual({"version": 1, "requestId": request_id,
+                "sessionId": adapter.config.session_id})
+            return socket.sent[-1]["visual"]
+
+        try:
+            for request_id in ("first", "repeat"):
+                visual = await read(request_id)
+                self.assertEqual(visual["metadata"]["recognition"]["objects"][0]["identity"], identity)
+                self.assertEqual(visual["metadata"]["recognition"]["frameCounter"], 9)
+                self.assertEqual(visual["metadata"]["recognition"]["observedAt"], visual["timestamp"])
+                self.assertEqual(visual["timestamp"], "2026-10-26T00:00:00+00:00")
+                self.assertEqual(base64.b64decode(visual["dataUrl"].split(",")[1]), b"analyzed-frame")
+
+            await self.frame(10, payload=b"new-frame")
+            await started.wait()
+            visual = await read("during-next-inference")
+            self.assertEqual(visual["metadata"]["counter"], 9, "An unfinished frame cannot replace the analyzed pair")
+            self.assertFalse(release.is_set(), "Cached reads do not wait for another inference")
+            release.set()
+            await camera._queue.join()
+            visual = await read("next-pair")
+            self.assertEqual(visual["metadata"]["counter"], 10)
+            self.assertEqual(visual["metadata"]["recognition"]["frameCounter"], 10)
+            self.assertEqual(base64.b64decode(visual["dataUrl"].split(",")[1]), b"new-frame")
+            self.assertEqual(calls, [b"analyzed-frame", b"new-frame"])
+            camera.set_enabled(False)
+            self.assertNotIn("recognition", (await read("disabled"))["metadata"])
+            self.gateway._connections["robot"].epoch = 2
+            self.assertIsNone(await read("reconnected"), "Previous-session pixels must not cross reconnects")
+        finally:
+            release.set()
+
+    async def test_requested_frame_keeps_its_recognition_while_preview_advances(self):
+        from gateway.perception import RecognitionResult
+        started, release = asyncio.Event(), asyncio.Event()
+        calls = []
+        async def consume(jpeg):
+            calls.append(jpeg)
+            if jpeg == b"1":
+                started.set()
+                await release.wait()
+            return RecognitionResult("fixture", "fixture", jpeg.decode(), (), ())
+        plugin = self.plugin(consume)
+        await self.frame(1)
+        await started.wait()
+        frame = {"robot_id": "robot", "epoch": 1, "counter": 2,
+            "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": b"2", "received_at": self.now}
+        result = plugin.capture(frame)
+        await self.gateway._publish_frame(frame)
+        await self.frame(3)
+        await self.frame(4)
+        self.assertFalse(result.done())
+        release.set()
+        analysis = await asyncio.wait_for(result, 1)
+        await plugin._queue.join()
+        self.assertEqual(calls, [b"1", b"2", b"4"])
+        self.assertEqual((analysis.counter, analysis.jpeg, analysis.result.summary), (2, b"2", "2"))
+        self.assertEqual(plugin.current_analysis().counter, 4)
+
+    async def test_capture_joins_the_same_inference_even_after_frame_admission(self):
+        from gateway.perception import RecognitionResult
+        started, release = asyncio.Event(), asyncio.Event()
+        calls = []
+        async def consume(jpeg):
+            calls.append(jpeg)
+            started.set()
+            await release.wait()
+            return RecognitionResult("fixture", "fixture", "one frame", (), ())
+        plugin = self.plugin(consume)
+        frame = {"robot_id": "robot", "epoch": 1, "counter": 5,
+            "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": b"5", "received_at": self.now}
+        await self.gateway._publish_frame(frame)
+        await started.wait()
+        result = plugin.capture(frame)
+        release.set()
+        self.assertEqual((await result).counter, 5)
+        self.assertEqual(calls, [b"5"])
+
+    async def test_capture_reports_failure_and_owner_close_without_losing_the_image(self):
+        def broken(jpeg):
+            raise ValueError("fixture recognition failure")
+        plugin = self.plugin(broken)
+        frame = {"robot_id": "robot", "epoch": 1, "counter": 6,
+            "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": b"6", "received_at": self.now}
+        analysis = await plugin.capture(frame)
+        self.assertEqual(analysis.jpeg, b"6")
+        self.assertIn("fixture recognition failure", analysis.error)
+        plugin.set_enabled(False)
+        self.assertIsNone(plugin.capture({**frame, "counter": 7}))
+        plugin.set_enabled(True)
+        result = plugin.capture({k: v for k, v in {**frame, "counter": 8}.items() if not k.startswith("_")})
+        await plugin.aclose()
+        self.assertIn("closed", (await result).error)
+        self.assertEqual(plugin._inflight, {})
+
+    async def test_capture_finishes_with_its_dated_evidence_or_explicit_source_change(self):
+        from gateway.perception import RecognitionResult
+        for disconnected in (False, True):
+            started, release = asyncio.Event(), asyncio.Event()
+            async def consume(jpeg):
+                started.set()
+                await release.wait()
+                return RecognitionResult("fixture", "fixture", "a person", (), ())
+            plugin = self.plugin(consume)
+            frame = {"robot_id": "robot", "epoch": self.gateway._connections["robot"].epoch, "counter": 9,
+                "frame_type": CAMERA_JPEG_FRAME_TYPE, "payload": b"9", "received_at": self.now}
+            pending = plugin.capture(frame)
+            await started.wait()
+            self.now += 2
+            if disconnected:
+                self.gateway._connections["robot"].epoch += 1
+            release.set()
+            result = await asyncio.wait_for(pending, 1)
+            self.assertEqual(result.received_at, frame["received_at"])
+            self.assertEqual(result.jpeg, b"9")
+            if disconnected:
+                self.assertIn("source changed", result.error)
+            else:
+                self.assertEqual(result.result.summary, "a person")
+                self.assertIsNone(result.error)
+                self.assertIsNone(plugin.current_analysis(), "An analyzed still does not renew live freshness")
+                self.assertIs(plugin.latest_analysis(), result, "The dated still retains its own recognition")
+                self.assertEqual(plugin.fresh_results, 0)
+            self.assertEqual(plugin._inflight, {})
+
     async def test_prompt_configuration_shares_inference_executor_and_replaces_accepted_generation(self):
         from gateway.perception import RecognitionResult
         started, release = threading.Event(), threading.Event()

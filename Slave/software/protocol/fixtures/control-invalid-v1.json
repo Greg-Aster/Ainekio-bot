@@ -1,178 +1,1371 @@
 {
   "protocol": 1,
   "cases": [
-    {"name":"v1_cannot_interpret_target_speed_as_duration","message":{"t":"motion_plan","seq":97,"map":1,"control":"targets","frames":[[100,[9000,9000,9000,9000,9000,9000,9000,9000]]],"end":"hold"},"reason":"value:control"},
-    {"name":"v2_unknown_control_semantics","message":{"t":"motion_plan","seq":97,"map":2,"control":"deadline","frames":[[100,[0,0,0,0,0,0,0,0,0,0,0,0]]],"end":"hold"},"reason":"value:control"},
-    {"name": "lateral_out_of_range", "reason": "range:walk.lateral", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "forward": 0, "turn": 0, "lateral": 101}},
-    {"name": "lateral_without_paired_steering", "reason": "type:walk.forward", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "lateral": 50}},
-
-    {"name": "camera_partial_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000}, "reason": "missing:gain_x16"},
-    {"name": "camera_sub_unity_gain", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 0, "gain_x16": 1, "jpeg_quality": 75}, "reason": "range:camera_controls"},
-    {"name": "speaker_invalid_-1", "message": {"t": "speaker", "seq": 1, "volume_percent": -1}, "reason": "range:volume_percent"},
-    {"name": "speaker_invalid_101", "message": {"t": "speaker", "seq": 1, "volume_percent": 101}, "reason": "range:volume_percent"},
-    {"name": "speaker_invalid_1.5", "message": {"t": "speaker", "seq": 1, "volume_percent": 1.5}, "reason": "type:volume_percent"},
-    {"name": "speaker_invalid_True", "message": {"t": "speaker", "seq": 1, "volume_percent": true}, "reason": "type:volume_percent"},
-    {"name": "mic_invalid_gain_-6", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": -6}, "reason": "range:gain_db"},
-    {"name": "mic_invalid_gain_48", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 48}, "reason": "range:gain_db"},
-    {"name": "mic_invalid_gain_31", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 31}, "reason": "range:gain_db"},
-    {"name": "mic_invalid_gain_30.5", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 30.5}, "reason": "type:gain_db"},
-    {"name": "mic_invalid_gain_True", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": true}, "reason": "type:gain_db"},
-    {"name": "wake_invalid_threshold_-0.1", "message": {"t": "wake", "seq": 2, "enabled": true, "model": "ainekio", "threshold": -0.1}, "reason": "range:threshold"},
-    {"name": "wake_invalid_threshold_1.1", "message": {"t": "wake", "seq": 2, "enabled": true, "model": "ainekio", "threshold": 1.1}, "reason": "range:threshold"},
-    {"name": "wake_invalid_threshold_True", "message": {"t": "wake", "seq": 2, "enabled": true, "model": "ainekio", "threshold": true}, "reason": "type:threshold"},
-    {"name": "input_meter_invalid_rms", "receiver": "gateway", "message": {"t": "ping", "audio": {"on": true, "listening": true, "wake_enabled": true, "gate": "wake", "gain_db": 36, "wake_threshold": 0.4, "rms": 2, "peak": 0.24}}, "reason": "range:rms"},
-    {"name": "walk_turn_missing_forward", "message": {"t": "intent", "seq": 50, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "turn": 30}, "reason": "type:walk.forward"},
-    {"name": "walk_forward_range", "message": {"t": "intent", "seq": 50, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "forward": 101, "turn": 30}, "reason": "range:walk.forward"},
-    {"name": "invalid_snapshot_resolution", "message": {"t": "cam", "seq": 40, "on": true, "fps": 5, "res": "VGA", "snapshot_res": "HD"}, "reason": "value:snapshot_res"},
-    {"name": "invalid_snapshot_resolution_type", "message": {"t": "cam", "seq": 40, "on": false, "fps": 0, "res": "VGA", "snapshot_res": 1}, "reason": "type:snapshot_res"},
-    {"name": "body_calibration_move_0", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 0}, "reason": "range:pulse_us"},
-    {"name": "body_calibration_move_65536", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 65536}, "reason": "range:pulse_us"},
-    {"name": "body_calibration_home_zero", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 0, "invert": false}, "reason": "range:home_us"},
-    {"name": "body_calibration_home_range", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 65536, "invert": false}, "reason": "range:home_us"},
-    {"name": "body_calibration_pwm_missing_max", "receiver": "gateway", "message": {"t": "calibration_status", "seq": 1, "dirty": false, "saved": true, "ready": true, "joints": [{"id": 0, "channel": 0, "home_us": 1500, "invert": false, "pulse_us": 3000, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 1, "channel": 1, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": -8352, "us_per_degree": 11.111111}, {"id": 2, "channel": 2, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 3, "channel": 3, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 4, "channel": 4, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 5, "channel": 5, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 6, "channel": 6, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 7, "channel": 7, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 8, "channel": 8, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 9, "channel": 9, "home_us": 1500, "invert": true, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 10, "channel": 10, "home_us": 1495, "invert": false, "pulse_us": 1495, "home_cd": 0, "us_per_degree": 10}, {"id": 11, "channel": -1, "home_us": 1500, "invert": false, "pulse_us": 0, "home_cd": 0, "us_per_degree": 11.111111}], "pulse_min_us": 3}, "reason": "missing:pulse_max_us"},
-    {"name": "body_calibration_pwm_reversed", "receiver": "gateway", "message": {"t": "calibration_status", "seq": 1, "dirty": false, "saved": true, "ready": true, "joints": [{"id": 0, "channel": 0, "home_us": 1500, "invert": false, "pulse_us": 3000, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 1, "channel": 1, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": -8352, "us_per_degree": 11.111111}, {"id": 2, "channel": 2, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 3, "channel": 3, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 4, "channel": 4, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 5, "channel": 5, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 6, "channel": 6, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 7, "channel": 7, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 8, "channel": 8, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 9, "channel": 9, "home_us": 1500, "invert": true, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111}, {"id": 10, "channel": 10, "home_us": 1495, "invert": false, "pulse_us": 1495, "home_cd": 0, "us_per_degree": 10}, {"id": 11, "channel": -1, "home_us": 1500, "invert": false, "pulse_us": 0, "home_cd": 0, "us_per_degree": 11.111111}], "pulse_min_us": 3000, "pulse_max_us": 2500}, "reason": "range:calibration.pulse_bounds"},
-    {"name": "body_calibration_status_short_joints", "receiver": "gateway", "message": {"t": "calibration_status", "seq": 1, "dirty": false, "saved": true, "ready": true, "joints": []}, "reason": "range:calibration.joints"},
-    {"name": "storage_status_bad_total", "receiver": "gateway", "message": {"t": "storage_status", "seq": 1, "available": true, "mounted": true, "busy": false, "total_bytes": -1, "free_bytes": 0, "dropped_records": 0, "error": ""}, "reason": "range:total_bytes"},
-    {"name": "storage_bad_operation", "message": {"t": "storage", "seq": 1, "op": "format"}, "reason": "value:op"},
-    {"name": "body_calibration_mapping_missing_scale", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 1500, "invert": false, "home_cd": 0}, "reason": "missing:us_per_degree"},
-    {"name": "body_calibration_mapping_missing_home", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 1500, "invert": false, "us_per_degree": 10}, "reason": "missing:home_cd"},
-    {"name": "body_calibration_mapping_zero_scale", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 1500, "invert": false, "home_cd": 0, "us_per_degree": 0}, "reason": "range:us_per_degree"},
-    {"name": "body_calibration_mapping_bad_angle", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 1500, "invert": false, "home_cd": 36001, "us_per_degree": 10}, "reason": "range:home_cd"},
-    {"name": "body_calibration_mapping_wrong_operation", "message": {"t": "calibration", "seq": 1, "op": "home", "home_cd": 0, "us_per_degree": 10}, "reason": "unexpected:calibration.mapping"},
-    {"name": "body_calibration_invalid_joint", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 12, "pulse_us": 1500}, "reason": "range:id"},
+    {
+      "name": "v1_cannot_interpret_target_speed_as_duration",
+      "message": {
+        "t": "motion_plan",
+        "seq": 97,
+        "map": 1,
+        "control": "targets",
+        "frames": [
+          [
+            100,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000
+            ]
+          ]
+        ],
+        "end": "hold"
+      },
+      "reason": "value:control"
+    },
+    {
+      "name": "v2_unknown_control_semantics",
+      "message": {
+        "t": "motion_plan",
+        "seq": 97,
+        "map": 2,
+        "control": "deadline",
+        "frames": [
+          [
+            100,
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "end": "hold"
+      },
+      "reason": "value:control"
+    },
+    {
+      "name": "lateral_out_of_range",
+      "reason": "range:walk.lateral",
+      "message": {
+        "t": "intent",
+        "seq": 52,
+        "name": "walk",
+        "dir": "side_l",
+        "steps": 0,
+        "gait": "crab",
+        "speed": 50,
+        "forward": 0,
+        "turn": 0,
+        "lateral": 101
+      }
+    },
+    {
+      "name": "lateral_without_paired_steering",
+      "reason": "type:walk.forward",
+      "message": {
+        "t": "intent",
+        "seq": 52,
+        "name": "walk",
+        "dir": "side_l",
+        "steps": 0,
+        "gait": "crab",
+        "speed": 50,
+        "lateral": 50
+      }
+    },
+    {
+      "name": "camera_partial_controls",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 3,
+        "res": "960P",
+        "exposure_us": 50000
+      },
+      "reason": "missing:gain_x16"
+    },
+    {
+      "name": "camera_sub_unity_gain",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 3,
+        "res": "960P",
+        "exposure_us": 0,
+        "gain_x16": 1,
+        "jpeg_quality": 75
+      },
+      "reason": "range:camera_controls"
+    },
+    {
+      "name": "speaker_invalid_-1",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": -1
+      },
+      "reason": "range:volume_percent"
+    },
+    {
+      "name": "speaker_invalid_101",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": 101
+      },
+      "reason": "range:volume_percent"
+    },
+    {
+      "name": "speaker_invalid_1.5",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": 1.5
+      },
+      "reason": "type:volume_percent"
+    },
+    {
+      "name": "speaker_invalid_True",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": true
+      },
+      "reason": "type:volume_percent"
+    },
+    {
+      "name": "mic_invalid_gain_-6",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": -6
+      },
+      "reason": "range:gain_db"
+    },
+    {
+      "name": "mic_invalid_gain_48",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 48
+      },
+      "reason": "range:gain_db"
+    },
+    {
+      "name": "mic_invalid_gain_31",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 31
+      },
+      "reason": "range:gain_db"
+    },
+    {
+      "name": "mic_invalid_gain_30.5",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 30.5
+      },
+      "reason": "type:gain_db"
+    },
+    {
+      "name": "mic_invalid_gain_True",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": true
+      },
+      "reason": "type:gain_db"
+    },
+    {
+      "name": "wake_invalid_threshold_-0.1",
+      "message": {
+        "t": "wake",
+        "seq": 2,
+        "enabled": true,
+        "model": "ainekio",
+        "threshold": -0.1
+      },
+      "reason": "range:threshold"
+    },
+    {
+      "name": "wake_invalid_threshold_1.1",
+      "message": {
+        "t": "wake",
+        "seq": 2,
+        "enabled": true,
+        "model": "ainekio",
+        "threshold": 1.1
+      },
+      "reason": "range:threshold"
+    },
+    {
+      "name": "wake_invalid_threshold_True",
+      "message": {
+        "t": "wake",
+        "seq": 2,
+        "enabled": true,
+        "model": "ainekio",
+        "threshold": true
+      },
+      "reason": "type:threshold"
+    },
+    {
+      "name": "input_meter_invalid_rms",
+      "receiver": "gateway",
+      "message": {
+        "t": "ping",
+        "audio": {
+          "on": true,
+          "listening": true,
+          "wake_enabled": true,
+          "gate": "wake",
+          "gain_db": 36,
+          "wake_threshold": 0.4,
+          "rms": 2,
+          "peak": 0.24
+        }
+      },
+      "reason": "range:rms"
+    },
+    {
+      "name": "walk_turn_missing_forward",
+      "message": {
+        "t": "intent",
+        "seq": 50,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "gait": "walk",
+        "speed": 50,
+        "turn": 30
+      },
+      "reason": "type:walk.forward"
+    },
+    {
+      "name": "walk_forward_range",
+      "message": {
+        "t": "intent",
+        "seq": 50,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "gait": "walk",
+        "speed": 50,
+        "forward": 101,
+        "turn": 30
+      },
+      "reason": "range:walk.forward"
+    },
+    {
+      "name": "invalid_snapshot_resolution",
+      "message": {
+        "t": "cam",
+        "seq": 40,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "snapshot_res": "HD"
+      },
+      "reason": "value:snapshot_res"
+    },
+    {
+      "name": "invalid_snapshot_resolution_type",
+      "message": {
+        "t": "cam",
+        "seq": 40,
+        "on": false,
+        "fps": 0,
+        "res": "VGA",
+        "snapshot_res": 1
+      },
+      "reason": "type:snapshot_res"
+    },
+    {
+      "name": "body_calibration_move_0",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 0
+      },
+      "reason": "range:pulse_us"
+    },
+    {
+      "name": "body_calibration_move_65536",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 65536
+      },
+      "reason": "range:pulse_us"
+    },
+    {
+      "name": "body_calibration_home_zero",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 0,
+        "invert": false
+      },
+      "reason": "range:home_us"
+    },
+    {
+      "name": "body_calibration_home_range",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 65536,
+        "invert": false
+      },
+      "reason": "range:home_us"
+    },
+    {
+      "name": "body_calibration_pwm_missing_max",
+      "receiver": "gateway",
+      "message": {
+        "t": "calibration_status",
+        "seq": 1,
+        "dirty": false,
+        "saved": true,
+        "ready": true,
+        "joints": [
+          {
+            "id": 0,
+            "channel": 0,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 3000,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 1,
+            "channel": 1,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": -8352,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 2,
+            "channel": 2,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 3,
+            "channel": 3,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 4,
+            "channel": 4,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 5,
+            "channel": 5,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 6,
+            "channel": 6,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 7,
+            "channel": 7,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 8,
+            "channel": 8,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 9,
+            "channel": 9,
+            "home_us": 1500,
+            "invert": true,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 10,
+            "channel": 10,
+            "home_us": 1495,
+            "invert": false,
+            "pulse_us": 1495,
+            "home_cd": 0,
+            "us_per_degree": 10
+          },
+          {
+            "id": 11,
+            "channel": -1,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 0,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          }
+        ],
+        "pulse_min_us": 3
+      },
+      "reason": "missing:pulse_max_us"
+    },
+    {
+      "name": "body_calibration_pwm_reversed",
+      "receiver": "gateway",
+      "message": {
+        "t": "calibration_status",
+        "seq": 1,
+        "dirty": false,
+        "saved": true,
+        "ready": true,
+        "joints": [
+          {
+            "id": 0,
+            "channel": 0,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 3000,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 1,
+            "channel": 1,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": -8352,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 2,
+            "channel": 2,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 3,
+            "channel": 3,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 4,
+            "channel": 4,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 5,
+            "channel": 5,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 6,
+            "channel": 6,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 7,
+            "channel": 7,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 8,
+            "channel": 8,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 9,
+            "channel": 9,
+            "home_us": 1500,
+            "invert": true,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 10,
+            "channel": 10,
+            "home_us": 1495,
+            "invert": false,
+            "pulse_us": 1495,
+            "home_cd": 0,
+            "us_per_degree": 10
+          },
+          {
+            "id": 11,
+            "channel": -1,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 0,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          }
+        ],
+        "pulse_min_us": 3000,
+        "pulse_max_us": 2500
+      },
+      "reason": "range:calibration.pulse_bounds"
+    },
+    {
+      "name": "body_calibration_status_short_joints",
+      "receiver": "gateway",
+      "message": {
+        "t": "calibration_status",
+        "seq": 1,
+        "dirty": false,
+        "saved": true,
+        "ready": true,
+        "joints": []
+      },
+      "reason": "range:calibration.joints"
+    },
+    {
+      "name": "storage_status_bad_total",
+      "receiver": "gateway",
+      "message": {
+        "t": "storage_status",
+        "seq": 1,
+        "available": true,
+        "mounted": true,
+        "busy": false,
+        "total_bytes": -1,
+        "free_bytes": 0,
+        "dropped_records": 0,
+        "error": ""
+      },
+      "reason": "range:total_bytes"
+    },
+    {
+      "name": "storage_bad_operation",
+      "message": {
+        "t": "storage",
+        "seq": 1,
+        "op": "format"
+      },
+      "reason": "value:op"
+    },
+    {
+      "name": "body_calibration_mapping_missing_scale",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 1500,
+        "invert": false,
+        "home_cd": 0
+      },
+      "reason": "missing:us_per_degree"
+    },
+    {
+      "name": "body_calibration_mapping_missing_home",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 1500,
+        "invert": false,
+        "us_per_degree": 10
+      },
+      "reason": "missing:home_cd"
+    },
+    {
+      "name": "body_calibration_mapping_zero_scale",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 1500,
+        "invert": false,
+        "home_cd": 0,
+        "us_per_degree": 0
+      },
+      "reason": "range:us_per_degree"
+    },
+    {
+      "name": "body_calibration_mapping_bad_angle",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 1500,
+        "invert": false,
+        "home_cd": 36001,
+        "us_per_degree": 10
+      },
+      "reason": "range:home_cd"
+    },
+    {
+      "name": "body_calibration_mapping_wrong_operation",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "home",
+        "home_cd": 0,
+        "us_per_degree": 10
+      },
+      "reason": "unexpected:calibration.mapping"
+    },
+    {
+      "name": "body_calibration_invalid_joint",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 12,
+        "pulse_us": 1500
+      },
+      "reason": "range:id"
+    },
     {
       "name": "hello_unsupported_version",
-      "message": {"t": "hello", "ver": 2, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN"},
+      "message": {
+        "t": "hello",
+        "ver": 2,
+        "fw": "0.1.0",
+        "id": "ainekio-01",
+        "auth": "REDACTED-TOKEN"
+      },
       "reason": "range:ver"
     },
     {
       "name": "hello_duplicate_feature",
-      "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN", "features": ["motion_plan_v1", "motion_plan_v1"]},
+      "message": {
+        "t": "hello",
+        "ver": 1,
+        "fw": "0.1.0",
+        "id": "ainekio-01",
+        "auth": "REDACTED-TOKEN",
+        "features": [
+          "motion_plan_v1",
+          "motion_plan_v1"
+        ]
+      },
       "reason": "value:features.duplicate"
     },
-    {"name": "err_unknown_code", "message": {"t": "err", "code": "other"}, "reason": "value:code"},
+    {
+      "name": "err_unknown_code",
+      "message": {
+        "t": "err",
+        "code": "other"
+      },
+      "reason": "value:code"
+    },
     {
       "name": "welcome_bad_profile",
-      "message": {"t": "welcome", "ver": 1, "epoch": 13, "profile": "fast"},
+      "message": {
+        "t": "welcome",
+        "ver": 1,
+        "epoch": 13,
+        "profile": "fast"
+      },
       "reason": "value:profile"
     },
-    {"name": "intent_unknown", "message": {"t": "intent", "seq": 1, "name": "jump"}, "reason": "value:name"},
+    {
+      "name": "intent_unknown",
+      "message": {
+        "t": "intent",
+        "seq": 1,
+        "name": "jump"
+      },
+      "reason": "value:name"
+    },
     {
       "name": "intent_look_yaw_range",
-      "message": {"t": "intent", "seq": 2, "name": "look", "yaw": 91, "pitch": 0},
+      "message": {
+        "t": "intent",
+        "seq": 2,
+        "name": "look",
+        "yaw": 91,
+        "pitch": 0
+      },
       "reason": "range:yaw"
     },
     {
       "name": "intent_walk_steps_range",
-      "message": {"t": "intent", "seq": 3, "name": "walk", "dir": "fwd", "steps": -1},
+      "message": {
+        "t": "intent",
+        "seq": 3,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": -1
+      },
       "reason": "range:steps"
     },
     {
       "name": "intent_emote_asset_name",
-      "message": {"t": "intent", "seq": 18, "name": "emote", "asset": "Wave!"},
+      "message": {
+        "t": "intent",
+        "seq": 18,
+        "name": "emote",
+        "asset": "Wave!"
+      },
       "reason": "value:asset"
     },
     {
       "name": "intent_face_asset_name",
-      "message": {"t": "intent", "seq": 4, "name": "face", "expr": "Happy Face"},
+      "message": {
+        "t": "intent",
+        "seq": 4,
+        "name": "face",
+        "expr": "Happy Face"
+      },
       "reason": "value:expr"
     },
-    {"name": "stop_bad_seq", "message": {"t": "stop", "seq": 0}, "reason": "range:seq"},
-    {"name": "stop_bad_detach", "message": {"t": "stop", "seq": 19, "detach": 1}, "reason": "type:detach"},
+    {
+      "name": "stop_bad_seq",
+      "message": {
+        "t": "stop",
+        "seq": 0
+      },
+      "reason": "range:seq"
+    },
+    {
+      "name": "stop_bad_detach",
+      "message": {
+        "t": "stop",
+        "seq": 19,
+        "detach": 1
+      },
+      "reason": "type:detach"
+    },
     {
       "name": "motion_plan_wrong_target_count",
-      "message": {"t": "motion_plan", "seq": 19, "map": 1, "frames": [[300, [9000, 9000]]], "end": "hold"},
+      "message": {
+        "t": "motion_plan",
+        "seq": 19,
+        "map": 1,
+        "frames": [
+          [
+            300,
+            [
+              9000,
+              9000
+            ]
+          ]
+        ],
+        "end": "hold"
+      },
       "reason": "range:frames.targets"
     },
     {
       "name": "motion_plan_target_out_of_range",
-      "message": {"t": "motion_plan", "seq": 20, "map": 1, "frames": [[300, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 18001]]], "end": "hold"},
+      "message": {
+        "t": "motion_plan",
+        "seq": 20,
+        "map": 1,
+        "frames": [
+          [
+            300,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              18001
+            ]
+          ]
+        ],
+        "end": "hold"
+      },
       "reason": "range:frames.target"
     },
     {
       "name": "motion_plan_total_duration",
-      "message": {"t": "motion_plan", "seq": 21, "map": 1, "frames": [[5000, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]], [5000, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]], [100, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]], "end": "hold"},
+      "message": {
+        "t": "motion_plan",
+        "seq": 21,
+        "map": 1,
+        "frames": [
+          [
+            5000,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000
+            ]
+          ],
+          [
+            5000,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000
+            ]
+          ],
+          [
+            100,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000
+            ]
+          ]
+        ],
+        "end": "hold"
+      },
       "reason": "range:frames.total_duration"
     },
-    {"name": "tts_bad_op", "message": {"t": "tts", "seq": 5, "op": "pause"}, "reason": "value:op"},
+    {
+      "name": "tts_bad_op",
+      "message": {
+        "t": "tts",
+        "seq": 5,
+        "op": "pause"
+      },
+      "reason": "value:op"
+    },
     {
       "name": "cam_fps_range",
-      "message": {"t": "cam", "seq": 6, "on": true, "fps": 16, "res": "VGA"},
+      "message": {
+        "t": "cam",
+        "seq": 6,
+        "on": true,
+        "fps": 16,
+        "res": "VGA"
+      },
       "reason": "range:fps"
     },
     {
       "name": "cam_auto_stream_rejected",
-      "message": {"t": "cam", "seq": 6, "on": true, "fps": 1, "res": "AUTO"},
+      "message": {
+        "t": "cam",
+        "seq": 6,
+        "on": true,
+        "fps": 1,
+        "res": "AUTO"
+      },
       "reason": "value:res"
     },
-    {"name": "snap_missing_seq", "message": {"t": "snap"}, "reason": "missing:seq"},
+    {
+      "name": "snap_missing_seq",
+      "message": {
+        "t": "snap"
+      },
+      "reason": "missing:seq"
+    },
     {
       "name": "mic_bad_gate",
-      "message": {"t": "mic", "seq": 7, "on": true, "gate": "noise"},
+      "message": {
+        "t": "mic",
+        "seq": 7,
+        "on": true,
+        "gate": "noise"
+      },
       "reason": "value:gate"
     },
     {
       "name": "profile_bad_name",
-      "message": {"t": "profile", "seq": 8, "name": "mobile"},
+      "message": {
+        "t": "profile",
+        "seq": 8,
+        "name": "mobile"
+      },
       "reason": "value:name"
     },
     {
       "name": "state_sleep_missing_duration",
-      "message": {"t": "state", "seq": 9, "name": "sleep"},
+      "message": {
+        "t": "state",
+        "seq": 9,
+        "name": "sleep"
+      },
       "reason": "missing:sleep_s"
     },
-    {"name": "ping_with_seq", "message": {"t": "ping", "seq": 10}, "reason": "unexpected:seq"},
+    {
+      "name": "ping_with_seq",
+      "message": {
+        "t": "ping",
+        "seq": 10
+      },
+      "reason": "unexpected:seq"
+    },
     {
       "name": "mode_bad_name",
-      "message": {"t": "mode", "seq": 11, "name": "service"},
+      "message": {
+        "t": "mode",
+        "seq": 11,
+        "name": "service"
+      },
       "reason": "value:name"
     },
     {
       "name": "servo_bad_id",
-      "message": {"t": "servo", "seq": 12, "id": 8, "deg": 45.0, "ms": 300},
+      "message": {
+        "t": "servo",
+        "seq": 12,
+        "id": 8,
+        "deg": 45.0,
+        "ms": 300
+      },
       "reason": "range:id"
     },
     {
       "name": "limits_center_outside",
-      "message": {"t": "limits", "seq": 13, "id": 0, "min": 10.0, "max": 170.0, "invert": false, "center": 180.0},
+      "message": {
+        "t": "limits",
+        "seq": 13,
+        "id": 0,
+        "min": 10.0,
+        "max": 170.0,
+        "invert": false,
+        "center": 180.0
+      },
       "reason": "range:limits"
     },
     {
       "name": "pose_save_duplicate_servo",
-      "message": {"t": "pose_save", "seq": 14, "name": "neutral", "servos": [[0, 90.0], [0, 100.0]]},
+      "message": {
+        "t": "pose_save",
+        "seq": 14,
+        "name": "neutral",
+        "servos": [
+          [
+            0,
+            90.0
+          ],
+          [
+            0,
+            100.0
+          ]
+        ]
+      },
       "reason": "value:servos.duplicate"
     },
-    {"name": "wake_bad_model", "message": {"t": "wake", "seq": 18, "enabled": false, "model": "Ainekio!"}, "reason": "value:model"},
-    {"name": "cal_save_missing_seq", "message": {"t": "cal_save"}, "reason": "missing:seq"},
-    {"name": "ack_seq_range", "message": {"t": "ack", "seq": 2147483648}, "reason": "range:seq"},
-    {"name": "nak_missing_seq", "message": {"t": "nak", "code": "unsafe"}, "reason": "missing:seq"},
-    {"name": "done_boolean_seq", "message": {"t": "done", "seq": true}, "reason": "type:seq"},
+    {
+      "name": "wake_bad_model",
+      "message": {
+        "t": "wake",
+        "seq": 18,
+        "enabled": false,
+        "model": "Ainekio!"
+      },
+      "reason": "value:model"
+    },
+    {
+      "name": "cal_save_missing_seq",
+      "message": {
+        "t": "cal_save"
+      },
+      "reason": "missing:seq"
+    },
+    {
+      "name": "ack_seq_range",
+      "message": {
+        "t": "ack",
+        "seq": 2147483648
+      },
+      "reason": "range:seq"
+    },
+    {
+      "name": "nak_missing_seq",
+      "message": {
+        "t": "nak",
+        "code": "unsafe"
+      },
+      "reason": "missing:seq"
+    },
+    {
+      "name": "done_boolean_seq",
+      "message": {
+        "t": "done",
+        "seq": true
+      },
+      "reason": "type:seq"
+    },
     {
       "name": "cancelled_bad_code",
-      "message": {"t": "cancelled", "seq": 15, "code": "timeout"},
+      "message": {
+        "t": "cancelled",
+        "seq": 15,
+        "code": "timeout"
+      },
       "reason": "value:code"
     },
     {
       "name": "status_missing_heap",
-      "message": {"t": "status", "vbat": 7.42, "rssi": -52, "state": "active", "uptime": 312, "sd": true, "cam_drops": 0, "spk_underruns": 0, "mic_drops": 0},
+      "message": {
+        "t": "status",
+        "vbat": 7.42,
+        "rssi": -52,
+        "state": "active",
+        "uptime": 312,
+        "sd": true,
+        "cam_drops": 0,
+        "spk_underruns": 0,
+        "mic_drops": 0
+      },
       "reason": "missing:heap"
     },
-    {"name": "event_bad_name", "message": {"t": "event", "name": "walking"}, "reason": "value:name"},
+    {
+      "name": "event_bad_name",
+      "message": {
+        "t": "event",
+        "name": "walking"
+      },
+      "reason": "value:name"
+    },
     {
       "name": "cam_meta_counter_range",
-      "message": {"t": "cam_meta", "res": "VGA", "fps": 5, "counter_base": 4294967296},
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 4294967296
+      },
       "reason": "range:counter_base"
     },
-    {"name": "pong_with_seq", "message": {"t": "pong", "seq": 16}, "reason": "unexpected:seq"},
-    {"name": "unknown_message_type", "message": {"t": "dance", "seq": 17}, "reason": "value:t"},
-    {"name": "message_not_object", "message": ["stop"], "reason": "type:message"},
-    {"name": "balance_save_missing", "message": {"t": "balance", "seq": 4, "op": "save"}, "reason": "missing:enabled", "receiver": "body"},
-    {"name": "balance_get_value", "message": {"t": "balance", "seq": 5, "op": "get", "enabled": false}, "reason": "unexpected enabled setting", "receiver": "body"},
-    {"name": "balance_non_boolean", "message": {"t": "balance", "seq": 6, "op": "save", "enabled": 0}, "reason": "type:enabled", "receiver": "body"},
-    {"name": "balance_status_missing_active", "message": {"t": "balance_status", "seq": 7, "enabled": true, "saved": true}, "receiver": "gateway", "reason": "missing:active"},
-    {"name": "balance_tuning_missing_damping", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": 1.75, "roll_deg": -2, "pitch_deg": 3}, "reason": "missing:damping"},
-    {"name": "balance_tuning_negative_strength", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": -1, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3}, "reason": "range:strength"},
-    {"name": "balance_tuning_boolean_pitch", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": true}, "reason": "type:pitch_deg"},
-    {"name": "balance_tuning_get_values", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "get", "enabled": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3}, "reason": "unexpected enabled setting"}
+    {
+      "name": "pong_with_seq",
+      "message": {
+        "t": "pong",
+        "seq": 16
+      },
+      "reason": "unexpected:seq"
+    },
+    {
+      "name": "unknown_message_type",
+      "message": {
+        "t": "dance",
+        "seq": 17
+      },
+      "reason": "value:t"
+    },
+    {
+      "name": "message_not_object",
+      "message": [
+        "stop"
+      ],
+      "reason": "type:message"
+    },
+    {
+      "name": "balance_save_missing",
+      "message": {
+        "t": "balance",
+        "seq": 4,
+        "op": "save"
+      },
+      "reason": "missing:enabled",
+      "receiver": "body"
+    },
+    {
+      "name": "balance_get_value",
+      "message": {
+        "t": "balance",
+        "seq": 5,
+        "op": "get",
+        "enabled": false
+      },
+      "reason": "unexpected enabled setting",
+      "receiver": "body"
+    },
+    {
+      "name": "balance_non_boolean",
+      "message": {
+        "t": "balance",
+        "seq": 6,
+        "op": "save",
+        "enabled": 0
+      },
+      "reason": "type:enabled",
+      "receiver": "body"
+    },
+    {
+      "name": "balance_status_missing_active",
+      "message": {
+        "t": "balance_status",
+        "seq": 7,
+        "enabled": true,
+        "saved": true
+      },
+      "receiver": "gateway",
+      "reason": "missing:active"
+    },
+    {
+      "name": "balance_tuning_missing_damping",
+      "receiver": "body",
+      "message": {
+        "t": "balance",
+        "seq": 8,
+        "op": "save",
+        "enabled": false,
+        "strength": 1.75,
+        "roll_deg": -2,
+        "pitch_deg": 3
+      },
+      "reason": "missing:damping"
+    },
+    {
+      "name": "balance_tuning_negative_strength",
+      "receiver": "body",
+      "message": {
+        "t": "balance",
+        "seq": 8,
+        "op": "save",
+        "enabled": false,
+        "strength": -1,
+        "damping": 0.6,
+        "roll_deg": -2,
+        "pitch_deg": 3
+      },
+      "reason": "range:strength"
+    },
+    {
+      "name": "balance_tuning_boolean_pitch",
+      "receiver": "body",
+      "message": {
+        "t": "balance",
+        "seq": 8,
+        "op": "save",
+        "enabled": false,
+        "strength": 1.75,
+        "damping": 0.6,
+        "roll_deg": -2,
+        "pitch_deg": true
+      },
+      "reason": "type:pitch_deg"
+    },
+    {
+      "name": "balance_tuning_get_values",
+      "receiver": "body",
+      "message": {
+        "t": "balance",
+        "seq": 8,
+        "op": "get",
+        "enabled": false,
+        "strength": 1.75,
+        "damping": 0.6,
+        "roll_deg": -2,
+        "pitch_deg": 3
+      },
+      "reason": "unexpected enabled setting"
+    },
+    {
+      "name": "host_walk_targets_are_twelve_offsets",
+      "message": {
+        "t": "walk_target",
+        "seq": 102,
+        "walk": 101,
+        "sample": 1,
+        "geometry": "compact-35-20-28-38-55-visible-20261005",
+        "feet_mm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "host_walk_is_task_owned_continuous",
+      "message": {
+        "t": "intent",
+        "seq": 101,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 2,
+        "speed": 50,
+        "source": "host",
+        "geometry": "compact-35-20-28-38-55-visible-20261005",
+        "reference_cd": [
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163
+        ],
+        "twist": [
+          0.08,
+          0,
+          0.1
+        ]
+      }
+    },
+    {
+      "name": "host_walk_update_cannot_change_reference",
+      "message": {
+        "t": "intent",
+        "seq": 103,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "speed": 0,
+        "source": "host",
+        "update": 101,
+        "twist": [
+          0,
+          0,
+          0
+        ],
+        "reference_cd": [
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163
+        ]
+      }
+    },
+    {
+      "name": "host_walk_requires_fixed_reference",
+      "message": {
+        "t": "intent",
+        "seq": 101,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "speed": 50,
+        "source": "host",
+        "geometry": "compact-35-20-28-38-55-visible-20261005",
+        "twist": [
+          0.08,
+          0,
+          0.1
+        ]
+      }
+    }
   ]
 }

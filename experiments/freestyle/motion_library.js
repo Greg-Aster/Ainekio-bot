@@ -13,6 +13,7 @@
   </div>`;
   panel.innerHTML = `<h3>Training motion library</h3>
     <button type="button" data-action="open" aria-expanded="false">View training data</button>
+    <button type="button" data-action="trials">Saved motion trials</button>
     <div data-field="browser" hidden>
       <p>Browse and refine training examples, or play their commands directly on the selected robot.</p>
       <form data-field="search-form" class="motion-library-search">
@@ -149,7 +150,9 @@
     if (!target || target.disabled) return;
     const action = target.dataset.action;
     try {
-      if (action === "open") {
+      if (action === "trials") {
+        await window.openFreestyleTrials();
+      } else if (action === "open") {
         const opened = field("browser").hidden;
         field("browser").hidden = !opened;
         target.setAttribute("aria-expanded", String(opened));

@@ -41,11 +41,11 @@ target_link_libraries(test_servo_feedback_position PRIVATE m)
 target_compile_options(test_servo_feedback_position PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
 add_test(NAME servo_feedback_measured_arrival COMMAND test_servo_feedback_position)
 add_compile_options(-UNDEBUG) # Assertions must execute in optimized test builds.
-add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c)
-target_include_directories(test_imu_telemetry PRIVATE ../main imu_shim
+add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c "${TRACE_JSON_DIR}/cJSON.c")
+target_include_directories(test_imu_telemetry PRIVATE ../main imu_shim body_shim "${TRACE_JSON_DIR}"
     ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include
     ../../../software/core/include)
-target_link_libraries(test_imu_telemetry PRIVATE ainekio_imu)
+target_link_libraries(test_imu_telemetry PRIVATE ainekio_imu ainekio_v2_motion)
 target_compile_options(test_imu_telemetry PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME imu_wire_telemetry COMMAND test_imu_telemetry)
 
@@ -109,7 +109,7 @@ target_include_directories(test_connection_screen PRIVATE ../main)
 target_link_libraries(test_connection_screen PRIVATE ainekio_faces)
 target_compile_options(test_connection_screen PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME lcd_connection_guidance COMMAND test_connection_screen)
-add_executable(test_body test_body.c ../main/joint_calibration.c)
+add_executable(test_body test_body.c ../main/joint_calibration.c ../main/controller_motion.c)
 target_include_directories(test_body PRIVATE body_shim
     "../components/ainekio_pca9685/include" "../components/ainekio_p4_media/include")
 target_link_libraries(test_body PRIVATE ainekio_v2_motion ainekio_imu m)

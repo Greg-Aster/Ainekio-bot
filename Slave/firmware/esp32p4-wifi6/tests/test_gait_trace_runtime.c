@@ -9,6 +9,8 @@ static bool fail_final_chunk;
 static bool fail_data_chunk;
 static unsigned data_chunks;
 static uint64_t clock_us=100;
+static bool host_nominal;
+static uint32_t output_sequence=77;
 void *heap_caps_calloc(size_t n,size_t size,unsigned caps)
 { assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));return allocation_fail?NULL:calloc(n,size); }
 uint32_t esp_random(void){return 12345;}
@@ -19,7 +21,8 @@ ainekio_p4_imu_status_t ainekio_p4_imu_status(void)
     s.attitude.timestamp_us=clock_us-2;s.attitude.orientation_wxyz[0]=1;return s;
 }
 ainekio_p4_body_status_t ainekio_p4_body_status(void)
-{ return (ainekio_p4_body_status_t){.gait_valid=true,.gait_phase=.25,.sequence=77,.stride_percent=100}; }
+{ return (ainekio_p4_body_status_t){.gait_valid=true,.gait_host_nominal=host_nominal,.gait_phase=.25,.sequence=77,.stride_percent=100,
+    .execution={.sequence=output_sequence,.host_nominal=host_nominal,.nominal_sample=42,.sampled_us=90}}; }
 void ainekio_p4_body_pulse_snapshot(uint16_t pulses[12],uint64_t *stamp,bool *armed)
 { for(unsigned j=0;j<12;j++)pulses[j]=1500;*stamp=50;*armed=true; }
 esp_err_t httpd_resp_set_status(httpd_req_t *r,const char *s){(void)r;strcpy(status,s);return ESP_OK;}
@@ -77,6 +80,23 @@ int main(void)
     assert(strstr(response,"\"scan\":9")&&strstr(response,"\"phase\":0.25")&&strstr(response,"\"timestamp_us\":98"));
     assert(strstr(response,"\"next\":3")&&strstr(response,"\"lost\":0"));
     assert(strstr(response,"\"calibration_applied\":true"));
+    /* Source attribution comes from the output owner, not native phase fields. */
+    host_nominal=true;ainekio_p4_gait_trace_sample(&s);
+    ainekio_gait_trace_event_t host_event;
+    assert(ainekio_gait_trace_read(&ring,ring.latest,&host_event));
+    cJSON *host_json=event_json(ring.latest,&host_event);
+    cJSON *host_motion=cJSON_GetObjectItemCaseSensitive(host_json,"motion");
+    assert(!strcmp(cJSON_GetObjectItemCaseSensitive(host_motion,"walk_source")->valuestring,"host"));
+    assert(cJSON_GetObjectItemCaseSensitive(host_motion,"nominal_sample")->valueint==42);
+    assert(cJSON_GetObjectItemCaseSensitive(host_motion,"sampled_us")->valueint==90);
+    assert(!cJSON_GetObjectItemCaseSensitive(host_motion,"phase"));
+    assert(!cJSON_GetObjectItemCaseSensitive(host_motion,"cycles_s"));
+    assert(!cJSON_GetObjectItemCaseSensitive(host_motion,"stride_percent"));
+    cJSON_Delete(host_json);
+    output_sequence=76;ainekio_p4_gait_trace_sample(&s);
+    assert(ainekio_gait_trace_read(&ring,ring.latest,&host_event));
+    assert(host_event.sample.host_nominal && !host_event.sample.nominal_sample && !host_event.sample.output_us);
+    output_sequence=77;host_nominal=false;
     ainekio_gait_trace_event_t tracking={.kind=AINEKIO_TRACE_TRACKING};
     tracking.tracking.support_known[0]=true;tracking.tracking.grounded[0]=true;
     tracking.tracking.policy_signature=456;tracking.tracking.policy_phase=2.75;
@@ -102,7 +122,7 @@ int main(void)
     request("{\"op\":\"trace_stop\",\"session\":1,\"boot_id\":9}");assert(strstr(status,"409")&&active);
     for(unsigned i=0;i<600;i++)ainekio_p4_gait_trace_output(pulses,i+200,true);
     request("{\"op\":\"trace_read\",\"after\":3,\"session\":1}");
-    assert(strstr(response,"\"lost\":88")&&strstr(response,"\"next\":155")&&strstr(response,"\"more\":true"));
+    assert(strstr(response,"\"lost\":90")&&strstr(response,"\"next\":157")&&strstr(response,"\"more\":true"));
     assert(data_chunks==(response_bytes+TRACE_HTTP_BUFFER-1)/TRACE_HTTP_BUFFER);
     assert(data_chunks<TRACE_BATCH);
     unsigned lines=0;char *line=response;
@@ -115,16 +135,16 @@ int main(void)
     request("{\"op\":\"trace_stop\",\"session\":1}");assert(!active&&ring.events);
     uint64_t last=ring.latest;ainekio_p4_gait_trace_output(pulses,999,true);assert(ring.latest==last);
     fail_final_chunk=true;
-    request("{\"op\":\"trace_read\",\"after\":603}");assert(ring.events);
+    request("{\"op\":\"trace_read\",\"after\":605}");assert(ring.events);
     fail_final_chunk=false;
     fail_data_chunk=true;
-    request("{\"op\":\"trace_read\",\"after\":603}");assert(ring.events);
+    request("{\"op\":\"trace_read\",\"after\":605}");assert(ring.events);
     fail_data_chunk=false;
-    request("{\"op\":\"trace_read\",\"after\":603}");assert(strstr(response,"\"more\":false"));
+    request("{\"op\":\"trace_read\",\"after\":605}");assert(strstr(response,"\"more\":false"));
     assert(!ring.events&&ring.capacity==0);
     ainekio_p4_gait_trace_tracking(&tracking);ainekio_p4_gait_trace_sample(&s);
     assert(!ring.events&&ring.latest==last);
-    request("{\"op\":\"trace_read\",\"after\":603}");
+    request("{\"op\":\"trace_read\",\"after\":605}");
     assert(strstr(response,"\"storage_bytes\":0")&&strstr(response,"\"more\":false"));
     request("{\"op\":\"trace_start\"}");assert(session==2&&ring.latest==1&&active);
     request("{\"op\":\"trace_read\",\"after\":-1}");assert(strstr(status,"400"));

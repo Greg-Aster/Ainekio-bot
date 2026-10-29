@@ -46,6 +46,7 @@ WALK_CONTROLS_FEATURE = "walk_controls_v1"
 LOCOMOTION_FEATURE = "walk_controls_v2"
 WALK_STEERING_FEATURE = "walk_steering_v1"
 WALK_LATERAL_FEATURE = "walk_lateral_v1"
+WALK_NOMINAL_FEATURE = "walk_nominal_v1"
 RUN_GAIT_FEATURE = "run_gait_v1"
 CRAB_GAIT_FEATURE = "crab_gait_v1"
 MAX_MONOTONIC_MS = (1 << 53) - 1
@@ -318,6 +319,39 @@ def validate_walk_controls(message: Mapping[str, object]) -> None:
         _integer(message, "update", minimum=1, maximum=MAX_SEQUENCE)
         if not (auto or manual):
             _fail("value:walk.update.controls_required")
+    source = message.get("source", "native")
+    if source not in ("native", "host"):
+        _fail("value:walk.source")
+    if source == "host":
+        if message.get("steps") != 0:
+            _fail("value:walk.host_continuous")
+        _finite_column(message, "twist", 3)
+        if "update" in message and any(key in message for key in ("geometry", "reference_cd")):
+            _fail("value:walk.fixed_reference")
+        if "update" not in message:
+            geometry = _string(message, "geometry")
+            if not 1 <= len(geometry.encode("utf-8")) <= 95:
+                _fail("range:geometry")
+            _finite_column(message, "reference_cd", 12)
+    elif any(key in message for key in ("geometry", "reference_cd", "twist")):
+        _fail("value:walk.host_fields")
+
+
+def _finite_column(message, name, count):
+    values = message.get(name)
+    if not isinstance(values, list) or len(values) != count or any(
+            type(value) not in (int, float) or not math.isfinite(value) for value in values):
+        _fail("invalid:" + name)
+
+
+def _validate_walk_target(message):
+    _seq(message)
+    _integer(message, "walk", minimum=1, maximum=MAX_SEQUENCE)
+    _integer(message, "sample", minimum=1, maximum=2**32-1)
+    geometry = _string(message, "geometry")
+    if not 1 <= len(geometry.encode("utf-8")) <= 95:
+        _fail("range:geometry")
+    _finite_column(message, "feet_mm", 12)
 
 
 def _validate_intent(message: Mapping[str, object]) -> None:
@@ -855,6 +889,32 @@ def _validate_event(message: Mapping[str, object]) -> None:
             if not isinstance(values, list) or len(values) != count or any(
                 type(v) not in (int, float) or not math.isfinite(v) for v in values):
                 _fail(f"invalid:imu.{key}")
+        if "joint_feedback" in data:
+            feedback = data["joint_feedback"]
+            if not isinstance(feedback, dict):
+                _fail("invalid:imu.joint_feedback")
+            _integer(feedback, "map", minimum=2, maximum=2)
+            _boolean(feedback, "enabled")
+            for key in ("device_us", "scan", "scan_us", "revision"):
+                _integer(feedback, key, minimum=0, maximum=2**64-1)
+            for key in ("usable_mask", "commanded_mask", "stalled_joints", "calibrated_mask",
+                        "unavailable_mask", "clipped_mask", "below_calibration_mask", "above_calibration_mask"):
+                _integer(feedback, key, minimum=0, maximum=4095)
+            samples = feedback.get("sampled_us")
+            if not isinstance(samples, list) or len(samples) != 12 or any(
+                    type(value) is not int or not 0 <= value <= feedback["device_us"] for value in samples):
+                _fail("invalid:imu.joint_feedback.sampled_us")
+            for key in ("filtered_model_deg", "velocity_deg_s", "commanded_model_deg"):
+                values = feedback.get(key)
+                mask = feedback["commanded_mask" if key == "commanded_model_deg" else "usable_mask"]
+                if not isinstance(values, list) or len(values) != 12:
+                    _fail(f"invalid:imu.joint_feedback.{key}")
+                for index, value in enumerate(values):
+                    if mask & (1 << index):
+                        if type(value) not in (int, float) or not math.isfinite(value):
+                            _fail(f"invalid:imu.joint_feedback.{key}")
+                    elif value is not None:
+                        _fail(f"invalid:imu.joint_feedback.{key}")
     if "origin_id" in message:
         if name not in {"vad_open", "vad_close"}:
             _fail("unexpected:origin_id")
@@ -881,6 +941,7 @@ VALIDATORS: dict[str, Callable[[Mapping[str, object]], None]] = {
     "err": _validate_err,
     "welcome": _validate_welcome,
     "intent": _validate_intent,
+    "walk_target": _validate_walk_target,
     "stop": _validate_stop,
     "motion_plan": _validate_motion_plan,
     "tts": _validate_tts,

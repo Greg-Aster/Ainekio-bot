@@ -241,6 +241,12 @@ bool ainekio_v2_feet_bounded(ainekio_v2_frame_t *frame,const float low[12],const
     if(!ainekio_v2_limits_frame(&result))return false;
     *frame=result;return true;
 }
+void ainekio_v2_pose_from_frame(ainekio_v2_walk_pose_t *p,const ainekio_v2_frame_t *f)
+{
+    for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
+        p->joints[l][j]=f->position[3*(l<2?l+2:l-2)+j]*0.00017453292519943296;
+    p->frame=*f;
+}
 bool ainekio_v2_contact_forward(ainekio_v2_walk_pose_t *p,
     double local_points[4][3],bool choose_contacts)
 {

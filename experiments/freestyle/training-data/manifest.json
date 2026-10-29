@@ -1,73 +1,18 @@
 {
   "version": "motion-targets-v1",
   "source": "Body Control editable motion library",
-  "training_rows": 2402,
+  "training_rows": 2423,
   "training_launched": false,
   "discarded_examples": [
-    {
-      "id": "0508165d2e189b75",
-      "replacement_id": "e143d29cde53307c",
-      "reason": "Superseded small unbalanced hand lift; refined counterbalanced lift retained"
-    },
-    {
-      "id": "08bf55fe801aff80",
-      "replacement_id": "7f6758be34477b04",
-      "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
-    },
-    {
-      "id": "13fb4582a901b35f",
-      "replacement_id": "aee5d1155c1b8e62",
-      "reason": "Exact original 12mm hand-lift target replaced by its recorded correction"
-    },
-    {
-      "id": "5cf154868c43d0f7",
-      "replacement_id": "e143d29cde53307c",
-      "reason": "Superseded small unbalanced hand lift; refined counterbalanced lift retained"
-    },
-    {
-      "id": "608e940997758e5e",
-      "replacement_id": "00b7c60fb57221bf",
-      "reason": "Owner discarded older hip-wiggle attempts after the version-5 refinement"
-    },
-    {
-      "id": "6d9c29b9ab3bb38e",
-      "replacement_id": "00b7c60fb57221bf",
-      "reason": "Owner discarded older hip-wiggle attempts after the version-5 refinement"
-    },
-    {
-      "id": "b429b1fc5ce5f28a",
-      "replacement_id": "00b7c60fb57221bf",
-      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
-    },
-    {
-      "id": "d1e61bcedb052866",
-      "replacement_id": "00b7c60fb57221bf",
-      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
-    },
-    {
-      "id": "db822de5488f1460",
-      "replacement_id": "00b7c60fb57221bf",
-      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
-    },
-    {
-      "id": "e1d04ae351b12f03",
-      "replacement_id": "00b7c60fb57221bf",
-      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
-    },
-    {
-      "id": "e782b13144fb6788",
-      "replacement_id": "aee5d1155c1b8e62",
-      "reason": "Exact original 12mm hand-lift target replaced by its recorded correction"
-    },
-    {
-      "id": "fba4b6f01b3614f0",
-      "replacement_id": "7f6758be34477b04",
-      "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
-    },
     {
       "id": "031b0d23988a9e90",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "0508165d2e189b75",
+      "replacement_id": "e143d29cde53307c",
+      "reason": "Superseded small unbalanced hand lift; refined counterbalanced lift retained"
     },
     {
       "id": "058a0e9f3eed0646",
@@ -78,6 +23,11 @@
       "id": "061117ec70263331",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "08bf55fe801aff80",
+      "replacement_id": "7f6758be34477b04",
+      "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
     },
     {
       "id": "0b46516aae418944",
@@ -98,6 +48,11 @@
       "id": "0ef1824c69f2eecb",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "13fb4582a901b35f",
+      "replacement_id": "aee5d1155c1b8e62",
+      "reason": "Exact original 12mm hand-lift target replaced by its recorded correction"
     },
     {
       "id": "18219286c88cffc1",
@@ -138,6 +93,11 @@
       "id": "331f120a60000bfc",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3978d0e07c89baa9",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
     },
     {
       "id": "3a69e933c074a802",
@@ -200,9 +160,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "4cf22d1456a58d9d",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
       "id": "4f28d03b9606153b",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "51146b6d6bc73010",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
     },
     {
       "id": "544fd397dbad2445",
@@ -230,6 +200,16 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "58996f9c6f130b39",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
+      "id": "59368ae8929ccfd6",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
       "id": "5ba88641ca475a3f",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -240,9 +220,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "5cf154868c43d0f7",
+      "replacement_id": "e143d29cde53307c",
+      "reason": "Superseded small unbalanced hand lift; refined counterbalanced lift retained"
+    },
+    {
       "id": "5de7188d8dc801f3",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "608e940997758e5e",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Owner discarded older hip-wiggle attempts after the version-5 refinement"
     },
     {
       "id": "60ccf8c4ae83be5c",
@@ -263,6 +253,11 @@
       "id": "66c2e3cd9987d68a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "6d9c29b9ab3bb38e",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Owner discarded older hip-wiggle attempts after the version-5 refinement"
     },
     {
       "id": "6df44de6b013dfb5",
@@ -300,6 +295,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "7c87104a72dd7216",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
       "id": "7fd4dd07d75daa9a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -318,6 +318,11 @@
       "id": "830f26ed0e1ca3b0",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "884e613c0e59638b",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
     },
     {
       "id": "8980380559fef782",
@@ -353,6 +358,11 @@
       "id": "9b68678aeafc325d",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9ebb767209e74643",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
     },
     {
       "id": "9f4a20a5eb3d6fe6",
@@ -398,6 +408,11 @@
       "id": "af21d2d34c924c42",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "b429b1fc5ce5f28a",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
     },
     {
       "id": "b874826504c0ceaf",
@@ -450,9 +465,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "cb5e57839cbef60c",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
       "id": "cbb2e74f1b4814fc",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "cc5a761f30d3f2ce",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
     },
     {
       "id": "cffcd9f9c0952be2",
@@ -463,6 +488,11 @@
       "id": "d0df5f87e3748426",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d1e61bcedb052866",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
     },
     {
       "id": "d305cc2d00fcf905",
@@ -490,6 +520,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "db822de5488f1460",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
+    },
+    {
       "id": "dd34d5236ac5d0db",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -505,6 +540,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "e1d04ae351b12f03",
+      "replacement_id": "00b7c60fb57221bf",
+      "reason": "Older hip-sway contrast derived from the superseded wiggle proposal"
+    },
+    {
       "id": "e40947bf5cddd455",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -513,6 +553,11 @@
       "id": "e445596c7725b805",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e4ddcf2a253dad8b",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
     },
     {
       "id": "e6383fcef74d4d0e",
@@ -528,6 +573,11 @@
       "id": "e700a80cd44c0b1a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e782b13144fb6788",
+      "replacement_id": "aee5d1155c1b8e62",
+      "reason": "Exact original 12mm hand-lift target replaced by its recorded correction"
     },
     {
       "id": "e784668a8bad02e7",
@@ -550,6 +600,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "ee6fe5a0c5139dbd",
+      "replacement_id": null,
+      "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
       "id": "eed00fa89152a7de",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -570,6 +625,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "fba4b6f01b3614f0",
+      "replacement_id": "7f6758be34477b04",
+      "reason": "Exact original clap target replaced by its recorded elevated-hand correction"
+    },
+    {
       "id": "fe2105880a716b4e",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -583,13 +643,473 @@
       "id": "ff3397748fc64ebe",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "5fb00fd1ce20d45b",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "29e13f8c571817ca",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "11d4cfdb1aae1f2e",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "61b90eb0ea12f305",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "8453a1c448a90fe2",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "53dc8ebf89d4cd0d",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "f3dd0d310eb71c74",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "ce45c384ff34a40f",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "0cedc2bbd628e931",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "f3ac18f0fc139de3",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "ccd051fb30fda80d",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "d0378855e1ab405e",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "b2504493fd794f4f",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "b2053e362c927e42",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "e4c58955be573e2d",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "8bc949649381d87b",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "818581ea5b79d8c6",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "7a0907d0c3b96aab",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "6b9505ae79745245",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "b995b89877e543d9",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "369b82189c248801",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "29310db3a742ea47",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "b80bece0233325a9",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "87dab88616a94985",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "e9f29495784ff683",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "fcb0d4b0af1783ab",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "32ac0cb2c3ac0bc0",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "90e9929cbd5625b6",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "c05eb83fa2c44027",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "c421ad34cca811f8",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "7683b51b193d5e24",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "81ccd763c328ff05",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "b5d5445affb40d7a",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "a1362aaf3d5b4523",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "84ce5d1db97fac1c",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "4ca55f34c682dde4",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "70ed93e6c32c6226",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "ee8af36051478edd",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "bfc491d5f6bee1a3",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "2bcafd07a0ae3110",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "8a968734190080b2",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "fb5fe65de0e6c53b",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "5807f7f06a577668",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "932b0c798f51358b",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "e4f01cd2f3a0e814",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "11d35dcf0d8f398e",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "bf10926241d374cd",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "8dd18d8aa2b8ae11",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "f75e6a1c0d415b00",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "1d595404ab8190fe",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "0c325017073363c9",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "e4fa7329fe6275d5",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "6bdb56ec0854a8cc",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "9ee7588256045416",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "54eae44317ba689d",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "72529bb5b130e959",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "1156c51536833826",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "c7763ad85bf29858",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "95fa9b30644d68f8",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "4338e40f820297fb",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "cda2236dbc574f76",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "3f428e41232b7ea6",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "3e2d1fc1eea78d3a",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "f84d7b88934d1b41",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "5453d37afd3176a4",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "3767a5eab8aa9125",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "c222072f9ba27bd4",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "921ae867977b2588",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "8c2a9e8dc2e74227",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "be8febf78a4d0350",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "1d710e2ad9b0d8ea",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "482165174ec2a8fd",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "66c1d044ae1e8700",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "c2c8b830e4dc72c1",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "6ca564a3f4d67445",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "5a41dca635dc1ba1",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "108ea400c601ab2a",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "120cfabd8a5df2ce",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "cf19ad61f39bf49e",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "4d3d0c1b138ebb72",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "e00d6d74592a1e9c",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "5761733334b9d064",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "d12599db2b9a4c56",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "bc2edd8a8ac7ef9f",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "28c95289538757aa",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "15c7a4d779670123",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "a9d688b74a595dc5",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "a7c7f979b20a0a07",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "1e5981dbdac1f079",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "26f5f5bbb72fe769",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "a9b4a6417899db70",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "2ea16b914acb8fbb",
+      "replacement_id": null,
+      "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     }
   ],
   "encoding_sha256": "58c1b43a3b27d6bdcc5e3a9f2a43dd9043a07306a5c27a374451e412b768e545",
   "files": {
     "evaluation.jsonl": "5323bd648a63e503ee70aa74be67a1b6e623ef84d57beb17e010185949a31284",
     "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "train.jsonl": "d74c2f10cae838a93c7f1883888b5ec314d729576f67560743a30b764e5e1879",
+    "train.jsonl": "800420798a8e5ce61d44eefeb83ca9508f219768fd66e5afd2eb1893f7804706",
     "recovery-probe.jsonl": "572c3e1734e66f95d0ecbe7ce784512dc153737b41a505a75c64881473d8ff28",
     "tools.json": "b75521e9647fb9950af14a1046aa9112e36d253447f595fded4e2651c6f05cdf",
     "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
@@ -627,5 +1147,36 @@
     },
     "training_launched": false,
     "physical_trials": 0
+  },
+  "finite_event_corrections": {
+    "added_rows": 116,
+    "source": "artifacts/finite-event-repair/contrast-dataset",
+    "physical_qualification": false,
+    "unapproved_stretch_sprinkler_included": false
+  },
+  "stretch_review_2026_10_27": {
+    "snapshot_removed_ids": [
+      "51146b6d6bc73010",
+      "58996f9c6f130b39",
+      "7c87104a72dd7216"
+    ],
+    "library_removed_ids": [
+      "9ebb767209e74643",
+      "cb5e57839cbef60c",
+      "ee6fe5a0c5139dbd",
+      "59368ae8929ccfd6"
+    ],
+    "physical_success_job_id": "bcc1a78011ed48b58a4f5c8a030035a8",
+    "physical_trial_scope": "supported, feet clear; known first-reach entry",
+    "generic_replacement_status": "pending_matching_physical_calibration_references",
+    "asymmetric_trial_added_to_training": false,
+    "training_launched": false,
+    "model_changed": false
+  },
+  "release_supervision_removal": {
+    "removed_rows": 92,
+    "reason": "Installation Owner removed servo-output release supervision from the custom-movement model.",
+    "model_changed": false,
+    "archived_runs_preserved": true
   }
 }

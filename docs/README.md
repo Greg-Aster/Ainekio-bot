@@ -1,18 +1,48 @@
 # Ainekio Documentation Authority
 
-## Normative set
+## Shared companion design
 
-The normative system set is:
+Start robot work with the canonical
+[robot design core](../../metahuman/docs/robot/ROBOT_BIBLE.md) in the sibling
+MetaHuman checkout. It explains the intended companion, system boundaries
+and maintenance approach, with links to capability contracts and
+[qualification scenarios](../../metahuman/docs/robot/QUALIFICATION.md).
+Both repositories use that entry point; do not maintain another copy here.
 
-- `Ainekio - System Specification v1.0.docx` - behavior, protocol, software,
-  safety, and acceptance authority.
-- [Parts Overview](https://docs.google.com/document/d/1wz0kyqttPK3HHL0P0_9lLtRW_B87U5u4kEt-UhttHFA/edit?usp=sharing)
-  - externally maintained electrical-parts authority named by the specification.
+Source links across repositories assume sibling `Ainekio` and `metahuman`
+checkouts. Locate the paired checkout before tracing a cross-repository change;
+an absent checkout is not evidence that a responsibility has no implementation.
 
-System Specification v1.0 supersedes the archived v0.6 specification and its
-Amendment 1 freeze. The Parts Overview supplies planned electrical facts, but
-delivered markings, wiring, measurements, photographs, and H-series results are
-required before those values count as installed-hardware evidence.
+## Which source answers which question
+
+| Question | Authority |
+| --- | --- |
+| What is the whole robot intended to do? | Shared [Robot Bible](../../metahuman/docs/robot/ROBOT_BIBLE.md) and its capability contracts |
+| How do processes, responsibilities and state connect? | Shared [software architecture](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md); implementation contracts remain with the linked owners |
+| What hardware, dimensions and wiring apply? | Selected [V2 specification](v2-12servo/SPECIFICATIONS.md) or retained [V1 specification](v1-8servo/SPECIFICATIONS.md), with their source and physical evidence |
+| What wire messages, units and execution behavior apply? | Maintained [protocol](../Slave/software/protocol/README.md), selected firmware/model contracts and approved amendments below |
+| How is a change maintained and demonstrated? | Shared [repair method](../../metahuman/docs/technical/REFACTOR_BLUEPRINT.md#repair-design) and [qualification walkthroughs](../../metahuman/docs/robot/QUALIFICATION.md#maintenance-walkthroughs) |
+
+The [System Specification v1.0](<Ainekio - System Specification v1.0.docx>) is the
+retained baseline. **The numbered amendments below replace its corresponding
+clauses.** Unchanged clauses remain applicable within their original scope; V1
+board assumptions do not define V2 hardware. V2 is active development; V1 is paused.
+This consolidates already-approved changes rather than introducing new behavior.
+
+The externally maintained [Parts Overview](https://docs.google.com/document/d/1wz0kyqttPK3HHL0P0_9lLtRW_B87U5u4kEt-UhttHFA/edit?usp=sharing)
+named by v1.0 supplies planning inputs;
+the model-specific records identify installed components and evidence. It is not
+authority to restore superseded V2 parts such as the SHARGE power system.
+Source shows implementation; recorded markings, wiring and measurements establish
+installed facts. A compilation or an older successful flash establishes neither
+today's installed version nor loaded physical performance.
+
+When an approved change alters a contract, replace that statement at its existing
+owner and update its consumers, tests and incoming references together. Record the
+reason beside the contract. Do not append a contradictory instruction to this
+index. Escalate an unresolved intent conflict precisely; historical evidence and
+code alone do not settle it. Private agent instructions point to these shared
+documents; public contributors can follow the procedure without those local files.
 
 ## Maintained implementation documents
 
@@ -24,6 +54,9 @@ implementation boundary.
 
 | Document | Current purpose |
 | --- | --- |
+| [Robot software architecture](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md) | Cross-repository processes, interfaces, source owners, execution paths and state lifetimes |
+| [V1 specifications](v1-8servo/SPECIFICATIONS.md) | Eight-servo body hardware, dimensions/unknowns, pin mapping, power and Body Control/MetaHuman connections |
+| [V2 specifications](v2-12servo/SPECIFICATIONS.md) | Twelve-servo body hardware, current geometry, calibration/feedback mapping, power and local/remote connections |
 | [Restarting Body Control and remote MetaHuman OS](STARTUP.md) | Restart an existing two-computer installation, check its VPN and bridge, and stop its foreground launchers |
 | [ROBOT_MODELS.md](ROBOT_MODELS.md) | V1/V2 model, board, servo-output, and shared-code boundaries |
 | [V1 hardware bring-up](v1-8servo/HARDWARE_BRINGUP_CHECKLIST.md) | V1 power topology, staged assembly procedure, open physical gates, and recorded board evidence |
@@ -33,70 +66,52 @@ implementation boundary.
 | [Body Control Integration](BODY_CONTROL_INTEGRATION.md) | Selected wireless/offboard Q6A direction, USB comparison, ROS 2 role, operating targets and audit findings |
 | [Vision and target tracking audit](audits/VISION_TRACKING_INTEGRATION.md) | Current camera/YOLO/MetaHuman ownership, verified gaps and tests, and a staged integration plan using existing execution owners |
 | [Distributed robot foundation](DISTRIBUTED_ROBOT_FOUNDATION.md) | Universal P4 control, Q6A/remote/manual takeover, shared status/routing/queues, ROS comparison and migration gates before feature coding |
-| [Complete robot resource budget](v2-12servo/RESOURCE_BUDGET.md) | Power branches, P4/Q6A memory and processing, all equipment, camera/audio quality, motion timing, pins and wired/Wi-Fi comparisons; reproducible arithmetic and final qualification boundaries |
+| [Resource budget](v2-12servo/RESOURCE_BUDGET.md) | Dated capacity analysis; its retired SHARGE topology and runtime calculations do not describe the current V2 assembly |
 | [Budget audit evidence](v2-12servo/BUDGET_AUDIT_EVIDENCE.md) | Repository/source identities, manufacturer references, Q6A Wi-Fi capability readback, offline Kokoro timing/RSS and exclusions of stale evidence |
 | [V2 Step 1 evidence](v2-12servo/STEP1_EVIDENCE.md) | Build/flash commands, tests, actual board/network results and outstanding electrical proof |
-| [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Current robot-body software status, implementation evidence, and deliberately pending work |
+| [SLAVE_BRAIN_PROGRESS.md](SLAVE_BRAIN_PROGRESS.md) | Dated implementation/bring-up evidence; refresh deployment claims before reuse |
 | [LOCAL_WAKE_WORD.md](LOCAL_WAKE_WORD.md) | Owner-local microWakeWord training, packaging, installation, and validation workflow |
 | [freestyle-movement.md](freestyle-movement.md) | Owner-approved bounded motion-plan extension, emulator evidence, and physical enablement gate |
 | [REPOSITORY_MAP.md](REPOSITORY_MAP.md) | Current Master, Slave, Emulator, documentation, and reference ownership map |
 | [ROS2_SETUP.md](ROS2_SETUP.md) | Desktop ROS tools, validation, and portability requirements for later Q6A deployment |
 
-These documents describe current implementation and evidence. They do not
-silently amend the normative specification. A behavioral conflict requires a
-numbered specification erratum or revision; installed electrical facts require
-recorded H-series evidence.
+## Consolidated v1.0 amendments
 
-## Current v1.0 deltas awaiting specification consolidation
+These are the approved replacements previously listed here as awaiting
+consolidation. They retain their original model scope and do not reopen paused V1
+development. Detailed values remain in the linked owners; deployment claims stay
+with dated evidence.
 
-System Specification v1.0 predates several implementation discoveries and
-owner-approved extensions. Until they are consolidated by numbered erratum or a
-new specification revision, readers must keep these boundaries explicit:
-
-- The delivered N16R8 board cannot use the provisional GPIO33/34 servo map in
-  specification section 6.3. Hardware testing proved those pins corrupt octal
-  PSRAM. The flashed board profile uses GPIO47/48 for R4/R3 and hands GPIO0/43
-  from BOOT/UART to the OLED. `v1-8servo/PINOUT_DIAGNOSTICS.md` is the V1 physical
-  wiring reference; the old provisional map must not be wired.
-- Owner policy as of 2026-08-03 makes the GPIO3 battery sensor telemetry and
-  warning-only. The firmware still classifies low, critical, recovered, and
-  disconnected readings, but those readings never lock motion, cancel audio,
-  close the gateway, or enter deep sleep. Undervoltage shutdown is owned only
-  by the battery pack's hardware protection circuit. The installed pack's
-  cutoff behavior is not yet documented, so it must be treated as unverified
-  and replaced with a properly protected pack if necessary.
-- The checked firmware uses a stable per-device eight-character WPA2 setup key
-  instead of generating a new 12-character secret for every entry. Joining
-  `Ainekio-Setup` is the only setup authentication step; the portal opens its
-  configuration form directly at `http://192.168.4.1/` and rejects requests
-  outside the setup AP interface. The OLED reports the setup address/key and
-  then the joined SSID, DHCP address, and gateway state. This owner-approved UX and
-  security change is flashed and broadcasting its setup AP, but still awaits
-  physical form-submission evidence and numbered specification consolidation.
-- The local wake-word control plane and inference engine are implemented, but no
-  accepted production `Ainekio` model is installed. First boot remains
-  `wake_enabled=false` and `wake_ready=false`.
-- `motion_plan_v1` is an owner-approved bounded extension implemented in the
-  protocol/core, gateway, environment adapter, emulator, and current ESP32-S3
-  source. The physical port reuses the existing prepared motion buffer/task and
-  post-action camera callback. The matching revision is flashed, digest-verified,
-  and connected; physical freestyle remains pending owner-supervised transition,
-  stop, completion-image, and memory-headroom validation.
-- Local robot transport now defaults to `_ainekio._tcp.local` DNS-SD discovery,
-  rejects off-subnet advertised addresses, and caches the last authenticated
-  local endpoint as a first-attempt optimization. A stale cached endpoint gets
-  one bounded attempt before DNS-SD resumes; it is not a fixed configuration.
-  Reconnect backoff resets after authenticated `welcome` and never exceeds 15
-  seconds. Local mode never silently falls back to the optional Cloudflare
-  relay. The owner selected authenticated `ws://` on the private home WPA2 LAN
-  as the intentionally minimal local transport; pinned local WSS is not a
-  parallel pending path. The maintained implementation uses one-second control
-  pings and a four-second active-motion stale guard without timer-driven session
-  teardown. Actual Wi-Fi/WebSocket errors still enter FAILSAFE/offline. The v1.0
-  DOCX needs a numbered erratum for this
-  local-discovery and liveness contract. The keepalive-free application is
-  prepared in source but has not yet been flashed; the dated bridge-liveness
-  handoff records the exact source-versus-controller boundary.
+1. **V1 pin map (section 6.3).** The provisional GPIO33/34 servo map is superseded:
+   testing found octal-PSRAM corruption. The delivered board uses GPIO47/48 for
+   R4/R3 and the recorded BOOT/UART-to-OLED handoff. [V1 pinout](v1-8servo/PINOUT_DIAGNOSTICS.md)
+   owns that wiring; never apply it to the P4 body.
+2. **Battery response (owner decision 2026-08-03).** Battery classifications are
+   telemetry/warnings; they do not lock motion, cancel audio, close the gateway or
+   enter deep sleep. Hardware pack protection owns undervoltage shutdown. Use the
+   selected model's power record; no unmeasured cutoff performance is implied.
+3. **V1 setup authentication.** The approved setup uses a stable per-device
+   eight-character WPA2 key and a form restricted to the setup AP interface.
+   The OLED reports setup and connection information. This replaces the original
+   rotating-key requirement; [S3 firmware](../Slave/firmware/esp32s3/README.md)
+   owns implementation and recorded validation.
+4. **Wake-word capability.** Implemented control/inference support does not imply
+   an installed accepted model. Read advertised readiness and configuration;
+   [the wake-word owner](LOCAL_WAKE_WORD.md) owns training and installation.
+5. **Motion-plan extension.** `motion_plan_v1` is an approved protocol extension;
+   use the maintained [protocol](../Slave/software/protocol/README.md) and
+   [model boundaries](ROBOT_MODELS.md). The older [V1 extension evidence](freestyle-movement.md)
+   does not qualify current V2 Freestyle or its twelve-joint execution.
+6. **V1 local discovery and liveness.** The approved local path uses DNS-SD with
+   an authenticated endpoint cache (one cached attempt before rediscovery),
+   reconnect backoff capped at 15 seconds and authenticated `ws://`
+   on the owner's private WPA2 LAN. It does not silently fall back to Cloudflare
+   or require a parallel local-WSS implementation. The recorded source contract
+   uses one-second control pings and a four-second active-motion stale guard, without timer-driven
+   session teardown; actual transport errors still enter the existing offline
+   path. The [S3 network owner](../Slave/firmware/esp32s3/README.md) and dated
+   bridge-liveness evidence retain exact settings and flash status. This amendment
+   does not assert that a particular board currently runs that revision.
 
 ## Reference inputs
 

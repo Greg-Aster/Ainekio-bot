@@ -3,6 +3,7 @@ import copy
 import json
 import threading
 import unittest
+from contextlib import AsyncExitStack
 from unittest.mock import patch
 
 from experiments.freestyle.bridge import Bridge
@@ -108,12 +109,118 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.generated.append(request)
         return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50)]}
     async def asyncTearDown(self):await self.bridge.close()
+    async def test_observation_preserves_raw_and_converts_filtered_position_for_both_polarities(self):
+        async def feedback(*args):
+            return {'channels':[{'channel':4,'valid':True,'sampled_us':980000},
+                                {'channel':5,'valid':False,'sampled_us':990000}],
+                    'joints':[{'id':i,'channel':i+4,'model_deg':77.0,'filtered_us':1750,
+                'velocity_us_s':100,'command_us':1650,'calibrated':True} for i in (0,1)]}
+        for i in (0,1):
+            self.gateway.calibration['joints'][i].update(home_cd=1000,home_us=1650,
+                us_per_degree=10,invert=bool(i))
+        self.bridge.transport.request=feedback
+        obs=await self.bridge.observation('robot')
+        for i,expected in ((0,20.0),(1,0.0)):
+            joint=obs['joints'][JOINTS[i]]
+            self.assertEqual(joint['model_deg'],77.0)
+            self.assertEqual(joint['filtered_model_deg'],expected)
+            self.assertEqual(joint['velocity_deg_s'],-10 if i else 10)
+        self.assertEqual(obs['joints'][JOINTS[0]]['sampled_us'],980000)
+        self.assertNotIn('sampled_us',obs['joints'][JOINTS[1]])
+        self.assertFalse(self.gateway.sent)
+
     async def test_preview_generates_without_motion(self):
         job=await self.bridge.submit('robot','new greeting',False)
         await self.bridge.tasks[job['job_id']]
         self.assertFalse(self.gateway.sent)
         self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'generated')
         self.assertIn('model_deg',self.generated[0]['observation']['joints'][JOINTS[0]])
+
+    async def test_adjusted_unverified_target_is_not_reported_as_completed(self):
+        async def receipt(seq, **kwargs):
+            return {'t':'done','seq':seq,'position_verified':False,'target_adjusted_joints':48}
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],5,'current',50),
+                                                     move(JOINTS[0],-5,'current',50)]}
+        submitted=await self.bridge.submit('robot','complete both targets',True)
+        await self.bridge.tasks[submitted['job_id']]
+        result=await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'],'error')
+        self.assertIn('did not verify',result['error'])
+        self.assertEqual(len(self.gateway.sent),1)
+        self.assertEqual(len(self.generated),0)
+
+    async def test_stop_and_release_acknowledgements_complete_the_selected_program(self):
+        original_receipt=self.gateway.wait_terminal
+        stops={}
+        async def estop(**kwargs):
+            self.gateway.seq+=1
+            seq=self.gateway.seq
+            stops[seq]=kwargs.get('detach',False)
+            if kwargs.get('on_sequence'):kwargs['on_sequence'](seq)
+            return seq
+        async def receipt(seq,**kwargs):
+            if seq in stops:return {'t':'ack','seq':seq}
+            return {**await original_receipt(seq,**kwargs),'position_verified':True}
+        self.gateway.estop=estop
+        self.gateway.wait_terminal=receipt
+        for ending in ('stop','release'):
+            with self.subTest(ending=ending):
+                self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],5,'current',50),call(ending)]}
+                submitted=await self.bridge.submit('robot','move and '+ending,True)
+                await self.bridge.tasks[submitted['job_id']]
+                result=await self.bridge.result(submitted['job_id'])
+                self.assertEqual(result['state'],'completed',result.get('error'))
+                self.assertEqual([r['t'] for r in result['receipts']],['done','ack'])
+                self.assertTrue(result['receipts'][0]['position_verified'])
+                self.assertEqual(stops[result['receipts'][-1]['seq']],ending=='release')
+
+    async def test_rejected_stop_is_not_a_completed_program(self):
+        async def estop(**kwargs):
+            self.gateway.seq+=1
+            if kwargs.get('on_sequence'):kwargs['on_sequence'](self.gateway.seq)
+            return self.gateway.seq
+        async def receipt(seq,**kwargs):return {'t':'nak','seq':seq,'code':'rejected'}
+        self.gateway.estop=estop
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[call('stop')]}
+        submitted=await self.bridge.submit('robot','stop',True)
+        await self.bridge.tasks[submitted['job_id']]
+        result=await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'],'error')
+        self.assertIn('rejected',result['error'])
+
+    async def test_motion_acknowledgement_is_not_target_completion(self):
+        async def receipt(seq,**kwargs):return {'t':'ack','seq':seq}
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],5,'current',50)]}
+        submitted=await self.bridge.submit('robot','move',True)
+        await self.bridge.tasks[submitted['job_id']]
+        result=await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'],'error')
+        self.assertIn('Body reported',result['error'])
+
+    async def test_cancel_uses_stop_acknowledgement_without_reporting_motion_complete(self):
+        entered=asyncio.Event()
+        stops=[]
+        async def estop(**kwargs):
+            self.gateway.seq+=1
+            stops.append(self.gateway.seq)
+            if kwargs.get('on_sequence'):kwargs['on_sequence'](self.gateway.seq)
+            return self.gateway.seq
+        async def receipt(seq,**kwargs):
+            if seq in stops:return {'t':'ack','seq':seq}
+            entered.set()
+            await asyncio.Future()
+        self.gateway.estop=estop
+        self.gateway.wait_terminal=receipt
+        self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],5,'current',50)]}
+        submitted=await self.bridge.submit('robot','move',True)
+        await entered.wait()
+        await self.bridge.cancel(submitted['job_id'])
+        result=await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'],'superseded',result.get('error'))
+        self.assertEqual([r['t'] for r in result['receipts']],['ack'])
 
     async def test_model_sees_calibration_domain_and_unusable_extrapolated_position(self):
         async def feedback(*args):
@@ -498,36 +605,143 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[identifier]['state'],'superseded')
         self.assertFalse(self.gateway.sent)
 
-    async def test_idle_request_uses_freestyle_and_release_is_an_explicit_operation(self):
-        snapshot=self.gateway.status_snapshot
-        owner={'t':'motion_plan','seq':7}
-        async def status():
-            value=await snapshot()
-            value['robots']['robot'].update(body_command=dict(owner),body_command_sequence=owner['seq'])
-            return value
-        self.gateway.status_snapshot=status
-        releases=[]
-        async def release(**options):
-            releases.append(options.get('detach'))
-            self.gateway.seq+=1
-            for callback in self.gateway.commands:
-                await callback({'t':'stop','robot_id':'robot','seq':self.gateway.seq,'detach':True})
-            return self.gateway.seq
-        self.gateway.estop=release
-        async def generate(endpoint,request):
-            self.generated.append(request)
-            return {'program':[move(JOINTS[0],5,'current',50),call('release')]}
-        self.bridge.generate=generate
+    async def test_inactivity_rest_does_not_delegate_body_power_management_to_model(self):
         await self.bridge.event({'t':'event','name':'idle_rest','robot_id':'robot','epoch':1,'seq':7})
         for task in list(self.bridge.tasks.values()):await task
-        self.assertEqual(releases,[True])
-        self.assertIn('Lie down',self.generated[0]['request'])
-        self.assertEqual(self.generated[0]['event']['type'],'idle_rest')
-        self.assertEqual(len(self.gateway.sent),1)
-        # An old timer notice cannot replace a later manual movement.
-        owner['seq']=8
-        await self.bridge.event({'t':'event','name':'idle_rest','robot_id':'robot','epoch':1,'seq':7})
-        self.assertEqual(len(self.generated),1)
+        self.assertEqual(self.generated,[])
+        self.assertEqual(self.gateway.sent,[])
+
+    async def prepare_stalled_correction(self, *, running=False, release_rejected=False):
+        from gateway.body_events import BodyEvents
+        self.gateway.body_events=BodyEvents()
+        owner={}
+        snapshot=self.gateway.status_snapshot
+        async def status():
+            value=await snapshot()
+            value['robots']['robot'].update(body_command=dict(owner),body_command_sequence=owner.get('seq'))
+            return value
+        async def command(value):owner.update(value)
+        self.gateway.status_snapshot=status
+        self.gateway.subscribe_commands(command)
+        self.releases=[];self.notices=[];self.correction_started=asyncio.Event()
+        async def publish(event):
+            self.notices.append(copy.deepcopy(event))
+            for callback in list(self.gateway.events):await callback(event)
+        self.gateway._publish_event=publish
+        release_sequences=set()
+        async def stop(**options):
+            self.gateway.seq+=1;seq=self.gateway.seq
+            async with AsyncExitStack() as admission:
+                if options.get('on_sequence'):
+                    guard=options['on_sequence'](seq)
+                    if guard is not None:await admission.enter_async_context(guard)
+                self.releases.append(options.get('detach',False));release_sequences.add(seq)
+                for callback in self.gateway.commands:
+                    await callback({'t':'stop','robot_id':'robot','seq':seq,'detach':options.get('detach',False)})
+            return seq
+        self.gateway.estop=stop
+        receipt=self.gateway.wait_terminal
+        async def terminal(seq,**options):
+            if seq in release_sequences:return {'t':'nak' if release_rejected else 'ack','seq':seq}
+            if running and seq==2:
+                self.correction_started.set();await asyncio.Future()
+            return await receipt(seq,**options)
+        self.gateway.wait_terminal=terminal
+        async def generate(endpoint,request):
+            self.generated.append(request)
+            return {'program':[move(JOINTS[0],-4 if request['event'] else 20,'current',50)]}
+        self.bridge.generate=generate
+        await self.bridge.configure('robot','http://unused',True)
+        original=await self.bridge.submit('robot','wave',True)
+        await self.bridge.tasks[original['job_id']]
+        self.first_stall={'t':'event','name':'body_event','robot_id':'robot','epoch':1,'event_id':'stall:1',
+            'data':{'kind':'servo_stall','command_sequence':1,'clock_us':1000,'outputs_released':False,
+                    'joints':[{'id':0,'name':JOINTS[0]}]}}
+        await self.bridge.event(self.first_stall)
+        recovery=next(job for job in self.bridge.jobs.values() if job.get('event'))
+        self.correction=recovery
+        if running:await self.correction_started.wait()
+        else:await self.bridge.tasks[recovery['id']]
+        self.assertEqual(self.releases,[],'First stall must try correction before releasing')
+        self.second_stall=copy.deepcopy(self.first_stall)
+        self.second_stall.update(event_id='stall:2')
+        self.second_stall['data'].update(command_sequence=2,clock_us=2000)
+
+    async def test_second_stall_releases_after_a_completed_correction_without_another_model_call(self):
+        await self.prepare_stalled_correction()
+        await self.bridge.event(self.second_stall)
+        await asyncio.gather(*list(self.bridge.tasks.values()))
+        self.assertEqual(len(self.generated),2)
+        self.assertEqual(self.releases,[True])
+        self.assertEqual(len(self.notices),1)
+        self.assertTrue(self.notices[0]['data']['correction_failed'])
+        self.assertTrue(self.notices[0]['data']['outputs_released'])
+        self.assertEqual(self.notices[0]['data']['joints'],self.second_stall['data']['joints'])
+
+    async def test_second_stall_releases_a_correction_waiting_for_its_target(self):
+        await self.prepare_stalled_correction(running=True)
+        await self.bridge.event(self.second_stall)
+        await asyncio.gather(*list(self.bridge.tasks.values()))
+        self.assertEqual(len(self.generated),2)
+        self.assertEqual(self.releases,[True])
+        self.assertEqual(self.correction['state'],'error')
+
+    async def test_failed_release_reports_failure_without_claiming_outputs_released(self):
+        await self.prepare_stalled_correction(release_rejected=True)
+        await self.bridge.event(self.second_stall)
+        await asyncio.gather(*list(self.bridge.tasks.values()))
+        self.assertEqual(self.releases,[True])
+        self.assertEqual(len(self.notices),1)
+        self.assertTrue(self.notices[0]['data']['correction_failed'])
+        self.assertFalse(self.notices[0]['data']['outputs_released'])
+        self.assertIn('nak',self.notices[0]['data']['release_error'])
+
+    async def test_old_stall_does_not_release_a_replacement_command(self):
+        await self.prepare_stalled_correction()
+        await self.bridge.event(self.first_stall)
+        self.assertEqual(self.releases,[])
+        replacement=await self.bridge.submit('robot','new movement',True)
+        await self.bridge.tasks[replacement['job_id']]
+        await self.bridge.event(self.second_stall)
+        self.assertEqual(self.releases,[])
+        self.assertEqual(len(self.generated),3)
+
+    async def test_manual_replacement_can_cancel_release_before_admission(self):
+        await self.prepare_stalled_correction()
+        entered=asyncio.Event();allow=asyncio.Event()
+        stop=self.gateway.estop
+        async def pending(**options):
+            entered.set();await allow.wait()
+            return await stop(**options)
+        self.gateway.estop=pending
+        await self.bridge.event(self.second_stall)
+        releasing=self.bridge.tasks[self.correction['id']]
+        await entered.wait()
+        replacement=await self.bridge.submit('robot','new movement',True)
+        await self.bridge.tasks[replacement['job_id']]
+        await asyncio.gather(releasing,return_exceptions=True)
+        allow.set()
+        self.assertEqual(self.releases,[])
+        self.assertEqual(self.notices,[])
+        self.assertEqual(self.bridge.jobs[replacement['job_id']]['state'],'completed')
+
+    async def test_released_stall_cannot_start_another_model_correction(self):
+        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':1,
+            'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':1}})
+        self.assertEqual(self.generated,[])
+
+    async def test_reconnect_before_release_admission_does_not_release_the_new_session(self):
+        await self.prepare_stalled_correction()
+        stop=self.gateway.estop
+        async def reconnected(**options):
+            self.gateway.epoch=2
+            return await stop(**options)
+        self.gateway.estop=reconnected
+        await self.bridge.event(self.second_stall)
+        await asyncio.gather(*list(self.bridge.tasks.values()),return_exceptions=True)
+        self.assertEqual(self.releases,[])
+        self.assertEqual(self.notices,[])
 
     async def test_generated_native_library_shortcuts_are_not_executed(self):
         for name in ('stand','gesture'):

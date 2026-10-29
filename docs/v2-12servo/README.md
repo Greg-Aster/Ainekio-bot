@@ -1,6 +1,13 @@
 # V2: Twelve-Servo Robot
 
-V2 is a second Ainekio body developed alongside the existing eight-servo V1.
+Start with the dedicated [V2 specifications](SPECIFICATIONS.md) for hardware,
+current geometry, wiring, calibration and Body Control/remote connections.
+This page retains earlier hardware-selection and bring-up records; their
+status statements do not establish today's source or installed readiness.
+
+V2 is the active development target; V1 work is paused (owner, 2026-10-26).
+Current physical facts are reconciled in [V2 specifications](SPECIFICATIONS.md);
+the September selections and bring-up status below retain their original dates.
 The owner confirmed the following hardware selection on 2026-09-15.
 
 ## Selected Hardware
@@ -44,6 +51,10 @@ structure are preserved. Use this model directory for all opens, saves, and
 exports.
 
 ## Software Status
+
+The [walking capability and integration audit](WALKING_SYSTEM.md) traces the
+current Body Control controls, P4 correction owners, recovery, sensing and
+latency requirements that neural gait work must preserve.
 
 The [gait research journal](GAIT_RESEARCH_JOURNAL.md) tracks the October 2026
 locomotion investigation, implementation changes, repeatable offline results

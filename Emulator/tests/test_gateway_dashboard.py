@@ -163,6 +163,45 @@ class FakeGateway:
 
 
 class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_neural_walking_source_is_explicit_persisted_and_does_not_start_motion(self):
+        cookie, csrf = await self._login()
+        profile = {"source":"neural","forward_m_s":.015,"lateral_m_s":.01,"yaw_rad_s":.12}
+        payload = {"op":"walking-source","robot_id":"ainekio-test-01","profile":profile}
+        route = "/api/neural-gait"
+        self.assertEqual((await self._request("POST",route,payload,cookie=cookie))[0],403)
+        code,result,_ = await self._request("POST",route,payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result["profile"],profile)
+        self.assertEqual(self.gateway.calls,[])
+        saved = json.loads(self.server.control_settings_path.read_text())
+        self.assertEqual(saved["walking_sources"], {"ainekio-test-01":profile})
+        self.gateway.walking_sources = {}
+        reloaded = start_dashboard_server("127.0.0.1",0,gateway=self.gateway,
+            event_loop=asyncio.get_running_loop(),password_store=self.password_store,token_store=self.token_store)
+        try:
+            self.assertEqual(self.gateway.walking_sources,saved["walking_sources"])
+        finally:
+            reloaded.server_close()
+        invalid = {**payload,"profile":{"source":"neural"}}
+        self.assertEqual((await self._request("POST",route,invalid,cookie=cookie,csrf=csrf))[0],400)
+        self.assertEqual(self.gateway.walking_sources,saved["walking_sources"])
+        await self._request("POST",route,{**payload,"profile":{"source":"native"}},cookie=cookie,csrf=csrf)
+        self.assertEqual(self.gateway.walking_sources["ainekio-test-01"],{"source":"native"})
+        self.assertEqual(self.gateway.calls,[])
+
+    async def test_named_request_uses_freestyle_owner_with_existing_csrf(self):
+        from unittest.mock import AsyncMock
+        self.gateway.request_motion=AsyncMock(return_value={"system":"freestyle","jobId":"motion-job"})
+        cookie,csrf=await self._login()
+        payload={"robot_id":"ainekio-test-01","description":"stand"}
+        self.assertEqual((await self._request("POST","/api/request-motion",payload,cookie=cookie))[0],403)
+        self.gateway.request_motion.assert_not_awaited()
+        code,result,_=await self._request("POST","/api/request-motion",payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result["jobId"],"motion-job")
+        self.gateway.request_motion.assert_awaited_once_with("stand",robot_id="ainekio-test-01")
+        self.assertEqual(self.gateway.calls,[])
+
     async def test_motion_system_selection_is_authenticated_saved_and_robot_scoped(self):
         cookie, csrf = await self._login()
         payload = {"robot_id": "ainekio-test-01", "system": "freestyle"}
@@ -253,6 +292,21 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved['answers'], large)
         self.assertEqual(self.gateway.calls, [])
 
+    async def test_freestyle_cancel_uses_existing_owner_without_submitting_motion(self):
+        cookie,csrf=await self._login()
+        service=SimpleNamespace(cancel=AsyncMock(return_value={'id':'idle-job','state':'superseded'}),
+                                submit=AsyncMock())
+        self.server.freestyle=service
+        payload={'operation':'cancel','robot_id':'ainekio-test-01','job_id':'idle-job'}
+        self.assertEqual((await self._request('POST','/api/freestyle',payload,cookie=cookie))[0],403)
+        service.cancel.assert_not_awaited()
+        code,result,_=await self._request('POST','/api/freestyle',payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200,result)
+        self.assertEqual(result,{'id':'idle-job','state':'superseded'})
+        service.cancel.assert_awaited_once_with('idle-job')
+        service.submit.assert_not_awaited()
+        self.assertEqual(self.gateway.calls,[])
+
     async def test_freestyle_trial_export_does_not_submit_motion(self):
         cookie,csrf=await self._login()
         service=SimpleNamespace(trial=Mock(return_value={'job':{'id':'trial-1','execute':False}}),
@@ -269,7 +323,8 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
     async def test_freestyle_saved_correction_listing_and_trial_use_existing_owner(self):
         cookie,csrf=await self._login()
         service=SimpleNamespace(corrections=AsyncMock(return_value=[{
-            'id':'review-1','job_id':'original','request':'Wave to an audience'}]),
+            'id':'review-1','job_id':'original','request':'Wave to an audience',
+            'payload':{'title':'Wave trial'}}]),
             test_correction=AsyncMock(return_value={'job_id':'corrected-trial'}), submit=AsyncMock())
         self.server.freestyle=service
         payload={'operation':'corrections','robot_id':'ainekio-test-01'}
@@ -277,6 +332,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         code,result,_=await self._request('POST','/api/freestyle',payload,cookie=cookie,csrf=csrf)
         self.assertEqual(code,200)
         self.assertEqual(result['corrections'][0]['review_id'],'review-1')
+        self.assertEqual(result['corrections'][0]['title'],'Wave trial')
         code,result,_=await self._request('POST','/api/freestyle',{
             'operation':'test-correction','robot_id':'ainekio-test-01','review_id':'review-1'},cookie=cookie,csrf=csrf)
         self.assertEqual(code,200)
@@ -345,6 +401,45 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result["model"]["coefficients"]),60)
         self.assertFalse(result["training"]["physical_improvement_demonstrated"])
         self.assertEqual(self.gateway.calls,[])
+
+    async def test_neural_gait_routes_are_authenticated_and_do_not_command_robot(self):
+        self.server.neural_gait = SimpleNamespace(call=AsyncMock(return_value={'state':'starting'}))
+        route = '/api/neural-gait'
+        payload = {'op':'train','steps':50000}
+        self.assertEqual((await self._request('POST',route,payload))[0],401)
+        cookie,csrf = await self._login()
+        self.assertEqual((await self._request('POST',route,payload,cookie=cookie))[0],403)
+        code,result,_ = await self._request('POST',route,payload,cookie=cookie,csrf=csrf)
+        self.assertEqual((code,result['state']),(200,'starting'))
+        self.server.neural_gait.call.assert_awaited_once_with('/train', {'steps':50000})
+        self.assertEqual(self.gateway.calls,[])
+        code,_,_ = await self._request('GET','/api/neural-gait/replay?id=abc')
+        self.assertEqual(code,401)
+
+    async def test_neural_preview_consumes_streamed_observation_without_freestyle_or_http(self):
+        from protocol.joints_v2 import JOINT_LABELS
+        source = {"joints": {name: {"filtered_model_deg": 12.,
+            "velocity_deg_s": 2., "commanded_model_deg": 15., "feedback_usable": True,
+            "sampled_us": 990000} for name in JOINT_LABELS},
+            "imu": {"orientation_wxyz": [1, 0, 0, 0], "angular_rate_rad_s": [0, 0, 0],
+                "acceleration_m_s2": [0, 0, 9.80665], "timestamp_us": 995000},
+            "feedback": {"device_us": 1000000}}
+        self.gateway.body_sensor_observation = Mock(return_value=source)
+        model = {"environment": {"target_limits_deg": [[-90, 90]]*12}}
+        self.server.neural_gait = SimpleNamespace(call=AsyncMock(side_effect=[model, {"execution": "preview_only"}]))
+        with patch.object(self.server, "_setup_freestyle", side_effect=AssertionError("Preview cannot start Freestyle")):
+            await self.server.neural_gait_request({"op": "preview", "robot_id": "ainekio-test-01"})
+        self.gateway.body_sensor_observation.assert_called_once_with("ainekio-test-01")
+        path, payload = self.server.neural_gait.call.await_args.args
+        self.assertEqual(path, "/infer")
+        self.assertEqual(payload["observation"]["joint_deg"], [12.]*12)
+        self.assertEqual(payload["observation"]["joint_sample_age_s"], [.01]*12)
+        self.assertEqual(self.gateway.calls, [])
+        self.gateway.body_sensor_observation.side_effect = GatewayError("This robot has not supplied joint feedback telemetry")
+        self.server.neural_gait.call = AsyncMock(return_value=model)
+        with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):
+            await self.server.neural_gait_request({"op": "preview", "robot_id": "ainekio-test-01"})
+        self.server.neural_gait.call.assert_awaited_once_with("/status")
 
     async def test_host_learning_routes_use_selected_robot_and_require_csrf(self):
         learning = SimpleNamespace(

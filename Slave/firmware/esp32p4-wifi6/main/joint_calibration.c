@@ -5,6 +5,20 @@
 #include <math.h>
 #include <string.h>
 
+void ainekio_p4_joint_ramp_frame(const ainekio_v2_frame_t *from,
+    const float *goal,double speed_cd_s,double dt,ainekio_v2_frame_t *out)
+{
+    double remaining=0.;
+    for(unsigned j=0;j<12;j++)remaining=fmax(remaining,fabs(goal[j]-from->position[j]));
+    const double u=remaining ? fmin(1.,speed_cd_s*dt/remaining) : 1.;
+    *out=*from;
+    for(unsigned j=0;j<12;j++) {
+        const double delta=goal[j]-from->position[j];
+        out->position[j]=(float)(from->position[j]+u*delta);
+        out->velocity[j]=u<1. && remaining ? (float)(speed_cd_s*delta/remaining) : 0;
+    }
+}
+
 _Static_assert(sizeof(ainekio_p4_joint_config_t) == 12, "calibration layout changed");
 _Static_assert(sizeof(ainekio_p4_joint_record_t) == 148, "calibration record layout changed");
 _Static_assert(AINEKIO_BODY_JOINT_COUNT == AINEKIO_V2_JOINT_COUNT, "Joint count mismatch");

@@ -14,6 +14,14 @@ typedef struct {
     float angular_rate_rad_s[3];
 } ainekio_imu_sample_t;
 
+/* Configured LSM6DS3 transfer sensitivities (208 Hz, +/-16 g, +/-2000 dps).
+ * Register counts are signed little-endian 16-bit. These are conversion units,
+ * not a claim that the nominal linear physical range ends at the ADC rails. */
+#define AINEKIO_LSM6DS3_ACCEL_LSB_M_S2 (0.000488F * 9.80665F)
+#define AINEKIO_LSM6DS3_GYRO_LSB_RAD_S (0.07F * 0.017453292519943295F)
+void ainekio_imu_lsm6ds3_decode(uint64_t timestamp_us, const uint8_t bytes[12],
+                              ainekio_imu_sample_t *sample);
+
 typedef struct {
     float sample_rate_hz;
     uint32_t max_gap_us;

@@ -90,6 +90,9 @@ static void test_initialization_and_frame(void)
     fixture_t f = {0};
     assert(initialize(&f) == AINEKIO_PCA_OK);
     assert(f.disabled && f.enables == 0);
+    uint8_t calculated_prescale=0;
+    assert(ainekio_pca_config_prescale(&f.driver.config,&calculated_prescale));
+    assert(calculated_prescale==121 && calculated_prescale==f.driver.prescale);
     const uint8_t regs[] = {0x00, 0x01, 0x06, 0xFE, 0x00, 0x00};
     const uint8_t values[] = {0x30, 0x04, 0x00, 121, 0x20, 0xA0};
     assert(f.write_count == sizeof(regs));
@@ -120,6 +123,8 @@ static void test_initialization_and_frame(void)
             const unsigned on=f.registers[reg]+256U*f.registers[reg+1];
             const unsigned off=f.registers[reg+2]+256U*f.registers[reg+3];
             const unsigned width=(off+4096U-on)%4096U;
+            assert(on==ainekio_pca_channel_phase(i));
+            assert(width==ainekio_pca_pulse_ticks(&f.driver,pulses[i]));
             assert(on<4096 && off<4096 && (!i || on>previous));
             if(i)assert(on-previous==341 || on-previous==342);
             /* Independently expected widths at 25MHz / (121+1). */

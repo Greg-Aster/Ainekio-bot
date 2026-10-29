@@ -46,7 +46,9 @@ typedef struct {
             int error;
             bool imu_available, imu_fresh, imu_startup, imu_recovering;
             bool imu_calibrated;
-            bool walking, entering;
+            bool walking, entering, host_nominal;
+            uint32_t nominal_sample;
+            uint64_t output_us;
             double phase;
             float stride_percent, cycles_s;
         } sample;

@@ -17,6 +17,8 @@ from gateway.environment_adapter.server import AUDIO_UTTERANCE_MAGIC
 from gateway.server.service import CONTROL_STALE_SECONDS, GatewayError
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 import websockets
+from websockets.legacy.server import serve
+from websockets.legacy.client import connect
 from websockets.exceptions import ConnectionClosedError
 
 
@@ -41,9 +43,14 @@ class FakeGateway:
     def subscribe_transcripts(self, callback: object) -> None:
         self.transcript_callbacks.append(callback)
 
-    async def request_motion(self, name, *, robot_id=None):
-        sequence = await self.queue_intent("emote", {"asset": name}, robot_id=robot_id)
-        return {"system": "library", "sequence": sequence}
+    async def request_motion(self, name, *, robot_id=None, job_id=None, **kwargs):
+        self.calls.append(("request_motion", (name, robot_id)))
+        self.motion_robot_id=robot_id
+        return {"system": "freestyle", "jobId": job_id or "fixture-motion"}
+
+    async def freestyle_result(self, job_id):
+        self.calls.append(("freestyle_result", (job_id, self.motion_robot_id)))
+        return {"id":job_id,"state":"completed","robot_id":self.motion_robot_id,"epoch":1,"receipts":[]}
 
     async def queue_intent(
         self,
@@ -182,6 +189,74 @@ class BlockingWebSocket(FakeWebSocket):
 
 
 class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_wake_delivers_its_photo_and_recognition_together_without_holding_robot_receive(self):
+        from gateway.plugins import CameraFramePlugin
+        from gateway.perception import RecognitionResult, RecognizedObject
+        class Gateway(SnapshotGateway):
+            def clock(self):
+                return asyncio.get_running_loop().time()
+            def unsubscribe_frames(self, callback):
+                self.frame_callbacks.remove(callback)
+            async def _publish_event(self, event):
+                for callback in self.event_callbacks:
+                    await callback(event)
+            def status(self):
+                state = super().status()
+                state["robots"]["test-body"]["connection_state"] = "online"
+                return state
+        for failed in (False, True):
+            gateway = Gateway()
+            adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="test", receipt_path=":memory:"))
+            socket = FakeWebSocket()
+            adapter._websocket, adapter._bridge_ready = socket, True
+            started, release = asyncio.Event(), asyncio.Event()
+            calls = []
+            async def recognize(jpeg):
+                calls.append(jpeg)
+                started.set()
+                await release.wait()
+                if failed:
+                    raise ValueError("fixture recognition failure")
+                return RecognitionResult("fixture", "person-identity", "one face match", (
+                    RecognizedObject("person", .9, (.1, .1, .5, .8),
+                        {"state": "face_match", "trackId": "t", "personId": "p", "name": "Fixture Person", "faceAgeMs": 0, "similarity": .7}),), ())
+            camera = CameraFramePlugin(gateway, recognize)
+            adapter.camera_capture, adapter.camera_analysis = camera.capture, camera.latest_analysis
+            event = {"t": "event", "name": "body_event", "robot_id": "test-body", "epoch": 1,
+                "event_id": "fixture-boot", "data": {"kind": "wake", "reason": "boot"}}
+            wake = asyncio.create_task(adapter._process_wake(event, socket))
+            try:
+                await asyncio.wait_for(started.wait(), 1)
+                await adapter._handle_gateway_transcript({"text": "an independent request"})
+                self.assertTrue(any("an independent request" in item for item in socket.sent))
+                self.assertFalse(any(json.loads(item).get("observation", {}).get("visual") for item in socket.sent))
+                release.set()
+                await asyncio.wait_for(wake, 1)
+                observation = next(json.loads(item)["observation"] for item in socket.sent if json.loads(item).get("observation", {}).get("visual"))
+                visual = observation["visual"]
+                self.assertEqual(visual["metadata"]["counter"], 31)
+                self.assertEqual(visual["metadata"]["bodyEventId"], "fixture-boot")
+                self.assertEqual(visual["dataUrl"], "data:image/jpeg;base64,/9j/2Q==")
+                self.assertNotIn("_recognition_result", visual)
+                if failed:
+                    self.assertIn("fixture recognition failure", visual["metadata"]["recognitionFailure"]["reason"])
+                    self.assertNotIn("recognition", visual["metadata"])
+                else:
+                    recognition = visual["metadata"]["recognition"]
+                    self.assertEqual(recognition["frameCounter"], visual["metadata"]["counter"])
+                    self.assertEqual(recognition["observedAt"], visual["timestamp"])
+                    self.assertEqual(recognition["objects"][0]["identity"]["name"], "Fixture Person")
+                self.assertEqual(calls, [b"\xff\xd8\xff\xd9"])
+                self.assertEqual(camera._inflight, {})
+                self.assertEqual(adapter._pending_action_visuals, {})
+                self.assertEqual([call[0] for call in gateway.calls], ["request_motion", "snap", "wait"])
+            finally:
+                release.set()
+                wake.cancel()
+                await asyncio.gather(wake, return_exceptions=True)
+                await camera.aclose()
+                adapter.receipts.close()
+
     async def test_large_observation_replay_preserves_content_and_drains_on_ack(self) -> None:
         from websockets.legacy.server import serve
         from websockets.legacy.client import connect
@@ -255,7 +330,8 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             for item in saved:
                 adapter.receipts.acknowledge(item["observation"]["id"])
             self.assertEqual(adapter.receipts.pending(), [])
-            self.assertEqual([call[0] for call in adapter.gateway.calls], ["snap", "wait", "intent"] * 3)
+            self.assertEqual([call[0] for call in adapter.gateway.calls], ["request_motion", "snap", "wait"] * 3)
+            self.assertEqual(adapter.gateway.calls[0][1][0], "Stand up, stretch, and finish standing.")
         finally:
             adapter.receipts.close()
 
@@ -305,9 +381,9 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         adapter.receipts.acknowledge = record_ack
         adapter._send = replay_send
         try:
-            async with websockets.serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
+            async with serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
                 url = f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}"
-                async with websockets.connect(url) as ws:
+                async with connect(url) as ws:
                     await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "test"}))
                     self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
                     for index in range(256):
@@ -317,7 +393,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                     async with asyncio.timeout(3):
                         while adapter.receipts.pending():
                             await asyncio.sleep(0.001)
-                async with websockets.connect(url) as ws:
+                async with connect(url) as ws:
                     await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "test"}))
                     self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
                     self.assertEqual(adapter.receipts.pending(), [])
@@ -330,8 +406,8 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             receipt_path=":memory:", token="adapter-secret"))
         with self.assertRaisesRegex(GatewayError, "MetaHuman Environment Bridge is disconnected"):
             await adapter.behavior_settings()
-        async with websockets.serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
-            async with websockets.connect(f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}") as ws:
+        async with serve(lambda ws, _: adapter.handler(ws), "127.0.0.1", 0) as server:
+            async with connect(f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}") as ws:
                 await ws.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "adapter-secret"}))
                 self.assertEqual(json.loads(await ws.recv())["type"], "bridge.ready")
                 for enabled in (None, False, True):
@@ -417,8 +493,8 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             result = await adapter.handle_action({"id": f"stand-{index}", "type": "robotCommand",
                                                   "command": "stand"})
             self.assertEqual(result["type"], "completed")
-            self.assertEqual(gateway.calls[-2][1][2]["robot_id"], robot_id)
-            self.assertEqual(gateway.calls[-1][1][1]["robot_id"], robot_id)
+            self.assertEqual(gateway.calls[-2], ("request_motion", ("stand", robot_id)))
+            self.assertEqual(gateway.calls[-1][1][1], robot_id)
         robots["v2"]["connected"] = True
         self.assertEqual(adapter._selected_robot(), (None, None))
         for robot in robots.values():
@@ -432,7 +508,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
 
-        async with websockets.serve(
+        async with serve(
             lambda websocket, _path: adapter.handler(websocket),
             "127.0.0.1",
             0,
@@ -440,7 +516,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         ) as server:
             port = server.sockets[0].getsockname()[1]
             uri = f"ws://127.0.0.1:{port}/environment"
-            async with websockets.connect(uri, ping_interval=None) as websocket:
+            async with connect(uri, ping_interval=None) as websocket:
                 await websocket.send(
                     json.dumps(
                         {"type": "bridge.connect", "version": 1, "token": "wrong"}
@@ -450,7 +526,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                     await websocket.recv()
                 self.assertEqual(closed.exception.code, 4001)
 
-            async with websockets.connect(uri, ping_interval=None) as websocket:
+            async with connect(uri, ping_interval=None) as websocket:
                 await websocket.send(
                     json.dumps(
                         {
@@ -489,7 +565,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             except Exception as error:
                 handler_errors.append(error)
 
-        async with websockets.serve(
+        async with serve(
             handler,
             "127.0.0.1",
             0,
@@ -497,7 +573,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         ) as server:
             port = server.sockets[0].getsockname()[1]
             uri = f"ws://127.0.0.1:{port}/environment"
-            async with websockets.connect(uri, ping_interval=None) as first:
+            async with connect(uri, ping_interval=None) as first:
                 await first.send(
                     json.dumps(
                         {
@@ -509,7 +585,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 )
                 await first.recv()
 
-                async with websockets.connect(uri, ping_interval=None) as second:
+                async with connect(uri, ping_interval=None) as second:
                     await second.send(
                         json.dumps(
                             {
@@ -533,14 +609,14 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
         )
 
-        async with websockets.serve(
+        async with serve(
             lambda websocket, _path: adapter.handler(websocket),
             "127.0.0.1",
             0,
             ping_interval=None,
         ) as server:
             port = server.sockets[0].getsockname()[1]
-            async with websockets.connect(
+            async with connect(
                 f"ws://127.0.0.1:{port}/environment",
                 ping_interval=None,
             ) as websocket:
@@ -1592,6 +1668,42 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message["telemetry"][key], value)
         self.assertNotIn("observation", message)
 
+    async def test_servo_feedback_retains_its_sample_on_the_selected_body_telemetry_path(self) -> None:
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(
+            gateway,  # type: ignore[arg-type]
+            EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret"),
+        )
+        websocket = FakeWebSocket()
+        adapter._websocket = websocket  # type: ignore[assignment]
+        sample = {
+            "enabled": True, "usable": False, "scan": 59906, "clock_us": 1302014762,
+            "calibrated_mask": 4095, "unavailable_mask": 4, "clipped_mask": 0,
+            "below_calibration_mask": 0, "above_calibration_mask": 0,
+            "adc_error": "ESP_OK", "supply_voltage_available": False,
+            "signal_millivolts": [None if i == 2 else 1000 + i for i in range(12)],
+        }
+        for robot_id, epoch in [("other-body", 1), ("test-body", 0)]:
+            await adapter._handle_gateway_event({
+                "t": "servo_feedback", "robot_id": robot_id, "epoch": epoch, "data": sample,
+            })
+        self.assertEqual(websocket.sent, [], "Unrelated or old body sessions cannot supply selected feedback")
+        for current in [sample, {**sample, "scan": 59907, "clock_us": 1303014762,
+                                 "usable": True, "unavailable_mask": 0}]:
+            await adapter._handle_gateway_event({
+                "t": "servo_feedback", "robot_id": "test-body", "epoch": 1, "data": current,
+            })
+            message = json.loads(websocket.sent[-1])
+            self.assertEqual(message["type"], "environment.telemetry")
+            self.assertEqual(message["telemetry"]["kind"], "robot.status")
+            self.assertEqual(message["telemetry"]["robot_id"], "test-body")
+            self.assertEqual(message["telemetry"]["epoch"], 1)
+            self.assertEqual(message["telemetry"]["servo_feedback"], current)
+            self.assertNotIn("observation", message)
+            self.assertNotIn("received_at", message["telemetry"]["servo_feedback"])
+        self.assertEqual(len(websocket.sent), 2)
+        self.assertEqual(gateway.calls, [], "Feedback telemetry does not command the body")
+
     async def test_microphone_level_telemetry_is_throttled_without_relaying_pcm(self) -> None:
         gateway = FakeGateway()
         now = 0.0
@@ -2022,3 +2134,36 @@ class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
         ]
         for goal in goals:
             self.assertTrue(valid_locomotion_goal(goal), goal)
+
+class AvailabilityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_watch_authentication_availability_and_no_control_side_effects(self):
+        gateway = FakeGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="watch-token", session_id="test-session", receipt_path=":memory:"))
+        async with serve(adapter.handler, "127.0.0.1", 0) as server:
+            url = f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}"
+            async with connect(url) as watcher:
+                await watcher.send(json.dumps({"type": "bridge.watch", "version": 1, "token": "watch-token"}))
+                availability = json.loads(await watcher.recv())
+                self.assertEqual(availability, {"type": "bridge.availability", "version": 1,
+                    "sessionId": "test-session", "gatewayInstance": "fixture-gateway", "robotId": "test-body", "connected": True})
+                self.assertIsNone(adapter._websocket)
+                self.assertFalse(adapter._bridge_ready)
+                self.assertEqual(gateway.calls, [])
+                async with connect(url) as control:
+                    await control.send(json.dumps({"type": "bridge.connect", "version": 1, "token": "watch-token"}))
+                    self.assertEqual(json.loads(await control.recv())["type"], "bridge.ready")
+                    active = adapter._websocket
+                    async with connect(url) as second_watcher:
+                        await second_watcher.send(json.dumps({"type": "bridge.watch", "version": 1, "token": "watch-token"}))
+                        self.assertEqual(json.loads(await second_watcher.recv())["type"], "bridge.availability")
+                        self.assertIs(adapter._websocket, active)
+                        self.assertTrue(adapter._bridge_ready)
+                        self.assertEqual(gateway.calls, [])
+                gateway.status = lambda: {"robots": {}}
+                await adapter._handle_gateway_event({"t": "connection", "status": "disconnected", "robot_id": "test-body"})
+                self.assertFalse(json.loads(await watcher.recv())["connected"])
+            async with connect(url) as invalid:
+                await invalid.send(json.dumps({"type": "bridge.watch", "version": 1, "token": "incorrect"}))
+                with self.assertRaises(ConnectionClosedError):
+                    await invalid.recv()
+                self.assertEqual(invalid.close_code, 4001)

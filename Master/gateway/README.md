@@ -33,53 +33,25 @@ P4 firmware advertising `servo_feedback_v1` also exposes **Maintenance → Servo
 feedback**. It displays all twelve measured/commanded joint positions, sixteen
 raw multiplexer inputs, calibration and Stand progress. Reader enable, joint
 mapping, three-point calibration and verification settings persist separately
-from motor calibration. The existing `stand_enabled` field now selects final
-Stand verification; `arrival_tolerance_us` is the final joint-goal tolerance.
+from motor calibration. The existing `stand_enabled` field selects Stand
+lift/place and final verification; `arrival_tolerance_us` is the joint-goal tolerance.
 `jam_enabled` independently selects no-progress detection;
 `tolerance_us` is its error band. Existing settings migration preserves enable
 flags, calibration and both tolerances; it never tightens saved settings.
 Firmware without `jam_enabled` exposes the older coupled behavior.
 
-Stand executes its complete initial fold and stepping pass without intermediate
-feedback checks. Only after the final target is successfully written does it
-compare a subsequent feedback snapshot with all final joint targets. A measured
-shortfall starts another full stepping pass from the last commanded pose
-toward the unchanged goal. There is no jam-timer dependency or retry-count limit.
-Repeated measured correction passes keep the same request and completion receipt.
-With Stand verification enabled, missing, stale or untrusted observations leave
-the request pending at its powered target. A fresh measured arrival reports
-`done` with `position_verified:true`; a measured shortfall continues correction
-before completion. Stop and replacement commands remain available throughout.
-After verified completion, the retained goal observer can correct later drift
-without emitting another completion receipt.
+Freestyle is the default motion owner. Its generated targets use the P4's
+existing measured target executor. The model receives shaft positions and gyro
+observations on reassessment; a command receipt alone does not prove foot contact
+or carpet clearance. Generated Stand acquisition uses short lift/place and body
+correction targets, including rising above the standing target before settling.
+Training and simulation evidence do not establish physical success.
 
-Named clips, reverse lay-down recovery, custom sequences and finite gait endings
-run through their authored paths without feedback checkpoints. Their completion
-receipts describe completion of the commanded trajectory. Reverse lay-down
-recovery into Stand is verified after the full recovery/alignment sequence, then
-uses corrective stepping if needed. No separate legacy checkpoint controller is
-retained. Geometric path repair remains in the existing posture planner; it uses
-the last written pose during a pass rather than resampling shafts mid-sequence.
-`stand_replanning` reports a currently unsolved path; `stand_replans` counts
-accepted new paths. A geometry failure does not release outputs or claim success.
-
-Feedback-controlled Stand retains its standing goal after the first completion
-receipt. The same `arrival_tolerance_us` comparison governs initial completion
-and later position drift. A mismatch starts another complete corrective stepping
-pass; the original goal is retained through the pass. Recovery after an already
-acknowledged goal has no duplicate external receipt. Each pass starts from the
-last commanded pose. Measured shortfalls select the leg order and determine
-completion, without replacing the trajectory origin with a measured pose.
-Stop, release, calibration
-or a new body motion relinquishes the goal. Listening gestures are allowed to
-finish without the retained Stand goal fighting their intentional offsets.
-
-While this verified Stand goal is active, the independent jam-release observer
-does not classify target shortfall or stationary drift as grounds to release
-outputs. No-progress time is not a deadline for Stand. Missing observations do
-not assert measured arrival or release outputs; they complete the authored command. An unsolved corrective geometry is
-reported as replanning, retains output and retries on subsequent observations;
-there is no false completion or forced pulse beyond the calibrated mapping.
+The legacy native Stand remains available through explicit manual library
+selection. It retains the 0.8.125 moving-leg lift/place checkpoints and its final
+verification setting. Its stored-pose transitions and native standing hold are
+legacy behavior, not the default Freestyle procedure. Stop, release, calibration
+and replacement relinquish ownership; event recovery cannot undo those commands.
 
 Feedback health appears in Robot status and Servo position feedback. The body
 publishes health on the existing telemetry cadence; Body Control reports one
@@ -136,6 +108,13 @@ expression or recovery movement. When Freestyle body-event recovery is enabled,
 its trained generator receives current observations, the interrupted action and the compact unfinished plan; full programs and packet buffers are not repeated in recovery input.
 Current execution continues during inference; only an available correction
 replaces it, with fresh measured positions. Model errors retain current execution.
+The first stall remains internal to Body Control/Freestyle. If the admitted
+correction stalls again, Body Control releases outputs through its existing
+Stop/detach owner without another generation. The failed-correction event then
+reaches Environment Bridge for help, retaining joint and command identity,
+`correction_failed:true`, actual `outputs_released`, and any `release_error`.
+The model is not responsible for selecting that release. A delayed event cannot
+release an unrelated replacement command. This is attempt-based, not a new timer.
 Manual Stop/replacement and existing driver-fault shutdowns remain immediate.
 No model-time cutoff, retry-count limit or changed jam threshold is added.
 Shake/tip notification suppression does not hide this observation. Existing calibration curves survive the NVS
@@ -168,16 +147,15 @@ over the same authenticated Wi-Fi path. Retention covers warm resets, not power 
 
 The authenticated Body Control API accepts `POST /api/motion-plan` with the
 existing dashboard session and CSRF header. The JSON body supplies `robot_id`,
-`frames` (compact `[duration_ms, [joint targets]]` arrays), and `end`
+`frames` (V2 compact `[speed_centidegrees_per_second, [joint targets]]` arrays), and `end`
 (`hold`, `stand`, or `neutral`). It returns the command sequence; submission
 does not mean execution is complete. Normal ACK and terminal receipts track it.
 
 For a P4 advertising `motion_plan_v2`, targets are twelve signed model-angle
 centidegrees in the [map 2 joint order](../../Slave/software/protocol/joints_v2.py).
 The gateway selects map 2 automatically. V1 continues to use map 1 and eight
-targets. The Environment Bridge exposes `robotMotionPlan` when the selected
-body advertises the matching feature, with named joint `degrees` targets and
-`durationMs` frames. See the [wire contract](../../Slave/software/protocol/README.md#p4-twelve-joint-freestyle)
+targets. The default Environment Bridge exposes `requestMotion`; explicit numeric target
+plans use the same P4 executor. V2 frames use `speedDegS`; V1 retains duration frames. See the [wire contract](../../Slave/software/protocol/README.md#p4-twelve-joint-freestyle)
 for timing, units and balance behavior. This API adds no gait optimizer or
 camera-distance estimator.
 
@@ -199,6 +177,411 @@ data fades only this correction while the requested gait continues. Status
 additive `turn_percent`. This is relative heading correction, not absolute
 heading, distance estimation, measured foot contact, or a trained policy.
 Fourth-wire model evaluation and local trace recording remain separate.
+
+### Neural walking simulation and policy service
+
+`Master/start-neural-gait.sh` runs the independent `gateway.neural_gait.server`
+on loopback port 8796. `Master/ainekio-neural-gait.service` provides its user-service
+lifecycle. Body Control uses `AINEKIO_NEURAL_GAIT_ENDPOINT` (default
+`http://127.0.0.1:8796`) through its authenticated `/api/neural-gait` route.
+**Learning history → Neural walking** exposes new/resumed simulation training,
+checkpoint selection, evaluation, rendered rollout video and a non-executing
+preview from the connected robot's existing calibrated Freestyle observations.
+The gait interpreter uses `Emulator/requirements-gait-training.txt`; it does not
+load Torch or MuJoCo into the gateway process. FFmpeg provides replay encoding.
+
+Training progress distinguishes rollout collection, checkpoint evaluation (with
+completed/total trials), standing-baseline evaluation and final rendering. The
+checkpoint table shows mean trial reward; averaging signed forward speed across
+forward/reverse tasks is not a success score. The latest checkpoint also shows
+requested versus measured velocity and turn rate separately for each command,
+weighted by its sampled duration, including command transitions. Earlier
+artifacts are projected from their existing command-frame measurements without
+rewriting history; missing measurements stay unavailable. Optimizer updates and simulation
+steps remain separate counts. Routine checkpoints use seed 1000 and the first
+configured scenario for every command. Completion evaluates the published
+candidate and held-reference baseline across the full configured scenario/seed
+suite. Checkpoint probes and final qualification are labelled separately;
+publishing the final training state does not mean it improved.
+
+Automatic footage is produced once, after training: the initial and published
+final policies each run one matched command/scenario/seed trial. Detailed replay
+remains an explicit request. Its existing artifact lock reports both automatic and manual
+rendering; cached clips and already published prefixes are reused. A later clip
+failure leaves the last complete video available. Renderer exit alone does not
+establish publication: the final result records whether all expected checkpoint
+identities are actually in the video metadata.
+
+Neural walking uses the existing gateway producer and P4 walking owner. The
+configured walking source selects native or host neural targets; host targets
+retain one Walk operation, heading correction, leveling, fourth-wire progress,
+jam observation and the existing Finish/Stop/Release contracts. Physical walking
+and Freestyle recovery effectiveness still require real-robot qualification.
+
+New training requests use `execution_backend: "body_control"`: the PPO/SAC
+learner answers the real gateway's inference requests, the gateway sends actual
+`/robot` WebSocket commands, and a host build of production P4 `body.c` writes
+PCA output into the MuJoCo plant. Modeled ADC and IMU acquisition return through
+production filtering, Fusion, execution history and telemetry serialization.
+ACK and consumed target sample remain separate. Each training worker owns one
+isolated gateway and one body process; even a single worker is separate from
+checkpoint evaluation. The gateway and firmware do not import MuJoCo or Torch.
+
+Historical artifacts without that backend retain their original direct-math
+replay. PPO may explicitly migrate to the connected backend with fresh rollouts
+while retaining actor, critic and optimizer. `execution_changes` records the
+transition, including any standing-feedback setting recovered from the original
+named capture. Old SAC replay cannot migrate across executor dynamics. Use
+`--resume-checkpoint checkpoints/NAME.zip` (API `resume_checkpoint`) to continue
+a published checkpoint from an interrupted run without copying its artifacts.
+
+The standalone V2 virtual body can connect to a normally configured Body Control:
+
+```bash
+PYTHONPATH=Master:Slave/software build/gait-training-env/bin/python \
+  -m gateway.neural_gait.virtual --environment RUN/manifest.json \
+  --endpoint ws://127.0.0.1:8890/robot --robot-id ainekio-virtual-v2 \
+  --token-file PRIVATE_ROBOT_TOKEN_FILE
+```
+
+Register that virtual identity through the existing gateway pairing owner and
+select its neural walking source normally. MetaHuman uses the same authenticated
+`/environment` adapter on that gateway. Switching bodies changes the connection
+and captured hardware settings, not the motion controller. The virtual body
+advertises movement/feedback only: camera/depth scenes, speech and complete
+perception-driven goal trials are not implemented by this locomotion plant.
+Initialization places the plant in an explicit reference pose; it is not a boot
+or physical Stand test. Bus delay, network jitter and RTOS preemption are not
+modeled, and workstation results do not qualify Q6A timing.
+
+The repaired MuJoCo environment reads V2 `geometry.json` and the read-only
+Wireless assembly export under `Slave/software/models/v2-12servo/simulation`.
+It retains twelve servo shafts, eight passive joints and closed four-bar loops.
+The 2026-10-27 independent comparison matched twenty exported joint/pickup/rod
+frames to the native mechanism within 0.000103 mm and unsigned hinge axes within
+0.000084 degrees. Actual CAD surfaces provide visuals; separately derived
+collision pieces and volume-based component inertia are still being qualified.
+Total mass is owner-measured at 650 g. Component mass distribution, loaded torque,
+servo gains and friction remain estimates. Training can omit visual-only meshes
+without changing collision or inertia; the source Blender assembly is unchanged.
+
+`native.c` binds production calibration, coupled target fitting, coordinated
+ramping, fourth-wire filtering/health/jam detection and Fusion IMU estimation.
+The simulator uses the advertised 60 degrees / 0.11 s servo speed without changing
+the device's saved speed setting. Feedback includes recorded acquisition skew;
+sensor noise settings are explicit, currently unmeasured. The native Walk
+baseline additionally runs the existing walking/heading/balance/mapping math
+with actual wire commands, live updates and Finish. It does not reproduce the
+body-task entry transition or saved-policy admission/history. See the complete
+[walking capability and latency audit](../../docs/v2-12servo/WALKING_SYSTEM.md).
+
+Neural foot targets can also use that existing moving-balance owner through
+`EnvironmentConfig.balance_enabled` and `balance_tuning` (strength, damping,
+roll degrees, pitch degrees). The simulator constructs nominal contact anchors
+from the accepted joint frame, applies estimated-IMU balance, then calibration,
+ramp and PWM mapping. Disabled preserves earlier runs exactly; omitted fields
+in historical configurations mean disabled. These are explicit training settings,
+not a reading of the physical robot's saved balance configuration. Inference
+preview reports nominal targets. The connected virtual body uses the production
+Walk executor; installed physical behavior still requires hardware qualification.
+
+SAC learns a small 64×64 MLP actor from physics rollouts. It consumes joint angles,
+velocities, targets, observation usability, IMU, desired motion and explicit
+vision/event fields. Outputs are twelve normalized foot offsets relative to the
+standing reference, translated by the existing per-leg foot IK/residual fit,
+calibration, coordinated ramp and PWM conversion. The initial search span is
+±30 mm forward, ±20 mm lateral and ±30 mm vertical per foot; it is an explicit
+training setting, not a restriction on the physical robot's capabilities.
+Requested and fitted offsets are recorded separately. Camera/body-event
+records accompany physical previews. Spatial depth can be consumed by the
+explicit v4-depth policy contract below; camera velocity extraction and learned
+self-righting remain unqualified. Policy joint inputs use
+filtered fourth-wire observations; simulated ground-truth displacement is used
+for scoring only. Per-joint acquisition ages and estimator quality/age have
+explicit known/missing indicators in the shared policy contract. Host/network
+delay, all public gait controls and the final neural/native-walking handoff remain
+unfinished. The initial independent-joint experiment produced impossible coupled
+targets and learned to hold still; the foot-space producer replaces it without
+weakening firmware command validation. Neither experiment replaces the native
+walking owner. Earlier checkpoints are incompatible with this
+changed observation/dynamics contract and are not physical qualifications.
+Do not interpret an available input field as evidence the policy learned to use it.
+
+The same trainer can warm-start its actor from guided simulator demonstrations:
+`--demonstration <trace.npz> --imitation-updates 10000 --steps 0` runs behavioral
+cloning followed by independent closed-loop evaluation and video publication.
+Each trace contains sensor `observation` and normalized `action` arrays; its JSON
+sidecar records the exact environment, schema, version and representation.
+`imitation.json` retains source hashes and fit error. A low fit error is not a
+walking qualification: the actor must reproduce movement from reset and over
+longer rollouts. Videos distinguish imitation updates from RL transitions.
+`--cycle-start <row> --cycle-steps <rows>` extends that same trainer with
+demonstration aggregation. The cyclic teacher selects a successor from the
+preceding requested action, and labels states visited by mixtures of teacher
+and learner; it is not an elapsed-time phase input to the learned policy.
+`--expert-mix` and `--updates-per-round` control the recorded collection rounds.
+The run retains exact aggregate data, teacher cycle, immutable round checkpoints
+and selection provenance, including rounds that perform worse.
+For command-conditioned aggregation, repeat `--demonstration SOURCE.npz` with
+`--demonstration-cycles --steps 0`. Each source sidecar supplies its SI command
+and `recommended_cycle_rows: [start, end]` (end exclusive). One selected cycle
+per command avoids ambiguous teacher choices. Only command variation is allowed;
+hardware, geometry, calibration, action scales and sensor/physics settings must
+still agree. Every aggregation round collects every selected command, and
+evaluation covers each command/seed pair. The manifest retains the command set;
+later initialization/resume samples it at resets and evaluates the whole set.
+`--command-switch-seconds SECONDS` collects and evaluates continuous request
+changes without resetting physics or feedback. Alternatively,
+`--command-switch-range MIN MAX` samples each next interval uniformly from the
+requested seconds range, using the environment's seeded RNG at each boundary.
+The actor receives the next requested twist before choosing its next action;
+the preceding transition's reward still describes the preceding request. These
+are offline task requests, not leg timing or prescribed gait shapes. The same
+request owner is used by rollout collection, aggregation and evaluation; replay
+uses the recorded segment boundaries. Evaluation retains per-segment commands,
+displacement, yaw and outcomes. Resume inherits saved timing when omitted;
+explicit replacement timing is recorded in `task_changes`. Longer imitation
+episodes can reuse compatible source data; exact
+SAC replay resume still requires the original episode configuration.
+This does not define a conversion from Body Control's percentage/stride controls
+to metres/second. Videos identify each requested translation/yaw command and its
+actual travel. Automatic comparison footage shows one matched trial; detailed
+progress replay includes each command.
+Evaluation also records one-second `progress_intervals`, split at command
+changes, so early movement followed by rest is visible rather than hidden in
+an episode average. These intervals only report measurements; they do not
+schedule motion or impose a gait period.
+
+Environment version9 scores directed progress from each transition's horizontal
+ground displacement and unwrapped heading change. Linear and angular scales
+are explicit objective parameters (`reward_velocity_scale_m_s` and
+`reward_yaw_scale_rad_s`), not hardware limits. Directed travel earns credit
+immediately; excessive recent pace subtracts credit using `reward_overspeed_cost`.
+Pace uses `reward_speed_window_s` (one second), not each20ms propulsion pulse;
+it only contributes a penalty and never credits old travel after stopping.
+Cross-track error uses
+`reward_cross_track_cost` independently of requested speed. Thus slow forward
+commands no longer magnify yaw noise. Zero-net motion has zero directed progress
+and nonnegative costs, so rocking cannot beat rest. Productive bursts can earn
+credit; sustained excess speed is penalized. The default overspeed cost2 makes
+steady requested pace score higher than steady overspeed. Request changes clear
+pace history without resetting physics or delaying execution.
+Positive-score support, slip, effort and action-change costs remain. No foot
+order or gait period is prescribed. These experimental normalization scales and
+costs are recorded in each environment; they are not physical qualification.
+Version9 also repairs native host-heading oscillation using moving balance's
+existing damped attitude response. Heading and leveling remain enabled.
+Scores from earlier versions are not directly comparable; reevaluate saved
+weights under the repaired execution/reward and retain the recorded version.
+The current development direction is outcome-based reinforcement learning from
+the saved actors. Historical cyclic demonstrations remain reproducible warm-start
+data, not a required gait shape or new training target. Distance, fluidity and
+efficiency should determine improvement; joint order and shoulder synchrony are
+not acceptance criteria. The experimental PPO continuations and their provenance
+are recorded in the gait journal. The existing inference and video-replay service
+loads both SAC and PPO artifacts through the same loader. A PPO run explicitly
+records `algorithm: "PPO"` in its manifest; existing SAC and aggregation manifests
+remain compatible. Unknown algorithm names are rejected rather than interpreted
+as SAC. The maintained `GaitPPOPolicy` stores whether its exploration standard
+deviation is learned or frozen and whether noise is sampled before or after
+bounding the mean foot target. Historical latent-coordinate models retain
+float64 sampled actions through the squashing inverse. Explicit `action_noise_std`
+(`--action-noise-std`, twelve normalized values) moves exploration into action
+coordinates: the existing bounded deterministic mean stays the same, while
+inward exploration remains possible near an action limit. SB3's standard PPO
+path retains raw Gaussian samples for likelihoods and clips only executed/predicted
+commands to the existing action range. The handoff preserves actor/value weights
+and their Adam moments; only `log_std` moments reset because its units changed.
+The manifest records both distributions; ordinary resume retains the saved one.
+Model saves include critic and optimizer
+state for continuation; loading or packaging an artifact does not select it for
+production. The same training CLI and `/train` endpoint resume a saved PPO run
+with its actor, value function, optimizer, exploration setting and counters intact.
+PPO collects fresh on-policy rollouts and does not load or save SAC replay buffers.
+It can continue across the known reward and host-heading revisions with its
+learned parameters and optimizer retained, recording `reward_changes` in the
+manifest. Its value function must adapt to the revised objective; no historical
+rollout rewards are reused. SAC replay resume still requires the same reward
+version. The manifest records the native motion/balance source hashes as well
+as the environment version; version9's heading repair changes execution dynamics.
+Resume starts fresh simulation episodes; it is not an exact mid-rollout restart.
+The source PPO rollout length, batch size and epoch settings remain in effect and
+are recorded in the new manifest. PPO update counts are optimizer epochs, unlike
+SAC gradient-step counts. From-scratch training and imitation remain SAC
+operations. Weights-only initialization preserves the source algorithm: SAC
+transfers actor weights, while PPO supports the explicit input extension below.
+For example, `--resume RUN --directory NEW_RUN --steps 65536
+--command-switch-range 12 20` continues a packaged PPO run with varied requests.
+
+#### Terrain, perception and recovery trials
+
+The existing `EnvironmentConfig.scenarios` list defines explicit experimental
+scenes. An empty list preserves the original flat physics and sampling sequence.
+Each scene has a unique `id`, optional `slope_deg: [roll,pitch]`, `start_rpy_deg`,
+`start_xy_m`, `geoms` and `pushes`. Geoms use world `position_m`, `size_m`
+(half extents), optional `rpy_deg` and `friction`; kinds are `rock` (ellipsoid),
+`block`, `friction_patch` and `wall`. Friction patches have explicit thickness,
+not overlapping coplanar floors. Pushes specify `start_s`, `duration_s`, world
+`force_n` and optional `torque_nm`. These are curriculum assumptions, not claimed
+measurements of the owner's floor. Reset samples scenes deterministically from
+the seed; `options.scenario` selects an exact scene. Evaluation covers every
+configured scene/command/seed and replay retains that identity in its filenames
+and footage. Contact/slip measurements use active terrain and contact normals.
+Unqualified native clearance queries carry validity/lower-bound evidence;
+evaluation never reports them as exact peak clearance.
+
+`observation_schema: "ainekio-neural-gait-v4-depth"` adds an8×8 optical-axis
+depth grid, validity, intrinsics and available camera-pose evidence. Existing
+v3 checkpoints keep their exact148 inputs. The physical producer is the existing
+MoGe/depth owner, which now publishes `depthSpatial`; it is not a second vision
+model. Neural Walk registers depth demand without waiting for inference and
+releases the same consumer on completion/cancellation. Original frame identity,
+epoch, timestamp and existing camera freshness rules survive projection. Spatial
+depth validity is independent of odometry success. Unknown depth/pose remains
+explicitly unknown. Preview and actual Walk use the same projection.
+
+Simulation `depth_camera` requires explicit `cameraMatrix`, `imageSize`,
+`cameraToBody` (relative to the torso root), `capture_hz`, `latency_s`,
+`dropout_probability`, `noise_std_m` and `provenance`. Optional
+`max_frame_age_s` reproduces the camera owner's freshness setting.
+`publish_camera_to_body:false` uses a stated assumed pose to generate rays but
+keeps that unmeasured transform out of the policy observation. Acquisition and
+delivery are distinct: the controller does not get fresh perfect depth every
+servo frame. This samples optical geometry, not the MoGe neural estimator;
+physical perception errors still need measurement and later qualification.
+
+To retain learned actions when introducing these inputs, use the existing
+`--initialize-from RUN` operation with the edited configuration (HTTP
+`initialize_from`).
+PPO transfers actor/value weights, initializes newly active depth weights to
+zero and starts a fresh optimizer/rollout buffer; it does not discard the actor.
+Source learning counters and transfer assumptions are recorded. Same-schema
+PPO `--resume` can extend the scene curriculum while retaining optimizer state.
+SAC cannot reuse historical replay across a changed environment. Loading and
+training do not select a new physical inference model automatically.
+
+Post-fall recovery is a separate qualification through the existing Freestyle
+Bridge, not a second neural motor controller or PPO action label. The normal
+Gym walking trial still reports a fall/body terminal. The existing virtual-body
+CLI can continue ticking hardware while Freestyle responds:
+
+```bash
+PYTHONPATH=.:Master:Slave/software MUJOCO_GL=egl build/gait-training-env/bin/python \
+  -m gateway.neural_gait.virtual --environment SCENARIO.json --recovery-scenario \
+  --policy-run build/neural-gait/RUN --recovery-endpoint http://127.0.0.1:8794 \
+  --directory build/neural-gait/TRIAL
+```
+
+`recovery-evaluation.json` retains actual body events, original Walk terminal,
+generator provenance, separate generated programs/receipts and physical
+trajectory. A completed Release or accepted plan is not a standing recovery.
+The shared P4 calibration/speed/feedback read serializers supply the unchanged
+Bridge's observations; Stop/Release/replacement keep their normal owners.
+The current standing-relative foot action domain is not asserted sufficient
+for arbitrary self-righting. Blocked-wall trials expose recovery/navigation
+failures; they do not silently turn a forward request into obstacle avoidance.
+Walking training's commanded-twist exercises qualify low-level locomotion, not the final task
+scope: following, investigation and exploration belong to the existing perception,
+navigation and goal-execution owners.
+`--workers 2` (or the training API's `workers`) runs independent simulators in
+subprocesses while retaining one SAC update per collected transition. Resume
+retains the original worker count/replay layout. On the October27 workstation,
+two workers increased physics-only throughput from179 to299 steps/s; this excludes
+learner updates, rendering and IPC, so it is not an end-to-end training speed claim.
+
+Artifacts stay under ignored `build/neural-gait` by default (override
+`AINEKIO_NEURAL_GAIT_DATA_DIR`). Each run contains the exact environment, geometry
+hash, checkpoint, held-out evaluation and progress. SAC runs also retain their
+resumable replay buffer.
+Replay buffers are stored losslessly as `replay.pkl.gz`; resume also reads older
+`replay.pkl` files. Compiled simulator caches use `.mjb.gz` and are loaded through
+MuJoCo's binary asset interface. Both retain exact contents and avoid storing
+large empty or repeated binary regions uncompressed.
+Only the explicitly selected checkpoint is loaded; training never promotes it
+automatically. The observation schema, kinematic geometry and CAD/collision
+source fingerprint must match for load, resume and replay. Compatible revisions
+retain policy input/action meanings; replay metadata distinguishes training and
+rendering versions. Replaying an old model with the version9 heading repair is
+a new execution comparison, not an exact reproduction of its historical trace.
+Previously saved footage retains that historical evidence. SAC resume requires
+the same reward/execution version so old replay transitions cannot be reused.
+`--initialize-from <run>` starts a new learner from compatible learned actor
+parameters with fresh replay rather than reusing scores from an older reward;
+the manifest records the source hash and transferred state. If an
+initializer changes its requested command or explicitly configured existing
+balance settings, learned actor parameters can still transfer; `task_changes`
+records those differences and no old replay or optimizer state is loaded.
+Sensor/action meaning, geometry, calibration and other physics must still agree.
+Exact replay resume retains its stricter same-configuration contract. When a zero-RL
+imitation source has archived training data, its first SAC run additionally
+prepares the stochastic policy and current-reward replay through the existing
+trainer. Explicit demonstration input with zero imitation updates can request
+the same preparation. Demonstration provenance must match the new configuration;
+after a balance-setting change, collect compatible examples rather than relabel
+old observations as if they came from the corrected controller. Bounded-action exploration is fitted to demonstrated
+action error without changing deterministic means; endpoint labels are not
+inverse-tanh transformed. The selected checkpoint's data prefix is retained.
+Actual deterministic rollouts populate the existing replay buffer, preserving
+terminal/timeout semantics and worker layout, before random startup collection
+is disabled. Entropy targets come from that fitted distribution, with an initial
+entropy contribution budget of 10% of measured advantage over standing. An
+unmeasurable/nonpositive advantage reports an offline preparation failure.
+`handoff.json` records the calibration, real transitions, source hashes and
+optimizer resets. Ordinary nonzero-RL resume keeps its learning state. This
+repairs initialization; it does not guarantee that later optimization improves
+walking, so the independent rollouts remain authoritative. Thus
+changed assets cannot silently replace the robot used in a recorded run.
+Existing rendered footage remains available without rebuilding that environment. `/render`
+produces the recorded evaluation trials, including terminal poses; `/replay?id=...`
+and `/image?id=...` serve the video and initial frame. Training saves compactly
+evaluated checkpoints without starting renderers. The initial interval is10,000
+transitions; `checkpoint_every` (`--checkpoint-every`) selects a different
+interval, and resume inherits its source interval unless explicitly changed.
+This adjusts evidence frequency only, not control timing or robot motion. Each run's
+`optimization.jsonl` retains SB3's compact PPO/SAC optimizer measurements, including
+PPO approximate KL, clipping and value loss; it does not store raw rollout buffers.
+An explicit training `learning_rate` (`--learning-rate` in the CLI) changes the
+existing optimizer's step size and records the source/target rate in the manifest.
+Resuming without it preserves the saved schedule. Weights, Adam moments, counters,
+exploration and PPO's existing trust-region setting are retained in either case.
+PPO also accepts `value_learning_rate` (`--value-learning-rate`) for its existing
+value network. The maintained `GaitPPO` keeps SB3's rollout/update implementation
+and separates only the actor/value Adam parameter-group rates, preserving
+parameter identities and moments. This lets the value estimator adapt without
+increasing the movement policy's update rate. Saved rates/groups survive resume.
+Explicit `command_units` (`--command-units vx vy yaw`) normalizes SI commands
+inside the saved PPO policy, using metres/second and radians/second reference
+units. It transforms the corresponding actor/value first-layer columns and
+Adam moments so initial predictions are preserved. Raw sensor/request contracts,
+motion limits, network dimensions and parameter counts do not change. All
+collection, inference, likelihood and value-prediction paths use the same
+normalization, recorded in `command_preconditioning`; ordinary resume inherits it.
+At completion,
+`/progress-video?id=...` compares the initial and published final policies using
+one matched trial each. The replay CLI's `--progress --comparison` selects this
+compact view; explicit `--progress` retains detailed checkpoint replay. Full final
+numeric evaluation uses one seed without variation, or eight when variation is
+configured, across all commands and scenarios. Scores report the actual number of evaluated trials. Individual
+720p H.264 clips have labelled and clean versions;
+`/footage?id=...` builds a temporary ZIP download containing those clips,
+comparison videos and provenance, with no model weights or optimizer replay
+buffer. Rendering does not retain a duplicate ZIP on disk. A one-second display hold at each
+terminal pose is labelled and documented in the clip metadata. Unrendered older
+checkpoints are rendered once; later updates concatenate their existing clips. Renderer work is separate
+from inference/training. A simulation episode ending after a fall or configured
+horizon is a training boundary, not a robot stop policy.
+
+Validation uses the maintained tests, including mirrored foot/loop-closure parity
+against the existing mechanism, stationary contact, checkpoint delivery and
+Body Control authentication/no-motion behavior:
+
+```sh
+PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests:. \
+  build/gait-training-env/bin/python -m unittest \
+  Emulator.tests.test_neural_gait \
+  Emulator.tests.test_neural_gait_sensors \
+  Emulator.tests.test_gateway_dashboard.GatewayDashboardTests.test_neural_gait_routes_are_authenticated_and_do_not_command_robot
+```
 
 ### Supervised gait trial recording
 
@@ -1165,13 +1548,18 @@ receipt, not inference completion. Recognition metadata has no image data and
 is not replayed after bridge reconnection.
 
 The existing `environment.visual.read` response also carries frame-bound recognition
-under `visual.metadata.recognition`. When `CameraFramePlugin.current_analysis`
-has an available result, the adapter reads its cached JPEG and recognition together.
+under `visual.metadata.recognition`. When `CameraFramePlugin.latest_analysis`
+has a retained result for the selected connected body, the adapter reads its cached
+JPEG and recognition together, including after that result's live freshness expires.
 This can be slightly older than the latest unprocessed video frame, and retains
 its original receipt timestamp. No new capture or inference wait is introduced.
 Without an available analysis, the read still returns the raw camera cache without
-recognition metadata. Immediate snapshot delivery attaches recognition only when
-robot ID, epoch and counter identify that exact analyzed frame. The record carries
+recognition metadata. Requested snapshots join their exact frame’s analysis on
+the same camera worker before delivery when recognition is enabled. Preview
+replacement preserves requested stills. Body receive, microphone input and
+movement do not wait for inference; failed recognition is reported with the
+photo. Disabled recognition returns the photo without an inference dependency.
+Frame identity and original receipt time remain unchanged. The record carries
 backend/model, objects, scores, boxes, identity estimates, uncertainties and source
 identity/time; enrollment images and face embeddings are not transmitted. Live
 telemetry retains its existing expiry, while metadata on an attached image describes
@@ -1562,38 +1950,34 @@ consume or wait for this interval. If both detectors cross in the same sample,
 the existing tip-first order uses the interval for the tip notification.
 These settings do not change actuator control or balance behavior.
 **Good morning** submits an explicit wake request through the same event workflow.
-Firmware reports boot/wake events once at the source, rather than treating a
-network reconnect as a wake. The existing Environment adapter owns the selected
-body's startup procedure: request a correlated fresh snapshot, submit `stretch`
-through `GatewayService.request_motion`, and send one `environment.observation`
-containing the wake event, image and recorded body state. **Poses and emotes →
-Default motion system** saves a per-robot selection of Freestyle or Motion Library
-in the existing Body Control settings. An unset selection retains Motion Library.
-Freestyle uses the configured generator and its existing execution/recording owner;
-the library uses the existing `emote/stretch` command, which returns to standing.
-The startup procedure has no separate backend preference. MetaHuman's
-`requestMotion` action sends a movement description through the same selection.
-The Environment adapter advertises that description action for Freestyle and the
-named commands for Motion Library; saving the selector refreshes the advertised
-capabilities. The adapter follows the original Freestyle job through completion,
-cancellation or bridge reconnect rather than generating the movement again.
-Generation failures report failure; loss of a dispatched command's receipt keeps
-its physical outcome unknown. Direct library controls,
-low-level motion plans and explicit Environment action commands keep their existing
-contracts; this selector does not intercept the commands generated by Freestyle.
-Selecting Motion Library provides an explicit alternative; a failed Freestyle
-request does not silently dispatch another motion.
-The procedure runs outside the body receive callback, and neither forwarding the
-image nor MetaHuman greeting generation waits for stretch completion.
-`bodyEvent.data.startup` records the capture result, image availability and stretch
-dispatch state (a library sequence or a submitted Freestyle job ID); submission is
-not a completion claim. Freestyle generation/execution outcomes remain in the
-existing Freestyle panel and recordings. Camera or dispatch failure is
-reported in that evidence. Images retain their frame timestamp and identity, plus
-`metadata.bodyEventId`. There is no scripted greeting in Body Control. Choosing
-Freestyle adds its motion-generation call; choosing the library does not.
-The existing snapshot protocol is reused; no firmware update is
-needed for this host change. New wake observations are not retained for an absent
+Firmware reports boot/wake once at its source; reconnect is not a new wake. The
+Environment adapter submits “Stand up, stretch, and finish standing” through the
+existing Freestyle owner and requests a correlated snapshot. Motion generation
+does not wait for the image; greeting delivery does not wait for movement
+completion.
+
+**Poses and emotes → Manual motion controls** defaults to Freestyle. Selecting
+**Legacy library** affects only explicitly pressed manual pose/emote buttons.
+MetaHuman `requestMotion`, older named pose/emote requests, and automatic startup
+requests always use Freestyle. Inference failure is reported; there is no native
+library fallback. Shared P4 gait, kinematics, calibration, servo output and target
+feedback remain execution services, not competing behavior selectors. Native
+library playback remains available for manual operation.
+
+The adapter tracks the original Freestyle job through completion, cancellation
+and reconnect. Submission is not completion; a lost dispatched receipt retains
+an unknown physical outcome. Generated programs and observations remain in the
+existing Freestyle recordings. Removed `gesture`/native `stand` shortcuts cannot
+invoke a prerecorded library motion from a generated program.
+
+Startup motion belongs to this host workflow. Inactivity belongs to the existing
+P4 one-shot timer: after the configured interval (three minutes by default), the
+body plays its built-in Lay Down and releases outputs after it finishes. No model
+request is used. Stop and new commands retain their existing immediate replacement
+semantics. Firmware 0.8.127/0.8.128 delegated inactivity through `idle_rest`;
+the restored body-local behavior requires the updated firmware and gateway.
+
+New wake observations are not retained for an absent
 bridge; already-admitted delivery retains its existing acknowledgement lifecycle.
  Event capture requires the Body Control connection;
 this transport does not replay sensor samples lost while disconnected.
@@ -1799,6 +2183,17 @@ under `$XDG_STATE_HOME/ainekio/gait-learning` (default
 `~/.local/state/ainekio/gait-learning`). These private data are not repository
 assets. Recording includes acceleration and planned support information;
 planned support is not a measured contact switch. Learning includes logging.
+Neural walking trials use this same recorder: `commands.jsonl` retains the
+accepted host reference, SI request and requested foot samples; `neural.jsonl`
+attributes those requests to the model, normalized action, inference input
+timestamps, fixed Walk yaw reference and any producer-failure Finish request.
+`metadata.jsonl` retains available motion-speed, balance and selected-source
+settings from the existing gateway state, with unknown values left explicit.
+`events.jsonl` retains paired IMU/joint packets with the actually
+consumed sample, command rejection/termination and body-stall/fall events.
+These are different stages of evidence, not interchangeable success receipts.
+The native residual optimizer does not consume host-neural tracking windows;
+recording a neural trial is not an automatic model-weight update.
 Logging alone does not start an optimizer. Analyze now can calculate a proposal
 with learning off; it does not install that proposal.
 
@@ -1992,9 +2387,18 @@ one-pending-frame camera executor; original receipt timestamps and normal
 freshness reporting are retained. The depth image is shown in Body Control, not
 duplicated into every training event or text prompt. Processing is on demand:
 distance/metric navigation executions register through the existing camera-read
-bridge using `operation: "depthDemand"`, `consumerId` and `enabled`. Active gait
-recording registers directly with the same camera owner. Consumers share the
-model; releasing the last consumer unloads it. Bridge disconnect releases its
+bridge using `operation: "depthDemand"`, `consumerId` and `enabled`. The gait
+recorder registers with that same camera owner only while logging or learning
+an active gait reported by the gateway's existing command lifecycle. Enabling
+logging or learning alone does not request depth. Command completion, rejection,
+cancellation or disconnection releases the recorder's demand on its existing
+trace-drain cycle; no additional polling task is created. It does not wait for a
+first measurement or pending inference. Body trace collection and recording
+shutdown remain independent of depth readiness; unavailable depth is retained
+as unavailable evidence. Consumers share the model. Removing a recorder leaves
+navigation's reference intact; removing the last consumer invalidates its samples
+immediately and unloads the model after in-flight inference on the same executor.
+Bridge disconnect releases its
 connection's registrations; reconnect restores only still-active executions.
 Completion, failure and cancellation release execution demand. Ordinary streaming,
 photos and conversation do not load depth. The dashboard's **Measure depth now**
@@ -2003,6 +2407,12 @@ configuration. First use includes model loading; reactivation starts a new local
 odometry reference. Recognition and robot admission remain independent of depth
 inference. The standalone trial recorder observes available status; it does not
 implicitly enable depth merely because RGB frames are being recorded.
+
+Focused recorder/depth lifecycle checks (simulated commands, no robot movement):
+```sh
+PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests python3 -B -m unittest \
+  test_gait_learning_service test_depth_motion
+```
 
 The recorder binds each trace cursor to the device boot/session and reacquires
 the stream after a session change. Live status-clock receipts align queued
@@ -2068,3 +2478,16 @@ The authenticated maintenance proxy is `/api/robot/idle-rest?robot_id=…`;
 GET returns `{seconds, saved}`, POST accepts
 `{"op":"configure","seconds":180}`. Older firmware does not advertise the
 feature, so its dashboard keeps these controls hidden.
+
+### Environment Bridge availability
+
+The existing `/environment` WebSocket supports an authenticated read-only watcher.
+Send `{"type":"bridge.watch","version":1,"token":"<adapter token>"}`.
+The adapter returns `bridge.availability` version 1 with `sessionId`,
+`gatewayInstance`, `robotId` (the selected robot, or null) and `connected`.
+It sends updates on robot connection changes. A watcher neither claims the active
+bridge nor replays receipts, queues messages, or enables unsolicited delivery.
+The existing authenticated `bridge.connect` handshake opens the control connection
+separately. MetaHuman's single Environment Bridge uses availability to locate the
+selected robot across configured hosts; Body Control retains its existing robot
+selection and action ownership.

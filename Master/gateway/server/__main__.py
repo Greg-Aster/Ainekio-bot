@@ -331,7 +331,8 @@ async def _run_production(args: argparse.Namespace) -> None:
     camera = CameraFramePlugin(service, backend, observe=publish_recognition if backend else None,
         max_frame_age_s=args.vision_max_frame_age_s)
     adapter.recognition_status = camera.metrics if backend is not None else None
-    adapter.camera_analysis = camera.current_analysis
+    adapter.camera_analysis = camera.latest_analysis
+    adapter.camera_capture = camera.capture
     adapter.vision_operation = camera.configure_vision if backend is not None else None
     dashboard.camera_recognition = camera
     if camera is not None:
@@ -339,6 +340,8 @@ async def _run_production(args: argparse.Namespace) -> None:
         await camera.restore_ground_plane(dashboard.control_settings.get("ground_calibrations", {}))
         await camera.restore_depth(dashboard.control_settings.get("depth_motion", {}))
         adapter.locomotion_measurement = camera.locomotion_measurement
+        service.locomotion_measurement = camera.locomotion_measurement
+        service.depth_demand = camera.depth_demand
         adapter.selected_ground_range = camera.selected_ground_range
         adapter.depth_demand = camera.depth_demand
     service.subscribe_events(dashboard.restore_camera)

@@ -208,8 +208,26 @@ static void test_inverted_and_near_zero(void)
     near(o.orientation_wxyz[0], 0.F, .00001F);
 }
 
+static void test_lsm6ds3_count_conversion(void)
+{
+    /* Exhaust the signed input domain: extraction must preserve the driver's
+     * exact original float arithmetic, endian layout, polarity and timestamp. */
+    for(int count=-32768;count<=32767;count++) {
+        const uint16_t raw=(uint16_t)count;uint8_t bytes[12];
+        for(unsigned i=0;i<6;i++){bytes[2*i]=(uint8_t)raw;bytes[2*i+1]=(uint8_t)(raw>>8);}
+        ainekio_imu_sample_t sample;
+        ainekio_imu_lsm6ds3_decode(123456,bytes,&sample);
+        assert(sample.timestamp_us==123456);
+        for(unsigned i=0;i<3;i++) {
+            assert(sample.acceleration_m_s2[i]==count*(0.000488F*9.80665F));
+            assert(sample.angular_rate_rad_s[i]==count*(0.07F*0.017453292519943295F));
+        }
+    }
+}
+
 int main(void)
 {
+    test_lsm6ds3_count_conversion();
     test_configuration();
     test_orientation_and_mount();
     test_elapsed_time_rotation();
@@ -217,6 +235,6 @@ int main(void)
     test_gap_and_session_reset();
     test_disturbance_flags();
     test_inverted_and_near_zero();
-    printf("IMU estimation: seven scenarios passed; fixed state=%zu bytes\n", sizeof(ainekio_imu_t));
+    printf("IMU estimation: eight scenarios passed; fixed state=%zu bytes\n", sizeof(ainekio_imu_t));
     return 0;
 }

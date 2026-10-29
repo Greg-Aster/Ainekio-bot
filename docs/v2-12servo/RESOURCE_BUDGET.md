@@ -1,6 +1,15 @@
 # Final robot resource budget — Ainekio / MetaHuman OS
 
 Audited 2026-09-28. **Design reference, not completed-robot qualification.**
+
+**Power/assembly supersession, 2026-10-26:** V2 now uses a 2S battery, Mini560
+buck converter and HiLetgo USB-C charger; the owner confirms 650 g total mass.
+The SHARGE topology, 240 g battery, 36 Wh and associated branch/runtime arithmetic
+below are historical. Hardware entries saying the LCD or speaker is unidentified
+are also superseded by the component records linked in the
+[current V2 specification](SPECIFICATIONS.md). Other dated calculations keep
+their stated assumptions; this notice does not recalculate them.
+
 Camera source update 2026-10-06: adaptive still capture also supports native
 1280×960 and cropped 1920×1080. The 1080p path uses two RGB565 captures, the
 existing 1024×768 resize scratch, and one 256 KiB JPEG buffer: **10,129,408 B /

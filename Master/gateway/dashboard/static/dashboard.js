@@ -27,6 +27,7 @@
   let availableBodyCommands = [];
   let variableWalking = false;
   let directionalWalking = false;
+  let neuralWalking = false;
   let steeringSupported = false;
   let runningSupported = false;
   let crabSupported = false;
@@ -654,6 +655,7 @@
   function walkReplyEnded(sequence) {
     const terminal = walkStatus?.last_terminal;
     if (terminal?.seq === sequence && ["nak", "done", "cancelled"].includes(terminal.t)) {
+      if (terminal.execution_error) showResult(`Command ${terminal.seq} failed: ${terminal.execution_error}`, true);
       if (terminal.t === "nak") showResult(`Command ${terminal.seq} rejected: ${[terminal.code, terminal.msg].filter(Boolean).join(" — ")}`, true);
       return true;
     }
@@ -711,7 +713,7 @@
     slider.max = extended ? "200" : "100";
     if (Number(slider.value) > Number(slider.max)) slider.value = slider.max;
     byId("walk-speed-value").textContent = `${slider.value}%`;
-    byId("walk-run-hint").hidden = !extended || gait === "run";
+    byId("walk-run-hint").hidden = neuralWalking || !extended || gait === "run";
     byId("walk-steering").hidden = !canSteer();
   }
 
@@ -774,7 +776,7 @@
     if (!finish && !byId("walk-controls").reportValidity()) return;
     const robotId = selectedRobotId;
     const generation = walkGeneration;
-    const steps = heldDirection === "steering" || directionalWalking && byId("walk-continuous").checked ? 0 : Number(byId("walk-cycles").value);
+    const steps = neuralWalking || heldDirection === "steering" || directionalWalking && byId("walk-continuous").checked ? 0 : Number(byId("walk-cycles").value);
     const params = finish ? { dir: profile.dir, steps: 1, speed: 0 } : walkingParameters(steps, profile.dir);
     if (directionalWalking) params.gait = profile.gait;
     if (activeWalkSequence !== null) params.update = activeWalkSequence;
@@ -1442,6 +1444,9 @@
   }
 
   function sendNamedMotion(name, asset, label) {
+    if (byId("motion-system").value !== "library") {
+      return command("/api/request-motion", {description: (asset || name).replaceAll("_", " ")}, label);
+    }
     const params = asset ? {asset} : {};
     const ongoing = asset === "run" || (crabSupported && asset?.startsWith("crab"));
     if (motionSpeedSupported && !ongoing && ["sit", "stand", "emote"].includes(name)) {
@@ -1457,10 +1462,10 @@
       motionSystemRobot = selectedRobotId;
       motionSystemEdited = false;
     }
-    const system = payload.motion_systems?.[selectedRobotId] || "library";
+    const system = payload.motion_systems?.[selectedRobotId] || "freestyle";
     if (!motionSystemEdited) byId("motion-system").value = system;
     text("motion-system-status", selectedRobotId
-      ? `Current: ${system === "freestyle" ? "Freestyle" : "Motion Library"}`
+      ? `Manual controls: ${system === "freestyle" ? "Freestyle" : "Legacy library"}. MetaHuman and automatic requests use Freestyle.`
       : "Select a robot.");
   }
 
@@ -3114,6 +3119,20 @@
     Array.from(byId("walk-direction").options).forEach(option => { option.disabled = !bodyCommandAvailable(directionCommands[option.value]); });
     byId("walk-controls").hidden = !variableWalking;
     byId("walk-fields").disabled = !variableWalking || !bodyCommandAvailable("walk");
+    neuralWalking = entry?.active_walk ? entry.active_walk.source === "host" : entry?.walking_source?.source === "neural";
+    byId("walk-gait-field").hidden = neuralWalking;
+    byId("walk-mode-field").hidden = neuralWalking;
+    byId("walk-continuous-field").hidden = neuralWalking;
+    byId("walk-native-hint").hidden = neuralWalking;
+    byId("walk-neural-hint").hidden = !neuralWalking;
+    if (neuralWalking) {
+      if (!entry?.active_walk) byId("walk-gait").value = "walk";
+      byId("walk-continuous").checked = true;
+      byId("walk-mode").value = "auto";
+      byId("walk-advanced").hidden = true;
+      byId("walk-stride").disabled = true;
+      byId("walk-speed-field").hidden = false;
+    }
     updateWalkingStatus(entry);
     updateSpeedRange();
     const installedMotions = (entry && entry.capabilities && entry.capabilities.commands || []).filter((name) => name !== "stop");
@@ -3245,12 +3264,14 @@
     text("wake-capability", wakeReady ? "Wake-word model ready" : "Wake-word model unavailable; enabling is blocked");
     document.querySelectorAll("[data-requires-wake]").forEach((option) => { option.disabled = !wakeReady || !wakeEnabled; });
     const terminal = entry && entry.last_terminal;
-    const terminalDetail = terminal ? [terminal.t, terminal.code, terminal.msg].filter(Boolean).join(": ") : "none";
+    const terminalDetail = terminal ? [terminal.t, terminal.code, terminal.msg, terminal.execution_error].filter(Boolean).join(": ") : "none";
     text("status-lifecycle", entry ? `${entry.pending} pending / ${terminalDetail}` : "--");
-    const terminalKey = terminal ? JSON.stringify([selectedRobotId, entry.epoch, terminal.seq, terminal.t, terminal.code, terminal.msg]) : null;
+    const terminalKey = terminal ? JSON.stringify([selectedRobotId, entry.epoch, terminal.seq, terminal.t, terminal.code, terminal.msg, terminal.execution_error]) : null;
     if (terminalKey !== reportedTerminal) {
       reportedTerminal = terminalKey;
-      if (terminal && terminal.t === "nak") {
+      if (terminal?.execution_error) {
+        showResult(`Command ${terminal.seq} failed: ${terminal.execution_error}`, true);
+      } else if (terminal && terminal.t === "nak") {
         showResult(`Command ${terminal.seq} rejected: ${[terminal.code, terminal.msg].filter(Boolean).join(" — ")}`, true);
       }
     }
@@ -3579,6 +3600,146 @@
     });
   }
 
+  function setupNeuralGait() {
+    const panel = byId('neural-gait-panel');
+    if (!panel) return;
+    let busy = false;
+    let profileRobot = null, profileEdited = false, profileRevision = 0;
+    for (const id of ['source','forward','lateral','yaw'])
+      byId(`neural-walking-${id}`).addEventListener('input', () => {
+        profileRobot = selectedRobotId; profileEdited = true; profileRevision++;
+      });
+    byId('neural-walking-save').addEventListener('click', async () => {
+      const robotId = selectedRobotId, revision = profileRevision;
+      try {
+        const profile = {source:byId('neural-walking-source').value};
+        if (profile.source === 'neural') {
+          profile.forward_m_s = Number(byId('neural-walking-forward').value);
+          profile.lateral_m_s = Number(byId('neural-walking-lateral').value);
+          profile.yaw_rad_s = Number(byId('neural-walking-yaw').value);
+        }
+        await request('/api/neural-gait', {method:'POST', body:JSON.stringify({
+          op:'walking-source', robot_id:robotId, profile})});
+        if (selectedRobotId === robotId && profileRevision === revision) {
+          profileEdited = false; profileRevision++;
+          text('neural-walking-result', 'Saved for new Walk requests. No movement started.');
+        }
+      } catch(error) { if (selectedRobotId === robotId) text('neural-walking-result', error.message); }
+    });
+    async function operate(op) {
+      if (busy) return;
+      busy = true;
+      const robotId = selectedRobotId, profileAtRequest = profileRevision;
+      try {
+        const payload = {op, robot_id:robotId};
+        const model = byId('neural-gait-model').value;
+        if (op === 'progress') { payload.op = 'render'; payload.progress = true; payload.model_id = model; }
+        if (['load','render'].includes(op)) payload.model_id = model;
+        if (op === 'train' || op === 'resume') {
+          payload.op = 'train';
+          payload.steps = Number(byId('neural-gait-steps').value);
+          if (op === 'resume') payload.resume = model;
+          else {
+            payload.workers = Number(byId('neural-gait-workers').value);
+            if (byId('neural-gait-environment').value.trim())
+              payload.environment = JSON.parse(byId('neural-gait-environment').value);
+          }
+        }
+        const result = await request('/api/neural-gait', {method:'POST', body:JSON.stringify(payload)});
+        if (op === 'preview') {
+          text('neural-gait-prediction', JSON.stringify(result, null, 2));
+          return;
+        }
+        const status = op === 'status' || op === 'load' ? result : await request('/api/neural-gait', {
+          method:'POST', body:JSON.stringify({op:'status', robot_id:robotId})});
+        if (selectedRobotId !== robotId) return;
+        if (profileRobot !== robotId) { profileRobot = robotId; profileEdited = false; }
+        if (status.walking_source && !profileEdited && profileRevision === profileAtRequest) {
+          byId('neural-walking-source').value = status.walking_source.source;
+          for (const [field,key] of [['forward','forward_m_s'],['lateral','lateral_m_s'],['yaw','yaw_rad_s']])
+            byId(`neural-walking-${field}`).value = status.walking_source[key] ?? '';
+        }
+        const select = byId('neural-gait-model');
+        select.replaceChildren(...status.runs.map(run => {
+          const option = document.createElement('option');
+          option.value = run.id;
+          option.textContent = `${run.id.slice(-8)} · ${run.state} · ${run.imitation_updates || 0} imitation updates + ${run.steps || 0} RL steps`;
+          return option;
+        }));
+        if (status.runs.some(run => run.id === model)) select.value = model;
+        else if (status.model_id) select.value = status.model_id;
+        if (!byId('neural-gait-environment').value.trim())
+          byId('neural-gait-environment').value = JSON.stringify(status.defaults, null, 2);
+        text('neural-gait-status', JSON.stringify(status, null, 2));
+        const run = status.runs.find(run => run.id === select.value);
+        const phase = run?.state === 'evaluating'
+          ? `Evaluating ${run.evaluation_purpose === 'standing_baseline' ? 'standing baseline' : run.evaluation_purpose === 'final_candidate' ? 'final candidate' : 'checkpoint'}${run.total_episodes != null ? ` · ${run.completed_episodes}/${run.total_episodes} trials` : ''}`
+          : run?.state;
+        const comparison = run?.progress_video?.footage_scope === 'initial_final_matched_trial';
+        const footageProgress = !run ? '' : comparison
+          ? ` · before/after video: ${run.progress_video.checkpoint_ids?.length || 0} matched trials${run.rendering ? ' (rendering)' : ''}`
+          : !run.progress_video && run.automatic_footage
+            ? ` · before/after video ${run.rendering ? 'rendering' : 'after training'}`
+            : ` · video ${run.progress_video?.checkpoint_ids?.length || 0}/${run.checkpoints?.length || 0} checkpoints${run.rendering ? ' (rendering)' : ''}`;
+        const origin = run?.initialization ? `Transferred weights from ${run.initialization.source_rl_steps.toLocaleString()} prior RL steps · ` : '';
+        text('neural-gait-summary', run ? `${phase} · ${origin}${(run.imitation_updates || 0).toLocaleString()} imitation updates + ${(run.steps || 0).toLocaleString()} ${run.initialization ? 'new ' : ''}RL steps · ${run.checkpoints?.length || 0} saved checkpoints${footageProgress}. Simulation only.` : 'No training runs yet.');
+        byId('neural-gait-checkpoints').replaceChildren(...(run?.checkpoints || []).map(row => {
+          const tr = document.createElement('tr');
+          const checkpoint = `${row.aggregation_round != null ? `Round ${row.aggregation_round} · ` : ''}${row.imitation_updates ? `${row.imitation_updates.toLocaleString()} imitation + ` : ''}${row.steps.toLocaleString()} RL steps`;
+          const score = row.evaluation.mean_reward;
+          for (const value of [checkpoint, Number.isFinite(score) ? score.toFixed(2) : '—', `${row.evaluation.falls}/${row.evaluation.episodes.length}`]) {
+            const cell = document.createElement('td'); cell.textContent = value; tr.append(cell);
+          }
+          return tr;
+        }));
+        const commandResults = run?.checkpoints?.at(-1)?.evaluation?.command_results;
+        const trackingRows = (commandResults || []).map(row => {
+          const tr = document.createElement('tr');
+          const measured = [...row.measured_velocity_command_m_s, row.measured_yaw_rate_rad_s];
+          for (const value of [row.command.map(v => v.toFixed(3)).join(' / '),
+              measured.map(v => v.toFixed(3)).join(' / '), row.seconds.toFixed(2)]) {
+            const cell = document.createElement('td'); cell.textContent = value; tr.append(cell);
+          }
+          return tr;
+        });
+        if (!trackingRows.length) {
+          const tr = document.createElement('tr'), cell = document.createElement('td');
+          cell.textContent = 'Per-command measurements unavailable'; cell.colSpan = 3; tr.append(cell);
+          trackingRows.push(tr);
+        }
+        byId('neural-gait-command-results').replaceChildren(...trackingRows);
+        const video = byId('neural-gait-video');
+        const footage = byId('neural-gait-footage');
+        footage.hidden = !run?.has_footage;
+        if (run?.has_footage) {
+          footage.href = `/api/neural-gait/footage?id=${encodeURIComponent(run.id)}`;
+          footage.download = `neural-gait-${run.id.slice(-8)}-footage.zip`;
+        }
+        video.hidden = !run?.has_replay && !run?.has_progress_video;
+        if (op === 'progress' && !run?.has_progress_video) text('neural-gait-summary',
+          result.state === 'comparison_after_training'
+            ? 'The before/after comparison will render when training finishes.'
+            : 'The progress video is rendering. Refresh shortly to watch it.');
+        if (run?.has_replay || run?.has_progress_video) {
+          const kind = run.has_progress_video && op !== 'render' ? 'progress-video' : 'replay';
+          const revision = kind === 'progress-video'
+            ? (run.progress_video.checkpoint_ids?.at(-1) ?? run.progress_video.training_steps.at(-1))
+            : (run.selected_checkpoint_id ?? run.steps);
+          const url = `/api/neural-gait/${kind}?id=${encodeURIComponent(run.id)}&version=${revision}`;
+          // Polling never restarts a video the owner is watching.
+          if ((op !== 'status' || video.paused || video.ended || !video.getAttribute('src')) && video.getAttribute('src') !== url)
+            video.src = url;
+        }
+      } catch (error) { text('neural-gait-summary', error.message); }
+      finally { busy = false; }
+    }
+    for (const op of ['train','resume','load','render','progress','preview'])
+      byId(`neural-gait-${op}`).addEventListener('click', () => void operate(op));
+    byId('neural-gait-refresh').addEventListener('click', () => void operate('status'));
+    panel.addEventListener('toggle', () => { if (panel.open) void operate('status'); });
+    setInterval(() => { if (panel.open && !panel.closest('[hidden]')) void operate('status'); }, 5000);
+  }
+
   async function setupDashboard() {
     setupNavigation();
     const session = await request("/api/session");
@@ -3620,6 +3781,7 @@
     setupHostNetwork();
     setupRobotSettings();
     setupFaceLibrary();
+    setupNeuralGait();
     await refreshStatus();
     runCameraView();
     statusTimer = window.setInterval(refreshStatus, 1000);

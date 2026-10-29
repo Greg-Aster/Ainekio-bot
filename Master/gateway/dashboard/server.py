@@ -102,6 +102,9 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.host_audio = HostAudio()
         self.freestyle = None
         self.gait_learning = None
+        from gateway.neural_gait.client import Client
+        self.neural_gait = getattr(self.gateway, "neural_gait", None) or Client()
+        self.gateway.neural_gait = self.neural_gait
         self.camera_recognition = None
         self.control_settings_path = password_store.path.with_name("sensing-controls.json")
         self.control_settings = (_read_json(self.control_settings_path)
@@ -109,6 +112,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         for robot_id, settings in self.control_settings.get("body_events", {}).items():
             self.gateway.body_events.configure(robot_id, settings)
         self.gateway.motion_systems = dict(self.control_settings.get("motion_systems", {}))
+        self.gateway.walking_sources = dict(self.control_settings.get("walking_sources", {}))
         self.event_loop = event_loop
         self.password_store = password_store
         self.token_store = token_store
@@ -134,8 +138,8 @@ class DashboardHttpServer(ThreadingHTTPServer):
             self._setup_freestyle()
 
     def _setup_freestyle(self):
-        # The experiment owns its model, recording, and optional execution.
-        # Removing its directory leaves ordinary Body Control startup intact.
+        # Freestyle owns generated behavior and its recordings. Its absence is
+        # reported for requests; manual library controls remain independent.
         from gateway.gait_learning_service import RobotLearningTransport
         recorder = freestyle_module("recordings").Recorder(
             self.password_store.path.with_name("freestyle-recordings.sqlite"))
@@ -238,14 +242,62 @@ class DashboardHttpServer(ThreadingHTTPServer):
                 robot["gait_training"] = self.gait_learning.status(robot_id)
         return status
 
+    async def neural_gait_request(self, payload):
+        operation = payload.get('op', 'status')
+        if operation == 'walking-source':
+            from gateway.neural_gait.client import walking_profile
+            robot = _required_string(payload, 'robot_id')
+            profile = walking_profile(payload.get('profile'))
+            saved = {**self.control_settings, 'walking_sources': {
+                **self.control_settings.get('walking_sources', {}), robot: profile}}
+            _atomic_secure_json(self.control_settings_path, saved)
+            self.control_settings = saved
+            self.gateway.walking_sources[robot] = profile
+            await self.gateway._publish_event({'t':'walking_source', 'robot_id':robot, 'profile':profile})
+            return {'robot_id':robot, 'profile':profile}
+        if operation == 'status':
+            status = await self.neural_gait.call('/status')
+            return {**status, 'walking_source':self.gateway.walking_sources.get(payload.get('robot_id'), {'source':'native'})}
+        if operation in ('train', 'load', 'render'):
+            return await self.neural_gait.call('/'+operation,
+                {key:value for key,value in payload.items() if key not in ('op', 'robot_id')})
+        if operation == 'preview':
+            from gateway.neural_gait.client import observation
+            from gateway.neural_gait.depth import project_depth
+            from gateway.neural_gait.contract import DEPTH_SCHEMA
+            robot = _required_string(payload, 'robot_id')
+            model = await self.neural_gait.call('/status')
+            if model.get('environment') is None:
+                raise ValueError('Select a neural gait checkpoint first')
+            source = self.gateway.body_sensor_observation(robot)
+            camera = self.camera_recognition
+            metric = camera.locomotion_measurement(robot) if camera else {'available':False}
+            data = observation(source, model['environment'], payload.get('command', [.08,0.,0.]),
+                vision=(project_depth(metric,self.gateway.clock(),robot,source['epoch'])
+                        if model['environment'].get('observation_schema') == DEPTH_SCHEMA else None))
+            result = await self.neural_gait.call('/infer', {'observation':data})
+            evidence = {'observation':data, 'sensor_source':source,
+                        'camera_measurement':{k:v for k,v in metric.items() if k != 'depthPreview'},
+                        'recent_body_events':[event for event in self.gateway.body_events.status()['recent']
+                                              if event.get('robot_id') == robot and event.get('epoch') == source['epoch']],
+                        'prediction':result, 'executed':False}
+            if self.freestyle_recorder:
+                self.freestyle_recorder.record('neural_gait_preview', evidence,
+                    robot_id=robot, epoch=source['epoch'])
+            return evidence
+        raise ValueError('Unknown neural gait operation')
+
     async def freestyle_request(self, payload):
         if not (FREESTYLE_ROOT / "bridge.py").is_file():
             raise GatewayError("Freestyle experiment is not installed")
         if self.freestyle is None:
             self._setup_freestyle()
         robot = _required_string(payload, "robot_id")
+        if payload.get("operation") == "cancel":
+            return await self.freestyle.cancel(_required_string(payload, "job_id"))
         if payload.get("operation") == "corrections":
-            return {"corrections": [{"review_id":r["id"], "job_id":r["job_id"], "request":r["request"]}
+            return {"corrections": [{"review_id":r["id"], "job_id":r["job_id"], "request":r["request"],
+                                     "title":r["payload"].get("title")}
                     for r in await self.freestyle.corrections(robot)]}
         if payload.get("operation") == "test-correction":
             return await self.freestyle.test_correction(robot, _required_string(payload, "review_id"))
@@ -383,6 +435,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path in experiment_assets and (FREESTYLE_ROOT / experiment_assets[path]).is_file():
             if self._require_session() is not None:
                 self._send_bytes((FREESTYLE_ROOT / experiment_assets[path]).read_bytes(), "text/javascript; charset=utf-8")
+            return
+        if path in ('/api/neural-gait/replay', '/api/neural-gait/image', '/api/neural-gait/progress-video', '/api/neural-gait/footage'):
+            if self._require_session() is None:
+                return
+            try:
+                identifier = parse_qs(parsed_url.query).get('id', [''])[0]
+                asset = path.rsplit('/',1)[-1]
+                data = self.server.neural_gait.request('/'+asset+'?'+urlencode({'id':identifier}), binary=True)
+                self._send_bytes(data, {'image':'image/png', 'footage':'application/zip'}.get(asset, 'video/mp4'))
+            except ValueError as error:
+                self._send_json({'error':str(error)}, status=HTTPStatus.BAD_REQUEST)
             return
         if path in {"/api/motion-library", "/api/motion-library/export"}:
             if self._require_session() is None:
@@ -717,6 +780,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     _required_string(payload, "op"), payload.get("address")))
             except OSError as error:
                 raise GatewayError(str(error)) from error
+        if path == "/api/request-motion":
+            return self.server.call_gateway(self.server.gateway.request_motion(
+                _required_string(payload, "description"), robot_id=robot_id))
         if path == "/api/motion-system":
             return self.server.call_gateway(self.server.set_motion_system(
                 _required_string(payload, "robot_id"), _required_string(payload, "system")))
@@ -741,6 +807,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             raise ValueError("Choose save or run")
         if path == "/api/freestyle":
             return self.server.call_gateway(self.server.freestyle_request(payload))
+        if path == "/api/neural-gait":
+            return self.server.call_gateway(self.server.neural_gait_request(payload), timeout=None)
         if path == "/api/gait-learning/service":
             service = self.server.gait_learning
             if service is None:

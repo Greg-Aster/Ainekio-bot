@@ -329,6 +329,42 @@ static void actuator_tracking_load(void)
     }
 }
 
+/* A target frame from any producer must reach balance with its actual linkage
+ * angles and material-point anchors, not a zero or stale walk-pose seed. */
+static void frame_targets_reuse_moving_balance(void)
+{
+    ainekio_v2_walk_pose_t source;
+    assert(ainekio_v2_walk_pose(.17,(ainekio_v2_walk_controls_t){.3,1},&source));
+    for(unsigned axis=0;axis<2;axis++)for(int sign=-1;sign<=1;sign+=2) {
+        ainekio_v2_walk_pose_t nominal={0},out;
+        ainekio_v2_pose_from_frame(&nominal,&source.frame);
+        assert(memcmp(&nominal.frame,&source.frame,sizeof source.frame)==0);
+        for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++)
+            assert(fabs(nominal.joints[l][j]-source.frame.position[3*((l+2)%4)+j]*
+                        .00017453292519943296)<1e-12);
+        double anchors[4][3];
+        assert(ainekio_v2_contact_forward(&nominal,anchors,true));
+        out=nominal;
+        assert(ainekio_v2_contact_solve(&out,(const double (*)[3])anchors));
+        for(unsigned j=0;j<12;j++)assert(fabs(out.frame.position[j]-nominal.frame.position[j])<.1);
+        ainekio_v2_balance_t state={0};
+        const ainekio_v2_balance_tuning_t tuning={1,1,0,0};
+        float q[4]={(float)cos(.04),0,0,0},rate[3]={0};q[axis+1]=sign*(float)sin(.04);
+        ainekio_v2_balance_configured_apply(&state,q,rate,false,.02,&nominal,
+            (const double (*)[3])anchors,&nominal.frame,1000,&out,&tuning,false);
+        assert(memcmp(&out.frame,&nominal.frame,sizeof out.frame)==0);
+        ainekio_v2_balance_configured_apply(&state,q,rate,true,.02,&nominal,
+            (const double (*)[3])anchors,&nominal.frame,1000,&out,&tuning,false);
+        assert(state.sensor_usable && sign*state.correction[axis]<0.);
+        assert(ainekio_v2_limits_frame(&out.frame));
+        assert(memcmp(&out.frame,&nominal.frame,sizeof out.frame)!=0);
+        double held[4][3];memcpy(held,nominal.feet,sizeof held);
+        assert(ainekio_v2_contact_forward(&out,anchors,false));
+        for(unsigned l=0;l<4;l++)for(unsigned a=0;a<2;a++)
+            assert(fabs(out.feet[l][a]-held[l][a])<.01);
+    }
+}
+
 int main(void)
 {
     actuator_tracking_load();
@@ -366,6 +402,7 @@ int main(void)
     standing_rejects_persistent_tilt();
     standing_extension_and_release();
     standing_tapered_targets();standing_with_actuator_lag();
+    frame_targets_reuse_moving_balance();
     puts("Balance: tilt direction, rate damping, stale fade, anchors, tapered standing targets and moving-gait speed limit passed");
     return 0;
 }

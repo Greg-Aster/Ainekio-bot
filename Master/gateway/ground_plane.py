@@ -8,20 +8,17 @@ from uuid import uuid4
 import cv2
 import numpy as np
 
+if __package__:
+    from .depth_motion import rigid
+else:
+    from depth_motion import rigid
+
 
 def array(value, shape, name):
     result = np.asarray(value, dtype=float)
     if result.shape != shape or not np.isfinite(result).all():
         raise ValueError(f"{name} must be a finite {shape} array")
     return result
-
-
-def rigid(value):
-    transform = array(value, (4, 4), "cameraToBody")
-    rotation = transform[:3, :3]
-    if not np.allclose(transform[3], [0, 0, 0, 1]) or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6) or not np.isclose(np.linalg.det(rotation), 1):
-        raise ValueError("cameraToBody must be a rigid transform: body x forward, y left, z up; camera OpenCV axes")
-    return transform
 
 
 def pose_from_plane(points, pixels, k, distortion, ambiguity_pixels):

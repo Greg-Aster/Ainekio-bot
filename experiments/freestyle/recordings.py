@@ -147,11 +147,19 @@ class Recorder:
             self.thread.join()
 
 
-def read_records(path, job_id=None):
+def read_records(path, job_id=None, *, kinds=None):
     connection = sqlite3.connect(f'file:{Path(path).resolve()}?mode=ro', uri=True)
     connection.row_factory = sqlite3.Row
     try:
-        where, params = (' WHERE job_id=?', (job_id,)) if job_id else ('', ())
+        clauses, params = [], []
+        if job_id:
+            clauses.append('job_id=?')
+            params.append(job_id)
+        if kinds is not None:
+            kinds = tuple(kinds)
+            clauses.append('kind IN (' + ','.join('?' for _ in kinds) + ')')
+            params.extend(kinds)
+        where = ' WHERE ' + ' AND '.join(clauses) if clauses else ''
         for row in connection.execute('SELECT * FROM evidence' + where + ' ORDER BY time_ns,id', params):
             result = dict(row)
             result['payload'] = json.loads(zlib.decompress(result['payload']))

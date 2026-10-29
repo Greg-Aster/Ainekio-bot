@@ -161,23 +161,24 @@
           <fieldset id="walk-fields">
             <legend>Walk, Run and Crawl</legend>
             <div id="locomotion-options" hidden>
-              <label>Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="crab">Crab (wide stance)</option><option value="run">Run (bounding)</option></select></label>
+              <label id="walk-gait-field">Gait <select id="walk-gait"><option value="walk">Walk / automatic Run</option><option value="crawl">Crawl</option><option value="crab">Crab (wide stance)</option><option value="run">Run (bounding)</option></select></label>
               <label>Direction <select id="walk-direction"><option value="fwd">Forward</option><option value="back">Backward</option><option value="turn_l">Turn left</option><option value="turn_r">Turn right</option><option value="side_l">Sideways left (Crab)</option><option value="side_r">Sideways right (Crab)</option></select></label>
-              <label><input id="walk-continuous" type="checkbox" checked> Continue until Finish</label>
+              <label id="walk-continuous-field"><input id="walk-continuous" type="checkbox" checked> Continue until Finish</label>
             </div>
             <div id="walk-steering" hidden>
               <label>Forward / backward <input id="walk-forward" type="range" min="-100" max="100" step="1" value="100"><output id="walk-forward-value">100%</output></label>
               <label>Turn (positive = left) <input id="walk-turn" type="range" min="-100" max="100" step="1" value="0"><output id="walk-turn-value">0%</output></label>
               <p>Combine travel and turning while moving. Hold two direction keys or use both controller axes to follow a curve. Direction presets replace both values.</p>
             </div>
-            <label>Control mode <select id="walk-mode"><option value="auto">Speed / stride</option><option value="manual">Direct stride</option></select></label>
+            <label id="walk-mode-field">Control mode <select id="walk-mode"><option value="auto">Speed / stride</option><option value="manual">Direct stride</option></select></label>
             <label id="walk-speed-field">Speed <input id="walk-speed" type="range" min="0" max="100" step="1" value="50"><output id="walk-speed-value">50%</output></label>
             <div id="walk-advanced" hidden>
               <label>Stride % <input id="walk-stride" disabled type="number" min="1" max="100" step="1" value="100" required></label>
             </div>
             <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
             <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
-            <p>Walk, Run, Crawl and Crab use fast coordinated strokes. Speed selects stride distance; shorter strokes finish sooner. The reindexed-crank Walk profile uses about 62 mm at full stride and 31 mm at 50%. Its body rises and falls through the stride. Above 100%, the Walk control transitions into bounding Run, reaching full Run stride at 200%. Direct stride selects 1–100% of the chosen gait’s range. These controls set movement distance, not motor power. Changes apply while moving; Finish settles the feet. Finish before selecting a different gait. Direction changes while moving are available when the steering controls are shown.</p>
+            <p id="walk-native-hint">Walk, Run, Crawl and Crab use fast coordinated strokes. Speed selects stride distance; shorter strokes finish sooner. The reindexed-crank Walk profile uses about 62 mm at full stride and 31 mm at 50%. Its body rises and falls through the stride. Above 100%, the Walk control transitions into bounding Run, reaching full Run stride at 200%. Direct stride selects 1–100% of the chosen gait’s range. These controls set movement distance, not motor power. Changes apply while moving; Finish settles the feet. Finish before selecting a different gait. Direction changes while moving are available when the steering controls are shown.</p>
+            <p id="walk-neural-hint" hidden>Neural walking requests speed and steering using the saved SI scales in Learning history → Neural walking. It does not select a native stride or gait sequence. Continue until Finish; MetaHuman goals still determine arrival. Select Native gait there to use native gait controls.</p>
             <button id="walk-apply" type="submit">Walk</button>
             <button id="walk-finish" type="button">Finish</button>
           </fieldset>
@@ -193,14 +194,14 @@
 
 <section class="control-section workspace-section" data-workspace-panel="poses" aria-labelledby="poses-title"><div class="section-heading"><h2 id="poses-title">Poses and emotes</h2></div>
 <form id="motion-system-form">
-  <label for="motion-system">Default motion system</label>
+  <label for="motion-system">Manual motion controls</label>
   <select id="motion-system" name="system">
     <option value="freestyle">Freestyle — trained motion model</option>
-    <option value="library">Motion Library — saved motions</option>
+    <option value="library">Legacy library — direct manual controls</option>
   </select>
-  <button type="submit">Save motion system</button>
+  <button type="submit">Save manual selection</button>
   <p id="motion-system-status" aria-live="polite"></p>
-  <p>Startup stretch uses this selection. The library controls below remain direct controls. Freestyle results appear in the Freestyle panel.</p>
+  <p>Freestyle handles motion requests and startup stretch. Select Legacy library only to trigger stored motions manually here. This selection does not change MetaHuman or automatic recovery.</p>
 </form>
 <div class="emote-group">
           <span class="field-label">Named poses and emotes</span>
@@ -320,6 +321,45 @@
 
 <section id="gait-history-panel" class="control-section workspace-section" data-workspace-panel="learning-history" aria-labelledby="gait-history-title" hidden>
   <div class="section-heading"><h2 id="gait-history-title">Learning history</h2></div>
+  <details id="neural-gait-panel">
+    <summary>Neural walking · source and training</summary>
+    <p>Train a separate walking policy, inspect its evaluation and watch its simulated movement. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
+    <div class="input-with-actions">
+      <label>Walking source<select id="neural-walking-source"><option value="native">Native gait</option><option value="neural">Selected neural policy</option></select></label>
+      <label>Forward m/s at 100%<input id="neural-walking-forward" type="number" step="any"></label>
+      <label>Lateral m/s at 100%<input id="neural-walking-lateral" type="number" step="any"></label>
+      <label>Yaw rad/s at 100%<input id="neural-walking-yaw" type="number" step="any"></label>
+      <button id="neural-walking-save" type="button">Save walking source</button>
+    </div>
+    <p>These editable scales request speed; they are not measured maximum capabilities. Neural walking uses speed and steering. Direct stride/rate controls belong to the native gait. Saving this selection does not start movement.</p>
+    <p id="neural-walking-result" role="status"></p>
+    <div class="input-with-actions">
+      <button id="neural-gait-refresh" type="button">Refresh neural training</button>
+      <label>Additional training steps<input id="neural-gait-steps" type="number" min="1" step="1000" value="50000"></label>
+      <label>Simulation workers for new runs<input id="neural-gait-workers" type="number" min="1" step="1" value="2"></label>
+      <button id="neural-gait-train" type="button">Train new policy</button>
+    </div>
+    <div class="input-with-actions">
+      <label>Saved run<select id="neural-gait-model"></select></label>
+      <button id="neural-gait-resume" type="button">Continue selected training</button>
+      <button id="neural-gait-load" type="button">Select inference model</button>
+      <button id="neural-gait-render" type="button">Render evaluation trials</button>
+      <button id="neural-gait-progress" type="button">Watch learning progress</button>
+      <button id="neural-gait-preview" type="button">Preview from robot sensors</button>
+    </div>
+    <details><summary>Physics and training command</summary>
+      <p>Total mass is measured. Component mass distribution, actuator strength and friction are estimates. Exploration ranges describe simulation, not measured mechanical stops. Keep the same configuration when resuming a checkpoint.</p>
+      <label>Environment configuration (JSON)<textarea id="neural-gait-environment" rows="12"></textarea></label>
+    </details>
+    <p id="neural-gait-summary" role="status">Refresh to connect to the separate neural gait service.</p>
+    <table><thead><tr><th>Training checkpoint</th><th>Mean trial reward</th><th>Falls / evaluated trials</th></tr></thead><tbody id="neural-gait-checkpoints"></tbody></table>
+    <p>Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.</p>
+    <table><thead><tr><th>Requested</th><th>Measured</th><th>Seconds sampled</th></tr></thead><tbody id="neural-gait-command-results"></tbody></table>
+    <p id="neural-gait-video-note">Progress videos compare the same reference trials at each checkpoint. A deterministic environment uses one trial; varied environments use multiple seeds. Failed trials remain visible.</p>
+    <video id="neural-gait-video" controls loop playsinline hidden style="width:100%;max-width:640px"></video>
+    <p><a id="neural-gait-footage" hidden>Download clean clips, labelled clips and training measurements</a></p>
+    <details><summary>Detailed training measurements</summary><pre id="neural-gait-status"></pre><pre id="neural-gait-prediction"></pre></details>
+  </details>
   <p>Follow measured performance and the changes tried during ordinary walking. Each point is a scored observation, not a whole walk.</p>
   <div class="input-with-actions">
     <button id="gait-history-refresh" type="button">Refresh history</button>
@@ -878,7 +918,7 @@
             </label>
             <p id="calibration-home-reference-help" class="muted"></p>
             <button id="calibration-use-position-button" type="button">Use measured position as Home</button>
-            <p class="muted">Place the selected joint at the stated physical reference, capture its measured position, then Apply &amp; save to robot. Capture replaces the old angle offset with that reference. Each servo keeps its individual Home pulse, direction and scale. Startup still rises to Stand; Home is the calibration pose.</p>
+            <p class="muted">Place the selected joint at the stated physical reference, capture its measured position, then Apply &amp; save to robot. Capture replaces the old angle offset with that reference. Each servo keeps its individual Home pulse, direction and scale. Freestyle generates startup movement; Home is the calibration pose.</p>
             <button id="calibration-use-body-values" type="button">Discard local edits</button>
             <p id="calibration-mapping-help" class="muted" hidden>Home pulse and Model angle at Home describe the same physical pose. Invert reverses angle-driven motion; the pulse test below still sends the exact µs value entered. Apply temporarily sends this joint’s settings without saving them after restart.</p>
           </section>
@@ -928,7 +968,7 @@
   <p class="muted">The fourth servo wire measures shaft position. An ADC reading alone does not prove a wire is connected or a foot is touching the floor.</p>
   <form id="servo-feedback-config" class="calibration-grid">
     <label class="switch-row">Read the multiplexer<input name="enabled" type="checkbox"></label>
-    <label class="switch-row">Verify Stand after each complete stepping pass<input name="stand_enabled" type="checkbox"></label>
+    <label class="switch-row">Verify legacy Stand lift/place and final targets<input name="stand_enabled" type="checkbox"></label>
     <label class="switch-row">Report lack of position progress<input name="jam_enabled" type="checkbox"></label>
     <p id="servo-feedback-jam-support" class="muted"></p>
     <label>Stand goal tolerance (pulse-equivalent µs)<input name="arrival_tolerance_us" type="number" min="1" max="65535" step="1" value="30" required></label>
@@ -939,7 +979,7 @@
     <button type="submit">Save feedback settings</button>
     <button id="servo-feedback-read" type="button">Read from robot</button>
   </form>
-  <p class="muted">Stand runs the complete fold/stepping sequence, then checks the measured joint angles against its target using the Stand goal tolerance. It keeps correcting until that goal is reached and resumes correction if it later sags. If measured joints are short of the goal, it continues the commanded stepping trajectory, prioritizes an affected leg, and checks again after the complete pass. Named motions, reverse lay-down recovery and custom sequences have no intermediate feedback waits. Feedback-controlled Stand uses position shortfalls for corrective stepping, not automatic output release. Its goal tolerance also applies while standing; the separate jam tolerance and timer do not override it. Jam protection remains available for other motions, manual control and holding outside the verified Stand goal. Its window is elapsed time (3000 ms = 3 seconds). Recovery-first firmware reports a possible jam with the affected joints while continuing the current motion or powered hold. Enable Freestyle body-event recovery to let the trained motion model generate a correction. Earlier firmware releases outputs on this observation; the readback above identifies the installed policy. Calibrate all twelve feedback inputs for measured Stand verification. If feedback is missing or outside its calibrated range, the programmed sequence finishes and keeps its target powered, with final position reported as unverified. Corrections resume when usable readings return. These readings do not measure servo supply voltage or limit commanded travel. Stop and replacement commands remain available. Position feedback does not increase motor torque.</p>
+  <p class="muted">The P4 uses servo shaft feedback to complete Freestyle movement targets. Jam and fall events send current shaft positions and gyro data to Freestyle for a corrective sequence. The arrival tolerance applies to target feedback; shaft position alone does not prove foot contact or carpet clearance. The legacy Stand checkbox controls manual library Stand lift/place and final verification. Jam detection reports stalled joints without releasing outputs; enabled Freestyle recovery can generate a correction. Stop, Release and replacement commands retain ownership. Position feedback does not increase motor torque.</p>
   <p id="servo-feedback-motion" role="status"></p>
   <div class="table-scroll"><table>
     <caption>Measured shaft position versus commanded position</caption>

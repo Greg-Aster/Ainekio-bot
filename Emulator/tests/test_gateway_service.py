@@ -11,6 +11,8 @@ from collections.abc import Mapping
 from time import monotonic
 
 import websockets
+from websockets.legacy.server import serve
+from websockets.legacy.client import connect
 
 from emulator.body import BodySession, PortableCore
 from emulator.body.client import BodyClientConfig, HandshakeRejected, ProtocolV1BodyClient
@@ -217,25 +219,27 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(closed['close_code'], 1002)
         self.assertEqual(closed['close_reason'], 'malformed control frame: invalid JSON')
 
-    async def test_named_motion_selection_is_per_robot_and_library_remains_explicit(self):
+    async def test_automatic_requests_use_freestyle_and_library_stays_manual(self):
         from unittest.mock import AsyncMock
         service = GatewayService(GatewayServiceConfig(tokens={}))
         for robot in ("one", "two"):
             service._connections[robot] = GatewayConnection(service, LifecycleSocket(), robot, 1)
         service.queue_intent = AsyncMock(return_value=17)
         service.freestyle_motion = AsyncMock(return_value={"job_id": "model-motion"})
-        service.motion_systems["one"] = "freestyle"
-        self.assertEqual(await service.request_motion("stretch", robot_id="one"),
-                         {"system": "freestyle", "jobId": "model-motion", "state": "submitted"})
-        service.freestyle_motion.assert_awaited_once_with("one", "stretch", execute=True)
-        service.queue_intent.assert_not_awaited()
-        self.assertEqual(await service.request_motion("stretch", robot_id="two"),
-                         {"system": "library", "sequence": 17})
-        service.queue_intent.assert_awaited_once_with("emote", {"asset": "stretch"}, robot_id="two", received_at=None, on_sequence=None)
         service.motion_systems["one"] = "library"
-        await service.request_motion("stand", robot_id="one")
-        service.queue_intent.assert_awaited_with("stand", robot_id="one")
-        self.assertEqual(service.freestyle_motion.await_count, 1)
+        for robot in ("one", "two"):
+            self.assertEqual(await service.request_motion("stretch", robot_id=robot),
+                             {"system": "freestyle", "jobId": "model-motion", "state": "submitted"})
+        service.queue_intent.assert_not_awaited()
+        self.assertEqual(service.freestyle_motion.await_count, 2)
+        # The retained native API is still available for explicit manual control.
+        await service.emote("wave", robot_id="one")
+        service.queue_intent.assert_awaited_once()
+        service.queue_intent.reset_mock()
+        service.freestyle_motion = None
+        with self.assertRaisesRegex(GatewayError, "Freestyle"):
+            await service.request_motion("stand", robot_id="one")
+        service.queue_intent.assert_not_awaited()
 
     async def test_camera_chunks_deliver_audio_before_complete_image_and_preserve_metadata(self):
         from protocol.binary_helpers import encode_binary_frame, CAMERA_CHUNK_FRAME_TYPE, MIC_PCM_FRAME_TYPE
@@ -613,7 +617,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
 
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -675,7 +679,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
 
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -721,7 +725,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
 
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -759,7 +763,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
 
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -802,7 +806,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
 
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -882,7 +886,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
 
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -998,7 +1002,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
                 first_disconnected.set()
 
         service.subscribe_events(record_event)
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -1006,7 +1010,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         ) as server:
             port = server.sockets[0].getsockname()[1]
             uri = f"ws://127.0.0.1:{port}/robot"
-            first = await websockets.connect(uri, ping_interval=None)
+            first = await connect(uri, ping_interval=None)
             await first.send(
                 json.dumps(
                     {
@@ -1024,7 +1028,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(command["seq"], sequence)
             await first.send(json.dumps({"t": "ack", "seq": sequence}))
 
-            second = await websockets.connect(uri, ping_interval=None)
+            second = await connect(uri, ping_interval=None)
             await second.send(
                 json.dumps(
                     {
@@ -1066,14 +1070,14 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
                 ping_interval_s=0.05,
             )
         )
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
             ping_interval=None,
         ) as server:
             port = server.sockets[0].getsockname()[1]
-            socket = await websockets.connect(
+            socket = await connect(
                 f"ws://127.0.0.1:{port}/robot",
                 ping_interval=None,
             )
@@ -1109,14 +1113,14 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         service.subscribe_events(events.append)
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
             ping_interval=None,
         ) as server:
             port = server.sockets[0].getsockname()[1]
-            socket = await websockets.connect(
+            socket = await connect(
                 f"ws://127.0.0.1:{port}/robot",
                 ping_interval=None,
             )
@@ -1147,7 +1151,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         service = GatewayService(
             GatewayServiceConfig(tokens={"ainekio-test-01": "test-token"})
         )
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -1155,7 +1159,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         ) as server:
             port = server.sockets[0].getsockname()[1]
             uri = f"ws://127.0.0.1:{port}/robot"
-            socket = await websockets.connect(uri, ping_interval=None)
+            socket = await connect(uri, ping_interval=None)
             hello = {
                 "t": "hello",
                 "ver": 1,
@@ -1170,7 +1174,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             await socket.wait_closed()
             self.assertEqual(socket.close_code, 4001)
 
-            rejected = await websockets.connect(uri, ping_interval=None)
+            rejected = await connect(uri, ping_interval=None)
             await rejected.send(json.dumps(hello))
             self.assertEqual(json.loads(await rejected.recv()), {"t": "err", "code": "auth"})
             await rejected.wait_closed()
@@ -1206,7 +1210,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             microphone_source=microphone,
         )
 
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -1261,7 +1265,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
             ImmediateMotionBackend(),
             camera_source=camera,
         )
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -1304,7 +1308,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(core.close)
         session = BodySession(core, ImmediateMotionBackend(),
                               camera_source=FixtureCameraSource(b"\xff\xd8fixture\xff\xd9"))
-        async with websockets.serve(service.handler, "127.0.0.1", 0, ping_interval=None) as server:
+        async with serve(service.handler, "127.0.0.1", 0, ping_interval=None) as server:
             port = server.sockets[0].getsockname()[1]
             client = ProtocolV1BodyClient(BodyClientConfig(
                 endpoint=f"ws://127.0.0.1:{port}/robot", robot_id="ainekio-test-01",
@@ -1338,7 +1342,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         core = PortableCore(self.library_path)
         session = BodySession(core, ImmediateMotionBackend())
-        async with websockets.serve(
+        async with serve(
             service.handler,
             "127.0.0.1",
             0,
@@ -1402,6 +1406,474 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         now[0] = 10.2
         with self.assertRaises(ActionExpiredError):
             await service.queue_intent("stand", received_at=10.0)
+
+
+class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_neural_depth_uses_camera_owner_without_waiting_and_releases_on_cancel(self):
+        from gateway.neural_gait.contract import DEPTH_SCHEMA
+        service, connection, socket, requests = self.neural_fixture()
+        original_call = service.neural_gait.call
+        async def call(path, payload=None):
+            result = await original_call(path, payload)
+            if path == "/status":
+                result["environment"]["observation_schema"] = DEPTH_SCHEMA
+            return result
+        service.neural_gait.call = call
+        demands = []
+        async def demand(robot, consumer, enabled, **kwargs):
+            demands.append((robot,consumer,enabled,kwargs))
+            return {"enabled":enabled,"measurement":{"available":False}}
+        service.depth_demand = demand
+        grid = dict(schema="ainekio-depth-grid-v1",rows=8,columns=8,frame="camera-optical",
+            depthKind="optical-axis-z",units="estimated-metres",available=True,values=[.5]*64,valid=[True]*64,
+            imageSize=[640,480],cameraMatrix=[[550,0,320],[0,550,240],[0,0,1]],
+            cameraToBody=None,metricAccuracyVerified=False)
+        frame = dict(robotId="robot",epoch=7,frameId="depth-1",frameCurrent=True,
+            receivedAtMonotonic=service.clock(), available=False,depthSpatial=grid)
+        service.locomotion_measurement = lambda robot: frame
+        walk = await service.queue_intent("walk",{"dir":"fwd","steps":0,"speed":50},robot_id="robot")
+        await connection._handle_control({"t":"ack","seq":walk})
+        await self.neural_packet(connection,walk,1)
+        first, result = await asyncio.wait_for(requests.get(),1)
+        self.assertEqual(first["observation"]["schema"],DEPTH_SCHEMA)
+        self.assertTrue(first["observation"]["vision"]["depth_available"],
+                        "Depth can be valid while odometry is unavailable")
+        self.assertEqual(first["observation"]["vision"]["depth_frame_id"],"depth-1")
+        self.assertEqual(demands[0][3],{"wait_for_measurement":False})
+        producer=connection.neural_walk.task
+        connection.cancel_pending()
+        await asyncio.gather(producer,return_exceptions=True)
+        self.assertEqual([row[2] for row in demands],[True,False])
+        self.assertEqual(demands[0][1],demands[1][1])
+        self.assertTrue(all(row[3]=={"wait_for_measurement":False} for row in demands))
+
+    """Firmware-rate packets reach the existing gateway observation owner."""
+
+    def neural_fixture(self, *, resist_cancel=False):
+        from types import SimpleNamespace
+        from protocol.control_v1 import BODY_COMMANDS_FEATURE, LOCOMOTION_FEATURE, WALK_NOMINAL_FEATURE, WALK_STEERING_FEATURE
+        service = GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
+        class Socket:
+            closed = False
+            def __init__(self):
+                self.sent = []
+                self.targets = asyncio.Queue()
+                self.messages = asyncio.Queue()
+            async def send(self, raw):
+                value = json.loads(raw); self.sent.append(value)
+                self.messages.put_nowait(value)
+                if value["t"] == "walk_target":
+                    self.targets.put_nowait(value)
+            async def close(self, **kwargs):
+                self.closed = True
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 7, model="v2-12servo",
+            features=(BODY_COMMANDS_FEATURE, LOCOMOTION_FEATURE, WALK_NOMINAL_FEATURE, WALK_STEERING_FEATURE),
+            capabilities={"motion":True,"display":True,"commands":["walk","stand","stop"]})
+        service._connections["robot"] = connection
+        profile = {"source":"neural","forward_m_s":.015,"lateral_m_s":.01,"yaw_rad_s":.12}
+        service.walking_sources["robot"] = profile
+        requests = asyncio.Queue()
+        async def call(path, payload=None):
+            if path == "/status":
+                return {"model_id":"selected", "environment":{
+                    "reference_joint_deg":[0.]*12, "target_limits_deg":[[-90,90]]*12,
+                    "foot_action_scale_mm":[30,20,30]}}
+            future = asyncio.get_running_loop().create_future()
+            requests.put_nowait((payload, future))
+            if not resist_cancel:
+                return await future
+            try:
+                return await asyncio.shield(future)
+            except asyncio.CancelledError:
+                # A worker/backend may complete after the host cancels its wait.
+                return await future
+        service.neural_gait = SimpleNamespace(call=call)
+        return service, connection, socket, requests
+
+    async def neural_packet(self, connection, walk, scan, sample=0, quaternion=None):
+        packet = self.packet(scan)
+        if quaternion is not None:
+            packet["data"]["orientation_wxyz"] = quaternion
+        packet["data"]["motion"] = {"sequence":walk,"connection":4,"walk_source":"host",
+            "nominal_sample":sample,"sampled_us":999000+20000*scan,"started_us":1000000,
+            "command":"walk","activity":"moving","phase":"moving","expected_up":[0,0,1]}
+        await connection._handle_control(packet)
+
+    async def test_neural_orientation_reference_preserves_tilt_and_quaternion_continuity(self):
+        import math
+        from gateway.neural_gait.client import observation, walking_orientation_reference
+        def quaternion(yaw, pitch=.2, roll=-.3):
+            cy,sy,cp,sp,cr,sr = math.cos(yaw/2),math.sin(yaw/2),math.cos(pitch/2),math.sin(pitch/2),math.cos(roll/2),math.sin(roll/2)
+            return [cr*cp*cy+sr*sp*sy, sr*cp*cy-cr*sp*sy, cr*sp*cy+sr*cp*sy, cr*cp*sy-sr*sp*cy]
+        for sign in (1,-1):
+            service, connection, _, _ = self.neural_fixture()
+            packet = self.packet()
+            packet["data"]["orientation_wxyz"] = [sign*x for x in quaternion(.7)]
+            packet["data"]["angular_rate_rad_s"] = [.1,.2,.3]
+            packet["data"]["acceleration_m_s2"] = [1,2,9]
+            await connection._handle_control(packet)
+            source = service.body_sensor_observation("robot")
+            reference = walking_orientation_reference(source["imu"]["orientation_wxyz"])
+            value = observation(source, {"target_limits_deg":[[-90,90]]*12}, [.015,0,0], orientation_reference=reference)
+            for actual, expected in zip(value["orientation_wxyz"], quaternion(0)):
+                self.assertAlmostEqual(actual, expected)
+            self.assertEqual(value["angular_rate_rad_s"], [.1,.2,.3])
+            self.assertEqual(value["acceleration_m_s2"], [1,2,9])
+            source["imu"]["orientation_wxyz"] = [sign*x for x in quaternion(.7+3.6)]
+            turned = observation(source, {"target_limits_deg":[[-90,90]]*12}, [.015,0,0], orientation_reference=reference)
+            for actual, expected in zip(turned["orientation_wxyz"], quaternion(3.6)):
+                self.assertAlmostEqual(actual, expected)
+            self.assertLess(turned["orientation_wxyz"][0], 0, "Quaternion sign is fixed at admission, not flipped at 180 degrees")
+            connection.cancel_pending()
+
+    async def test_neural_orientation_reference_survives_steering_and_resets_for_new_walk(self):
+        import math
+        def quaternion(yaw):
+            return [-math.cos(yaw/2),0,0,-math.sin(yaw/2)]
+        service, connection, socket, requests = self.neural_fixture()
+        diagnostics = []
+        service.subscribe_diagnostics(diagnostics.append)
+        walk = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+        await self.neural_packet(connection, walk, 1, quaternion=quaternion(.7))
+        first, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertAlmostEqual(first["observation"]["orientation_wxyz"][0], 1)
+        reference = connection.neural_walk.orientation_reference
+        result.set_result({"model_id":"selected","action":[.1]*12})
+        target = await asyncio.wait_for(socket.targets.get(), 1)
+        await self.neural_packet(connection, walk, 2, target["sample"], quaternion(1.1))
+        second, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertAlmostEqual(second["observation"]["orientation_wxyz"][3], math.sin(.2))
+        await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":70,"forward":100,"turn":20,"update":walk}, robot_id="robot")
+        result.set_result({"model_id":"selected","action":[.2]*12})
+        changed, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertEqual(connection.neural_walk.orientation_reference, reference)
+        self.assertAlmostEqual(changed["observation"]["orientation_wxyz"][3], math.sin(.2))
+        replacement = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+        await self.neural_packet(connection, replacement, 3, quaternion=quaternion(1.1))
+        fresh, _ = await asyncio.wait_for(requests.get(), 1)
+        self.assertAlmostEqual(fresh["observation"]["orientation_wxyz"][0], 1)
+        self.assertAlmostEqual(fresh["observation"]["orientation_wxyz"][3], 0)
+        self.assertNotEqual(connection.neural_walk.orientation_reference, reference)
+        row = next(row for row in diagnostics if row.get("event") == "neural_gait" and "action" in row)
+        self.assertEqual((row["orientation_reference_yaw_rad"], row["orientation_reference_sign"]), reference)
+        connection.cancel_pending()
+
+    async def test_neural_walk_consumption_updates_and_finish_share_original_owner(self):
+        service, connection, socket, requests = self.neural_fixture()
+        diagnostics = []
+        service.subscribe_diagnostics(diagnostics.append)
+        walk = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+        self.assertEqual(socket.sent[0]["source"], "host")
+        self.assertEqual(socket.sent[0]["twist"], [.0075,0,0])
+        await connection._handle_control({"t":"ack","seq":walk})
+        await self.neural_packet(connection, walk, 1)
+        first, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertEqual(first["observation"]["previous_action"], [0.]*12)
+        # Sensor receipt and unrelated display commands remain live while model waits.
+        await self.neural_packet(connection, walk, 2)
+        await service.queue_intent("face", {"expr":"neutral"}, robot_id="robot")
+        result.set_result({"model_id":"selected","action":[.1]*12})
+        target = await asyncio.wait_for(socket.targets.get(), 1)
+        self.assertEqual(target["walk"], walk)
+        self.assertEqual(target["feet_mm"], [3,2,3]*4)
+        await connection._handle_control({"t":"ack","seq":target["seq"]})
+        self.assertIn(walk, connection.pending)
+        self.assertNotIn(target["seq"], connection.pending)
+        pending, slow = await asyncio.wait_for(requests.get(), 1)
+        self.assertEqual(pending["observation"]["previous_action"], [0.]*12)
+        await self.neural_packet(connection, walk, 3, target["sample"])
+        slow.set_result({"model_id":"selected","action":[.2]*12})
+        overlapping = await asyncio.wait_for(socket.targets.get(), 1)
+        self.assertEqual(overlapping["sample"], target["sample"]+1,
+            "New consumption during inference does not discard a valid result")
+        self.assertEqual(overlapping["feet_mm"], [6,4,6]*4)
+        consumed, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertEqual(consumed["observation"]["previous_action"], [.1]*12)
+        update = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":80,
+            "forward":50,"turn":25,"update":walk}, robot_id="robot")
+        self.assertEqual(socket.sent[-1]["twist"], [.006,0,.024])
+        self.assertNotIn("reference_cd", socket.sent[-1])
+        result.set_result({"model_id":"selected","action":[.2]*12})
+        changed, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertEqual(changed["observation"]["command"], [.006,0,.024])
+        result.set_result({"model_id":"selected","action":[.3]*12})
+        target2 = await asyncio.wait_for(socket.targets.get(), 1)
+        self.assertEqual(target2["walk"], walk)
+        await self.neural_packet(connection, walk, 4, target2["sample"])
+        _, unfinished = await asyncio.wait_for(requests.get(), 1)
+        await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":0,"update":walk}, robot_id="robot")
+        await asyncio.sleep(0)
+        self.assertIsNone(connection.neural_walk)
+        self.assertTrue(unfinished.cancelled())
+        self.assertTrue(socket.targets.empty())
+        self.assertIn(walk, connection.pending, "Finish still awaits the original body's actual terminal")
+        await connection._handle_control({"t":"done","seq":walk})
+        self.assertNotIn(walk, connection.pending)
+        inference = [row for row in diagnostics if row.get("event") == "neural_gait" and "action" in row]
+        self.assertEqual(len(inference), 3)
+        self.assertEqual(inference[1]["consumed_sample"], 0,
+            "The result retains consumption at observation time")
+        self.assertEqual(inference[2]["consumed_sample"], target["sample"])
+        self.assertEqual(inference[2]["source_profile"], service.walking_sources["robot"])
+        connection.cancel_pending()
+
+    async def test_neural_inference_cannot_restart_after_stop_replacement_or_reconnect(self):
+        for transition in ("stop", "release", "replacement", "reconnect"):
+            with self.subTest(transition=transition):
+                service, connection, socket, requests = self.neural_fixture(resist_cancel=True)
+                walk = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+                await self.neural_packet(connection, walk, 1)
+                _, result = await asyncio.wait_for(requests.get(), 1)
+                if transition in {"stop","release"}:
+                    await service.estop(robot_id="robot", detach=transition=="release")
+                elif transition == "replacement":
+                    await service.queue_intent("stand", robot_id="robot")
+                else:
+                    await connection.close(1000, "reconnect", cancel_code="disconnect")
+                    service._connections["robot"] = GatewayConnection(service, socket, "robot", 8)
+                await asyncio.sleep(0)
+                self.assertFalse(result.cancelled())
+                result.set_result({"model_id":"selected","action":[.4]*12})
+                await asyncio.sleep(0)
+                self.assertIsNone(connection.neural_walk)
+                self.assertFalse(any(row["t"] == "walk_target" for row in socket.sent))
+                connection.cancel_pending()
+
+    async def test_neural_producer_failures_finish_original_walk_and_keep_actual_terminal(self):
+        for failure in ("inference", "model_changed", "target_nak", "unknown_consumption"):
+            with self.subTest(failure=failure):
+                service, connection, socket, requests = self.neural_fixture()
+                diagnostics = []
+                service.subscribe_diagnostics(diagnostics.append)
+                walk = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+                await connection._handle_control({"t":"ack","seq":walk})
+                await self.neural_packet(connection, walk, 1)
+                _, result = await asyncio.wait_for(requests.get(), 1)
+                producer = connection.neural_walk.task
+                original = connection.pending[walk]
+                if failure == "inference":
+                    result.set_exception(ValueError("backend failure"))
+                elif failure == "model_changed":
+                    result.set_result({"model_id":"replacement","action":[.1]*12})
+                elif failure == "unknown_consumption":
+                    await self.neural_packet(connection, walk, 2, 99)
+                else:
+                    result.set_result({"model_id":"selected","action":[.1]*12})
+                    target = await asyncio.wait_for(socket.targets.get(), 1)
+                    await connection._handle_control({"t":"nak","seq":target["seq"],"code":"invalid"})
+                # Finish dispatch is async, but no replacement inference or
+                # invented device completion is allowed on failure.
+                for _ in range(20):
+                    if any("finish_sequence" in row for row in diagnostics):
+                        break
+                    await asyncio.sleep(0)
+                finished = [row for row in diagnostics if "finish_sequence" in row]
+                self.assertEqual(len(finished), 1)
+                if failure in {"inference", "model_changed"}:
+                    self.assertEqual(finished[0]["scan"], 1)
+                    self.assertEqual(finished[0]["consumed_sample"], 0)
+                    self.assertEqual(finished[0]["orientation_reference_yaw_rad"], 0.)
+                finish = socket.sent[-1]
+                self.assertEqual((finish["name"], finish["update"], finish["speed"]), ("walk", walk, 0))
+                self.assertEqual(finish["twist"], [0.,0.,0.])
+                self.assertIsNone(connection.neural_walk)
+                self.assertIn(walk, connection.pending)
+                self.assertFalse(original.future.done())
+                self.assertTrue(original.producer_error)
+                with self.assertRaisesRegex(GatewayError, "producer failed"):
+                    await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50,"update":walk}, robot_id="robot")
+                await connection._handle_control({"t":"ack","seq":finish["seq"]})
+                self.assertFalse(original.future.done(), "Finish ACK is not original physical completion")
+                await connection._handle_control({"t":"done","seq":walk})
+                self.assertEqual(original.future.result()["t"], "done")
+                self.assertEqual(original.future.result()["execution_error"], original.producer_error)
+                await asyncio.gather(producer, return_exceptions=True)
+                connection.cancel_pending()
+
+    async def test_late_neural_target_rejection_does_not_finish_replacement_walk(self):
+        service, connection, socket, requests = self.neural_fixture()
+        walk = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+        await self.neural_packet(connection, walk, 1)
+        _, result = await asyncio.wait_for(requests.get(), 1)
+        result.set_result({"model_id":"selected","action":[.1]*12})
+        target = await asyncio.wait_for(socket.targets.get(), 1)
+        replacement = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":60}, robot_id="robot")
+        await connection._handle_control({"t":"nak","seq":target["seq"],"code":"invalid"})
+        await asyncio.sleep(0)
+        self.assertEqual(connection.neural_walk.sequence, replacement)
+        self.assertFalse(any(row.get("speed") == 0 for row in socket.sent))
+        connection.cancel_pending()
+
+    async def test_neural_failure_reaches_environment_goal_owner_after_body_finish(self):
+        from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
+        service, connection, socket, requests = self.neural_fixture()
+        adapter = EnvironmentAdapter(service, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:", robot_id="robot"))
+        self.addCleanup(adapter.receipts.close)
+        task = asyncio.create_task(adapter.handle_action({"id":"cup", "type":"move", "direction":"forward",
+            "locomotionGoal":{"kind":"visual","target":"coffee cup","completionCriteria":"at the cup"}}))
+        start = await asyncio.wait_for(socket.messages.get(), 1)
+        walk = start["seq"]
+        self.assertEqual((start["name"], start["source"], start["steps"]), ("walk", "host", 0))
+        await connection._handle_control({"t":"ack","seq":walk})
+        await self.neural_packet(connection, walk, 1)
+        _, result = await asyncio.wait_for(requests.get(), 1)
+        result.set_exception(ValueError("inference unavailable"))
+        finish = await asyncio.wait_for(socket.messages.get(), 1)
+        self.assertEqual((finish["update"], finish["speed"]), (walk, 0))
+        self.assertFalse(task.done())
+        await connection._handle_control({"t":"ack","seq":finish["seq"]})
+        await connection._handle_control({"t":"done","seq":walk})
+        feedback = await asyncio.wait_for(task, 1)
+        self.assertEqual(feedback["type"], "failed")
+        self.assertEqual(feedback["message"], "inference unavailable")
+        self.assertEqual(feedback["data"]["sequence"], walk)
+        self.assertEqual(feedback["data"]["bodyTerminal"]["t"], "done")
+        self.assertEqual(feedback["data"]["bodyTerminal"]["seq"], walk)
+        connection.cancel_pending()
+
+    async def test_neural_start_metadata_cannot_overtake_stop_and_native_remains_explicit(self):
+        from types import SimpleNamespace
+        service, connection, socket, requests = self.neural_fixture()
+        original = service.neural_gait
+        waiting, metadata = asyncio.Event(), asyncio.get_running_loop().create_future()
+        async def delayed(path, payload=None):
+            waiting.set()
+            await metadata
+            return await original.call(path, payload)
+        service.neural_gait = SimpleNamespace(call=delayed)
+        start = asyncio.create_task(service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot"))
+        await waiting.wait()
+        await service.estop(robot_id="robot")
+        metadata.set_result(None)
+        with self.assertRaisesRegex(GatewayError, "replaced during"):
+            await start
+        self.assertEqual([row["t"] for row in socket.sent], ["stop"])
+        native = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50,"source":"native"}, robot_id="robot")
+        self.assertEqual(socket.sent[-1]["source"], "native")
+        self.assertIsNone(connection.neural_walk)
+        with self.assertRaisesRegex(GatewayError, "cannot change"):
+            await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50,"source":"host",
+                "twist":[.01,0,0],"update":native}, robot_id="robot")
+        connection.cancel_pending()
+
+    def packet(self, scan=1):
+        clock = 1000000 + 20000 * scan
+        return {"t": "event", "name": "imu", "data": {
+            "boot_id": 71, "timestamp_us": clock - 1000, "age_us": 1000,
+            "available": True, "fresh": True, "startup": False,
+            "calibration_applied": False, "gyro_recovery": False,
+            "acceleration_recovery": False, "accelerometer_ignored": False,
+            "orientation_wxyz": [1, 0, 0, 0], "acceleration_m_s2": [0, 0, 9.80665],
+            "angular_rate_rad_s": [0, 0, 0],
+            "joint_feedback": {"map": 2, "device_us": clock, "scan": scan,
+                "scan_us": 18000, "revision": 4, "enabled": True,
+                "usable_mask": 4094, "commanded_mask": 4093, "stalled_joints": 4,
+                "calibrated_mask": 4095, "unavailable_mask": 0, "clipped_mask": 1,
+                "below_calibration_mask": 0, "above_calibration_mask": 1,
+                "sampled_us": [clock - 16000 + 1000*j for j in range(12)],
+                "filtered_model_deg": [None] + [float(scan + j) for j in range(1, 12)],
+                "velocity_deg_s": [None] + [2.] * 11,
+                "commanded_model_deg": [0., None] + [float(20+j) for j in range(2, 12)]}}}
+
+    async def test_sensor_packets_project_current_scan_without_health_events_or_commands(self):
+        from gateway.neural_gait.client import observation
+        from protocol.control_v1 import validate_control_message
+        from protocol.joints_v2 import JOINT_LABELS
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        connection = GatewayConnection(service, object(), "robot", 7, model="v2-12servo")
+        service._connections["robot"] = connection
+        events = []
+        service.subscribe_events(events.append)
+        health = {"sentinel": "independent slower health event"}
+        connection.last_status = {"servo_feedback": health}
+        connection.body_command_sequence = 123
+        previous = None
+        for scan in range(1, 51):
+            packet = self.packet(scan)
+            validate_control_message(packet)
+            await connection._handle_control(packet)
+            source = service.body_sensor_observation("robot")
+            self.assertEqual(source["epoch"], 7)
+            self.assertEqual(source["feedback"]["scan"], scan)
+            self.assertEqual(source["joints"][JOINT_LABELS[1]]["filtered_model_deg"], scan+1)
+            value = observation(source, {"target_limits_deg": [[-90, 90]]*12}, [.08, 0, 0])
+            self.assertEqual(value["joint_sample_age_s"], [(16000-1000*j)/1e6 for j in range(12)])
+            self.assertEqual(value["imu_sample_age_s"], .001)
+            self.assertFalse(value["joint_usable"][0])
+            self.assertEqual(value["joint_velocity_deg_s"][0], 0)
+            self.assertIsNone(source["joints"][JOINT_LABELS[0]]["filtered_model_deg"])
+            self.assertEqual(source["joints"][JOINT_LABELS[0]]["feedback_faults"], ["clipped", "above_calibration"])
+            self.assertTrue(value["events"]["jam"])
+            self.assertFalse(value["imu_quality"]["calibration_applied"])
+            self.assertEqual(connection.last_status["servo_feedback"], health)
+            if previous is not None:
+                self.assertEqual(previous["feedback"]["scan"], scan-1)
+            previous = source
+        self.assertEqual(connection.body_command_sequence, 123)
+        self.assertEqual([event["t"] for event in events], ["imu"]*50)
+        self.assertEqual(source["feedback"]["health"]["clipped_mask"], 1)
+        await connection._handle_control({"t": "status", "vbat": 0, "rssi": -40,
+            "state": "idle", "uptime": 10, "heap": 10000, "sd": False,
+            "cam_drops": 0, "spk_underruns": 0, "mic_drops": 0})
+        self.assertEqual(service.body_sensor_observation("robot")["feedback"]["scan"], 50)
+        self.assertEqual(connection.last_status["servo_feedback"], health)
+
+    async def test_old_firmware_and_reconnect_never_inherit_old_joint_observations(self):
+        from protocol.control_v1 import validate_control_message
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        first = GatewayConnection(service, object(), "robot", 3, model="v2-12servo")
+        service._connections["robot"] = first
+        await first._handle_control(self.packet())
+        self.assertEqual(service.body_sensor_observation("robot")["epoch"], 3)
+        second = GatewayConnection(service, object(), "robot", 4, model="v2-12servo")
+        service._connections["robot"] = second
+        with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):
+            service.body_sensor_observation("robot")
+        old = self.packet()
+        del old["data"]["joint_feedback"]
+        validate_control_message(old)
+        await second._handle_control(old)
+        with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):
+            service.body_sensor_observation("robot")
+        await second._handle_control(self.packet(2))
+        self.assertEqual(service.body_sensor_observation("robot")["epoch"], 4)
+        # An older-format packet replaces the paired observation; it must not
+        # quietly combine its IMU with joint angles from an earlier packet.
+        await second._handle_control(old)
+        with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):
+            service.body_sensor_observation("robot")
+
+    def test_compact_schema_rejects_incoherent_columns_and_preserves_old_imu(self):
+        from protocol.control_v1 import validate_control_message, ProtocolValidationError
+        from copy import deepcopy
+        from pathlib import Path
+        from Slave.software.tests.protocol.test_contracts import assert_matches_schema, SchemaMismatch
+        schema = json.loads((Path(__file__).resolve().parents[2] /
+            "Slave/software/protocol/schemas/control-v1.schema.json").read_text())
+        original = self.packet()
+        assert_matches_schema(original, schema, schema)
+        old = deepcopy(original)
+        del old["data"]["joint_feedback"]
+        assert_matches_schema(old, schema, schema)
+        validate_control_message(old)
+        for key, value in (("map", 1), ("sampled_us", [0]*11),
+                           ("filtered_model_deg", ["not a number"]*12)):
+            bad = deepcopy(original)
+            bad["data"]["joint_feedback"][key] = value
+            with self.assertRaises(SchemaMismatch):
+                assert_matches_schema(bad, schema, schema)
+        invalid = [("map", 1), ("sampled_us", [0]*11),
+                   ("sampled_us", [original["data"]["joint_feedback"]["device_us"]+1]*12),
+                   ("filtered_model_deg", [0.]*12), ("velocity_deg_s", [None]*12),
+                   ("commanded_model_deg", [None, None]+[0.]*10),
+                   ("usable_mask", 4096), ("filtered_model_deg", [None, float("nan")]+[0.]*10)]
+        for key, value in invalid:
+            with self.subTest(key=key, value=value):
+                packet = deepcopy(original)
+                packet["data"]["joint_feedback"][key] = value
+                with self.assertRaises(ProtocolValidationError):
+                    validate_control_message(packet)
 
 
 if __name__ == "__main__":

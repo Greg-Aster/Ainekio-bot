@@ -76,7 +76,7 @@ ainekio_decision_t ainekio_admission_accept(ainekio_admission_t *a,
         return reject(AINEKIO_REJECT_STALE);
     if (!m || !m->has_command || !m->has_sequence ||
         m->command.sequence != m->sequence || m->command.kind < AINEKIO_COMMAND_INTENT ||
-        m->command.kind > AINEKIO_COMMAND_BALANCE)
+        m->command.kind > AINEKIO_COMMAND_WALK_TARGET)
         return reject(AINEKIO_REJECT_MALFORMED);
     if (a->require_deadline && (!m->has_epoch || m->epoch != a->core.epoch))
         return reject(AINEKIO_REJECT_STALE);

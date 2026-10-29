@@ -81,6 +81,27 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
     }
     *frame=result;return true;
 }
+void ainekio_p4_feedback_observe(const ainekio_p4_feedback_snapshot_t *s,
+    const ainekio_p4_joint_config_t *mapping,const uint16_t *targets,
+    ainekio_p4_feedback_observation_t *out)
+{
+    *out=(ainekio_p4_feedback_observation_t){.enabled=s->config.enabled,
+        .scan=s->scan,.scan_us=s->scan_us,.revision=s->revision};
+    ainekio_p4_feedback_health(s,&out->health);
+    for(unsigned j=0;j<12;j++) {
+        out->sampled_us[j]=s->sampled_us[s->config.joint[j].channel];
+        if(mapping[j].channel<0)continue;
+        double pulse;
+        if(joint_position(s,mapping,j,&pulse,&out->measured))out->usable_mask|=1U<<j;
+        const unsigned target=targets[mapping[j].channel];
+        if(target) {
+            const double direction=mapping[j].invert?-1.:1.;
+            out->commanded.position[j]=mapping[j].home_cd+
+                100.*direction*((double)target-mapping[j].home_us)/mapping[j].us_per_degree;
+            out->commanded_mask|=1U<<j;
+        }
+    }
+}
 /* Check targets after their successful output write. Zero targets omit joints,
  * allowing a moving leg's lift/place check without requiring support arrival.
  * Remaining describes goal error; observations never replace the trajectory. */
