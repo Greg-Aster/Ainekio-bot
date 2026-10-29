@@ -1,23 +1,178 @@
 import asyncio
 import base64
 import json
+import importlib.util
 import math
 import os
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import numpy as np
 
-from gateway.depth_motion import settings, worker_environment
+from gateway.depth_motion import settings, spatial_depth, worker_environment
 from gateway.depth_motion_worker import Estimator, FeatureMap, camera_position, OPTICAL_TO_FORWARD
 from gateway.dashboard.server import DashboardHttpServer
 from gateway.plugins import CameraFramePlugin, _CameraInput
 
 
+@unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use the gait-training environment for optical simulation")
+class SimulatedDepthTests(unittest.TestCase):
+    def setUp(self):
+        import mujoco
+        from gateway.neural_gait.depth import DepthCamera
+        self.mujoco = mujoco
+        self.model = mujoco.MjModel.from_xml_string('''<mujoco><worldbody>
+          <geom name="wall" type="box" pos="0 0 2.5" size="3 3 .5"/>
+          <geom name="inactive" type="box" pos="0 0 1" size="3 3 .1" rgba="1 1 1 0"/>
+          <body name="torso"><freejoint/><geom type="sphere" size=".2"/>
+            <body pos="0 0 .6"><geom type="sphere" size=".3"/></body>
+          </body></worldbody></mujoco>''')
+        self.data = mujoco.MjData(self.model)
+        mujoco.mj_forward(self.model,self.data)
+        self.profile = dict(cameraMatrix=[[4,0,4],[0,4,4],[0,0,1]],imageSize=[8,8],
+            cameraToBody=np.eye(4).tolist(),capture_hz=2.,latency_s=.2,
+            dropout_probability=0.,noise_std_m=0.,provenance={"kind":"test fixture"})
+        self.camera = DepthCamera(self.profile)
+        self.rng = np.random.default_rng(4)
+
+    def capture(self, time):
+        self.data.time = time
+        return self.camera.update(self.model,self.data,self.rng,robot_id="robot",epoch=2,gateway_instance="fixture")
+
+    def test_actual_optical_z_rays_exclude_robot_and_preserve_capture_latency(self):
+        from gateway.neural_gait.depth import project_depth
+        self.assertFalse(self.capture(0)["frameCurrent"])
+        self.assertFalse(self.capture(.1)["frameCurrent"])
+        first = self.capture(.2)
+        np.testing.assert_allclose(first["depthSpatial"]["values"],2.)
+        self.assertEqual(first["receivedAtMonotonic"],0.)
+        self.assertEqual(first["deliveryAtSimulationS"],.2)
+        projected = project_depth(first,.2,"robot",2)
+        self.assertTrue(projected["depth_available"])
+        self.assertAlmostEqual(projected["age_s"],.2)
+        self.assertFalse(first["available"], "Depth does not invent odometry")
+        self.data.qpos[2] = .5
+        self.mujoco.mj_forward(self.model,self.data)
+        held = self.capture(.5)
+        self.assertEqual(held["frameId"],first["frameId"])
+        second = self.capture(.7)
+        np.testing.assert_allclose(second["depthSpatial"]["values"],1.5)
+        self.assertNotEqual(second["frameId"],first["frameId"])
+        self.assertAlmostEqual(project_depth(second,.7,"robot",2)["age_s"],.2)
+        self.assertFalse(project_depth(second,.7,"robot",3)["depth_available"])
+        self.assertFalse(project_depth({**second,"frameCurrent":False},.7,"robot",2)["depth_available"])
+
+    def test_dropout_missing_rays_and_seeded_noise_do_not_create_fake_ranges(self):
+        from gateway.neural_gait.depth import DepthCamera, project_depth
+        camera = DepthCamera({**self.profile,"latency_s":0,"dropout_probability":1.})
+        missing = camera.update(self.model,self.data,self.rng,robot_id="robot",epoch=2,gateway_instance="fixture")
+        self.assertEqual(missing["depthSpatial"]["valid"],[False]*64)
+        self.assertFalse(project_depth(missing,0,"robot",2)["depth_available"])
+        camera = DepthCamera({**self.profile,"latency_s":0})
+        missing = camera.update(self.model,self.data,self.rng,robot_id="robot",epoch=2,gateway_instance="fixture",
+            geom_mask=np.zeros(self.model.ngeom,dtype=bool))
+        self.assertEqual(missing["depthSpatial"]["values"],[None]*64)
+        profile = {**self.profile,"latency_s":0,"noise_std_m":.01,"dropout_probability":.2}
+        one = DepthCamera(profile).update(self.model,self.data,np.random.default_rng(5),robot_id="r",epoch=1,gateway_instance="s")
+        two = DepthCamera(profile).update(self.model,self.data,np.random.default_rng(5),robot_id="r",epoch=1,gateway_instance="s")
+        self.assertEqual(one,two)
+        self.assertNotEqual(one["depthSpatial"]["values"],[2.]*64)
+        json.dumps(one,allow_nan=False)
+        expiring = DepthCamera({**self.profile,"max_frame_age_s":.3})
+        for now in (0,.2,.4):
+            latest = expiring.update(self.model,self.data,self.rng,robot_id="r",epoch=1,
+                gateway_instance="s",now_s=now)
+        self.assertFalse(latest["frameCurrent"])
+        self.assertAlmostEqual(project_depth(latest,.4,"r",1)["age_s"],.4)
+        self.assertFalse(project_depth(latest,.4,"r",1)["depth_available"])
+
+    def test_assumed_ray_pose_does_not_publish_unknown_physical_extrinsics(self):
+        from gateway.neural_gait.depth import DepthCamera, project_depth
+        from gateway.neural_gait.contract import spatial_features
+        transform = np.eye(4)
+        transform[2,3] = .25
+        camera = DepthCamera({**self.profile,"latency_s":0,
+            "cameraToBody":transform.tolist(),"publish_camera_to_body":False})
+        measurement = camera.update(self.model,self.data,self.rng,
+            robot_id="robot",epoch=2,gateway_instance="fixture")
+        grid = measurement["depthSpatial"]
+        np.testing.assert_allclose(grid["values"],1.75)
+        self.assertIsNone(grid["cameraToBody"])
+        self.assertEqual(grid["extrinsicsSource"],"unavailable")
+        features = spatial_features(project_depth(measurement,0,"robot",2))
+        self.assertEqual(features[-15:-3],[0.]*12)
+        self.assertEqual(features[-3:],[1.,0.,0.])
+        self.assertEqual(self.camera._encode()["cameraToBody"],np.eye(4).tolist())
+
+
 class DepthGeometryTests(unittest.TestCase):
+    def test_spatial_projection_uses_camera_freshness_identity_and_receipt_age(self):
+        from gateway.neural_gait.depth import project_depth
+        grid = spatial_depth(np.ones((8,8)),np.eye(3),units="estimated-metres",
+            scale_source="learned-metric-estimate",intrinsics_source="model-estimated")
+        measurement = dict(depthSpatial=grid,robotId="robot",epoch=2,frameCurrent=True,
+            receivedAtMonotonic=10.,available=False)
+        result = project_depth(measurement,10.2,"robot",2)
+        self.assertTrue(result["depth_available"])
+        self.assertAlmostEqual(result["age_s"],.2)
+        self.assertEqual(result["depth_min_m"],1.)
+        self.assertEqual(result["depthSpatial"]["units"],"estimated-metres")
+        for changes in ({"robotId":"other"},{"epoch":3},{"frameCurrent":False},
+                        {"receivedAtMonotonic":11.},{"receivedAtMonotonic":float("nan")},
+                        {"receivedAtMonotonic":float("inf")},{"receivedAtMonotonic":None}):
+            with self.subTest(changes=changes):
+                self.assertFalse(project_depth({**measurement,**changes},10.2,"robot",2)["depth_available"])
+
+    def test_spatial_grid_keeps_optical_depth_pixels_and_missing_readings(self):
+        depth = np.arange(16*24, dtype=float).reshape(16,24)+1
+        depth[1,1], depth[1,4], depth[1,7], depth[1,10] = np.nan, np.inf, 0, -1
+        k = np.array([[30.,0,12],[0,31.,8],[0,0,1.]])
+        grid = spatial_depth(depth, k, units="estimated-metres",
+            scale_source="learned-metric-estimate", intrinsics_source="model-estimated")
+        self.assertEqual((grid["rows"],grid["columns"],grid["imageSize"]),(8,8,[24,16]))
+        self.assertEqual(grid["samplePixels"][:5], [[1,1],[4,1],[7,1],[10,1],[13,1]])
+        self.assertEqual(grid["values"][:4], [None]*4)
+        self.assertEqual(grid["valid"][:5], [False]*4+[True])
+        self.assertEqual(grid["values"][4], depth[1,13])
+        self.assertEqual(grid["values"][-1], depth[15,22])
+        np.testing.assert_array_equal(grid["cameraMatrix"], k)
+        self.assertIsNone(grid["cameraToBody"])
+        self.assertFalse(grid["metricAccuracyVerified"])
+        self.assertEqual(grid["depthKind"],"optical-axis-z")
+        json.dumps(grid, allow_nan=False)
+        missing = spatial_depth(np.zeros((16,24)), k, units="metres",
+            scale_source="simulation-geometry", intrinsics_source="explicit-simulation-config")
+        self.assertFalse(missing["available"])
+        self.assertEqual(missing["values"], [None]*64)
+
+    def test_depth_grid_survives_odometry_failure_with_existing_frame_identity(self):
+        import cv2
+        estimator = object.__new__(Estimator)
+        estimator.states, estimator.optics, estimator.model_id = {}, {}, "test-model"
+        k = np.array([[150.,0,80],[0,150.,60],[0,0,1.]])
+        estimator.depth = Mock(return_value=(np.full((120,160),2.,np.float32),k))
+        jpeg = cv2.imencode('.jpg',np.ones((120,160,3),np.uint8)*100)[1].tobytes()
+        request = dict(robot="robot",instance="gateway",epoch=7,counter=42,received=123.,
+            timestamp="2026-10-28T10:00:00+00:00", jpeg=base64.b64encode(jpeg).decode(),
+            config=settings({"mode":"moge-open3d","cameraToBody":OPTICAL_TO_FORWARD.tolist()}))
+        with patch.object(FeatureMap,"process",side_effect=ValueError("tracking lost")):
+            result = estimator.process(request)
+        self.assertFalse(result["available"], "Odometry remains unavailable")
+        self.assertTrue(result["depthSpatial"]["available"], "Independent depth pixels remain observations")
+        self.assertEqual(result["depthSpatial"]["values"], [2.]*64)
+        self.assertEqual(result["depthSpatial"]["cameraToBody"],OPTICAL_TO_FORWARD.tolist())
+        self.assertEqual(result["depthSpatial"]["extrinsicsSource"],"configured-transform")
+        self.assertFalse(result["depthSpatial"]["metricAccuracyVerified"])
+        self.assertEqual(result["frameCounter"],42)
+        self.assertEqual(result["epoch"],7)
+        self.assertEqual(result["frameId"],"ainekio-camera-gateway-robot-7-42")
+        self.assertEqual(result["receivedAtMonotonic"],123.)
+        self.assertEqual(result["observedAt"],request["timestamp"])
+
     def test_cpu_recognition_cannot_hide_depth_gpu_allocation(self):
         with patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": ""}, clear=True):
             with patch("gateway.depth_motion._LAUNCH_CUDA_VISIBLE_DEVICES", None):
@@ -261,6 +416,81 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("robot", self.camera._metric_ready)
         self.assertNotIn("robot", self.camera._metric_latest)
         await self.camera.depth_demand("robot", "navigation", False)
+
+
+    async def held_depth(self, *, fail_first=False):
+        entered, release = asyncio.Event(), threading.Event()
+        self.addCleanup(release.set)
+        loop = asyncio.get_running_loop()
+        calls = 0
+        def process(*args):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                loop.call_soon_threadsafe(entered.set)
+                if not release.wait(10):
+                    raise AssertionError("Test did not release depth inference")
+                if fail_first:
+                    raise ValueError("Old depth generation failed")
+            return {"available": True, "robotId": "robot", "epoch": 1,
+                "receivedAtMonotonic": 10., "referenceId": f"reference-{calls}"}
+        depth = Mock(process=Mock(side_effect=process))
+        self.camera._depth_motion = depth
+        self.camera._depth_settings["robot"] = settings({"mode": "moge-open3d"})
+        self.camera._metric_frames["robot"] = (_CameraInput("robot", 1, 1, 10., b"jpg"),
+            "2026-10-22T00:00:00+00:00")
+        result = await self.camera.depth_demand("robot", "recorder", True, wait_for_measurement=False)
+        self.assertFalse(result["measurement"]["available"])
+        await asyncio.wait_for(entered.wait(), 1)
+        return depth, release
+
+    async def test_cancelled_release_still_unloads_after_inflight_inference(self):
+        depth, finish_inference = await self.held_depth()
+        release = asyncio.create_task(self.camera.depth_demand("robot", "recorder", False))
+        await asyncio.sleep(0)
+        self.assertFalse(self.camera._metric_consumers)
+        self.assertFalse(release.done())
+        release.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await release
+        depth.close.assert_not_called()
+        finish_inference.set()
+        await self.camera._metric_queue.join()
+        await asyncio.get_running_loop().run_in_executor(self.camera._metric_executor, lambda: None)
+        depth.close.assert_called_once()
+        self.assertIsNone(self.camera._depth_motion)
+        self.assertNotIn("robot", self.camera._metric_latest)
+
+    async def test_old_failed_inference_does_not_resolve_new_navigation_read(self):
+        depth, finish_inference = await self.held_depth(fail_first=True)
+        await self.camera.depth_demand("robot", "recorder", False, wait_for_measurement=False)
+        navigation = asyncio.create_task(self.camera.depth_demand("robot", "navigation", True))
+        await asyncio.sleep(0)
+        self.assertIn("robot", self.camera._metric_ready)
+        with self.assertLogs("gateway.plugins", level="WARNING"):
+            finish_inference.set()
+            result = await asyncio.wait_for(navigation, 1)
+        self.assertTrue(result["measurement"]["available"])
+        self.assertEqual(result["measurement"]["referenceId"], "reference-2")
+        depth.reset.assert_called_once_with("robot")
+        depth.close.assert_not_called()
+        self.assertEqual(self.camera._metric_consumers, {"navigation": "robot"})
+        await self.camera.depth_demand("robot", "navigation", False)
+        depth.close.assert_called_once()
+
+    async def test_passive_release_reports_cleanup_failure(self):
+        self.camera._metric_consumers["recorder"] = "robot"
+        depth = self.camera._depth_motion = Mock()
+        depth.close.side_effect = RuntimeError("Depth unload failed")
+        try:
+            with self.assertLogs("gateway.plugins", level="ERROR") as observed:
+                result = await self.camera.depth_demand("robot", "recorder", False, wait_for_measurement=False)
+                await asyncio.get_running_loop().run_in_executor(self.camera._metric_executor, lambda: None)
+            self.assertEqual(result, {"enabled": False})
+            self.assertFalse(self.camera._metric_consumers)
+            self.assertIn("Depth unload failed", observed.output[0])
+        finally:
+            depth.close.side_effect = None
 
 
 if __name__ == "__main__":

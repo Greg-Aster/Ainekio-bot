@@ -1,81 +1,740 @@
 {
   "protocol": 1,
   "cases": [
-    {"name":"v2_measured_speed_targets","requires_feature":"motion_targets_v1","message":{"t":"motion_plan","seq":97,"map":2,"control":"targets","frames":[[9000,[0,0,0,0,0,0,0,0,0,0,0,0]],[4500,[100,100,100,100,100,100,100,100,100,100,100,100]]],"end":"hold"}},
-    {"name": "crab_lateral_update", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 52, "name": "walk", "dir": "side_l", "steps": 0, "gait": "crab", "speed": 50, "forward": 25, "turn": 0, "lateral": -80, "update": 50}},
-
-    {"name": "camera_hd_manual_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "960P", "exposure_us": 50000, "gain_x16": 64, "jpeg_quality": 85}},
-    {"name": "camera_fhd_auto_controls", "message": {"t": "cam", "seq": 42, "on": true, "fps": 3, "res": "FHD", "exposure_us": 0, "gain_x16": 0, "jpeg_quality": 75}},
-    {"name": "speaker_volume_0", "message": {"t": "speaker", "seq": 1, "volume_percent": 0}, "receiver": "body"},
-    {"name": "speaker_volume_37", "message": {"t": "speaker", "seq": 1, "volume_percent": 37}, "receiver": "body"},
-    {"name": "speaker_volume_100", "message": {"t": "speaker", "seq": 1, "volume_percent": 100}, "receiver": "body"},
-    {"name": "mic_gain_0", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 0}},
-    {"name": "mic_gain_6", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 6}},
-    {"name": "mic_gain_12", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 12}},
-    {"name": "mic_gain_18", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 18}},
-    {"name": "mic_gain_24", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 24}},
-    {"name": "mic_gain_30", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 30}},
-    {"name": "mic_gain_36", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 36}},
-    {"name": "mic_gain_42", "message": {"t": "mic", "seq": 1, "on": true, "gate": "wake", "gain_db": 42}},
-    {"name": "wake_threshold_0", "message": {"t": "wake", "seq": 2, "enabled": true, "model": "ainekio", "threshold": 0}},
-    {"name": "wake_threshold_0.4", "message": {"t": "wake", "seq": 2, "enabled": true, "model": "ainekio", "threshold": 0.4}},
-    {"name": "wake_threshold_1", "message": {"t": "wake", "seq": 2, "enabled": true, "model": "ainekio", "threshold": 1}},
-    {"name": "ping_input_meter", "receiver": "gateway", "message": {"t": "ping", "clock_ms": 12000, "audio": {"on": true, "listening": true, "wake_enabled": true, "gate": "wake", "gain_db": 36, "wake_threshold": 0.4, "rms": 0.08, "peak": 0.24}}},
-    {"name": "pong_input_meter", "receiver": "gateway", "message": {"t": "pong", "clock_ms": 12000, "audio": {"on": true, "listening": true, "wake_enabled": true, "gate": "wake", "gain_db": 36, "wake_threshold": 0.4, "rms": 0.08, "peak": 0.24}}},
-    {"name": "walk_forward_turn", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 50, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "forward": 70, "turn": 30}},
-    {"name": "walk_reverse_steering_update", "requires_feature": "walk_controls_v2", "message": {"t": "intent", "seq": 51, "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 50, "forward": -50, "turn": -30, "update": 50}},
-    {"name": "independent_camera_profiles", "message": {"t": "cam", "seq": 40, "on": true, "fps": 5, "res": "QVGA", "snapshot_res": "XGA"}},
-    {"name": "snapshot_profile_with_stream_off", "message": {"t": "cam", "seq": 41, "on": false, "fps": 0, "res": "VGA", "snapshot_res": "VGA"}},
-    {"name": "body_calibration_move_1", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 1}},
-    {"name": "body_calibration_move_499", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 499}},
-    {"name": "body_calibration_move_2501", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 2501}},
-    {"name": "body_calibration_move_3000", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 3000}},
-    {"name": "body_calibration_move_65535", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 65535}},
-    {"name": "body_calibration_home_wire_range", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 3000, "invert": false}},
-    {"name": "body_calibration_status", "receiver": "gateway", "message": {"t": "calibration_status", "seq": 1, "dirty": false, "saved": true, "ready": true, "pulse_min_us": 3, "pulse_max_us": 19986, "joints": [
-      {"id": 0, "channel": 0, "home_us": 1500, "invert": false, "pulse_us": 3000, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 1, "channel": 1, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": -8352, "us_per_degree": 11.111111},
-      {"id": 2, "channel": 2, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 3, "channel": 3, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 4, "channel": 4, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 5, "channel": 5, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 6, "channel": 6, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 7, "channel": 7, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 8, "channel": 8, "home_us": 1500, "invert": false, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 9, "channel": 9, "home_us": 1500, "invert": true, "pulse_us": 1500, "home_cd": 0, "us_per_degree": 11.111111},
-      {"id": 10, "channel": 10, "home_us": 1495, "invert": false, "pulse_us": 1495, "home_cd": 0, "us_per_degree": 10},
-      {"id": 11, "channel": -1, "home_us": 1500, "invert": false, "pulse_us": 0, "home_cd": 0, "us_per_degree": 11.111111}
-    ]}},
-    {"name": "storage_status", "receiver": "gateway", "message": {"t": "storage_status", "seq": 1, "available": true, "mounted": true, "busy": false, "total_bytes": 1048576, "free_bytes": 524288, "dropped_records": 0, "error": ""}},
-    {"name": "body_calibration_mapping", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 11, "channel": 11, "home_us": 1500, "invert": true, "home_cd": -8352, "us_per_degree": 11.111111, "epoch": 9, "deadline_ms": 12345}},
-    {"name": "storage_get", "requires_feature": "storage_control_v1", "message": {"t": "storage", "seq": 1, "op": "get", "epoch": 9, "deadline_ms": 12345}},
-    {"name": "storage_retry", "requires_feature": "storage_control_v1", "message": {"t": "storage", "seq": 1, "op": "retry", "epoch": 9, "deadline_ms": 12345}},
-    {"name": "storage_clear", "requires_feature": "storage_control_v1", "message": {"t": "storage", "seq": 1, "op": "clear", "epoch": 9, "deadline_ms": 12345}},
-    {"name": "body_calibration_get", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "get", "epoch": 9, "deadline_ms": 12345}},
-    {"name": "body_calibration_move", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "move", "id": 11, "pulse_us": 1505, "epoch": 9, "deadline_ms": 12345}},
-    {"name": "body_calibration_set", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "set", "id": 8, "channel": 8, "home_us": 1505, "invert": false, "epoch": 9, "deadline_ms": 12345}},
-    {"name": "body_calibration_home", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "home", "id": 6, "epoch": 9, "deadline_ms": 12345}},
-    {"name": "body_calibration_save", "requires_feature": "body_calibration_v2", "message": {"t": "calibration", "seq": 1, "op": "save", "epoch": 9, "deadline_ms": 12345}},
+    {
+      "name": "v2_measured_speed_targets",
+      "requires_feature": "motion_targets_v1",
+      "message": {
+        "t": "motion_plan",
+        "seq": 97,
+        "map": 2,
+        "control": "targets",
+        "frames": [
+          [
+            9000,
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            4500,
+            [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ]
+          ]
+        ],
+        "end": "hold"
+      }
+    },
+    {
+      "name": "crab_lateral_update",
+      "requires_feature": "walk_controls_v2",
+      "message": {
+        "t": "intent",
+        "seq": 52,
+        "name": "walk",
+        "dir": "side_l",
+        "steps": 0,
+        "gait": "crab",
+        "speed": 50,
+        "forward": 25,
+        "turn": 0,
+        "lateral": -80,
+        "update": 50
+      }
+    },
+    {
+      "name": "camera_hd_manual_controls",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 3,
+        "res": "960P",
+        "exposure_us": 50000,
+        "gain_x16": 64,
+        "jpeg_quality": 85
+      }
+    },
+    {
+      "name": "camera_fhd_auto_controls",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 3,
+        "res": "FHD",
+        "exposure_us": 0,
+        "gain_x16": 0,
+        "jpeg_quality": 75
+      }
+    },
+    {
+      "name": "speaker_volume_0",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": 0
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "speaker_volume_37",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": 37
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "speaker_volume_100",
+      "message": {
+        "t": "speaker",
+        "seq": 1,
+        "volume_percent": 100
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "mic_gain_0",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 0
+      }
+    },
+    {
+      "name": "mic_gain_6",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 6
+      }
+    },
+    {
+      "name": "mic_gain_12",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 12
+      }
+    },
+    {
+      "name": "mic_gain_18",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 18
+      }
+    },
+    {
+      "name": "mic_gain_24",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 24
+      }
+    },
+    {
+      "name": "mic_gain_30",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 30
+      }
+    },
+    {
+      "name": "mic_gain_36",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 36
+      }
+    },
+    {
+      "name": "mic_gain_42",
+      "message": {
+        "t": "mic",
+        "seq": 1,
+        "on": true,
+        "gate": "wake",
+        "gain_db": 42
+      }
+    },
+    {
+      "name": "wake_threshold_0",
+      "message": {
+        "t": "wake",
+        "seq": 2,
+        "enabled": true,
+        "model": "ainekio",
+        "threshold": 0
+      }
+    },
+    {
+      "name": "wake_threshold_0.4",
+      "message": {
+        "t": "wake",
+        "seq": 2,
+        "enabled": true,
+        "model": "ainekio",
+        "threshold": 0.4
+      }
+    },
+    {
+      "name": "wake_threshold_1",
+      "message": {
+        "t": "wake",
+        "seq": 2,
+        "enabled": true,
+        "model": "ainekio",
+        "threshold": 1
+      }
+    },
+    {
+      "name": "ping_input_meter",
+      "receiver": "gateway",
+      "message": {
+        "t": "ping",
+        "clock_ms": 12000,
+        "audio": {
+          "on": true,
+          "listening": true,
+          "wake_enabled": true,
+          "gate": "wake",
+          "gain_db": 36,
+          "wake_threshold": 0.4,
+          "rms": 0.08,
+          "peak": 0.24
+        }
+      }
+    },
+    {
+      "name": "pong_input_meter",
+      "receiver": "gateway",
+      "message": {
+        "t": "pong",
+        "clock_ms": 12000,
+        "audio": {
+          "on": true,
+          "listening": true,
+          "wake_enabled": true,
+          "gate": "wake",
+          "gain_db": 36,
+          "wake_threshold": 0.4,
+          "rms": 0.08,
+          "peak": 0.24
+        }
+      }
+    },
+    {
+      "name": "walk_forward_turn",
+      "requires_feature": "walk_controls_v2",
+      "message": {
+        "t": "intent",
+        "seq": 50,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "gait": "walk",
+        "speed": 50,
+        "forward": 70,
+        "turn": 30
+      }
+    },
+    {
+      "name": "walk_reverse_steering_update",
+      "requires_feature": "walk_controls_v2",
+      "message": {
+        "t": "intent",
+        "seq": 51,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "gait": "walk",
+        "speed": 50,
+        "forward": -50,
+        "turn": -30,
+        "update": 50
+      }
+    },
+    {
+      "name": "independent_camera_profiles",
+      "message": {
+        "t": "cam",
+        "seq": 40,
+        "on": true,
+        "fps": 5,
+        "res": "QVGA",
+        "snapshot_res": "XGA"
+      }
+    },
+    {
+      "name": "snapshot_profile_with_stream_off",
+      "message": {
+        "t": "cam",
+        "seq": 41,
+        "on": false,
+        "fps": 0,
+        "res": "VGA",
+        "snapshot_res": "VGA"
+      }
+    },
+    {
+      "name": "body_calibration_move_1",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 1
+      }
+    },
+    {
+      "name": "body_calibration_move_499",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 499
+      }
+    },
+    {
+      "name": "body_calibration_move_2501",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 2501
+      }
+    },
+    {
+      "name": "body_calibration_move_3000",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 3000
+      }
+    },
+    {
+      "name": "body_calibration_move_65535",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 65535
+      }
+    },
+    {
+      "name": "body_calibration_home_wire_range",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 3000,
+        "invert": false
+      }
+    },
+    {
+      "name": "body_calibration_status",
+      "receiver": "gateway",
+      "message": {
+        "t": "calibration_status",
+        "seq": 1,
+        "dirty": false,
+        "saved": true,
+        "ready": true,
+        "pulse_min_us": 3,
+        "pulse_max_us": 19986,
+        "joints": [
+          {
+            "id": 0,
+            "channel": 0,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 3000,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 1,
+            "channel": 1,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": -8352,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 2,
+            "channel": 2,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 3,
+            "channel": 3,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 4,
+            "channel": 4,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 5,
+            "channel": 5,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 6,
+            "channel": 6,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 7,
+            "channel": 7,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 8,
+            "channel": 8,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 9,
+            "channel": 9,
+            "home_us": 1500,
+            "invert": true,
+            "pulse_us": 1500,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          },
+          {
+            "id": 10,
+            "channel": 10,
+            "home_us": 1495,
+            "invert": false,
+            "pulse_us": 1495,
+            "home_cd": 0,
+            "us_per_degree": 10
+          },
+          {
+            "id": 11,
+            "channel": -1,
+            "home_us": 1500,
+            "invert": false,
+            "pulse_us": 0,
+            "home_cd": 0,
+            "us_per_degree": 11.111111
+          }
+        ]
+      }
+    },
+    {
+      "name": "storage_status",
+      "receiver": "gateway",
+      "message": {
+        "t": "storage_status",
+        "seq": 1,
+        "available": true,
+        "mounted": true,
+        "busy": false,
+        "total_bytes": 1048576,
+        "free_bytes": 524288,
+        "dropped_records": 0,
+        "error": ""
+      }
+    },
+    {
+      "name": "body_calibration_mapping",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 11,
+        "channel": 11,
+        "home_us": 1500,
+        "invert": true,
+        "home_cd": -8352,
+        "us_per_degree": 11.111111,
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "storage_get",
+      "requires_feature": "storage_control_v1",
+      "message": {
+        "t": "storage",
+        "seq": 1,
+        "op": "get",
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "storage_retry",
+      "requires_feature": "storage_control_v1",
+      "message": {
+        "t": "storage",
+        "seq": 1,
+        "op": "retry",
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "storage_clear",
+      "requires_feature": "storage_control_v1",
+      "message": {
+        "t": "storage",
+        "seq": 1,
+        "op": "clear",
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "body_calibration_get",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "get",
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "body_calibration_move",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "move",
+        "id": 11,
+        "pulse_us": 1505,
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "body_calibration_set",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "set",
+        "id": 8,
+        "channel": 8,
+        "home_us": 1505,
+        "invert": false,
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "body_calibration_home",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "home",
+        "id": 6,
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
+    {
+      "name": "body_calibration_save",
+      "requires_feature": "body_calibration_v2",
+      "message": {
+        "t": "calibration",
+        "seq": 1,
+        "op": "save",
+        "epoch": 9,
+        "deadline_ms": 12345
+      }
+    },
     {
       "name": "hello",
-      "message": {"t": "hello", "ver": 1, "fw": "0.1.0", "id": "ainekio-01", "auth": "REDACTED-TOKEN", "features": ["motion_plan_v1"]}
+      "message": {
+        "t": "hello",
+        "ver": 1,
+        "fw": "0.1.0",
+        "id": "ainekio-01",
+        "auth": "REDACTED-TOKEN",
+        "features": [
+          "motion_plan_v1"
+        ]
+      }
     },
-    {"name": "err_auth", "message": {"t": "err", "code": "auth"}},
-    {"name": "welcome", "message": {"t": "welcome", "ver": 1, "epoch": 13, "profile": "home"}},
-    {"name": "intent_sit", "message": {"t": "intent", "seq": 1, "name": "sit"}},
+    {
+      "name": "err_auth",
+      "message": {
+        "t": "err",
+        "code": "auth"
+      }
+    },
+    {
+      "name": "welcome",
+      "message": {
+        "t": "welcome",
+        "ver": 1,
+        "epoch": 13,
+        "profile": "home"
+      }
+    },
+    {
+      "name": "intent_sit",
+      "message": {
+        "t": "intent",
+        "seq": 1,
+        "name": "sit"
+      }
+    },
     {
       "name": "intent_look",
-      "message": {"t": "intent", "seq": 2, "name": "look", "yaw": -30, "pitch": 10, "ms": 400}
+      "message": {
+        "t": "intent",
+        "seq": 2,
+        "name": "look",
+        "yaw": -30,
+        "pitch": 10,
+        "ms": 400
+      }
     },
     {
       "name": "intent_walk",
-      "message": {"t": "intent", "seq": 3, "name": "walk", "dir": "fwd", "steps": 2}
+      "message": {
+        "t": "intent",
+        "seq": 3,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 2
+      }
     },
-    {"name": "intent_emote", "message": {"t": "intent", "seq": 25, "name": "emote", "asset": "wave"}},
-    {"name": "intent_face", "message": {"t": "intent", "seq": 4, "name": "face", "expr": "happy"}},
-    {"name": "intent_say", "message": {"t": "intent", "seq": 5, "name": "say", "asset": "greeting_1"}},
-    {"name": "stop", "message": {"t": "stop", "seq": 6}},
-    {"name": "emergency_detach", "message": {"t": "stop", "seq": 28, "detach": true}},
+    {
+      "name": "intent_emote",
+      "message": {
+        "t": "intent",
+        "seq": 25,
+        "name": "emote",
+        "asset": "wave"
+      }
+    },
+    {
+      "name": "intent_face",
+      "message": {
+        "t": "intent",
+        "seq": 4,
+        "name": "face",
+        "expr": "happy"
+      }
+    },
+    {
+      "name": "intent_say",
+      "message": {
+        "t": "intent",
+        "seq": 5,
+        "name": "say",
+        "asset": "greeting_1"
+      }
+    },
+    {
+      "name": "stop",
+      "message": {
+        "t": "stop",
+        "seq": 6
+      }
+    },
+    {
+      "name": "emergency_detach",
+      "message": {
+        "t": "stop",
+        "seq": 28,
+        "detach": true
+      }
+    },
     {
       "name": "motion_plan",
       "message": {
@@ -83,41 +742,211 @@
         "seq": 27,
         "map": 1,
         "frames": [
-          [300, [9500, 8500, 9000, 9000, 8000, 10000, 9000, 9000]],
-          [400, [9000, 9000, 9000, 9000, 9000, 9000, 9000, 9000]]
+          [
+            300,
+            [
+              9500,
+              8500,
+              9000,
+              9000,
+              8000,
+              10000,
+              9000,
+              9000
+            ]
+          ],
+          [
+            400,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000
+            ]
+          ]
         ],
         "end": "hold"
       }
     },
-    {"name": "tts_start", "message": {"t": "tts", "seq": 7, "op": "start"}},
-    {"name": "cam", "message": {"t": "cam", "seq": 8, "on": true, "fps": 5, "res": "VGA"}},
-    {"name": "snap", "message": {"t": "snap", "seq": 9}},
-    {"name": "mic", "message": {"t": "mic", "seq": 10, "on": true, "gate": "vad"}},
-    {"name": "wake", "message": {"t": "wake", "seq": 26, "enabled": false, "model": "ainekio"}},
-    {"name": "profile", "message": {"t": "profile", "seq": 11, "name": "tether"}},
-    {"name": "state_idle", "message": {"t": "state", "seq": 12, "name": "idle"}},
-    {"name": "state_sleep", "message": {"t": "state", "seq": 13, "name": "sleep", "sleep_s": 28800}},
-    {"name": "ping", "message": {"t": "ping"}},
-    {"name": "mode", "message": {"t": "mode", "seq": 14, "name": "calibrate"}},
-    {"name": "servo", "message": {"t": "servo", "seq": 15, "id": 0, "deg": 45.0, "ms": 300}},
+    {
+      "name": "tts_start",
+      "message": {
+        "t": "tts",
+        "seq": 7,
+        "op": "start"
+      }
+    },
+    {
+      "name": "cam",
+      "message": {
+        "t": "cam",
+        "seq": 8,
+        "on": true,
+        "fps": 5,
+        "res": "VGA"
+      }
+    },
+    {
+      "name": "snap",
+      "message": {
+        "t": "snap",
+        "seq": 9
+      }
+    },
+    {
+      "name": "mic",
+      "message": {
+        "t": "mic",
+        "seq": 10,
+        "on": true,
+        "gate": "vad"
+      }
+    },
+    {
+      "name": "wake",
+      "message": {
+        "t": "wake",
+        "seq": 26,
+        "enabled": false,
+        "model": "ainekio"
+      }
+    },
+    {
+      "name": "profile",
+      "message": {
+        "t": "profile",
+        "seq": 11,
+        "name": "tether"
+      }
+    },
+    {
+      "name": "state_idle",
+      "message": {
+        "t": "state",
+        "seq": 12,
+        "name": "idle"
+      }
+    },
+    {
+      "name": "state_sleep",
+      "message": {
+        "t": "state",
+        "seq": 13,
+        "name": "sleep",
+        "sleep_s": 28800
+      }
+    },
+    {
+      "name": "ping",
+      "message": {
+        "t": "ping"
+      }
+    },
+    {
+      "name": "mode",
+      "message": {
+        "t": "mode",
+        "seq": 14,
+        "name": "calibrate"
+      }
+    },
+    {
+      "name": "servo",
+      "message": {
+        "t": "servo",
+        "seq": 15,
+        "id": 0,
+        "deg": 45.0,
+        "ms": 300
+      }
+    },
     {
       "name": "limits",
-      "message": {"t": "limits", "seq": 16, "id": 0, "min": 10.0, "max": 170.0, "invert": false, "center": 90.0}
+      "message": {
+        "t": "limits",
+        "seq": 16,
+        "id": 0,
+        "min": 10.0,
+        "max": 170.0,
+        "invert": false,
+        "center": 90.0
+      }
     },
     {
       "name": "pose_save",
-      "message": {"t": "pose_save", "seq": 17, "name": "neutral", "servos": [[0, 90.0], [1, 90.0]]}
+      "message": {
+        "t": "pose_save",
+        "seq": 17,
+        "name": "neutral",
+        "servos": [
+          [
+            0,
+            90.0
+          ],
+          [
+            1,
+            90.0
+          ]
+        ]
+      }
     },
-    {"name": "cal_save", "message": {"t": "cal_save", "seq": 18}},
-    {"name": "ack", "message": {"t": "ack", "seq": 19}},
-    {"name": "ack_sleep", "message": {"t": "ack", "seq": 20, "sleep_s": 28800}},
+    {
+      "name": "cal_save",
+      "message": {
+        "t": "cal_save",
+        "seq": 18
+      }
+    },
+    {
+      "name": "ack",
+      "message": {
+        "t": "ack",
+        "seq": 19
+      }
+    },
+    {
+      "name": "ack_sleep",
+      "message": {
+        "t": "ack",
+        "seq": 20,
+        "sleep_s": 28800
+      }
+    },
     {
       "name": "nak",
-      "message": {"t": "nak", "seq": 21, "code": "unsafe", "msg": "vbat below move threshold"}
+      "message": {
+        "t": "nak",
+        "seq": 21,
+        "code": "unsafe",
+        "msg": "vbat below move threshold"
+      }
     },
-    {"name": "nak_unparseable", "message": {"t": "nak", "code": "malformed"}},
-    {"name": "done", "message": {"t": "done", "seq": 22}},
-    {"name": "cancelled", "message": {"t": "cancelled", "seq": 23, "code": "stop"}},
+    {
+      "name": "nak_unparseable",
+      "message": {
+        "t": "nak",
+        "code": "malformed"
+      }
+    },
+    {
+      "name": "done",
+      "message": {
+        "t": "done",
+        "seq": 22
+      }
+    },
+    {
+      "name": "cancelled",
+      "message": {
+        "t": "cancelled",
+        "seq": 23,
+        "code": "stop"
+      }
+    },
     {
       "name": "status",
       "message": {
@@ -136,20 +965,219 @@
         "wake_ready": false
       }
     },
-    {"name": "event", "message": {"t": "event", "name": "vad_open", "origin_id": 23}},
-    {"name": "cam_meta", "message": {"t": "cam_meta", "res": "XGA", "fps": 0, "counter_base": 1042, "origin": "action", "origin_id": 22}},
-    {"name": "pong", "message": {"t": "pong"}},
+    {
+      "name": "event",
+      "message": {
+        "t": "event",
+        "name": "vad_open",
+        "origin_id": 23
+      }
+    },
+    {
+      "name": "cam_meta",
+      "message": {
+        "t": "cam_meta",
+        "res": "XGA",
+        "fps": 0,
+        "counter_base": 1042,
+        "origin": "action",
+        "origin_id": 22
+      }
+    },
+    {
+      "name": "pong",
+      "message": {
+        "t": "pong"
+      }
+    },
     {
       "name": "forward_compatible_extra_field",
-      "message": {"t": "stop", "seq": 24, "future_field": "ignored"}
+      "message": {
+        "t": "stop",
+        "seq": 24,
+        "future_field": "ignored"
+      }
     },
-    {"name": "balance_calibrate_gyro", "message": {"t": "balance", "seq": 9, "op": "calibrate_gyro"}, "receiver": "body"},
-    {"name": "balance_get", "message": {"t": "balance", "seq": 1, "op": "get"}, "receiver": "body"},
-    {"name": "balance_off", "message": {"t": "balance", "seq": 2, "op": "save", "enabled": false}, "receiver": "body"},
-    {"name": "balance_on", "message": {"t": "balance", "seq": 3, "op": "save", "enabled": true}, "receiver": "body"},
-    {"name": "balance_status", "message": {"t": "balance_status", "seq": 3, "enabled": true, "saved": true, "active": false}, "receiver": "gateway"},
-    {"name": "balance_tuning_save", "receiver": "body", "message": {"t": "balance", "seq": 8, "op": "save", "enabled": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3}},
-    {"name": "balance_tuning_status", "receiver": "gateway", "message": {"t": "balance_status", "seq": 8, "enabled": false, "saved": true, "active": false, "strength": 1.75, "damping": 0.6, "roll_deg": -2, "pitch_deg": 3, "tuning_saved": true}},
-    {"name": "p4_twelve_joint_freestyle_signed_angles_long_frame", "message": {"t": "motion_plan", "seq": 75, "map": 2, "frames": [[12000, [-11768, 23000, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]], "end": "hold"}}
+    {
+      "name": "balance_calibrate_gyro",
+      "message": {
+        "t": "balance",
+        "seq": 9,
+        "op": "calibrate_gyro"
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "balance_get",
+      "message": {
+        "t": "balance",
+        "seq": 1,
+        "op": "get"
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "balance_off",
+      "message": {
+        "t": "balance",
+        "seq": 2,
+        "op": "save",
+        "enabled": false
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "balance_on",
+      "message": {
+        "t": "balance",
+        "seq": 3,
+        "op": "save",
+        "enabled": true
+      },
+      "receiver": "body"
+    },
+    {
+      "name": "balance_status",
+      "message": {
+        "t": "balance_status",
+        "seq": 3,
+        "enabled": true,
+        "saved": true,
+        "active": false
+      },
+      "receiver": "gateway"
+    },
+    {
+      "name": "balance_tuning_save",
+      "receiver": "body",
+      "message": {
+        "t": "balance",
+        "seq": 8,
+        "op": "save",
+        "enabled": false,
+        "strength": 1.75,
+        "damping": 0.6,
+        "roll_deg": -2,
+        "pitch_deg": 3
+      }
+    },
+    {
+      "name": "balance_tuning_status",
+      "receiver": "gateway",
+      "message": {
+        "t": "balance_status",
+        "seq": 8,
+        "enabled": false,
+        "saved": true,
+        "active": false,
+        "strength": 1.75,
+        "damping": 0.6,
+        "roll_deg": -2,
+        "pitch_deg": 3,
+        "tuning_saved": true
+      }
+    },
+    {
+      "name": "p4_twelve_joint_freestyle_signed_angles_long_frame",
+      "message": {
+        "t": "motion_plan",
+        "seq": 75,
+        "map": 2,
+        "frames": [
+          [
+            12000,
+            [
+              -11768,
+              23000,
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ]
+          ]
+        ],
+        "end": "hold"
+      }
+    },
+    {
+      "name": "p4_host_nominal_walk_start",
+      "message": {
+        "t": "intent",
+        "seq": 101,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "speed": 50,
+        "source": "host",
+        "geometry": "compact-35-20-28-38-55-visible-20261005",
+        "reference_cd": [
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163,
+          0,
+          346,
+          -2163
+        ],
+        "twist": [
+          0.08,
+          0,
+          0.1
+        ]
+      }
+    },
+    {
+      "name": "p4_host_nominal_walk_sample",
+      "message": {
+        "t": "walk_target",
+        "seq": 102,
+        "walk": 101,
+        "sample": 1,
+        "geometry": "compact-35-20-28-38-55-visible-20261005",
+        "feet_mm": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          15,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "p4_host_nominal_walk_finish",
+      "message": {
+        "t": "intent",
+        "seq": 103,
+        "name": "walk",
+        "dir": "fwd",
+        "steps": 0,
+        "speed": 0,
+        "source": "host",
+        "update": 101,
+        "twist": [
+          0,
+          0,
+          0
+        ]
+      }
+    }
   ]
 }

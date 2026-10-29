@@ -4,3 +4,9 @@ torch==2.8.0
 botorch==0.15.1
 numpy==2.3.5
 scipy==1.17.0
+mujoco==3.3.7
+gymnasium==1.2.2
+stable-baselines3==2.7.1
+websockets==10.4
+trimesh==4.11.1
+coacd==1.0.7

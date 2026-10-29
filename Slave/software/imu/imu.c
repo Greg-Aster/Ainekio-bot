@@ -8,6 +8,21 @@
 #define GRAVITY_M_S2 9.80665F
 #define RADIANS_PER_DEGREE 0.017453292519943295F
 
+static int signed_le(const uint8_t *p)
+{
+    const unsigned v=(unsigned)p[0] | (unsigned)p[1]<<8;
+    return v<32768 ? (int)v : (int)v-65536;
+}
+void ainekio_imu_lsm6ds3_decode(uint64_t timestamp_us, const uint8_t bytes[12],
+                              ainekio_imu_sample_t *sample)
+{
+    *sample=(ainekio_imu_sample_t){.timestamp_us=timestamp_us};
+    for(unsigned i=0;i<3;i++) {
+        sample->acceleration_m_s2[i]=signed_le(bytes+6+2*i)*AINEKIO_LSM6DS3_ACCEL_LSB_M_S2;
+        sample->angular_rate_rad_s[i]=signed_le(bytes+2*i)*AINEKIO_LSM6DS3_GYRO_LSB_RAD_S;
+    }
+}
+
 ainekio_imu_config_t ainekio_imu_default_config(void)
 {
     return (ainekio_imu_config_t){

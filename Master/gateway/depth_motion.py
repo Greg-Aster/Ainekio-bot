@@ -14,6 +14,56 @@ import sys
 _LAUNCH_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES")
 
 
+def rigid(value):
+    """Shared camera-to-body rigid-transform validation; no vision runtime."""
+    import numpy as np
+    transform = np.asarray(value, dtype=float)
+    if transform.shape != (4, 4) or not np.isfinite(transform).all():
+        raise ValueError("cameraToBody must be a finite (4, 4) array")
+    rotation = transform[:3, :3]
+    if not np.allclose(transform[3], [0, 0, 0, 1]) or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6) or not np.isclose(np.linalg.det(rotation), 1):
+        raise ValueError("cameraToBody must be a rigid transform: body x forward, y left, z up; camera OpenCV axes")
+    return transform
+
+
+def spatial_depth(depth, intrinsics, *, units, scale_source, intrinsics_source,
+                  camera_to_body=None, extrinsics_source="unavailable",
+                  metric_accuracy_verified=False):
+    """Compact camera observation shared by learned depth and virtual cameras.
+
+    Eight rows by eight columns sample the pixel nearest each image-cell center,
+    ordered top-to-bottom then left-to-right. Values are optical-axis Z depths,
+    not ray lengths, body heights, nearest obstacles or traversability. Invalid
+    readings stay null with an explicit mask; no interpolation fills holes.
+    K and samplePixels reconstruct each sampled optical ray. The enclosing
+    camera measurement retains frame/epoch/source/receipt-time identity; consumers
+    derive age at use from that timestamp, never from repeated reads of the grid.
+    """
+    import numpy as np
+    image = np.asarray(depth)
+    k = np.asarray(intrinsics, dtype=float)
+    if image.ndim != 2 or not all(image.shape):
+        raise ValueError("Spatial depth requires a nonempty image")
+    if k.shape != (3, 3) or not np.isfinite(k).all() or k[0, 0] <= 0 or k[1, 1] <= 0:
+        raise ValueError("Spatial depth requires finite positive camera intrinsics")
+    if camera_to_body is not None:
+        camera_to_body = rigid(camera_to_body).tolist()
+    height, width = image.shape
+    pixels = [(min(width-1, int((col+.5)*width/8)),
+               min(height-1, int((row+.5)*height/8)))
+              for row in range(8) for col in range(8)]
+    samples = [float(image[y, x]) for x, y in pixels]
+    valid = [bool(np.isfinite(value) and value > 0) for value in samples]
+    return dict(schema="ainekio-depth-grid-v1", rows=8, columns=8,
+        frame="camera-optical", depthKind="optical-axis-z", units=units,
+        values=[value if ok else None for value, ok in zip(samples, valid)], valid=valid,
+        available=any(valid), samplePixels=[list(pixel) for pixel in pixels],
+        imageSize=[width, height], cameraMatrix=k.tolist(),
+        scaleSource=scale_source, intrinsicsSource=intrinsics_source,
+        cameraToBody=camera_to_body, extrinsicsSource=extrinsics_source,
+        metricAccuracyVerified=bool(metric_accuracy_verified))
+
+
 def worker_environment():
     env = os.environ.copy()
     visible = env.get("AINEKIO_DEPTH_CUDA_VISIBLE_DEVICES", _LAUNCH_CUDA_VISIBLE_DEVICES)
@@ -33,7 +83,6 @@ def settings(value):
         raise ValueError("MoGe resolution level must be 0–9")
     transform = value.get("cameraToBody")
     if transform is not None:
-        from .ground_plane import rigid
         transform = rigid(transform).tolist()
     return {"mode": mode, "resolution_level": level, "cameraToBody": transform}
 

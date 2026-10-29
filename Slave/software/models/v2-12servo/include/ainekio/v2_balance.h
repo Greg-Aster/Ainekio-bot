@@ -7,6 +7,13 @@ typedef struct {
     float strength, damping, roll_deg, pitch_deg;
 } ainekio_v2_balance_tuning_t;
 #define AINEKIO_V2_BALANCE_TUNING_DEFAULT ((ainekio_v2_balance_tuning_t){1.F,1.F,0.F,0.F})
+/* Existing moving-body attitude response, shared by roll/pitch and host yaw.
+ * Error is radians; rate is measured minus requested rad/s. Coefficients are
+ * the established moving-balance gains: 0.4 proportional, 0.05s derivative,
+ * 0.25s response time. This filters only the added correction, not nominal
+ * motion, and adds no motion-admission or completion wait. */
+double ainekio_v2_moving_attitude_response(double correction,double error,
+    double rate,bool usable,double dt,double strength,double damping);
 typedef struct {
     double correction[2], measured[2], applied_fraction;
     bool sensor_usable, reduced;

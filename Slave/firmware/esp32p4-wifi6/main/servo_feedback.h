@@ -22,6 +22,21 @@ typedef struct {
  * measurement of the servo power rail. */
 void ainekio_p4_feedback_health(const ainekio_p4_feedback_snapshot_t *sample,
     ainekio_p4_feedback_health_t *health);
+/* Transport view of one completed acquisition scan, in stable model-joint
+ * order. Usability is the same as feedback_frame; missing values are not zero
+ * positions. This observes outputs, and never drives or verifies a motion. */
+typedef struct {
+    ainekio_v2_frame_t measured, commanded;
+    int64_t sampled_us[12];
+    uint64_t device_us;
+    uint32_t scan, scan_us, revision;
+    uint16_t usable_mask, commanded_mask, stalled_joints;
+    bool enabled;
+    ainekio_p4_feedback_health_t health;
+} ainekio_p4_feedback_observation_t;
+void ainekio_p4_feedback_observe(const ainekio_p4_feedback_snapshot_t *sample,
+    const ainekio_p4_joint_config_t *mapping,const uint16_t *targets,
+    ainekio_p4_feedback_observation_t *out);
 struct cJSON;
 struct cJSON *ainekio_p4_feedback_health_json(void);
 

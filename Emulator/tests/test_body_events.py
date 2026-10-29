@@ -28,22 +28,16 @@ def executing(command="walk", activity="locomotion", phase="motion", tilt=0, sta
 
 
 class BodyEventTests(unittest.TestCase):
-    def test_event_face_suppresses_shake_and_tip_without_delayed_notifications(self):
-        body = BodyEvents()
-        body.configure("p4", {**DEFAULTS, "motion_cooldown_s": 0})
-        self.assertEqual(len(body.observe("p4", 1, sample(1, rate=4))), 1)
-        for at in [2, 400002, 800002]:
-            body.observe("p4", 1, {**sample(at), "face_token": "be_reaction"})
-            self.assertEqual(body.observe("p4", 1,
-                {**sample(at+1, 90, rate=4), "face_token": "be_reaction"}), [])
-            self.assertEqual(body.observe("p4", 1,
-                {**sample(at+300001, 90, rate=4), "face_token": "be_reaction"}), [])
-        # The final shake/tip was already classified while the face was active.
-        self.assertEqual(body.observe("p4", 1, {**sample(1200000, 90, rate=4), "face_token": ""}), [])
-        body.observe("p4", 1, sample(1200001))
-        self.assertEqual(body.observe("p4", 1, sample(1200002, rate=4))[0]["data"]["kind"], "rapid_movement")
-        body.observe("p4", 1, sample(1200003, 90))
-        self.assertEqual(body.observe("p4", 1, sample(1500003, 90))[0]["data"]["kind"], "tipped")
+    def test_reaction_face_does_not_hide_a_fall_or_repeat_a_tipped_episode(self):
+        body = BodyEvents(clock=lambda: 0.0)
+        body.observe("p4", 1, sample(1, rate=4))
+        body.observe("p4", 1, {**sample(2, 90), "face_token": "be_reaction"})
+        events = body.observe("p4", 1, {**sample(300002, 90), "face_token": "be_reaction"})
+        self.assertEqual([e["data"]["kind"] for e in events], ["tipped"])
+        self.assertEqual(body.observe("p4", 1, sample(600002, 90)), [])
+        body.observe("p4", 1, sample(600003))
+        body.observe("p4", 1, sample(600004, 90))
+        self.assertEqual(body.observe("p4", 1, sample(900004, 90))[0]["data"]["kind"], "tipped")
 
     def test_unrelated_face_or_replacement_does_not_suppress_events(self):
         for token in ["", "ordinary_face", "thinking", "a"*32]:
@@ -206,14 +200,14 @@ class BodyEventTests(unittest.TestCase):
         body.configure("p4", {**DEFAULTS, "motion_cooldown_s": 0})
         self.assertEqual(len(body.observe("p4", 2, sample(4, rate=4))), 1)
 
-    def test_shake_and_tip_share_cooldown_without_delaying_notifications(self):
+    def test_tip_bypasses_reaction_cooldown_without_repeating_the_episode(self):
         now = [0.0]
         body = BodyEvents(clock=lambda: now[0])
         body.observe("p4", 1, sample(1, rate=4))
         body.observe("p4", 1, sample(1000, 70))
         now[0] = 0.5
         events = body.observe("p4", 1, sample(301000, 70))
-        self.assertEqual(events, [])
+        self.assertEqual([e["data"]["kind"] for e in events], ["tipped"])
         self.assertEqual(body.wake("p4", 1, "boot")["data"]["kind"], "wake")
         now[0] = 10.0
         self.assertEqual(body.observe("p4", 1, sample(10000000, 70)), [])
@@ -227,7 +221,7 @@ class BodyEventTests(unittest.TestCase):
         now[0] = 20.0
         self.assertEqual(body.observe("p4", 1, sample(10300005, rate=4))[0]["data"]["kind"], "rapid_movement")
         self.assertEqual([e["data"]["kind"] for e in body.recent],
-                         ["rapid_movement", "wake", "tipped", "rapid_movement"])
+                         ["rapid_movement", "tipped", "wake", "tipped", "rapid_movement"])
 
     def test_simultaneous_crossings_emit_one_notification_with_shared_cooldown(self):
         for interval, expected in [(10, ["tipped"]), (0, ["tipped", "rapid_movement"])]:
@@ -238,7 +232,7 @@ class BodyEventTests(unittest.TestCase):
             self.assertEqual([e["data"]["kind"] for e in events], expected)
             self.assertEqual(list(body.recent), events)
 
-    def test_repeated_tip_crossings_also_obey_cooldown(self):
+    def test_new_tip_after_upright_is_reported_during_reaction_cooldown(self):
         now = [0.0]
         body = BodyEvents(clock=lambda: now[0])
         body.observe("p4", 1, sample(1, 70))
@@ -246,7 +240,7 @@ class BodyEventTests(unittest.TestCase):
         body.observe("p4", 1, sample(300002))
         body.observe("p4", 1, sample(300003, 70))
         now[0] = 9.9
-        self.assertEqual(body.observe("p4", 1, sample(600003, 70)), [])
+        self.assertEqual(len(body.observe("p4", 1, sample(600003, 70))), 1)
         body.observe("p4", 1, sample(600004))
         body.observe("p4", 1, sample(600005, 70))
         now[0] = 10.0
@@ -377,10 +371,25 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
             adapter._selected_robot = lambda: ("p4", 17)
             adapter._send_observation = AsyncMock()
             await adapter._handle_gateway_event(event)
-            self.assertEqual(adapter._send_observation.call_args.kwargs,
-                {"body_event": event, "metadata": {"perceptionEvent": "body_event"}})
+            if released:
+                self.assertEqual(adapter._send_observation.call_args.kwargs,
+                    {"body_event": event, "metadata": {"perceptionEvent": "body_event"}})
+            else:
+                adapter._send_observation.assert_not_awaited()
 
-    async def test_reaction_face_does_not_hide_imu_or_generate_more_bridge_events(self):
+    async def test_failed_correction_reaches_environment_even_when_release_failed(self):
+        event=BodyEvents().event("p4",17,"servo_stall",{
+            "joints":[{"id":4,"name":"rear_right_carrier"}],"command_sequence":941,
+            "clock_us":1200000,"outputs_released":False,"correction_failed":True,
+            "release_error":"Body rejected release"})
+        adapter=EnvironmentAdapter(FakeGateway(),EnvironmentAdapterConfig(token="test",receipt_path=":memory:"))
+        adapter._selected_robot=lambda:("p4",17)
+        adapter._send_observation=AsyncMock()
+        await adapter._handle_gateway_event(event)
+        adapter._send_observation.assert_awaited_once_with(
+            body_event=event,metadata={"perceptionEvent":"body_event"})
+
+    async def test_reaction_face_does_not_hide_imu_or_fall_recovery_events(self):
         connection = object.__new__(GatewayConnection)
         connection.robot_id, connection.epoch, connection.last_status = "p4", 17, None
         connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock())
@@ -393,7 +402,7 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
         published = [call.args[0] for call in connection.service._publish_event.call_args_list]
         self.assertEqual(sum(e["t"] == "imu" for e in published), 4)
         events = [e for e in published if e.get("name") == "body_event"]
-        self.assertEqual([e["data"]["kind"] for e in events], ["rapid_movement"])
+        self.assertEqual([e["data"]["kind"] for e in events], ["tipped"])
 
     async def test_only_unexpected_events_reach_the_existing_adapter_reaction_path(self):
         connection = object.__new__(GatewayConnection)

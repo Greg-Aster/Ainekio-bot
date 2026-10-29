@@ -76,6 +76,13 @@ typedef struct {
     uint8_t prescale;
 } ainekio_pca9685_t;
 
+/* Pure timer conversion shared with offline physical replay. These routines
+ * do no I/O and do not arm outputs. The oscillator is configured, not measured. */
+bool ainekio_pca_config_prescale(const ainekio_pca_config_t *config, uint8_t *prescale);
+uint64_t ainekio_pca_pulse_ticks(const ainekio_pca9685_t *driver, uint16_t pulse_us);
+/* Body output channel 0..11; same stagger used by the frame writer. */
+uint16_t ainekio_pca_channel_phase(unsigned channel);
+
 ainekio_pca_result_t ainekio_pca_init(ainekio_pca9685_t *driver,
     const ainekio_pca_port_t *port, const ainekio_pca_config_t *config);
 /* Integer pulse requests that round to 1..4095 counter ticks. These are timer

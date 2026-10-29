@@ -5,7 +5,7 @@ const nodes = new Map(), created = [], calls = [];
 function node(id) {
   if (!nodes.has(id)) nodes.set(id,{value:'',checked:false,dataset:{},listeners:{},children:[],
     append(child){this.children.push(child);}, replaceChildren(){this.children=[];}, addEventListener(type,handler){this.listeners[type]=handler;},
-    after(child){this.nextSibling=child;},click(){this.clicked=true;},
+    after(child){this.nextSibling=child;},click(){this.clicked=true;},scrollIntoView(){this.scrolled=true;},
     querySelector(selector){return node(selector);}});
   return nodes.get(id);
 }
@@ -16,7 +16,7 @@ const context = {window:{},Blob,URL:{createObjectURL(){return 'blob:test';},revo
     calls.push({url,payload,headers:options.headers});
     return {ok:true,json:async()=>url==='/api/session' ? {csrf:'test-csrf'} :
       payload?.operation==='trial' ? {job:{id:'test-job',execute:false}} :
-      payload?.operation==='corrections' ? {corrections:[{review_id:'review-1',request:'Wave to an audience'}]} : {job_id:'test-job'}};
+      payload?.operation==='corrections' ? {corrections:[{review_id:'review-1',title:'Wave trial',request:'Wave to an audience'}]} : {job_id:'test-job'}};
   }};
 vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8'),context);
 (async()=>{
@@ -39,7 +39,13 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   assert.equal(created.at(-1).clicked,true);
   await panel.listeners.click({target:{dataset:{action:'corrections'}}});
   assert.deepEqual(calls.at(-1).payload,{operation:'corrections',robot_id:'another-body'});
-  assert.equal(node('[data-field="correction"]').children[0].textContent,'Wave to an audience');
+  assert.equal(node('[data-field="correction"]').children[0].textContent,'Wave trial');
+  const beforeOpen=calls.length;
+  await context.window.openFreestyleTrials();
+  assert.equal(panel.hidden,false);
+  assert.equal(node('[data-field="correction"]').scrolled,true);
+  assert.deepEqual(calls.slice(beforeOpen).filter(c=>c.payload).map(c=>c.payload.operation),['corrections'],
+    'Opening saved trials loads evidence without moving or publishing training data');
   node('[data-field="correction"]').value='review-1';
   await panel.listeners.click({target:{dataset:{action:'test-correction'}}});
   assert.deepEqual(calls.at(-1).payload,{operation:'test-correction',robot_id:'another-body',review_id:'review-1'});

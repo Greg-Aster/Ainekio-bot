@@ -128,6 +128,9 @@
     },
     {
       "$ref": "#/$defs/balance_status"
+    },
+    {
+      "$ref": "#/$defs/walk_target"
     }
   ],
   "allOf": [
@@ -1069,6 +1072,33 @@
             },
             "update": {
               "$ref": "#/$defs/sequence"
+            },
+            "source": {
+              "enum": [
+                "native",
+                "host"
+              ]
+            },
+            "geometry": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 95
+            },
+            "reference_cd": {
+              "type": "array",
+              "minItems": 12,
+              "maxItems": 12,
+              "items": {
+                "type": "number"
+              }
+            },
+            "twist": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number"
+              }
             }
           },
           "dependentRequired": {
@@ -1220,7 +1250,10 @@
               }
             }
           ],
-          "description": "Extended fields require negotiated walk_controls_v1/v2; paired forward/turn steering additionally requires walk_steering_v1 and walk_controls_v2. Values are signed body-local percentages: positive forward advances, positive turn turns left. ACK confirms admission, not task completion; only the original walk emits DONE/CANCELLED. Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Crab requires crab_gait_v1 and declared Crab commands; side_l/side_r are Crab-only. Feature admission is checked against the connected body."
+          "description": "Extended fields require negotiated walk_controls_v1/v2; paired forward/turn steering additionally requires walk_steering_v1 and walk_controls_v2. Values are signed body-local percentages: positive forward advances, positive turn turns left. ACK confirms admission, not task completion; only the original walk emits DONE/CANCELLED. Speed above 100 or gait run additionally requires run_gait_v1 and a declared Run command. Crab requires crab_gait_v1 and declared Crab commands; side_l/side_r are Crab-only. Feature admission is checked against the connected body.",
+          "x-ainekio-rules": [
+            "host-walk-source"
+          ]
         },
         {
           "type": "object",
@@ -2222,6 +2255,29 @@
       },
       "x-ainekio-rules": [
         "event-origin"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "imu"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "joint_feedback": {
+                    "$ref": "#/$defs/jointFeedback"
+                  }
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "cam_meta": {
@@ -2664,6 +2720,197 @@
         },
         "control": {
           "const": "targets"
+        }
+      }
+    },
+    "jointFeedback": {
+      "type": "object",
+      "required": [
+        "map",
+        "enabled",
+        "device_us",
+        "scan",
+        "scan_us",
+        "revision",
+        "usable_mask",
+        "commanded_mask",
+        "stalled_joints",
+        "calibrated_mask",
+        "unavailable_mask",
+        "clipped_mask",
+        "below_calibration_mask",
+        "above_calibration_mask",
+        "sampled_us",
+        "filtered_model_deg",
+        "velocity_deg_s",
+        "commanded_model_deg"
+      ],
+      "properties": {
+        "map": {
+          "const": 2
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "device_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "scan": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "scan_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "usable_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "commanded_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "stalled_joints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "calibrated_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "unavailable_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "clipped_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "below_calibration_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "above_calibration_mask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "sampled_us": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          }
+        },
+        "filtered_model_deg": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": null
+              }
+            ]
+          }
+        },
+        "velocity_deg_s": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": null
+              }
+            ]
+          }
+        },
+        "commanded_model_deg": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": null
+              }
+            ]
+          }
+        }
+      },
+      "x-ainekio-rules": [
+        "joint-feedback-validity-and-clock"
+      ]
+    },
+    "walk_target": {
+      "x-ainekio-message-type": "walk_target",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "walk",
+        "sample",
+        "geometry",
+        "feet_mm"
+      ],
+      "properties": {
+        "t": {
+          "const": "walk_target"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "walk": {
+          "$ref": "#/$defs/sequence"
+        },
+        "sample": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "geometry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 95
+        },
+        "feet_mm": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": {
+            "type": "number"
+          }
         }
       }
     }

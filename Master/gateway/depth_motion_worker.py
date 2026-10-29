@@ -19,6 +19,11 @@ from uuid import uuid4
 
 import numpy as np
 
+if __package__:
+    from .depth_motion import spatial_depth
+else:  # Existing worker launches this file in its own interpreter.
+    from depth_motion import spatial_depth
+
 
 OPTICAL_TO_FORWARD = np.array([[0., 0, 1, 0], [-1., 0, 0, 0],
                                [0., -1., 0, 0], [0., 0, 0, 1]])
@@ -225,6 +230,12 @@ class Estimator:
             intrinsics=state["intrinsics"].tolist(),
             depth=dict(units="estimated-metres", near=float(lo), far=float(hi),
                        median=float(np.median(good)), validFraction=float((depth > 0).mean())),
+            depthSpatial=spatial_depth(depth, state["intrinsics"],
+                units="estimated-metres", scale_source="learned-metric-estimate",
+                intrinsics_source="model-estimated-per-image-mode",
+                camera_to_body=config.get("cameraToBody"),
+                extrinsics_source="configured-transform" if config.get("cameraToBody") else "unavailable",
+                metric_accuracy_verified=False),
             depthPreview="data:image/png;base64,"+base64.b64encode(png).decode(),
             inferenceMs=(time.perf_counter()-started)*1000)
 

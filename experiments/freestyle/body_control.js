@@ -14,8 +14,9 @@
     <button data-action="execute" type="button">Generate and perform</button>
     <button data-action="refresh" type="button">Refresh result</button>
     <button data-action="save" type="button">Save trial data</button>
-    <button data-action="corrections" type="button">Load saved corrections</button>
-    <label>Corrected motion <select data-field="correction"></select></label>
+    <h3>Saved motion trials</h3>
+    <button data-action="corrections" type="button">Refresh saved motion trials</button>
+    <label>Proposed motion <select data-field="correction"></select></label>
     <button data-action="test-correction" type="button">Test selected correction</button>
     <p>Test the saved program, then record how it looked before adding it to training data.</p>
     <p data-field="recording" aria-live="polite"></p>
@@ -69,6 +70,27 @@
     if (!response.ok) throw new Error(result.error || response.statusText);
     return result;
   }
+  async function loadCorrections(robot) {
+    const result = await post({operation:"corrections",robot_id:robot});
+    field("correction").replaceChildren();
+    for (const correction of result.corrections) {
+      const option = document.createElement("option");
+      option.value = correction.review_id;
+      option.textContent = correction.title || correction.request;
+      field("correction").append(option);
+    }
+    field("correction").dataset.robot = robot;
+    return result;
+  }
+  window.openFreestyleTrials = async () => {
+    const robot = document.getElementById("robot-select").value;
+    panel.hidden = false;
+    field("correction").scrollIntoView({block:"center"});
+    const result = await loadCorrections(robot);
+    field("result").textContent = result.corrections.length
+      ? "Select a saved proposal and use Test selected correction to run it. These proposals are separate from approved training data."
+      : "No saved proposals for this robot.";
+  };
   panel.addEventListener("click", async event => {
     const action = event.target.dataset.action;
     if (!action) return;
@@ -84,15 +106,7 @@
         settingsEdited = false;
         displayedSettings = null;
       } else if (action === "corrections") {
-        result = await post({operation:"corrections",robot_id:robot});
-        field("correction").replaceChildren();
-        for (const correction of result.corrections) {
-          const option = document.createElement("option");
-          option.value = correction.review_id;
-          option.textContent = correction.request;
-          field("correction").append(option);
-        }
-        field("correction").dataset.robot = robot;
+        result = await loadCorrections(robot);
       } else if (action === "test-correction") {
         if (field("correction").dataset.robot !== robot || !field("correction").value) {
           throw new Error("Load and select a saved correction for this robot first.");

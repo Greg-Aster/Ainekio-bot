@@ -8,6 +8,8 @@
 #define AINEKIO_PROTOCOL_VERSION 1U
 #define AINEKIO_WALK_STEERING_FEATURE "walk_steering_v1"
 #define AINEKIO_WALK_LATERAL_FEATURE "walk_lateral_v1"
+#define AINEKIO_WALK_NOMINAL_FEATURE "walk_nominal_v1"
+#define AINEKIO_WALK_GEOMETRY_BYTES 96U
 #define AINEKIO_GATEWAY_SWITCHING_FEATURE "gateway_switching_v1"
 #define AINEKIO_MOTION_RATE_DEFAULT 2.F
 #define AINEKIO_ASSET_NAME_MAX 32U
@@ -59,6 +61,7 @@ typedef enum {
     AINEKIO_COMMAND_ROBOT_SETTINGS,
     AINEKIO_COMMAND_SPEAKER,
     AINEKIO_COMMAND_BALANCE,
+    AINEKIO_COMMAND_WALK_TARGET,
 } ainekio_command_kind_t;
 
 #define AINEKIO_NETWORK_SLOTS 4U
@@ -234,11 +237,21 @@ typedef struct {
             bool steering; /* forward/turn/lateral percentages compose in the body frame */
             float forward, turn, lateral;
             uint32_t update_sequence; /* active walk sequence; zero starts a walk */
+            bool host_nominal;
+            char geometry[AINEKIO_WALK_GEOMETRY_BYTES];
+            float reference_cd[12]; /* Fixed model-coordinate reference, never electrical Home. */
+            float twist[3]; /* Requested body vx/vy m/s and yaw rad/s. */
         } walk;
         char asset[AINEKIO_ASSET_NAME_MAX + 1U];
         ainekio_face_selection_t face;
     } data;
 } ainekio_intent_t;
+
+typedef struct {
+    uint32_t walk_sequence, sample;
+    char geometry[AINEKIO_WALK_GEOMETRY_BYTES];
+    float feet_mm[4][3]; /* Physical model leg order; offsets from Walk's reference. */
+} ainekio_walk_target_t;
 
 typedef struct {
     uint32_t sequence;
@@ -261,6 +274,7 @@ typedef struct {
             bool detach;
         } stop;
         ainekio_intent_t intent;
+        ainekio_walk_target_t walk_target;
         ainekio_motion_plan_t motion_plan;
         ainekio_tts_operation_t tts_operation;
         ainekio_storage_operation_t storage_operation;

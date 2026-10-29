@@ -1172,6 +1172,10 @@ class EnvironmentAdapter:
             return
         if event.get("name") == "body_event" and event.get("robot_id") != self._selected_robot()[0]:
             return
+        if event.get("name") == "body_event":
+            data=event.get("data") or {}
+            if data.get("kind")=="servo_stall" and not (data.get("correction_failed") or data.get("outputs_released")):
+                return
         if event.get("name") == "body_event" and (event.get("data") or {}).get("kind") == "wake":
             self._track_action(f"wake:{event['event_id']}", self._process_wake(event, self._websocket))
             return
@@ -2215,10 +2219,15 @@ class EnvironmentAdapter:
         command: str | None, sequence: int, robot_id: str, epoch: int) -> dict[str, object]:
         terminal_type = str(terminal.get("t"))
         status = {"ack": "completed", "done": "completed", "cancelled": "cancelled"}.get(terminal_type, "rejected")
+        if terminal.get("execution_error"):
+            status = "failed"
         if terminal.get("seq") != sequence or terminal.get("outcome_unknown") or terminal.get("code") in {"disconnect", "superseded"}:
             status = "outcome_unknown"
-        feedback = self._feedback(action_id, status, str(terminal.get("msg", terminal.get("code", terminal_type))),
+        feedback = self._feedback(action_id, status, str(terminal.get("execution_error") or terminal.get("msg", terminal.get("code", terminal_type))),
             command=command, sequence=sequence, robot_id=robot_id, epoch=epoch)
+        if terminal.get("execution_error"):
+            feedback["data"]["executionError"] = terminal["execution_error"]
+            feedback["data"]["bodyTerminal"] = dict(terminal)
         if "code" in terminal:
             feedback["data"]["code"] = terminal["code"]
         if "position_verified" in terminal:

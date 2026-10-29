@@ -42,8 +42,6 @@ typedef struct {
     double run_from, run_target, run_transition_phase;
     double offset_from[4], offset_target[4];
     ainekio_v2_walk_controls_t from, target, pending;
-    ainekio_v2_gait_profile_t profile;
-    bool profile_run; /* learned profile belongs to bounding Run, not command spelling */
     /* Separate operator trajectory and measured-heading correction. Radians
      * are relative to activation; six-axis yaw is not absolute odometry. */
     double heading_reference, heading_measured, heading_last_yaw, heading_error;
@@ -51,9 +49,27 @@ typedef struct {
     bool heading_acquired, heading_active, heading_reduced;
     bool steering;
     double forward_from, forward_target, turn_from, turn_target, lateral_from, lateral_target, steering_phase;
-    ainekio_v2_foot_state_t feet[4];
     ainekio_v2_walk_pose_t pose;
     bool initialized, pending_update, stopping, complete, failed;
+    /* Host nominal source shares this Walk's clocks, heading and lifecycle.
+     * It has no procedural phase; samples refer to one fixed model frame. */
+    bool host_nominal;
+    /* A Walk's source is fixed. Native rollback copies must not carry an
+     * additional unused host trajectory on the embedded output stack. */
+    union {
+        struct {
+            ainekio_v2_gait_profile_t profile;
+            bool profile_run; /* profile belongs to bounding Run */
+            ainekio_v2_foot_state_t feet[4];
+        };
+        struct {
+            ainekio_v2_frame_t host_reference;
+            float host_twist[3], host_requested[4][3], host_applied[4][3], host_fit[4];
+            double host_anchors[4][3];
+            double host_heading_correction; /* Accepted moving-body yaw trim, radians. */
+            uint32_t host_sample, host_consumed_sample;
+        };
+    };
 } ainekio_v2_walk_state_t;
 
 extern const char ainekio_v2_walk_geometry_id[];
@@ -75,6 +91,10 @@ void ainekio_v2_walk_command_features(const ainekio_v2_walk_state_t *state,float
 bool ainekio_v2_walk_pose(double phase, ainekio_v2_walk_controls_t controls,
                          ainekio_v2_walk_pose_t *out);
 bool ainekio_v2_walk_solve(ainekio_v2_walk_pose_t *pose);
+/* Convert model-order centidegrees to source-leg radians and copy the frame.
+ * Retains body/euler/contact fields; contact_forward initializes anchors. */
+void ainekio_v2_pose_from_frame(ainekio_v2_walk_pose_t *pose,
+    const ainekio_v2_frame_t *frame);
 /* Fixed material point on each lower leg, in body coordinates (mm), model
  * joint order. This is inferred geometry, not measured ground contact. */
 unsigned ainekio_v2_feet_forward(const ainekio_v2_frame_t *frame, float feet[4][3]);
@@ -113,6 +133,17 @@ bool ainekio_v2_walk_tick(ainekio_v2_walk_state_t *state, uint64_t now_us);
 bool ainekio_v2_walk_feedback_tick(ainekio_v2_walk_state_t *state,
     uint64_t now_us, bool enabled, bool usable, double yaw_rad,
     bool (*valid)(const ainekio_v2_frame_t *, void *), void *context);
+/* Observe the same relative IMU yaw and integrate an explicitly supplied
+ * operator reference delta. Native supplies its phase-integrated curve; host
+ * supplies SI yaw-rate * dt. There is no assumed host cycle frequency. */
+void ainekio_v2_walk_heading_observe(ainekio_v2_walk_state_t *state,
+    bool enabled,bool usable,double yaw_rad,double reference_delta_rad);
+/* Host nominal geometric yaw correction: preserve the accepted foot anchors,
+ * reduce only added correction through the existing valid-frame search. No
+ * native PI units/steering cap/filter are reinterpreted as seconds or rad/s. */
+bool ainekio_v2_walk_host_heading(ainekio_v2_walk_state_t *state,uint64_t now_us,
+    bool enabled,bool usable,double yaw_rad,
+    bool (*valid)(const ainekio_v2_frame_t *,void *),void *context);
 /* Call after common session/expiry admission. Updates name the original walk. */
 bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *state,
                            const ainekio_command_t *command, uint64_t now_us);

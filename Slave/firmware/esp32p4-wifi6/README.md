@@ -1,5 +1,14 @@
 # ESP32-P4-WIFI6 body firmware
 
+`0.8.129-p4-local-rest` restores the existing body-owned inactivity procedure.
+After the configured interval (three minutes by default), the output owner runs
+the built-in Lay Down and releases outputs only after it completes. No host,
+model inference or generated release operation is involved. Existing activity,
+speech/listening, Stop, replacement and output-write failure behavior remain.
+The host `idle_rest` request feature is removed. Native execution/feedback tests
+cover completion, failed writes, timer rearming and immediate replacement;
+installation and physical settling still require separate verification.
+
 `0.8.128-p4-resolved-target` resolves each Freestyle endpoint once through the
 existing calibrated pose fitter. Ramping, successful-output detection and fresh
 shaft arrival use that same resolved goal. The authored target remains intact.
@@ -189,6 +198,18 @@ finished by an old-session disconnect notification. Reconnection never replays
 commands or fabricates completion receipts for the disconnected session.
 Explicit detach, sleep/reboot and actual output faults retain their existing
 separate behavior. This policy applies to P4, not the S3 implementation.
+
+The optional `walk_nominal_v1` source keeps host neural targets inside the same
+Walk/output owner. Compact `walk_target` packets update nominal foot offsets;
+shared geometry, configured heading/leveling, calibration, joint ramping, jam
+observation and Stop/Release remain with their existing owners. Task/navigation
+requests Finish on the original continuous Walk. The existing posture planner
+lands raised modeled feet from usable measured joint state and verifies its
+standing endpoint. Servo traces label the host source and consumed nominal
+sample without inventing a native gait phase. See the
+[wire contract](../../software/protocol/README.md#host-nominal-targets-in-the-existing-v2-walk).
+Paired gateway/firmware activation and physical qualification are separate from
+source tests; this source addition does not select or activate a neural model.
 
 Normal power-on uses the saved joint mapping and local stepping/Stand planner.
 The initial fold and stepping pass run without intermediate feedback waits.
@@ -644,7 +665,25 @@ The manifest and lock pin `esp_hosted` **2.12.8**, `esp_wifi_remote` **1.6.4** a
 from the same resolved package, with its own committed dependency lock. Both
 sides use SDIO packet mode. No vendor library patches are required.
 
-From the repository root, after installing ESP-IDF 5.5.4:
+The committed `sdkconfig.defaults` is the board configuration authority. For a
+release build, generate the project's `sdkconfig` from these defaults. An
+existing generated `sdkconfig` takes precedence: `reconfigure` alone preserves
+its old selections. Archive that generated file outside the repository and
+remove it before regeneration when restoring the board configuration; do not
+repair a mismatched board by editing individual generated symbols.
+
+Always source the full ESP-IDF export before configuration, including a Ninja
+build that may rerun CMake. Wi-Fi Remote's version-specific Kconfig uses the
+exported `ESP_IDF_VERSION`; setting only `IDF_PATH` can remove slave-chip choices
+and leave a different coprocessor/transport selected in the generated file.
+Before using an image, compare the generated configuration to the committed
+board defaults: C6, SDIO slot1/4-bit, CMD19/CLK18/D0–D3 14–17/reset54, 32MiB
+flash, enabled PSRAM at200MHz, pre-V3 P4 silicon and OTA rollback enabled.
+These are build settings; saved joint calibration and network credentials remain
+separate runtime data.
+
+From the repository root, after installing ESP-IDF 5.5.4 and restoring the board
+configuration as above when required:
 
 ```bash
 source /home/greggles/esp/esp-idf-v5.5.4/export.sh
@@ -666,11 +705,15 @@ Embedding its updater is a separate maintenance operation: run
 `-D AINEKIO_C6_IMAGE="$PWD/build/c6/network_adapter.bin"` when that update is needed.
 The normal build clears this cached option to omit the unused updater payload.
 
-`partitions.csv` assigns NVS at `0x9000`, PHY at `0xf000`, and an 8 MiB app at
-`0x20000`. P4 configuration uses namespace `p4_config` and the existing staged
-two-slot store. There is no automatic NVS erase. Back up occupied flash before
-changing another board's partition layout. Build outputs and credentials are
-ignored, and must not be committed.
+The committed board defaults select `partitions-full.csv`: NVS at `0x9000`,
+PHY at `0xf000`, OTA selection data at `0x10000`, two 8MiB application slots
+at `0x20000` and `0x820000`, and LittleFS at `0x1020000`. The retained
+`partitions.csv` describes the older factory layout; an existing generated
+configuration can still select it. Application OTA/app-only flashing does not
+repartition an installed board. P4 configuration uses namespace `p4_config`
+and the existing staged two-slot store; there is no automatic NVS erase.
+Back up occupied flash before an explicitly requested partition-layout migration.
+Build outputs and credentials are ignored and must not be committed.
 
 ## Resource ownership
 

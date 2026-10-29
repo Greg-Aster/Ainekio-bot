@@ -202,6 +202,50 @@ Home and Stop retain their existing timing. Ongoing gaits use fast coordinated
 strokes; Neutral entry still uses the saved joint-speed setting. V1 and
 older V2 firmware reject the extension at the gateway; the V1 C decoder rejects it.
 
+## Host nominal targets in the existing V2 Walk
+
+`walk_nominal_v1` negotiates a host-generated nominal-foot source within the
+existing Walk operation. A start carries `source:"host"`, `steps:0`, the compiled
+`geometry` identifier, twelve `reference_cd` model centidegrees and explicit
+`twist:[vx_m_s,vy_m_s,yaw_rad_s]`. The reference is fixed for that operation and
+resolved through the installed calibration. The geometry identifier identifies
+the compiled kinematic model; it does not verify the host's complete simulation
+or calibration provenance. Task/navigation owns the goal and requests Finish;
+neural Walk does not manufacture a cycle count or infer task arrival.
+
+Subsequent `walk_target` messages contain their own transport `seq`, `walk`
+(original Walk sequence), strictly increasing `sample`, matching `geometry`,
+and twelve flattened `feet_mm` offsets relative to the accepted reference.
+Columns are rear-left, rear-right, front-left, front-right, each body-axis x/y/z.
+The latest accepted target replaces the nominal goal. These ACK-only messages
+never start, arm or restart motion and do not own completion. Existing connection,
+generation and sequence ownership reject late samples after replacement,
+Stop/Release or Finish. A source-preserving Walk update retains the original
+sequence and carries explicit `twist`; speed zero requests Finish.
+
+The body resolves nominal feet through the shared geometry/fit owner, applies
+shared geometric heading correction and configured balance, then uses existing
+calibrated joint ramp/output handling. The native source retains its procedural
+Walk and learned-residual path. Host targets do not invoke a native gait sample
+and overwrite it. Finish uses the existing posture owner, beginning with mapped
+measured joints when usable, lowering modeled raised soles before completing the
+standing target with existing arrival checks. Modeled sole height and joint
+arrival are not foot-force evidence or proof of the navigation goal.
+
+IMU `data.motion.walk_source` distinguishes `host` and `native`;
+`nominal_sample` is the latest host target successfully written by the output
+owner, and `sampled_us` is that output publication time, not a physical PWM edge.
+The existing servo-trace SAMPLE motion object retains these same host fields
+and omits native phase/stride/cycle fields for host records. Native trace fields
+remain unchanged. No legacy learned-policy TRACKING record is fabricated for a
+host target. Record actual observations, target provenance and original Walk
+receipts separately from transport ACKs.
+
+Firmware and gateway support must be activated together. Source/native tests do
+not qualify the current learned model physically. Models trained without this
+shared heading/leveling path require explicit qualification with that path;
+the wire feature alone is not deployment evidence.
+
 ## Variable forward walking
 
 `walk_controls_v1` is an optional V2 hello feature. The existing `intent: walk`
@@ -662,12 +706,48 @@ route. Fault notices share the existing event cooldown and reaction-face
 suppression and do not command any motion or output release. Signal voltage is
 not battery or servo-rail voltage and cannot identify the electrical cause alone.
 
-### Freestyle inactivity request
+### Compact joint observations with IMU
 
-Firmware 0.8.127 emits `{"t":"event","name":"idle_rest","event_id":"BOOT:CLOCK",
-"clock_us":1234,"seq":7}` from its existing inactivity timer. `seq` identifies
-the last body motion; it is not a new command or completion receipt. The host
-Freestyle owner generates resting movement and explicit output release. A later
-Stop/Release or movement supersedes the request. Firmware does not play a legacy
-clip or release servos when emitting this event. Boot/wake movement likewise
-belongs to the host owner; the P4 retains the shared target/gait/output services.
+The P4's existing 20 ms IMU event may include `data.joint_feedback`. It reuses
+the completed fourth-wire acquisition scan and the production filtered-position
+conversion; it does not acquire sensors, drive motors or create another event
+stream. The slower `servo_feedback` health event and its body-event behavior
+remain unchanged.
+
+`map:2` identifies the twelve columns in `joints_v2.py` order. Arrays
+`filtered_model_deg`, `velocity_deg_s` and `commanded_model_deg` contain signed
+model degrees, degrees/second and commanded degrees respectively. `usable_mask`
+uses the same validity as the firmware's measured balance frame. Unusable
+position/velocity entries are `null`; `commanded_mask` separately identifies
+known output commands, with `null` for absent commands. A commanded zero is a
+real zero angle. These values do not establish foot contact or completed motion.
+
+`sampled_us` retains each joint's mapped ADC channel acquisition time;
+`device_us` timestamps the later snapshot projection on the same device clock.
+`scan`, `scan_us` and `revision` identify acquisition and feedback configuration.
+`enabled`, `calibrated_mask`, `unavailable_mask`, `clipped_mask`,
+`below_calibration_mask` and `above_calibration_mask` retain feedback confidence;
+`stalled_joints` observes the existing body owner. `joint-feedback-validity-and-clock`
+requires each array to have twelve entries, numbers exactly where the respective
+mask is set, nulls elsewhere, and acquisition timestamps no later than `device_us`.
+The IMU retains its own timestamp and quality flags; sensors are not claimed to
+be simultaneously acquired. Host receipt time is not measured network latency.
+
+GatewayService retains this packet with the connection epoch and exposes
+`body_sensor_observation(robot_id)` without HTTP polling. Neural preview consumes
+that observation and requires paired firmware/gateway support. Older IMU messages
+remain valid for existing consumers, but preview explicitly reports missing joint
+telemetry rather than combining old joint data with a new IMU or polling the
+maintenance endpoint. Reconnecting starts a new observation state. This source
+change does not activate a physical neural executor or change Stop/jam handling.
+
+### Inactivity rest
+
+The P4's existing inactivity timer owns built-in Lay Down and output release
+after successful completion. Its configured interval defaults to three minutes.
+It does not request a generated Freestyle program. Speech, listening, movement,
+Stop and new command admission retain the existing activity/replacement semantics.
+Older installed 0.8.127/0.8.128 firmware emits `idle_rest` instead. The decoder
+retains that historical wire message until those bodies are updated; the restored
+host no longer delegates it to the custom-movement model. Boot/wake generation
+remains with its host owner.

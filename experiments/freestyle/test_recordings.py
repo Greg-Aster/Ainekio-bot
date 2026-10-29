@@ -28,6 +28,10 @@ class RecordingTests(unittest.TestCase):
             measured = [r for r in rows if r['payload'].get('t') in ('imu','servo_feedback')]
             self.assertEqual([r['sequence'] for r in measured],[10,10])
             self.assertEqual(len(rows),6)
+            selected = list(read_records(path, kinds=('body_command',)))
+            self.assertEqual(selected, [r for r in rows if r['kind'] == 'body_command'])
+            self.assertEqual(list(read_records(path, kinds=())), [])
+            self.assertEqual(list(read_records(path, 'absent-job', kinds=('body_command',))), [])
             self.assertFalse(any('wifi_password' in str(r['payload']) for r in rows))
             self.assertEqual(recorder.status()['failed'],0)
             self.assertEqual(path.stat().st_mode & 0o777,0o600)

@@ -136,6 +136,7 @@ class GaitLearningService:
         gateway.subscribe_commands(self.command)
         gateway.subscribe_events(self.event)
         gateway.subscribe_frames(self.frame)
+        gateway.subscribe_diagnostics(self.diagnostic)
 
     async def start(self):
         self.writer = asyncio.create_task(self._write_loop(), name="gait-storage")
@@ -296,8 +297,26 @@ class GaitLearningService:
         if robot in self.runtime:
             # Do not persist arbitrary settings payloads or credentials.
             keep = {k: command[k] for k in ("t", "robot_id", "epoch", "seq", "name", "dir",
-                "gait", "speed", "stride", "rate", "forward", "turn", "lateral", "steps", "update") if k in command}
+                "gait", "speed", "stride", "rate", "forward", "turn", "lateral", "steps", "update",
+                "detach", "source", "geometry", "reference_cd", "twist", "walk", "sample", "feet_mm") if k in command}
             self._observe(robot, "commands", keep)
+
+    def diagnostic(self, diagnostic):
+        """Retain the policy-to-output attribution in the existing recording.
+
+        Joint/IMU packets and actual consumed samples live in events.jsonl;
+        these rows identify which inference produced each requested target.
+        General transport/settings diagnostics may contain unrelated context.
+        """
+        if diagnostic.get("event") != "neural_gait":
+            return
+        keep = {key: diagnostic[key] for key in (
+            "event", "robot_id", "epoch", "walk", "sample", "model_id", "action",
+            "requested_foot_offset_mm", "observation_device_us", "observation_received_at",
+            "scan", "consumed_sample", "inference_elapsed_s", "source_profile", "error",
+            "orientation_reference_yaw_rad", "orientation_reference_sign",
+            "finish_sequence", "finish_superseded", "finish_error") if key in diagnostic}
+        self._observe(diagnostic.get("robot_id"), "neural", copy.deepcopy(keep))
 
     def event(self, event):
         r = self.runtime.get(event.get("robot_id"))
@@ -315,7 +334,8 @@ class GaitLearningService:
                 self._observe(event["robot_id"], "poses", pose)
                 r["poses"].append(pose)
                 r["poses"] = r["poses"][-2048:]
-        if event.get("t") in ("imu", "ack", "done", "error", "connection", "locomotion_measurement"):
+        if (event.get("t") in ("imu", "ack", "nak", "done", "cancelled", "error", "connection", "locomotion_measurement")
+                or event.get("t") == "event" and event.get("name") == "body_event"):
             self._observe(event.get("robot_id"), "events", event)
 
     def frame(self, frame):
@@ -344,14 +364,20 @@ class GaitLearningService:
             if self.settings.get(robot, {}).get("learning"):
                 for gait, bank in r["banks"].items():
                     r["pending"][gait] = (bank["incumbent"] if bank.get("converged") else bank["candidate"], False)
+        depth_active = False
         try:
-            if self.depth_demand is not None:
-                await self.depth_demand(robot, f"gait-learning:{robot}", True)
             while not self.closed:
                 settings = self.settings.get(robot, {})
                 if not (settings.get("logging") or settings.get("learning")) and not r["pending"]:
                     break
                 try:
+                    if self.depth_demand is not None:
+                        body = self.gateway.status()["robots"].get(robot, {})
+                        needed = bool((settings.get("logging") or settings.get("learning"))
+                                      and body.get("active_walk") is not None)
+                        if needed != depth_active:
+                            await self.depth_demand(robot, f"gait-learning:{robot}", needed, wait_for_measurement=False)
+                            depth_active = needed
                     await self._apply_pending(robot)
                     if r["session"] is None:
                         metadata = {
@@ -360,6 +386,9 @@ class GaitLearningService:
                             "learning": await self.transport.request(robot, "gait-learning", None),
                             "firmware": await self.transport.request(robot, "firmware", None),
                         }
+                        body = self.gateway.status()["robots"].get(robot, {})
+                        metadata["execution_settings"] = {key: copy.deepcopy(body.get(key)) for key in (
+                            "epoch", "features", "motion_speed", "balance_settings", "walking_source")}
                         self._enqueue(r["recording"]/"metadata.jsonl", metadata)
                     started = time.monotonic()
                     payload = {"op": "trace_read", "after": r["after"]}
@@ -408,6 +437,8 @@ class GaitLearningService:
                     r["error"], r["state"] = str(error), "recording_unavailable"
                     await asyncio.sleep(1)
         finally:
+            if depth_active:
+                await self.depth_demand(robot, f"gait-learning:{robot}", False, wait_for_measurement=False)
             if r["owned"]:
                 try:
                     records = await self.transport.request(robot, "servo-feedback", {"op": "trace_stop", "after": r["after"],
@@ -421,8 +452,14 @@ class GaitLearningService:
                 except (OSError, ValueError, RuntimeError):
                     pass
             r.update(state="off", owned=False, window=None)
-            if self.depth_demand is not None:
-                await self.depth_demand(robot, f"gait-learning:{robot}", False)
+
+        # An enable can arrive while the previous recording drains its owned
+        # trace. Reconcile it after normal completion, never after cancellation
+        # or a failed cleanup. The new task runs after this one returns.
+        settings = self.settings.get(robot, {})
+        if not self.closed and (settings.get("logging") or settings.get("learning") or r["pending"]):
+            self.tasks.pop(robot, None)
+            self._start_robot(robot)
 
     async def _consume(self, robot, batch):
         r = self._runtime(robot)
@@ -686,6 +723,7 @@ class GaitLearningService:
         if self.closed:
             return
         self.closed = True
+        self.gateway.unsubscribe_diagnostics(self.diagnostic)
         for task in self.tasks.values():
             task.cancel()
         for task in self.workers.values():

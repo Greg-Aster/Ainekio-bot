@@ -176,13 +176,14 @@ class BodyEvents:
             state["rapid"] = True
             if not commanded_movement:
                 candidates.append("rapid_movement")
-        # Both detectors keep their rearm state current during suppression.
-        # Only emitted notifications start the shared interval; nothing queues.
+        # A confirmed tip is recovery evidence, not a cosmetic reaction.
+        # Its own clear/trigger transition prevents repeats while still tipped;
+        # a reaction face or recent notification must not discard a new fall.
         events = []
         now = self.clock()
         for kind in candidates:
             last = self.last_motion_report.get(robot_id)
-            if not reacting and (last is None or now - last >= config["motion_cooldown_s"]):
+            if kind == "tipped" or (not reacting and (last is None or now - last >= config["motion_cooldown_s"])):
                 self.last_motion_report[robot_id] = now
                 events.append(self.event(robot_id, epoch, kind, evidence))
         return events

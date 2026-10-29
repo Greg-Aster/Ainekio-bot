@@ -1,5 +1,39 @@
 # Freestyle data and training revisions
 
+The working custom-movement curriculum excludes output-release supervision.
+The 92 examples containing a release target were retired through the editable
+library owner and removed as complete records from the maintained snapshot;
+unrelated examples and evaluation files are unchanged. Inactivity rest/release
+belongs to the body, and failed-correction release belongs to Body Control.
+Archived datasets and weights below retain their historical contracts; no new
+adapter is implied by this curriculum change.
+
+## Finite motion and event recovery, October 27
+
+The production candidate and activation evidence are in
+`artifacts/finite-event-repair/`. The owner requested activation of the latest
+trained candidate with known misses retained for further learning. The model
+uses the maintained finite-command contract; target arrival does not generate
+another model request. Real stall/feedback-fault/tip events retain event recovery.
+
+The final continuation used 339 rows, including 116 new synthetic contrasts for
+lying down then releasing, already lying down, immediate release, hold then
+release, and remaining powered. These 116 rows were originally added to the editable library
+and snapshot; the current curriculum excludes their release-target records.
+Inputs recompute servo-error/orientation fields using
+the generator's existing enrichment. Native lay-down geometry supplies the
+13 target poses. These are authored targets, not physical recovery labels.
+
+Comparison: 40/62 exact/equivalent references, including 24/34 shared cases
+(previous candidate 20/34) and 16/28 fresh contrast cases. Both owner-reviewed
+hand examples remained exact. The recorded idle event completed all 13 targets
+then released in one model call against an idealized shaft plant. Jam and tip
+requests also completed finite corrections; the already-resting case repeated
+the path unnecessarily. Keep-powered requests and some wave counts remain weak.
+No physical recovery success is claimed. Unapproved stretch/sprinkler proposals
+remain only in the saved correction-trial records.
+
+
 ## Complete programs and standing endings, October 26
 
 The current curriculum removes internal continuation triggers. Ordinary requests
@@ -782,3 +816,36 @@ Stand request returned `pose` then `reassess` in 0.663 seconds. No robot command
 or firmware flash were issued. Inference recording remains enabled. Verification
 and the prior service configurations are retained in
 `stand-entry-balanced/activation/`; remote Q6A services were not modified.
+
+### Stretch physical review and generic-target cleanup, 2026-10-27
+
+The owner observed successful supported execution of correction trial
+`bcc1a78011ed48b58a4f5c8a030035a8`; all nine movement receipts reported verified
+positions, with no adjusted targets. The left crank Home mapping was corrected
+to -117.68 degrees at 2750 us. The trial also required a left-crank extension
+target of 84.82 degrees versus 64.63 degrees on the right. That asymmetric
+compensation is physical evidence, **not the generic training stretch**. The
+owner explicitly requires geometry-space motions independent of individual
+servo calibration. A replacement training target remains pending verification
+of matching physical calibration references. No retraining or model activation
+was performed in this cleanup.
+
+Retired four obsolete `calibrated_stretch_entry` examples from the editable
+library. Removed the older `proposed_recorded_stretch_correction` and its two
+unverified synthetic recovery derivatives from the maintained snapshot. Their
+IDs and parent aliases are retired in both stores to prevent re-import. The
+library now has 335 examples and the maintained snapshot has 2,515; these were
+already different datasets, so this cleanup did not overwrite either with the
+other. Unrelated examples, the owner-confirmed both-hands example, frozen
+evaluation files, and original robot evidence remain unchanged. The manifest
+records the exact retired IDs and the successful physical trial.
+
+The pre-cleanup audit found no PWM pulse commands in either output dataset.
+Forty-one snapshot rows and three library rows use Home-relative targets for
+requests explicitly concerning Home. Those references are resolved at runtime;
+they are not replaced with per-device pulses. Matching physical model angles,
+per-servo direction, offset and scale remain calibration responsibilities.
+Calibration does not establish that every generated multi-joint path is
+physically reachable. Starting from a sagged released pose remains unqualified:
+one trial was rejected before execution, and the successful full trial began
+after positioning through the existing calibration controls.

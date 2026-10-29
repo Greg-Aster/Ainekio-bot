@@ -40,7 +40,6 @@ typedef struct {
     bool completed;
     /* Nonterminal no-progress evidence; execution and powered hold continue. */
     bool jam_observation;
-    bool idle_request; /* Shared timer asks the Freestyle owner to rest. */
     /* 0: authored completion; 1: original target not verified; 2: measured. */
     uint8_t position_verification;
     uint16_t target_adjusted_joints; /* Existing pose fitting changed these goals. */
@@ -57,6 +56,8 @@ typedef struct {
     uint64_t connection, started_us, sampled_us;
     float expected_up[3];
     bool expected_up_known;
+    bool host_nominal;
+    uint32_t nominal_sample;
 } ainekio_p4_execution_t;
 typedef struct {
     uint64_t connection;
@@ -84,7 +85,7 @@ typedef struct {
     float balance_extension_mm[4];
     float balance_joint_delta_deg[AINEKIO_BODY_JOINT_COUNT]; /* model joint order */
     float gait_cycles_s, gait_requested_cycles_s, stride_percent, requested_stride_percent;
-    bool gait_valid;
+    bool gait_valid, gait_host_nominal;
     double gait_phase; /* Planned phase, never measured foot contact. */
     /* Read-only presentation of the last successful motion sample. Display
      * tasks consume this; the output owner never renders or transfers pixels. */
@@ -97,7 +98,9 @@ typedef struct {
 
 bool ainekio_p4_body_supports(const ainekio_command_t *command);
 /* Returns after validation/admission; completion is delivered separately. Walk
- * updates acknowledge only the update; the original sequence owns completion. */
+ * updates acknowledge only the update; the original sequence owns completion.
+ * Stop is already admitted by the controller: Release disabled PWM there;
+ * ordinary Stop holds the current generation and retires the active motion. */
 esp_err_t ainekio_p4_body_execute(uint64_t generation, uint64_t connection,
     const ainekio_command_t *command);
 bool ainekio_p4_body_event(ainekio_p4_body_event_t *event);

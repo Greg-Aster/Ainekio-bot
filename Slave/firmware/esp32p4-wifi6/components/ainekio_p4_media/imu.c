@@ -74,11 +74,6 @@ static esp_err_t write_reg(uint8_t reg,uint8_t value)
     const uint8_t bytes[]={reg,value};
     return i2c_master_transmit(device,bytes,sizeof(bytes),IO_TIMEOUT_MS);
 }
-static int signed_le(const uint8_t *p)
-{
-    const unsigned v=(unsigned)p[0] | (unsigned)p[1]<<8;
-    return v<32768 ? (int)v : (int)v-65536;
-}
 
 esp_err_t p4_imu_prepare(i2c_master_bus_handle_t bus)
 {
@@ -133,11 +128,8 @@ static void poll_sample(void)
     result=read_reg(OUTX_L_G,bytes,sizeof(bytes));
     const uint64_t after=(uint64_t)esp_timer_get_time();
     if (result!=ESP_OK) goto failed;
-    ainekio_imu_sample_t sample={.timestamp_us=before+(after-before)/2};
-    for (unsigned i=0;i<3;++i) {
-        sample.acceleration_m_s2[i]=signed_le(bytes+6+2*i)*(0.000488F*9.80665F);
-        sample.angular_rate_rad_s[i]=signed_le(bytes+2*i)*(0.07F*0.017453292519943295F);
-    }
+    ainekio_imu_sample_t sample;
+    ainekio_imu_lsm6ds3_decode(before+(after-before)/2,bytes,&sample);
     state.read_us=(uint32_t)(after-before);
     if (state.read_us>state.read_max_us) state.read_max_us=state.read_us;
     if (state.samples) {

@@ -1,0 +1,185 @@
+{
+  "purpose": "Downloaded reference models for servo housing study; no print fit verified.",
+  "assets": [
+    {
+      "name": "MG90S",
+      "source": "https://github.com/one-for-all/four-legged",
+      "file": "MG90S.obj",
+      "units": "meters in source; imported at 1000x into millimeter scene",
+      "license": "MIT repository license; source Onshape export",
+      "status": "Detailed exterior only; imported as source OBJ surfaces (715 objects / 57494 faces), no geometry rebuilt; not a printable replacement case"
+    },
+    {
+      "name": "SG90",
+      "source": "https://github.com/FreeCAD/FreeCAD-library/tree/master/Electrical%20Parts/Servos/SG-90",
+      "author": "Juan Fenoy (native FCStd metadata)",
+      "files": [
+        "SG90.stl",
+        "SG90.step",
+        "SG90.FCStd",
+        "SG90-1-arm-horn.stl",
+        "SG90-4-arms-horn.stl"
+      ],
+      "units": "mm",
+      "license": "Body FCStd metadata: CC-BY-SA 4.0; library README blanket license: CC-BY 3.0; preserve both notices",
+      "status": "exterior reference, not internal housing"
+    },
+    {
+      "name": "MG90D",
+      "source": "https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/1143%20Micro%20Servo%20-%20High%20Torque%20Metal%20Gear",
+      "author": "Adafruit Industries",
+      "files": [
+        "Adafruit-MG90D.stl",
+        "Adafruit-MG90D.step"
+      ],
+      "units": "mm",
+      "license": "MIT",
+      "status": "MG90D comparison only, not MG90S; exterior reference"
+    }
+  ],
+  "pending_downloads": [
+    {
+      "name": "MG90S gear housing",
+      "author": "GG_Creates",
+      "source": "https://www.crealitycloud.com/model-detail/servo-gear-housing-mg90s",
+      "license": "CXY-SL personal use",
+      "status": "Not downloaded or imported: download API requires authenticated token"
+    }
+  ],
+  "blender_scene": "Servo reference study",
+  "import_bounds_mm": [
+    {
+      "asset": "01 MG90S - Onshape reference",
+      "bounds_mm": [
+        [
+          -71.1,
+          -6.163,
+          0.0
+        ],
+        [
+          -38.9,
+          6.163,
+          32.25
+        ]
+      ]
+    },
+    {
+      "asset": "02 SG90 - Juan Fenoy",
+      "bounds_mm": [
+        [
+          -5.9,
+          -16.2,
+          0.0
+        ],
+        [
+          5.9,
+          16.2,
+          29.9
+        ]
+      ]
+    },
+    {
+      "asset": "03 MG90D - Adafruit comparison",
+      "bounds_mm": [
+        [
+          49.0,
+          -15.65,
+          0.0
+        ],
+        [
+          61.0,
+          15.65,
+          30.68
+        ]
+      ]
+    },
+    {
+      "asset": "04 SG90 single arm horn",
+      "bounds_mm": [
+        [
+          -26.244,
+          -46.0,
+          0.0
+        ],
+        [
+          -3.756,
+          -38.0,
+          5.0
+        ]
+      ]
+    },
+    {
+      "asset": "05 SG90 four arm horn",
+      "bounds_mm": [
+        [
+          2.512,
+          -50.5,
+          0.0
+        ],
+        [
+          37.488,
+          -33.5,
+          5.0
+        ]
+      ]
+    }
+  ],
+  "tower_pro_organization": {
+    "date": "2026-10-28",
+    "organization": "715 imported CAD face patches consolidated into 9 selectable exterior sections. Only exactly coincident boundary vertices were welded.",
+    "faces_retained": 57494,
+    "geometry_comparison": "All oriented face coordinates match pre-edit recovery at 0.00001 mm rounding; smooth flags and materials retained.",
+    "normal_comparison_max_degrees": 0.039719,
+    "limitations": "Source is one continuous exterior shell. Housing interfaces are open surfaces: no internal walls, motor, gears or full fasteners provided. Not printable replacement housing parts.",
+    "parts": [
+      "MG90S | Lead stubs - exposed surfaces",
+      "MG90S | Lower housing - reference surface",
+      "MG90S | Middle housing and label - reference surface",
+      "MG90S | Output spline - exposed surfaces",
+      "MG90S | Screw head left front - exposed surfaces",
+      "MG90S | Screw head left rear - exposed surfaces",
+      "MG90S | Screw head right front - exposed surfaces",
+      "MG90S | Screw head right rear - exposed surfaces",
+      "MG90S | Upper gear cover - reference surface"
+    ],
+    "recovery": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Servo_Reference_Assets/MG90S-before-part-organization.blend"
+  },
+  "lower_housing_modification": {
+    "object": "MG90S | Lower housing",
+    "outside_dimensions_mm": [
+      22.8,
+      12.22,
+      5.34
+    ],
+    "side_walls_mm": 0.8,
+    "nominal_floor_mm": 0.8,
+    "screw_seat_height_above_inner_floor_mm": 1.0,
+    "screw_seat_radial_wall_mm": 0.8,
+    "screw_through_bores_nominal_mm": 0.8,
+    "wire_entry_width_mm": 3.04,
+    "wire_entry_depth_mm": 0.99927,
+    "closed_solid": true,
+    "self_intersection_candidates": 0,
+    "volume_mm3": 462.611,
+    "physical_fit": "Not test-printed or assembled",
+    "recovery": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/Servo_Reference_Assets/MG90S-lower-housing-recovery.blend",
+    "floor_feature": "Local pad preserves 0.8 mm over the original external central dimple.",
+    "screw_head_recess_depth_mm": 0.5,
+    "screw_head_recess_diameter_mm": 2.0,
+    "reference_head_diameter_mm": 2.0,
+    "reference_head_height_mm": 0.5,
+    "current_face_count": 1141,
+    "recess_edit": "Lowered four seating planes by 0.25 mm. Preserved owner mesh cleanup, inner seat heights and screw axes.",
+    "wire_exit": {
+      "location": "Bottom/back cover, opposite output spline, near former wire end",
+      "slot_length_mm": 4.6,
+      "slot_width_mm": 1.5,
+      "wire_count": 4,
+      "assumed_wire_diameter_mm": 1.0,
+      "wire_section_clearance_min_mm": 0.235,
+      "old_side_notch_closed": true,
+      "old_three_wire_side_reference_hidden": true,
+      "physical_wire_fit": "Not measured on real added wire"
+    }
+  }
+}

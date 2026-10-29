@@ -21,9 +21,10 @@ const host=element(), robot=element(); robot.value='robot-a';
 const example={id:'one',title:'Happy wiggle',request:'Wiggle',revision:1,physical_qualification:true,
   answers:[['face','happy'],['hold',.16]],query:JSON.stringify({request:'Wiggle',observation:{preserve:true}}),
   example:{query:JSON.stringify({request:'Wiggle',observation:{preserve:true}})}};
-let nextSaveError=null, confirmResult=false;
+let nextSaveError=null, confirmResult=false, trialsOpened=0;
 const listeners={};
-const context={window:{addEventListener(k,fn){listeners[k]=fn;},confirm(){return confirmResult;}},
+const context={window:{addEventListener(k,fn){listeners[k]=fn;},confirm(){return confirmResult;},
+ openFreestyleTrials:async()=>{trialsOpened++;}},
  document:{querySelector(){return host;},getElementById(){return robot;},createElement(){const e=element();created.push(e);return e;}},
  async fetch(url, options={}){
    const payload=options.body ? JSON.parse(options.body) : null;
@@ -44,6 +45,9 @@ const field=name=>panel.querySelector(`[data-field="${name}"]`);
 const click=(action, data={})=>panel.listeners.click({target:{dataset:{action,...data},closest(){return this;},setAttribute(){}}});
 (async()=>{
  assert.equal(calls.length,0,'Page load must neither fetch all examples nor move a robot');
+ await click('trials');
+ assert.equal(trialsOpened,1);
+ assert.equal(calls.length,0,'Saved trials use the existing correction owner, not the training API');
  field('browser').hidden=true;
  await click('open');
  assert.equal(field('browser').hidden,false);

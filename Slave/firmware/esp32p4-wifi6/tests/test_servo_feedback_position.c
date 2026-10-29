@@ -33,6 +33,29 @@ int main(void)
     assert(ainekio_p4_feedback_frame(mapping,&frame));
     for(unsigned j=0;j<12;j++)assert(fabs(frame.position[j]-(j%2?0:2000))<1e-6);
     for(unsigned j=0;j<12;j++)assert(fabs(frame.velocity[j]-200)<1e-6);
+    /* Compact telemetry uses the same position/velocity owner and follows
+     * mux/PCA remapping independently. Zero output is unknown, not home. */
+    ainekio_p4_feedback_observation_t observation;
+    sample.scan=27;sample.scan_us=18000;sample.revision=9;
+    for(unsigned j=0;j<12;j++)sample.sampled_us[sample.config.joint[j].channel]=1001+j;
+    targets[mapping[0].channel]=1400; /* Below home: preserve signed subtraction. */
+    ainekio_p4_feedback_observe(&sample,mapping,targets,&observation);
+    assert(observation.usable_mask==4095 && observation.commanded_mask==4095);
+    assert(observation.scan==27 && observation.revision==9 && observation.scan_us==18000);
+    assert(observation.commanded.position[0]==0);
+    for(unsigned j=0;j<12;j++) {
+        assert(observation.measured.position[j]==frame.position[j]);
+        assert(observation.measured.velocity[j]==frame.velocity[j]);
+        assert(observation.sampled_us[j]==1001+j);
+    }
+    targets[mapping[0].channel]=0;
+    sample.raw[sample.config.joint[1].channel]=4095;
+    ainekio_p4_feedback_observe(&sample,mapping,targets,&observation);
+    assert(observation.commanded_mask==4094 && observation.usable_mask==4093);
+    assert(observation.health.clipped==2);
+    sample.raw[sample.config.joint[1].channel]=1850;
+    targets[mapping[0].channel]=1600;
+    for(unsigned j=0;j<12;j++)sample.sampled_us[sample.config.joint[j].channel]=1001;
     /* Arrival and level feedback use the same filtered shaft position. Raw
      * calibration capture remains independent. */
     sample.filtered_raw[sample.config.joint[0].channel]+=15;

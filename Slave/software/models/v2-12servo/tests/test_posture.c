@@ -1,3 +1,4 @@
+#include "ainekio/v2_learning.h"
 #include "ainekio/v2_posture.h"
 #include "walk_data.h"
 #include <assert.h>
@@ -160,8 +161,31 @@ static void measured_target_replay(void)
         assert(fabs(s.pose.body[2]-high.body[2])<.002);
     }
 }
+static void airborne_landing_keeps_horizontal_anchors(void)
+{
+    ainekio_v2_walk_pose_t stand,raised;
+    assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
+    float desired[4][3]={{0}},applied[4][3],fit[4];double anchors[4][3];desired[2][2]=15;
+    assert(ainekio_v2_nominal_foot_pose(&stand.frame,(const float (*)[3])desired,NULL,NULL,
+        &raised,anchors,applied,fit));
+    ainekio_v2_posture_t p;double level[3]={0};
+    assert(ainekio_v2_posture_begin_landing(&p,&raised.frame,&stand.frame,level));
+    unsigned airborne=0;for(unsigned l=0;l<4;l++)airborne+=!p.start.grounded[l];assert(airborne);
+    for(unsigned k=0;k<=4;k++) {
+        const double coordinate=-1.+k*.25;
+        assert(ainekio_v2_posture_sample(&p,coordinate));
+        for(unsigned l=0;l<4;l++) {
+            for(unsigned a=0;a<2;a++)assert(p.pose.feet[l][a]==p.start.feet[l][a]);
+            assert(fabs(p.pose.sole_height[l]+coordinate*p.start.sole_height[l])<1e-9);
+        }
+    }
+    assert(ainekio_v2_posture_arrival_joints(&p,0));
+    assert(ainekio_v2_posture_sample(&p,.01)); /* Ordinary step path follows landing. */
+}
+
 int main(void)
 {
+    airborne_landing_keeps_horizontal_anchors();
     transactional_planning();
     measured_target_replay();
     for(unsigned fast=0;fast<2;fast++) {

@@ -2,7 +2,9 @@
 
 Scope: the eight-servo V1 body. The wiring and measurements below apply to its
 Freenove ESP32-S3 controller; [V2 hardware](../v2-12servo/README.md) has a separate
-board and servo driver.
+board and servo driver. The dedicated [V1 specifications](SPECIFICATIONS.md)
+provide the body, geometry, power and integration overview; this file owns
+the detailed header map and diagnostic evidence.
 
 This is the wiring and bench-diagnosis reference for the most recently flashed
 and boot-verified Freenove ESP32-S3-WROOM CAM controller image. It records the

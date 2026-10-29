@@ -1,4 +1,5 @@
 #include "ainekio/v2_walk.h"
+#include "ainekio/v2_learning.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/control_codec.h"
 #include <assert.h>
@@ -105,8 +106,78 @@ static void intentional_turn(void)
     }
     assert(s.turn_target==-30 && s.phase>4.);
 }
+static void host_geometry_heading(void)
+{
+    ainekio_v2_walk_state_t s={.initialized=true,.host_nominal=true};
+    ainekio_v2_walk_pose_t stand;assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
+    s.host_reference=stand.frame;
+    const float offsets[4][3]={{0}};
+    assert(ainekio_v2_nominal_foot_pose(&s.host_reference,offsets,NULL,NULL,&s.pose,
+        s.host_anchors,s.host_applied,s.host_fit));
+    const ainekio_v2_walk_pose_t nominal=s.pose;
+    assert(ainekio_v2_walk_host_heading(&s,20000,true,true,3.1,NULL,NULL));
+    s.pose=nominal;
+    assert(ainekio_v2_walk_host_heading(&s,40000,true,true,-3.1,NULL,NULL));
+    assert(s.heading_measured>0. && fabs(s.heading_error+(.083185307179586))<1e-6);
+    assert(s.pose.euler[2]<0. && s.phase==0.); /* No procedural clock or sampled gait. */
+    for(unsigned l=0;l<4;l++)for(unsigned a=0;a<2;a++)assert(s.pose.feet[l][a]==nominal.feet[l][a]);
+    s.pose=nominal;s.host_twist[2]=.5;
+    const double reference=s.heading_reference;
+    assert(ainekio_v2_walk_host_heading(&s,60000,true,true,-3.1,same_frame,(void *)&nominal.frame));
+    assert(fabs(s.heading_reference-reference-.01)<1e-9 && s.heading_reduced);
+    assert(!memcmp(&s.pose.frame,&nominal.frame,sizeof nominal.frame));
+    s.pose=nominal;
+    assert(ainekio_v2_walk_host_heading(&s,80000,true,false,NAN,NULL,NULL));
+    assert(!s.heading_active && !s.heading_acquired && !memcmp(&s.pose.frame,&nominal.frame,sizeof nominal.frame));
+    assert(s.host_heading_correction==0.);
+}
+
+static void host_delayed_body_response(void)
+{
+    for(int sign=-1;sign<=1;sign+=2) {
+        ainekio_v2_walk_state_t s={.initialized=true,.host_nominal=true};
+        ainekio_v2_walk_pose_t stand;
+        assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
+        s.host_reference=stand.frame;
+        const float offsets[4][3]={{0}};
+        assert(ainekio_v2_nominal_foot_pose(&s.host_reference,offsets,NULL,NULL,&s.pose,
+            s.host_anchors,s.host_applied,s.host_fit));
+        const ainekio_v2_walk_pose_t nominal=s.pose;
+        assert(ainekio_v2_walk_host_heading(&s,20000,true,true,0.,NULL,NULL));
+        assert(!memcmp(&s.pose.frame,&nominal.frame,sizeof nominal.frame));
+        double measured=sign*.04, late_peak=0.;
+        for(uint64_t t=40000;t<=12000000;t+=20000) {
+            s.pose=nominal;
+            assert(ainekio_v2_walk_host_heading(&s,t,true,true,measured,NULL,NULL));
+            if(t==40000)assert(sign*s.pose.euler[2]<0.);
+            /* An ideal body follows the previous output on the next tick.
+             * The old full-error controller oscillated forever here. */
+            measured=s.pose.euler[2];
+            if(t>6000000)late_peak=fmax(late_peak,fabs(measured));
+            assert(s.phase==0. && ainekio_v2_limits_frame(&s.pose.frame));
+        }
+        assert(late_peak<1e-6);
+        /* Matching an intentional turn has no derivative braking or retained
+         * disturbance correction. Both turn signs use the same reference. */
+        s.host_twist[2]=sign*.2;
+        for(uint64_t t=12020000;t<=14000000;t+=20000) {
+            s.pose=nominal;measured=(t-12000000)/1e6*s.host_twist[2];
+            assert(ainekio_v2_walk_host_heading(&s,t,true,true,measured,NULL,NULL));
+            assert(fabs(s.heading_error)<1e-6 && fabs(s.host_heading_correction)<1e-6);
+        }
+        s.pose=nominal;
+        assert(ainekio_v2_walk_host_heading(&s,14020000,true,false,NAN,NULL,NULL));
+        assert(s.host_heading_correction==0. && !s.heading_acquired);
+        s.host_twist[2]=0.;s.pose=nominal;
+        assert(ainekio_v2_walk_host_heading(&s,14040000,true,true,2.,NULL,NULL));
+        assert(s.heading_error==0. && s.host_heading_correction==0.);
+        assert(!memcmp(&s.pose.frame,&nominal.frame,sizeof nominal.frame));
+    }
+}
+
 int main(void)
 {
+    host_geometry_heading();host_delayed_body_response();
     unchanged_when_off();correction_only_reduction();families();disturbance(-1);disturbance(1);intentional_turn();
     puts("Walking feedback: nominal parity, both heading signs, yaw wrap, requested curves, dropout and recovery passed.");
 }

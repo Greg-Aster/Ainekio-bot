@@ -1,4 +1,6 @@
 #include "controller.h"
+#include "controller_motion.h"
+#include "body_readings.h"
 #include "imu_telemetry.h"
 #include "ainekio/p4_imu.h"
 #include "esp_random.h"
@@ -93,6 +95,8 @@ static atomic_bool telemetry_requested;
  * the link task and newlib's floating-point formatting stack. */
 enum { STATUS_TEXT_BYTES = 5120 };
 static char *status_text;
+static ainekio_p4_feedback_snapshot_t *feedback_sample;
+static ainekio_p4_feedback_observation_t *feedback_observation;
 static atomic_int display_link_state, display_rejection;
 /* One WebSocket instance at a time. The link task drains/stops the old client
  * before creating another; queued results can never cross into its successor. */
@@ -198,16 +202,8 @@ static void reply(uint64_t connection, const char *text)
 
 static void nak(uint64_t connection, const ainekio_control_message_t *m, ainekio_reject_reason_t reason)
 {
-    static const ainekio_nak_code_t codes[] = {
-        AINEKIO_NAK_UNKNOWN, AINEKIO_NAK_STALE, AINEKIO_NAK_MODE, AINEKIO_NAK_UNSAFE,
-        AINEKIO_NAK_LIMIT, AINEKIO_NAK_UNKNOWN, AINEKIO_NAK_BUSY, AINEKIO_NAK_PROFILE,
-        AINEKIO_NAK_ASSET_MISSING, AINEKIO_NAK_MALFORMED,
-    };
     char text[180];
-    const char *detail = reason == AINEKIO_REJECT_LIMIT ?
-        "Command parameters are outside their supported range" :
-        reason == AINEKIO_REJECT_BUSY ? "Body is busy, asleep, or its outputs are unavailable" : NULL;
-    ainekio_encode_nak(m->has_sequence, m->sequence, codes[reason], detail, text, sizeof(text));
+    ainekio_p4_rejection(m,reason,text,sizeof text);
     reply(connection, text);
 }
 
@@ -285,22 +281,9 @@ static void execution_failed(uint64_t connection, uint32_t sequence, esp_err_t e
 {
     const ainekio_p4_system_status_t system = ainekio_p4_system_status();
     const ainekio_pca_status_t output = ainekio_pca_status(ainekio_p4_output());
-    const ainekio_nak_code_t code = error == ESP_ERR_INVALID_ARG || error == AINEKIO_P4_ERR_REFERENCE ? AINEKIO_NAK_LIMIT :
-        error == ESP_ERR_NOT_FOUND ? AINEKIO_NAK_ASSET_MISSING : AINEKIO_NAK_BUSY;
-    const char *detail = error == AINEKIO_P4_ERR_REFERENCE ? "Commanded pose cannot close the leg linkage" :
-        error == ESP_ERR_INVALID_ARG ? "Motion mapping failed or pulse exceeds PWM timer capacity" :
-        error == ESP_ERR_NOT_FOUND ? "Requested asset is unavailable" :
-        output.fault == AINEKIO_PCA_FAULT_IO ? "Servo controller I2C transfer failed" :
-        output.fault == AINEKIO_PCA_FAULT_DEADLINE ? "Servo controller I2C transfer missed its deadline" :
-        output.fault == AINEKIO_PCA_FAULT_PROGRESS ? "Servo frame update missed its deadline" :
-        error == ESP_ERR_TIMEOUT ? "Command or motion update missed its deadline" :
-        system.restart_pending ? "Restart is pending" :
-        system.state == AINEKIO_STATE_DOZING || system.state == AINEKIO_STATE_DEEP_SLEEP ? "Body is asleep; select Idle before moving" :
-        error == ESP_ERR_NO_MEM ? "Body lacks memory or command queue space" :
-        output.fault ? "Motion stopped after execution failed" :
-        "Command could not execute; read body status and retry";
     char text[3584];
-    const size_t length = ainekio_encode_nak(true, sequence, code, detail, text, sizeof(text));
+    const size_t length = ainekio_p4_execution_error(sequence,error,output.fault,
+        system.restart_pending,system.state,text,sizeof(text));
     append_motion_diagnostics(text, sizeof(text), length);
     reply(connection, text);
 }
@@ -358,7 +341,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "idle_rest_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -403,12 +386,8 @@ static void received(void)
         return;
     }
     if (m->has_command && m->command.kind == AINEKIO_COMMAND_STOP) {
-        /* Detach retains immediate output disable, including duplicate requests.
-         * Ordinary Stop holds the commanded pose through the body owner below. */
-        if (m->command.data.stop.detach && m->has_epoch && m->epoch == admission.core.epoch)
-            ainekio_pca_emergency_disable(ainekio_p4_output(), AINEKIO_PCA_FAULT_EMERGENCY);
-        const ainekio_decision_t decision = ainekio_admission_accept(&admission,
-            request.connection, m, request.received_us, now_us(), true);
+        const ainekio_decision_t decision = ainekio_p4_stop_accept(&admission,
+            ainekio_p4_output(),request.connection,m,request.received_us,now_us());
         leave();
         if (decision.accepted) {
             atomic_store(&stopped_sequence, m->sequence);
@@ -878,16 +857,25 @@ static void link_task(void *arg)
             }
             if (authenticated && now_us() - last_imu >= UINT64_C(20000)) {
                 const ainekio_p4_imu_status_t sensor = ainekio_p4_imu_status();
-                char sensing[2048];
+                /* Reuse the link-task serialization workspace. Feedback is a
+                 * completed ADC snapshot, not an acquisition or motor command. */
+                char *sensing=status_text;
+                ainekio_p4_feedback_snapshot(feedback_sample);
+                const ainekio_p4_calibration_t mapping=ainekio_p4_calibration();
+                uint16_t targets[12];ainekio_p4_body_pulses(targets);
+                ainekio_p4_feedback_observe(feedback_sample,mapping.joints,targets,feedback_observation);
+                feedback_observation->device_us=now_us();
+                feedback_observation->stalled_joints=ainekio_p4_body_status().stalled_joints;
                 const ainekio_p4_execution_t motion=ainekio_p4_body_execution_at(sensor.attitude.timestamp_us);
                 char face_token[AINEKIO_ASSET_NAME_MAX+1U];
                 ainekio_p4_display_token(sensor.attitude.timestamp_us/1000U,face_token);
                 if (ainekio_imu_telemetry(&sensor,
-                        sensor_boot_id, &motion, face_token, sensing, sizeof(sensing))) reply(link_generation, sensing);
+                        sensor_boot_id, &motion, face_token, feedback_observation,
+                        sensing, STATUS_TEXT_BYTES)) reply(link_generation, sensing);
                 const unsigned wakes = atomic_exchange(&wake_reports, 0);
                 if (!boot_reported || wakes) {
                     const bool resumed = boot_reported || esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
-                    snprintf(sensing, sizeof(sensing),
+                    snprintf(sensing, STATUS_TEXT_BYTES,
                         "{\"t\":\"event\",\"name\":\"%s\",\"reason\":\"%s\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\",\"clock_us\":%" PRIu64 "}",
                         boot_reported ? "wake" : "boot", resumed ? "wake_from_sleep" : "boot",
                         sensor_boot_id, now_us(), now_us());
@@ -915,39 +903,16 @@ static void link_task(void *arg)
             }
             if (!have_body_event) have_body_event = ainekio_p4_body_event(&event);
             if (authenticated && have_body_event && (!event.sequence || event.sequence != atomic_load(&pending_sequence))) {
-                if(event.idle_request) {
-                    char notice[240];
-                    snprintf(notice,sizeof notice,
-                        "{\"t\":\"event\",\"name\":\"idle_rest\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 "}",
-                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence);
+                char notice[320];
+                if (ainekio_p4_body_notice(&event,sensor_boot_id,notice,sizeof notice))
                     reply(link_generation,notice);
-                }
-                if(event.stalled_joints) {
-                    char notice[320];
-                    snprintf(notice,sizeof notice,
-                        "{\"t\":\"event\",\"name\":\"servo_stall\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-                        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":false}",
-                        sensor_boot_id,event.clock_us,event.clock_us,event.sequence,(unsigned)event.stalled_joints);
-                    reply(link_generation,notice);
-                }
-                if (!event.jam_observation && !event.idle_request && event.sequence && current_connection(event.connection)) {
+                if (!event.jam_observation && event.sequence && current_connection(event.connection)) {
                     char result[192];
-                    const bool stopped = event.sequence <= atomic_load(&stopped_sequence);
-                    if (stopped)
-                        ainekio_encode_cancelled(event.sequence, AINEKIO_CANCEL_STOP, result, sizeof(result));
-                    else if (event.result != ESP_OK)
-                        execution_failed(event.connection, event.sequence, event.result);
-                    else if (event.completed) {
-                        if(event.position_verification)
-                            snprintf(result,sizeof result,
-                                "{\"t\":\"done\",\"seq\":%" PRIu32 ",\"position_verified\":%s,\"target_adjusted_joints\":%u}",
-                                event.sequence,event.position_verification==2?"true":"false",
-                                (unsigned)event.target_adjusted_joints);
-                        else ainekio_encode_done(event.sequence, result, sizeof(result));
-                    }
-                    else ainekio_encode_cancelled(event.sequence, event.reason, result, sizeof(result));
-                    if (stopped || event.result == ESP_OK) reply(event.connection, result);
+                    const uint32_t stopped = atomic_load(&stopped_sequence);
+                    if (ainekio_p4_body_receipt(&event,stopped,result,sizeof result))
+                        reply(event.connection,result);
+                    else if (event.result != ESP_OK && event.sequence > stopped)
+                        execution_failed(event.connection,event.sequence,event.result);
                 }
                 have_body_event = false;
             }
@@ -1013,45 +978,9 @@ void ainekio_p4_controller_supervise(void)
  * whose separate diagnostics serializer then exhausted the 12 KiB task stack. */
 static __attribute__((noinline)) void calibration_status(const request_t *request)
 {
-    const ainekio_p4_calibration_t state = ainekio_p4_calibration();
-    const ainekio_pca_status_t output = ainekio_pca_status(ainekio_p4_output());
-    uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS];
-    ainekio_p4_body_pulses(pulses);
-    cJSON *message = cJSON_CreateObject();
-    if (!message) { fail_link(); return; }
-    cJSON_AddStringToObject(message, "t", "calibration_status");
-    cJSON_AddNumberToObject(message, "seq", request->message.sequence);
-    cJSON_AddBoolToObject(message, "dirty", state.dirty);
-    cJSON_AddBoolToObject(message, "saved", state.saved);
-    cJSON_AddBoolToObject(message, "profile_confirmed", state.profile_confirmed);
-    cJSON_AddStringToObject(message, "servo_profile_id", ainekio_v2_servo_profile_id());
-    cJSON_AddNumberToObject(message, "provisional_us_per_degree", ainekio_v2_us_per_degree());
-    cJSON_AddBoolToObject(message, "shaft_travel_measured", false);
-    cJSON_AddBoolToObject(message, "ready", state.valid && output.ready);
-    uint16_t pulse_min, pulse_max;
-    if (ainekio_pca_pulse_bounds(ainekio_p4_output(), &pulse_min, &pulse_max)) {
-        cJSON_AddNumberToObject(message, "pulse_min_us", pulse_min);
-        cJSON_AddNumberToObject(message, "pulse_max_us", pulse_max);
-    }
-    cJSON *joints = cJSON_AddArrayToObject(message, "joints");
-    for (size_t i=0; i<AINEKIO_BODY_JOINT_COUNT; ++i) {
-        const ainekio_p4_joint_config_t *joint = &state.joints[i];
-        cJSON *entry = cJSON_CreateObject();
-        if (!entry || !joints) { cJSON_Delete(entry); cJSON_Delete(message); fail_link(); return; }
-        cJSON_AddItemToArray(joints, entry);
-        cJSON_AddNumberToObject(entry, "id", i);
-        cJSON_AddNumberToObject(entry, "channel", joint->channel);
-        cJSON_AddNumberToObject(entry, "home_us", joint->home_us);
-        cJSON_AddBoolToObject(entry, "invert", joint->invert);
-        cJSON_AddNumberToObject(entry, "home_cd", joint->home_cd);
-        cJSON_AddNumberToObject(entry, "recommended_home_us",
-            ainekio_p4_joint_recommended_home(i, joint->invert));
-        cJSON_AddNumberToObject(entry, "recommended_home_cd", 100.*ainekio_v2_center_degrees(i));
-        cJSON_AddNumberToObject(entry, "us_per_degree", joint->us_per_degree);
-        cJSON_AddNumberToObject(entry, "pulse_us", joint->channel < 0 ? 0 : pulses[joint->channel]);
-    }
+    cJSON *message=ainekio_p4_calibration_json(request->message.sequence);
     char text[4096];
-    if (cJSON_PrintPreallocated(message, text, sizeof(text), false)) reply(request->connection, text);
+    if (message && cJSON_PrintPreallocated(message,text,sizeof text,false)) reply(request->connection,text);
     else fail_link();
     cJSON_Delete(message);
 }
@@ -1076,10 +1005,8 @@ static void motion_speed_status(const request_t *request)
 {
     char text[320];
     const float rate = ainekio_p4_motion_rate();
-    snprintf(text, sizeof(text), "{\"t\":\"motion_speed_status\",\"seq\":%lu,\"rate\":%.9g,\"saved\":%s,\"joint_speed_limit_deg_s\":%.9g,\"joint_speed_limit_saved\":%s}",
-        (unsigned long)request->message.sequence, (double)rate,
-        ainekio_p4_motion_rate_saved() ? "true" : "false",
-        ainekio_v2_gait_joint_speed_limit(), ainekio_p4_joint_speed_saved() ? "true" : "false");
+    ainekio_p4_motion_speed_json(request->message.sequence,rate,ainekio_p4_motion_rate_saved(),
+        ainekio_v2_gait_joint_speed_limit(),ainekio_p4_joint_speed_saved(),text,sizeof text);
     reply(request->connection, text);
 }
 
@@ -1196,8 +1123,7 @@ static esp_err_t apply(const request_t *request)
         ainekio_p4_display_restore();
         cancel_audio(request->connection, AINEKIO_CANCEL_STOP);
         ainekio_p4_media_cancel_snapshots();
-        return command->data.stop.detach ? ESP_OK :
-            ainekio_p4_body_hold(ainekio_pca_status(ainekio_p4_output()).generation);
+        return ainekio_p4_body_execute(request->output_generation, request->connection, command);
     case AINEKIO_COMMAND_BODY_CALIBRATION: return calibrate(request);
     case AINEKIO_COMMAND_BALANCE: {
         if(command->data.balance.walking_feedback)
@@ -1237,6 +1163,7 @@ static esp_err_t apply(const request_t *request)
         ainekio_pca_disarm(ainekio_p4_output());
         return ainekio_p4_media_wake_configure(command->data.wake.enabled, command->data.wake.model,
             command->data.wake.has_threshold ? &command->data.wake.threshold : NULL);
+    case AINEKIO_COMMAND_WALK_TARGET:
     case AINEKIO_COMMAND_MOTION_PLAN:
         return ainekio_p4_body_execute(request->output_generation, request->connection, command);
     case AINEKIO_COMMAND_INTENT:
@@ -1308,7 +1235,8 @@ static void control_task(void *arg)
         const ainekio_profile_t previous_profile = admission.core.profile;
         const ainekio_body_state_t previous_state = admission.core.state;
         const ainekio_mode_t previous_mode = admission.core.mode;
-        const bool model_supported = command->kind == AINEKIO_COMMAND_MOTION_PLAN ?
+        const bool model_supported = (command->kind == AINEKIO_COMMAND_MOTION_PLAN ||
+            command->kind == AINEKIO_COMMAND_WALK_TARGET) ?
             ainekio_p4_body_supports(command) : (command->kind != AINEKIO_COMMAND_INTENT || command->data.intent.kind == AINEKIO_INTENT_SAY ||
              command->data.intent.kind == AINEKIO_INTENT_FACE ||
              ainekio_p4_body_supports(command));
@@ -1360,7 +1288,8 @@ static void control_task(void *arg)
 
 esp_err_t ainekio_p4_controller_start(void)
 {
-    const uint32_t allowed = AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_PLAN) |
+    const uint32_t allowed = AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_WALK_TARGET) |
+        AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_PLAN) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_INTENT) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_STOP) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MODE) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_BODY_CALIBRATION) | AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_PROFILE) |
@@ -1372,6 +1301,8 @@ esp_err_t ainekio_p4_controller_start(void)
     ainekio_admission_init(&admission, allowed, true);
     receive_text = malloc(AINEKIO_BODY_CONTROL_MAX_BYTES+1);
     status_text = malloc(STATUS_TEXT_BYTES);
+    feedback_sample = malloc(sizeof(*feedback_sample));
+    feedback_observation = malloc(sizeof(*feedback_observation));
     request_t *control_request = malloc(sizeof(*control_request));
     requests = xQueueCreate(8, sizeof(request_t));
     replies = xQueueCreate(16, sizeof(reply_t));
@@ -1379,7 +1310,8 @@ esp_err_t ainekio_p4_controller_start(void)
     camera_packets = xQueueCreate(2, sizeof(packet_t));
     camera_send_buffer = malloc(MEDIA_SEND_BYTES);
     media_events = xQueueCreate(8, sizeof(media_event_t));
-    if (!receive_text || !status_text || !control_request || !requests || !replies || !audio_packets || !camera_packets || !media_events || !camera_send_buffer) return ESP_ERR_NO_MEM;
+    if (!receive_text || !status_text || !feedback_sample || !feedback_observation ||
+        !control_request || !requests || !replies || !audio_packets || !camera_packets || !media_events || !camera_send_buffer) return ESP_ERR_NO_MEM;
     ESP_ERROR_CHECK(ainekio_p4_body_start());
     atomic_store(&initialized, true);
     if (xTaskCreate(control_task, "body_control", 12288, control_request, 5, NULL) != pdPASS ||

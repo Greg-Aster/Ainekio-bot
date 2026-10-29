@@ -224,6 +224,25 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
                 raise SchemaMismatch("motion plan frame duration is malformed")
             if sum(frame[0] for frame in frames) > 10000:
                 raise SchemaMismatch("motion plan duration exceeds limit")
+        elif rule == "host-walk-source":
+            if instance.get("source", "native") == "host":
+                if instance.get("steps") != 0 or "twist" not in instance:
+                    raise SchemaMismatch("host Walk requires continuous task intent and SI twist")
+                if "update" in instance:
+                    if "reference_cd" in instance or "geometry" in instance:
+                        raise SchemaMismatch("Walk reference is fixed at start")
+                elif "geometry" not in instance or "reference_cd" not in instance:
+                    raise SchemaMismatch("host Walk requires an explicit reference")
+            elif any(key in instance for key in ("geometry", "reference_cd", "twist")):
+                raise SchemaMismatch("host fields on native Walk")
+        elif rule == "joint-feedback-validity-and-clock":
+            if any(at > instance["device_us"] for at in instance["sampled_us"]):
+                raise SchemaMismatch("joint acquisition is later than snapshot")
+            for column in ("filtered_model_deg", "velocity_deg_s", "commanded_model_deg"):
+                mask = instance["commanded_mask" if column == "commanded_model_deg" else "usable_mask"]
+                if any((value is not None) != bool(mask & (1 << index))
+                       for index, value in enumerate(instance[column])):
+                    raise SchemaMismatch("joint values disagree with validity mask")
         elif rule == "event-origin":
             if not isinstance(instance, dict):
                 raise SchemaMismatch("event is not an object")

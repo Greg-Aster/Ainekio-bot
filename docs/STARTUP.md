@@ -28,11 +28,12 @@ Leave the terminal open. The normal launcher starts the web server and its
 configured background services. An app-only launch starts the web application
 without starting all those services.
 
-For Body Control on another computer, select **Environment Bridge Remote** in
-MetaHuman's Agent Monitor. Starting that connection saves the startup choice and
-stops the Local bridge. The Remote bridge uses its saved SSH or Cloudflare route.
-For SSH over WireGuard, its SSH destination is the Body Control computer's VPN
-address or an SSH alias configured for that address.
+Start the single **Environment Bridge** in MetaHuman's Agent Monitor. Its
+**Body connection** panel follows the selected robot across configured local and
+remote endpoints; if different robots are available, select the intended robot.
+Separate Local/Remote bridge agents are retired. Remote connections use the saved
+SSH or Cloudflare route managed by this bridge. For SSH over WireGuard, the SSH
+destination is the Body Control computer's VPN address or its configured alias.
 
 The MetaHuman computer initiates this connection back to Body Control. The web
 portal's address and the robot bridge's transport are separate settings.
@@ -64,8 +65,8 @@ computer itself, the default local address is:
 <http://127.0.0.1:4321/>
 
 Use the existing logins. Confirm the robot is online in Body Control and that
-MetaHuman's Remote Environment Bridge is connected. A reachable dashboard alone
-does not establish a live robot connection.
+MetaHuman's Environment Bridge is connected to that robot. A reachable dashboard
+alone does not establish a live robot connection.
 
 ## Check a WireGuard installation
 

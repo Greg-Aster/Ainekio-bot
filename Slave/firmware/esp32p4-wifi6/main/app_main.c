@@ -68,17 +68,9 @@ void app_main(void)
     ainekio_p4_log_stage("display initialization");
     const esp_err_t display = ainekio_p4_display_start();
     if (display != ESP_OK) printf("display initialization: %s\n", esp_err_to_name(display));
-    /* Complete one-time NVS provisioning before enabling PWM. Never retry a
-     * stalled mechanism automatically following a watchdog or brownout reset. */
-    ainekio_p4_log_stage("startup crouch, shoulders, stand");
-    const esp_reset_reason_t reset = esp_reset_reason();
-    if (!ainekio_p4_calibration().saved) {
-        puts("No saved joint mapping; startup leaves outputs disabled.");
-    } else if (reset == ESP_RST_POWERON || reset == ESP_RST_EXT || reset == ESP_RST_SW ||
-        reset == ESP_RST_USB || reset == ESP_RST_JTAG) {
-        const esp_err_t rise=ainekio_p4_body_startup(ainekio_pca_status(ainekio_p4_output()).generation);
-        printf("startup rise admitted: %s\n",esp_err_to_name(rise));
-    } else printf("automatic rise inhibited after reset=%d; use Stand to retry\n", reset);
+    /* Boot announces readiness through the existing boot/wake event. The host
+     * Freestyle owner generates startup movement; firmware does not start a
+     * second automatic choreography before that owner can observe the body. */
     ainekio_p4_log_stage("network task start");
     ESP_ERROR_CHECK(ainekio_p4_network_start());
     esp_console_repl_t *repl = NULL;

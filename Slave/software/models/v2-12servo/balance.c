@@ -3,6 +3,13 @@
 #include <math.h>
 #include <string.h>
 
+double ainekio_v2_moving_attitude_response(double correction,double error,
+    double rate,bool usable,double dt,double strength,double damping)
+{
+    const double target=usable ? .4*strength*error-.05*damping*rate : 0.;
+    return correction+dt/(.25+dt)*(target-correction);
+}
+
 void ainekio_v2_balance_track_tolerant(const ainekio_v2_frame_t *target,
     const ainekio_v2_frame_t *measured,const ainekio_v2_frame_t *previous,
     const double tolerance_deg[12],double dt,double joint_speed,ainekio_v2_frame_t *out,
@@ -129,8 +136,8 @@ static void balance_response(ainekio_v2_balance_t *s,
                 -expm1(-4.*dt)*tracking->body_lag_rad[j] : 0.;
             desired[j]=s->correction[j]+gain*error-dt*.2*tuning->damping*angular_rate-back_calculation;
         } else {
-            const double target=usable ? .4*tuning->strength*error-.05*tuning->damping*angular_rate : 0.;
-            desired[j]=s->correction[j]+dt/(.25+dt)*(target-s->correction[j]);
+            desired[j]=ainekio_v2_moving_attitude_response(s->correction[j],error,
+                angular_rate,usable,dt,tuning->strength,tuning->damping);
         }
     }
     if(desired[0]==0. && desired[1]==0. && s->correction[0]==0. && s->correction[1]==0.)return;

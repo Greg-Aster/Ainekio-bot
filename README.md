@@ -5,37 +5,58 @@
 
 - Progress blog and current status: [ainek.io](https://ainek.io)
 - MetaHuman OS development repo: [Greg-Aster/metahuman-os](https://github.com/Greg-Aster/metahuman-os)
-- Current test body: based on the Sesame robot: [dorianborian/sesame-robot](https://github.com/dorianborian/sesame-robot)
+- Retained V1 reference body: based on the Sesame robot: [dorianborian/sesame-robot](https://github.com/dorianborian/sesame-robot)
+
+## Start here for robot development
+
+Read the shared [robot design core](../metahuman/docs/robot/ROBOT_BIBLE.md)
+for the companion's purpose, architecture, ownership and maintenance approach.
+For processes, interfaces, source owners and execution paths, read the shared
+[Robot software architecture](../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md).
+Then follow the contract and qualification scenario relevant to your task.
+The canonical file lives at `docs/robot/ROBOT_BIBLE.md` in the MetaHuman repository
+linked above; local cross-repository links assume sibling checkouts. Both humans
+and agents use the same core. [AGENTS.md](AGENTS.md) governs repository work, and
+[documentation authority](docs/README.md) identifies the specific system and
+hardware references.
 
 ## Robot Models
 
 - **V1 / eight servos:** the existing Freenove ESP32-S3 robot, with direct
   MCPWM servo outputs. [Wiring and hardware records](docs/v1-8servo/PINOUT_DIAGNOSTICS.md).
-- **V2 / twelve servos:** native ESP32-P4-WIFI6 bring-up with a PCA9685 driver;
-  electrical acceptance and body motion remain pending. [V2 status](docs/v2-12servo/README.md).
+- **V2 / twelve servos:** ESP32-P4-WIFI6 with PCA9685 servo output,
+  [P4 firmware](Slave/firmware/esp32p4-wifi6/README.md) and a
+  [V2 motion model](Slave/software/models/v2-12servo/README.md).
+  [Hardware records](docs/v2-12servo/README.md) and dated qualification remain
+  separate from source implementation.
 
-Both models are intended to use the same gateway and Body Control interface.
-V1 remains supported alongside V2. The complete motion runtime currently implements V1;
-[Robot Models](docs/ROBOT_MODELS.md) records the separation boundaries and the
-remaining code work for V2.
+Both models use the same gateway and Body Control interface.
+Current development targets V2; V1 work is paused.
+[Robot Models](docs/ROBOT_MODELS.md) records their distinct body contracts. Use the selected device and current firmware/model
+owners for available capabilities; older bring-up descriptions do not establish
+the present implementation or installed physical performance.
 
 ## Repository Layout
 
-- `Master/` - remote brain and gateway code.
+- `Master/` - Body Control gateway, environment adapter and manual interface;
+  MetaHuman owns the companion brain and higher functions.
 - `Slave/hardware/v1-8servo/` - V1 CAD and physical-body assets.
 - `Slave/hardware/v2-12servo/` - V2 CAD, source assemblies, and printable parts.
 - `Slave/software/` - portable slave-brain core, protocol, and tests.
 - `Slave/firmware/esp32s3/` - current V1 firmware that runs on the robot.
-- `Slave/firmware/esp32p4-wifi6/` - native V2 board/network/output-disable bring-up.
+- `Slave/firmware/esp32p4-wifi6/` - V2 P4 firmware, motion and peripheral control.
 - `Emulator/` - host body emulator, Sesame visual simulator, and tests.
 - `docs/` - specifications, progress records, repository map, and the ignored
   Sesame reference clone.
 
-The V1 physical robot entry point is
-`Slave/firmware/esp32s3/main/app_main.c`. See `docs/REPOSITORY_MAP.md` for the
-complete ownership map.
+The V2 physical robot entrypoint is
+`Slave/firmware/esp32p4-wifi6/main/app_main.c`; V1 retains
+`Slave/firmware/esp32s3/main/app_main.c`. Freestyle generation and host execution
+currently live in `experiments/freestyle/` and are loaded by Body Control.
+See [the repository map](docs/REPOSITORY_MAP.md) for source ownership and
+[startup](docs/STARTUP.md) for an existing physical installation.
 
-Run the complete local software stack with:
+Run the V1 simulator inspection stack with:
 
 ```sh
 cp .env.example .env

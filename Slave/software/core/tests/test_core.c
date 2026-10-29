@@ -365,6 +365,29 @@ static void test_camera_chunk_transfer(void)
     assert(ainekio_camera_chunk_encode(42, jpeg, sizeof(jpeg), sizeof(jpeg), wire, sizeof(wire), &length) == AINEKIO_BINARY_FORMAT);
 }
 
+static void test_host_walk_wire_and_ack_only_samples(void)
+{
+    const char *start="{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":50,\"source\":\"host\",\"geometry\":\"fixture-geometry\",\"reference_cd\":[0,346,-2163,0,346,-2163,0,346,-2163,0,346,-2163],\"twist\":[0.08,0,0.1]}";
+    ainekio_control_message_t m;
+    assert(ainekio_control_decode_for_body(start,strlen(start),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.data.intent.data.walk.host_nominal);
+    assert(m.command.data.intent.data.walk.reference_cd[2]==-2163);
+    assert(ainekio_command_lifecycle(&m.command)==AINEKIO_LIFECYCLE_ACK_THEN_DONE);
+    assert(ainekio_control_decode(start,strlen(start),&m)!=AINEKIO_DECODE_OK);
+    const char *sample="{\"t\":\"walk_target\",\"seq\":2,\"walk\":1,\"sample\":4294967295,\"geometry\":\"fixture-geometry\",\"feet_mm\":[1,2,3,4,5,6,7,8,9,10,11,12]}";
+    assert(ainekio_control_decode_for_body(sample,strlen(sample),&m)==AINEKIO_DECODE_OK);
+    assert(m.command.kind==AINEKIO_COMMAND_WALK_TARGET && m.command.data.walk_target.sample==UINT32_MAX);
+    assert(m.command.data.walk_target.walk_sequence==1 && m.command.data.walk_target.feet_mm[3][2]==12);
+    assert(ainekio_command_lifecycle(&m.command)==AINEKIO_LIFECYCLE_ACK_ONLY);
+    ainekio_core_t core;ainekio_core_init(&core);ainekio_core_begin_session(&core,1);
+    const bool attached=core.servos_attached;
+    assert(ainekio_core_accept(&core,&m.command).accepted);
+    assert(core.stop_latched && core.servos_attached==attached); /* Samples cannot arm/start. */
+    assert(ainekio_control_decode(sample,strlen(sample),&m)!=AINEKIO_DECODE_OK);
+    const char *bad="{\"t\":\"walk_target\",\"seq\":2,\"walk\":1,\"sample\":1,\"geometry\":\"fixture-geometry\",\"feet_mm\":[1,2,3]}";
+    assert(ainekio_control_decode_for_body(bad,strlen(bad),&m)!=AINEKIO_DECODE_OK);
+}
+
 int main(void)
 {
     {
@@ -379,6 +402,7 @@ int main(void)
         const char *invalid = "{\"t\":\"pong\",\"external_speech\":1}";
         assert(ainekio_control_decode_for_body(invalid, strlen(invalid), &notice) != AINEKIO_DECODE_OK);
     }
+    test_host_walk_wire_and_ack_only_samples();
     test_camera_chunk_transfer();
     test_balance_setting_decode();
     test_face_feedback_decode();

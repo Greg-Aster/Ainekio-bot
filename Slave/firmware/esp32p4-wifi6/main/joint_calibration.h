@@ -31,3 +31,6 @@ bool ainekio_p4_joint_unmap_frame(const ainekio_p4_joint_config_t *joints,
 /* Owner-measured carrier/crank collision endpoints; shoulders are unchanged. */
 bool ainekio_p4_joint_fit_frame(const ainekio_p4_joint_config_t *joints,ainekio_v2_frame_t *frame);
 bool ainekio_p4_joint_frame_in_travel(const ainekio_p4_joint_config_t *joints,const ainekio_v2_frame_t *frame);
+/* Coordinated target ramp shared by P4 execution and host dynamics simulation. */
+void ainekio_p4_joint_ramp_frame(const ainekio_v2_frame_t *from,
+    const float *goal,double speed_cd_s,double dt,ainekio_v2_frame_t *out);

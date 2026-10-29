@@ -71,6 +71,11 @@ void ainekio_p4_gait_trace_sample(const ainekio_p4_feedback_snapshot_t *s)
     e.sample.imu_recovering=imu.attitude.gyro_recovery||imu.attitude.acceleration_recovery;
     e.sample.command_sequence=body.sequence;e.sample.walking=body.gait_valid;
     e.sample.entering=body.face_entering;e.sample.phase=body.gait_phase;
+    e.sample.host_nominal=body.gait_valid && body.gait_host_nominal;
+    if(body.execution.sequence==body.sequence && body.execution.connection==body.connection) {
+        e.sample.nominal_sample=body.execution.nominal_sample;
+        e.sample.output_us=body.execution.sampled_us;
+    }
     e.sample.stride_percent=body.stride_percent;e.sample.cycles_s=body.gait_cycles_s;
     append(&e);
 }
@@ -196,8 +201,15 @@ static cJSON *event_json(uint64_t sequence,const ainekio_gait_trace_event_t *e)
     cJSON *motion=cJSON_AddObjectToObject(o,"motion");
     cJSON_AddNumberToObject(motion,"command_sequence",e->sample.command_sequence);
     cJSON_AddBoolToObject(motion,"walking",e->sample.walking);cJSON_AddBoolToObject(motion,"entering",e->sample.entering);
-    cJSON_AddNumberToObject(motion,"phase",e->sample.phase);
-    cJSON_AddNumberToObject(motion,"stride_percent",e->sample.stride_percent);cJSON_AddNumberToObject(motion,"cycles_s",e->sample.cycles_s);
+    cJSON_AddStringToObject(motion,"walk_source",e->sample.host_nominal?"host":"native");
+    if(e->sample.host_nominal) {
+        cJSON_AddNumberToObject(motion,"nominal_sample",e->sample.nominal_sample);
+        cJSON_AddNumberToObject(motion,"sampled_us",e->sample.output_us);
+    } else {
+        cJSON_AddNumberToObject(motion,"phase",e->sample.phase);
+        cJSON_AddNumberToObject(motion,"stride_percent",e->sample.stride_percent);
+        cJSON_AddNumberToObject(motion,"cycles_s",e->sample.cycles_s);
+    }
     return o;
 }
 esp_err_t ainekio_p4_gait_trace_http(httpd_req_t *r,const cJSON *operation)

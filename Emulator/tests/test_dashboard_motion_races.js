@@ -27,6 +27,7 @@ source=source.replace('  if (!setupLogin()) {', `
     steering() { steeringSupported=true; setSteeringVector(100,0); },
     state() { return {activeWalkSequence,heldRequestPending,walkRequestPending,activeWalkProfile}; },
     range(supported,crab=false) { runningSupported=supported; crabSupported=crab; updateSpeedRange(); },
+    neural(enabled) { neuralWalking=enabled; },
     updateMotionSystem,updateBalance,operateBalance,beginHeldMotion,applyWalking,stopMotion,setupMotionControls,updateWalkingStatus,updateMotionSpeed,operateMotionSpeed,sendNamedMotion,pollGamepad
   };
   if (false) {`);
@@ -144,6 +145,13 @@ async function run() {
   await node('walk-speed').fire('change');
   assert.equal(requests.length,fastCount);
 
+  const failedProducerStart=api.applyWalking(), producerRequest=requests.at(-1);
+  api.updateWalkingStatus({epoch:1,next_sequence:916,active_walk_sequence:null,
+    last_terminal:{t:'done',seq:915,execution_error:'Selected inference model changed'}});
+  producerRequest.resolve(915);await failedProducerStart;
+  assert.equal(api.state().activeWalkSequence,null);
+  assert.match(node('command-result').textContent,/Command 915 failed.*inference model changed/);
+
   // Unrelated failures do not cancel a walk; confirmed completion does.
   const healthy=api.applyWalking();requests.at(-1).resolve(920);await healthy;
   api.updateWalkingStatus({epoch:1,next_sequence:922,active_walk_sequence:920,
@@ -191,6 +199,20 @@ async function run() {
   const beforeUnsupported=requests.length;await api.applyWalking();
   assert.equal(requests.length,beforeUnsupported);assert.ok(sideways.every(option=>option.disabled));
   console.log('Negotiated Crab directions, Start/Finish, and return to Walk passed.');
+  api.select('neural-source');api.neural(true);
+  node('walk-gait').value='walk';node('walk-continuous').checked=false;
+  const neuralStart=api.applyWalking();
+  assert.equal(requests.at(-1).body.params.steps,0,'Neural commands use goal/Finish, not native cycles');
+  requests.at(-1).resolve(1100);await neuralStart;
+  const neuralFinish=api.applyWalking(true);
+  assert.equal(requests.at(-1).body.params.update,1100);
+  assert.equal(requests.at(-1).body.params.speed,0);
+  requests.at(-1).resolve(1101);await neuralFinish;
+  api.select('native-source');api.neural(false);node('walk-cycles').value='4';
+  const nativeStart=api.applyWalking();
+  assert.equal(requests.at(-1).body.params.steps,4,'Native finite cycles remain available');
+  requests.at(-1).resolve(1102);await nativeStart;
+  node('walk-continuous').checked=true;
   const ready={model:'v2-12servo',epoch:1,features:['motion_speed_v1']};
   api.select('speed-a');api.updateMotionSpeed(ready);
   const staleSpeedRead=requests.at(-1);
@@ -205,6 +227,7 @@ async function run() {
   const beforeEdit=requests.length;
   node('motion-speed').value='2';await node('motion-speed').fire('input');
   assert.equal(requests.length,beforeEdit,'editing speed must not send movement or save');
+  node('motion-system').value='library';
   const wave=api.sendNamedMotion('emote','wave','Wave sent');
   assert.equal(requests.at(-1).body.params.playback_rate,2);
   assert.equal(requests.at(-1).body.robot_id,'speed-b');requests.at(-1).resolve(2002);await wave;
@@ -432,7 +455,7 @@ async function run() {
   savingMotion.resolve({robot_id:'motion-a',system:'library'});await saveMotion;
   assert.equal(node('motion-system').value,'freestyle','old save must not change the new robot');
   api.select('motion-c');api.updateMotionSystem({});
-  assert.equal(node('motion-system').value,'library');
+  assert.equal(node('motion-system').value,'freestyle');
   console.log('Motion selector: saved status, unsaved edits, per-robot save and delayed replies passed.');
 
 }

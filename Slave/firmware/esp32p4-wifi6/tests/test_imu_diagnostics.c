@@ -114,8 +114,12 @@ int main(void)
     char *args[]={"imu","sample"};assert(ainekio_p4_imu_command(2,args)==0);
     assert(reads==before_reads && writes==before_writes); /* console does no bus I/O */
     assert(!ainekio_p4_imu_status().attitude.fresh); /* printing does not refresh data */
-    const uint8_t a[]={0,0x80},b[]={0xff,0xff};
-    assert(signed_le(a)==-32768 && signed_le(b)==-1);
+    const uint8_t negative_counts[12]={0,0x80,0xff,0xff};
+    ainekio_imu_sample_t decoded;
+    ainekio_imu_lsm6ds3_decode(123,negative_counts,&decoded);
+    assert(decoded.timestamp_us==123);
+    assert(decoded.angular_rate_rad_s[0]==-32768*AINEKIO_LSM6DS3_GYRO_LSB_RAD_S);
+    assert(decoded.angular_rate_rad_s[1]==-AINEKIO_LSM6DS3_GYRO_LSB_RAD_S);
 
     /* Persistent calibration: reuse estimator validation; storage failures
      * never claim success or mutate the active acquisition configuration. */
