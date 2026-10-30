@@ -1817,6 +1817,8 @@ class EnvironmentAdapter:
         if motion_ready:
             actions.extend(["requestMotion", "stop"])
         gait_commands = locomotion_commands(list(supported or ()), str(robot.get("model")) if robot else None) if motion_ready else []
+        if gait_commands:
+            actions.append("move")
         robot_commands = [command for command in robot_commands if command not in gait_commands]
         measurement = self.locomotion_measurement(robot_id) if self.locomotion_measurement is not None else {
             "available": False, "reason": "locomotion_measurement_not_configured", "robotId": robot_id}

@@ -22,7 +22,7 @@ import torch
 
 from .contract import SCHEMA, SCHEMAS, foot_offsets, vector
 from .environment import EnvironmentConfig, body_control_config, ENVIRONMENT_VERSION, POLICY_ENVIRONMENT_VERSIONS, representation_identity
-from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands
+from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands, training_recipe, requested_commands
 
 
 class Runtime:
@@ -101,6 +101,9 @@ class Runtime:
                         id=path.parent.name,
                         **value,
                         initialization=manifest.get("initialization"),
+                        recipe=manifest.get("recipe"),
+                        training_device=manifest.get("device"),
+                        simulation_workers=manifest.get("simulation_workers"),
                         automatic_footage=manifest.get("automatic_footage"),
                         evaluation=(
                             json.loads(evaluation.read_text())
@@ -204,6 +207,10 @@ class Runtime:
             if value_learning_rate is not None and (type(value_learning_rate) not in (int, float)
                     or not math.isfinite(value_learning_rate) or value_learning_rate <= 0):
                 raise ValueError("Value learning rate must be finite and positive")
+            exploration_learning_rate = payload.get("exploration_learning_rate")
+            if exploration_learning_rate is not None and (type(exploration_learning_rate) not in (int, float)
+                    or not math.isfinite(exploration_learning_rate) or exploration_learning_rate <= 0):
+                raise ValueError("Exploration learning rate must be finite and positive")
             if payload.get("resume") and payload.get("initialize_from"):
                 raise ValueError("Choose resume or weights-only initialization")
             source = payload.get("resume") or payload.get("initialize_from")
@@ -213,17 +220,22 @@ class Runtime:
             )
             if previous:
                 policy_algorithm(prior)
-            if value_learning_rate is not None and policy_algorithm(prior) != "PPO":
+            recipe = training_recipe(prior, payload.get("recipe"),
+                                     initialize_from=payload.get("initialize_from"))
+            algorithm = policy_algorithm(prior) if previous else ("PPO" if recipe else "SAC")
+            if value_learning_rate is not None and algorithm != "PPO":
                 raise ValueError("Separate value learning rate requires PPO")
+            if exploration_learning_rate is not None and algorithm != "PPO":
+                raise ValueError("Separate exploration learning rate requires PPO")
             command_units = payload.get("command_units")
             if command_units is not None:
-                if (policy_algorithm(prior) != "PPO" or not isinstance(command_units, list)
+                if (algorithm != "PPO" or not isinstance(command_units, list)
                         or len(command_units) != 3 or any(type(v) not in (int, float)
                         or not math.isfinite(v) or v <= 0 for v in command_units)):
                     raise ValueError("PPO command units require three finite positive scales")
             action_noise_std = payload.get("action_noise_std")
             if action_noise_std is not None:
-                if (policy_algorithm(prior) != "PPO" or not isinstance(action_noise_std, list)
+                if (algorithm != "PPO" or not isinstance(action_noise_std, list)
                         or len(action_noise_std) != 12 or any(type(v) not in (int, float)
                         or not math.isfinite(v) or v <= 0 for v in action_noise_std)):
                     raise ValueError("Action exploration requires twelve positive PPO standard deviations")
@@ -234,8 +246,16 @@ class Runtime:
             # UI/default requests run through Body Control. Historical replay
             # remains selected by each artifact's recorded backend.
             environment["execution_backend"] = "body_control"
+            if recipe and not previous:
+                environment["reward_profile"] = "locomotion"
             config = body_control_config(EnvironmentConfig(**environment))
+            commands = requested_commands(config, payload.get("commands"), prior)
             checkpoint = payload.get("resume_checkpoint", "policy.zip")
+            initialize_checkpoint = payload.get("initialize_checkpoint", "policy.zip")
+            if payload.get("initialize_from"):
+                checkpoint_path = (previous / initialize_checkpoint).resolve()
+                if not checkpoint_path.is_relative_to(previous) or not checkpoint_path.is_file():
+                    raise ValueError("Choose an existing initialization checkpoint within its source run")
             if payload.get("resume"):
                 resume_environment_changes(prior, config)
                 resume_reward_changes(prior)
@@ -286,6 +306,15 @@ class Runtime:
                 command += ["--command-units", *map(str, command_units)]
             if checkpoint_every is not None:
                 command += ["--checkpoint-every", str(checkpoint_every)]
+            if exploration_learning_rate is not None:
+                command += ["--exploration-learning-rate", str(exploration_learning_rate)]
+            if payload.get("initialize_from"):
+                command += ["--initialize-checkpoint", initialize_checkpoint]
+            if payload.get("recipe"):
+                command += ["--recipe", recipe]
+            if payload.get("commands") is not None:
+                for requested in commands:
+                    command += ["--command", *map(str, requested)]
             with (path / "training.log").open("w") as log:
                 self.training = subprocess.Popen(
                     command, stdout=log, stderr=subprocess.STDOUT

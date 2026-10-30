@@ -352,7 +352,7 @@ changes, so early movement followed by rest is visible rather than hidden in
 an episode average. These intervals only report measurements; they do not
 schedule motion or impose a gait period.
 
-Environment version9 scores directed progress from each transition's horizontal
+Environment version10 scores directed progress from each transition's horizontal
 ground displacement and unwrapped heading change. Linear and angular scales
 are explicit objective parameters (`reward_velocity_scale_m_s` and
 `reward_yaw_scale_rad_s`), not hardware limits. Directed travel earns credit
@@ -366,6 +366,11 @@ and nonnegative costs, so rocking cannot beat rest. Productive bursts can earn
 credit; sustained excess speed is penalized. The default overspeed cost2 makes
 steady requested pace score higher than steady overspeed. Request changes clear
 pace history without resetting physics or delaying execution.
+The requested heading remains continuous across Walk updates, matching P4;
+only a new Walk establishes a new reference. Version9 incorrectly reset the
+reward heading on each twist change. Compact evaluation intervals now include
+the additive progress, overspeed, cross-track, slip, effort and action-change
+components so a regression can be attributed without retaining raw rollouts.
 Positive-score support, slip, effort and action-change costs remain. No foot
 order or gait period is prescribed. These experimental normalization scales and
 costs are recorded in each environment; they are not physical qualification.
@@ -489,6 +494,21 @@ retains the original worker count/replay layout. On the October27 workstation,
 two workers increased physics-only throughput from179 to299 steps/s; this excludes
 learner updates, rendering and IPC, so it is not an end-to-end training speed claim.
 
+Measured **October29** on the four-core workstation, stepping the Body Control
+backend end to end (`environment.json` from run `2300c113`, 40 vector steps per
+point, `OMP_NUM_THREADS=1`):
+
+| `--workers` | 1 | 2 | 4 | 8 | 16 |
+| --- | --- | --- | --- | --- | --- |
+| transitions/s | 48 | 86 | 119 | **151** | 165 |
+
+Throughput saturates by eight workers; sixteen buys ~9% more for twice the
+processes and resident memory, and oversubscribes four cores. Use `--workers 8`
+here. The ceiling is the physics plus native P4 executor cost per control step,
+not the learner. At ~151 transitions/s the 1e8 transitions this class of recipe
+reports would take about 7.7 days, so a sample budget in that range is not
+currently reachable on this host; raising worker count will not change that.
+
 Artifacts stay under ignored `build/neural-gait` by default (override
 `AINEKIO_NEURAL_GAIT_DATA_DIR`). Each run contains the exact environment, geometry
 hash, checkpoint, held-out evaluation and progress. SAC runs also retain their
@@ -545,10 +565,15 @@ existing optimizer's step size and records the source/target rate in the manifes
 Resuming without it preserves the saved schedule. Weights, Adam moments, counters,
 exploration and PPO's existing trust-region setting are retained in either case.
 PPO also accepts `value_learning_rate` (`--value-learning-rate`) for its existing
-value network. The maintained `GaitPPO` keeps SB3's rollout/update implementation
-and separates only the actor/value Adam parameter-group rates, preserving
-parameter identities and moments. This lets the value estimator adapt without
-increasing the movement policy's update rate. Saved rates/groups survive resume.
+value network and `exploration_learning_rate` (`--exploration-learning-rate`)
+for a policy with learned standard deviation. The maintained `GaitPPO` keeps
+SB3's rollout/update implementation and uses one Adam optimizer with actor,
+value and exploration parameter groups. Their identities and moments are
+preserved; canonical group order keeps save/load mapping independent of option
+application order. Value/exploration can adapt without increasing the movement
+mean's update rate. Exploration changes follow PPO gradients; the option does
+not force noise to increase/decrease or change deterministic deployment. Saved
+rates/groups survive resume.
 Explicit `command_units` (`--command-units vx vy yaw`) normalizes SI commands
 inside the saved PPO policy, using metres/second and radians/second reference
 units. It transforms the corresponding actor/value first-layer columns and
@@ -556,6 +581,82 @@ Adam moments so initial predictions are preserved. Raw sensor/request contracts,
 motion limits, network dimensions and parameter counts do not change. All
 collection, inference, likelihood and value-prediction paths use the same
 normalization, recorded in `command_preconditioning`; ordinary resume inherits it.
+The optional `ainekio-neural-gait-v5-history` schema extends the existing depth
+snapshot with ten past proprioceptive observations at 100 ms spacing, their
+actual ages/availability, and sine/cosine of requested heading error. This is one
+second of causal sensor history, not a movement period or an inference wait.
+The existing `NeuralWalk` owns that history; command updates retain it, while a
+new Walk/connection gets a fresh instance. Physical and virtual gateways use the
+same `ObservationHistory` projection and device timestamps. Missing history is
+marked unavailable; simulator truth is never inserted into a sensor measurement.
+Five additional training-only coordinates give the PPO critic recent simulated
+pace and reward-reference heading. The actor masks these coordinates on every
+collection/inference/likelihood path; physical inference supplies zeros. This
+is an asymmetric actor/critic input within the existing PPO implementation.
+`initialize_checkpoint` (`--initialize-checkpoint`) selects an existing source
+checkpoint without copying its run. Explicit input expansion preserves learned
+actor/value weights and zeroes new columns, with fresh optimizer state/rollouts.
+Matched experiments initialize both control and expanded policies this way.
+History command columns use the same saved command units as the current request.
+Legacy v3/v4 artifacts retain their original input dimensions and inference.
+Fresh online training now uses `playground-ppo-v1`, adapting the published
+MuJoCo Playground/ETH PPO locomotion recipe within the existing training owner.
+Explicit `recipe` / `--recipe` selects it; resumes inherit their saved recipe.
+The failed least-squares mean-head conversion and its CLI/API option were removed.
+Historical distributions remain readable for existing model artifacts.
+
+This baseline starts a new PPO policy instead of converting a saturated actor:
+ELU actor/critic networks [512,256,128], linear Gaussian mean, learned initial
+standard deviation 0.5, entropy coefficient 0.01, learning rate 3e-4 and five
+optimization epochs. Parameters are recorded in the manifest.
+
+The rollout is sized by **transition budget, not steps per worker**. The published
+recipe pairs 24 steps per worker with thousands of GPU-parallel environments, so
+its per-update sample count comes from parallelism that this host does not have.
+`locomotion_rollout_geometry` therefore targets 2048 transitions per update
+(`n_steps = 2048 / workers`) and keeps the recipe's four-minibatch divisor, giving
+`batch_size` 512. A requested step budget caps the rollout so a short run never
+collects more transitions than it asked for; only this recipe's own resumes are
+resized, and a historical artifact keeps the geometry it was recorded with.
+
+`target_kl` is 0.08. The former 0.02 made SB3 abandon the epoch loop *before*
+`optimizer.step()` on ~93% of rollouts, so roughly one of twenty intended gradient
+steps landed per update while the logs still looked healthy. `clip_range` 0.2
+remains the per-step trust region. Compare recorded `optimizer_updates` (epochs)
+against `n_epochs × rollouts` when judging whether a run actually optimized.
+
+SB3 running observation moments are saved **inside the policy**. Moments update
+from the preceding rollout, then remain fixed during the next rollout and its
+optimization; gateway inference, replay and evaluation share the saved transform.
+Normalized observations are clipped to ±10, matching the reference `VecNormalize`
+bound. Coordinates that are constant under a request set — an unused command axis,
+an absent depth grid — keep near-zero running variance, and without that clip
+their noise is amplified by ~1e4 into the first layer.
+The existing privileged-critic mask still excludes simulator-only data from the
+actor. No separate runtime observation estimator or fabricated feedback is added.
+
+`reward_profile: "locomotion"` selects robot-scaled exponential linear/yaw
+tracking, balance, measured servo acceleration, action-change, load, mechanical
+energy and contact-slip terms. Tracking widths are configured in m/s and rad/s;
+reward weights and profile are saved with the environment. Historical artifacts
+without a profile retain their previous reward. No foot order or gait waveform
+is prescribed. Physical progress remains separate from this training score.
+
+`commands` accepts multiple SI velocity/yaw requests through the training API;
+repeat `--command VX VY YAW` in the CLI. These go through the existing real
+Gateway Walk/update path and native P4 execution. The learned model retains the
+shared v3/v4/v5 observation and foot-action contracts, calibration, feedback,
+heading, balance, stop and recovery ownership. CPU workers still execute native
+firmware and MuJoCo physics; CUDA accelerates the learner, not those workers.
+This is an adaptation of the published recipe, not a claim of the thousands of
+GPU physics environments or training throughput reported by its authors.
+
+Raw Gaussian samples remain in PPO's likelihood buffer; SB3 clips only executed
+and predicted commands to the unchanged action range. Evaluation reports mean
+squared requested-foot changes, native P4 target changes/acceleration, and raw
+mean clipping incidence in episode summaries and one-second intervals. Native
+targets are commanded logical angles, not proof of physical joint acceleration.
+No extra motion smoothing, leg order, runtime delay or new servo limit is added.
 At completion,
 `/progress-video?id=...` compares the initial and published final policies using
 one matched trial each. The replay CLI's `--progress --comparison` selects this

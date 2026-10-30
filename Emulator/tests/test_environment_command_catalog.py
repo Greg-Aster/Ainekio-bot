@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import asyncio
 
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.translation import (
@@ -47,6 +48,27 @@ class ConnectedGateway(FakeGateway):
 
 
 class EnvironmentCommandCatalogTests(unittest.TestCase):
+    def test_send_text_preserves_the_complete_message_through_gateway_delivery(self) -> None:
+        class TranscriptGateway(FakeGateway):
+            def __init__(self):
+                self.transcripts = []
+
+            async def publish_transcript(self, value):
+                self.transcripts.append(value)
+
+        gateway = TranscriptGateway()
+        adapter = EnvironmentAdapter(gateway,
+            EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        for index, text in enumerate(("hello", "x"*4096, "x"*4096+"retain this ending", "🌍\n"*10000+"final instruction")):
+            with self.subTest(characters=len(text)):
+                result = asyncio.run(adapter.handle_action({"id":f"text-{index}", "type":"sendText", "text":text}))
+                self.assertEqual(result["type"], "completed")
+                self.assertEqual(gateway.transcripts[-1]["text"], text)
+                self.assertEqual(gateway.transcripts[-1]["source"], "environment_adapter")
+                self.assertEqual(len(gateway.transcripts), index+1)
+                self.assertEqual(result["actionId"], f"text-{index}")
+
     def test_every_advertised_robot_command_translates_to_firmware_protocol(self) -> None:
         for command in SUPPORTED_ROBOT_COMMANDS:
             action_type = "stop" if command == "stop" else "robotCommand"

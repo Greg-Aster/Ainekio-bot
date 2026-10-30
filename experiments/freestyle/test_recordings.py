@@ -1,6 +1,8 @@
 import asyncio
 from pathlib import Path
 import tempfile
+import threading
+from unittest.mock import patch
 import unittest
 
 from experiments.freestyle.recordings import Recorder, read_records, corrected_rows
@@ -9,6 +11,70 @@ from experiments.freestyle.test_program import FakeGateway, FakeTransport
 
 
 class RecordingTests(unittest.TestCase):
+    def test_record_racing_close_is_persisted_or_explicitly_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'evidence.sqlite'
+            recorder = Recorder(path)
+            snapshot_started = threading.Event()
+            resume_snapshot = threading.Event()
+            accepted = []
+
+            class Payload(dict):
+                def __deepcopy__(self, memo):
+                    snapshot_started.set()
+                    if not resume_snapshot.wait(3):
+                        raise AssertionError('Payload snapshot was not released')
+                    return dict(self)
+
+            producer = threading.Thread(target=lambda: accepted.append(
+                recorder.record('job_finished', Payload(state='completed'))))
+            producer.start()
+            try:
+                self.assertTrue(snapshot_started.wait(3))
+                recorder.close()
+            finally:
+                resume_snapshot.set()
+                producer.join(3)
+            self.assertFalse(producer.is_alive())
+            rows = list(read_records(path))
+            self.assertEqual(len(accepted), 1)
+            if accepted[0] is not None:
+                self.assertEqual([row['id'] for row in rows], accepted)
+                self.assertEqual(rows[0]['payload'], {'state':'completed'})
+            else:
+                self.assertEqual(rows, [])
+            self.assertEqual(recorder.status()['pending'], 0)
+
+    def test_store_startup_failure_accounts_for_every_accepted_record(self):
+        from experiments.freestyle import recordings
+        import sqlite3
+        opening = threading.Event()
+        fail_open = threading.Event()
+
+        def unavailable(*args, **kwargs):
+            opening.set()
+            if not fail_open.wait(3):
+                raise AssertionError('Store startup failure was not released')
+            raise sqlite3.OperationalError('test store unavailable')
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(recordings.sqlite3, 'connect', unavailable):
+                recorder = Recorder(Path(directory)/'evidence.sqlite')
+                try:
+                    self.assertTrue(opening.wait(3))
+                    self.assertIsNotNone(recorder.record('job_finished', {'state':'error'}))
+                finally:
+                    fail_open.set()
+                    recorder.close()
+            status = recorder.status()
+            self.assertEqual(status['failed'], 1)
+            self.assertEqual(status['pending'], 0)
+            self.assertEqual(status['written'], 0)
+            self.assertEqual(status['error'], 'test store unavailable')
+            self.assertIsNone(recorder.record('later', {}))
+            recorder.close()
+            self.assertEqual(recorder.status()['pending'], 0)
+
     def test_receipts_do_not_misattribute_telemetry_or_getters(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'evidence.sqlite'

@@ -264,7 +264,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if operation == 'preview':
             from gateway.neural_gait.client import observation
             from gateway.neural_gait.depth import project_depth
-            from gateway.neural_gait.contract import DEPTH_SCHEMA
+            from gateway.neural_gait.contract import DEPTH_SCHEMAS
             robot = _required_string(payload, 'robot_id')
             model = await self.neural_gait.call('/status')
             if model.get('environment') is None:
@@ -274,7 +274,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
             metric = camera.locomotion_measurement(robot) if camera else {'available':False}
             data = observation(source, model['environment'], payload.get('command', [.08,0.,0.]),
                 vision=(project_depth(metric,self.gateway.clock(),robot,source['epoch'])
-                        if model['environment'].get('observation_schema') == DEPTH_SCHEMA else None))
+                        if model['environment'].get('observation_schema') in DEPTH_SCHEMAS else None))
             result = await self.neural_gait.call('/infer', {'observation':data})
             evidence = {'observation':data, 'sensor_source':source,
                         'camera_measurement':{k:v for k,v in metric.items() if k != 'depthPreview'},

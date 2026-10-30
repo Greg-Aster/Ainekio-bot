@@ -120,7 +120,9 @@ context-conditioned `gait_learning_v4` parameters using measured progress,
 turning, tilt, acceleration and tracking. Forward, backward, turning and Run are
 its categories. Its profile includes duty, sweep, phase, lift, landing and body
 shape; it retains separate Walk/Run contexts and camera/calibration signatures.
-This is a compact policy/parameter optimizer, not the new SAC neural network.
+This is a compact policy/parameter optimizer, separate from the host neural
+policy. Fresh online neural training uses PPO; historical SAC artifacts retain
+their recorded algorithm.
 
 The neural experiment must reuse the existing recorder/history and hardware
 configuration at the handoff. Existing policy upload, enable/amount, export,
@@ -230,113 +232,96 @@ same 148 sensor/command features. Current training and videos, including failed
 rounds, are recorded in the [October 27 gait journal entry](GAIT_RESEARCH_JOURNAL.md#2026-10-27--neural-walking-training-guided-steps-and-visible-progress).
 Neither reward score nor a fall-free simulation establishes physical walking.
 
-## Host neural integration: scoped implementation boundary
+## Host neural integration: implemented path and qualification boundary
 
-No physical neural executor is active. Extend the existing Walk operation rather
-than send repeated Freestyle plans. The integration below is source work in progress; no physical neural executor is active. Task completion follows the existing goal owner above, not a neural cycle count.
+Source rechecked **2026-10-29**. The gateway/native-P4 neural path is implemented
+and exercised through the real WebSocket interface in simulation. This does not
+establish physical deployment, reliable learned walking, or Q6A timing. Task
+completion remains owned by the existing goal system, not a neural cycle count.
 
-The simulation-side handoff now exists: explicit `balance_enabled` training
-configuration sends neural foot targets through shared frame-to-pose/contact
-geometry and the existing moving-balance owner before calibration/ramp/mapping.
-Posture and simulation share that conversion. This does not implement the
-physical Walk transport, heading/Finish handoff or live feedback cadence below.
+1. **Admission and ownership.** Dashboard and Environment Bridge Walk requests
+   reach `GatewayService.queue_intent` and `GatewayConnection.send_command`.
+   `_prepare_neural_walk` uses the saved per-robot source to attach host reference
+   geometry and commanded SI twist. `NeuralWalk` owns inference, consumed-action
+   history and updates for the original Walk. The shared control codecs carry
+   `walk_target` with owner sequence, sample, geometry and twelve foot offsets.
+   P4 `body.c:accept_walk_target` replaces the current nominal target within that
+   operation; it does not queue another movement. ACK means admission; telemetry
+   identifies the sample consumed by a successful PWM write. Stop, Release,
+   replacement and reconnect retire the producer through existing ownership.
+   Late inference cannot restart the retired operation.
 
-1. **Keep admission and ownership.** Dashboard `applyWalking` sends Walk starts,
-   updates and speed-zero Finish through `GatewayService.queue_intent`,
-   `GatewayConnection.send_command`, the shared control codec, P4
-   `controller.c:apply`, and `body.c:ainekio_p4_body_execute/start_motion`.
-   Preserve the original connection, epoch, sequence and output generation.
-   Updates remain ACK-only; the original Walk owns completion
-   (`core.c:ainekio_command_lifecycle`, gateway `_command_needs_done`). Extend
-   this path with a negotiated host-nominal source on Walk start and a compact
-   nominal-frame update tied to that original Walk. The protocol must identify
-   the sample, reference geometry/model coordinates and twelve requested foot
-   offsets in millimetres. Define the shared wire fields in
-   `core/include/ainekio/protocol.h`, `core/src/control_codec.c` and
-   `software/protocol/control_v1.py`, then carry them through the existing body
-   request/output owner. Frames are target updates, not new movement jobs.
-   Stop/Release/replacement invalidate their owner through the existing
-   generation/sequence handling; late inference must not restart movement.
+2. **Native corrections and physical mapping.** The host branch of
+   `body.c:motion_frame` runs `ainekio_v2_nominal_foot_pose`,
+   `ainekio_v2_walk_host_heading`, `balance_frame`, calibrated fitting and joint
+   ramping before the existing PCA output. Shared nominal conversion constructs
+   foot anchors for leveling. Physical order remains rear-left, rear-right,
+   front-left, front-right. Saved native phase-based learned residuals remain
+   applied only to native gaits: their phase/profile signature does not describe
+   host-generated motion. Heading and balance switches retain their existing
+   owners. Connected training runs this same body branch, including the selected
+   balance/heading configuration; historical direct-math runs did not necessarily
+   do so and remain identified by their artifact configuration.
 
-2. **Replace nominal generation before corrections.** In
-   `body.c:motion_frame`, the present Walk branch calls
-   `ainekio_v2_walk_feedback_tick`, `balance_frame`, `fit_motion_frame`, then
-   `ainekio_p4_learning_frame`. The neural output is an absolute offset from a
-   fixed standing reference, not a residual on that moving gait. Reuse
-   `simulation_foot_target`'s existing `ainekio_v2_learning_offsets_apply`,
-   calibrated fitting and joint-ramp primitives for resolving that reference;
-   factor the shared nominal-target work into the existing V2/body owners so
-   simulation and firmware call it. Construct the corresponding nominal body /
-   foot-contact pose before `balance_frame`; passing only its joint frame would
-   leave leveling with stale foot anchors. Keep physical order rear-left,
-   rear-right, front-left, front-right; legacy CAD labels use a different order.
-   Do not apply the saved native residual automatically: its phase/profile
-   signature belongs to the procedural source. Retain that correction on its
-   existing native source, and expose which source/corrections were applied.
+3. **Finish, measured arrival and cancellation.** Speed-zero updates retain the
+   original Walk receipt. `body.c:host_finish_begin` reconstructs the current pose
+   from fourth-wire feedback when available and starts
+   `ainekio_v2_posture_begin_landing` toward Stand. The body posture/arrival owner
+   retains completion until measured arrival when configured. Landing/support
+   estimates are geometry estimates, not measured foot contact. Existing native
+   tests cover a stalled Finish remaining active, the attributed jam event and
+   completion after measured progress resumes. Connection-loss Finish, Stop hold
+   and Release detachment keep their original owners; loaded landing remains a
+   physical qualification task.
 
-3. **Factor heading and Finish rather than discard them.**
-   `motion.c:ainekio_v2_walk_feedback_tick` owns heading state but also calls
-   `walk_tick`, using procedural phase, cycles/second and yaw-per-cycle authority.
-   Calling it and then overwriting its feet would throw away its correction.
-   Separate nominal sampling from the existing heading reference/correction
-   responsibility, with an explicit command-twist/time basis for host targets;
-   preserve native-path output through regression comparisons. The neural source
-   currently supplies no phase/contact schedule, so native phase-based Finish
-   cannot simply be reused unchanged. Finish needs an ending from the current
-   accepted pose through the existing contact-aware
-   `ainekio_v2_posture_begin/advance_mapped` and feedback-arrival logic, retaining
-   the original Walk receipt. Its current `posture_begin_ordered` marks all feet
-   grounded: a mid-swing handoff must establish the estimated support/landing
-   state rather than reuse that assumption as measured contact. This is the same
-   body/posture owner, not a second gait controller. Preserve `output_step`'s existing connection-loss Finish
-   semantics, Stop hold and Release detachment. Qualify actual foot landing and
-   final arrival rather than acknowledging a received final frame as completion.
+4. **Feedback, IMU and depth.** Production IMU packets carry the paired calibrated
+   joint scan: filtered position/velocity, commanded position, per-joint acquisition
+   times, health and configuration identity. `body_sensor_observation` feeds the
+   shared policy projection. The producer uses the device-consumed requested
+   action as `previous_action`, not the most recently sent or fitted target.
+   The v5 observation history belongs to the original Walk and survives steering
+   updates. Preview is non-executing and begins with empty history. Both v4-depth
+   and v5-history preview/execution use the existing camera's depth projection;
+   valid depth does not require successful odometry. Depth demand is asynchronous
+   and released when the producer exits. The normal 50 Hz body output does not
+   wait for a host inference round trip. Simulation does not establish physical
+   network delay/jitter, bus timing, or inference latency on Q6A.
 
-4. **Feed measured state without serial HTTP polling.** Fourth-wire acquisition
-   already scans at 20 ms (`servo_feedback.c:wait_for_next_scan`); IMU events are
-   published at 20 ms (`controller.c` link loop). The source now includes compact
-   `joint_feedback` in that IMU packet: calibrated filtered angles/velocities,
-   separately identified commanded angles, per-joint acquisition times, health
-   and scan/configuration identity. `GatewayService.body_sensor_observation`
-   projects the paired packet for neural preview without Freestyle or HTTP polling.
-   The independent slow `servo_feedback` health event remains at 5 seconds
-   normally, 30 seconds in Tether. Firmware and gateway must both be updated;
-   old IMU packets remain valid but cannot provide the new preview's joint input.
-   This handoff is source-tested, not activated or measured over physical Wi-Fi.
-   The future consumed nominal sample ID still belongs to Walk execution, not
-   an inferred sensor scan ID. Feed the preceding consumed
-   sample's **requested action** as `previous_action`; keep fitted/ramped targets
-   and measured positions separate. Current preview intentionally uses zero and
-   cannot serve as an execution loop. Measure sensor age, inference, transport,
-   consumption and PWM timing separately; the local 50 Hz output task must not
-   wait for a host round trip. Resolve frame coalescing and receipt correlation
-   within this owner instead of accumulating independent motion commands.
+5. **Events and recovery.** `body.c:output_step` calls the existing fourth-wire
+   no-progress detector and reports `servo_stall` with joint and command identity.
+   Gateway `BodyEvents` supplies tipped/rapid-movement events from IMU observations.
+   The configured Freestyle recovery consumer receives these events and generates
+   a replacement through its existing executor. Recovery replacement cancels the
+   original neural producer; operator Stop also retires pending recovery generation.
+   The real-socket/native-body test checks that handoff and measured recovery-target
+   receipts with a deterministic generator fixture, not learned physical self-righting.
+   Ordinary PPO episodes end on a fall/body terminal; the existing virtual recovery
+   scenario separately continues ticking hardware while Freestyle responds.
+   Automatic slip-event production and automatic resumption of the original walking
+   goal after recovery remain unfinished. A registered `slip` consumer alone does
+   not provide either capability.
 
-5. **Preserve events and recovery ownership.** `body.c:output_step` invokes
-   `ainekio_p4_feedback_stalled`; `report_stalled` and `controller.c` emit the
-   existing `servo_stall` observation with original sequence and joint mask.
-   Gateway `BodyEvents` and the existing Freestyle recovery consumer retain that
-   attribution. Replacement by recovery cancels the neural producer belonging
-   to the replaced Walk. Resuming the original walking goal after recovery is
-   still unfinished, as is the automatic slip-event producer; neither follows
-   merely from keeping the existing event consumer registered.
+6. **Public controls and goal consumers.** The dashboard stores native/neural source
+   and forward/lateral m/s and yaw rad/s at 100%; these are requested command scales,
+   not measured maxima. Neural walking retains continuous speed and steering updates.
+   Native stride/rate, cycle counts and named gait styles remain native controls;
+   the neural policy receives twist, not separate Walk/Run/Crawl/Crab style labels.
+   A speed change is therefore not evidence that a running gait was trained.
+   MetaHuman's translation, active-task steering and Finish use the same gateway
+   path. Its visual goal evaluation and task lifecycle remain separate from low-level
+   gait training. Forward/reverse/turn/lateral performance and complete goal execution
+   require behavioral qualification, beyond the connected software tests.
 
-6. **Keep command and orientation semantics explicit.**
-   The existing dashboard settings owner stores the per-robot native/neural
-   source and requested forward/lateral m/s and yaw rad/s at 100%. These are
-   editable command scales, not measured maximum speeds. Native stride/rate
-   and finite cycles remain native controls; neural Walk retains continuous
-   speed/steering updates and the existing goal owner's Finish.
-   The inference service now has the Forward/Reverse PPO candidate selected;
-   this does not activate physical neural walking. Reverse, Run, turns, lateral
-   travel and gait changes remain physically unqualified.
-   The host observation projection fixes its yaw origin and quaternion sign at
-   the first paired sample of each original Walk. Steering updates retain that
-   reference; replacing the Walk starts a new one. This matches the simulator's
-   episode-origin convention while preserving roll/pitch and body-frame gyro
-   and acceleration. It does not reset the physical IMU or remove observed yaw
-   changes. Recorded neural diagnostics retain the reference for replay.
-   The P4's retained heading correction is an additional transfer difference:
-   the candidate's ENV7 training used the shared foot-target/balance/ramp path
-   without that host heading correction. Record and assess this difference in
-   the prototype trial; it is not established simulation-to-hardware parity.
+Maintained checks for these boundaries are `VirtualGatewayTests` in
+`Emulator/tests/test_neural_gait.py`, `VirtualBodySensorTests` and
+`NativeWalkTests` in `Emulator/tests/test_neural_gait_sensors.py`,
+`SensorTelemetryTests` in `Emulator/tests/test_gateway_service.py`, and the
+neural preview/authentication tests in `Emulator/tests/test_gateway_dashboard.py`.
+The adapter advertises `move` when the connected body advertises walking commands;
+gestures retain `requestMotion` and do not expose the manual legacy command library.
+MetaHuman's existing `active-task-gateway.spec.ts` scenario `paired spoken Stop
+routed as cancel` checks this advertised goal-directed Walk route, steering on the
+original owner, and cancellation reconciliation through its simulated body. The
+full shared suite also contains obsolete gesture and graph-response fixtures;
+those are not evidence of current paired qualification. No suite result substitutes
+for physical walking.

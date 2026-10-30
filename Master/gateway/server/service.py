@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 from gateway.security import RobotTokenStore
 from gateway.body_events import BodyEvents
+from gateway.neural_gait.contract import ObservationHistory
 
 from protocol.binary_helpers import (
     MAX_JPEG_BYTES,
@@ -166,6 +167,7 @@ class NeuralWalk:
     consumed: int = 0
     previous_action: list = field(default_factory=lambda: [0.0]*12)
     orientation_reference: tuple[float, int] | None = None
+    observation_history: ObservationHistory = field(default_factory=ObservationHistory)
     sent_actions: dict = field(default_factory=dict)
     latest: dict | None = None
     changed: asyncio.Event = field(default_factory=asyncio.Event)
@@ -309,10 +311,10 @@ class GatewayConnection:
 
     async def _produce_neural_walk(self, state):
         from gateway.neural_gait.client import observation, walking_orientation_reference
-        from gateway.neural_gait.contract import foot_offsets, DEPTH_SCHEMA
+        from gateway.neural_gait.contract import foot_offsets, DEPTH_SCHEMAS
         source, consumed = None, 0
         depth_consumer = f"neural-walk:{self.robot_id}:{self.epoch}:{state.sequence}"
-        uses_depth = state.environment.get("observation_schema") == DEPTH_SCHEMA
+        uses_depth = state.environment.get("observation_schema") in DEPTH_SCHEMAS
         try:
             if uses_depth and self.service.depth_demand is not None:
                 await self.service.depth_demand(self.robot_id, depth_consumer, True, wait_for_measurement=False)
@@ -332,7 +334,8 @@ class GatewayConnection:
                         self.service.clock(), self.robot_id, self.epoch)
                 data = observation(source, state.environment, state.controls["twist"], vision=vision,
                                    previous_action=state.previous_action,
-                                   orientation_reference=state.orientation_reference)
+                                   orientation_reference=state.orientation_reference,
+                                   history=state.observation_history)
                 started = self.service.clock()
                 result = await self.service.neural_gait.call("/infer", {"observation": data})
                 if not self._neural_current(state):

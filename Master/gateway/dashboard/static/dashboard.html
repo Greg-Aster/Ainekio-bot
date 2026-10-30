@@ -350,6 +350,7 @@
     <details><summary>Physics and training command</summary>
       <p>Total mass is measured. Component mass distribution, actuator strength and friction are estimates. Exploration ranges describe simulation, not measured mechanical stops. Keep the same configuration when resuming a checkpoint.</p>
       <label>Environment configuration (JSON)<textarea id="neural-gait-environment" rows="12"></textarea></label>
+      <label>Training requests (optional JSON list of [forward m/s, lateral m/s, turn rad/s])<textarea id="neural-gait-commands" rows="3" placeholder="[[0.03,0,0],[-0.03,0,0],[0,0,0.4]]"></textarea></label>
     </details>
     <p id="neural-gait-summary" role="status">Refresh to connect to the separate neural gait service.</p>
     <table><thead><tr><th>Training checkpoint</th><th>Mean trial reward</th><th>Falls / evaluated trials</th></tr></thead><tbody id="neural-gait-checkpoints"></tbody></table>

@@ -80,7 +80,7 @@ class BodyControlEnvironment(GaitEnvironment):
             self.gateway_observation = await self.session.observation()
             info.update(execution_backend="body_control", requested_command=self.requested_command,
                         command=list(self.config.command), **self.session.execution_info())
-            return np.asarray(vector(self.gateway_observation), dtype=np.float32), info
+            return np.asarray(vector(self.with_critic(self.gateway_observation)), dtype=np.float32), info
         except BaseException:
             await self._disconnect()
             raise
@@ -124,7 +124,7 @@ class BodyControlEnvironment(GaitEnvironment):
         if producer_failure is not None:
             info["producer_failure"] = producer_failure
             terminated = True
-        return (np.asarray(vector(self.gateway_observation), dtype=np.float32),
+        return (np.asarray(vector(self.with_critic(self.gateway_observation)), dtype=np.float32),
                 reward, terminated, truncated, info)
 
     def step(self, action):
@@ -136,7 +136,7 @@ class BodyControlEnvironment(GaitEnvironment):
         super().set_command(walking_twist(wire, self.profile))
         await self.session.update_walk(wire)
         self.gateway_observation = await self.session.observation()
-        return np.asarray(vector(self.gateway_observation), dtype=np.float32)
+        return np.asarray(vector(self.with_critic(self.gateway_observation)), dtype=np.float32)
 
     def set_command(self, command):
         return self._run(self._set_command(command))

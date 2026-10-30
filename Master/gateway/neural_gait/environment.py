@@ -24,17 +24,18 @@ import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from .contract import JOINTS, LEGS, SCHEMA, foot_offsets, vector, observation_size
+from .contract import JOINTS, LEGS, SCHEMA, HISTORY_SCHEMA, ObservationHistory, foot_offsets, vector, observation_size
 
 GEOMETRY = (
     Path(__file__).resolve().parents[3]
     / "Slave/software/models/v2-12servo/geometry.json"
 )
-ENVIRONMENT_VERSION = 9
+ENVIRONMENT_VERSION = 10
 # Versions6/7/8 changed reward accounting. Version9 also repairs the existing
 # native host-heading response. Input/action meanings and geometry are retained;
 # PPO continues from saved weights with fresh rollouts, not old transitions.
-POLICY_ENVIRONMENT_VERSIONS = frozenset((5, 6, 7, 8, 9))
+# Version10 keeps the requested reward heading continuous through Walk updates.
+POLICY_ENVIRONMENT_VERSIONS = frozenset((5, 6, 7, 8, 9, 10))
 # Explicit objective normalization, not measured hardware limits. The linear
 # scale is the current 30 mm/s training request; angular scale is independent
 # so lowering requested travel speed cannot amplify yaw-noise penalties.
@@ -48,6 +49,15 @@ REWARD_SPEED_WINDOW_S = 1.
 # This retains positive clean progress while making the measured slider worse
 # than rest under the corrected heading objective (see the gait journal).
 CONTACT_SLIP_COST = 1.0
+# Published locomotion terms: MuJoCo Playground Go1 joystick, with the
+# measured-joint acceleration term from ETH legged_gym. Robot-scale units are
+# explicit below; these are training weights, never servo/control restrictions.
+LOCOMOTION_REWARD_WEIGHTS = dict(
+    tracking_linear=1.0, tracking_yaw=.5, orientation=5.0,
+    vertical_velocity=.5, roll_pitch_velocity=.05,
+    joint_acceleration=2.5e-7, action_change=.01,
+    effort=.05, energy=.001, slip=.1,
+)
 ASSEMBLY = GEOMETRY.parent / "simulation"
 
 def representation_identity():
@@ -97,7 +107,7 @@ def movement_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
                     velocity_scale=REWARD_VELOCITY_SCALE_M_S,
                     yaw_scale=REWARD_YAW_SCALE_RAD_S,
                     cross_track_cost=REWARD_CROSS_TRACK_COST,
-                    overspeed_cost=REWARD_OVERSPEED_COST, pace_twist=None):
+                    overspeed_cost=REWARD_OVERSPEED_COST, pace_twist=None, details=False):
     """Score this transition's travel, with zero for a stationary move request.
 
     Directed displacement earns credit immediately. Only the overspeed penalty
@@ -115,12 +125,55 @@ def movement_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
         ratio = along/magnitude
         pace = measured if pace_twist is None else np.asarray(pace_twist)/scale
         pace_ratio = float(pace @ direction)/magnitude
-        tracking = (ratio - overspeed_cost*max(pace_ratio-1., 0.)
-                    - cross_track_cost*float(np.linalg.norm(measured-along*direction)))
+        overspeed = overspeed_cost*max(pace_ratio-1., 0.)
+        cross_track = cross_track_cost*float(np.linalg.norm(measured-along*direction))
+        tracking = ratio-overspeed-cross_track
     else:
         tracking = math.exp(-float(measured @ measured))
+        ratio, overspeed, cross_track = tracking, 0., 0.
     support = float(np.clip(upright,0,1)*np.clip(height_ratio,0,1))
-    return tracking*support if tracking > 0 else tracking
+    multiplier = support if tracking > 0 else 1.
+    value = tracking*multiplier
+    return (value, dict(progress=ratio*multiplier, overspeed=overspeed*multiplier,
+                        cross_track=cross_track*multiplier)) if details else value
+
+
+def locomotion_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
+                      vertical_velocity, angular_velocity_xy, joint_velocity,
+                      previous_joint_velocity, joint_torque, action, previous_action,
+                      contact_slip_speed_squared, config):
+    """Robot-scaled velocity tracking and physical movement quality per second.
+
+    Reference terms: google-deepmind/mujoco_playground Go1 joystick and
+    leggedrobotics/legged_gym joint acceleration. Tracking widths have SI units;
+    unlike division by the request, they remain defined at zero commands.
+    Acceleration uses measured servo-shaft qvel, not target acceleration.
+    Signed costs remain visible rather than clipping every poor action to zero.
+    """
+    linear_error = (np.asarray(velocity_xy)-np.asarray(command[:2])) / config.locomotion_tracking_width_m_s
+    yaw_error = (yaw_rate-command[2]) / config.locomotion_tracking_width_rad_s
+    support = float(np.clip(upright, 0, 1)*np.clip(height_ratio, 0, 1))
+    acceleration = (np.asarray(joint_velocity)-previous_joint_velocity)*config.control_hz
+    terms = dict(
+        tracking_linear=math.exp(-float(linear_error @ linear_error))*support,
+        tracking_yaw=math.exp(-float(yaw_error*yaw_error))*support,
+        orientation=max(0., 1.-float(upright)**2),
+        vertical_velocity=float(vertical_velocity)**2,
+        roll_pitch_velocity=float(np.sum(np.asarray(angular_velocity_xy)**2)),
+        joint_acceleration=float(np.sum(acceleration**2)),
+        action_change=float(np.sum((np.asarray(action)-previous_action)**2)),
+        # Effort is a fraction of rated torque. Energy is mechanical watts;
+        # contact speed is relative to this robot's tracking-speed unit.
+        effort=float(np.mean((np.asarray(joint_torque)/config.torque_nm)**2)),
+        energy=float(np.sum(np.abs(np.asarray(joint_torque)*joint_velocity))),
+        slip=float(contact_slip_speed_squared)/config.locomotion_tracking_width_m_s**2,
+    )
+    components = {key: value*config.locomotion_reward_weights[key]/config.control_hz
+                  for key, value in terms.items()}
+    reward = sum(value if key.startswith("tracking_") else -value
+                 for key, value in components.items())
+    return float(reward), components
+
 
 def command_limits(robot):
     limits=[]
@@ -218,6 +271,12 @@ class EnvironmentConfig:
     reward_cross_track_cost: float = REWARD_CROSS_TRACK_COST
     reward_overspeed_cost: float = REWARD_OVERSPEED_COST
     reward_speed_window_s: float = REWARD_SPEED_WINDOW_S
+    # An absent field means legacy reward so historical artifacts replay intact.
+    # New recipe selection happens in the existing training owner.
+    reward_profile: str = "legacy"
+    locomotion_tracking_width_m_s: float = .03
+    locomotion_tracking_width_rad_s: float = .5
+    locomotion_reward_weights: dict = field(default_factory=lambda: dict(LOCOMOTION_REWARD_WEIGHTS))
 
     def __post_init__(self):
         observation_size(self.observation_schema)
@@ -226,6 +285,12 @@ class EnvironmentConfig:
         validate_scenarios(self.scenarios)
         if self.execution_backend not in {"direct", "body_control"}:
             raise ValueError("Unknown gait execution backend")
+        if self.reward_profile not in {"legacy", "locomotion"}:
+            raise ValueError("Unknown gait training reward profile")
+        if (set(self.locomotion_reward_weights) != set(LOCOMOTION_REWARD_WEIGHTS)
+                or any(not math.isfinite(value) or value < 0
+                       for value in self.locomotion_reward_weights.values())):
+            raise ValueError("Locomotion reward weights require all named finite nonnegative terms")
         if not self.target_limits_deg:
             self.target_limits_deg = command_limits(self.robot)
         for name in (
@@ -239,6 +304,8 @@ class EnvironmentConfig:
             "reward_cross_track_cost",
             "reward_overspeed_cost",
             "reward_speed_window_s",
+            "locomotion_tracking_width_m_s",
+            "locomotion_tracking_width_rad_s",
             "friction",
             "control_hz",
             "physics_hz",
@@ -533,6 +600,7 @@ class GaitEnvironment(gym.Env):
         self.next_imu = 0.0
         self.next_feedback = 0.0
         self.sample_history = []
+        self.observation_history = ObservationHistory()
         self.feedback_times = np.zeros(12)
         self.last_action = np.zeros(12)
         self.last_target = np.zeros(12)
@@ -757,6 +825,7 @@ class GaitEnvironment(gym.Env):
             raise ValueError("Command is forward m/s, lateral m/s, yaw rad/s")
         self.config.command = list(command)
         self.reward_twists.clear()
+        self.observation_history = ObservationHistory()
         self._select_scenario(options)
         if self.depth_camera is not None:
             self.depth_camera.reset()
@@ -845,12 +914,11 @@ class GaitEnvironment(gym.Env):
         if command != self.config.command:
             self.config.command = command
             self.reward_twists.clear()
-            self.reward_reference_heading = self.reward_last_heading
         return self._observation()
 
     def observation(self):
         imu_status = self.body_model.imu_status(1+self.data.time*1e6)
-        return dict(
+        result = dict(
             schema=self.config.observation_schema,
             joint_deg=self.feedback_angles.tolist(),
             joint_velocity_deg_s=self.feedback_velocity.tolist(),
@@ -870,6 +938,16 @@ class GaitEnvironment(gym.Env):
             joint_sample_time_s=self.feedback_times.tolist(),
             observation_time_s=float(self.data.time),
         )
+        return self.with_critic(self.observation_history.project(result))
+
+    def with_critic(self, observation):
+        """Training value information; never used by the deployed actor."""
+        if observation["schema"] != HISTORY_SCHEMA:
+            return observation
+        pace = np.mean(self.reward_twists, axis=0) if self.reward_twists else np.zeros(3)
+        error = self.reward_reference_heading-self.reward_last_heading
+        scale = [self.config.reward_velocity_scale_m_s]*2 + [self.config.reward_yaw_scale_rad_s]
+        return dict(observation, training_critic=[*(pace/scale).tolist(), math.sin(error), math.cos(error)])
 
     def depth_observation(self):
         from .depth import project_depth
@@ -1116,6 +1194,9 @@ class GaitEnvironment(gym.Env):
                     target_rejected=self.target_rejected, jammed_joints=int(self.jammed))
 
     def _advance(self, action, output=None):
+        # Read before and after the same physical interval. No stale previous
+        # episode velocity or command target can masquerade as acceleration.
+        previous_joint_velocity = self.data.qvel[self.vadr].copy()
         metrics = self._advance_physics(output)
         self.steps += 1
         velocity = np.asarray(metrics["velocity_body_m_s"])
@@ -1135,24 +1216,45 @@ class GaitEnvironment(gym.Env):
         self.world_heading_delta += heading_delta
         self.reward_last_heading = heading
         self.reward_twists.append([*command_velocity,heading_delta*self.config.control_hz])
-        # Reward new progress only. Cumulative-average potentials can increase
-        # while stationary by continuing to credit earlier displacement.
-        travel_reward = movement_reward(
-            command_velocity, heading_delta*self.config.control_hz, self.config.command,
-            upright, metrics["body_clearance_m"]/self.standing_height,
-            velocity_scale=self.config.reward_velocity_scale_m_s,
-            yaw_scale=self.config.reward_yaw_scale_rad_s,
-            cross_track_cost=self.config.reward_cross_track_cost,
-            overspeed_cost=self.config.reward_overspeed_cost,
-            pace_twist=np.mean(self.reward_twists,axis=0))
-        effort = float(np.mean((self.data.actuator_force / self.config.torque_nm) ** 2))
-        slip_cost = CONTACT_SLIP_COST * metrics["contact_slip_speed_squared_m2_s2"]
-        reward = float(
-            travel_reward
-            - slip_cost
-            - 0.05 * effort
-            - 0.01 * np.mean((action - self.last_action) ** 2)
-        )
+        if self.config.reward_profile == "locomotion":
+            # Ground-truth dynamics are reward-only. The actor still consumes
+            # the production fourth-wire/IMU observation through Body Control.
+            reward, components = locomotion_reward(
+                command_velocity, heading_delta*self.config.control_hz,
+                self.config.command, upright,
+                metrics["body_clearance_m"]/self.standing_height,
+                vertical_velocity=self.data.qvel[2],  # free-root world Z, not tilted body Z
+                angular_velocity_xy=self.data.sensor("gyro").data[:2],
+                joint_velocity=self.data.qvel[self.vadr],
+                previous_joint_velocity=previous_joint_velocity,
+                joint_torque=self.data.actuator_force,
+                action=action, previous_action=self.last_action,
+                contact_slip_speed_squared=metrics["contact_slip_speed_squared_m2_s2"],
+                config=self.config)
+            travel_reward = components["tracking_linear"]+components["tracking_yaw"]
+            slip_cost = components["slip"]
+        else:
+            # Reward new progress only. Cumulative-average potentials can increase
+            # while stationary by continuing to credit earlier displacement.
+            travel_reward, reward_components = movement_reward(
+                command_velocity, heading_delta*self.config.control_hz, self.config.command,
+                upright, metrics["body_clearance_m"]/self.standing_height,
+                velocity_scale=self.config.reward_velocity_scale_m_s,
+                yaw_scale=self.config.reward_yaw_scale_rad_s,
+                cross_track_cost=self.config.reward_cross_track_cost,
+                overspeed_cost=self.config.reward_overspeed_cost,
+                pace_twist=np.mean(self.reward_twists,axis=0), details=True)
+            effort = float(np.mean((self.data.actuator_force / self.config.torque_nm) ** 2))
+            slip_cost = CONTACT_SLIP_COST * metrics["contact_slip_speed_squared_m2_s2"]
+            action_change_cost = 0.01 * float(np.mean((action - self.last_action) ** 2))
+            reward = float(
+                travel_reward
+                - slip_cost
+                - 0.05 * effort
+                - action_change_cost
+            )
+            components = dict(**reward_components, slip=slip_cost,
+                              effort=.05*effort, action_change=action_change_cost)
         self.last_action = np.asarray(action).copy()
         fallen = upright < 0.3 or metrics["body_clearance_m"] < 0.025
         terminated = bool(fallen or not np.isfinite(self.data.qpos).all())
@@ -1179,6 +1281,7 @@ class GaitEnvironment(gym.Env):
                 reward=reward,
                 travel_reward=travel_reward,
                 contact_slip_cost=slip_cost,
+                reward_components=components,
                 scope="simulation",
                 target_rejected=self.target_rejected,
                 jammed_joints=int(self.jammed),
