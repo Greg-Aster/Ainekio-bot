@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -24,6 +25,56 @@ def action(identifier: str, generation: int = 1) -> dict:
 
 def accepted(identifier: str) -> dict:
     return {"id": identifier + ":accepted", "actionId": identifier, "type": "accepted", "timestamp": "fixed", "message": "accepted"}
+
+
+class ActionReceiptStorageTests(unittest.TestCase):
+    def test_failed_dispatch_commit_does_not_poison_later_receipt_transactions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory)/"receipts.sqlite")
+            receipts = ActionReceipts(path)
+            original = action("commit-failure")
+            receipts.receive(original, accepted(original["id"]))
+            receipts.begin(original["id"], {"sequence":1})
+            receipts._acquire_dispatch(original["id"])
+            receipts.db.execute("UPDATE actions SET wire=? WHERE id=?",
+                (json.dumps({"sequence":1,"interpretationBody":["fixture"]}), original["id"]))
+
+            def reject_commit(operation, first, second, database, trigger):
+                return sqlite3.SQLITE_DENY if operation == sqlite3.SQLITE_TRANSACTION and first == "COMMIT" else sqlite3.SQLITE_OK
+
+            receipts.db.set_authorizer(reject_commit)
+            try:
+                with self.assertRaises(sqlite3.DatabaseError):
+                    receipts._release_dispatch()
+            finally:
+                receipts.db.set_authorizer(None)
+                # Keep the faulty baseline from retaining its SQLite lock.
+                transaction_leaked = receipts.db.in_transaction
+                if transaction_leaked:
+                    receipts.db.execute("ROLLBACK")
+            try:
+                self.assertFalse(transaction_leaked, "Failed dispatch commit must release its transaction")
+                self.assertFalse(receipts._lock.locked())
+                prior = receipts.action(original["id"])
+                self.assertEqual(prior["state"], "started", "Admission must survive a later dispatch commit failure")
+                self.assertEqual(json.loads(prior["wire"]), {"sequence":1})
+                with self.assertRaisesRegex(GatewayError, "already"):
+                    receipts.begin(original["id"], {"sequence":2})
+                result = {"id":"commit-unknown", "actionId":original["id"], "type":"outcome_unknown",
+                    "timestamp":"fixed", "message":"Dispatch persistence failed"}
+                envelope = {"type":"environment.feedback", "feedback":result}
+                receipts.queue_feedback(envelope)
+                self.assertEqual(receipts.pending(), [envelope])
+            finally:
+                receipts.close()
+            resumed = ActionReceipts(path)
+            try:
+                self.assertEqual(resumed.receive(original, accepted(original["id"])), result)
+                self.assertEqual(resumed.pending(), [envelope])
+                resumed.receive(action("next", 2), accepted("next"))
+                self.assertEqual(resumed.action("next")["state"], "received")
+            finally:
+                resumed.close()
 
 
 class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):

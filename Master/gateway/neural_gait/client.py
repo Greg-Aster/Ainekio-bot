@@ -8,7 +8,7 @@ from pathlib import Path
 import urllib.error
 import urllib.request
 
-from .contract import IMU_QUALITY_FIELDS, SCHEMA, JOINTS, vector
+from .contract import IMU_QUALITY_FIELDS, SCHEMA, JOINTS, ObservationHistory, vector
 
 
 class Client:
@@ -115,7 +115,7 @@ def walking_orientation_reference(quaternion):
 
 
 def observation(source, environment, command, *, vision=None, previous_action=None,
-                orientation_reference=None):
+                orientation_reference=None, history=None):
     """Use the gateway sensor observation's calibrated model coordinates.
 
     The policy action domain stays the domain it trained on. Servo feedback
@@ -143,6 +143,7 @@ def observation(source, environment, command, *, vision=None, previous_action=No
         value if value is not None else angle for value, angle in zip(target, measured)
     ]
     limits = environment["target_limits_deg"]
+    device_us = source.get("feedback", {}).get("device_us")
     result = dict(
         schema=environment.get("observation_schema", SCHEMA),
         joint_deg=measured,
@@ -169,6 +170,8 @@ def observation(source, environment, command, *, vision=None, previous_action=No
             source.get("feedback", {}).get("device_us"), imu.get("timestamp_us")
         ),
         imu_quality={key: imu.get(key) for key in IMU_QUALITY_FIELDS},
+        observation_time_s=device_us/1e6 if type(device_us) in (int, float) else None,
     )
+    result = (history if history is not None else ObservationHistory()).project(result)
     vector(result)
     return result

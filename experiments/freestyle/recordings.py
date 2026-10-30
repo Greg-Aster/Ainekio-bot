@@ -30,6 +30,7 @@ class Recorder:
         self.error = None
         self.failed = 0
         self.closed = False
+        self.admission_lock = threading.Lock()
         self.active = {}
         self.thread = threading.Thread(target=self._write, name='freestyle-recordings', daemon=True)
         self.thread.start()
@@ -38,8 +39,14 @@ class Recorder:
         identifier = uuid4().hex
         if self.closed:
             return None
-        self.pending.put((identifier, time.time_ns(), time.monotonic_ns(), kind,
-                          robot_id, epoch, sequence, job_id, copy.deepcopy(payload)))
+        item = (identifier, time.time_ns(), time.monotonic_ns(), kind,
+                robot_id, epoch, sequence, job_id, copy.deepcopy(payload))
+        # Snapshot outside the lock; only admission and the shutdown marker
+        # share an ordering boundary. Every returned ID precedes that marker.
+        with self.admission_lock:
+            if self.closed:
+                return None
+            self.pending.put(item)
         return identifier
 
     def command(self, command):
@@ -132,19 +139,22 @@ class Recorder:
             self.error = str(error)
             LOG.exception('Freestyle evidence store unavailable; robot execution continues')
             # Expose the error, without leaving an idle consumer accumulating data.
-            self.closed = True
+            with self.admission_lock:
+                self.closed = True
             while not self.pending.empty():
-                self.pending.get_nowait()
+                if self.pending.get_nowait() is not None:
+                    self.failed += 1
                 self.pending.task_done()
         finally:
             if connection is not None:
                 connection.close()
 
     def close(self):
-        if self.thread.is_alive():
-            self.closed = True
-            self.pending.put(None)
-            self.thread.join()
+        with self.admission_lock:
+            if not self.closed:
+                self.closed = True
+                self.pending.put(None)
+        self.thread.join()
 
 
 def read_records(path, job_id=None, *, kinds=None):

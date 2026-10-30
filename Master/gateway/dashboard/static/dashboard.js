@@ -3641,6 +3641,8 @@
           if (op === 'resume') payload.resume = model;
           else {
             payload.workers = Number(byId('neural-gait-workers').value);
+            if (byId('neural-gait-commands').value.trim())
+              payload.commands = JSON.parse(byId('neural-gait-commands').value);
             if (byId('neural-gait-environment').value.trim())
               payload.environment = JSON.parse(byId('neural-gait-environment').value);
           }

@@ -9302,4 +9302,469 @@ last logged explained variance reached.605. That optimizer improvement did not
 produce a reliable gait: the compact final checkpoint moves26.4mm backward
 during the same18.74s Forward request where the starting checkpoint moved
 119.1mm forward. No compact checkpoint establishes reliable direction tracking.
-The model is not promoted; final broader evaluation is still in progress.
+The model is not promoted; the completed broader evaluation is reported below.
+
+### Learned distribution versus deployed mean — October 29
+
+The owner requested another targeted correction rather than repeating a failed
+batch unchanged. The completed normalized-command run's full16-trial evaluation
+has zero falls but averages -2.019mm/s for Forward and -5.535mm/s for Reverse;
+it is not a qualified walking model. The earlier statement that optimization
+worked does not establish that its deployed deterministic policy improved.
+
+An independent audit found no action-clipping, consumed-action, normalization,
+likelihood or timeout-bootstrap defect. Raw sampled Gaussian actions are retained
+for PPO likelihoods; only executed actions are clipped to the existing range.
+On256 retained states, stochastic prediction exactly matches clipped collection,
+deterministic prediction matches the bounded mean, both value paths agree, and
+rollout replay KL is7.8e-12. The reward has hidden recent-pace/heading history;
+that limitation remains, but it is not established as this failure's cause.
+
+Two paired48s Body Control trials show the sampled policy actually improved
+during the last batch: mean return -491.20 at its source to -108.78 at its final
+weights, with five→six of eight request segments having the correct travel sign.
+The corresponding deterministic compact return regressed99.42→-276.24. Thus
+there is learning under exploration without corresponding dependable mean-policy
+walking. Evidence:geometry-review/stochastic-deployment-comparison.json. These
+two trials are developmental evidence, not broad stochastic-policy qualification.
+Production remains deterministic; randomized deployment is not used to conceal
+the mean-policy failure.
+
+A manual half-noise comparison worsened return to -260.80. It was rejected and
+no half-noise model was saved or activated. Evidence:geometry-review/noise-
+consolidation-comparison.json. Instead, one matched4096-transition rollout
+tested whether PPO could learn its existing variance. At inherited rate3e-7,
+standard deviation changed at most.000045percent. At3e-4 it learned changes
+from -1.55percent to +1.16percent by coordinate, improved clipped PPO loss from
+-.017633 to -.019632, with full-buffer KL.006620→.006644. Both arms performed
+160 updates with the same weights, Adam state, samples and minibatch order.
+This supports allowing variance to learn independently; it does not establish
+better closed-loop walking. Evidence:geometry-review/ppo-variance-rate-bdabb.json.
+
+The existing GaitPPO/Adam owner now supports an explicit exploration learning
+rate, alongside the existing actor and value rates. One grouping implementation
+preserves parameter objects/moments and canonical actor/value/exploration order;
+save/load works regardless of the order options were applied. There is no
+forced noise decrease, additional controller or movement rule. The existing
+checkpoint interval is also exposed through CLI/API and inherited on resume,
+so longer learning runs need fewer compact evaluation interruptions. Full final
+evaluation and the single before/after video remain.
+
+All121 maintained neural/sensor/gateway tests passed, including three-group
+save/reload, legacy artifacts, optimizer state, inherited/changed checkpoint
+intervals and API forwarding. The neural service was reloaded after the prior
+run finished, with no established physical/inference connections. Production
+selection, firmware and physical robot behavior were not changed. Temporary
+probe scripts/logs are removed after retaining the compact evidence reports.
+
+Run40968ffb52be4e2a800ad3be39d5ec65 completed131072 transitions from
+bdabb/policy.zip with exploration rate3e-4 and compact checkpoints every32768
+transitions. Actor3e-7/value3e-4, action-coordinate exploration, command units,
+geometry, sensors, heading/balance and varied request timing are inherited.
+The source is the latest learned stochastic policy, because the paired test
+demonstrated learning there; it is a training continuation, not approval to
+deploy its regressed mean. Actor/value/variance parameters, Adam moments and
+counters are retained, without a manual noise reset or new initialization.
+All training, final evaluation and comparison rendering completed. Intermediate
+checkpoint184320 improved compact return to63.62, but the final249856 regressed
+to-390.58 and failed sustained direction tracking. No checkpoint was promoted.
+A completed optimizer run is not a solved gait.
+
+
+### Sensor history and continuous request reference — October 29
+
+The owner authorized correcting observability and reward/reference consistency,
+then a matched comparison through Body Control. Source review found that P4
+retains requested heading across Walk updates, while the environment reset its
+reward reference on each twist change. Environment version10 preserves that
+reference through direction changes. Reward coefficients, geometry, limits,
+balance and physical firmware are unchanged. Per-interval reward components
+now distinguish progress, overspeed, cross-track, slip, effort and action change;
+their signed sum equals total reward. Earlier aggregate costs did not justify
+another coefficient adjustment.
+
+The optional v5-history observation adds ten causal sensor snapshots spaced
+100ms over the preceding second, actual ages/availability, and request-relative
+heading error. The existing NeuralWalk owns its ObservationHistory. Shared
+client projection serves virtual and physical gateways; a command update keeps
+history, a new Walk starts fresh, and repeated device timestamps do not invent
+new history. This heading is a continuous request-relative sensor reference,
+not P4's quality-dependent reacquired correction state. No motion pattern or
+runtime wait is added.
+
+The existing PPO critic additionally receives five simulator-only pace/reference
+coordinates. The actor excludes them in collection, prediction and likelihood
+calculation; physical requests have zeros there. Tests vary those coordinates
+with nonzero actor-column weights and verify unchanged actions through training,
+save and reload. Legacy v3/v4 policies retain their input contracts. Historical
+CycleExpert previous-action indexing understands v5; fresh SAC and SAC artifact
+loading cannot accept v5 because they lack this asymmetric actor/critic contract.
+
+The saved compact evaluations favored ae2dc0829b694f94a4435aacb14fd522 checkpoint
+000053248 for sustained progress: second-half forward+2.140mm/s and reverse
+-7.016mm/s. It still fails three of eight segments and is not qualified walking.
+Both comparison arms explicitly initialize from that exact saved checkpoint,
+retaining learned weights, zeroing added input columns, and starting fresh Adam
+state in BOTH arms. Rollout RNG is seeded after parameter transfer so added input
+width does not offset initial exploration. Source files are not copied or changed.
+
+Control99c5ca52432141d7aaf8c879ef52d8c6 retains v4; history14c7efeaff4f4c2e98b094071629a1dc
+uses v5. Each trains32768 transitions with four workers, actor3e-7, critic and
+exploration3e-4, command units[.03,.03,.5], and compact checkpoints every16384.
+Both retain48s episodes and varied6–24s forward/reverse requests. Both use
+version10 reward/reference semantics and the actual Gateway/WebSocket/native P4
+executor over MuJoCo. The history comparison records simulation-only evidence
+in build/neural-gait/geometry-review/history-comparison.json. Initial/final
+footage uses the existing compact rendering owner. There is no physical motion,
+flash, production model selection change, or restart of physical Body Control.
+
+All124 maintained neural/sensor/gateway tests passed; focused additions also
+verified v5 SAC rejection, schema-correct teacher indexing and exact source
+checkpoint forwarding. Independent review found no blocker for the matched PPO
+experiment. Both initial closed-loop evaluations are exactly identical, including
+all intervals and reward components (mean return83.4081505650). This establishes
+a matched starting behavior after input expansion, not gait qualification.
+
+The initial component trace shows that persistent stalls continue with ZERO
+overspeed penalty. Forward-first stalls after14s; the subsequent29.26s travels
+only-0.657mm with return-34.15, principally cross-track17.51, effort8.52 and
+negative progress8.06. Overspeed can penalize productive bursts and their immediate
+aftermath, but it is not a continuing charge during this stalled tail. The
+comparison retains coefficients rather than changing them on that unsupported
+assumption.
+
+Both matched arms completed32768 training transitions. The compact final
+comparison does not qualify the history candidate: source return83.41; control
+final-302.18; history final-144.29. Second-half forward/reverse speeds (mm/s)
+are source+1.103/-6.801, control+4.548/+0.236 (reverse wrong), and history
+-1.428/-0.891 (forward wrong). Relative improvement over the control score is
+not improvement over the starting gait. Full configured evaluation and automatic footage are now complete; no additional
+training batch was started. Across16 trials, control Forward net speed is
+-0.770mm/s and Reverse-3.689mm/s; history Forward+0.238mm/s and Reverse
+-5.978mm/s, versus requested+15/-30mm/s. The history candidate remains unqualified.
+
+A focused16s Forward trial of the history candidate through the same Body Control
+path records its actor response in geometry-review/history-actor-response.json.
+After approximately9s, all four lateral outputs settle around+0.9998 and progress
+collapses to near-zero/backward drift. The tanh mean-output slopes are approximately
+0.0003–0.0005 there. The earlier action-space exploration repair avoided crushing
+random exploration, but the learned deterministic mean still passes through this
+saturating function. This is a concrete remaining gradient/representation concern;
+the history/reference correction alone has not removed it. No output transform,
+action range or runtime policy was changed in response to this diagnostic.
+
+The owner subsequently observed movement until approximately14s, then stopping,
+with jerky/awkward motion. The before/after video includes the unchanged initial
+checkpoint, whose first Forward trial stalls after14s; the exact watched clip
+has not been identified. The inspected final-history Forward probe also fails: in
+several one-second intervals all four requested lateral foot offsets traverse
+nearly the full40mm span, then remain near+20mm after9s. These are policy-requested
+offsets, not claims that physical feet moved40mm or that a14s timer stopped motion.
+The simulation continues accepting commands through the stalled interval.
+
+
+### Linear mean-output correction — October 29
+
+The owner authorized correcting the saturated movement output and continuing
+training. The prior action-space exploration change prevented tanh from crushing
+random exploration, but the deterministic mean still passed through tanh. In the
+inspected stalled state its local slope was approximately0.0003–0.0005.
+
+The maintained GaitPPOPolicy now supports standard SB3 DiagGaussianDistribution
+with a linear mean. It uses the existing prediction/execution clipping and raw
+Gaussian action likelihoods; no calibration, action range, servo speed, runtime
+smoother, timing restriction or foot ordering changes. Historical modes remain
+readable for the source and recorded policy artifacts. Subsequent resumes retain
+linear mode without repeating the handoff.
+
+The existing train owner performs an explicit one-time output-head transfer
+(--linear-mean / linear_mean). It collects source-policy Body Control trajectories
+for each requested direction and separate whole trajectories for held-out error.
+The current6–24s varying request timing distinguishes these cases. Float64 SVD
+least squares fits the source bounded means using actor latent features, with
+rank determined at their float32 precision. It preserves feature, critic and
+variance weights and Adam moments, replacing/resetting only the final output-head
+weights/moments. Raw samples are discarded after the compact mean-handoff.json
+report; they are not approved successful gait examples. New PPO likelihoods come
+from fresh rollouts. The report includes fit/held-out per-coordinate millimetre
+errors, rank, conditioning and out-of-range raw means. Small fitting error alone
+does not establish closed-loop transfer quality.
+
+Evaluation now records requested-foot target-step magnitude, actual native P4
+logical-target step/acceleration and raw mean clipping incidence per interval
+and episode. These are command metrics, not measured physical joint acceleration.
+They accompany directional progress so a stationary model cannot be called smooth
+walking merely because its target changes are small. Reward coefficients remain
+unchanged for this output-representation comparison.
+
+All126 maintained neural/sensor/gateway tests passed, including saturated-mean
+gradient response, retained parameters/Adam, raw likelihood versus executed
+clipping, save/reload/continued learning, source/held-out Body Control collection
+and numeric target-metric units. Independent review found no blocking defect.
+
+Runbcfe90d117e74628b0cfc5d6d30a8403 continues65536 transitions from
+14c7efeaff4f4c2e98b094071629a1dc/checkpoints/000000000.zip, the v5-input
+transfer of the strongest retained ae2dc53248 starting behavior. It does not
+continue the regressed final history policy. It retains four workers,48s episodes,
+forward/reverse requests, actor3e-7 and value/exploration3e-4, with compact checks
+every16384 transitions. It first prepares the mean handoff, then learns through
+the existing real Gateway/WebSocket/native-P4 simulation path. This is simulation
+only. Production selection and firmware are unchanged; no physical motion was sent.
+
+The mean transfer completed using4800 fit and4800 held-out states. Effective rank
+was102/129, retained condition number887.37. Held-out action RMSE was0.05318;
+per-coordinate foot RMSE0.268–1.780mm, with worst individual error18.058mm.
+9.28percent of held-out raw mean coordinates exceeded the action range before
+the existing execution clipping. This is an approximate transfer: initial
+closed-loop compact return worsened from83.41 at the source to-439.91. It was
+not treated as an immediate gait improvement or promoted.
+
+Learning completed with the linear output. All ten PPO epochs completed in each
+of the first four rollouts. At16384 transitions, compact return reached-187.24,
+but lower target-change magnitudes also coincided with less travel. At32768,
+return reached-81.54: Forward net-0.790mm/s (wrong direction), Reverse-6.661mm/s.
+One trial sustained useful reverse segments, while the other largely stalled.
+The65536-step continuation completed, including evaluation and footage. Its final
+compact return regressed to-370.84. Full16-trial evaluation returned-365.41:
+Forward net-2.914mm/s against requested+15mm/s, Reverse-5.332mm/s against
+requested-30mm/s. All38400 action samples were consumed, with zero recorded
+rejections, jams or falls. Mean raw-output clipping incidence was12.07percent.
+The first forward trial became nearly stationary after approximately6s, despite
+remaining active for48s. This candidate failed directional/sustained locomotion;
+production remains35be5800c94d45299dc8f793ee34914a. Neither reduced target
+acceleration nor a better aggregate score alone establishes fluid walking.
+
+### Published implementations versus the failed continuation — October 29
+
+Owner requested a source-based research correction before further guessing.
+Read the primary papers and public implementation files below. This research
+does not activate another model, start training, or change physical controls.
+
+**Reusable locomotion reference:** [ETH Learning to Walk in Minutes](https://leggedrobotics.github.io/legged_gym/)
+demonstrates sim-to-real ANYmal locomotion. Its [published configuration](https://github.com/leggedrobotics/legged_gym/blob/master/legged_gym/envs/base/legged_robot_config.py)
+uses 4096 environments, 24 transitions per environment per update, Gaussian
+exploration, normalized observations, velocity/yaw tracking, action-change and
+joint-acceleration costs, and terrain progression. Those defaults describe that
+implementation, not a requirement that Ainekio use identical weights or hardware.
+The repository directs new development toward Isaac Lab rather than legacy Isaac Gym.
+
+**Closest existing simulator ecosystem:** [MuJoCo Playground](https://playground.mujoco.org/)
+provides GPU locomotion environments and real-robot demonstrations. Its
+[Go1 joystick environment](https://github.com/google-deepmind/mujoco_playground/blob/main/mujoco_playground/_src/locomotion/go1/joystick.py)
+uses joint-position targets, noisy proprioception, a privileged critic, velocity
+tracking and movement-quality terms. The [Brax PPO configuration](https://github.com/google-deepmind/mujoco_playground/blob/8a4b4642d8eba8a80ac99ed125cb62c16e1457ad/mujoco_playground/config/locomotion_params.py)
+sets 8192 environments, 200 million transitions for Go1 joystick, learning rate 3e-4,
+entropy cost 0.01 and observation normalization. These are reference settings,
+not a measured training-time promise for Ainekio or a minimum sample requirement.
+
+**Hardware-relevant evidence:** the [2026 Mini Pupper preprint](https://arxiv.org/html/2607.26434v2)
+reports measured servo delay and successful recurrent-policy deployment on cheap
+position servos. Its [public implementation](https://github.com/baccuslab/SpotDMouse/tree/main/P2-Terrain_Challenge)
+is available, but replaces joint observations with predictions during deployment.
+That is not evidence for discarding Ainekio's functioning fourth-wire feedback.
+The README's actuator gains, limits and delay settings also differ from the paper;
+neither set is Ainekio calibration. Recurrent policy and measured actuator dynamics
+are relevant methods, not justification for wholesale deployment-code copying.
+
+A [2025 commodity-servo/ESP32 study](https://arxiv.org/html/2503.11059v1)
+trained directly on hardware with R-TD3, 300000 transitions and independently
+measured motion, then tested straight, circular and figure-eight paths. It used
+eight servos, optical tracking and output filtering. This supports low-cost
+directional learning but is not a directly compatible twelve-servo policy.
+[Minitaur sim-to-real work](https://arxiv.org/abs/1804.10332) independently identifies
+actuator modeling, system identification and latency as important transfer factors.
+
+**Concrete local departures:** the completed run manifest and saved policy show
+four CPU simulation workers, 65536 new transitions (not total historical training),
+1024 transitions per worker per rollout,16 rollout/update batches, actor rate 3e-7,
+entropy coefficient 0, and final mean action standard deviation 0.00874. This is
+only about 0.17–0.26 mm exploration standard deviation at the configured foot scales,
+before clipping and kinematic conversion. It is a tiny local search around an
+already impaired policy, not a reproduction of the cited locomotion recipes.
+Different action coordinates mean their noise magnitudes cannot be copied numerically.
+
+The local movement reward remains a custom directed-progress/overspeed objective.
+It has no explicit joint-acceleration cost; recording acceleration does not train
+smoothness. Reference exponential tracking also needs robot-scale bandwidth:
+copying Go1's sigma 0.25 at Ainekio's requested 0.015 m/s would give standing still
+exp(-0.015^2/0.25)=0.99910 of perfect linear tracking reward. Blindly copying
+parameters would therefore recreate a weak movement incentive.
+
+**Research-grounded implementation direction:** use one established PPO locomotion
+recipe as the reference for the existing training owner, with Ainekio-scaled
+tracking, meaningful exploration, compact physical observations/history and measured
+actuator behavior. Compare against the retained source before continuing from a
+transformed policy. Published foot-airtime/clearance terms are optional gait biases,
+not authorization to impose a fixed step order. Body Control/native execution
+remains the integration contract. GPU physics batching requires preserving the
+closed linkage and executor semantics; putting only the network on CUDA will not
+provide the cited simulation throughput. No alternate execution path is approved
+or implemented by this research entry.
+
+### Published-recipe implementation and integration — October 29
+
+Owner authorized implementation and required existing systems to remain integrated.
+Fresh online training now selects `playground-ppo-v1` in the existing train owner;
+historical resumes and SAC imitation artifacts retain their existing contracts.
+The policy uses the published ELU network shape, standard linear Gaussian PPO,
+learned initial noise 0.5, entropy coefficient 0.01, learning rate 3e-4,
+24 transitions per worker, five epochs, gamma 0.99 and GAE lambda 0.95.
+The existing foot-offset action domain and native executor remain authoritative.
+This adapts a reference recipe; it does not reproduce thousands of GPU physics
+environments or the authors' throughput.
+
+Observation running moments belong to the saved policy, using SB3 RunningMeanStd.
+They update from the preceding completed rollout and remain fixed during the next
+rollout and its optimization, preserving PPO likelihood consistency. The same
+policy loader supplies training, inference and replay; actor masking still removes
+privileged simulator state. Input expansion also maps retained normalization
+buffers, including the constant contribution of historically unavailable vision.
+The failed least-squares mean-head conversion, CLI/API flag and conversion-only
+tests were removed. Historical distribution classes remain for artifact loading.
+
+The explicit `locomotion` reward profile uses robot-scaled exponential linear/yaw
+tracking, physical joint acceleration, action change, load, mechanical power,
+slip and balance terms. It has no prescribed foot order or waveform. Historical
+artifacts retain `legacy` reward semantics. Tracking widths and all weights are
+serialized; no new runtime smoothing, motion cutoff or servo limit was introduced.
+API/CLI and dashboard accept multiple training requests, and resuming retains
+normalization, optimizer, command schedule and recipe.
+
+Training still runs the actual Gateway WebSocket and native P4 executor per worker,
+with calibrated PWM, fourth-wire/IMU feedback, heading and balance. The integration
+audit fixed v5-history dashboard previews dropping depth. Stop/Release, reconnect,
+replacement and existing fall-to-Freestyle recovery tests passed. Automatic slip
+events, goal resumption after recovery, and learned self-righting are not thereby
+implemented. Neural requests currently express velocity and steering rather than
+separate Run/Crawl/Crab styles. WALKING_SYSTEM.md now describes actual owners.
+
+Final focused validation: 133 maintained neural/sensor/gateway/dashboard/adapter
+tests passed in 83.8 seconds, including normalized input expansion and explicit
+CUDA-request handling. The paired MetaHuman suite exposed older fixture/schema mismatches and
+missing `move` capability advertisement. The adapter now advertises its existing
+goal-directed movement route when the body's negotiated gait commands support it.
+The focused paired test passes capability admission, original Walk ownership,
+goal steering, spoken Stop and the original cancellation receipt. Five focused
+adapter/steering/Finish/Stop checks also pass. Broader adapter/MetaHuman suites
+still contain obsolete native-wave and schema fixtures; the adapter suite also
+lacks OpenCV in the test interpreter. These are not claimed as passing, and no
+production workaround was introduced for them.
+
+Run `2300c1135cd84272aa2a53169fb0493e` is configured for 2,097,152 new transitions,
+16 native simulation workers, 48-second episodes and 6–24-second request changes:
+forward 0.03/0.06 m/s, reverse -0.03 m/s, turns +/-0.4 rad/s and idle.
+It preserves the preceding run's geometry, calibrated device, sensor/depth model,
+advertised servo speed and balance configuration, but starts a fresh learner
+instead of converting failed weights. Checkpoints are 131,072 transitions apart;
+raw PPO rollouts are not archived and automatic footage remains initial/final.
+
+The first launch was stopped at zero learning updates: torch 2.8.0+cpu silently
+downgraded the explicit CUDA request. The matching official torch 2.8.0+cu128
+build is now installed in the existing gait interpreter. A CUDA forward/backward
+probe on the RTX 4080 completed with finite gradients. Training now rejects a
+silent downgrade and records the actual model device separately from the request.
+The same run directory was relaunched; no learned data was lost. Installation
+archives and interrupted download files were removed. Production selection and
+physical firmware remain unchanged. Runtime/physical qualification is not
+established by these software checks.
+
+Startup verification: the manifest records actual device `cuda`, and NVIDIA's
+process report confirms the trainer on the RTX 4080. All six initial checkpoint
+trials completed, followed by more than 6,800 training transitions and 32 PPO
+optimization epochs with finite reported losses. Exploration standard deviation
+remained approximately 0.501. This establishes functioning learning, not improved
+walking; the next learned-checkpoint measurements are still pending.
+
+
+### Optimizer trust region and rollout sizing — October 29
+
+The owner reported two days of training without a walking gait and authorized a
+diagnosis, then a recipe and throughput repair. Run
+`2300c1135cd84272aa2a53169fb0493e` was stopped by operator request at 1,050,624
+of its 2,097,152 requested transitions. Its checkpoints, manifest and
+`optimization.jsonl` are retained; the dashboard lists it as `error` because the
+operator terminated it, not because it faulted.
+
+**The preceding "This establishes functioning learning" claim is incorrect and is
+replaced here.** Finite reported losses and 32 recorded PPO epochs do not
+establish learning. Across that run's 2,736 logged rollouts, `train/n_updates`
+(SB3 counts completed *epochs*) reached 2,781 — **1.02 epochs per rollout against
+the five configured**. SB3 2.7.1 evaluates its `target_kl` guard before the
+optimizer step (`ppo.py:267-271` precedes `optimizer.step()` at `:278`), so a
+rollout that trips the guard applies no further gradient at all. With
+`target_kl=.02` the break threshold is 0.03, and **93.2% of rollouts logged a mean
+`approx_kl` above it** (median 0.317, maximum 202.5). Since `approx_kl` is
+exactly 0 on the first minibatch of the first epoch, the logged median implies a
+single gradient step already moved the policy ~0.63 KL — roughly twenty times the
+guard. `clip_fraction` median was 0.396 against a healthy 0.05-0.20. Of twenty
+intended gradient steps per rollout, about one landed. Exploration standard
+deviation moved 0.50050 → 0.50972 over 1.05M transitions: effectively frozen.
+Evidence: `build/neural-gait/2300c1135cd84272aa2a53169fb0493e/optimization.jsonl`.
+
+Two causes compounded, and neither is a robot, reward or P4-executor defect.
+
+**Rollout sizing was not portable.** The published recipe pairs `n_steps=24` with
+thousands of GPU-parallel environments, so its per-update sample budget comes from
+parallelism. This host ran sixteen CPU MuJoCo workers, giving a 384-transition
+buffer and a 96-sample minibatch — about 256× below the budget the recipe's
+hyperparameters assume. The 1/4 minibatch divisor was already faithful; the
+absolute sample count was not. Gradients from 96 transitions are noisy enough
+that one 3e-4 step on a [512,256,128] network leaves the trust region immediately.
+
+**Normalized observations were never clipped.** SB3's reference `VecNormalize`
+clips to ±`clip_obs` (default 10.0); `GaitPPOPolicy.extract_features` divided by
+`sqrt(variance+1e-8)` and returned the result unbounded. In the stopped run's
+saved policy, **217 of 1,562 observation coordinates had variance below 1e-8**,
+giving an amplification of up to **9,946×**. These are genuinely constant
+coordinates, not noise: 147 are the depth spatial grid, which is absent in
+simulation, and observation 83 is the `vy` command axis
+(`contract.py:COMMAND_SLICE = slice(82,85)`), which all six configured requests
+leave at zero. `train/value_loss` peaked at 139,977 in the run's first rollouts
+before settling, consistent with that amplification reaching the first layer.
+
+The repair keeps the existing owner, action domain and native executor.
+`locomotion_rollout_geometry` now sizes the rollout by a 2,048-transition budget
+(`n_steps = 2048/workers`) and keeps the four-minibatch divisor, so eight workers
+give `n_steps` 256 and `batch_size` 512. A requested step budget caps the rollout
+while retaining at least two rollouts, because observation moments refresh only at
+a rollout boundary. Only this recipe's own resumes are resized; a historical
+artifact keeps the geometry it was recorded with. A resize rebuilds the buffer
+through the model's own `gamma`, `gae_lambda` and `rollout_buffer_kwargs`, because
+`RolloutBuffer` defaults `gae_lambda` to 1 and omitting it would have silently
+changed the advantage estimator on every resume. `target_kl` is now 0.08, with
+`clip_range` 0.2 remaining the per-step trust region. Normalized observations are
+clipped to ±`OBSERVATION_CLIP` (10.0), matching the reference bound. Reward
+coefficients, geometry, limits, balance, command units and the observation schema
+are unchanged. No new controller, runtime wait or movement rule was added.
+
+**Throughput was measured rather than assumed.** Stepping the Body Control backend
+end to end with run `2300c113`'s `environment.json` on this four-core host
+(40 vector steps per point, `OMP_NUM_THREADS=1`): 1 worker 48 transitions/s,
+2 → 86, 4 → 119, 8 → 151, 16 → 165. Throughput saturates by eight workers;
+sixteen buys ~9% more for twice the processes and resident memory while
+oversubscribing four cores. `--workers 8` is the recommendation, and the stopped
+run's `--workers 16` is not repeated. The ceiling is physics plus native-executor
+cost per control step, not the learner. At ~151 transitions/s, the 1e8
+transitions this recipe class reports would take about 7.7 days, so that sample
+budget remains unreachable here; raising worker count does not change it. GPU
+physics batching would, and still requires preserving the closed linkage and
+executor semantics.
+
+Four regression tests were added to the maintained suite covering the transition
+budget across worker counts, that a rollout resize preserves the model's
+discounting and buffer class, the observation clip on a constant coordinate, and
+that the configured epochs actually execute. One existing assertion was
+over-specified rather than wrong in intent: it required a resumed run to perform
+zero moment refreshes, which held only while the old geometry produced a single
+rollout. It now asserts the source moments are retained and then accumulated.
+
+Established by this entry: the mechanism that discarded the optimization, the
+measured throughput ceiling, and that all 124 maintained neural/sensor/gateway
+tests pass with CUDA hidden. **Not** established: a qualified gait, improved
+directional travel, or any physical behavior. No training run was started with the
+corrected recipe, no checkpoint was promoted, and production selection, firmware
+and physical robot behavior are unchanged. Three `PhysicsTests` PPO cases fail on
+this host when CUDA is visible and pass with it hidden; they construct a policy
+with SB3's automatic device selection and then pass CPU tensors to it. They are
+byte-identical to `HEAD`, are unrelated to this repair, and are recorded here as a
+pre-existing baseline failure rather than silently worked around.

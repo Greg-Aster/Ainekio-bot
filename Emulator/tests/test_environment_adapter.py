@@ -1845,6 +1845,27 @@ if __name__ == "__main__":
     unittest.main()
 
 class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_goal_movement_is_advertised_separately_from_freestyle_gestures(self):
+        gateway = FakeGateway()
+        robot = {"connected": True, "model": "v2-12servo", "epoch": 1,
+            "features": ["body_commands_v1"], "status": {},
+            "capabilities": {"commands": ["stand", "walk", "run", "stop"], "motion": True}}
+        gateway.status = lambda: {"robots": {"test-body": robot}}
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        observation = adapter._observation()
+        self.assertIn("move", observation["capabilities"]["actions"])
+        self.assertIn("requestMotion", observation["capabilities"]["actions"])
+        self.assertNotIn("robotCommand", observation["capabilities"]["actions"])
+        self.assertEqual(observation["capabilities"]["locomotion"]["commands"], ["walk", "run"])
+        self.assertEqual(observation["capabilities"]["robotCommands"], [])
+        robot["capabilities"]["commands"] = ["stand", "stop"]
+        self.assertNotIn("move", adapter._observation()["capabilities"]["actions"])
+        self.assertIn("requestMotion", adapter._observation()["capabilities"]["actions"])
+        robot["connected"] = False
+        self.assertNotIn("move", adapter._observation()["capabilities"]["actions"])
+        self.assertEqual(gateway.calls, [])
+
     async def test_depth_demand_uses_selected_body_and_connection_owns_cleanup(self):
         from unittest.mock import AsyncMock
         from websockets.legacy.server import serve

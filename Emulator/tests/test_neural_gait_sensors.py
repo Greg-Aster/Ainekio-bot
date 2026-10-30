@@ -654,7 +654,8 @@ class EvaluationMeasurementTests(unittest.TestCase):
                 self.closed = True
 
         episode = MeasuredEpisode()
-        config = SimpleNamespace(control_hz=2, episode_seconds=1, command=[.08, 0, 0], execution_backend="kinematic")
+        config = SimpleNamespace(control_hz=2, episode_seconds=1, command=[.08, 0, 0],
+                                 execution_backend="kinematic", foot_action_scale_mm=[30,20,30])
         episode.config = config
         with patch("gateway.neural_gait.training.make_environment", return_value=episode):
             result = evaluate(None, config, seeds=(1,))
@@ -668,6 +669,9 @@ class EvaluationMeasurementTests(unittest.TestCase):
         self.assertAlmostEqual(row["maximum_heading_deviation_rad"], np.deg2rad(30))
         self.assertAlmostEqual(row["mean_contact_slip_speed_squared_m2_s2"], .02)
         self.assertAlmostEqual(row["maximum_joint_tracking_error_deg"], 2.5)
+        self.assertEqual(row["motion_metric_means"]["requested_foot_step_squared_mm2"], 0)
+        self.assertEqual(row["motion_metric_means"]["target_step_squared_deg2"], 1)
+        self.assertEqual(row["motion_metric_means"]["target_acceleration_squared_deg2_s4"], 8)
         self.assertEqual(row["fit_reduced_frames"], 1)
         self.assertEqual(row["jam_frames"], 1)
         self.assertEqual(row["mean_total_reward_per_step"], 1.)
@@ -1011,3 +1015,114 @@ class TerrainScenarioTests(unittest.TestCase):
         self.assertTrue(any(touching["contact"]))
         np.testing.assert_allclose(np.array(airborne["clearance_m"])-touching["clearance_m"],
             .002*np.cos(np.deg2rad(5)),atol=1e-9)
+
+
+@unittest.skipUnless(
+    importlib.util.find_spec("mujoco") and importlib.util.find_spec("numpy"),
+    "Use the gait-training environment for locomotion rewards",
+)
+class LocomotionRewardTests(unittest.TestCase):
+    def setUp(self):
+        import numpy as np
+        from gateway.neural_gait.environment import EnvironmentConfig
+        self.np = np
+        self.config = EnvironmentConfig(robot=robot_fixture(), reward_profile="locomotion")
+
+    def score(self, command, measured, **changes):
+        from gateway.neural_gait.environment import locomotion_reward
+        zeros = self.np.zeros(12)
+        arguments = dict(vertical_velocity=0., angular_velocity_xy=[0., 0.],
+            joint_velocity=zeros, previous_joint_velocity=zeros, joint_torque=zeros,
+            action=zeros, previous_action=zeros, contact_slip_speed_squared=0.,
+            config=self.config)
+        arguments.update(changes)
+        return locomotion_reward(measured[:2], measured[2], command, 1., 1., **arguments)
+
+    def test_small_speed_and_turn_tracking_distinguish_rest_and_wrong_direction(self):
+        for requested in ([.015, 0, 0], [.03, 0, 0], [-.03, 0, 0], [0, 0, .5]):
+            correct, terms = self.score(requested, requested)
+            stationary, _ = self.score(requested, [0, 0, 0])
+            wrong, _ = self.score(requested, [-value for value in requested])
+            self.assertGreater(correct, stationary)
+            self.assertGreater(stationary, wrong)
+            self.assertAlmostEqual(correct*self.config.control_hz, 1.5)
+            self.assertEqual(terms["joint_acceleration"], 0.)
+        # At 15 mm/s, rest earns 77.9% of perfect linear tracking, not the
+        # near-perfect 99.91% caused by copying Go1's dimensional bandwidth.
+        _, stationary = self.score([.015, 0, 0], [0, 0, 0])
+        self.assertAlmostEqual(stationary["tracking_linear"]*self.config.control_hz,
+                               math.exp(-.25))
+        stopped, _ = self.score([0, 0, 0], [0, 0, 0])
+        moving, _ = self.score([0, 0, 0], [.03, 0, 0])
+        self.assertGreater(stopped, moving)
+
+    def test_actual_joint_acceleration_and_slip_cost_without_target_changes(self):
+        np = self.np
+        command = [.03, 0, 0]
+        smooth, smooth_terms = self.score(command, command,
+            joint_velocity=np.ones(12), previous_joint_velocity=np.ones(12))
+        jerky, jerky_terms = self.score(command, command,
+            joint_velocity=np.ones(12), previous_joint_velocity=-np.ones(12))
+        self.assertLess(jerky, smooth)
+        self.assertEqual(smooth_terms["joint_acceleration"], 0.)
+        self.assertEqual(jerky_terms["action_change"], 0.)
+        expected = 12*(2*self.config.control_hz)**2*2.5e-7/self.config.control_hz
+        self.assertAlmostEqual(smooth-jerky, expected)
+        sliding, _ = self.score(command, command,
+            joint_velocity=np.ones(12), previous_joint_velocity=np.ones(12),
+            contact_slip_speed_squared=.03**2)
+        self.assertAlmostEqual(smooth-sliding, .1/self.config.control_hz)
+
+    def test_reward_profile_serializes_and_historical_reward_stays_legacy(self):
+        from dataclasses import asdict
+        import json
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
+        restored = EnvironmentConfig(**json.loads(json.dumps(asdict(self.config))))
+        self.assertEqual(restored.reward_profile, "locomotion")
+        self.assertEqual(restored.locomotion_reward_weights, self.config.locomotion_reward_weights)
+        old = asdict(self.config)
+        for field in ("reward_profile", "locomotion_tracking_width_m_s",
+                      "locomotion_tracking_width_rad_s", "locomotion_reward_weights"):
+            old.pop(field)
+        historical = EnvironmentConfig(**old)
+        self.assertEqual(historical.reward_profile, "legacy")
+        env = GaitEnvironment(historical)
+        self.addCleanup(env.close)
+        env.reset(seed=3)
+        _, reward, _, _, info = env.step(self.np.zeros(12))
+        parts = info["reward_components"]
+        self.assertEqual(set(parts), {"progress", "overspeed", "cross_track",
+                                     "slip", "effort", "action_change"})
+        self.assertAlmostEqual(reward, parts["progress"]-sum(
+            value for key, value in parts.items() if key != "progress"))
+
+    def test_native_targets_use_measured_interval_acceleration_and_reset(self):
+        from dataclasses import replace
+        from unittest.mock import patch
+        from gateway.neural_gait import environment
+        np = self.np
+        env = environment.make_environment(replace(self.config, execution_backend="body_control"),
+            include_assembly=False, include_visuals=False)
+        self.addCleanup(env.close)
+        for _ in range(2):
+            env.reset(seed=4)
+            initial = env.data.qvel[env.vadr].copy()
+            with patch.object(environment, "locomotion_reward",
+                              wraps=environment.locomotion_reward) as score:
+                action = np.array([.1, 0., .15]*4)
+                observation, reward, terminated, _, info = env.step(action)
+                self.assertFalse(terminated, info)
+                self.assertEqual(info["execution_backend"], "body_control")
+                self.assertEqual(info["ack"]["t"], "ack")
+                self.assertEqual(info["consumed_sample"], 1)
+                self.assertNotEqual(reward, 0.)
+                supplied = score.call_args.kwargs
+                np.testing.assert_array_equal(supplied["previous_joint_velocity"], initial)
+                np.testing.assert_array_equal(supplied["joint_velocity"], env.data.qvel[env.vadr])
+                self.assertAlmostEqual(reward, sum(value if key.startswith("tracking_") else -value
+                    for key, value in info["reward_components"].items()))
+                feedback = env.session.connection.last_status["imu"]["joint_feedback"]
+                np.testing.assert_allclose(observation[:12],
+                    np.deg2rad(feedback["filtered_model_deg"]), rtol=1e-6, atol=1e-7)
+            # A prior episode's velocity must not enter the next episode.
+            env.data.qvel[env.vadr] = 7.

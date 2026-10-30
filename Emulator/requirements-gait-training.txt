@@ -1,5 +1,7 @@
-# Optional host optimizer. Install CPU torch from download.pytorch.org/whl/cpu
-# first. The normal gateway does not import these packages.
+# Optional host optimizer. Choose the torch build for the training computer first:
+# NVIDIA CUDA: pip install torch==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128
+# CPU/Q6A: pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+# The normal gateway does not import these packages.
 torch==2.8.0
 botorch==0.15.1
 numpy==2.3.5

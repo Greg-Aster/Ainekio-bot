@@ -182,7 +182,7 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
         text = action.get("text")
         if not isinstance(text, str) or not text.strip():
             return None
-        return BridgeAction("text", params={"text": text[:4096]})
+        return BridgeAction("text", params={"text": text})
     if action_type == "stop":
         return BridgeAction("stop")
     if action_type == "move":

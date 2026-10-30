@@ -418,23 +418,41 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_neural_preview_consumes_streamed_observation_without_freestyle_or_http(self):
         from protocol.joints_v2 import JOINT_LABELS
-        source = {"joints": {name: {"filtered_model_deg": 12.,
+        from gateway.neural_gait.contract import SCHEMA, DEPTH_SCHEMAS
+        source = {"epoch": 3, "joints": {name: {"filtered_model_deg": 12.,
             "velocity_deg_s": 2., "commanded_model_deg": 15., "feedback_usable": True,
             "sampled_us": 990000} for name in JOINT_LABELS},
             "imu": {"orientation_wxyz": [1, 0, 0, 0], "angular_rate_rad_s": [0, 0, 0],
                 "acceleration_m_s2": [0, 0, 9.80665], "timestamp_us": 995000},
             "feedback": {"device_us": 1000000}}
         self.gateway.body_sensor_observation = Mock(return_value=source)
-        model = {"environment": {"target_limits_deg": [[-90, 90]]*12}}
-        self.server.neural_gait = SimpleNamespace(call=AsyncMock(side_effect=[model, {"execution": "preview_only"}]))
-        with patch.object(self.server, "_setup_freestyle", side_effect=AssertionError("Preview cannot start Freestyle")):
-            await self.server.neural_gait_request({"op": "preview", "robot_id": "ainekio-test-01"})
-        self.gateway.body_sensor_observation.assert_called_once_with("ainekio-test-01")
-        path, payload = self.server.neural_gait.call.await_args.args
-        self.assertEqual(path, "/infer")
-        self.assertEqual(payload["observation"]["joint_deg"], [12.]*12)
-        self.assertEqual(payload["observation"]["joint_sample_age_s"], [.01]*12)
-        self.assertEqual(self.gateway.calls, [])
+        self.gateway.clock = lambda: 10.
+        grid = dict(schema="ainekio-depth-grid-v1", rows=8, columns=8, frame="camera-optical",
+            depthKind="optical-axis-z", units="estimated-metres", available=True,
+            values=[.5]*64, valid=[True]*64, imageSize=[640,480],
+            cameraMatrix=[[550,0,320],[0,550,240],[0,0,1]], cameraToBody=None,
+            metricAccuracyVerified=False)
+        measurement = dict(robotId="ainekio-test-01", epoch=3, frameId="depth-1",
+            frameCurrent=True, receivedAtMonotonic=9.8, available=False, depthSpatial=grid)
+        self.server.camera_recognition = SimpleNamespace(locomotion_measurement=Mock(return_value=measurement))
+        for schema in (SCHEMA, *sorted(DEPTH_SCHEMAS)):
+            with self.subTest(schema=schema):
+                self.gateway.body_sensor_observation.reset_mock()
+                model = {"environment": {"target_limits_deg": [[-90, 90]]*12, "observation_schema":schema}}
+                self.server.neural_gait = SimpleNamespace(call=AsyncMock(side_effect=[model, {"execution": "preview_only"}]))
+                with patch.object(self.server, "_setup_freestyle", side_effect=AssertionError("Preview cannot start Freestyle")):
+                    await self.server.neural_gait_request({"op": "preview", "robot_id": "ainekio-test-01"})
+                self.gateway.body_sensor_observation.assert_called_once_with("ainekio-test-01")
+                path, payload = self.server.neural_gait.call.await_args.args
+                self.assertEqual(path, "/infer")
+                observed = payload["observation"]
+                self.assertEqual(observed["joint_deg"], [12.]*12)
+                self.assertEqual(observed["joint_sample_age_s"], [.01]*12)
+                self.assertEqual(bool(observed["vision"].get("depth_available")), schema in DEPTH_SCHEMAS)
+                if schema in DEPTH_SCHEMAS:
+                    self.assertEqual(observed["vision"]["depth_frame_id"], "depth-1")
+                    self.assertEqual(observed["vision"]["depthSpatial"]["values"], [.5]*64)
+                self.assertEqual(self.gateway.calls, [])
         self.gateway.body_sensor_observation.side_effect = GatewayError("This robot has not supplied joint feedback telemetry")
         self.server.neural_gait.call = AsyncMock(return_value=model)
         with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):

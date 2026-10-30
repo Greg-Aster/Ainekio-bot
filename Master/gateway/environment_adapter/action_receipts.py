@@ -141,6 +141,10 @@ class ActionReceipts:
     def _release_dispatch(self) -> None:
         try:
             self.db.execute("COMMIT")
+        except BaseException:
+            if self.db.in_transaction:
+                self.db.execute("ROLLBACK")
+            raise
         finally:
             self._lock.release()
 
