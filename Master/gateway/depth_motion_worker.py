@@ -29,15 +29,31 @@ OPTICAL_TO_FORWARD = np.array([[0., 0, 1, 0], [-1., 0, 0, 0],
                                [0., -1., 0, 0], [0., 0, 0, 1]])
 
 
-def camera_position(world_from_camera, camera_to_body=None):
-    """Convert OpenCV camera axes to body convention; preserve the lever arm."""
+def body_pose(world_from_camera, camera_to_body=None):
+    """Convert the tracked camera pose with the mounting lever arm retained."""
     body_from_camera = (OPTICAL_TO_FORWARD if camera_to_body is None
                         else np.asarray(camera_to_body, dtype=float))
-    relative = body_from_camera @ world_from_camera @ np.linalg.inv(body_from_camera)
+    return body_from_camera @ world_from_camera @ np.linalg.inv(body_from_camera)
+
+
+def camera_position(world_from_camera, camera_to_body=None):
+    """Convert OpenCV camera axes to body convention; preserve the lever arm."""
+    relative = body_pose(world_from_camera, camera_to_body)
     return dict(xMetres=float(relative[0, 3]), yMetres=float(relative[1, 3]),
                 zMetres=float(relative[2, 3]),
                 headingDegrees=math.degrees(math.atan2(relative[1, 0], relative[0, 0])),
                 uncertaintyMetres=None)
+
+
+def pose_motion(previous, current, seconds):
+    """Frame-interval motion estimate, not IMU integration or actuator authority."""
+    displacement = current[:3, 3] - previous[:3, 3]
+    heading = lambda pose: math.atan2(pose[1, 0], pose[0, 0])
+    turn = math.atan2(math.sin(heading(current)-heading(previous)),
+                      math.cos(heading(current)-heading(previous)))
+    return dict(velocity_body_m_s=(current[:3, :3].T @ displacement / seconds).tolist(),
+                yaw_rate_rad_s=turn/seconds, turn_rad=turn,
+                travelled_m=float(np.linalg.norm(displacement)))
 
 
 class FeatureMap:
@@ -206,6 +222,21 @@ class Estimator:
                 state["tracker"].process(rgb, depth, state["intrinsics"])
             except (RuntimeError, ValueError, cv2.error):
                 pass
+        motion = None
+        if tracking_error is None:
+            pose = body_pose(state["pose"], config.get("cameraToBody"))
+            previous = state.get("motion_sample")
+            if (previous is not None and previous[0] == state["reference"] and
+                    request["received"] > previous[1]):
+                motion = pose_motion(previous[2], pose, request["received"]-previous[1])
+                state["path_m"] += motion["travelled_m"]
+                state["heading_rad"] += motion["turn_rad"]
+            else:
+                state["path_m"], state["heading_rad"] = 0., 0.
+            state["motion_sample"] = (state["reference"], request["received"], pose.copy())
+        else:
+            state["motion_sample"] = None
+            state["path_m"], state["heading_rad"] = 0., 0.
         frame_id = f"ainekio-camera-{request['instance']}-{robot}-{request['epoch']}-{request['counter']}"
         good = depth[depth > 0]
         lo, hi = np.quantile(good, [.02, .98])
@@ -220,13 +251,20 @@ class Estimator:
             trackingError=tracking_error,
             metricAccuracyVerified=False, uncertainty={"metricMetres": None, **quality},
             coordinateOrigin="body" if config.get("cameraToBody") else "camera",
-            mounting="measured-transform" if config.get("cameraToBody") else "assumed-forward-upright",
+            mounting="configured-transform" if config.get("cameraToBody") else "assumed-forward-upright",
             robotId=robot, epoch=request["epoch"], gatewayInstance=request["instance"],
             frameCounter=request["counter"], frameId=frame_id, frameTimestamp=request["timestamp"],
             observedAt=request["timestamp"], receivedAtMonotonic=request["received"],
             clock="gateway-receipt", referenceId=state["reference"], calibrationId="estimated-"+state["calibration_id"],
             modelId=self.model_id, referenceKind="local-odometry-no-loop-closure",
             position=camera_position(state["pose"], config.get("cameraToBody")) if tracking_error is None else None,
+            velocity_body_m_s=(motion["velocity_body_m_s"]
+                if motion is not None and config.get("cameraToBody") else None),
+            yaw_rate_rad_s=motion["yaw_rate_rad_s"] if motion is not None else None,
+            path_length_m=state["path_m"] if tracking_error is None else None,
+            heading_change_rad=state["heading_rad"] if tracking_error is None else None,
+            motionIntervalS=(request["received"]-previous[1] if motion is not None else None),
+            distanceDefinition="Accumulated 3D odometry displacement within this local reference; estimated metric scale",
             intrinsics=state["intrinsics"].tolist(),
             depth=dict(units="estimated-metres", near=float(lo), far=float(hi),
                        median=float(np.median(good)), validFraction=float((depth > 0).mean())),

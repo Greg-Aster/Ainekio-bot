@@ -434,6 +434,75 @@ class ObservationTests(unittest.TestCase):
 )
 class PhysicsTests(unittest.TestCase):
 
+    def test_sac_actor_transfers_to_history_ppo_and_value_warmup_preserves_it(self):
+        import hashlib
+        import numpy as np
+        import torch
+        from dataclasses import asdict, replace
+        from stable_baselines3.common.logger import configure
+        from gateway.neural_gait.contract import HISTORY_SCHEMA, HISTORY_START
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment, ENVIRONMENT_VERSION, GEOMETRY, representation_identity
+        from gateway.neural_gait.training import (new_model, initialize_model, load_policy,
+            LOCOMOTION_RECIPE, configure_action_exploration, apply_rollout_geometry, warm_start_value,
+            training_recipe)
+        config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.12)
+        old = GaitEnvironment(config, include_assembly=False)
+        new = GaitEnvironment(replace(config, observation_schema=HISTORY_SCHEMA), include_assembly=False)
+        self.addCleanup(old.close)
+        self.addCleanup(new.close)
+        source = new_model(old, "cpu", 1, policy_kwargs=dict(net_arch=[8, 8]))
+        observed, _ = old.reset(seed=1)
+        expanded, _ = new.reset(seed=1)
+        expanded[136:283] = 1.
+        expanded[89:96] = [1., 2., 3., 1., .5, 1., .1]
+        expanded[HISTORY_START:] = 1.
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root)
+            source.save(path/"policy.zip")
+            manifest = dict(algorithm="SAC", schema=SCHEMA, environment=asdict(config),
+                environment_version=ENVIRONMENT_VERSION, representation=representation_identity(),
+                geometry_sha256=hashlib.sha256(GEOMETRY.read_bytes()).hexdigest())
+            (path/"manifest.json").write_text(json.dumps(manifest))
+            self.assertEqual(training_recipe(manifest, LOCOMOTION_RECIPE, initialize_from=path), LOCOMOTION_RECIPE)
+            model, provenance = initialize_model(path, new, new.config, recipe=LOCOMOTION_RECIPE)
+            self.assertEqual(provenance["target_algorithm"], "PPO")
+            self.assertFalse(provenance["critic_parameters_loaded"])
+            np.testing.assert_allclose(source.predict(observed, deterministic=True)[0],
+                model.predict(expanded, deterministic=True)[0], atol=1e-7, rtol=0)
+            configure_action_exploration(model, [.03]*12)
+            apply_rollout_geometry(model, 8, 8)
+            model.set_logger(configure(str(path), []))
+            before = {name: value.detach().clone() for name, value in model.policy.state_dict().items()}
+            report = []
+            result = warm_start_value(model, 16, report=report.append)
+            self.assertEqual(result["steps"], 16)
+            self.assertEqual(result["actor_updates"], 0)
+            self.assertEqual(model.num_timesteps, 0)
+            self.assertEqual(len(report), 2)
+            changed = set()
+            for name, value in model.policy.state_dict().items():
+                if not torch.equal(before[name], value):
+                    changed.add(name)
+                    self.assertTrue(name.startswith(("value_net.", "mlp_extractor.value_net.")), name)
+            self.assertTrue(changed)
+            np.testing.assert_allclose(source.predict(observed, deterministic=True)[0],
+                model.predict(expanded, deterministic=True)[0], atol=1e-7, rtol=0)
+            # Newly introduced history and camera weights can learn, whereas
+            # the simulator-only critic columns remain excluded from the actor.
+            model.policy.optimizer.zero_grad(set_to_none=True)
+            tensor = torch.tensor(expanded[None])
+            model.policy.get_distribution(tensor).mode().sum().backward()
+            gradient = model.policy.mlp_extractor.policy_net[0].weight.grad
+            self.assertGreater(float(gradient[:, 136:283].abs().sum()), 0)
+            self.assertGreater(float(gradient[:, HISTORY_START:-5].abs().sum()), 0)
+            self.assertEqual(float(gradient[:, -5:].abs().sum()), 0)
+            model.save(path/"policy.zip")
+            manifest.update(algorithm="PPO", schema=HISTORY_SCHEMA, environment=asdict(new.config))
+            (path/"manifest.json").write_text(json.dumps(manifest))
+            restored = load_policy(path)
+            np.testing.assert_array_equal(model.predict(expanded, deterministic=True)[0],
+                restored.predict(expanded, deterministic=True)[0])
+
     def test_history_extension_preserves_actor_and_excludes_training_state(self):
         import hashlib
         import numpy as np
@@ -877,6 +946,77 @@ class PhysicsTests(unittest.TestCase):
         finally:
             env.close()
 
+    def test_ppo_imitation_fits_deterministic_actor_without_value_or_exploration_updates(self):
+        import copy
+        import gymnasium as gym
+        import numpy as np
+        import torch
+        from gateway.neural_gait.contract import HISTORY_SIZE
+        from gateway.neural_gait.training import GaitPPO, GaitPPOPolicy, fit_actor
+
+        class Spaces(gym.Env):
+            observation_space = gym.spaces.Box(-np.inf, np.inf, (HISTORY_SIZE,), dtype=np.float32)
+            action_space = gym.spaces.Box(-1, 1, (12,), dtype=np.float32)
+
+        torch.set_num_threads(1)
+        x = np.random.default_rng(7).normal(0, .1, (32,HISTORY_SIZE)).astype(np.float32)
+        y = np.full((len(x),12), .2, dtype=np.float32)
+        for coordinates in ("latent", "action", "linear"):
+            with self.subTest(coordinates=coordinates), tempfile.TemporaryDirectory() as root:
+                model = GaitPPO(GaitPPOPolicy, Spaces(), n_steps=16, batch_size=16, seed=3,
+                    learning_rate=.002, device="cpu", policy_kwargs=dict(net_arch=[8,8],
+                        learned_std=True, log_std_init=-1., action_coordinates=coordinates,
+                        normalize_observations=True, value_learning_rate=.003,
+                        exploration_learning_rate=.004, command_units=[.08,.04,.5]))
+                policy = model.policy
+                policy.update_observation_statistics(x)
+                tx = torch.as_tensor(x)
+                if coordinates == "linear":
+                    with torch.no_grad():
+                        policy.action_net.weight.zero_()
+                        policy.action_net.bias.fill_(2.)
+                # Seed every Adam group, and leave stale gradients present.
+                # Rehearsal must preserve these states instead of replacing the
+                # optimizer or letting unused parameters drift on zero grads.
+                loss = (policy.get_distribution(tx).get_actions(deterministic=True).square().mean()
+                        +policy.predict_values(tx).square().mean()+policy.log_std.square().mean())
+                loss.backward()
+                policy.optimizer.step()
+                optimizer = policy.optimizer
+                groups = [(group["gait_role"], group["lr"]) for group in optimizer.param_groups]
+                actor_state = optimizer.state[policy.action_net.weight]
+                actor_steps = float(actor_state["step"])
+                frozen = {name: parameter for name,parameter in policy.named_parameters()
+                    if name == "log_std" or name.startswith(("mlp_extractor.value_net.","value_net.","vf_features_extractor."))}
+                values = {name:parameter.detach().clone() for name,parameter in frozen.items()}
+                states = {name:copy.deepcopy(optimizer.state[parameter]) for name,parameter in frozen.items()}
+                buffers = {name:value.clone() for name,value in policy.named_buffers()}
+                critic = policy.predict_values(tx).detach().clone()
+                result = fit_actor(model, x, y, 60, 7)
+                self.assertLess(result["action_rmse_after"], result["action_rmse_before"])
+                self.assertEqual(result["loss_coordinates"], "linear_mean_before_inference_clipping"
+                    if coordinates == "linear" else "bounded_actions")
+                if coordinates == "linear":
+                    self.assertGreater(result["action_rmse_before"], 1., "Raw saturated means must keep a corrective gradient")
+                self.assertIs(policy.optimizer, optimizer)
+                self.assertIs(optimizer.state[policy.action_net.weight], actor_state)
+                self.assertEqual(float(actor_state["step"]), actor_steps+60)
+                self.assertEqual([(group["gait_role"],group["lr"]) for group in optimizer.param_groups], groups)
+                for name,parameter in frozen.items():
+                    torch.testing.assert_close(parameter, values[name], rtol=0, atol=0)
+                    self.assertIsNone(parameter.grad)
+                    for key,value in states[name].items():
+                        torch.testing.assert_close(optimizer.state[parameter][key], value, rtol=0, atol=0)
+                for name,value in policy.named_buffers():
+                    torch.testing.assert_close(value, buffers[name], rtol=0, atol=0)
+                torch.testing.assert_close(policy.predict_values(tx), critic, rtol=0, atol=0)
+                self.assertTrue(policy.log_std.requires_grad)
+                expected = model.predict(x, deterministic=True)[0]
+                path = Path(root)/"policy.zip"
+                model.save(path)
+                restored = GaitPPO.load(path, device="cpu")
+                np.testing.assert_array_equal(restored.predict(x, deterministic=True)[0], expected)
+
     def test_cycle_teacher_uses_observed_predecessor_without_a_clock(self):
         import numpy as np
         from gateway.neural_gait.training import CycleExpert
@@ -992,6 +1132,8 @@ class PhysicsTests(unittest.TestCase):
                 run = directory/"curriculum"
                 train(run, 0, config, demonstrations=sources, demonstration_cycles=True,
                       imitation_updates=1, expert_mix=(0,), updates_per_round=1)
+                self.assertEqual(json.loads((run/"manifest.json").read_text())["algorithm"],
+                                 "DAgger behavior cloning of SAC actor")
                 metadata = json.loads((run/"training-data.json").read_text())
                 self.assertEqual(metadata["commands"], commands)
                 with np.load(run/"training-data.npz") as archive:
@@ -1221,6 +1363,25 @@ class PhysicsTests(unittest.TestCase):
                 obs, _ = env.reset(seed=1)
                 np.testing.assert_array_equal(source.predict(obs, deterministic=True)[0],
                                               model.predict(obs, deterministic=True)[0])
+                # Moving to the real gateway/native executor transfers the actor,
+                # never replay collected under the direct mathematical executor.
+                from gateway.neural_gait.environment import body_control_config, make_environment
+                connected_config = body_control_config(config)
+                connected = make_environment(connected_config, include_assembly=False)
+                try:
+                    with patch.object(SAC, "load_replay_buffer", side_effect=AssertionError("old replay read")):
+                        migrated, transfer = initialize_model(path, connected, connected_config)
+                    np.testing.assert_array_equal(source.predict(obs, deterministic=True)[0],
+                                                  migrated.predict(obs, deterministic=True)[0])
+                    self.assertEqual(migrated.replay_buffer.size(), 0)
+                    self.assertFalse(migrated.actor.optimizer.state)
+                    self.assertEqual(transfer["execution_changes"]["execution_backend"],
+                                     {"source": "direct", "target": "body_control"})
+                    from dataclasses import replace
+                    with self.assertRaisesRegex(ValueError, "compatible sensor/action"):
+                        initialize_model(path, connected, replace(connected_config, mass_kg=.8))
+                finally:
+                    connected.close()
                 self.assertEqual(model.policy_kwargs["net_arch"], [8, 8])
                 self.assertEqual(model.num_timesteps, 0)
                 self.assertEqual(model._n_updates, 0)
@@ -1300,6 +1461,42 @@ class PhysicsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "preserved source"):
                 train(path, 1, config, initialize_from=path)
             self.assertEqual((path / "manifest.json").read_bytes(), original)
+
+    def test_sac_depth_expansion_preserves_movement_and_learns_new_camera_columns(self):
+        import hashlib
+        import numpy as np
+        import torch
+        from dataclasses import asdict, replace
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment, ENVIRONMENT_VERSION, GEOMETRY, representation_identity
+        from gateway.neural_gait.contract import DEPTH_SCHEMA
+        from gateway.neural_gait.training import new_model, initialize_model, load_policy
+        config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.08)
+        old = GaitEnvironment(config, include_assembly=False)
+        new = GaitEnvironment(replace(config, observation_schema=DEPTH_SCHEMA), include_assembly=False)
+        self.addCleanup(old.close)
+        self.addCleanup(new.close)
+        source = new_model(old, "cpu", 1, policy_kwargs=dict(net_arch=[8, 8]))
+        observed, _ = old.reset(seed=1)
+        expanded = np.r_[observed[:-12], np.ones(new.observation_space.shape[0]-len(observed)), observed[-12:]].astype(np.float32)
+        expanded[89:96] = [1., 2., 3., 1., .5, 1., .1]
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root)
+            source.save(path/"policy.zip")
+            manifest = dict(algorithm="SAC", schema=SCHEMA, environment=asdict(config),
+                environment_version=ENVIRONMENT_VERSION, representation=representation_identity(),
+                geometry_sha256=hashlib.sha256(GEOMETRY.read_bytes()).hexdigest())
+            (path/"manifest.json").write_text(json.dumps(manifest))
+            model, provenance = initialize_model(path, new, new.config)
+            np.testing.assert_allclose(source.predict(observed, deterministic=True)[0],
+                                      model.predict(expanded, deterministic=True)[0], atol=1e-7)
+            self.assertFalse(provenance["replay_loaded"])
+            model.actor(torch.tensor(expanded[None])).sum().backward()
+            self.assertGreater(float(model.actor.latent_pi[0].weight.grad[:,136:-12].abs().sum()), 0.)
+            output = model.predict(expanded, deterministic=True)[0]
+            model.save(path/"policy.zip")
+            manifest.update(schema=DEPTH_SCHEMA, environment=asdict(new.config))
+            (path/"manifest.json").write_text(json.dumps(manifest))
+            np.testing.assert_array_equal(output, load_policy(path).predict(expanded, deterministic=True)[0])
 
     def test_final_checkpoint_contains_final_optimizer_update(self):
         from unittest.mock import patch
@@ -1446,8 +1643,55 @@ class PhysicsTests(unittest.TestCase):
             np.testing.assert_allclose(
                 replay(np.zeros((5, 3)), [0, 0, 0]), 1)
             self.assertLess(movement_reward([.08, 0], 0, [0, 0, 0], 1, 1), 1)
+            # The same directed objective in PPO must receive the same recent
+            # pace, even when exponential tracking uses instantaneous velocity.
+            env.config.reward_profile = "locomotion"
+            env.config.locomotion_reward_weights = {
+                key: float(key == 'directed_progress') for key in env.config.locomotion_reward_weights}
+            env.config.locomotion_tracking_window_s = 0.
+            bursts = replay(np.tile(burst_cycle, (6, 1)), command)
+            steady = replay(np.tile(command, (300, 1)), command)
+            self.assertAlmostEqual(bursts.sum(), steady.sum(), places=8)
+            np.testing.assert_array_equal(replay(np.zeros((50, 3)), command), 0.)
         finally:
             env.close()
+
+    def test_locomotion_progress_and_slip_use_independent_units(self):
+        from dataclasses import replace
+        import numpy as np
+        from gateway.neural_gait.environment import EnvironmentConfig, locomotion_reward
+        from gateway.neural_gait.training import locomotion_config
+        config = locomotion_config(EnvironmentConfig(robot=robot_fixture()))
+        def score(speed, *, slip=0., config=config):
+            return locomotion_reward([speed, 0.], 0., [.08, 0., 0.], 1., 1.,
+                vertical_velocity=0., angular_velocity_xy=[0., 0.],
+                joint_velocity=np.zeros(12), previous_joint_velocity=np.zeros(12),
+                joint_torque=np.zeros(12), action=np.zeros(12), previous_action=np.zeros(12),
+                contact_slip_speed_squared=slip, config=config, progress_pace_velocity=[.08, 0., 0.])
+        stopped, terms = score(0.)
+        self.assertEqual(terms['directed_progress'], 0., 'Old pace cannot reward a stopped robot')
+        self.assertGreater(score(.024)[0], stopped)
+        self.assertLess(score(-.024)[0], stopped)
+        self.assertAlmostEqual(score(.024)[1]['directed_progress'] +
+                               score(-.024)[1]['directed_progress'], 0.)
+        # Recorded slip of the moving baseline was multiplied by 1/.03².
+        # The published .1 cost now applies to m²/s² regardless of tracking width.
+        slip = .0213413
+        expected = .1*slip/config.control_hz
+        self.assertAlmostEqual(score(.024, slip=slip)[1]['slip'], expected)
+        self.assertAlmostEqual(score(.024, slip=slip,
+            config=replace(config, locomotion_tracking_width_m_s=.08))[1]['slip'], expected)
+        historical = dict(config.locomotion_reward_weights)
+        historical.pop('directed_progress')
+        old = replace(config, locomotion_reward_weights=historical, locomotion_slip_scale_m_s=None)
+        self.assertEqual(old.locomotion_reward_weights['directed_progress'], 0.)
+        self.assertAlmostEqual(score(.024, slip=slip, config=old)[1]['slip'], expected/.03**2)
+        # Coefficients may disable a duplicate cost; unit scales may not be zero.
+        replace(config, reward_cross_track_cost=0.)
+        with self.assertRaises(ValueError):
+            replace(config, reward_cross_track_cost=-.1)
+        with self.assertRaises(ValueError):
+            replace(config, reward_velocity_scale_m_s=0.)
 
     def test_slow_progress_reward_is_not_dominated_by_cross_axis_yaw(self):
         import numpy as np
@@ -1831,6 +2075,33 @@ class PhysicsTests(unittest.TestCase):
                 np.testing.assert_array_equal(
                     first["targets_deg"], restored["targets_deg"]
                 )
+                # An immutable checkpoint remains selected across both a run's
+                # later publication and a service restart.
+                checkpoint_id = "000000016"
+                (path / "checkpoints").mkdir()
+                policy.save(path / "checkpoints" / f"{checkpoint_id}.zip")
+                (path / "checkpoints.json").write_text(json.dumps([
+                    dict(id=checkpoint_id, policy=f"checkpoints/{checkpoint_id}.zip", steps=16)]))
+                import torch
+                original_bias = policy.actor.mu.bias.detach().clone()
+                with torch.no_grad():
+                    policy.actor.mu.bias.add_(0.5)
+                policy.save(path / "policy.zip")
+                runtime.load("abc", checkpoint_id)
+                self.assertEqual(runtime.status(include_runs=False)["checkpoint_id"], checkpoint_id)
+                selected = Runtime(root).infer(obs)
+                self.assertEqual(selected["checkpoint_id"], checkpoint_id)
+                np.testing.assert_array_equal(first["action"], selected["action"])
+                with self.assertRaisesRegex(ValueError, "published checkpoint"):
+                    runtime.load("abc", "missing")
+                self.assertEqual(runtime.checkpoint_id, checkpoint_id)
+                runtime.load("abc")
+                self.assertFalse(np.array_equal(first["action"], runtime.infer(obs)["action"]))
+                self.assertIsNone(runtime.checkpoint_id)
+                # Restore the original policy for the historical replay checks.
+                with torch.no_grad():
+                    policy.actor.mu.bias.copy_(original_bias)
+                policy.save(path / "policy.zip")
                 manifest_path = path / "manifest.json"
                 manifest = json.loads(manifest_path.read_text())
                 # Reward-only revisions do not change inference or playback.
@@ -1989,7 +2260,7 @@ class PhysicsTests(unittest.TestCase):
         env = GaitEnvironment(EnvironmentConfig(robot=robot_fixture(), episode_seconds=.08),
                               include_assembly=False)
         self.addCleanup(env.close)
-        model = GaitPPO(GaitPPOPolicy, env, n_steps=4, batch_size=4, n_epochs=1,
+        model = GaitPPO(GaitPPOPolicy, env, device="cpu", n_steps=4, batch_size=4, n_epochs=1,
                        learning_rate=3e-7, rollout_buffer_class=PreciseActionRolloutBuffer,
                        policy_kwargs=dict(net_arch=[8, 8], learned_std=True), seed=1)
         model.learn(total_timesteps=8)
@@ -2071,7 +2342,7 @@ with patch.object(owner,'main') as entry, warnings.catch_warnings():
         env = GaitEnvironment(EnvironmentConfig(robot=robot_fixture(), episode_seconds=.08),
                               include_assembly=False)
         self.addCleanup(env.close)
-        model = GaitPPO(GaitPPOPolicy, env, n_steps=4, batch_size=4, n_epochs=1,
+        model = GaitPPO(GaitPPOPolicy, env, device="cpu", n_steps=4, batch_size=4, n_epochs=1,
                        policy_kwargs=dict(net_arch=[8, 8], learned_std=True,
                                           action_coordinates="action", value_learning_rate=3e-4), seed=1)
         model.learn(total_timesteps=8)
@@ -2198,24 +2469,169 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
         finally:
             env.close()
 
-    def test_ppo_artifact_cannot_enter_sac_imitation(self):
+    def test_ppo_aggregation_preserves_actor_identity_and_collects_every_command_scenario(self):
+        import hashlib
+        import numpy as np
+        import torch
+        from dataclasses import asdict, replace
+        from functools import partial
         from unittest.mock import patch
-        from gateway.neural_gait.environment import EnvironmentConfig
-        from gateway.neural_gait.training import initialize_model, train
-
+        from gateway.neural_gait.contract import HISTORY_SCHEMA, COMMAND_SLICE
+        from gateway.neural_gait.environment import (EnvironmentConfig, GaitEnvironment,
+            ENVIRONMENT_VERSION, GEOMETRY, representation_identity)
+        from gateway.neural_gait.training import (GaitPPO, GaitPPOPolicy, LOCOMOTION_RECIPE,
+            fit_actor, load_policy, locomotion_config, train)
+        commands = [[.03,0,0], [-.03,0,0]]
+        entry = [0,3.46,-21.63]*4
+        entry[0] = 5.
+        config = locomotion_config(EnvironmentConfig(robot=robot_fixture(), episode_seconds=.04,
+            observation_schema=HISTORY_SCHEMA, command=commands[0],
+            scenarios=[dict(id="standing"), dict(id="entry", start_joint_deg=entry)]))
+        env = GaitEnvironment(config, include_assembly=False, include_visuals=False)
+        self.addCleanup(env.close)
+        model = GaitPPO(GaitPPOPolicy, env, n_steps=4, batch_size=4, n_epochs=1,
+            seed=7, device="cpu", policy_kwargs=dict(net_arch=[8,8],
+                action_coordinates="action", learned_std=True, log_std_init=-1.))
+        observation, _ = env.reset(seed=7, options={"scenario":"standing"})
+        x = np.repeat(observation[None], 3, axis=0)
+        actions = np.full((3,12), .01, dtype=np.float32)
+        fit_actor(model, x, actions, 1, 7)
         with tempfile.TemporaryDirectory() as root:
-            source = Path(root)/"abc"
+            source = Path(root)/"source"
             source.mkdir()
-            (source/"manifest.json").write_text('{"algorithm": "PPO"}')
-            config = EnvironmentConfig(robot=robot_fixture())
-            with patch("gateway.neural_gait.training.SAC.load") as sac:
-                for operation in (dict(initialize_from=source, demonstrations=["unused.npz"]),
-                                  dict(resume=source, demonstrations=["unused.npz"])):
-                    destination = Path(root)/"unsupported"
-                    with self.assertRaisesRegex(ValueError, "cannot consume a PPO"):
-                        train(destination, 4, config, **operation)
-                    self.assertFalse(destination.exists())
-                sac.assert_not_called()
+            model.save(source/"policy.zip")
+            original = (source/"policy.zip").read_bytes()
+            metadata = dict(algorithm="PPO", recipe=LOCOMOTION_RECIPE, schema=HISTORY_SCHEMA,
+                environment=asdict(config), environment_version=ENVIRONMENT_VERSION,
+                representation=representation_identity(), geometry_sha256=hashlib.sha256(GEOMETRY.read_bytes()).hexdigest())
+            (source/"manifest.json").write_text(json.dumps(metadata))
+            (source/"progress.json").write_text('{"imitation_updates":1}')
+            demonstrations = []
+            for index,command in enumerate(commands):
+                path = Path(root)/f"teacher-{index}.npz"
+                observations = x.copy()
+                observations[:,COMMAND_SLICE] = command
+                np.savez(path, observation=observations, action=actions)
+                path.with_suffix(".json").write_text(json.dumps(dict(metadata,
+                    environment=asdict(replace(config,command=command)), recommended_cycle_rows=[0,3])))
+                demonstrations.append(path)
+            optimizers, initial_steps = [], []
+            def fit(resumed, *args, **kwargs):
+                self.assertIsInstance(resumed, GaitPPO)
+                optimizer = resumed.policy.optimizer
+                optimizers.append(optimizer)
+                initial_steps.append(float(optimizer.state[resumed.policy.action_net.weight]["step"]))
+                return fit_actor(resumed, *args, **kwargs)
+            destination = Path(root)/"aggregation"
+            with patch("gateway.neural_gait.training.make_environment", partial(GaitEnvironment, include_assembly=False)), \
+                 patch("gateway.neural_gait.training.fit_actor", side_effect=fit), \
+                 patch("gateway.neural_gait.training.Progress.render_progress"), \
+                 patch("gateway.neural_gait.training.Progress.finish_rendering", return_value=True), \
+                 patch("gateway.neural_gait.training.SAC.load", side_effect=AssertionError("PPO relabelled SAC")), \
+                 patch("gateway.neural_gait.training.load_replay", side_effect=AssertionError("SAC replay")), \
+                 patch("gateway.neural_gait.training.save_replay", side_effect=AssertionError("SAC replay")):
+                train(destination, 0, config, resume=source, demonstrations=demonstrations,
+                    demonstration_cycles=True, imitation_updates=2, expert_mix=(0.,), updates_per_round=2)
+            self.assertEqual(initial_steps, [1.,3.])
+            self.assertIs(optimizers[0], optimizers[1])
+            self.assertEqual((source/"policy.zip").read_bytes(), original)
+            manifest = json.loads((destination/"manifest.json").read_text())
+            self.assertEqual(manifest["algorithm"], "PPO")
+            self.assertEqual(manifest["recipe"], LOCOMOTION_RECIPE)
+            aggregation = json.loads((destination/"aggregation.json").read_text())
+            for index,round_ in enumerate(aggregation["rounds"]):
+                self.assertEqual([(row["command"],row["scenario_id"]) for row in round_["collection"]],
+                    [(command,scenario) for command in commands for scenario in ("standing","entry")])
+                self.assertEqual([row["expert_actions"] for row in round_["collection"]], [2 if index == 0 else 0]*4)
+            self.assertEqual(aggregation["training_states"], 16)
+            with np.load(destination/"training-data.npz") as data:
+                self.assertEqual(len(data["observation"]), 16)
+                self.assertFalse(np.array_equal(data["observation"][0], data["observation"][2]),
+                                 "Scenario labels must correspond to different actual reset observations")
+            selected = json.loads((destination/"selection.json").read_text())
+            restored = load_policy(destination, device="cpu")
+            self.assertIsInstance(restored, GaitPPO)
+            self.assertEqual(restored.num_timesteps, 0)
+            self.assertEqual(float(restored.policy.optimizer.state[restored.policy.action_net.weight]["step"]),
+                             selected["imitation_updates"])
+            for name,value in model.policy.state_dict().items():
+                if name == "log_std" or name.startswith(("mlp_extractor.value_net.","value_net.")):
+                    torch.testing.assert_close(restored.policy.state_dict()[name], value, rtol=0, atol=0)
+
+    def test_ppo_plain_rehearsal_resumes_with_existing_optimizer_and_requested_rate(self):
+        import hashlib
+        import numpy as np
+        import torch
+        from dataclasses import asdict
+        from functools import partial
+        from unittest.mock import patch
+        from gateway.neural_gait.contract import HISTORY_SCHEMA
+        from gateway.neural_gait.environment import (EnvironmentConfig, GaitEnvironment,
+            ENVIRONMENT_VERSION, GEOMETRY, representation_identity)
+        from gateway.neural_gait.training import (GaitPPO, GaitPPOPolicy, LOCOMOTION_RECIPE,
+            fit_actor, imitate, load_policy, locomotion_config, train)
+        config = locomotion_config(EnvironmentConfig(robot=robot_fixture(), episode_seconds=.04,
+                                                     observation_schema=HISTORY_SCHEMA))
+        env = GaitEnvironment(config, include_assembly=False, include_visuals=False)
+        self.addCleanup(env.close)
+        model = GaitPPO(GaitPPOPolicy, env, n_steps=4, batch_size=4, n_epochs=1,
+            learning_rate=.0003, seed=7, device="cpu", policy_kwargs=dict(net_arch=[8,8],
+                action_coordinates="action", learned_std=True, value_learning_rate=.0001,
+                exploration_learning_rate=.0002))
+        observation, _ = env.reset(seed=1)
+        x = np.repeat(observation[None], 16, axis=0)
+        y = np.full((len(x),12), .2, dtype=np.float32)
+        fit_actor(model, x, y, 1, 7)
+        before = model.predict(x, deterministic=True)[0]
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root)/"source"
+            source.mkdir()
+            model.save(source/"policy.zip")
+            original = (source/"policy.zip").read_bytes()
+            metadata = dict(algorithm="PPO", recipe=LOCOMOTION_RECIPE, schema=HISTORY_SCHEMA,
+                environment=asdict(config), environment_version=ENVIRONMENT_VERSION,
+                representation=representation_identity(), geometry_sha256=hashlib.sha256(GEOMETRY.read_bytes()).hexdigest())
+            (source/"manifest.json").write_text(json.dumps(metadata))
+            (source/"progress.json").write_text('{"imitation_updates":1}')
+            data = Path(root)/"demonstration.npz"
+            np.savez(data, observation=x, action=y)
+            data.with_suffix(".json").write_text(json.dumps(metadata))
+            def rehearsal(resumed, *args, **kwargs):
+                self.assertIsInstance(resumed, GaitPPO)
+                optimizer = resumed.policy.optimizer
+                self.assertEqual({group["gait_role"]:group["lr"] for group in optimizer.param_groups},
+                                 {"actor":.001, "value":.0001, "exploration":.0002})
+                state = optimizer.state[resumed.policy.action_net.weight]
+                self.assertEqual(float(state["step"]), 1.)
+                for key,value in model.policy.optimizer.state[model.policy.action_net.weight].items():
+                    torch.testing.assert_close(state[key], value, rtol=0, atol=0)
+                result = imitate(resumed, *args, **kwargs)
+                self.assertIs(resumed.policy.optimizer, optimizer)
+                self.assertIs(optimizer.state[resumed.policy.action_net.weight], state)
+                self.assertEqual(float(state["step"]), 5.)
+                return result
+            destination = Path(root)/"rehearsal"
+            with patch("gateway.neural_gait.training.make_environment",
+                       partial(GaitEnvironment, include_assembly=False)), \
+                 patch("gateway.neural_gait.training.imitate", side_effect=rehearsal) as fitted, \
+                 patch("gateway.neural_gait.training.Progress.render_progress"), \
+                 patch("gateway.neural_gait.training.Progress.finish_rendering", return_value=True), \
+                 patch("gateway.neural_gait.training.prepare_imitation_sac", side_effect=AssertionError("SAC handoff")), \
+                 patch("gateway.neural_gait.training.load_replay", side_effect=AssertionError("SAC replay")), \
+                 patch("gateway.neural_gait.training.save_replay", side_effect=AssertionError("SAC replay")):
+                train(destination, 0, config, resume=source, demonstrations=[data],
+                      imitation_updates=4, recipe=LOCOMOTION_RECIPE, learning_rate=.001)
+                fitted.assert_called_once()
+            self.assertEqual((source/"policy.zip").read_bytes(), original)
+            result = json.loads((destination/"imitation.json").read_text())
+            self.assertLess(result["action_rmse_after"], result["action_rmse_before"])
+            self.assertEqual(result["sources"][0]["transitions"], len(x))
+            self.assertEqual(json.loads((destination/"manifest.json").read_text())["algorithm"], "PPO")
+            self.assertEqual(json.loads((destination/"progress.json").read_text())["imitation_updates"], 5)
+            restored = load_policy(destination, device="cpu")
+            self.assertEqual(restored.num_timesteps, 0)
+            self.assertEqual(restored._n_updates, 0)
+            self.assertFalse(np.array_equal(before, restored.predict(x, deterministic=True)[0]))
 
     def test_ppo_depth_input_extension_preserves_learned_actions(self):
         import hashlib
@@ -2231,7 +2647,7 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
         extended = GaitEnvironment(replace(config,observation_schema=DEPTH_SCHEMA),include_assembly=False)
         self.addCleanup(original.close)
         self.addCleanup(extended.close)
-        model = PPO(GaitPPOPolicy,original,n_steps=4,batch_size=4,n_epochs=1,
+        model = PPO(GaitPPOPolicy,original,device="cpu",n_steps=4,batch_size=4,n_epochs=1,
                     policy_kwargs=dict(net_arch=[8,8],learned_std=True,normalize_observations=True),seed=1)
         model.learn(total_timesteps=8)
         observed,_=original.reset(seed=4)
@@ -2463,6 +2879,23 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
                 environment_version=7, representation=representation_identity(),
                 simulation_workers=2, command_switch_range=[12, 20])))
             (source/"policy.zip").touch()
+            sac = Path(root)/"def"
+            sac.mkdir()
+            (sac/"manifest.json").write_text(json.dumps(dict(algorithm="SAC", environment=asdict(config),
+                environment_version=ENVIRONMENT_VERSION, representation=representation_identity())))
+            (sac/"policy.zip").touch()
+            from gateway.neural_gait.training import LOCOMOTION_RECIPE
+            with patch("gateway.neural_gait.server.subprocess.Popen") as launch:
+                Runtime(root).start_training(dict(initialize_from="def", steps=4,
+                    recipe=LOCOMOTION_RECIPE, value_warmup_steps=8, value_learning_rate=3e-4,
+                    action_noise_std=[.03]*12, device="cuda", seed=22))
+            arguments = launch.call_args.args[0]
+            self.assertEqual(arguments[arguments.index("--value-warmup-steps")+1], "8")
+            self.assertEqual(arguments[arguments.index("--recipe")+1], LOCOMOTION_RECIPE)
+            self.assertEqual(arguments[arguments.index("--device")+1], "cuda")
+            self.assertEqual(arguments[arguments.index("--seed")+1], "22")
+            saved = json.loads(Path(arguments[arguments.index("--config")+1]).read_text())
+            self.assertEqual(saved["reward_profile"], "locomotion")
             for extra, expected in (({}, ["--command-switch-range", "12", "20"]),
                                     ({"command_switch_seconds": 16}, ["--command-switch-seconds", "16"])):
                 runtime = Runtime(root)
@@ -2540,6 +2973,97 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
         np.testing.assert_allclose(np.sum([row["command_reference_travel_m"]
             for row in intervals], axis=0), case["command_reference_travel_m"])
 
+    def test_camera_noise_gets_multiple_evaluation_seeds_without_imu_noise(self):
+        from functools import partial
+        from unittest.mock import patch
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
+        from gateway.neural_gait.contract import DEPTH_SCHEMA
+        from gateway.neural_gait.training import evaluate
+        camera = dict(imageSize=[8,8], cameraMatrix=[[8,0,4],[0,8,4],[0,0,1]],
+            cameraToBody=[[0,0,1,0],[-1,0,0,0],[0,-1,0,0],[0,0,0,1]],
+            capture_hz=10, latency_s=.04, dropout_probability=0., noise_std_m=0.,
+            provenance={"basis":"test optical geometry"})
+        for noise in (dict(noise_std_m=.001), dict(odometry=dict(
+                position_noise_std_m=0., rotation_noise_std_rad=0., log_scale_std=.1,
+                dropout_probability=0.))):
+            config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.04,
+                observation_schema=DEPTH_SCHEMA, depth_camera={**camera, **noise})
+            with patch("gateway.neural_gait.training.make_environment",
+                       partial(GaitEnvironment, include_assembly=False, include_visuals=False)):
+                full = evaluate(None, config)
+                compact = evaluate(None, config, compact=True)
+            self.assertEqual([r['seed'] for r in full['episodes']], list(range(1000, 1008)))
+            self.assertEqual([r['seed'] for r in compact['episodes']], [1000])
+
+    def test_standing_baseline_reuses_only_camera_seed_variation_through_body_control(self):
+        import numpy as np
+        from unittest.mock import Mock, patch
+        from gateway.neural_gait.environment import EnvironmentConfig
+        from gateway.neural_gait.connected_environment import BodyControlEnvironment
+        from gateway.neural_gait.contract import DEPTH_SCHEMA
+        from gateway.neural_gait.training import evaluate
+
+        class HeldReference:
+            def predict(self, observation, deterministic=True):
+                return np.zeros(12), None
+
+        camera = dict(imageSize=[8,8], cameraMatrix=[[8,0,4],[0,8,4],[0,0,1]],
+            cameraToBody=[[0,0,1,0],[-1,0,0,0],[0,-1,0,0],[0,0,0,1]],
+            capture_hz=10, latency_s=.04, dropout_probability=.05, noise_std_m=.005,
+            odometry=dict(position_noise_std_m=.002, rotation_noise_std_rad=.005,
+                          log_scale_std=.15, dropout_probability=.05),
+            provenance={"basis":"test optical geometry"})
+        config = EnvironmentConfig(robot=robot_fixture(), execution_backend="body_control",
+            episode_seconds=.06, observation_schema=DEPTH_SCHEMA, depth_camera=camera,
+            scenarios=[{"id":"flat"}, {"id":"incline", "slope_deg":[0,2]}])
+        commands = [[.015,0,0], [-.03,0,0]]
+        seeds = tuple(range(1000, 1008))
+        environments, reported = [], []
+        def environment(*args, **kwargs):
+            env = BodyControlEnvironment(*args, include_assembly=False, **kwargs)
+            env.reset = Mock(wraps=env.reset)
+            environments.append(env)
+            return env
+        with patch("gateway.neural_gait.training.make_environment", side_effect=environment):
+            reused = evaluate(None, config, seeds=seeds, commands=commands,
+                              progress=lambda done,total: reported.append((done,total)))
+            # The same held target supplied as a policy must still execute all
+            # seeds. This compares reuse against independent native-body trials.
+            independent = evaluate(HeldReference(), config, seeds=seeds, commands=commands)
+        self.assertEqual([env.reset.call_count for env in environments], [4,32])
+        self.assertEqual((reused["simulated_episodes"], reused["reused_episodes"]), (4,28))
+        self.assertEqual((independent["simulated_episodes"], independent["reused_episodes"]), (32,0))
+        self.assertEqual(reported, [(step,4) for step in range(5)])
+        self.assertEqual([(row["command"],row["scenario_id"],row["seed"]) for row in reused["episodes"]],
+            [(command,scenario,seed) for command in commands for scenario in ("flat","incline") for seed in seeds])
+        for result, actual in zip(reused["episodes"], independent["episodes"]):
+            self.assertEqual({key:value for key,value in result.items() if key != "reused_from_seed"}, actual)
+            if result["seed"] == seeds[0]:
+                self.assertNotIn("reused_from_seed", result)
+            else:
+                self.assertEqual(result["reused_from_seed"], seeds[0])
+        # Separate report rows must not share mutable metric/interval objects.
+        reused["episodes"][1]["progress_intervals"][0]["reward"] = 999
+        self.assertNotEqual(reused["episodes"][0]["progress_intervals"][0]["reward"], 999)
+
+    def test_standing_baseline_retains_seed_trials_when_executor_inputs_can_vary(self):
+        from unittest.mock import Mock, patch
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
+        from gateway.neural_gait.training import evaluate
+        variations = [dict(randomization=.1), dict(feedback_noise_raw_std=1.),
+                      dict(imu_accel_noise_std=.01), dict(imu_gyro_noise_std=.01), {}]
+        for variation in variations:
+            with self.subTest(variation=variation):
+                config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.06, **variation)
+                env = GaitEnvironment(config, include_assembly=False, include_visuals=False)
+                env.reset = Mock(wraps=env.reset)
+                timing = {} if variation else dict(command_switch_range=[.02,.04])
+                with patch("gateway.neural_gait.training.make_environment", return_value=env):
+                    result = evaluate(None, config, seeds=[1000,1001], **timing)
+                self.assertEqual(env.reset.call_count, 2)
+                self.assertEqual((result["simulated_episodes"], result["reused_episodes"]), (2,0))
+                self.assertTrue(all("reused_from_seed" not in row for row in result["episodes"]))
+
     def test_varied_request_replay_preserves_shared_sensor_noise_rng(self):
         import numpy as np
         from functools import partial
@@ -2580,6 +3104,42 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
 @unittest.skipUnless(importlib.util.find_spec("mujoco") and importlib.util.find_spec("stable_baselines3"),
                      "Use the gait training environment")
 class ConnectedTrainingTests(unittest.TestCase):
+    def test_dagger_releases_collection_executor_before_checkpoint_evaluation(self):
+        import numpy as np
+        from dataclasses import asdict, replace
+        from unittest.mock import patch
+        from gateway.neural_gait.environment import EnvironmentConfig, ENVIRONMENT_VERSION, representation_identity
+        from gateway.neural_gait.contract import COMMAND_SLICE
+        from gateway.neural_gait.training import train, Progress
+        commands = [[.08, 0, 0], [-.015, 0, 0]]
+        config = EnvironmentConfig(robot=robot_fixture(), execution_backend="body_control",
+            episode_seconds=.08, command=commands[0],
+            scenarios=[dict(id="standing"), dict(id="incline", slope_deg=[0,2])])
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sources = []
+            for index, command in enumerate(commands):
+                path = root/f"teacher-{index}.npz"
+                observation = np.zeros((3, OBSERVATION_SIZE), dtype=np.float32)
+                observation[:, COMMAND_SLICE] = command
+                np.savez(path, observation=observation, action=np.zeros((3, 12), dtype=np.float32))
+                path.with_suffix(".json").write_text(json.dumps(dict(schema=SCHEMA,
+                    environment_version=ENVIRONMENT_VERSION, environment=asdict(replace(config, command=command)),
+                    representation=representation_identity(), recommended_cycle_rows=[0, 3])))
+                sources.append(path)
+            with patch.object(Progress, "render_progress"), patch.object(Progress, "finish_rendering", return_value=True):
+                train(root/"run", 0, config, demonstrations=sources, demonstration_cycles=True,
+                      imitation_updates=1, expert_mix=(0,), updates_per_round=1)
+            progress = json.loads((root/"run/progress.json").read_text())
+            self.assertEqual(progress["state"], "completed")
+            rounds = json.loads((root/"run/aggregation.json").read_text())["rounds"]
+            self.assertEqual(len(rounds), 2)
+            for round_ in rounds:
+                self.assertEqual([(case["command"],case["scenario_id"]) for case in round_["collection"]],
+                    [(command,scenario) for command in commands for scenario in ("standing","incline")])
+            for episode in progress["evaluation"]["episodes"]:
+                self.assertEqual(episode["execution_backend"], "body_control")
+
     def test_locomotion_recipe_uses_body_control_and_saved_normalization(self):
         import numpy as np
         import torch
@@ -2800,7 +3360,9 @@ class ConnectedTrainingTests(unittest.TestCase):
         profile=dict(imageSize=[8,8],cameraMatrix=[[8,0,4],[0,8,4],[0,0,1]],
             cameraToBody=[[0,0,1,0],[-1,0,0,0],[0,-1,0,0],[0,0,0,1]],
             capture_hz=10,latency_s=.04,dropout_probability=0,noise_std_m=0,
-            provenance={"basis":"test optical geometry"})
+            provenance={"basis":"test optical geometry"},
+            odometry=dict(position_noise_std_m=.001, rotation_noise_std_rad=.001,
+                          log_scale_std=.05, dropout_probability=0.))
         scenarios=[dict(id="wall",geoms=[dict(kind="wall",position_m=[.4,0,.15],size_m=[.02,.3,.15])])]
         env=make_environment(EnvironmentConfig(robot=robot_fixture(),execution_backend="body_control",
             episode_seconds=.3,observation_schema=DEPTH_SCHEMA,depth_camera=profile,scenarios=scenarios),
@@ -2817,12 +3379,17 @@ class ConnectedTrainingTests(unittest.TestCase):
         self.assertEqual(observed["vision"]["depthSpatial"]["frame"],"camera-optical")
         self.assertGreater(observed["vision"]["age_s"],0)
         self.assertGreater(np.count_nonzero(obs[200:264]),0)
+        self.assertTrue(observed["vision"]["available"])
+        self.assertFalse(observed["vision"]["metric_accuracy_verified"])
+        np.testing.assert_allclose(obs[89:92], observed["vision"]["velocity_body_m_s"])
 
     def test_body_control_rollouts_are_deterministic_and_use_gateway_feedback(self):
         import numpy as np
         from gateway.neural_gait.environment import EnvironmentConfig, make_environment
         from gateway.neural_gait.contract import COMMAND_SLICE
-        commands = [[.015, 0, 0], [-.03, 0, 0]]
+        # Reverse is -18.75% of this profile: rounding it to an integer
+        # changes the requested SI velocity and invalidates teacher labels.
+        commands = [[.08, 0, 0], [-.015, 0, 0]]
         env = make_environment(EnvironmentConfig(robot=robot_fixture(), execution_backend="body_control",
             episode_seconds=.12, command=commands[0]), include_assembly=False,
             include_visuals=False, commands=commands)
@@ -2869,6 +3436,20 @@ class ConnectedTrainingTests(unittest.TestCase):
             resume_environment_changes({**manifest, "algorithm": "SAC"}, connected)
         with self.assertRaisesRegex(ValueError, "same environment"):
             resume_environment_changes(manifest, replace(connected, mass_kg=.9))
+        deployed = replace(connected, control_hz=33, physics_hz=528,
+                           balance_enabled=True, balance_tuning=[1,1,3,1.5928])
+        changes = resume_environment_changes(manifest, deployed)
+        self.assertEqual(changes["control_hz"], {"from":50,"to":33})
+        self.assertEqual(changes["balance_tuning"]["to"], [1,1,3,1.5928])
+        from copy import deepcopy
+        deployed.robot = deepcopy(deployed.robot)
+        deployed.robot["feedback"]["jam_enabled"] = False
+        self.assertIn("robot", resume_environment_changes(manifest, deployed))
+        deployed.robot["calibration"][0]["home_us"] += 1
+        with self.assertRaisesRegex(ValueError, "same environment"):
+            resume_environment_changes(manifest, deployed)
+        with self.assertRaisesRegex(ValueError, "same environment"):
+            resume_environment_changes({**manifest,"algorithm":"SAC"}, deployed)
 
     def test_one_connected_training_worker_and_parent_evaluation_use_separate_executors(self):
         import numpy as np
@@ -2897,6 +3478,57 @@ class ConnectedTrainingTests(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("stable_baselines3"), "Use the gait training environment")
 class TrainingProgressTests(unittest.TestCase):
+    def test_dashboard_history_keeps_trial_measurements_without_copying_time_series(self):
+        from gateway.neural_gait.server import Runtime
+        with tempfile.TemporaryDirectory() as root:
+            run = Path(root) / "abc"
+            run.mkdir()
+            (run / "environment.json").write_text("{}")
+            measured = dict(mean_reward=2., falls=0, episodes=[dict(command=[.03,0,0],
+                seconds=32., forward_m_s=.029, progress_intervals=[dict(reward=1.)])])
+            checkpoint = run / "checkpoints.json"
+            checkpoint.write_text(json.dumps([dict(id="one", evaluation=measured)]))
+            evaluation = run / "evaluation.json"
+            evaluation.write_text(json.dumps(dict(candidate=measured, baseline=measured)))
+            originals = {path: path.read_bytes() for path in (checkpoint, evaluation)}
+            status = Runtime(root).status()["runs"][0]
+            for result in (status["checkpoints"][0]["evaluation"],
+                           status["evaluation"]["candidate"], status["evaluation"]["baseline"]):
+                self.assertEqual(result["episodes"][0]["forward_m_s"], .029)
+                self.assertNotIn("progress_intervals", result["episodes"][0])
+            for path, original in originals.items():
+                self.assertEqual(path.read_bytes(), original)
+
+    def test_active_metadata_does_not_scan_or_wait_for_training_history(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        from unittest.mock import patch
+        from gateway.neural_gait.server import Runtime
+        with tempfile.TemporaryDirectory() as root:
+            runtime = Runtime(root)
+            runtime.model_id = "abc"
+            runtime.environment = {"observation_schema": SCHEMA}
+            with patch.object(Path, "glob", side_effect=AssertionError("Admission cannot scan history")):
+                active = runtime.status(include_runs=False)
+            self.assertEqual(active["model_id"], "abc")
+            self.assertNotIn("runs", active)
+            entered, release = threading.Event(), threading.Event()
+            def slow_history(*args):
+                entered.set()
+                release.wait()
+                return []
+            with ThreadPoolExecutor(max_workers=2) as threads, patch.object(Path, "glob", slow_history):
+                history = threads.submit(runtime.status)
+                try:
+                    self.assertTrue(entered.wait(2))
+                    # A dashboard refresh cannot hold the model lock while
+                    # another caller admits a Walk or performs inference.
+                    active = threads.submit(runtime.status, include_runs=False).result(timeout=2)
+                    self.assertEqual(active["model_id"], "abc")
+                finally:
+                    release.set()
+                self.assertEqual(history.result(timeout=2)["runs"], [])
+
     def test_checkpoint_reports_evaluation_and_trial_progress_before_publication(self):
         from types import SimpleNamespace
         from unittest.mock import patch
@@ -3086,3 +3718,172 @@ class TrainingProgressTests(unittest.TestCase):
             with patch("gateway.neural_gait.replay.make_environment") as environment:
                 self.assertEqual(clip(root,config,checkpoint,1000,model=object(),episode=episode),cached)
                 environment.assert_not_called()
+
+
+@unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is required")
+class GuidedTeacherTests(unittest.TestCase):
+    """Recovered guided-teacher generator: waveform fidelity and re-timing.
+
+    Both defects below were real and were caught only by measurement, so each is
+    pinned here. Waveforms are synthesized rather than read from
+    build/neural-gait, which is not part of the repository.
+    """
+
+    ORDER = (0.75, 0.25, 0.5, 0.0)
+
+    def test_reference_reconstruction_uses_recorded_cadence(self):
+        import io
+        import numpy as np
+        from contextlib import redirect_stdout
+        from gateway.neural_gait.teachers import main
+        arrays = self.synthetic(self.ORDER, 10, 6, [1.]*4)
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root)/"reference.npz"
+            np.savez(path, **arrays, action=np.zeros((60,12)), position_m=np.zeros((60,3)))
+            path.with_suffix(".json").write_text(json.dumps(dict(
+                case=dict(id="10hz-reference", period=1., order=self.ORDER),
+                environment=dict(control_hz=10))))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(main(["--reference", str(path), "--verify"]), 0)
+            self.assertIn("RECONSTRUCTION      : EXACT", output.getvalue())
+
+    def test_base_config_preserves_consuming_execution_and_reward_settings(self):
+        from dataclasses import asdict
+        from gateway.neural_gait.environment import EnvironmentConfig
+        from gateway.neural_gait.teachers import build_config
+        config = EnvironmentConfig(robot=robot_fixture(), execution_backend="body_control",
+            locomotion_tracking_window_s=.2, locomotion_target_air_time_s=.3)
+        base = asdict(config)
+        base["locomotion_reward_weights"]["feet_air_time"] = 1.
+        result = asdict(build_config(base, [.034, 0, 0], 32))
+        self.assertEqual(result, {**base, "command": [.034, 0, 0], "episode_seconds": 32.})
+
+    def test_generation_records_the_selected_body_control_executor(self):
+        import numpy as np
+        from unittest.mock import patch
+        from gateway.neural_gait.environment import EnvironmentConfig, make_environment
+        from gateway.neural_gait.teachers import generate
+        config = EnvironmentConfig(robot=robot_fixture(), execution_backend="body_control",
+                                   episode_seconds=.4, command=[.034, 0, 0],
+                                   scenarios=[dict(id="other"), dict(id="requested")])
+        arrays = self.synthetic(self.ORDER, 5, 6, [1.]*4)
+        case = dict(id="connected", period=.1, stride=1., lean_x=0., lean_y=1., lift=1.,
+            duration_s=.4, order=self.ORDER, reference_stride=1., reference_lean_y=1.,
+            reference_lift=1., waveform_reference="synthetic", seed=1, scenario_id="requested")
+        def heading_fixture(*args, **kwargs):
+            env = make_environment(*args, **kwargs)
+            # Training demonstrations must retain the actual collision meshes,
+            # even when no video is requested. The primitive-only plant used to
+            # be recorded as "full CAD physics" by this producer.
+            self.assertGreater(env.model.nmesh, 0)
+            self.assertAlmostEqual(float(env.model.body_mass.sum()), config.mass_kg)
+            step = env.step
+            count = 0
+            def reported_heading(action):
+                nonlocal count
+                result = step(action)
+                count += 1
+                # A fast turn crosses +/-pi without reversing direction.
+                result[-1]["heading_rad"] = (2.9 + .1*count + np.pi) % (2*np.pi) - np.pi
+                return result
+            env.step = reported_heading
+            return env
+        with tempfile.TemporaryDirectory() as root:
+            with patch("gateway.neural_gait.teachers.make_environment", side_effect=heading_fixture) as factory:
+                result = generate(case, config, self.waveform(arrays, 5), root)
+            self.assertEqual(factory.call_args.args[0].execution_backend, "body_control")
+            self.assertEqual(result["environment"]["execution_backend"], "body_control")
+            self.assertEqual(result["scenario_id"], "requested")
+            self.assertAlmostEqual(result["yaw_change_rad"], 1.9)
+            with np.load(Path(root)/"connected.npz") as data:
+                self.assertEqual(len(data["observation"]), 20)
+                self.assertTrue(np.isnan(data["fitted_offset_mm"]).all())
+                self.assertTrue(data["truncated"][-1])
+                self.assertFalse(data["truncated"][:-1].any())
+                self.assertFalse(np.array_equal(data["next_observation"][-1], data["observation"][-1]))
+
+    @staticmethod
+    def synthetic(order, cycle, cycles, amplitudes):
+        import numpy as np
+        total = cycle*cycles
+        step = np.arange(total)
+        phase = (step[:, None]/cycle + np.asarray(order)[None, :]) % 1.0
+        offsets = np.zeros((total, len(order), 3))
+        for leg, amplitude in enumerate(amplitudes):
+            wave = 2*np.pi*phase[:, leg]
+            offsets[:, leg, 0] = amplitude*np.cos(wave)
+            offsets[:, leg, 1] = .5*amplitude*np.sin(wave)
+            offsets[:, leg, 2] = amplitude*np.maximum(0., np.sin(wave))
+        ramp = np.minimum(1., step/cycle)
+        return dict(requested_offset_mm=offsets*ramp[:, None, None], phase=phase)
+
+    def waveform(self, arrays, cycle, hz=50):
+        from gateway.neural_gait.teachers import steady_waveform
+        return steady_waveform(arrays, self.ORDER, cycle/hz, hz)
+
+    def test_reconstruction_reproduces_a_reference_exactly(self):
+        import numpy as np
+        from gateway.neural_gait.teachers import render_offsets
+        arrays = self.synthetic(self.ORDER, 125, 6, [20.]*4)
+        rendered = render_offsets(len(arrays["phase"]), self.waveform(arrays, 125),
+                                  self.ORDER, (1., 1., 1.), 0., 125)
+        # Covers the startup cycle too: the ramp is part of the recovered model,
+        # and omitting it would bake a full-amplitude first cycle into a teacher.
+        self.assertLess(float(np.abs(rendered-arrays["requested_offset_mm"]).max()), 1e-9)
+
+    def test_per_leg_tables_preserve_left_right_asymmetry(self):
+        import numpy as np
+        from gateway.neural_gait.teachers import render_offsets
+        arrays = self.synthetic(self.ORDER, 150, 5, [20., 20., 8., 8.])
+        waveform = self.waveform(arrays, 150)
+        rendered = render_offsets(len(arrays["phase"]), waveform, self.ORDER,
+                                  (1., 1., 1.), 0., 150)
+        self.assertLess(float(np.abs(rendered-arrays["requested_offset_mm"]).max()), 1e-9)
+        self.assertEqual(len(waveform["tables"]), 4)
+        # One pooled waveform blurred exactly this difference, and the regenerated
+        # turning teachers then produced no yaw at all — negative yaw for a left
+        # turn. Per-leg tables are what make an asymmetric gait survivable.
+        self.assertGreater(float(np.abs(rendered[:, 0, 0]-rendered[:, 2, 0]).max()), 1.)
+
+    def test_requested_period_retimes_the_gait(self):
+        import math
+        from gateway.neural_gait.teachers import render_offsets
+        arrays = self.synthetic(self.ORDER, 125, 6, [20.]*4)
+        waveform = self.waveform(arrays, 125)
+        step = 130
+        reference = render_offsets(step+1, waveform, self.ORDER, (1., 1., 1.), 0., 125)
+        faster = render_offsets(step+1, waveform, self.ORDER, (1., 1., 1.), 0., 62)
+        expected_reference = 20.*math.cos(2*math.pi*((step/125) % 1.))
+        expected_faster = 20.*math.cos(2*math.pi*((step/62) % 1.))
+        # Reading the cycle length from the waveform instead of the request made
+        # --period a no-op: every candidate rendered at the reference cadence, and
+        # the first sweep reported one identical speed for four different periods.
+        self.assertAlmostEqual(float(reference[step, 3, 0]), expected_reference, delta=1e-6)
+        self.assertAlmostEqual(float(faster[step, 3, 0]), expected_faster, delta=.5)
+        self.assertGreater(abs(expected_reference-expected_faster), 1.)
+
+    def test_action_envelope_rejects_an_unreachable_gait(self):
+        from gateway.neural_gait.environment import EnvironmentConfig
+        from gateway.neural_gait.teachers import generate
+        arrays = self.synthetic(self.ORDER, 125, 6, [20.]*4)
+        case = dict(id="too-big", period=2.5, stride=400., lean_x=0., lean_y=16.,
+                    lift=25., duration_s=16., order=self.ORDER, reference_stride=40.,
+                    reference_lean_y=16., reference_lift=25., waveform_reference="synthetic",
+                    seed=1)
+        config = EnvironmentConfig(robot=robot_fixture(), command=[.08, 0, 0],
+                                   episode_seconds=16.)
+        with tempfile.TemporaryDirectory() as root:
+            # Rejected before any simulator is constructed, so a saturated teacher
+            # cannot be recorded and then cloned against a clipped target.
+            with self.assertRaisesRegex(ValueError, "foot action envelope"):
+                generate(case, config, self.waveform(arrays, 125), root)
+
+    def test_recommended_cycle_rows_select_one_steady_cycle_after_startup(self):
+        from gateway.neural_gait.teachers import cycle_rows
+        # These match the rows the original generator recorded for the two periods
+        # its surviving demonstrations use.
+        self.assertEqual(cycle_rows(2.5, 50, 800), [375, 500])
+        self.assertEqual(cycle_rows(3., 50, 800), [450, 600])
+        with self.assertRaises(ValueError):
+            cycle_rows(2.5, 50, 400)

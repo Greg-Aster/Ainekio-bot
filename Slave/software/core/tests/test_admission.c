@@ -191,8 +191,60 @@ static void test_model_policy_preserves_session_and_sequence(void)
     assert(ainekio_admission_accept(&a, generation, &m, 1, 2, false).rejection == AINEKIO_REJECT_STALE);
 }
 
+static void test_unicode_settings_and_invalid_walk_fields(void)
+{
+    const char *escaped[]={"\\ud83e\\udd16","\\ud800\\udc00","\\udbff\\udfff","\\u00e9"};
+    const char *utf8[]={"\xf0\x9f\xa4\x96","\xf0\x90\x80\x80","\xf4\x8f\xbf\xbf","\xc3\xa9"};
+    char wire[512];
+    for(unsigned i=0;i<4;i++)for(unsigned raw=0;raw<2;raw++) {
+        snprintf(wire,sizeof wire,"{\"t\":\"robot_settings\",\"seq\":1,\"op\":\"network\",\"revision\":0,\"index\":0,\"ssid\":\"%s\",\"endpoint\":\"ws://fixture.invalid/robot\"}",raw?utf8[i]:escaped[i]);
+        ainekio_control_message_t m=decode(wire);
+        assert(!strcmp(m.command.data.robot_settings.ssid,utf8[i]));
+    }
+    const char *invalid[]={"\\ud83e","\\udd16","\\ud83e\\u0041","\\udd16\\ud83e"};
+    for(unsigned i=0;i<4;i++) {
+        snprintf(wire,sizeof wire,"{\"t\":\"robot_settings\",\"seq\":1,\"op\":\"network\",\"revision\":0,\"index\":0,\"ssid\":\"%s\",\"endpoint\":\"ws://fixture.invalid/robot\"}",invalid[i]);
+        ainekio_control_message_t m;
+        assert(ainekio_control_decode_for_body(wire,strlen(wire),&m)!=AINEKIO_DECODE_OK);
+    }
+    for(unsigned ascii=28;ascii<=29;ascii++) {
+        snprintf(wire,sizeof wire,"{\"t\":\"robot_settings\",\"seq\":1,\"op\":\"network\",\"revision\":0,\"index\":0,\"ssid\":\"%.*s\\ud83e\\udd16\",\"endpoint\":\"ws://fixture.invalid/robot\"}",ascii,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        ainekio_control_message_t m;
+        const ainekio_decode_result_t result=ainekio_control_decode_for_body(wire,strlen(wire),&m);
+        assert((result==AINEKIO_DECODE_OK)==(ascii==28));
+        if(result==AINEKIO_DECODE_OK)assert(strlen(m.command.data.robot_settings.ssid)==32);
+    }
+    const char *walk[]={
+        "{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"steps\":1}",
+        "{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":7,\"steps\":1}",
+        "{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":[],\"steps\":1}",
+        "{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwdxxxxx\",\"steps\":1}"
+    };
+    for(unsigned i=0;i<4;i++) {
+        ainekio_control_message_t m;
+        assert(ainekio_control_decode_for_body(walk[i],strlen(walk[i]),&m)==
+            (i?AINEKIO_DECODE_TYPE:AINEKIO_DECODE_MISSING));
+    }
+}
+
+static void test_embedded_nul_does_not_alias_command_or_setting(void)
+{
+    const char *invalid[]={
+        "{\"t\":\"intent\",\"seq\":1,\"name\":\"stand\\u0000\"}",
+        "{\"t\":\"intent\",\"seq\":1,\"name\":\"walk\",\"dir\":\"fwd\\u0000\",\"steps\":1}",
+        "{\"t\\u0000suffix\":\"stop\",\"seq\":1}",
+        "{\"t\":\"robot_settings\",\"seq\":1,\"op\":\"network\",\"revision\":0,\"index\":0,\"ssid\":\"Fixture\\u0000other\",\"endpoint\":\"ws://fixture.invalid/robot\"}"
+    };
+    for(unsigned i=0;i<sizeof invalid/sizeof invalid[0];i++) {
+        ainekio_control_message_t m;
+        assert(ainekio_control_decode_for_body(invalid[i],strlen(invalid[i]),&m)!=AINEKIO_DECODE_OK);
+    }
+}
+
 int main(void)
 {
+    test_embedded_nul_does_not_alias_command_or_setting();
+    test_unicode_settings_and_invalid_walk_fields();
     test_authentication_and_replacement();
     test_deadline_queue_sequence_and_stop();
     test_target_policy_and_fault_liveness();

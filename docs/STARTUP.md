@@ -29,8 +29,12 @@ configured background services. An app-only launch starts the web application
 without starting all those services.
 
 Start the single **Environment Bridge** in MetaHuman's Agent Monitor. Its
-**Body connection** panel follows the selected robot across configured local and
-remote endpoints; if different robots are available, select the intended robot.
+**Body connection** panel offers **Follow the same robot across saved hosts**.
+Enable it and select the physical robot once to follow it between the configured
+local host and saved SSH or Cloudflare route. A working connection stays selected;
+the bridge follows that robot when it changes hosts. Manual mode connects only to
+the selected host. Disconnected delivery and transcription errors appear in the
+conversation view; Body Control also reports voice commands it could not forward.
 Separate Local/Remote bridge agents are retired. Remote connections use the saved
 SSH or Cloudflare route managed by this bridge. For SSH over WireGuard, the SSH
 destination is the Body Control computer's VPN address or its configured alias.

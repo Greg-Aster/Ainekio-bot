@@ -99,6 +99,8 @@ class DepthMotion:
         self.process_handle = None
 
     def process(self, robot, epoch, counter, received, jpeg, timestamp, config):
+        if self.process_handle is not None and self.process_handle.poll() is not None:
+            self.close()
         if self.process_handle is None:
             self.process_handle = subprocess.Popen(
                 [os.environ.get("AINEKIO_DEPTH_PYTHON", sys.executable),
@@ -113,7 +115,7 @@ class DepthMotion:
         proc.stdin.flush()
         line = proc.stdout.readline()
         if not line:
-            raise RuntimeError("Depth worker exited; disable/re-enable camera depth to reload it")
+            raise RuntimeError("Depth worker exited before returning a measurement")
         result = json.loads(line)
         if "error" in result:
             raise ValueError(result["error"])

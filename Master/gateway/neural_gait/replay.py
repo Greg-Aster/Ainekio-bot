@@ -18,7 +18,7 @@ from .environment import EnvironmentConfig, make_environment, ENVIRONMENT_VERSIO
 from .contract import SCHEMA, SCHEMAS
 from .training import load_policy, request_interval_steps, save_json
 
-WIDTH, HEIGHT, RENDER_VERSION = 1280, 720, 3
+WIDTH, HEIGHT, RENDER_VERSION = 1280, 720, 4
 
 
 def versions(directory, progress, *, comparison=False):
@@ -121,9 +121,10 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             camera.lookat[:] = env.data.qpos[:3]
             renderer.update_scene(env.data, camera=camera)
             raw = renderer.render()
+            replay_speed = float(env.data.qpos[0]-origin[0])/(step/config.control_hz) if step else 0.
             overlay = labelled(raw, [
                 f'SIMULATION | {training_label} | {episode.get("scenario_id", "flat")} | Fixed trial {seed-999}',
-                f'Request ({env.config.command[0]:+.3f}, {env.config.command[1]:+.3f}) m/s, yaw {env.config.command[2]:+.2f} rad/s | Trial {episode["forward_m_s"]:+.3f} m/s forward',
+                f'Request ({env.config.command[0]:+.3f}, {env.config.command[1]:+.3f}) m/s, yaw {env.config.command[2]:+.2f} rad/s | Replay average {replay_speed:+.3f} m/s forward',
                 f't={step/config.control_hz:.2f}s | Travel ({env.data.qpos[0]-origin[0]:+.3f}, {env.data.qpos[1]-origin[1]:+.3f}) m | Yaw {math.degrees(env.world_heading_delta):+.1f} deg | {outcome}'])
             processes[0].stdin.write(overlay.tobytes())
             processes[1].stdin.write(raw.tobytes())
@@ -173,6 +174,8 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             labelled='clips/'+names[0], clean='clips/'+names[1], duration_s=frames/fps,
             simulated_seconds=(step+1)/config.control_hz, final_pose_display_hold_s=1,
             forward_displacement_m=float(env.data.qpos[0]-origin[0]), fallen=info['fallen'],
+            forward_m_s=float(env.data.qpos[0]-origin[0])/((step+1)/config.control_hz),
+            checkpoint_evaluation_forward_m_s=episode['forward_m_s'],
             command=config.command, command_index=command_index,
             scenario_id=episode.get('scenario_id', 'flat'),
             ground_displacement_m=(env.data.qpos[:2]-origin).tolist(),

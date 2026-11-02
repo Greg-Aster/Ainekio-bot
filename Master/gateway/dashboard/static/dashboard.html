@@ -26,6 +26,9 @@
       </div>
     </header>
 
+    <p id="metahuman-connection" class="command-result" role="status">Checking MetaHuman bridge…</p>
+    <p id="host-network-error" class="command-result error" role="alert" hidden></p>
+
     <div class="safety-bar">
       <button id="stop-button" class="stop-button" type="button">
         <span class="stop-symbol" aria-hidden="true"></span>
@@ -353,7 +356,8 @@
       <label>Training requests (optional JSON list of [forward m/s, lateral m/s, turn rad/s])<textarea id="neural-gait-commands" rows="3" placeholder="[[0.03,0,0],[-0.03,0,0],[0,0,0.4]]"></textarea></label>
     </details>
     <p id="neural-gait-summary" role="status">Refresh to connect to the separate neural gait service.</p>
-    <table><thead><tr><th>Training checkpoint</th><th>Mean trial reward</th><th>Falls / evaluated trials</th></tr></thead><tbody id="neural-gait-checkpoints"></tbody></table>
+    <p id="neural-gait-selection">No model selected.</p>
+    <table><thead><tr><th>Training checkpoint</th><th>Mean trial reward</th><th>Falls / evaluated trials</th><th>Inference selection</th></tr></thead><tbody id="neural-gait-checkpoints"></tbody></table>
     <p>Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.</p>
     <table><thead><tr><th>Requested</th><th>Measured</th><th>Seconds sampled</th></tr></thead><tbody id="neural-gait-command-results"></tbody></table>
     <p id="neural-gait-video-note">Progress videos compare the same reference trials at each checkpoint. A deterministic environment uses one trial; varied environments use multiple seeds. Failed trials remain visible.</p>

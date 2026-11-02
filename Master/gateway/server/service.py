@@ -161,6 +161,7 @@ class NeuralWalk:
     profile: dict
     controls: dict
     geometry: str
+    checkpoint_id: str | None = None
     sequence: int = 0
     revision: int = 0
     sample: int = 0
@@ -267,6 +268,12 @@ class GatewayConnection:
                 raise GatewayError(f"Original Walk producer failed and is finishing: {active.producer_error}")
             if active.command.get("source") == "host":
                 message.setdefault("source", "host")
+                # Finish is the shared speed=0 command. A native caller may
+                # include its one-cycle sentinel, but a host Walk has no cycles.
+                # Keep the original owner and let its body finish contact entry.
+                if message.get("speed") == 0:
+                    message["steps"] = 0
+                    message["twist"] = [0., 0., 0.]
             if self.neural_walk and message.get("update") == self.neural_walk.sequence:
                 state = self.neural_walk
                 controls = {**state.controls, **message}
@@ -279,12 +286,13 @@ class GatewayConnection:
             return message, None
         # Inference metadata lookup is asynchronous; admission below rechecks
         # the existing motion owner so an intervening Stop/replacement wins.
-        status = await self.service.neural_gait.call("/status")
+        status = await self.service.neural_gait.call("/status?history=0")
         reference = walking_reference(status)
         twist = walking_twist(message, profile)
         message.update(source="host", twist=twist, **reference)
         state = NeuralWalk(status["model_id"], status["environment"], profile,
-                           dict(message), reference["geometry"])
+                           dict(message), reference["geometry"],
+                           checkpoint_id=status.get("checkpoint_id"))
         return message, state
 
     def _neural_sensor(self):
@@ -342,7 +350,7 @@ class GatewayConnection:
                     return
                 if state.revision != revision:
                     continue
-                if result.get("model_id") != state.model_id:
+                if (result.get("model_id"), result.get("checkpoint_id")) != (state.model_id, state.checkpoint_id):
                     raise GatewayError("Selected inference model changed during the active Walk")
                 action = list(result["action"])
                 feet = foot_offsets(action, state.environment["foot_action_scale_mm"])
@@ -357,6 +365,7 @@ class GatewayConnection:
                     continue
                 self.service._record_diagnostic(dict(event="neural_gait", robot_id=self.robot_id,
                     epoch=self.epoch, walk=state.sequence, sample=state.sample, model_id=state.model_id,
+                    checkpoint_id=state.checkpoint_id,
                     action=action, requested_foot_offset_mm=feet,
                     observation_device_us=source["feedback"]["device_us"],
                     observation_received_at=source["received_at"], scan=source["feedback"]["scan"],
@@ -382,7 +391,8 @@ class GatewayConnection:
         if state.task and state.task is not asyncio.current_task():
             state.task.cancel()
         result = dict(event="neural_gait", robot_id=self.robot_id, epoch=self.epoch,
-            walk=state.sequence, model_id=state.model_id, error=error, source_profile=state.profile)
+            walk=state.sequence, model_id=state.model_id, checkpoint_id=state.checkpoint_id,
+            error=error, source_profile=state.profile)
         if source is not None:
             result.update(observation_device_us=source["feedback"]["device_us"],
                 observation_received_at=source["received_at"], scan=source["feedback"]["scan"],

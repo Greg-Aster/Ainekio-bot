@@ -18,6 +18,7 @@ import time
 import threading
 from uuid import uuid4
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
+from protocol.control_v1 import BALANCE_CONTROL_FEATURE, BALANCE_TUNING_FIELDS
 
 from .gait_learning import policy_seed
 from .gait_optimizer import (DEFAULT_RADII, DEFAULT_WEIGHTS, PRIORITIES, candidate,
@@ -32,12 +33,15 @@ def default_directory():
 def atomic_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_name(path.name+"."+uuid4().hex+".tmp")
-    with temporary.open("w") as stream:
-        os.chmod(temporary, 0o600)
-        json.dump(value, stream, allow_nan=False)
-        stream.flush()
-        os.fsync(stream.fileno())
-    temporary.replace(path)
+    try:
+        with temporary.open("w") as stream:
+            os.chmod(temporary, 0o600)
+            json.dump(value, stream, allow_nan=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def optimizer_observations(bank, required):
@@ -110,7 +114,7 @@ class RobotLearningTransport:
                 if response.status == 409 and (payload or {}).get("op", "").startswith("trace_"):
                     if json.loads(data).get("error") == "Trace session changed":
                         raise TraceSessionChanged("Device trace session changed")
-                raise ValueError(f"Robot {endpoint}: HTTP {response.status}: {data[:300]}")
+                raise ValueError(f"Robot {endpoint}: HTTP {response.status}: {data}")
             if (payload or {}).get("op", "").startswith("trace_"):
                 return [json.loads(line) for line in data.splitlines() if line.strip()]
             return json.loads(data)
@@ -127,6 +131,7 @@ class GaitLearningService:
         self.directory = Path(directory) if directory else default_directory()
         self.settings_path = self.directory/"settings.json"
         self.settings = json.loads(self.settings_path.read_text()) if self.settings_path.exists() else {}
+        self._settings_lock = asyncio.Lock()
         self.optimizer = optimizer
         self.projector = projector
         self.tasks, self.workers, self.runtime = {}, {}, {}
@@ -168,6 +173,22 @@ class GaitLearningService:
             self.tasks[robot] = asyncio.create_task(self._record(robot), name="gait-record-"+robot)
 
     async def configure(self, robot, changes):
+        async with self._settings_lock:
+            # Cancellation cannot recall a filesystem write already dispatched.
+            # Retain this transaction's owner until persistence/reconciliation ends.
+            transaction = asyncio.create_task(self._configure(robot, changes))
+            cancellation = None
+            while not transaction.done():
+                try:
+                    await asyncio.shield(transaction)
+                except asyncio.CancelledError as error:
+                    cancellation = error
+            result = transaction.result()
+            if cancellation is not None:
+                raise cancellation
+            return result
+
+    async def _configure(self, robot, changes):
         allowed = {"logging", "learning", "window_cycles", "radii", "weights", "plateau_rounds", "minimum_improvement"}
         if set(changes)-allowed:
             raise ValueError("Unknown gait-learning setting")
@@ -191,8 +212,9 @@ class GaitLearningService:
         if settings["learning"] and not any(settings["radii"].values()):
             raise ValueError("Learning needs at least one nonzero exploration radius")
         old = self.settings.get(robot, {})
+        updated = {**self.settings, robot: settings}
+        await asyncio.to_thread(atomic_json, self.settings_path, copy.deepcopy(updated))
         self.settings[robot] = settings
-        await asyncio.to_thread(atomic_json, self.settings_path, copy.deepcopy(self.settings))
         r = self._runtime(robot)
         if settings["learning"] and (
                 settings["radii"] != old.get("radii", settings["radii"]) or
@@ -306,12 +328,33 @@ class GaitLearningService:
 
         Joint/IMU packets and actual consumed samples live in events.jsonl;
         these rows identify which inference produced each requested target.
-        General transport/settings diagnostics may contain unrelated context.
+        Balance readbacks arrive through command results rather than the event
+        subscription. Keep their actual settings, not arbitrary command data.
+        Motion terminals use that same diagnostic subscription. Preserve them
+        alongside sensor events so Finish, cancellation and Release remain
+        distinguishable after the connection ends.
         """
+        if (diagnostic.get("event") == "command_result"
+                and diagnostic.get("command_type") in {"intent", "stop"}):
+            keep = {key: diagnostic[key] for key in (
+                "event", "robot_id", "epoch", "seq", "command_type", "t",
+                "name", "update", "detach", "source", "code", "msg",
+                "execution_error") if key in diagnostic}
+            self._observe(diagnostic.get("robot_id"), "events", copy.deepcopy(keep))
+            return
+        if (diagnostic.get("event") == "command_result"
+                and diagnostic.get("command_type") == "balance"
+                and diagnostic.get("t") == "balance_status"):
+            keep = {key: diagnostic[key] for key in (
+                "event", "robot_id", "epoch", "seq", "command_type", "op", "t",
+                "enabled", "saved", "active", "walking_enabled", "walking_saved",
+                "tuning_saved", *BALANCE_TUNING_FIELDS) if key in diagnostic}
+            self._observe(diagnostic.get("robot_id"), "events", copy.deepcopy(keep))
+            return
         if diagnostic.get("event") != "neural_gait":
             return
         keep = {key: diagnostic[key] for key in (
-            "event", "robot_id", "epoch", "walk", "sample", "model_id", "action",
+            "event", "robot_id", "epoch", "walk", "sample", "model_id", "checkpoint_id", "action",
             "requested_foot_offset_mm", "observation_device_us", "observation_received_at",
             "scan", "consumed_sample", "inference_elapsed_s", "source_profile", "error",
             "orientation_reference_yaw_rad", "orientation_reference_sign",
@@ -389,6 +432,16 @@ class GaitLearningService:
                         body = self.gateway.status()["robots"].get(robot, {})
                         metadata["execution_settings"] = {key: copy.deepcopy(body.get(key)) for key in (
                             "epoch", "features", "motion_speed", "balance_settings", "walking_source")}
+                        if BALANCE_CONTROL_FEATURE in body.get("features", []):
+                            # The cache is empty until someone opens the balance
+                            # controls. Record the body's settings independently
+                            # of whether a browser has read them this session.
+                            try:
+                                metadata["execution_settings"]["balance_settings"] = await self.gateway.body_balance(
+                                    "get", robot_id=robot)
+                            except (OSError, ValueError, RuntimeError) as error:
+                                metadata["execution_settings"]["balance_settings"] = None
+                                metadata["execution_settings"]["balance_settings_error"] = str(error)
                         self._enqueue(r["recording"]/"metadata.jsonl", metadata)
                     started = time.monotonic()
                     payload = {"op": "trace_read", "after": r["after"]}

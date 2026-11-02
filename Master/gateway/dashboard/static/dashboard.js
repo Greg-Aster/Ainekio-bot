@@ -2821,7 +2821,13 @@
   function renderHostNetwork(network) {
     if (!network || hostNetworkBusy) return;
     byId("host-hotspot-toggle").checked = network.hotspot;
-    text("host-network-state", network.hotspot ? "Robot hotspot enabled." : "Using the existing Wi-Fi network.");
+    const unavailable = network.hotspot && !network.available;
+    const message = unavailable ? `Robot hotspot unavailable: ${network.error || "Network status could not be confirmed."}` :
+      network.hotspot ? "Robot hotspot is broadcasting and DHCP is running." : "Using the existing Wi-Fi network.";
+    text("host-network-state", message);
+    const alert = byId("host-network-error");
+    alert.hidden = !unavailable;
+    alert.textContent = unavailable ? message : "";
   }
 
   function setupHostNetwork() {
@@ -3026,6 +3032,15 @@
   }
 
   function renderStatus(payload) {
+    const bridge = payload.metahuman;
+    const voiceResult = bridge?.lastAudioResult;
+    const bridgeStatus = byId("metahuman-connection");
+    bridgeStatus.classList.toggle("error", !bridge?.connected || voiceResult?.status === "failed");
+    bridgeStatus.setAttribute("role", !bridge?.connected || voiceResult?.status === "failed" ? "alert" : "status");
+    bridgeStatus.textContent = !bridge?.connected
+      ? "MetaHuman disconnected — robot voice commands are not being delivered."
+      : voiceResult?.status === "failed" ? `Voice delivery failed: ${voiceResult.message}`
+      : "MetaHuman bridge connected" + (voiceResult?.timestamp ? ` · Last voice result: ${voiceResult.status} at ${voiceResult.timestamp}` : " · No voice delivery confirmed yet");
     const recognition = payload.recognition;
     visionOperations = new Set(recognition?.visionOperations || []);
     byId("vision-target-search").disabled = !visionOperations.has("search") || visionTargetBusy;
@@ -3339,7 +3354,13 @@
           renderHostNetwork(payload.host_network);
         }
       } catch (error) {
-        if (generation === statusGeneration) showResult(error.message, true);
+        if (generation === statusGeneration) {
+          showResult(error.message, true);
+          const bridgeStatus = byId("metahuman-connection");
+          bridgeStatus.classList.add("error");
+          bridgeStatus.setAttribute("role", "alert");
+          bridgeStatus.textContent = `Body Control status unavailable; robot voice delivery is unconfirmed: ${error.message}`;
+        }
       } finally { statusRequest = null; }
     })();
     return statusRequest;
@@ -3626,7 +3647,7 @@
         }
       } catch(error) { if (selectedRobotId === robotId) text('neural-walking-result', error.message); }
     });
-    async function operate(op) {
+    async function operate(op, checkpointId = null) {
       if (busy) return;
       busy = true;
       const robotId = selectedRobotId, profileAtRequest = profileRevision;
@@ -3635,6 +3656,7 @@
         const model = byId('neural-gait-model').value;
         if (op === 'progress') { payload.op = 'render'; payload.progress = true; payload.model_id = model; }
         if (['load','render'].includes(op)) payload.model_id = model;
+        if (op === 'load' && checkpointId !== null) payload.checkpoint_id = checkpointId;
         if (op === 'train' || op === 'resume') {
           payload.op = 'train';
           payload.steps = Number(byId('neural-gait-steps').value);
@@ -3673,6 +3695,9 @@
         if (!byId('neural-gait-environment').value.trim())
           byId('neural-gait-environment').value = JSON.stringify(status.defaults, null, 2);
         text('neural-gait-status', JSON.stringify(status, null, 2));
+        text('neural-gait-selection', status.model_id
+          ? `Active model: ${status.model_id.slice(-8)} · ${status.checkpoint_id || 'published final policy'}`
+          : 'No model selected.');
         const run = status.runs.find(run => run.id === select.value);
         const phase = run?.state === 'evaluating'
           ? `Evaluating ${run.evaluation_purpose === 'standing_baseline' ? 'standing baseline' : run.evaluation_purpose === 'final_candidate' ? 'final candidate' : 'checkpoint'}${run.total_episodes != null ? ` · ${run.completed_episodes}/${run.total_episodes} trials` : ''}`
@@ -3692,6 +3717,12 @@
           for (const value of [checkpoint, Number.isFinite(score) ? score.toFixed(2) : '—', `${row.evaluation.falls}/${row.evaluation.episodes.length}`]) {
             const cell = document.createElement('td'); cell.textContent = value; tr.append(cell);
           }
+          const cell = document.createElement('td'), button = document.createElement('button');
+          const active = status.model_id === run.id && status.checkpoint_id === row.id;
+          button.type = 'button'; button.textContent = active ? 'Selected' : 'Use checkpoint';
+          button.disabled = active;
+          button.addEventListener('click', () => operate('load', row.id));
+          cell.append(button); tr.append(cell);
           return tr;
         }));
         const commandResults = run?.checkpoints?.at(-1)?.evaluation?.command_results;

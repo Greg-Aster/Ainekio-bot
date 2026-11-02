@@ -5,6 +5,7 @@
 torch==2.8.0
 botorch==0.15.1
 numpy==2.3.5
+opencv-python-headless>=4.8,<5
 scipy==1.17.0
 mujoco==3.3.7
 gymnasium==1.2.2

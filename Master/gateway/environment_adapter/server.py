@@ -55,7 +55,6 @@ AUDIO_UTTERANCE_HEADER_BYTES = len(AUDIO_UTTERANCE_MAGIC) + 4
 MICROPHONE_LEVEL_INTERVAL_SECONDS = 0.1
 BRIDGE_SEND_TIMEOUT_SECONDS = 2.0
 CAMERA_DELIVERY_QUEUE_LENGTH = 1
-MAX_PENDING_ACTION_VISUALS = 32
 MAX_WALK_UPDATE_VALIDITY_MS = 2000
 WALK_UPDATE_ACK_TIMEOUT_SECONDS = 2.0
 CANCELLATION_TIMEOUT_SECONDS = 2.0
@@ -215,6 +214,14 @@ class EnvironmentAdapter:
             self._computer_device = device
             await self._send_observation()
         return {'playbackTarget': self._speech_target, **({'computerDevice':self._computer_device} if self._computer_device else {})}
+
+    def connection_status(self) -> dict[str, object]:
+        websocket = self._websocket
+        return {
+            "connected": bool(self._bridge_ready and websocket is not None and not websocket.closed),
+            "robotId": self._selected_robot()[0],
+            "lastAudioResult": dict(self._last_audio_result) if self._last_audio_result else None,
+        }
 
     async def behavior_settings(self, enabled: bool | None = None) -> dict[str, object]:
         result = await self._request_settings("behavior.settings", {} if enabled is None else {"enabled": enabled})
@@ -658,7 +665,7 @@ class EnvironmentAdapter:
                     and isinstance(wire.get("robotId"), str) and type(wire.get("epoch")) is int
                     and type(wire.get("sequence")) is int):
                     recovered_context_key = (wire["robotId"], wire["epoch"], wire["sequence"])
-                    self._remember_bounded(self._robot_action_contexts, recovered_context_key, context)
+                    self._robot_action_contexts[recovered_context_key] = context
                     if wire.get("kind") == "snapshot":
                         await self._snapshot_lock.acquire()
                         recovered_snapshot = self._snapshot_in_flight = True
@@ -807,7 +814,7 @@ class EnvironmentAdapter:
                 pass
             else:
                 action_context_key = (robot_id, robot_epoch, assigned_sequence)
-                self._remember_bounded(self._robot_action_contexts, action_context_key, snapshot_context)
+                self._robot_action_contexts[action_context_key] = snapshot_context
             if receipt is not None:
                 return self.receipts.dispatch(action_id, {"sequence": assigned_sequence, "robotId": robot_id,
                     "epoch": robot_epoch, "kind": translated.kind, "gatewayInstance": self.gateway.instance_id},
@@ -1096,11 +1103,6 @@ class EnvironmentAdapter:
         if previous is not None and not previous.done():
             previous.cancel()
         self._pending_action_visuals[action_id] = future
-        while len(self._pending_action_visuals) > MAX_PENDING_ACTION_VISUALS:
-            oldest = next(iter(self._pending_action_visuals))
-            discarded = self._pending_action_visuals.pop(oldest)
-            if not discarded.done():
-                discarded.cancel()
 
     def _clear_robot_correlations(
         self,
@@ -1348,13 +1350,22 @@ class EnvironmentAdapter:
         if self.config.robot_id is not None and utterance.robot_id != self.config.robot_id:
             return
         websocket = self._websocket
-        if websocket is None or websocket.closed:
-            return
-        encoded = encode_audio_utterance_message(
-            utterance,
-            session_id=self.config.session_id,
-        )
-        await self._send_payload(websocket, encoded)
+        self._last_audio_result = {
+            "utteranceId": utterance.utterance_id,
+            "status": "pending",
+            "message": "Waiting for MetaHuman transcription and admission.",
+            "timestamp": self.utcnow().isoformat(),
+        }
+        if websocket is not None and not websocket.closed:
+            encoded = encode_audio_utterance_message(utterance, session_id=self.config.session_id)
+            if await self._send_payload(websocket, encoded):
+                return
+        self._last_audio_result = {
+            "utteranceId": utterance.utterance_id,
+            "status": "failed",
+            "message": "MetaHuman is disconnected; this voice command was not delivered.",
+            "timestamp": self.utcnow().isoformat(),
+        }
 
     async def _handle_gateway_transcript(self, transcript: dict[str, object]) -> None:
         if transcript.get("source") == "environment_adapter":
@@ -1363,9 +1374,9 @@ class EnvironmentAdapter:
         if not isinstance(text, str) or not text.strip():
             return
         text_event = {
-            "id": f"ainekio-text-{int(self.clock() * 1000)}",
+            "id": f"ainekio-text-{uuid4()}",
             "source": "environment",
-            "text": text[:4096],
+            "text": text,
             "timestamp": self.utcnow().isoformat(),
         }
         await self._send_observation(text=[text_event])

@@ -47,7 +47,7 @@ class RobotHotspotInstallationTests(unittest.TestCase):
         self.assertNotIn("connection down", unit)
         self.assertIn("addr ee:b5:0a:98:34:7b", unit)
         for relative, (content, _) in files.items():
-            if relative.endswith(".service"):
+            if relative.endswith((".service", ".target")):
                 self.assertNotIn("WantedBy=", content)
         self.assertIn("match-device=interface-name:aineap0\nmanaged=0\n",
                       files["etc/NetworkManager/conf.d/80-ainekio-hotspot.conf"][0])
@@ -95,11 +95,11 @@ class RobotHotspotInstallationTests(unittest.TestCase):
             installer.install_files(self.root, files)
         self.assertTrue(destination.is_symlink())
 
-    def test_only_named_operator_can_start_stop_specific_hotspot_units(self):
+    def test_only_named_operator_can_start_stop_restart_specific_hotspot_units(self):
         files = self.configuration()
         policy = files["etc/polkit-1/rules.d/49-ainekio-hotspot.rules"][0]
         self.assertIn('subject.user === "greggles"', policy)
-        self.assertIn('["start", "stop"]', policy)
+        self.assertIn('["start", "stop", "restart"]', policy)
         for unit in installer.UNITS:
             self.assertIn('"' + unit + '"', policy)
         hostapd = files["etc/systemd/system/ainekio-hotspot.service"][0]
@@ -109,6 +109,48 @@ class RobotHotspotInstallationTests(unittest.TestCase):
         self.assertIn("interface=aineap0", files["etc/ainekio-network/dnsmasq.conf"][0])
         self.assertIn("port=0", files["etc/ainekio-network/dnsmasq.conf"][0])
         self.assertIn("--user=dnsmasq", dhcp)
+        interface = files["etc/systemd/system/ainekio-hotspot-interface.service"][0]
+        self.assertIn("Wants=ainekio-hotspot.service ainekio-hotspot-dhcp.service", interface)
+        self.assertIn("PartOf=ainekio-hotspot.target", interface)
+        self.assertIn("Wants=ainekio-hotspot-interface.service", files["etc/systemd/system/ainekio-hotspot.target"][0])
+        self.assertIn("Type=forking", hostapd)
+        self.assertIn("hostapd -B -P /run/ainekio-hotspot/hostapd.pid", hostapd)
+
+    def test_recovery_hooks_route_only_resume_and_selected_uplink_events_to_existing_owner(self):
+        files = self.configuration()
+        recorder = self.root / "systemctl"
+        calls = self.root / "calls"
+        recorder.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "' + str(calls) + '"\n')
+        recorder.chmod(0o755)
+        hooks = {
+            "usr/lib/systemd/system-sleep/ainekio-hotspot": [
+                ("pre", "suspend"), ("post", "suspend"), ("post", "hibernate"),
+            ],
+            "etc/NetworkManager/dispatcher.d/80-ainekio-hotspot": [
+                ("aineap0", "up"), ("wlan0", "down"), ("wlan1", "up"), ("wlan0", "up"),
+            ],
+        }
+        expected = 0
+        for relative, events in hooks.items():
+            content, mode = files[relative]
+            self.assertEqual(mode, 0o755)
+            hook = self.root / Path(relative).name
+            hook.write_text(content.replace("/usr/bin/systemctl", str(recorder)))
+            for event in events:
+                subprocess.run(["sh", str(hook), *event], check=True)
+                expected += int(event[0] == "post" or event == ("wlan0", "up"))
+                actual = calls.read_text().splitlines() if calls.exists() else []
+                self.assertEqual(actual, ["--no-block try-restart ainekio-hotspot.target"] * expected)
+        # Off is preserved by try-restart rather than an unconditional start.
+        self.assertEqual(expected, 3)
+
+    def test_unmanaged_executable_hook_is_not_adopted_by_its_shebang(self):
+        files = self.configuration()
+        destination = self.root / "usr/lib/systemd/system-sleep/ainekio-hotspot"
+        destination.parent.mkdir(parents=True)
+        destination.write_text("#!/bin/sh\necho existing owner\n")
+        with self.assertRaisesRegex(ValueError, "unmanaged"):
+            installer.install_files(self.root, files)
 
     def test_invalid_radio_arguments_reject_and_hyphenated_device_is_escaped(self):
         for interface, mac, channel in (("../wlan0", "00:11:22:33:44:55", 1),
@@ -126,7 +168,7 @@ class RobotHotspotInstallationTests(unittest.TestCase):
         files = self.configuration()
         paths = []
         for relative, (content, _) in files.items():
-            if relative.endswith(".service"):
+            if relative.endswith((".service", ".target")):
                 path = self.root / Path(relative).name
                 path.write_text(content)
                 paths.append(str(path))

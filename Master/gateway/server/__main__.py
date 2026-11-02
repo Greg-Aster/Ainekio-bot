@@ -330,20 +330,22 @@ async def _run_production(args: argparse.Namespace) -> None:
 
     camera = CameraFramePlugin(service, backend, observe=publish_recognition if backend else None,
         max_frame_age_s=args.vision_max_frame_age_s)
-    adapter.recognition_status = camera.metrics if backend is not None else None
-    adapter.camera_analysis = camera.latest_analysis
-    adapter.camera_capture = camera.capture
-    adapter.vision_operation = camera.configure_vision if backend is not None else None
+    if adapter is not None:
+        adapter.recognition_status = camera.metrics if backend is not None else None
+        adapter.camera_analysis = camera.latest_analysis
+        adapter.camera_capture = camera.capture
+        adapter.vision_operation = camera.configure_vision if backend is not None else None
     dashboard.camera_recognition = camera
     if camera is not None:
         camera.set_enabled(bool(backend) and dashboard.control_settings["recognition"])
         await camera.restore_ground_plane(dashboard.control_settings.get("ground_calibrations", {}))
         await camera.restore_depth(dashboard.control_settings.get("depth_motion", {}))
-        adapter.locomotion_measurement = camera.locomotion_measurement
         service.locomotion_measurement = camera.locomotion_measurement
         service.depth_demand = camera.depth_demand
-        adapter.selected_ground_range = camera.selected_ground_range
-        adapter.depth_demand = camera.depth_demand
+        if adapter is not None:
+            adapter.locomotion_measurement = camera.locomotion_measurement
+            adapter.selected_ground_range = camera.selected_ground_range
+            adapter.depth_demand = camera.depth_demand
     service.subscribe_events(dashboard.restore_camera)
     from gateway.gait_learning_service import GaitLearningService, RobotLearningTransport
     gait_learning = GaitLearningService(service, RobotLearningTransport(service, token_store),

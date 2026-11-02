@@ -107,4 +107,48 @@ class LearningTests(unittest.TestCase):
         np.testing.assert_allclose(response[0, 0], [-.2, 0., 0.])
 
 
+class OptimizerProcessTests(unittest.TestCase):
+    def test_worker_preserves_complete_failure_and_request(self):
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from gateway.gait_optimizer import propose_worker
+
+        diagnostic = "Root cause: optimizer dependency unavailable\n" + "details αβ\n"*400 + "final note"
+        observations = [dict(x=[0.]*9, score=.2)]
+        with patch("subprocess.run", return_value=SimpleNamespace(returncode=1, stderr=diagnostic)) as run:
+            with self.assertRaises(RuntimeError) as caught:
+                propose_worker(observations, seed=13)
+        self.assertEqual(str(caught.exception), "Optimizer worker failed: " + diagnostic)
+        self.assertEqual(json.loads(run.call_args.kwargs["input"]),
+                         dict(observations=observations, seed=13))
+        run.assert_called_once()
+
+    def test_worker_returns_successful_coordinates(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from gateway.gait_optimizer import propose_worker
+
+        with patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="[0.25, -0.5]")) as run:
+            self.assertEqual(propose_worker([], seed=5), [.25, -.5])
+        run.assert_called_once()
+
+    def test_preview_preserves_unexpected_failure_without_retry(self):
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from gateway.gait_optimizer import DEFAULT_RADII, project_candidate
+
+        base = policy_seed(policy_recording(), gait=True)["model"]
+        joints = [dict(id=i, channel=i, invert=False, home_us=1650, home_cd=0, us_per_degree=10)
+                  for i in range(12)]
+        diagnostic = "Root cause: invalid preview input\n" + "details αβ\n"*400 + "final note"
+        with patch("subprocess.run", return_value=SimpleNamespace(returncode=2, stderr=diagnostic)) as run:
+            with self.assertRaises(RuntimeError) as caught:
+                project_candidate(base, [1.]*9, DEFAULT_RADII, joints, "walk",
+                                  [json.dumps([[1, 0, 0, 1], 2])])
+        self.assertEqual(str(caught.exception), "Linkage preview failed: " + diagnostic)
+        run.assert_called_once()
+
+
 if __name__=='__main__':unittest.main()

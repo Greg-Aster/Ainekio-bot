@@ -20,6 +20,9 @@ static ainekio_config_record_t boot_config;
 static bool boot_configured;
 static ainekio_p4_robot_settings_t boot_settings, saved_settings;
 static SemaphoreHandle_t config_lock;
+/* Output snapshots only copy RAM. NVS transactions retain config_lock and
+ * never hold this short critical section across validation or flash I/O. */
+static portMUX_TYPE snapshot_lock = portMUX_INITIALIZER_UNLOCKED;
 static ainekio_p4_calibration_t calibration;
 static ainekio_p4_joint_record_t committed;
 /* Independent of joint calibration. Readers never take the NVS write lock. */
@@ -213,9 +216,9 @@ bool ainekio_p4_balance_enabled(void) { return atomic_load(&balance_enabled); }
 bool ainekio_p4_balance_saved(void) { return atomic_load(&balance_saved); }
 ainekio_v2_balance_tuning_t ainekio_p4_balance_tuning(void)
 {
-    xSemaphoreTake(config_lock,portMAX_DELAY);
+    portENTER_CRITICAL(&snapshot_lock);
     const ainekio_v2_balance_tuning_t result=balance_tuning;
-    xSemaphoreGive(config_lock);
+    portEXIT_CRITICAL(&snapshot_lock);
     return result;
 }
 bool ainekio_p4_balance_tuning_saved(void) { return atomic_load(&balance_tuning_saved); }
@@ -227,7 +230,9 @@ esp_err_t ainekio_p4_balance_configure(bool enabled,const ainekio_v2_balance_tun
     /* Commit the whole selection together; the output task never waits on NVS. */
     if(blob("balance_cfg",(void *)&record,sizeof(record),true)!=AINEKIO_STORE_OK)return ESP_FAIL;
     xSemaphoreTake(config_lock,portMAX_DELAY);
+    portENTER_CRITICAL(&snapshot_lock);
     balance_tuning=record.tuning;
+    portEXIT_CRITICAL(&snapshot_lock);
     atomic_store(&balance_enabled,enabled);
     atomic_store(&balance_saved,true);
     atomic_store(&balance_tuning_saved,true);
@@ -268,9 +273,9 @@ const ainekio_config_record_t *ainekio_p4_config(void)
 
 ainekio_p4_calibration_t ainekio_p4_calibration(void)
 {
-    xSemaphoreTake(config_lock, portMAX_DELAY);
+    portENTER_CRITICAL(&snapshot_lock);
     const ainekio_p4_calibration_t result = calibration;
-    xSemaphoreGive(config_lock);
+    portEXIT_CRITICAL(&snapshot_lock);
     return result;
 }
 
@@ -313,7 +318,9 @@ esp_err_t ainekio_p4_calibration_stage(uint8_t id, const ainekio_p4_joint_config
         candidate.saved = committed.version == 1 &&
             memcmp(candidate.joints, committed.joints, sizeof(committed.joints)) == 0;
         candidate.dirty = !candidate.saved;
+        portENTER_CRITICAL(&snapshot_lock);
         calibration = candidate;
+        portEXIT_CRITICAL(&snapshot_lock);
         result = ESP_OK;
     }
     xSemaphoreGive(config_lock);
@@ -329,8 +336,10 @@ esp_err_t ainekio_p4_calibration_save(void)
     const ainekio_store_result_t saved = blob("joint_mapping", &candidate, sizeof(candidate), true);
     if (saved == AINEKIO_STORE_OK) {
         committed = candidate;
+        portENTER_CRITICAL(&snapshot_lock);
         calibration.saved = calibration.profile_confirmed = true;
         calibration.dirty = false;
+        portEXIT_CRITICAL(&snapshot_lock);
     }
     xSemaphoreGive(config_lock);
     return saved == AINEKIO_STORE_OK ? ESP_OK : ESP_FAIL;

@@ -245,5 +245,78 @@ class GatewaySecurityTests(unittest.TestCase):
             RobotTokenStore(path)
 
 
+class GatewayStartupTests(unittest.IsolatedAsyncioTestCase):
+    async def test_body_control_startup_with_and_without_environment_adapter(self):
+        from contextlib import ExitStack, asynccontextmanager
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, Mock, patch
+
+        for token in ("", "fixture-adapter-token"):
+            with self.subTest(adapter_enabled=bool(token)), tempfile.TemporaryDirectory() as directory:
+                service = Mock()
+                service.close = AsyncMock()
+                dashboard = Mock(control_settings={"recognition": False})
+                dashboard.close_freestyle = AsyncMock()
+                dashboard.host_audio.close = AsyncMock()
+                camera = Mock()
+                camera.restore_ground_plane = AsyncMock()
+                camera.restore_depth = AsyncMock()
+                camera.aclose = AsyncMock()
+                hotspot = Mock(start=AsyncMock())
+                gait = Mock(start=AsyncMock(), close=AsyncMock())
+                adapter = Mock(handler=AsyncMock())
+                server = SimpleNamespace(websockets=[], close=Mock())
+                socket = Mock(close=AsyncMock(), remote_address=("127.0.0.1", 12345), request_headers={})
+
+                with ExitStack() as stack:
+                    stack.enter_context(patch.dict(os.environ, {
+                        "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN": token,
+                    }, clear=True))
+                    args = gateway_main._parser().parse_args(["--data-dir", directory])
+                    stack.enter_context(patch.object(gateway_main, "GatewayService", return_value=service))
+                    stack.enter_context(patch.object(gateway_main, "DashboardPasswordStore"))
+                    stack.enter_context(patch.object(gateway_main, "RobotTokenStore"))
+                    stack.enter_context(patch.object(gateway_main, "AuditLog"))
+                    stack.enter_context(patch.object(gateway_main, "RobotHotspot", return_value=hotspot))
+                    stack.enter_context(patch.object(gateway_main, "start_dashboard_server", return_value=dashboard))
+                    stack.enter_context(patch.object(gateway_main, "CameraFramePlugin", return_value=camera))
+                    adapter_factory = stack.enter_context(patch.object(gateway_main, "EnvironmentAdapter", return_value=adapter))
+                    stack.enter_context(patch("gateway.gait_learning_service.GaitLearningService", return_value=gait))
+                    stack.enter_context(patch("gateway.gait_learning_service.RobotLearningTransport"))
+                    stack.enter_context(patch.object(gateway_main, "threading", SimpleNamespace(Thread=Mock())))
+                    signals = stack.enter_context(patch.object(gateway_main.signal, "signal"))
+                    stack.enter_context(patch.object(gateway_main.asyncio, "to_thread", AsyncMock(side_effect=lambda fn: fn())))
+                    stack.enter_context(patch.object(gateway_main, "_print_gateway_addresses"))
+
+                    @asynccontextmanager
+                    async def serve(route, *args, **kwargs):
+                        await route(socket, "/environment")
+                        # Exercise the existing graceful-shutdown path without
+                        # opening sockets, starting services, or sending signals.
+                        signals.call_args_list[0].args[1](gateway_main.signal.SIGTERM, None)
+                        yield server
+
+                    stack.enter_context(patch.object(gateway_main, "serve", serve))
+                    await gateway_main._run_production(args)
+
+                self.assertIs(dashboard.camera_recognition, camera)
+                self.assertIs(service.locomotion_measurement, camera.locomotion_measurement)
+                self.assertIs(service.depth_demand, camera.depth_demand)
+                camera.restore_ground_plane.assert_awaited_once_with({})
+                camera.restore_depth.assert_awaited_once_with({})
+                camera.aclose.assert_awaited_once()
+                dashboard.close_freestyle.assert_awaited_once()
+                if token:
+                    adapter_factory.assert_called_once()
+                    adapter.handler.assert_awaited_once_with(socket)
+                    socket.close.assert_not_awaited()
+                    self.assertIs(adapter.camera_capture, camera.capture)
+                    self.assertIs(adapter.selected_ground_range, camera.selected_ground_range)
+                    self.assertIs(adapter.depth_demand, camera.depth_demand)
+                else:
+                    adapter_factory.assert_not_called()
+                    socket.close.assert_awaited_once_with(code=1008, reason="wrong or unavailable endpoint")
+
+
 if __name__ == "__main__":
     unittest.main()

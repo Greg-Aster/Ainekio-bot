@@ -11,10 +11,11 @@ import math
 import numpy as np
 
 from gateway.depth_motion import rigid, spatial_depth
+from gateway.depth_motion_worker import body_pose, camera_position, pose_motion
 
 
 def project_depth(measurement, now_s, robot_id, epoch):
-    """Project existing camera identity/freshness without requiring odometry."""
+    """Project camera odometry and depth with independent validity evidence."""
     measurement = measurement or {}
     grid = measurement.get("depthSpatial")
     stamp = measurement.get("receivedAtMonotonic")
@@ -25,7 +26,14 @@ def project_depth(measurement, now_s, robot_id, epoch):
     available = bool(current and grid and grid.get("available"))
     values = [value for value, valid in zip(grid.get("values",[]),grid.get("valid",[]))
               if valid and value is not None and math.isfinite(value) and value > 0] if available else []
-    return dict(depthSpatial=deepcopy(grid), depth_available=bool(available and values),
+    velocity = measurement.get("velocity_body_m_s")
+    motion_available = bool(current and measurement.get("available") and
+        measurement.get("coordinateOrigin") == "body" and isinstance(velocity, (list, tuple)) and
+        len(velocity) == 3 and all(type(value) in (int, float) and math.isfinite(value) for value in velocity))
+    return dict(available=motion_available,
+        velocity_body_m_s=list(velocity) if motion_available else None,
+        metric_accuracy_verified=bool(measurement.get("metricAccuracyVerified")),
+        depthSpatial=deepcopy(grid), depth_available=bool(available and values),
         depth_min_m=min(values) if values else None, age_s=age,
         depth_frame_id=measurement.get("frameId"), depth_source=measurement.get("source"))
 
@@ -47,6 +55,14 @@ class DepthCamera:
         self.dropout = float(profile["dropout_probability"])
         self.noise = float(profile["noise_std_m"])
         self.max_age = profile.get("max_frame_age_s")
+        self.odometry = deepcopy(profile.get("odometry"))
+        if self.odometry is not None:
+            for key in ("position_noise_std_m", "rotation_noise_std_rad", "log_scale_std", "dropout_probability"):
+                value = self.odometry[key]
+                if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                    raise ValueError("Odometry error assumptions must be finite nonnegative numbers")
+            if self.odometry["dropout_probability"] > 1:
+                raise ValueError("Odometry dropout probability must be at most one")
         if (not all(math.isfinite(v) for v in (self.capture_hz,self.latency,self.dropout,self.noise))
                 or self.capture_hz <= 0 or self.latency < 0 or not 0 <= self.dropout <= 1 or self.noise < 0
                 or self.max_age is not None and (not math.isfinite(self.max_age) or self.max_age <= 0)):
@@ -71,6 +87,43 @@ class DepthCamera:
         self.pending = deque()
         self.latest = None
         self.counter = 0
+        self.odometry_origin = self.odometry_previous = None
+        self.odometry_path = self.odometry_heading = 0.
+        self.odometry_reference = 0
+        self.odometry_scale = None
+
+    def _odometry_capture(self, world_from_camera, now, rng):
+        """Explicit noisy camera sensor model; never a perfect pose actor input."""
+        profile = self.odometry
+        if rng.random() < profile["dropout_probability"]:
+            self.odometry_origin = self.odometry_previous = None
+            self.odometry_reference += 1
+            return dict(available=False, reason="Simulated optical tracking loss")
+        if self.odometry_origin is None:
+            self.odometry_origin = world_from_camera.copy()
+            self.odometry_scale = math.exp(rng.normal(0., profile["log_scale_std"]))
+            self.odometry_path = self.odometry_heading = 0.
+        estimate = np.linalg.inv(self.odometry_origin) @ world_from_camera
+        estimate[:3, 3] *= self.odometry_scale
+        estimate[:3, 3] += rng.normal(0., profile["position_noise_std_m"], 3)
+        from scipy.spatial.transform import Rotation
+        estimate[:3, :3] = estimate[:3, :3] @ Rotation.from_rotvec(
+            rng.normal(0., profile["rotation_noise_std_rad"], 3)).as_matrix()
+        current = body_pose(estimate, self.body_from_camera)
+        motion = None
+        if self.odometry_previous is not None:
+            previous, stamp = self.odometry_previous
+            motion = pose_motion(previous, current, now-stamp)
+            self.odometry_path += motion["travelled_m"]
+            self.odometry_heading += motion["turn_rad"]
+        self.odometry_previous = (current.copy(), now)
+        return dict(available=motion is not None,
+            coordinateOrigin="body" if self.publish_camera_to_body else "camera",
+            referenceId=f"simulation-optical-{self.odometry_reference}",
+            position=camera_position(estimate, self.body_from_camera),
+            velocity_body_m_s=motion["velocity_body_m_s"] if motion is not None and self.publish_camera_to_body else None,
+            yaw_rate_rad_s=motion["yaw_rate_rad_s"] if motion is not None else None,
+            path_length_m=self.odometry_path, heading_change_rad=self.odometry_heading)
 
     def _external_geoms(self, model):
         if model is not self.model:
@@ -125,6 +178,12 @@ class DepthCamera:
                 deliveryAtSimulationS=now+self.latency, clock="simulation-acquisition",
                 inferenceMs=self.latency*1000, frameCurrent=True,
                 metricAccuracyVerified=False)
+            if self.odometry is not None:
+                camera_pose = np.eye(4)
+                camera_pose[:3, :3] = world_from_camera
+                camera_pose[:3, 3] = position
+                measurement.update(self._odometry_capture(camera_pose, now, rng))
+                measurement["source"] = "simulation-noisy-optical-odometry-and-depth"
             self.pending.append((now+self.latency,measurement))
         while self.pending and self.pending[0][0] <= now+1e-10:
             _, self.latest = self.pending.popleft()

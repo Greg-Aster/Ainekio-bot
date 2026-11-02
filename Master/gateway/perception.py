@@ -177,7 +177,7 @@ class VisionBackend:
     def __call__(self, jpeg: bytes) -> RecognitionResult:
         if not isinstance(jpeg, bytes) or not 4 <= len(jpeg) <= MAX_JPEG_BYTES or not jpeg.startswith(b"\xff\xd8"):
             raise ValueError("vision input requires a bounded JPEG")
-        request = {"model": self.model, "stream": False, "temperature": 0, "max_tokens": 1024,
+        request = {"model": self.model, "stream": False, "temperature": 0,
             "response_format": {"type": "json_object"}, "messages": [{"role": "user", "content": [
                 {"type": "text", "text": RECOGNITION_PROMPT},
                 {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")}},

@@ -42,7 +42,7 @@ class BodyControlEnvironment(GaitEnvironment):
 
     def _wire_command(self, command):
         return dict(dir="fwd", gait="walk", steps=0, speed=100,
-            **{key: round(100*command[index]/self.profile[scale])
+            **{key: 100*command[index]/self.profile[scale]
                for index, (key, scale) in enumerate(zip(
                    ("forward", "lateral", "turn"),
                    ("forward_m_s", "lateral_m_s", "yaw_rad_s")))})

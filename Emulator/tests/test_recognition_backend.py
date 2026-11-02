@@ -463,6 +463,48 @@ class RecognitionBackendTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RecognitionContractTests(unittest.TestCase):
+    def test_configured_model_can_return_a_complete_valid_scene(self):
+        # Simulate a configured model with enough capacity for all requested
+        # evidence, but whose output is cut short if the caller sets a budget.
+        scene = {"summary":"All localized objects remain available", "objects":[
+            {"label":(("object description "+str(index)+" ")*20).strip(),
+             "box":{"x":0.1,"y":0.1,"width":0.1,"height":0.1}}
+            for index in range(32)], "uncertainties":[]}
+        requests = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                requests.append(request)
+                content = json.dumps(scene)
+                limit = request.get("max_tokens")
+                incomplete = limit is not None and limit < 4096  # Fixture model completion size, in tokens.
+                body = json.dumps({"choices":[{"finish_reason":"length" if incomplete else "stop",
+                    "message":{"content":content[:limit] if incomplete else content}}]}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            backend = VisionBackend(f"http://127.0.0.1:{server.server_port}/v1/chat/completions", "fixture")
+            result = backend(JPEG)
+            self.assertEqual([item.message() for item in result.objects], scene["objects"])
+            self.assertEqual(result.summary, scene["summary"])
+            self.assertEqual(len(requests), 1)
+            image = requests[0]["messages"][0]["content"][1]["image_url"]["url"]
+            self.assertEqual(base64.b64decode(image.split(",",1)[1]), JPEG)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
     def test_invalid_model_claims_are_rejected(self):
         for value in (
             {**SCENE, "action": "walk"},

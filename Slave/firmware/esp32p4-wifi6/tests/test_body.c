@@ -24,6 +24,8 @@ float ainekio_p4_motion_rate(void) { return saved_motion_rate; }
 
 struct test_queue { unsigned capacity, size, count; unsigned char data[]; };
 static uint64_t clock_us;
+static unsigned late_admission_replies;
+static uint64_t late_admission_delay_us;
 static uint32_t rest_seconds=180;
 static bool speaker_busy;
 uint32_t ainekio_p4_idle_rest_seconds(void) { return rest_seconds; }
@@ -126,6 +128,14 @@ int xQueueSend(QueueHandle_t q,const void *p,unsigned timeout)
 }
 int xQueueReceive(QueueHandle_t q,void *p,unsigned timeout)
 {
+    /* A previous caller timed out while the output owner was still working.
+     * Its response arrives after the next caller drained the result slot. */
+    if(q==results && timeout && late_admission_replies) {
+        late_admission_replies--;
+        clock_us+=late_admission_delay_us;
+        *(body_result_t *)p=(body_result_t){.serial=request_serial-1,.result=ESP_ERR_INVALID_STATE};
+        return pdTRUE;
+    }
     /* Let the sole output owner service a synchronous caller's admission. */
     if(q==results && !q->count && timeout && requests->count && !defer_requests) {
         body_request_t request; assert(xQueueReceive(requests,&request,0));
@@ -219,6 +229,7 @@ static void reset(void)
     shaft_tracking_available=shaft_measured_override=false;
     shaft_simulated=false;
     imu_status=(ainekio_p4_imu_status_t){0};
+    late_admission_replies=0;late_admission_delay_us=0;
     clock_us=1000000;writes=0;enabled=0xfff;mapping_failure=driver_failure=driver_timeout=defer_requests=power_pending=false;
     mapping_delay_us=write_delay_us=last_mapping_started=last_write_started=0;
     /* Broad test fixture for executor lifecycle coverage. The actual shipping
@@ -1485,6 +1496,36 @@ static void freestyle_execution(void)
     puts("Speed targets: measured arrival, sensor loss, write retry, immediate replacement and native endings passed.");
 }
 
+static void freestyle_recorded_stand_path(void)
+{
+    reset();leveling_enabled=false;shaft_feedback_enabled=true;
+    const uint16_t home[12]={1760,2750,2870,1650,415,440,1650,2740,2750,1700,560,575};
+    const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+    /* Measured start of the rejected 2026-10-31 Stand request. */
+    const float measured[12]={-4178.3235,3231.6148,6109.6806,-3195.6222,3129.7382,5370.5379,
+        -2411.0399,13150.6792,7601.0021,-3998.5716,2359.9699,5073.4454};
+    ainekio_v2_frame_t initial={.geometry_id=ainekio_v2_walk_geometry_id};
+    ainekio_command_t c=freestyle(491,60000,1);
+    for(unsigned j=0;j<12;j++) {
+        mapped_joints[j]=(ainekio_p4_joint_config_t){.channel=j,.invert=inverted[j],
+            .home_us=home[j],.home_cd=j%3==0?0:j%3==1?-3087:-11768,.us_per_degree=11.111111F};
+        initial.position[j]=measured[j];
+        c.data.motion_plan.frames[0].targets[j]=mapped_joints[j].home_cd;
+    }
+    assert(ainekio_p4_frame_pulses(&initial,last_written));
+    memcpy(body.pulses,last_written,sizeof last_written);
+    retain_manual_reference();publish(body.pulses);
+    assert(execute(&c)==ESP_OK);
+    /* The former straight joint ramp fails linkage closure on frame three. */
+    advance(2000);
+    assert(body.motion.kind==MOTION_FREESTYLE && body.motion.freestyle.target_written);
+    ainekio_p4_body_event_t event;assert(!ainekio_p4_body_event(&event));
+    shaft_feedback_reached=true;event=finish(2000);
+    assert(event.completed && event.sequence==491 && event.result==ESP_OK);
+    for(unsigned j=0;j<12;j++)assert(fabs(body.pose.position[j]-body.motion.freestyle.goal[j])<.01);
+    puts("Recorded Stand: valid endpoints traverse the native linkage path and await measured arrival.");
+}
+
 static void freestyle_fitted_target_arrival(void)
 {
     reset();leveling_enabled=false;shaft_feedback_enabled=true;
@@ -2388,11 +2429,40 @@ static void host_walk_uses_existing_leveling(void)
     assert(body.motion.kind==MOTION_WALK && driver.state.armed);
 }
 
+static void admission_replies_keep_request_identity(void)
+{
+    reset();leveling_enabled=false;
+    defer_requests=true;
+    ainekio_command_t previous=command(7000,AINEKIO_INTENT_WALK);
+    assert(execute(&previous)==ESP_ERR_TIMEOUT);
+    body_request_t old;assert(xQueueReceive(requests,&old,0));
+    clock_us+=150000;
+    assert(process_request(&old,clock_us)==ESP_ERR_INVALID_STATE);
+    defer_requests=false;
+    late_admission_replies=1;
+    late_admission_delay_us=20000;
+    ainekio_command_t c=command(7001,AINEKIO_INTENT_WALK);
+    assert(execute(&c)==ESP_OK);
+    assert(!late_admission_replies && !requests->count);
+    assert(body.motion.sequence==7001 && body.motion.kind==MOTION_WALK);
+    assert(clock_us==1170000); /* Discarded replies add no wait or retry. */
+    ainekio_p4_body_event_t event;assert(!ainekio_p4_body_event(&event));
+    /* Unrelated replies must not restart the existing caller wait budget. */
+    reset();late_admission_replies=1;late_admission_delay_us=150000;
+    assert(execute(&c)==ESP_ERR_TIMEOUT && driver.state.armed);
+    assert(requests->count==1 && body.motion.kind==MOTION_NONE);
+    body_request_t queued;assert(xQueueReceive(requests,&queued,0));
+    assert(process_request(&queued,clock_us)==ESP_ERR_INVALID_STATE);
+    puts("Body admission replies retain request identity and the existing wait budget.");
+}
+
 int main(int argc,char **argv)
 {
+    admission_replies_keep_request_identity();
     controller_stop_and_receipts();
     host_walk_ownership_and_finish();
     host_walk_uses_existing_leveling();
+    freestyle_recorded_stand_path();
     freestyle_fitted_target_arrival();
     legacy_stand_foot_arrival();
     stand_lifts_and_settles();

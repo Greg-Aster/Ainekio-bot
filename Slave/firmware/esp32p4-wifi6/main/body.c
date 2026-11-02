@@ -139,9 +139,19 @@ static esp_err_t submit(body_request_t *request)
     request->serial = ++request_serial;
     request->deadline = esp_timer_get_time() + UINT64_C(100000);
     esp_err_t error = ESP_ERR_TIMEOUT;
-    if (xQueueSend(requests, request, 0) == pdTRUE &&
-        xQueueReceive(results, &result, pdMS_TO_TICKS(request->home ? 3000 : 150)) == pdTRUE &&
-        result.serial == request->serial) error = result.result;
+    const uint32_t wait_ms = request->home ? 3000 : 150;
+    const int64_t reply_deadline = esp_timer_get_time() + (int64_t)wait_ms * 1000;
+    TickType_t remaining = pdMS_TO_TICKS(wait_ms);
+    if (xQueueSend(requests, request, 0) == pdTRUE) {
+        while (xQueueReceive(results, &result, remaining) == pdTRUE) {
+            if (result.serial == request->serial) { error = result.result; break; }
+            /* A timed-out caller can leave a late reply. It cannot answer this
+             * request or restart the existing admission wait budget. */
+            const int64_t left_us = reply_deadline - esp_timer_get_time();
+            if (left_us <= 0) break;
+            remaining = pdMS_TO_TICKS((left_us + 999) / 1000);
+        }
+    }
     xSemaphoreGive(caller_lock);
     return error;
 }
@@ -229,6 +239,7 @@ typedef struct {
         struct {
             ainekio_motion_plan_t plan;
             float goal[AINEKIO_BODY_JOINT_COUNT];
+            double path_extent, path_progress, sampled_progress;
             uint64_t endpoint_written_us;
             bool target_resolved, target_written, arrived;
             uint8_t index;
@@ -1072,6 +1083,15 @@ static esp_err_t freestyle_frame(uint64_t now, bool *complete, ainekio_v2_frame_
             if(fabs(goal.position[j]-target->targets[j])>.01)
                 motion->target_adjusted_joints|=1U<<j;
         }
+        motion->entry_from=body.pose;motion->entry_to=goal;
+        ainekio_v2_frame_t minimum,maximum;
+        double derivative[AINEKIO_BODY_JOINT_COUNT];
+        if(!ainekio_v2_transition_bounds(&motion->entry_from,&motion->entry_to,
+            &minimum,&maximum,derivative))return ESP_ERR_INVALID_ARG;
+        motion->freestyle.path_extent=0.;
+        for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
+            motion->freestyle.path_extent=fmax(motion->freestyle.path_extent,derivative[j]);
+        motion->freestyle.path_progress=motion->freestyle.sampled_progress=0.;
         motion->freestyle.target_resolved=true;
     }
     *frame=body.pose;
@@ -1089,8 +1109,18 @@ static esp_err_t freestyle_frame(uint64_t now, bool *complete, ainekio_v2_frame_
     /* Speed governs the PWM ramp. Only a fresh measured arrival advances the
      * target. Sensor loss/jam leaves this goal active, not the scheduler blocked;
      * new commands and recovery can replace it immediately. */
-    ainekio_p4_joint_ramp_frame(&body.pose,motion->freestyle.goal,
-        target->speed_cd_s,(now-body.last_frame)/1e6,frame);
+    /* Carrier and crank share a four-bar linkage. Interpolating their angles
+     * independently can leave its closure domain between valid endpoints.
+     * Use the existing native transition and its joint-speed derivatives. */
+    const double dt=(now-body.last_frame)/1e6;
+    const double extent=motion->freestyle.path_extent;
+    const double progress=extent ? fmin(1.,motion->freestyle.path_progress+
+        target->speed_cd_s*dt/extent) : 1.;
+    if(!ainekio_v2_transition(&motion->entry_from,&motion->entry_to,progress,frame))
+        return ESP_ERR_INVALID_ARG;
+    motion->freestyle.sampled_progress=progress;
+    for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
+        frame->velocity[j]=dt>0. ? (frame->position[j]-body.pose.position[j])/dt : 0.;
     frame->phase=AINEKIO_V2_CLIP;
     *complete=false;
     return motion_pulses(frame,body.pulses) ? ESP_OK : ESP_ERR_INVALID_ARG;
@@ -1696,6 +1726,7 @@ static bool output_step(uint64_t now)
     body.next_frame = now + UINT64_C(20000);
     if (body.motion.kind == MOTION_FREESTYLE) {
         motion_t *motion=&body.motion;
+        motion->freestyle.path_progress=motion->freestyle.sampled_progress;
         bool commanded=motion->freestyle.target_resolved;
         for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
             if(fabs(sampled.position[j]-motion->freestyle.goal[j])>.01)commanded=false;

@@ -164,3 +164,12 @@ add_test(NAME shared_gateway_discovery COMMAND test_gateway_discovery)
 add_executable(preview_gait_learning ../tools/preview_gait_learning.c ../main/joint_calibration.c)
 target_include_directories(preview_gait_learning PRIVATE ../main)
 target_link_libraries(preview_gait_learning PRIVATE ainekio_v2_motion m)
+
+# Real storage admission/worker owners with an in-memory SDK port and temporary files.
+add_executable(test_storage_record test_storage_record.c ../main/video_avi.c)
+target_include_directories(test_storage_record PRIVATE storage_shim ota_shim body_shim trace_shim ../main)
+target_compile_options(test_storage_record PRIVATE -Wall -Wextra -Werror -UNDEBUG -D_DEFAULT_SOURCE
+    -ffunction-sections -fdata-sections)
+target_link_options(test_storage_record PRIVATE -Wl,--gc-sections)
+target_link_libraries(test_storage_record PRIVATE ainekio_core ainekio_faces)
+add_test(NAME storage_record_ownership COMMAND test_storage_record)

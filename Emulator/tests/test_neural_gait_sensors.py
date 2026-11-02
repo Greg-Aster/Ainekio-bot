@@ -828,6 +828,92 @@ class VirtualBodySensorTests(unittest.TestCase):
 
 
 @unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use gait-training environment")
+class NativeOutputClockTests(unittest.TestCase):
+    """The native P4 output clock continues between host-policy requests."""
+
+    def environment(self, control_hz, physics_hz):
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
+        config = EnvironmentConfig(robot=robot_fixture(), control_hz=control_hz,
+            physics_hz=physics_hz, balance_enabled=False, heading_feedback_enabled=False)
+        env = GaitEnvironment(config, include_assembly=False, include_visuals=False)
+        self.addCleanup(env.close)
+        env.reset(seed=1)
+        executor = env.virtual_body()
+        self.addCleanup(executor.close)
+        executor.reset(0, 1)
+        self.assertEqual(executor.receive(dict(t="welcome", ver=1, epoch=1,
+            profile="home", command_deadline_v1=True), 1, 0), [])
+        command = dict(t="intent", name="walk", seq=1, epoch=1, deadline_ms=10000,
+            dir="fwd", steps=0, speed=30, source="host", twist=[.08,0,0],
+            geometry="compact-35-20-28-38-55-visible-20261005", reference_cd=[0,346,-2163]*4)
+        self.assertEqual(executor.receive(command, 1, 0), [dict(t="ack", seq=1)])
+        return env, executor
+
+    def test_native_frames_and_fresh_sensors_advance_between_33hz_policy_steps(self):
+        import numpy as np
+        from unittest.mock import patch
+        env, executor = self.environment(33, 528)
+        native_tick = executor.tick
+        frames = []
+        def observed_tick(now_us):
+            output = native_tick(now_us)
+            stamp = output["execution"]["sampled_us"]
+            if stamp and (not frames or stamp != frames[-1]["frame_us"]):
+                imu = env.body_model.imu_status(now_us)
+                actual = executor.telemetry(now_us)["data"]["joint_feedback"]
+                sampled_us = [int(1+t*1e6) for t in env.feedback_times]
+                self.assertEqual(actual["sampled_us"], sampled_us)
+                self.assertLessEqual(max(sampled_us), now_us)
+                frames.append(dict(frame_us=stamp, feedback_us=max(sampled_us),
+                                   imu_us=imu["timestamp_us"]))
+            return output
+        with patch.object(executor, "tick", side_effect=observed_tick):
+            for _ in range(4):
+                result, output = env.advance_body(executor, np.zeros(12))
+                self.assertAlmostEqual(env.data.time, env.steps/33)
+                self.assertTrue(frames, "The first 20ms native frame is due within one 33Hz policy interval")
+                self.assertEqual(output["execution"]["sampled_us"], frames[-1]["frame_us"])
+                np.testing.assert_array_equal(env.last_target, output["logical_angles"])
+        # Four inference intervals contain five 20ms P4 frames. The old loop
+        # could run at most one native frame per interval, at ~30.3ms spacing.
+        self.assertGreater(len(frames), 4)
+        spacing = np.diff([frame["frame_us"] for frame in frames])
+        self.assertTrue(np.all(spacing >= 20000))
+        self.assertTrue(np.all(spacing <= 20000+math.ceil(1e6/528)))
+        self.assertTrue(np.all(np.diff([frame["feedback_us"] for frame in frames]) > 0))
+        self.assertTrue(np.all(np.diff([frame["imu_us"] for frame in frames]) > 0))
+        self.assertTrue(all(frame["frame_us"]-frame["feedback_us"] < 20000 for frame in frames))
+
+    def test_mid_interval_stop_receipt_and_disabled_output_survive_later_ticks(self):
+        from unittest.mock import patch
+        env, executor = self.environment(10, 500)
+        native_tick = executor.tick
+        sent = False
+        native_messages = []
+        def stop_between_requests(now_us):
+            nonlocal sent
+            if not sent and now_us >= 40000:
+                sent = True
+                self.assertEqual(executor.receive(dict(t="stop", detach=True,
+                    seq=2, epoch=1, deadline_ms=10000), 1, now_us), [dict(t="ack", seq=2)])
+            output = native_tick(now_us)
+            native_messages.extend(output["messages"])
+            return output
+        with patch.object(executor, "tick", side_effect=stop_between_requests):
+            _, output = env.advance_body(executor)
+        self.assertTrue(sent, "Native execution must continue inside the 100ms host interval")
+        cancellation = dict(t="cancelled", seq=1, code="stop")
+        self.assertEqual(native_messages.count(cancellation), 1)
+        self.assertEqual(output["messages"], native_messages)
+        self.assertEqual(output["messages"].count(cancellation), 1)
+        self.assertFalse(output["joint_enabled"].any())
+        self.assertFalse(env.pwm["enabled"].any())
+        self.assertFalse(env.model.actuator_forcerange.any())
+        _, later = env.advance_body(executor)
+        self.assertEqual(later["messages"], [], "Previously drained receipts must not be replayed")
+
+
+@unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use gait-training environment")
 class TerrainScenarioTests(unittest.TestCase):
     """Explicit robot-scale scenes; no installed-room/material claims."""
 
@@ -995,6 +1081,30 @@ class TerrainScenarioTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["terrain_height_m"],.04,places=10)
         self.assertAlmostEqual(metrics["body_clearance_m"],env.data.qpos[2]-.04,places=10)
 
+    def test_entry_joint_pose_preserves_action_datum_and_standing_height(self):
+        import numpy as np
+        angles = [-17.4851,13.4338,61.3861,-7.73655,-21.2995,-18.7869,
+                  -26.0575,-31.9449,-59.4345,2.65789,-17.1162,4.16494]
+        env = self.environment([dict(id="standing"),
+            dict(id="carpet-entry",start_joint_deg=angles)])
+        reference = list(env.config.reference_joint_deg)
+        env.reset(seed=1,options={"scenario":"standing"})
+        standing_height = env.standing_height
+        env.reset(seed=1,options={"scenario":"carpet-entry"})
+        np.testing.assert_allclose(np.rad2deg(env.data.qpos[env.qadr]), angles)
+        np.testing.assert_allclose(env.last_target, angles)
+        self.assertEqual(env.config.reference_joint_deg, reference)
+        self.assertAlmostEqual(env.standing_height, standing_height, places=10)
+        measured = env.observation()
+        np.testing.assert_allclose(measured["joint_deg"], angles, atol=.15)
+
+    def test_entry_pose_requires_twelve_finite_model_angles(self):
+        from gateway.neural_gait.environment import EnvironmentConfig
+        for angles in ([0]*11, [0]*11+[float("nan")]):
+            with self.assertRaisesRegex(ValueError, "start_joint_deg"):
+                EnvironmentConfig(robot=robot_fixture(),scenarios=[
+                    dict(id="invalid-entry",start_joint_deg=angles)])
+
     def test_far_terrain_is_pruned_without_distance_queries_or_skipping_measurements(self):
         import mujoco
         import numpy as np
@@ -1027,6 +1137,10 @@ class LocomotionRewardTests(unittest.TestCase):
         from gateway.neural_gait.environment import EnvironmentConfig
         self.np = np
         self.config = EnvironmentConfig(robot=robot_fixture(), reward_profile="locomotion")
+        # These regressions isolate the historical exponential tracking and
+        # physical-cost terms. Directed displacement has its own end-to-end
+        # burst/stopped/wrong-direction coverage in test_neural_gait.
+        self.config.locomotion_reward_weights["directed_progress"] = 0.
 
     def score(self, command, measured, **changes):
         from gateway.neural_gait.environment import locomotion_reward
@@ -1056,6 +1170,49 @@ class LocomotionRewardTests(unittest.TestCase):
         moving, _ = self.score([0, 0, 0], [.03, 0, 0])
         self.assertGreater(stopped, moving)
 
+    def test_perfect_tracking_outearns_rest_under_measured_motion_costs(self):
+        """The objective's optimum must be motion, not rest.
+
+        Regression for summed per-axis tracking: a stationary robot collected full
+        credit on every axis the request left at zero, so once measured motion
+        costs were charged, perfect walking scored BELOW standing still and the
+        policy converged to shuffling in place. Zero-cost comparisons cannot catch
+        this, so the costs below are the measured per-second magnitudes from the
+        2026-10-29 checkpoint evaluations of run e43e9966.
+        """
+        from gateway.neural_gait.environment import locomotion_reward
+        np = self.np
+        cfg, hz = self.config, self.config.control_hz
+        upright = 0.984                       # orientation term 0.032/s
+        angular_xy = [0.77, 0.77]             # roll_pitch_velocity 1.18/s
+        slip_sq = 0.00333                     # slip 3.70/s at the 0.03 m width
+        torque = np.full(12, 0.057)           # effort 0.10/s
+        qvel = np.full(12, 1.0)
+        prev_qvel = np.full(12, 1.0 - 1.39)   # joint_acceleration ~5.8e4/s
+        action = np.full(12, 0.246)           # action_change 0.73/s
+
+        def per_second(command, velocity, moving):
+            kw = dict(vertical_velocity=0.,
+                angular_velocity_xy=angular_xy if moving else [0., 0.],
+                joint_velocity=qvel if moving else np.zeros(12),
+                previous_joint_velocity=prev_qvel if moving else np.zeros(12),
+                joint_torque=torque if moving else np.zeros(12),
+                action=action if moving else np.zeros(12),
+                previous_action=np.zeros(12),
+                contact_slip_speed_squared=slip_sq if moving else 0., config=cfg)
+            reward, _ = locomotion_reward(velocity[:2], velocity[2], command,
+                                          upright if moving else 1., 1., **kw)
+            return reward*hz
+
+        # Idle is excluded: zero requested speed is perfectly satisfied by rest.
+        for command in ([.03, 0, 0], [-.03, 0, 0], [0, 0, .4], [0, 0, -.4], [.06, 0, 0]):
+            walking = per_second(command, command, True)
+            resting = per_second(command, [0., 0., 0.], False)
+            self.assertGreater(
+                walking, resting,
+                "perfect tracking must out-earn rest for %s (walk %.4f/s, rest %.4f/s)"
+                % (command, walking, resting))
+
     def test_actual_joint_acceleration_and_slip_cost_without_target_changes(self):
         np = self.np
         command = [.03, 0, 0]
@@ -1072,6 +1229,101 @@ class LocomotionRewardTests(unittest.TestCase):
             joint_velocity=np.ones(12), previous_joint_velocity=np.ones(12),
             contact_slip_speed_squared=.03**2)
         self.assertAlmostEqual(smooth-sliding, .1/self.config.control_hz)
+
+    def test_version_12_terms_default_inert_and_historical_weights_fill_zero(self):
+        from dataclasses import asdict
+        from gateway.neural_gait.environment import EnvironmentConfig, LOCOMOTION_REWARD_WEIGHTS
+        historical = asdict(self.config)
+        # An artifact recorded before version 12 carries neither field nor weight.
+        for name in ("locomotion_tracking_window_s", "locomotion_target_air_time_s"):
+            historical.pop(name, None)
+        historical["locomotion_reward_weights"] = {
+            key: value for key, value in historical["locomotion_reward_weights"].items()
+            if key != "feet_air_time"}
+        restored = EnvironmentConfig(**historical)
+        self.assertEqual(restored.locomotion_tracking_window_s, 0.)
+        self.assertEqual(restored.locomotion_reward_weights["feet_air_time"], 0.)
+        self.assertEqual(set(restored.locomotion_reward_weights), set(LOCOMOTION_REWARD_WEIGHTS))
+        # Filling the published zero default must leave the reward bit-identical,
+        # so a historical run still replays against its recorded evidence.
+        command = measured = [.03, 0, 0]
+        reward, terms = self.score(command, measured, config=restored)
+        self.assertEqual(terms["feet_air_time"], 0.)
+        self.assertEqual(reward, self.score(command, measured)[0])
+        with self.assertRaises(ValueError):
+            EnvironmentConfig(**{**historical, "locomotion_reward_weights":
+                {**historical["locomotion_reward_weights"], "not_a_term": 1.}})
+        with self.assertRaises(ValueError):
+            EnvironmentConfig(**{**historical, "locomotion_tracking_window_s": -.1})
+
+    def test_tracking_window_pays_an_oscillating_gait_that_averages_the_request(self):
+        from dataclasses import replace
+        command = [.03, 0, 0]
+        windowed = replace(self.config, locomotion_tracking_window_s=.2)
+        # A walking body surges within a control step. Scored per step, the narrow
+        # exponential paid an oscillation averaging the request no more than
+        # standing still: 0.01104 either way in the 2026-10-29 measurements. That
+        # is the travel plateau, so the window must not change the rest score.
+        self.assertEqual(self.score(command, [0., 0., 0.], config=windowed,
+                                    pace_velocity=[0., 0., 0.])[0],
+                         self.score(command, [0., 0., 0.])[0])
+        # A step whose instantaneous velocity is the trough of the surge, but whose
+        # window still averages the request, must earn full steady-tracking credit.
+        trough_windowed = self.score(command, [-.03, 0., 0.], config=windowed,
+                                     pace_velocity=command)[0]
+        trough_instant = self.score(command, [-.03, 0., 0.])[0]
+        steady = self.score(command, command)[0]
+        self.assertGreater(trough_windowed, trough_instant)
+        self.assertAlmostEqual(trough_windowed, steady, places=12)
+        # A window that disagrees with the request must still be scored down.
+        wrong = self.score(command, [.03, 0., 0.], config=windowed,
+                           pace_velocity=[-.03, 0., 0.])[0]
+        self.assertLess(wrong, steady)
+
+    def test_feet_air_time_credits_swing_without_paying_hold_or_idle(self):
+        import numpy as np
+        from unittest.mock import patch
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment, SCHEMA
+        down, up = [True]*4, [False]*4
+        diag_a = [True, False, True, False]
+        diag_b = [False, True, False, True]
+        stride = [diag_a]*12 + [diag_b]*12
+
+        def credit(pattern, command, weight=1., steps=48, calls=None):
+            config = EnvironmentConfig(robot=robot_fixture(), reward_profile="locomotion",
+                observation_schema=SCHEMA, episode_seconds=8., command=list(command),
+                locomotion_tracking_window_s=.2, locomotion_target_air_time_s=.25,
+                locomotion_reward_weights=dict(self.config.locomotion_reward_weights,
+                                               feet_air_time=weight))
+            env = GaitEnvironment(config, include_assembly=False, include_visuals=False)
+            self.addCleanup(env.close)
+            env.reset(seed=1)
+            spy = patch.object(env, "foot_measurements",
+                side_effect=[{"contact": list(pattern[i % len(pattern)])}
+                             for i in range(steps + 4)])
+            with spy as mocked:
+                total = sum(env.step(np.zeros(12, dtype=np.float32))[4]
+                            ["reward_components"]["feet_air_time"] for _ in range(steps))
+            if calls is not None:
+                calls.append(mocked.call_count)
+            return total
+
+        standing = credit([down], [.03, 0, 0])
+        held = credit([up], [.03, 0, 0])
+        stepping = credit(stride, [.03, 0, 0])
+        self.assertEqual(standing, 0.)
+        self.assertGreater(stepping, 0.)
+        # Crediting airborne time without the target bound lets a held foot pay
+        # forever; crediting each touchdown instead scales with step count. Both
+        # were measured to beat a real gait, so neither formulation is acceptable.
+        self.assertLess(held, stepping)
+        # An idle request must keep preferring standing, so stepping pays nothing.
+        self.assertEqual(credit(stride, [0., 0., 0.]), 0.)
+        # A zero weight must not query contacts at all: historical replay should
+        # not pay a per-step clearance and contact scan for a term worth nothing.
+        calls = []
+        self.assertEqual(credit(stride, [.03, 0, 0], weight=0., calls=calls), 0.)
+        self.assertEqual(calls, [0])
 
     def test_reward_profile_serializes_and_historical_reward_stays_legacy(self):
         from dataclasses import asdict
@@ -1119,7 +1371,8 @@ class LocomotionRewardTests(unittest.TestCase):
                 supplied = score.call_args.kwargs
                 np.testing.assert_array_equal(supplied["previous_joint_velocity"], initial)
                 np.testing.assert_array_equal(supplied["joint_velocity"], env.data.qvel[env.vadr])
-                self.assertAlmostEqual(reward, sum(value if key.startswith("tracking_") else -value
+                self.assertAlmostEqual(reward, sum(
+                    value if key in environment.REWARD_CREDIT_TERMS else -value
                     for key, value in info["reward_components"].items()))
                 feedback = env.session.connection.last_status["imu"]["joint_feedback"]
                 np.testing.assert_allclose(observation[:12],

@@ -22,7 +22,21 @@ import torch
 
 from .contract import SCHEMA, SCHEMAS, foot_offsets, vector
 from .environment import EnvironmentConfig, body_control_config, ENVIRONMENT_VERSION, POLICY_ENVIRONMENT_VERSIONS, representation_identity
-from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands, training_recipe, requested_commands
+from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands, training_recipe, requested_commands, locomotion_config
+
+
+def evaluation_summary(value):
+    """Dashboard trial measurements; full time series stay in the run artifact."""
+    if not isinstance(value, dict):
+        return value
+    result = dict(value)
+    if "episodes" in result:
+        result["episodes"] = [{key: item for key, item in row.items()
+                               if key != "progress_intervals"} for row in result["episodes"]]
+    for key in ("baseline", "candidate"):
+        if key in result:
+            result[key] = evaluation_summary(result[key])
+    return result
 
 
 class Runtime:
@@ -30,7 +44,7 @@ class Runtime:
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self.device = device
-        self.model = self.model_id = self.environment = None
+        self.model = self.model_id = self.checkpoint_id = self.environment = None
         self.training = self.training_id = None
         self.renders = {}
         self.lock = threading.RLock()
@@ -39,7 +53,8 @@ class Runtime:
         selected = self.directory / "selected.json"
         if selected.exists():
             try:
-                self.load(json.loads(selected.read_text())["model_id"])
+                selection = json.loads(selected.read_text())
+                self.load(selection["model_id"], selection.get("checkpoint_id"))
             except (ValueError, KeyError, OSError) as error:
                 self.selection_error = str(error)
 
@@ -52,107 +67,122 @@ class Runtime:
             raise ValueError("Expected a model/run identifier")
         return self.directory / identifier
 
-    def status(self):
+    def status(self, *, include_runs=True):
+        # Movement admission only needs the selected model contract. Training
+        # history can be large and must neither delay admission nor hold the
+        # inference/selection lock while scanning artifacts.
         with self.lock:
-            runs = []
-            paths = {
-                p.parent: p
-                for pattern in ("*/environment.json", "*/manifest.json")
-                for p in self.directory.glob(pattern)
-            }
-            for path in sorted(
-                paths.values(),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            ):
-                progress = path.with_name("progress.json")
-                value = (
-                    json.loads(progress.read_text())
-                    if progress.exists()
-                    else {"state": "starting"}
-                )
-                value.pop("evaluation", None)
-                manifest_path = path.with_name("manifest.json")
-                manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
-                evaluation = path.with_name("evaluation.json")
-                rendering = self.renders.get(path.parent.name)
-                render_active = False
-                lock_path = path.with_name("render.lock")
-                if lock_path.exists():
-                    with lock_path.open("r") as lock:
-                        try:
-                            fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
-                        except BlockingIOError:
-                            render_active = True
-                checkpoints = path.with_name("checkpoints.json")
-                checkpoint_rows = json.loads(checkpoints.read_text()) if checkpoints.exists() else []
-                for checkpoint in checkpoint_rows:
-                    measured = checkpoint.get("evaluation", {})
-                    if "command_results" not in measured:
-                        measured["command_results"] = summarize_commands(measured.get("episodes", []))
-                video = path.with_name("progress-video.json")
-                if (
-                    path.parent.name == self.training_id
-                    and self.training.poll() not in (None, 0)
-                ):
-                    value.update(state="error", exit_code=self.training.returncode)
-                runs.append(
-                    dict(
-                        id=path.parent.name,
-                        **value,
-                        initialization=manifest.get("initialization"),
-                        recipe=manifest.get("recipe"),
-                        training_device=manifest.get("device"),
-                        simulation_workers=manifest.get("simulation_workers"),
-                        automatic_footage=manifest.get("automatic_footage"),
-                        evaluation=(
-                            json.loads(evaluation.read_text())
-                            if evaluation.exists()
-                            else None
-                        ),
-                        has_policy=path.with_name("policy.zip").exists(),
-                        has_replay=path.with_name("replay.mp4").exists(),
-                        has_footage=any(clip.is_file() and '.tmp.' not in clip.name
-                                       for clip in (path.parent/'clips').glob('*.mp4')),
-                        has_progress_video=path.with_name(
-                            "progress-video.mp4"
-                        ).exists(),
-                        progress_video=(
-                            json.loads(video.read_text()) if video.exists() else None
-                        ),
-                        checkpoints=checkpoint_rows,
-                        rendering=render_active or rendering is not None and rendering.poll() is None,
-                        render_exit_code=rendering.poll() if rendering else None,
-                    )
-                )
-            return dict(
+            training, training_id, renders = self.training, self.training_id, dict(self.renders)
+            result = dict(
                 schema=(self.environment or {}).get("observation_schema", SCHEMA),
-                model_id=self.model_id,
+                model_id=self.model_id, checkpoint_id=self.checkpoint_id,
                 selection_error=self.selection_error,
-                device=self.device,
-                runs=runs,
-                environment=self.environment,
-                defaults=asdict(EnvironmentConfig(execution_backend="body_control")),
-                training_id=self.training_id,
-                training_running=self.training is not None
-                and self.training.poll() is None,
+                device=self.device, environment=self.environment,
+                training_id=training_id,
+                training_running=training is not None and training.poll() is None)
+        if not include_runs:
+            return result
+        runs = []
+        paths = {
+            p.parent: p
+            for pattern in ("*/environment.json", "*/manifest.json")
+            for p in self.directory.glob(pattern)
+        }
+        for path in sorted(
+            paths.values(),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        ):
+            progress = path.with_name("progress.json")
+            value = (
+                json.loads(progress.read_text())
+                if progress.exists()
+                else {"state": "starting"}
             )
+            value.pop("evaluation", None)
+            manifest_path = path.with_name("manifest.json")
+            manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+            evaluation = path.with_name("evaluation.json")
+            rendering = renders.get(path.parent.name)
+            render_active = False
+            lock_path = path.with_name("render.lock")
+            if lock_path.exists():
+                with lock_path.open("r") as lock:
+                    try:
+                        fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        render_active = True
+            checkpoints = path.with_name("checkpoints.json")
+            checkpoint_rows = json.loads(checkpoints.read_text()) if checkpoints.exists() else []
+            for checkpoint in checkpoint_rows:
+                measured = checkpoint.get("evaluation", {})
+                if "command_results" not in measured:
+                    measured["command_results"] = summarize_commands(measured.get("episodes", []))
+                checkpoint["evaluation"] = evaluation_summary(measured)
+            video = path.with_name("progress-video.json")
+            if (
+                path.parent.name == training_id
+                and training.poll() not in (None, 0)
+            ):
+                value.update(state="error", exit_code=training.returncode)
+            runs.append(
+                dict(
+                    id=path.parent.name,
+                    **value,
+                    initialization=manifest.get("initialization"),
+                    recipe=manifest.get("recipe"),
+                    training_device=manifest.get("device"),
+                    simulation_workers=manifest.get("simulation_workers"),
+                    automatic_footage=manifest.get("automatic_footage"),
+                    evaluation=(
+                        evaluation_summary(json.loads(evaluation.read_text()))
+                        if evaluation.exists()
+                        else None
+                    ),
+                    has_policy=path.with_name("policy.zip").exists(),
+                    has_replay=path.with_name("replay.mp4").exists(),
+                    has_footage=any(clip.is_file() and '.tmp.' not in clip.name
+                                   for clip in (path.parent/'clips').glob('*.mp4')),
+                    has_progress_video=path.with_name(
+                        "progress-video.mp4"
+                    ).exists(),
+                    progress_video=(
+                        json.loads(video.read_text()) if video.exists() else None
+                    ),
+                    checkpoints=checkpoint_rows,
+                    rendering=render_active or rendering is not None and rendering.poll() is None,
+                    render_exit_code=rendering.poll() if rendering else None,
+                )
+            )
+        return dict(result, runs=runs,
+                    defaults=asdict(EnvironmentConfig(execution_backend="body_control")))
 
-    def load(self, identifier):
+    def load(self, identifier, checkpoint_id=None):
         path = self.run_path(identifier)
         manifest = json.loads((path / "manifest.json").read_text())
         if (manifest["schema"] not in SCHEMAS or manifest.get("environment_version") not in POLICY_ENVIRONMENT_VERSIONS
                 or manifest.get("representation") != representation_identity()):
             raise ValueError("Checkpoint representation differs from the current robot environment")
-        model = load_policy(path, device=self.device)
+        checkpoint = "policy.zip"
+        if checkpoint_id is not None:
+            # Select a published immutable checkpoint from its existing run;
+            # continuing training must not change the reviewed deployment.
+            rows = json.loads((path / "checkpoints.json").read_text())
+            selected = next((row for row in rows if row["id"] == checkpoint_id), None)
+            if selected is None:
+                raise ValueError("Choose a published checkpoint from this run")
+            checkpoint = selected["policy"]
+        model = load_policy(path, checkpoint, device=self.device)
         with self.lock:
             self.model, self.model_id, self.environment = (
                 model,
                 identifier,
                 manifest["environment"],
             )
+            self.checkpoint_id = checkpoint_id
             self.selection_error = None
-            save_json(self.directory / "selected.json", dict(model_id=identifier))
+            save_json(self.directory / "selected.json",
+                      dict(model_id=identifier, checkpoint_id=checkpoint_id))
         return self.status()
 
     def infer(self, observation):
@@ -167,7 +197,8 @@ class Runtime:
                     "Observation action domain differs from the selected checkpoint"
                 )
             action, _ = self.model.predict(values, deterministic=True)
-            identifier = self.model_id
+            identifier, checkpoint_id = self.model_id, self.checkpoint_id
+            schema = self.environment.get("observation_schema", SCHEMA)
             from .native import BodyModel
             native = BodyModel(self.environment["robot"])
             requested = foot_offsets(action, self.environment["foot_action_scale_mm"])
@@ -178,8 +209,7 @@ class Runtime:
             finally:
                 native.close()
         return dict(
-            schema=self.environment.get("observation_schema", SCHEMA),
-            model_id=identifier,
+            schema=schema, model_id=identifier, checkpoint_id=checkpoint_id,
             action=action.tolist(),
             requested_foot_offset_mm=requested,
             fitted_foot_offset_mm=resolved["applied_offset_mm"].tolist() if resolved else None,
@@ -218,11 +248,19 @@ class Runtime:
             prior = (
                 json.loads((previous / "manifest.json").read_text()) if previous else {}
             )
+            # Inference may run on CPU while the learner uses CUDA. Preserve a
+            # resumed run's device/seed unless the training request changes them.
+            device = payload.get("device", prior.get("requested_device", prior.get("device", self.device)))
+            seed = payload.get("seed", prior.get("seed", 1))
             if previous:
                 policy_algorithm(prior)
             recipe = training_recipe(prior, payload.get("recipe"),
                                      initialize_from=payload.get("initialize_from"))
-            algorithm = policy_algorithm(prior) if previous else ("PPO" if recipe else "SAC")
+            algorithm = "PPO" if recipe else policy_algorithm(prior) if previous else "SAC"
+            value_warmup_steps = payload.get("value_warmup_steps", 0)
+            if (type(value_warmup_steps) is not int or value_warmup_steps < 0
+                    or value_warmup_steps and algorithm != "PPO"):
+                raise ValueError("Value warm-start requires PPO and nonnegative steps")
             if value_learning_rate is not None and algorithm != "PPO":
                 raise ValueError("Separate value learning rate requires PPO")
             if exploration_learning_rate is not None and algorithm != "PPO":
@@ -246,9 +284,9 @@ class Runtime:
             # UI/default requests run through Body Control. Historical replay
             # remains selected by each artifact's recorded backend.
             environment["execution_backend"] = "body_control"
-            if recipe and not previous:
-                environment["reward_profile"] = "locomotion"
             config = body_control_config(EnvironmentConfig(**environment))
+            if recipe and (not previous or payload.get("initialize_from")):
+                config = locomotion_config(config)
             commands = requested_commands(config, payload.get("commands"), prior)
             checkpoint = payload.get("resume_checkpoint", "policy.zip")
             initialize_checkpoint = payload.get("initialize_checkpoint", "policy.zip")
@@ -284,7 +322,9 @@ class Runtime:
                 "--config",
                 str(path / "environment.json"),
                 "--device",
-                self.device,
+                str(device),
+                "--seed",
+                str(seed),
                 "--workers",
                 str(workers),
             ]
@@ -302,6 +342,8 @@ class Runtime:
                 command += ["--action-noise-std", *map(str, action_noise_std)]
             if value_learning_rate is not None:
                 command += ["--value-learning-rate", str(value_learning_rate)]
+            if value_warmup_steps:
+                command += ["--value-warmup-steps", str(value_warmup_steps)]
             if command_units is not None:
                 command += ["--command-units", *map(str, command_units)]
             if checkpoint_every is not None:
@@ -381,7 +423,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             parsed = urlsplit(self.path)
             if parsed.path == "/status":
-                return self.reply(200, self.server.runtime.status())
+                return self.reply(200, self.server.runtime.status(
+                    include_runs=parse_qs(parsed.query).get("history", ["1"])[0] != "0"))
             if parsed.path in ("/replay", "/image", "/progress-video", '/footage'):
                 identifier = parse_qs(parsed.query)["id"][0]
                 path = self.server.runtime.run_path(identifier)
@@ -417,7 +460,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/infer":
                 result = runtime.infer(payload["observation"])
             elif self.path == "/load":
-                result = runtime.load(payload["model_id"])
+                result = runtime.load(payload["model_id"], payload.get("checkpoint_id"))
             elif self.path == "/train":
                 result = runtime.start_training(payload)
             elif self.path == "/render":
