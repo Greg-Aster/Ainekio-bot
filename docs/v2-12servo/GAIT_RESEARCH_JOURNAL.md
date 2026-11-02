@@ -16,7 +16,7 @@ separately. An animation or passing geometry test does not establish traction,
 balance, loaded servo tracking or successful locomotion. Measurements that have
 not been made remain unknown.
 
-## Current position — 2026-10-28
+## Current position — 2026-11-02
 
 The objective is a **neural walking system replacing the unsuccessful walking
 behavior**, initially hosted separately beside Body Control, with possible P4
@@ -26,16 +26,71 @@ and transitions, leveling, fourth-wire feedback, jam handling and slip/fall
 recovery remain required. The existing operator controls and execution ownership
 are inventoried in [WALKING_SYSTEM.md](WALKING_SYSTEM.md).
 
-The full CAD dynamics environment now exists, and small neural policies have
-demonstrated forward displacement in simulation. A slower guided example also
-clears all four boots during steady horizontal swing. **No neural policy has
-been activated on the physical robot, and physical walking is not established.**
-The robot was last confirmed powered off on October 27; its current physical
-state has not been rechecked. See the
-[October 27 progress entry](#2026-10-27--neural-walking-training-guided-steps-and-visible-progress)
-for measured results, failures, videos and remaining work. The
-[October 28 continuation](#2026-10-28--training-handoff-and-optimizer-comparison)
-records the resumed training investigation.
+**The owner reports physical shuddering rather than useful walking. Walking is
+not solved.** The selected experimental checkpoint is now
+`864a364128d4496484cc6034f8e68551/000065536-imitation000564000-round001`
+(564,000 imitation updates plus 65,536 RL transitions), loaded through the
+existing gait service on November 2 at 16:42 UTC. It has sustained simulated
+movement from three starts. A supported trial delivered 488 targets with usable
+feedback, but its joint movement diminished after the first five seconds. The
+first owner-confirmed carpet attempt ended in a firmware crash before any
+neural targets were sent. A later owner-requested 15-second carpet trial
+completed without disconnect, but target movement again diminished sharply
+after five seconds and the vision path supplied no metric distance estimate.
+Useful loaded walking remains unverified. The preceding
+`c2716710e1d64ffba8ca26f1447c9c8b/000065536-imitation000560000` improved CPU
+simulation qualification but failed to sustain a carpet walk: late
+camera-estimated forward speed was about
+0.00035 m/s against 0.03 m/s requested, with nearly static foot targets.
+Continuation `48157f1eaced420fbd651650ca82cf73` completed its 16,384 training
+transitions and evaluation through the existing gait service, CUDA and eight
+Body Control workers, from those retained weights and optimizer. It failed to
+produce sustained walking and was not promoted. Training included a recorded
+entry pose, measured feedback cadence and actual leveling/command-ramp settings. The
+physical speed controls and servo settings have not been changed. See the
+current handoff for the reproduced entry-pose failure and remaining transfer gaps.
+
+The subsequent source-grounded audit found and repaired two simulator/data defects:
+the native P4 was ticked only at host inference cadence, and the current teacher
+generator disabled CAD assembly contacts/inertia while claiming full CAD physics.
+Environment v14 keeps the native output owner running between host requests and
+the teacher now uses the same assembled plant as training. An unchanged retained
+reference went from backward to forward travel in matched tests; the preceding
+neural actor still failed sustained motion from the recorded entry posture. These
+are simulation repairs, not a claim that physical walking is solved. The subsequent
+corrective-data run `864a364128d4496484cc6034f8e68551` sustained forward progress
+through three 30-second tests, including the reserved stopped posture. It remains
+below the requested speed and drifts sideways; it is now selected for physical
+comparison. A short PPO continuation completed 4,096 new RL transitions
+on November 2; its final checkpoint regressed in matched compact tests.
+The saved intermediate checkpoint improves the standing start but worsens
+heading from the other two recorded starts; the earlier corrective-data
+candidate remains selected. The first November 2 carpet attempt was cancelled by
+disconnect; its retained crash places the fault in wake-word inference context.
+The owner confirmed another task owns that repair, then explicitly requested
+running the walking test while it was still in progress. That second trial
+completed with recorded Finish/done and Release receipts and all twelve outputs
+zero. It does not establish that the intermittent firmware crash is repaired.
+The trial recorder is off. The two immediate gait findings are diminished late
+targets and absent metric vision observations; see the latest physical result.
+Do not change or flash the other task's wake-word firmware.
+See the
+[verified correction and next learning batch](#verified-walking-correction).
+
+Current policies consume fourth-wire joint position/velocity and IMU
+orientation/gyro/acceleration, noisy camera/depth and sensor history. The first
+multisensor training round completed; physical walking remains unqualified.
+The owner confirmed that the saved Blender camera object's position and direction
+match the installed camera. Its body transform is now saved through Body Control;
+live camera odometry reports body velocity, path and yaw with timestamps/quality.
+Metric distance still needs physical validation. Model-estimated camera distance
+must not be described as calibrated physical distance.
+
+**Continue from the [walking-system plan](#walking-system-plan), not from whichever
+historical experiment appears last.** It records the ordered stages, research
+basis, current implementation, known failed approaches and next handoff. Forward
+walking from sensor feedback is the current task. Turn, speed and terrain/recovery
+curricula follow a working walk; their existing software interfaces remain intact.
 
 ## Original problem tracker — recorded 2026-10-12 after owner clarification
 
@@ -9738,17 +9793,39 @@ coefficients, geometry, limits, balance, command units and the observation schem
 are unchanged. No new controller, runtime wait or movement rule was added.
 
 **Throughput was measured rather than assumed.** Stepping the Body Control backend
-end to end with run `2300c113`'s `environment.json` on this four-core host
-(40 vector steps per point, `OMP_NUM_THREADS=1`): 1 worker 48 transitions/s,
-2 → 86, 4 → 119, 8 → 151, 16 → 165. Throughput saturates by eight workers;
-sixteen buys ~9% more for twice the processes and resident memory while
-oversubscribing four cores. `--workers 8` is the recommendation, and the stopped
-run's `--workers 16` is not repeated. The ceiling is physics plus native-executor
-cost per control step, not the learner. At ~151 transitions/s, the 1e8
-transitions this recipe class reports would take about 7.7 days, so that sample
-budget remains unreachable here; raising worker count does not change it. GPU
-physics batching would, and still requires preserving the closed linkage and
-executor semantics.
+end to end with run `2300c113`'s `environment.json` (40 vector steps per point,
+`OMP_NUM_THREADS=1`): 1 worker 48 transitions/s, 2 → 86, 4 → 119, 8 → 151,
+16 → 165. Parallel efficiency falls 89% → 62% → 39% → 21% across those points, so
+total throughput rises only slowly while per-worker yield collapses.
+
+This host is an i9-9900K with **8 physical cores / 16 logical CPUs and 62 GiB**,
+not the four cores an earlier reading of `nproc` suggested: `nproc` reports 4 here
+because it honours `OMP_NUM_THREADS`, while `nproc --all` reports 16 and the
+affinity mask is 0-15. That correction matters, because the worker-count ceiling is
+**not** CPU saturation. During the live run the host was **84% CPU-idle** at load
+average 2.9, and the RTX 4080 drew 44 W of its 320 W limit at 18% utilization.
+
+The actual ceiling is the synchronous `SubprocVecEnv` barrier. One worker alone
+costs 25.4 ms per control step (10 MuJoCo substeps at 500 Hz plus the native P4
+closed-linkage solve), about 39 transitions/s. Inside an 8-worker pool each worker
+completes only ~18 steps/s at ~53% CPU duty, while the learner's main process
+consumes **10% of a single core** and blocks in `unix_stream_data_wait`. Both sides
+idle, so each cycle is gated by the slowest contact-rich step: cycle cost tracks the
+maximum worker step time rather than the mean, which is why efficiency decays with
+worker count even on an idle machine. Explicitly ruled out: the per-step `info`
+payload (1.1 KiB pickled), progress writes (throttled to every 2 s in `_on_step`),
+thread contention (2 threads per worker) and learner cost (<1% of wall time, which
+is why GPU utilization is irrelevant here).
+
+`--workers 16` is therefore the recommendation for a single run — it gives the best
+measured total, and the earlier reasoning that sixteen oversubscribes the host was
+based on the incorrect core count and is withdrawn. At ~165 transitions/s the 1e8
+transitions this recipe class reports would still take about 7 days, so that budget
+remains unreachable in this architecture. Speeding it up requires removing the
+barrier or the per-step physics cost, not adding workers: GPU-batched physics (MJX),
+fewer physics substeps per control step, or the `direct` execution backend. Each
+trades simulation fidelity against the Body Control executor contract and so is
+left as an owner decision rather than applied here.
 
 Four regression tests were added to the maintained suite covering the transition
 budget across worker counts, that a rollout resize preserves the model's
@@ -9768,3 +9845,1675 @@ this host when CUDA is visible and pass with it hidden; they construct a policy
 with SB3's automatic device selection and then pass CPU tensors to it. They are
 byte-identical to `HEAD`, are unrelated to this repair, and are recorded here as a
 pre-existing baseline failure rather than silently worked around.
+
+
+### Locomotion objective optimum was non-motion — October 29
+
+After the optimizer repair produced a healthy trust region (run `e43e9966`,
+resumed from `c91bf5c0` checkpoint 655360 at `learning_rate` 1e-4: 4.70 epochs per
+rollout of 5, median `approx_kl` 0.0266 against the 0.12 break threshold, 6.3% of
+rollouts over it, `explained_variance` 0.948), travel still did not improve. That
+run was stopped by operator request at 981,312 total transitions with checkpoints
+655360/786432/917504 retained. The remaining cause is the objective, not the
+optimizer.
+
+**Perfect walking scored below standing still.** Pricing both with the owner's own
+`locomotion_reward`, the saved reward weights and the *measured* motion costs
+recovered from `e43e9966`'s checkpoint evaluations: standing still earns
+**+1.047/s** at essentially zero cost, while perfect command tracking pays the
+measured costs and nets **+0.828/s** — a margin of **-0.219/s**. The reward's
+optimum was non-motion, so the policy was converging correctly toward shuffling in
+place. This matches every prior observation: `mean_reward` improving while travel
+regressed to zero, `measured_yaw_rate_rad_s` pinned near 0.04-0.08 regardless of a
++/-0.4 rad/s request, forward travel stuck at +4 mm/s, and zero falls or jams in
+every run because nothing moved enough to fail.
+
+**Structural cause.** `tracking_linear` and `tracking_yaw` were separate Gaussians
+that were *summed*, so a stationary robot collected full credit on every axis the
+request left at zero. Four of the six training requests have a zero axis: both turn
+commands have zero linear, and idle has both zero. Idle paid the most of all
+(**+1.500/s**) for doing nothing, which is correct in isolation — zero requested
+speed is perfectly satisfied by rest — but as one sixth of every batch it dragged
+the shared policy toward stillness.
+
+**A coupling landmine, and a proposal withdrawn.** `slip` is normalized by
+`locomotion_tracking_width_m_s**2` (`environment.py:169`). Narrowing the tracking
+width to sharpen tracking therefore inflates the slip penalty by the square: at
+width 0.010 instead of 0.030, slip costs 9x more. An initial candidate table that
+held measured costs fixed recommended narrowing to 0.010 with coupled tracking;
+modeling the coupling showed that candidate would have driven perfect walking to
+**-2.480/s**, three times worse than the defect it was meant to fix. It is
+withdrawn. Any future width change must rescale the slip weight by
+`(new_width/0.030)**2` to hold the physical penalty constant, or give slip its own
+normalization constant. Slip is already about 60% of measured motion cost
+(0.370 of ~0.618 per second), which is itself evidence of foot shuffling; reducing
+its weight to buy margin would reward exactly the behavior to eliminate.
+
+**The repair.** `ENVIRONMENT_VERSION` 10 → 11 (added to
+`POLICY_ENVIRONMENT_VERSIONS` so both new and historical artifacts stay loadable).
+`locomotion_reward` now couples the two tracking terms into one product,
+`(w_linear + w_yaw) * exp(-linear_error^2) * exp(-yaw_error^2) * support`, so every
+commanded axis must be tracked to earn any tracking credit. Both component keys
+still report the shared coupled value, preserving the documented invariant that
+their signed sum equals total reward. Tracking widths, all reward weights,
+geometry, observations, actions and command units are **unchanged**; per-axis
+tracking quality remains observable through recorded measured velocity and yaw
+rate per request.
+
+Priced with the same measured costs, the coupled objective gives standing still
++0.702/s against walking +0.828/s, a margin of **+0.126/s** overall and
+**+0.272/s** across the five locomotion requests. The turn requests have the
+thinnest margin (+0.070/s) because their zero linear axis previously paid the most.
+
+**Coverage.** A new maintained test,
+`LocomotionRewardTests.test_perfect_tracking_outearns_rest_under_measured_motion_costs`,
+asserts perfect tracking out-earns rest for every non-idle request using the
+measured per-second cost magnitudes. Zero-cost comparisons cannot catch this
+defect, which is why the pre-existing idealized tracking test passed throughout.
+Verified to have teeth by re-pricing the same cases against a reconstruction of the
+previous summed reward: **4 of 5 commands fail under the old objective, 0 of 5
+under the coupled one**. The existing exact-value assertions (`correct *
+control_hz == 1.5`, stationary linear term `exp(-0.25)`) still hold.
+
+**Not established.** No policy has been trained under version11. The measured costs
+come from a shuffling policy, so a genuine gait that slips less per unit of travel
+would earn more than the +0.828/s modeled here; the candidate ranking is sound but
+the absolute margins are a bound. A positive analytic margin does not establish
+that PPO finds the gait. Because reward accounting changed, training starts fresh
+rather than resuming weights shaped by the previous objective. The idle request is
+omitted from the initial training command set and should be reintroduced later for
+stop/settle behavior. Runtime and physical qualification remain unestablished.
+
+
+### Route A: DAgger refinement of the existing walking policy — October 29
+
+The coupled-reward PPO run `a55eb253` was stopped by operator request at 410,256
+transitions. Its four checkpoints are retained. Optimizer health was confirmed
+good (4.97 epochs per rollout of 5, median `approx_kl` 0.033, `clip_fraction`
+0.257, `explained_variance` 0.781), so the failure was reachability, not
+optimization: across checkpoints 131072/262144/393216 mean reward per second was
+-2.354 / -3.188 / -2.765 against a **-0.873 standing-still baseline**, and forward
+travel went -2.7 / -3.6 / **-8.2 mm/s**. Exploration never sharpened (`std`
+0.5048 after 410k transitions, initialized at 0.5), and maximum joint tracking
+error reached 220 degrees. PPO could not find a coordinated gait from a random
+initialization inside this landscape.
+
+Investigation then established that **a working walking policy already existed in
+this repository**, and that the last two days of PPO work had been attempting to
+reproduce it from scratch without demonstrations. Run
+`4844fa3392fa4ca4b4376deac3794ead` (SAC, `ainekio-neural-gait-v3`,
+environment version 7, legacy reward profile, `execution_backend: direct`, single
+request `[0.08, 0, 0]`) was produced by DAgger behavior cloning of a guided
+foot-trajectory teacher. Re-evaluating its selected round-6 checkpoint through the
+maintained `evaluate()` owner at 60 s and seed 1000 reproduced the recorded result
+**exactly**: forward 0.0164 m/s, displacement 0.9832 m, lateral 0.0779 m,
+`minimum_upright` 0.9916, no falls, no jams. Only `reward` differed (678.12
+recorded, 104.32 now) because reward accounting changed between environment
+versions 7 and 11; physics and policy output are unchanged. A 60 s episode cost
+27.9 s wall on the `direct` backend (2.15x realtime, ~108 control steps/s single
+worker) against ~39 steps/s under `body_control`.
+
+**Teacher selection was the lever.** Of the twenty `speed-curriculum` guided
+candidates, only two carry the valid `recommended_cycle_rows` that
+`--demonstration-cycles` requires: `speed-curriculum-p3-s40-x0-y20` (0.235 m in
+16 s = 14.7 mm/s, maximum normalized action **1.000**, saturated) and
+`speed-curriculum-p2.5-s40-x0-y16-z12` (0.313 m in 16 s = **19.5 mm/s**, maximum
+normalized action **0.833**, unsaturated, mean horizontal-swing contact fraction
+0.143 against 0.178). The original run used the first. Saturated teacher labels
+cannot express how far past the bound the intended motion was, so the unsaturated
+candidate is the better cloning target on both speed and headroom.
+
+Run `1e4e1870c9244506b28c30f5f5405ab3` repeated the proven aggregation
+(`--steps 0 --demonstration-cycles --updates-per-round 15000`, default eight-round
+`expert_mix`, seed 1, CUDA) from the round-6 actor with only the teacher changed.
+It completed in about **seven minutes**. All nine round evaluations had zero falls
+and zero jams; round 6 was selected at **+21.2 mm/s** with reward +57.54, against
+-22.06 at round 0.
+
+Matched 60 s re-evaluation, seed 1000, `direct` backend, v3 schema:
+
+| metric | Oct 27 source | new DAgger | change |
+| --- | --- | --- | --- |
+| forward | 16.40 mm/s | **20.96 mm/s** | **+27.8%** |
+| displacement x | 0.9832 m | **1.2573 m** | +27.9% |
+| abs lateral drift | 0.0779 m | **0.0308 m** | 60% straighter |
+| `minimum_upright` | 0.9916 | 0.9766 | -1.5% |
+| falls / jams | 0 / 0 | 0 / 0 | unchanged |
+
+The inefficiency the owner identified is measured directly by
+`foot_contact_fraction`: mean **0.7629 -> 0.7117**, with front-left improving
+0.7227 -> 0.6047 and front-right 0.7047 -> 0.6510, so the feet spend more of the
+cycle in swing rather than dragging. Mean peak lower-leg clearance was essentially
+flat (15.70 -> 15.12 mm), so the gain is less ground contact during swing, not a
+higher lift. The student now exceeds its 19.5 mm/s teacher.
+
+**Not established.** `simulation_only` on the `direct` backend: the native P4
+executor is not in the loop, and no physical qualification is implied. One
+deterministic reference trial at seed 1000 with configured randomization and noise
+at zero, so there is no robustness evidence. Travel is 20.96 mm/s against a
+commanded 80 mm/s — **26% of the request** — so command tracking remains poor even
+though motion is reliable. Forward-only; reverse and turn requests are untrained
+here. `minimum_upright` fell to 0.9766 (about 12 degrees), a small stability cost
+for the speed gain. This path uses the v3 schema and legacy reward, so the version11
+coupled `locomotion_reward` is not exercised by it.
+
+**A contract constraint worth recording:** `resume_environment_changes` permits the
+`direct` -> `body_control` migration only for PPO, so this SAC policy cannot be
+resumed into the Body Control executor through the supported path. Extending Route
+A toward executor fidelity needs either that allowance for SAC or a PPO cloning
+path, and `fit_actor` / `calibrate_exploration` / `prepare_imitation_sac` are all
+SAC-only today (`model.actor`, `model.actor.optimizer`), while `load_policy`
+requires GaitPPO for the history schema. The two stacks are mutually exclusive as
+written.
+
+Demonstration inventory for the next step: ten guided candidates carry valid cycle
+rows across five request directions — forward `[0.08,0,0]` (3), reverse
+`[-0.015,0,0]` (3) and `[-0.02,0,0]` (1), turns `[0,0,0.12]` (1) and `[0,0,-0.12]`
+(1), plus `[0.015,0,0]` (1). All 84 guided `.npz` files load with
+`allow_pickle=False`; 46 validate as demonstrations under this configuration. The
+script that generated them is not in maintained source, so new teachers would have
+to be regenerated, though `Slave/software/models/v2-12servo/walk_kinematics.c` is a
+maintained non-neural walking owner that could serve as a durable teacher source.
+
+
+### SAC RL refinement of the BC gait fails structurally — October 30
+
+Step 1 of Route A attempted SAC reinforcement learning on top of the 20.96 mm/s
+behavior-cloned policy from run `1e4e1870`. It was run twice and **failed both
+times, at learning rates 30x apart**, which rules out step size as the cause.
+
+`--initialize-from` is the correct entry point rather than `--resume`: aggregation
+runs never call `save_replay`, so a resume would start SAC with an empty buffer.
+`--initialize-from` copies the actor (including `log_std`) and entropy coefficient,
+then runs `prepare_imitation_sac`, which calibrates exploration and primes replay.
+Both runs reported `handoff.json` `state: ready`, 6,400 primed transitions across
+8 workers, 8 episodes, **0 falls**, `initial_alpha` 1.72e-4, and
+`selected_training_states` 5,600 — the demonstration prefix was correctly trimmed
+to what the selected round was actually trained on.
+
+Compact 16 s evaluations, same seed and configuration (BC start +21.2 mm/s,
+reward +57.54, `minimum_upright` 0.9901):
+
+| RL steps | default LR (run `683af0d3`) | LR 1e-5 (run `82643a31`) |
+| --- | --- | --- |
+| 5,000 | — | **-88.8 mm/s**, reward -1117.15, upright 0.9726 |
+| 10,000 | **-47.8 mm/s**, reward -728.46, upright 0.9152 | -4.1 mm/s, reward -650.00, upright 0.9431 |
+| 15,000 | — | -10.7 mm/s, reward -386.64, upright 0.8305 |
+| 20,000 | — | +11.5 mm/s, reward -281.19, upright 0.9172 |
+
+The gait was destroyed within 5,000 steps in both cases. Lowering the rate 30x
+delayed and softened the collapse but did not prevent it, and 20,000 steps of
+recovery only reached +11.5 mm/s at reward -281 — still far below the +21.2 mm/s
+and +57.54 it started from. No falls or jams were recorded; the policy degraded
+into costly non-progress rather than failing catastrophically.
+
+**Cause.** `initialize_model` transfers actor parameters only. Its provenance
+records `critic_parameters_loaded: false`, `target_critic_parameters_loaded:
+false`, `replay_loaded: false`, `optimizer_state_loaded: false`. SAC therefore
+drove a well-cloned actor with a **randomly initialized critic**, and did so with
+20,000 gradient steps at batch 256 — 5.12M samples drawn from a buffer of roughly
+26,400 transitions, about **194 passes over the same data**. The actor followed
+confidently wrong value estimates straight out of the cloned gait. This is a
+structural property of the handoff, not a tuning error.
+
+**Why the CLI cannot fix it.** The two levers that would address it are both
+restricted to PPO by explicit guard: `--value-learning-rate` raises "Separate
+value learning rate requires PPO" (`training.py:1679`) and `--action-noise-std`
+raises "Action exploration requires twelve positive PPO standard deviations"
+(`training.py:252`). `GaitPPOPolicy.configure_value_learning` and
+`configure_exploration_learning` build the asymmetric actor/value/exploration
+parameter groups that a fast-critic/slow-actor warmup needs, and SAC's separate
+`model.actor` / `model.critic` optimizers are not wired to them. That leaves
+`--learning-rate` as SAC's only knob, and the evidence above shows it is
+insufficient. A correct repair needs either a critic warmup phase with the actor
+frozen, demonstration retention in the critic loss (DDPGfD-style residual), or
+asymmetric actor/value rates extended to SAC — all code changes requiring explicit
+owner authorization, and none attempted here.
+
+**Artifact warning.** Both RL runs completed and each **selected its own final RL
+checkpoint** (`82643a31` selected `000020000-imitation000130000`), because
+selection compares rounds within a run and has no knowledge of the initialization
+source. Their `policy.zip` files are therefore *degraded* policies, and
+`82643a31/policy.zip` is 1,718,534 bytes (SAC actor plus critic and optimizer
+state) against the good BC policy's 1,085,401. The verified 20.96 mm/s gait
+remains **`build/neural-gait/1e4e1870c9244506b28c30f5f5405ab3/policy.zip`** and is
+untouched. Neither RL run should be promoted, rendered as a candidate, or used as
+an initialization source.
+
+Established: BC/DAgger improves this gait and SAC RL refinement destroys it under
+the current handoff. Not established: any improvement from reinforcement learning,
+and nothing physical. Route A step 2 (multi-command demonstration aggregation) is
+unaffected by this result, since it is imitation-only.
+
+
+### Route A step 2: multi-command DAgger produces a command-responsive gait — October 30
+
+Run `3db8d1f49b464e99b8889242f168fd14` repeated the proven aggregation from the
+20.96 mm/s BC actor in `1e4e1870`, changing only the demonstration set: five
+teachers spanning forward, two reverse speeds and both turn directions, with
+`--steps 0 --demonstration-cycles --updates-per-round 15000`, the default
+eight-round `expert_mix`, seed 1, CUDA and 8 workers. It completed in about
+fourteen minutes with **zero falls and zero jams in all nine rounds**, selecting
+round 8 at 260,000 total imitation updates.
+
+Six of the guided candidates carry valid `recommended_cycle_rows` and cover five
+request directions. One was rejected by `load_demonstrations` —
+`forward-v0.015-existing-balance.npz` was recorded with `balance_enabled: true`
+against this configuration's `false`, so it does not share the environment
+contract. The five used were `speed-curriculum-p2.5-s40-x0-y16-z12` (forward),
+`twist-reverse-p2.5-v0.02-y16`, `twist-reverse-p3-v0.015-y16`,
+`twist-turn-left-p3-w0.12-y8` and `twist-turn-right-p2.5-w0.12-y10`.
+
+Selected round 8, compact 16 s evaluation per request:
+
+| request | forward | measured yaw | asked yaw | tracking |
+| --- | --- | --- | --- | --- |
+| `[0.08, 0, 0]` | **+19.2 mm/s** | -0.008 | 0 | straight |
+| `[-0.02, 0, 0]` | **-15.6 mm/s** | -0.005 | 0 | 78% of request |
+| `[-0.015, 0, 0]` | **-12.2 mm/s** | -0.006 | 0 | 81% of request |
+| `[0, 0, 0.12]` | +0.0 mm/s | **+0.089** | +0.120 | 74% of request |
+| `[0, 0, -0.12]` | +0.8 mm/s | **-0.115** | -0.120 | 96% of request |
+
+Mean reward rose -639.61 -> -305.30 -> -196.27 -> -348.41 -> -18.58 -> -41.25 ->
++50.08 -> +56.78 -> **+60.67**. Per-request reward per second at round 8: turn
+right +18.92, turn left +12.08, forward +2.73, reverse -4.11 and -10.67. The
+final candidate evaluation reports aggregate forward -1.6 mm/s against a
+-0.2 mm/s standing reference; that aggregate is not meaningful here because it
+averages forward and reverse requests, and the per-request rows above are the
+correct reading.
+
+Forward speed cost 21.2 -> 19.2 mm/s, about 9%, in exchange for correct-sign
+reverse and both turn directions. That is a favourable trade, and the policy is
+now command-responsive rather than forward-only.
+
+**A methodology error worth recording.** At round 3 the per-request readings
+showed forward +20.2 mm/s but reverse lost (-0.1 mm/s against a -15 mm/s request)
+and left turn at +0.005 rad/s against +0.120 asked, which read as failure. It was
+not. `expert_mix` decays across rounds (0.7, 0.5, 0.35, 0.2, 0.1, 0, 0, 0), so
+rounds 0-4 are partly expert-driven and rounds 5-8 are the policy alone. Command
+responsiveness only appeared once the mixture reached zero. **DAgger rounds must
+not be judged before `expert_mix` reaches zero**, and an early-round reading is
+not evidence about the converged policy.
+
+**Not established.** `simulation_only` on the `direct` backend, so the native P4
+executor is not in the loop and nothing physical is qualified. One deterministic
+reference trial per request at seed 1000 with randomization and sensor noise at
+zero, so there is no robustness evidence. Absolute speed tracking remains poor:
+19.2 mm/s against an 80 mm/s request is 24%. Reverse still scores negative reward
+and its episodes showed `minimum_upright` near 0.95 against 0.987 forward. The
+turn and reverse teachers were themselves weak — `minimum_upright` 0.957-0.964 and
+mean horizontal-swing contact fraction 0.33-0.41, against 0.9886 and 0.143 for the
+forward teacher — so cloning quality is bounded by them. The script that generated
+the guided teachers is still not in maintained source; regenerating better turn
+and reverse teachers needs either that generator rebuilt or
+`Slave/software/models/v2-12servo/walk_kinematics.c` adapted as a durable teacher.
+
+Current best artifacts, both simulation-only on the `direct` backend:
+forward-only `1e4e1870c9244506b28c30f5f5405ab3/policy.zip` at 20.96 mm/s over
+60 s, and command-responsive `3db8d1f49b464e99b8889242f168fd14/policy.zip`. The
+two degraded SAC RL runs `683af0d3` and `82643a31` must not be promoted or used
+as initialization sources.
+
+
+### Environment version 12: windowed tracking and swing credit — October 30
+
+Owner-authorized diagnosis of the travel plateau, then implementation of the two
+reward changes it identified. Both are opt-in and inert at their defaults.
+
+**The plateau was a reward-landscape defect, not an optimizer defect.** Runs
+`c91bf5c0` and `e43e9966` both recorded `environment_version` **10**, so both were
+trained with the two tracking terms summed separately. Under that objective a
+robot that never rotated collected full `tracking_yaw` credit for free on the four
+of six training requests whose yaw axis was zero. Measured at checkpoint 917504:
+the idle request `[0,0,0]` was the **only** one of six with positive net reward
+(+0.0010/step), and every locomotion request was net-negative. Foot motion had
+decayed to 6.6 mm RMS — 22% of the available ±30 mm foot-action range — and to
+1.61 mm in the degraded tail of `c91bf5c0`. Forward travel peaked at +4 mm/s at
+655,360 and returned to 0 while `mean_reward` improved fivefold from -26.1 to
+-4.8, because the improvement came from cutting slip (0.0119 to 0.0064/step) and
+`roll_pitch_velocity` (0.0018 to 0.0009). The policy learned to be still and
+stable. This is direct evidence that `mean_reward` is not a proxy for travel here.
+
+A concurrent agent had already coupled the two tracking terms into one product at
+21:45 on October 29 — **after** both runs ended at 21:27 — raising
+`ENVIRONMENT_VERSION` to 11. That fix strengthens the incentive to move by 1.5x on
+linear requests and 3.0x on yaw requests. It was not present in either run
+analyzed above, so their rewards are not comparable to anything trained under v11
+or later.
+
+Coupling alone does not remove the plateau. The tracking width is 0.03 m/s, equal
+to the request itself, so `exp(-error^2)` punishes the within-step surge of a real
+gait severely. Scoring the measured patterns at checkpoint 917504, an oscillation
+that still **averages** the requested 30 mm/s earned 0.01104/step — exactly what
+standing still earned (0.01104), against 0.03000 for steady tracking. A gait
+oscillating between -30 and +90 mm/s earned 0.00055. Version 12 adds
+`locomotion_tracking_window_s`, which scores a short window of the pace velocity
+the environment already accumulates in `reward_twists` instead of a single control
+step. At a 0.2 s window both oscillating patterns earn the full 0.03000 while
+standing still still earns 0.01104, restoring the +0.019 progress incentive
+without weakening the rest score. The window defaults to 0.0, meaning the single
+control step, which is the version 11 behaviour.
+
+`feet_air_time` was added to `LOCOMOTION_REWARD_WEIGHTS` at 0.0. Nothing in the
+existing objective rewards lifting a foot, so the cheapest way to reduce the
+dominant slip cost (58% of all costs, implying 53.7 mm/s of foot slip against a
+30 mm/s body request) is to stop stepping. The credit is the fraction of feet in a
+valid swing — off the ground and not yet past `locomotion_target_air_time_s` —
+gated by the same normalized request magnitude the travel reward uses, so an idle
+request still prefers standing.
+
+**Two earlier formulations of the swing credit were measured and rejected.**
+Crediting airborne time per step without the target bound let a policy out-earn a
+real gait by holding all four feet off the ground, which scored the highest net
+reward in the comparison (+0.05000 against +0.03500 for rhythmic stepping).
+Crediting each touchdown proportionally to the completed swing removed that
+exploit but made the total scale with touchdown count, so 0.04 s shuffling scored
+0.18560 against 0.15360 for 0.24 s strides. Bounding the credit to the swing state
+satisfies both: standing pays 0, held-up feet pay 0.240 against 0.600 for a real
+stride, and idle gating is exactly 0. Discriminating stride length is left to the
+tracking term, which is the term that can actually see the body move.
+
+**Backward compatibility was verified, not assumed.** Loading the recorded
+`environment.json` from `e43e9966` — ten weight keys, neither new field — fills
+`feet_air_time` to 0.0 and `locomotion_tracking_window_s` to 0.0, and the reward
+matches the pre-version-12 formula bit-for-bit across randomized trials. The
+weight validation was relaxed from exact set equality to rejecting unknown keys
+and filling absent ones from the published defaults, because exact equality would
+have made every artifact recorded before version 12 fail to load. Sign convention
+moved from a `tracking_` name prefix to an explicit `REWARD_CREDIT_TERMS` set,
+since a credit must not be inferred from spelling; one test assertion that encoded
+the old prefix rule was updated to the set.
+
+**Cost was measured.** On the direct backend the window adds 0.036 ms per control
+step and the contact query adds 0.231 ms (+9.1% of 2.548 ms). Against the
+`body_control` training path's 25.4 ms per control step that is 0.91%, so the
+throughput ceiling documented on October 29 is unchanged. The contact query is
+skipped entirely when the weight is zero, so historical replay pays nothing; a
+test asserts `foot_measurements` is never called in that case.
+
+`resume_environment_changes` and the initialization task-change set both accept the
+two new fields. Three tests were added to `LocomotionRewardTests`. The maintained
+neural/sensor/gateway/adapter suites ran 193 tests with one error:
+`test_environment_adapter` imports `cv2`, which is absent from the test
+interpreter. That is the pre-existing gap already recorded on October 29, not a
+regression from this change. With the documented neural/sensor/gateway command and
+CUDA hidden, all tests pass.
+
+**Not established:** any improvement in travel. No training run was started under
+version 12, no checkpoint was promoted, and no physical behavior was tested. The
+weights and window length used here are a reasoned first probe, not a tuned
+result; `feet_air_time` at 1.0 with a 0.2 s window has not been trained.
+
+**This entry reverses the October 29 recommendation to resume from checkpoint
+917504.** That checkpoint was shaped by version 10, whose separate tracking terms
+rewarded standing still, and version 11's own note says a policy shaped by the
+earlier objective should be retrained rather than resumed. Resuming it into
+version 12 would start from a policy sitting in the optimum the new terms exist to
+escape. A fresh version-12 run is the defensible choice; the 917504 weights remain
+on disk as evidence and as a possible warm start only if the owner accepts that
+trade explicitly.
+
+## 2026-11-01 — Replay through Body Control and continued connected training
+
+Owner requested preparation for physical trials and continued training. The
+October 30 DAgger actor `16fa88334085443e9a3e8b2a90808b72` was evaluated through
+`BodyControlEnvironment`, which uses the real gateway WebSocket and native P4
+executor against simulated hardware. No physical robot was commanded, flashed,
+or switched to a different policy.
+
+The matched five-command, 16-second-per-command replay had no falls or rejected
+targets. Forward achieved 0.02245 m/s for a 0.08 m/s request; reverse achieved
+-0.02055 and -0.01348 m/s for -0.02 and -0.015 requests. Left yaw achieved only
+0.02078 rad/s for 0.12 requested, versus right yaw -0.11319 for -0.12 requested.
+These results expose an execution-transfer gap: the direct simulator previously
+reported forward 0.02782 m/s and left yaw 0.12775 rad/s. They do not establish
+physical readiness or blame a specific physical component.
+
+Evidence is under ignored `build/neural-gait/trials/20261101-body-control/`.
+The five existing demonstration action sequences were executed again through
+Body Control to collect fresh observations, with source hashes retained. All
+completed without rejected targets; the left-turn teacher rotated 1.591 radians
+in 16 seconds. Historical direct observations were not relabeled as connected
+observations. The teacher remains authored guidance, not a learned recovery or
+physical measurement.
+
+The existing weights-only initializer now allows the explicit direct-to-Body
+Control transition using `body_control_config`, retaining actor weights while
+recording execution changes and discarding replay/optimizer state. Other
+calibration/geometry/configuration mismatches remain subject to its existing
+compatibility contract. No new controller or runtime restriction was added.
+The maintained transfer test verifies identical actor outputs, empty replay and
+optimizer state, and rejection of an unrelated mass change. Together with
+virtual gateway, connected training, native feedback/Finish/Release and trial
+recorder checks, 38 focused tests passed.
+
+Run `868eae65a0ff462cb920d5a4401d0f6a` continues the selected 360,000-update actor
+on CUDA, with 32-second episodes, five commands and fresh Body Control/P4
+observations. It schedules 5,000 initial plus five 10,000-update DAgger rounds;
+this is imitation updating, not 55,000 new reinforcement-learning transitions.
+The existing checkpoint selection and initial/final comparison renderer remain
+responsible for publication. This entry records launch, not a completed result.
+`continuation.json` in the trial directory records the exact command and PID.
+
+The first collection attempt revealed integer rounding in the virtual adapter's
+SI-to-percent conversion: -0.015 m/s under the 0.08 m/s profile became -19%
+instead of -18.75%, breaking the teacher's command identity. The wire contract
+already accepts fractional percentages. Removing that rounding preserves the
+request without changing the protocol, physical controller or model. The existing
+real-socket deterministic rollout/update test now exercises that fractional case;
+the connected suite and the exact new case pass. The attempt failed before any
+actor updates/checkpoints, so it was restarted in the same run directory, with
+the failure retained in `continuation.json` rather than creating a duplicate run.
+The baseline figures above preceded this percentage-encoding correction.
+
+The next attempt collected its first dataset and fit 5,000 updates, then failed
+at checkpoint evaluation because DAgger still held its collection environment's
+process-singleton native P4 executor. The existing aggregation owner now closes
+the completed collection environment before evaluation and creates a fresh one
+for the next round's already-required episode resets. It also publishes collection
+progress before fitting. A maintained two-round Body Control DAgger test completes
+collection, fitting, checkpoint evaluation and final publication; the existing
+direct curriculum/continuation test also passes. This fixes resource ownership,
+not a delay or retry around the failure.
+
+The unpublished failed checkpoint was not activated or consumed by another run.
+Its hash and failure traceback are retained in `continuation.json`; its unused
+checkpoint and intermediate dataset were removed before relaunching the same run
+from the original 360,000-update actor. The five connected demonstration sources
+remain intact. No failed-run duplicate model directory was created.
+
+Physical recording uses the existing `gateway.gait_trials` owner, including
+fourth-wire feedback, IMU/status, camera, receipts and supported device trace.
+The gateway README now gives the supervised neural-trial procedure. Installed
+calibration, actual sensor health, network latency, loaded foot clearance and
+physical Stop/Release still require checking on the assembled robot. Production
+model selection remains unchanged. Slip-event production and autonomous walking
+resumption after recovery are not established by these flat-floor trials.
+
+
+### Guided-teacher generator rebuilt; forward request found infeasible — November 1
+
+Owner-authorized continuation of the DAgger workstream after `3db8d1f4` finished at
+00:25 on October 30. No source outside `Master/gateway/neural_gait/teachers.py` and
+its tests was changed; nothing was promoted and no physical action was taken.
+
+**Run `16fa88334085443e9a3e8b2a90808b72` completed at 16:00 on October 30** with the
+five regenerated teachers, initialized from `3db8d1f4`, nine rounds, 390,000 total
+imitation updates, environment version 12, `direct` backend, CUDA, 8 workers. It
+selected round 6 at 360,000 updates. Zero falls. Every axis improved over
+`3db8d1f4`:
+
+| request | `3db8d1f4` | `16fa8833` | tracking |
+| --- | --- | --- | --- |
+| forward 80 mm/s | +19.2 | **+27.8** | 24% → 35% |
+| reverse −20 mm/s | −15.6 | **−22.2** | 78% → 111% |
+| reverse −15 mm/s | −12.2 | **−18.3** | 81% → 122% |
+| yaw +0.12 rad/s | +0.089 | **+0.128** | 74% → 106% |
+| yaw −0.12 rad/s | −0.115 | **−0.148** | 96% → 123% |
+
+`mean_reward` rose +60.67 → +179.27. The student matched or exceeded every teacher
+(93%, 131%, 127%, 104%, 121%), so **DAgger had saturated this teacher set**; further
+rounds on the same demonstrations could not help. That is the same conclusion the
+October 30 entry reached from the other direction, and it is why the work moved to
+the teachers rather than to more imitation.
+
+**The owner's observation was correct and is explained by measurement.** The gait's
+lateral offset is a *global* body sway: all four legs share one `y` value at each
+instant, with a spread across legs of **0.073 mm**. In the selected forward teacher
+that sway is ±16 mm (32 mm peak-to-peak) against a 56 mm fore-aft stride, so the
+sideways motion is **57% of the stride** and the hip/shoulder servos do move in
+unison right-to-left. It is load-bearing, not cosmetic: `order` [0.75, 0.25, 0.5, 0]
+with 75% stance duty is a **crawl** gait, always three legs down, and the centre of
+mass must shift over that tripod before the fourth leg lifts. Reducing `lean_y` from
+16 to 12 mm lowered forward speed (29.8 → 27.8 mm/s) and `min_upright` (0.9894 →
+0.9782) together. So this is the most *stable* style available to an open-loop
+teacher with `balance_enabled: false`, not the most efficient one; the sway performs
+no forward work. The efficient alternative is a trot (diagonal pairs, 50% duty),
+which needs dynamic balance and is a gait-family change, not a training continuation.
+The visible unsteadiness is inherent: per-second forward speed had stdev 6.2 mm/s on
+a 27.8 mm/s mean and body height bobbed 5.66 mm peak-to-peak at a 2.0 s cycle.
+
+**The generator was rebuilt as `Master/gateway/neural_gait/teachers.py`.** The
+original script was never in maintained source; a filesystem-wide search for its
+recorded `teacher_generator_source_sha256`
+(`c0f21556…`) found no match, so the model was recovered from the recordings
+themselves: `offset(t) = ramp(t) · waveform(phase(t))`, `ramp = min(1, t/(period·hz))`
+applied over the first cycle only, stance 75% with `x` sweeping `+stride/2 →
+−stride/2` linearly, swing 25% carrying the lift, and `recommended_cycle_rows`
+`[3·period·hz, 4·period·hz]`. `--verify` reproduces the forward and both reverse
+references with **0.000000 mm** error over all 800 steps and all three axes.
+
+**Two defects were caught only by measurement and are now pinned by tests.**
+
+1. A single pooled waveform reproduced the straight-line references exactly but was
+   off by **12–18 mm** on both turn references. Turning gaits are left/right
+   asymmetric. Rendering turns from the pooled model produced **no yaw at all — and
+   negative yaw for a left turn** (−7% of request). Per-leg phase-indexed tables
+   fixed it: turn error fell to 0.158 mm and 0.123 mm, and regenerated turns then
+   achieved **+0.123 rad/s (103%)** and **−0.122 rad/s (102%)** against ±0.12
+   requests, better than the version-7 originals' 63% and 90%. Raw residuals are
+   recorded as measured; **physical contact invariance at that residual is not
+   demonstrated**, and the 0.5 mm reporting tolerance is a diagnostic label only.
+2. `--period` never reached the renderer, which read the cycle length from the
+   recovered waveform. The first sweep consequently reported one identical speed
+   (19.3 mm/s) for periods 2.5, 2.0, 1.6 and 1.25.
+
+A third error was in a throwaway sweep script, not the module: a hardcoded
+`--lean-y 16` made three candidates identical. It was discarded and re-run.
+
+**The 80 mm/s forward request is not achievable in this gait family.** Sweeping
+period 2.0 → 0.6 s at stride 56 and 60 showed speed does **not** follow
+`stride/period`: it peaks near 1.0 s and collapses below (0.6 s gives 12.1 mm/s).
+The reason is measured, not inferred — `requested_offset_mm` equals
+`fitted_offset_mm` with tracking error **exactly 0.000 mm** at every cadence, with
+zero jams and zero target rejections, so the closed linkage and servos follow every
+commanded foot target perfectly. **Traction is the limit:** mean
+`contact_slip_squared` rises **10.6×** (0.0027 → 0.0284 m²/s²) from period 2.0 to
+0.6 s while the fraction of the ideal `stride/period` speed actually realized falls
+from **106% to 13%**. The feet do what they are told and skid during stance.
+
+Interior optima were found on every axis: period **1.0 s**, lift **22 mm**
+(l20 29.8, l22 34.7, l24 31.5, l28 25.2 at p1.0), `lean_y` **16 mm**, stride **56**
+(60 saturates the envelope at `max|action|` 1.000). The lower-lift hypothesis was
+wrong and is recorded as such: lift 8 mm at period 1.0 drove the robot **backward**
+(−6.7 mm/s), so the loss is swing-phase drag, not touchdown impact. Best forward
+teacher is **34.7 mm/s sustained**, `min_upright` 0.9928, `max|action|` 0.933
+unsaturated. It is not a 16 s artifact — over 48 s it holds 33.9 mm/s with per-4 s
+windows +31…+38 and stdev 2.5. Since `randomization` and all sensor noise are 0, the
+simulator is deterministic and seed variation cannot test this; duration was the
+available robustness axis, and there is still **no robustness evidence**.
+
+**The forward request was therefore relabelled to its measured capability.** A
+teacher generated at `--command 0.034` achieves 34.7 mm/s = **102% of request**.
+Run `dcab08dcec4c4d1e942f3c7e67267588` was launched from `16fa8833` with that teacher
+plus the four unchanged reverse/turn teachers, `direct` backend, 8 workers, CUDA,
+15,000 updates per round. This changes the training contract's forward command and
+is recorded here because it makes `mean_reward` and tracking percentages incomparable
+with every earlier run that used 0.08.
+
+**A concurrent agent's `body_control` attempt is recorded because its failures are
+load-bearing constraints.** `build/neural-gait/trials/20261101-body-control` launched
+run `868eae65a0ff462cb920d5a4401d0f6a` at 13:38 from the same `16fa8833` source and
+the same five teachers, on the production executor with 1 worker. It failed twice in
+82 s — `"No teacher cycle for the observed command"`, then
+**`RuntimeError: The production P4 executor is a process singleton`** at
+`native.py:555` via `environment.py:1112 virtual_body()` during checkpoint evaluation
+inside `connected_environment._reset`. That constraint means a second virtual body
+cannot exist while the collection executor is alive, so `body_control` cannot be
+parallelized in-process; its recorded workaround was closing the collection executor
+before evaluation. The process was then left signal-stopped (`STAT=Tsl`,
+`WCHAN=do_signal_stop`) for 70 minutes with no owning agent running, holding 276 MiB
+of GPU memory, having produced zero checkpoints and a 0-byte optimization log. It was
+terminated with the owner's explicit approval, and its `continuation.json` failure
+record was preserved.
+
+That run did produce one useful independent measurement: it re-ran the five teachers
+through the **`body_control`** backend, confirming they are not `direct`-backend
+artifacts. Forward retained 80% (29.8 → 24.0 mm/s), reverse 109% and 96%, turns 81%
+and 112%.
+
+Five tests were added as `GuidedTeacherTests` in `Emulator/tests/test_neural_gait.py`,
+using synthesized waveforms so they do not depend on the gitignored `build/` tree:
+exact reconstruction including the startup ramp, per-leg asymmetry preservation,
+requested-period re-timing, action-envelope rejection before any simulator is
+constructed, and `recommended_cycle_rows` matching the values the original generator
+recorded. All five pass in 1.16 s.
+
+**Not established at the time of writing.** Run `dcab08dc` was still aggregating; its
+first three rounds are **not** evidence about the converged policy, because the
+default `expert_mix` [0.7, 0.5, 0.35, 0.2, 0.1, 0, 0, 0] means rounds 0–4 are partly
+expert-driven and command responsiveness only appears once the mixture reaches zero —
+the methodology error already recorded on October 30. For the record, round 2 read
+forward +35.6 mm/s (105%), reverse −23.1 (115%) and −18.8 (125%), yaw +0.115 (96%)
+and −0.145 (121%), zero falls. Everything remains `simulation_only` on the `direct`
+backend: the native P4 executor is not in the loop, no checkpoint was promoted, the
+service selection is unchanged, and no physical behavior was tested.
+
+## 2026-11-01 — Refine the moving DAgger model through the installed software path
+
+The owner asked to keep the useful movement learned by `dcab08dc`, refine it and
+make it work with the current system. This stage continues that actor's selected
+460,000-update weights. It does not restart the unsuccessful fresh PPO work.
+
+**Measured transfer before training.** The current actor was evaluated through
+`BodyControlEnvironment`, the real gateway WebSocket and native P4 executor with
+fourth-wire and IMU observations. All five 16-second trials completed without
+falls, jam frames or rejected targets. Forward at 0.034 m/s achieved 0.02308 m/s,
+0.369 m forward and -0.110 m lateral displacement, with -0.201 rad heading change.
+The same actor's direct replay had -0.900 rad heading change. Turns through Body
+Control reached +0.12049 and -0.11471 rad/s for +/-0.12 requests. This is virtual
+hardware qualification, not a physical robot trial.
+
+The saved physical Body Control profile for `ainekio-p4-e6ebe5` already selects
+Neural, with 0.03 m/s linear and 0.3 rad/s yaw scales. The inference service still
+selects `35be5800`. Testing those actual configured requests exposed additional
+training gaps: forward 0.03 achieved 0.01918 m/s; reverse -0.03 achieved -0.02451;
+yaw +/-0.3 achieved +0.18458/-0.11009; forward 0.015 achieved only 0.00597 m/s.
+The scales were read, not changed to make the model's tracking percentage improve.
+
+**Training guidance was refined in nominal foot coordinates.** Four experiments
+reduced the fore/aft sweep on one side of the existing forward teacher; no horn
+pulses, joint calibration, runtime controller or gait phase requirements changed.
+The best measured case reduced the right-side sweep by 20% and achieved 0.528 m
+forward, -0.058 m lateral and -0.040 rad yaw over 16 seconds, without a fall or
+rejected target. These are authored guidance results, not new-model performance.
+The action envelope was preserved by reducing rather than extending the sweep.
+Current-profile examples add forward 0.03/0.015, reverse -0.03 and yaw +/-0.3.
+Retimed turn guidance measured +5.193/-5.736 rad across 16 seconds; slower-forward
+guidance measured 0.280 m at the 0.015 m/s request. Neither is claimed perfect.
+The existing reverse and +/-0.12 examples remain in the curriculum.
+
+**The existing teacher owner was repaired.** `teachers.generate` previously
+constructed `GaitEnvironment` even when its configuration said `body_control`.
+It now uses the existing `make_environment` factory. `build_config` preserves the
+consuming run's tracking-window, air-time and reward settings, instead of silently
+removing them. Recorded nominal requests are distinguished from solver fits;
+native P4 fits not exposed by this interface remain NaN rather than fabricated
+zero errors. The final next-observation and truncation flag now retain the actual
+last transition. Two maintained teacher tests cover real Body Control generation,
+unknown-fit evidence, final transition and configuration preservation; all seven
+teacher tests pass. Fourteen connected-training/transfer checks also pass.
+
+Run `d0f3ea8678cf43ed8d7b9bbac7c08cb8` uses CUDA and the Body Control backend with
+ten command examples. It schedules 5,000 initial plus two 10,000-update DAgger
+rounds, initialized from `dcab08dc`; old direct replay and optimizer state are not
+reused. This entry records the start, not a completed improvement. The existing
+checkpoint/evaluation/video owners remain responsible for its artifacts.
+Evidence and the exact launch receipt are under ignored
+`build/neural-gait/trials/20261101-current-model/`.
+
+No physical movement, firmware activation or production model selection was
+performed in this stage. Loaded calibration, servo feedback health, real network
+latency and foot contact still require assembled-robot trials. Automatic slip
+production and walking-goal resumption after recovery remain separate unfinished
+capabilities; the present refinement does not claim to have completed them.
+
+<a id="walking-system-plan"></a>
+
+## Walking-system implementation plan — 2026-11-01
+
+### Owner's objective and stage order
+
+Build a **walking system learned from the actual robot's observations and
+outcomes**, initially hosted beside Body Control on the computer/Q6A. This is not
+an exercise in reproducing a hand-written foot cycle with a neural network.
+Successful walking means the physical body advances while supporting itself,
+without merely shuddering, dragging its feet or continually stalling.
+
+First establish sustained forward walking on a level surface using servo
+feedback, the LSM6DS3 gyro/accelerometer and the camera/vision/depth observations.
+Once walking works, add turning, deliberate faster/slower requests, then slopes,
+terrain, trips, stuck-leg and fall recovery. Keeping the heading during a forward
+walk is part of walking; it does not require a separate turning curriculum first.
+Do not run these as competing training objectives before forward walking works.
+Existing commands, Stop/Release, calibration, leveling, jam reporting and goal
+ownership must keep functioning throughout.
+
+The moving imitation models and their data are starting assets, not a final
+controller design or a prescribed gait. Preserve learned useful movement.
+Do not restart from random weights just because another agent takes over.
+Do not train a fixed slow crawl as the definition of full-speed capability.
+The local AGENTS.md speed requirements apply: use the supported actuator
+capability, retain deliberate owner controls, and do not add hidden throttles,
+shortened motion or smaller targets to inflate performance reports.
+
+### Research basis and specific adaptations
+
+Primary sources rechecked on November 1:
+
+- [MuJoCo Playground](https://playground.mujoco.org/) and its
+  [Go1 position-target locomotion implementation](https://github.com/google-deepmind/mujoco_playground/blob/main/mujoco_playground/_src/locomotion/go1/joystick.py):
+  reuse established actor/critic locomotion training, noisy sensor observations,
+  progress/tracking objectives and staged flat-ground learning. Its Go1 motors,
+  action scales, rewards and GPU environment counts are not Ainekio parameters.
+- [ETH Learning to Walk in Minutes](https://leggedrobotics.github.io/legged_gym/):
+  use the demonstrated separation of task reward, physical dynamics and curriculum,
+  with meaningful measured locomotion and subsequent physical transfer. The
+  published minutes-to-train figures depend on thousands of GPU environments;
+  they are not a timing promise for this native-P4/closed-linkage simulator.
+- [Reinforcement Learning on Cost-Constrained Quadrupedal Hardware](https://arxiv.org/html/2607.26434v2)
+  (2026 Mini Pupper study): low-cost position-servos require measured response and
+  transport delay, and temporal observations can matter. Its deployed controller
+  replaces much of the hardware joint feedback with synthetic estimates and uses
+  command scaling/filtering. **Do not copy those choices over Ainekio's working
+  fourth-wire feedback or treat its servo parameters as this robot's measurements.**
+  The evidence motivates actuator identification and temporal context; it does
+  not prove a particular network architecture will work on Ainekio.
+
+- [Tan et al., RSS 2018](https://www.roboticsproceedings.org/rss14/p10.pdf):
+  system identification, actuator dynamics and latency are central to transfer.
+  Reference guidance can initialize useful motion. Applied here: the P4 clock
+  must remain independent of inference, and commanded ramp speed must remain
+  distinct from the motor speed/torque envelope. Do not change the physical
+  configuration to make an old simulation result reappear.
+- [Peng et al., RSS 2020](https://www.roboticsproceedings.org/rss16/p064.pdf):
+  reference motions can seed learned quadruped skills, followed by adaptation.
+  Applied here: reuse this robot's measured-in-simulation successful trajectories
+  and retained actor, then optimize the task. This paper's Laikago results do not
+  establish Ainekio performance, nor authorize copying its actuator parameters.
+- [Ross, Gordon and Bagnell, AISTATS 2011](https://arxiv.org/abs/1011.0686):
+  imitation errors change the future observations the learner encounters. DAgger
+  collects labels on learner-visited states instead of repeatedly fitting only
+  successful expert rollouts. Applied here: use the existing aggregation owner
+  for corrective examples, preserving successful motion as rehearsal. This is
+  an algorithmic basis, not physical proof on this robot.
+
+Implementation direction: use the existing maintained PPO locomotion owner and
+its timestamped sensor-history support, with a tested transfer of the useful
+moving actor. Reuse the existing simulator and robot execution path. This is an
+adaptation of established locomotion methods to this mechanism, not a new gait
+controller or a wholesale replacement with another robot's model. A recurrent
+architecture is an option only if measured history/delay evidence warrants it;
+do not start another architecture experiment merely because a paper used LSTM.
+
+### One production command and observation path
+
+`MetaHuman/manual request -> GatewayService/NeuralWalk -> selected gait service
+-> existing walk_target protocol -> P4 body motion owner -> calibrated PCA9685
+output -> twelve servos -> acquired fourth-wire and LSM6DS3 telemetry -> gateway
+sensor projection -> policy`. Body Control/native-P4 virtual execution must use
+this same path against the physics plant. The camera/depth worker supplies its
+existing asynchronous measurements; it is not a second movement controller.
+
+MetaHuman/the existing task owner selects goals and decides arrival. The gait
+policy produces body movement toward the requested task. A policy does not own
+a new global task queue, fixed cycle count, inference timeout or recovery manager.
+P4 retains physical output, existing leveling, target mapping and jam reporting.
+Host learning does not require installing the neural network on the P4.
+
+| Evidence/input | Existing owner and use | Required qualification |
+| --- | --- | --- |
+| Twelve shaft positions, velocities, targets, acquisition times and health | P4 feedback acquisition/filter; GatewayService.body_sensor_observation; neural client/contract | Physical mapping, timing and measured response, not commanded angles presented as measurements |
+| LSM6DS3 orientation, angular velocity and acceleration | Existing P4 estimator and telemetry projection | Mounting axes, gyro bias, sensor ages; relative yaw for turn/heading progress |
+| Camera and MoGe-2 depth/landmark tracking | Existing CameraFramePlugin and depth_motion worker | Frame/epoch/reference identity, camera intrinsics/mounting, variable inference latency and unavailable observations |
+| Body travel and visual yaw | Existing camera odometry/measurement owner | Body-origin lever arm, estimated scale versus independently measured distance, reference resets and tracking loss |
+| Joint limits, linkage, body geometry, mass and actuator settings | V2 geometry/calibration/native executor and simulator configuration | 650 g; 35/20/28/38/55 mm linkage; recorded per-device calibration; advertised speed versus measured loaded dynamics |
+| Task result and learning record | Existing command receipts, gait_trials and task owners | Original request, actual trajectory, model/build/calibration, completion/cancellation and operator assessment |
+
+No foot-force sensor, motor-current sensor or perfect body velocity may be
+invented as an actor input. Simulated ground truth can support reward and a
+privileged critic; the deployed actor must receive only observations the real
+system supplies, with availability and timing evidence. The accelerometer alone
+is not reliable metric distance. MoGe distance is an estimate until its scale is
+checked against an external reference.
+
+### Stage 1 — Reconcile and measure the robot/control contract
+
+1. Read this plan, ROBOT_BIBLE.md, SYSTEM_ARCHITECTURE.md, WALKING_SYSTEM.md and
+   the relevant dated failures before modifying the trainer. Inspect current
+   service selection and running processes rather than trusting stale JSON states.
+2. Read installed calibration, sensor channels/axes, motion settings and firmware
+   capabilities through existing owners. Preserve calibration-independent model
+   coordinates. Record unmeasured servo torque, loaded speed, friction and mass
+   distribution as uncertainties rather than tuning them until a video looks good.
+3. Measure command-to-PWM, command-to-shaft response, ADC scan/sample age and
+   host/network timing. Fit the existing actuator model to those measurements.
+   Use the advertised 60 degrees / 0.11 s (about 545.45 degrees/s) as its supported
+   no-load speed baseline, not a low artificial software cap. Do not confuse
+   that ceiling with the actual motion produced by tiny incremental targets.
+4. Derive the camera-to-body transform from the saved Wireless scene and the
+   owner's confirmed installed mounting. The body reference used by the current
+   simulator is CAD [0,0,65] mm. Keep the source file/object and owner confirmation
+   in evidence. Apply calibration through the existing depth settings owner.
+5. Validate the entire sensor projection while the robot is stationary and during
+   explicitly supervised motion. Frame age/quality must stay visible; existing
+   asynchronous sensing continues without adding a global camera/IMU wait.
+
+Output: an identified robot/configuration and synchronized sensor/actuator evidence.
+This stage supports walking; sensor bring-up alone is not completion of the task.
+
+### Stage 2 — Complete the multisensor learning interface
+
+1. Keep all twelve joint observations, LSM6DS3 observations and consumed previous
+   actions. Reuse existing timestamped history (v5) for the temporal information
+   that servo and network delay require; do not add a competing history owner.
+2. Extend the existing camera projection so visual velocity is not discarded when
+   depth is projected. Derive velocity/distance/yaw at the existing odometry owner,
+   with proper mounting lever arm and clock/reference boundaries. Tracking loss is
+   unknown movement, not a zero-distance success. Depth validity is independent
+   of odometry validity.
+3. Preserve the moving actor's function during any input/algorithm handoff.
+   Copy retained weights, initialize added sensor columns neutrally, and verify
+   deterministic outputs on saved observations before training. New dimensions
+   must receive gradients and survive save/load and service inference.
+4. The virtual robot must supply these same observations through Body Control.
+   Camera cadence, noise, scale uncertainty, latency and tracking loss are explicit
+   sensor-model assumptions. A raycast/noisy pose sensor model is not a claim that
+   MoGe ran on rendered images or that physical distance has been calibrated.
+
+Output: one matched virtual/physical observation contract, with meaningful tests
+in the maintained suite. Having extra input slots is not evidence the model
+has learned to use them.
+
+### Stage 3 — Learn forward walking from outcomes
+
+1. Preserve the useful moving checkpoint as the baseline. Use imitation only for
+   initialization/rehearsal, not as the final learning objective or a mandatory
+   step order, stance fraction, oscillator, foot cycle or arbitrary joint waveform.
+2. Use the published PPO locomotion approach through the existing training owner,
+   retaining the moving actor during transfer. Initialize/train the value function
+   without first destroying that actor. A critic-only optimization phase is a
+   training operation, not a runtime wait or restriction on robot operation.
+3. Address the journal's recorded optimizer/reward failures before another long
+   run. In particular, do not resume the known failed cold-critic SAC handoff or
+   repeat imitation indefinitely and call that feedback-based locomotion learning.
+4. Start with one forward-walking task on flat ground. Retain the earlier 0.08 m/s
+   request as a performance objective, not a measured hardware maximum. Do not
+   relabel it to 0.034/0.03 merely because the teacher walks slowly. Reward genuine
+   directed progress and support, distinguishing standing, shuddering, slip and
+   backward drift from useful travel. Confirm with baseline comparisons that the
+   reward actually prefers walking. Do not demand one hand-authored leg pattern.
+5. Permit the full supported actuator capability within the robot's real geometry
+   and calibration contract. Audit action envelopes rather than assuming a teacher's
+   chosen stride is a physical limit. Necessary joint coordination and actual
+   mechanical constraints stay with their current owners; no hidden slowdown layer.
+6. Resume checkpoints with source/data/configuration and optimizer provenance.
+   Log improvements per training batch and use measured outcome changes to select
+   the next correction. Do not restart from scratch, generate redundant rollouts
+   or rerun the same failed setup without a specific supported change.
+
+Output: a policy that produces sustained forward walking from sensor feedback,
+not simply low imitation error or a higher aggregate reward.
+
+### Stage 4 — Demonstrate transfer and useful walking
+
+1. Evaluate the retained baseline and candidate on the same requests/configuration,
+   including longer 30–60 s simulation windows and representative sensor/timing
+   variation. These are test windows, not new physical command timeouts.
+2. Report body progress, lateral drift, heading, support/foot clearance, actual
+   shaft tracking/speed, stalls and later-interval motion. Averages must not hide
+   walking briefly and then stopping or going backward. Inspect a meaningful video
+   and telemetry together; keep labelled/clean footage for the owner's review.
+3. Run recorded physical trials through normal Body Control with the owner aware
+   of the robot's placement. Use an external floor reference/video to cross-check
+   visual distance and IMU turn estimates. Existing Stop/Release/Finish and event
+   ownership must work. Do not add blanket stops, automatic restrictions or silent
+   native fallback as part of qualification.
+4. Feed the observed mismatch back into the actuator/sensor/environment/training
+   component responsible for it. The owner may try an experimental prototype;
+   these evidence milestones are not new runtime admission gates. Do not present
+   deployment or an animation as proof of a physical walk.
+
+Output: owner-observed useful forward walking, with the corresponding saved robot
+outputs and sensor evidence. Only then begin the next behaviour curriculum.
+
+### Stage 5 — Extend the working walking system
+
+After forward walking: turning/heading targets, speed-up/slow-down and transitions,
+then terrain/slopes, trips, stuck-leg and fall recovery. Reuse the working policy,
+existing body events, Freestyle recovery handoff and goal execution. Each stage
+retains regression coverage for the earlier physical walk. The command interfaces
+are preserved from the start, but they are not all simultaneous training tasks.
+
+<a id="verified-walking-correction"></a>
+
+### Verified correction and next learning batch — November 1
+
+The owner requested a researched plan and an observed correction before another
+long run. No hardware was moved or flashed during this audit. The prior carpet
+placement is not a current authorization to assume the robot is on the floor.
+
+1. **Repair the actual execution model — done.** `advance_body` used to call
+   `VirtualBody.tick` once per policy action and hold PWM throughout the following
+   physics interval. At 33 Hz inference that forced native output to 30.3 ms,
+   even though firmware `body.c` owns 20 ms output frames independently of the
+   host. Version 14 ticks that same executor during physics substeps, retaining
+   fresh acquired sensors and all receipts. There is no new controller, output
+   speed cap or synthetic sensor. At 528 Hz physics the native frame has less
+   than one 1.9 ms integration-step timing quantization.
+2. **Repair the demonstration producer — done.** `teachers.generate` no longer
+   passes `include_assembly=False`. Its physical plant now contains the actual
+   CAD collision geometry and mass distribution, while rendering meshes remain
+   optional. Reference reconstruction uses the source metadata's sample rate
+   instead of hardcoding 50 Hz. Historical data stays as evidence; do not treat
+   an old “full CAD physics” label alone as proof of its producer settings.
+3. **Compare preserved assets under identical conditions — done, table below.**
+   Use saved calibration, 2000 degrees/s command ramp, advertised 545.45 degrees/s
+   motor capability, actual leveling targets, 33 Hz host, 1 fps camera timing,
+   650 g and existing linkage. Tests used one forward 0.03 m/s request, 16 seconds,
+   seed 1000, Stand and the first fully usable recorded entry pose. Earlier v3
+   actors cannot consume camera features; their comparisons omit those features
+   while keeping the same physical plant. None of these tests proves carpet
+   friction or loaded motor dynamics have been identified.
+4. **Rehearse useful motion in the retained actor, then test independently.**
+   Fresh native-P4/full-CAD reference recordings preserve the existing 1-second,
+   56 mm sweep / 22 mm lift trajectory. They are learning starting points, not a
+   mandatory gait, runtime oscillator or declared full-speed achievement. Extend
+   the existing actor fitting owner to the retained PPO actor rather than creating
+   a second learner or reverting to a sensor-poorer model. Keep value/exploration
+   parameters and the original checkpoint intact. Verify loss reduction, retained
+   optimizer, save/load and held-out closed-loop motion. Reject a stationary
+   candidate even if its fitting loss improves.
+   Plain PPO rehearsal alone failed across starting conditions. The existing
+   `aggregate` path now retains PPO artifact identity and collects labels on its
+   visited states alongside successful examples from every configured scenario.
+   The obsolete SAC-only restriction was removed. The source generator can select
+   and record an explicit scenario within the consuming multi-scenario contract;
+   historical metadata was not rewritten to bypass `load_demonstrations`.
+5. **Only then run a short PPO improvement batch through the existing gait service.**
+   Retain the sensor/history actor, actual settings and task progress objective.
+   Compare against the retained actor and moving reference from Stand, recorded
+   entry and the reserved stopped pose. Report last-interval forward travel,
+   heading, support, joint tracking and stalls alongside total reward. The first
+   batch must preserve useful motion before increasing training duration. Do not
+   deploy based on imitation error, uprightness or an attractive video. Longer
+   qualification and supervised physical transfer follow demonstrated improvement;
+   the robot's command interfaces acquire no new admission gates or timeouts.
+
+Matched simulation results (mm/s; last 5 seconds in parentheses):
+
+| Retained asset | Entry, old simulator | Entry, v14 | Stand, old simulator | Stand, v14 |
+| --- | ---: | ---: | ---: | ---: |
+| Recorded forward reference, same targets | -35.19 (-35.55) | 12.77 (15.22) | -30.49 (-29.12) | 15.78 (25.10) |
+| dcab moving SAC actor | -13.62 (-18.81) | -2.21 (-6.70) | -18.48 (-22.56) | -1.18 (-3.83) |
+| 6b05 Body Control SAC actor | 2.55 (-0.11) | 8.98 (1.87) | 1.61 (-0.06) | 5.19 (-0.07) |
+| Selected c271 / 65536 PPO actor | 2.93 (-4.94) | 1.34 (-0.98) | 4.82 (2.91) | 13.16 (13.65) |
+
+No case fell. That is not evidence of successful walking: the entry policy still
+stops. The largest joint tracking errors include entry transients, and jam
+protection was disabled in the saved robot configuration, so zero jam flags
+cannot establish absence of mechanical stalls. The verified target remains
+0.03 m/s for this comparison; the measured lower speeds are not relabelled as
+meeting it, and the broader 0.08 m/s objective remains.
+
+Evidence is under `build/neural-gait/trials/20261101-multisensor-forward/`:
+`retained-actual-*.json` precedes the timing repair; `retained-v14-*.json` is the
+matched replay. `verified-reference/{carpet-entry,standing}.{npz,json}` contains
+fresh sensor/action recordings from the corrected generator, including its
+original one-cycle entry easing. Those recordings achieved 11.06 / 12.80 mm/s
+whole-trial forward speed and 19.34 / 15.07 mm/s over their final five seconds.
+They are not duplicates of the steady-cycle comparison, which begins directly
+at the retained cycle. Keep these measured distinctions explicit.
+
+The stationary-reference evaluator now reuses only seed-independent physical
+trials. Neural policies and varied physical/joint/IMU/request-timing cases remain
+independent. Every requested row retains its seed and explicit reuse attribution;
+reports include actual simulated/reused counts. A short replay of the 48157
+configuration required four rather than 32 physical simulations: 4.35 seconds
+versus 17.99 seconds, with every result metric identical. This removes measured
+waste without weakening candidate evaluation or pretending repeated rows are
+independent evidence.
+
+#### Short rehearsal result and exact next handoff
+
+The existing `fit_actor` / `imitate` owner now supports the retained v5 PPO actor
+through its own deterministic action distribution and optimizer. No new trainer
+was added. Value/exploration parameters, their optimizer moments, observation
+normalization and prior checkpoint remain unchanged. Explicitly requested
+learning rates are applied before rehearsal rather than only on a later RL step.
+The existing direct single-environment count is represented correctly on resume.
+The subsequent DAgger correction below extends the same aggregation owner to
+PPO rather than resetting the model to SAC.
+
+A bounded proof used 528 new entry-state rows, source c271/65536, CUDA fitting,
+retained actor learning rate, and CPU closed-loop evaluation. One thousand
+updates took 3.33 seconds; 4,000 further updates took 11.95 seconds. No additional
+RL transitions or physical motions were executed.
+
+| Proof | Fitting RMSE | Entry seed 1000, mean / last 5s mm/s | Entry seed 1001, mean / last 5s | Stand seed 1000, mean / last 5s |
+| --- | ---: | ---: | ---: | ---: |
+| Retained actor before rehearsal | 0.09623 | 1.34 / -0.98 | not measured in this comparison | 13.16 / 13.65 |
+| 1,000 updates | 0.04729 | 8.51 / 2.65 | 2.74 / -0.91 | 19.26 / 22.30 |
+| 5,000 total updates | 0.01938 | 2.09 / 3.84 | 13.23 / 13.64 | 2.36 / 4.40 |
+
+Neither candidate qualifies: lower fitting error did not preserve sustained
+walking across starts/seeds. The noise-seed holdout was not in the single
+recorded training episode; Stand was also excluded from that fit. These results
+support adding learner-visited corrective states and rehearsing both successful
+starts, rather than spending a long RL batch on the single-entry dataset or
+repeating more fitting epochs. They do not establish that state coverage is the
+only remaining transfer issue. The 1,000-update checkpoint is retained for exact
+comparison; the regressed 5,000-update weight file is removed after its hash,
+source, additional fit and evaluation evidence are saved. Source c271 and its
+production selection remain untouched.
+
+Proof reports and the retained comparison checkpoint:
+`build/neural-gait/trials/20261101-multisensor-forward/rehearsal-v14/`.
+The subsequent aggregation proof below addresses that state-coverage failure.
+No long RL run was started from either unsuccessful plain-rehearsal checkpoint.
+No new service, diagnostic loop, or physical behavior was installed.
+
+Verification: the 20 connected-training/teacher checks passed before the final
+reference-cadence test; all eight teacher checks then passed. All 50 sensor,
+terrain, native lifecycle and reward checks passed. The new native-clock/Release
+regressions fail against the previous scheduler and pass with v14. Eight focused
+evaluator/progress checks and six PPO/SAC rehearsal/entrypoint checks passed.
+Scoped whitespace checks passed. These are software/simulation results, not
+physical walking qualification.
+
+#### Corrective-state collection result — candidate 864a364
+
+The existing DAgger collector now visits **every command × configured scenario**
+in each round, explicitly chooses the starting scenario, and records its actual
+reset ID. Previously the repeated seed could select the same scenario every
+round. The existing collector/fitter/checkpoint owners now support PPO while
+retaining its optimizer, critic, exploration and model identity. Removed the
+obsolete SAC-only helper and caller; SAC artifacts keep their existing labels.
+Five additional maintained tests cover PPO identity/moments, multi-command and
+multi-scenario collection, original SAC behavior, checkpoint selection, and real
+Body Control/P4 ownership through collection and evaluation.
+
+Candidate `864a364128d4496484cc6034f8e68551` resumes the retained 1,000-update
+rehearsal actor, fits 1,000 updates on fresh teacher episodes from both starts,
+then collects one fully learner-driven round from both starts and fits 2,000
+updates on the combined data. The data now includes **2,112 actual simulated
+sensor/action examples**, with corrected teacher labels on the learner's visited
+states. It added **3,000 fitting updates and zero RL transitions**. The inherited
+counters are 65,536 RL transitions and 564,000 total imitation updates. Collection,
+fitting, compact checkpoint checks and three independent 16s CPU checks completed
+in 132.33 seconds. This is the measured small correction proof, not another long
+RL run or a restart from random weights.
+
+All three independent **30-second** CPU checks retained forward movement:
+
+| Starting condition | Seed | Forward distance | Mean forward speed | Final 10s speed | Heading change | Sideways displacement |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Recorded entry | 1001 | 0.316 m | 10.54 mm/s | 14.97 mm/s | 10.6 deg | 0.135 m |
+| Stand | 1000 | 0.410 m | 13.67 mm/s | 16.43 mm/s | 41.8 deg | 0.161 m |
+| Reserved stopped pose, excluded from fitting | 1002 | 0.512 m | 17.07 mm/s | 19.33 mm/s | 12.0 deg | 0.129 m |
+
+No simulated falls or target rejections occurred. Minimum upright cosine was
+0.985–0.991. Peak boot clearances were approximately 5–10 mm. This establishes
+sustained simulated movement, **not successful tracking of the 30 mm/s forward
+request**: speed and heading/lateral drift still fail that task. No physical
+motion was requested. Zero jam flags remain uninformative about protection while
+the recorded robot configuration has jam detection disabled.
+
+The artifact was moved once, without copying its dataset, into the normal
+`build/neural-gait/864a364128d4496484cc6034f8e68551/` catalog. Its `manifest.json`,
+`environment.json`, geometry identity, source hashes, selected checkpoint,
+cumulative counters and completion state support normal loader/resume use. Exact
+configuration overrides accompany the three `qualification-30s-*.json` files;
+the standard `evaluation.json` keeps the three original 16s replay-compatible
+cases. Source/capture metadata remains immutable; its old provenance sentence
+about a 545 deg/s ramp is historical. Executed numerical settings in all new
+proofs are 2000 deg/s command ramp and 545.45 deg/s motor envelope.
+
+One 30-second qualification video (plus a one-second presentation hold) was
+rendered through the existing replay owner for the reserved stopped posture:
+`build/neural-gait/864a364128d4496484cc6034f8e68551/clips/000065536-imitation000564000-round001-scenario1-trial3.mp4`.
+The adjacent `-clean.mp4` is retained for editing. Replay reproduced the measured
+0.51213 m forward displacement exactly. Sampled frames at 1, 15 and 29 seconds
+show the assembled CAD body and changing leg poses; movement/heading claims use
+the trajectory, not snapshots alone. The retained loader and exact-resume checks
+passed with unchanged environment/reward contracts. Disposable probe scripts and
+render-review image were removed; qualified data, results and normal artifacts
+remain in their existing owners.
+
+The normal gait service was refreshed after confirming no robot connection or
+inference request was active. It lists the new candidate and restores the same
+production c271/65536 selection without errors. Body Control was not restarted
+and firmware was not changed. That corrective-data stage finished without a
+queued job; the following November 2 continuation is its next recorded stage.
+
+**Continuation executed November 2:** continue this retained candidate through the
+existing PPO owner, refreshing the value function on corrected physics while
+keeping the actor frozen, then a short policy update batch before any longer
+run. Preserve both recorded starts, data, optimizer and sensor/history contract.
+Use the existing directed progress and heading/velocity objectives to improve
+requested speed and reduce sideways/heading drift; keep 0.08 m/s as the original
+higher performance objective rather than relabelling the demonstration's slower
+speed as a hardware limit. Compare the candidate and update on matched 30s
+requests/starts, including the reserved pose. Preserve sustained movement before
+extending duration or curriculum. Continue to qualify Stop/Release through the
+same native owner. Physical transfer still needs an actual recorded floor trial;
+this result is not permission to infer placement or claim a real walk.
+
+#### Short PPO continuation — 2026-11-02
+
+Run `8ce85bbb9fee4062b0a146aae48435a0` was admitted through the existing gait
+service `/train`, resuming `864a364128d4496484cc6034f8e68551/policy.zip` and its
+optimizer. Eight Body Control simulation workers supplied CUDA PPO with 4,096
+new transitions, seed 37, actor learning rate 3e-6 and critic rate 3e-4. The
+existing exploration standard deviation, approximately 0.03, was retained.
+Requests remain 0.03 and 0.08 m/s. Geometry, 33 Hz host cadence, independent
+native P4 timing, 545.45 deg/s advertised motor envelope, 2,000 deg/s command
+ramp, feedback, leveling, camera latency and observation history were unchanged.
+The exact request is saved in
+`build/neural-gait/trials/20261102-forward-refinement/request.json`.
+
+First, 2,048 value-warmup interactions produced 20 critic minibatch updates;
+value MSE on the warmup data changed from 0.14798 to 0.07962. Direct checkpoint
+comparison found only six critic tensors and their Adam states changed. Actor,
+exploration, their moments and the prior 65,536 RL counter remained identical.
+The following 4,096 PPO transitions reached 69,632 cumulative transitions and
+564,000 cumulative imitation updates. PPO stopped one epoch early under its
+existing KL mechanism; reported terminal-epoch KL estimates were 0.134 and
+0.128, versus the existing 0.08 target. These are sampled estimates, not average
+divergence over the run. No robot speed or travel limit was changed.
+
+Matched 16s entry/seed-1000 checks show why the newest file is not automatically
+the best model:
+
+| Request | Source 65,536 mean speed | Intermediate 67,584 | Final 69,632 |
+| --- | ---: | ---: | ---: |
+| 30 mm/s | 9.69 mm/s | 12.64 mm/s | 5.41 mm/s |
+| 80 mm/s | 8.09 mm/s | 12.29 mm/s | 0.56 mm/s |
+
+The final checkpoint fails the intended improvement. The intermediate checkpoint
+also increased sideways velocity in the 80 mm/s check, so its increased forward
+speed alone does not establish improvement. Its three matched 30s CPU checks
+are now complete:
+
+| Start | Source mean / final 10s speed | Intermediate mean / final 10s speed | Source / intermediate heading change |
+| --- | ---: | ---: | ---: |
+| Recorded entry | 10.54 / 14.97 mm/s | 10.28 / 17.54 mm/s | +10.6 / -25.1 deg |
+| Stand | 13.67 / 16.43 mm/s | 18.30 / 23.04 mm/s | +41.8 / -4.1 deg |
+| Reserved stopped | 17.07 / 19.33 mm/s | 14.66 / 15.13 mm/s | +12.0 / +38.5 deg |
+
+The intermediate policy is retained as a useful alternative, but does not
+clearly improve all starts. The original corrective-data candidate remains the
+first physical-trial choice and has now replaced c271 through the existing
+gait selector. Neither PPO checkpoint was activated.
+The final checkpoint completed its full 32-case evaluation. Mean forward / final
+10s speed, across eight seeds each, was 9.65 / 11.34 mm/s for 30 mm/s entry,
+13.56 / 11.92 for 30 mm/s Stand, 3.97 / 3.84 for 80 mm/s entry and 7.12 / 5.80
+for 80 mm/s Stand. No falls occurred. These are not matched aggregate improvements
+over the source, which did not run this whole 32-case suite; they confirm that
+the final checkpoint still misses both requested performance levels.
+
+The reviewer independently verified likelihood replay, forward/predict agreement
+and optimizer groups. Source-to-intermediate analytic KL on 512 fixed retained
+observations was 0.0713; source-to-final was 0.1451. The corresponding action RMS
+changes were only 0.00327 and 0.00467 (about 0.09 and 0.13 mm at a 30 mm action
+scale). Critic explained variance dropped from 0.269 to 0.024 in the second
+rollout. This supports sensitivity of the closed-loop policy and weak value
+estimates, not a demonstrated likelihood or resume defect. It does not justify
+reducing servo capability. A later PPO refinement should measure whether a
+smaller optimizer step preserves useful behavior, using these retained weights
+and identical requests; do not repeat a large unmeasured update or reset training.
+
+The completed 30s production comparison uses the same environment, CPU inference,
+seeds and starting poses as candidate 864a364. Forward speed / final-10s speed
+in mm/s were: recorded entry **3.10 / 3.29** versus **10.54 / 14.97**;
+nominal Stand **15.69 / 29.38** versus **13.67 / 16.43**; reserved stopped pose
+**0.17 / -0.31** versus **17.07 / 19.33**. Stand is a tradeoff, not a blanket
+speed win: production turned approximately -145 deg, versus +42 deg for the
+candidate. All these cases remained upright. Complete per-second trajectories
+are `production-30s-{entry,standing,stopped}.json` in the same trial folder.
+The corresponding intermediate trajectories are `midpoint-30s-*.json`, and
+`checkpoint-decision.json` retains the compact comparison and trial selection.
+
+The retained candidate solves the reproduced stationary entry/stopped failure
+in simulation but still misses requested speed and straight-line tracking.
+Physical transfer remained unverified at selection. The owner's connection hold
+was subsequently lifted; the supported and carpet attempts below supersede that
+hold. Selecting this host checkpoint required no firmware flash.
+
+The run finished all work in **896.75 seconds (14 min 57 s)**, including its
+standard initial/final video. The trainer is terminal and the service reports
+`training_running=false`; no successor run is queued. The video is
+`build/neural-gait/8ce85bbb9fee4062b0a146aae48435a0/progress-video.mp4`.
+Its overlay reports the replay's actual speed; the CPU source replay differs
+slightly from its CUDA compact evaluation (9.18 versus 9.69 mm/s), so do not
+treat the film as an exact replay of the GPU trajectory. The final replay matches
+its 5.41 mm/s compact result. The earlier 30s candidate film remains the useful
+candidate demonstration, not this regressed endpoint.
+
+At 16:42 UTC, POST `/load` selected exact immutable checkpoint
+`864a364128d4496484cc6034f8e68551/000065536-imitation000564000-round001`.
+The service's subsequent status and persisted selection agree, with no selection
+error. `policy-activation.json` records before/after identities. The robot was
+offline at activation. Activation itself sent no movement command and did not
+restart Body Control or change firmware. The later physical attempts and
+recording repair are documented below; neither established loaded walking.
+
+The learning basis remains [actuator/latency identification](https://www.roboticsproceedings.org/rss14/p10.pdf),
+[learner-visited corrective data](https://arxiv.org/abs/1011.0686) and the existing
+[PPO update method](https://arxiv.org/abs/1707.06347). These sources guide the
+implemented experiment; they do not establish success on this robot.
+
+#### Supported tracking and interrupted carpet trial — 2026-11-02
+
+Both attempts used selected `864a364/000065536-imitation000564000-round001`
+through the existing Body Control Walk control: forward 100%, turn 0%, speed
+100%, corresponding to the existing 0.03 m/s forward scale. No speed, range,
+leveling, jam setting or firmware was changed by this walking task.
+
+**Supported, feet clear:** Walk 17 at 16:51:07.686 UTC and Finish 506 at
+16:51:23.864 UTC bracketed 488 neural targets over 15.012 seconds. Inference
+median/p95 was 4.205/6.254 ms. All 486 IMU packets during the stream had usable
+12-joint feedback; the saved jam detector was off, so zero stall flags cannot
+establish absence of physical stalling. Aligning each channel's acquisition
+time with preceding actual PWM gave per-joint mean absolute tracking errors
+1.16–4.50° and p95 errors 3.53–9.12°. These are provisional calibration-derived
+degrees, not independent shaft measurements. Joint target spans fell from
+19.6–55.5° across joints in the first five seconds to 1.26–10.08° in the final
+five seconds: a continuous stream alone does not establish sustained steps.
+
+Finish reached telemetry phase `hold` after 1.976 seconds. The fixed supported
+body remained tilted relative to the saved target, so the existing leveling
+owner continued correction toward geometry boundaries; this is its current
+documented behavior. API pitch is nose-up positive, opposite the IMU Euler
+pitch convention; tracing both confirmed the conversion is intentional, not a
+demonstrated sign defect. Rear-right carrier feedback left its calibrated range
+2.533 seconds after Finish. Existing Freestyle recovery job
+`2fbed7648bd14423bf95363e3d9be5c7` generated Release (Stop 507, detach=true),
+acknowledged at 16:51:29.901 UTC; the native trace then showed all twelve PWM
+outputs zero. This was an automatic recovery, not a manual Stop by this task.
+The original gait recorder did not persist Walk's terminal receipt, so `hold`
+must not be upgraded to a verified completion receipt.
+
+Evidence: private recording `20261102-084905-a7fd755f` under
+`~/.local/state/ainekio/gait-learning/067e6ca9b5624a3c81a8/recordings/` and
+`build/neural-gait/trials/20261102-forward-refinement/supported-trial.json`.
+The following disconnect coincided with the host AP not broadcasting; another
+task was modifying/restarting networking, as the owner confirmed. That event
+must not be attributed to the gait policy without evidence.
+
+**Receipt recording repair:** GatewayService already emits motion outcomes on
+its diagnostic `command_result` route. GaitLearningService's recorder had only
+subscribed for these outcomes on the ordinary event route. Its existing
+diagnostic subscriber now persists the relevant intent/Stop receipt fields,
+including epoch, sequence, cancellation, rejection, update and detach, without
+copying arbitrary diagnostic payloads. The maintained recorder suite passes
+41 tests, including the real GatewayConnection Walk → Finish → done, Release,
+rejection and disconnect sequences. No execution barrier or second owner was
+introduced. The normal physical-gateway stop/start scripts activated this
+repair and the earlier balance metadata repair before the carpet attempt.
+
+**Carpet, explicitly confirmed by the owner:** recording
+`20261102-091018-0f5c843a` contains Walk 20, epoch 1, at host monotonic
+220658.269492 s. The command was cancelled with code `disconnect` after
+1.355 seconds, before any neural target stream was recorded. The robot
+reconnected at epoch 2 with reset device uptime. Retained robot logs show a
+panic/reboot in `0.8.131-p4-wake-clean`, reset reason 4. Explicit Release 30,
+epoch 2, was acknowledged at host monotonic 220693.758444 s. The new recorder
+retains both cancellation and Release acknowledgement, demonstrating the
+repair on the actual failed sequence. This attempt provides no loaded walking
+measurement and is not evidence for rewarding or penalizing the policy.
+The trial recorder was then closed through Apply host settings (logging=false,
+learning=false): 36,754 native records, zero lost records. Existing recordings
+are retained; idle capture is no longer growing while firmware work proceeds.
+
+The exact deployed ELF is
+`/tmp/ainekio-wake-production-source/build/ainekio_p4_body.elf`, SHA-256
+`e708b59050a7041b601742961aa7405b9673f950db995db1a38795b6d72bcb3c`.
+It matches the panic's `e708b5905` prefix; the main-checkout ELF does not.
+Decoded MEPC is `spinlock_acquire`/`xPortEnterCriticalTimeout`, faulting on
+invalid pointer `0x7e75633c`. The saved return address is immediately after
+`FullyConnectedEval` calls `esp_nn_fully_connected_s8_riscv_pie`; the stack
+also contains MicroInterpreter and `ainekio_wake_word_process`/`microphone_task`.
+This identifies the active task context, not the origin of corruption. The
+optimized fully-connected routine is a leaf, so a direct call to the spinlock
+cannot be assumed. Raw retained log (its initial headline already truncated by
+the existing 4096-byte firmware buffer) and correlated command receipts are
+`carpet-crash.txt` and `carpet-trial.json` in the existing trial evidence folder.
+
+The review identified a concrete optimized-kernel candidate: its emitted
+hardware loop at `0x400bfa2c` ends at `0x400bfa3c` on
+`esp.vld.128.ip q3,x31,16`, a PIE instruction. Espressif's September 9
+[HWLOOP constraint analysis](https://github.com/espressif/esp-idf/issues/19025)
+states that the final loop instruction must not be FPU/PIE/AI. These boundaries
+are four-byte aligned, but the terminal instruction violates that separate
+constraint. The faulting S0/MTVAL also equals the fully-connected output
+multiplier at SP+88, while its other registers retain inference operands.
+This supports control-flow/context corruption during optimized inference;
+it does not prove that changing this one loop resolves this robot's crash.
+The firmware owner needs the exact kernel/build evidence, not an assumed
+stack-size increase or an unverified change to motion control.
+
+The owner confirmed the other task owns wake-word firmware. No firmware edit
+or flash was made by the walking task. The owner subsequently explicitly
+requested the recorded carpet comparison despite the unfinished wake repair;
+that attempt is documented next. Preserve both results rather than interpreting
+one successful connection as proof that the earlier crash is repaired.
+
+#### Owner-requested carpet retry — 2026-11-02, 18:30 UTC
+
+The owner said to run the test with the wake-word repair still in progress.
+Existing Body Control controls sent forward/speed 100%, turn 0%, requesting
+0.03 m/s through selected `864a364/000065536-imitation000564000-round001`.
+No firmware, wake, speed, calibration, leveling or protection setting changed.
+Walk 43, epoch 4, ran **15.046 seconds** before Finish 495. The robot acknowledged
+the update, then issued Walk `done` **2.066 seconds after Finish**. Manual Release
+496 was acknowledged; the native trace confirms all twelve PWM outputs zero
+and `armed=false`. There was no disconnect during this recording. The recorder
+was closed after the trial; learning remained off.
+
+The host generated **451 neural targets**. Inference median/p95 was
+**4.081/17.553 ms**. All **495 IMU/joint packets during Walk** had all twelve
+feedback signals usable, with no clipped/unavailable channels and a maximum
+packet gap of **69.55 ms**. Reported simultaneous commanded-versus-filtered
+angles had per-joint MAE **1.86–7.19°**, worst at front-right carrier; this
+comparison includes holds and is not the earlier native-PWM/acquisition-time
+alignment. The angles remain calibration-derived, not independently measured.
+
+The command itself becomes nearly stationary: per-joint target spans were
+**14.04–46.80° in the first five seconds**, **1.08–16.83° in seconds 5–10**,
+and **0.72–8.73° in seconds 10–15**. Shoulder target spans in the final interval
+were only **0.72–2.34°**. Measured positions fluctuate more than those late
+targets; that must not be mistaken for intentionally generated strides. IMU
+roll ranged **4.66–6.95°**, Euler pitch **0.29–4.93°**, and relative yaw changed
+**−0.58°**. These establish body attitude, not distance traveled.
+
+Nine onboard camera frames cover the requested Walk. Eleven locomotion
+measurement events contain **camera identity/timing only**, with no depth or
+odometry fields. Therefore no achieved metric speed/distance is available;
+zero must not be substituted for missing data. The onboard video shows the
+floor view, not an external view of foot placements. The low-level trace lost
+**1,496 records** across the recording; complete fine-grained PWM tracking
+cannot be claimed from that stream, although paired IMU feedback and host
+targets remained available throughout the walk. After Release, rear-right
+carrier produced a clipped/below-calibration event at signal 0; it was outside
+the Walk interval and must not be reported as a walking stall. The event's
+`outputs_released=false` disagrees with the earlier acknowledged Release and
+native zero-output record; preserve that attribution discrepancy for its owner.
+
+Evidence: private recording `20261102-103010-34240477` in the same gait-learning
+recordings directory. The existing trial folder contains
+`carpet-retry-trial.json` with commands, terminal receipts and measured intervals,
+and `carpet-retry-onboard-camera.mp4`, played at recorded frame intervals.
+This is an executed physical trial, **not successful walking qualification**.
+Next investigate why the existing metric-vision producer supplied no depth or
+odometry during active demand, and replay the recorded sensor inputs through
+the selected policy to locate the late target collapse. Use these measured
+failures for the next correction rather than starting another blind long run.
+
+### Current handoff: completed, unfinished and exact next actions
+
+- **Selected:** `864a364128d4496484cc6034f8e68551`, checkpoint
+  `000065536-imitation000564000-round001`, v5 history/camera policy, activated
+  November 2 at 16:42 UTC. The exact checkpoint is persisted across service
+  restart. It resolves simulated stationary entry/stopped cases. Supported
+  tracking was measured, but late motion diminished. The first carpet attempt
+  crashed in wake-word inference context; the owner-requested second attempt
+  completed, reproducing diminished late targets with absent metric vision.
+  Useful loaded transfer remains unverified. The preceding c271/65536 failed sustained carpet
+  walking. Earlier 6b05 and dcab moving actors remain
+  retained; no claim of successful physical walking is justified.
+- **Preserved baseline:** `dcab08dcec4c4d1e942f3c7e67267588`, 460,000 imitation
+  updates, direct-simulator training. Existing useful motion must not be discarded.
+- **First multisensor learning experiment:** `12adec3e0e9f4c92b86db506a4b290c7`, eight
+  independent Body Control/native-executor simulation workers, CUDA optimization,
+  v5 sensor history and noisy camera/depth/odometry, forward-only 0.08 m/s request,
+  32 s episodes. It starts from the selected moving actor, not random weights.
+  The actor was transferred SAC→PPO with identical deterministic outputs; 8,192
+  initial interactions trained only the value network (80 optimizer updates).
+  These interactions are recorded separately from RL steps; the actor was frozen.
+- **Rejected checkpoint and cause:** deterministic seed 1000 baseline after transfer
+  achieved 0.02434 m/s for 32 s without falling, reward -78.51. After 8,192 RL
+  steps it achieved -0.00039 m/s, reward -2.87. The run was interrupted rather
+  than continuing to optimize a stationary policy. The existing slip cost had
+  divided SI foot-slip velocity squared by 0.03², amplifying the published
+  Playground coefficient by 1,111 times. Slip alone cost the moving policy
+  2.371 reward/s. The exponential tracking term also provided little incentive
+  before matching the requested 0.08 m/s. This is a measured objective failure,
+  not evidence that the robot cannot attain that speed.
+- **Corrected objective and resumed run:** environment v13 gives slip an independent explicit
+  1 m/s scale in the maintained PPO recipe, and reuses the existing directed
+  displacement objective alongside velocity tracking. Historical saved reward
+  dictionaries still replay with zero added progress weight and their historical
+  slip scale. Actual velocity, request and slip remain separately reported;
+  requests, servo speed, action range and control frequency were not reduced.
+  Matched corrected audits score moving +5.8279 versus regressed -0.5006 over 32 s.
+  Dense progress no longer duplicates the separate lateral/yaw tracking cost
+  (`reward_cross_track_cost=0` for this run); exponential tracking and physical
+  quality costs remain. The full audit first established that the extra cross-axis
+  penalty erased the moving baseline's 0.304 request-normalized progress.
+  Progress's overspeed component uses the existing recent-pace window even when
+  exponential tracking has its window disabled; this prevents burst propulsion
+  from being charged as sustained overspeed. No past pace earns new progress.
+  Continuation `270a5a661dd44d8a808d697ad52a093f` resumes the exact zero-RL-step
+  moving checkpoint (PPO weights/optimizer retained), then refreshes value only
+  for 8,192 interactions and runs 32,768 RL transitions. Eight Body Control workers,
+  CUDA NN optimization, same 0.08 m/s request and 32 s episodes. Compact checkpoints
+  every 8,192 transitions, no copied demonstration/replay archive.
+  **That continuation also regressed and was interrupted:** its first optimizer
+  updates produced approximate KL 21.32/8.82/8.85 against target 0.08, then the
+  8,192-step checkpoint went to -0.000354m/s and reward -0.973. Correct reward was
+  necessary but insufficient: LR 3e-4 was too large for this preserved actor with
+  new history inputs and action exploration std 0.03. The reviewer independently
+  found this in the optimizer log.
+  A disposable same-rollout probe (2,048 shared transitions; no duplicated dataset)
+  compared actor LR 2e-5, 1e-5, 3e-6, retaining value LR 3e-4. Exact mean KL was
+  0.2521,0.1161,0.01474 respectively; only 3e-6 completed all 5 configured PPO epochs.
+  Current continuation `477bdc08b76544fda38683ff09985009` resumes the prior run's
+  zero-RL checkpoint, preserving its corrected-objective value warmup and Adam
+  state, with actor LR 3e-6 / value LR 3e-4. No second warmup or imitation reset.
+  This is an optimizer adjustment, not a motion speed/range/frequency reduction.
+  The 32,768-step checkpoint improves matched forward progress 0.02434→0.02914 m/s
+  and reward 5.8279→8.9911, without falling for 32 s. Heading drift worsens from
+  -0.9183 to -1.1338 rad; the 0.08 m/s request is still missed. Do not report solved
+  walking from this result. Repeatability under camera noise and the deployed
+ 0.03 m/s command is being checked in parallel using the maintained evaluator.
+  Candidate seeds 1000–1007 cover both commands; the transferred baseline is
+  compared at both commands. Evidence files are `qualification-candidate-*.json`
+  and `qualification-baseline.json` in the trial folder.
+  Full evaluation now includes varied camera/odometry seeds even with noiseless
+  IMU and shaft simulation; the previous seed selector only noticed proprioceptive
+  noise. The compact per-checkpoint probe remains one explicitly labelled seed.
+  **Qualification result:** CPU inference (the deployed device) across 8 camera-noise
+  seeds,32 s each, no falls in 16 cases. At 0.03 m/s request the candidate averaged
+  0.01942 m/s (range 0.01222–0.02664), below the transferred baseline's 0.02780 m/s;
+  mean absolute heading drift 0.8278 rad versus baseline 0.5320 rad. At 0.08 m/s it
+  averaged 0.02575 m/s (range 0.01432–0.03370), versus baseline 0.02434 m/s; mean
+  absolute heading drift 0.5607 rad versus 0.9183 rad. Baseline reference uses seed 1000
+  and ignores the newly added camera/history inputs by construction. This is a
+  mixed result, not a production promotion. `qualification-summary.json` retains
+  these measurements and the decision. CUDA checkpoint evaluation and CPU replay
+  diverge slightly through contact dynamics; the CPU video travels 1.0733 m in 32 s
+  while the CUDA compact evaluation travelled 0.9326 m. Preserve that distinction.
+  **Completed continuation:** `c2716710e1d64ffba8ca26f1447c9c8b`, launched through
+  `/train` on the existing service, resumes 477's final weights, Adam moments,
+  critic, exploration and counters. Requests are 0.03 and 0.08 m/s forward with
+  random episode choice; no turn/terrain expansion yet. 131,072 new transitions,
+  eight workers, CUDA verified in manifest, seed 22, actor LR 3e-6 / value LR 3e-4,
+  compact checkpoint every 16,384 transitions. No copied teacher dataset or reset.
+  API launch had ignored requested device/seed and briefly started 35a08 on CPU;
+  that run was interrupted. The existing API now forwards explicit settings and
+  inherits a resumed artifact's device/seed independently of CPU inference.
+  API/render regression checks passed (2 cases). This run finished at 163,840
+  cumulative RL steps. Its final CUDA mean speeds were 0.03159 and 0.02163 m/s
+  for 0.03 and 0.08 requests; the higher request regressed. The reviewed 65,536
+  checkpoint was selected instead of silently selecting the newest weights.
+  **65,536-step CPU qualification:** eight camera-noise seeds per request, 32 s
+  each, no falls. At 0.03 m/s the mean is 0.02952 m/s (0.02539–0.03224), mean
+  absolute speed error 0.00177 m/s, mean absolute heading drift 0.2801 rad;
+  the preserved actor reference is 0.02780 m/s and 0.5320 rad. At 0.08 m/s,
+  mean 0.02627 m/s (0.01456–0.03533), mean absolute heading drift 0.8013 rad,
+  versus baseline 0.02434 m/s and 0.9183 rad. Both requests improve on the
+  preserved reference, but the higher request is still substantially missed.
+  `qualification-65536-summary.json` and four episode files retain the comparison.
+  The existing selector now supports a published `checkpoint_id` alongside its
+  run ID, persists it across restart, and includes it in inference and physical
+  recording identity. Body Control exposes selection on the checkpoint rows.
+  This allows reviewed weights to stay active while a run continues; no copied
+  model/run or parallel deployment owner is needed. Thirteen artifact/lifecycle
+  tests passed, including restart and replacement with another checkpoint of
+  the same run. Activation followed training completion and owning-service restart.
+  **Video:** completed clean footage is
+  `build/neural-gait/477bdc08b76544fda38683ff09985009/clips/000032768-imitation000560000-trial1-clean.mp4`.
+  Renderer v4 now labels measured replay speed instead of borrowing the checkpoint
+  evaluator's speed; the same two clips have been regenerated with that label,
+  replacing prior files rather than accumulating copies. Clean footage has no overlay.
+  The reviewed 65,536 checkpoint is active. Its CPU replay is
+  `build/neural-gait/c2716710e1d64ffba8ca26f1447c9c8b/clips/000065536-imitation000560000-command1-trial1-clean.mp4`.
+- **Sensor/transfer qualification:** 165 sensor/neural/depth cases yielded 162
+  passes and three CPU test tensors constructed against auto-selected CUDA models.
+  Those three test fixtures now explicitly select CPU and passed on rerun. Actor
+  transfer, value-only warm-start, new sensor gradients, saved-model reload,
+  camera latency/dropout and privileged-critic isolation have maintained coverage.
+  Connected gateway tests and dashboard preview passed (14 cases). The final
+  normal neural/sensor/depth suite ran 167 cases: 165 passed, two historical tracking
+  tests expected tracking-only 1.5 credit but inherited the newly enabled directed
+  component. Their fixture now isolates those historical terms; all 8 reward
+  component cases passed on rerun. A separate camera-only noise evaluation seed
+  regression passed; current source includes it in the normal suite. Four PPO
+  resume/API/metric checks and 12 lifecycle cases also passed.
+- **Live integration:** Walk admission was awaiting a 32.7 MB training-history
+  response (~2.04 s), causing expiry before sequence assignment. The existing
+  status endpoint now supports compact current-model metadata; admission and
+  preview use that mode (~12 KB, 0.99 ms measured). Full history remains available
+  outside the inference lock. Body Control and the gait service were restarted;
+  supported Walk epoch1/seq13 delivered 276 targets with ~2–3 ms inference.
+  Finish then exposed a source-translation defect: dashboard's native `steps:1,
+  speed:0` sentinel was rejected as `value:walk.host_continuous`. The source owner
+  now translates that Finish to host `steps:0`, preserving the original Walk and
+  body completion. Repeated Finish after producer cancellation also retains
+  explicit zero twist; that follow-up source repair passed all 12 sensor lifecycle
+  tests and is now activated in Body Control. Fourteen focused reward/lifecycle cases passed; two additional
+  reward regressions passed. Body Control and the gait service were restarted
+  with the repair. The owner later confirmed the output-unavailable/disconnect
+  happened because the robot was switched off, then powered it back on. Do not
+  carry that incident forward as a software disconnect regression.
+  **Physical Finish now verified:** supported/feet-clear scope retained; after
+  activating the repeated-Finish repair, Start seq15 at100%/0.03m/s → Finish
+  seq98 acknowledged → original Walk seq15 done at2026-11-02T01:30:08Z. Body
+  output_ready=true, output_fault=0; sampled stall masks remained0. UI returned
+  to Start/disabled Finish. **Post-completion behavior is distinct:** after the
+  receipt, stationary leveling kept moving joints while the supported chassis
+  remained at approximately 4° roll/3° pitch. By device time 175 s the rear-right
+  carrier target reached 500 µs (-23.22°). Its signal crossed below calibration,
+  producing an event at 01:30:13Z. Existing Freestyle recovery job
+  `035436ba9586451f977758b85d3573e1` generated Release, seq99, at 01:30:15Z;
+  the operator Signal Stop seq100 followed at 01:30:28Z. Thus seq100 was not the
+  first release. Output fault 1 is `AINEKIO_PCA_FAULT_EMERGENCY` from release,
+  not an I2C/deadline/progress fault. This is not proof of a mechanical jam.
+  Supported fixed tilt cannot qualify loaded leveling or steady standing. Evidence
+  `physical-finish.json` and recording `20261101-172824-cd314515` retain the actual
+  owner/receipt distinction. This qualifies lifecycle execution while supported,
+  not traction or a floor walk. No firmware flash was needed.
+- **Supported physical evidence:** owner confirmed feet clear. Recording
+  `~/.local/state/ainekio/gait-learning/067e6ca9b5624a3c81a8/recordings/20261101-165603-e3be130e/`
+  contains commands, fourth-wire telemetry, IMU and camera odometry. The release
+  was generated by existing Freestyle recovery for the rear-right carrier signal
+  fault (job `690865c7120c481f8bf33c9ec3cba90d`), not by Finish. The later movement
+  was a new explicit `stand` request with no recovery event (job
+  `29e7c2dbbd2f438ea5383fc350134531`). Do not report Finish completion from release
+  or mislabel the later Stand as the cancelled Walk restarting. Rear-right carrier feedback temporarily went
+  below its calibrated signal interval (226 mV), later restored. The unloaded
+  trial proves target delivery, not walking/traction or valid loaded tracking.
+  Per-joint supported tracking report is `supported-baseline-tracking.json` in
+  the trial evidence folder:300 IMU frames, median absolute joint errors 0.7–4.6°;
+  rear-right carrier unusable 37/300 samples. Entry/transient peaks reach 63.5°;
+  median errors alone must not conceal those transients or the signal fault.
+  All 12 recorded joint home_us/home_cd/invert/us_per_degree values match the new
+  run's robot calibration; training retains 650 g, 545.45°/s advertised servo speed,
+  50 Hz control and 500 Hz physics. This excludes stale horn calibration as the cause
+  of this particular training/physical comparison, not electrical/mechanical faults.
+- **Camera reference:** saved transform uses CAD camera [105.02882385,0,51.09030151]
+  mm minus body origin [0,0,65] mm; optical x right/y down/z forward becomes body
+  x forward/y left/z up. The owner confirmed the installed pose; hardware is
+  OV5647 despite the CAD object's historical B0066 label. VGA 640×480, 1 fps,
+  MoGe level 0 were preserved. Measured depth inference 573/631 ms; inferred focal
+  lengths 375.8/330.5 px are estimates, not calibrated optics. Continuous trial
+  produced body-frame velocity and displacement with its local reference; no
+  metric-distance physical validation yet. Simulated camera uses explicit 0.6 s
+  latency, 1 Hz frames and uncertain pose/scale/dropout, not perfect ground truth
+  passed to the actor. Noise magnitudes are assumptions recorded in the run.
+- **Evidence:** `build/neural-gait/trials/20261101-multisensor-forward/` holds
+  environment, reward audit and corrected audit reports. The preserved earlier
+  `20261101-current-model/` holds 0.03 m/s baseline/steering and longer trials.
+  Do not create many redundant videos: render one useful matched comparison
+  after a candidate improves actual directed progress.
+- **Carpet trial, November 1 evening:** owner confirmed powered on/on carpet.
+  Recording `20261101-183413-007550fa` under the same device recording root has
+  Walk257, Finish1012 and Signal Stop1013. The earlier Walk29 accidentally used
+  the UI's 200% maximum and was stopped with256; exclude it from the intended
+  100% comparison. Walk257 requested 0.03 m/s for23.23s, with754 policy outputs,
+  median inference4.18ms/p95 10.61ms. Late camera-estimated absolute forward
+  velocity averaged0.000348m/s; camera distance is still uncalibrated. After3s
+  foot targets changed only a few mm. Median absolute joint tracking errors
+  ranged1.15–8.74°. Jam detection was saved **off**: zero stall flags do not prove
+  that no joint stalled. IMU yaw made an initial positive then negative excursion;
+  near-zero net yaw does not mean it was frozen. No further physical commands
+  were sent during the following diagnosis. Stop/Release left output released.
+- **Reproduced transfer failure:** same CPU checkpoint/seed1000,20s,
+  one-factor simulation probes: nominal starting pose0.03164m/s; pre-Walk
+  recorded pose reconstruction−0.000062m/s, with exactly zero late progress;
+  33Hz policy/feedback cadence0.00753m/s; configured1s camera freshness0.02592m/s;
+  enabled leveling with zero targets0.03452m/s. The reconstructed pre-Walk pose
+  carried forward the last usable rear-right carrier reading; the new curriculum
+  instead uses the first fully usable12-joint packet0.119s after Walk telemetry
+  began. These are simulated counterfactuals, not proof that one factor alone
+  explains the physical robot. Probe evidence is `carpet-transfer-*.json`.
+  With the actual settings combined,12s baseline tests achieved0.00573m/s from
+  that entry and0.00540m/s from nominal Stand. This is now a reproduced failure
+  to learn against instead of repeating the old idealized qualification.
+- **Completed correction trial:** run `48157f1eaced420fbd651650ca82cf73`
+  resumes the selected65,536 checkpoint and optimizer through `/train`: eight
+  workers,CUDA,16,384 additional transitions,seed23,32s episodes,0.03/0.08m/s
+  requests,4,096-step checkpoint spacing. Existing scenarios now support
+  `start_joint_deg`; ground placement uses installed collision surfaces while
+  the action reference and upright standing height remain unchanged. Training
+  samples recorded entry and nominal Stand. A separate10s physical failure pose
+  is reserved in `carpet-holdout-start.json` for later evaluation.
+  Config matches saved balance on/tuning[1,1,3°,1.59280002°],2000°/s command ramp
+  with545.45°/s advertised motor speed,33Hz observed feedback/policy cadence,
+  528Hz physics integration,median18,833µs feedback scan and existing1s camera
+  freshness. Jam detection setting is mirrored as off; physical settings are
+  unchanged. Solver timestep and a fixed cadence approximate actual variable
+  arrival intervals. Carpet compliance, actuator loading, signal noise and
+  component mass distribution remain unmeasured transfer gaps.
+  Value-only warm-up2,048 interactions precedes the continuation. Exploration
+  std0.03→0.15 is an explicit simulator exploration change (about3–4.5mm per
+  axis before squashing), not a physical speed/range change. Actor LR1e-5/value
+  LR3e-4; inspect measured KL and progress rather than continuing blindly.
+- **Result of48157:** all16,384 additional RL transitions completed, reaching
+ 81,920 cumulative; optimizer KL remained stable (early updates0.015–0.016).
+ The final32 CUDA evaluations (eight seeds × two requests × two starting poses)
+ had no falls but failed locomotion. For0.03m/s request, mean forward speed was
+ 0.000388m/s from recorded entry and0.000216m/s from Stand; corresponding final10s
+ means were−0.000301 and+0.000323m/s. For0.08m/s request, whole-episode means were
+ −0.001694 and−0.002015m/s, with final10s near zero. The matched entry/seed1000
+ 0.03 case worsened from0.001398m/s before this round to0.000490m/s after it.
+ `carpet-continuation-result.json` retains the compact comparison and decision;
+ the run's `evaluation.json` retains all intervals. **Not promoted.** Correctly
+ modeling deployed conditions reproduced the failure; this short continuation
+ did not learn its solution. More iterations alone are not established as a fix.
+ The owner paused the broader goal and explicitly requested finishing this round
+ only. No further training or physical trial was started.
+ **Evaluation overhead:** optimizer updates finished at roughly353s; full
+ evaluation finished at1746s. All eight standing-reference seeds within each
+ command/starting-pose case produced identical displacement, so32 reference
+ episodes represented only four distinct outcomes. This repeated work is a
+ concrete continuation efficiency issue, not a reason to omit the candidate's
+ varied sensor evaluations. The existing pipeline was allowed to finish as
+ requested. The full run finished in2053s (34min13s), including307s of rendering.
+ Its initial/final comparison is
+ `build/neural-gait/48157f1eaced420fbd651650ca82cf73/progress-video.mp4`;
+ clean individual clips are alongside it in `clips/`. The gait service reports
+ `training_running=false` and still selects c271's65,536 checkpoint. No subsequent
+ training is queued. The owner subsequently authorized the corrective work documented below.
+- **Recording/UI repairs:** balance metadata previously copied an unfilled
+  gateway cache and stayed null for the whole session. The existing recorder
+  now reads through `body_balance(get)` and preserves later acknowledged balance
+  changes; it also retains the selected checkpoint ID. Motion terminal receipts
+  now persist through the existing diagnostic subscriber; 41 recorder tests pass.
+  These changes were activated by the normal Body Control restart on November 2.
+  The subsequent carpet attempt durably records disconnect cancellation and
+  Release acknowledgement. Earlier recordings retain their original gaps.
+  Twelve scenario/resume checks passed,
+  including starting-joint feedback and unchanged standing-height/action datum.
+  Dashboard history previously overflowed browser inspection with per-second
+  arrays. Status now projects episode summaries (~5.1MB measured) while retaining
+  complete arrays on disk; two projection tests passed and gait service is active.
+- **Next source:** selected production is corrected candidate
+  864a364/564000-imitation. The 8ce85b PPO continuation completed; its intermediate
+  67,584 checkpoint is retained but mixed, and its final checkpoint was not
+  promoted. The 48157 continuation is failed historical evidence. The reserved stopped pose
+  passed a 30s simulation check; physical transfer remains unverified.
+  Compare final10s progress as well as whole-episode averages. Do not promote
+  a stationary policy based on uprightness, low error or average reward. Use
+  the existing Body Control source/selector for an improving candidate and record
+  its loaded performance. The latest owner-confirmed placement was carpet. The
+  second physical trial completed and the robot was Released; recording is off.
+  Its missing metric vision and late target collapse are the next concrete
+  integration/policy findings to investigate. Another task still owns the
+  intermittent wake-word firmware crash. Do not flash overlapping work or
+  repeatedly retry motion without addressing the recorded findings. Maintain
+  Stop/replacement/recovery and asynchronous sensing. Host policy activation
+  itself requires no firmware flash.
+- **Normal checks:**
+  `PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests:. MUJOCO_GL=egl build/gait-training-env/bin/python -m unittest Emulator.tests.test_neural_gait Emulator.tests.test_neural_gait_sensors Emulator.tests.test_depth_motion`.
+  Run affected gateway/paired lifecycle checks when changing those handoffs; do not
+  claim unrelated checks passed. OpenCV was added to the existing training venv
+  for the camera suite and recorded in the existing gait-training requirements;
+  preserve NumPy 2.3.5 and the selected CUDA PyTorch build.
+
+Update this current handoff after each substantial result: active checkpoint,
+source/optimizer/data continuity, completed stage, observed inadequacy, exact next
+step, and video/evidence location. Replace stale current claims at their owner;
+preserve dated failed experiments as history. Another session should continue
+this plan without guessing the project's goal from its latest artifact.

@@ -87,7 +87,7 @@ static bool reader_name(asset_reader_t *reader, uint8_t length, char *name)
         return false;
     }
     name[length] = '\0';
-    return ainekio_asset_name_valid(name);
+    return memchr(name, '\0', length) == NULL && ainekio_asset_name_valid(name);
 }
 
 ainekio_asset_result_t ainekio_motion_asset_decode(

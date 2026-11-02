@@ -35,7 +35,7 @@
 #define LOG_COUNT 4U
 #define CAPTURE_BYTES (1024U * 1024U)
 #define CAPTURE_COUNT 32U
-#define RECORD_BYTES 1024U
+#define RECORD_BYTES AINEKIO_SD_RECORD_MAX_PAYLOAD
 
 typedef enum { RETRY, CLEAR, RECORD, CAPTURE, SUSPEND, VIDEO_START, VIDEO_STOP, VIDEO_FRAME } operation_t;
 typedef struct {
@@ -49,7 +49,7 @@ typedef struct {
     uint8_t *capture;
     uint16_t width, height;
     uint8_t fps;
-    uint8_t payload[RECORD_BYTES];
+    uint8_t *payload;
 } request_t;
 
 typedef struct { uint32_t serial; esp_err_t error; } completion_t;
@@ -476,6 +476,7 @@ static void storage_task(void *argument)
         else if (request.operation == RECORD) result = append(&request) ? ESP_OK : ESP_FAIL;
         else if (request.operation == CAPTURE) result = capture(&request) ? ESP_OK : ESP_FAIL;
         else result = clear() ? ESP_OK : ESP_FAIL;
+        free(request.payload);
         if (request.capture) {
             free(request.capture);
             xSemaphoreTake(enqueue_lock, portMAX_DELAY);
@@ -710,14 +711,27 @@ void ainekio_p4_video_frame(const void *jpeg, size_t size, unsigned width, unsig
 
 esp_err_t ainekio_p4_storage_record(uint8_t type, const void *payload, size_t size)
 {
-    if ((!payload && size) || size > RECORD_BYTES) return ESP_ERR_INVALID_SIZE;
-    if (!ainekio_p4_storage_status().mounted) return ESP_ERR_INVALID_STATE;
-    request_t request = {.operation=RECORD, .type=type, .size=size,
-                         .timestamp=(uint64_t)esp_timer_get_time()/1000U};
-    if (size) memcpy(request.payload, payload, size);
-    esp_err_t result = enqueue(&request);
+    esp_err_t result;
+    if ((!payload && size) || size > RECORD_BYTES) result = ESP_ERR_INVALID_SIZE;
+    else if (!ainekio_p4_storage_status().mounted) result = ESP_ERR_INVALID_STATE;
+    else {
+        request_t request = {.operation=RECORD, .type=type, .size=size,
+                             .timestamp=(uint64_t)esp_timer_get_time()/1000U};
+        /* The queue owns the complete record after admission. Keep payloads
+         * out of its internal-RAM entries and the storage worker's stack. */
+        if (size) request.payload = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (size && !request.payload) result = ESP_ERR_NO_MEM;
+        else {
+            if (size) memcpy(request.payload, payload, size);
+            result = enqueue(&request);
+            if (result != ESP_OK) free(request.payload);
+        }
+    }
     if (result != ESP_OK) {
-        taskENTER_CRITICAL(&status_lock); ++status.dropped_records; taskEXIT_CRITICAL(&status_lock);
+        taskENTER_CRITICAL(&status_lock);
+        ++status.dropped_records;
+        status.last_error = result;
+        taskEXIT_CRITICAL(&status_lock);
     }
     return result;
 }

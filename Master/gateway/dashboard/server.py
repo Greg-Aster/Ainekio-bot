@@ -266,7 +266,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
             from gateway.neural_gait.depth import project_depth
             from gateway.neural_gait.contract import DEPTH_SCHEMAS
             robot = _required_string(payload, 'robot_id')
-            model = await self.neural_gait.call('/status')
+            model = await self.neural_gait.call('/status?history=0')
             if model.get('environment') is None:
                 raise ValueError('Select a neural gait checkpoint first')
             source = self.gateway.body_sensor_observation(robot)
@@ -394,7 +394,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         ):
             return
         with self._camera_condition:
-            metadata = {"epoch": frame.get("epoch"), **(frame.get("camera_metadata") or {})}
+            metadata = {**(frame.get("camera_metadata") or {}), "epoch": frame.get("epoch")}
             observation = (counter, payload, metadata)
             self._camera_frames[robot_id] = observation
             if metadata.get("origin") == "request":
@@ -504,6 +504,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(
                 {
                     **status,
+                    "metahuman": self.server.environment_adapter.connection_status()
+                        if self.server.environment_adapter is not None else {"connected": False},
                     "audit": self.server.audit_log.entries(),
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
                     "host_network": self.server.hotspot.snapshot(),

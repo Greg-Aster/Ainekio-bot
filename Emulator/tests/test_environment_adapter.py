@@ -189,6 +189,114 @@ class BlockingWebSocket(FakeWebSocket):
 
 
 class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_active_command_correlation_survives_other_pending_terminal_deliveries(self):
+        class PendingGateway(FakeGateway):
+            def __init__(self):
+                super().__init__()
+                self.terminals = {}
+                self.all_dispatched = asyncio.Event()
+            async def queue_motion_plan(self, frames, **kwargs):
+                sequence = len(self.terminals) + 1
+                self.terminals[sequence] = asyncio.get_running_loop().create_future()
+                if sequence == 40: self.all_dispatched.set()
+                return sequence
+            async def wait_terminal(self, sequence, **kwargs):
+                return await self.terminals[sequence]
+        gateway = PendingGateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        socket = FakeWebSocket()
+        adapter._websocket, adapter._bridge_ready = socket, True
+        targets = [{"joint": name, "degrees": 90} for name in ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4")]
+        tasks = [asyncio.create_task(adapter._process_environment_action({"id": f"pending-{index}",
+            "type": "robotMotionPlan", "frames": [{"durationMs": 300, "targets": targets}], "endPose": "hold"}))
+            for index in range(40)]
+        try:
+            await gateway.all_dispatched.wait()
+            await adapter._handle_gateway_event({"t": "cam_meta", "robot_id": "test-body", "epoch": 1,
+                "counter_base": 101, "origin": "action", "origin_id": 1, "fps": 0})
+            await adapter._handle_gateway_frame({"frame_type": CAMERA_JPEG_FRAME_TYPE,
+                "robot_id": "test-body", "epoch": 1, "counter": 101, "payload": b"complete-first-image"})
+            for sequence, terminal in gateway.terminals.items():
+                terminal.set_result({"t": "done", "seq": sequence})
+            await asyncio.gather(*tasks)
+            observations = [json.loads(message)["observation"] for message in socket.sent
+                if json.loads(message)["type"] == "environment.observation"]
+            first = next(item for item in observations if item["feedback"][0]["actionId"] == "pending-0")
+            self.assertIn("visual", first, "Other active correlations must not evict the first command's image")
+            self.assertEqual(first["visual"]["metadata"]["actionId"], "pending-0")
+            self.assertEqual(first["visual"]["dataUrl"], "data:image/jpeg;base64,Y29tcGxldGUtZmlyc3QtaW1hZ2U=")
+            self.assertEqual(len(observations), 40)
+            self.assertEqual(adapter._robot_action_contexts, {})
+            self.assertEqual(adapter._robot_snapshot_contexts, {})
+            self.assertEqual(adapter._pending_action_visuals, {})
+        finally:
+            for task in tasks:
+                if not task.done(): task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def test_inbound_transcript_keeps_complete_text_in_wire_and_replay(self):
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        socket = FakeWebSocket()
+        adapter._websocket = socket
+        texts = ["a" * 4095, "b" * 4096, "c" * 4097, "  complete\n" + "机器人\t" * 3000 + "\nlast instruction  "]
+        for text in texts:
+            await adapter._handle_gateway_transcript({"source": "robot", "text": text})
+        sent = [json.loads(message) for message in socket.sent]
+        self.assertEqual([item["observation"]["text"][0]["text"] for item in sent], texts)
+        self.assertEqual(adapter.receipts.pending(), sent)
+        self.assertEqual(adapter.gateway.calls, [])
+
+    async def test_transcripts_in_one_clock_tick_have_distinct_evidence_ids(self):
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"), clock=lambda: 12.345)
+        self.addCleanup(adapter.receipts.close)
+        socket = FakeWebSocket()
+        adapter._websocket = socket
+        for text in ("first complete utterance", "second independent utterance"):
+            await adapter._handle_gateway_transcript({"source": "robot", "text": text})
+        observations = [json.loads(message)["observation"] for message in socket.sent]
+        self.assertEqual(len({item["text"][0]["id"] for item in observations}), 2)
+        self.assertEqual([item["text"][0]["text"] for item in observations],
+                         ["first complete utterance", "second independent utterance"])
+        replacement = FakeWebSocket()
+        adapter._websocket = replacement
+        await adapter._replay_pending_feedback(replacement)
+        self.assertEqual([json.loads(message)["observation"] for message in replacement.sent], observations)
+
+    async def test_many_active_actions_deliver_every_completion_and_release_visual_ownership(self):
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        socket = FakeWebSocket()
+        adapter._websocket, adapter._bridge_ready = socket, True
+        loop = asyncio.get_running_loop()
+        admitted = [asyncio.Event() for _ in range(40)]
+        terminals = [loop.create_future() for _ in range(40)]
+        async def controlled_action(action):
+            index = int(action["id"].split("-")[-1])
+            admitted[index].set()
+            return await terminals[index]
+        adapter.handle_action = controlled_action
+        tasks = [asyncio.create_task(adapter._process_environment_action(
+            {"id": f"active-{index}", "type": "captureImage"})) for index in range(40)]
+        try:
+            await asyncio.gather(*(event.wait() for event in admitted))
+            for index, future in enumerate(terminals):
+                future.set_result(adapter._feedback(f"active-{index}", "completed", "done"))
+            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+            self.assertEqual(outcomes, [None] * 40, "Active visual eviction must not cancel completion delivery")
+            messages = [json.loads(message) for message in socket.sent]
+            feedback = [item["feedback"] for item in messages if item["type"] == "environment.feedback"]
+            observations = [item["observation"] for item in messages if item["type"] == "environment.observation"]
+            expected = {f"active-{index}" for index in range(40)}
+            self.assertEqual({item["actionId"] for item in feedback}, expected)
+            self.assertEqual({item["feedback"][0]["actionId"] for item in observations}, expected)
+            self.assertEqual(adapter._pending_action_visuals, {})
+        finally:
+            for task in tasks:
+                if not task.done(): task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
     async def test_wake_delivers_its_photo_and_recognition_together_without_holding_robot_receive(self):
         from gateway.plugins import CameraFramePlugin
         from gateway.perception import RecognitionResult, RecognizedObject
@@ -1387,7 +1495,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(websocket.sent, [])
 
-    async def test_pending_action_visuals_are_bounded_and_late_images_drop(self) -> None:
+    async def test_active_action_visuals_survive_other_actions_and_late_inactive_images_drop(self) -> None:
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(
             gateway,  # type: ignore[arg-type]
@@ -1399,8 +1507,8 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 f"action-{index}",
                 loop.create_future(),
             )
-        self.assertEqual(len(adapter._pending_action_visuals), 32)
-        self.assertNotIn("action-0", adapter._pending_action_visuals)
+        self.assertEqual(len(adapter._pending_action_visuals), 40)
+        self.assertTrue(all(not future.done() for future in adapter._pending_action_visuals.values()))
 
         websocket = FakeWebSocket()
         adapter._websocket = websocket  # type: ignore[assignment]
@@ -2188,3 +2296,41 @@ class AvailabilityTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(ConnectionClosedError):
                     await invalid.recv()
                 self.assertEqual(invalid.close_code, 4001)
+
+
+class VoiceConnectionStatusTests(unittest.IsolatedAsyncioTestCase):
+    def adapter(self):
+        adapter = EnvironmentAdapter(FakeGateway(), EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        return adapter
+
+    def utterance(self):
+        from gateway.plugins import AudioUtterance
+        return AudioUtterance("audio:test-body:1:7", "test-body", 1, "2026-11-01T20:00:00Z",
+            "2026-11-01T20:00:00Z", 7, 7, 1, 0, 20, True, False, bytes(640))
+
+    async def test_disconnected_voice_is_reported_and_not_replayed_on_reconnect(self):
+        adapter = self.adapter()
+        await adapter._handle_gateway_utterance(self.utterance())
+        self.assertIsNotNone(adapter._last_audio_result, "A disconnected voice command must not disappear silently")
+        result = adapter.connection_status()
+        self.assertFalse(result["connected"])
+        self.assertEqual(result["lastAudioResult"]["status"], "failed")
+        self.assertEqual(result["lastAudioResult"]["utteranceId"], "audio:test-body:1:7")
+        self.assertIn("not delivered", result["lastAudioResult"]["message"])
+        socket = FakeWebSocket()
+        adapter._websocket, adapter._bridge_ready = socket, True
+        self.assertTrue(adapter.connection_status()["connected"])
+        self.assertEqual(socket.sent, [])
+        await adapter._handle_gateway_utterance(self.utterance())
+        self.assertEqual(len(socket.sent), 1)
+        self.assertEqual(adapter.connection_status()["lastAudioResult"]["status"], "pending")
+        socket.closed = True
+        self.assertFalse(adapter.connection_status()["connected"])
+
+    async def test_connected_socket_does_not_claim_bridge_readiness_before_handshake(self):
+        adapter = self.adapter()
+        adapter._websocket = FakeWebSocket()
+        self.assertFalse(adapter.connection_status()["connected"])
+        adapter._bridge_ready = True
+        self.assertTrue(adapter.connection_status()["connected"])

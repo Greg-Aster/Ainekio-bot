@@ -423,7 +423,7 @@ class CameraFramePlugin:
         self._latest_analysis: CameraAnalysis | None = None
         self._inflight: dict[tuple[str, int, int], _CameraInput] = {}
         self._metric_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ainekio-ground-plane")
-        self._metric_queue = asyncio.Queue(maxsize=1)
+        self._metric_queue = asyncio.Queue()
         self._metric_worker = None
         self._ground_plane = None
         self._depth_motion = None
@@ -661,10 +661,19 @@ class CameraFramePlugin:
         self._depth_settings = {robot: depth_settings(config) for robot, config in configurations.items()}
 
     def _queue_metric(self, frame, timestamp):
-        if self._metric_queue.full():
-            self._metric_queue.get_nowait()
-            self._metric_queue.task_done()
+        waiting = []
+        while not self._metric_queue.empty():
+            waiting.append(self._metric_queue.get_nowait())
+        # Each active body keeps its latest frame on the existing metric
+        # worker. Another body's preview cannot strand its measurement read.
+        for pending in waiting:
+            if pending[0].robot_id != frame.robot_id:
+                self._metric_queue.put_nowait(pending)
         self._metric_queue.put_nowait((frame, timestamp))
+        # Admit replacements before retiring the old queue entries so join()
+        # cannot observe a false completed interval during coalescing.
+        for _ in waiting:
+            self._metric_queue.task_done()
         if self._metric_worker is None:
             self._metric_worker = asyncio.create_task(self._run_metrics())
 
@@ -857,7 +866,7 @@ class CameraFramePlugin:
                     self.errors += 1
                     self.processed_frames += 1
                     self._last_inference_ms = (self.gateway.clock() - started_at) * 1000
-                    reason = f"{type(error).__name__}: {error}"[:240]
+                    reason = f"{type(error).__name__}: {error}"
                     logging.getLogger(__name__).warning("Camera processing failed (%s)", reason)
                     analysis = self._resolve(frame, error=reason)
                     self._latest_analysis = analysis

@@ -309,7 +309,9 @@ static unsigned int hex_value(char value)
 
 static bool append_utf8(unsigned int codepoint, char *output, size_t capacity, size_t *length)
 {
-    if (codepoint >= 0xD800U && codepoint <= 0xDFFFU) {
+    /* Native protocol fields are C strings: an embedded NUL cannot be
+     * represented without silently changing the requested value. */
+    if (codepoint == 0U || codepoint > 0x10FFFFU || (codepoint >= 0xD800U && codepoint <= 0xDFFFU)) {
         return false;
     }
     if (codepoint <= 0x7FU) {
@@ -323,11 +325,17 @@ static bool append_utf8(unsigned int codepoint, char *output, size_t capacity, s
         }
         output[(*length)++] = (char)(0xC0U | (codepoint >> 6U));
         output[(*length)++] = (char)(0x80U | (codepoint & 0x3FU));
-    } else {
+    } else if (codepoint <= 0xFFFFU) {
         if (*length + 3U >= capacity) {
             return false;
         }
         output[(*length)++] = (char)(0xE0U | (codepoint >> 12U));
+        output[(*length)++] = (char)(0x80U | ((codepoint >> 6U) & 0x3FU));
+        output[(*length)++] = (char)(0x80U | (codepoint & 0x3FU));
+    } else {
+        if (*length + 4U >= capacity) return false;
+        output[(*length)++] = (char)(0xF0U | (codepoint >> 18U));
+        output[(*length)++] = (char)(0x80U | ((codepoint >> 12U) & 0x3FU));
         output[(*length)++] = (char)(0x80U | ((codepoint >> 6U) & 0x3FU));
         output[(*length)++] = (char)(0x80U | (codepoint & 0x3FU));
     }
@@ -370,6 +378,16 @@ static bool token_string_copy(
                 codepoint = (codepoint << 4U) | hex_value(parser->json[cursor + index]);
             }
             cursor += 4U;
+            if (codepoint >= 0xD800U && codepoint <= 0xDBFFU) {
+                if (token->end - cursor < 7U || parser->json[cursor + 1U] != '\\' ||
+                    parser->json[cursor + 2U] != 'u') return false;
+                unsigned int low = 0U;
+                for (size_t index = 3U; index <= 6U; ++index)
+                    low = (low << 4U) | hex_value(parser->json[cursor + index]);
+                if (low < 0xDC00U || low > 0xDFFFU) return false;
+                codepoint = 0x10000U + ((codepoint - 0xD800U) << 10U) + low - 0xDC00U;
+                cursor += 6U;
+            }
             if (!append_utf8(codepoint, output, capacity, &output_length)) {
                 return false;
             }
@@ -798,13 +816,13 @@ static ainekio_decode_result_t decode_intent(
         if (result == AINEKIO_DECODE_OK) {
             result = required_integer(parser, root, "steps", 0, 10, &steps);
         }
+        if (result != AINEKIO_DECODE_OK) return result;
         for (uint8_t index = 0U; index < 6U; ++index) {
             if (strcmp(direction, directions[index]) == 0) {
                 intent->data.walk.direction = (ainekio_walk_direction_t)index;
             }
         }
         intent->data.walk.steps = (uint8_t)steps;
-        if (result != AINEKIO_DECODE_OK) return result;
         if (object_get(parser, root, "gait") >= 0) {
             char gait[8];
             result = required_string(parser, root, "gait", gait, sizeof(gait), 1U, 7U);

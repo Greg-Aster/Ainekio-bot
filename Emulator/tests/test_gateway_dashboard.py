@@ -412,6 +412,12 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         code,result,_ = await self._request('POST',route,payload,cookie=cookie,csrf=csrf)
         self.assertEqual((code,result['state']),(200,'starting'))
         self.server.neural_gait.call.assert_awaited_once_with('/train', {'steps':50000})
+        self.server.neural_gait.call.reset_mock()
+        selection = {'op':'load','model_id':'abc','checkpoint_id':'000065536'}
+        code,_,_ = await self._request('POST',route,selection,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.server.neural_gait.call.assert_awaited_once_with('/load',
+            {'model_id':'abc','checkpoint_id':'000065536'})
         self.assertEqual(self.gateway.calls,[])
         code,_,_ = await self._request('GET','/api/neural-gait/replay?id=abc')
         self.assertEqual(code,401)
@@ -457,7 +463,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.server.neural_gait.call = AsyncMock(return_value=model)
         with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):
             await self.server.neural_gait_request({"op": "preview", "robot_id": "ainekio-test-01"})
-        self.server.neural_gait.call.assert_awaited_once_with("/status")
+        self.server.neural_gait.call.assert_awaited_once_with("/status?history=0")
 
     async def test_host_learning_routes_use_selected_robot_and_require_csrf(self):
         learning = SimpleNamespace(
@@ -813,7 +819,8 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_network_toggle_uses_existing_auth_and_persists_without_robot_commands(self):
         process = SimpleNamespace(returncode=0, communicate=AsyncMock(return_value=(b"", b"")))
-        with patch("gateway.hotspot.asyncio.create_subprocess_exec", AsyncMock(return_value=process)) as execute:
+        with patch("gateway.hotspot.asyncio.create_subprocess_exec", AsyncMock(return_value=process)) as execute, \
+                patch.object(self.hotspot, "_availability", return_value=None):
             status, _, _ = await self._request("POST", "/api/settings/network", {"hotspot": True})
             self.assertEqual(status, 401)
             cookie, csrf = await self._login()
@@ -822,12 +829,22 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             execute.assert_not_awaited()
             status, payload, _ = await self._request("POST", "/api/settings/network", {"hotspot": True}, cookie=cookie, csrf=csrf)
             self.assertEqual(status, 200)
-            self.assertEqual(payload["host_network"], {"hotspot": True})
+            self.assertEqual(payload["host_network"], {"hotspot": True, "available": True, "error": None})
             self.assertEqual(self.hotspot.env_file.read_text(), "AINEKIO_HOTSPOT=1\n")
             status, snapshot, _ = await self._request("GET", "/api/status", cookie=cookie)
-            self.assertEqual(snapshot["host_network"], {"hotspot": True})
+            self.assertEqual(snapshot["host_network"], {"hotspot": True, "available": True, "error": None})
             self.assertEqual(self.gateway.calls, [])
-            self.assertEqual(execute.await_args.args[:4], ("systemctl", "--no-ask-password", "start", "ainekio-hotspot-dhcp.service"))
+            self.assertEqual(execute.await_args.args, ("systemctl", "--no-ask-password", "start", "ainekio-hotspot.target", "ainekio-hotspot-dhcp.service"))
+
+    async def test_status_exposes_sleep_stale_hotspot_instead_of_claiming_enabled_means_working(self):
+        cookie, _ = await self._login()
+        self.hotspot.enabled = True
+        with patch.object(self.hotspot, "_availability", return_value="Robot hotspot is not broadcasting"):
+            status, payload, _ = await self._request("GET", "/api/status", cookie=cookie)
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["host_network"], {
+            "hotspot": True, "available": False, "error": "Robot hotspot is not broadcasting",
+        })
 
     async def test_network_service_failure_is_visible_and_preserves_saved_mode(self):
         process = SimpleNamespace(returncode=1, communicate=AsyncMock(return_value=(b"", b"Missing hotspot service")))

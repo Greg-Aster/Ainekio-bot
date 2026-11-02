@@ -134,6 +134,46 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await result).counter, 5)
         self.assertEqual(calls, [b"5"])
 
+    async def test_complete_recognition_failure_reaches_requested_image_and_bridge(self):
+        message = "failed model diagnostic "*40 + "original failure detail at the end"
+
+        def broken(jpeg):
+            raise ValueError(message)
+
+        class BridgeSocket:
+            closed = False
+
+            def __init__(self):
+                self.sent = []
+
+            async def send(self, raw):
+                self.sent.append(json.loads(raw))
+
+        adapter = EnvironmentAdapter(self.gateway,
+            EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
+        self.addCleanup(adapter.receipts.close)
+        socket = BridgeSocket()
+        adapter._websocket, adapter._bridge_ready = socket, True
+
+        async def observe(analysis):
+            await adapter.publish_camera_analysis(analysis, max_frame_age_s=1)
+
+        plugin = self.plugin(broken, observe=observe)
+        frame = {"robot_id":"robot", "epoch":1, "counter":6,
+            "frame_type":CAMERA_JPEG_FRAME_TYPE, "payload":b"6", "received_at":self.now}
+        with self.assertLogs("gateway.plugins", level="WARNING"):
+            analysis = await plugin.capture(frame)
+            await plugin._queue.join()
+        self.assertEqual(analysis.jpeg, b"6")
+        self.assertEqual(analysis.error, "ValueError: " + message)
+        observations = [item["observation"] for item in socket.sent
+            if item["type"] == "environment.observation"]
+        self.assertEqual(len(observations), 1)
+        failure = observations[0]["metadata"]["recognitionFailure"]
+        self.assertEqual(failure["reason"], analysis.error)
+        self.assertEqual((failure["robotId"], failure["epoch"], failure["frameCounter"]), ("robot",1,6))
+        self.assertIsNone(plugin.current_analysis(), "A failure must not become a recognized scene")
+
     async def test_capture_reports_failure_and_owner_close_without_losing_the_image(self):
         def broken(jpeg):
             raise ValueError("fixture recognition failure")
@@ -593,3 +633,27 @@ class CameraPerceptionTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(plugin._queue.join(), 1)
         self.assertEqual(processed, [b"1", b"4"])
         self.assertEqual([event.counter for event in observed], [4])
+
+
+class DashboardCameraIdentityTests(unittest.TestCase):
+    def test_body_metadata_cannot_replace_gateway_connection_epoch(self):
+        from gateway.dashboard.server import DashboardHttpServer
+
+        dashboard = object.__new__(DashboardHttpServer)
+        dashboard._camera_condition = threading.Condition()
+        dashboard._camera_frames = {}
+        dashboard._camera_snapshots = {}
+        metadata = {"epoch": 999, "origin": "request", "origin_id": 31,
+                    "counter_base": 40, "exposure_us": 15000}
+        DashboardHttpServer._record_camera_frame(dashboard, {
+            "robot_id": "robot", "frame_type": CAMERA_JPEG_FRAME_TYPE,
+            "epoch": 7, "counter": 40, "payload": b"complete-requested-jpeg",
+            "camera_metadata": metadata,
+        })
+        frame = dashboard.wait_for_camera_frame("robot", None, timeout=0,
+                                                request_sequence=31, epoch=7)
+        self.assertIsNotNone(frame, "The gateway connection owns the snapshot epoch")
+        self.assertEqual(frame, (40, b"complete-requested-jpeg", {**metadata, "epoch": 7}))
+        self.assertEqual(metadata["epoch"], 999, "Do not mutate received body evidence")
+        self.assertIsNone(dashboard.wait_for_camera_frame("robot", None, timeout=0,
+                                                        request_sequence=31, epoch=999))

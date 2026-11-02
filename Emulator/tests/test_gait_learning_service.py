@@ -32,6 +32,156 @@ def samples(command):
                  reference_twist=[command[0]*.2, 0., command[1]*math.pi/8]) for t in (0., 1., 2.)]
 
 
+class GaitStorageTests(unittest.TestCase):
+    def test_atomic_failures_preserve_saved_state_and_remove_only_their_own_temporary_file(self):
+        from contextlib import nullcontext
+        import stat
+        from gateway.gait_learning_service import atomic_json
+
+        for failure in ("serialization", "fsync", "replace"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                destination = root/"training.json"
+                destination.write_text('{"previous":"complete"}')
+                original = destination.read_bytes()
+                unrelated = root/"training.json.another-owner.tmp"
+                unrelated.write_text("another operation's temporary file")
+                value = {"candidate": float("nan") if failure == "serialization" else [1, 2, 3]}
+                operation = (nullcontext() if failure == "serialization" else
+                    patch("gateway.gait_learning_service.os.fsync", side_effect=OSError("Fixture sync failed"))
+                    if failure == "fsync" else patch.object(Path, "replace", side_effect=OSError("Fixture replace failed")))
+                with operation, self.assertRaises(ValueError if failure == "serialization" else OSError):
+                    atomic_json(destination, value)
+                self.assertEqual(destination.read_bytes(), original)
+                self.assertEqual(unrelated.read_text(), "another operation's temporary file")
+                self.assertEqual(sorted(p.name for p in root.iterdir()),
+                                 [destination.name, unrelated.name])
+                atomic_json(destination, {"candidate": [1, 2, 3]})
+                self.assertEqual(json.loads(destination.read_text()), {"candidate": [1, 2, 3]})
+                self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o600)
+                self.assertEqual(sorted(p.name for p in root.iterdir()),
+                                 [destination.name, unrelated.name])
+
+    def test_concurrent_configuration_keeps_latest_settings_without_holding_body_commands(self):
+        from gateway.gait_learning_service import atomic_json
+
+        async def check():
+            class Socket:
+                closed = False
+                def __init__(self): self.messages = []
+                async def send(self, raw): self.messages.append(json.loads(raw))
+
+            gateway = GatewayService(GatewayServiceConfig(tokens={}), clock=lambda: 100.)
+            socket = Socket()
+            connection = GatewayConnection(gateway, socket, "robot", 1)
+            gateway._connections["robot"] = connection
+            with tempfile.TemporaryDirectory() as directory:
+                service = GaitLearningService(gateway, Transport(), lambda _: {}, Path(directory))
+                started, release = asyncio.Event(), asyncio.Event()
+                tasks = []
+                async def save(fn, path, value):
+                    self.assertIs(fn, atomic_json)
+                    if value["robot"]["window_cycles"] == 5:
+                        started.set()
+                        await release.wait()
+                    fn(path, value)
+                with patch("gateway.gait_learning_service.asyncio.to_thread", new=save):
+                    try:
+                        tasks.append(asyncio.create_task(service.configure("robot", {"window_cycles": 5})))
+                        await started.wait()
+                        tasks.append(asyncio.create_task(service.configure("robot", {"window_cycles": 6})))
+                        await asyncio.sleep(0)  # Let the second request attempt its existing save.
+                        await connection.send_command({"t": "stop"}, received_at=100.)
+                        self.assertEqual(socket.messages[-1]["t"], "stop",
+                                         "Settings persistence cannot hold independent body command admission")
+                        release.set()
+                        await asyncio.gather(*tasks)
+                        self.assertEqual(service.settings["robot"]["window_cycles"], 6)
+                        self.assertEqual(json.loads(service.settings_path.read_text())["robot"]["window_cycles"], 6)
+                    finally:
+                        release.set()
+                        await asyncio.gather(*tasks, return_exceptions=True)
+                        connection.cancel_pending()
+                        await service.close()
+        asyncio.run(check())
+
+    def test_cancelled_configuration_cannot_outlive_and_overwrite_a_newer_save(self):
+        from gateway.gait_learning_service import atomic_json
+
+        async def check():
+            with tempfile.TemporaryDirectory() as directory:
+                service = GaitLearningService(Gateway(), Transport(), lambda _: {}, Path(directory))
+                started, release = asyncio.Event(), asyncio.Event()
+                requests, workers = [], []
+                async def save(fn, path, value):
+                    self.assertIs(fn, atomic_json)
+                    async def disk():
+                        if value["robot"]["window_cycles"] == 5:
+                            started.set()
+                            await release.wait()
+                        fn(path, value)
+                    # A dispatched disk worker survives cancellation of its
+                    # waiter, as a real asyncio.to_thread filesystem call does.
+                    worker = asyncio.create_task(disk()); workers.append(worker)
+                    return await asyncio.shield(worker)
+                with patch("gateway.gait_learning_service.asyncio.to_thread", new=save):
+                    try:
+                        first = asyncio.create_task(service.configure("robot", {"window_cycles": 5}))
+                        requests.append(first)
+                        await started.wait()
+                        first.cancel(); await asyncio.sleep(0); first.cancel()
+                        await asyncio.wait([first], timeout=.01)
+                        second = asyncio.create_task(service.configure("robot", {"window_cycles": 6}))
+                        requests.append(second)
+                        await asyncio.wait([second], timeout=.01)
+                        release.set()
+                        results = await asyncio.gather(*requests, return_exceptions=True)
+                        await asyncio.gather(*workers)
+                        self.assertIsInstance(results[0], asyncio.CancelledError)
+                        self.assertFalse(isinstance(results[1], BaseException))
+                        self.assertEqual(service.settings["robot"]["window_cycles"], 6)
+                        self.assertEqual(json.loads(service.settings_path.read_text())["robot"]["window_cycles"], 6)
+                    finally:
+                        release.set()
+                        await asyncio.gather(*requests, return_exceptions=True)
+                        await asyncio.gather(*workers, return_exceptions=True)
+                        await service.close()
+        asyncio.run(check())
+
+    def test_failed_configuration_does_not_publish_unpersisted_learning_settings(self):
+        async def check():
+            with tempfile.TemporaryDirectory() as directory:
+                service = GaitLearningService(Gateway(), Transport(), lambda _: {}, Path(directory))
+                async def run(fn, *args): return fn(*args)
+                with patch("gateway.gait_learning_service.asyncio.to_thread", new=run):
+                    try:
+                        await service.configure("robot", {"learning": False})
+                        before = copy.deepcopy(service.settings)
+                        saved = service.settings_path.read_bytes()
+                        with patch("gateway.gait_learning_service.atomic_json", side_effect=OSError("Fixture settings disk failed")):
+                            with self.assertRaisesRegex(OSError, "Fixture settings disk failed"):
+                                await service.configure("robot", {"learning": True})
+                        self.assertEqual(service.settings, before,
+                                         "A failed settings command must not enable learning in memory")
+                        self.assertEqual(service.settings_path.read_bytes(), saved)
+                        self.assertFalse(service.tasks)
+                    finally:
+                        await service.close()
+        asyncio.run(check())
+
+    def test_robot_http_failure_keeps_the_complete_diagnostic_and_closes_the_socket(self):
+        detail = "Firmware diagnostic start\n" + "measurement αβ\n"*80 + "Root cause at end: calibration write failed"
+        with patch("gateway.gait_learning_service.http.client.HTTPConnection") as factory:
+            connection = factory.return_value
+            connection.getresponse.return_value.status = 500
+            connection.getresponse.return_value.read.return_value = detail.encode()
+            with self.assertRaises(ValueError) as caught:
+                RobotLearningTransport._request("fixture.invalid", "fixture-token", "gait-learning", {"op": "read"})
+            self.assertEqual(str(caught.exception), "Robot gait-learning: HTTP 500: " + detail)
+            connection.request.assert_called_once()
+            connection.close.assert_called_once()
+
+
 class ObjectiveTests(unittest.TestCase):
     def test_sparse_feedback_owns_and_closes_each_connection(self):
         async def check():
@@ -150,10 +300,11 @@ class ObjectiveTests(unittest.TestCase):
 class Gateway:
     def __init__(self):
         self.commands, self.events, self.frames, self.diagnostics = [], [], [], []
+        self.balance_reads = []
     def status(self):
-        return {"robots": {"robot": {"epoch": 1, "features": ["walk_nominal_v1"],
+        return {"robots": {"robot": {"epoch": 1, "features": ["walk_nominal_v1", "balance_control_v1"],
             "motion_speed": {"joint_speed_limit_deg_s": 545.45},
-            "balance_settings": {"enabled": True}, "walking_source": {"source": "native"},
+            "balance_settings": None, "walking_source": {"source": "native"},
             "unrelated_private_data": "do-not-record"}}}
     def subscribe_commands(self, fn): self.commands.append(fn)
     def subscribe_events(self, fn): self.events.append(fn)
@@ -163,6 +314,10 @@ class Gateway:
     async def body_calibration(self, op, values, robot_id=None):
         assert op == "get"
         return {"robot_id": robot_id, "joints": []}
+    async def body_balance(self, op, *, robot_id=None):
+        self.balance_reads.append((op, robot_id))
+        assert op == "get"
+        return {"enabled": True, "strength": 1., "damping": 1., "roll_deg": 3., "pitch_deg": 1.5928}
 
 
 class Transport:
@@ -299,7 +454,10 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         folder = Path(self.service.status("robot")["recording"])
         self.assertTrue((folder/"trace.jsonl").exists())
         metadata = json.loads((folder/"metadata.jsonl").read_text().splitlines()[0])
-        self.assertEqual(metadata["execution_settings"]["balance_settings"], {"enabled": True})
+        self.assertIsNone(self.gateway.status()["robots"]["robot"]["balance_settings"])
+        self.assertEqual(self.gateway.balance_reads, [("get", "robot")])
+        self.assertEqual(metadata["execution_settings"]["balance_settings"],
+                         {"enabled": True, "strength": 1., "damping": 1., "roll_deg": 3., "pitch_deg": 1.5928})
         self.assertEqual(metadata["execution_settings"]["motion_speed"], {"joint_speed_limit_deg_s": 545.45})
         self.assertNotIn("unrelated_private_data", metadata["execution_settings"])
         self.assertTrue((folder/"commands.jsonl").exists())
@@ -312,6 +470,99 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(.15)
         self.assertEqual(self.service.status("robot")["state"], "off")
         self.assertEqual(self.transport.calls[-1][2]["op"], "trace_stop")
+
+    async def test_unavailable_balance_readback_is_explicit_and_does_not_stop_recording(self):
+        self.gateway.body_balance = AsyncMock(side_effect=RuntimeError("self-leveling readback timed out"))
+        await self.service.configure("robot", {"logging": True})
+        await asyncio.sleep(.03)
+        await self.service.writes.join()
+        folder = Path(self.service.status("robot")["recording"])
+        settings = json.loads((folder/"metadata.jsonl").read_text().splitlines()[0])["execution_settings"]
+        self.assertIsNone(settings["balance_settings"])
+        self.assertEqual(settings["balance_settings_error"], "self-leveling readback timed out")
+        self.assertTrue((folder/"trace.jsonl").exists())
+        self.assertEqual(self.service.status("robot")["state"], "logging")
+        self.gateway.body_balance.assert_awaited_once_with("get", robot_id="robot")
+
+    async def test_balance_changes_are_recorded_from_acknowledged_command_results(self):
+        # This readback is not published as a normal gateway event. Exercise the
+        # actual terminal owner so the recorder cannot depend on a fictitious one.
+        owner = GatewayService(GatewayServiceConfig(tokens={}))
+        connection = GatewayConnection(owner, Mock(closed=False, send=AsyncMock()), "robot", 7)
+        connection.model = "v2-12servo"
+        connection.features = {"balance_control_v1", "balance_tuning_v1"}
+        owner._connections["robot"] = connection
+        owner.subscribe_diagnostics(self.service.diagnostic)
+        folder = Path(self.temp.name)/"balance-trial"
+        self.service.settings["robot"] = {"logging": True, "learning": False}
+        self.service._runtime("robot")["recording"] = folder
+        try:
+            seq = await connection.send_command({"t": "balance", "op": "save", "enabled": True,
+                "strength": 1., "damping": 1., "roll_deg": 3., "pitch_deg": 1.5928}, received_at=owner.clock())
+            readback = {"t": "balance_status", "seq": seq, "enabled": True, "saved": True,
+                "active": False, "walking_enabled": True, "walking_saved": True,
+                "strength": 1., "damping": 1., "roll_deg": 3., "pitch_deg": 1.5928,
+                "tuning_saved": True, "unrelated_private_data": "do-not-record"}
+            await connection._handle_control(readback)
+            await self.service.writes.join()
+            self.assertFalse((folder/"events.jsonl").exists(), "Unacknowledged settings are not applied evidence")
+            await connection._handle_control({"t": "ack", "seq": seq})
+            await connection._handle_control(readback)
+            readback["roll_deg"] = 999
+            await self.service.writes.join()
+            rows = [json.loads(line) for line in (folder/"events.jsonl").read_text().splitlines()]
+            self.assertEqual(len(rows), 1)
+            self.assertGreater(rows[0]["host_monotonic_s"], 0)
+            self.assertEqual(rows[0]["value"], {
+                "event": "command_result", "robot_id": "robot", "epoch": 7,
+                "seq": seq, "command_type": "balance", "op": "save", "t": "balance_status",
+                "enabled": True, "saved": True, "active": False, "walking_enabled": True,
+                "walking_saved": True, "strength": 1., "damping": 1., "roll_deg": 3.,
+                "pitch_deg": 1.5928, "tuning_saved": True})
+        finally:
+            connection.cancel_pending()
+            owner.unsubscribe_diagnostics(self.service.diagnostic)
+
+    async def test_motion_terminals_preserve_finish_release_and_failures_after_disconnect(self):
+        owner = GatewayService(GatewayServiceConfig(tokens={}))
+        connection = GatewayConnection(owner, Mock(closed=False, send=AsyncMock()), "robot", 7)
+        connection.model = "v2-12servo"
+        connection.features = {"walk_controls_v2", "body_commands_v1"}
+        connection.capabilities = {"motion": True, "commands": ["walk", "stop"]}
+        owner._connections["robot"] = connection
+        owner.subscribe_diagnostics(self.service.diagnostic)
+        folder = Path(self.temp.name)/"motion-terminals"
+        self.service.settings["robot"] = {"logging": True, "learning": False}
+        self.service._runtime("robot")["recording"] = folder
+        try:
+            walk = await connection.send_command({"t": "intent", "name": "walk", "dir": "fwd", "steps": 0}, received_at=owner.clock())
+            await connection._handle_control({"t": "ack", "seq": walk})
+            await self.service.writes.join()
+            self.assertFalse((folder/"events.jsonl").exists(), "Walk acknowledgement is not completion")
+            finish = await connection.send_command({"t": "intent", "name": "walk", "dir": "fwd",
+                "speed": 0, "steps": 0, "update": walk}, received_at=owner.clock())
+            await connection._handle_control({"t": "ack", "seq": finish})
+            await connection._handle_control({"t": "done", "seq": walk})
+            release = await connection.send_command({"t": "stop", "detach": True}, received_at=owner.clock())
+            await connection._handle_control({"t": "ack", "seq": release, "unrelated_private_data": "do-not-record"})
+            failed = await connection.send_command({"t": "intent", "name": "walk", "dir": "fwd", "steps": 0}, received_at=owner.clock())
+            await connection._handle_control({"t": "nak", "seq": failed, "code": "output_unavailable"})
+            disconnected = await connection.send_command({"t": "intent", "name": "walk", "dir": "fwd", "steps": 0}, received_at=owner.clock())
+            connection.cancel_pending("disconnect")
+            owner._connections.clear()
+            await self.service.writes.join()
+            rows = [json.loads(line)["value"] for line in (folder/"events.jsonl").read_text().splitlines()]
+            self.assertEqual([(r["seq"], r["t"]) for r in rows],
+                [(finish, "ack"), (walk, "done"), (release, "ack"), (failed, "nak"), (disconnected, "cancelled")])
+            self.assertEqual(rows[0]["update"], walk)
+            self.assertTrue(rows[2]["detach"])
+            self.assertEqual(rows[3]["code"], "output_unavailable")
+            self.assertEqual(rows[4]["code"], "disconnect")
+            self.assertTrue(all(r["epoch"] == 7 and r["robot_id"] == "robot" for r in rows))
+            self.assertNotIn("do-not-record", (folder/"events.jsonl").read_text())
+        finally:
+            connection.cancel_pending()
+            owner.unsubscribe_diagnostics(self.service.diagnostic)
 
     async def test_neural_trial_preserves_requested_consumed_and_fault_evidence(self):
         self.service.settings["robot"] = {"logging": True, "learning": False}
@@ -326,6 +577,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.gateway.commands[0](target)
         diagnostic = {"event": "neural_gait", "robot_id": "robot", "epoch": 3,
                       "walk": 41, "sample": 7, "model_id": "candidate", "action": [.1]*12,
+                      "checkpoint_id": "000065536-imitation000560000",
                       "requested_foot_offset_mm": [1]*12, "observation_device_us": 100000,
                       "scan": 12, "consumed_sample": 6,
                       "orientation_reference_yaw_rad": 1.2, "orientation_reference_sign": -1,
@@ -353,6 +605,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(commands[1], target)
         self.assertEqual(len(neural), 2)
         self.assertEqual(neural[0]["action"], [.1]*12)
+        self.assertEqual(neural[0]["checkpoint_id"], "000065536-imitation000560000")
         self.assertEqual(neural[0]["consumed_sample"], 6)
         self.assertEqual(neural[0]["orientation_reference_yaw_rad"], 1.2)
         self.assertEqual(neural[0]["orientation_reference_sign"], -1)

@@ -203,6 +203,17 @@ configured scenario for every command. Completion evaluates the published
 candidate and held-reference baseline across the full configured scenario/seed
 suite. Checkpoint probes and final qualification are labelled separately;
 publishing the final training state does not mean it improved.
+Dashboard status omits the large per-second `progress_intervals` arrays while
+retaining episode and command outcomes. Full evaluation artifacts keep those
+arrays; the status projection does not delete recorded evidence.
+
+Each checkpoint row can select its immutable saved weights for inference. The
+existing `load` operation accepts `model_id` and optional `checkpoint_id`; omitting
+the checkpoint selects the run's published final policy. The service persists
+both identifiers in its existing `selected.json`, restores that exact selection
+after restart, and returns it with inference results. Body Control records both
+identifiers and retains the same model identity throughout a Walk. Further training
+does not silently replace an explicitly selected checkpoint.
 
 Automatic footage is produced once, after training: the initial and published
 final policies each run one matched command/scenario/seed trial. Detailed replay
@@ -284,6 +295,9 @@ in historical configurations mean disabled. These are explicit training settings
 not a reading of the physical robot's saved balance configuration. Inference
 preview reports nominal targets. The connected virtual body uses the production
 Walk executor; installed physical behavior still requires hardware qualification.
+Capture the actual saved balance settings when preparing a physical continuation.
+The gait recorder reads them through the existing balance owner independently of
+the dashboard cache, and preserves later acknowledged balance-setting changes.
 
 SAC learns a small 64×64 MLP actor from physics rollouts. It consumes joint angles,
 velocities, targets, observation usability, IMU, desired motion and explicit
@@ -322,6 +336,12 @@ and learner; it is not an elapsed-time phase input to the learned policy.
 `--expert-mix` and `--updates-per-round` control the recorded collection rounds.
 The run retains exact aggregate data, teacher cycle, immutable round checkpoints
 and selection provenance, including rounds that perform worse.
+`gateway.neural_gait.teachers --base-config RUN/environment.json` uses the
+consuming run's execution backend through the same environment factory and keeps
+its sensor/reward settings. A Body Control teacher therefore records observations
+from the gateway/native P4 path. Its nominal foot requests are distinct from
+measured joint travel; fitted offsets unavailable from that executor remain
+explicitly unknown in the archive.
 For command-conditioned aggregation, repeat `--demonstration SOURCE.npz` with
 `--demonstration-cycles --steps 0`. Each source sidecar supplies its SI command
 and `recommended_cycle_rows: [start, end]` (end exclusive). One selected cycle
@@ -462,8 +482,23 @@ PPO transfers actor/value weights, initializes newly active depth weights to
 zero and starts a fresh optimizer/rollout buffer; it does not discard the actor.
 Source learning counters and transfer assumptions are recorded. Same-schema
 PPO `--resume` can extend the scene curriculum while retaining optimizer state.
+Scenario `start_joint_deg` supplies twelve model-coordinate starting angles,
+independently of the action datum and standing-height target. It lets recorded
+entry/failure poses enter the existing simulator without teaching a forced entry
+sequence. PPO fresh-rollout continuation also accepts explicit acquisition,
+command-ramp, control-cadence and leveling changes; servo calibration and action
+coordinates remain compatible. Motor no-load speed is distinct from the saved
+command-ramp setting. Matching observed host cadence in simulation does not
+change the physical command producer's event-driven timing.
 SAC cannot reuse historical replay across a changed environment. Loading and
 training do not select a new physical inference model automatically.
+
+Weights-only `--initialize-from` also supports moving a direct-simulator actor
+into `body_control`. It retains the learned actor and records `execution_changes`,
+while starting fresh optimizer/replay state. This uses the existing captured
+standing-feedback setting; it does not accept unrelated geometry or calibration
+changes. Demonstration observations must be collected again through Body Control;
+changing their metadata does not make direct-simulator observations equivalent.
 
 Post-fall recovery is a separate qualification through the existing Freestyle
 Bridge, not a second neural motor controller or PPO action label. The normal
@@ -494,20 +529,39 @@ retains the original worker count/replay layout. On the October27 workstation,
 two workers increased physics-only throughput from179 to299 steps/s; this excludes
 learner updates, rendering and IPC, so it is not an end-to-end training speed claim.
 
-Measured **October29** on the four-core workstation, stepping the Body Control
-backend end to end (`environment.json` from run `2300c113`, 40 vector steps per
-point, `OMP_NUM_THREADS=1`):
+Measured **October29** on the workstation (i9-9900K: 8 physical cores / 16 logical
+CPUs, 62 GiB, RTX 4080), stepping the Body Control backend end to end
+(`environment.json` from run `2300c113`, 40 vector steps per point,
+`OMP_NUM_THREADS=1`):
 
 | `--workers` | 1 | 2 | 4 | 8 | 16 |
 | --- | --- | --- | --- | --- | --- |
-| transitions/s | 48 | 86 | 119 | **151** | 165 |
+| transitions/s | 48 | 86 | 119 | 151 | **165** |
+| parallel efficiency | — | 89% | 62% | 39% | 21% |
 
-Throughput saturates by eight workers; sixteen buys ~9% more for twice the
-processes and resident memory, and oversubscribes four cores. Use `--workers 8`
-here. The ceiling is the physics plus native P4 executor cost per control step,
-not the learner. At ~151 transitions/s the 1e8 transitions this class of recipe
-reports would take about 7.7 days, so a sample budget in that range is not
-currently reachable on this host; raising worker count will not change that.
+`nproc` reports 4 on this host because it honours `OMP_NUM_THREADS`; `nproc --all`
+reports the real 16. Total throughput still rises with worker count while
+efficiency collapses, and it does so with the host **84% CPU-idle** and the GPU at
+~18% / 44 W of its 320 W limit. So training is neither CPU- nor GPU-bound.
+
+The ceiling is the synchronous `SubprocVecEnv` barrier. One worker steps at
+25.4 ms per control step — 10 MuJoCo substeps at 500 Hz plus the native P4
+closed-linkage solve — i.e. ~39 transitions/s alone. In an 8-worker pool each
+worker completes only ~18 steps/s at ~53% CPU duty, while the learner's main
+process uses **10% of one core** and blocks in `unix_stream_data_wait`. Both sides
+idle: each cycle waits for the slowest contact-rich step, so cycle cost tracks the
+maximum worker step time, not the mean. Ruled out as causes: the `info` payload
+(1.1 KiB pickled), progress writes (throttled to 2 s), thread contention (2 threads
+per worker) and learner cost (<1% of wall time).
+
+Consequence: for a single run use `--workers 16` for the best measured total, and
+expect ~165 transitions/s — adding workers will not raise it much further. At that
+rate the 1e8 transitions this recipe class reports would take ~7 days, so that
+budget is unreachable in this architecture. A real speedup has to remove the
+barrier or the per-step physics cost rather than add workers: GPU-batched physics
+(MJX), fewer physics substeps per control step, or the `direct` execution backend.
+Each trades simulation fidelity against the Body Control executor contract, so
+each is an owner decision — recorded here, not applied.
 
 Artifacts stay under ignored `build/neural-gait` by default (override
 `AINEKIO_NEURAL_GAIT_DATA_DIR`). Each run contains the exact environment, geometry
@@ -642,6 +696,72 @@ reward weights and profile are saved with the environment. Historical artifacts
 without a profile retain their previous reward. No foot order or gait waveform
 is prescribed. Physical progress remains separate from this training score.
 
+Since **environment version 11** the two tracking terms are **coupled into one
+product**:
+
+```
+(w_linear + w_yaw) * exp(-linear_error^2) * exp(-yaw_error^2) * support
+```
+
+They were previously summed separately, which let a stationary robot collect full
+credit on every axis the request left at zero. Four of the six training requests
+have a zero axis, so standing still earned **+1.047/s** while perfect tracking paid
+the measured motion costs and netted **+0.828/s** — the objective's optimum was
+non-motion, and the policy correctly converged to shuffling in place. Coupling
+flips that margin to **+0.126/s** (+0.272/s across the five locomotion requests).
+Both component keys still report the shared coupled value, so their signed sum
+still equals total reward. `LocomotionRewardTests.
+test_perfect_tracking_outearns_rest_under_measured_motion_costs` guards this; a
+zero-cost comparison cannot catch the defect.
+
+Since **environment version 12** two further terms are available, both **opt-in and
+inert at their defaults** so an earlier artifact replays bit-identically:
+
+- `locomotion_tracking_window_s` (default `0.0`, meaning a single control step).
+  A nonzero window scores the pace velocity the environment already accumulates in
+  `reward_twists` instead of the instantaneous step. This is needed because the
+  tracking width `0.03` m/s equals the request itself, so `exp(-error^2)` punishes
+  the within-step surge of a real gait: an oscillation that still *averages* the
+  requested 30 mm/s earned **0.01104/step — exactly what standing still earned** —
+  against 0.03000 for steady tracking. At a 0.2 s window both oscillating patterns
+  earn the full 0.03000 while the rest score is unchanged, restoring the progress
+  incentive without weakening it.
+- `feet_air_time` in `locomotion_reward_weights` (default `0.0`), with
+  `locomotion_target_air_time_s` (default `0.25`). The credit is the fraction of
+  feet in a **valid swing** — off the ground and not yet past the target — gated by
+  normalized request magnitude, so an idle request still prefers standing.
+
+Both bounds on the swing credit are load-bearing and were chosen by measurement.
+Crediting airborne time without the target bound let holding all four feet up
+out-earn a real gait (**+0.05000** vs **+0.03500**). Crediting each touchdown
+instead made the total scale with touchdown count, so 0.04 s shuffling beat 0.24 s
+strides (**0.18560** vs **0.15360**). Bounding to the swing state gives standing
+**0**, held-up feet **0.240** and a real stride **0.600**, with idle gating exactly
+**0**. Stride length is left to the tracking term, which can see the body move.
+
+Weight validation accepts an absent key and fills the published zero default; it
+rejects unknown keys. Exact set equality would have made every pre-version-12
+`environment.json` fail to load. Credit terms are named by `REWARD_CREDIT_TERMS`,
+not inferred from a `tracking_` prefix. The contact query is skipped entirely when
+the weight is zero, so historical replay pays nothing for it; where enabled it
+costs **0.231 ms** per control step (+0.036 ms for the window), which is **0.91%**
+of the 25.4 ms `body_control` budget. Neither term has been trained yet — the
+values above are reasoned first probes, not tuned results.
+
+**Tuning warning:** `slip` is normalized by `locomotion_tracking_width_m_s**2`.
+Narrowing the tracking width to sharpen tracking therefore inflates the slip
+penalty by the square — at width 0.010 instead of 0.030, slip costs **9x** more,
+which on measured costs drives perfect walking to **-2.480/s**. Any width change
+must rescale the slip weight by `(new_width/0.030)**2` to hold the physical penalty
+constant, or slip needs its own normalization constant. Slip is already ~60% of
+measured motion cost, which is itself evidence of foot shuffling; do not buy reward
+margin by reducing its weight.
+
+Omit the idle `0 0 0` request from early training. Zero requested speed is
+perfectly satisfied by rest, so idle pays the most of any request (**+1.500/s**)
+for doing nothing, and as one sixth of every batch it drags the shared policy
+toward stillness. Reintroduce it later for stop/settle behavior.
+
 `commands` accepts multiple SI velocity/yaw requests through the training API;
 repeat `--command VX VY YAW` in the CLI. These go through the existing real
 Gateway Walk/update path and native P4 execution. The learned model retains the
@@ -701,6 +821,15 @@ The session file contains the existing dashboard session cookie value; keep it
 private. Omitting `--command` records without sending movement. The recording
 duration ends recording only; it never sends Stop or changes balance settings.
 Use an explicitly finite plan when a finite physical trial is intended.
+
+For supervised neural walking, select the candidate and Neural walking source
+through the existing Body Control controls only when ready for the trial. Start
+the recorder without `--command`, using `--feedback --device-trace` on firmware
+that supports the device trace, then issue Walk and Finish/Stop through the normal
+controls. Retain a floor reference and external video for actual distance and
+foot-clearance assessment. A recording duration is not a motion duration. Check
+the installed calibration and fourth-wire/IMU readings first; simulated feedback
+and successful virtual cancellation do not establish those physical facts.
 
 `summary.json` reports distinct fresh device samples and maximum sample gaps.
 The device's `fresh` flag describes acquisition at publication time, not the
@@ -1033,13 +1162,24 @@ On a host with the Ainekio hotspot services installed, set `AINEKIO_HOTSPOT=1`
 in the ignored `.env` to select hotspot mode at startup. In Body Control,
 **Settings → Robot connection mode** switches between the existing Wi-Fi network
 and the configured robot hotspot immediately, saving the choice in `.env`.
-The running gateway starts `ainekio-hotspot-dhcp.service` and its dependencies,
-then stops `ainekio-hotspot-interface.service` and its dependent services only
+The running gateway starts `ainekio-hotspot.target` and its AP/DHCP dependencies,
+then stops that target and its dependent services only
 when switched to Wi-Fi. The hotspot stays up across gateway restarts. Switching
 does not restart Body Control. A robot using the hotspot reconnects through its
 saved Wi-Fi profiles when that hotspot is turned off.
+The installed resume and NetworkManager uplink hooks queue recovery through
+`ainekio-hotspot.target`, whose active lifetime preserves the selected On mode
+even when a radio or DHCP dependency fails. The interface service owns the AP
+and DHCP dependencies.
+They use `try-restart`, so a hotspot switched off in Body Control stays off.
+No polling daemon or independent boot-enabled hotspot owns that decision.
+Startup and an explicit On request repair a stale active service whose radio is
+down. Body Control checks the broadcast SSID, interface/link state, LAN address
+and all three service states; it shows an alert if the selected hotspot is
+unavailable. A hotspot startup failure is logged and leaves the diagnostic
+dashboard accessible. Network observation is cached for at most five seconds.
 The operator needs permission to
-start/stop those specific system units without an interactive prompt. Disable
+start/stop/restart those specific system units without an interactive prompt. Disable
 their independent boot enablement when using this connection-mode setting.
 The default is `0`, so other hosts need no hotspot services. Body Control's
 dashboard login and robot pairing authentication continue to use their existing
@@ -1062,8 +1202,9 @@ owner-only (0600) hostapd file containing the existing `ssid` and either
 host to reuse the robot's saved Wi-Fi credentials. The installer copies only
 those fields; desktop interface names and other hostapd settings are not imported.
 It preserves unmanaged existing files with an explicit error and installs
-no independently boot-enabled hotspot. Stop the gateway before updating the
-installed configuration. Set `AINEKIO_HOTSPOT=1` in `.env` and use the normal
+no independently boot-enabled hotspot. Switch the hotspot off in Body Control,
+then stop the gateway before updating the installed configuration.
+Set `AINEKIO_HOTSPOT=1` in `.env` and use the normal
 launcher to start it.
 
 The radio must support an AP alongside its station connection; inspect `iw list`
@@ -1081,8 +1222,9 @@ gateway at `ws://10.42.77.1:8790/robot`. DHCP is confined to that interface and
 does not advertise Internet routing or DNS. This is the robot-to-gateway link;
 the Q6A gateway and configured remote services use the Q6A's existing uplink.
 The installer does not configure NAT, remote MetaHuman execution or Cloudflare.
-Operator permissions allow only starting/stopping the three named hotspot
-units. Stopping the gateway removes its AP and DHCP/hostapd services together.
+Operator permissions allow only starting/stopping/restarting the named hotspot
+target and three services. Switching hotspot mode off removes its AP and DHCP/hostapd
+services together; stopping the gateway leaves the selected network up.
 
 Updated P4 firmware tries distinct saved Wi-Fi networks in order, allowing 15
 seconds per network while offline. It keeps a working Wi-Fi connection; gateway
@@ -2291,7 +2433,10 @@ timestamps, fixed Walk yaw reference and any producer-failure Finish request.
 `metadata.jsonl` retains available motion-speed, balance and selected-source
 settings from the existing gateway state, with unknown values left explicit.
 `events.jsonl` retains paired IMU/joint packets with the actually
-consumed sample, command rejection/termination and body-stall/fall events.
+consumed sample and body-stall/fall events. Motion completion, rejection,
+cancellation, Finish-update and Release receipts come from the gateway's
+existing command-result subscription and retain their epoch, sequence and
+update reference. A Walk acknowledgement alone is not recorded as completion.
 These are different stages of evidence, not interchangeable success receipts.
 The native residual optimizer does not consume host-neural tracking windows;
 recording a neural trial is not an automatic model-weight update.

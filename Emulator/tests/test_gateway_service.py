@@ -1415,7 +1415,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         original_call = service.neural_gait.call
         async def call(path, payload=None):
             result = await original_call(path, payload)
-            if path == "/status":
+            if path == "/status?history=0":
                 result["environment"]["observation_schema"] = DEPTH_SCHEMA
             return result
         service.neural_gait.call = call
@@ -1475,7 +1475,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         service.walking_sources["robot"] = profile
         requests = asyncio.Queue()
         async def call(path, payload=None):
-            if path == "/status":
+            if path == "/status?history=0":
                 return {"model_id":"selected", "environment":{
                     "reference_joint_deg":[0.]*12, "target_limits_deg":[[-90,90]]*12,
                     "foot_action_scale_mm":[30,20,30]}}
@@ -1602,12 +1602,21 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target2["walk"], walk)
         await self.neural_packet(connection, walk, 4, target2["sample"])
         _, unfinished = await asyncio.wait_for(requests.get(), 1)
-        await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":0,"update":walk}, robot_id="robot")
+        # Body Control's Finish uses the shared native one-cycle sentinel.
+        # Source translation must produce a valid host Finish, not reject it.
+        await service.queue_intent("walk", {"dir":"fwd","steps":1,"speed":0,"update":walk}, robot_id="robot")
+        self.assertEqual(socket.sent[-1]["steps"], 0)
+        self.assertEqual(socket.sent[-1]["source"], "host")
+        self.assertEqual(socket.sent[-1]["twist"], [0., 0., 0.])
         await asyncio.sleep(0)
         self.assertIsNone(connection.neural_walk)
         self.assertTrue(unfinished.cancelled())
         self.assertTrue(socket.targets.empty())
         self.assertIn(walk, connection.pending, "Finish still awaits the original body's actual terminal")
+        await service.queue_intent("walk", {"dir":"fwd","steps":1,"speed":0,"update":walk}, robot_id="robot")
+        self.assertEqual(socket.sent[-1]["twist"], [0., 0., 0.])
+        self.assertEqual(socket.sent[-1]["update"], walk)
+        self.assertIn(walk, connection.pending, "Repeated Finish must retain the landing owner")
         await connection._handle_control({"t":"done","seq":walk})
         self.assertNotIn(walk, connection.pending)
         inference = [row for row in diagnostics if row.get("event") == "neural_gait" and "action" in row]
@@ -1641,7 +1650,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
                 connection.cancel_pending()
 
     async def test_neural_producer_failures_finish_original_walk_and_keep_actual_terminal(self):
-        for failure in ("inference", "model_changed", "target_nak", "unknown_consumption"):
+        for failure in ("inference", "model_changed", "checkpoint_changed", "target_nak", "unknown_consumption"):
             with self.subTest(failure=failure):
                 service, connection, socket, requests = self.neural_fixture()
                 diagnostics = []
@@ -1656,6 +1665,8 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
                     result.set_exception(ValueError("backend failure"))
                 elif failure == "model_changed":
                     result.set_result({"model_id":"replacement","action":[.1]*12})
+                elif failure == "checkpoint_changed":
+                    result.set_result({"model_id":"selected","checkpoint_id":"newer","action":[.1]*12})
                 elif failure == "unknown_consumption":
                     await self.neural_packet(connection, walk, 2, 99)
                 else:
@@ -1670,7 +1681,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(0)
                 finished = [row for row in diagnostics if "finish_sequence" in row]
                 self.assertEqual(len(finished), 1)
-                if failure in {"inference", "model_changed"}:
+                if failure in {"inference", "model_changed", "checkpoint_changed"}:
                     self.assertEqual(finished[0]["scan"], 1)
                     self.assertEqual(finished[0]["consumed_sample"], 0)
                     self.assertEqual(finished[0]["orientation_reference_yaw_rad"], 0.)

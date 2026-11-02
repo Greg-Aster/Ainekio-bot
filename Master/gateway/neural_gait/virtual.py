@@ -43,7 +43,7 @@ class LearnerInference:
         self.pending = None
 
     async def call(self, path, payload=None):
-        if path == "/status":
+        if path == "/status?history=0":
             return {"model_id": self.model_id, "environment": deepcopy(self.environment)}
         if path != "/infer":
             raise ValueError(f"Unsupported learner inference operation: {path}")

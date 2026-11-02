@@ -244,7 +244,7 @@ def project_candidate(base, coordinates, radii, joints, gait, conditions):
                                     input=data, capture_output=True, text=True, check=False)
             if result.returncode:
                 if result.returncode not in (3, 4, 5, 6, 7):
-                    raise RuntimeError("Linkage preview failed: "+result.stderr[-1000:])
+                    raise RuntimeError("Linkage preview failed: "+result.stderr)
                 return None
         return model, x
 
@@ -281,7 +281,7 @@ def propose_worker(observations, *, seed=0):
                             text=True, capture_output=True, check=False,
                             env={**os.environ, "PYTHONPATH": str(root/"Master")+os.pathsep+os.environ.get("PYTHONPATH", "")})
     if result.returncode:
-        raise RuntimeError("Optimizer worker failed: "+result.stderr[-1500:])
+        raise RuntimeError("Optimizer worker failed: "+result.stderr)
     return json.loads(result.stdout)
 
 

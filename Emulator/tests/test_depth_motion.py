@@ -7,20 +7,52 @@ import os
 from pathlib import Path
 import tempfile
 import threading
+import subprocess
+import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import numpy as np
 
-from gateway.depth_motion import settings, spatial_depth, worker_environment
-from gateway.depth_motion_worker import Estimator, FeatureMap, camera_position, OPTICAL_TO_FORWARD
+from gateway.depth_motion import DepthMotion, settings, spatial_depth, worker_environment
+from gateway.depth_motion_worker import Estimator, FeatureMap, camera_position, body_pose, pose_motion, OPTICAL_TO_FORWARD
 from gateway.dashboard.server import DashboardHttpServer
 from gateway.plugins import CameraFramePlugin, _CameraInput
 
 
 @unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use the gait-training environment for optical simulation")
 class SimulatedDepthTests(unittest.TestCase):
+    def test_odometry_latency_reference_and_tracking_loss_are_independent_of_depth(self):
+        from gateway.neural_gait.depth import DepthCamera, project_depth
+        profile = dict(self.profile, odometry=dict(position_noise_std_m=0.,
+            rotation_noise_std_rad=0., log_scale_std=0., dropout_probability=0.))
+        self.camera = DepthCamera(profile)
+        self.capture(0)
+        self.assertFalse(project_depth(self.capture(.2), .2, "robot", 2)["available"])
+        self.data.qpos[0] = .1
+        self.mujoco.mj_forward(self.model, self.data)
+        self.capture(.5)
+        moved = self.capture(.7)
+        projected = project_depth(moved, .7, "robot", 2)
+        self.assertTrue(projected["available"])
+        np.testing.assert_allclose(projected["velocity_body_m_s"], [.2, 0, 0])
+        self.assertAlmostEqual(moved["path_length_m"], .1)
+        self.assertFalse(projected["metric_accuracy_verified"])
+        self.camera.odometry["dropout_probability"] = 1.
+        self.capture(1.)
+        lost = self.capture(1.2)
+        self.assertFalse(project_depth(lost, 1.2, "robot", 2)["available"])
+        self.assertTrue(project_depth(lost, 1.2, "robot", 2)["depth_available"])
+        self.camera.odometry["dropout_probability"] = 0.
+        self.data.qpos[0] = .4
+        self.mujoco.mj_forward(self.model, self.data)
+        self.capture(1.5)
+        reacquired = self.capture(1.7)
+        self.assertNotEqual(moved["referenceId"], reacquired["referenceId"])
+        self.assertFalse(reacquired["available"], "Do not bridge lost tracking with fabricated velocity")
+        self.assertEqual(reacquired["path_length_m"], 0.)
+
     def setUp(self):
         import mujoco
         from gateway.neural_gait.depth import DepthCamera
@@ -109,6 +141,49 @@ class SimulatedDepthTests(unittest.TestCase):
         self.assertEqual(self.camera._encode()["cameraToBody"],np.eye(4).tolist())
 
 
+class DepthWorkerLifecycleTests(unittest.TestCase):
+    def test_new_frame_can_start_after_worker_exit_and_releases_old_pipes(self):
+        real_popen = subprocess.Popen
+        for fail_first in (False, True):
+            with self.subTest(fail_first=fail_first):
+                workers = []
+                client = DepthMotion("fixture")
+
+                def spawn(*args, **kwargs):
+                    fail = fail_first and not workers
+                    script = ("import json,sys\n"
+                        "request=json.loads(sys.stdin.readline())\n"
+                        + ("sys.exit(17)\n" if fail else
+                           "print(json.dumps({'robotId':request['robot'],'frameCounter':request['counter']}),flush=True)\n"))
+                    worker = real_popen([sys.executable, "-u", "-c", script],
+                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+                    workers.append(worker)
+                    return worker
+
+                try:
+                    with patch("gateway.depth_motion.subprocess.Popen", side_effect=spawn):
+                        if fail_first:
+                            with self.assertRaisesRegex(RuntimeError, "Depth worker exited"):
+                                client.process("robot",1,1,10.,b"jpg","stamp",{})
+                        else:
+                            self.assertEqual(client.process("robot",1,1,10.,b"jpg","stamp",{}),
+                                {"robotId":"robot","frameCounter":1})
+                        workers[0].wait(timeout=3)
+                        second = client.process("robot",1,2,11.,b"next jpg","next stamp",{})
+                        self.assertEqual(second, {"robotId":"robot","frameCounter":2})
+                        self.assertEqual(len(workers), 2, "Each independent request starts at most one worker")
+                        self.assertTrue(workers[0].stdin.closed)
+                        self.assertTrue(workers[0].stdout.closed)
+                finally:
+                    client.close()
+                    for worker in workers:
+                        if worker.poll() is None:
+                            worker.terminate()
+                        worker.wait(timeout=3)
+                        worker.stdin.close()
+                        worker.stdout.close()
+
+
 class DepthGeometryTests(unittest.TestCase):
     def test_spatial_projection_uses_camera_freshness_identity_and_receipt_age(self):
         from gateway.neural_gait.depth import project_depth
@@ -121,11 +196,16 @@ class DepthGeometryTests(unittest.TestCase):
         self.assertAlmostEqual(result["age_s"],.2)
         self.assertEqual(result["depth_min_m"],1.)
         self.assertEqual(result["depthSpatial"]["units"],"estimated-metres")
+        moving = dict(measurement, available=True, coordinateOrigin="body", velocity_body_m_s=[.1,0,0])
+        self.assertTrue(project_depth(moving,10.2,"robot",2)["available"])
+        self.assertTrue(project_depth({**moving,"depthSpatial":None},10.2,"robot",2)["available"])
+        self.assertFalse(project_depth({**moving,"coordinateOrigin":"camera"},10.2,"robot",2)["available"])
         for changes in ({"robotId":"other"},{"epoch":3},{"frameCurrent":False},
                         {"receivedAtMonotonic":11.},{"receivedAtMonotonic":float("nan")},
                         {"receivedAtMonotonic":float("inf")},{"receivedAtMonotonic":None}):
             with self.subTest(changes=changes):
                 self.assertFalse(project_depth({**measurement,**changes},10.2,"robot",2)["depth_available"])
+                self.assertFalse(project_depth({**moving,**changes},10.2,"robot",2)["available"])
 
     def test_spatial_grid_keeps_optical_depth_pixels_and_missing_readings(self):
         depth = np.arange(16*24, dtype=float).reshape(16,24)+1
@@ -208,6 +288,20 @@ class DepthGeometryTests(unittest.TestCase):
         np.testing.assert_allclose([p["xMetres"], p["yMetres"], p["zMetres"]], 0, atol=1e-10)
         self.assertAlmostEqual(p["headingDegrees"], 90)
         self.assertNotAlmostEqual(camera_position(camera)["xMetres"], 0)
+
+    def test_pose_velocity_and_turn_use_the_body_origin(self):
+        mounting = OPTICAL_TO_FORWARD.copy()
+        mounting[:3, 3] = [.105, 0., -.014]
+        body = np.eye(4)
+        body[:2, :2] = [[0, -1], [1, 0]]
+        camera = np.linalg.inv(mounting) @ body @ mounting
+        motion = pose_motion(np.eye(4), body_pose(camera, mounting), 2.)
+        np.testing.assert_allclose(motion["velocity_body_m_s"], 0., atol=1e-10)
+        self.assertAlmostEqual(motion["yaw_rate_rad_s"], math.pi/4)
+        body[:3, 3] = [.1, .2, 0.]
+        motion = pose_motion(np.eye(4), body, 2.)
+        np.testing.assert_allclose(motion["velocity_body_m_s"], [.1, -.05, 0.])
+        self.assertAlmostEqual(motion["travelled_m"], math.hypot(.1,.2))
 
     def test_settings_preserve_optional_measured_transform(self):
         self.assertEqual(settings({})["mode"], "ground-plane")
@@ -298,6 +392,50 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
             _publish_event=AsyncMock())
         self.camera = CameraFramePlugin(self.gateway, None)
         self.addAsyncCleanup(self.camera.aclose)
+
+    async def test_each_body_keeps_its_requested_measurement_while_latest_frames_replace_only_that_body(self):
+        from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
+        robots = {name:{"epoch":1, "connection_state":"online"} for name in ("robot", "other", "third")}
+        self.gateway.status = lambda: {"robots":robots}
+        entered, release = asyncio.Event(), threading.Event()
+        loop = asyncio.get_running_loop()
+        processed = []
+
+        def process(frame, timestamp):
+            processed.append((frame.robot_id, frame.counter))
+            if frame.robot_id == "robot":
+                loop.call_soon_threadsafe(entered.set)
+                if not release.wait(3):
+                    raise AssertionError("Fixture depth inference was not released")
+            return {"available":True, "robotId":frame.robot_id, "epoch":frame.epoch,
+                "frameCounter":frame.counter, "receivedAtMonotonic":frame.received_at}
+
+        self.camera._process_metric = process
+        for robot in robots:
+            await self.camera._handle_frame({"frame_type":CAMERA_JPEG_FRAME_TYPE,
+                "robot_id":robot, "epoch":1, "counter":1, "received_at":10., "payload":b"jpg"})
+        pending = [asyncio.create_task(self.camera.depth_demand("robot", "nav-robot", True))]
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            for robot in ("other", "third"):
+                pending.append(asyncio.create_task(self.camera.depth_demand(robot, "nav-"+robot, True)))
+                await asyncio.sleep(0)
+            await self.camera._handle_frame({"frame_type":CAMERA_JPEG_FRAME_TYPE,
+                "robot_id":"other", "epoch":1, "counter":2, "received_at":10., "payload":b"new jpg"})
+            release.set()
+            await asyncio.wait_for(self.camera._metric_queue.join(), 1)
+            for robot in robots:
+                self.assertNotIn(robot, self.camera._metric_ready,
+                    "A body's requested measurement cannot vanish behind another body's frame")
+            results = await asyncio.gather(*pending)
+            self.assertEqual([result["measurement"]["robotId"] for result in results], list(robots))
+            self.assertEqual(results[1]["measurement"]["frameCounter"], 2)
+            self.assertCountEqual(processed, [("robot",1), ("other",2), ("third",1)])
+        finally:
+            release.set()
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
 
     async def test_explicit_source_selection_and_model_release_without_commands(self):
         ground = Mock()

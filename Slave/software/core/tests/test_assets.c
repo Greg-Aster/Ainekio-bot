@@ -78,6 +78,55 @@ static void test_corruption_truncation_and_trailing_data_are_rejected(void)
     free(extended);
 }
 
+static void refresh_payload_crc(uint8_t *bytes, size_t length)
+{
+    uint32_t crc = UINT32_C(0xFFFFFFFF);
+    for (size_t index = AINEKIO_MOTION_BINARY_HEADER_BYTES; index < length; ++index) {
+        crc ^= bytes[index];
+        for (unsigned bit = 0U; bit < 8U; ++bit) {
+            const uint32_t mask = (uint32_t)-(int32_t)(crc & 1U);
+            crc = (crc >> 1U) ^ (UINT32_C(0xEDB88320) & mask);
+        }
+    }
+    crc = ~crc;
+    for (unsigned index = 0U; index < 4U; ++index) {
+        bytes[20U + index] = (uint8_t)(crc >> (8U * index));
+    }
+}
+
+static void test_length_delimited_names_cannot_alias_shorter_assets(void)
+{
+    /* One valid frame, return pose and face cue, with valid payload CRC. */
+    uint8_t bytes[46] = {
+        'A', 'M', 'O', 'T', 1U, AINEKIO_JOINT_MAP_VERSION, 1U, 1U,
+        1U, 0U, 1U, 0U, 4U, 4U, 0U, 0U, 22U, 0U, 0U, 0U,
+        0U, 0U, 0U, 0U,
+        'm', 'o', 'v', 'e', 'r', 'e', 's', 't',
+        0U, 0U, AINEKIO_FACE_MODE_ONCE, 4U, 'c', 'u', 't', 'e',
+        20U, 0U, 1U, 0U, 0x28U, 0x23U,
+    };
+    ainekio_motion_asset_t *asset = malloc(sizeof(*asset));
+    assert(asset != NULL);
+    refresh_payload_crc(bytes, sizeof(bytes));
+    assert(ainekio_motion_asset_decode(bytes, sizeof(bytes), asset) == AINEKIO_ASSET_OK);
+    assert(strcmp(asset->name, "move") == 0);
+    assert(strcmp(asset->return_pose, "rest") == 0);
+    assert(strcmp(asset->face_cues[0].name, "cute") == 0);
+    const size_t name_offsets[] = {24U, 28U, 36U};
+    for (size_t field = 0U; field < sizeof(name_offsets) / sizeof(name_offsets[0]); ++field) {
+        /* Reject embedded NUL at every position, including a valid prefix. */
+        for (size_t offset = 0U; offset < 4U; ++offset) {
+            const size_t position = name_offsets[field] + offset;
+            const uint8_t saved = bytes[position];
+            bytes[position] = 0U;
+            refresh_payload_crc(bytes, sizeof(bytes));
+            assert(ainekio_motion_asset_decode(bytes, sizeof(bytes), asset) == AINEKIO_ASSET_MALFORMED);
+            bytes[position] = saved;
+        }
+    }
+    free(asset);
+}
+
 static void test_sesame_walk_is_one_bounded_gait_cycle(void)
 {
     size_t length = 0U;
@@ -201,6 +250,7 @@ int main(void)
 {
     test_all_seed_assets_decode_and_fit_default_calibration();
     test_corruption_truncation_and_trailing_data_are_rejected();
+    test_length_delimited_names_cannot_alias_shorter_assets();
     test_sesame_walk_is_one_bounded_gait_cycle();
     test_fallbacks_are_bounded();
     test_feedback_frames_are_small_and_pose_relative();

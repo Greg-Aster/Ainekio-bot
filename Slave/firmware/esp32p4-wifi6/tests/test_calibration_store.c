@@ -7,6 +7,8 @@
 static struct { char key[16]; unsigned char data[4096]; size_t size; } records[16];
 static unsigned count, commits;
 static bool fail_commit;
+static bool observe_during_commit, reading_snapshot;
+static unsigned observed_commits;
 static ainekio_pca9685_t driver;
 static void put(const char *key,const void *data,size_t size) {
     unsigned i=0; for(;i<count && strcmp(records[i].key,key);++i){}
@@ -21,11 +23,27 @@ esp_err_t nvs_get_blob(nvs_handle_t h,const char *key,void *data,size_t *size){
     }return ESP_ERR_NVS_NOT_FOUND;
 }
 esp_err_t nvs_set_blob(nvs_handle_t h,const char *key,const void *data,size_t size){(void)h;if(!fail_commit)put(key,data,size);return ESP_OK;}
-esp_err_t nvs_commit(nvs_handle_t h){(void)h;++commits;return fail_commit?ESP_FAIL:ESP_OK;}
+esp_err_t nvs_commit(nvs_handle_t h){
+    (void)h;++commits;
+    if(observe_during_commit) {
+        /* Simulate an output-task snapshot while a writer is committing NVS.
+         * A semaphore attempt here would wait for that flash transaction. */
+        reading_snapshot=true;
+        const ainekio_p4_calibration_t snapshot=ainekio_p4_calibration();
+        const ainekio_v2_balance_tuning_t tuning=ainekio_p4_balance_tuning();
+        reading_snapshot=false;
+        assert(!memcmp(snapshot.joints,calibration.joints,sizeof snapshot.joints));
+        assert(snapshot.valid==calibration.valid && snapshot.saved==calibration.saved &&
+            snapshot.dirty==calibration.dirty && snapshot.profile_confirmed==calibration.profile_confirmed);
+        assert(!memcmp(&tuning,&balance_tuning,sizeof tuning));
+        ++observed_commits;
+    }
+    return fail_commit?ESP_FAIL:ESP_OK;
+}
 esp_err_t nvs_erase_key(nvs_handle_t h,const char *key){(void)h;(void)key;return ESP_ERR_NVS_NOT_FOUND;}
 void nvs_close(nvs_handle_t h){(void)h;}
 void *xSemaphoreCreateMutex(void){return (void *)1;}
-int xSemaphoreTake(void *p,unsigned t){(void)p;(void)t;return 1;}
+int xSemaphoreTake(void *p,unsigned t){(void)p;(void)t;assert(!reading_snapshot);return 1;}
 int xSemaphoreGive(void *p){(void)p;return 1;}
 ainekio_pca9685_t *ainekio_p4_output(void){return &driver;}
 ainekio_pca_status_t ainekio_pca_status(ainekio_pca9685_t *d){return d->state;}
@@ -38,6 +56,7 @@ int main(void){
     ainekio_p4_joint_config_t joint=calibration.joints[1];
     joint.home_us=3000;joint.home_cd=-1200;joint.us_per_degree=10;joint.invert=1;
     assert(ainekio_p4_calibration_stage(1,&joint)==ESP_OK && calibration.dirty);
+    observe_during_commit=true;
     fail_commit=true;assert(ainekio_p4_calibration_save()!=ESP_OK && !calibration.saved);
     fail_commit=false;assert(ainekio_p4_calibration_save()==ESP_OK);
     assert(calibration.saved && calibration.profile_confirmed && !calibration.dirty);
@@ -134,6 +153,7 @@ int main(void){
     assert(!calibration.valid && !calibration.saved);
     count=0;stored.version=1;put("joint_mapping",&stored,sizeof stored-1);boot();
     assert(!calibration.valid && !calibration.saved);
+    assert(observed_commits>0);
     puts("Compact calibration persistence, invalid records, commit failure and hardware pulse capacity passed");
     return 0;
 }

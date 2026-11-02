@@ -30,12 +30,28 @@ GEOMETRY = (
     Path(__file__).resolve().parents[3]
     / "Slave/software/models/v2-12servo/geometry.json"
 )
-ENVIRONMENT_VERSION = 10
+ENVIRONMENT_VERSION = 14
 # Versions6/7/8 changed reward accounting. Version9 also repairs the existing
 # native host-heading response. Input/action meanings and geometry are retained;
 # PPO continues from saved weights with fresh rollouts, not old transitions.
 # Version10 keeps the requested reward heading continuous through Walk updates.
-POLICY_ENVIRONMENT_VERSIONS = frozenset((5, 6, 7, 8, 9, 10))
+# Version11 couples the two locomotion tracking terms into one product so a
+# stationary robot cannot collect credit on an axis the request left at zero.
+# Version12 adds two opt-in locomotion terms. Tracking may score a short window
+# of pace velocity instead of the single control step, because a real gait surges
+# within a step and the narrow exponential otherwise pays an oscillating walk no
+# more than standing still. A feet-air-time credit rewards lifting feet, gated by
+# request magnitude so an idle request still prefers standing. Both default off
+# (window 0.0, weight 0.0), so an artifact recorded before them replays exactly.
+# Observations, actions and geometry are unchanged; reward accounting is not, so
+# a policy shaped by the earlier objective should be retrained rather than resumed.
+# Version13 can reuse the existing directed-displacement objective alongside
+# velocity tracking. Historical saved weights omit it and replay with zero;
+# new training gives current directed displacement credit before speed matching.
+# Version14 advances the native P4 output owner during physics integration,
+# independently of host-policy cadence. Earlier policies remain loadable, but
+# their recorded rollouts do not establish performance in the corrected plant.
+POLICY_ENVIRONMENT_VERSIONS = frozenset((5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
 # Explicit objective normalization, not measured hardware limits. The linear
 # scale is the current 30 mm/s training request; angular scale is independent
 # so lowering requested travel speed cannot amplify yaw-noise penalties.
@@ -57,7 +73,13 @@ LOCOMOTION_REWARD_WEIGHTS = dict(
     vertical_velocity=.5, roll_pitch_velocity=.05,
     joint_acceleration=2.5e-7, action_change=.01,
     effort=.05, energy=.001, slip=.1,
+    # Version 12. Zero keeps every earlier artifact's reward identical.
+    feet_air_time=0.0,
+    directed_progress=1.0,
 )
+# Terms the objective adds rather than subtracts. Naming, not spelling, decides
+# sign; the air-time credit is a reward and must not be inferred from a prefix.
+REWARD_CREDIT_TERMS = frozenset(("tracking_linear", "tracking_yaw", "feet_air_time", "directed_progress"))
 ASSEMBLY = GEOMETRY.parent / "simulation"
 
 def representation_identity():
@@ -141,7 +163,8 @@ def movement_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
 def locomotion_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
                       vertical_velocity, angular_velocity_xy, joint_velocity,
                       previous_joint_velocity, joint_torque, action, previous_action,
-                      contact_slip_speed_squared, config):
+                      contact_slip_speed_squared, config,
+                      pace_velocity=None, progress_pace_velocity=None, feet_air_time=0.):
     """Robot-scaled velocity tracking and physical movement quality per second.
 
     Reference terms: google-deepmind/mujoco_playground Go1 joystick and
@@ -149,28 +172,69 @@ def locomotion_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
     unlike division by the request, they remain defined at zero commands.
     Acceleration uses measured servo-shaft qvel, not target acceleration.
     Signed costs remain visible rather than clipping every poor action to zero.
+
+    The two tracking terms are coupled into one product, so every commanded axis
+    must be tracked to earn any tracking credit. Summing them separately let a
+    stationary robot collect full credit on whichever axis the request left at
+    zero; with four of the six training requests having a zero axis, standing
+    still out-earned perfect walking. Both component keys still report the shared
+    coupled value, keeping their signed sum equal to total reward. Per-axis
+    tracking quality stays observable through the recorded measured velocity and
+    yaw rate against each request.
+
+    Version 12 adds two opt-in terms, both inert at their defaults. A nonzero
+    `locomotion_tracking_window_s` scores the caller-supplied windowed pace
+    instead of the single control step: a walking body surges within a step, and
+    with a width equal to the request the exponential pays an oscillating gait no
+    more than standing still. `feet_air_time` credits lifting feet, gated by
+    request magnitude so an idle request still prefers standing.
     """
-    linear_error = (np.asarray(velocity_xy)-np.asarray(command[:2])) / config.locomotion_tracking_width_m_s
-    yaw_error = (yaw_rate-command[2]) / config.locomotion_tracking_width_rad_s
+    window = float(getattr(config, "locomotion_tracking_window_s", 0.))
+    if window > 0. and pace_velocity is not None:
+        pace = np.asarray(pace_velocity, dtype=float)
+        tracked_linear, tracked_yaw = pace[:2], float(pace[2])
+    else:
+        tracked_linear, tracked_yaw = np.asarray(velocity_xy), float(yaw_rate)
+    linear_error = (tracked_linear-np.asarray(command[:2])) / config.locomotion_tracking_width_m_s
+    yaw_error = (tracked_yaw-command[2]) / config.locomotion_tracking_width_rad_s
     support = float(np.clip(upright, 0, 1)*np.clip(height_ratio, 0, 1))
     acceleration = (np.asarray(joint_velocity)-previous_joint_velocity)*config.control_hz
+    coupled_tracking = (math.exp(-float(linear_error @ linear_error))
+                        * math.exp(-float(yaw_error*yaw_error)) * support)
+    # An idle request must not pay for stepping, so the credit is gated by the
+    # same normalized request magnitude the travel reward uses.
+    request_scale = math.sqrt(
+        (float(command[0])/config.reward_velocity_scale_m_s)**2
+        + (float(command[1])/config.reward_velocity_scale_m_s)**2
+        + (float(command[2])/config.reward_yaw_scale_rad_s)**2)
     terms = dict(
-        tracking_linear=math.exp(-float(linear_error @ linear_error))*support,
-        tracking_yaw=math.exp(-float(yaw_error*yaw_error))*support,
+        tracking_linear=coupled_tracking,
+        tracking_yaw=coupled_tracking,
         orientation=max(0., 1.-float(upright)**2),
         vertical_velocity=float(vertical_velocity)**2,
         roll_pitch_velocity=float(np.sum(np.asarray(angular_velocity_xy)**2)),
         joint_acceleration=float(np.sum(acceleration**2)),
         action_change=float(np.sum((np.asarray(action)-previous_action)**2)),
         # Effort is a fraction of rated torque. Energy is mechanical watts;
-        # contact speed is relative to this robot's tracking-speed unit.
+        # contact slip uses an independent SI scale in current training recipes.
         effort=float(np.mean((np.asarray(joint_torque)/config.torque_nm)**2)),
         energy=float(np.sum(np.abs(np.asarray(joint_torque)*joint_velocity))),
-        slip=float(contact_slip_speed_squared)/config.locomotion_tracking_width_m_s**2,
+        slip=float(contact_slip_speed_squared)/(config.locomotion_slip_scale_m_s
+            if config.locomotion_slip_scale_m_s is not None else config.locomotion_tracking_width_m_s)**2,
+        feet_air_time=float(feet_air_time)*min(1., request_scale),
+        # Dense displacement credit uses the same owner as the existing travel
+        # objective. Unlike exp(-error²), it has a useful gradient before the
+        # robot is close to the requested speed. Past pace can only penalize
+        # overspeed; it cannot pay for a robot that has stopped moving.
+        directed_progress=movement_reward(velocity_xy, yaw_rate, command, upright, height_ratio,
+            velocity_scale=config.reward_velocity_scale_m_s,
+            yaw_scale=config.reward_yaw_scale_rad_s,
+            cross_track_cost=config.reward_cross_track_cost,
+            overspeed_cost=config.reward_overspeed_cost, pace_twist=progress_pace_velocity),
     )
     components = {key: value*config.locomotion_reward_weights[key]/config.control_hz
                   for key, value in terms.items()}
-    reward = sum(value if key.startswith("tracking_") else -value
+    reward = sum(value if key in REWARD_CREDIT_TERMS else -value
                  for key, value in components.items())
     return float(reward), components
 
@@ -201,7 +265,8 @@ def validate_scenarios(scenarios):
         if not isinstance(identity,str) or not identity or identity in identities:
             raise ValueError("Scenarios require unique nonempty IDs")
         identities.add(identity)
-        for key,count in (("slope_deg",2),("start_rpy_deg",3),("start_xy_m",2)):
+        for key,count in (("slope_deg",2),("start_rpy_deg",3),("start_xy_m",2),
+                          ("start_joint_deg",12)):
             if key in scenario and not values(scenario[key],count):
                 raise ValueError(f"Scenario {key} requires {count} finite values")
         if "slope_deg" in scenario:
@@ -276,6 +341,13 @@ class EnvironmentConfig:
     reward_profile: str = "legacy"
     locomotion_tracking_width_m_s: float = .03
     locomotion_tracking_width_rad_s: float = .5
+    # Historical artifacts divided slip by tracking width. Fresh locomotion
+    # training explicitly uses 1 m/s, retaining the published SI penalty units.
+    locomotion_slip_scale_m_s: float | None = None
+    # Version 12. Both default to the pre-12 behaviour: a zero window scores the
+    # single control step, and an absent air-time weight contributes nothing.
+    locomotion_tracking_window_s: float = 0.
+    locomotion_target_air_time_s: float = .25
     locomotion_reward_weights: dict = field(default_factory=lambda: dict(LOCOMOTION_REWARD_WEIGHTS))
 
     def __post_init__(self):
@@ -287,12 +359,32 @@ class EnvironmentConfig:
             raise ValueError("Unknown gait execution backend")
         if self.reward_profile not in {"legacy", "locomotion"}:
             raise ValueError("Unknown gait training reward profile")
-        if (set(self.locomotion_reward_weights) != set(LOCOMOTION_REWARD_WEIGHTS)
-                or any(not math.isfinite(value) or value < 0
-                       for value in self.locomotion_reward_weights.values())):
-            raise ValueError("Locomotion reward weights require all named finite nonnegative terms")
+        unknown = set(self.locomotion_reward_weights) - set(LOCOMOTION_REWARD_WEIGHTS)
+        if unknown or any(not math.isfinite(value) or value < 0
+                          for value in self.locomotion_reward_weights.values()):
+            raise ValueError("Locomotion reward weights require known finite nonnegative terms")
+        # An artifact recorded before a term existed omits its weight. Filling the
+        # published zero default keeps that artifact's reward identical instead of
+        # rejecting the file, so historical runs still replay.
+        filled = dict(LOCOMOTION_REWARD_WEIGHTS)
+        # An existing saved weight dictionary predating directed progress must
+        # retain its exact reward, rather than acquire the new-training default.
+        filled["directed_progress"] = 0.
+        filled.update(self.locomotion_reward_weights)
+        self.locomotion_reward_weights = filled
+        if self.locomotion_slip_scale_m_s is not None and (
+                not math.isfinite(self.locomotion_slip_scale_m_s) or self.locomotion_slip_scale_m_s <= 0):
+            raise ValueError("locomotion_slip_scale_m_s must be finite and positive")
+        # A zero window is the pre-version-12 behaviour, so it must stay legal.
+        if (not math.isfinite(self.locomotion_tracking_window_s)
+                or self.locomotion_tracking_window_s < 0):
+            raise ValueError("locomotion_tracking_window_s must be finite and nonnegative")
         if not self.target_limits_deg:
             self.target_limits_deg = command_limits(self.robot)
+        for name in ("reward_cross_track_cost", "reward_overspeed_cost"):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative")
         for name in (
             "mass_kg",
             "leg_mass_kg",
@@ -301,11 +393,10 @@ class EnvironmentConfig:
             "servo_kd",
             "reward_velocity_scale_m_s",
             "reward_yaw_scale_rad_s",
-            "reward_cross_track_cost",
-            "reward_overspeed_cost",
             "reward_speed_window_s",
             "locomotion_tracking_width_m_s",
             "locomotion_tracking_width_rad_s",
+            "locomotion_target_air_time_s",
             "friction",
             "control_hz",
             "physics_hz",
@@ -571,6 +662,9 @@ class GaitEnvironment(gym.Env):
         self.config = deepcopy(config or EnvironmentConfig())
         self.reward_twists = deque(maxlen=max(1,round(
             self.config.reward_speed_window_s*self.config.control_hz)))
+        # Seconds each foot has been continuously off the ground. Reward state
+        # only; advanced in _advance when the air-time weight is nonzero.
+        self.feet_air_time = np.zeros(len(LEGS))
         self.commands = deepcopy(commands)
         if commands is not None and (not commands or any(
                 len(command) != 3 or not all(math.isfinite(value) for value in command)
@@ -813,6 +907,21 @@ class GaitEnvironment(gym.Env):
             )
         mujoco.mj_forward(self.model, self.data)
 
+    def _upright_collision_height(self):
+        rotation = self.data.xmat[self.model.body("torso").id].reshape(3,3)
+        bottom = math.inf
+        for gid in range(self.model.ngeom):
+            if self.model.geom_bodyid[gid] == 0 or not (
+                self.model.geom_contype[gid] or self.model.geom_conaffinity[gid]
+            ):
+                continue
+            mid = self.model.geom_dataid[gid]
+            start = self.model.mesh_vertadr[mid]
+            mesh = self.model.mesh_vert[start:start+self.model.mesh_vertnum[mid]]
+            world = mesh @ self.data.geom_xmat[gid].reshape(3,3).T + self.data.geom_xpos[gid]
+            bottom = min(bottom, float(((world-self.data.qpos[:3]) @ rotation)[:,2].min()))
+        return .001-bottom
+
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         if options and "command" in options:
@@ -825,6 +934,7 @@ class GaitEnvironment(gym.Env):
             raise ValueError("Command is forward m/s, lateral m/s, yaw rad/s")
         self.config.command = list(command)
         self.reward_twists.clear()
+        self.feet_air_time[:] = 0.
         self.observation_history = ObservationHistory()
         self._select_scenario(options)
         if self.depth_camera is not None:
@@ -853,6 +963,13 @@ class GaitEnvironment(gym.Env):
             self.data.qpos[3:7]=r[[3,0,1,2]]
             self.data.qpos[:2]=self.scenario.get("start_xy_m",[0,0])
         self.set_pose(np.deg2rad(self.config.reference_joint_deg))
+        reference_height = None
+        if self.scenario is not None and "start_joint_deg" in self.scenario:
+            # A recorded entry pose is a starting condition, not a new action
+            # datum or a lower standing-height reward target. Measure the
+            # reference pose first using the same installed collision surfaces.
+            reference_height = self._upright_collision_height()
+            self.set_pose(np.deg2rad(self.scenario["start_joint_deg"]))
         # Use compiled collision surfaces, including the current CAD boots.
         # Older reference sole hulls are not the installed assembly's bounds.
         bottom = math.inf
@@ -873,15 +990,9 @@ class GaitEnvironment(gym.Env):
             self._spawn_above_terrain()
         self.standing_height = float(self.data.qpos[2])
         if self.scenario is not None:
-            rotation=self.data.xmat[self.model.body("torso").id].reshape(3,3)
-            upright_bottom=math.inf
-            for gid in range(self.model.ngeom):
-                if self.model.geom_bodyid[gid]==0 or not (self.model.geom_contype[gid] or self.model.geom_conaffinity[gid]):continue
-                mid=self.model.geom_dataid[gid];start=self.model.mesh_vertadr[mid]
-                mesh=self.model.mesh_vert[start:start+self.model.mesh_vertnum[mid]]
-                world=mesh@self.data.geom_xmat[gid].reshape(3,3).T+self.data.geom_xpos[gid]
-                upright_bottom=min(upright_bottom,float(((world-self.data.qpos[:3])@rotation)[:,2].min()))
-            self.standing_height=.001-upright_bottom
+            self.standing_height=self._upright_collision_height()
+        if reference_height is not None:
+            self.standing_height = reference_height
         self.last_target = np.rad2deg(self.data.qpos[self.qadr])
         self.pwm = self.body_model.pwm_output(self.last_target,
             oscillator_hz=self.config.pwm_oscillator_hz, frequency_hz=self.config.pwm_frequency_hz)
@@ -1061,8 +1172,9 @@ class GaitEnvironment(gym.Env):
         output = executor.tick(round(1+self.data.time*1e6))
         self.last_target = np.asarray(output["logical_angles"]).copy()
         self.target_rejected = any(message.get("t") == "nak" for message in output["messages"])
-        pwm = {**output, "enabled": output["joint_enabled"]}
-        result = self._advance_physics(pwm) if action is None else self._advance(action, pwm)
+        output["enabled"] = output["joint_enabled"]
+        result = (self._advance_physics(output, executor=executor) if action is None
+                  else self._advance(action, output, executor=executor))
         return result, output
 
     def start_native_walk(self, command, *, heading_enabled, balance_enabled,
@@ -1162,15 +1274,26 @@ class GaitEnvironment(gym.Env):
         body_weight = mujoco.mj_getTotalmass(self.model) * np.linalg.norm(self.model.opt.gravity)
         return weighted_speed_squared / body_weight
 
-    def _advance_physics(self, output=None):
+    def _advance_physics(self, output=None, *, executor=None):
         before = self.data.qpos[:3].copy()
         self.pwm = output if output is not None else self.body_model.pwm_output(self.last_target,
             oscillator_hz=self.config.pwm_oscillator_hz, frequency_hz=self.config.pwm_frequency_hz)
-        self.data.ctrl[:] = np.deg2rad(self.pwm["physical_angles"])
-        enabled = np.asarray(self.pwm.get("enabled", [True]*12), dtype=bool)
         substeps = self.config.physics_hz // self.config.control_hz
         slip_speed_squared = 0.0
-        for _ in range(substeps):
+        for substep in range(substeps):
+            if executor is not None and substep:
+                # Host inference is asynchronous to the P4's own 20 ms output
+                # frames. Keep its existing executor running on acquired sensor
+                # data between policy targets; it decides when PWM is due.
+                current = executor.tick(round(1+self.data.time*1e6))
+                messages = output["messages"] + current["messages"]
+                output.update(current)
+                output["messages"] = messages
+                output["enabled"] = output["joint_enabled"]
+                self.last_target = np.asarray(output["logical_angles"]).copy()
+                self.target_rejected |= any(message.get("t") == "nak" for message in current["messages"])
+            self.data.ctrl[:] = np.deg2rad(self.pwm["physical_angles"])
+            enabled = np.asarray(self.pwm.get("enabled", [True]*12), dtype=bool)
             # DC motor torque-speed envelope: opposing loads can stall it;
             # external forces can back-drive it. Do not clip simulated qvel.
             speed = self.data.qvel[self.vadr]
@@ -1193,11 +1316,11 @@ class GaitEnvironment(gym.Env):
                     contact_slip_speed_squared_m2_s2=slip_speed_squared/substeps,
                     target_rejected=self.target_rejected, jammed_joints=int(self.jammed))
 
-    def _advance(self, action, output=None):
+    def _advance(self, action, output=None, *, executor=None):
         # Read before and after the same physical interval. No stale previous
         # episode velocity or command target can masquerade as acceleration.
         previous_joint_velocity = self.data.qvel[self.vadr].copy()
-        metrics = self._advance_physics(output)
+        metrics = self._advance_physics(output, executor=executor)
         self.steps += 1
         velocity = np.asarray(metrics["velocity_body_m_s"])
         upright = metrics["upright"]
@@ -1217,6 +1340,31 @@ class GaitEnvironment(gym.Env):
         self.reward_last_heading = heading
         self.reward_twists.append([*command_velocity,heading_delta*self.config.control_hz])
         if self.config.reward_profile == "locomotion":
+            # Version 12 opt-ins, both inert at their defaults so an artifact
+            # recorded before them scores exactly as it did. The contact query is
+            # skipped entirely at zero weight: it costs a per-step clearance and
+            # contact scan that historical replay must not pay for a term that
+            # contributes nothing.
+            pace = None
+            if self.config.locomotion_tracking_window_s > 0. and self.reward_twists:
+                window = max(1, round(self.config.locomotion_tracking_window_s
+                                      * self.config.control_hz))
+                pace = np.mean(list(self.reward_twists)[-window:], axis=0)
+            air_time = 0.
+            if self.config.locomotion_reward_weights.get("feet_air_time", 0.) > 0.:
+                target = self.config.locomotion_target_air_time_s
+                interval = 1. / self.config.control_hz
+                for index, touching in enumerate(self.foot_measurements()["contact"]):
+                    self.feet_air_time[index] = (0. if touching
+                                                 else self.feet_air_time[index] + interval)
+                # Fraction of feet in a valid swing: off the ground, and not yet
+                # past the target. Both bounds matter. Crediting airborne time
+                # without the upper bound lets the policy out-earn a real gait by
+                # holding its feet up; crediting each touchdown instead makes the
+                # total scale with step count, so rapid shuffling beats a proper
+                # stride. Discriminating stride length is the tracking term's job.
+                swinging = (self.feet_air_time > 0.) & (self.feet_air_time < target)
+                air_time = float(swinging.sum()) / len(self.feet_air_time)
             # Ground-truth dynamics are reward-only. The actor still consumes
             # the production fourth-wire/IMU observation through Body Control.
             reward, components = locomotion_reward(
@@ -1230,8 +1378,10 @@ class GaitEnvironment(gym.Env):
                 joint_torque=self.data.actuator_force,
                 action=action, previous_action=self.last_action,
                 contact_slip_speed_squared=metrics["contact_slip_speed_squared_m2_s2"],
-                config=self.config)
-            travel_reward = components["tracking_linear"]+components["tracking_yaw"]
+                config=self.config, pace_velocity=pace,
+                progress_pace_velocity=np.mean(self.reward_twists, axis=0), feet_air_time=air_time)
+            travel_reward = (components["tracking_linear"]+components["tracking_yaw"]
+                             + components["directed_progress"])
             slip_cost = components["slip"]
         else:
             # Reward new progress only. Cumulative-average potentials can increase

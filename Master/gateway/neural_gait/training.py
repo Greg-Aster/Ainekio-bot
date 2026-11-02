@@ -53,8 +53,9 @@ MINIBATCH_DIVISOR = 4
 # command axis, an absent depth grid) divide by ~sqrt(epsilon) and amplify noise
 # by ~1e4 into the first layer.
 OBSERVATION_CLIP = 10.0
-# Trust region for the configured epochs. clip_range already bounds each step;
-# a tighter target_kl made SB3 abandon the epoch loop before optimizer.step().
+# Stop later minibatches when their sampled policy divergence exceeds this
+# target. PPO clips its objective, not the parameter step itself: transferred
+# actors still need a measured optimizer rate appropriate to their distribution.
 TRUST_REGION_KL = 0.08
 
 
@@ -312,12 +313,6 @@ def policy_algorithm(manifest):
     raise ValueError(f"Unsupported neural gait artifact algorithm: {algorithm!r}")
 
 
-def require_sac_training(manifest):
-    if policy_algorithm(manifest) != "SAC":
-        raise ValueError("SAC imitation cannot consume a PPO artifact; "
-                         "use PPO resume or explicit PPO weights-only initialization")
-
-
 def load_policy(directory, checkpoint="policy.zip", *, device="cpu", env=None):
     """One artifact loader for inference and replay, including legacy SAC runs."""
     directory = Path(directory)
@@ -496,25 +491,45 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
     if compact:
         seeds = (1000,)
     if seeds is None:
+        camera = config.depth_camera or {}
+        odometry = camera.get("odometry") or {}
+        camera_varied = any(camera.get(key, 0.) for key in ("noise_std_m", "dropout_probability")) or any(
+            odometry.get(key, 0.) for key in
+            ("position_noise_std_m", "rotation_noise_std_rad", "log_scale_std", "dropout_probability"))
         varied = any((command_switch_range is not None, config.randomization, config.feedback_noise_raw_std,
-                      config.imu_accel_noise_std, config.imu_gyro_noise_std))
+                      config.imu_accel_noise_std, config.imu_gyro_noise_std, camera_varied))
         seeds = range(1000, 1008) if varied else (1000,)
     seeds = tuple(seeds)
     commands = commands or [config.command]
     scenarios = getattr(config, "scenarios", []) or [None]
     if compact:
         scenarios = scenarios[:1]
-    total = len(commands)*len(seeds)*len(scenarios)
+    # A held reference ignores camera observations. With explicit command and
+    # scenario selection, reset's only random physics is mass/friction; joint
+    # and IMU noise can also change the native feedback executor. Retain every
+    # seed trial when any of those inputs (or request timing) can vary. Neural
+    # actors always receive their independently sampled observations.
+    reuse_standing = model is None and command_switch_range is None and all(
+        getattr(config, name, None) == 0. for name in (
+            "randomization", "feedback_noise_raw_std", "imu_accel_noise_std", "imu_gyro_noise_std"))
+    total = len(commands)*len(scenarios)*(1 if reuse_standing else len(seeds))
     env = make_environment(config, include_visuals=False, commands=commands)
     switching = command_switch_seconds is not None or command_switch_range is not None
     requests = CommandRequests(env, commands, command_switch_seconds, command_switch_range) if switching else env
     rows = []
+    standing_references = {}
+    simulated = 0
     try:
         if progress:
             progress(0, total)
         for command_index, command, scenario_index, scenario, seed in (
                 (i, command, j, scenario, seed) for i, command in enumerate(commands)
                 for j, scenario in enumerate(scenarios) for seed in seeds):
+            reference_key = (command_index, scenario_index)
+            if reference_key in standing_references:
+                reference = standing_references[reference_key]
+                rows.append(dict(deepcopy(reference), seed=seed, reused_from_seed=reference["seed"]))
+                continue
             options = {"command": command}
             if scenario is not None:
                 options["scenario"] = scenario["id"]
@@ -542,6 +557,7 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
             fit_reduced_frames = fit_observed_frames = jam_frames = 0
             previous_target_step = np.zeros(12)
             motion_metric_sums = {}
+            reward_component_sums = {}
             # Held-out episodes measure actual simulated chassis displacement.
             for step in range(round(config.episode_seconds * config.control_hz)):
                 if segments and step and step == requests.request["start_step"]:
@@ -605,6 +621,8 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
                 moving_targets += int(np.max(np.abs(env.last_target-previous_target)) > 1e-6)
                 reward += r
                 travel_reward += info["travel_reward"]
+                for name, value in info.get("reward_components", {}).items():
+                    reward_component_sums[name] = reward_component_sums.get(name, 0.) + value
                 if terminated or truncated:
                     fallen = info["fallen"]
                     break
@@ -621,6 +639,7 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
                     reward=reward,
                     mean_total_reward_per_step=reward/(step+1),
                     mean_travel_reward_per_step=travel_reward/(step+1),
+                    reward_components_per_second={name: value/seconds for name, value in reward_component_sums.items()},
                     motion_metric_means={name: value/(step+1) for name, value in motion_metric_sums.items()},
                     seconds=seconds,
                     fallen=fallen,
@@ -649,8 +668,11 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
                     clearance_observed_frames=clearance_observed.tolist(),
                 )
             )
+            simulated += 1
+            if reuse_standing:
+                standing_references[reference_key] = rows[-1]
             if progress:
-                progress(len(rows), total)
+                progress(simulated, total)
     finally:
         env.close()
     return dict(
@@ -660,7 +682,11 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
             command_reference_travel_m="command-start horizontal reference, following requested turn",
             body_frame_travel_m="integrated instantaneous full3D measured body frame"),
         policy_kind="held_standing_reference" if model is None else "neural_foot_offsets",
-        trial_variation="configured physics, sensor or request-timing variation; otherwise one deterministic reference trial",
+        trial_variation=("Held reference has no seed-dependent physics or controller inputs; reused rows identify their source seed"
+            if len(rows) > simulated else
+            "configured physics, sensor or request-timing variation; otherwise one deterministic reference trial"),
+        simulated_episodes=simulated,
+        reused_episodes=len(rows)-simulated,
         episodes=rows,
         command_results=summarize_commands(rows),
         mean_forward_m_s=float(np.mean([r["forward_m_s"] for r in rows])),
@@ -812,16 +838,23 @@ def resume_environment_changes(manifest, config):
                  and policy_algorithm(manifest) == "PPO")
     expected = asdict(body_control_config(EnvironmentConfig(**manifest["environment"]))) if migration else dict(prior)
     if policy_algorithm(manifest) == "PPO":
-        # A new terrain/sensor curriculum uses fresh on-policy transitions.
+        # A new terrain/sensor/execution curriculum uses fresh on-policy transitions.
         # Schema changes still require an explicit weights-only initialization.
-        for key in ("scenarios", "depth_camera", "reward_velocity_scale_m_s",
+        for key in ("scenarios", "depth_camera", "balance_enabled", "balance_tuning",
+                    "control_hz", "physics_hz", "joint_speed_deg_s", "reward_velocity_scale_m_s",
                     "reward_yaw_scale_rad_s", "reward_cross_track_cost", "reward_overspeed_cost",
                     "reward_speed_window_s", "reward_profile", "locomotion_tracking_width_m_s",
-                    "locomotion_tracking_width_rad_s", "locomotion_reward_weights"):
+                    "locomotion_tracking_width_rad_s", "locomotion_reward_weights",
+                    "locomotion_tracking_window_s", "locomotion_target_air_time_s",
+                    "locomotion_slip_scale_m_s"):
             if key in current:
                 expected[key] = current[key]
+        # Match captured acquisition and feedback settings while retaining the
+        # source calibration/action coordinates. PPO has no old replay to mix.
+        expected["robot"] = deepcopy(expected["robot"])
+        expected["robot"]["feedback"] = current["robot"]["feedback"]
     if expected != current:
-        raise ValueError("Resume requires the same environment, except PPO Body Control migration, terrain/depth sampling or reward parameter changes")
+        raise ValueError("Resume requires the same environment, except PPO Body Control migration, terrain/sensor sampling, execution cadence/leveling or reward parameter changes")
     return changes
 
 
@@ -901,24 +934,39 @@ def load_demonstrations(paths, config, *, allow_command_variation=False):
 
 
 def fit_actor(model, observations, actions, updates, seed, progress=None):
-    """Fit the existing SAC actor; closed-loop evaluation measures actual success."""
+    """Rehearse deterministic targets with the actor's existing optimizer.
+
+    PPO's distribution owner preserves its feature scaling and action mapping.
+    Linear means are fitted before inference clipping so an out-of-range mean
+    retains a corrective gradient. No value or exploration loss is introduced.
+    """
     x = torch.as_tensor(observations, device=model.device)
     y = torch.as_tensor(actions, device=model.device)
     rng = np.random.default_rng(seed)
-    model.actor.set_training_mode(True)
+    actor = model.policy if isinstance(model, PPO) else model.actor
+    optimizer = actor.optimizer
+    def prediction(observations):
+        if isinstance(model, PPO):
+            return actor.get_distribution(observations).get_actions(deterministic=True)
+        return actor(observations, deterministic=True)
+    actor.set_training_mode(True)
     with torch.no_grad():
-        before = float(torch.mean((model.actor(x, deterministic=True)-y)**2).sqrt())
+        before = float(torch.mean((prediction(x)-y)**2).sqrt())
     for update in range(updates):
         index = rng.integers(len(x), size=model.batch_size)
-        loss = torch.mean((model.actor(x[index], deterministic=True)-y[index])**2)
-        model.actor.optimizer.zero_grad()
+        loss = torch.mean((prediction(x[index])-y[index])**2)
+        # Parameters outside the deterministic actor must have no gradient,
+        # rather than a zero gradient that would still advance Adam's moments.
+        optimizer.zero_grad(set_to_none=True)
         loss.backward()
-        model.actor.optimizer.step()
+        optimizer.step()
         if progress is not None and (update+1) % 1000 == 0:
             progress(update+1)
     with torch.no_grad():
-        after = float(torch.mean((model.actor(x, deterministic=True)-y)**2).sqrt())
+        after = float(torch.mean((prediction(x)-y)**2).sqrt())
     return dict(method="behavior_cloning", updates=updates,
+                loss_coordinates=("linear_mean_before_inference_clipping"
+                    if isinstance(model, PPO) and actor.action_coordinates == "linear" else "bounded_actions"),
                 action_rmse_before=before, action_rmse_after=after,
                 qualification="Training fit only; see independent closed-loop evaluation")
 
@@ -1136,11 +1184,15 @@ class CycleExpert:
 
 
 def collect_demonstration(env, expert, model, expert_mix, rng, seed, command=None,
-                          *, commands=None, command_switch_seconds=None, command_switch_range=None):
+                          *, commands=None, command_switch_seconds=None, command_switch_range=None,
+                          scenario=None):
     switching = command_switch_seconds is not None or command_switch_range is not None
     requests = CommandRequests(env, commands or [command or env.config.command],
                                command_switch_seconds, command_switch_range) if switching else env
-    obs, _ = requests.reset(seed=seed, options={"command": command} if command is not None else None)
+    options = {"command": command} if command is not None else {}
+    if scenario is not None:
+        options["scenario"] = scenario
+    obs, reset_info = requests.reset(seed=seed, options=options or None)
     initial_command = list(env.config.command)
     commands = commands or [initial_command]
     segments = [begin_command_segment(env, requests.request)] if switching else []
@@ -1168,7 +1220,7 @@ def collect_demonstration(env, expert, model, expert_mix, rng, seed, command=Non
             np.asarray(actions, dtype=np.float32),
             dict(transitions=len(observations), expert_mix=expert_mix,
                  expert_actions=expert_actions, reward=reward, fallen=fallen,
-                 command=initial_command,
+                 command=initial_command, scenario_id=reset_info.get("scenario_id"),
                  **(dict(command_segments=segments, command_switch_seconds=command_switch_seconds,
                          command_switch_range=command_switch_range,
                          command_transition_counts=[sum(row["transitions"] for row in segments
@@ -1242,20 +1294,31 @@ def aggregate(model, paths, config, initial_updates, seed, progress,
         updates_per_round=updates_per_round, initial_updates=initial_updates, seed=seed,
         qualification="Offline simulation only; teacher labels are not physical measurements")
     rng = np.random.default_rng(seed)
-    env = make_environment(config, include_visuals=False)
+    env = None
     rounds = []
     try:
         observations, actions = [], []
         for round_id in range(len(expert_mix)+1):
+            env = make_environment(config, include_visuals=False, commands=commands)
+            save_json(directory/"progress.json", dict(state="collecting", steps=model.num_timesteps,
+                aggregation_round=round_id, imitation_updates=progress.imitation_updates,
+                elapsed_s=time.monotonic()-progress.started))
             collections = []
-            for command in commands:
+            for command, scenario in ((command, scenario) for command in commands
+                                      for scenario in config.scenarios or [None]):
                 new_x, new_y, collection = collect_demonstration(env, expert,
                     model if round_id else None, expert_mix[round_id-1] if round_id else 1.0,
                     rng, seed, command, commands=commands,
-                    command_switch_seconds=command_switch_seconds, command_switch_range=command_switch_range)
+                    command_switch_seconds=command_switch_seconds, command_switch_range=command_switch_range,
+                    scenario=scenario["id"] if scenario is not None else None)
                 observations.append(new_x)
                 actions.append(new_y)
                 collections.append(collection)
+            # The native P4 executor has one owner per process. Collection
+            # episodes are finished; release it before checkpoint evaluation
+            # creates its own environment. Each round resets its episodes anyway.
+            env.close()
+            env = None
             x, y = np.concatenate(observations), np.concatenate(actions)
             # Every row survives, including failures. A round's prefix length and
             # content hashes identify the exact data used by its immutable actor.
@@ -1284,7 +1347,8 @@ def aggregate(model, paths, config, initial_updates, seed, progress,
             save_json(directory/"aggregation.json", dict(provenance, rounds=rounds,
                 total_imitation_updates=progress.imitation_updates, training_states=len(x)))
     finally:
-        env.close()
+        if env is not None:
+            env.close()
     selected = publish_selected(directory, progress.checkpoints)
     save_json(directory/"imitation.json", dict(provenance,
         updates=selected["imitation_updates"], total_updates=progress.imitation_updates,
@@ -1338,7 +1402,7 @@ def apply_rollout_geometry(model, n_steps, batch_size):
         n_envs=model.n_envs, **model.rollout_buffer_kwargs)
 
 
-def new_locomotion_model(env, device="cpu", seed=1, budget=None):
+def new_locomotion_model(env, device="cpu", seed=1, budget=None, *, policy_kwargs=None):
     """Published PPO locomotion baseline, keeping Ainekio's foot/executor contract.
 
     Reference: MuJoCo Playground config/locomotion_params.py and ETH legged_gym.
@@ -1350,9 +1414,16 @@ def new_locomotion_model(env, device="cpu", seed=1, budget=None):
         learning_rate=3e-4, n_steps=n_steps, batch_size=batch_size, n_epochs=5,
         gamma=.99, gae_lambda=.95, clip_range=.2, ent_coef=.01,
         max_grad_norm=1., target_kl=TRUST_REGION_KL,
-        policy_kwargs=dict(net_arch=dict(pi=[512,256,128], vf=[512,256,128]),
+        policy_kwargs=policy_kwargs if policy_kwargs is not None else dict(net_arch=dict(pi=[512,256,128], vf=[512,256,128]),
             activation_fn=torch.nn.ELU, learned_std=True, log_std_init=math.log(.5),
             action_coordinates="linear", normalize_observations=True))
+
+
+def locomotion_config(config):
+    """Select the published physical units without changing historical replay."""
+    return replace(config, reward_profile="locomotion",
+        locomotion_slip_scale_m_s=(config.locomotion_slip_scale_m_s
+                                 if config.locomotion_slip_scale_m_s is not None else 1.))
 
 
 def training_recipe(prior, recipe=None, *, demonstrations=(), initialize_from=None):
@@ -1362,8 +1433,8 @@ def training_recipe(prior, recipe=None, *, demonstrations=(), initialize_from=No
     selected = recipe or prior.get("recipe")
     if not prior and not demonstrations:
         selected = selected or LOCOMOTION_RECIPE
-    if recipe and (demonstrations or initialize_from or prior and prior.get("recipe") != recipe):
-        raise ValueError("Start this recipe fresh; resume its own checkpoint afterward")
+    if recipe and prior and prior.get("recipe") != recipe and not initialize_from:
+        raise ValueError("Use explicit weights-only initialization to change learning recipes")
     return selected
 
 
@@ -1374,14 +1445,21 @@ def requested_commands(config, commands=None, prior=None):
         raise ValueError("Commands require finite vx, vy and yaw triples")
     return values.tolist()
 
-def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="policy.zip"):
+def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="policy.zip", *, recipe=None):
     """Transfer learned weights into an explicit curriculum/input extension."""
     directory = Path(directory)
     manifest_path = directory / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     algorithm = policy_algorithm(manifest)
+    sac_to_ppo = algorithm == "SAC" and recipe == LOCOMOTION_RECIPE
     source_config = asdict(EnvironmentConfig(**manifest["environment"]))
     target_config = asdict(config)
+    execution_changes = {}
+    if source_config["execution_backend"] == "direct" and config.execution_backend == "body_control":
+        migrated = asdict(body_control_config(EnvironmentConfig(**manifest["environment"])))
+        execution_changes = {key: dict(source=source_config[key], target=value)
+                             for key, value in migrated.items() if source_config[key] != value}
+        source_config = migrated
     # Command curriculum and existing balance settings change the task/dynamics,
     # not the meaning of the policy's sensors or foot offsets. Explicit weights-
     # only initialization can transfer these; exact replay resume cannot.
@@ -1391,14 +1469,18 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
                                 "reward_velocity_scale_m_s", "reward_yaw_scale_rad_s",
                                 "reward_cross_track_cost", "reward_overspeed_cost", "reward_speed_window_s",
                                 "reward_profile", "locomotion_tracking_width_m_s",
-                                "locomotion_tracking_width_rad_s", "locomotion_reward_weights")}
+                                "locomotion_tracking_width_rad_s", "locomotion_reward_weights",
+                                "locomotion_tracking_window_s", "locomotion_target_air_time_s",
+                                "locomotion_slip_scale_m_s")}
     task_changes = {key: value for key, value in task_changes.items()
                     if value["source"] != value["target"]}
     source_schema = manifest.get("schema")
     depth_expansion = source_schema == SCHEMA and config.observation_schema in (DEPTH_SCHEMA, HISTORY_SCHEMA)
     history_expansion = source_schema in (SCHEMA, DEPTH_SCHEMA) and config.observation_schema == HISTORY_SCHEMA
     expansion = depth_expansion or history_expansion
-    if ((source_schema != config.observation_schema and not (algorithm == "PPO" and expansion))
+    supported_expansion = ((algorithm == "PPO" or sac_to_ppo) and expansion or
+                           algorithm == "SAC" and source_schema == SCHEMA and config.observation_schema == DEPTH_SCHEMA)
+    if ((source_schema != config.observation_schema and not supported_expansion)
             or manifest.get("environment_version") not in POLICY_ENVIRONMENT_VERSIONS
             or source_config != target_config
             or manifest.get("representation") != representation_identity()
@@ -1408,7 +1490,35 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
     if not checkpoint.is_relative_to(directory.resolve()) or not checkpoint.is_file():
         raise ValueError("Choose an existing initialization checkpoint within its source run")
     source = load_policy(directory, checkpoint=str(checkpoint), device=device)
-    if algorithm == "PPO":
+    if sac_to_ppo:
+        # A SAC actor is an MLP followed by tanh(mu). The maintained PPO
+        # action-coordinate distribution has precisely that deterministic
+        # function, so transfer it directly instead of fitting another teacher.
+        # A state-value estimator is not SAC's action-value critic: initialize
+        # it separately and fit it on this policy's actual returns before PPO.
+        architecture = deepcopy(source.actor.net_arch)
+        model = new_locomotion_model(env, device, seed, policy_kwargs=dict(
+            net_arch=dict(pi=architecture, vf=architecture),
+            activation_fn=source.actor.activation_fn, learned_std=True,
+            action_coordinates="action", normalize_observations=False))
+        weights = model.policy.mlp_extractor.policy_net.state_dict()
+        for name, value in source.actor.latent_pi.state_dict().items():
+            if value.shape == weights[name].shape:
+                weights[name] = value
+            elif expansion and name == "0.weight":
+                weights[name].zero_()
+                if depth_expansion:
+                    weights[name][:, :OBSERVATION_SIZE-12] = value[:, :-12]
+                    end = observation_size(DEPTH_SCHEMA)
+                    weights[name][:, end-12:end] = value[:, -12:]
+                    weights[name][:, 89:96] = 0
+                else:
+                    weights[name][:, :value.shape[1]] = value
+            else:
+                raise ValueError(f"Unsupported SAC actor transfer for {name}")
+        model.policy.mlp_extractor.policy_net.load_state_dict(weights)
+        model.policy.action_net.load_state_dict(source.actor.mu.state_dict())
+    elif algorithm == "PPO":
         model = GaitPPO(source.policy_class, env, device=device, seed=seed,
             policy_kwargs=deepcopy(source.policy_kwargs), learning_rate=source.learning_rate,
             n_steps=source.n_steps, batch_size=source.batch_size, n_epochs=source.n_epochs,
@@ -1445,11 +1555,11 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
                 # existing scalar slots also become active with the new sensor.
                 if depth_expansion:
                     if source.policy.normalize_observations:
-                        neutral = -source.policy.observation_mean[93:96] / torch.sqrt(
-                            source.policy.observation_variance[93:96]+1e-8)
+                        neutral = -source.policy.observation_mean[89:96] / torch.sqrt(
+                            source.policy.observation_variance[89:96]+1e-8)
                         bias = name.removesuffix("weight")+"bias"
-                        normalization_bias[bias] = value[:,93:96] @ neutral.to(value)
-                    weights[name][:, 93:96] = 0
+                        normalization_bias[bias] = value[:,89:96] @ neutral.to(value)
+                    weights[name][:, 89:96] = 0
             else:
                 raise ValueError(f"Unsupported policy input transfer for {name}")
         for name, value in normalization_bias.items():
@@ -1458,7 +1568,20 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
     else:
         model = new_model(env, device, seed, policy_class=source.policy_class,
                           policy_kwargs=source.policy_kwargs, ent_coef=source.ent_coef)
-        model.actor.load_state_dict(source.actor.state_dict())
+        weights = model.actor.state_dict()
+        for name, value in source.actor.state_dict().items():
+            if value.shape == weights[name].shape:
+                weights[name] = value
+            elif depth_expansion and name == "latent_pi.0.weight":
+                # Preserve the learned servo/IMU and previous-action columns.
+                # Added camera rays start neutral and learn from fresh rollouts.
+                weights[name].zero_()
+                weights[name][:, :OBSERVATION_SIZE-12] = value[:, :-12]
+                weights[name][:, -12:] = value[:, -12:]
+                weights[name][:, 89:96] = 0
+            else:
+                raise ValueError(f"Unsupported SAC policy input transfer for {name}")
+        model.actor.load_state_dict(weights)
         with torch.no_grad():
             if source.log_ent_coef is not None:
                 model.log_ent_coef.copy_(source.log_ent_coef)
@@ -1477,8 +1600,14 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
         source_imitation_updates=progress.get("imitation_updates", manifest.get("imitation_updates", 0)),
         net_arch=model.policy_kwargs.get("net_arch"),
         task_changes=task_changes,
-        transferred=("PPO actor/value weights; added input columns zero; fresh optimizer and rollouts"
-                     if algorithm == "PPO" else "Actor parameters including log_std, and entropy coefficient"),
+        execution_changes=execution_changes,
+        source_algorithm=algorithm, target_algorithm="PPO" if sac_to_ppo else algorithm,
+        transferred=("Exact SAC deterministic actor to PPO; added input columns zero; fresh value estimator and optimizer"
+                     if sac_to_ppo else
+                     "PPO actor/value weights; added input columns zero; fresh optimizer and rollouts"
+                     if algorithm == "PPO" else
+                     "Actor parameters including log_std and entropy coefficient; added depth columns zero"
+                     if depth_expansion else "Actor parameters including log_std, and entropy coefficient"),
         critic_parameters_loaded=algorithm == "PPO", target_critic_parameters_loaded=False,
         replay_loaded=False, optimizer_state_loaded=False,
         initial_rl_steps=model.num_timesteps, initial_optimizer_updates=model._n_updates,
@@ -1490,6 +1619,58 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
     return model, provenance
 
 
+def warm_start_value(model, steps, *, report=None):
+    """Fit PPO's value estimator on current-policy returns, without actor updates.
+
+    Uses SB3's own rollout/return calculation and existing policy optimizer.
+    These are simulation interactions, not imitation or policy-gradient steps.
+    No rollout dataset or second learner is retained.
+    """
+    if not isinstance(model, GaitPPO) or type(steps) is not int or steps <= 0:
+        raise ValueError("Value warm-start requires PPO and positive interaction steps")
+    _, callback = model._setup_learn(steps, callback=None, reset_num_timesteps=False)
+    callback.on_training_start(locals(), globals())
+    policy = model.policy
+    # Observation normalization must remain fixed too: changing its statistics
+    # would change the copied actor even with all its parameters frozen.
+    if policy.normalize_observations:
+        raise ValueError("Value warm-start expects the transferred unnormalized actor")
+    start = model.num_timesteps
+    updates = 0
+    losses = []
+    parameters = list(policy.mlp_extractor.value_net.parameters()) + list(policy.value_net.parameters())
+    while model.num_timesteps-start < steps:
+        model.collect_rollouts(model.env, callback, model.rollout_buffer, model.n_steps)
+        policy.set_training_mode(True)
+        before = after = 0.
+        samples = 0
+        for epoch in range(model.n_epochs):
+            for batch in model.rollout_buffer.get(model.batch_size):
+                values = policy.predict_values(batch.observations).flatten()
+                loss = torch.nn.functional.mse_loss(values, batch.returns)
+                policy.optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(parameters, model.max_grad_norm)
+                policy.optimizer.step()
+                updates += 1
+                if epoch == 0:
+                    before += float(loss.detach())*len(values)
+                    samples += len(values)
+                if epoch == model.n_epochs-1:
+                    after += float(loss.detach())*len(values)
+        losses.append(dict(steps=model.num_timesteps-start, mse_before=before/samples,
+                           mse_after=after/samples))
+        if report:
+            report(dict(optimizer_updates=updates, requested_steps=steps, **losses[-1]))
+    callback.on_training_end()
+    # Warm-start transitions have their own recorded counter. PPO's num_timesteps
+    # and _n_updates continue to mean policy-learning interactions and epochs.
+    model.num_timesteps = start
+    model.rollout_buffer.reset()
+    return dict(steps=losses[-1]["steps"], optimizer_updates=updates, losses=losses,
+                actor_updates=0, observations_normalized=False)
+
+
 def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1,
           demonstrations=(), imitation_updates=10000, cycle_start=None, cycle_steps=None,
           expert_mix=(.7, .5, .35, .2, .1, 0, 0, 0), updates_per_round=2000,
@@ -1497,7 +1678,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
           command_switch_range=None, resume_checkpoint="policy.zip", learning_rate=None,
           action_noise_std=None, value_learning_rate=None, command_units=None,
           checkpoint_every=None, exploration_learning_rate=None, initialize_checkpoint="policy.zip",
-          recipe=None, commands=None):
+          recipe=None, commands=None, value_warmup_steps=0):
     if learning_rate is not None and (not math.isfinite(learning_rate) or learning_rate <= 0):
         raise ValueError("Learning rate must be finite and positive")
     if value_learning_rate is not None and (not math.isfinite(value_learning_rate) or value_learning_rate <= 0):
@@ -1515,7 +1696,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
     if aggregation and (not demonstrations or not demonstration_cycles and (cycle_start is None or cycle_steps is None)):
         raise ValueError("Aggregation requires demonstration, cycle-start and cycle-steps")
     if aggregation and steps != 0:
-        raise ValueError("Aggregation is an imitation-only run (--steps 0); resume its policy for SAC")
+        raise ValueError("Aggregation is an imitation-only run (--steps 0); resume its policy for reinforcement learning")
     if imitation_updates < 0 or updates_per_round < 1 or any(not 0 <= b <= 1 for b in expert_mix):
         raise ValueError("Imitation updates and expert mixture probabilities are invalid")
     # Honor the requested compute device: SB3 otherwise silently downgrades
@@ -1529,11 +1710,11 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
         raise ValueError("Checkpoint interval must be a positive number of training transitions")
     recipe = training_recipe(prior_manifest, recipe, demonstrations=demonstrations,
                              initialize_from=initialize_from)
-    algorithm = policy_algorithm(prior_manifest) if previous else ("PPO" if recipe else "SAC")
-    if recipe and not previous:
-        config = replace(config, reward_profile="locomotion")
-    if previous and (demonstrations or aggregation):
-        require_sac_training(prior_manifest)
+    algorithm = "PPO" if recipe else policy_algorithm(prior_manifest) if previous else "SAC"
+    if type(value_warmup_steps) is not int or value_warmup_steps < 0 or value_warmup_steps and algorithm != "PPO":
+        raise ValueError("Value warm-start requires PPO and nonnegative steps")
+    if recipe and (not previous or initialize_from):
+        config = locomotion_config(config)
     execution_changes = resume_environment_changes(prior_manifest, config) if resume else {}
     reward_changes = resume_reward_changes(prior_manifest) if resume else {}
     timing, task_changes = request_timing(prior_manifest, command_switch_seconds, command_switch_range)
@@ -1562,7 +1743,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
         dict(
             schema=config.observation_schema,
             recipe=recipe,
-            algorithm="DAgger behavior cloning of SAC actor" if aggregation else algorithm,
+            algorithm="DAgger behavior cloning of SAC actor" if aggregation and algorithm == "SAC" else algorithm,
             source=("Body Control WebSocket + production P4 executor + MuJoCo physical dynamics"
                     if config.execution_backend == "body_control" else "MuJoCo physical dynamics"),
             execution_changes=execution_changes,
@@ -1631,11 +1812,13 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
                 # keeps the rollout geometry its artifact was recorded with.
                 if manifest.get("recipe") == LOCOMOTION_RECIPE:
                     apply_rollout_geometry(
-                        model, *locomotion_rollout_geometry(env.num_envs, steps))
+                        model, *locomotion_rollout_geometry(getattr(env, "num_envs", 1), steps))
                 model.set_random_seed(seed)
         elif initialize_from:
             model, initialization = initialize_model(initialize_from, env, config, device, seed,
-                                                     checkpoint=initialize_checkpoint)
+                                                     checkpoint=initialize_checkpoint, recipe=recipe)
+            if algorithm == "PPO" and recipe:
+                apply_rollout_geometry(model, *locomotion_rollout_geometry(getattr(env, "num_envs", 1), steps))
             manifest_path = directory / "manifest.json"
             manifest = json.loads(manifest_path.read_text())
             manifest["initialization"] = initialization
@@ -1700,6 +1883,10 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
         optimization_logger = Logger(str(directory),
             [JSONOutputFormat(str(directory/"optimization.jsonl"))])
         model.set_logger(optimization_logger)
+        if learning_rate is not None:
+            # Rehearsal precedes learn(), where SB3 would otherwise first apply
+            # the requested schedule. Reuse that owner and its parameter groups.
+            model._update_learning_rate(model.policy.optimizer if algorithm == "PPO" else model.actor.optimizer)
         if algorithm == "PPO":
             manifest_path = directory / "manifest.json"
             manifest = json.loads(manifest_path.read_text())
@@ -1732,6 +1919,14 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
                 # exact resumed checkpoint retains its learned-history count.
                 progress.imitation_updates = source_checkpoint.get("imitation_updates", progress.imitation_updates)
         selected = None
+        if value_warmup_steps:
+            result = warm_start_value(model, value_warmup_steps,
+                report=lambda details: save_json(directory/"progress.json",
+                    dict(state="warming_value", elapsed_s=time.monotonic()-started, **details)))
+            save_json(directory/"value-warmup.json", result)
+            manifest = json.loads(manifest_path.read_text())
+            manifest["value_warmup"] = "value-warmup.json"
+            save_json(manifest_path, manifest)
         if aggregation:
             progress.init_callback(model)
             selected = aggregate(model, demonstrations, config, imitation_updates, seed,
@@ -1853,6 +2048,8 @@ def main():
                    help="Offline vx, vy (m/s), yaw (rad/s) request; repeat for multiple tasks")
     p.add_argument("--value-learning-rate", type=float,
                    help="PPO value-function step size, independently of the movement policy")
+    p.add_argument("--value-warmup-steps", type=int, default=0,
+                   help="Initial simulation interactions fitting only the PPO value estimator")
     p.add_argument("--exploration-learning-rate", type=float,
                    help="Step size for PPO learned exploration variance, independently of the mean policy")
     p.add_argument("--command-units", type=float, nargs=3,
@@ -1893,7 +2090,8 @@ def main():
           action_noise_std=a.action_noise_std, value_learning_rate=a.value_learning_rate,
           command_units=a.command_units, checkpoint_every=a.checkpoint_every,
           exploration_learning_rate=a.exploration_learning_rate,
-          initialize_checkpoint=a.initialize_checkpoint, recipe=a.recipe, commands=a.commands)
+          initialize_checkpoint=a.initialize_checkpoint, recipe=a.recipe, commands=a.commands,
+          value_warmup_steps=a.value_warmup_steps)
 
 
 if __name__ == "__main__":
