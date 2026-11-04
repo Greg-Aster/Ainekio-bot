@@ -269,6 +269,14 @@ def validate_scenarios(scenarios):
                           ("start_joint_deg",12)):
             if key in scenario and not values(scenario[key],count):
                 raise ValueError(f"Scenario {key} requires {count} finite values")
+        prefix = scenario.get("warm_start_actions", [])
+        if not isinstance(prefix, list) or any(
+                not values(action, 12) or any(abs(v) > 1 for v in action)
+                for action in prefix):
+            raise ValueError("Scenario warm_start_actions requires normalized twelve-action rows")
+        if "warm_start_command" in scenario and (not prefix or
+                not values(scenario["warm_start_command"], 3)):
+            raise ValueError("Scenario warm_start_command requires a prefix and three finite command values")
         if "slope_deg" in scenario:
             normal=Rotation.from_euler("xy",scenario["slope_deg"],degrees=True).as_matrix()[:,2]
             if normal[2]<=0:
@@ -314,12 +322,18 @@ class EnvironmentConfig:
     foot_action_scale_mm: list = field(default_factory=lambda: [30.0, 20.0, 30.0])
     joint_speed_deg_s: float = field(default_factory=advertised_speed)
     motor_no_load_speed_deg_s: float = field(default_factory=advertised_speed)
+    # Effective drive response after issued PWM; zero preserves old replays.
+    # This is plant latency, not a lower servo speed or a delayed host command.
+    actuator_delay_s: float = 0.0
     # board.c nominal PCA9685 clock; actual installed oscillator is unmeasured.
     pwm_oscillator_hz: int = 25_000_000
     pwm_frequency_hz: int = 50
     feedback_noise_raw_std: float = 0.0  # Unmeasured; configurable, not fabricated evidence.
     imu_accel_noise_std: float = 0.0
     imu_gyro_noise_std: float = 0.0
+    # Stationary acquisition before Walk, not an execution delay. Zero retains
+    # historical cold-estimator episodes; established-body training sets this.
+    imu_prehistory_s: float = 0.0
     randomization: float = 0.0
     # Explicit simulation setting, not a claim about the saved robot setting.
     # Disabled reproduces historical neural-policy targets exactly.
@@ -357,6 +371,10 @@ class EnvironmentConfig:
         validate_scenarios(self.scenarios)
         if self.execution_backend not in {"direct", "body_control"}:
             raise ValueError("Unknown gait execution backend")
+        if not math.isfinite(self.imu_prehistory_s) or self.imu_prehistory_s < 0:
+            raise ValueError("IMU prehistory must be finite nonnegative seconds")
+        if not math.isfinite(self.actuator_delay_s) or self.actuator_delay_s < 0:
+            raise ValueError("Actuator delay must be finite nonnegative seconds")
         if self.reward_profile not in {"legacy", "locomotion"}:
             raise ValueError("Unknown gait training reward profile")
         unknown = set(self.locomotion_reward_weights) - set(LOCOMOTION_REWARD_WEIGHTS)
@@ -884,8 +902,9 @@ class GaitEnvironment(gym.Env):
         for push in self.scenario.get("pushes",[]):
             # Average over this physical integration interval, preserving the
             # configured finite impulse even for non-grid-aligned boundaries.
-            overlap=max(0.,min(self.data.time+self.model.opt.timestep,
-                push["start_s"]+push["duration_s"])-max(self.data.time,push["start_s"]))
+            elapsed = self.data.time-self.episode_start_time
+            overlap=max(0.,min(elapsed+self.model.opt.timestep,
+                push["start_s"]+push["duration_s"])-max(elapsed,push["start_s"]))
             fraction=overlap/self.model.opt.timestep
             self.data.xfrc_applied[body,:3]+=np.asarray(push["force_n"])*fraction
             self.data.xfrc_applied[body,3:]+=np.asarray(push.get("torque_nm",[0,0,0]))*fraction
@@ -922,6 +941,30 @@ class GaitEnvironment(gym.Env):
             bottom = min(bottom, float(((world-self.data.qpos[:3]) @ rotation)[:,2].min()))
         return .001-bottom
 
+    def device_time_us(self, episode_time_s=None):
+        """One native clock; pre-Walk sensor lifetime does not advance physics."""
+        elapsed = self.data.time if episode_time_s is None else episode_time_s
+        return 1+(self.config.imu_prehistory_s+elapsed)*1e6
+
+    def _initialize_imu_prehistory(self):
+        """Acquire a stationary body through the production decoder/estimator.
+
+        The configured start pose is held, so specific force is gravity in body
+        axes, not the transient contact acceleration from mj_forward. Native
+        Fusion determines convergence and recovery; no observation flags change
+        outside that owner. The first episode sample follows this same clock.
+        """
+        duration = self.config.imu_prehistory_s
+        if not duration:
+            return
+        rotation = self.data.xmat[self.model.body("torso").id].reshape(3, 3)
+        gravity = -rotation.T @ self.model.opt.gravity
+        for index in range(math.ceil(duration*208)):
+            self.imu_sample = self.body_model.imu_sample(
+                self.device_time_us(index/208-duration),
+                gravity+self.np_random.normal(0, self.config.imu_accel_noise_std, 3),
+                self.np_random.normal(0, self.config.imu_gyro_noise_std, 3))
+
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         if options and "command" in options:
@@ -941,6 +984,7 @@ class GaitEnvironment(gym.Env):
             self.depth_camera.reset()
         self.depth_measurement = None
         mujoco.mj_resetData(self.model, self.data)
+        self.episode_start_time = 0.
         self.body_model.reset()
         self.body_model.balance_configure(enabled=self.config.balance_enabled,
                                          tuning=self.config.balance_tuning)
@@ -997,6 +1041,7 @@ class GaitEnvironment(gym.Env):
         self.pwm = self.body_model.pwm_output(self.last_target,
             oscillator_hz=self.config.pwm_oscillator_hz, frequency_hz=self.config.pwm_frequency_hz)
         self.data.ctrl[:] = np.deg2rad(self.pwm["physical_angles"])
+        self.actuator_commands = deque([(-math.inf, self.data.ctrl.copy())])
         self.last_action = np.zeros(12)
         self.steps = 0
         self.world_heading_delta = 0.0
@@ -1005,13 +1050,56 @@ class GaitEnvironment(gym.Env):
         rotation = self.data.xmat[self.model.body("torso").id].reshape(3, 3)
         self.reward_last_heading = math.atan2(rotation[1,0], rotation[0,0])
         self.reward_reference_heading = self.reward_last_heading
+        self._initialize_imu_prehistory()
         self._sample_sensors()
-        return self._observation(), {
+        info = {
             "scope": "simulation",
             "scenario_id": self.scenario_id,
             "geometry_sha256": hashlib.sha256(GEOMETRY.read_bytes()).hexdigest(),
             "command": list(self.config.command),
         }
+        observed = self._observation()
+        # The connected adapter performs this same prefix after its gateway and
+        # native body are connected. Do not bypass that owner with direct PWM.
+        if self.config.execution_backend != "body_control":
+            actions = self.warm_start_actions()
+            command = list(self.config.command)
+            if actions:
+                self.set_command(self.scenario.get("warm_start_command", command))
+            for action in actions:
+                observed, _, terminated, _, outcome = self.step(action)
+                self.check_warm_start(terminated, outcome)
+            if actions:
+                observed = self.set_command(command)
+            self.finish_warm_start(info)
+        return observed, info
+
+    def warm_start_actions(self):
+        """Recorded initialization inputs, at the configured control cadence.
+
+        These reconstruct recent actuator/sensor history in the existing plant;
+        they are neither imitation labels nor an ongoing gait generator.
+        """
+        actions = (self.scenario or {}).get("warm_start_actions", [])
+        if actions:
+            self.episode_start_time = self.data.time+len(actions)/self.config.control_hz
+        return actions
+
+    @staticmethod
+    def check_warm_start(terminated, outcome):
+        if terminated:
+            raise ValueError(f"Recorded warm-start initialization failed: {outcome}")
+
+    def finish_warm_start(self, info):
+        actions = (self.scenario or {}).get("warm_start_actions", [])
+        if actions:
+            info["warm_start"] = dict(actions=len(actions), seconds=len(actions)/self.config.control_hz,
+                scope="simulated reconstruction from recorded action prefix")
+            self.episode_start_time = self.data.time
+            self.steps = 0
+            self.world_heading_delta = 0.
+            # Keep the native clock, consumed action, observation/filter history,
+            # moving pace and original requested heading continuous.
 
     def set_command(self, command):
         """Change the requested task without resetting posture, sensors or motion.
@@ -1028,7 +1116,7 @@ class GaitEnvironment(gym.Env):
         return self._observation()
 
     def observation(self):
-        imu_status = self.body_model.imu_status(1+self.data.time*1e6)
+        imu_status = self.body_model.imu_status(self.device_time_us())
         result = dict(
             schema=self.config.observation_schema,
             joint_deg=self.feedback_angles.tolist(),
@@ -1046,8 +1134,8 @@ class GaitEnvironment(gym.Env):
             vision=self.depth_observation(),
             previous_action=self.last_action.tolist(),
             joint_sample_age_s=np.maximum(0,self.data.time-self.feedback_times).tolist(),
-            joint_sample_time_s=self.feedback_times.tolist(),
-            observation_time_s=float(self.data.time),
+            joint_sample_time_s=(self.feedback_times+self.config.imu_prehistory_s).tolist(),
+            observation_time_s=float(self.data.time+self.config.imu_prehistory_s),
         )
         return self.with_critic(self.observation_history.project(result))
 
@@ -1062,18 +1150,19 @@ class GaitEnvironment(gym.Env):
 
     def depth_observation(self):
         from .depth import project_depth
-        return project_depth(self.depth_measurement or {}, self.data.time,
+        return project_depth(self.depth_measurement or {}, self.data.time+self.config.imu_prehistory_s,
                              "simulation", 1)
 
     def _sample_sensors(self):
         now = self.data.time
         if self.depth_camera is not None:
             self.depth_measurement = self.depth_camera.update(self.model, self.data, self.np_random,
-                robot_id="simulation", epoch=1, gateway_instance="simulation", now_s=now,
+                robot_id="simulation", epoch=1, gateway_instance="simulation",
+                now_s=now+self.config.imu_prehistory_s,
                 geom_mask=self._terrain_geom_mask)
         if now + 1e-10 >= self.next_imu:
             self.imu_sample = self.body_model.imu_sample(
-                1+now*1e6,
+                self.device_time_us(now),
                 self.data.sensor("accel").data+self.np_random.normal(0,self.config.imu_accel_noise_std,3),
                 self.data.sensor("gyro").data+self.np_random.normal(0,self.config.imu_gyro_noise_std,3))
             self.next_imu += 1/208
@@ -1088,7 +1177,7 @@ class GaitEnvironment(gym.Env):
             sampled=np.array([np.interp(t,times,history[:,j]) for j,t in enumerate(timestamps)])
             raw=self.body_model.raw_samples(sampled)+self.np_random.normal(0,self.config.feedback_noise_raw_std,12)
             raw=np.rint(np.clip(raw,0,4095))
-            self.feedback_angles,self.feedback_velocity,self.feedback_usable,self.jammed = self.body_model.feedback_sample(raw,self.last_target,1+timestamps*1e6)
+            self.feedback_angles,self.feedback_velocity,self.feedback_usable,self.jammed = self.body_model.feedback_sample(raw,self.last_target,self.device_time_us(timestamps))
             self.feedback_times = timestamps
             self.next_feedback += .02
 
@@ -1136,7 +1225,7 @@ class GaitEnvironment(gym.Env):
         requested = np.array(foot_offsets(action, self.config.foot_action_scale_mm))
         fitted = self.body_model.foot_target(requested.reshape(4,3), self.config.reference_joint_deg,
             self.last_target, self.config.joint_speed_deg_s, 1/self.config.control_hz,
-            now_us=1+self.data.time*1e6)
+            now_us=self.device_time_us())
         # The firmware rejects a geometrically unresolvable request without
         # writing PWM. Keep that outcome visible to learning and evaluation.
         self.target_rejected = fitted is None
@@ -1160,7 +1249,8 @@ class GaitEnvironment(gym.Env):
             heading_feedback=self.config.heading_feedback_enabled,
             balance_tuning=self.config.balance_tuning,
             oscillator_hz=self.config.pwm_oscillator_hz,
-            frequency_hz=self.config.pwm_frequency_hz)
+            frequency_hz=self.config.pwm_frequency_hz,
+            now_us=round(self.device_time_us()) if self.config.imu_prehistory_s else 0)
 
     def advance_body(self, executor, action=None):
         """Advance physics from actual PCA output; never fit a policy target here.
@@ -1169,7 +1259,7 @@ class GaitEnvironment(gym.Env):
         fresh paired telemetry packet after this sensor-acquisition interval.
         With action=None this is also the standalone virtual hardware loop.
         """
-        output = executor.tick(round(1+self.data.time*1e6))
+        output = executor.tick(round(self.device_time_us()))
         self.last_target = np.asarray(output["logical_angles"]).copy()
         self.target_rejected = any(message.get("t") == "nak" for message in output["messages"])
         output["enabled"] = output["joint_enabled"]
@@ -1188,20 +1278,20 @@ class GaitEnvironment(gym.Env):
         self.body_model.walk_configure(speed_deg_s=self.config.joint_speed_deg_s,
             heading_enabled=heading_enabled, balance_enabled=balance_enabled,
             tuning=tuning)
-        accepted = self.body_model.walk_accept(command, 1+self.data.time*1e6)
+        accepted = self.body_model.walk_accept(command, self.device_time_us())
         if accepted:
             self.native_command = dict(command)
         return accepted
 
     def update_native_walk(self, command):
-        accepted = self.body_model.walk_accept(command, 1+self.data.time*1e6)
+        accepted = self.body_model.walk_accept(command, self.device_time_us())
         if accepted:
             self.native_command = dict(command)
         return accepted
 
     def step_native_walk(self):
         """Return baseline measurements, never a fixed-forward training score."""
-        frame = self.body_model.walk_tick(1+self.data.time*1e6, self.last_target)
+        frame = self.body_model.walk_tick(self.device_time_us(), self.last_target)
         self.target_rejected = frame is None
         if frame is not None:
             self.last_target = frame["mapped_angles"].copy()
@@ -1285,14 +1375,21 @@ class GaitEnvironment(gym.Env):
                 # Host inference is asynchronous to the P4's own 20 ms output
                 # frames. Keep its existing executor running on acquired sensor
                 # data between policy targets; it decides when PWM is due.
-                current = executor.tick(round(1+self.data.time*1e6))
+                current = executor.tick(round(self.device_time_us()))
                 messages = output["messages"] + current["messages"]
                 output.update(current)
                 output["messages"] = messages
                 output["enabled"] = output["joint_enabled"]
                 self.last_target = np.asarray(output["logical_angles"]).copy()
                 self.target_rejected |= any(message.get("t") == "nak" for message in current["messages"])
-            self.data.ctrl[:] = np.deg2rad(self.pwm["physical_angles"])
+            target = np.deg2rad(self.pwm["physical_angles"])
+            if self.config.actuator_delay_s:
+                self.actuator_commands.append((self.data.time, target))
+                acquired = self.data.time-self.config.actuator_delay_s
+                while len(self.actuator_commands)>1 and self.actuator_commands[1][0] <= acquired+1e-12:
+                    self.actuator_commands.popleft()
+                target = self.actuator_commands[0][1]
+            self.data.ctrl[:] = target
             enabled = np.asarray(self.pwm.get("enabled", [True]*12), dtype=bool)
             # DC motor torque-speed envelope: opposing loads can stall it;
             # external forces can back-drive it. Do not clip simulated qvel.

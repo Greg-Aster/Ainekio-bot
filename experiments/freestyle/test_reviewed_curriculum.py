@@ -7,7 +7,7 @@ from .ending_curriculum import replace_wave_ending
 from .reviewed_curriculum import add_faces, recorded_proposals, eating_program
 from .challenge import replay
 from .runtime import JOINTS
-from .semantic_teachers import source_wave, feet
+from .semantic_teachers import source_motion, feet
 
 
 class ReviewedCurriculumTests(unittest.TestCase):
@@ -36,19 +36,17 @@ class ReviewedCurriculumTests(unittest.TestCase):
         self.assertEqual(raised[-1]['name'],'feet')
         self.assertEqual(sum(a['name']=='hold' and a['arguments']['seconds']==.25 for a in raised),3)
 
-    def test_wave_endpoint_controls_all_joints_and_can_return_measured_start(self):
-        original=source_wave('right',2)
+    def test_explicit_ending_preserves_the_complete_source_curve(self):
+        original=source_motion('wave')['program']
         stand=[0,3.46,-21.63]*4
         fixed=replace_wave_ending(original,stand)
-        last=next(a for a in reversed(fixed) if a['name']=='pose')
-        self.assertEqual(last['arguments']['joints'],list(JOINTS))
-        self.assertEqual(last['arguments']['angles_deg'],stand)
-        self.assertEqual(fixed[:6],original[:6])
-        self.assertEqual(fixed[-1],original[-1])
+        self.assertEqual(fixed[:-1],original)
+        self.assertEqual(fixed[-1]['arguments']['joints'],list(JOINTS))
+        self.assertEqual(fixed[-1]['arguments']['angles_deg'],stand)
         start=stand[:];start[6]=-35
         returned=replace_wave_ending(original,start)
-        self.assertEqual(returned[-2]['arguments']['angles_deg'][6],-35)
-        self.assertNotEqual(original[-2]['arguments']['joints'],list(JOINTS))
+        self.assertEqual(returned[:-1],original)
+        self.assertEqual(returned[-1]['arguments']['angles_deg'][6],-35)
 
     def test_face_annotation_preserves_every_motion_target_hold_and_goal(self):
         state=source_state();author=Author(state);author.task('wave','left',1,16)

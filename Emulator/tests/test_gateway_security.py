@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import asyncio
 import errno
+import gc
+import hashlib
 import json
 import logging
 import os
 import stat
 import tempfile
 import unittest
+import warnings
+from contextlib import ExitStack, contextmanager
+from itertools import permutations
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 import gateway.server.__main__ as gateway_main
 from gateway.security import DashboardPasswordStore, RobotTokenStore
@@ -246,77 +254,367 @@ class GatewaySecurityTests(unittest.TestCase):
 
 
 class GatewayStartupTests(unittest.IsolatedAsyncioTestCase):
-    async def test_body_control_startup_with_and_without_environment_adapter(self):
-        from contextlib import ExitStack, asynccontextmanager
-        from types import SimpleNamespace
-        from unittest.mock import AsyncMock, Mock, patch
+    @contextmanager
+    def startup_fixture(self, root, *, token="", failure=None, real_gait=False,
+                        cleanup_failure=None, stop_at_serve=True):
+        from gateway.gait_learning_service import GaitLearningService
 
+        events = []
+
+        def step(name):
+            events.append(name)
+            if name in (failure, cleanup_failure):
+                raise RuntimeError("Fixture failure: " + name)
+
+        def factory(name, value):
+            def create(*args, **kwargs):
+                step(name)
+                return value
+            return Mock(side_effect=create)
+
+        def action(name):
+            return Mock(side_effect=lambda *args, **kwargs: step(name))
+
+        def async_action(name):
+            return AsyncMock(side_effect=lambda *args, **kwargs: step(name))
+
+        gateway = Mock(close=async_action("gateway.close"))
+        dashboard = SimpleNamespace(
+            control_settings={"recognition": False},
+            serve_forever=Mock(side_effect=AssertionError("Fake HTTP thread must not execute")),
+            restore_camera=Mock(side_effect=AssertionError("No body events expected in startup fixture")),
+            start_freestyle=action("freestyle.start"),
+            close_freestyle=async_action("freestyle.close"),
+            host_audio=SimpleNamespace(close=async_action("audio.close")),
+            shutdown=action("http.shutdown"), server_close=action("http.close"),
+        )
+        thread = SimpleNamespace(start=action("http.start"), join=action("http.join"))
+        camera = Mock(restore_ground_plane=async_action("camera.ground"),
+            restore_depth=async_action("camera.depth"), aclose=async_action("camera.close"))
+        gait = Mock(start=async_action("gait.start"), close=async_action("gait.close"))
+        transport = SimpleNamespace(
+            request=AsyncMock(side_effect=AssertionError("Robot requests are forbidden in this fixture")),
+            close=async_action("transport.close"),
+        )
+        adapter = Mock(handler=async_action("environment.handle"))
+        socket = Mock(close=async_action("route.close"),
+            remote_address=("127.0.0.1", 12345), request_headers={})
+        established = SimpleNamespace(open=True, closed=False,
+            close=async_action("socket.close"))
+        handshake = SimpleNamespace(open=False, closed=False,
+            transport=SimpleNamespace(close=action("handshake.close")))
+        server = SimpleNamespace(websockets=[established, handshake],
+            close=action("ws.close"), wait_closed=async_action("ws.wait_closed"))
+        previous_signal = object()
+        stop = []
+        listening = asyncio.Event()
+
+        def install_signal(number, handler):
+            if handler is previous_signal:
+                step("signal.restore")
+            else:
+                step("signal.install")
+                stop.append(handler)
+            return previous_signal
+
+        async def serve(route, *args, **kwargs):
+            step("ws.bind")
+            await route(socket, "/environment")
+            # Invoke only the captured callback, never a real OS signal.
+            listening.set()
+            if stop_at_serve:
+                stop[0](gateway_main.signal.SIGTERM, None)
+            return server
+
+        fixture = SimpleNamespace(events=events, gateway=gateway, dashboard=dashboard,
+            thread=thread, camera=camera, gait=gait, transport=transport,
+            adapter=adapter, socket=socket, server=server,
+            established=established, handshake=handshake,
+            gait_directory=root/"gait-state", instances=[], listening=listening)
+
+        def create_gait(*args, **kwargs):
+            step("gait.create")
+            if real_gait:
+                fixture.gait = GaitLearningService(*args, **kwargs)
+                fixture.instances.append(fixture.gait)
+            return fixture.gait
+
+        with ExitStack() as stack:
+            stack.enter_context(patch.dict(os.environ,
+                {"AINEKIO_ENVIRONMENT_ADAPTER_TOKEN": token}, clear=True))
+            fixture.args = gateway_main._parser().parse_args(
+                ["--data-dir", str(root/"gateway-state")])
+            stack.enter_context(patch.object(gateway_main, "GatewayService",
+                factory("gateway.create", gateway)))
+            stack.enter_context(patch.object(gateway_main, "DashboardPasswordStore"))
+            stack.enter_context(patch.object(gateway_main, "RobotTokenStore"))
+            stack.enter_context(patch.object(gateway_main, "AuditLog"))
+            stack.enter_context(patch.object(gateway_main, "RobotHotspot",
+                return_value=SimpleNamespace(start=async_action("hotspot.start"))))
+            stack.enter_context(patch.object(gateway_main, "start_dashboard_server",
+                factory("dashboard.create", dashboard)))
+            stack.enter_context(patch.object(gateway_main, "CameraFramePlugin",
+                factory("camera.create", camera)))
+            fixture.adapter_factory = stack.enter_context(patch.object(
+                gateway_main, "EnvironmentAdapter", return_value=adapter))
+            stack.enter_context(patch("gateway.gait_learning_service.default_directory",
+                return_value=fixture.gait_directory))
+            stack.enter_context(patch("gateway.gait_learning_service.GaitLearningService",
+                side_effect=create_gait))
+            stack.enter_context(patch("gateway.robot_learning_transport.RobotLearningTransport",
+                return_value=transport))
+            # Keep global threading and asyncio.to_thread real for the bank read,
+            # writer lifecycle and dashboard shutdown's thread dispatch.
+            stack.enter_context(patch.object(gateway_main, "threading",
+                SimpleNamespace(Thread=Mock(return_value=thread))))
+            stack.enter_context(patch.object(gateway_main.signal, "signal",
+                side_effect=install_signal))
+            stack.enter_context(patch.object(gateway_main, "serve", serve))
+            stack.enter_context(patch.object(gateway_main, "_print_gateway_addresses"))
+            yield fixture
+
+    async def test_body_control_startup_with_and_without_environment_adapter(self):
         for token in ("", "fixture-adapter-token"):
             with self.subTest(adapter_enabled=bool(token)), tempfile.TemporaryDirectory() as directory:
-                service = Mock()
-                service.close = AsyncMock()
-                dashboard = Mock(control_settings={"recognition": False})
-                dashboard.close_freestyle = AsyncMock()
-                dashboard.host_audio.close = AsyncMock()
-                camera = Mock()
-                camera.restore_ground_plane = AsyncMock()
-                camera.restore_depth = AsyncMock()
-                camera.aclose = AsyncMock()
-                hotspot = Mock(start=AsyncMock())
-                gait = Mock(start=AsyncMock(), close=AsyncMock())
-                adapter = Mock(handler=AsyncMock())
-                server = SimpleNamespace(websockets=[], close=Mock())
-                socket = Mock(close=AsyncMock(), remote_address=("127.0.0.1", 12345), request_headers={})
+                with self.startup_fixture(Path(directory), token=token) as f:
+                    await gateway_main._run_production(f.args)
+                    self.assertIs(f.dashboard.camera_recognition, f.camera)
+                    self.assertIs(f.gateway.locomotion_measurement, f.camera.locomotion_measurement)
+                    self.assertIs(f.gateway.depth_demand, f.camera.depth_demand)
+                    f.camera.restore_ground_plane.assert_awaited_once_with({})
+                    f.camera.restore_depth.assert_awaited_once_with({})
+                    f.gait.close.assert_awaited_once()
+                    f.gateway.close.assert_awaited_once()
+                    f.camera.aclose.assert_awaited_once()
+                    f.dashboard.close_freestyle.assert_awaited_once()
+                    f.dashboard.host_audio.close.assert_awaited_once()
+                    f.server.wait_closed.assert_awaited_once()
+                    f.established.close.assert_awaited_once_with(1001, "gateway stopped")
+                    f.handshake.transport.close.assert_called_once()
+                    f.thread.join.assert_called_once_with(timeout=2.0)
+                    self.assertLess(f.events.index("http.shutdown"), f.events.index("gait.close"))
+                    self.assertLess(f.events.index("http.close"), f.events.index("gait.close"))
+                    for event in ("gait.close", "gateway.close", "socket.close", "handshake.close"):
+                        self.assertLess(f.events.index(event), f.events.index("ws.wait_closed"))
+                    self.assertLess(f.events.index("ws.wait_closed"), f.events.index("camera.close"))
+                    if token:
+                        f.adapter_factory.assert_called_once()
+                        f.adapter.handler.assert_awaited_once_with(f.socket)
+                        f.socket.close.assert_not_awaited()
+                        self.assertIs(f.adapter.camera_capture, f.camera.capture)
+                        self.assertIs(f.adapter.selected_ground_range, f.camera.selected_ground_range)
+                        self.assertIs(f.adapter.depth_demand, f.camera.depth_demand)
+                    else:
+                        f.adapter_factory.assert_not_called()
+                        f.socket.close.assert_awaited_once_with(code=1008,
+                            reason="wrong or unavailable endpoint")
 
-                with ExitStack() as stack:
-                    stack.enter_context(patch.dict(os.environ, {
-                        "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN": token,
-                    }, clear=True))
-                    args = gateway_main._parser().parse_args(["--data-dir", directory])
-                    stack.enter_context(patch.object(gateway_main, "GatewayService", return_value=service))
-                    stack.enter_context(patch.object(gateway_main, "DashboardPasswordStore"))
-                    stack.enter_context(patch.object(gateway_main, "RobotTokenStore"))
-                    stack.enter_context(patch.object(gateway_main, "AuditLog"))
-                    stack.enter_context(patch.object(gateway_main, "RobotHotspot", return_value=hotspot))
-                    stack.enter_context(patch.object(gateway_main, "start_dashboard_server", return_value=dashboard))
-                    stack.enter_context(patch.object(gateway_main, "CameraFramePlugin", return_value=camera))
-                    adapter_factory = stack.enter_context(patch.object(gateway_main, "EnvironmentAdapter", return_value=adapter))
-                    stack.enter_context(patch("gateway.gait_learning_service.GaitLearningService", return_value=gait))
-                    stack.enter_context(patch("gateway.gait_learning_service.RobotLearningTransport"))
-                    stack.enter_context(patch.object(gateway_main, "threading", SimpleNamespace(Thread=Mock())))
-                    signals = stack.enter_context(patch.object(gateway_main.signal, "signal"))
-                    stack.enter_context(patch.object(gateway_main.asyncio, "to_thread", AsyncMock(side_effect=lambda fn: fn())))
-                    stack.enter_context(patch.object(gateway_main, "_print_gateway_addresses"))
+    async def test_entrypoint_cancellation_releases_acquired_resources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.startup_fixture(Path(directory), stop_at_serve=False) as f:
+                task = asyncio.create_task(gateway_main._run_production(f.args))
+                try:
+                    await asyncio.wait_for(f.listening.wait(), 1)
+                    # The serve fake has returned; the owner is awaiting its stop future.
+                    task.cancel()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+                    self.assertTrue(task.cancelled())
+                    f.server.close.assert_called_once()
+                    f.gait.close.assert_awaited_once()
+                    f.gateway.close.assert_awaited_once()
+                    f.established.close.assert_awaited_once_with(1001, "gateway stopped")
+                    f.handshake.transport.close.assert_called_once()
+                    f.server.wait_closed.assert_awaited_once()
+                    f.dashboard.shutdown.assert_called_once()
+                    f.dashboard.server_close.assert_called_once()
+                    f.thread.join.assert_called_once_with(timeout=2.0)
+                    self.assertEqual(f.events.count("signal.restore"), 1)
+                    f.dashboard.close_freestyle.assert_awaited_once()
+                    f.camera.aclose.assert_awaited_once()
+                    f.dashboard.host_audio.close.assert_awaited_once()
+                    self.assertLess(f.events.index("http.shutdown"), f.events.index("gait.close"))
+                    self.assertLess(f.events.index("ws.wait_closed"), f.events.index("camera.close"))
+                finally:
+                    if not task.done():
+                        task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
 
-                    @asynccontextmanager
-                    async def serve(route, *args, **kwargs):
-                        await route(socket, "/environment")
-                        # Exercise the existing graceful-shutdown path without
-                        # opening sockets, starting services, or sending signals.
-                        signals.call_args_list[0].args[1](gateway_main.signal.SIGTERM, None)
-                        yield server
+    async def check_startup_failures(self, cases):
+        for failure, dashboard, thread, camera, gait, signal in cases:
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                with self.startup_fixture(Path(directory), failure=failure) as f:
+                    with self.assertRaisesRegex(RuntimeError, "Fixture failure: " + failure):
+                        await gateway_main._run_production(f.args)
+                    self.assertEqual(f.gateway.close.await_count, 0 if failure == "gateway.create" else 1)
+                    self.assertEqual(f.dashboard.close_freestyle.await_count, int(dashboard))
+                    self.assertEqual(f.dashboard.host_audio.close.await_count, int(dashboard))
+                    self.assertEqual(f.dashboard.server_close.call_count, int(dashboard))
+                    self.assertEqual(f.dashboard.shutdown.call_count, int(thread))
+                    self.assertEqual(f.thread.join.call_count, int(thread))
+                    self.assertEqual(f.camera.aclose.await_count, int(camera))
+                    self.assertEqual(f.gait.close.await_count, int(gait))
+                    self.assertEqual(f.events.count("signal.restore"), int(signal))
+                    f.server.wait_closed.assert_not_awaited()
+                    f.transport.request.assert_not_awaited()
 
-                    stack.enter_context(patch.object(gateway_main, "serve", serve))
-                    await gateway_main._run_production(args)
+    async def test_early_startup_failures_release_acquired_resources(self):
+        # failure, dashboard returned, HTTP started, camera returned, gait returned, signal installed
+        await self.check_startup_failures([
+            ("gateway.create", False, False, False, False, False),
+            ("dashboard.create", False, False, False, False, False),
+            ("freestyle.start", True, False, False, False, False),
+            ("http.start", True, False, False, False, False),
+            ("camera.create", True, True, False, False, False),
+            ("camera.ground", True, True, True, False, False),
+            ("camera.depth", True, True, True, False, False),
+            ("gait.create", True, True, True, False, False),
+            ("gait.start", True, True, True, True, False),
+        ])
 
-                self.assertIs(dashboard.camera_recognition, camera)
-                self.assertIs(service.locomotion_measurement, camera.locomotion_measurement)
-                self.assertIs(service.depth_demand, camera.depth_demand)
-                camera.restore_ground_plane.assert_awaited_once_with({})
-                camera.restore_depth.assert_awaited_once_with({})
-                camera.aclose.assert_awaited_once()
-                dashboard.close_freestyle.assert_awaited_once()
-                if token:
-                    adapter_factory.assert_called_once()
-                    adapter.handler.assert_awaited_once_with(socket)
-                    socket.close.assert_not_awaited()
-                    self.assertIs(adapter.camera_capture, camera.capture)
-                    self.assertIs(adapter.selected_ground_range, camera.selected_ground_range)
-                    self.assertIs(adapter.depth_demand, camera.depth_demand)
-                else:
-                    adapter_factory.assert_not_called()
-                    socket.close.assert_awaited_once_with(code=1008, reason="wrong or unavailable endpoint")
+    async def test_late_startup_failures_release_acquired_resources(self):
+        await self.check_startup_failures([
+            ("signal.install", True, True, True, True, False),
+            ("hotspot.start", True, True, True, True, True),
+            ("ws.bind", True, True, True, True, True),
+        ])
 
+    async def test_corrupt_saved_bank_closes_real_writer_before_fixture_teardown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.startup_fixture(Path(directory), real_gait=True) as f:
+                f.gait_directory.mkdir()
+                (f.gait_directory/"settings.json").write_text(json.dumps({
+                    "fixture-robot": {"logging": False, "learning": False}}))
+                bank = f.gait_directory/hashlib.sha256(b"fixture-robot").hexdigest()[:20]
+                bank.mkdir()
+                (bank/"training.json").write_text('{"broken":')
+                try:
+                    with self.assertRaises(json.JSONDecodeError):
+                        await gateway_main._run_production(f.args)
+                    self.assertEqual(len(f.instances), 1)
+                    service = f.instances[0]
+                    self.assertEqual(service.directory, f.gait_directory)
+                    self.assertIsNotNone(service.writer)
+                    # These assertions precede any fixture or runner cleanup.
+                    self.assertTrue(service.writer.done())
+                    self.assertFalse(service.writer.cancelled())
+                    self.assertIsNone(service.writer.exception())
+                    self.assertIsNone(service.writer.result())
+                    self.assertTrue(service.writes.empty())
+                    await asyncio.wait_for(service.writes.join(), 1)
+                    self.assertFalse(service.tasks)
+                    self.assertFalse(service.workers)
+                    f.transport.close.assert_awaited_once()
+                    f.transport.request.assert_not_awaited()
+                finally:
+                    # Only emergency fixture cleanup after proof/failure, never
+                    # evidence that the entrypoint finalized its real service.
+                    for service in f.instances:
+                        await service.close()
+
+    async def test_failed_gait_close_preserves_other_releases_and_error_context(self):
+        for startup_failure in (None, "ws.bind"):
+            with self.subTest(startup_failure=startup_failure), tempfile.TemporaryDirectory() as directory:
+                with self.startup_fixture(Path(directory), failure=startup_failure,
+                        cleanup_failure="gait.close") as f:
+                    with self.assertRaisesRegex(RuntimeError, "Fixture failure: gait.close") as caught:
+                        await gateway_main._run_production(f.args)
+                    f.gait.close.assert_awaited_once()
+                    f.gateway.close.assert_awaited_once()
+                    f.camera.aclose.assert_awaited_once()
+                    f.dashboard.close_freestyle.assert_awaited_once()
+                    f.dashboard.host_audio.close.assert_awaited_once()
+                    f.dashboard.shutdown.assert_called_once()
+                    f.dashboard.server_close.assert_called_once()
+                    f.thread.join.assert_called_once_with(timeout=2.0)
+                    self.assertEqual(f.events.count("signal.restore"), 1)
+                    if startup_failure:
+                        self.assertIsInstance(caught.exception.__context__, RuntimeError)
+                        self.assertEqual(str(caught.exception.__context__), "Fixture failure: ws.bind")
+                    else:
+                        f.server.close.assert_called_once()
+                        f.server.wait_closed.assert_awaited_once()
+                        f.established.close.assert_awaited_once()
+                        f.handshake.transport.close.assert_called_once()
+                    # A fake failed closer proves no real writer completion.
+
+    async def test_handshake_close_failure_attempts_all_socket_orders_without_orphans(self):
+        for order in permutations(("established", "failing", "remaining")):
+            with self.subTest(order=order), tempfile.TemporaryDirectory() as directory:
+                with self.startup_fixture(Path(directory), cleanup_failure="handshake.close") as f:
+                    remaining = SimpleNamespace(open=False, closed=False,
+                        transport=SimpleNamespace(close=Mock()))
+                    sockets = {"established": f.established,
+                               "failing": f.handshake, "remaining": remaining}
+                    f.server.websockets = tuple(sockets[name] for name in order)
+                    with warnings.catch_warnings(record=True) as emitted:
+                        warnings.simplefilter("always", RuntimeWarning)
+                        with self.assertRaisesRegex(RuntimeError, "Fixture failure: handshake.close"):
+                            await gateway_main._run_production(f.args)
+                        gc.collect()
+                        f.established.close.assert_awaited_once_with(1001, "gateway stopped")
+                        f.handshake.transport.close.assert_called_once()
+                        remaining.transport.close.assert_called_once()
+                        f.server.wait_closed.assert_awaited_once()
+                        f.camera.aclose.assert_awaited_once()
+                        self.assertFalse([warning for warning in emitted
+                            if issubclass(warning.category, RuntimeWarning)
+                            and "was never awaited" in str(warning.message)])
+
+    async def test_socket_cleanup_drains_concurrent_closes_and_reports_each_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.startup_fixture(Path(directory), cleanup_failure="handshake.close") as f:
+                entered = [asyncio.Event(), asyncio.Event()]
+                release = asyncio.Event()
+
+                async def close_first(*args):
+                    entered[0].set()
+                    await release.wait()
+
+                async def close_second(*args):
+                    entered[1].set()
+                    await release.wait()
+                    raise OSError("Fixture established release failed")
+
+                f.established.close.side_effect = close_first
+                other = SimpleNamespace(open=True, closed=False,
+                    close=AsyncMock(side_effect=close_second))
+                f.server.websockets = (f.handshake, f.established, other)
+                task = asyncio.create_task(gateway_main._run_production(f.args))
+                try:
+                    # Both closes must enter before either can finish.
+                    await asyncio.wait_for(asyncio.gather(*(event.wait() for event in entered)), 1)
+                    f.server.wait_closed.assert_not_awaited()
+                    f.camera.aclose.assert_not_awaited()
+                    release.set()
+                    with self.assertRaises(ExceptionGroup) as caught:
+                        await task
+                    self.assertEqual({str(error) for error in caught.exception.exceptions}, {
+                        "Fixture failure: handshake.close", "Fixture established release failed"})
+                    self.assertEqual(len(caught.exception.exceptions), 2)
+                    f.established.close.assert_awaited_once_with(1001, "gateway stopped")
+                    other.close.assert_awaited_once_with(1001, "gateway stopped")
+                    f.handshake.transport.close.assert_called_once()
+                    f.gait.close.assert_awaited_once()
+                    f.server.wait_closed.assert_awaited_once()
+                    f.camera.aclose.assert_awaited_once()
+                finally:
+                    release.set()
+                    await asyncio.gather(task, return_exceptions=True)
+
+    async def test_cleanup_errors_do_not_skip_independent_finalizers(self):
+        for failure in ("http.shutdown", "http.close", "http.join", "ws.close",
+                        "gateway.close", "socket.close", "ws.wait_closed",
+                        "signal.restore", "freestyle.close", "camera.close"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                with self.startup_fixture(Path(directory), cleanup_failure=failure) as f:
+                    with self.assertRaisesRegex(RuntimeError, "Fixture failure: " + failure):
+                        await gateway_main._run_production(f.args)
+                    for event in ("http.shutdown", "http.close", "http.join", "ws.close",
+                                  "gait.close", "gateway.close", "socket.close", "handshake.close",
+                                  "ws.wait_closed", "signal.restore", "freestyle.close",
+                                  "camera.close", "audio.close"):
+                        self.assertEqual(f.events.count(event), 1, event)
 
 if __name__ == "__main__":
     unittest.main()

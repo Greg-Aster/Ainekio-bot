@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import hashlib
 import json
 import math
 import time
@@ -14,7 +15,8 @@ from gateway.plugins import CameraFramePlugin, _CameraInput
 from gateway.server.service import GatewayConnection, GatewayService, GatewayServiceConfig
 from gateway.gait_learning import policy_seed
 from gateway.gait_optimizer import candidate, context, DEFAULT_RADII, DEFAULT_WEIGHTS, measured_score, compare, project_candidate
-from gateway.gait_learning_service import GaitLearningService, TraceSessionChanged, RobotLearningTransport
+from gateway.gait_learning_service import GaitLearningService
+from gateway.robot_learning_transport import TraceSessionChanged, RobotLearningTransport
 from gateway.gait_training import profile_signature
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from test_gait_learning import policy_recording
@@ -171,7 +173,7 @@ class GaitStorageTests(unittest.TestCase):
 
     def test_robot_http_failure_keeps_the_complete_diagnostic_and_closes_the_socket(self):
         detail = "Firmware diagnostic start\n" + "measurement αβ\n"*80 + "Root cause at end: calibration write failed"
-        with patch("gateway.gait_learning_service.http.client.HTTPConnection") as factory:
+        with patch("gateway.robot_learning_transport.http.client.HTTPConnection") as factory:
             connection = factory.return_value
             connection.getresponse.return_value.status = 500
             connection.getresponse.return_value.read.return_value = detail.encode()
@@ -188,7 +190,7 @@ class ObjectiveTests(unittest.TestCase):
             gateway=Mock();gateway.maintenance_address=AsyncMock(return_value='robot')
             tokens=Mock();tokens.snapshot.return_value={'body':'token'}
             transport=RobotLearningTransport(gateway,tokens,persistent=False)
-            with patch('gateway.gait_learning_service.http.client.HTTPConnection') as factory:
+            with patch('gateway.robot_learning_transport.http.client.HTTPConnection') as factory:
                 connection=factory.return_value
                 connection.getresponse.return_value.status=200
                 connection.getresponse.return_value.read.return_value=b'{"joints":[]}'
@@ -202,7 +204,7 @@ class ObjectiveTests(unittest.TestCase):
     def test_transport_reuses_socket_and_does_not_retry_failed_requests(self):
         transport = RobotLearningTransport(None,None)
         session = dict(lock=threading.Lock(),address=None,connection=None)
-        with patch("gateway.gait_learning_service.http.client.HTTPConnection") as factory:
+        with patch("gateway.robot_learning_transport.http.client.HTTPConnection") as factory:
             connection=factory.return_value
             response=connection.getresponse.return_value
             response.status=200
@@ -223,7 +225,7 @@ class ObjectiveTests(unittest.TestCase):
         connection = Mock()
         response = connection.getresponse.return_value
         response.status = 409
-        with patch("gateway.gait_learning_service.http.client.HTTPConnection", return_value=connection):
+        with patch("gateway.robot_learning_transport.http.client.HTTPConnection", return_value=connection):
             response.read.return_value = b'{"error":"Trace session changed"}'
             with self.assertRaises(TraceSessionChanged):
                 RobotLearningTransport._request("robot", "token", "servo-feedback",
@@ -338,6 +340,863 @@ class Transport:
         return [{"schema": "gait_trace_v1", "geometry": "test-geometry", "boot_id": 1,
                  "session": self.session, "active": self.active},
                 {"next": 0, "lost": 0, "more": False}]
+
+
+def make_gait_service(directory, close=None):
+    transport = Transport()
+    transport.request = AsyncMock(side_effect=AssertionError("No external requests in lifecycle fixture"))
+    transport.close = AsyncMock(side_effect=close)
+    service = GaitLearningService(Gateway(), transport,
+        Mock(side_effect=AssertionError("No sensor processing in lifecycle fixture")), directory,
+        optimizer=Mock(side_effect=AssertionError("No training in lifecycle fixture")))
+    return service, transport
+
+
+async def assert_writer_finished(test, service):
+    test.assertTrue(service.writer.done())
+    test.assertFalse(service.writer.cancelled())
+    test.assertIsNone(service.writer.exception())
+    test.assertIsNone(service.writer.result())
+    test.assertTrue(service.writes.empty())
+    await asyncio.wait_for(service.writes.join(), 1)
+
+
+class CloseLifecycleTests(unittest.IsolatedAsyncioTestCase):
+    async def finish_fixture(self, service, *waiters):
+        # Emergency cleanup follows assertions; it is never lifecycle proof.
+        await asyncio.gather(*waiters, return_exceptions=True)
+        owner = getattr(service, "_close_task", None)
+        if owner is not None:
+            await asyncio.gather(owner, return_exceptions=True)
+        if service.writer is not None:
+            if not service.writer.done():
+                service.writes.put_nowait(None)
+            await asyncio.gather(service.writer, return_exceptions=True)
+
+    def enqueue_records(self, service, directory):
+        path = directory/"recording.jsonl"
+        records = [{"sample": 1}, {"sample": 2}]
+        for record in records:
+            service._enqueue(path, record)
+        return path, records
+
+    async def test_owned_close_task_cancellation_retains_waiter_cancellation_separately(self):
+        for cancel_waiter in (False, True):
+            with self.subTest(cancel_waiter=cancel_waiter), tempfile.TemporaryDirectory() as directory:
+                entered, release = asyncio.Event(), asyncio.Event()
+                owned_cancel = asyncio.CancelledError("Fixture owned close cancellation")
+                async def close_transport():
+                    entered.set()
+                    await release.wait()
+                    raise owned_cancel
+                service, transport = make_gait_service(Path(directory), close_transport)
+                await service.start()
+                path, records = self.enqueue_records(service, Path(directory))
+                waiter = asyncio.create_task(service.close())
+                try:
+                    await asyncio.wait_for(entered.wait(), 1)
+                    if cancel_waiter:
+                        waiter.cancel("Fixture close waiter cancellation")
+                        await asyncio.sleep(0)
+                        self.assertFalse(waiter.done())
+                    release.set()
+                    # Observe completion without consuming the Task's first
+                    # cancellation result before the caller sees it.
+                    await asyncio.wait_for(asyncio.wait({waiter}), 1)
+                    with self.assertRaises(asyncio.CancelledError) as caught:
+                        await waiter
+                    if cancel_waiter:
+                        self.assertEqual(caught.exception.args, ("Fixture close waiter cancellation",))
+                        self.assertIs(caught.exception.__cause__, owned_cancel)
+                    else:
+                        self.assertEqual(caught.exception.args, owned_cancel.args)
+                        self.assertIsNone(caught.exception.__cause__)
+                    self.assertTrue(service._close_task.cancelled())
+                    owner = service._close_task
+                    with self.assertRaises(asyncio.CancelledError):
+                        await service.close()
+                    self.assertIs(service._close_task, owner)
+                    transport.close.assert_awaited_once()
+                    transport.request.assert_not_awaited()
+                    await assert_writer_finished(self, service)
+                    self.assertEqual([json.loads(line) for line in path.read_text().splitlines()], records)
+                finally:
+                    release.set()
+                    await self.finish_fixture(service, waiter)
+
+    async def test_concurrent_callers_wait_for_one_cleanup_and_successful_repeat(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entered, release = asyncio.Event(), asyncio.Event()
+            async def close():
+                entered.set()
+                await release.wait()
+            service, transport = make_gait_service(root, close)
+            await service.start()
+            path, records = self.enqueue_records(service, root)
+            first = asyncio.create_task(service.close())
+            second = None
+            try:
+                await asyncio.wait_for(entered.wait(), 1)
+                second = asyncio.create_task(service.close())
+                await asyncio.sleep(0)
+                self.assertFalse(first.done())
+                self.assertFalse(second.done())
+                self.assertFalse(service.writer.done())
+                release.set()
+                self.assertEqual(await asyncio.gather(first, second), [None, None])
+                await assert_writer_finished(self, service)
+                self.assertEqual([json.loads(line) for line in path.read_text().splitlines()], records)
+                self.assertIsNone(await service.close())
+                transport.close.assert_awaited_once()
+                transport.request.assert_not_awaited()
+            finally:
+                release.set()
+                await self.finish_fixture(service, *[task for task in (first, second) if task])
+
+    async def test_repeatedly_cancelled_waiter_drains_cleanup_and_preserves_its_result(self):
+        for fail in (False, True):
+            with self.subTest(transport_failure=fail), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                entered, release = asyncio.Event(), asyncio.Event()
+                failure = OSError("Fixture transport cleanup failed")
+                async def close():
+                    entered.set()
+                    await release.wait()
+                    if fail:
+                        raise failure
+                service, transport = make_gait_service(root, close)
+                await service.start()
+                path, records = self.enqueue_records(service, root)
+                waiter = asyncio.create_task(service.close())
+                observer = None
+                try:
+                    await asyncio.wait_for(entered.wait(), 1)
+                    waiter.cancel()
+                    await asyncio.sleep(0)
+                    waiter.cancel()
+                    await asyncio.sleep(0)
+                    observer = asyncio.create_task(service.close())
+                    await asyncio.sleep(0)
+                    self.assertFalse(waiter.done())
+                    self.assertFalse(observer.done())
+                    self.assertFalse(service.writer.done())
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError) as cancelled:
+                        await waiter
+                    self.assertTrue(waiter.cancelled())
+                    if fail:
+                        self.assertIs(cancelled.exception.__cause__, failure)
+                        with self.assertRaises(OSError) as observed:
+                            await observer
+                        self.assertIs(observed.exception, failure)
+                        with self.assertRaises(OSError) as repeated:
+                            await service.close()
+                        self.assertIs(repeated.exception, failure)
+                    else:
+                        self.assertIsNone(await observer)
+                        self.assertIsNone(await service.close())
+                    await assert_writer_finished(self, service)
+                    self.assertEqual([json.loads(line) for line in path.read_text().splitlines()], records)
+                    transport.close.assert_awaited_once()
+                    transport.request.assert_not_awaited()
+                finally:
+                    release.set()
+                    await self.finish_fixture(service, *[task for task in (waiter, observer) if task])
+
+    async def test_transport_failure_still_drains_writes_and_is_retained_without_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            failure = OSError("Fixture transport cleanup failed")
+            async def close():
+                raise failure
+            service, transport = make_gait_service(root, close)
+            await service.start()
+            path, records = self.enqueue_records(service, root)
+            waiters = [asyncio.create_task(service.close()) for _ in range(2)]
+            try:
+                results = await asyncio.gather(*waiters, return_exceptions=True)
+                await assert_writer_finished(self, service)
+                self.assertTrue(all(result is failure for result in results))
+                self.assertEqual([json.loads(line) for line in path.read_text().splitlines()], records)
+                with self.assertRaises(OSError) as repeated:
+                    await service.close()
+                self.assertIs(repeated.exception, failure)
+                transport.close.assert_awaited_once()
+                transport.request.assert_not_awaited()
+            finally:
+                await self.finish_fixture(service, *waiters)
+
+    async def test_successful_repeat_and_partial_start_cleanup(self):
+        for stage in ("before_start", "started", "corrupt_bank"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                if stage == "corrupt_bank":
+                    (root/"settings.json").write_text(json.dumps({
+                        "fixture-robot": {"logging": False, "learning": False}}))
+                    bank = root/hashlib.sha256(b"fixture-robot").hexdigest()[:20]
+                    bank.mkdir()
+                    (bank/"training.json").write_text('{"broken":')
+                service, transport = make_gait_service(root)
+                try:
+                    if stage == "corrupt_bank":
+                        pending = {"other": ({"id": "retained"}, True)}
+                        service._runtime("fixture-robot")["pending"] = pending
+                        with self.assertRaises(json.JSONDecodeError):
+                            await service.start()
+                        self.assertIs(service._runtime("fixture-robot")["pending"], pending)
+                    elif stage == "started":
+                        await service.start()
+                    await service.close()
+                    await service.close()
+                    if service.writer is not None:
+                        await assert_writer_finished(self, service)
+                    transport.close.assert_awaited_once()
+                    transport.request.assert_not_awaited()
+                    self.assertFalse(service.tasks)
+                    self.assertFalse(service.workers)
+                finally:
+                    await self.finish_fixture(service)
+
+    async def test_failed_writer_is_reported_without_discarding_pending_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            service, transport = make_gait_service(root)
+            await service.start()
+            failure = RuntimeError("Fixture storage worker failed")
+            pending = {"sample": "still queued"}
+            try:
+                with patch.object(service, "_write", side_effect=failure):
+                    service._enqueue(root/"failed.jsonl", {"sample": "failed dispatch"})
+                    service._enqueue(root/"pending.jsonl", pending)
+                    with self.assertRaisesRegex(RuntimeError, "Fixture storage worker failed"):
+                        await asyncio.wait_for(asyncio.shield(service.writer), 1)
+                with self.assertRaises(RuntimeError) as caught:
+                    await asyncio.wait_for(service.close(), 1)
+                self.assertIs(caught.exception, failure)
+                self.assertEqual(list(service.writes._queue), [(root/"pending.jsonl", pending, False)])
+                self.assertFalse((root/"pending.jsonl").exists())
+                with self.assertRaises(RuntimeError) as repeated:
+                    await service.close()
+                self.assertIs(repeated.exception, failure)
+                transport.close.assert_awaited_once()
+                transport.request.assert_not_awaited()
+            finally:
+                await self.finish_fixture(service)
+
+    async def test_unstarted_writer_with_pending_records_reports_failure_without_discard(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            service, transport = make_gait_service(root)
+            pending = {"sample": "not started"}
+            service._enqueue(root/"pending.jsonl", pending)
+            with self.assertRaisesRegex(RuntimeError, "pending recording writes") as caught:
+                await asyncio.wait_for(service.close(), 1)
+            self.assertEqual(list(service.writes._queue), [(root/"pending.jsonl", pending, False)])
+            with self.assertRaises(RuntimeError) as repeated:
+                await service.close()
+            self.assertIs(repeated.exception, caught.exception)
+            transport.close.assert_awaited_once()
+            transport.request.assert_not_awaited()
+
+    async def test_entrypoint_cancellation_waits_for_gait_cleanup_before_dependencies(self):
+        from test_gateway_security import GatewayStartupTests
+        import gateway.server.__main__ as gateway_main
+
+        fixture_owner = GatewayStartupTests()
+        with tempfile.TemporaryDirectory() as directory:
+            with fixture_owner.startup_fixture(Path(directory), real_gait=True) as f:
+                entered, release = asyncio.Event(), asyncio.Event()
+                async def close():
+                    entered.set()
+                    await release.wait()
+                f.transport.close.side_effect = close
+                owner = asyncio.create_task(gateway_main._run_production(f.args))
+                observer = None
+                try:
+                    await asyncio.wait_for(entered.wait(), 1)
+                    owner.cancel()
+                    await asyncio.sleep(0)
+                    owner.cancel()
+                    await asyncio.sleep(0)
+                    observer = asyncio.create_task(f.gait.close())
+                    await asyncio.sleep(0)
+                    self.assertFalse(owner.done())
+                    self.assertFalse(observer.done())
+                    f.gateway.close.assert_not_awaited()
+                    f.camera.aclose.assert_not_awaited()
+                    self.assertFalse(f.gait.writer.done())
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await owner
+                    self.assertTrue(owner.cancelled())
+                    self.assertIsNone(await observer)
+                    await self.assert_writer_finished(f.gait)
+                    f.transport.close.assert_awaited_once()
+                    f.transport.request.assert_not_awaited()
+                    f.gateway.close.assert_awaited_once()
+                    f.camera.aclose.assert_awaited_once()
+                finally:
+                    release.set()
+                    await self.finish_fixture(f.gait, *[task for task in (owner, observer) if task])
+
+
+class RecorderReleaseTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.gateway, self.transport = Gateway(), Transport()
+        self.transport.close = AsyncMock()
+        self.depth_error = self.stop_error = self.drain_error = None
+        self.stop_entered, self.release_stop = asyncio.Event(), asyncio.Event()
+        self.release_stop.set()
+        self.started = asyncio.Event()
+        self.more_after_stop = False
+        self.body = self.gateway.status()["robots"]["robot"]
+        self.body["active_walk"] = {"name": "walk", "seq": 1}
+        self.gateway.status = lambda: {"robots": {"robot": self.body}}
+        self.depth_calls = []
+
+        async def depth(robot, consumer, enabled, *, wait_for_measurement):
+            self.depth_calls.append((robot, consumer, enabled, wait_for_measurement))
+            if not enabled and self.depth_error:
+                raise self.depth_error  # Synchronous submission fault, not a native worker result.
+
+        original = self.transport.request
+        async def request(robot, endpoint, payload):
+            if payload:
+                self.assertEqual(endpoint, "servo-feedback")
+                self.assertIn(payload["op"], {"trace_start", "trace_read", "trace_stop"})
+                if payload.get("session") is not None and payload["session"] != self.transport.session:
+                    self.transport.calls.append((robot, endpoint, copy.deepcopy(payload)))
+                    raise TraceSessionChanged("Device trace session changed")
+                if payload["op"] == "trace_stop":
+                    self.stop_entered.set()
+                    await self.release_stop.wait()
+                    if self.stop_error:
+                        self.transport.calls.append((robot, endpoint, copy.deepcopy(payload)))
+                        raise self.stop_error
+                elif (payload["op"] == "trace_read" and self.stop_entered.is_set()
+                        and not self.transport.active and self.drain_error):
+                    self.transport.calls.append((robot, endpoint, copy.deepcopy(payload)))
+                    raise self.drain_error
+            result = await original(robot, endpoint, payload)
+            if payload and payload["op"] == "trace_stop" and getattr(self, "stop_active_reply", False):
+                result[0]["active"] = True
+            if payload and payload["op"] == "trace_stop" and self.more_after_stop:
+                result.insert(1, {"kind": "event", "time_us": 123, "fixture": "last owned sample"})
+                result[-1].update(next=1, more=True)
+            if payload and payload["op"] in {"trace_start", "trace_read"} and self.transport.active:
+                self.started.set()
+            return result
+        self.transport.request = request
+        self.service = GaitLearningService(self.gateway, self.transport,
+            lambda _: {"available": False, "reason": "Fixture"}, Path(self.temp.name),
+            depth_demand=depth,
+            optimizer=Mock(side_effect=AssertionError("No training in release fixture")))
+        await self.service.start()
+        self.addAsyncCleanup(self.finish_fixture)
+
+    async def finish_fixture(self):
+        # Emergency cleanup follows assertions and is not used as completion proof.
+        self.release_stop.set()
+        await asyncio.gather(self.service.close(), return_exceptions=True)
+
+    async def enable(self):
+        self.started.clear()
+        await self.service.configure("robot", {"logging": True, "learning": False})
+        await asyncio.wait_for(self.started.wait(), 1)
+        return self.service.tasks["robot"], self.service._runtime("robot")["recording"]
+
+    def stop_calls(self):
+        return [p for _, _, p in self.transport.calls if p and p["op"] == "trace_stop"]
+
+    async def events(self, recording):
+        await asyncio.wait_for(self.service.writes.join(), 1)
+        path = recording/"events.jsonl"
+        rows = [json.loads(row)["value"] for row in path.read_text().splitlines()]
+        return [row for row in rows if row["t"] == "recording_cleanup"]
+
+    async def assert_failed(self, task, recording, stages, acknowledged, drained):
+        with self.assertRaises(ExceptionGroup) as caught:
+            await asyncio.wait_for(asyncio.shield(task), 1)
+        status = self.service.status("robot")
+        self.assertEqual(status["state"], "recording_unavailable")
+        for stage, detail in stages:
+            self.assertIn(detail, status["error"])
+        event = (await self.events(recording))[-1]
+        self.assertEqual((event["boot_id"], event["session"]), (1, 1))
+        self.assertEqual(event["trace_stop_acknowledged"], acknowledged)
+        self.assertEqual(event["trace_drained"], drained)
+        self.assertEqual([(e["stage"], e["error"]) for e in event["errors"]], stages)
+        self.assertIsInstance(status["error"], str)
+        json.dumps(status)  # Public status must remain JSON-safe despite the retained cleanup result.
+        return caught.exception
+
+    async def assert_close_failure(self, error):
+        for _ in range(2):
+            with self.assertRaises(ExceptionGroup) as caught:
+                await asyncio.wait_for(self.service.close(), 1)
+            self.assertIs(caught.exception, error)
+        self.transport.close.assert_awaited_once()
+        self.assertTrue(self.service.writer.done())
+        self.assertFalse(self.service.writer.cancelled())
+        self.assertIsNone(self.service.writer.exception())
+        self.assertTrue(self.service.writes.empty())
+        self.service.optimizer.assert_not_called()
+
+    async def test_depth_submission_failure_still_stops_and_drains_without_reenable(self):
+        self.depth_error = RuntimeError("Fixture depth-release submission failed")
+        self.release_stop.clear()
+        task, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        # Bound the wait so the old depth-first finally cannot hang this fixture.
+        for _ in range(100):
+            if task.done() or self.stop_entered.is_set(): break
+            await asyncio.sleep(.01)
+        self.assertTrue(self.stop_entered.is_set(), "Depth failure skipped owned trace_stop")
+        await self.service.configure("robot", {"logging": True})
+        self.release_stop.set()
+        error = await self.assert_failed(task, recording,
+            [("depth_release", str(self.depth_error))], True, True)
+        self.assertEqual(self.stop_calls(), [{"op": "trace_stop", "after": 0, "boot_id": 1, "session": 1}])
+        self.assertFalse(self.transport.active)
+        self.assertFalse(self.service._runtime("robot")["owned"])
+        self.assertIs(self.service.tasks["robot"], task)
+        await self.assert_close_failure(error)
+
+    async def test_stop_failure_retains_owned_identity_and_error_when_logging_is_disabled(self):
+        self.service.depth_demand = None
+        self.stop_error = OSError("Fixture trace_stop connection failed")
+        task, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        error = await self.assert_failed(task, recording, [("trace_stop", str(self.stop_error))], False, False)
+        self.assertTrue(self.transport.active)
+        self.assertTrue(self.service._runtime("robot")["owned"])
+        await self.assert_close_failure(error)
+        self.assertEqual(len(self.stop_calls()), 1)
+
+    async def test_combined_independent_failures_are_persisted_and_visible(self):
+        self.depth_error = RuntimeError("Fixture depth-release submission failed")
+        self.stop_error = OSError("Fixture trace_stop connection failed")
+        task, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        error = await self.assert_failed(task, recording,
+            [("depth_release", str(self.depth_error)), ("trace_stop", str(self.stop_error))], False, False)
+        self.assertEqual(error.exceptions, (self.depth_error, self.stop_error))
+        await self.assert_close_failure(error)
+        self.assertEqual(len(self.stop_calls()), 1)
+
+    async def test_drain_failure_keeps_acknowledged_stop_and_partial_recording_distinct(self):
+        self.more_after_stop = True
+        self.drain_error = OSError("Fixture trace drain failed")
+        task, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        error = await self.assert_failed(task, recording, [("trace_drain", str(self.drain_error))], True, False)
+        self.assertFalse(self.transport.active)
+        self.assertFalse(self.service._runtime("robot")["owned"])
+        trace = [json.loads(row) for row in (recording/"trace.jsonl").read_text().splitlines()]
+        self.assertTrue(any(any(r.get("fixture") == "last owned sample" for r in b["records"]) for b in trace))
+        self.assertEqual(self.transport.calls[-1][2], {"op": "trace_read", "after": 1, "boot_id": 1, "session": 1})
+        await self.assert_close_failure(error)
+
+    async def test_unowned_session_is_not_stopped(self):
+        self.transport.active, self.transport.session = True, 17
+        task, recording = await self.enable()
+        self.assertFalse(self.service._runtime("robot")["owned"])
+        await self.service.configure("robot", {"logging": False})
+        await asyncio.wait_for(asyncio.shield(task), 1)
+        self.assertFalse(self.stop_calls())
+        event = (await self.events(recording))[-1]
+        self.assertEqual(event["session"], 17)
+        self.assertIsNone(event["trace_stop_acknowledged"])
+        self.assertTrue(self.transport.active)
+        await self.service.close()
+
+    async def test_replacement_racing_stop_never_stops_new_session(self):
+        task, recording = await self.enable()
+        self.transport.session = 99
+        await self.service.configure("robot", {"logging": False})
+        error = await self.assert_failed(task, recording,
+            [("trace_stop", "Device trace session changed")], False, False)
+        self.assertEqual(self.stop_calls()[0]["session"], 1)
+        self.assertEqual(len(self.stop_calls()), 1)
+        self.assertTrue(self.transport.active)
+        self.assertFalse(self.service._runtime("robot")["owned"])
+        await self.assert_close_failure(error)
+
+
+    async def test_repeated_recorder_and_close_waiter_cancellation_drain_and_report_failure(self):
+        self.depth_error = RuntimeError("Fixture depth-release submission failed")
+        task, recording = await self.enable()
+        self.release_stop.clear()
+        owner = asyncio.create_task(self.service.close())
+        observer = None
+        try:
+            for _ in range(100):
+                if task.done() or self.stop_entered.is_set(): break
+                await asyncio.sleep(.01)
+            self.assertTrue(self.stop_entered.is_set())
+            task.cancel()
+            task.cancel()
+            owner.cancel()
+            await asyncio.sleep(0)
+            owner.cancel()
+            observer = asyncio.create_task(self.service.close())
+            await asyncio.sleep(0)
+            self.assertFalse(owner.done())
+            self.assertFalse(observer.done())
+            self.transport.close.assert_not_awaited()
+            self.assertFalse(self.service.writer.done())
+            self.release_stop.set()
+            with self.assertRaises(asyncio.CancelledError) as cancelled:
+                await owner
+            self.assertTrue(owner.cancelled())
+            with self.assertRaises(ExceptionGroup) as failed:
+                await observer
+            self.assertIs(cancelled.exception.__cause__, failed.exception)
+            self.assertTrue(task.cancelled())
+            self.assertIn(str(self.depth_error), self.service.status("robot")["error"])
+            event = (await self.events(recording))[-1]
+            self.assertTrue(event["trace_stop_acknowledged"])
+            self.assertTrue(event["trace_drained"])
+            await self.assert_close_failure(failed.exception)
+        finally:
+            self.release_stop.set()
+            await asyncio.gather(owner, *([observer] if observer else []), return_exceptions=True)
+
+
+    async def check_owned_release_cancellation(self, initial_cancellation):
+        owned_cancel = asyncio.CancelledError("Fixture owned trace-stop cancellation")
+        self.stop_error = owned_cancel
+        task, _ = await self.enable()
+        self.release_stop.clear()
+        try:
+            if initial_cancellation is None:
+                await self.service.configure("robot", {"logging": False})
+            else:
+                task.cancel(initial_cancellation)
+            await asyncio.wait_for(self.stop_entered.wait(), 1)
+            self.release_stop.set()
+            await asyncio.wait_for(asyncio.wait({task}), 1)
+            with self.assertRaises(asyncio.CancelledError) as caught:
+                await task
+            self.assertTrue(task.cancelled())
+            self.assertEqual(caught.exception.args, ())
+            self.assertIs(caught.exception.__cause__, owned_cancel)
+            self.assertEqual(len(self.stop_calls()), 1)
+            # This injected owned-task cancellation is propagation evidence,
+            # not an acknowledged device stop or a cleanup recovery claim.
+        finally:
+            self.release_stop.set()
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def test_owned_release_task_cancellation_remains_recorder_cancellation(self):
+        await self.check_owned_release_cancellation(None)
+
+    async def test_owned_release_cancellation_preserves_existing_initial_cancel_outcome(self):
+        await self.check_owned_release_cancellation("Fixture initial recorder cancellation")
+
+    async def test_observed_replacement_is_not_stopped(self):
+        task, recording = await self.enable()
+        self.transport.session = 17
+        for _ in range(100):
+            r = self.service._runtime("robot")
+            if r["session"] == 17 and not r["owned"]: break
+            await asyncio.sleep(.01)
+        self.assertEqual(r["session"], 17)
+        self.assertFalse(r["owned"])
+        await self.service.configure("robot", {"logging": False})
+        await asyncio.wait_for(asyncio.shield(task), 1)
+        self.assertFalse(self.stop_calls())
+        self.assertTrue(self.transport.active)
+        self.assertIsNone((await self.events(recording))[-1]["trace_stop_acknowledged"])
+        await self.service.close()
+
+    async def test_active_stop_reply_is_not_claimed_as_acknowledged(self):
+        self.stop_active_reply = True
+        task, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        error = await self.assert_failed(task, recording,
+            [("trace_stop", "Trace stop did not acknowledge the owned inactive session")], False, False)
+        self.assertTrue(self.service._runtime("robot")["owned"])
+        await self.assert_close_failure(error)
+        self.assertEqual(len(self.stop_calls()), 1)
+
+    async def test_repeated_recorder_cancel_finishes_release_before_cancellation(self):
+        task, recording = await self.enable()
+        self.release_stop.clear()
+        try:
+            task.cancel()
+            await asyncio.wait_for(self.stop_entered.wait(), 1)
+            task.cancel()
+            await asyncio.sleep(0)
+            task.cancel()
+            await asyncio.sleep(0)
+            self.assertFalse(task.done())
+            self.release_stop.set()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            self.assertTrue(task.cancelled())
+            self.assertFalse(self.transport.active)
+            self.assertIsNone(self.service.status("robot")["error"])
+            self.assertTrue((await self.events(recording))[-1]["trace_drained"])
+            await self.service.close()
+            self.assertFalse(self.service.writer.cancelled())
+            self.assertIsNone(self.service.writer.exception())
+        finally:
+            self.release_stop.set()
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def test_transport_failure_keeps_recorder_error_context_and_writer_release(self):
+        self.stop_error = OSError("Fixture trace_stop connection failed")
+        task, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        error = await self.assert_failed(task, recording, [("trace_stop", str(self.stop_error))], False, False)
+        transport_error = RuntimeError("Fixture transport close failed")
+        self.transport.close.side_effect = transport_error
+        for _ in range(2):
+            with self.assertRaises(RuntimeError) as failed:
+                await self.service.close()
+            self.assertIs(failed.exception, transport_error)
+            self.assertIs(failed.exception.__context__, error)
+        self.transport.close.assert_awaited_once()
+        self.assertTrue(self.service.writer.done())
+        self.assertFalse(self.service.writer.cancelled())
+        self.assertIsNone(self.service.writer.exception())
+        self.assertTrue(self.service.writes.empty())
+        self.assertEqual(len(self.stop_calls()), 1)
+
+
+    async def test_entrypoint_cancellation_keeps_dependencies_until_recorder_failure_is_reported(self):
+        from test_gateway_security import GatewayStartupTests
+        import gateway.server.__main__ as gateway_main
+
+        with tempfile.TemporaryDirectory() as directory:
+            with GatewayStartupTests().startup_fixture(Path(directory), real_gait=True, stop_at_serve=False) as f:
+                f.gateway.status = self.gateway.status
+                f.gateway.body_calibration = self.gateway.body_calibration
+                f.gateway.body_balance = self.gateway.body_balance
+                f.transport.request.side_effect = self.transport.request
+                f.camera.depth_demand.side_effect = self.service.depth_demand
+                self.depth_error = RuntimeError("Fixture depth-release submission failed")
+                self.release_stop.clear()
+                owner = asyncio.create_task(gateway_main._run_production(f.args))
+                observer = None
+                try:
+                    await asyncio.wait_for(f.listening.wait(), 1)
+                    f.gait.optimizer = Mock(side_effect=AssertionError("No training in entrypoint fixture"))
+                    await f.gait.configure("robot", {"logging": True, "learning": False})
+                    await asyncio.wait_for(self.started.wait(), 1)
+                    recording = f.gait._runtime("robot")["recording"]
+                    owner.cancel()
+                    await asyncio.wait_for(self.stop_entered.wait(), 1)
+                    owner.cancel()
+                    await asyncio.sleep(0)
+                    owner.cancel()
+                    observer = asyncio.create_task(f.gait.close())
+                    await asyncio.sleep(0)
+                    self.assertFalse(owner.done())
+                    self.assertFalse(observer.done())
+                    f.gateway.close.assert_not_awaited()
+                    f.camera.aclose.assert_not_awaited()
+                    f.transport.close.assert_not_awaited()
+                    self.release_stop.set()
+                    with self.assertRaises(asyncio.CancelledError) as cancelled:
+                        await owner
+                    with self.assertRaises(ExceptionGroup) as failed:
+                        await observer
+                    self.assertIs(cancelled.exception.__cause__, failed.exception)
+                    self.assertTrue(owner.cancelled())
+                    self.assertTrue(f.gait.writer.done())
+                    self.assertFalse(f.gait.writer.cancelled())
+                    self.assertIsNone(f.gait.writer.exception())
+                    rows = [json.loads(row)["value"] for row in (recording/"events.jsonl").read_text().splitlines()]
+                    cleanup = next(row for row in rows if row["t"] == "recording_cleanup")
+                    self.assertEqual(cleanup["errors"][0]["error"], str(self.depth_error))
+                    f.transport.close.assert_awaited_once()
+                    f.gateway.close.assert_awaited_once()
+                    f.camera.aclose.assert_awaited_once()
+                    f.gait.optimizer.assert_not_called()
+                finally:
+                    self.release_stop.set()
+                    await asyncio.gather(owner, *([observer] if observer else []), return_exceptions=True)
+                    await asyncio.gather(f.gait.close(), return_exceptions=True)
+
+
+class BankRestorationTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.services = []
+        self.banks = {
+            "walk": {"converged": False, "incumbent": {"id": "walk-incumbent"},
+                     "candidate": {"id": "walk-candidate"}},
+            "run": {"converged": True, "incumbent": {"id": "run-incumbent"},
+                    "candidate": {"id": "run-candidate"}},
+        }
+
+    async def asyncTearDown(self):
+        # Emergency release is not used as a successful-cleanup assertion.
+        await asyncio.gather(*(s.close() for s in self.services), return_exceptions=True)
+
+    def make_service(self, name, settings=None, bank=None):
+        root = Path(self.temp.name)/name
+        root.mkdir()
+        (root/"settings.json").write_text(json.dumps({"robot": settings or {"logging": False, "learning": False}}))
+        service, _ = make_gait_service(root)
+        self.services.append(service)
+        path = service._runtime("robot")["root"]/"training.json"
+        if bank is not None:
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps(bank))
+        return service, path
+
+    async def finish(self, service):
+        await service.close()
+        await assert_writer_finished(self, service)
+        service.transport.close.assert_awaited_once()
+        service.transport.request.assert_not_awaited()
+        service.optimizer.assert_not_called()
+
+    def expected_pending(self):
+        return {"walk": (self.banks["walk"]["candidate"], False),
+                "run": (self.banks["run"]["incumbent"], False)}
+
+    async def record_without_external_work(self, service):
+        # Exercise the real recorder's loading before its existing closed-loop
+        # check, preserving pending models without activating or analysing them.
+        service.closed = True
+        task = service.tasks["robot"] = asyncio.create_task(service._record("robot"))
+        await task
+
+    async def test_startup_loads_flags_off_logging_only_and_learning_restoration(self):
+        for logging, learning in ((False, False), (True, False), (False, True)):
+            with self.subTest(logging=logging, learning=learning):
+                service, _ = self.make_service(str((logging, learning)),
+                    {"logging": logging, "learning": learning}, self.banks)
+                r = service._runtime("robot")
+                retained = ({"id": "unrelated pending"}, True)
+                r["pending"]["other"] = retained
+                await service.start()
+                # start() creates the recorder but does not await its body.
+                self.assertEqual(r["banks"], self.banks)
+                self.assertEqual(r["pending"], {"other": retained, **(self.expected_pending() if learning else {})})
+                self.assertEqual("robot" in service.tasks, logging or learning)
+                await self.finish(service)
+
+    async def test_recorder_fallback_restores_only_when_learning_is_enabled(self):
+        for learning in (False, True):
+            with self.subTest(learning=learning):
+                service, path = self.make_service("fallback-"+str(learning))
+                await service.start()
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps(self.banks))
+                service.settings["robot"] = {"logging": False, "learning": learning}
+                retained = ({"id": "unrelated pending"}, True)
+                service._runtime("robot")["pending"]["other"] = retained
+                await self.record_without_external_work(service)
+                self.assertEqual(service._runtime("robot")["banks"], self.banks)
+                self.assertEqual(service._runtime("robot")["pending"],
+                    {"other": retained, **(self.expected_pending() if learning else {})})
+                await self.finish(service)
+
+    async def test_populated_recorder_banks_and_pending_survive_corrupt_disk_bank(self):
+        service, path = self.make_service("populated")
+        await service.start()
+        path.parent.mkdir(parents=True)
+        path.write_text('{"corrupt":')
+        live = {"existing": {"unique": "not replaced"}}
+        pending = {"walk": ({"id": "already pending"}, True)}
+        r = service._runtime("robot")
+        r.update(banks=live, pending=pending)
+        service.settings["robot"]["learning"] = True
+        await self.record_without_external_work(service)
+        self.assertIs(r["banks"], live)
+        self.assertIs(r["pending"], pending)
+        await self.finish(service)
+
+    async def test_missing_bank_preserves_empty_banks_and_pending(self):
+        service, path = self.make_service("missing")
+        pending = {"walk": ({"id": "existing pending"}, True)}
+        r = service._runtime("robot")
+        r["pending"] = pending
+        await service.start()
+        self.assertFalse(path.exists())
+        self.assertFalse(r["banks"])
+        await self.record_without_external_work(service)
+        self.assertFalse(r["banks"])
+        self.assertIs(r["pending"], pending)
+        await self.finish(service)
+
+    async def test_corrupt_recorder_bank_preserves_pending_and_close_failure(self):
+        service, path = self.make_service("corrupt-recorder")
+        await service.start()
+        path.parent.mkdir(parents=True)
+        path.write_text('{"corrupt":')
+        pending = {"other": ({"id": "retained"}, True)}
+        service._runtime("robot")["pending"] = pending
+        with self.assertRaises(json.JSONDecodeError) as original:
+            await self.record_without_external_work(service)
+        self.assertIs(service._runtime("robot")["pending"], pending)
+        with self.assertRaises(json.JSONDecodeError) as closed:
+            await service.close()
+        self.assertIs(closed.exception, original.exception)
+        await assert_writer_finished(self, service)
+        service.transport.close.assert_awaited_once()
+        service.transport.request.assert_not_awaited()
+        service.optimizer.assert_not_called()
+
+    async def replace_settings_during_read(self, service, path, operation, replacement):
+        entered, release = threading.Event(), threading.Event()
+        original = Path.read_text
+        read_threads = []
+        def read(current, *args, **kwargs):
+            if current == path:
+                read_threads.append(threading.get_ident())
+                entered.set()
+                if not release.wait(2):
+                    raise RuntimeError("Fixture bank read was not released")
+            return original(current, *args, **kwargs)
+        with patch.object(Path, "read_text", read):
+            task = asyncio.create_task(operation)
+            try:
+                self.assertTrue(await asyncio.to_thread(entered.wait, 1))
+                service.settings["robot"] = replacement
+            finally:
+                release.set()
+                await asyncio.gather(task, return_exceptions=True)
+            await task
+        self.assertTrue(read_threads)
+        self.assertNotEqual(read_threads[0], threading.get_ident())
+
+    async def test_startup_reads_captured_settings_after_threaded_bank_read(self):
+        for initial in (False, True):
+            with self.subTest(initial=initial):
+                service, path = self.make_service("startup-timing-"+str(initial),
+                    {"logging": False, "learning": initial}, self.banks)
+                # The existing closed-loop condition suppresses downstream model
+                # activation if the captured startup policy creates a recorder.
+                service.closed = True
+                await self.replace_settings_during_read(service, path, service.start(),
+                    {"logging": False, "learning": not initial})
+                self.assertEqual(service._runtime("robot")["pending"], self.expected_pending() if initial else {})
+                self.assertEqual("robot" in service.tasks, initial)
+                await self.finish(service)
+
+    async def test_recorder_reads_current_settings_after_threaded_bank_read(self):
+        for initial in (False, True):
+            with self.subTest(initial=initial):
+                service, path = self.make_service("recorder-timing-"+str(initial))
+                await service.start()
+                path.parent.mkdir(parents=True)
+                path.write_text(json.dumps(self.banks))
+                service.settings["robot"] = {"logging": False, "learning": initial}
+                service.closed = True
+                await self.replace_settings_during_read(service, path, service._record("robot"),
+                    {"logging": False, "learning": not initial})
+                self.assertEqual(service._runtime("robot")["pending"], self.expected_pending() if not initial else {})
+                await self.finish(service)
 
 
 class ServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -1045,7 +1904,13 @@ class RecordingDepthTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNot(self.service.tasks["robot"], previous)
         self.assertNotEqual(first, self.service._runtime("robot")["recording"])
         self.assertIn("gait-learning:robot", self.camera._metric_consumers)
-        await self.disable()
+        await self.service.writes.join()
+        cleanup = [json.loads(line)["value"] for line in (first/"events.jsonl").read_text().splitlines()]
+        self.assertTrue(next(event for event in cleanup if event["t"] == "recording_cleanup")["trace_drained"])
+        await self.disable()  # Also asserts inactive trace and released depth demand.
+        await self.service.close()
+        await assert_writer_finished(self, self.service)
+        self.assertIsNone(self.service.status("robot")["error"])
 
 
 if __name__ == "__main__":

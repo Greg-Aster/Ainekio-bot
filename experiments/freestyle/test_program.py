@@ -69,6 +69,7 @@ class FakeGateway:
     def __init__(self):
         self.events=[];self.commands=[];self.sent=[];self.seq=0
         self.connected=True;self.epoch=1
+        self.features=['motion_targets_v1']
         self.calibration={'joints':[{'id':i,'home_cd':1000,'home_us':1500,'pulse_us':1500,
                           'invert':False,'us_per_degree':10} for i in range(12)]}
     def subscribe_events(self,c):self.events.append(c)
@@ -77,7 +78,7 @@ class FakeGateway:
     def unsubscribe_commands(self,c):self.commands.remove(c)
     async def status_snapshot(self):
         if not self.connected:return {'robots':{}}
-        return {'robots':{'robot':{'model':'v2-12servo','epoch':self.epoch,'calibration':self.calibration,
+        return {'robots':{'robot':{'model':'v2-12servo','epoch':self.epoch,'calibration':self.calibration,'features':self.features,
             'motion_speed':{'joint_speed_limit_deg_s':100},'status':{'imu':{'orientation_wxyz':[1,0,0,0]}},'body_command':None}}}
     async def queue_motion_plan(self,frames,**kwargs):
         self.seq+=1
@@ -109,6 +110,83 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.generated.append(request)
         return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50)]}
     async def asyncTearDown(self):await self.bridge.close()
+
+    def trajectory(self):
+        return call('trajectory',joints=[JOINTS[0]],tracks=[[[0,10,0],[1,20,0],[2,10,0]]],
+                    checkpoints_s=[1],holds_s=[],expected_up=[],speed_pct=50,taper_deg=0)
+
+    async def test_generated_curve_upload_uses_one_owned_command(self):
+        self.gateway.features.append('motion_curves_v1')
+        requests=[];commands=[];original=self.bridge.transport.request;queue=self.gateway.queue_motion_plan
+        async def request(robot,endpoint,payload):
+            if endpoint!='trajectory':return await original(robot,endpoint,payload)
+            requests.append(copy.deepcopy(payload));return {'prepared':True}
+        async def submit(frames,**options):
+            commands.append(options);return await queue(frames,**options)
+        self.bridge.transport.request=request;self.gateway.queue_motion_plan=submit
+        job=await self.bridge.submit('robot','curve',True,program=[self.trajectory()])
+        await self.bridge.tasks[job['job_id']]
+        await asyncio.gather(*list(self.bridge.trajectory_cleanups))
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'completed')
+        self.assertEqual(len(commands),1)
+        self.assertEqual(commands[0]['control'],'trajectory')
+        self.assertEqual(commands[0]['trajectory_token'],requests[0]['id'])
+        self.assertEqual(len(requests),1,'Completed curves are freed by their body owner, without another HTTP request')
+        self.assertEqual(requests[0]['curve']['checkpoints'],[0,1,2])
+
+    async def test_unsupported_curve_reports_missing_firmware_feature_without_upload(self):
+        job=await self.bridge.submit('robot','curve',True,program=[self.trajectory()])
+        await self.bridge.tasks[job['job_id']]
+        self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'error')
+        self.assertIn('motion_curves_v1',self.bridge.jobs[job['job_id']]['error'])
+        self.assertFalse(self.gateway.sent)
+
+    async def test_curve_upload_cancellation_stops_before_waiting_for_upload_cleanup(self):
+        self.gateway.features.append('motion_curves_v1')
+        uploading=asyncio.Event();finish_upload=asyncio.Event();events=[];original=self.bridge.transport.request
+        async def request(robot,endpoint,payload):
+            if endpoint!='trajectory':return await original(robot,endpoint,payload)
+            if payload.get('op')=='discard':events.append('discard');return {'discarded':True}
+            uploading.set();await finish_upload.wait();events.append('uploaded');return {'prepared':True}
+        async def stop(**options):
+            events.append('stop');self.gateway.seq+=1;return self.gateway.seq
+        self.bridge.transport.request=request;self.gateway.estop=stop
+        job=await self.bridge.submit('robot','curve',True,program=[self.trajectory()])
+        await uploading.wait()
+        try:
+            result=await self.bridge.cancel(job['job_id'])
+            self.assertEqual(result['state'],'superseded')
+            self.assertEqual(events,['stop'])
+            self.assertTrue(self.bridge.trajectory_cleanups)
+        finally:finish_upload.set()
+        await asyncio.gather(*list(self.bridge.trajectory_cleanups))
+        self.assertEqual(events,['stop','uploaded','discard'])
+
+    async def test_curve_cleanup_does_not_block_the_following_motion(self):
+        self.gateway.features.append('motion_curves_v1')
+        cleanup=asyncio.Event();executing=asyncio.Event();uncompleted=asyncio.Event()
+        original=self.bridge.transport.request;receipt=self.gateway.wait_terminal
+        async def request(robot,endpoint,payload):
+            if endpoint!='trajectory':return await original(robot,endpoint,payload)
+            if payload.get('op')=='discard':await cleanup.wait();return {'discarded':True}
+            return {'prepared':True}
+        self.bridge.transport.request=request
+        async def wait(sequence,**options):
+            if sequence==1:executing.set();await uncompleted.wait()
+            return await receipt(sequence,**options)
+        async def stop(**options):self.gateway.seq+=1;return self.gateway.seq
+        self.gateway.wait_terminal=wait;self.gateway.estop=stop
+        job=await self.bridge.submit('robot','curve',True,program=[self.trajectory()])
+        await executing.wait()
+        try:
+            await self.bridge.cancel(job['job_id'])
+            next_job=await self.bridge.submit('robot','move',True,program=[move(JOINTS[0],5,'current',50)])
+            await self.bridge.tasks[next_job['job_id']]
+            self.assertEqual(self.bridge.jobs[next_job['job_id']]['state'],'completed')
+            self.assertEqual(len(self.gateway.sent),2)
+            self.assertTrue(any(not t.done() for t in self.bridge.trajectory_cleanups))
+        finally:cleanup.set();uncompleted.set()
+        await asyncio.gather(*list(self.bridge.trajectory_cleanups))
     async def test_observation_preserves_raw_and_converts_filtered_position_for_both_polarities(self):
         async def feedback(*args):
             return {'channels':[{'channel':4,'valid':True,'sampled_us':980000},
@@ -340,13 +418,115 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         submitted=await self.bridge.submit('robot','move',True)
         await self.bridge.tasks[submitted['job_id']]
         self.assertEqual(len(calls),1)
+        completed=self.bridge.jobs[submitted['job_id']]
+        self.assertIsNone(completed.get('current_action'))
+        self.assertEqual(completed['completed_action'],move(JOINTS[0],20,'current',50))
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
                                 'data':{'kind':'servo_stall','joints':[{'id':0}]}})
         await asyncio.gather(*self.bridge.tasks.values())
         self.assertEqual(len(calls),2)
         self.assertEqual(calls[-1]['event']['type'],'servo_stall')
+        context=calls[-1]['history'][0]
+        self.assertEqual(context['program_state'],'completed')
+        self.assertEqual(context['completed_action'],move(JOINTS[0],20,'current',50))
+        self.assertEqual(context['remaining_program'],[])
+        self.assertNotIn('interrupted_action',context)
         self.assertEqual(self.gateway.sent[-1][-1][1][0],2300)
         self.assertTrue(all(job['state']=='completed' for job in self.bridge.jobs.values()))
+
+    async def test_recovery_preserves_an_unfinished_action_and_its_remaining_plan(self):
+        first=move(JOINTS[0],20,'current',50)
+        second=move(JOINTS[0],-20,'current',50)
+        calls=[]
+        def generate(endpoint,request):
+            calls.append(copy.deepcopy(request))
+            return {'program':[first,second]}
+        self.bridge.generate=generate
+        entered=asyncio.Event();release=asyncio.Event()
+        terminal=self.gateway.wait_terminal
+        async def pending(seq,**kwargs):
+            if seq==1:
+                entered.set()
+                await release.wait()
+            return await terminal(seq,**kwargs)
+        self.gateway.wait_terminal=pending
+        submitted=await self.bridge.submit('robot','move out and back',True)
+        try:
+            await entered.wait()
+            preview=await self.bridge.submit('robot','move out and back',False,
+                {'name':'body_event','data':{'kind':'rapid_movement'}})
+            await self.bridge.tasks[preview['job_id']]
+            context=calls[-1]['history'][0]
+            self.assertEqual(context['program_state'],'executing')
+            self.assertEqual(context['interrupted_action'],first)
+            self.assertEqual(context['remaining_program'],[second])
+            self.assertNotIn('completed_action',context)
+            self.assertEqual(len(self.gateway.sent),1)
+        finally:
+            release.set()
+            await self.bridge.tasks[submitted['job_id']]
+
+    async def test_failed_target_recovery_keeps_rejection_completed_action_and_remaining_goal(self):
+        first=move(JOINTS[0],5,'current',50)
+        failed=move(JOINTS[1],10,'current',50)
+        pending=move(JOINTS[2],-5,'current',50)
+        calls=[]
+        def generate(endpoint,request):
+            calls.append(copy.deepcopy(request))
+            return {'program':[first,failed,pending]}
+        self.bridge.generate=generate
+        rejection={'t':'done','seq':2,'position_verified':False,'target_adjusted_joints':2}
+        async def terminal(seq,**kwargs):
+            return copy.deepcopy(rejection) if seq==2 else {'t':'done','seq':seq,'position_verified':True}
+        self.gateway.wait_terminal=terminal
+        submitted=await self.bridge.submit('robot','move all three joints',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'error')
+        preview=await self.bridge.submit('robot','move all three joints',False,
+            {'name':'body_event','data':{'kind':'servo_feedback_fault'}})
+        await self.bridge.tasks[preview['job_id']]
+        context=calls[-1]['history'][0]
+        self.assertEqual(context['program_state'],'error')
+        self.assertEqual(context['failed_action'],failed)
+        self.assertNotIn('interrupted_action',context)
+        self.assertEqual(context['completed_action'],first)
+        self.assertEqual(context['remaining_program'],[pending])
+        self.assertEqual(context['error_evidence'],rejection)
+        self.assertIn('did not verify',context['error'])
+
+    async def test_completed_target_is_not_interrupted_while_refreshing_its_measurements(self):
+        first=move(JOINTS[0],20,'current',50)
+        second=move(JOINTS[0],-20,'current',50)
+        calls=[]
+        def generate(endpoint,request):
+            calls.append(copy.deepcopy(request))
+            return {'program':[first,second]}
+        self.bridge.generate=generate
+        entered=asyncio.Event();release=asyncio.Event()
+        observation=self.bridge.connected_observation
+        count=0
+        async def refreshing(job):
+            nonlocal count
+            count+=1
+            if count==3:
+                entered.set()
+                await release.wait()
+            return await observation(job)
+        self.bridge.connected_observation=refreshing
+        submitted=await self.bridge.submit('robot','move out and back',True)
+        try:
+            await entered.wait()
+            preview=await self.bridge.submit('robot','move out and back',False,
+                {'name':'body_event','data':{'kind':'rapid_movement'}})
+            await self.bridge.tasks[preview['job_id']]
+            context=calls[-1]['history'][0]
+            self.assertEqual(context['program_state'],'executing')
+            self.assertEqual(context['completed_action'],first)
+            self.assertNotIn('interrupted_action',context)
+            self.assertEqual(context['remaining_program'],[second])
+        finally:
+            release.set()
+            await self.bridge.tasks[submitted['job_id']]
 
     async def test_stop_discards_speculative_motion_without_delaying_command(self):
         prepared=threading.Event();release=threading.Event();sent=asyncio.Event()

@@ -10,6 +10,7 @@ void ainekio_p4_gait_trace_output(const uint16_t pulses[12],uint64_t timestamp_u
 { (void)pulses;(void)timestamp_us;(void)armed; }
 void ainekio_p4_log_stage(const char *stage){assert(stage && *stage);}
 #include "ainekio/control_codec.h"
+#include "cJSON.h"
 static float saved_motion_rate=1.F;
 static bool leveling_enabled=true;
 static ainekio_v2_balance_tuning_t leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
@@ -1445,6 +1446,92 @@ static ainekio_command_t freestyle(unsigned seq, unsigned speed, unsigned frames
     }
     return c;
 }
+
+static ainekio_p4_curve_program_t *uploaded_curve(const char *token)
+{
+    size_t index;assert(ainekio_v2_clip_find("bow",&index));
+    ainekio_v2_curve_t native;assert(ainekio_v2_clip_curve(index,&native));
+    cJSON *root=cJSON_CreateObject(),*curve=cJSON_CreateObject();
+    cJSON_AddStringToObject(root,"id",token);cJSON_AddItemToObject(root,"curve",curve);
+    cJSON *times=cJSON_AddArrayToObject(curve,"times"),*q=cJSON_AddArrayToObject(curve,"positions"),
+        *v=cJSON_AddArrayToObject(curve,"velocities"),*clock=cJSON_AddArrayToObject(curve,"clock"),
+        *targets=cJSON_AddArrayToObject(curve,"checkpoints");
+    for(size_t i=0;i<native.track->count;i++) {
+        cJSON_AddItemToArray(times,cJSON_CreateNumber(native.track->knots[i]/native.sample_hz));
+        cJSON *p=cJSON_CreateArray(),*d=cJSON_CreateArray();
+        for(unsigned j=0;j<12;j++) {
+            cJSON_AddItemToArray(p,cJSON_CreateNumber(native.track->positions[i][j]));
+            cJSON_AddItemToArray(d,cJSON_CreateNumber(native.track->velocities[i][j]));
+        }
+        cJSON_AddItemToArray(q,p);cJSON_AddItemToArray(v,d);
+    }
+    for(size_t i=0;i<native.clock->count;i++) {
+        const ainekio_v2_clip_clock_knot_t *k=&native.clock->knots[i];
+        double values[]={k->tick/native.sample_hz,k->travel_degrees,k->hold_seconds,k->segment,k->joint};
+        cJSON_AddItemToArray(clock,cJSON_CreateDoubleArray(values,5));
+    }
+    for(size_t i=0;i<native.clock->target_count;i++)
+        cJSON_AddItemToArray(targets,cJSON_CreateNumber(native.clock->targets[i]/native.sample_hz));
+    cJSON *attitude=cJSON_AddArrayToObject(curve,"expected_up");
+    for(size_t i=0;i<native.attitude->count;i++) {
+        cJSON *row=cJSON_CreateArray();cJSON_AddItemToArray(row,cJSON_CreateNumber(native.attitude->knots[i]/native.sample_hz));
+        double up[3];for(unsigned j=0;j<3;j++)up[j]=native.attitude->up[i][j];
+        cJSON_AddItemToArray(row,cJSON_CreateDoubleArray(up,3));cJSON_AddItemToArray(attitude,row);
+    }
+    cJSON_AddNumberToObject(curve,"taper",native.taper_degrees);
+    cJSON_AddNumberToObject(curve,"speed_deg_s",90.);
+    char *wire=cJSON_PrintUnformatted(root);cJSON_Delete(root);
+    root=cJSON_Parse(wire);free(wire);
+    esp_err_t error;
+    ainekio_p4_curve_program_t *program=ainekio_p4_curve_parse(root,&error);cJSON_Delete(root);
+    assert(program && error==ESP_OK);return program;
+}
+
+static ainekio_command_t curve_command(unsigned sequence,const char *token)
+{
+    char wire[200];snprintf(wire,sizeof wire,
+        "{\"t\":\"motion_plan\",\"seq\":%u,\"map\":2,\"control\":\"trajectory\",\"trajectory\":\"%s\",\"end\":\"hold\"}",sequence,token);
+    ainekio_control_message_t parsed;
+    assert(ainekio_control_decode(wire,strlen(wire),&parsed)==AINEKIO_DECODE_OK);
+    return parsed.command;
+}
+
+static void generated_curve_ownership(void)
+{
+    reset();leveling_enabled=false;shaft_feedback_enabled=true;
+    assert(ainekio_p4_body_stage_curve(uploaded_curve("first"),ainekio_p4_body_curve_epoch()));
+    assert(ainekio_p4_body_stage_curve(uploaded_curve("second"),ainekio_p4_body_curve_epoch()));
+    ainekio_command_t c=curve_command(501,"first");
+    assert(ainekio_p4_body_supports(&c));assert(execute(&c)==ESP_OK);
+    assert(body.motion.curve && prepared_curves && !strcmp(prepared_curves->token,"second"));
+    for(unsigned i=0;i<200 && !body.motion.clip_player.waiting;i++)advance(20);
+    assert(body.motion.clip_player.waiting);const double checkpoint=body.motion.clip_player.seconds;
+    assert(body.execution.trajectory_active && body.execution.trajectory_waiting);
+    advance(5000);assert(body.motion.clip_player.waiting && body.motion.clip_player.seconds==checkpoint);
+    shaft_feedback_reached=true;
+    advance(2000);
+    size_t bow;assert(ainekio_v2_clip_find("bow",&bow));float intended[3];
+    assert(ainekio_v2_clip_expected_up(bow,body.execution.trajectory_source_us,intended));
+    assert(body.execution.expected_up_known);
+    for(unsigned j=0;j<3;j++)assert(fabs(body.execution.expected_up[j]-intended[j])<1e-6);
+    ainekio_p4_body_event_t e=finish(30000);
+    assert(e.completed && e.sequence==501 && e.position_verification==2);
+    assert(body.execution.trajectory_source_us==7300000 && !body.execution.trajectory_waiting);
+    assert(!body.motion.curve && prepared_curves);
+    c=curve_command(502,"second");assert(execute(&c)==ESP_OK && body.motion.curve && !prepared_curves);
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    assert(!body.motion.curve && body.motion.kind==MOTION_NONE);
+    while(ainekio_p4_body_event(&e)){}
+    assert(ainekio_p4_body_stage_curve(uploaded_curve("unused"),ainekio_p4_body_curve_epoch()));
+    ainekio_p4_body_discard_curve("other");assert(prepared_curves);
+    const uint64_t epoch=ainekio_p4_body_curve_epoch();
+    ainekio_p4_body_connection_lost(epoch+1);assert(!prepared_curves);
+    assert(!ainekio_p4_body_stage_curve(uploaded_curve("late"),epoch));
+    assert(!prepared_curves);
+    c=curve_command(503,"unused");assert(execute(&c)!=ESP_OK);
+    assert(body.motion.kind==MOTION_NONE);
+    puts("Generated curves: native player, measured checkpoints, consumption, Stop and disconnect cleanup.");
+}
 static void freestyle_execution(void)
 {
     reset();leveling_enabled=false;shaft_feedback_enabled=true;
@@ -2458,6 +2545,7 @@ static void admission_replies_keep_request_identity(void)
 
 int main(int argc,char **argv)
 {
+    generated_curve_ownership();
     admission_replies_keep_request_identity();
     controller_stop_and_receipts();
     host_walk_ownership_and_finish();

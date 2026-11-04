@@ -16,6 +16,11 @@ enum { AINEKIO_P4_ERR_REFERENCE = 0x20000 };
 /* The body task is the only I2C/PWM writer. Callers carry the generation from
  * admission, so explicit output release invalidates queued output writes. */
 esp_err_t ainekio_p4_body_start(void);
+struct ainekio_p4_curve_program;
+/* Transfer an uploaded program to this same body's next command admission. */
+uint64_t ainekio_p4_body_curve_epoch(void);
+bool ainekio_p4_body_stage_curve(struct ainekio_p4_curve_program *program,uint64_t epoch);
+void ainekio_p4_body_discard_curve(const char *token);
 /* Connection loss preserves finite work and powered holds. The output owner
  * uses the existing Finish path for an open-ended gait from this session. */
 void ainekio_p4_body_connection_lost(uint64_t connection);
@@ -58,6 +63,9 @@ typedef struct {
     bool expected_up_known;
     bool host_nominal;
     uint32_t nominal_sample;
+    bool trajectory_active, trajectory_waiting;
+    uint64_t trajectory_source_us;
+    uint32_t trajectory_checkpoint;
 } ainekio_p4_execution_t;
 typedef struct {
     uint64_t connection;

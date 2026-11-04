@@ -455,6 +455,12 @@
     wakeForm.elements.sensitivity.disabled = !supported || wakeForm.elements.enabled.disabled;
     const audio = entry && entry.audio_input;
     const fresh = Boolean(online && audio && entry.audio_input_age_ms < 2000);
+    const speechSupported = ["vad_mode", "silence_ms", "max_recording_ms"].every((key) => Number.isInteger(audio?.[key]));
+    for (const name of ["vad_mode", "silence_s", "max_recording_s"])
+      micForm.elements[name].disabled = !fresh || !speechSupported || micForm.elements.on.disabled;
+    text("speech-settings-state", !online ? "Robot offline" : !audio ? "Waiting for recording settings" :
+      !speechSupported ? "Update this robot's firmware to edit speech detection and recording timing." :
+      `Saved on robot: ${["Very high", "High", "Medium", "Low", "Very low"][audio.vad_mode]} speech sensitivity · ${audio.silence_ms / 1000}s pause · ${audio.max_recording_ms / 1000}s maximum wake recording`);
     const volumeSupported = Number.isInteger(audio?.speaker_volume_percent);
     const speakerForm = byId("speaker-form");
     speakerForm.elements.volume_percent.disabled = !fresh || !volumeSupported || entry?.capabilities?.speaker !== true;
@@ -465,7 +471,8 @@
       const micState = audioForms.microphone;
       const wakeState = audioForms.wake;
       const matches = {
-        microphone: (p) => p.on === audio.on && p.gate === audio.gate && (p.gain_db === undefined || p.gain_db === audio.gain_db),
+        microphone: (p) => p.on === audio.on && p.gate === audio.gate && (p.gain_db === undefined || p.gain_db === audio.gain_db) &&
+          ["vad_mode", "silence_ms", "max_recording_ms"].every((key) => p[key] === undefined || p[key] === audio[key]),
         wake: (p) => p.enabled === audio.wake_enabled && (p.threshold === undefined || Math.abs(p.threshold - audio.wake_threshold) <= 0.5 / 255 + 0.00001),
         speaker: (p) => p.volume_percent === audio.speaker_volume_percent,
       };
@@ -477,6 +484,11 @@
         micForm.elements.on.checked = audio.on;
         micForm.elements.gate.value = audio.gate;
         micForm.elements.gain_db.value = audio.gain_db;
+        if (speechSupported) {
+          micForm.elements.vad_mode.value = audio.vad_mode;
+          micForm.elements.silence_s.value = audio.silence_ms / 1000;
+          micForm.elements.max_recording_s.value = audio.max_recording_ms / 1000;
+        }
       }
       if (!wakeState.edited) {
         wakeForm.elements.enabled.checked = audio.wake_enabled;
@@ -2515,6 +2527,9 @@
       const values = new FormData(form);
       const payload = { on: form.elements.on.checked, gate: values.get("gate") };
       if (!form.elements.gain_db.disabled) payload.gain_db = Number(values.get("gain_db"));
+      if (!form.elements.vad_mode.disabled) payload.vad_mode = Number(values.get("vad_mode"));
+      for (const [input, field] of [["silence_s", "silence_ms"], ["max_recording_s", "max_recording_ms"]])
+        if (!form.elements[input].disabled) payload[field] = Math.round(Number(values.get(input)) * 1000);
       submitAudioSettings("microphone", payload);
     });
     byId("wake-form").addEventListener("submit", (event) => {
@@ -3700,7 +3715,7 @@
           : 'No model selected.');
         const run = status.runs.find(run => run.id === select.value);
         const phase = run?.state === 'evaluating'
-          ? `Evaluating ${run.evaluation_purpose === 'standing_baseline' ? 'standing baseline' : run.evaluation_purpose === 'final_candidate' ? 'final candidate' : 'checkpoint'}${run.total_episodes != null ? ` · ${run.completed_episodes}/${run.total_episodes} trials` : ''}`
+          ? `Evaluating ${run.evaluation_purpose === 'standing_baseline' ? 'standing baseline' : run.evaluation_purpose === 'source_policy_baseline' ? 'starting policy baseline' : run.evaluation_purpose === 'final_candidate' ? 'final candidate' : 'checkpoint'}${run.total_episodes != null ? ` · ${run.completed_episodes}/${run.total_episodes} trials` : ''}`
           : run?.state;
         const comparison = run?.progress_video?.footage_scope === 'initial_final_matched_trial';
         const footageProgress = !run ? '' : comparison

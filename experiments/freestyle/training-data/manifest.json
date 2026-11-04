@@ -1,7 +1,7 @@
 {
   "version": "motion-targets-v1",
   "source": "Body Control editable motion library",
-  "training_rows": 2423,
+  "training_rows": 2426,
   "training_launched": false,
   "discarded_examples": [
     {
@@ -1103,15 +1103,30 @@
       "id": "2ea16b914acb8fbb",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "a41d1fcfe0245457",
+      "replacement_id": null,
+      "reason": "Superseded incomplete recorded stretch recovery target; complete original catalog stretch restored as ordinary-motion supervision."
+    },
+    {
+      "id": "48602ae871181cff",
+      "replacement_id": null,
+      "reason": "Superseded incomplete recorded stretch recovery target; complete original catalog stretch restored as ordinary-motion supervision."
+    },
+    {
+      "id": "0daf160030ae3a23",
+      "replacement_id": null,
+      "reason": "Superseded incomplete recorded stretch recovery target; complete original catalog stretch restored as ordinary-motion supervision."
     }
   ],
   "encoding_sha256": "58c1b43a3b27d6bdcc5e3a9f2a43dd9043a07306a5c27a374451e412b768e545",
   "files": {
     "evaluation.jsonl": "5323bd648a63e503ee70aa74be67a1b6e623ef84d57beb17e010185949a31284",
     "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "train.jsonl": "800420798a8e5ce61d44eefeb83ca9508f219768fd66e5afd2eb1893f7804706",
+    "train.jsonl": "a88e8c3e59adef2a47de4b19f39e5a03ab0c9820ff72e0e28678e3691e7b1e86",
     "recovery-probe.jsonl": "572c3e1734e66f95d0ecbe7ce784512dc153737b41a505a75c64881473d8ff28",
-    "tools.json": "b75521e9647fb9950af14a1046aa9112e36d253447f595fded4e2651c6f05cdf",
+    "tools.json": "d57659adb3448c2043638eb9c57629945742cab4aee100be8531b53bf1d2b5bc",
     "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
     "regression-evaluation.jsonl": "0141b914ab491358a8d41dfa61549036a7ae13c7448c143a5674a5c8bb500b3e",
     "test.jsonl": "430a2fc043476ef7fe066cae147aa9cddce53185ac70956f05796bf173a3f311"
@@ -1178,5 +1193,29 @@
     "reason": "Installation Owner removed servo-output release supervision from the custom-movement model.",
     "model_changed": false,
     "archived_runs_preserved": true
+  },
+  "original_stretch_alignment": {
+    "source": "native-source:stretch:18bb8636ce10815ee377e5efdfe07d58ca7d471315d1a3ebbc3fb034715614b3",
+    "source_samples": 805,
+    "source_sha256": "18bb8636ce10815ee377e5efdfe07d58ca7d471315d1a3ebbc3fb034715614b3",
+    "example_ids": [
+      "d66c88c06fb54e47",
+      "8d63b8ee9f7db4cc",
+      "50e61e5c162a5fdd"
+    ],
+    "retired_library_ids": [
+      "0daf160030ae3a23",
+      "48602ae871181cff",
+      "a41d1fcfe0245457"
+    ],
+    "preserved_holds_s": [
+      0.9,
+      0.7,
+      0.5
+    ],
+    "qualification": "complete source-curve teaching; physical stability and installed calibration unverified",
+    "training_launched": false,
+    "model_changed": false,
+    "physical_trials": 0
   }
 }

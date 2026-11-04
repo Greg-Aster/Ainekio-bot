@@ -10,23 +10,6 @@ from .runtime import JOINTS, compact
 from .migrate_targets import CONTRACT, STAND, standing_pose
 
 
-def calibrated_wave(nominal, side='left', cycles=3, amplitude=15, lift=20, reach=15):
-    """An offline spatial teaching example, not a runtime wave implementation.
-
-    Lift the foot before sweeping the shoulder, return the complete excursion,
-    and finish at the supplied nominal Stand. Qualify generated targets through
-    the actual compiler and calibration; this is not a physical demonstration.
-    """
-    leg='front_'+side
-    def call(name, **arguments):return {'name':name,'arguments':arguments}
-    pose=call('pose',joints=list(JOINTS),angles_deg=list(nominal),reference='absolute',speed_pct=50)
-    return [call('face',expr='wave'),copy.deepcopy(pose),
-        call('feet',legs=[leg],offsets_mm=[[reach,0,lift]],speed_pct=50),
-        call('oscillate',joint=leg+'_shoulder',amplitude_deg=amplitude,cycles=cycles,speed_pct=50),
-        call('feet',legs=[leg],offsets_mm=[[-reach,0,-lift]],speed_pct=50),
-        copy.deepcopy(pose)]
-
-
 def tracking_recovery_examples(state, evaluation=False):
     """Measured tracking failures teach retreat, not escalation of the error.
 
@@ -61,32 +44,6 @@ def tracking_recovery_examples(state, evaluation=False):
                     qualification_basis='synthetic tracking error and unexecuted correction',
                     split='evaluation' if evaluation else 'train')
 
-
-def calibrated_stretch(nominal, high, height=20, reach=8, repetitions=2):
-    """Offline replacement for the recorded out-of-calibration 30 mm lift.
-
-    Author a visible forward stretch, preserve holds and return each excursion,
-    then hand off the high-to-nominal ending to fresh feedback. Callers qualify
-    every compiled target against their supplied calibration; these dimensions
-    are examples, never a serving default or motion restriction.
-    """
-    def call(name, **arguments):
-        return {'name':name, 'arguments':arguments}
-    pose=lambda angles:call('pose',joints=list(JOINTS),angles_deg=list(angles),
-                            reference='absolute',speed_pct=50)
-    program=[call('face',expr='stretch'),pose(nominal)]
-    for legs in (['front_left','front_right'], ['rear_left','rear_right']):
-        sign=1 if legs[0].startswith('front') else -1
-        lift=height if sign==1 else height/2
-        extension=reach if sign==1 else reach/2
-        program.append(call('feet',legs=legs,offsets_mm=[[0,0,lift]]*2,speed_pct=50))
-        for _ in range(repetitions):
-            program.extend([call('feet',legs=legs,offsets_mm=[[sign*extension,0,0]]*2,speed_pct=50),
-                call('hold',seconds=.6),
-                call('feet',legs=legs,offsets_mm=[[-sign*extension,0,0]]*2,speed_pct=50)])
-        program.append(call('feet',legs=legs,offsets_mm=[[0,0,-lift]]*2,speed_pct=50))
-    program.extend([pose(high),pose(nominal)])
-    return program
 
 def calibrated_fault_examples(state, nominal, evaluation=False):
     """Learn changed calibration domains and fault evidence, not a joint name.

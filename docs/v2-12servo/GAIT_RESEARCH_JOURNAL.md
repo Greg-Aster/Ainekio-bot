@@ -27,7 +27,31 @@ recovery remain required. The existing operator controls and execution ownership
 are inventoried in [WALKING_SYSTEM.md](WALKING_SYSTEM.md).
 
 **The owner reports physical shuddering rather than useful walking. Walking is
-not solved.** The selected experimental checkpoint is now
+not solved. The owner subsequently requested restoration of programmed walking;
+Body Control now persists `source: native` for `ainekio-p4-e6ebe5`.** This applies
+to new Walk requests from Body Control and MetaHuman and survives restart. The
+robot was offline when the selection was saved; no movement or firmware flash
+was performed. Freestyle poses/emotes were not changed. The retained, inactive
+host neural checkpoint is
+`650a9080fa434838b8a83e84e86ac3cb/000081920-imitation000564000`, selected on
+November 2 after matched noisy-sensor and established-IMU comparisons improved
+forward motion. Its subsequent carpet Walk26 sustained large joint ranges
+initially but settled into nearly fixed targets around 20 seconds; late camera
+tracking showed essentially no forward progress. It is not physically qualified. Continuation
+`4b05eace6de0409e90ceb166af3ff66b` completed32,768 additional PPO transitions and
+its full60s evaluation suite, using recorded failure-state prefixes and a40ms
+effective plant response delay. It did not solve sustained walking and was not
+promoted. The owner-authorized follow-up `fc6350e49d5b4aa8bd9fc2f89b7a6478` is
+now running131,072 additional transitions from650a/81920 after a matched source
+comparison and shared-rollout learning-rate probe. It restores the existing
+cross-track cost0.0→0.1 and compares initial/final policies under identical60s
+conditions with fresh evaluation seeds. The188-test maintained gait suite and
+dashboard regression passed before launch. Production selection and physical
+settings remain unchanged.
+The preceding continuation
+`78b9e70955ce41c98a648d727cb8e9dc` completed established-IMU training and evaluation;
+its final checkpoint was not selected because the matched result is mixed.
+The preceding experimental checkpoint was
 `864a364128d4496484cc6034f8e68551/000065536-imitation000564000-round001`
 (564,000 imitation updates plus 65,536 RL transitions), loaded through the
 existing gait service on November 2 at 16:42 UTC. It has sustained simulated
@@ -36,8 +60,9 @@ feedback, but its joint movement diminished after the first five seconds. The
 first owner-confirmed carpet attempt ended in a firmware crash before any
 neural targets were sent. A later owner-requested 15-second carpet trial
 completed without disconnect, but target movement again diminished sharply
-after five seconds and the vision path supplied no metric distance estimate.
-Useful loaded walking remains unverified. The preceding
+after five seconds and fresh metric vision arrived only near the end after cold startup.
+The owner subsequently confirmed that this trial only twitched and essentially
+did not travel: **the active policy failed the physical walking task**. The preceding
 `c2716710e1d64ffba8ca26f1447c9c8b/000065536-imitation000560000` improved CPU
 simulation qualification but failed to sustain a carpet walk: late
 camera-estimated forward speed was about
@@ -60,19 +85,25 @@ neural actor still failed sustained motion from the recorded entry posture. Thes
 are simulation repairs, not a claim that physical walking is solved. The subsequent
 corrective-data run `864a364128d4496484cc6034f8e68551` sustained forward progress
 through three 30-second tests, including the reserved stopped posture. It remains
-below the requested speed and drifts sideways; it is now selected for physical
-comparison. A short PPO continuation completed 4,096 new RL transitions
+below the requested speed and drifts sideways; it was selected for the subsequent
+physical comparison. A short PPO continuation completed 4,096 new RL transitions
 on November 2; its final checkpoint regressed in matched compact tests.
 The saved intermediate checkpoint improves the standing start but worsens
 heading from the other two recorded starts; the earlier corrective-data
-candidate remains selected. The first November 2 carpet attempt was cancelled by
+candidate remained selected at that stage. The first November 2 carpet attempt was cancelled by
 disconnect; its retained crash places the fault in wake-word inference context.
 The owner confirmed another task owns that repair, then explicitly requested
 running the walking test while it was still in progress. That second trial
 completed with recorded Finish/done and Release receipts and all twelve outputs
 zero. It does not establish that the intermittent firmware crash is repaired.
 The trial recorder is off. The two immediate gait findings are diminished late
-targets and absent metric vision observations; see the latest physical result.
+targets and mostly unavailable metric vision during cold startup; see the latest physical result.
+The owner subsequently authorized repair and training. Run `650a9080fa434838b8a83e84e86ac3cb`
+completed16,384 new PPO transitions with measured powered-hold sensor
+variability and recorded camera timing. Its remaining old-initialization evaluation
+was interrupted after the recorded30s CPU comparisons; the improved final
+checkpoint is now selected. Its later physical Walk26 failed sustained walking;
+these training comparisons are offline learning through the existing Body Control/native P4 simulator.
 Do not change or flash the other task's wake-word firmware.
 See the
 [verified correction and next learning batch](#verified-walking-correction).
@@ -11187,10 +11218,20 @@ targets; that must not be mistaken for intentionally generated strides. IMU
 roll ranged **4.66–6.95°**, Euler pitch **0.29–4.93°**, and relative yaw changed
 **−0.58°**. These establish body attitude, not distance traveled.
 
-Nine onboard camera frames cover the requested Walk. Eleven locomotion
-measurement events contain **camera identity/timing only**, with no depth or
-odometry fields. Therefore no achieved metric speed/distance is available;
-zero must not be substituted for missing data. The onboard video shows the
+Nine onboard camera frames cover the requested Walk. Of eleven locomotion
+measurement events, **nine contain camera identity/timing only and two contain
+metric depth/odometry**. The earlier all-camera-only report was an analysis error.
+The first metric publication arrived 14.017 seconds after Walk, from frame61
+received 14.825 seconds earlier; it establishes a reference but is stale under
+the existing one-second freshness rule. Frame70 arrived at +14.207 seconds,
+0.541 seconds old, with valid spatial depth and estimated body velocity
+[0.000246, -0.001142, -0.000602] m/s. Its 14.474-second interval begins at the
+reference image received 0.808 seconds before Walk. Estimated 3D path length is
+0.0190 m; it is neither independently verified distance nor pure forward travel.
+Reconstructing approximate inference starts from the retained diagnostics gives
+417 decisions before any metric publication, 19 with a stale result and 15 with
+a fresh result (samples425–439); those counts reconstruct availability, not a
+recorded copy of the model's actual vision input. The onboard video shows the
 floor view, not an external view of foot placements. The low-level trace lost
 **1,496 records** across the recording; complete fine-grained PWM tracking
 cannot be claimed from that stream, although paired IMU feedback and host
@@ -11205,21 +11246,719 @@ recordings directory. The existing trial folder contains
 `carpet-retry-trial.json` with commands, terminal receipts and measured intervals,
 and `carpet-retry-onboard-camera.mp4`, played at recorded frame intervals.
 This is an executed physical trial, **not successful walking qualification**.
-Next investigate why the existing metric-vision producer supplied no depth or
-odometry during active demand, and replay the recorded sensor inputs through
-the selected policy to locate the late target collapse. Use these measured
-failures for the next correction rather than starting another blind long run.
+The existing metric producer delivered its first cold result and then the latest
+queued frame without blocking movement. Reproduce that measured initial
+unavailability in training, and replay recorded sensor inputs through the selected
+policy to locate the late target collapse. Use these measured failures for the
+next correction rather than treating constant warm-inference latency as the
+physical observation contract.
+
+#### Owner-confirmed failure and retained-baseline review — 2026-11-02
+
+The owner observed that the current gait **twitched and the robot essentially
+did not move**. This is a failed physical locomotion result, not merely missing
+camera qualification. The earlier journal records owner-measured native walking
+of 18, 21, 21.5 and 30.5 inches; those observations must not be discarded when
+assessing whether the neural replacement benefits the robot. The old temporary
+capture directory `/tmp/ainekio-floor-training-resume-20261020` is now absent,
+so its original traces cannot be re-qualified. The dated journal observations
+remain historical evidence, not a current controlled comparison.
+
+A focused artifact review confirmed a material training limitation. Active
+864a inherits c271's 65,536 RL transitions from the older v13/50 Hz/no-leveling
+environment, then receives 1,000 rehearsal and 3,000 aggregation **imitation**
+updates. Its v14 manifest explicitly records `proof_only=true`,
+`steps_requested=0` and zero new RL transitions. The subsequent v14 PPO
+continuation regressed and was not selected. The displayed cumulative RL count
+therefore must not imply that those interactions trained this actor under the
+current 33 Hz/native timing, saved leveling and command-ramp configuration.
+
+The current manifest has `randomization=0`, `feedback_noise_raw_std=0`,
+`imu_accel_noise_std=0` and `imu_gyro_noise_std=0`; torque 0.18 Nm, friction 0.8
+and actuator gains remain assumptions. Camera noise and several starting poses
+do not establish robustness to loaded servo dynamics, carpet contact or real
+feedback noise. Matching geometry and executing the P4 owner are necessary but
+did not by themselves close this simulation-to-robot gap.
+
+The retained dcab/460000, 6b05/560000 and c271/65536 actors and the recorded
+forward reference remain present. Their old films are not like-for-like with
+today's deployment: original conditions used 50 Hz and disabled leveling;
+dcab additionally used the direct backend and lacked the camera/history input.
+Existing matched v14 16-second evaluations at 0.03 m/s requested give the
+following mean / final-five-second forward speeds in mm/s:
+
+| Retained asset | Recorded entry | Nominal Stand |
+| --- | ---: | ---: |
+| dcab/460000 | -2.21 / -6.70 | -1.18 / -3.83 |
+| 6b05/560000 | 8.98 / 1.87 | 5.19 / -0.07 |
+| c271/65536 | 1.34 / -0.98 | 13.16 / 13.65 |
+| Existing forward reference | 12.77 / 15.22 | 15.78 / 25.10 |
+
+These are the previously recorded matched comparisons, not new training or new
+physical trials. The reference is a useful existing motion asset and comparison;
+it is not evidence that a fixed phase schedule must become the learned policy.
+864a remains a useful retained initialization for the current observation
+contract, but its latest physical failure rules out calling it a working
+replacement. No older checkpoint was silently activated during this review.
+
+**Primary-source check:** [Tan et al., RSS 2018](https://arxiv.org/abs/1804.10332)
+identifies actuator modeling, measured system parameters and latency as central
+to transfer. The [2026 Mini Pupper preprint](https://arxiv.org/html/2607.26434v2)
+uses measured servo delay and compares temporal policies on inexpensive position
+servos; its actuator numbers and deployment substitutions are not this robot's
+calibration. [RMA, RSS 2021](https://ashish-kmr.github.io/rma-legged-robots/)
+demonstrates adaptation from simulated variation without prescribed foot
+trajectories. These support learning against realistic state/history and varied
+physical conditions. Merely naming a local recipe `playground-ppo-v1` or fitting
+another demonstration does not reproduce those results. No change of walking
+architecture, discarded feedback or extra motion restriction follows from them.
+
+**Offline vision measurement:** the existing DepthMotion worker was run on three
+saved frames from this exact failed trial, using its saved camera transform and
+the normal ComfyUI interpreter/model. The first result took **11.112 seconds**;
+the next two took **0.126/0.129 seconds**. The results include estimated metric
+depth and subsequent body velocity. This proves the recorded images can be
+processed by the current worker. The live recording independently confirms a
+first result at +14.017 seconds and a fresh latest-frame result at +14.207 seconds.
+Startup cost is materially different from the simulated constant 0.6-second
+frame delay. The existing saved-camera review is
+`recorded-camera-review.json` in the trial folder. The offline worker was closed;
+no live service, settings, model selection or robot command changed.
+
+The maintained `SensorTelemetryTests` now exercises the real CameraFramePlugin
+handoff into neural Walk with cold inference held in its existing executor.
+Walk emits a target before depth is ready; the original stale frame stays stale,
+new arrivals coalesce to the latest frame, and that frame's depth and body velocity
+reach the next neural observation. Cancellation releases the same consumer and
+unloads once. This passes with the existing production camera/gait lifecycle;
+no delivery defect or runtime patch was needed. The neural telemetry, depth
+integration and gait-recording suites passed 65 tests in 4.50 seconds.
+
+**Correction order after this review:** retain the existing models/reference and
+the failed trial. First make the live observation/actuator behavior reproducible
+in the existing Body Control simulation: include measured feedback variability,
+response and availability rather than ideal signals, including measured cold
+camera startup through its existing lifecycle. Compare the retained forward
+reference and neural actor under those same conditions. Then continue outcome-
+based learning from retained weights with measured variation, judging sustained
+forward travel and physical transfer against that baseline. Do not repeat a
+long fitting/training run while those input/plant differences are unresolved,
+and do not treat command completion, tiny target errors or an improved movie as
+physical walking. The broader training goal remains paused; this review did not
+start training, change production selection or issue another physical command.
+
+#### Measured sensor curriculum and PPO continuation — 2026-11-02
+
+The owner explicitly requested correcting the failures and training again after
+the failed carpet walk. No subsequent physical movement was sent. All twelve
+calibration/home/inversion and fourth-wire mapping records match selected864;
+there is no evidence for another calibration remapping or runtime controller.
+Offline replay of all451 captured policy decisions reproduces the initial
+actions exactly; missing late vision in that replay limits the late comparison.
+
+The constant-command pre-Walk interval has178 native feedback samples and158
+output records with zero PWM change on every joint. Pooled raw feedback SD is
+27.44 ADC counts, accelerometer SD0.0483m/s² and gyro SD0.00357rad/s. These include
+powered-hold vibration/electrical variation, not independently measured shaft
+motion. The previous model trained with all three noise fields zero. The existing
+sensor simulator now uses30/.05/.004, preserving calibration, full545.45°/s
+advertised servo capability,2000°/s native command ramp and full action range.
+`physical-sensor-variability.json` retains the measurement and limitations.
+
+The existing simulated camera now accepts optional `startup_latency_s`, with
+one processing frame and the newest waiting capture, matching the live owner's
+coalescing. Odometry uses processed captures and their original acquisition
+timestamps. Historical zero/default timing preserves200 compared observations
+and RNG states exactly. The new curriculum samples startup0.2–14.825s, warm
+processing0.2s and captures every1.61s. This spans observed warm/cold behavior;
+the uniform startup distribution is a training choice, not a measured histogram.
+Actual camera delivery already worked; no speculative live-path repair was added.
+
+Run `650a9080fa434838b8a83e84e86ac3cb` resumes the immutable selected864 checkpoint
+and optimizer via the existing gait service:16,384 new PPO transitions, eight
+Body Control workers,CUDA,seed43,0.03/0.08m/s requests,three starts (latest carpet,
+previous carpet and Stand),4,096-transition checkpoint probes. Measured KL in the
+preceding two-update run was0.134/0.128 despite actor LR3e-6; its exploration std
+0.03 was nearly frozen. This continuation retains actor LR3e-6, expands exploration
+to0.1 (3/2/3mm per axis, without reducing allowable actions), and uses the existing
+separate exploration/value LR3e-4. A2,048-transition value-only warm-start reduced
+MSE0.381→0.103 without updating the actor. No new learner, gait controller, runtime
+gate, firmware edit or service dependency was introduced. PPO resume now permits
+explicit sensor-noise changes using fresh on-policy data; incompatible SAC replay
+remains rejected by the existing contract.
+
+Evidence/request: `build/neural-gait/trials/20261102-forward-refinement/`.
+Assess checkpoint forward and lateral travel and final-half movement against the
+source under this same noisy curriculum. Do not promote from average reward or
+uprightness. Physical success remains unproven. The known weak lateral objective
+(`reward_cross_track_cost=0`) is unchanged in this sensor-transfer experiment;
+sideways drift remains a failure, including at the0.08m/s request.
+
+**Completed optimization and matched CPU comparison:** all16,384 transitions
+finished (81,920 cumulative, eight optimizer rollouts). KL0.0147–0.0319 versus
+0.128–0.134 in the preceding run. The30s, seed1000,0.03m/s CPU comparisons use
+exactly the same noisy environment and three starts. Source mean forward speed
+9.76mm/s becomes15.40mm/s; mean absolute lateral speed3.60 becomes2.38mm/s;
+mean final10s forward10.90 becomes15.83mm/s. All three final-policy cases keep
+moving late without falling. Individual heading changes are−10.9°,−28.0°,−6.0°;
+this remains below the requested speed and is not qualified straight walking.
+`650a-cpu30-summary.json` and its three full reports retain the comparison.
+The0.08m/s compact case is still poor (10.35mm/s forward,12.37mm/s lateral).
+
+**Remaining proven initialization mismatch:** native Fusion initializes when
+physical sensing starts, but simulation reset restarts it before every Walk.
+The three-second startup ramp excludes IMU from leveling/heading. Physical
+Walk43 has startup=false throughout; retained864 data has startup=true18.56%
+and acceleration_recovery=true13.45%. Correct simulation sensor prehistory
+through the existing native estimator before the next continuation; do not
+force quality flags or add a physical waiting period. This mismatch affects
+the actual control path, but its causal share in target collapse is unmeasured.
+Noise/camera counterfactuals worsen travel but do not recreate the physical
+collapse: late simulated target-step RMS remains6.6–6.8°. Do not claim noise
+alone has explained or fixed that physical failure.
+
+**Established-IMU repair and continuation:** `imu_prehistory_s` defaults to0,
+replaying historical cold episodes. New training sets4s and feeds832 stationary
+208Hz samples through the existing native LSM6DS3 decoder/Fusion estimator.
+Gravity follows the configured start attitude, with configured sensor noise.
+A shared device-clock offset covers acquisition, native execution, connected and
+standalone/recovery callers, camera and observation history. Physics, rewards
+and scenario time remain episode-local. No physical wait, forced sensor flag,
+second estimator or controller was added. Five new focused checks and55 existing
+sensor/connected checks pass; independent review found no remaining clock issue.
+The PPO resume contract permits explicit prehistory and noise changes with fresh
+on-policy data, while preserving schema, geometry and action coordinates.
+
+Matched16s CPU tests with established IMU: old864 forward speeds4.98/7.75/8.69mm/s
+(latest carpet/previous carpet/Stand);650a final16.26/19.66/19.61mm/s. Final10s
+remain19.52/20.10/22.06mm/s for650a, with no falls. Lateral speeds3.60/−2.90/−8.30mm/s
+and heading−5.85/−9.67/−10.08° remain imperfect. Reports:
+`established-imu-cpu16-{source,final,summary}.json`. This justified selecting the
+improved host checkpoint for subsequent use, not declaring physical completion.
+Body Control showed the physical robot offline during selection.
+
+Run `78b9e70955ce41c98a648d727cb8e9dc` resumes650a final policy/optimizer,seed47,
+16,384 more PPO transitions,2,048 value-only warm-start,eight Body Control workers,
+CUDA,unchanged0.03/0.08m/s tasks/speed/range,measured noise/camera timing,and4s native
+sensor prehistory. The request is `established-imu-request.json`. The previous
+run's completed learning and checkpoints remain retained; its full cold-start
+suite was intentionally interrupted after its explicit CPU comparisons because
+it cannot qualify the corrected initialization. Its manifest/progress record
+that partial qualification rather than claiming full evaluation passed.
+
+**Final result and activation decision:**78b completed all16,384 additional
+transitions,48 held-reference evaluations,48 candidate evaluations and its34s
+initial/final comparison video in1583s. Across eight sensor seeds and three
+starts, the0.03m/s request averages15.32mm/s forward and3.88mm/s absolute lateral;
+final5s forward averages12.98mm/s. The0.08m/s request averages8.74mm/s forward
+and7.07mm/s absolute lateral, with4.80mm/s final5s forward. No simulated falls
+occurred in48 cases, but requested speeds and straight travel remain unmet.
+The matched CPU final checkpoint is slower than650a in all three starts and
+turns45.7° in the previous-carpet case; it is not an unambiguous replacement.
+The earlier78b86016 checkpoint holds heading within4.8° in all three matched
+16s CPU cases, with16.62/18.20/14.65mm/s forward. It is retained as a straighter
+but slower alternative for physical comparison.650a/81920 remains selected.
+`78b-final-result.json` records this decision and links the exact measurements.
+
+Two rounds added32,768 RL transitions without discarding prior weights or Adam
+state. The normal maintained command passed184 gait/sensor/depth tests;65 focused
+gateway/depth/recording tests also passed earlier in this repair. No firmware,
+physical servo limits/speeds, live gateway lifecycle or competing controller was
+changed. A learned-history metadata defect was also repaired: policy.zip resume
+now resolves inherited imitation count from its exact immutable archive/selection,
+rather than transient error-only progress.650a and78b retain564,000 inherited
+imitation updates and zero new imitation in these RL rounds; checkpoint IDs,
+archives, optimizer counts and outcomes are unchanged. The final video caption
+lists its true RL-step count only; corrected metadata preserves the inheritance.
+
+Video: `build/neural-gait/78b9e70955ce41c98a648d727cb8e9dc/progress-video.mp4`.
+The first clip (`clips/000081920-command1-scenario1-trial1.mp4`) shows the selected
+650a actor with established-IMU replay conditions; clean clips are alongside it.
+These are16s commanded simulation trials plus a1s presentation hold per clip,
+not physical recordings. Training is finished. The owner subsequently powered
+the robot on and placed it on carpet; the physical trial below supersedes the
+earlier offline status. No further blind continuation is queued.
+
+#### Selected650a physical carpet Walk26 — 2026-11-02, 23:27 UTC
+
+The owner explicitly confirmed the robot online and standing on carpet. The
+normal Movement controls requested forward100%, speed100%, turn0, resolving
+through the saved neural source to0.03m/s. The selected immutable checkpoint was
+650a/81920 throughout. Logging was enabled for this trial; Learn while walking
+remained off. No firmware, calibration, servo speed, physical behavior setting
+or model selection was changed.
+
+**Entry correction from telemetry:** while the recorder was preparing, the
+existing on-body inactivity owner started `lay_down` at−7.727s, completed it and
+released outputs before Walk. Its sequence/connection were0/0, and no host
+lay-down request appears in this recording. This matches `body.c:rest_step`,
+which starts the existing lay-down asset with release-on-completion. Thus the
+owner's earlier standing placement was no longer the admission posture. This
+was a rise-into-walk trial, not a controlled standing-start comparison. Walk
+immediately applied its standing reference; the first policy result arrived
+1.722s after admission from an observation acquired near admission. The next
+physical comparison must use the freshly recorded admission posture, not an
+earlier placement message. Do not disable the owner's inactivity setting or
+insert another controller to conceal this transition.
+
+Walk26 ran39.361s before Finish1233. All1,206 policy decisions were recorded;
+steady inference median4.30ms,95th percentile6.80ms, with a1.636s first inference.
+The steady output cadence averaged32.0Hz. The connection and IMU boot remained
+unchanged, with zero IMU acquisition errors. Finish acknowledged and the Walk
+reported done2.148s later. Detach1234 acknowledged and native trace recorded all
+twelve PWM outputs zero/armed=false. They stayed released for the remaining
+149.9s of recorded telemetry. Recording is now off,16,431 records,zero lost.
+
+**Physical result: sustained walking failed.** During5–10s, commanded joint
+spans were26.8–94.3° and measured spans26.1–88.1°; the feedback proves that joints
+actually moved, not just that requests were accepted. After20s, requested foot
+spans shrank to about1–6mm per axis, with shoulder commands spanning only1.2–1.9°.
+The policy continued publishing almost the same posture. Concurrent target
+tracking errors in this late hold averaged0.9–4.5° by joint; these are position
+errors, not torque/current measurements or independently calibrated shaft truth.
+The front-right carrier's pretrial below-calibration condition cleared6.15s
+before Walk admission. All twelve channels were usable in the first5s and
+after20s;21 packets in5–20s marked the rear-right carrier unusable. No jam/fall
+event interrupted this Walk; saved jam detection was off, so a zero stall mask
+does not independently rule out physical resistance.
+
+Metric vision first published17.12s after admission from a17.76s-old capture;
+the next current result arrived17.27s after admission. Early camera frames
+contain obvious image corruption and the first odometry pair has only7 inliers.
+Do not claim the initial0.296m estimate as verified travel. From21.09–38.03s,
+12 successive estimates have481–976 inliers and net reference-x change−2.62mm:
+the late visual sequence is effectively stationary. Metric scale remains
+unverified. The onboard recording cannot show individual feet or prove traction.
+
+Offline replay of the recorded joints, IMU, consumed actions and vision closely
+reproduces the actor (median maximum action error1.49e-6;95th percentile2.44e-6;
+maximum0.0151 at timing-sensitive boundaries). Removing vision in this replay
+changes the late mean action by only0.00235 of normalized action range and does
+not restore alternating targets. This falsifies the simple explanation that
+fresh camera input directly caused the hold. It does not prove closed-loop
+behavior with vision disabled; production sensing was not disabled. The failure
+is present in policy output before native target execution, while the exact
+physical conditions that drive it into this posture still need reproduction.
+
+Evidence stays in the existing ignored trial directory
+`build/neural-gait/trials/20261102-forward-refinement/`:
+`650a-carpet-walk26.json`, `650a-carpet26-replay.json`, and
+`650a-carpet26-onboard.mp4`. Raw synchronized recording:
+`~/.local/state/ainekio/gait-learning/067e6ca9b5624a3c81a8/recordings/20261102-152658-75d5e100`.
+This is failure/diagnostic evidence, not a successful walking demonstration.
+The next comparison extends the established-IMU CPU episode to40s, including
+this trial's measured entry and late stopped poses. The earlier16s comparison
+does not cover the observed20s collapse; another physical attempt without
+addressing this recorded failure is not the next step.
+
+**Completed40s comparison:** `650a-carpet26-cpu40.json` retains the existing
+Body Control/native simulator results, seed1000 and the same0.03m/s request.
+From the previously tested carpet start, mean forward speed is12.41mm/s but
+the final10s command-direction speed falls to3.84mm/s. From the measured late
+stopped pose it averages13.64mm/s forward, with9.98mm/s in the final10s and
+0.254m lateral displacement. Neither result qualifies sustained straight
+walking. The immediate measured entry pose is already lying down: the existing
+simulator's25mm body-clearance fall condition terminates it after one33Hz step.
+That0.0303s episode is an entry-condition failure, not a meaningful speed result
+or evidence that the physical robot fell. Resetting to measured joint/attitude
+does not reproduce the recorded actuator loading, policy history or1.636s first
+inference. `carpet26-start-conditions.json` preserves these facts and provenance.
+
+The next learning correction must use sustained, late progress rather than the
+16s selection probe, and cover the policy's recorded stopped-state neighborhood
+without treating that hold as a successful demonstration. First reproduce the
+recorded observation/action-history transition around17–20s through the existing
+environment and compare measured versus simulated tracking. Keep the original
+weights/optimizer, full servo capability and sensor inputs. Repair confirmed
+transition/dynamics mismatches at those existing owners before another long
+continuation; do not silently remove vision, impose a clocked gait, slow targets,
+or change real calibration to make the replay look better. The physical camera
+corruption is separate unresolved sensor evidence; its cause was not established.
+
+#### Sustained walking and measured actuator response — 2026-11-02
+
+The owner approved extending episodes to60s, learning from the recorded failure
+neighborhoods, and fitting actuator response to fourth-wire measurements. This
+continues the selected650a/81920 PPO weights and optimizer; it does not restart
+learning or teach the failed trial as a successful demonstration.
+
+**Measured plant correction:** replaying the same PWM through the current native
+calibration/filter path underpredicted physical response lag. The physical
+active-response lag was50–100ms (median65ms), versus10–30ms (median25ms) for the
+simulated shaft. Fit the effective drive delay on2–8s of Walk26, then hold that
+fit fixed for8–14s. Holdout angle RMSE fell from5.035° at0ms delay to3.990° at40ms
+(20.8% improvement; all12 joints improved). The20ms and60ms alternatives yielded
+4.315° and4.304°. Fit-only per-joint constant bias removal was held fixed on the
+holdout; unadjusted holdout also improved,5.002°→3.992°. Unknown PWM phase within
+its20ms frame prevents calling40ms an exact electronic latency. Persistent joint
+biases do not establish wrong calibration or torque. The compact fit evidence is
+`build/neural-gait/trials/20261102-forward-refinement/walk26-command-delay-attribution.json`.
+
+The existing MuJoCo plant now accepts optional `actuator_delay_s`; this curriculum
+sets0.04s. Issued native targets, command cadence, full travel, advertised motor
+speed and torque remain unchanged. Release still removes actuator force
+immediately. The default is zero for historical replay; this change introduces
+no physical command delay or slowdown.
+
+**Failure-state initialization:** the existing scenario reset can apply a recorded
+action prefix through its normal Body Control→native P4→physics→telemetry path.
+Two starts use measured pose/tilt at15.8s and23.8s, followed by40 causally resampled
+actions at33Hz from the following1.2s. These populate actual simulated recent
+sensor/action history rather than inserting fabricated observation rows. The
+original0.03m/s request applies during the prefix; the episode's requested task
+is restored afterward. Native clocks, acquired sensor history and actuator
+state stay continuous. The learner then receives its full60s horizon. Recorded
+contact loads, velocities, filter internals and complete heading history were
+not available; these are reconstructed failure neighborhoods, not exact physical
+state restoration. All four starts passed a3s initialization/execution probe
+with the measured response delay; this establishes valid initialization only.
+
+**Continuation request:** `sustained-request.json` in that same trial directory
+specifies32,768 PPO transitions,2,048 value-only warm-up interactions, eight
+Body Control simulation workers, CUDA optimization,0.03/0.08m/s requests,
+60s episodes,4s IMU prehistory and the existing measured sensor/camera settings.
+Scenarios are recorded stopped, Stand, earlier carpet entry and pre-collapse.
+No servo calibration, friction, torque, motion range or speed setting changes.
+PPO resume now permits an explicitly changed episode horizon and plant delay;
+historical off-policy replay still rejects mixing changed environment dynamics.
+The existing trainer accepts explicit evaluation seeds:1000/1001 here, across
+all four starts and both commands (16 final candidate episodes). Compact
+checkpoint probes remain one seed and the first scenario per command. This
+keeps the existing evaluator while avoiding its previous implicit eight-seed
+cost. Inspect late forward travel, heading/cross-track drift, falls and measured
+joint motion; reward/uprightness alone cannot qualify walking.
+
+The existing trace reader also now preserves a missing host-walk `motion.phase`
+as absent rather than requiring a legacy gait cycle. Walk26 parses directly:
+144,288 joint rows and14,369 response examples, with no lost records, calibration
+mismatches or unmatched targets. Thirteen maintained trace/response tests pass.
+No alternate trace adapter or gait controller remains from this work.
+
+**Activation and checks:** all188 tests in the normal neural-gait/sensors/depth
+suite passed. The existing Stop/Release test additionally covers0/40ms actuator
+delay and verifies zero force on the very next physical substep after Release;
+both native-clock tests pass. Only `ainekio-neural-gait.service` was restarted to
+load the updated training API, with650a/81920 still selected. Body Control,
+MetaHuman and firmware were not restarted or changed for activation. Existing
+`POST /train` launched `4b05eace6de0409e90ceb166af3ff66b`; its progress,
+checkpoints and comparison video belong in `build/neural-gait/4b05eace6de0409e90ceb166af3ff66b/`.
+No physical movement was sent in this work.
+
+**First checkpoint, continuation still active:** after8,192 new transitions,
+the matched stopped-state/seed1000 comparison remains unsuccessful. At0.03m/s,
+whole-episode command-reference speed improved−1.852→−1.263mm/s and final10s
+−1.899→−0.938mm/s, still backward. At0.08m/s, whole-episode speed improved
+−6.135→−0.424mm/s but final10s worsened−0.013→−4.334mm/s and heading drift
+26.67°→52.02°. Neither trial fell or rejected targets. Initial optimizer KL
+0.012–0.014 is stable; this does not establish useful walking. Remaining
+training continues through the same service; checkpoint90112 is not promoted.
+The full final evaluation and automatically produced initial/final comparison
+video remain pending. The deployed650a/81920 selection is unchanged.
+
+### Independent artifact review of 4b05eace — corrected November 2
+
+`4b05eace6de0409e90ceb166af3ff66b` completed its 32,768 additional PPO
+transitions and full 16-case, 60-second evaluation suite. The recorded final
+checkpoint is `000114688-imitation000564000`. It did not produce sustained,
+useful walking and was not promoted. The review below separates that measured
+failure from hypotheses about its cause. The earlier claims of a frozen actor,
+no-lift demonstration and a closed ancestry were not supported by the artifacts.
+
+**Measured result.** At the 0.03 m/s request, mean command-reference speed was
+0.00876 m/s (29% of request), range −0.00278 to 0.01637 m/s. At 0.08 m/s it was
+0.00366 m/s (5%), range −0.00868 to 0.01228 m/s; all eight higher-speed episodes
+returned negative total reward. These are simulated outcomes, not physical trials.
+
+The stopped-start cases expose two different problems. At 0.03 m/s, seed1000
+travelled −0.1266 m in 60 seconds, with RMS requested foot-offset change about
+0.56 mm per policy step, foot contact fractions 0.951–0.983 and peak lower-leg
+clearances 0.27–4.88 mm. Despite backward progress it returned +21.02 reward,
+`fallen: false`, and maximum joint tracking error 12.0°. Seed1001 also travelled
+backward (−0.1671 m), but its motion/contact measurements differ; this is not a
+single identical frozen trajectory across seeds. At 0.08 m/s, the two stopped-start
+cases moved more but reached maximum tracking errors of 94.6° and 104.7°, with
+0.272 and 0.332 m lateral travel. Low target error, uprightness or positive reward
+alone therefore cannot establish walking; compare requested direction, late
+progress, heading and target tracking together.
+
+**Ancestry and retained learning are distinct from qualification.** The saved
+manifests establish these branches:
+
+- `c2716710/65536` → retained `rehearsal-v14` 1,000-update policy → `864a3641`.
+- `864a3641` → `8ce85bbb`, and separately `864a3641` → `650a9080`.
+- `650a9080` → `78b9e709`, and separately `650a9080` → `4b05eace`.
+
+The retained rehearsal `policy.zip` has SHA256
+`c8d049ee67eb7993a709e022421facbfc5b98d5b3d5e52fd3d483db91091e67f`.
+It contains 1,000 rehearsal updates. The subsequent 5,000-total-update fit was
+rejected after regression and discarded; it is not an ancestor of `864a3641`.
+The retained rehearsal was explicitly unqualified, but `864a3641` subsequently
+performed additional aggregation and its own matched closed-loop checks. That
+history does not establish physical success, nor does an earlier proof-only label
+prove that every descendant is unusable. No lineage is closed by this review;
+retain failures and compare candidate sources under the same current conditions.
+
+**The reference data is narrow, but it does command lift.** The original
+`verified-reference/carpet-entry.npz` has SHA256
+`890a457d717749f268cafb7f9d91ec01381dc4b7fae6b1156d54553cc5120582`.
+Its Z actions are not all zero: the maximum normalized Z is 0.7261905, or
+21.7857 mm at the 30 mm action scale; the four Z channels have 128, 144, 144 and
+128 nonzero rows. Measured simulated peak clearances were about 4.3–9.5 mm.
+Commanded foot offset and achieved terrain clearance are different measurements.
+The starts use the same repeated action pattern but different observations, so
+these are neither three independent motion repertoires nor byte-identical
+observation/action datasets. Repetition and limited state coverage remain useful
+audit findings; “no lift” does not.
+
+Fit RMSE measures error between predicted and demonstrated actions. Multiplying
+RMSE by an action scale does not produce displacement between consecutive policy
+outputs and cannot explain the later 0.56 mm/step hold by numerical coincidence.
+Likewise, the rejected 5,000-update fit's RMSE cannot be assigned to the retained
+1,000-update ancestor. Before further imitation, inspect the original archive
+hashes, per-axis ranges, unique rows, periodicity, observation/state coverage,
+requested-speed labels and matched achieved travel. A repeated reference can be
+useful for a particular failure state without defining the policy's full capability.
+
+**The actor updated; the useful behavior did not improve enough.** The verified
+650a-to-4b05 tensor comparison found 189,091 of 218,124 actor parameter elements
+changed (about 87%), and all 12 `log_std` elements changed. Small displayed changes
+in standard deviation or entropy do not mean parameters were frozen. PPO epoch
+counts and KL confirm optimization activity, not successful walking.
+`target_kl` is an upper stopping criterion, not a target to fill. A KL below it
+neither proves inadequate learning nor requires raising the learning rate until
+some fixed fraction of that limit is used. A short shared-rollout learning-rate
+probe remains appropriate because the critic, observations and exploration have
+changed; compare update magnitude, KL, clipping, value behavior and subsequent
+matched closed-loop progress without assuming the winning rate in advance.
+
+**Reward concerns require measured comparison.** The stopped-start example earns
+positive reward despite negative requested-direction travel, so inspect its
+component totals against successful and unsuccessful motion under identical
+conditions. At 0.03 m/s, the linear tracking kernel at zero speed is
+`exp(-1) ≈ 0.368`; that is only one reward component, not proof of the complete
+objective's optimum. Negative total reward at 0.08 m/s does not imply zero policy
+gradient: PPO learns from relative advantages. The declared Gaussian exploration
+standard deviation is not a hard reachable-action bound. Neither statistic
+establishes that the robot cannot explore lift. Reward or exploration changes
+should follow this audit, with their effects tested separately. Do not require
+an arbitrary foot-contact fraction, lift height, stride size or gait phase to
+qualify learned motion; the owner's goal is useful, fluid, efficient directed
+travel using sensor feedback and the robot's supported capability.
+
+**Older movement is a candidate source, not a guaranteed restoration.** The saved
+c271/65,536 policy achieved about 0.03 m/s in its historical v13 setup, but that
+setup used 50 Hz control, disabled balance and no added joint/IMU noise. It is not
+a matched comparison to current v14 native timing, enabled balance, noise,
+actuator delay and recorded starting states. Existing matched v14 results were
+1.34 mm/s from recorded entry and 13.16 mm/s from Stand; c271 also failed its
+physical carpet trial. Compatible observation dimensions and geometry permit a
+resume; they do not establish transfer quality. Compare c271, 650a and other
+retained candidates on the same current physics and starting states before
+choosing the next source. Do not promise that choosing an older checkpoint will
+restore its historical contact pattern or speed.
+
+**Authorized next work.** The owner requested applying the reviewed findings and
+training again. Preparation is a short matched current-physics source comparison,
+then a shared-rollout learning-rate probe, followed by the measured continuation
+through the existing Body Control/native simulator. Preserve source weights,
+optimizer history, actual servo capability, sensor inputs and declared requested
+speeds. Use late command-direction progress, heading, joint tracking and sustained
+motion alongside whole-episode results; retain unsuccessful outcomes honestly.
+No production model or physical setting is changed by this review. Avoid redundant
+evaluation/videos, and keep temporary probe data outside maintained source.
+
+**Evidence.** The completed run's `evaluation.json`, `progress.json`,
+`checkpoints.json`, `optimization.jsonl` and `manifest.json` remain in
+`build/neural-gait/4b05eace6de0409e90ceb166af3ff66b/`. Source manifests establish
+the branch relationships above. Original reference archives, their sidecars,
+retained/discarded rehearsal metadata and prior optimizer probe remain under
+`build/neural-gait/trials/20261101-multisensor-forward/`. Matched v14 source reports
+are `retained-v14-*.json` there. This correction changes documentation only;
+it does not replace the original evidence files or declare walking qualified.
+
+#### Authorized training revision after independent review — November 2
+
+The owner requested applying the verified findings and running training again.
+The existing Body Control/native P4/MuJoCo training path remains authoritative;
+no physical motion, model activation, calibration or firmware change is part of
+this preparation. The current four starts, sensor history, 4s IMU prehistory,
+40ms fitted plant delay, full servo capability and 0.03/0.08m/s requests remain.
+
+**Matched source screening:** evaluated c271/65536 and650a/81920 for20s with
+seed1000 on all four current starts and both commands. Compared only motion
+metrics with the first20s of4b05's existing seed1000 evaluations; changing the
+episode horizon or reward does not change deterministic execution before the
+new termination point. These short comparisons screen a training source; they
+do not qualify sustained walking or physical deployment.
+
+| Source | 0.03 request: mean / final5s mm/s | 0.08 request: mean / final5s mm/s | Mean absolute sideways travel at0.08 |
+| --- | ---: | ---: | ---: |
+| c271/65536 | −1.03 / −2.97 | −13.31 / −12.36 | 0.023m |
+| deployed650a/81920 | 11.45 / 12.84 | −1.02 / 4.42 | 0.077m |
+| completed4b05/114688 | 9.66 / 9.60 | 0.61 / 6.02 | 0.134m |
+
+c271 moved backward in every screened case; its older nominal result does not
+transfer to these conditions.650a remains the source for the controlled update
+because it retains stronger progress at the first forward-walking request and
+less lateral drift.4b05's modest faster-request gain did not compensate for that
+loss. All still fail the requested task, especially the stopped-start condition.
+`source-comparison.json` and `next-source-choice.json` in
+`build/neural-gait/trials/20261102-forward-refinement/` preserve the per-case
+evidence and choice, with full c271/650a evaluator reports alongside them.
+
+**Training change:** set the existing `reward_cross_track_cost` to0.1 from0.0,
+so the direct displacement term accounts for sideways/yaw deviation as well as
+forward progress. Existing velocity tracking, full action range and actuator
+capability remain. No fixed stepping rhythm, minimum per-frame action change,
+foot-contact quota or foot-lift bonus is imposed. Compare physical motion
+metrics across this reward change; historical total rewards are not comparable.
+
+**Optimizer selection:** one fresh2,048-transition rollout after2,048 value-only
+warm-up interactions is shared across actor-rate probes3e-6/1e-5/3e-5/1e-4.
+Each probe restores the same starting weights and Adam state and uses the same
+minibatch order. Value/exploration learning rates remain3e-4 and exploration
+std0.1. The existing PPO KL stop remains a maximum-change check, not a quota.
+Rates that complete their configured update, plus the unchanged-rate reference,
+receive matched short closed-loop checks. Select using directed late progress,
+drift and tracking, not KL alone. Probe files are temporary under `/tmp`; retain
+only the compact result/provenance in the existing trial directory.
+
+**Evaluator repair:** resumed non-aggregation RL now compares its immutable
+starting checkpoint with the final candidate across the exact same current
+environment, requests and seeds. It previously spent that comparison on a held
+standing reference. Baseline identity/purpose is preserved in `evaluation.json`
+and the manifest, and the existing dashboard displays “starting policy baseline.”
+Fresh/non-RL/aggregation paths retain their existing baseline behavior. The
+focused resume, connected execution, warm-up, rehearsal, aggregation and UI
+checks passed; all188 normal neural/sensor/depth tests and the dashboard
+regression also passed. The next run's
+final evaluation will use fresh seeds1002/1003, while checkpoint screening keeps
+seed1000. The full60s source/candidate comparison remains required evidence.
+
+**Measured optimizer decision and launched run:** the shared-rollout probe
+completed in179.46s. Exact distribution KL was0.0130 at3e-6 and0.0321 at1e-5,
+both completing five epochs.3e-5 and1e-4 triggered the existing stop after four
+and one epochs (exact KL0.1128/0.2358). Closed-loop20s checks ruled out selecting
+1e-5 merely because its update looked stable: at0.08 from Stand it reversed
+8.35mm/s forward progress at3e-6 into−4.59mm/s, with peak tracking error rising
+82.3°→91.1°. At0.03 it modestly improved Stand13.36→14.66mm/s; stopped-start
+motion remained backward at both rates. Retain3e-6 on this measured tradeoff;
+do not describe that result as a frozen optimizer. `optimizer-current-probe.json`
+retains the exact settings/results. Its four disposable model copies were removed.
+
+`POST /train` started `fc6350e49d5b4aa8bd9fc2f89b7a6478` using the existing
+service and `reviewed-continuation-request.json`. It retains the source weights,
+Adam state and learning counters, uses2,048 value-only warm-up interactions,
+then131,072 fresh PPO transitions (four times the previous round), eight Body
+Control workers and CUDA. Checkpoints are32,768 transitions apart. Both0.03/0.08
+requests and all four starts remain; final evaluation uses1002/1003 and full60s
+initial/final policy trials. One automatic initial/final video will be generated
+in the normal run directory. No new training queue/controller, service restart,
+physical movement, firmware flash or production activation was performed.
+
+#### Owner clarification: actual robot simulation and MegaMeal bridge — November 2
+
+The owner requires a virtual robot that exchanges commands and sensor data with
+Body Control, with the actual V2 body geometry and defensible hardware/contact
+physics. Merely rendering a robot or providing plausible sensor numbers does
+not satisfy that requirement.
+
+Inspected `/home/greggles/Desktop/Ainekio in MegaMeal.desktop` and its target
+`/home/greggles/Documents/Codex/2026-10-28/task/ainekio-megameal/`:
+
+- This is a standalone Three.js/MuJoCo prototype using a frozen Ainekio source
+  copy and a copied MegaMeal room, not a connection to the running game or Body
+  Control. `server.py:39–70` runs the old direct plant and copied
+  `c1c63d0467b344e0abe6499a278266a2` v3 policy; browser buttons set commands locally.
+  The forward button requests 0.015 m/s. Current walking training does not use
+  this prototype, and current code/calibration/policy changes do not propagate
+  into its frozen snapshot.
+- It contains 376 CAD visual meshes and the articulated four-bar/contact model.
+  Its saved verification proves simulated contacts, changing joints, browser
+  controls and lifecycle, not a Body Control round trip or physical accuracy.
+  Its v3 actor has no camera/depth observation path.
+- Its mass is the owner-confirmed 0.65 kg and speed baseline is the advertised
+  545.45 degrees/s. Servo gains 2/.04, torque .18 Nm and component mass allocation
+  are still plant assumptions. Room contact friction is authored/assumed, not
+  measured carpet. The newer training plant additionally has the held-out-fitted
+  40 ms response delay; the frozen game copy does not contain that correction.
+
+The existing integration owner to reuse is `neural_gait/virtual.py:VirtualRobot`
+and the production native executor, which already exchange commands, receipts
+and joint/IMU packets with a real GatewayService. The game should display that
+plant and supply its world geometry, while Body Control remains the command and
+policy owner. Extend that existing virtual body's media path for rendered
+onboard camera frames through the existing camera plugin/depth worker; the
+current movement-only virtual client does not advertise binary media. Do not
+create another motion controller or train against the prototype's copied policy.
+
+The broader fidelity gap is measured, not just visual: the existing 40 ms fit
+reduced held-out joint error from 5.035 to 3.990 degrees, with rear-shoulder errors
+still 5.50/6.24 degrees. Current four training starts all use a rigid plane with
+friction .8; “carpet” names denote recorded starting states, not identified
+carpet mechanics. Current optical training uses ray depth and noisy pose-derived
+odometry, not rendered frames processed by MoGe/landmark tracking. Those noise
+parameters and material assumptions are not independently validated sensors or
+carpet. Follow the already-cited Tan system-identification approach: compare
+recorded PWM with fourth-wire/IMU response on separate fit and held-out intervals,
+and compare image-derived movement with known simulated movement. Do not infer
+torque, friction or center of mass uniquely from position feedback.
+
+This inspection changed no prototype, live services, firmware or physical robot
+state. The already-running fc6350 continuation remains an experiment under its
+recorded assumptions, not qualification of the requested game/Body Control system.
+No further training run has been queued. The integration and physics-validation
+work described above remains unfinished.
 
 ### Current handoff: completed, unfinished and exact next actions
 
-- **Selected:** `864a364128d4496484cc6034f8e68551`, checkpoint
-  `000065536-imitation000564000-round001`, v5 history/camera policy, activated
-  November 2 at 16:42 UTC. The exact checkpoint is persisted across service
+- **Active training:** `fc6350e49d5b4aa8bd9fc2f89b7a6478`,131,072 additional PPO
+  transitions from650a/81920, actor LR3e-6 retained after measured comparison,
+  cross-track cost0.1, unchanged full capability and four60s scenarios. The
+  manifest/progress/checkpoints/video belong in its existing run directory.
+  Compare final10s directed travel, lateral/heading error and joint tracking
+  against the saved starting policy on fresh seeds1002/1003. Do not promote from
+  reward or brief initial motion. The owner's later rollback selects native
+  programmed walking;650a/81920 remains retained but is not the robot's walking
+  source. Do not re-enable neural walking as part of finishing this experiment.
+  This run is active; no additional run is queued.
+
+- **Completed continuation:** `4b05eace6de0409e90ceb166af3ff66b`,32,768 additional PPO
+  transitions from650a/81920 plus2,048 value-only warm-up interactions. It used
+  eight connected Body Control workers, CUDA,60s episodes,4s IMU prehistory,
+  fixed40ms effective plant response delay and recorded failure-neighborhood prefixes.
+  It **finished at17:06 with its complete16-case suite and is not promoted**:
+  mean0.00876m/s at the0.03m/s request (29% of request) and0.00366m/s at
+  0.08m/s (5%), with all eight0.08m/s episodes scoring negative reward and
+  near-stationary/backward behavior in the0.03m/s `carpet26-stopped` cases.
+  The owner-authorized follow-up above was launched after matched source and
+  shared-rollout learning-rate comparisons. Positive
+  reward or early movement alone does not qualify walking: stopped-start seed1000
+  returns +21.02 reward with `fallen: false` and12.0° tracking error despite backward
+  travel. See the corrected independent artifact review above for measured
+  findings, corrected ancestry and the bounded next comparison.
+  The preceding78b9e7 mixed final result is retained, not selected. Selected
+  650a was tested on carpet in Walk26 and failed sustained movement after about
+  20s. The robot was Released and recording is off; no placement question is
+  pending. The40s comparison also deteriorates late; the recorded entry was an
+  inactivity lay-down, not Stand. The17–20s failure neighborhood and measured
+  tracking are now part of the existing simulation owner; qualify sustained
+  late travel before another physical comparison. Preserve
+  the trial as failure evidence, not imitation labels.
+
+- **Selected:** `650a9080fa434838b8a83e84e86ac3cb`, immutable checkpoint
+  `000081920-imitation000564000`, v5 history/camera policy. Host selection verified
+  2026-11-02T19:34:38+00:00, then confirmed throughout physical Walk26 at23:27UTC.
+  It remains selected but has failed physical sustained walking qualification.
+- **Previous selected864:** `864a364128d4496484cc6034f8e68551`, checkpoint
+  `000065536-imitation000564000-round001`, activated November 2 at16:42UTC. The exact checkpoint is persisted across service
   restart. It resolves simulated stationary entry/stopped cases. Supported
   tracking was measured, but late motion diminished. The first carpet attempt
   crashed in wake-word inference context; the owner-requested second attempt
-  completed, reproducing diminished late targets with absent metric vision.
-  Useful loaded transfer remains unverified. The preceding c271/65536 failed sustained carpet
+  completed, reproducing diminished late targets with metric vision unavailable until near the end.
+  The owner confirmed twitching with essentially no travel: physical walking
+  failed. Retain this as a failed deployment result, not a successful replacement.
+  The preceding c271/65536 failed sustained carpet
   walking. Earlier 6b05 and dcab moving actors remain
   retained; no claim of successful physical walking is justified.
 - **Preserved baseline:** `dcab08dcec4c4d1e942f3c7e67267588`, 460,000 imitation
@@ -11489,18 +12228,28 @@ failures for the next correction rather than starting another blind long run.
   Dashboard history previously overflowed browser inspection with per-second
   arrays. Status now projects episode summaries (~5.1MB measured) while retaining
   complete arrays on disk; two projection tests passed and gait service is active.
-- **Next source:** selected production is corrected candidate
-  864a364/564000-imitation. The 8ce85b PPO continuation completed; its intermediate
-  67,584 checkpoint is retained but mixed, and its final checkpoint was not
-  promoted. The 48157 continuation is failed historical evidence. The reserved stopped pose
-  passed a 30s simulation check; physical transfer remains unverified.
+- **Next source:** selected production remains650a/81920 and has failed physical
+  Walk26. No descendant lineage has been ruled out and no source is guaranteed
+  to restore walking. The authorized refinement compares retained sources under
+  matched current v14 physics and recorded starts, then probes learning rates
+  on a shared rollout before choosing the next continuation. c271/65536 is a
+  compatible candidate, but its historical v13 speed is not current-condition
+  evidence and its previous carpet trial failed. Preserve the current4s IMU
+  prehistory, measured-noise/camera profile,40ms effective plant delay and
+  failure-neighborhood prefixes when comparing sources; record explicit changes.
+  650a and8ce85 are separate branches from864a364;78b9e7 and4b05 are separate
+  branches from650a. The retained1,000-update rehearsal was followed by additional
+  aggregation in864a364; the rejected5,000-update fit is not its ancestor.
+  The8ce85 final and48157 results remain failed historical evidence. Earlier
+  30s stopped-pose simulation success did not establish physical transfer.
   Compare final10s progress as well as whole-episode averages. Do not promote
   a stationary policy based on uprightness, low error or average reward. Use
   the existing Body Control source/selector for an improving candidate and record
-  its loaded performance. The latest owner-confirmed placement was carpet. The
-  second physical trial completed and the robot was Released; recording is off.
-  Its missing metric vision and late target collapse are the next concrete
-  integration/policy findings to investigate. Another task still owns the
+  its loaded performance. The latest owner-confirmed placement was carpet.
+  Physical Walk26 completed and the robot was Released; recording is off.
+  Its policy output collapsed despite current vision and an uninterrupted
+  connection. Recorded-sensor replay and40s comparisons are above; the earlier
+  placement had changed to inactivity lay-down before admission. Another task still owns the
   intermittent wake-word firmware crash. Do not flash overlapping work or
   repeatedly retry motion without addressing the recorded findings. Maintain
   Stop/replacement/recovery and asynchronous sensing. Host policy activation

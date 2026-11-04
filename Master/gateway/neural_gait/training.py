@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from zipfile import ZipFile
 
 import gymnasium as gym
 import numpy as np
@@ -323,6 +324,40 @@ def load_policy(directory, checkpoint="policy.zip", *, device="cpu", env=None):
     return owner.load(directory / checkpoint, device=device, env=env)
 
 
+def policy_imitation_updates(directory, checkpoint="policy.zip"):
+    """Recover learned history from the exact saved policy, not run status alone."""
+    directory = Path(directory)
+    policy = (directory / checkpoint).resolve()
+    index = directory / "checkpoints.json"
+    checkpoints = json.loads(index.read_text()) if index.exists() else []
+    recorded = next((row for row in checkpoints
+                     if (directory / row["policy"]).resolve() == policy), None)
+    if recorded is None and policy == (directory / "policy.zip").resolve():
+        selection_path = directory / "selection.json"
+        selection = json.loads(selection_path.read_text()) if selection_path.exists() else {}
+        if selection.get("policy_sha256") == hashlib.sha256(policy.read_bytes()).hexdigest():
+            recorded = selection
+        else:
+            # Final RL publication saves the same model again; ZIP timestamps
+            # differ even when every saved weight, optimizer and data byte agrees.
+            # An interrupted evaluation can erase progress.json's selected id.
+            def contents(path):
+                with ZipFile(path) as archive:
+                    return {name: hashlib.sha256(archive.read(name)).digest()
+                            for name in archive.namelist()}
+            identity = contents(policy)
+            recorded = next((row for row in reversed(checkpoints)
+                             if (directory / row["policy"]).is_file()
+                             and contents(directory / row["policy"]) == identity), None)
+    if recorded is not None and "imitation_updates" in recorded:
+        return recorded["imitation_updates"]
+    # Older artifacts may predate the immutable checkpoint/selection index.
+    progress_path = directory / "progress.json"
+    progress = json.loads(progress_path.read_text()) if progress_path.exists() else {}
+    manifest = json.loads((directory / "manifest.json").read_text())
+    return progress.get("imitation_updates", manifest.get("imitation_updates", 0))
+
+
 def save_json(path, value):
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(value, indent=2, allow_nan=False))
@@ -486,6 +521,15 @@ def summarize_commands(episodes):
             for row in grouped.values()]
 
 
+def evaluation_seed_list(seeds):
+    if seeds is None:
+        return None
+    if (not isinstance(seeds, (list, tuple)) or not seeds
+            or any(type(seed) is not int or seed < 0 for seed in seeds)):
+        raise ValueError("Evaluation seeds require a nonempty list of nonnegative integers")
+    return list(seeds)
+
+
 def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=None,
              command_switch_range=None, progress=None, compact=False):
     if compact:
@@ -496,6 +540,8 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
         camera_varied = any(camera.get(key, 0.) for key in ("noise_std_m", "dropout_probability")) or any(
             odometry.get(key, 0.) for key in
             ("position_noise_std_m", "rotation_noise_std_rad", "log_scale_std", "dropout_probability"))
+        startup = camera.get("startup_latency_s", 0.)
+        camera_varied |= isinstance(startup, (list, tuple)) and startup[0] != startup[1]
         varied = any((command_switch_range is not None, config.randomization, config.feedback_noise_raw_std,
                       config.imu_accel_noise_std, config.imu_gyro_noise_std, camera_varied))
         seeds = range(1000, 1008) if varied else (1000,)
@@ -678,6 +724,7 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
     return dict(
         scope="simulation_only",
         evaluation_scope="compact_checkpoint" if compact else "full_configured_suite",
+        evaluation_seeds=list(seeds),
         travel_frames=dict(displacement_m="fixed world frame",
             command_reference_travel_m="command-start horizontal reference, following requested turn",
             body_frame_travel_m="integrated instantaneous full3D measured body frame"),
@@ -697,7 +744,7 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
 
 class Progress(BaseCallback):
     def __init__(self, directory, steps, config, checkpoint_every=10000, commands=None,
-                 command_switch_seconds=None, command_switch_range=None):
+                 command_switch_seconds=None, command_switch_range=None, evaluation_seeds=None):
         super().__init__()
         self.directory = directory
         self.steps = steps
@@ -707,6 +754,7 @@ class Progress(BaseCallback):
         self.commands = commands
         self.command_switch_seconds = command_switch_seconds
         self.command_switch_range = command_switch_range
+        self.evaluation_seeds = evaluation_seed_list(evaluation_seeds)
         self.checkpoint_every = checkpoint_every
         self.checkpoints = []
         self.checkpoint_step = None
@@ -725,8 +773,10 @@ class Progress(BaseCallback):
             elapsed_s=time.monotonic()-self.started, **details))
 
     def evaluate(self, model, purpose, *, compact=False, **details):
+        details["evaluation_seeds"] = [1000] if compact else self.evaluation_seeds
         self.report("evaluating", evaluation_purpose=purpose, **details)
-        return evaluate(model, self.config, commands=self.commands, compact=compact,
+        return evaluate(model, self.config, seeds=self.evaluation_seeds,
+            commands=self.commands, compact=compact,
             command_switch_seconds=self.command_switch_seconds,
             command_switch_range=self.command_switch_range,
             progress=lambda completed, total: self.report("evaluating",
@@ -840,7 +890,9 @@ def resume_environment_changes(manifest, config):
     if policy_algorithm(manifest) == "PPO":
         # A new terrain/sensor/execution curriculum uses fresh on-policy transitions.
         # Schema changes still require an explicit weights-only initialization.
-        for key in ("scenarios", "depth_camera", "balance_enabled", "balance_tuning",
+        for key in ("scenarios", "episode_seconds", "depth_camera", "balance_enabled", "balance_tuning",
+                    "feedback_noise_raw_std", "imu_accel_noise_std", "imu_gyro_noise_std",
+                    "imu_prehistory_s", "actuator_delay_s",
                     "control_hz", "physics_hz", "joint_speed_deg_s", "reward_velocity_scale_m_s",
                     "reward_yaw_scale_rad_s", "reward_cross_track_cost", "reward_overspeed_cost",
                     "reward_speed_window_s", "reward_profile", "locomotion_tracking_width_m_s",
@@ -854,7 +906,7 @@ def resume_environment_changes(manifest, config):
         expected["robot"] = deepcopy(expected["robot"])
         expected["robot"]["feedback"] = current["robot"]["feedback"]
     if expected != current:
-        raise ValueError("Resume requires the same environment, except PPO Body Control migration, terrain/sensor sampling, execution cadence/leveling or reward parameter changes")
+        raise ValueError("Resume requires the same environment, except PPO Body Control migration, episode horizon, terrain/sensor sampling, execution cadence/leveling or reward parameter changes")
     return changes
 
 
@@ -1587,8 +1639,6 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
                 model.log_ent_coef.copy_(source.log_ent_coef)
             else:
                 model.ent_coef_tensor.copy_(source.ent_coef_tensor)
-    prior_progress = directory / "progress.json"
-    progress = json.loads(prior_progress.read_text()) if prior_progress.exists() else {}
     provenance = dict(
         source_directory=str(directory.resolve()),
         source_checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
@@ -1597,7 +1647,7 @@ def initialize_model(directory, env, config, device="cpu", seed=1, checkpoint="p
         source_environment_version=manifest["environment_version"],
         training_environment_version=ENVIRONMENT_VERSION,
         source_rl_steps=source.num_timesteps, source_optimizer_updates=source._n_updates,
-        source_imitation_updates=progress.get("imitation_updates", manifest.get("imitation_updates", 0)),
+        source_imitation_updates=policy_imitation_updates(directory, checkpoint),
         net_arch=model.policy_kwargs.get("net_arch"),
         task_changes=task_changes,
         execution_changes=execution_changes,
@@ -1678,7 +1728,8 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
           command_switch_range=None, resume_checkpoint="policy.zip", learning_rate=None,
           action_noise_std=None, value_learning_rate=None, command_units=None,
           checkpoint_every=None, exploration_learning_rate=None, initialize_checkpoint="policy.zip",
-          recipe=None, commands=None, value_warmup_steps=0):
+          recipe=None, commands=None, value_warmup_steps=0, evaluation_seeds=None):
+    evaluation_seeds = evaluation_seed_list(evaluation_seeds)
     if learning_rate is not None and (not math.isfinite(learning_rate) or learning_rate <= 0):
         raise ValueError("Learning rate must be finite and positive")
     if value_learning_rate is not None and (not math.isfinite(value_learning_rate) or value_learning_rate <= 0):
@@ -1779,6 +1830,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
             continuation="Preserved learning state; fresh simulation episodes" if resume else None,
             checkpoint_evaluation="one matched seed and first configured scenario per command",
             final_evaluation="full configured command/scenario/seed suite",
+            evaluation_seeds=evaluation_seeds,
             automatic_footage="initial and published final weights; one matched trial each",
             optimization_log="optimization.jsonl",
             checkpoint_publication=("Immutable round checkpoints; policy.zip matches selection.json"
@@ -1902,22 +1954,12 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
                 optimizer_count_basis="SB3 PPO _n_updates counts optimizer epochs, not minibatches")
             save_json(manifest_path, manifest)
         progress = Progress(directory, steps, config, checkpoint_every=checkpoint_every, commands=commands,
-                            command_switch_seconds=command_switch_seconds, command_switch_range=command_switch_range)
+                            command_switch_seconds=command_switch_seconds, command_switch_range=command_switch_range,
+                            evaluation_seeds=evaluation_seeds)
         if initialization:
             progress.imitation_updates = initialization["source_imitation_updates"]
         if resume:
-            prior_progress = prior/"progress.json"
-            previous_status = json.loads(prior_progress.read_text()) if prior_progress.exists() else {}
-            progress.imitation_updates = previous_status.get("imitation_updates", 0)
-            published_path = prior/"checkpoints.json"
-            published = json.loads(published_path.read_text()) if published_path.exists() else []
-            source_checkpoint = next((row for row in published
-                if row["policy"] == resume_checkpoint or resume_checkpoint == "policy.zip"
-                and row["id"] == previous_status.get("selected_checkpoint_id")), None)
-            if source_checkpoint is not None:
-                # An interrupted run's status may contain only its error. The
-                # exact resumed checkpoint retains its learned-history count.
-                progress.imitation_updates = source_checkpoint.get("imitation_updates", progress.imitation_updates)
+            progress.imitation_updates = policy_imitation_updates(prior, resume_checkpoint)
         selected = None
         if value_warmup_steps:
             result = warm_start_value(model, value_warmup_steps,
@@ -1975,7 +2017,23 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
             model.save(directory / "policy.zip")
             if algorithm == "SAC":
                 save_replay(model, directory)
-        baseline = progress.evaluate(None, "standing_baseline")
+        baseline_model = None
+        baseline_reference = dict(evaluation_purpose="standing_baseline")
+        if resume and not aggregation and steps > 0:
+            # The initial immutable checkpoint includes setup/value warmup but
+            # precedes this run's RL updates. Evaluate it under the current
+            # requests and environment, rather than reuse historical scores or
+            # compare the refined actor only against holding still.
+            initial = progress.checkpoints[0]
+            baseline_model = load_policy(directory, checkpoint=initial["policy"], device=device)
+            baseline_reference = dict(evaluation_purpose="source_policy_baseline",
+                checkpoint_id=initial["id"], policy=initial["policy"])
+        manifest = json.loads(manifest_path.read_text())
+        manifest["evaluation_baseline"] = baseline_reference
+        save_json(manifest_path, manifest)
+        baseline = progress.evaluate(baseline_model, baseline_reference["evaluation_purpose"],
+            **{key: value for key, value in baseline_reference.items() if key != "evaluation_purpose"})
+        baseline.update(baseline_reference)
         # Checkpoint probes are deliberately compact. Qualification retains the
         # full configured command/scenario/seed suite for the published weights.
         candidate_model = load_policy(directory, device=device) if selected else model
@@ -1992,6 +2050,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
             selected_checkpoint_id=selected["id"] if selected else progress.checkpoint_identity,
             selected_round=selected["aggregation_round"] if selected else None,
             evaluation=candidate, elapsed_s=time.monotonic()-started,
+            evaluation_seeds=candidate.get("evaluation_seeds", evaluation_seeds),
             physical_qualification=False))
         rendered = progress.finish_rendering()
         save_json(
@@ -2007,6 +2066,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
                 selected_round=selected["aggregation_round"] if selected else None,
                 elapsed_s=time.monotonic() - started,
                 evaluation=candidate,
+                evaluation_seeds=candidate.get("evaluation_seeds", evaluation_seeds),
                 physical_qualification=False,
                 progress_video_rendered=rendered,
             ),
@@ -2056,6 +2116,8 @@ def main():
                    help="PPO internal feature units for vx, vy (m/s) and yaw (rad/s); preserves initial outputs")
     p.add_argument("--checkpoint-every", type=int,
                    help="Training transitions between compact checkpoint evaluations; resume inherits its interval")
+    p.add_argument("--evaluation-seeds", type=int, nargs="+",
+                   help="Declared final qualification seeds; omitted keeps automatic variation-based seeds")
     p.add_argument("--workers", type=int, help="Simulation workers; resume defaults to the saved count")
     p.add_argument("--demonstration", action="append", default=[])
     p.add_argument("--imitation-updates", type=int, default=10000)
@@ -2091,7 +2153,7 @@ def main():
           command_units=a.command_units, checkpoint_every=a.checkpoint_every,
           exploration_learning_rate=a.exploration_learning_rate,
           initialize_checkpoint=a.initialize_checkpoint, recipe=a.recipe, commands=a.commands,
-          value_warmup_steps=a.value_warmup_steps)
+          value_warmup_steps=a.value_warmup_steps, evaluation_seeds=a.evaluation_seeds)
 
 
 if __name__ == "__main__":

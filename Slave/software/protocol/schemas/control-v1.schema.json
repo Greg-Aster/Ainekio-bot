@@ -1421,6 +1421,9 @@
         },
         {
           "$ref": "#/$defs/motion_plan_map2"
+        },
+        {
+          "$ref": "#/$defs/motion_plan_curve"
         }
       ]
     },
@@ -1638,6 +1641,23 @@
             36,
             42
           ]
+        },
+        "vad_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "silence_ms": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 15000,
+          "multipleOf": 20
+        },
+        "max_recording_ms": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 15000,
+          "multipleOf": 20
         }
       }
     },
@@ -2406,6 +2426,23 @@
         },
         "speaker_busy": {
           "type": "boolean"
+        },
+        "vad_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "silence_ms": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 15000,
+          "multipleOf": 20
+        },
+        "max_recording_ms": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 15000,
+          "multipleOf": 20
         }
       }
     },
@@ -2657,6 +2694,9 @@
             "stand",
             "neutral"
           ]
+        },
+        "control": {
+          "enum": []
         }
       },
       "x-ainekio-rules": [
@@ -2911,6 +2951,39 @@
           "items": {
             "type": "number"
           }
+        }
+      }
+    },
+    "motion_plan_curve": {
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "map",
+        "control",
+        "trajectory",
+        "end"
+      ],
+      "properties": {
+        "t": {
+          "const": "motion_plan"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "map": {
+          "const": 2
+        },
+        "control": {
+          "const": "trajectory"
+        },
+        "trajectory": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "end": {
+          "const": "hold"
         }
       }
     }

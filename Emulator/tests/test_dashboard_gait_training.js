@@ -14,7 +14,7 @@ const data={settings:{logging:true,learning:false,radii:{duty:.03}},state:"loggi
   analysis_running:false,directory:"/private/gait",measurement_reason:"Camera motion unavailable",
   banks:{walk:{incumbent:"a".repeat(64),candidate:"b".repeat(64),generation:2,observations:10,
     converged:false,history:[]},run:{incumbent:"c".repeat(64),generation:1,observations:4,converged:false,history:[]}}};
-const ctx={console,URLSearchParams,Date,setInterval(){},document:{getElementById:node,createElement(){return {children:[],append(...items){this.children.push(...items);}};}},
+const ctx={console,URLSearchParams,Date,setInterval(){},document:{getElementById:node,createElement(){return {children:[],listeners:new Map(),addEventListener(type,fn){this.listeners.set(type,fn);},append(...items){this.children.push(...items);}};}},
   window:{addEventListener(){},clearTimeout(){}},localStorage:{getItem(){return null;}},
   async fetch(url,options){const payload=JSON.parse(options.body);calls.push({url,payload});
     if(url==='/api/neural-gait'){
@@ -74,6 +74,9 @@ vm.createContext(ctx);vm.runInContext(source,ctx);
   assert.equal(node('neural-gait-command-results').children[0].children[0].textContent,'0.015 / 0.000 / 0.000');
   assert.equal(node('neural-gait-command-results').children[0].children[1].textContent,'-0.002 / 0.000 / 0.000',
     'Wrong-direction movement must remain visible alongside the aggregate reward');
+  neuralStatus.runs[0].evaluation_purpose='source_policy_baseline';
+  node('neural-gait-refresh').fire('click');await new Promise(resolve=>setImmediate(resolve));
+  assert.match(node('neural-gait-summary').textContent,/Evaluating starting policy baseline · 8\/16 trials/);
   neuralStatus.runs[0].state='completed';
   neuralStatus.runs[0].rendering=false;
   neuralStatus.runs[0].progress_video={footage_scope:'initial_final_matched_trial',checkpoint_ids:['initial','final']};

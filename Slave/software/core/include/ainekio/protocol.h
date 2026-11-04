@@ -21,6 +21,7 @@
 #define AINEKIO_V2_JOINT_MAP_VERSION 2U
 #define AINEKIO_MOTION_PLAN_V2_FEATURE "motion_plan_v2"
 #define AINEKIO_MOTION_TARGETS_FEATURE "motion_targets_v1"
+#define AINEKIO_MOTION_CURVES_FEATURE "motion_curves_v1"
 #define AINEKIO_MOTION_PLAN_JOINT_CAPACITY 12U
 #define AINEKIO_MOTION_PLAN_MAX_FRAMES 32U
 #define AINEKIO_MOTION_PLAN_MIN_FRAME_MS 100U
@@ -154,6 +155,14 @@ typedef enum {
     AINEKIO_MIC_GATE_WAKE,
 } ainekio_microphone_gate_t;
 
+/* Optional saved speech endpoint settings; durations are 20 ms PCM frames.
+ * The existing utterance transport supports at most 15 seconds. */
+typedef struct {
+    bool has_vad_mode, has_silence_ms, has_max_recording_ms;
+    uint8_t vad_mode;
+    uint16_t silence_ms, max_recording_ms;
+} ainekio_speech_settings_t;
+
 typedef enum {
     AINEKIO_STATE_ACTIVE = 0,
     AINEKIO_STATE_IDLE,
@@ -203,6 +212,7 @@ typedef struct {
     uint8_t joint_map_version;
     uint8_t frame_count;
     bool target_control;
+    char trajectory_token[AINEKIO_ASSET_NAME_MAX + 1U];
     uint64_t total_duration_ms;
     ainekio_motion_plan_end_t end;
     ainekio_motion_plan_frame_t frames[AINEKIO_MOTION_PLAN_MAX_FRAMES];
@@ -299,6 +309,7 @@ typedef struct {
             ainekio_microphone_gate_t gate;
             bool has_gain_db;
             uint8_t gain_db;
+            ainekio_speech_settings_t speech;
         } microphone;
         struct {
             bool enabled;

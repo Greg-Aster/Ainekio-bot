@@ -269,7 +269,7 @@ def gesture_targets(positions, phases):
     return sorted(targets)
 
 
-def travel_clock(positions, indices, velocities, holds=()):
+def travel_clock(positions, indices, velocities, holds=(), *, times=None):
     """Integrate max(abs(joint travel)) along the existing cubic path.
 
     Between crossings of the quadratic joint derivatives one joint owns the
@@ -279,7 +279,8 @@ def travel_clock(positions, indices, velocities, holds=()):
     """
     rows, travel, hold = [], 0., 0.
     for segment, (lo, hi) in enumerate(zip(indices, indices[1:])):
-        seconds = (hi-lo)/120
+        begin, finish = (lo,hi) if times is None else (times[lo],times[hi])
+        seconds = (hi-lo)/120 if times is None else finish-begin
         curves = [polynomial(positions[lo][j], positions[hi][j],
                              velocities[lo][j], velocities[hi][j], seconds) for j in range(12)]
         cuts = {0., 1.}
@@ -303,14 +304,14 @@ def travel_clock(positions, indices, velocities, holds=()):
             else:
                 spans.append((start, end, joint, positive))
         for start, end, joint, _ in spans:
-            rows.append((lo+(hi-lo)*start, travel, hold, segment, joint))
+            rows.append((begin+(finish-begin)*start, travel, hold, segment, joint))
             distance = abs(evaluate(curves[joint], end)-evaluate(curves[joint], start))/100
-            if (any(begin <= lo and hi <= end for begin, end in holds)
+            if (any(a <= begin and finish <= b for a, b in holds)
                 or all(a == b == c == 0. for a, b, c, _ in curves)):
                 hold += (end-start)*seconds
             else:
                 travel += distance
-    rows.append((indices[-1], travel, hold, len(indices)-2, 0))
+    rows.append((indices[-1] if times is None else times[indices[-1]], travel, hold, len(indices)-2, 0))
     return rows
 
 
@@ -324,32 +325,8 @@ def compile_clips(root: Path, out: Path) -> None:
 #define AINEKIO_V2_CLIP_DATA_H
 #include "ainekio/v2_motion.h"
 #define V2_CLIP_SAMPLE_HZ 120U
-typedef struct {
-    const float (*positions)[AINEKIO_V2_JOINT_COUNT];
-    const float (*velocities)[AINEKIO_V2_JOINT_COUNT];
-    const uint16_t *knots;
-    const float *minimum, *maximum;
-    size_t count;
-    uint64_t active_end_us;
-} ainekio_v2_clip_track_t;
 extern const ainekio_v2_clip_track_t v2_clip_tracks[];
-typedef struct {
-    const float (*up)[3];
-    const uint16_t *knots;
-    size_t count;
-} ainekio_v2_clip_attitude_track_t;
 extern const ainekio_v2_clip_attitude_track_t v2_clip_attitudes[];
-typedef struct {
-    double tick, travel_degrees, hold_seconds;
-    uint16_t segment;
-    uint8_t joint;
-} ainekio_v2_clip_clock_knot_t;
-typedef struct {
-    const ainekio_v2_clip_clock_knot_t *knots;
-    size_t count;
-    const uint16_t *targets;
-    size_t target_count;
-} ainekio_v2_clip_clock_t;
 extern const ainekio_v2_clip_clock_t v2_clip_clocks[];
 #endif
 '''
@@ -375,11 +352,11 @@ extern const ainekio_v2_clip_clock_t v2_clip_clocks[];
             code.append(f'static const float clip_{i}_{name}[][AINEKIO_V2_JOINT_COUNT] = {{')
             code.extend('    {' + ','.join(f'{value:.9e}F' for value in values[knot]) + '},' for knot in indices)
             code.append('};')
-        code.append(f'static const uint16_t clip_{i}_knots[] = '+'{'+','.join(map(str,indices))+'};')
+        code.append(f'static const double clip_{i}_knots[] = '+'{'+','.join(map(str,indices))+'};')
         holds=[tuple(round(t*120) for t in p['source_interval_s']) for p in clip['phases']
                if p.get('moving_joint_indices') == [] or p['name'].startswith('hold_')]
         clock = travel_clock(clip['positions'], indices, velocities, holds)
-        code.append(f'static const uint16_t clip_{i}_targets[] = '+'{'+','.join(map(str,targets))+'};')
+        code.append(f'static const double clip_{i}_targets[] = '+'{'+','.join(map(str,targets))+'};')
         clip['clock_count'] = len(clock)
         code.append(f'static const ainekio_v2_clip_clock_knot_t clip_{i}_clock[] = {{')
         code.extend('    {'+','.join([*(f'{v:.17g}' for v in row[:3]), str(row[3]), str(row[4])])+'},'
@@ -391,7 +368,7 @@ extern const ainekio_v2_clip_clock_t v2_clip_clocks[];
         code.extend('    {'+','.join(f'{v:.9e}F' for v in clip['expected_up'][knot])+'},'
                     for knot in attitude_indices)
         code.append('};')
-        code.append(f'static const uint16_t clip_{i}_up_knots[] = '+'{'+','.join(map(str,attitude_indices))+'};')
+        code.append(f'static const double clip_{i}_up_knots[] = '+'{'+','.join(map(str,attitude_indices))+'};')
         for name,operation in [('minimum',min),('maximum',max)]:
             code.append(f'static const float clip_{i}_{name}[] = '+'{'+','.join(f'{operation(row[j] for row in clip["positions"]):.9e}F' for j in range(12))+'};')
         report.append(dict(command=clip['command'],original_knots=len(clip['positions']),stored_knots=len(indices),continuous_error_cd=error,peak_joint_speed_degrees_s=clip['peak_joint_speed_degrees_s']))

@@ -6,6 +6,52 @@ from .runtime import JOINTS
 
 
 class RecoveryContextTests(unittest.TestCase):
+    def test_failed_target_retains_the_body_rejection_without_claiming_it_is_pending(self):
+        from .motion_space import TOOLS
+        encoding=ProgramEncoding(TOOLS)
+        action={'name':'move','arguments':{'joint':JOINTS[1],'angle_deg':25,
+            'reference':'absolute','speed_pct':50}}
+        rejection={'t':'done','seq':24,'position_verified':False,'target_adjusted_joints':3072}
+        query={'request':'finish the gesture','event':{'type':'servo_feedback_fault'},
+            'observation':{},'history':[{'program_state':'error','failed_action':action,
+                'error':'Body did not verify the requested motion target',
+                'error_evidence':rejection,'remaining_program':[]}]}
+        projected=model_query(query,encoding)
+        context=projected['history'][0]
+        self.assertEqual(context['failed_action'],encoding.encode([action])[0])
+        self.assertNotIn('interrupted_action',context)
+        self.assertEqual(context['error_evidence'],rejection)
+        self.assertEqual(context['error'],query['history'][0]['error'])
+        self.assertEqual(projected,model_query(projected,encoding))
+
+    def test_completed_motion_keeps_completion_empty_remainder_and_measured_effect(self):
+        from .motion_space import TOOLS
+        encoding=ProgramEncoding(TOOLS)
+        pose={'name':'pose','arguments':{'joints':list(JOINTS),
+            'angles_deg':[0,3.46,-21.63]*4,'reference':'absolute','speed_pct':50}}
+        receipt={'t':'done','seq':27,'position_verified':True}
+        effect={'delta_deg':[[0,0]],'before':{'available':True},
+                'after':{'available':True},'receipts':[receipt]}
+        for event in ('rapid_movement','tipped','servo_stall','servo_feedback_fault','slip'):
+            query={'request':'Stand up, stretch, and finish standing.',
+                'event':{'type':event},'observation':{},
+                'history':[{'program_state':'completed','completed_action':pose,
+                    'remaining_program':[],'last_correction':effect}]}
+            original=copy.deepcopy(query)
+            projected=model_query(query,encoding)
+            self.assertEqual(projected['history'],[{'program_state':'completed',
+                'completed_action':encoding.encode([pose])[0],
+                'remaining_program':[],'last_correction':effect}])
+            self.assertEqual(projected,model_query(projected,encoding))
+            self.assertEqual(query,original)
+
+    def test_unknown_pending_plan_is_not_changed_to_a_completed_empty_plan(self):
+        query={'request':'continue','event':{'type':'rapid_movement'},
+               'observation':{},'history':[{'program_state':'generating'}]}
+        projected=model_query(query,ProgramEncoding([]))
+        self.assertEqual(projected['history'],[{'program_state':'generating'}])
+        self.assertEqual(projected,model_query(projected,ProgramEncoding([])))
+
     def test_jam_keeps_traversed_range_without_sensor_log(self):
         query={'request':'Finish waving','event':{'type':'servo_stall','joints':[JOINTS[6]]},
             'observation':{},'history':[{'joints':{JOINTS[6]:v}} for v in (10,18,18,18)]}

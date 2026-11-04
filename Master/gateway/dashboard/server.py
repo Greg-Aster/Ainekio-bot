@@ -140,7 +140,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
     def _setup_freestyle(self):
         # Freestyle owns generated behavior and its recordings. Its absence is
         # reported for requests; manual library controls remain independent.
-        from gateway.gait_learning_service import RobotLearningTransport
+        from gateway.robot_learning_transport import RobotLearningTransport
         recorder = freestyle_module("recordings").Recorder(
             self.password_store.path.with_name("freestyle-recordings.sqlite"))
         self.freestyle_recorder = recorder
@@ -158,6 +158,14 @@ class DashboardHttpServer(ThreadingHTTPServer):
         # HTTP worker threads own dataset I/O, never the gateway event loop.
         return freestyle_module("motion_library").MotionLibrary(
             self.password_store.path.with_name("motion-library.sqlite"))
+
+    def export_motion_training(self):
+        if self.freestyle_recorder is not None:
+            try:self.freestyle_recorder.flush()
+            except RuntimeError as error:
+                raise GatewayError('Motion evidence was not persisted: '+str(error)) from error
+        recordings=self.password_store.path.with_name("freestyle-recordings.sqlite")
+        return self.motion_library().export(recordings=recordings if recordings.exists() else None)
 
     async def play_library_motion(self, robot, example, program, request, unsaved_draft):
         if self.freestyle is None:
@@ -307,9 +315,12 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if payload.get("operation") == "trial":
             return self.freestyle.trial(robot, _required_string(payload, "job_id"))
         if payload.get("operation") == "review":
-            return self.freestyle.review(robot, _required_string(payload, "job_id"),
-                _required_string(payload, "outcome"), payload.get("note", ""),
-                payload.get("corrected_request"), payload.get("corrected_program"), payload.get("generation_index"))
+            try:
+                return await self.freestyle.review(robot, _required_string(payload, "job_id"),
+                    _required_string(payload, "outcome"), payload.get("note", ""),
+                    payload.get("corrected_request"), payload.get("corrected_program"), payload.get("generation_index"))
+            except RuntimeError as error:
+                raise GatewayError('Motion review was not persisted: '+str(error)) from error
         return await self.freestyle.submit(robot, _required_string(payload, "request"),
                                            _required_bool(payload, "execute"))
 
@@ -451,16 +462,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if self._require_session() is None:
                 return
             try:
-                library = self.server.motion_library()
                 if path.endswith("/export"):
-                    self._send_bytes(library.export(), "application/zip", extra_headers={
+                    self._send_bytes(self.server.export_motion_training(), "application/zip", extra_headers={
                         "Content-Disposition": 'attachment; filename="motion-training-library.zip"'})
                 else:
+                    library = self.server.motion_library()
                     query = parse_qs(parsed_url.query)
                     identifier = query.get("id", [None])[0]
                     self._send_json(library.get(identifier) if identifier else library.list(
                         int(query.get("page", ["1"])[0]), query.get("search", [""])[0],
                         query.get("sort", ["name_asc"])[0]))
+            except GatewayError as error:
+                self._send_json({"error":str(error)},status=HTTPStatus.SERVICE_UNAVAILABLE)
             except ValueError as error:
                 self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
             return
@@ -957,7 +970,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             )
             return {"ok": True, "seq": sequence}
         if path == "/api/microphone":
-            options = {"gain_db": _required_int(payload, "gain_db")} if "gain_db" in payload else {}
+            options = {name: _required_int(payload, name) for name in
+                ("gain_db", "vad_mode", "silence_ms", "max_recording_ms") if name in payload}
             sequence = self.server.call_gateway(
                 self.server.gateway.set_microphone(
                     on=_required_bool(payload, "on"),

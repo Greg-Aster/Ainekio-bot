@@ -297,8 +297,8 @@ expiry without further messages, renewal, 32-bit clock rollover and in-flight
 wake detection. Bluetooth pairing/audibility requires a selected physical speaker;
 the live playback check used the computer output path.
 
-Body Control's Apply microphone button saves the microphone on/off choice,
-Open/VAD/Wake mode and input gain on the P4. These survive power cycles and
+Body Control's Save microphone settings button saves the microphone on/off choice,
+Open/VAD/Wake mode, input gain and speech endpoint settings on the P4. These survive power cycles and
 controller reconnections; disconnect, sleep and speaker playback suspend capture
 without changing the saved choice. Wake enable/model/sensitivity remain saved
 by the separate wake settings control. Existing firmware installations retain
@@ -312,6 +312,48 @@ reported before the wake/VAD gate, so tuning does not require a successful wake
 first. The current settings are read back from the robot; changes take effect
 without rebooting. The saved gain and
 threshold are separate `p4_media` NVS keys, preserving existing wake preferences.
+
+Audio and wake word also exposes Speech detection sensitivity (five driver
+modes), End-of-speech pause (seconds), and Maximum recording after wake
+(seconds). The last two accept 20 ms steps up to the existing 15-second
+transport maximum. Higher speech sensitivity selects a lower Espressif VAD
+mode, including more quiet speech and background sound. The pause applies to
+Voice activity and Wake word; the recording maximum is measured from wake
+detection. The initial three-second wake acquisition window is retained until
+speech is detected. Defaults remain mode 3, a 1-second pause and 15-second wake
+window; adding the controls does not retune an existing installation.
+
+The existing microphone task owns recording boundaries. Its former fixed
+hangover/deadline logic now uses `speech_gate.h` with the saved values; it has
+no second recorder or transcription path. VAD mode changes replace the driver
+under the existing audio-inference lock and commit with `speech_v1` in NVS.
+Failed allocation or saving leaves the previous active settings in place.
+Heartbeat audio telemetry confirms the settings, and Body Control retains edits
+until this readback matches. Older firmware displays an update explanation.
+
+November 3 installation: `0.8.136-p4-speech-settings`, 3,510,000-byte application,
+SHA-256 `5fe6e65d2c4dec0e3bdb2e88e20e5b965584d5b945761f678eaf3848ae9368d8`.
+The native recording-gate/decoder tests, dashboard API and renderer tests,
+microphone gateway tests, and production save/reload/failed-save tests passed.
+The recording test preserves a 1.5-second mid-sentence pause with a 2-second
+setting, then closes after the selected silence duration; it also covers a
+shorter wake maximum, re-arm and session reset. Existing P4 wake/VAD transport,
+old-session rejection and photo/audio identity tests passed. Schema validation
+accepts the new fields and rejects invalid driver modes and non-frame durations.
+The broader suites retain unrelated gaps: missing motion/settings fixture
+coverage, camera-chunk fixture metadata and the emulator's `side_l` mapping; a
+combined camera/bridge harness run also did not finish and was interrupted.
+Those paths were not changed as part of speech settings.
+
+ESP-IDF 5.5.4 built the application successfully. The existing gateway launcher
+was restarted with its saved configuration; an initial detached restart exited,
+so the normal foreground launcher was used. The live server serves the updated
+dashboard code, and robot plus local bridge connections resumed. After OTA,
+the robot reported `accepted`, running/boot `ota_0`, `pending_verify=false` and
+`ESP_OK`; startup reported `required=0x1f ready=0x1f`, C6 `ESP_OK` and
+`output_fault=0`. Browser automation was unavailable, so visual UI interaction
+and loaded microphone/VAD tuning are not claimed as verified. Saved defaults
+were retained for the owner to edit.
 
 The body executes Stand, CAD Neutral, algorithmic walk/crawl (forward, backward,
 left and right), and every gesture compiled from the model catalog. Fixed-angle

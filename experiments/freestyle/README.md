@@ -9,6 +9,48 @@ not this model. An unavailable generator is reported
 as unavailable, without substituting a legacy motion. The generator itself has
 no robot transport; execution uses the existing gateway and P4 target owner.
 
+## Shared inference deployment
+
+Freestyle's generator is an HTTP client of this computer's **one** native
+`llama-cpp.service`. It selects the same `environment-0.8b-base` deployment used
+by MetaHuman's 0.8B specialists and applies its configured Freestyle LoRA only
+to its own requests. Adapter discovery resolves the native adapter ID from its
+file path for each request; it never changes the host's global adapter scales.
+Intent, Task and Freestyle retain their own request-local selections on one base.
+The generator/compiler/executor and inference recordings remain separate owners.
+The shared [software architecture](../../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md#shared-llamacpp-hosting)
+owns installation and service lifetime. The removed Freestyle model unit is no
+longer an installation path.
+
+On one desktop, configure both clients against `127.0.0.1:8080` (append `/v1`
+for the generator). When Body Control runs on Q6A, install the same native host
+service there with Q6A's own motion artifact and settings. Its generator uses
+Q6A loopback; it does not obtain inference through the desktop or require a
+running MetaHuman application. Do not copy desktop CUDA settings or model paths
+as measured Q6A capabilities.
+
+The generator unit's `Wants=llama-cpp.service` starts the independent host unit;
+it has no `PartOf`, `BindsTo` or shutdown propagation. Native demand loading
+handles readiness. Stop/restart only `ainekio-freestyle-api` to change generator
+configuration. Host maintenance uses `systemctl --user restart llama-cpp` and
+affects all clients of that computer. Keep the existing interpreter, endpoint, model alias, contract, model-file
+provenance and recordings paths in `~/.config/ainekio/freestyle.env`. The source
+unit reads these existing client settings through systemd's `EnvironmentFile`;
+`/usr/bin/env` selects that configured Python interpreter and immediately
+executes the same generator module. It is not another inference host.
+The local fields are `FREESTYLE_PYTHON`, `FREESTYLE_ENDPOINT`, `FREESTYLE_MODEL`,
+`FREESTYLE_CONTRACT`, `FREESTYLE_MODEL_FILE`, `FREESTYLE_ADAPTER_FILE` and
+`FREESTYLE_RECORDINGS`. The model file identifies the shared unmerged base; the
+adapter file identifies its separately loaded LoRA. The host preset loads each
+specialist adapter at global scale zero, and each client selects its own scale
+for each inference request.
+Before installing the source unit, transcribe the installation's actual existing
+values into that file. Use the appropriate Python environment with aiohttp;
+keep private artifact and evidence paths out of the source unit. This move does
+not activate a pending contract or model change. Model-specific context, parallelism, GPU,
+KV, reasoning and adapter options belong in the host's native model preset.
+Dated deployments below are historical evidence, not current install commands.
+
 The Freestyle observation includes each joint's live `feedback_range_deg`,
 `arrival_tolerance_deg`, `feedback_usable` and `feedback_faults`. The existing
 saved servo mapping converts feedback calibration pulses into signed model
@@ -41,6 +83,44 @@ feedback-fault, tipping and slip events retain the existing event-triggered
 Freestyle recovery path. A correction remains a generated movement, not a claim
 that the body recovered physically.
 
+Recovery history carries the prior `program_state`, an `interrupted_action`
+only while that operation is unfinished, and the last `completed_action` when
+one exists. A failed operation is identified as `failed_action` with its actual
+error and rejection evidence, rather than described as an operation still in
+progress. A movement target becomes completed on its terminal receipt, before
+refreshing observations; a delayed measurement or reconnect does not turn it
+back into unfinished work. Face admission remains asynchronous and does not
+claim verified body movement. An explicit `remaining_program: []` means the
+known plan has no further operations; an absent plan remains unknown. The
+shared training/runtime projection preserves these distinctions and the latest
+measured correction effect. Completed programs remain eligible for fresh,
+opt-in event recovery under the existing command owner.
+
+The November 2 recovery-history experiment is retained under
+`artifacts/recovery-history-20261102/`. Its candidate finished seven recorded
+recovery requests and matched 120 held-out recovery references, but its synthetic
+ordinary stretch changed the requested movement to small reaches and short holds.
+The live startup trial also generated a different standing endpoint. The owner
+reported the physical stretch and stance incorrect. The candidate and its 296
+added library examples were withdrawn, and the previous model selection was
+restored. The source progress/receipt repair remains; these generation results
+do not qualify the generator's motion quality or establish a permanent runaway
+repair. The existing full repository training snapshot is preserved.
+
+The maintained training snapshot and editable library include the complete
+original catalog stretch for “Please stretch”, “Perform stretch.” and
+“Stand up, stretch, and finish standing.” Its generated joint curves preserve
+all 805 source samples within the native fitting budget, source phase checkpoints,
+the authored 0.9, 0.7 and 0.5 second holds, and the source standing finish. Three
+incomplete recorded stretch recovery targets were retired from the editable
+library. The existing trajectory operation is included in the training contract;
+this revision neither trains nor activates a model and has no new physical trial.
+
+The October 27 full-reach correction proposal remains separate review evidence.
+It requested an all-four-leg crouch, farther forward reach and longer holds;
+matching physical calibration references and the trial's asymmetric crank
+compensation are not treated as a generic replacement for the original motion.
+
 A receipt with `position_verified: false` reports an unverified target, not
 successful completion. Confirmed tipping episodes reach the recovery event path
 even during a reaction face or its notification cooldown. The existing tip
@@ -58,22 +138,22 @@ by target poses; there is no new posture shortcut or response filter.
 Body Control library uses the same revised contract. Completed training runs and
 running qualification artifacts retain their historical inputs and model hashes;
 they are evidence, not the current curriculum. Existing weights require retraining
-to change learned behavior. The deployed raw-tool checkpoint uses
-`artifacts/finite-programs/contract`, activated October 27. It preserves its
-trained tool representation and order while removing the retired operation.
-The compact `training-data/` format is not interchangeable with this deployed
-checkpoint; a future checkpoint must be served with its matching contract.
+to change learned behavior. The desktop Freestyle selection uses the original
+stretch retraining adapter from `artifacts/original-stretch-20261104T014150Z/`
+on the shared unmerged 0.8B base. The generator records the configured base and
+adapter hashes, adapter path, tools, schema and input-projection hashes with
+each inference. The frozen run dataset supplies its matching generation contract.
+Verify the running service and those identities when comparing a failure with a
+replay; historical raw-tool checkpoints require their own matching contracts.
 
-The 84 focused executor and training-source tests pass. Serving qualification is
-separate: deletion-only contract replays completed in 0.17 seconds (hand raise),
-1.42 seconds (wave), and 2.93 seconds (stretch), and all compiled. None ended at
-the requested normal standing targets. These were generation-only tests, not
-physical trials. The executor and deletion-only serving contract are now active;
-the current weights still need corrected-ending training and qualification. An earlier diagnostic inadvertently reordered the two
-last tool definitions and produced repeated output; the staged contract restores
-the production order and preserves every remaining definition. Eight legacy
-duration-format failures in the broader training suite also reproduce with the
-pre-removal source. No output truncation or substitute motion was added.
+The earlier deletion-only raw-tool replays completed in 0.17 seconds (hand raise),
+1.42 seconds (wave), and 2.93 seconds (stretch), and all compiled, but none ended
+at the requested normal standing targets. Those historical generation-only
+results do not qualify the selected compact checkpoint or physical movement.
+An earlier diagnostic reordered the two last tool definitions and produced
+repeated output; its staged contract restored the production order. Eight legacy
+duration-format failures in the broader training suite also reproduced with the
+pre-removal source.
 
 The October 26 periodic-twitch incident is retained under
 `artifacts/recovery-completion/`: one recovery repeatedly emitted a standing
@@ -134,8 +214,8 @@ contract, rather than relying on the currently served model's older contract.
 DNDIY production deployment, updated 2026-10-27:
 
 The owner requested activation of the latest candidate with its known misses.
-The existing services now use **Qwen3.5-0.8B finite-event contrast LoRA, Q8_0**,
-GPU inference and reasoning disabled. The model is
+That deployment used **Qwen3.5-0.8B finite-event contrast LoRA, Q8_0**,
+GPU inference and reasoning disabled. Its merged model was
 `artifacts/finite-event-repair/contrast-served/model.Q8_0.gguf`, SHA256
 `7c2ccfa655eae8971bcd9a852e2b9b06d94500d739e102f4c21496b0f1162ff7`.
 The generator reads the maintained `training-data/` contract, which has no
@@ -215,7 +295,16 @@ existing dashboard status updates; browser closure does not cancel execution.
 The existing Stop and replacement-command behavior still applies.
 
 **Export training data** downloads a consistent ZIP snapshot with the exact stored
-`dataset/train.jsonl`, suitable for `prepare_compact.py`. The expanded canonical
+library targets and eligible reviewed trials in `dataset/train.jsonl`, suitable
+for `prepare_compact.py`. Save motion review commits the review before reporting
+success. The latest successful review of an executed, completed trial is eligible;
+an unexecuted proposal, partial/incorrect attempt or unreviewed recording is not.
+Correction proposals must be tested and the resulting trial reviewed successfully;
+merely attaching a proposed program to an old review does not approve it. A later
+negative review withdraws the earlier trial target from subsequent exports.
+Explicitly edited library targets retain their existing owner and source context.
+Raw recordings stay in the evidence store and are never appended wholesale.
+The expanded canonical
 export and expanded editor were removed.
 The held-out files and tools travel with the export; saved edits are represented
 in the training targets and source hashes. Training input preparation must use a
@@ -243,7 +332,8 @@ from experiments.freestyle.motion_library import MotionLibrary
 library = MotionLibrary('build/gateway/physical/motion-library.sqlite')
 destination = Path('experiments/freestyle/training-data')
 destination.mkdir(parents=True, exist_ok=True)
-with zipfile.ZipFile(io.BytesIO(library.export())) as archive:
+with zipfile.ZipFile(io.BytesIO(library.export(
+        recordings='build/gateway/physical/freestyle-recordings.sqlite'))) as archive:
     for name in archive.namelist():
         (destination / Path(name).name).write_bytes(archive.read(name))
 PY
@@ -514,9 +604,10 @@ Measurement availability, freshness, events, unknown metadata and full histories
 remain available. Generated motion targets are not rounded or truncated.
 
 Training artifacts, served-model measurements and physical trials are distinct.
-The owner requested activation on 2026-10-25. The Q6A model and generator services
-now use `balanced-served/model.Q8_0.gguf` and `dataset-balanced`, respectively,
-on the existing ports 8795 and 8794. Both are active and enabled. The model SHA256
+The owner requested activation on 2026-10-25. At that activation, the Q6A model and generator services
+used `balanced-served/model.Q8_0.gguf` and `dataset-balanced`, respectively,
+on ports 8795 and 8794. Both were recorded active and enabled; this is historical
+evidence rather than a current Q6A deployment check. The model SHA256
 is `8de6027ed46a5edc0687c0102627a9a1619911cbbb3808134947647e9608ae09`.
 Previous service units are retained for rollback under
 `build/gateway/physical/deployments/compact-20261025T044343Z/`.
@@ -620,16 +711,16 @@ simply adding more ordinary motion requests would miss this failure.
 
 ## Standalone service and optional Body Control execution
 
-Start a llama.cpp server with the selected candidate and reasoning disabled,
-then run from the repository root (substitute its endpoint and model alias):
-Use a Python environment containing `aiohttp`; this workstation's existing
-`/home/greggles/ComfyUI/venv/bin/python` provides it.
+Register the selected candidate in this computer's existing native host preset,
+with its matching contract, model-specific settings and reasoning disabled.
+Run the generator from the repository root using the configured Python
+environment containing `aiohttp` (substitute its endpoint and model alias):
 
 ```sh
 python3 -m experiments.freestyle.generator \
-  --endpoint http://127.0.0.1:8795/v1 --model freestyle-qwen \
-  --contract experiments/freestyle/artifacts/compact-v2-recovery/dataset \
-  --model-file experiments/freestyle/artifacts/compact-v2-recovery/served/model.Q4_K_M.gguf
+  --endpoint http://127.0.0.1:8080/v1 --model CANDIDATE_ALIAS \
+  --contract /path/to/matching-contract \
+  --model-file /path/to/matching-model.gguf
 ```
 
 The service listens on `127.0.0.1:8794`. Both host applications can POST
@@ -683,11 +774,13 @@ start automatically after reboot. The model now offloads all layers to the GPU,
 with four CPU threads and two inference slots. The original allocation was 16,384
 total context tokens (8,192 per slot); it has been replaced by the native-context,
 demand-allocated configuration described above. The benchmarks used one slot.
-Stop both with:
+That deployment is historical. Current generator shutdown uses:
 
 ```sh
-systemctl --user stop ainekio-freestyle-api ainekio-freestyle-model
+systemctl --user stop ainekio-freestyle-api
 ```
+
+The shared inference host remains available to its other clients.
 
 Body Control has been restarted to load the optional workspace; existing settings
 were restored, including the owner-enabled event recovery for the P4 robot.
@@ -737,11 +830,12 @@ sensing, speech or inference. Manual commands supersede pending experimental
 execution. A P4 `done` receipt for a timed Freestyle packet is not proof that
 every physical joint reached its target.
 
-To remove: stop the experimental generator/llama.cpp processes, disable event
-recovery or restart Body Control, then remove `experiments/freestyle/`. The
-small optional loader remains dormant when that directory is absent; original
-controls and firmware remain usable. Do not delete an experiment while its
-training process is writing artifacts.
+Generator maintenance stops only `ainekio-freestyle-api`; the shared host
+continues serving its other clients. Freestyle is an active execution dependency,
+so deleting its directory requires changing its actual callers and preserving
+recordings, contract/model provenance and active training outputs. Retiring a
+model selection removes its native preset only after its consumers are updated;
+it does not authorize stopping the shared inference host.
 
 ## Spatial generation and external request trials (in progress)
 
@@ -1681,18 +1775,15 @@ No production adapter is overwritten or selected by these commands.
 
 ## Serve and call
 
-Start a separate llama.cpp process on an unused port. Set its context capacity
-from measured inputs, generation size and hardware memory; this example leaves
-that choice explicit rather than copying a production service configuration:
+Add the matching base and adapter to this computer's native model preset,
+using the existing host installation linked above. Keep its measured context
+capacity and model-specific options in that section, with `load-on-startup = false`.
+The native router loads the selected alias on request. For an isolated candidate,
+register a distinct alias in the same host preset rather than a second listener.
 
 ```sh
-llama-server --model /path/to/matching-base.gguf \
-  --lora /path/to/freestyle-adapter.F16.gguf \
-  --alias ainekio-freestyle --host 127.0.0.1 --port 8092 \
-  --ctx-size CONTEXT_TOKENS --jinja
-
 python3 experiments/freestyle/runtime.py --request /path/to/request.json \
-  --endpoint http://127.0.0.1:8092/v1
+  --endpoint http://127.0.0.1:8080/v1 --model ainekio-freestyle
 ```
 
 Both consumers can send the payload printed by `runtime.py --print-payload`
@@ -1722,7 +1813,7 @@ different obstructions/fall poses and separate evaluation.
 python3 -m unittest discover -s experiments/freestyle -p 'test_*.py' -v
 python3 experiments/freestyle/evaluate.py \
   --data /tmp/ainekio-freestyle-seed/evaluation.jsonl \
-  --endpoint http://127.0.0.1:8092/v1 --ids wave:0:0
+  --endpoint http://127.0.0.1:8080/v1 --ids wave:0:0
 ```
 
 Evaluation records full response time, token usage, format validity, reference
@@ -1730,10 +1821,10 @@ agreement and completion labeling. It never dispatches movement. Test whole
 generated continuations as well as individual teacher-context packets before
 claiming sequence fidelity. Passing JSON tests is not model or hardware proof.
 
-For removal, stop only the dedicated experimental llama.cpp process, then
-remove this directory and the explicitly chosen experiment artifact directories.
-The ordinary robot library, walking, Body Control and MetaHuman remain as they
-were; there are no registrations to uninstall or production defaults to revert.
+To retire a serving candidate, remove its section from the existing host preset
+and reload the native model inventory after its active requests finish. Preserve
+artifacts and recordings that still have training, provenance or replay consumers.
+Removing a generator does not authorize stopping the shared inference host.
 
 ### Q6A corrected-motion live-test protocol
 

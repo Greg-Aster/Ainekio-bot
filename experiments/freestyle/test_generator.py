@@ -24,6 +24,31 @@ class GeneratorTests(unittest.TestCase):
         self.assertFalse(validator.is_valid([['reassess']]))
         self.assertTrue(validator.is_valid([['move', 9, 20, 'current', 50]]))
 
+    def test_sync_requests_resolve_adapter_paths_and_report_missing_adapters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'system.txt').write_text('test system');(root/'tools.json').write_text('[]')
+            adapter=root/'freestyle.gguf';adapter.write_bytes(b'adapter');payloads=[];loaded=[{'id':4,'path':str(adapter),'scale':0}]
+            generator=Generator('http://host/v1','shared',root,adapter_file=adapter)
+            class Reply:
+                def __init__(self,value):self.value=value
+                def __enter__(self):return self
+                def __exit__(self,*args):pass
+                def read(self):return json.dumps(self.value).encode()
+            def native(req,*args,**kwargs):
+                self.assertNotIn('timeout',kwargs)
+                if isinstance(req,str):
+                    self.assertEqual(req,'http://host/lora-adapters?model=shared')
+                    return Reply(loaded)
+                payloads.append(json.loads(req.data))
+                return Reply({'choices':[{'finish_reason':'stop','message':{'content':'[]'}}]})
+            with patch('urllib.request.urlopen',native):
+                generator.generate('first');loaded[0]['id']=9;generator.generate('second')
+                loaded.clear()
+                with self.assertRaisesRegex(ValueError,'Freestyle LoRA is not loaded'):generator.generate('missing')
+            self.assertEqual([p['lora'] for p in payloads],[[{'id':4,'scale':1}],[{'id':9,'scale':1}]])
+            self.assertEqual(len(payloads),2)
+            self.assertEqual(generator._payload('base request')['lora'],[])
+
     def test_feedback_domain_uses_each_servo_mapping_and_never_invents_missing_calibration(self):
         joint={'id':7,'calibrated':True,'points':[{'pulse_us':500},{'pulse_us':1650},{'pulse_us':2800}]}
         mapping={'home_cd':-3087,'home_us':2740,'us_per_degree':100/9,'invert':True}
@@ -137,6 +162,48 @@ class GeneratorTests(unittest.TestCase):
 
 
 class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_shared_base_uses_request_local_lora_and_refreshes_native_ids(self):
+        import hashlib
+        requests=[];next_id=iter((7,23));pending=asyncio.Event();release=asyncio.Event()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'system.txt').write_text('test system');(root/'tools.json').write_text('[]')
+            adapter=root/'freestyle.gguf';adapter.write_bytes(b'freestyle adapter')
+            async def native(reader,writer):
+                header=await reader.readuntil(b'\r\n\r\n');method,target,_=header.split(b'\r\n',1)[0].decode().split()
+                length=int(next(line.split(b':',1)[1] for line in header.split(b'\r\n') if line.startswith(b'Content-Length:')))
+                body=await reader.readexactly(length);payload=json.loads(body) if body else None
+                requests.append((method,target,payload))
+                if method=='GET':
+                    result=[{'id':0,'path':'/other/intent.gguf','scale':0},
+                            {'id':next(next_id),'path':str(adapter),'scale':0}]
+                else:
+                    if len([r for r in requests if r[0]=='POST'])==1:
+                        pending.set();await release.wait()
+                    result={'choices':[{'finish_reason':'stop','message':{'content':'[]'}}]}
+                encoded=json.dumps(result).encode();writer.write((f'HTTP/1.1 200 OK\r\nContent-Length: {len(encoded)}\r\nConnection: close\r\n\r\n').encode()+encoded)
+                await writer.drain();writer.close()
+            server=await asyncio.start_server(native,'127.0.0.1',0)
+            async with server:
+                port=server.sockets[0].getsockname()[1]
+                generator=Generator(f'http://127.0.0.1:{port}/v1','qwen3.5:0.8b',root,adapter_file=adapter)
+                first=asyncio.create_task(generator.async_generate('first'))
+                try:
+                    await asyncio.wait_for(pending.wait(),3)
+                    second=await asyncio.wait_for(generator.async_generate('second'),3)
+                    self.assertFalse(first.done(),'LoRA selection must not serialize independent inference requests')
+                    self.assertEqual(second['program'],[])
+                    release.set();await first
+                finally:
+                    release.set();first.cancel()
+                    with suppress(asyncio.CancelledError):await first
+            self.assertEqual([target for method,target,_ in requests if method=='GET'],
+                             ['/lora-adapters?model=qwen3.5%3A0.8b']*2)
+            calls=[payload for method,target,payload in requests if method=='POST']
+            self.assertEqual([p['lora'] for p in calls],[[{'id':7,'scale':1}],[{'id':23,'scale':1}]])
+            self.assertTrue(all(p['model']=='qwen3.5:0.8b' for p in calls))
+            self.assertTrue(all(target=='/v1/chat/completions' for method,target,_ in requests if method=='POST'))
+            self.assertEqual(generator.identity['configured_adapter_sha256'],hashlib.sha256(b'freestyle adapter').hexdigest())
+
     async def test_service_propagates_cancellation_and_admits_concurrent_full_history(self):
         from aiohttp import web
         arrived=asyncio.Event();closed=asyncio.Event();received=[]

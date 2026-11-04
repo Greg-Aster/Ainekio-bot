@@ -7,6 +7,7 @@
 #include "config.h"
 #include "servo_feedback.h"
 #include "gait_trace_runtime.h"
+#include "trajectory_program.h"
 #include "ainekio/v2_walk.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/v2_posture.h"
@@ -68,12 +69,56 @@ static void rest_timeout(void *arg)
     atomic_store(&rest_expired,true);
 }
 static uint64_t disconnected_through;
+static ainekio_p4_curve_program_t *prepared_curves;
+
+uint64_t ainekio_p4_body_curve_epoch(void)
+{
+    portENTER_CRITICAL(&pulse_lock);
+    const uint64_t epoch=disconnected_through;
+    portEXIT_CRITICAL(&pulse_lock);
+    return epoch;
+}
+
+bool ainekio_p4_body_stage_curve(ainekio_p4_curve_program_t *program,uint64_t epoch)
+{
+    portENTER_CRITICAL(&pulse_lock);
+    const bool current=epoch==disconnected_through;
+    ainekio_p4_curve_program_t *previous=NULL;
+    if(current) {
+        ainekio_p4_curve_program_t **at=&prepared_curves;
+        while(*at && strcmp((*at)->token,program->token))at=&(*at)->next;
+        previous=*at;if(previous)*at=previous->next;
+        program->next=prepared_curves;prepared_curves=program;
+    }
+    portEXIT_CRITICAL(&pulse_lock);
+    ainekio_p4_curve_free(previous);
+    if(!current)ainekio_p4_curve_free(program);
+    return current;
+}
+
+void ainekio_p4_body_discard_curve(const char *token)
+{
+    portENTER_CRITICAL(&pulse_lock);
+    ainekio_p4_curve_program_t **at=&prepared_curves,*discarded=NULL;
+    while(*at) {
+        ainekio_p4_curve_program_t *p=*at;
+        if(!token || !strcmp(p->token,token)) { *at=p->next;p->next=discarded;discarded=p; }
+        else at=&p->next;
+    }
+    portEXIT_CRITICAL(&pulse_lock);
+    while(discarded) { ainekio_p4_curve_program_t *next=discarded->next;ainekio_p4_curve_free(discarded);discarded=next; }
+}
 
 void ainekio_p4_body_connection_lost(uint64_t connection)
 {
     portENTER_CRITICAL(&pulse_lock);
-    if(connection>disconnected_through)disconnected_through=connection;
+    ainekio_p4_curve_program_t *discarded=NULL;
+    if(connection>disconnected_through) {
+        disconnected_through=connection;
+        discarded=prepared_curves;prepared_curves=NULL;
+    }
     portEXIT_CRITICAL(&pulse_lock);
+    while(discarded) { ainekio_p4_curve_program_t *next=discarded->next;ainekio_p4_curve_free(discarded);discarded=next; }
 }
 
 void ainekio_p4_body_listen(bool active)
@@ -225,6 +270,7 @@ typedef struct {
     float playback_rate, requested_rate;
     double clip_joint_speed;
     ainekio_v2_clip_player_t clip_player;
+    ainekio_p4_curve_program_t *curve;
     uint64_t clip_updated_us, clip_commanded_us;
     bool clip_pending_write;
     float entry_rate;
@@ -321,6 +367,7 @@ static void expected_up(uint64_t now,float up[3])
     } else if(motion->entering) {
         float target[3]={0,0,1};
         if(motion->kind==MOTION_CLIP)ainekio_v2_clip_expected_up(motion->clip,0,target);
+        if(motion->curve)ainekio_v2_curve_expected_up(&motion->curve->curve,0.,target);
         if(motion->reverse_grounded_entry) {
             const double duration=ainekio_v2_clip_playback_seconds(motion->recovery_clip,
                 motion->clip_joint_speed,motion->requested_rate)*1e6;
@@ -345,6 +392,8 @@ static void expected_up(uint64_t now,float up[3])
         up_from_euler(motion->walk.pose.euler,up);
     } else if(motion->kind==MOTION_CLIP) {
         ainekio_v2_clip_expected_up(motion->clip,motion->face_elapsed_us,up);
+    } else if(motion->curve) {
+        ainekio_v2_curve_expected_up(&motion->curve->curve,motion->face_elapsed_us/1e6,up);
     }
 }
 
@@ -366,8 +415,18 @@ static void publish_execution(uint64_t now,bool sampling,bool manual)
         execution->sampled_us=written;
         execution->host_nominal=body.motion.kind==MOTION_WALK && body.motion.walk.host_nominal;
         execution->nominal_sample=execution->host_nominal?body.motion.walk.host_consumed_sample:0;
-        execution->expected_up_known=body.motion.kind!=MOTION_FREESTYLE;
-        if(execution->expected_up_known)expected_up(now,execution->expected_up);
+        execution->trajectory_active=body.motion.curve!=NULL;
+        execution->trajectory_source_us=execution->trajectory_active?body.motion.face_elapsed_us:0;
+        execution->trajectory_checkpoint=execution->trajectory_active?(uint32_t)body.motion.clip_player.target:0;
+        execution->trajectory_waiting=execution->trajectory_active && body.motion.clip_player.waiting;
+        if(body.motion.curve && !body.motion.entering)
+            execution->expected_up_known=ainekio_v2_curve_expected_up(&body.motion.curve->curve,
+                body.motion.face_elapsed_us/1e6,execution->expected_up);
+        else {
+            execution->expected_up_known=body.motion.kind!=MOTION_FREESTYLE ||
+                (body.motion.curve && body.motion.curve->curve.attitude);
+            if(execution->expected_up_known)expected_up(now,execution->expected_up);
+        }
     } else if(manual) {
         const uint64_t written=esp_timer_get_time();
         const uint64_t started=execution->activity && !strcmp(execution->activity,"manual") &&
@@ -501,7 +560,7 @@ bool ainekio_p4_body_supports(const ainekio_command_t *command)
     if(command->kind==AINEKIO_COMMAND_WALK_TARGET || command->kind==AINEKIO_COMMAND_STOP)return true;
     if (command->kind == AINEKIO_COMMAND_MOTION_PLAN)
         return command->data.motion_plan.joint_map_version == AINEKIO_V2_JOINT_MAP_VERSION &&
-            command->data.motion_plan.target_control;
+            (command->data.motion_plan.target_control || command->data.motion_plan.trajectory_token[0]);
     if (command->kind != AINEKIO_COMMAND_INTENT) return false;
     uint8_t cycles;
     size_t clip;
@@ -535,6 +594,7 @@ esp_err_t ainekio_p4_body_execute(uint64_t generation, uint64_t connection,
 
 static void finish_motion(bool completed, esp_err_t result)
 {
+    ainekio_p4_curve_free(body.motion.curve);body.motion.curve=NULL;
     if(!completed)body.pending_jam=(ainekio_p4_body_event_t){0};
     const bool release=completed && result==ESP_OK && body.motion.release_on_complete;
     body.motion.release_on_complete=false;
@@ -833,15 +893,17 @@ static esp_err_t start_rise(const body_request_t *request,uint64_t now)
     return ESP_OK;
 }
 
-static esp_err_t start_motion(const body_request_t *request, uint64_t now)
+static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t now,
+    ainekio_p4_curve_program_t *curve)
 {
-    if(request->intent.kind==AINEKIO_INTENT_STAND &&
+    const ainekio_intent_t intent=curve?(ainekio_intent_t){.kind=AINEKIO_INTENT_NEUTRAL}:request->intent;
+    if(intent.kind==AINEKIO_INTENT_STAND &&
        (!request->connection || !ainekio_pca_status(ainekio_p4_output()).armed || !body.pose_valid))
         return start_rise(request,now);
     const ainekio_command_t command = {.sequence=request->sequence,
-        .kind=AINEKIO_COMMAND_INTENT, .data.intent=request->intent};
-    const bool update = request->intent.kind == AINEKIO_INTENT_WALK &&
-        request->intent.data.walk.update_sequence != 0;
+        .kind=AINEKIO_COMMAND_INTENT, .data.intent=intent};
+    const bool update = intent.kind == AINEKIO_INTENT_WALK &&
+        intent.data.walk.update_sequence != 0;
     if (update) {
         if (body.motion.kind != MOTION_WALK || body.motion.connection != request->connection)
             return ESP_ERR_INVALID_STATE;
@@ -850,9 +912,9 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         return ainekio_v2_walk_accept(&body.motion.walk, &command, body.motion.walk.last_us)
             ? ESP_OK : ESP_ERR_INVALID_ARG;
     }
-    const bool named = request->intent.kind == AINEKIO_INTENT_SIT ||
-        request->intent.kind == AINEKIO_INTENT_STAND || request->intent.kind == AINEKIO_INTENT_EMOTE;
-    const float override = request->intent.playback_rate;
+    const bool named = intent.kind == AINEKIO_INTENT_SIT ||
+        intent.kind == AINEKIO_INTENT_STAND || intent.kind == AINEKIO_INTENT_EMOTE;
+    const float override = intent.playback_rate;
     if (override && (!named || !isfinite(override) || override < 0.F))
         return ESP_ERR_INVALID_ARG;
     if (uxQueueSpacesAvailable(events) < 2) return ESP_ERR_NO_MEM;
@@ -865,10 +927,20 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
     next->requested_rate = next->playback_rate;
     next->clip_joint_speed=ainekio_v2_gait_joint_speed_limit()*AINEKIO_V2_GESTURE_SPEED_SCALE;
     entry_reference(next);
-    if(request->intent.kind==AINEKIO_INTENT_STAND)
+    if(intent.kind==AINEKIO_INTENT_STAND)
         next->requested_rate=next->playback_rate=1.F;
     ainekio_v2_frame_t frame = {.geometry_id=ainekio_v2_walk_geometry_id};
-    if (request->intent.kind == AINEKIO_INTENT_WALK) {
+    if(curve) {
+        next->kind=MOTION_FREESTYLE;next->curve=curve;next->face_command=NULL;
+        next->clip_joint_speed=curve->speed_degrees_s;
+        ainekio_v2_frame_t minimum={.geometry_id=ainekio_v2_walk_geometry_id},maximum=minimum;
+        memcpy(minimum.position,curve->minimum,sizeof minimum.position);
+        memcpy(maximum.position,curve->maximum,sizeof maximum.position);
+        uint16_t checked[AINEKIO_PCA_BODY_CHANNELS];
+        if(!ainekio_v2_curve_sample(&curve->curve,0.,&frame) ||
+           !ainekio_p4_frame_pulses(&minimum,checked) || !ainekio_p4_frame_pulses(&maximum,checked))
+            return ESP_ERR_INVALID_ARG;
+    } else if (intent.kind == AINEKIO_INTENT_WALK) {
         next->kind = MOTION_WALK;
         next->entering = false;
         next->started = now;
@@ -878,13 +950,13 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
             next->walk.gait_mode==AINEKIO_GAIT_CRAB ? "crab" :
             next->walk.gait_mode==AINEKIO_GAIT_RUN ? "run" : "walk";
         frame = next->walk.pose.frame;
-    } else if (request->intent.kind == AINEKIO_INTENT_STAND) {
+    } else if (intent.kind == AINEKIO_INTENT_STAND) {
         ainekio_v2_walk_pose_t pose;
         next->kind = MOTION_POSE;
         if (!ainekio_v2_walk_pose(0, (ainekio_v2_walk_controls_t){0,1}, &pose))
             return ESP_ERR_INVALID_ARG;
         frame = pose.frame;
-    } else if (request->intent.kind == AINEKIO_INTENT_NEUTRAL) {
+    } else if (intent.kind == AINEKIO_INTENT_NEUTRAL) {
         next->kind = MOTION_POSE;
     } else {
         next->kind = MOTION_CLIP;
@@ -928,7 +1000,7 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
     uint16_t checked[AINEKIO_PCA_BODY_CHANNELS];
     /* Stand/named motions retain their explicit posture transitions. Walk
      * never prepends recovery choreography from a preceding stored pose. */
-    if (next->entering && !home && body.motion.kind == MOTION_NONE &&
+    if (!curve && next->entering && !home && body.motion.kind == MOTION_NONE &&
         body.motion.face_is_clip && body.motion.face_command &&
         (!strcmp(body.motion.face_command, "lay_down") ||
          !strcmp(body.motion.face_command, "dead"))) {
@@ -945,8 +1017,8 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
         }
     }
     next->contact_entry=!next->reverse_grounded_entry &&
-        request->intent.kind==AINEKIO_INTENT_STAND;
-    next->balance_on_complete=request->intent.kind==AINEKIO_INTENT_STAND;
+        intent.kind==AINEKIO_INTENT_STAND;
+    next->balance_on_complete=intent.kind==AINEKIO_INTENT_STAND;
     if(next->contact_entry) {
         double euler[3];starting_attitude(euler);
         if(!ainekio_v2_posture_begin(&next->posture,&next->entry_from,&next->entry_to,euler))return ESP_ERR_INVALID_ARG;
@@ -1023,9 +1095,27 @@ static esp_err_t start_motion(const body_request_t *request, uint64_t now)
 
 /* Freestyle targets are model angles. The same saved mounting calibration and
  * PCA frame writer used by named motions own all electrical pulses. */
+static esp_err_t start_motion(const body_request_t *request,uint64_t now)
+{ return start_motion_with_curve(request,now,NULL); }
+
+static esp_err_t start_curve(const body_request_t *request,uint64_t now)
+{
+    portENTER_CRITICAL(&pulse_lock);
+    ainekio_p4_curve_program_t **at=&prepared_curves;
+    while(*at && strcmp((*at)->token,request->plan.trajectory_token))at=&(*at)->next;
+    ainekio_p4_curve_program_t *curve=*at;
+    if(curve){*at=curve->next;curve->next=NULL;}
+    portEXIT_CRITICAL(&pulse_lock);
+    if(!curve)return ESP_ERR_NOT_FOUND;
+    const esp_err_t result=start_motion_with_curve(request,now,curve);
+    if(result!=ESP_OK)ainekio_p4_curve_free(curve);
+    return result;
+}
+
 static esp_err_t start_freestyle(const body_request_t *request, uint64_t now)
 {
     const ainekio_motion_plan_t *plan = &request->plan;
+    if(plan->trajectory_token[0])return start_curve(request,now);
     if (!plan->target_control || plan->joint_map_version != AINEKIO_V2_JOINT_MAP_VERSION ||
         !plan->frame_count || plan->frame_count > AINEKIO_MOTION_PLAN_MAX_FRAMES)
         return ESP_ERR_INVALID_ARG;
@@ -1358,7 +1448,7 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
         motion->startup_entry=false;
         return entry_finished(motion,now,sampled,complete);
     }
-    if(motion->kind==MOTION_FREESTYLE)
+    if(motion->kind==MOTION_FREESTYLE && !motion->curve)
         return freestyle_frame(now,complete,sampled);
     if(motion->startup_entry && !motion->contact_entry) {
         const uint64_t elapsed=now-motion->entry_start;
@@ -1481,8 +1571,11 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
         }
         const double dt=(now-motion->clip_updated_us)/1e6;
         motion->clip_updated_us=now;
-        if(!ainekio_v2_clip_player_tick(motion->clip,&motion->clip_player,dt,motion->clip_joint_speed,
-            motion->playback_rate,arrived,&frame,&motion->face_elapsed_us))return ESP_FAIL;
+        if(!(motion->curve ?
+            ainekio_v2_curve_player_tick(&motion->curve->curve,&motion->clip_player,dt,
+                motion->clip_joint_speed,arrived,&frame,&motion->face_elapsed_us) :
+            ainekio_v2_clip_player_tick(motion->clip,&motion->clip_player,dt,motion->clip_joint_speed,
+                motion->playback_rate,arrived,&frame,&motion->face_elapsed_us)))return ESP_FAIL;
         if(arrived) {
             motion->clip_commanded_us=0;
             motion->feedback_waiting_mask=0;
@@ -1490,8 +1583,14 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
         if(motion->clip_player.waiting && !motion->clip_commanded_us)
             motion->clip_pending_write=true;
         *complete = frame.phase == AINEKIO_V2_COMPLETE;
+        if(motion->curve)motion->feedback_verified=*complete && arrived;
     }
+    const bool generated_curve=motion->curve!=NULL;
+    float authored[12];
+    if(generated_curve)memcpy(authored,frame.position,sizeof authored);
     if(!motion_pulses(&frame,body.pulses))return ESP_ERR_INVALID_ARG;
+    if(generated_curve)for(unsigned j=0;j<12;j++)
+        if(fabs(frame.position[j]-authored[j])>.01)motion->target_adjusted_joints|=1U<<j;
     *sampled=frame;return ESP_OK;
 }
 
@@ -1724,7 +1823,7 @@ static bool output_step(uint64_t now)
      * next interval. If late, sample the current time once; never replay missed
      * frames. Completion time remains the independent output progress clock. */
     body.next_frame = now + UINT64_C(20000);
-    if (body.motion.kind == MOTION_FREESTYLE) {
+    if (body.motion.kind == MOTION_FREESTYLE && !body.motion.curve) {
         motion_t *motion=&body.motion;
         motion->freestyle.path_progress=motion->freestyle.sampled_progress;
         bool commanded=motion->freestyle.target_resolved;

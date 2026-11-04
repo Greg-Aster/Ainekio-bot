@@ -133,6 +133,8 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
             raise SchemaMismatch("above maximum")
         if "exclusiveMinimum" in schema and instance <= schema["exclusiveMinimum"]:
             raise SchemaMismatch("not above exclusive minimum")
+        if "multipleOf" in schema and instance % schema["multipleOf"]:
+            raise SchemaMismatch("not a multiple of the required step")
 
     if isinstance(instance, str):
         if "minLength" in schema and len(instance) < schema["minLength"]:

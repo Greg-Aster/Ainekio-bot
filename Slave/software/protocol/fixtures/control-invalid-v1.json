@@ -2,6 +2,81 @@
   "protocol": 1,
   "cases": [
     {
+      "name": "v2_curve_missing_upload",
+      "message": {
+        "t": "motion_plan",
+        "seq": 99,
+        "map": 2,
+        "control": "trajectory",
+        "trajectory": null,
+        "end": "hold"
+      },
+      "reason": "type:trajectory"
+    },
+    {
+      "name": "v2_curve_empty_upload",
+      "message": {
+        "t": "motion_plan",
+        "seq": 99,
+        "map": 2,
+        "control": "trajectory",
+        "trajectory": "",
+        "end": "hold"
+      },
+      "reason": "range:trajectory"
+    },
+    {
+      "name": "v2_curve_long_upload",
+      "message": {
+        "t": "motion_plan",
+        "seq": 99,
+        "map": 2,
+        "control": "trajectory",
+        "trajectory": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "end": "hold"
+      },
+      "reason": "range:trajectory"
+    },
+    {
+      "name": "v2_curve_must_use_its_generated_ending",
+      "message": {
+        "t": "motion_plan",
+        "seq": 99,
+        "map": 2,
+        "control": "trajectory",
+        "trajectory": "generated-curve-001",
+        "end": "stand"
+      },
+      "reason": "value:end"
+    },
+    {
+      "name": "v1_cannot_execute_curve_payload",
+      "message": {
+        "t": "motion_plan",
+        "seq": 99,
+        "map": 1,
+        "control": "trajectory",
+        "trajectory": "generated-curve-001",
+        "end": "hold",
+        "frames": [
+          [
+            100,
+            [
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000,
+              9000
+            ]
+          ]
+        ]
+      },
+      "reason": "value:control"
+    },
+    {
       "name": "v1_cannot_interpret_target_speed_as_duration",
       "message": {
         "t": "motion_plan",
@@ -1366,6 +1441,50 @@
           0.1
         ]
       }
+    },
+    {
+      "name": "microphone_invalid_vad_mode_5",
+      "message": {
+        "t": "mic",
+        "seq": 57,
+        "on": true,
+        "gate": "wake",
+        "vad_mode": 5
+      },
+      "reason": "range:vad_mode"
+    },
+    {
+      "name": "microphone_invalid_silence_ms_0",
+      "message": {
+        "t": "mic",
+        "seq": 57,
+        "on": true,
+        "gate": "wake",
+        "silence_ms": 0
+      },
+      "reason": "range:silence_ms"
+    },
+    {
+      "name": "microphone_invalid_silence_ms_1010",
+      "message": {
+        "t": "mic",
+        "seq": 57,
+        "on": true,
+        "gate": "wake",
+        "silence_ms": 1010
+      },
+      "reason": "range:silence_ms"
+    },
+    {
+      "name": "microphone_invalid_max_recording_ms_15020",
+      "message": {
+        "t": "mic",
+        "seq": 57,
+        "on": true,
+        "gate": "wake",
+        "max_recording_ms": 15020
+      },
+      "reason": "range:max_recording_ms"
     }
   ]
 }

@@ -23,47 +23,87 @@ motions. Full-color procedural strokes, hearts, stars, chevrons, rings, crosses,
 tears and other marks replace the old monochrome bitmaps. The definitions and
 renderer are editable; they impose no restriction on future artwork.
 
-The face retains its enlarged vertical geometry and stroke thickness in the
-same 320×170 frame. The mounting correction moves the composition center from
-x=160 to **x=145**, **15 pixels left** when viewed head-on toward the cable.
-This replaces the initial 32-pixel estimate with measurements from the open
-`Ainekio-Motion-Working.blend`, scene `Wireless`, on October 20:
-`Active_area_22p695x42p72` spans world Y = −19.3624 to +23.3576 mm, so its
-42.72 mm active width has center Y = +1.9976 mm. The mirrored `Chin.L.001` /
-`Chin.R.001` geometry and camera mock-up are centered at Y = 0. The required
-correction is −1.9976 / 42.72 × 320 = **−14.963 pixels**, rounded to −15.
-These are model measurements; physical mounting tolerance remains unmeasured.
-The owner selected a narrower layout to preserve every feature: horizontal
-placement fits the left **290 pixels**, leaving a **30-pixel black margin
-on the right**.
-Pupils remain round, and the baked side ribbons retain their stroke thickness.
-The latest refinement expands horizontal face geometry **5% around x=145**
-and moves the eyes and side lights **10 pixels down** (two 5-pixel adjustments).
-Neutral left clearance,
-including glow, decreases from 13 to **7 pixels**. Speech bars retain their
-previous position and size; other expression accents retain their vertical
-positions. Running speed marks move inward to fit the wider composition.
-Both preview galleries use this same renderer,
-including speaking, listening, thinking and motion expressions.
+The owner confirmed on November 3 that the redesigned carrier centers the LCD
+on the robot and exposes the full **320×170** active area. The renderer now
+centers the composition at **x=160**, removing the old 15-pixel left mounting
+compensation, 290-pixel layout and extra horizontal spread. The former recessed
+bezel bounds no longer apply; both face and connection-page layout use the full
+panel.
 
-The October 20 bezel-only review of `MASK | Recessed LCD bezel` establishes an
-uninterrupted opening at **x=0–314, y=35–167**, viewed straight at the robot.
-Other shell pieces are excluded from this layout requirement. Firmware uses
-these bounds for layout and tests, without cropping the rendered image.
-The core face scale, x=145 center, 105% width and +10-pixel eye/light offset
-remain unchanged. Decorative plus-shaped sparkles and confetti have been
-removed. Question marks move down between the eyes; running strokes sit above
-the eyes within the opening; the Pushup sweat droplet moves down five pixels
-so its glow also clears the bezel. Semantic mouths, tears, hearts, sleep marks,
-music notes and speech bars remain.
+The owner confirmed the centered width looked good, then requested a shorter,
+widescreen face. Procedural geometry now uses **1.5× horizontally and 1.0×
+vertically** around the panel center. Stroke thickness and round pupils retain
+their enlarged size. Side lights keep the approved horizontal placement and
+thickness, with shorter curves. After approving this widescreen layout, the
+owner requested lowering it in two 5-pixel adjustments. A shared **+10-pixel vertical
+offset** now moves eyes, side lights, symbols and speech bars together, without
+changing width or height. The former eye/light-only mounting offset remains
+removed. Neutral pupils are at (82,93) and (238,93); the default face's visible
+pixels, including glow, span x=10–310 and y=46–146. This retains
+the exact default horizontal extent and reduces its lit height from 134 to
+101 pixels (about 25%). Gaze sequences, blinks, expression periods and the
+15 fps sampling remain unchanged.
 
-Connection titles start at y=38. Up to six double-size body rows start at y=57
-with 16-pixel spacing; blank logical rows are omitted. The setup page combines
-the join instruction with the Wi-Fi name, preserving full-length credentials
-without overlapping glyphs or adding more rotating pages.
-The footer starts at y=159. Motion and camera warning icons retain their clear
-existing positions. Animated previews in both galleries are regenerated from
-the same firmware renderer. These are CAD/pixel checks, not a physical fit test.
+Question marks return above the eyes now that the upper screen is exposed.
+Speech bars and rising bubbles move upward in authored coordinates so their
+enlarged geometry and glow fit the bottom edge. Semantic mouths, tears, hearts,
+sleep marks, music notes and speech bars remain. Connection headings start at
+y=3, body rows at y=22 with 16-pixel spacing, and the footer at y=161. Existing
+warning icons retain their positions.
+
+The native renderer tests sample every expression at 17 ms intervals with and
+without speech, checking framebuffer boundaries and clear screen edges. They
+also check the default face's symmetry, pupil placement and exact lowered
+vertical bounds. Both preview galleries are regenerated from the same renderer.
+These are source/pixel checks; physical appearance still requires observation.
+
+The initial, taller November 3 layout was built with ESP-IDF 5.5.4 and installed through the
+existing application-only OTA path as `0.8.132-p4-freestyle-path`. The owner
+authorized installing the current workspace image, including its pre-existing
+firmware changes. The 3,512,320-byte application has SHA-256
+`181b71bea085cb714241610a7cb9732f124753917defc503588a687029d01b81`.
+The upload reported all bytes staged; activation restarted the robot. Fresh
+firmware status reported `accepted`, running/boot `ota_0`,
+`pending_verify=false` and `ESP_OK`. The current-boot startup record reported
+`required=0x1f ready=0x1f`, including the display, C6 `ESP_OK` and
+`output_fault=0`. These establish firmware activation and driver readiness,
+not visible alignment or physical motion qualification.
+
+The owner found the initial layout too tall and approved retaining its width
+while reducing height. The shorter revision was built and installed as
+`0.8.133-p4-wide-face`. Its 3,509,104-byte application has SHA-256
+`e4c101a61f51e8019eb1e1dbd6fea4af968b3395d995e5ab7efa392afe61258a`.
+The native face, connection-page and motion-face-timeline suites passed, and
+both galleries were regenerated and matched. After OTA activation, fresh status
+reported `accepted`, running/boot `ota_1`, `pending_verify=false` and `ESP_OK`.
+The current-boot record reported `required=0x1f ready=0x1f`, including the
+display, C6 `ESP_OK` and `output_fault=0`. The owner confirmed this shorter
+revision looked right before requesting the subsequent 5-pixel lowering.
+
+The complete face was then lowered 5 pixels as `0.8.134-p4-lower-face`, retaining
+the approved width and height. A pixel comparison confirmed the default image
+is exactly the prior image translated downward by 5 pixels. All 59 expressions
+with and without speech passed the native clearance checks; connection-page
+and motion-face-timeline tests and the ESP-IDF build passed. Both galleries
+were regenerated and matched. The installed 3,509,120-byte application has SHA-256
+`9b8a21127c1977ce447bd8d28451b409706d778583f281d4fd1ddbff95e52fd4`.
+Fresh OTA status reported `accepted`, running/boot `ota_0`,
+`pending_verify=false` and `ESP_OK`; the current-boot record reported
+`required=0x1f ready=0x1f`, C6 `ESP_OK` and `output_fault=0`. Physical placement
+of the lowered revision still requires owner observation.
+
+The owner requested another 5-pixel downward shift, giving the complete face
+a +10-pixel offset, installed as `0.8.135-p4-lower-face`. The default preview
+was verified as an exact additional 5-pixel translation, with unchanged size;
+the three focused native suites and ESP-IDF build passed, and both galleries
+were regenerated and matched. The 3,509,120-byte application has SHA-256
+`311dcaa818058f5910a6787c513a70af14cd064bec59de1e9d948eefc130d007`.
+The first upload timed out after 3,236,128 bytes, leaving the running and boot
+slots on `0.8.134`. Retrying with the dashboard uploader's 64 KiB streaming
+approach completed staging and activation. Fresh status reported `accepted`,
+running/boot `ota_1`, `pending_verify=false` and `ESP_OK`; current-boot readiness
+was `required=0x1f ready=0x1f`, including the display, with C6 `ESP_OK` and
+`output_fault=0`. Visible placement still requires owner observation.
 
 The earlier size-only revision was installed over Wi-Fi on October 20 as
 `0.8.96-p4-large-faces`. The first
@@ -303,7 +343,7 @@ still expressions remain still. Blink, gaze, expression timing and speech
 remain sampled live.
 
 The expensive distance calculations for the permanent side lights are baked
-into one **9,379-byte read-only mask**, mirrored for the other side.
+into one **10,208-byte read-only mask**, mirrored for the other side.
 `tools/bake_lights.py` owns the ribbon geometry and generates `light_mask.h`.
 Each mask byte describes edge distance at eighth-pixel precision. A temporary
 512-byte RGB565 palette applies the current color, glow width and brightness.

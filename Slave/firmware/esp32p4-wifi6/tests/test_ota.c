@@ -5,6 +5,12 @@
 #include "../main/ota.c"
 #include <assert.h>
 static unsigned feedback_requests;
+static unsigned curve_uploads,curve_discards;
+static bool curve_session_changed;
+uint64_t ainekio_p4_body_curve_epoch(void){return 1;}
+bool ainekio_p4_body_stage_curve(ainekio_p4_curve_program_t *program,uint64_t epoch)
+{assert(epoch==1);curve_uploads++;ainekio_p4_curve_free(program);return !curve_session_changed;}
+void ainekio_p4_body_discard_curve(const char *token){assert(!strcmp(token,"program"));curve_discards++;}
 esp_err_t ainekio_p4_idle_rest_http(struct httpd_req *r){(void)r;return ESP_OK;}
 esp_err_t ainekio_p4_feedback_http(struct httpd_req *r){(void)r;feedback_requests++;return ESP_OK;}
 
@@ -29,6 +35,7 @@ static int file_opens;
 
 static void reset(void)
 {
+    curve_uploads=curve_discards=0;curve_session_changed=false;
     atomic_store(&busy, false); staged=NULL; phase=NONE; expected=0;
     input_used=written=0; available=sizeof(image_bytes); input=(const char *)image_bytes;
     authorization="Bearer test-token"; boot_slot=&slot0;
@@ -46,6 +53,19 @@ static httpd_req_t request(size_t size) { return (httpd_req_t){.method=HTTP_POST
 
 int main(void)
 {
+    const char *curve="{\"id\":\"program\",\"curve\":{\"times\":[0,1],\"positions\":[[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,1,1,1,1,1,1,1,1,1]],\"velocities\":[[1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1]],\"clock\":[[0,0,0,0,0],[1,0.01,0,0,0]],\"checkpoints\":[0,1],\"taper\":0,\"speed_deg_s\":90}}";
+    reset();input=curve;available=strlen(curve);httpd_req_t upload_request=request(available);
+    authorization="Bearer wrong";trajectory(&upload_request);
+    assert(!curve_uploads&&!strcmp(response_code,"401 Unauthorized"));
+    reset();input=curve;available=strlen(curve);trajectory(&upload_request);
+    assert(curve_uploads==1&&!strcmp(response_code,"200 OK")&&!stops&&!writes);
+    reset();input=curve;available=strlen(curve);curve_session_changed=true;trajectory(&upload_request);
+    assert(curve_uploads==1&&!strcmp(response_code,"409 Conflict"));
+    reset();input="{}";available=2;upload_request=request(available);trajectory(&upload_request);
+    assert(!curve_uploads&&!strcmp(response_code,"400 Bad Request"));
+    reset();input="{\"op\":\"discard\",\"id\":\"program\"}";available=strlen(input);
+    upload_request=request(available);trajectory(&upload_request);
+    assert(curve_discards==1&&!stops&&!writes&&!strcmp(response_code,"200 OK"));
     httpd_req_t r=request(sizeof(image_bytes));
     reset();authorization="Bearer wrong";servo_feedback(&r);
     assert(!feedback_requests&&!strcmp(response_code,"401 Unauthorized"));

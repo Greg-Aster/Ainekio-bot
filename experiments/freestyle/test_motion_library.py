@@ -11,6 +11,7 @@ from .compact_wire import FORMAT, ProgramEncoding
 from .motion_library import MotionLibrary
 from .motion_space import TOOLS
 from .face_contract import face_tool
+from .recordings import Recorder
 
 
 def dataset(root, count=1):
@@ -47,6 +48,110 @@ class MotionLibraryTests(unittest.TestCase):
     def save(self, example, **kwargs):
         return self.library.save(example['id'], example['revision'], kwargs.get('title', example['title']),
             kwargs.get('query', example['query']), kwargs.get('answers', example['answers']))
+
+    def test_native_alignment_updates_snapshot_and_library_without_reviving_substitutes(self):
+        from .legacy_curriculum import align, rows_at
+        good = self.library.get('example-00000')['example']
+        bad = {**copy.deepcopy(good),'id':'bad-bow','family':'semantic_bowing',
+               'source_hash':'bad-bow-source','physical_qualification':False}
+        original = rows_at(self.source/'train.jsonl')
+        (self.source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in original+[bad]))
+        self.library.import_dataset(self.source)
+        snapshot_only = {**bad,'id':'snapshot-only-wave','family':'gesture_ending_wave',
+                         'source_hash':'snapshot-wave-source'}
+        (self.source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in original+[bad,snapshot_only]))
+        (self.source/'manifest.json').write_text(json.dumps({'training_rows':3,'discarded_examples':[]}))
+        held_out = (self.source/'evaluation.jsonl').read_bytes()
+        evidence = self.root/'alignment'
+        report = align(self.source,self.library.path,evidence,apply=True)
+        self.assertEqual(report['motions'],23)
+        self.assertEqual(report['retired_training_rows'],2)
+        self.assertEqual(report['retired_library_rows'],1)
+        self.assertEqual(self.library.list()['total'],24)
+        self.assertEqual(self.library.get('example-00000')['example'],good)
+        self.assertEqual((self.source/'evaluation.jsonl').read_bytes(),held_out)
+        current = rows_at(self.source/'train.jsonl')
+        self.assertEqual(len(current),24)
+        self.assertEqual(len([r for r in current if r['family'].startswith('legacy_asset_')]),23)
+        self.assertFalse(any(r['physical_qualification'] for r in current if r.get('legacy_motion')))
+        self.library.import_dataset(evidence/'dataset-before')
+        self.assertEqual(self.library.list()['total'],24,'Old exports must not restore retired snapshot-only IDs')
+        repeated = align(self.source,self.library.path,self.root/'unused',apply=False)
+        self.assertEqual(repeated['retired_training_rows'],0)
+        self.assertEqual(repeated['retired_library_rows'],0)
+        self.assertFalse((self.root/'unused').exists())
+
+    def test_training_export_adds_only_latest_approved_trials_and_keeps_library_targets(self):
+        recordings=self.root/'freestyle-recordings.sqlite'
+        program=[{'name':'hold','arguments':{'seconds':2}}]
+        recorder=Recorder(recordings)
+        for job,outcome,execute in (('approved','success',True),('wrong','incorrect',True),
+                                    ('unreviewed',None,True),('preview','success',False)):
+            recorder.record('generation_requested',{'generation_index':0,'execute':execute,
+                'request':{'request':'Hold '+job,'observation':{},'history':[]}},job_id=job)
+            recorder.record('generation_completed',{'generation_index':0,
+                'result':{'program':program}},job_id=job)
+            recorder.record('job_finished',{'state':'completed' if execute else 'generated'},job_id=job)
+            if outcome:recorder.record('review',{'generation_index':0,'outcome':outcome},job_id=job)
+        recorder.close()
+        def export_rows():
+            with zipfile.ZipFile(io.BytesIO(self.library.export(recordings=recordings))) as archive:
+                return [json.loads(line) for line in archive.read('dataset/train.jsonl').splitlines()]
+        rows=export_rows()
+        self.assertEqual(len(rows),2)
+        self.assertEqual(rows[0],self.library.get('example-00000')['example'])
+        reviewed=next(row for row in rows if row.get('job_id')=='approved')
+        self.assertEqual(reviewed['answers'],[['hold',2]])
+        self.assertTrue(reviewed['physical_qualification'])
+        # Export is a current review snapshot. A later failed review withdraws
+        # the former positive instead of appending another training target.
+        recorder=Recorder(recordings)
+        recorder.record('review',{'generation_index':0,'outcome':'incorrect'},job_id='approved')
+        recorder.close()
+        self.assertEqual([row['id'] for row in export_rows()],['example-00000'])
+        self.assertEqual(self.library.list()['total'],1)
+
+    def test_export_preserves_an_imported_review_and_withdraws_it_after_negative_review(self):
+        recordings=self.root/'reviews.sqlite'
+        recorder=Recorder(recordings)
+        recorder.record('generation_requested',{'generation_index':0,'execute':True,
+            'request':{'request':'Hold','observation':{},'history':[]}},job_id='trial')
+        recorder.record('generation_completed',{'generation_index':0,
+            'result':{'program':[{'name':'hold','arguments':{'seconds':2}}]}},job_id='trial')
+        recorder.record('job_finished',{'state':'completed'},job_id='trial')
+        recorder.record('review',{'generation_index':0,'outcome':'success'},job_id='trial')
+        recorder.close()
+        with zipfile.ZipFile(io.BytesIO(self.library.export(recordings=recordings))) as archive:
+            exported=self.root/'import-reviewed';archive.extractall(exported)
+        self.library.import_dataset(exported/'dataset')
+        with zipfile.ZipFile(io.BytesIO(self.library.export(recordings=recordings))) as archive:
+            rows=[json.loads(line) for line in archive.read('dataset/train.jsonl').splitlines()]
+        self.assertEqual(len(rows),2,'Repeated exports must not duplicate an approved trial')
+        recorder=Recorder(recordings)
+        recorder.record('review',{'generation_index':0,'outcome':'incorrect'},job_id='trial')
+        recorder.close()
+        with zipfile.ZipFile(io.BytesIO(self.library.export(recordings=recordings))) as archive:
+            rows=[json.loads(line) for line in archive.read('dataset/train.jsonl').splitlines()]
+        self.assertEqual([row['id'] for row in rows],['example-00000'])
+
+    def test_dashboard_export_flushes_saved_reviews_and_includes_them(self):
+        from types import SimpleNamespace
+        from gateway.dashboard.server import DashboardHttpServer
+        recordings=self.root/'freestyle-recordings.sqlite'
+        recorder=Recorder(recordings)
+        self.addCleanup(recorder.close)
+        recorder.record('generation_requested',{'generation_index':0,'execute':True,
+            'request':{'request':'Hold','observation':{},'history':[]}},job_id='trial')
+        recorder.record('generation_completed',{'generation_index':0,
+            'result':{'program':[{'name':'hold','arguments':{'seconds':2}}]}},job_id='trial')
+        recorder.record('job_finished',{'state':'completed'},job_id='trial')
+        recorder.record('review',{'generation_index':0,'outcome':'success'},job_id='trial')
+        dashboard=SimpleNamespace(password_store=SimpleNamespace(path=self.root/'password.json'),
+            freestyle_recorder=recorder,motion_library=lambda:self.library)
+        with zipfile.ZipFile(io.BytesIO(DashboardHttpServer.export_motion_training(dashboard))) as archive:
+            rows=[json.loads(line) for line in archive.read('dataset/train.jsonl').splitlines()]
+        self.assertEqual(len(rows),2)
+        self.assertTrue(any(row.get('job_id')=='trial' for row in rows))
 
     def test_edit_persists_and_export_preserves_context_and_exact_commands(self):
         original = self.library.get('example-00000')

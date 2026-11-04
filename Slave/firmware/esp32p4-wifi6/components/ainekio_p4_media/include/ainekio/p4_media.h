@@ -29,6 +29,8 @@ typedef struct {
     bool external_speech;
     ainekio_microphone_gate_t microphone_gate;
     uint8_t microphone_gain_db;
+    uint8_t vad_mode;
+    uint16_t silence_ms, max_recording_ms;
     uint8_t speaker_volume_percent;
     float microphone_rms, microphone_peak, wake_threshold;
     char wake_model[33];
@@ -47,7 +49,8 @@ void ainekio_p4_media_session(uint64_t session);
 void ainekio_p4_media_external_speech(bool active, uint32_t duration_ms);
 /* NULL leaves the saved gain/threshold unchanged. */
 esp_err_t ainekio_p4_media_wake_configure(bool enabled, const char *model, const float *threshold);
-esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t gate, const uint8_t *gain_db);
+esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t gate,
+    const uint8_t *gain_db, const ainekio_speech_settings_t *speech);
 /* Persist the robot's master speaker level. 0 mutes; 100 preserves source PCM. */
 esp_err_t ainekio_p4_media_speaker_volume(uint8_t volume_percent);
 esp_err_t ainekio_p4_media_tts_start(uint32_t sequence);

@@ -22,6 +22,7 @@ MAX_FEATURE_CHARS = 32
 MOTION_PLAN_FEATURE = "motion_plan_v1"
 MOTION_PLAN_V2_FEATURE = "motion_plan_v2"
 MOTION_TARGETS_FEATURE = "motion_targets_v1"
+MOTION_CURVES_FEATURE = "motion_curves_v1"
 MOTION_PLAN_V2_JOINT_MAP = 2
 MOTION_PLAN_V2_JOINTS = 12
 COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
@@ -404,9 +405,13 @@ def _validate_motion_plan(message: Mapping[str, object]) -> None:
     )
     v2 = message["map"] == MOTION_PLAN_V2_JOINT_MAP
     if "control" in message:
-        _string(message, "control", allowed=frozenset({"targets"}))
+        _string(message, "control", allowed=frozenset({"targets", "trajectory"}))
         if not v2:
             _fail("value:control")
+        if message["control"] == "trajectory":
+            _string(message,"trajectory",max_length=32)
+            _string(message,"end",allowed=frozenset({"hold"}))
+            return
     frames = _required(message, "frames")
     if not isinstance(frames, list):
         _fail("type:frames")
@@ -475,6 +480,15 @@ def _validate_mic(message: Mapping[str, object]) -> None:
     _string(message, "gate", allowed=MIC_GATES)
     if "gain_db" in message:
         _audio_gain(message)
+    _speech_settings(message)
+
+
+def _speech_settings(message: Mapping[str, object]) -> None:
+    _optional_integer(message, "vad_mode", minimum=0, maximum=4)
+    for name in ("silence_ms", "max_recording_ms"):
+        if name in message:
+            if _integer(message, name, minimum=20, maximum=15000) % 20:
+                _fail(f"range:{name}")
 
 
 def _validate_speaker(message: Mapping[str, object]) -> None:
@@ -522,6 +536,7 @@ def _validate_ping_or_pong(message: Mapping[str, object]) -> None:
         _string(audio, "gate", allowed=MIC_GATES)
         _audio_gain(audio)
         _optional_integer(audio, "speaker_volume_percent", minimum=0, maximum=100)
+        _speech_settings(audio)
         for name in ("rms", "peak", "wake_threshold"):
             _unit_level(audio, name)
 

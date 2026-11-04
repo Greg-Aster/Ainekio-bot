@@ -81,6 +81,51 @@ typedef struct {
     size_t target;
     bool waiting;
 } ainekio_v2_clip_player_t;
+/* Shared cubic player data. Native assets and generated trajectories use the
+ * same sampler, distance clock and measured-checkpoint player. Knot/target
+ * coordinates use sample_hz (120 for native recordings, 1 for seconds). */
+typedef struct {
+    const float (*positions)[AINEKIO_V2_JOINT_COUNT];
+    const float (*velocities)[AINEKIO_V2_JOINT_COUNT];
+    const double *knots;
+    const float *minimum, *maximum;
+    size_t count;
+    uint64_t active_end_us;
+} ainekio_v2_clip_track_t;
+typedef struct {
+    double tick, travel_degrees, hold_seconds;
+    uint32_t segment;
+    uint8_t joint;
+} ainekio_v2_clip_clock_knot_t;
+typedef struct {
+    const ainekio_v2_clip_clock_knot_t *knots;
+    size_t count;
+    const double *targets;
+    size_t target_count;
+} ainekio_v2_clip_clock_t;
+typedef struct {
+    const float (*up)[3];
+    const double *knots;
+    size_t count;
+} ainekio_v2_clip_attitude_track_t;
+typedef struct {
+    const ainekio_v2_clip_track_t *track;
+    const ainekio_v2_clip_clock_t *clock;
+    double sample_hz, taper_degrees;
+    uint64_t duration_us;
+    const char *geometry_id;
+    const ainekio_v2_clip_attitude_track_t *attitude;
+} ainekio_v2_curve_t;
+bool ainekio_v2_clip_curve(size_t index, ainekio_v2_curve_t *curve);
+bool ainekio_v2_curve_sample(const ainekio_v2_curve_t *curve, double tick, ainekio_v2_frame_t *frame);
+bool ainekio_v2_curve_bounds(const ainekio_v2_curve_t *curve,
+    ainekio_v2_frame_t *minimum, ainekio_v2_frame_t *maximum);
+bool ainekio_v2_curve_expected_up(const ainekio_v2_curve_t *curve,double tick,float up[3]);
+double ainekio_v2_curve_seconds(const ainekio_v2_curve_t *curve, double joint_speed);
+bool ainekio_v2_curve_playback(const ainekio_v2_curve_t *curve, double seconds, double joint_speed,
+    bool reverse, ainekio_v2_frame_t *frame, uint64_t *source_us);
+bool ainekio_v2_curve_player_tick(const ainekio_v2_curve_t *curve, ainekio_v2_clip_player_t *player,
+    double seconds, double joint_speed, bool arrived, ainekio_v2_frame_t *frame, uint64_t *source_us);
 /* Zero-initialize a player for each command. Each phase endpoint/reversal is
  * emitted even when a tick is late. Arrival acknowledges a previously written
  * target; time spent reaching it never consumes the next phase or its hold.

@@ -39,6 +39,21 @@ class TraceTests(unittest.TestCase):
         self.assertLess(rows[1]['velocity_us_s'],0)
         self.assertEqual(summary['rows_without_preceding_target'],0)
 
+    def test_host_walk_without_phase_retains_observed_joint_response(self):
+        host = sample(4, 250)
+        host['motion'] = {'walking': True, 'command_sequence': 8,
+                          'entering': False, 'walk_source': 'host',
+                          'nominal_sample': 17, 'sampled_us': 230}
+        rows, summary = reconstruct([batch([
+            output(1, 100), sample(2, 150), output(3, 200, 1800), host])], FEEDBACK)
+        self.assertEqual([r['planned_phase'] for r in rows], [.25, .25, None, None])
+        self.assertEqual([r['command_sequence'] for r in rows], [7, 7, 8, 8])
+        self.assertEqual([r['command_us'] for r in rows], [1500, 1500, 1800, 1800])
+        self.assertEqual([r['observed_error_us'] for r in rows], [0, 0, 300, 300])
+        self.assertTrue(all(r['valid'] and r['walking'] for r in rows))
+        self.assertEqual(summary['sample_events'], 2)
+        self.assertEqual(summary['rows_without_preceding_target'], 0)
+
     def test_lost_records_do_not_reuse_a_target_across_the_gap(self):
         a = batch([output(1,100),sample(2,150)])
         b = batch([sample(4,250)],lost=1)

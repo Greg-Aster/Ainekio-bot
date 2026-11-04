@@ -22,7 +22,7 @@ import torch
 
 from .contract import SCHEMA, SCHEMAS, foot_offsets, vector
 from .environment import EnvironmentConfig, body_control_config, ENVIRONMENT_VERSION, POLICY_ENVIRONMENT_VERSIONS, representation_identity
-from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands, training_recipe, requested_commands, locomotion_config
+from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands, training_recipe, requested_commands, locomotion_config, evaluation_seed_list
 
 
 def evaluation_summary(value):
@@ -227,6 +227,7 @@ class Runtime:
             if type(steps) is not int or steps <= 0:
                 raise ValueError("Training steps must be a positive integer")
             checkpoint_every = payload.get("checkpoint_every")
+            evaluation_seeds = evaluation_seed_list(payload.get("evaluation_seeds"))
             if checkpoint_every is not None and (type(checkpoint_every) is not int or checkpoint_every <= 0):
                 raise ValueError("Checkpoint interval must be a positive number of training transitions")
             learning_rate = payload.get("learning_rate")
@@ -348,6 +349,8 @@ class Runtime:
                 command += ["--command-units", *map(str, command_units)]
             if checkpoint_every is not None:
                 command += ["--checkpoint-every", str(checkpoint_every)]
+            if evaluation_seeds is not None:
+                command += ["--evaluation-seeds", *map(str, evaluation_seeds)]
             if exploration_learning_rate is not None:
                 command += ["--exploration-learning-rate", str(exploration_learning_rate)]
             if payload.get("initialize_from"):

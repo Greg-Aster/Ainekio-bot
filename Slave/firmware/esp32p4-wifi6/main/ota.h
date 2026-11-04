@@ -6,6 +6,7 @@
 
 bool ainekio_p4_ota_busy(void);
 esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server);
+size_t ainekio_p4_maintenance_endpoint_count(void);
 /* Called at the existing authenticated startup acceptance point. */
 esp_err_t ainekio_p4_ota_startup_check(void);
 void ainekio_p4_ota_accepted(void);

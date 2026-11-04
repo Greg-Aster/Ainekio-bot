@@ -9,17 +9,16 @@ from __future__ import annotations
 import asyncio
 import copy
 import hashlib
-import http.client
 import json
 import math
 import os
 from pathlib import Path
 import time
-import threading
 from uuid import uuid4
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.control_v1 import BALANCE_CONTROL_FEATURE, BALANCE_TUNING_FIELDS
 
+from . import robot_learning_transport
 from .gait_learning import policy_seed
 from .gait_optimizer import (DEFAULT_RADII, DEFAULT_WEIGHTS, PRIORITIES, candidate,
                              compare, context, measured_score, propose_worker, project_candidate)
@@ -53,76 +52,6 @@ def optimizer_observations(bank, required):
             for key, values in grouped.items() if all(c in values for c in required)]
 
 
-class TraceSessionChanged(ValueError):
-    """The device restarted or another trace_start replaced this recording."""
-
-
-class RobotLearningTransport:
-    """Use the gateway's authenticated LAN robot and token, never user URLs."""
-    def __init__(self, gateway, tokens, *, persistent=True):
-        self.gateway, self.tokens = gateway, tokens
-        self.persistent = persistent
-        self.sessions = {}
-
-    async def request(self, robot, endpoint, payload):
-        address = await self.gateway.maintenance_address(robot)
-        token = self.tokens.snapshot()[robot]
-        if not self.persistent:
-            # Inference may outlast the robot's HTTP idle connection. Sparse
-            # observations own a fresh socket; streamed traces retain reuse.
-            return await asyncio.to_thread(self._request, address, token, endpoint, payload)
-        session = self.sessions.setdefault(robot, {"lock": threading.Lock(), "address": None, "connection": None})
-        return await asyncio.to_thread(self._persistent_request, session, address, token, endpoint, payload)
-
-    def _persistent_request(self, session, address, token, endpoint, payload):
-        # HTTP/1.1 request/response pairs on one socket must be serialized.
-        # This lock belongs only to this robot's measurement/model HTTP stream;
-        # semantic commands, camera and other robots use their existing owners.
-        with session["lock"]:
-            if session["address"] != address or session["connection"] is None:
-                if session["connection"] is not None:
-                    session["connection"].close()
-                session.update(address=address, connection=http.client.HTTPConnection(address, 80, timeout=30))
-            try:
-                return self._request(address, token, endpoint, payload, session["connection"])
-            except Exception:
-                session["connection"].close()
-                session["connection"] = None
-                raise  # Existing caller reports failure; no request is replayed here.
-
-    async def close(self):
-        def close_sessions():
-            for session in self.sessions.values():
-                with session["lock"]:
-                    if session["connection"] is not None:
-                        session["connection"].close()
-                        session["connection"] = None
-        await asyncio.to_thread(close_sessions)
-
-    @staticmethod
-    def _request(address, token, endpoint, payload, connection=None):
-        owned = connection is None
-        if owned:
-            connection = http.client.HTTPConnection(address, 80, timeout=30)
-        try:
-            connection.request("POST" if payload is not None else "GET", "/api/"+endpoint,
-                               json.dumps(payload) if payload is not None else None,
-                               {"Authorization": "Bearer "+token, "Content-Type": "application/json"})
-            response = connection.getresponse()
-            data = response.read().decode()
-            if response.status != 200:
-                if response.status == 409 and (payload or {}).get("op", "").startswith("trace_"):
-                    if json.loads(data).get("error") == "Trace session changed":
-                        raise TraceSessionChanged("Device trace session changed")
-                raise ValueError(f"Robot {endpoint}: HTTP {response.status}: {data}")
-            if (payload or {}).get("op", "").startswith("trace_"):
-                return [json.loads(line) for line in data.splitlines() if line.strip()]
-            return json.loads(data)
-        finally:
-            if owned:
-                connection.close()
-
-
 class GaitLearningService:
     def __init__(self, gateway, transport, measurement, directory=None, optimizer=propose_worker,
                  projector=project_candidate, depth_demand=None):
@@ -138,6 +67,7 @@ class GaitLearningService:
         self.writes = asyncio.Queue()
         self.writer = None
         self.closed = False
+        self._close_task = None
         gateway.subscribe_commands(self.command)
         gateway.subscribe_events(self.event)
         gateway.subscribe_frames(self.frame)
@@ -146,13 +76,7 @@ class GaitLearningService:
     async def start(self):
         self.writer = asyncio.create_task(self._write_loop(), name="gait-storage")
         for robot, settings in self.settings.items():
-            r = self._runtime(robot)
-            path = r["root"]/"training.json"
-            if path.exists():
-                r["banks"] = await asyncio.to_thread(lambda p=path: json.loads(p.read_text()))
-                if settings.get("learning"):
-                    for gait, bank in r["banks"].items():
-                        r["pending"][gait] = (bank["incumbent"] if bank.get("converged") else bank["candidate"], False)
+            await self._load_banks(robot, settings)
             if settings.get("logging") or settings.get("learning"):
                 self._start_robot(robot)
 
@@ -167,6 +91,15 @@ class GaitLearningService:
                 poses=[], window=None, banks={}, after=0, boot=None, session=None,
                 owned=False, pending={}, measurements_reason=None)
         return self.runtime[robot]
+
+    async def _load_banks(self, robot, settings=None):
+        r = self._runtime(robot)
+        path = r["root"]/"training.json"
+        if path.exists():
+            r["banks"] = await asyncio.to_thread(lambda p=path: json.loads(p.read_text()))
+            if (self.settings.get(robot, {}) if settings is None else settings).get("learning"):
+                for gait, bank in r["banks"].items():
+                    r["pending"][gait] = (bank["incumbent"] if bank.get("converged") else bank["candidate"], False)
 
     def _start_robot(self, robot):
         if robot not in self.tasks or self.tasks[robot].done():
@@ -401,13 +334,10 @@ class GaitLearningService:
         r = self._runtime(robot)
         r.update(after=0, boot=None, session=None, owned=False, window=None, poses=[], latest_imu=None)
         r["recording"] = r["root"]/("recordings/"+time.strftime("%Y%m%d-%H%M%S")+"-"+uuid4().hex[:8])
-        state_path = r["root"]/"training.json"
-        if not r["banks"] and state_path.exists():
-            r["banks"] = await asyncio.to_thread(lambda: json.loads(state_path.read_text()))
-            if self.settings.get(robot, {}).get("learning"):
-                for gait, bank in r["banks"].items():
-                    r["pending"][gait] = (bank["incumbent"] if bank.get("converged") else bank["candidate"], False)
+        if not r["banks"]:
+            await self._load_banks(robot)
         depth_active = False
+        cancellation = None
         try:
             while not self.closed:
                 settings = self.settings.get(robot, {})
@@ -475,7 +405,7 @@ class GaitLearningService:
                     r["error"] = None
                     if not footer.get("more"):
                         await asyncio.sleep(.1)  # sensor drain cadence, never a motion wait
-                except TraceSessionChanged as error:
+                except robot_learning_transport.TraceSessionChanged as error:
                     self._observe(robot, "events", {"t": "trace_session_changed",
                         "boot_id": r["boot"], "session": r["session"], "reason": str(error)})
                     # A cursor belongs to one device boot/trace session. Reacquire
@@ -489,22 +419,12 @@ class GaitLearningService:
                     # reconnecting to drain retained records is not a gap.
                     r["error"], r["state"] = str(error), "recording_unavailable"
                     await asyncio.sleep(1)
+        except asyncio.CancelledError as error:
+            cancellation = error
         finally:
-            if depth_active:
-                await self.depth_demand(robot, f"gait-learning:{robot}", False, wait_for_measurement=False)
-            if r["owned"]:
-                try:
-                    records = await self.transport.request(robot, "servo-feedback", {"op": "trace_stop", "after": r["after"],
-                        "boot_id": r["boot"], "session": r["session"]})
-                    while True:
-                        self._enqueue(r["recording"]/"trace.jsonl", {"records": records})
-                        if not records[-1].get("more"):
-                            break
-                        records = await self.transport.request(robot, "servo-feedback", {"op": "trace_read", "after": records[-1]["next"],
-                            "boot_id": r["boot"], "session": r["session"]})
-                except (OSError, ValueError, RuntimeError):
-                    pass
-            r.update(state="off", owned=False, window=None)
+            # This recorder owns release even when its waiter is cancelled again.
+            release = asyncio.create_task(self._release_recording(robot, depth_active))
+            await self._drain_cleanup(release, cancellation)
 
         # An enable can arrive while the previous recording drains its owned
         # trace. Reconcile it after normal completion, never after cancellation
@@ -513,6 +433,67 @@ class GaitLearningService:
         if not self.closed and (settings.get("logging") or settings.get("learning") or r["pending"]):
             self.tasks.pop(robot, None)
             self._start_robot(robot)
+
+    async def _release_recording(self, robot, depth_active):
+        r = self._runtime(robot)
+        identity = {"boot_id": r["boot"], "session": r["session"]}
+        failures = []
+        acknowledged = drained = False if r["owned"] else None
+        if depth_active:
+            try:
+                await self.depth_demand(robot, f"gait-learning:{robot}", False, wait_for_measurement=False)
+            except Exception as error:
+                failures.append(("depth_release", error))
+        if r["owned"]:
+            stage = "trace_stop"
+            try:
+                if any(value is None for value in identity.values()):
+                    raise ValueError("Cannot stop trace without owned boot/session identity")
+                records = await self.transport.request(robot, "servo-feedback",
+                    {"op": "trace_stop", "after": r["after"], **identity})
+                header = records[0]
+                if (header.get("schema") != "gait_trace_v1"
+                        or any(header.get(key) != value for key, value in identity.items())
+                        or header.get("active") is not False):
+                    raise ValueError("Trace stop did not acknowledge the owned inactive session")
+                acknowledged = True
+                r["owned"] = False
+                stage = "trace_drain"
+                while True:
+                    header, footer = records[0], records[-1]
+                    if (header.get("schema") != "gait_trace_v1"
+                            or any(header.get(key) != value for key, value in identity.items())
+                            or header.get("active") is not False or "next" not in footer):
+                        raise ValueError("Incomplete owned trace drain response")
+                    self._enqueue(r["recording"]/"trace.jsonl", {"records": records})
+                    r["after"] = footer["next"]
+                    if not footer.get("more"):
+                        drained = True
+                        break
+                    records = await self.transport.request(robot, "servo-feedback",
+                        {"op": "trace_read", "after": r["after"], **identity})
+            except robot_learning_transport.TraceSessionChanged as error:
+                r["owned"] = False
+                failures.append((stage, error))
+            except Exception as error:
+                failures.append((stage, error))
+        r["window"] = None
+        failure = None
+        if failures:
+            failure = ExceptionGroup("Recording cleanup failed: "+"; ".join(
+                stage+": "+str(error) for stage, error in failures), [error for _, error in failures])
+            # Keep the actual result as well as its status text: a cancelled
+            # recorder's Task result alone cannot carry it to every close caller.
+            r.update(state="recording_unavailable", error=failure)
+        else:
+            r.update(state="off", owned=False)
+        # _observe intentionally stops on disable/close. This final event still
+        # belongs to the existing recording and must precede its writer sentinel.
+        self._enqueue(r["recording"]/"events.jsonl", {"host_monotonic_s": time.monotonic(), "value": {
+            "t": "recording_cleanup", **identity, "trace_stop_acknowledged": acknowledged,
+            "trace_drained": drained, "errors": [{"stage": stage, "error": str(error)} for stage, error in failures]}})
+        if failure is not None:
+            raise failure
 
     async def _consume(self, robot, batch):
         r = self._runtime(robot)
@@ -773,20 +754,64 @@ class GaitLearningService:
         return self.status(robot)
 
     async def close(self):
-        if self.closed:
-            return
-        self.closed = True
-        self.gateway.unsubscribe_diagnostics(self.diagnostic)
-        for task in self.tasks.values():
-            task.cancel()
-        for task in self.workers.values():
-            task.cancel()
-        await asyncio.gather(*self.tasks.values(), return_exceptions=True)
-        await asyncio.gather(*self.workers.values(), return_exceptions=True)
-        close_transport = getattr(self.transport, "close", None)
-        if close_transport is not None:
-            await close_transport()
-        await self.writes.join()
-        if self.writer:
-            self.writes.put_nowait(None)
-            await self.writer
+        if self._close_task is None:
+            self.closed = True
+            self._close_task = asyncio.create_task(self._finish_close(), name="gait-close")
+        return await self._drain_cleanup(self._close_task)
+
+    async def _drain_cleanup(self, task, cancellation=None):
+        # A cancelled shared close task supplies its own result; cancellation
+        # of a private release instead counts as the recorder's cancellation.
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError as error:
+                if task.cancelled() and task is self._close_task:
+                    break
+                cancellation = error
+            except Exception:
+                break
+        try:
+            result = task.result()
+        except BaseException as error:
+            if cancellation is not None:
+                raise cancellation from error
+            raise
+        if cancellation is not None:
+            raise cancellation
+        return result
+
+    async def _finish_close(self):
+        try:
+            self.gateway.unsubscribe_diagnostics(self.diagnostic)
+            recorders = list(self.tasks.items())
+            for _, task in recorders:
+                task.cancel()
+            for task in self.workers.values():
+                task.cancel()
+            results = await asyncio.gather(*(task for _, task in recorders), return_exceptions=True)
+            await asyncio.gather(*self.workers.values(), return_exceptions=True)
+            errors = [result for result in results
+                      if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError)]
+            for robot, _ in recorders:
+                error = self._runtime(robot)["error"]
+                if isinstance(error, BaseException) and all(error is not existing for existing in errors):
+                    errors.append(error)
+            if len(errors) == 1:
+                raise errors[0]
+            if errors:
+                raise BaseExceptionGroup("Gait recorders failed", errors)
+        finally:
+            try:
+                close_transport = getattr(self.transport, "close", None)
+                if close_transport is not None:
+                    await close_transport()
+            finally:
+                if self.writer is not None:
+                    # FIFO places the sentinel after all admitted records. Await
+                    # the writer itself so a dead writer cannot strand join().
+                    if not self.writer.done():
+                        self.writes.put_nowait(None)
+                    await self.writer
+                if not self.writes.empty():
+                    raise RuntimeError("Gait storage writer stopped with pending recording writes")

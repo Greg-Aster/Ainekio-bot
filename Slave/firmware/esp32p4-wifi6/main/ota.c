@@ -5,6 +5,8 @@
 #include "servo_feedback.h"
 #include "board.h"
 #include "body.h"
+#include "trajectory_program.h"
+#include "cJSON.h"
 #include "config.h"
 #include "display.h"
 #include "storage.h"
@@ -402,14 +404,40 @@ static esp_err_t gait_learning(httpd_req_t *r)
     if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
     return ainekio_p4_learning_http(r);
 }
-esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server)
+
+static esp_err_t trajectory(httpd_req_t *r)
 {
-    ainekio_p4_learning_init();
-    const httpd_uri_t endpoints[] = {
+    if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
+    const uint64_t epoch=ainekio_p4_body_curve_epoch();
+    if(!r->content_len)return response(r,"400 Bad Request","{\"error\":\"Expected a generated trajectory\"}");
+    char *input=malloc(r->content_len);
+    if(!input)return response(r,"503 Service Unavailable","{\"error\":\"Insufficient trajectory upload memory\"}");
+    size_t used=0;
+    while(used<(size_t)r->content_len) {
+        const int n=httpd_req_recv(r,input+used,r->content_len-used);
+        if(n<=0){free(input);return ESP_FAIL;}used+=(size_t)n;
+    }
+    cJSON *root=cJSON_ParseWithLength(input,used);free(input);
+    const cJSON *op=cJSON_GetObjectItemCaseSensitive(root,"op"),*id=cJSON_GetObjectItemCaseSensitive(root,"id");
+    if(cJSON_IsString(op) && !strcmp(op->valuestring,"discard") && cJSON_IsString(id)) {
+        ainekio_p4_body_discard_curve(id->valuestring);cJSON_Delete(root);
+        return response(r,"200 OK","{\"discarded\":true}");
+    }
+    esp_err_t error;
+    ainekio_p4_curve_program_t *program=ainekio_p4_curve_parse(root,&error);cJSON_Delete(root);
+    if(!program)return error==ESP_ERR_NO_MEM ?
+        response(r,"503 Service Unavailable","{\"error\":\"Insufficient curve program memory\"}"):
+        response(r,"400 Bad Request","{\"error\":\"Invalid trajectory format\"}");
+    if(!ainekio_p4_body_stage_curve(program,epoch))
+        return response(r,"409 Conflict","{\"error\":\"Robot connection changed during trajectory upload\"}");
+    return response(r,"200 OK","{\"prepared\":true}");
+}
+static const httpd_uri_t maintenance_endpoints[] = {
         {.uri="/api/idle-rest", .method=HTTP_GET, .handler=idle_rest},
         {.uri="/api/idle-rest", .method=HTTP_POST, .handler=idle_rest},
         {.uri="/api/gait-learning", .method=HTTP_GET, .handler=gait_learning},
         {.uri="/api/gait-learning", .method=HTTP_POST, .handler=gait_learning},
+        {.uri="/api/trajectory", .method=HTTP_POST, .handler=trajectory},
         {.uri="/api/servo-feedback", .method=HTTP_GET, .handler=servo_feedback},
         {.uri="/api/servo-feedback", .method=HTTP_POST, .handler=servo_feedback},
         {.uri="/api/logs", .method=HTTP_GET, .handler=controller_logs},
@@ -420,8 +448,14 @@ esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server)
         {.uri="/api/firmware", .method=HTTP_POST, .handler=upload},
         {.uri="/api/firmware/activate", .method=HTTP_POST, .handler=activate},
     };
-    for (size_t i=0; i<sizeof(endpoints)/sizeof(endpoints[0]); ++i) {
-        esp_err_t result = httpd_register_uri_handler(server, &endpoints[i]);
+size_t ainekio_p4_maintenance_endpoint_count(void)
+{ return sizeof(maintenance_endpoints)/sizeof(maintenance_endpoints[0]); }
+
+esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server)
+{
+    ainekio_p4_learning_init();
+    for (size_t i=0; i<ainekio_p4_maintenance_endpoint_count(); ++i) {
+        esp_err_t result = httpd_register_uri_handler(server, &maintenance_endpoints[i]);
         if (result != ESP_OK) return result;
     }
     return ESP_OK;

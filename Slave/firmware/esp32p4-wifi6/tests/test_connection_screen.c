@@ -26,8 +26,8 @@ static void check_page(const ainekio_connection_page_t *page)
         for (unsigned i = 0; i < AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT; ++i)
             assert(frame.pixels[i] == 0x5555);
     else
-        for(unsigned y=0;y<AINEKIO_FACE_HEIGHT;++y)
-            for(unsigned x=0;x<AINEKIO_FACE_WIDTH;++x)
+        for(int y=0;y<AINEKIO_FACE_HEIGHT;++y)
+            for(int x=0;x<AINEKIO_FACE_WIDTH;++x)
                 if(y<AINEKIO_LCD_VISIBLE_TOP || y>=AINEKIO_LCD_VISIBLE_BOTTOM ||
                     x>=AINEKIO_LCD_VISIBLE_RIGHT)
                     assert(!frame.pixels[y*AINEKIO_FACE_WIDTH+x]);

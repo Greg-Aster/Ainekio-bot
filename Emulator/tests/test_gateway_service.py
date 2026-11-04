@@ -486,6 +486,8 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(GatewayError, "saved speaker volume"):
             await service.set_speaker_volume(volume_percent=37, robot_id="robot")
         connection.features = ("audio_input_v1",)
+        with self.assertRaisesRegex(GatewayError, "recording timing"):
+            await service.set_microphone(on=True, gate="wake", silence_ms=2000, robot_id="robot")
         seq = await service.set_microphone(on=True, gate="wake", gain_db=36, robot_id="robot")
         self.assertEqual(socket.sent[-1], {"t": "mic", "seq": seq, "on": True, "gate": "wake", "gain_db": 36})
         await connection._handle_control({"t": "ack", "seq": seq})
@@ -495,6 +497,7 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         audio = {"on": True, "listening": True, "gate": "wake", "gain_db": 36,
                  "wake_enabled": True, "wake_threshold": 0.4, "rms": 0.08, "peak": 0.24,
                  "speaker_volume_percent": 37}
+        audio.update(vad_mode=2, silence_ms=2000, max_recording_ms=15000)
         # Meter updates without a wake event or any transmitted microphone PCM.
         await connection._handle_control({"t": "ping", "clock_ms": 12000, "audio": audio})
         self.assertEqual(socket.sent[-1], {"t": "pong", "external_speech": False})
@@ -502,6 +505,11 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entry["audio_input"], audio)
         self.assertEqual(entry["microphone_level"], 0.08)
         self.assertLess(entry["audio_input_age_ms"], 100)
+        seq = await service.set_microphone(on=True, gate="wake", vad_mode=1, silence_ms=2400,
+            max_recording_ms=10000, robot_id="robot")
+        self.assertEqual({key: socket.sent[-1][key] for key in ("vad_mode", "silence_ms", "max_recording_ms")},
+            {"vad_mode": 1, "silence_ms": 2400, "max_recording_ms": 10000})
+        await connection._handle_control({"t": "ack", "seq": seq})
         for volume in (0, 37, 100):
             seq = await service.set_speaker_volume(volume_percent=volume, robot_id="robot")
             self.assertEqual(socket.sent[-1], {"t": "speaker", "seq": seq, "volume_percent": volume})
@@ -1409,6 +1417,98 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cold_camera_delivers_latest_depth_to_moving_neural_walk(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from gateway.neural_gait.contract import HISTORY_SCHEMA
+        from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
+
+        service, connection, socket, requests = self.neural_fixture()
+        now = [service.clock()]
+        service.clock = lambda: now[0]
+        original_call = service.neural_gait.call
+        async def call(path, payload=None):
+            result = await original_call(path, payload)
+            if path == "/status?history=0":
+                result["environment"]["observation_schema"] = HISTORY_SCHEMA
+            return result
+        service.neural_gait.call = call
+        camera = CameraFramePlugin(service, None)
+        service.depth_demand = camera.depth_demand
+        service.locomotion_measurement = camera.locomotion_measurement
+        camera._depth_settings["robot"] = {"mode": "moge-open3d"}
+        entered = [asyncio.Event(), asyncio.Event()]
+        released = [threading.Event(), threading.Event()]
+        processed, events = [], []
+        loop = asyncio.get_running_loop()
+        grid = dict(schema="ainekio-depth-grid-v1", rows=8, columns=8,
+            frame="camera-optical", depthKind="optical-axis-z", units="estimated-metres",
+            available=True, values=[.5]*64, valid=[True]*64, imageSize=[640,480],
+            cameraMatrix=[[550,0,320],[0,550,240],[0,0,1]], cameraToBody=None)
+        def process(robot, epoch, counter, received, jpeg, stamp, config):
+            index = len(processed)
+            processed.append(counter)
+            loop.call_soon_threadsafe(entered[index].set)
+            if not released[index].wait(3):
+                raise AssertionError("Test did not release camera inference")
+            return dict(available=True, robotId=robot, epoch=epoch, frameCounter=counter,
+                frameId=f"depth-{counter}", receivedAtMonotonic=received,
+                coordinateOrigin="body", depthSpatial=grid,
+                velocity_body_m_s=None if index == 0 else [.02,0,0])
+        depth = SimpleNamespace(process=process, close=Mock(), reset=Mock())
+        camera._depth_motion = depth
+        service.subscribe_events(events.append)
+        async def frame(counter):
+            await service._publish_frame(dict(frame_type=CAMERA_JPEG_FRAME_TYPE,
+                robot_id="robot", epoch=7, counter=counter,
+                received_at=now[0], payload=b"fixture-jpeg"))
+        producer = None
+        try:
+            await frame(1)
+            walk = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+            producer = connection.neural_walk.task
+            await asyncio.wait_for(entered[0].wait(), 1)
+            await self.neural_packet(connection, walk, 1)
+            first, result = await asyncio.wait_for(requests.get(), 1)
+            self.assertFalse(first["observation"]["vision"]["depth_available"])
+            result.set_result({"model_id":"selected","action":[.1]*12})
+            target = await asyncio.wait_for(socket.targets.get(), 1)
+            self.assertFalse(released[0].is_set(), "Movement must not await cold camera inference")
+            now[0] += 14.8
+            # This fixture feeds _handle_control directly, below the socket
+            # receive loop that timestamps the continuing body packets.
+            connection.last_control_at = now[0]
+            await frame(2)
+            await frame(3)
+            released[0].set()
+            await asyncio.wait_for(entered[1].wait(), 1)
+            stale = camera.locomotion_measurement("robot")
+            self.assertFalse(stale["frameCurrent"])
+            self.assertEqual(stale["frameCounter"], 1)
+            self.assertAlmostEqual(now[0]-stale["receivedAtMonotonic"], 14.8)
+            released[1].set()
+            await asyncio.wait_for(camera._metric_queue.join(), 1)
+            await self.neural_packet(connection, walk, 2, target["sample"])
+            fresh, _ = await asyncio.wait_for(requests.get(), 1)
+            vision = fresh["observation"]["vision"]
+            self.assertTrue(vision["depth_available"])
+            self.assertTrue(vision["available"])
+            self.assertEqual(vision["depth_frame_id"], "depth-3")
+            self.assertEqual(vision["velocity_body_m_s"], [.02,0,0])
+            self.assertEqual(processed, [1,3], "Cold start retains the latest queued frame, not a backlog")
+            published = [e["measurement"] for e in events
+                if e.get("t") == "locomotion_measurement" and "depthSpatial" in e["measurement"]]
+            self.assertEqual([m["frameCounter"] for m in published], [1,3])
+        finally:
+            for release in released:
+                release.set()
+            connection.cancel_pending()
+            if producer is not None:
+                await asyncio.gather(producer, return_exceptions=True)
+            await camera.aclose()
+        depth.close.assert_called_once()
+        self.assertFalse(camera._metric_consumers)
+
     async def test_neural_depth_uses_camera_owner_without_waiting_and_releases_on_cancel(self):
         from gateway.neural_gait.contract import DEPTH_SCHEMA
         service, connection, socket, requests = self.neural_fixture()

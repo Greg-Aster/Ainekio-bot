@@ -75,6 +75,68 @@ class SimulatedDepthTests(unittest.TestCase):
         self.data.time = time
         return self.camera.update(self.model,self.data,self.rng,robot_id="robot",epoch=2,gateway_instance="fixture")
 
+    def test_cold_worker_coalesces_frames_and_odometry_uses_only_processed_captures(self):
+        from gateway.neural_gait.depth import DepthCamera, project_depth
+        self.camera = DepthCamera({**self.profile, "startup_latency_s":1.3,
+            "max_frame_age_s":.5, "odometry":dict(position_noise_std_m=0.,
+                rotation_noise_std_rad=0., log_scale_std=0., dropout_probability=0.)})
+        self.assertFalse(self.capture(0)["frameCurrent"])
+        self.data.qpos[0] = .8
+        self.mujoco.mj_forward(self.model,self.data)
+        self.assertFalse(self.capture(.5)["frameCurrent"])
+        self.data.qpos[0] = .2
+        self.mujoco.mj_forward(self.model,self.data)
+        self.assertFalse(self.capture(1.)["frameCurrent"])
+        self.data.qpos[0] = 1.
+        self.mujoco.mj_forward(self.model,self.data)
+        first = self.capture(1.3)
+        self.assertEqual(first["frameCounter"],1)
+        self.assertEqual(first["receivedAtMonotonic"],0.)
+        self.assertEqual(first["deliveryAtSimulationS"],1.3)
+        self.assertFalse(project_depth(first,1.3,"robot",2)["depth_available"])
+        latest = self.capture(1.5)
+        self.assertEqual(latest["frameCounter"],3, "The intermediate frame was never processed")
+        self.assertEqual(latest["receivedAtMonotonic"],1.)
+        self.assertEqual(latest["processingStartedAtSimulationS"],1.3)
+        self.assertEqual(latest["deliveryAtSimulationS"],1.5)
+        self.assertTrue(project_depth(latest,1.5,"robot",2)["depth_available"])
+        np.testing.assert_allclose(latest["velocity_body_m_s"],[.2,0,0],atol=1e-12)
+        self.assertAlmostEqual(latest["path_length_m"],.2,
+            msg="Dropped frames and delivery-time poses must not extend measured travel")
+        warm = self.capture(1.7)
+        self.assertEqual(warm["frameCounter"],4)
+        self.assertAlmostEqual(warm["inferenceMs"],200.)
+
+    def test_startup_range_samples_once_per_reset_and_zero_preserves_rng(self):
+        from gateway.neural_gait.depth import DepthCamera
+        profile = {**self.profile,"noise_std_m":.01,"dropout_probability":.2,
+            "odometry":dict(position_noise_std_m=.002,rotation_noise_std_rad=.005,
+                log_scale_std=.15,dropout_probability=.05)}
+        default = DepthCamera(profile)
+        zero = DepthCamera({**profile,"startup_latency_s":[0,0]})
+        rng_default, rng_zero = np.random.default_rng(42), np.random.default_rng(42)
+        for now in (0,.2,.5,.7,1.,1.2):
+            args = dict(robot_id="robot",epoch=2,gateway_instance="fixture",now_s=now)
+            self.assertEqual(default.update(self.model,self.data,rng_default,**args),
+                zero.update(self.model,self.data,rng_zero,**args))
+            self.assertEqual(rng_default.bit_generator.state,rng_zero.bit_generator.state)
+        camera = DepthCamera({**self.profile,"startup_latency_s":[1.,2.]})
+        rng, expected = np.random.default_rng(9), np.random.default_rng(9)
+        for _ in range(2):
+            camera.reset()
+            camera.update(self.model,self.data,rng,robot_id="robot",epoch=2,
+                gateway_instance="fixture",now_s=0.)
+            delay = camera.pending[0][0]
+            self.assertAlmostEqual(delay,expected.uniform(1.,2.))
+            for now in (.5,delay,delay+.2):
+                camera.update(self.model,self.data,rng,robot_id="robot",epoch=2,
+                    gateway_instance="fixture",now_s=now)
+            self.assertEqual(rng.bit_generator.state,expected.bit_generator.state,
+                "Warm jobs do not sample another startup delay")
+        for invalid in (-1,[2,1],[1],True,[0,float("inf")]):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError,"startup latency"):
+                DepthCamera({**self.profile,"startup_latency_s":invalid})
+
     def test_actual_optical_z_rays_exclude_robot_and_preserve_capture_latency(self):
         from gateway.neural_gait.depth import project_depth
         self.assertFalse(self.capture(0)["frameCurrent"])

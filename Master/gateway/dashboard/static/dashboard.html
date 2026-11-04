@@ -758,7 +758,24 @@
             <span class="speaker-test-volume-heading">Microphone gain <output id="microphone-gain-output" for="microphone-gain">30 dB</output></span>
             <input id="microphone-gain" name="gain_db" type="range" min="0" max="42" step="6" value="30" aria-describedby="microphone-gain-help">
           </label>
-          <button type="submit">Apply microphone</button>
+          <label>Speech detection sensitivity
+            <select name="vad_mode" disabled aria-describedby="speech-settings-help">
+              <option value="0">Very high</option>
+              <option value="1">High</option>
+              <option value="2">Medium</option>
+              <option value="3" selected>Low (current default)</option>
+              <option value="4">Very low</option>
+            </select>
+          </label>
+          <label>End-of-speech pause (seconds)
+            <input name="silence_s" type="number" min="0.02" max="15" step="0.02" value="1" disabled aria-describedby="speech-settings-help">
+          </label>
+          <label>Maximum recording after wake (seconds)
+            <input name="max_recording_s" type="number" min="0.02" max="15" step="0.02" value="15" disabled aria-describedby="speech-settings-help">
+          </label>
+          <button type="submit">Save microphone settings</button>
+          <p id="speech-settings-help" class="audio-help">Speech sensitivity and the silence pause apply to Voice activity and Wake word. Higher sensitivity includes quieter speech and more background noise. A longer pause tolerates breaks between words and delays the reply. The wake recording duration starts when Ainekio is detected; the speech transport supports up to 15 seconds. All three settings are saved on the robot.</p>
+          <p id="speech-settings-state" class="audio-help" role="status">Waiting for recording settings</p>
           <p id="microphone-gain-help" class="audio-help" data-audio-input hidden>Higher gain amplifies quieter speech and background noise. Gain is saved on the robot. The P4 also remembers microphone On and its gate after power cycling.</p>
           <p id="microphone-settings-state" class="audio-help" data-audio-input hidden></p>
         </form>

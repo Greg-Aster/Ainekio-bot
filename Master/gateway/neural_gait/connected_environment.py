@@ -38,7 +38,7 @@ class BodyControlEnvironment(GaitEnvironment):
         return asyncio.run_coroutine_threadsafe(coroutine, self.loop).result()
 
     def _now_us(self):
-        return round(1+self.data.time*1e6)
+        return round(self.device_time_us())
 
     def _wire_command(self, command):
         return dict(dir="fwd", gait="walk", steps=0, speed=100,
@@ -78,6 +78,16 @@ class BodyControlEnvironment(GaitEnvironment):
                 await self.session.publish(output["messages"])
                 await self.session.telemetry()
             self.gateway_observation = await self.session.observation()
+            actions = self.warm_start_actions()
+            command = list(self.requested_command)
+            if actions and "warm_start_command" in self.scenario:
+                await self._set_command(self.scenario["warm_start_command"])
+            for action in actions:
+                _, _, terminated, _, outcome = await self._step(action)
+                self.check_warm_start(terminated, outcome)
+            if actions and self.requested_command != command:
+                await self._set_command(command)
+            self.finish_warm_start(info)
             info.update(execution_backend="body_control", requested_command=self.requested_command,
                         command=list(self.config.command), **self.session.execution_info())
             return np.asarray(vector(self.with_critic(self.gateway_observation)), dtype=np.float32), info
