@@ -152,6 +152,14 @@ class MotionRequestTests(unittest.IsolatedAsyncioTestCase):
         self.gateway.motion_done.set()
         self.assertEqual((await task)['type'], 'completed')
 
+    async def test_description_uses_generator_with_manual_library_selected(self):
+        self.gateway.motion_systems['robot'] = 'library'
+        task = await self.dispatched()
+        self.assertEqual(self.generated[0]['request'], self.action['description'])
+        self.gateway.motion_done.set()
+        self.assertEqual((await task)['type'], 'completed')
+        self.assertEqual(self.gateway.motion_systems['robot'], 'library')
+
     async def test_old_named_turn_cannot_bypass_freestyle_with_a_library_asset(self):
         self.action.update(type='robotCommand',command='turn_left_90',
             locomotionGoal={'kind':'relativeTurn','degrees':90,'tolerance':3})

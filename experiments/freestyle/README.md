@@ -51,6 +51,38 @@ not activate a pending contract or model change. Model-specific context, paralle
 KV, reasoning and adapter options belong in the host's native model preset.
 Dated deployments below are historical evidence, not current install commands.
 
+## Big Brother inference
+
+The generator can use an installed MetaHuman Big Brother provider over SSH.
+MetaHuman owns the model, authentication, reasoning setting and visible terminal
+session. Body Control still calls the same `/generate` endpoint and executes the
+returned program through its existing motion owner.
+
+```sh
+python3 -m experiments.freestyle.generator \
+  --big-brother-ssh metahuman-host --metahuman-root /path/to/metahuman \
+  --profile Ainekio --model gpt-6-sol \
+  --contract experiments/freestyle/training-data
+```
+
+Use an existing SSH identity and verified host key. `--ssh-option` accepts an SSH
+option such as `HostName=...`. The remote checkout needs its installed `pnpm` and
+`tsx`, and its existing Big Brother login. No browser session cookie is stored.
+The model argument labels the configured service; inference follows the selected
+profile's Big Brother model and records the model actually returned by MetaHuman.
+
+This provider sends the existing named tool schema and descriptions, retaining
+the contract's system text, request, observations and history. It does not use the
+numeric serialization learned by the local fine-tune. Requests use reasoning off.
+Fast mode is configured in MetaHuman's Codex backend arguments with
+`--config service_tier="fast" --config features.fast_mode=true`.
+Client cancellation propagates through SSH to the existing Big Brother owner.
+Provider failures remain failures; no fallback movement is substituted.
+
+On October 31 the Q6A's existing `ainekio-freestyle-api.service` was switched to
+this provider using the maintained `training-data` contract. Generation and
+offline packet compilation were checked; this does not qualify physical movement.
+
 The Freestyle observation includes each joint's live `feedback_range_deg`,
 `arrival_tolerance_deg`, `feedback_usable` and `feedback_faults`. The existing
 saved servo mapping converts feedback calibration pulses into signed model

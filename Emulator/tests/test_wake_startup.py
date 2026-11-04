@@ -10,17 +10,18 @@ from Emulator.tests.test_environment_adapter import SnapshotGateway, FakeWebSock
 
 
 class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
-    async def test_freestyle_wake_submits_stretch_without_waiting_for_generation(self):
+    async def test_freestyle_wake_submits_stretch_with_manual_library_selected(self):
         gateway, adapter = self.adapter()
         from gateway.server.service import GatewayService
         from types import SimpleNamespace
         gateway._connection = lambda robot: SimpleNamespace(robot_id="test-body")
-        gateway.motion_systems = {"test-body": "freestyle"}
+        gateway.motion_systems = {"test-body": "library"}
         gateway.freestyle_motion = AsyncMock(return_value={"job_id": "stretch-job"})
         gateway.request_motion = GatewayService.request_motion.__get__(gateway)
         await adapter._handle_gateway_event(self.event())
         observations = await self.finish(adapter)
-        gateway.freestyle_motion.assert_awaited_once_with("test-body", "stretch", execute=True)
+        gateway.freestyle_motion.assert_awaited_once_with("test-body", "Stand up, stretch, and finish standing.", execute=True)
+        self.assertEqual(gateway.motion_systems["test-body"], "library")
         self.assertEqual([call[0] for call in gateway.calls], ["snap", "wait"])
         stretch = observations[0]["state"]["bodyEvent"]["data"]["startup"]["stretch"]
         self.assertEqual((stretch["system"], stretch["jobId"], stretch["state"]),
@@ -73,8 +74,8 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(observations[0]["visual"]["metadata"]["bodyEventId"], "startup-1")
                 self.assertTrue(observations[0]["visual"]["timestamp"])
                 self.assertEqual(observations[0]["state"]["gateway"]["robots"]["test-body"]["status"]["camera_ready"], True)
-                self.assertEqual([call[0] for call in gateway.calls], ["snap", "wait", "intent"])
-                self.assertEqual(gateway.calls[-1][1][:2], ("emote", {"asset": "stretch"}))
+                self.assertEqual([call[0] for call in gateway.calls], ["request_motion", "snap", "wait"])
+                self.assertEqual(gateway.calls[0][1], ("Stand up, stretch, and finish standing.", "test-body"))
                 self.assertEqual([call[1][0] for call in gateway.calls if call[0] == "wait"], [9],
                                  "Only capture completion is consumed; stretch never blocks greeting")
                 self.assertEqual(adapter._pending_action_visuals, {})
@@ -112,7 +113,7 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_stretch_dispatch_failure_is_reported_without_losing_photo(self):
         gateway, adapter = self.adapter()
-        gateway.queue_intent = AsyncMock(side_effect=GatewayError("motion unavailable"))
+        gateway.request_motion = AsyncMock(side_effect=GatewayError("motion unavailable"))
         await adapter._handle_gateway_event(self.event())
         observations = await self.finish(adapter)
         self.assertIsNotNone(observations[0].get("visual"))
@@ -139,9 +140,9 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
         await adapter._handle_gateway_event(self.event())
         self.assertEqual(await self.finish(adapter), [])
         self.assertEqual(adapter.receipts.pending(), [])
-        self.assertEqual([call[0] for call in gateway.calls], ["snap", "wait", "intent"])
+        self.assertEqual([call[0] for call in gateway.calls], ["request_motion", "snap", "wait"])
 
-    async def test_real_gateway_receives_boot_and_camera_while_stretch_stays_pending(self):
+    async def test_real_gateway_receives_boot_and_camera_without_waiting_for_freestyle(self):
         from gateway.server.service import GatewayService, GatewayServiceConfig, GatewayConnection
         from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, encode_binary_frame
         commands = asyncio.Queue()
@@ -150,6 +151,8 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
             async def send(self, raw):
                 await commands.put(json.loads(raw))
         gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "fixture"}))
+        gateway.freestyle_motion = AsyncMock(return_value={"job_id": "stretch-job"})
+        gateway.freestyle_result = AsyncMock()
         connection = GatewayConnection(gateway, Socket(), "test-body", 1, model="v2-12servo", features=("body_commands_v1",),
             capabilities={"camera": True, "motion": True, "commands": ["stretch"]})
         connection.last_status = {"camera_ready": True, "status_received_at": "2026-10-23T12:00:00Z"}
@@ -167,14 +170,16 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
                 "counter_base": 17, "origin": "request", "origin_id": snap["seq"]})
             await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 17, b"\xff\xd8jpeg\xff\xd9"))
             await connection._handle_control({"t": "done", "seq": snap["seq"]})
-            stretch = await commands.get()
-            self.assertEqual((stretch["t"], stretch["name"], stretch["asset"]), ("intent", "emote", "stretch"))
             observations = await self.finish(adapter)
         self.assertEqual(len(observations), 1)
         self.assertEqual(observations[0]["state"]["bodyEvent"]["event_id"], "boot-wire")
         self.assertEqual(observations[0]["visual"]["metadata"]["counter"], 17)
-        self.assertFalse(connection.pending[stretch["seq"]].future.done())
-        self.assertEqual(observations[0]["state"]["gateway"]["robots"]["test-body"]["body_command"]["asset"], "stretch")
+        gateway.freestyle_motion.assert_awaited_once_with("test-body", "Stand up, stretch, and finish standing.", execute=True)
+        gateway.freestyle_result.assert_not_awaited()
+        startup = observations[0]["state"]["bodyEvent"]["data"]["startup"]["stretch"]
+        self.assertEqual((startup["system"], startup["jobId"], startup["state"]),
+                         ("freestyle", "stretch-job", "submitted"))
+        self.assertTrue(commands.empty())
 
     async def test_recipient_belongs_to_event_admission_not_later_task_start(self):
         gateway, adapter = self.adapter()
@@ -183,7 +188,7 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
         adapter._websocket = FakeWebSocket()
         self.assertEqual(await self.finish(adapter), [])
         self.assertEqual(adapter.receipts.pending(), [])
-        self.assertEqual([call[0] for call in gateway.calls], ["snap", "wait", "intent"])
+        self.assertEqual([call[0] for call in gateway.calls], ["request_motion", "snap", "wait"])
 
     async def test_capture_does_not_depend_on_bridge_camera_delivery_worker(self):
         gateway, adapter = self.adapter()
