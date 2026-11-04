@@ -550,7 +550,7 @@ class VirtualBody:
     def __init__(self, body_model, reference_angles, *, joint_speed_deg_s,
                  motion_rate=1., balance=True, heading_feedback=True,
                  balance_tuning=(1., 1., 0., 0.), idle_rest_seconds=0,
-                 oscillator_hz=25000000, frequency_hz=50):
+                 oscillator_hz=25000000, frequency_hz=50, now_us=0):
         if VirtualBody._active is not None:
             raise RuntimeError("The production P4 executor is a process singleton")
         if "stand_enabled" not in body_model.robot["feedback"]:
@@ -562,11 +562,11 @@ class VirtualBody:
         self.settings = finite_array([joint_speed_deg_s, motion_rate, balance,
                                      heading_feedback, *balance_tuning,
                                      idle_rest_seconds, oscillator_hz, frequency_hz], 11)
-        if not self.lib.virtual_body_reset(body_model.state, self.reference, self.settings, 0):
+        if not self.lib.virtual_body_reset(body_model.state, self.reference, self.settings, int(now_us)):
             self.lib.virtual_body_close()
             raise ValueError("The P4 executor rejected its initial calibration/pose/settings")
         self.closed = False
-        self.now_us = 0
+        self.now_us = now_us
         VirtualBody._active = self
         body_model._virtual_body = self
 

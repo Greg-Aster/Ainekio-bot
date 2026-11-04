@@ -5,6 +5,7 @@ Raw failed programs remain evidence; only explicit reviews create targets.
 """
 import argparse
 import copy
+from concurrent.futures import Future
 import hashlib
 import json
 import logging
@@ -93,6 +94,15 @@ class Recorder:
                 'physical_success_inferred': False,
                 'sampling': 'Gateway telemetry as received during command activity; per-operation observations also retained.'}
 
+    def flush(self):
+        """Wait for preceding evidence to commit, without waiting for later motion."""
+        barrier=Future()
+        with self.admission_lock:
+            if self.closed:
+                raise RuntimeError(self.error or 'Motion evidence recorder is closed')
+            self.pending.put(barrier)
+        barrier.result()
+
     def _write(self):
         connection = None
         try:
@@ -112,13 +122,22 @@ class Recorder:
                 if item is None:
                     self.pending.task_done()
                     break
+                if isinstance(item,Future):
+                    if self.error:item.set_exception(RuntimeError(self.error))
+                    else:item.set_result(None)
+                    self.pending.task_done()
+                    continue
                 batch = [item]
+                barrier = None
+                closing = False
                 # Consume already queued evidence, without waiting for a batch.
                 while len(batch) < 128 and not self.pending.empty():
                     next_item = self.pending.get_nowait()
                     if next_item is None:
-                        self.pending.task_done()
-                        self.pending.put(None)
+                        closing = True
+                        break
+                    if isinstance(next_item,Future):
+                        barrier = next_item
                         break
                     batch.append(next_item)
                 try:
@@ -135,6 +154,13 @@ class Recorder:
                 finally:
                     for _ in batch:
                         self.pending.task_done()
+                if barrier is not None:
+                    if self.error:barrier.set_exception(RuntimeError(self.error))
+                    else:barrier.set_result(None)
+                    self.pending.task_done()
+                if closing:
+                    self.pending.task_done()
+                    break
         except Exception as error:
             self.error = str(error)
             LOG.exception('Freestyle evidence store unavailable; robot execution continues')
@@ -142,7 +168,10 @@ class Recorder:
             with self.admission_lock:
                 self.closed = True
             while not self.pending.empty():
-                if self.pending.get_nowait() is not None:
+                item=self.pending.get_nowait()
+                if isinstance(item,Future):
+                    item.set_exception(RuntimeError(self.error))
+                elif item is not None:
                     self.failed += 1
                 self.pending.task_done()
         finally:
@@ -178,52 +207,59 @@ def read_records(path, job_id=None, *, kinds=None):
         connection.close()
 
 
-def corrected_rows(path):
-    """Export only an explicitly reviewed generation or corrected program.
+def reviewed_training(path):
+    """Export executed programs with a successful operator review.
 
-An unsuccessful attempt without a correction cannot become a positive label.
+Unsuccessful attempts and unexecuted correction proposals are not positive labels.
 The latest review of a generation supersedes earlier reviews in this export.
 """
-    records = list(read_records(path))
+    records = read_records(path,kinds=('generation_requested','correction_trial_requested',
+        'generation_completed','correction_trial_program','review','job_finished'))
     requests, results, reviews, endings = {}, {}, {}, {}
+    lineage = {}
     for item in records:
         value = item['payload']
         key = (item['job_id'], value.get('generation_index', 0))
         if item['kind'] in ('generation_requested', 'correction_trial_requested'): requests[key] = item
         elif item['kind'] in ('generation_completed', 'correction_trial_program'): results[key] = item
-        elif item['kind'] == 'review': reviews[key] = item
+        elif item['kind'] == 'review':
+            reviews[key] = item
+            lineage[item['id']] = key
         elif item['kind'] == 'job_finished': endings[item['job_id']] = value
+    rows=[]
     for key, review in reviews.items():
         value = review['payload']
-        if value.get('training_status') == 'awaiting_physical_trial':
+        if (value.get('outcome') != 'success' or value.get('corrected_program') is not None
+                or value.get('training_status') == 'awaiting_physical_trial'):
             continue
         request = requests.get(key)
         if request is None:
             continue
         result = results.get(key)
-        program = value.get('corrected_program')
-        measured = False
-        if program is None and value.get('outcome') == 'success' and result is not None:
-            ending = endings.get(key[0], {})
-            if not request['payload'].get('execute') or ending.get('state') != 'completed':
-                continue
-            program = result['payload']['result']['program']
-            measured = True
-        if program is None:
+        ending = endings.get(key[0], {})
+        if (result is None or not request['payload'].get('execute')
+                or ending.get('state') != 'completed'):
             continue
+        program = result['payload']['result']['program']
         query = copy.deepcopy(request['payload']['request'])
         query.pop('_recording', None)
         if value.get('corrected_request'):
             query['request'] = value['corrected_request']
         signature = hashlib.sha256(json.dumps([query, program, review['id']], sort_keys=True).encode()).hexdigest()
-        yield {'id': signature[:16], 'family': 'reviewed_robot_motion',
+        rows.append({'id': signature[:16], 'family': 'reviewed_robot_motion',
                'query': json.dumps(query, separators=(',', ':')), 'answers': program,
                'source_id': 'robot-review:' + review['id'], 'source_hash': signature,
-               'synthetic': not measured, 'physical_qualification': measured,
-               'qualification_basis': 'operator_reported_success' if measured else 'proposed_correction_not_executed',
+               'synthetic': False, 'physical_qualification': True,
+               'qualification_basis': 'operator_reported_success',
                'job_id': key[0], 'generation_index': key[1], 'review': value,
                'request_evidence_id': request['id'], 'review_evidence_id': review['id'],
-               **({'execution_source':request['payload']['source']} if 'source' in request['payload'] else {})}
+               **({'execution_source':request['payload']['source']} if 'source' in request['payload'] else {})})
+    return {'rows':rows,'latest_reviews':{key:item['id'] for key,item in reviews.items()},
+            'review_lineage':lineage}
+
+
+def corrected_rows(path):
+    yield from reviewed_training(path)['rows']
 
 
 if __name__ == '__main__':

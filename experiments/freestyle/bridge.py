@@ -37,6 +37,7 @@ class Bridge:
         self.connection_changes = {}
         self.compiler = compiler or self._compile_motion
         self.compiler_pool = None
+        self.trajectory_cleanups = set()
         self.recorder = recorder
         self.settings_path = Path(settings_path) if settings_path else None
         if self.settings_path and self.settings_path.exists():
@@ -55,11 +56,26 @@ class Bridge:
         return await asyncio.get_running_loop().run_in_executor(
             self.compiler_pool,worker_compile,action,observation,planned)
 
+    async def _discard_trajectory(self,job,identifier,upload):
+        try:
+            # Cancellation must not race a still-receiving upload or delay
+            # Stop/next-command admission. Cleanup follows its actual response.
+            await upload
+        except Exception:
+            pass
+        try:
+            await self.transport.request(job['robot_id'],'trajectory',{'op':'discard','id':identifier})
+        except Exception as error:
+            message='Trajectory upload cleanup unconfirmed: '+str(error)
+            job['error']='; '.join(v for v in (job.get('error'),message) if v)
+            self.record(job,'trajectory_cleanup_failed',{'id':identifier,'error':str(error)})
+
     def status(self):
         # The dashboard polls this summary. Full observations/history remain in
         # the recorder; they are not retransmitted on each UI refresh.
         jobs = {key:{**{k:job[k] for k in ('id','robot_id','request','execute','state')},
                      'error':job.get('error'),'current_action':job.get('current_action'),
+                     'completed_action':job.get('completed_action'),
                      'latest_generation':job['programs'][-1] if job['programs'] else None,
                      'completed_commands':len(job['receipts'])} for key,job in self.jobs.items()}
         return {'settings':copy.deepcopy(self.settings), 'jobs':copy.deepcopy(jobs),
@@ -83,7 +99,7 @@ class Bridge:
             await asyncio.to_thread(write)
         return self.status()
 
-    def review(self, robot, job_id, outcome, note='', corrected_request=None, corrected_program=None,
+    async def review(self, robot, job_id, outcome, note='', corrected_request=None, corrected_program=None,
                generation_index=None):
         job = self.jobs[job_id]
         if job['robot_id'] != robot:
@@ -98,6 +114,8 @@ class Bridge:
         if corrected_program is not None:
             value['training_status'] = 'awaiting_physical_trial'
         identifier = self.record(job, 'review', value)
+        if identifier is not None:
+            await asyncio.to_thread(self.recorder.flush)
         job['review'] = value
         return {'review_id':identifier, 'saved':identifier is not None, 'review':value}
 
@@ -144,14 +162,25 @@ class Bridge:
                    and job['robot_id']==robot and 'recovery_owner' in job]
         history = []
         if event and previous:
-            interrupted = self.jobs[previous]
-            history.append({'interrupted_action':copy.deepcopy(interrupted.get('current_action')),
-                            'remaining_program':copy.deepcopy(interrupted.get('remaining_program') or [])})
-            effect = latest_correction(interrupted.get('history'))
+            prior = self.jobs[previous]
+            context = {'program_state':prior['state']}
+            if prior.get('current_action') is not None:
+                role = 'failed_action' if prior['state']=='error' else 'interrupted_action'
+                context[role] = copy.deepcopy(prior['current_action'])
+                if prior.get('error_evidence') is not None:
+                    context['error_evidence'] = copy.deepcopy(prior['error_evidence'])
+            if prior.get('error') is not None:
+                context['error'] = prior['error']
+            if prior.get('completed_action') is not None:
+                context['completed_action'] = copy.deepcopy(prior['completed_action'])
+            if 'remaining_program' in prior:
+                context['remaining_program'] = copy.deepcopy(prior['remaining_program'])
+            history.append(context)
+            effect = latest_correction(prior.get('history'))
             if effect:
                 history[-1]['last_correction'] = effect
-            progress = joint_progress([*interrupted.get('history', []),
-                {'joints':interrupted.get('observation', {}).get('joints')}], event.get('data', event))
+            progress = joint_progress([*prior.get('history', []),
+                {'joints':prior.get('observation', {}).get('joints')}], event.get('data', event))
             if progress:
                 history[-1]['joint_progress'] = progress
         job_id = job_id or uuid4().hex
@@ -225,7 +254,13 @@ class Bridge:
                 joints[j]['velocity_deg_s'] = (-1 if mapping['invert'] else 1)*item['velocity_us_s']/mapping['us_per_degree']
         status = (await self.gateway.status_snapshot())['robots'][robot]['status'] or {}
         imu = status.get('imu')
+        motion=(imu or {}).get('motion') or {}
+        trajectory=copy.deepcopy(motion.get('trajectory'))
+        if trajectory is not None:
+            trajectory.update({k:motion[k] for k in ('sequence','sampled_us','phase') if k in motion})
         return {'epoch':snapshot['epoch'],'joints':joints,'imu':imu,
+                'features':snapshot.get('features',[]),
+                'trajectory_progress':trajectory,
                 'expected_up':((imu or {}).get('motion') or {}).get('expected_up'),
                 'feedback':{k:feedback[k] for k in ('device_us','scan_us','enabled','stalled_joints','no_progress_ms',
                     'waiting_joints','health') if k in feedback},
@@ -283,7 +318,7 @@ class Bridge:
         robot = job['robot_id']
         sequence_options = {'on_sequence':lambda seq:self._admit_recovery(job,seq)} if job['event'] else {}
         prepared = None
-        motion_names = ('move','pose','oscillate','feet','body')
+        motion_names = ('move','pose','oscillate','feet','body','trajectory')
         try:
             original_event = job['event']
             event = ({'type':original_event['data']['kind'], **original_event['data'],
@@ -317,6 +352,7 @@ class Bridge:
                         {'generation_index':generation_index, 'result':result})
             if not job['execute']:
                 job['state']='generated';return
+            job['remaining_program'] = copy.deepcopy(result['program'])
             # Generation survives robot session changes. Compile its result
             # from current measurements, not the pre-inference body pose.
             obs = await self.connected_observation(job)
@@ -359,6 +395,9 @@ class Bridge:
                     self.record(job, 'face_submitted', {'expression':args['expr'],
                                 'scope':'program' if scoped else 'normal_face_selection',
                                 'generation_index':generation_index, 'action_index':index}, sequence=seq)
+                    # Face admission is asynchronous; it is no longer the
+                    # operation being submitted, nor a verified body target.
+                    job['current_action'] = None
                     continue
                 before = obs
                 receipt_start = len(job['receipts'])
@@ -372,11 +411,14 @@ class Bridge:
                         prepared = None
                     else:
                         compiled = await self.compiler(action,obs,planned)
-                    frames = compiled['frames']
+                    frames = compiled.get('frames',[])
                     start, home, moving = (compiled[key] for key in ('start','home','moving'))
                     planned = compiled['end']
                     self.record(job,'motion_prepared',{'action_index':index,'start':start,
-                                'target':planned,'speed_deg_s':[f[0]/100 for f in frames]})
+                                'target':planned,'speed_deg_s':([compiled['curve']['speed_deg_s']]
+                                    if 'curve' in compiled else [f[0]/100 for f in frames]),
+                                **({'control':'trajectory','duration_s':compiled['curve']['times'][-1],
+                                    'checkpoints_s':compiled['curve']['checkpoints']} if 'curve' in compiled else {})})
                     # Prepare one successor during playback. Faces and
                     # authored holds retain their order; native motions
                     # establish a new measured starting pose.
@@ -390,12 +432,38 @@ class Bridge:
                             break
                     progress = {'completed_frames':0,'submitted_frames':None,'sequence':None}
                     job['packet_progress'] = progress
-                    for packet in packets(frames):
-                        progress['submitted_frames'] = packet
-                        seq = await self.gateway.queue_motion_plan(packet,end='hold',control='targets',robot_id=robot,**sequence_options)
-                        progress['sequence'] = seq
-                        await self._receipt(job,seq,obs['epoch'])
-                        progress['completed_frames'] += len(packet)
+                    if 'curve' in compiled:
+                        snapshot=(await self.gateway.status_snapshot())['robots'][robot]
+                        if 'motion_curves_v1' not in snapshot.get('features',[]):
+                            raise ValueError('Robot firmware does not advertise motion_curves_v1 for generated trajectories')
+                        upload_id=uuid4().hex
+                        upload=asyncio.create_task(self.transport.request(robot,'trajectory',{'id':upload_id,'curve':compiled['curve']}))
+                        completed=False
+                        try:
+                            uploaded=await asyncio.shield(upload)
+                            if uploaded.get('prepared') is not True:
+                                raise ValueError('Robot did not acknowledge the generated trajectory upload')
+                            progress['trajectory_id']=upload_id
+                            seq=await self.gateway.queue_motion_plan([],end='hold',control='trajectory',
+                                trajectory_token=upload_id,robot_id=robot,**sequence_options)
+                            progress['sequence']=seq
+                            await self._receipt(job,seq,obs['epoch'])
+                            completed=True
+                        finally:
+                            # This only releases unused upload data. Physical
+                            # cancellation/replacement retains its existing
+                            # gateway command and body-output ownership.
+                            if not completed:
+                                cleanup=asyncio.create_task(self._discard_trajectory(job,upload_id,upload))
+                                self.trajectory_cleanups.add(cleanup)
+                                cleanup.add_done_callback(self.trajectory_cleanups.discard)
+                    else:
+                        for packet in packets(frames):
+                            progress['submitted_frames'] = packet
+                            seq = await self.gateway.queue_motion_plan(packet,end='hold',control='targets',robot_id=robot,**sequence_options)
+                            progress['sequence'] = seq
+                            await self._receipt(job,seq,obs['epoch'])
+                            progress['completed_frames'] += len(packet)
                 elif name == 'gait':
                     planned = None
                     for intent in gait_intents(args):
@@ -410,6 +478,12 @@ class Bridge:
                     else:
                         raise ValueError('Unknown program operation '+name)
                     await self._receipt(job,seq,obs['epoch'],acknowledgement=True)
+                # Terminal receipt (or the authored hold) completes this
+                # operation. A fresh observation may await a reconnect; do not
+                # describe the already-finished operation as interrupted then.
+                job['completed_action'] = copy.deepcopy(action)
+                job['current_action'] = None
+                job['packet_progress'] = None
                 obs = await self.connected_observation(job)
                 job['observation'] = obs
                 # Preserve each measured before/after sample without copying
@@ -452,6 +526,8 @@ class Bridge:
                 job['state']='superseded'
         except Exception as error:
             job.update(state='error',error=str(error))
+            if getattr(error,'evidence',None) is not None:
+                job['error_evidence'] = copy.deepcopy(error.evidence)
             self.record(job, 'job_error', {'error':str(error), 'evidence':getattr(error,'evidence',None)})
         finally:
             if prepared is not None:
@@ -466,6 +542,7 @@ class Bridge:
                     self.record(job, 'face_release_error', {'error':str(error)})
             self.record(job, 'job_finished', {'state':job['state'], 'error':job.get('error'),
                         'execute':job['execute'], 'current_action':job.get('current_action'),
+                        'completed_action':job.get('completed_action'),
                         'packet_progress':job.get('packet_progress')})
             OWNER.reset(token)
             self.tasks.pop(job['id'],None)
@@ -591,6 +668,7 @@ class Bridge:
         tasks=list(self.tasks.values())
         for task in tasks:task.cancel()
         await asyncio.gather(*tasks,return_exceptions=True)
+        await asyncio.gather(*list(self.trajectory_cleanups),return_exceptions=True)
         if self.compiler_pool is not None:
             self.compiler_pool.shutdown(wait=False,cancel_futures=True)
         await self.transport.close()

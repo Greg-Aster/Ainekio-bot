@@ -969,31 +969,35 @@ static ainekio_decode_result_t decode_motion_plan(
             &joint_map
         );
     }
-    int frames = -1;
-    if (result == AINEKIO_DECODE_OK) {
-        result = required_token(parser, root, "frames", &frames);
-    }
-    if (result != AINEKIO_DECODE_OK) {
-        return result;
-    }
-    if (parser->tokens[frames].type != JSON_TOKEN_ARRAY ||
-        parser->tokens[frames].children < 1U ||
-        parser->tokens[frames].children > AINEKIO_MOTION_PLAN_MAX_FRAMES) {
-        return AINEKIO_DECODE_RANGE;
-    }
-
-    ainekio_motion_plan_t *plan = &message->command.data.motion_plan;
-    plan->joint_map_version = (uint8_t)joint_map;
-    plan->frame_count = (uint8_t)parser->tokens[frames].children;
-    const bool v2 = joint_map == AINEKIO_V2_JOINT_MAP_VERSION;
-    const int control = object_get(parser, root, "control");
-    if (control >= 0) {
+    if(result!=AINEKIO_DECODE_OK)return result;
+    ainekio_motion_plan_t *plan=&message->command.data.motion_plan;
+    plan->joint_map_version=(uint8_t)joint_map;
+    const bool v2=joint_map==AINEKIO_V2_JOINT_MAP_VERSION;
+    const int control=object_get(parser,root,"control");
+    if(control>=0) {
         char mode[16];
-        result = required_string(parser, root, "control", mode, sizeof(mode), 7U, 7U);
-        if (result != AINEKIO_DECODE_OK) return result;
-        if (!v2 || strcmp(mode, "targets")) return AINEKIO_DECODE_VALUE;
-        plan->target_control = true;
+        result=required_string(parser,root,"control",mode,sizeof(mode),7U,10U);
+        if(result!=AINEKIO_DECODE_OK)return result;
+        if(!v2)return AINEKIO_DECODE_VALUE;
+        if(!strcmp(mode,"trajectory")) {
+            result=required_string(parser,root,"trajectory",plan->trajectory_token,
+                sizeof(plan->trajectory_token),1U,AINEKIO_ASSET_NAME_MAX);
+            if(result!=AINEKIO_DECODE_OK)return result;
+            char end[8];result=required_string(parser,root,"end",end,sizeof(end),4U,4U);
+            if(result!=AINEKIO_DECODE_OK)return result;
+            if(strcmp(end,"hold"))return AINEKIO_DECODE_VALUE;
+            plan->end=AINEKIO_MOTION_PLAN_END_HOLD;
+            return AINEKIO_DECODE_OK;
+        }
+        if(strcmp(mode,"targets"))return AINEKIO_DECODE_VALUE;
+        plan->target_control=true;
     }
+    int frames=-1;
+    result=required_token(parser,root,"frames",&frames);
+    if(result!=AINEKIO_DECODE_OK)return result;
+    if(parser->tokens[frames].type!=JSON_TOKEN_ARRAY || parser->tokens[frames].children<1U ||
+       parser->tokens[frames].children>AINEKIO_MOTION_PLAN_MAX_FRAMES)return AINEKIO_DECODE_RANGE;
+    plan->frame_count=(uint8_t)parser->tokens[frames].children;
     const unsigned joints = v2 ? AINEKIO_MOTION_PLAN_JOINT_CAPACITY : AINEKIO_SERVO_COUNT;
     uint64_t total_duration_ms = 0U;
     for (uint8_t frame_index = 0U; frame_index < plan->frame_count; ++frame_index) {
@@ -1185,6 +1189,22 @@ static ainekio_decode_result_t decode_microphone(
         if (gain % 6 != 0) return AINEKIO_DECODE_RANGE;
         message->command.data.microphone.has_gain_db = true;
         message->command.data.microphone.gain_db = (uint8_t)gain;
+    }
+    ainekio_speech_settings_t *speech = &message->command.data.microphone.speech;
+    if (object_get(parser, root, "vad_mode") >= 0) {
+        int64_t mode;
+        result = required_integer(parser, root, "vad_mode", 0, 4, &mode);
+        if (result != AINEKIO_DECODE_OK) return result;
+        speech->has_vad_mode = true; speech->vad_mode = (uint8_t)mode;
+    }
+    const char *fields[] = {"silence_ms", "max_recording_ms"};
+    for (unsigned i=0; i<2; ++i) if (object_get(parser, root, fields[i]) >= 0) {
+        int64_t duration;
+        result = required_integer(parser, root, fields[i], 20, 15000, &duration);
+        if (result != AINEKIO_DECODE_OK) return result;
+        if (duration % 20) return AINEKIO_DECODE_RANGE;
+        if (i==0) { speech->has_silence_ms=true; speech->silence_ms=(uint16_t)duration; }
+        else { speech->has_max_recording_ms=true; speech->max_recording_ms=(uint16_t)duration; }
     }
     return AINEKIO_DECODE_OK;
 }

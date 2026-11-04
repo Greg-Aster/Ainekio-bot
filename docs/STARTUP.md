@@ -4,6 +4,16 @@ Use this routine for an already configured installation where one computer runs
 Ainekio Body Control and another runs MetaHuman OS. Existing pairing, passwords,
 and connection settings are retained across shutdowns.
 
+## Local inference service
+
+Each computer that needs local llama.cpp inference runs one independent
+`llama-cpp.service`. Follow the shared [host installation](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md#shared-llamacpp-hosting).
+Co-located MetaHuman and Body Control use that same listener with distinct model
+aliases. In the two-computer arrangement, Q6A's Freestyle generator uses Q6A's
+service; it does not require the MetaHuman application or desktop inference.
+Check `systemctl --user status llama-cpp.service` on the relevant computer.
+Application shutdown leaves this shared host service running.
+
 ## Check the network
 
 Connect both computers to the configured network. If the bridge uses WireGuard,

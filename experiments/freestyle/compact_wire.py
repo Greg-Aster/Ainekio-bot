@@ -75,7 +75,8 @@ def recovery_state(value):
     if not isinstance(value, dict):
         return value
     state = observation(value)
-    result = {k:state[k] for k in ('joints', 'expected_up', 'joint_speed_limit_deg_s', 'shaft_tracking') if k in state}
+    result = {k:state[k] for k in ('joints', 'expected_up', 'joint_speed_limit_deg_s', 'shaft_tracking',
+                                  'features','trajectory_progress') if k in state}
     imu = state.get('imu')
     if isinstance(imu, dict):
         result['imu'] = {k:imu[k] for k in ('available', 'fresh', 'age_us', 'frame',
@@ -100,7 +101,7 @@ def recovery_state(value):
 def model_query(query, encoding):
     """Shared training/runtime input projection. Full evidence stays in recordings.
 
-    Recovery needs its goal, present state, event and interrupted action. A copied
+    Recovery needs its goal, present state, event and actual operation progress. A copied
     program, packet buffer and historical sensor stream are not new instructions.
     """
     if not isinstance(query, dict):
@@ -121,9 +122,11 @@ def model_query(query, encoding):
     result['event']['type'] = kind
     if isinstance(event.get('imu'), dict) and not (isinstance(state, dict) and state.get('imu')):
         result['event']['imu'] = recovery_state({'imu':event['imu']})['imu']
-    # Keep the unfinished intent, not copies of already executed commands.
+    # Keep completed work distinct from an interrupted operation. An explicit
+    # empty remainder is completion evidence, not an unknown pending plan.
     interrupted = next((h for h in reversed(result.get('history') or [])
-                        if isinstance(h, dict) and (h.get('interrupted_action') or h.get('action') or 'remaining_program' in h)), {})
+                        if isinstance(h, dict) and any(k in h for k in (
+                            'program_state','interrupted_action','failed_action','completed_action','action','remaining_program','error'))), {})
     current = interrupted.get('interrupted_action') or interrupted.get('action')
     remaining = interrupted.get('remaining_program')
     if remaining is None and isinstance(interrupted.get('interrupted_program'), dict):
@@ -132,12 +135,29 @@ def model_query(query, encoding):
             remaining = old_program[old_program.index(current)+1:]
     if isinstance(current, dict) and current.get('name') in encoding.tools:
         current = encoding.encode([current])[0]
-    summary = {'interrupted_action':current} if current is not None else {}
+    summary = {}
+    if 'program_state' in interrupted:
+        summary['program_state'] = interrupted['program_state']
+    if current is not None:
+        summary['interrupted_action'] = current
+    failed = interrupted.get('failed_action')
+    if isinstance(failed, dict) and failed.get('name') in encoding.tools:
+        failed = encoding.encode([failed])[0]
+    if failed is not None:
+        summary['failed_action'] = failed
+    for key in ('error','error_evidence'):
+        if key in interrupted:
+            summary[key] = copy.deepcopy(interrupted[key])
+    completed = interrupted.get('completed_action')
+    if isinstance(completed, dict) and completed.get('name') in encoding.tools:
+        completed = encoding.encode([completed])[0]
+    if completed is not None:
+        summary['completed_action'] = completed
     if isinstance(state, dict) and state.get('pending_actions'):
         remaining = state['pending_actions']
-    if remaining:
+    if remaining is not None:
         summary['remaining_program'] = (encoding.encode(remaining)
-            if isinstance(remaining[0], dict) else remaining)
+            if remaining and isinstance(remaining[0], dict) else remaining)
     effect = latest_correction(result.get('history'))
     if effect:
         summary['last_correction'] = effect

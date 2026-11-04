@@ -118,7 +118,7 @@ def generate(endpoint, model, request, api_key=None, model_messages=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", type=Path, required=True)
-    parser.add_argument("--endpoint", help="llama.cpp API base, e.g. http://127.0.0.1:8092/v1")
+    parser.add_argument("--endpoint", help="llama.cpp API base, e.g. http://127.0.0.1:8080/v1")
     parser.add_argument("--model", default="ainekio-freestyle")
     parser.add_argument("--api-key-env", default="FREESTYLE_API_KEY")
     parser.add_argument("--print-payload", action="store_true", help="Print exact inference payload without a network call")

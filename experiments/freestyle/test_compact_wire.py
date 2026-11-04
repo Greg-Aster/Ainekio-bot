@@ -15,6 +15,21 @@ from .prepare_wire import build
 
 
 class CompactWireTests(unittest.TestCase):
+    def test_curve_recovery_preserves_full_curve_and_actual_player_progress(self):
+        encoding=ProgramEncoding([*TOOLS,face_tool()])
+        action={'name':'trajectory','arguments':{'joints':[JOINTS[0]],
+            'tracks':[[[0,10,0],[1,20,0],[2,10,0]]],'checkpoints_s':[1],
+            'holds_s':[],'expected_up':[],'speed_pct':50,'taper_deg':0}}
+        progress={'source_us':1250000,'checkpoint':2,'waiting':False,'sequence':27,'sampled_us':2000000}
+        q={'request':'finish the bow','event':{'type':'servo_stall','joints':[0]},
+           'observation':{'joints':{},'features':['motion_curves_v1'],'trajectory_progress':progress},
+           'history':[{'program_state':'executing','interrupted_action':action,'remaining_program':[]}]}
+        result=model_query(q,encoding)
+        self.assertEqual(result['observation']['trajectory_progress'],progress)
+        self.assertEqual(result['observation']['features'],['motion_curves_v1'])
+        self.assertEqual(encoding.decode([result['history'][0]['interrupted_action']]),[action])
+        self.assertEqual(result['history'][0]['remaining_program'],[])
+
     def test_recovery_projection_preserves_current_measurements_and_correlated_receipts(self):
         from .observations import enrich
         encoding=ProgramEncoding([*TOOLS,face_tool()])

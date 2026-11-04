@@ -828,13 +828,162 @@ class VirtualBodySensorTests(unittest.TestCase):
 
 
 @unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use gait-training environment")
+class RecordedWarmStartTests(unittest.TestCase):
+    def test_recorded_prefix_matches_manual_execution_and_keeps_full_learning_horizon(self):
+        from dataclasses import replace
+        import numpy as np
+        from gateway.neural_gait.contract import HISTORY_SCHEMA
+        from gateway.neural_gait.environment import EnvironmentConfig, make_environment
+        actions = [[.04, 0, .02]*4]*55
+        for backend in ("direct", "body_control"):
+            with self.subTest(backend=backend):
+                config = EnvironmentConfig(robot=robot_fixture(), execution_backend=backend,
+                    observation_schema=HISTORY_SCHEMA, episode_seconds=.2,
+                    imu_prehistory_s=4, scenarios=[dict(id="recorded")])
+                plain = make_environment(config, include_assembly=False, include_visuals=False)
+                warm = make_environment(replace(config, scenarios=[dict(id="recorded",
+                    warm_start_actions=actions, warm_start_command=[.03,0,0])]),
+                    include_assembly=False, include_visuals=False)
+                try:
+                    plain.reset(seed=31)
+                    plain.set_command([.03,0,0])
+                    for action in actions:
+                        expected, _, terminated, _, _ = plain.step(action)
+                        self.assertFalse(terminated)
+                    expected = plain.set_command(config.command)
+                    position, velocity, timestamp = plain.data.qpos.copy(), plain.data.qvel.copy(), plain.data.time
+                    plain.close()  # The production virtual executor has one owner per process.
+                    observed, info = warm.reset(seed=31)
+                    np.testing.assert_array_equal(observed, expected)
+                    np.testing.assert_array_equal(warm.data.qpos, position)
+                    np.testing.assert_array_equal(warm.data.qvel, velocity)
+                    self.assertEqual(warm.data.time, timestamp)
+                    self.assertEqual(warm.steps, 0)
+                    self.assertEqual(info["warm_start"]["actions"], len(actions))
+                    if backend == "body_control":
+                        self.assertEqual(warm.gateway_observation["previous_action"], actions[-1])
+                        self.assertTrue(all(row[-1] for row in warm.gateway_observation["sensor_history"]))
+                    for step in range(10):
+                        _, _, terminated, truncated, _ = warm.step(actions[-1])
+                        self.assertFalse(terminated)
+                        self.assertEqual(truncated, step == 9)
+                finally:
+                    warm.close()
+                    plain.close()
+
+    def test_prefix_requires_explicit_finite_action_rows(self):
+        from gateway.neural_gait.environment import EnvironmentConfig
+        for actions in ([[]], [[0]*11], [[2]*12], [[float("nan")]*12], None):
+            with self.subTest(actions=actions), self.assertRaisesRegex(ValueError, "warm_start_actions"):
+                EnvironmentConfig(robot=robot_fixture(), scenarios=[dict(id="bad", warm_start_actions=actions)])
+
+    def test_actuator_latency_preserves_issued_targets_and_supported_speed(self):
+        from dataclasses import replace
+        import numpy as np
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
+        config = EnvironmentConfig(robot=robot_fixture())
+        immediate = GaitEnvironment(config, include_assembly=False, include_visuals=False)
+        delayed = GaitEnvironment(replace(config, actuator_delay_s=.04),
+            include_assembly=False, include_visuals=False)
+        try:
+            immediate.reset(seed=13)
+            delayed.reset(seed=13)
+            initial = delayed.data.ctrl.copy()
+            action = np.asarray([.2,0,.1]*4)
+            immediate.step(action)
+            delayed.step(action)
+            issued = immediate.data.ctrl.copy()
+            np.testing.assert_array_equal(delayed.last_target, immediate.last_target)
+            np.testing.assert_array_equal(delayed.data.ctrl, initial)
+            self.assertGreater(np.max(abs(issued-initial)), .001)
+            delayed.step(action)
+            np.testing.assert_array_equal(delayed.data.ctrl, initial)
+            delayed.step(action)
+            np.testing.assert_array_equal(delayed.data.ctrl, issued)
+            self.assertEqual(delayed.config.motor_no_load_speed_deg_s, config.motor_no_load_speed_deg_s)
+            self.assertEqual(delayed.config.joint_speed_deg_s, config.joint_speed_deg_s)
+            self.assertEqual(delayed.config.torque_nm, config.torque_nm)
+        finally:
+            immediate.close()
+            delayed.close()
+
+
+@unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use gait-training environment")
+class ImuPrehistoryTests(unittest.TestCase):
+    def environment(self, **kwargs):
+        from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
+        env = GaitEnvironment(EnvironmentConfig(robot=robot_fixture(), **kwargs),
+            include_assembly=False, include_visuals=False)
+        self.addCleanup(env.close)
+        return env
+
+    def test_missing_and_zero_prehistory_keep_cold_reset_and_rng(self):
+        import numpy as np
+        from dataclasses import asdict
+        cold = self.environment()
+        explicit = self.environment(imu_prehistory_s=0.)
+        first, _ = cold.reset(seed=31)
+        same, _ = explicit.reset(seed=31)
+        np.testing.assert_array_equal(first, same)
+        self.assertEqual(cold.np_random.bit_generator.state, explicit.np_random.bit_generator.state)
+        self.assertEqual(asdict(cold.config)["imu_prehistory_s"], 0.)
+        self.assertEqual(cold.data.time, 0.)
+        self.assertEqual(cold.device_time_us(), 1.)
+        self.assertTrue(cold.observation()["imu_quality"]["startup"])
+
+    def test_established_imu_keeps_start_pose_and_native_clock_through_motion(self):
+        import numpy as np
+        from unittest.mock import patch
+        scenario = [dict(id="tilted", start_rpy_deg=[8., -5., 0.])]
+        cold = self.environment(balance_enabled=True, scenarios=scenario)
+        warm = self.environment(balance_enabled=True, scenarios=scenario, imu_prehistory_s=4.)
+        cold.reset(seed=7)
+        with patch.object(warm.body_model, "imu_sample", wraps=warm.body_model.imu_sample) as acquired:
+            warm.reset(seed=7)
+        # Four seconds of 208-Hz native acquisition, then the normal first sample.
+        self.assertEqual(acquired.call_count, 4*208+1)
+        timestamps = [call.args[0] for call in acquired.call_args_list]
+        self.assertTrue(np.all(np.diff(timestamps) > 0))
+        self.assertLessEqual(max(np.diff(timestamps)), 1e6/208+1e-6)
+        gravity = -warm.data.xmat[warm.model.body("torso").id].reshape(3, 3).T @ warm.model.opt.gravity
+        np.testing.assert_allclose(acquired.call_args_list[0].args[1], gravity)
+        np.testing.assert_array_equal(warm.data.qpos, cold.data.qpos)
+        np.testing.assert_array_equal(warm.data.qvel, cold.data.qvel)
+        np.testing.assert_array_equal(warm.last_target, cold.last_target)
+        self.assertEqual((warm.data.time, warm.steps), (0., 0))
+        observed = warm.observation()
+        self.assertFalse(observed["imu_quality"]["startup"])
+        self.assertFalse(observed["imu_quality"]["acceleration_recovery"])
+        self.assertEqual(observed["observation_time_s"], 4.)
+        self.assertLess(observed["imu_sample_age_s"], .02)
+        self.assertTrue(all(0 <= age < .02 for age in observed["joint_sample_age_s"]))
+        executor = warm.virtual_body()
+        self.addCleanup(executor.close)
+        before = executor.telemetry(round(warm.device_time_us()))["data"]
+        self.assertEqual(before["gap_restarts"], 0)
+        fitted = warm.body_model.foot_target(np.zeros((4,3)), warm.config.reference_joint_deg,
+            warm.last_target, warm.config.joint_speed_deg_s, 1/warm.config.control_hz,
+            now_us=warm.device_time_us())
+        self.assertTrue(fitted["balance_usable"])
+        warm.advance_body(executor)
+        after = executor.telemetry(round(warm.device_time_us()))["data"]
+        self.assertEqual(after["gap_restarts"], 0)
+        self.assertGreater(after["timestamp_us"], before["timestamp_us"])
+        self.assertGreater(after["accepted_samples"], before["accepted_samples"])
+        self.assertFalse(after["startup"])
+        self.assertAlmostEqual(warm.data.time, 1/warm.config.control_hz)
+        self.assertLess(after["age_us"], 20000)
+
+
+@unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use gait-training environment")
 class NativeOutputClockTests(unittest.TestCase):
     """The native P4 output clock continues between host-policy requests."""
 
-    def environment(self, control_hz, physics_hz):
+    def environment(self, control_hz, physics_hz, *, actuator_delay_s=0.):
         from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
         config = EnvironmentConfig(robot=robot_fixture(), control_hz=control_hz,
-            physics_hz=physics_hz, balance_enabled=False, heading_feedback_enabled=False)
+            physics_hz=physics_hz, balance_enabled=False, heading_feedback_enabled=False,
+            actuator_delay_s=actuator_delay_s)
         env = GaitEnvironment(config, include_assembly=False, include_visuals=False)
         self.addCleanup(env.close)
         env.reset(seed=1)
@@ -885,32 +1034,47 @@ class NativeOutputClockTests(unittest.TestCase):
         self.assertTrue(all(frame["frame_us"]-frame["feedback_us"] < 20000 for frame in frames))
 
     def test_mid_interval_stop_receipt_and_disabled_output_survive_later_ticks(self):
+        import mujoco
         from unittest.mock import patch
-        env, executor = self.environment(10, 500)
-        native_tick = executor.tick
-        sent = False
-        native_messages = []
-        def stop_between_requests(now_us):
-            nonlocal sent
-            if not sent and now_us >= 40000:
-                sent = True
-                self.assertEqual(executor.receive(dict(t="stop", detach=True,
-                    seq=2, epoch=1, deadline_ms=10000), 1, now_us), [dict(t="ack", seq=2)])
-            output = native_tick(now_us)
-            native_messages.extend(output["messages"])
-            return output
-        with patch.object(executor, "tick", side_effect=stop_between_requests):
-            _, output = env.advance_body(executor)
-        self.assertTrue(sent, "Native execution must continue inside the 100ms host interval")
-        cancellation = dict(t="cancelled", seq=1, code="stop")
-        self.assertEqual(native_messages.count(cancellation), 1)
-        self.assertEqual(output["messages"], native_messages)
-        self.assertEqual(output["messages"].count(cancellation), 1)
-        self.assertFalse(output["joint_enabled"].any())
-        self.assertFalse(env.pwm["enabled"].any())
-        self.assertFalse(env.model.actuator_forcerange.any())
-        _, later = env.advance_body(executor)
-        self.assertEqual(later["messages"], [], "Previously drained receipts must not be replayed")
+        for delay in (0., .04):
+            with self.subTest(actuator_delay_s=delay):
+                env, executor = self.environment(10, 500, actuator_delay_s=delay)
+                try:
+                    native_tick = executor.tick
+                    physics_step = mujoco.mj_step
+                    sent = False
+                    native_messages = []
+                    def stop_between_requests(now_us):
+                        nonlocal sent
+                        if not sent and now_us >= 40000:
+                            sent = True
+                            self.assertEqual(executor.receive(dict(t="stop", detach=True,
+                                seq=2, epoch=1, deadline_ms=10000), 1, now_us), [dict(t="ack", seq=2)])
+                        output = native_tick(now_us)
+                        native_messages.extend(output["messages"])
+                        return output
+                    def checked_physics_step(model, data):
+                        if sent:
+                            # Check the very next physics step, before a queued
+                            # 40ms plant target could mature after Release.
+                            self.assertFalse(model.actuator_forcerange.any())
+                        return physics_step(model, data)
+                    with patch.object(executor, "tick", side_effect=stop_between_requests), \
+                         patch.object(mujoco, "mj_step", side_effect=checked_physics_step):
+                        _, output = env.advance_body(executor)
+                    self.assertTrue(sent, "Native execution must continue inside the 100ms host interval")
+                    cancellation = dict(t="cancelled", seq=1, code="stop")
+                    self.assertEqual(native_messages.count(cancellation), 1)
+                    self.assertEqual(output["messages"], native_messages)
+                    self.assertEqual(output["messages"].count(cancellation), 1)
+                    self.assertFalse(output["joint_enabled"].any())
+                    self.assertFalse(env.pwm["enabled"].any())
+                    self.assertFalse(env.model.actuator_forcerange.any())
+                    _, later = env.advance_body(executor)
+                    self.assertEqual(later["messages"], [], "Previously drained receipts must not be replayed")
+                finally:
+                    executor.close()
+                    env.close()
 
 
 @unittest.skipUnless(importlib.util.find_spec("mujoco"), "Use gait-training environment")
@@ -990,6 +1154,7 @@ class TerrainScenarioTests(unittest.TestCase):
             '</body></worldbody></mujoco>')
         env.data=mujoco.MjData(env.model)
         env.scenario=dict(pushes=[dict(start_s=.003,duration_s=.015,force_n=[.5,0,0])])
+        env.episode_start_time=0.
         impulse=np.zeros(3)
         for _ in range(20):
             env._apply_scenario_pushes()

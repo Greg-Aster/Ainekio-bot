@@ -18,19 +18,25 @@ size_t ainekio_imu_telemetry(const ainekio_p4_imu_status_t *sensor,
 {
     const ainekio_imu_observation_t *s=&sensor->attitude;
     const bool calibrated=sensor->calibration_applied;
-    char execution[480]="";
+    char execution[640]="";
     if(motion) {
         char up[96]="null";
         if(motion->expected_up_known)
             snprintf(up,sizeof up,"[%.9g,%.9g,%.9g]",(double)motion->expected_up[0],
                 (double)motion->expected_up[1],(double)motion->expected_up[2]);
-        snprintf(execution,sizeof execution,
+        int length=snprintf(execution,sizeof execution,
             ",\"motion\":{\"command\":\"%s\",\"activity\":\"%s\",\"phase\":\"%s\","
             "\"sequence\":%" PRIu32 ",\"connection\":%" PRIu64 ",\"started_us\":%" PRIu64 ",\"sampled_us\":%" PRIu64
-            ",\"expected_up\":%s,\"walk_source\":\"%s\",\"nominal_sample\":%" PRIu32 "}",motion->command?motion->command:"",
+            ",\"expected_up\":%s,\"walk_source\":\"%s\",\"nominal_sample\":%" PRIu32,motion->command?motion->command:"",
             motion->activity?motion->activity:"idle",motion->phase?motion->phase:"off",
             motion->sequence,motion->connection,motion->started_us,motion->sampled_us,up,
             motion->host_nominal?"host":"native",motion->nominal_sample);
+        if(length<0 || (size_t)length>=sizeof execution)return 0;
+        size_t used=(size_t)length;
+        if(motion->trajectory_active && !append(execution,sizeof execution,&used,
+            ",\"trajectory\":{\"source_us\":%" PRIu64 ",\"checkpoint\":%" PRIu32 ",\"waiting\":%s}",
+            motion->trajectory_source_us,motion->trajectory_checkpoint,motion->trajectory_waiting?"true":"false"))return 0;
+        if(!append(execution,sizeof execution,&used,"}"))return 0;
     }
     int n = snprintf(text, capacity,
         "{\"t\":\"event\",\"name\":\"imu\",\"data\":{\"boot_id\":%" PRIu32

@@ -6,13 +6,86 @@ Every exported demonstration is replayed with the V2 geometry before training;
 successful replay does not establish balance, contact or physical recovery.
 """
 import argparse
+import copy
+import hashlib
 import json
 import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from functools import lru_cache
 from pathlib import Path
 
 from .challenge import assess, read_rows, replay, trajectory_metrics, write_rows
 from .runtime import compact
+
+
+@lru_cache(maxsize=1)
+def legacy_sources():
+    """The native importer's catalog, hashes and semantic completion."""
+    from .kinematics import ROOT
+    from .trajectory import native_compiler
+    compiler=native_compiler()
+    return compiler,{clip['command']:clip for clip in compiler.load_gestures(ROOT)}
+
+
+@lru_cache(maxsize=None)
+def source_motion(name):
+    """Complete catalog motion as generated cubic curves, never named dispatch.
+
+    Scalar tracks avoid repeating twelve coordinates at every global knot.
+    Each fit uses the native compiler and its 0.005-degree budget. Native phase
+    boundaries/reversals remain measured checkpoints. Semantic completion,
+    intentional holds and the posture travel deceleration remain source-owned.
+    """
+    from .kinematics import ROOT
+    from .runtime import JOINTS
+    compiler,clips=legacy_sources();clip=clips[name];rows=clip['positions']
+    required=compiler.gesture_targets(rows,clip['phases'])
+    phase_boundaries={round(t*120) for p in clip['phases'] for t in p['source_interval_s']}
+    native_knots,velocities,_=compiler.compact(rows,required)
+    tracks=[];bound=0.
+    number=lambda v:float(f'{v:.9g}')  # Native storage uses float32.
+    for j in range(12):
+        column=[row[j] for row in rows]
+        if max(column)-min(column)<=compiler.COMPRESSION_ERROR_CD:
+            tracks.append([[0.,number(column[0]/100),0.],
+                           [clip['duration_s'],number(column[-1]/100),0.]])
+            bound=max(bound,(max(column)-min(column))/100)
+        else:
+            # Other joints' reversals are checkpoints on the coordinated
+            # player, not extra knots needed in this scalar curve's fit.
+            indices,_,error=compiler.compact([[v]*12 for v in column],phase_boundaries)
+            tracks.append([[number(i/120),number(rows[i][j]/100),number(velocities[i][j]/100)] for i in indices])
+            bound=max(bound,error/100)
+    authored_holds=[tuple(round(t*120) for t in p['source_interval_s']) for p in clip['phases']
+                    if p.get('moving_joint_indices')==[] or p['name'].startswith('hold_')]
+    clock=compiler.travel_clock(rows,native_knots,velocities,authored_holds)
+    holds=[]
+    for a,b in zip(clock,clock[1:]):
+        if b[2]>a[2]:
+            begin,end=a[0]/120,b[0]/120
+            if holds and holds[-1][1]==begin:holds[-1]=(holds[-1][0],end)
+            else:holds.append((begin,end))
+    action=call('trajectory',joints=list(JOINTS),tracks=tracks,
+                checkpoints_s=[number(i/120) for i in required],
+                holds_s=[[number(t) for t in p] for p in holds],
+                expected_up=[[number(i/120),[number(v) for v in clip['expected_up'][i]]]
+                             for i in compiler.compact_up(clip['expected_up'])],
+                speed_pct=50,taper_deg=0.)
+    if name in ('sit','rest','crouch'):
+        action['arguments']['taper_deg']=min(10.,.2*clock[-1][1])
+    path=ROOT/'motions/gestures'/name/'source.json'
+    return {'program':[call('face',expr=name),action],
+            'source_path':str(path.relative_to(ROOT.parents[3])),
+            'source_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+            'execution_contract_sha256':hashlib.sha256(path.with_name('execution-contract.json').read_bytes()).hexdigest(),
+            'semantic_end_s':clip['duration_s'],'source_samples':len(rows),
+            'phases':[{'name':p['name'],'source_interval_s':p['source_interval_s']} for p in clip['phases']],
+            'required_source_samples':required,'path_error_bound_deg':bound,
+            'intentional_hold_s':clock[-1][2],
+            'native_distance_degrees':clock[-1][1],
+            'scalar_curve_knots':sum(map(len,tracks)),
+            'entry_model_deg':[number(v/100) for v in rows[0]],
+            'final_model_deg':[number(v/100) for v in rows[-1]]}
 
 
 def call(name, **arguments):
@@ -174,50 +247,14 @@ def demonstration(family, side='right', cycles=2, scale=1., observation=None):
     raise ValueError(f'No authored teaching example for {family}')
 
 
-def source_wave(side='left', cycles=3, period_s=1.5, speed_pct=50):
-    """Compact joint teaching version of every authored Wave phase.
-
-    This function is used only during dataset authoring. Serving never imports
-    it or chooses a named program. The actual shoulder transforms use the same
-    signed angles on mirrored front legs, verified with forward kinematics.
-    """
-    from .kinematics import ROOT
-    from .runtime import JOINTS
-    source=json.loads((ROOT/'motions/gestures/wave/source.json').read_text())
-    def angles(time_s):
-        return [round(math.degrees(q),2) for leg in source['samples'][round(time_s*120)]['actuator_angles_rad'] for q in leg]
-    initial,seated,lifted,extended=[angles(t) for t in (0,1.2,1.6,2)]
-    support=[i for i,joint in enumerate(JOINTS) if not joint.endswith('shoulder')]
-    arm=[f'front_{side}_{axis}' for axis in ('shoulder','carrier','crank')]
-    pose=lambda joints,values:call('pose',joints=joints,angles_deg=values,reference='absolute',speed_pct=speed_pct)
-    return [pose([JOINTS[i] for i in support],[seated[i] for i in support]),
-            pose(arm,lifted[6:9]),pose(arm,extended[6:9]),
-            call('oscillate',joint=arm[0],amplitude_deg=42,cycles=cycles,period_s=period_s),
-            pose(arm,lifted[6:9]),pose(arm,seated[6:9]),
-            pose([JOINTS[i] for i in support],[initial[i] for i in support]),call('hold',seconds=.2)]
-
-
 def source_posture(name, speed_pct=50):
-    """Offline endpoint demonstrations for the three single-transition postures.
-
-    These teach the source terminal pose and its hold, using the compact joint
-    contract's travel speed. They do not reproduce the source easing curve or
-    claim that a straight joint path preserves planted-foot contact. Multi-phase
-    gestures must not be reduced to endpoints through this authoring helper.
-    """
-    from .kinematics import ROOT
-    from .runtime import JOINTS
+    """Complete source entry and hold for posture prefixes in compositions."""
     if name not in ('sit', 'rest', 'crouch'):
         raise ValueError('This teacher covers only single-transition postures')
-    source = json.loads((ROOT/'motions/gestures'/name/'source.json').read_text())
-    samples = source['samples']
-    angles = [round(math.degrees(q), 2)
-              for leg in samples[-1]['actuator_angles_rad'] for q in leg]
-    hold_start = next(sample['time_s'] for sample in samples
-                      if sample['phase'].startswith('hold'))
-    return [call('pose', joints=list(JOINTS), angles_deg=angles,
-                 reference='absolute', speed_pct=speed_pct),
-            call('hold', seconds=round(samples[-1]['time_s']-hold_start, 6))]
+    program = copy.deepcopy([a for a in source_motion(name)['program'] if a['name'] != 'face'])
+    for action in program:
+        if action['name'] in ('pose','trajectory'):action['arguments']['speed_pct'] = speed_pct
+    return program
 
 
 def review_one(item):

@@ -65,7 +65,7 @@ implementation boundary.
 | [V2 firmware design](v2-12servo/FIRMWARE_DESIGN.md) | V1 review, P4/PCA9685 requirements, controller/Q6A boundaries and staged acceptance |
 | [Body Control Integration](BODY_CONTROL_INTEGRATION.md) | Selected wireless/offboard Q6A direction, USB comparison, ROS 2 role, operating targets and audit findings |
 | [Vision and target tracking audit](audits/VISION_TRACKING_INTEGRATION.md) | Current camera/YOLO/MetaHuman ownership, verified gaps and tests, and a staged integration plan using existing execution owners |
-| [Distributed robot foundation](DISTRIBUTED_ROBOT_FOUNDATION.md) | Universal P4 control, Q6A/remote/manual takeover, shared status/routing/queues, ROS comparison and migration gates before feature coding |
+| [Distributed robot foundation](DISTRIBUTED_ROBOT_FOUNDATION.md) | Design proposal for Q6A/remote/manual handoff, shared state and migration; existing software wiring remains in the shared architecture |
 | [Resource budget](v2-12servo/RESOURCE_BUDGET.md) | Dated capacity analysis; its retired SHARGE topology and runtime calculations do not describe the current V2 assembly |
 | [Budget audit evidence](v2-12servo/BUDGET_AUDIT_EVIDENCE.md) | Repository/source identities, manufacturer references, Q6A Wi-Fi capability readback, offline Kokoro timing/RSS and exclusions of stale evidence |
 | [V2 Step 1 evidence](v2-12servo/STEP1_EVIDENCE.md) | Build/flash commands, tests, actual board/network results and outstanding electrical proof |

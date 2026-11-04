@@ -7,7 +7,7 @@ import hashlib
 import time
 import urllib.request
 from uuid import uuid4
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, quote
 from pathlib import Path
 
 from .runtime import compact
@@ -45,8 +45,9 @@ class IncompleteProgram(ValueError):
 
 
 class Generator:
-    def __init__(self, endpoint, model, contract, model_file=None):
+    def __init__(self, endpoint, model, contract, model_file=None, adapter_file=None):
         self.endpoint, self.model = endpoint.rstrip('/'), model
+        self.adapter_file = str(Path(adapter_file).resolve()) if adapter_file is not None else None
         self.system = (Path(contract)/'system.txt').read_text()
         tools = json.loads((Path(contract)/'tools.json').read_text())
         wire_path = Path(contract)/'wire.json'
@@ -62,6 +63,10 @@ class Generator:
         if model_file is not None:
             with Path(model_file).open('rb') as stream:
                 self.identity['configured_model_sha256']=hashlib.file_digest(stream,'sha256').hexdigest()
+        if self.adapter_file is not None:
+            with Path(self.adapter_file).open('rb') as stream:
+                self.identity['configured_adapter_sha256']=hashlib.file_digest(stream,'sha256').hexdigest()
+            self.identity['adapter_path']=self.adapter_file
         self.schema = {'type':'array','items':{'oneOf':[
             {'type':'object','additionalProperties':False,'required':['name','arguments'],
              'properties':{'name':{'type':'string','const':t['name']},'arguments':argument_schema(t)}}
@@ -87,15 +92,27 @@ class Generator:
             query = model_query(query, self.encoding)
         if not isinstance(query, str):
             query = compact(query)
-        return {'model':self.model,'temperature':0,'chat_template_kwargs':{'enable_thinking':False},
+        return {'model':self.model,'lora':[],'temperature':0,'chat_template_kwargs':{'enable_thinking':False},
                    'messages':([{'role':'system','content':self.system}] if self.system else [])+[
                        {'role':'user','content':query}],
                    'response_format':{'type':'json_schema','json_schema':{
                        'name':'motion_program','strict':True,'schema':self.schema}}}
 
+    def _adapter_endpoint(self):
+        return self.endpoint.removesuffix('/v1')+'/lora-adapters?model='+quote(self.model,safe='')
+
+    def _request_lora(self, loaded):
+        adapter=next((item for item in loaded if item['path']==self.adapter_file),None)
+        if adapter is None:
+            raise ValueError('Freestyle LoRA is not loaded: '+self.adapter_file)
+        return [{'id':adapter['id'],'scale':1}]
+
     def generate(self, request, observation=None, event=None, history=None):
         payload = self._payload(request, observation, event, history)
         started = time.perf_counter()
+        if self.adapter_file is not None:
+            with urllib.request.urlopen(self._adapter_endpoint()) as response:
+                payload['lora']=self._request_lora(json.load(response))
         req = urllib.request.Request(self.endpoint+'/chat/completions',data=compact(payload).encode(),
                                      headers={'Content-Type':'application/json'})
         with urllib.request.urlopen(req) as response:
@@ -105,7 +122,9 @@ class Generator:
     async def async_generate(self, request, observation=None, event=None, history=None):
         payload = self._payload(request, observation, event, history)
         started = time.perf_counter()
-        result = await _async_json_post(self.endpoint+'/chat/completions', payload)
+        if self.adapter_file is not None:
+            payload['lora']=self._request_lora(await _async_json(self._adapter_endpoint(),method='GET'))
+        result = await _async_json(self.endpoint+'/chat/completions', payload)
         return self._program(result, started)
 
     def _program(self, result, started):
@@ -134,16 +153,17 @@ def remote_generate(endpoint, request):
 
 async def async_remote_generate(endpoint, request):
     """Cancellable HTTP to this service and its downstream model request."""
-    return await _async_json_post(endpoint.rstrip('/')+'/generate', request)
+    return await _async_json(endpoint.rstrip('/')+'/generate', request)
 
 
-async def _async_json_post(endpoint, request):
+async def _async_json(endpoint, request=None, method='POST'):
     url=urlsplit(endpoint)
     reader,writer=await asyncio.open_connection(url.hostname,url.port or (443 if url.scheme=='https' else 80),
                                                  ssl=url.scheme=='https')
     try:
-        body=compact(request).encode()
-        writer.write((f'POST {url.path} HTTP/1.1\r\nHost: {url.netloc}\r\n'
+        body=compact(request).encode() if method=='POST' else b''
+        target=(url.path or '/')+('?' + url.query if url.query else '')
+        writer.write((f'{method} {target} HTTP/1.1\r\nHost: {url.netloc}\r\n'
                       f'Content-Type: application/json\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n').encode()+body)
         await writer.drain()
         status=int((await reader.readline()).split()[1])
@@ -226,9 +246,10 @@ if __name__ == '__main__':
     p.add_argument('--endpoint',required=True);p.add_argument('--model',required=True)
     p.add_argument('--contract',type=Path,required=True)
     p.add_argument('--model-file',type=Path,help='Configured artifact identity for saved trial provenance')
+    p.add_argument('--adapter-file',type=Path,help='LoRA selected only for each Freestyle inference request')
     p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8794)
     p.add_argument('--recordings',type=Path,help='Local SQLite store for requests and generated outputs')
     a=p.parse_args()
     from .recordings import Recorder
-    serve(Generator(a.endpoint,a.model,a.contract,a.model_file),a.host,a.port,
+    serve(Generator(a.endpoint,a.model,a.contract,a.model_file,a.adapter_file),a.host,a.port,
           Recorder(a.recordings) if a.recordings else None)

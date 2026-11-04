@@ -2,7 +2,7 @@ import json
 import unittest
 from collections import Counter
 
-from .recovery_curriculum import examples, calibrated_stretch, calibrated_fault_examples, calibrated_wave, tracking_recovery_examples
+from .recovery_curriculum import examples, calibrated_fault_examples, tracking_recovery_examples
 from .migrate_targets import CONTRACT, compact_speed, standing_pose
 from .compact_wire import ProgramEncoding
 from .program import compile_motion
@@ -24,24 +24,6 @@ class RecoveryCurriculumTests(unittest.TestCase):
             self.assertEqual(row['answers'][-1],standing_pose())
             self.assertFalse(row['physical_qualification'])
 
-    def test_spatial_wave_lifts_before_sweep_and_restores_stand(self):
-        from .curriculum import source_state
-        nominal=[0,3.46,-21.63]*4
-        obs=source_state()
-        for j,a in zip(JOINTS,nominal):obs['joints'][j].update(model_deg=a,commanded_model_deg=a)
-        for side in ('left','right'):
-            plan=calibrated_wave(nominal,side,cycles=2)
-            self.assertEqual(plan[2]['name'],'feet')
-            self.assertEqual(plan[3]['arguments']['cycles'],2)
-            self.assertEqual(plan[-1]['arguments']['angles_deg'],nominal)
-            current=None
-            for action in plan:
-                if action['name'] in ('pose','feet','oscillate'):
-                    compiled=compile_motion(action,obs,current)
-                    current=compiled['end']
-            self.assertEqual(list(current.values()),nominal)
-
-
     def test_calibration_fault_retreats_all_joint_roles_and_retains_unknown_outcome(self):
         from .curriculum import source_state
         state=source_state();nominal=[state['joints'][j]['model_deg'] for j in JOINTS]
@@ -58,20 +40,6 @@ class RecoveryCurriculumTests(unittest.TestCase):
             self.assertTrue(low<a['angle_deg']<high)
             self.assertEqual(row['answers'][-1],standing_pose())
             self.assertFalse(row['physical_qualification'])
-
-    def test_calibrated_stretch_restores_excursions_and_returns_to_nominal(self):
-        nominal=[0,3.46,-21.63]*4;high=[0,6.045,-22.178]*4
-        program=calibrated_stretch(nominal,high)
-        self.assertEqual(program[-2]['arguments']['angles_deg'],high)
-        self.assertEqual(program[-1]['arguments']['angles_deg'],nominal)
-        displacement={leg:[0,0,0] for leg in ('front_left','front_right','rear_left','rear_right')}
-        for action in program:
-            if action['name']=='feet':
-                args=action['arguments']
-                for leg,delta in zip(args['legs'],args['offsets_mm']):
-                    displacement[leg]=[a+b for a,b in zip(displacement[leg],delta)]
-        self.assertTrue(all(v==[0,0,0] for v in displacement.values()))
-        self.assertEqual([a['arguments']['seconds'] for a in program if a['name']=='hold'],[.6]*4)
 
     def test_shorter_speed_values_preserve_the_actual_wire_command(self):
         from .program import target

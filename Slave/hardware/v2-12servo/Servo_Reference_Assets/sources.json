@@ -35,6 +35,26 @@
       "units": "mm",
       "license": "MIT",
       "status": "MG90D comparison only, not MG90S; exterior reference"
+    },
+    {
+      "name": "MG996R - Nova-Q exterior reference",
+      "source": "https://github.com/xJosephMorganx/NovaQ-Quadruped-Robot/blob/2ef8b036b567ab0b7c87967ec8d15e5caefb4f74/Design/Nova-Q.step",
+      "author": "xJosephMorganx / Nova-Q repository",
+      "file": "MG996R-NovaQ.step",
+      "source_component": "MG996R_servo v1",
+      "source_sha256": "e5f947efc6c7c8827a10141fd7701134713e050183a8875701fb47dc4bc18fba",
+      "units": "mm; CAD source preserved at 1:1 in millimeter Blender scene",
+      "license": "Repository GPL-3.0; included license preserved",
+      "status": "Extracted 2 CAD solids: exterior case and splined output shaft. No internal gears or separable housing covers. Physical fit not verified.",
+      "blender_scene": "V3",
+      "collection": "MG996R | Reference",
+      "cad_dimensions_including_mounting_ears_and_shaft_mm": [
+        53.3,
+        20,
+        43.4940412
+      ],
+      "manufacturer_spec_url": "https://towerpro.com.tw/product/mg996R/",
+      "dimensional_note": "Source model dimensions are retained. This community CAD is not a manufacturer-certified model; real servo dimensions have not been measured."
     }
   ],
   "pending_downloads": [

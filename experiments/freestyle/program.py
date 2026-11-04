@@ -58,6 +58,9 @@ def compile_motion(action, observation, planned=None):
     for moving joints. Feedback remains evidence; it does not silently rewrite
     the remaining relative path on every segment.
     """
+    if action['name'] == 'trajectory':
+        from .trajectory import compile_trajectory
+        return compile_trajectory(action,observation,planned)
     name, args = action['name'], action['arguments']
     joints = observation['joints']
     home = {j:v['home_deg'] for j,v in joints.items()}

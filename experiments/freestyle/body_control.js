@@ -116,7 +116,7 @@
       } else if (action === "review") {
         result = await post({operation:"review",robot_id:robot,job_id:jobs.get(robot),
           outcome:field("outcome").value,note:field("note").value});
-        field("review").textContent = result.saved ? "Review saved with this motion's evidence." : "Review was not saved; check recording status.";
+        field("review").textContent = result.saved ? "Review saved. Successfully reviewed trials are included in Export training data; recording a trial does not train the model." : "Review was not saved; check recording status.";
       } else if (action === "save") {
         result = await post({operation:"trial",robot_id:robot,job_id:jobs.get(robot)});
         const url = URL.createObjectURL(new Blob([JSON.stringify(result,null,2)], {type:"application/json"}));

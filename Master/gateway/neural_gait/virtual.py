@@ -364,7 +364,7 @@ async def run_robot(environment, endpoint, robot_id, token, *, seed=1):
         plant.reset(seed=seed)
         executor = plant.virtual_body()
         robot = VirtualRobot(executor, endpoint, robot_id, token,
-            lambda: round(1+plant.data.time*1e6))
+            lambda: round(plant.device_time_us()))
         await robot.connect()
         print(f"Virtual V2 connected as {robot_id} to {endpoint}; simulated movement and sensors only", flush=True)
         loop = asyncio.get_running_loop()
@@ -419,7 +419,7 @@ async def run_recovery_scenario(environment, policy_run, directory, endpoint, *,
         profile = {"source":"neural", **{key:abs(environment.command[i]) or 1.
             for i,key in enumerate(("forward_m_s","lateral_m_s","yaw_rad_s"))}}
         session = VirtualGatewaySession(executor,asdict(environment),
-            lambda:round(1+plant.data.time*1e6),profile,model_id=policy_run.name)
+            lambda:round(plant.device_time_us()),profile,model_id=policy_run.name)
         def depth_measurement(robot_id):
             measurement = deepcopy(plant.depth_measurement or {})
             measurement.update(robotId=session.robot_id,epoch=session.connection.epoch)

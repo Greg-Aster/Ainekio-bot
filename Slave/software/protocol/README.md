@@ -397,12 +397,31 @@ threshold adjustments on the existing commands:
 ```
 
 `gain_db` selects ES8311 input gain from 0 through 42 dB in 6 dB steps. It is
-stored on the robot; `on` and `gate` remain connection-scoped. `threshold` is
+stored on the robot; P4 also saves `on` and `gate`. `threshold` is
 0..1 and is saved independently of the model manifest, quantized to 0..255.
 Omitting either field preserves its saved value. With no saved override, P4
 keeps its previous 30 dB gain and the installed model's threshold. Body Control
 shows sensitivity as `100 * (1 - threshold)`: higher sensitivity triggers more
 easily; threshold 1 (sensitivity 0) cannot be exceeded by the model.
+
+P4 bodies reporting `vad_mode`, `silence_ms` and `max_recording_ms` in `audio`
+also accept those optional fields on `mic`. They are saved with the existing
+microphone settings; omitted fields retain their saved values:
+
+```json
+{"t":"mic","seq":42,"on":true,"gate":"wake","vad_mode":1,"silence_ms":2000,"max_recording_ms":15000}
+```
+
+`vad_mode` is the driver's mode 0–4: lower values detect speech more readily;
+higher values reject more background sound and may reject quiet speech.
+`silence_ms` controls the pause after detected speech for VAD and Wake gates.
+`max_recording_ms` controls the recording window measured from wake detection;
+Open/VAD and the gateway retain their existing transport behavior. Both
+durations use 20 ms frame multiples from 20 through 15000. The existing
+15-second speech transport limit is unchanged. Existing installations keep
+mode 3, a 1000 ms silence pause and a 15000 ms wake window until edited.
+Changing these settings uses the existing microphone configuration boundary;
+independent motion, sensing and speaker output are not stopped.
 
 These bodies include optional `audio` telemetry on their existing ping/pong:
 

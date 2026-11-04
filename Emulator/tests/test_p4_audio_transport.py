@@ -346,3 +346,95 @@ int main(int argc, char **argv)
         self.assertEqual(audio_ids, ["audio:test-body:1:0", "audio:test-body:1:15"])
         self.assertEqual(image_ids, audio_ids)
         self.assertEqual(gateway.calls, [], "Firmware photos do not require a second gateway capture command")
+
+
+class P4SpeechSettingsTests(unittest.TestCase):
+    def test_production_settings_save_reload_and_failed_save(self):
+        media = ROOT / "Slave/firmware/esp32p4-wifi6/components/ainekio_p4_media"
+        source = (media / "media.c").read_text()
+        functions = []
+        for declaration in ("static void load_input_settings(", "esp_err_t ainekio_p4_media_microphone("):
+            start = source.index(declaration)
+            functions.append(source[start:source.index("\n}", start)+2])
+        # Compile the actual load/apply owners. Only NVS, locking, codec and VAD
+        # driver boundaries are replaced, matching the callback harness above.
+        harness = r'''
+#include <assert.h>
+#include <string.h>
+#include "ainekio/p4_media.h"
+#define NVS_READONLY 0
+#define NVS_READWRITE 1
+#define ESP_CODEC_DEV_OK 0
+#define portMAX_DELAY 0
+typedef int nvs_handle_t;
+typedef unsigned vad_mode_t;
+typedef void *vad_handle_t;
+static int mutex=1,wake_mutex=1,codec;
+static bool suspended, microphone_enabled, microphone_settings_saved;
+static unsigned microphone_epoch;
+static ainekio_microphone_gate_t microphone_gate;
+static ainekio_p4_media_status_t status;
+static int old_vad, new_vad;
+static vad_handle_t vad=&old_vad;
+static bool commit_fail, allocation_fail;
+static unsigned destroys;
+typedef struct { bool mic_set,speech_set,gain_set; unsigned char mic[3],speech[6],gain; } store_t;
+static store_t saved,pending;
+static int nvs_open(const char *name,int mode,int *handle)
+{ assert(!strcmp(name,"p4_media"));*handle=1;if(mode==NVS_READWRITE)pending=saved;return ESP_OK; }
+static int nvs_get_u8(int h,const char *key,unsigned char *out)
+{ (void)h;assert(!strcmp(key,"mic_gain"));if(!saved.gain_set)return ESP_ERR_NOT_FOUND;*out=saved.gain;return ESP_OK; }
+static int nvs_get_blob(int h,const char *key,void *out,size_t *size)
+{ (void)h;bool mic=!strcmp(key,"mic_v1");assert(mic||!strcmp(key,"speech_v1"));
+  if(!(mic?saved.mic_set:saved.speech_set))return ESP_ERR_NOT_FOUND;
+  assert(*size==(mic?3U:6U));memcpy(out,mic?saved.mic:saved.speech,*size);return ESP_OK; }
+static int nvs_set_u8(int h,const char *key,unsigned char value)
+{ (void)h;assert(!strcmp(key,"mic_gain"));pending.gain_set=true;pending.gain=value;return ESP_OK; }
+static int nvs_set_blob(int h,const char *key,const void *data,size_t size)
+{ (void)h;bool mic=!strcmp(key,"mic_v1");assert(size==(mic?3U:6U));
+  memcpy(mic?pending.mic:pending.speech,data,size);if(mic)pending.mic_set=true;else pending.speech_set=true;return ESP_OK; }
+static int nvs_commit(int h) { (void)h;if(commit_fail)return ESP_FAIL;saved=pending;return ESP_OK; }
+static void nvs_close(int h) { (void)h; }
+static void xSemaphoreTake(int h,int wait) { (void)h;(void)wait; }
+static void xSemaphoreGive(int h) { (void)h; }
+static int esp_codec_dev_set_in_gain(int c,unsigned gain) { (void)c;(void)gain;return ESP_OK; }
+static vad_handle_t vad_create(vad_mode_t mode) { assert(mode<=4);return allocation_fail?NULL:&new_vad; }
+static void vad_destroy(vad_handle_t handle) { assert(handle);destroys++; }
+static unsigned session=1;
+''' + "\n".join(functions) + r'''
+int main(void)
+{
+    load_input_settings();
+    assert(status.vad_mode==3&&status.silence_ms==1000&&status.max_recording_ms==15000);
+    status.microphone_ready=status.wake_ready=status.wake_enabled=true;
+    ainekio_speech_settings_t edit={.has_vad_mode=true,.vad_mode=1,.has_silence_ms=true,
+        .silence_ms=2000,.has_max_recording_ms=true,.max_recording_ms=10000};
+    assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,NULL,&edit)==ESP_OK);
+    assert(status.vad_mode==1&&status.silence_ms==2000&&status.max_recording_ms==10000);
+    assert(vad==&new_vad&&destroys==1);
+    status=(ainekio_p4_media_status_t){0};microphone_settings_saved=false;
+    load_input_settings();
+    assert(status.vad_mode==1&&status.silence_ms==2000&&status.max_recording_ms==10000);
+    assert(microphone_enabled&&microphone_gate==AINEKIO_MIC_GATE_WAKE);
+    status.microphone_ready=status.wake_ready=status.wake_enabled=true;
+    commit_fail=true;edit.vad_mode=2;edit.silence_ms=3000;
+    assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,NULL,&edit)==ESP_FAIL);
+    assert(status.vad_mode==1&&status.silence_ms==2000&&destroys==2);
+    commit_fail=false;allocation_fail=true;
+    assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,NULL,&edit)==ESP_ERR_NO_MEM);
+    assert(status.vad_mode==1&&status.silence_ms==2000);
+    allocation_fail=false;
+    assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,NULL,NULL)==ESP_OK);
+    assert(status.vad_mode==1&&status.silence_ms==2000&&status.max_recording_ms==10000);
+    return 0;
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="ainekio-speech-settings-") as temporary:
+            path = Path(temporary) / "settings.c"
+            binary = Path(temporary) / "settings"
+            path.write_text(harness)
+            subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                "-I", str(CORE / "include"), "-I", str(media / "include"),
+                "-I", str(ROOT / "Slave/firmware/esp32p4-wifi6/tests/body_shim"),
+                str(path), "-o", str(binary)], check=True, capture_output=True, text=True)
+            subprocess.run([str(binary)], check=True, capture_output=True, text=True)

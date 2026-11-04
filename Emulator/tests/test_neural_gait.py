@@ -2628,6 +2628,9 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
             self.assertEqual(result["sources"][0]["transitions"], len(x))
             self.assertEqual(json.loads((destination/"manifest.json").read_text())["algorithm"], "PPO")
             self.assertEqual(json.loads((destination/"progress.json").read_text())["imitation_updates"], 5)
+            evaluation = json.loads((destination/"evaluation.json").read_text())
+            self.assertEqual(evaluation["baseline"]["evaluation_purpose"], "standing_baseline")
+            self.assertEqual(evaluation["baseline"]["policy_kind"], "held_standing_reference")
             restored = load_policy(destination, device="cpu")
             self.assertEqual(restored.num_timesteps, 0)
             self.assertEqual(restored._n_updates, 0)
@@ -2759,14 +2762,14 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
         import hashlib
         import numpy as np
         import torch
-        from dataclasses import asdict
+        from dataclasses import asdict, replace
         from functools import partial
         from unittest.mock import patch
         from stable_baselines3 import PPO
         from gateway.neural_gait.environment import (
             EnvironmentConfig, GaitEnvironment, ENVIRONMENT_VERSION, GEOMETRY, representation_identity)
         from gateway.neural_gait.training import (
-            GaitPPOPolicy, PreciseActionRolloutBuffer, load_policy, train)
+            GaitPPOPolicy, PreciseActionRolloutBuffer, load_policy, train, evaluate)
         config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.08)
         commands = [[.015, 0, 0], [-.03, 0, 0]]
         env = GaitEnvironment(config, include_assembly=False)
@@ -2786,7 +2789,9 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
                     representation=representation_identity(), geometry_sha256=hashlib.sha256(GEOMETRY.read_bytes()).hexdigest(),
                     commands=commands, command_switch_seconds=.04, simulation_workers=1,
                     checkpoint_every=12)))
-                (source/"progress.json").write_text('{"imitation_updates": 41000}')
+                # Final weights survive an interrupted qualification even when
+                # progress has lost both the imitation count and selected id.
+                (source/"progress.json").write_text('{"state":"error","error":"interrupted"}')
                 model.save(source/"saved.zip")
                 (source/"checkpoints.json").write_text(json.dumps([
                     dict(id="saved", policy="saved.zip", steps=8, imitation_updates=41000)]))
@@ -2807,10 +2812,20 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
                             old["environment_version"] = 7
                             (source/"manifest.json").write_text(json.dumps(old))
                         rate = 3e-7 if timing else None
-                        train(output, 4, config, resume=source, resume_checkpoint=checkpoint,
-                              workers=workers, learning_rate=rate,
-                              checkpoint_every=4 if timing else None, **timing)
+                        run_config = replace(config, episode_seconds=.12) if timing else config
+                        seeds = [7, 13] if timing else None
+                        with patch("gateway.neural_gait.training.evaluate", wraps=evaluate) as evaluated:
+                            train(output, 4, run_config, resume=source, resume_checkpoint=checkpoint,
+                                  workers=workers, learning_rate=rate,
+                                  checkpoint_every=4 if timing else None, evaluation_seeds=seeds, **timing)
                         manifest = json.loads((output/"manifest.json").read_text())
+                        self.assertEqual(manifest["evaluation_seeds"], seeds)
+                        if timing:
+                            self.assertEqual(manifest["execution_changes"]["episode_seconds"],
+                                             {"from":.08, "to":.12})
+                            status = json.loads((output/"progress.json").read_text())
+                            self.assertEqual(status["evaluation_seeds"], seeds)
+                            self.assertEqual(status["evaluation"]["evaluation_seeds"], seeds)
                         self.assertEqual(manifest["checkpoint_every"], 4 if timing else 12)
                         self.assertEqual(manifest["resumed_checkpoint"], checkpoint)
                         self.assertEqual(json.loads((output/"progress.json").read_text())["imitation_updates"], 41000)
@@ -2830,6 +2845,32 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
                             self.assertEqual(manifest["task_changes"], {})
                         checkpoints = json.loads((output/"checkpoints.json").read_text())
                         initial = load_policy(output, checkpoints[0]["policy"])
+                        # Final qualification compares the unchanged starting
+                        # actor with the candidate in the current suite, even
+                        # when this resume changes horizon/request timing/seeds.
+                        baseline_call, candidate_call = evaluated.call_args_list[-2:]
+                        self.assertIsNotNone(baseline_call.args[0])
+                        self.assertIsNot(baseline_call.args[0], candidate_call.args[0])
+                        self.assertEqual(baseline_call.args[1], run_config)
+                        self.assertEqual(candidate_call.args[1], run_config)
+                        for key in ("seeds", "commands", "command_switch_seconds",
+                                    "command_switch_range", "compact"):
+                            self.assertEqual(baseline_call.kwargs[key], candidate_call.kwargs[key])
+                        self.assertFalse(baseline_call.kwargs["compact"])
+                        measured = json.loads((output/"evaluation.json").read_text())
+                        reference = dict(evaluation_purpose="source_policy_baseline",
+                            checkpoint_id=checkpoints[0]["id"], policy=checkpoints[0]["policy"])
+                        self.assertEqual(manifest["evaluation_baseline"], reference)
+                        for key, value in reference.items():
+                            self.assertEqual(measured["baseline"][key], value)
+                        self.assertEqual(measured["baseline"]["policy_kind"], "neural_foot_offsets")
+                        self.assertEqual(measured["baseline"]["evaluation_seeds"],
+                                         measured["candidate"]["evaluation_seeds"])
+                        for key, value in initial.policy.state_dict().items():
+                            torch.testing.assert_close(baseline_call.args[0].policy.state_dict()[key],
+                                                       value, rtol=0, atol=0)
+                        self.assertTrue(any(not torch.equal(value, candidate_call.args[0].policy.state_dict()[key])
+                                            for key, value in initial.policy.state_dict().items()))
                         for key, value in model.policy.state_dict().items():
                             torch.testing.assert_close(initial.policy.state_dict()[key], value, rtol=0, atol=0)
                         for key, state in model.policy.optimizer.state_dict()["state"].items():
@@ -2923,6 +2964,17 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
             with patch("gateway.neural_gait.server.subprocess.Popen") as launch:
                 Runtime(root).start_training(dict(resume="abc", steps=4, checkpoint_every=32768))
             self.assertEqual(launch.call_args.args[0][-2:], ["--checkpoint-every", "32768"])
+            longer = {**asdict(config), "episode_seconds":60.}
+            with patch("gateway.neural_gait.server.subprocess.Popen") as launch:
+                Runtime(root).start_training(dict(resume="abc", steps=4, environment=longer,
+                                                 evaluation_seeds=[1001, 1003]))
+            arguments = launch.call_args.args[0]
+            self.assertEqual(arguments[-3:], ["--evaluation-seeds", "1001", "1003"])
+            saved = json.loads(Path(arguments[arguments.index("--config")+1]).read_text())
+            self.assertEqual(saved["episode_seconds"], 60.)
+            for seeds in ([], [-1], [True], [1.5]):
+                with self.assertRaisesRegex(ValueError, "Evaluation seeds"):
+                    Runtime(root).start_training(dict(resume="abc", steps=4, evaluation_seeds=seeds))
             with patch("gateway.neural_gait.server.subprocess.Popen") as launch:
                 Runtime(root).start_training(dict(resume="abc", steps=4, exploration_learning_rate=3e-4))
             self.assertEqual(launch.call_args.args[0][-2:], ["--exploration-learning-rate", "0.0003"])
@@ -2983,7 +3035,7 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
             cameraToBody=[[0,0,1,0],[-1,0,0,0],[0,-1,0,0],[0,0,0,1]],
             capture_hz=10, latency_s=.04, dropout_probability=0., noise_std_m=0.,
             provenance={"basis":"test optical geometry"})
-        for noise in (dict(noise_std_m=.001), dict(odometry=dict(
+        for noise in (dict(noise_std_m=.001), dict(startup_latency_s=[.04, 14.825]), dict(odometry=dict(
                 position_noise_std_m=0., rotation_noise_std_rad=0., log_scale_std=.1,
                 dropout_probability=0.))):
             config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.04,
@@ -3104,6 +3156,49 @@ print(json.dumps(dict(module=type(model.policy).__module__,learned=model.policy.
 @unittest.skipUnless(importlib.util.find_spec("mujoco") and importlib.util.find_spec("stable_baselines3"),
                      "Use the gait training environment")
 class ConnectedTrainingTests(unittest.TestCase):
+    def test_established_imu_walk_and_camera_share_clock_without_episode_delay(self):
+        import numpy as np
+        from gateway.neural_gait.environment import EnvironmentConfig, make_environment
+        from gateway.neural_gait.contract import HISTORY_SCHEMA
+        camera = dict(imageSize=[8,8], cameraMatrix=[[8,0,4],[0,8,4],[0,0,1]],
+            cameraToBody=[[0,0,1,0],[-1,0,0,0],[0,-1,0,0],[0,0,0,1]],
+            capture_hz=10, latency_s=.04, startup_latency_s=.08,
+            dropout_probability=0., noise_std_m=0., max_frame_age_s=.2,
+            provenance={"basis":"test optical geometry"})
+        env = make_environment(EnvironmentConfig(robot=robot_fixture(), execution_backend="body_control",
+            control_hz=33, physics_hz=528, episode_seconds=.5, imu_prehistory_s=4.,
+            balance_enabled=True, observation_schema=HISTORY_SCHEMA, depth_camera=camera,
+            scenarios=[dict(id="wall", geoms=[dict(kind="wall", position_m=[.4,0,.15],
+                                                size_m=[.02,.3,.15])])]),
+            include_assembly=False, include_visuals=False)
+        self.addCleanup(env.close)
+        env.reset(seed=4)
+        first = env.gateway_observation
+        self.assertFalse(first["imu_quality"]["startup"])
+        self.assertTrue(first["imu_quality"]["fresh"])
+        self.assertGreaterEqual(first["observation_time_s"], 4.)
+        self.assertLess(env.data.time, .1)
+        self.assertFalse(first["vision"]["depth_available"])
+        self.assertTrue(all(0 <= age < .04 for age in first["joint_sample_age_s"]))
+        before = env.session.connection.last_status["imu"]
+        self.assertEqual(before["gap_restarts"], 0)
+        for _ in range(7):
+            _, _, terminated, _, info = env.step(np.zeros(12))
+            self.assertFalse(terminated, info)
+        after = env.session.connection.last_status["imu"]
+        self.assertEqual(after["gap_restarts"], 0)
+        self.assertGreater(after["timestamp_us"], before["timestamp_us"])
+        self.assertFalse(after["startup"])
+        observed = env.gateway_observation
+        self.assertTrue(observed["vision"]["depth_available"])
+        self.assertLess(observed["vision"]["age_s"], .2)
+        self.assertAlmostEqual(env.depth_camera.next_capture-env.data.time, 4., delta=.11)
+        self.assertGreaterEqual(env.depth_measurement["receivedAtMonotonic"], 4.)
+        self.assertTrue(any(row[-1] for row in observed["sensor_history"]))
+        for row in observed["sensor_history"]:
+            if row[-1]:
+                self.assertLess(row[-2], .3)
+
     def test_dagger_releases_collection_executor_before_checkpoint_evaluation(self):
         import numpy as np
         from dataclasses import asdict, replace
@@ -3182,7 +3277,10 @@ class ConnectedTrainingTests(unittest.TestCase):
             reloaded=load_policy(path)
             np.testing.assert_array_equal(first,reloaded.predict(observed,deterministic=True)[0])
             self.assertTrue(np.isfinite(first).all())
-            evaluation=json.loads((path/"evaluation.json").read_text())["candidate"]
+            comparison=json.loads((path/"evaluation.json").read_text())
+            self.assertEqual(comparison["baseline"]["evaluation_purpose"], "standing_baseline")
+            self.assertEqual(comparison["baseline"]["policy_kind"], "held_standing_reference")
+            evaluation=comparison["candidate"]
             for episode in evaluation["episodes"]:
                 self.assertEqual(episode["execution_backend"],"body_control")
                 self.assertEqual(episode["rejected_frames"],0)
@@ -3436,11 +3534,25 @@ class ConnectedTrainingTests(unittest.TestCase):
             resume_environment_changes({**manifest, "algorithm": "SAC"}, connected)
         with self.assertRaisesRegex(ValueError, "same environment"):
             resume_environment_changes(manifest, replace(connected, mass_kg=.9))
+        self.assertEqual(resume_environment_changes(manifest, replace(old, episode_seconds=60.)),
+                         {"episode_seconds": {"from":old.episode_seconds, "to":60.}})
+        with self.assertRaisesRegex(ValueError, "same environment"):
+            resume_environment_changes({**manifest, "algorithm":"SAC"}, replace(old, episode_seconds=60.))
         deployed = replace(connected, control_hz=33, physics_hz=528,
                            balance_enabled=True, balance_tuning=[1,1,3,1.5928])
         changes = resume_environment_changes(manifest, deployed)
         self.assertEqual(changes["control_hz"], {"from":50,"to":33})
         self.assertEqual(changes["balance_tuning"]["to"], [1,1,3,1.5928])
+        noisy = replace(deployed, feedback_noise_raw_std=30,
+                        imu_accel_noise_std=.05, imu_gyro_noise_std=.004,
+                        imu_prehistory_s=4.)
+        changes = resume_environment_changes(manifest, noisy)
+        self.assertEqual(changes["feedback_noise_raw_std"], {"from":0., "to":30})
+        self.assertEqual(changes["imu_accel_noise_std"]["to"], .05)
+        self.assertEqual(changes["imu_gyro_noise_std"]["to"], .004)
+        self.assertEqual(changes["imu_prehistory_s"], {"from":0., "to":4.})
+        with self.assertRaisesRegex(ValueError, "same environment"):
+            resume_environment_changes({**manifest, "algorithm":"SAC"}, noisy)
         from copy import deepcopy
         deployed.robot = deepcopy(deployed.robot)
         deployed.robot["feedback"]["jam_enabled"] = False
@@ -3478,6 +3590,43 @@ class ConnectedTrainingTests(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("stable_baselines3"), "Use the gait training environment")
 class TrainingProgressTests(unittest.TestCase):
+    def test_policy_history_matches_publication_contents_not_latest_checkpoint(self):
+        import hashlib
+        from zipfile import ZipFile, ZipInfo
+        from gateway.neural_gait.training import policy_imitation_updates
+        with tempfile.TemporaryDirectory() as root:
+            run = Path(root)
+            def saved(name, optimizer, year=2025):
+                with ZipFile(run/name, "w") as archive:
+                    for member, value in {"policy.pth":b"same weights",
+                                          "policy.optimizer.pth":optimizer,
+                                          "data":b"same RL count"}.items():
+                        archive.writestr(ZipInfo(member, (year, 1, 1, 0, 0, 0)), value)
+            saved("selected.zip", b"selected optimizer")
+            saved("later.zip", b"later optimizer")
+            saved("policy.zip", b"selected optimizer", year=2026)
+            self.assertNotEqual((run/"policy.zip").read_bytes(), (run/"selected.zip").read_bytes())
+            selected = dict(id="selected", policy="selected.zip", imitation_updates=41000)
+            later = dict(id="later", policy="later.zip", imitation_updates=43000)
+            (run/"checkpoints.json").write_text(json.dumps([selected, later]))
+            (run/"manifest.json").write_text('{}')
+            (run/"progress.json").write_text('{"state":"error","error":"interrupted"}')
+            self.assertEqual(policy_imitation_updates(run), 41000)
+            self.assertEqual(policy_imitation_updates(run, "later.zip"), 43000)
+            # A stale selection cannot override the actual policy contents.
+            (run/"selection.json").write_text(json.dumps(dict(later,
+                policy_sha256=hashlib.sha256((run/"later.zip").read_bytes()).hexdigest())))
+            self.assertEqual(policy_imitation_updates(run), 41000)
+            # The published selection is authoritative even without the index.
+            (run/"selection.json").write_text(json.dumps(dict(selected,
+                policy_sha256=hashlib.sha256((run/"policy.zip").read_bytes()).hexdigest())))
+            (run/"checkpoints.json").unlink()
+            self.assertEqual(policy_imitation_updates(run), 41000)
+            # Legacy metadata remains supported; never infer a count from a name.
+            (run/"selection.json").unlink()
+            (run/"progress.json").write_text('{"imitation_updates":123}')
+            self.assertEqual(policy_imitation_updates(run), 123)
+
     def test_dashboard_history_keeps_trial_measurements_without_copying_time_series(self):
         from gateway.neural_gait.server import Runtime
         with tempfile.TemporaryDirectory() as root:
@@ -3489,13 +3638,17 @@ class TrainingProgressTests(unittest.TestCase):
             checkpoint = run / "checkpoints.json"
             checkpoint.write_text(json.dumps([dict(id="one", evaluation=measured)]))
             evaluation = run / "evaluation.json"
-            evaluation.write_text(json.dumps(dict(candidate=measured, baseline=measured)))
+            baseline = dict(measured, evaluation_purpose="source_policy_baseline",
+                            checkpoint_id="initial", policy="checkpoints/initial.zip")
+            evaluation.write_text(json.dumps(dict(candidate=measured, baseline=baseline)))
             originals = {path: path.read_bytes() for path in (checkpoint, evaluation)}
             status = Runtime(root).status()["runs"][0]
             for result in (status["checkpoints"][0]["evaluation"],
                            status["evaluation"]["candidate"], status["evaluation"]["baseline"]):
                 self.assertEqual(result["episodes"][0]["forward_m_s"], .029)
                 self.assertNotIn("progress_intervals", result["episodes"][0])
+            for key in ("evaluation_purpose", "checkpoint_id", "policy"):
+                self.assertEqual(status["evaluation"]["baseline"][key], baseline[key])
             for path, original in originals.items():
                 self.assertEqual(path.read_bytes(), original)
 
@@ -3637,9 +3790,10 @@ class TrainingProgressTests(unittest.TestCase):
 
     def test_compact_checkpoint_covers_commands_without_full_seed_scenario_product(self):
         from functools import partial
+        from types import SimpleNamespace
         from unittest.mock import patch
         from gateway.neural_gait.environment import EnvironmentConfig, GaitEnvironment
-        from gateway.neural_gait.training import evaluate
+        from gateway.neural_gait.training import evaluate, Progress
         config = EnvironmentConfig(robot=robot_fixture(), episode_seconds=.02,
             imu_gyro_noise_std=.01, scenarios=[{"id":"flat"}, {"id":"incline", "slope_deg":[0,2]}])
         commands = [[.015,0,0], [-.03,0,0]]
@@ -3647,11 +3801,40 @@ class TrainingProgressTests(unittest.TestCase):
                    partial(GaitEnvironment, include_assembly=False)):
             compact = evaluate(None, config, commands=commands, compact=True)
             full = evaluate(None, config, commands=commands)
+            with tempfile.TemporaryDirectory() as root:
+                owner = Progress(Path(root), 0, config, commands=commands, evaluation_seeds=[7, 13])
+                owner.model = SimpleNamespace(num_timesteps=0)
+                declared = owner.evaluate(None, "final_candidate")
+                status = json.loads((Path(root)/"progress.json").read_text())
+                self.assertEqual(status["evaluation_seeds"], [7, 13])
+                probe = owner.evaluate(None, "checkpoint", compact=True)
+                self.assertEqual(json.loads((Path(root)/"progress.json").read_text())["evaluation_seeds"], [1000])
         self.assertEqual(compact["evaluation_scope"], "compact_checkpoint")
         self.assertEqual([(e["command"],e["scenario_id"],e["seed"]) for e in compact["episodes"]],
                          [(command,"flat",1000) for command in commands])
         self.assertEqual(full["evaluation_scope"], "full_configured_suite")
         self.assertEqual(len(full["episodes"]), 2*2*8)
+        self.assertEqual(full["evaluation_seeds"], list(range(1000, 1008)))
+        self.assertEqual(declared["evaluation_seeds"], [7, 13])
+        self.assertEqual([(e["command"], e["scenario_id"], e["seed"]) for e in declared["episodes"]],
+                         [(command, scenario, seed) for command in commands
+                          for scenario in ("flat", "incline") for seed in (7, 13)])
+        self.assertEqual(probe["evaluation_seeds"], [1000])
+        self.assertEqual(probe["episodes"], compact["episodes"])
+
+    def test_training_cli_passes_explicit_evaluation_seeds(self):
+        from dataclasses import asdict
+        from unittest.mock import patch
+        from gateway.neural_gait.environment import EnvironmentConfig
+        from gateway.neural_gait.training import main
+        with tempfile.TemporaryDirectory() as root:
+            config = Path(root)/"environment.json"
+            config.write_text(json.dumps(asdict(EnvironmentConfig(robot=robot_fixture()))))
+            with patch("sys.argv", ["training", "--directory", str(Path(root)/"run"),
+                       "--config", str(config), "--steps", "4", "--evaluation-seeds", "7", "13"]), \
+                 patch("gateway.neural_gait.training.train") as training:
+                main()
+            self.assertEqual(training.call_args.kwargs["evaluation_seeds"], [7, 13])
 
     def test_automatic_comparison_uses_only_initial_and_published_matched_trial(self):
         from dataclasses import asdict

@@ -11,6 +11,40 @@ from experiments.freestyle.test_program import FakeGateway, FakeTransport
 
 
 class RecordingTests(unittest.TestCase):
+    def test_flush_commits_preceding_evidence_without_closing_the_recorder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'evidence.sqlite'
+            recorder=Recorder(path)
+            first=recorder.record('review',{'outcome':'success'})
+            recorder.flush()
+            self.assertEqual([r['id'] for r in read_records(path)],[first])
+            second=recorder.record('review',{'outcome':'incorrect'})
+            recorder.flush()
+            self.assertEqual([r['id'] for r in read_records(path)],[first,second])
+            recorder.close()
+
+    def test_flush_reports_a_failed_writer_instead_of_acknowledging_a_save(self):
+        with tempfile.TemporaryDirectory() as directory:
+            recorder=Recorder(directory)
+            recorder.record('review',{'outcome':'success'})
+            with self.assertRaises(RuntimeError):recorder.flush()
+            recorder.close()
+
+    def test_unmarked_old_correction_proposals_are_not_approved_training(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'evidence.sqlite'
+            recorder=Recorder(path)
+            for outcome in ('partial','incorrect','success'):
+                recorder.record('generation_requested',{'generation_index':0,'execute':True,
+                    'request':{'request':'wave','observation':{},'history':[]}},job_id=outcome)
+                recorder.record('generation_completed',{'generation_index':0,
+                    'result':{'program':[{'name':'hold','arguments':{'seconds':1}}]}},job_id=outcome)
+                recorder.record('job_finished',{'state':'completed'},job_id=outcome)
+                recorder.record('review',{'generation_index':0,'outcome':outcome,
+                    'corrected_program':[{'name':'hold','arguments':{'seconds':2}}]},job_id=outcome)
+            recorder.close()
+            self.assertEqual(list(corrected_rows(path)),[])
+
     def test_record_racing_close_is_persisted_or_explicitly_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'evidence.sqlite'
@@ -139,10 +173,10 @@ class RecordedBridgeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(bridge.gateway.sent[0][-1][1][9], 3000)
             await asyncio.to_thread(recorder.pending.join)
             self.assertEqual(list(corrected_rows(path)), [], 'Receipts alone must not qualify a correction')
-            bridge.review('robot', identifier, 'partial', 'Too brief')
+            await bridge.review('robot', identifier, 'partial', 'Too brief')
             await asyncio.to_thread(recorder.pending.join)
             self.assertEqual(list(corrected_rows(path)), [])
-            bridge.review('robot', identifier, 'success', 'Observed the intended wave and return')
+            await bridge.review('robot', identifier, 'success', 'Observed the intended wave and return')
             await bridge.close()
             await asyncio.to_thread(recorder.close)
             rows = list(corrected_rows(path))
@@ -164,9 +198,9 @@ class RecordedBridgeTests(unittest.IsolatedAsyncioTestCase):
                 job = await bridge.submit('robot','wave',execute)
                 identifier=job['job_id']; ids.append(identifier)
                 await bridge.tasks[identifier]
-                bridge.review('robot',identifier,outcome,'Observed by operator')
+                await bridge.review('robot',identifier,outcome,'Observed by operator')
             with self.assertRaises(ValueError):
-                bridge.review('other-robot',ids[-1],'success')
+                await bridge.review('other-robot',ids[-1],'success')
             await bridge.close()
             await asyncio.to_thread(recorder.close)
             rows = list(corrected_rows(path))

@@ -1220,7 +1220,8 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
     async def test_audio_adjustment_api_forwards_optional_settings(self) -> None:
         cookie, csrf = await self._login()
         for path, kind, values in (
-            ("/api/microphone", "microphone", {"on": True, "gate": "wake", "gain_db": 36}),
+            ("/api/microphone", "microphone", {"on": True, "gate": "wake", "gain_db": 36,
+                "vad_mode": 1, "silence_ms": 2000, "max_recording_ms": 15000}),
             ("/api/wake", "wake", {"enabled": True, "model": "ainekio", "threshold": 0.4}),
         ):
             status, _, _ = await self._request("POST", path,
@@ -1229,6 +1230,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.gateway.calls[-1], (kind, {"robot_id": "ainekio-test-01", **values}))
         for path, values in (
             ("/api/microphone", {"on": True, "gate": "wake", "gain_db": True}),
+            ("/api/microphone", {"on": True, "gate": "wake", "silence_ms": True}),
             ("/api/wake", {"enabled": True, "model": "ainekio", "threshold": "high"}),
         ):
             status, _, _ = await self._request("POST", path, values, cookie=cookie, csrf=csrf)

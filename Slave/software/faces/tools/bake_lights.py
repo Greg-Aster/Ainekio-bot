@@ -13,16 +13,13 @@ from pathlib import Path
 
 OUTPUT = Path(__file__).resolve().parents[1] / "light_mask.h"
 HEADER = OUTPUT.parent / "include/ainekio/face.h"
-LAYOUT_WIDTH = int(re.search(r"#define AINEKIO_FACE_LAYOUT_WIDTH (\d+)", HEADER.read_text())[1])
-WIDTH_PERCENT = int(re.search(r"#define AINEKIO_FACE_WIDTH_PERCENT (\d+)", HEADER.read_text())[1])
-ORIGIN_X, ORIGIN_Y, WIDTH, HEIGHT = -3, 24, 83, 113
+SCALE_Y = float(re.search(r"#define AINEKIO_FACE_SCALE_Y ([\d.]+)F", HEADER.read_text())[1])
+ORIGIN_X, ORIGIN_Y, WIDTH, HEIGHT = 0, 26, 88, 116
 
 
 def ribbon(points, start_width, end_width):
-    # Narrow the placement/curve, while retaining the bright strip thickness.
-    center = LAYOUT_WIDTH / 2
-    points = [(center + (x * LAYOUT_WIDTH / 320 - center) * WIDTH_PERCENT / 100, y)
-              for x, y in points]
+    # Keep the approved width; fit the shorter ribbons around screen center.
+    points = [(x - 5, 85 + (y - 80) * SCALE_Y) for x, y in points]
     left, right = [], []
     for i in range(65):
         t = i / 64
@@ -55,8 +52,8 @@ def distance(x, y, polygon):
 
 def generate():
     strips = [
-        ribbon([(47, 48), (34, 75), (38, 99), (64, 115)], 8.5, 7.5),
-        ribbon([(33, 44), (27, 54), (27, 65), (30, 73)], 3.2, 1.8),
+        ribbon([(47, 48), (34, 75), (38, 99), (64, 115)], 10.2, 9),
+        ribbon([(33, 44), (27, 54), (27, 65), (30, 73)], 3.84, 2.16),
     ]
     rows = []
     for y in range(ORIGIN_Y, ORIGIN_Y + HEIGHT):

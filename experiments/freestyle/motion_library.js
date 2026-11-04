@@ -21,6 +21,7 @@
         <button type="submit">Search</button>
         <a href="/api/motion-library/export" download="motion-training-library.zip">Export training data</a>
       </form>
+      <p>Export includes these library targets and successfully reviewed motion trials. Raw recordings and pending correction proposals stay in Saved motion trials.</p>
       <label>Sort by <select data-field="sort">
         <option value="name_asc">Name — A to Z</option>
         <option value="name_desc">Name — Z to A</option>

@@ -296,13 +296,15 @@ static void heartbeat(uint64_t connection, bool pong)
                        media.microphone_gate == AINEKIO_MIC_GATE_VAD ? "vad" : "open";
     snprintf(text, sizeof(text), "{\"t\":\"%s\",\"clock_ms\":%" PRIu64
              ",\"audio\":{\"on\":%s,\"listening\":%s,\"gate\":\"%s\",\"gain_db\":%u,"
-             "\"wake_enabled\":%s,\"wake_threshold\":%.5f,\"rms\":%.6f,\"peak\":%.6f,\"capturing\":%s,\"speaker_busy\":%s,\"speaker_volume_percent\":%u,\"external_speech\":%s}}",
+             "\"wake_enabled\":%s,\"wake_threshold\":%.5f,\"rms\":%.6f,\"peak\":%.6f,\"capturing\":%s,\"speaker_busy\":%s,\"speaker_volume_percent\":%u,\"external_speech\":%s,"
+             "\"vad_mode\":%u,\"silence_ms\":%u,\"max_recording_ms\":%u}}",
              pong ? "pong" : "ping", now_us() / 1000U,
              media.microphone_enabled ? "true" : "false", media.microphone_listening ? "true" : "false",
              gate, (unsigned)media.microphone_gain_db, media.wake_enabled ? "true" : "false",
              (double)media.wake_threshold, (double)media.microphone_rms, (double)media.microphone_peak,
              media.utterance_open ? "true" : "false", media.speaker_busy ? "true" : "false",
-             (unsigned)media.speaker_volume_percent, media.external_speech ? "true" : "false");
+             (unsigned)media.speaker_volume_percent, media.external_speech ? "true" : "false",
+             (unsigned)media.vad_mode, (unsigned)media.silence_ms, (unsigned)media.max_recording_ms);
     reply(connection, text);
 }
 
@@ -341,7 +343,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, AINEKIO_MOTION_CURVES_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -1193,7 +1195,8 @@ static esp_err_t apply(const request_t *request)
         }
     case AINEKIO_COMMAND_MICROPHONE:
         return ainekio_p4_media_microphone(command->data.microphone.enabled, command->data.microphone.gate,
-            command->data.microphone.has_gain_db ? &command->data.microphone.gain_db : NULL);
+            command->data.microphone.has_gain_db ? &command->data.microphone.gain_db : NULL,
+            &command->data.microphone.speech);
     case AINEKIO_COMMAND_SPEAKER:
         return ainekio_p4_media_speaker_volume(command->data.speaker_volume_percent);
     case AINEKIO_COMMAND_CAMERA:

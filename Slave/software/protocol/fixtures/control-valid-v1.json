@@ -2,6 +2,18 @@
   "protocol": 1,
   "cases": [
     {
+      "name": "v2_generated_curve_reference",
+      "requires_feature": "motion_curves_v1",
+      "message": {
+        "t": "motion_plan",
+        "seq": 99,
+        "map": 2,
+        "control": "trajectory",
+        "trajectory": "generated-curve-001",
+        "end": "hold"
+      }
+    },
+    {
       "name": "v2_measured_speed_targets",
       "requires_feature": "motion_targets_v1",
       "message": {
@@ -1177,6 +1189,18 @@
           0,
           0
         ]
+      }
+    },
+    {
+      "name": "microphone_saved_speech_settings",
+      "message": {
+        "t": "mic",
+        "seq": 57,
+        "on": true,
+        "gate": "wake",
+        "vad_mode": 1,
+        "silence_ms": 2000,
+        "max_recording_ms": 15000
       }
     }
   ]

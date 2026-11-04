@@ -65,6 +65,7 @@ def reconstruct(batches: list[dict], feedback: dict) -> tuple[list[dict], dict]:
 
     A sequence gap splits the timeline: no target is carried across lost events.
     Calibration changes remain raw until the matching calibration is supplied.
+    Host walking has no planned gait phase; preserve that absence as None.
     """
     from .gait_trials import JOINT_NAMES, feedback_summary
     events = {}
@@ -127,7 +128,7 @@ def reconstruct(batches: list[dict], feedback: dict) -> tuple[list[dict], dict]:
                        'imu_timestamp_us': imu['timestamp_us'] if imu_valid else None,
                        'imu_offset_us': imu['timestamp_us']-stamp if imu_valid else None,
                        'imu_startup': imu.get('startup'), 'imu_recovering': imu.get('recovering'),
-                       'planned_phase': event['motion']['phase'], 'walking': event['motion']['walking'],
+                       'planned_phase': event['motion'].get('phase'), 'walking': event['motion']['walking'],
                        'motion_observed_us': event['time_us'],
                        'command_sequence': event['motion']['command_sequence']}
                 for label, field in (('q', 'orientation_wxyz'), ('gyro', 'angular_rate_rad_s')):

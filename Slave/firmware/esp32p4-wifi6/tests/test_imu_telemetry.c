@@ -31,7 +31,9 @@ int main(void) {
     const ainekio_p4_execution_t motion={.command="crab_right",.activity="locomotion",
         .phase="entry",.sequence=UINT32_MAX,.connection=UINT64_MAX,.started_us=UINT64_MAX,.sampled_us=UINT64_MAX,
         .expected_up={0,.5f,.8660254f},.expected_up_known=true,
-        .host_nominal=true,.nominal_sample=UINT32_MAX};
+        .host_nominal=true,.nominal_sample=UINT32_MAX,
+        .trajectory_active=true,.trajectory_source_us=UINT64_MAX,
+        .trajectory_checkpoint=UINT32_MAX,.trajectory_waiting=true};
     char token[AINEKIO_ASSET_NAME_MAX+1U];
     memset(token,'a',sizeof token-1);token[sizeof token-1]='\0';
     memcpy(token,"be_",3);
@@ -40,6 +42,7 @@ int main(void) {
     assert(strstr(text,"\"io_errors\":18446744073709551615"));
     assert(strstr(text,"\"motion\":{\"command\":\"crab_right\""));
     assert(strstr(text,"\"sequence\":4294967295"));
+    assert(strstr(text,"\"trajectory\":{\"source_us\":18446744073709551615,\"checkpoint\":4294967295,\"waiting\":true}"));
     assert(strstr(text,"\"expected_up\":[0,0.5,"));
     puts(text);
     /* Combined event: per-joint timestamps, null missing feedback and a

@@ -57,6 +57,7 @@ from protocol.control_v1 import (
     MOTION_PLAN_FEATURE,
     MOTION_PLAN_V2_FEATURE,
     MOTION_TARGETS_FEATURE,
+    MOTION_CURVES_FEATURE,
     MOTION_PLAN_V2_JOINT_MAP,
     MOTION_PLAN_JOINT_MAP,
     PROTOCOL_VERSION,
@@ -516,6 +517,10 @@ class GatewayConnection:
             message = dict(command)
             if message.get("t") == "speaker" and "speaker_volume_percent" not in (self.audio_input or {}):
                 raise GatewayError("body firmware does not report saved speaker volume; update the robot firmware")
+            if message.get("t") == "mic" and any(key in message for key in ("vad_mode", "silence_ms", "max_recording_ms")):
+                if not all(key in (self.audio_input or {}) for key in ("vad_mode", "silence_ms", "max_recording_ms")):
+                    raise GatewayError("Update the robot firmware to edit speech detection and recording timing")
+                validate_control_message({**message, "seq": 1})
             if message.get("t") == "intent" and ("forward" in message or "turn" in message or "lateral" in message):
                 if message.get("name") != "walk":
                     raise GatewayError("steering requires a walk command")
@@ -1323,20 +1328,22 @@ class GatewayService:
         *,
         end: str,
         control: str | None = None,
+        trajectory_token: str | None = None,
         robot_id: str | None = None,
         received_at: float | None = None,
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
         v2 = connection.model == "v2-12servo"
-        feature = MOTION_TARGETS_FEATURE if control == "targets" else MOTION_PLAN_V2_FEATURE if v2 else MOTION_PLAN_FEATURE
+        feature = (MOTION_CURVES_FEATURE if control == "trajectory" else
+                   MOTION_TARGETS_FEATURE if control == "targets" else MOTION_PLAN_V2_FEATURE if v2 else MOTION_PLAN_FEATURE)
         if feature not in connection.features:
             raise GatewayError(f"robot {connection.robot_id} does not advertise {feature}")
         return await connection.send_command(
             {
                 "t": "motion_plan",
                 "map": MOTION_PLAN_V2_JOINT_MAP if v2 else MOTION_PLAN_JOINT_MAP,
-                "frames": frames,
+                **({"trajectory":trajectory_token} if control == "trajectory" else {"frames":frames}),
                 "end": end,
                 **({"control": control} if control is not None else {}),
             },
@@ -1422,10 +1429,16 @@ class GatewayService:
         gate: str,
         robot_id: str | None = None,
         gain_db: int | None = None,
+        vad_mode: int | None = None,
+        silence_ms: int | None = None,
+        max_recording_ms: int | None = None,
     ) -> int:
         command = {"t": "mic", "on": on, "gate": gate}
         if gain_db is not None:
             command["gain_db"] = gain_db
+        for name, value in (("vad_mode", vad_mode), ("silence_ms", silence_ms), ("max_recording_ms", max_recording_ms)):
+            if value is not None:
+                command[name] = value
         return await self._send(command, robot_id=robot_id)
 
     def external_speech_active(self, robot_id: str) -> bool:

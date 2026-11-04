@@ -113,7 +113,7 @@ class MotionLibrary:
         with closing(self.connect()) as db:
             return ProgramEncoding(self.tools(db)).decode(answers)
 
-    def import_dataset(self, dataset):
+    def import_dataset(self, dataset, *, extend_contract=False, expected_revisions=None, retired_references=()):
         dataset = Path(dataset)
         tools = json.loads((dataset/'tools.json').read_text())
         encoding = ProgramEncoding(tools)
@@ -123,9 +123,21 @@ class MotionLibrary:
         source = dataset/'train.jsonl'
         inserted = 0
         with closing(self.connect()) as db, db:
+            for identifier,revision in (expected_revisions or {}).items():
+                actual=db.execute('SELECT revision FROM examples WHERE id=?',(identifier,)).fetchone()
+                if actual is None or actual[0]!=revision:
+                    raise ValueError('Training example changed after comparison: '+identifier)
             current = db.execute("SELECT value FROM metadata WHERE key='tools'").fetchone()
             if current and json.loads(current[0]) != tools:
-                raise ValueError('The imported dataset uses a different command contract')
+                previous={t['name']:t for t in json.loads(current[0])}
+                extended={t['name']:t for t in tools}
+                if len(extended)==len(tools) and all(previous.get(name)==tool for name,tool in extended.items()):
+                    pass  # An older additive contract cannot remove current operations.
+                elif (extend_contract and len(extended)==len(tools)
+                        and all(extended.get(name)==tool for name,tool in previous.items())):
+                    db.execute("UPDATE metadata SET value=? WHERE key='tools'",(compact(tools),))
+                else:
+                    raise ValueError('The imported dataset uses a different command contract')
             db.execute('INSERT OR IGNORE INTO metadata VALUES (?,?)', ('tools', compact(tools)))
             # Preserve held-out rows as frozen references, never as editable training examples.
             for name in ('system.txt', 'wire.json', 'evaluation.jsonl', 'test.jsonl',
@@ -168,6 +180,14 @@ class MotionLibrary:
                     db.execute('INSERT INTO revisions VALUES (?,?,?)', (row['id'], 1, compact(row)))
                     existing_aliases.update(alias for alias in (row['id'], row.get('parent_example_id')) if alias)
                     inserted += 1
+            # Retire invalid references in the same transaction, preserving
+            # every other frozen line and the historical backup. This is an
+            # explicit dataset revision, not a fitting-time filter.
+            if retired_references:
+                for stored in db.execute("SELECT key,value FROM metadata WHERE key LIKE 'file:%.jsonl'").fetchall():
+                    retained=[line for line in stored['value'].splitlines(keepends=True)
+                              if not line.strip() or json.loads(line)['id'] not in retired_references]
+                    db.execute('UPDATE metadata SET value=? WHERE key=?',(''.join(retained),stored['key']))
         return {'imported': inserted, 'total': self.list()['total']}
 
     def list(self, page=1, search='', sort='name_asc'):
@@ -232,7 +252,7 @@ class MotionLibrary:
                             'superseded_kinematic_evidence', 'motion_structure_sha256', 'canonical_source_motion_sha256',
                             'reviewed_request_specification', 'operator_assessment', 'semantic_assessment',
                             'goals', 'spatial_goals', 'returns_to_start', 'ending_policy', 'repair_review',
-                            'face_cues', 'rehearsal'):
+                            'face_cues', 'rehearsal', 'legacy_motion', 'source_alignment'):
                     row.pop(key, None)
                 row.update(physical_qualification=False, synthetic=True,
                            qualification_basis='user_edited_not_physically_reviewed',
@@ -271,7 +291,7 @@ class MotionLibrary:
                 db.execute('INSERT INTO revisions VALUES (?,?,?)', (stored['id'], stored['revision'], compact(row)))
         return {'discarded': len(replacements), 'total': self.list()['total']}
 
-    def export(self):
+    def export(self, *, recordings=None):
         """Export the exact input and target stored in the editor, without rewriting either."""
         with closing(self.connect()) as db, db:
             db.execute('BEGIN')
@@ -279,12 +299,50 @@ class MotionLibrary:
             rows = [current_target(json.loads(row[0])) for row in db.execute('SELECT payload FROM examples ORDER BY id')]
             discarded = [dict(row) for row in db.execute('SELECT * FROM discarded_examples ORDER BY id')]
             files = {row['key'][5:]: row['value'] for row in db.execute("SELECT * FROM metadata WHERE key LIKE 'file:%'")}
+        review_count=0
+        if recordings is not None:
+            from .recordings import reviewed_training
+            from .compact_wire import model_query
+            from .observations import enrich
+            snapshot=reviewed_training(recordings)
+            encoding=ProgramEncoding(tools)
+            def origin_review(row):
+                source=row.get('library_origin',{}).get('source_id',row.get('source_id',''))
+                return source[len('robot-review:'):] if source.startswith('robot-review:') else row.get('review_evidence_id')
+            protected=set()
+            retained=[]
+            for row in rows:
+                review_id=origin_review(row)
+                key=snapshot['review_lineage'].get(review_id)
+                edited=(row.get('library_origin') or row.get('source_id','').startswith('motion-library:'))
+                if key is not None and ((edited and not row.get('physical_qualification'))
+                        or snapshot['latest_reviews'].get(key)==review_id):
+                    protected.add(key)
+                elif key in snapshot['latest_reviews']:
+                    continue
+                retained.append(row)
+            rows=retained
+            discarded_ids={row['id'] for row in discarded}
+            for original in snapshot['rows']:
+                key=(original['job_id'],original['generation_index'])
+                if key in protected:continue
+                row=copy.deepcopy(original)
+                row['answers']=encoding.encode(row['answers'])
+                row['query']=compact(model_query(enrich(json.loads(row['query'])),encoding))
+                row['parent_example_id']=original['id']
+                row['source_hash']=hashlib.sha256(compact([row['query'],row['answers'],row['source_id']]).encode()).hexdigest()
+                row['id']=row['source_hash'][:16]
+                if discarded_ids.intersection((row['id'],row['parent_example_id'])):continue
+                rows.append(row)
+                review_count+=1
         files['train.jsonl'] = ''.join(compact(row)+'\n' for row in rows)
         files['tools.json'] = compact(tools)+'\n'
         files['system.txt'] = ''
         wire_format = json.loads(files['wire.json'])['format']
-        manifest = {'version': wire_format, 'source': 'Body Control editable motion library',
+        manifest = {'version': wire_format, 'source': ('Body Control editable motion library and latest reviewed trials'
+                    if recordings is not None else 'Body Control editable motion library'),
                     'training_rows': len(rows), 'training_launched': False, 'discarded_examples': discarded,
+                    'reviewed_trial_rows':review_count,
                     'encoding_sha256': hashlib.sha256(Path(__file__).with_name('compact_wire.py').read_bytes()).hexdigest(),
                     'files': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in files.items()}}
         files['manifest.json'] = json.dumps(manifest, indent=2)+'\n'
@@ -301,6 +359,7 @@ if __name__ == '__main__':
     parser.add_argument('--database', type=Path, required=True)
     parser.add_argument('--dataset', type=Path)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--recordings',type=Path,help='Include eligible reviewed trials in the training snapshot')
     args = parser.parse_args()
     library = MotionLibrary(args.database)
     if args.operation == 'import':
@@ -311,5 +370,5 @@ if __name__ == '__main__':
         if args.output is None:
             parser.error('--output is required')
         with args.output.open('xb') as stream:
-            stream.write(library.export())
+            stream.write(library.export(recordings=args.recordings))
         print(compact({'output': str(args.output), 'training_launched': False}))

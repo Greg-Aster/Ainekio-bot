@@ -281,105 +281,112 @@ async def _run_production(args: argparse.Namespace) -> None:
     _seed_environment_token(token_store)
 
     audit_log = AuditLog(args.data_dir / "operations.jsonl")
-    service = GatewayService(
-        GatewayServiceConfig(tokens=token_store.snapshot(), profile=args.profile), token_store=token_store
-    )
-    service.subscribe_commands(
-        lambda command: audit_log.record("gateway_command", **_audit_fields(command))
-    )
-    service.subscribe_events(
-        lambda event: audit_log.record("body_event", **_audit_fields(event)) if event.get("t") != "imu" else None
-    )
-    service.subscribe_diagnostics(
-        lambda diagnostic: audit_log.record(str(diagnostic["event"]), **_audit_fields(diagnostic))
-    )
-    service.subscribe_frames(MicrophoneFrameAudit(audit_log).record)
-    adapter = EnvironmentAdapter(
-        service,
-        EnvironmentAdapterConfig(
-            token=adapter_token,
-            receipt_path=str(args.data_dir / "environment-actions.sqlite"),
-            session_id=args.environment_session_id,
-            # AINEKIO_ROBOT_ID seeds pairing, not bridge device selection.
-            # The bridge follows the single connected V1 or V2 body.
-            freestyle_enabled=os.environ.get("AINEKIO_FREESTYLE_ENABLED", "1") == "1",
-        ),
-    ) if adapter_token else None
-    hotspot = RobotHotspot()
-    dashboard = start_dashboard_server(
-        args.dashboard_host,
-        args.dashboard_port,
-        gateway=service,
-        event_loop=asyncio.get_running_loop(),
-        password_store=password_store,
-        token_store=token_store,
-        audit_log=audit_log,
-        primary_view=args.dashboard_primary_view,
-        hotspot=hotspot,
-        environment_adapter=adapter,
-    )
-    dashboard.start_freestyle()
-    dashboard_thread = threading.Thread(
-        target=dashboard.serve_forever,
-        name="ainekio-dashboard",
-        daemon=True,
-    )
-    dashboard_thread.start()
-    async def publish_recognition(analysis):
-        await adapter.publish_camera_analysis(analysis, max_frame_age_s=args.vision_max_frame_age_s)
-
-    camera = CameraFramePlugin(service, backend, observe=publish_recognition if backend else None,
-        max_frame_age_s=args.vision_max_frame_age_s)
-    if adapter is not None:
-        adapter.recognition_status = camera.metrics if backend is not None else None
-        adapter.camera_analysis = camera.latest_analysis
-        adapter.camera_capture = camera.capture
-        adapter.vision_operation = camera.configure_vision if backend is not None else None
-    dashboard.camera_recognition = camera
-    if camera is not None:
-        camera.set_enabled(bool(backend) and dashboard.control_settings["recognition"])
-        await camera.restore_ground_plane(dashboard.control_settings.get("ground_calibrations", {}))
-        await camera.restore_depth(dashboard.control_settings.get("depth_motion", {}))
-        service.locomotion_measurement = camera.locomotion_measurement
-        service.depth_demand = camera.depth_demand
-        if adapter is not None:
-            adapter.locomotion_measurement = camera.locomotion_measurement
-            adapter.selected_ground_range = camera.selected_ground_range
-            adapter.depth_demand = camera.depth_demand
-    service.subscribe_events(dashboard.restore_camera)
-    from gateway.gait_learning_service import GaitLearningService, RobotLearningTransport
-    gait_learning = GaitLearningService(service, RobotLearningTransport(service, token_store),
-                                       camera.locomotion_measurement, depth_demand=camera.depth_demand)
-    dashboard.gait_learning = gait_learning
-    await gait_learning.start()
-
-    async def route(websocket: object, path: str) -> None:
-        if path == "/robot":
-            await service.handler(
-                websocket,
-                path,
-                transport=_robot_transport(websocket),
-            )
-            return
-        if (
-            path == "/environment"
-            and adapter is not None
-            and _peer_is_loopback(websocket)
-            and not _request_uses_relay(websocket)
-        ):
-            await adapter.handler(websocket)
-            return
-        await websocket.close(code=1008, reason="wrong or unavailable endpoint")
-
-    loop = asyncio.get_running_loop()
-    stopped = loop.create_future()
-    def request_stop() -> None:
-        if not stopped.done():
-            stopped.set_result(None)
-    previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: loop.call_soon_threadsafe(request_stop))
+    service = dashboard = camera = gait_learning = server = None
+    dashboard_thread = None
+    dashboard_started = False
+    signal_installed = False
     try:
+        service = GatewayService(
+            GatewayServiceConfig(tokens=token_store.snapshot(), profile=args.profile), token_store=token_store
+        )
+        service.subscribe_commands(
+            lambda command: audit_log.record("gateway_command", **_audit_fields(command))
+        )
+        service.subscribe_events(
+            lambda event: audit_log.record("body_event", **_audit_fields(event)) if event.get("t") != "imu" else None
+        )
+        service.subscribe_diagnostics(
+            lambda diagnostic: audit_log.record(str(diagnostic["event"]), **_audit_fields(diagnostic))
+        )
+        service.subscribe_frames(MicrophoneFrameAudit(audit_log).record)
+        adapter = EnvironmentAdapter(
+            service,
+            EnvironmentAdapterConfig(
+                token=adapter_token,
+                receipt_path=str(args.data_dir / "environment-actions.sqlite"),
+                session_id=args.environment_session_id,
+                # AINEKIO_ROBOT_ID seeds pairing, not bridge device selection.
+                # The bridge follows the single connected V1 or V2 body.
+                freestyle_enabled=os.environ.get("AINEKIO_FREESTYLE_ENABLED", "1") == "1",
+            ),
+        ) if adapter_token else None
+        hotspot = RobotHotspot()
+        dashboard = start_dashboard_server(
+            args.dashboard_host,
+            args.dashboard_port,
+            gateway=service,
+            event_loop=asyncio.get_running_loop(),
+            password_store=password_store,
+            token_store=token_store,
+            audit_log=audit_log,
+            primary_view=args.dashboard_primary_view,
+            hotspot=hotspot,
+            environment_adapter=adapter,
+        )
+        dashboard.start_freestyle()
+        dashboard_thread = threading.Thread(
+            target=dashboard.serve_forever,
+            name="ainekio-dashboard",
+            daemon=True,
+        )
+        dashboard_thread.start()
+        dashboard_started = True
+        async def publish_recognition(analysis):
+            await adapter.publish_camera_analysis(analysis, max_frame_age_s=args.vision_max_frame_age_s)
+
+        camera = CameraFramePlugin(service, backend, observe=publish_recognition if backend else None,
+            max_frame_age_s=args.vision_max_frame_age_s)
+        if adapter is not None:
+            adapter.recognition_status = camera.metrics if backend is not None else None
+            adapter.camera_analysis = camera.latest_analysis
+            adapter.camera_capture = camera.capture
+            adapter.vision_operation = camera.configure_vision if backend is not None else None
+        dashboard.camera_recognition = camera
+        if camera is not None:
+            camera.set_enabled(bool(backend) and dashboard.control_settings["recognition"])
+            await camera.restore_ground_plane(dashboard.control_settings.get("ground_calibrations", {}))
+            await camera.restore_depth(dashboard.control_settings.get("depth_motion", {}))
+            service.locomotion_measurement = camera.locomotion_measurement
+            service.depth_demand = camera.depth_demand
+            if adapter is not None:
+                adapter.locomotion_measurement = camera.locomotion_measurement
+                adapter.selected_ground_range = camera.selected_ground_range
+                adapter.depth_demand = camera.depth_demand
+        service.subscribe_events(dashboard.restore_camera)
+        from gateway.gait_learning_service import GaitLearningService
+        from gateway.robot_learning_transport import RobotLearningTransport
+        gait_learning = GaitLearningService(service, RobotLearningTransport(service, token_store),
+                                           camera.locomotion_measurement, depth_demand=camera.depth_demand)
+        dashboard.gait_learning = gait_learning
+        await gait_learning.start()
+
+        async def route(websocket: object, path: str) -> None:
+            if path == "/robot":
+                await service.handler(
+                    websocket,
+                    path,
+                    transport=_robot_transport(websocket),
+                )
+                return
+            if (
+                path == "/environment"
+                and adapter is not None
+                and _peer_is_loopback(websocket)
+                and not _request_uses_relay(websocket)
+            ):
+                await adapter.handler(websocket)
+                return
+            await websocket.close(code=1008, reason="wrong or unavailable endpoint")
+
+        loop = asyncio.get_running_loop()
+        stopped = loop.create_future()
+        def request_stop() -> None:
+            if not stopped.done():
+                stopped.set_result(None)
+        previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: loop.call_soon_threadsafe(request_stop))
+        signal_installed = True
         await hotspot.start()
-        async with serve(
+        server = await serve(
             route,
             args.host,
             args.port,
@@ -389,39 +396,81 @@ async def _run_production(args: argparse.Namespace) -> None:
             close_timeout=1.0,
             create_protocol=BoundedHandshakeProtocol,
             logger=_websocket_logger(),
-        ) as server:
-            _print_gateway_addresses(
-                bind_host=args.host,
-                port=args.port,
-                environment_enabled=adapter is not None,
-            )
-            print(f"Ainekio dashboard:    http://{args.dashboard_host}:{args.dashboard_port}/")
-            try:
-                await stopped
-            finally:
-                server.close()
-                await gait_learning.close()
-                await service.close()
-                # Environment and not-yet-paired sockets share this server.
-                # Release them before asyncio.Server.wait_closed waits for all
-                # accepted transports on Python 3.12.
-                established = []
-                for websocket in tuple(server.websockets):
-                    if websocket.open:
-                        established.append(websocket.close(1001, "gateway stopped"))
-                    elif not websocket.closed:
-                        websocket.transport.close()
-                await asyncio.gather(*established)
+        )
+        _print_gateway_addresses(
+            bind_host=args.host,
+            port=args.port,
+            environment_enabled=adapter is not None,
+        )
+        print(f"Ainekio dashboard:    http://{args.dashboard_host}:{args.dashboard_port}/")
+        await stopped
     finally:
-        signal.signal(signal.SIGTERM, previous_sigterm)
-        await dashboard.close_freestyle()
-        await gait_learning.close()
-        if camera is not None:
-            await camera.aclose()
-        await dashboard.host_audio.close()
-        await asyncio.to_thread(dashboard.shutdown)
-        dashboard.server_close()
-        dashboard_thread.join(timeout=2.0)
+        # Stop new HTTP accepts before releasing the owners used by requests.
+        # Existing daemon request workers retain their own in-flight lifetime.
+        try:
+            if dashboard is not None:
+                try:
+                    if dashboard_started:
+                        await asyncio.to_thread(dashboard.shutdown)
+                finally:
+                    try:
+                        dashboard.server_close()
+                    finally:
+                        if dashboard_started:
+                            dashboard_thread.join(timeout=2.0)
+        finally:
+            try:
+                try:
+                    if server is not None:
+                        server.close()
+                finally:
+                    try:
+                        if gait_learning is not None:
+                            await gait_learning.close()
+                    finally:
+                        try:
+                            if service is not None:
+                                await service.close()
+                        finally:
+                            if server is not None:
+                                try:
+                                    # Release environment and unfinished-handshake
+                                    # sockets before waiting for all handlers.
+                                    established = []
+                                    errors = []
+                                    for websocket in tuple(server.websockets):
+                                        if websocket.open:
+                                            established.append(websocket.close(1001, "gateway stopped"))
+                                        elif not websocket.closed:
+                                            try:
+                                                websocket.transport.close()
+                                            except Exception as error:
+                                                errors.append(error)
+                                    # Drain every concurrent close before reporting
+                                    # failures, including synchronous handshake errors.
+                                    results = await asyncio.gather(*established, return_exceptions=True)
+                                    errors.extend(error for error in results if isinstance(error, BaseException))
+                                    if len(errors) == 1:
+                                        raise errors[0]
+                                    if errors:
+                                        raise BaseExceptionGroup("WebSocket shutdown failed", errors)
+                                finally:
+                                    await server.wait_closed()
+            finally:
+                try:
+                    if signal_installed:
+                        signal.signal(signal.SIGTERM, previous_sigterm)
+                finally:
+                    try:
+                        if dashboard is not None:
+                            await dashboard.close_freestyle()
+                    finally:
+                        try:
+                            if camera is not None:
+                                await camera.aclose()
+                        finally:
+                            if dashboard is not None:
+                                await dashboard.host_audio.close()
 
 
 def _seed_environment_token(token_store: RobotTokenStore) -> None:

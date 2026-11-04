@@ -52,6 +52,13 @@ class DepthCamera:
             raise ValueError("publish_camera_to_body must be a boolean")
         self.capture_hz = float(profile["capture_hz"])
         self.latency = float(profile["latency_s"])
+        startup = profile.get("startup_latency_s", 0.)
+        startup = startup if isinstance(startup, (list, tuple)) else (startup, startup)
+        if (len(startup) != 2 or any(type(value) not in (int, float) or
+                not math.isfinite(value) or value < 0 for value in startup)
+                or startup[1] < startup[0]):
+            raise ValueError("Camera startup latency must be nonnegative seconds or [minimum, maximum]")
+        self.startup_latency = tuple(float(value) for value in startup)
         self.dropout = float(profile["dropout_probability"])
         self.noise = float(profile["noise_std_m"])
         self.max_age = profile.get("max_frame_age_s")
@@ -85,12 +92,40 @@ class DepthCamera:
     def reset(self):
         self.next_capture = 0.
         self.pending = deque()
+        self.waiting = None
+        self.startup_pending = True
         self.latest = None
         self.counter = 0
         self.odometry_origin = self.odometry_previous = None
         self.odometry_path = self.odometry_heading = 0.
         self.odometry_reference = 0
         self.odometry_scale = None
+
+    def _process_capture(self, measurement, camera_pose, started, rng):
+        """One metric worker, using the captured pose rather than the delivery pose."""
+        duration = self.latency
+        if self.startup_pending and self.startup_latency[1] > 0:
+            low, high = self.startup_latency
+            duration = low if low == high else float(rng.uniform(low, high))
+        self.startup_pending = False
+        if self.odometry is not None:
+            measurement.update(self._odometry_capture(
+                camera_pose, measurement["receivedAtMonotonic"], rng))
+            measurement["source"] = "simulation-noisy-optical-odometry-and-depth"
+        delivery = started + duration
+        measurement["deliveryAtSimulationS"] = delivery
+        measurement["inferenceMs"] = duration*1000
+        if self.startup_latency[1] > 0:
+            measurement["processingStartedAtSimulationS"] = started
+        self.pending.append((delivery, measurement))
+
+    def _deliver(self, now, rng):
+        while self.pending and self.pending[0][0] <= now+1e-10:
+            delivered, self.latest = self.pending.popleft()
+            if self.waiting is not None:
+                measurement, camera_pose = self.waiting
+                self.waiting = None
+                self._process_capture(measurement, camera_pose, delivered, rng)
 
     def _odometry_capture(self, world_from_camera, now, rng):
         """Explicit noisy camera sensor model; never a perfect pose actor input."""
@@ -141,6 +176,11 @@ class DepthCamera:
                now_s=None, geom_mask=None):
         import mujoco
         now = float(data.time if now_s is None else now_s)
+        # Historical profiles model fixed delivery latency. An explicit startup
+        # profile additionally models the live single worker and latest-frame
+        # coalescing; no camera inference delay blocks the body simulation.
+        if self.startup_latency[1] > 0:
+            self._deliver(now, rng)
         if now + 1e-10 >= self.next_capture:
             self.next_capture = now + 1/self.capture_hz
             geoms = [geom for geom in self._external_geoms(model)
@@ -178,15 +218,14 @@ class DepthCamera:
                 deliveryAtSimulationS=now+self.latency, clock="simulation-acquisition",
                 inferenceMs=self.latency*1000, frameCurrent=True,
                 metricAccuracyVerified=False)
-            if self.odometry is not None:
-                camera_pose = np.eye(4)
-                camera_pose[:3, :3] = world_from_camera
-                camera_pose[:3, 3] = position
-                measurement.update(self._odometry_capture(camera_pose, now, rng))
-                measurement["source"] = "simulation-noisy-optical-odometry-and-depth"
-            self.pending.append((now+self.latency,measurement))
-        while self.pending and self.pending[0][0] <= now+1e-10:
-            _, self.latest = self.pending.popleft()
+            camera_pose = np.eye(4)
+            camera_pose[:3, :3] = world_from_camera
+            camera_pose[:3, 3] = position
+            if self.startup_latency[1] > 0 and self.pending:
+                self.waiting = (measurement, camera_pose)
+            else:
+                self._process_capture(measurement, camera_pose, now, rng)
+        self._deliver(now, rng)
         if self.latest is None:
             return dict(available=False, frameCurrent=False, robotId=robot_id,epoch=epoch,
                         reason="No delivered simulated depth capture")

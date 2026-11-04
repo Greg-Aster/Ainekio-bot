@@ -43,8 +43,7 @@ bool ainekio_face_find(const char *name, size_t *index)
 typedef struct {
     uint16_t *pixels;
     uint32_t color;
-    float light, halo_width, halo_inverse, halo_strength, offset_y;
-    bool widen;
+    float light, halo_width, halo_inverse, halo_strength;
 } canvas_t;
 static void halo(canvas_t *c,float pulse)
 {
@@ -92,10 +91,10 @@ static void side_light(canvas_t *c,float dx,float dy,bool mirror)
     const int ox=(int)floorf(dx),oy=(int)floorf(dy);
     const unsigned fx=(unsigned)((dx-ox)*256),fy=(unsigned)((dy-oy)*256);
     for(int y=1;y<LIGHT_HEIGHT;++y){
-        const int py=LIGHT_Y+y+oy+AINEKIO_FACE_LIGHT_OFFSET_Y;
+        const int py=LIGHT_Y+y+oy+AINEKIO_FACE_OFFSET_Y;
         if(py<0||py>=AINEKIO_FACE_HEIGHT)continue;
         for(int x=1;x<LIGHT_WIDTH;++x){
-            const int px=mirror ? AINEKIO_FACE_LAYOUT_WIDTH-LIGHT_X-x-ox : LIGHT_X+x+ox;
+            const int px=mirror ? AINEKIO_FACE_WIDTH-LIGHT_X-x-ox : LIGHT_X+x+ox;
             if(px<0||px>=AINEKIO_FACE_WIDTH)continue;
             const unsigned i=(unsigned)(y*LIGHT_WIDTH+x);
             const unsigned bottom=light_mask[i]*(256-fx)+light_mask[i-1]*fx;
@@ -108,22 +107,13 @@ static void side_light(canvas_t *c,float dx,float dy,bool mirror)
 }
 static void line(canvas_t *c,float ax,float ay,float bx,float by,float width)
 {
-    /* Enlarge the authored face around the panel center, before rasterizing,
-     * so curves stay smooth. Keep the glow width in screen pixels. */
-    const float scale=1.25F,cx=AINEKIO_FACE_WIDTH*.5F,cy=AINEKIO_FACE_HEIGHT*.5F;
-    ax=cx+(ax-cx)*scale;ay=cy+(ay-cy)*scale;
-    bx=cx+(bx-cx)*scale;by=cy+(by-cy)*scale;
-    /* Narrow the composition and center it left for the installed mounting.
-     * Stroke thickness and vertical size remain unchanged. */
-    const float horizontal=(float)AINEKIO_FACE_LAYOUT_WIDTH/AINEKIO_FACE_WIDTH;
-    ax*=horizontal;bx*=horizontal;
-    if(c->widen){
-        const float center=AINEKIO_FACE_LAYOUT_WIDTH*.5F;
-        const float spread=AINEKIO_FACE_WIDTH_PERCENT/100.F;
-        ax=center+(ax-center)*spread;bx=center+(bx-center)*spread;
-    }
-    ay+=c->offset_y;by+=c->offset_y;
-    width*=scale;
+    /* Fit the wide layout around the panel center before rasterizing.
+     * Keep strokes and dot pupils round, with glow in screen pixels. */
+    const float cx=AINEKIO_FACE_WIDTH*.5F,cy=AINEKIO_FACE_HEIGHT*.5F;
+    ax=cx+(ax-cx)*AINEKIO_FACE_SCALE_X;ay=cy+(ay-cy)*AINEKIO_FACE_SCALE_Y;
+    bx=cx+(bx-cx)*AINEKIO_FACE_SCALE_X;by=cy+(by-cy)*AINEKIO_FACE_SCALE_Y;
+    ay+=AINEKIO_FACE_OFFSET_Y;by+=AINEKIO_FACE_OFFSET_Y;
+    width*=AINEKIO_FACE_SCALE_X;
     float radius=width*.5F, pad=radius+c->halo_width,dx=bx-ax,dy=by-ay,length=dx*dx+dy*dy;
     const float inverse_length=length>0 ? 1/length : 0;
     const float extent_squared=pad*pad;
@@ -223,8 +213,7 @@ void ainekio_face_render(size_t index,uint64_t elapsed_ms,bool talking,
     const face_t *f=&faces[index];
     const float pi=3.141592654F,t=(float)(elapsed_ms%f->period_ms)/f->period_ms;
     const float wave=sinf(2*pi*t);
-    canvas_t c={.pixels=pixels,.color=f->color,.light=1,
-                .offset_y=AINEKIO_FACE_LIGHT_OFFSET_Y,.widen=true};
+    canvas_t c={.pixels=pixels,.color=f->color,.light=1};
     const float halo_cycles=f->animation==THINK ? 2 : 1;
     const float halo_phase=2*pi*t*halo_cycles;
     /* Still faces stay still. Other expressions inherit their own cadence;
@@ -262,13 +251,12 @@ void ainekio_face_render(size_t index,uint64_t elapsed_ms,bool talking,
     /* Swept ribbons follow the concept: short outer accent, inward lower tip. */
     canvas_t right=c;
     if(f->animation==THINK)halo(&right,.5F+.5F*cosf(halo_phase-pi/2));
-    const float side_gaze=gx*.3125F*AINEKIO_FACE_LAYOUT_WIDTH/AINEKIO_FACE_WIDTH*
-                          (AINEKIO_FACE_WIDTH_PERCENT/100.F);
-    side_light(&c,side_gaze,gy*.3125F,false);
-    side_light(&right,side_gaze,gy*.3125F,true);
+    const float side_gaze=gx*.3125F;
+    side_light(&c,side_gaze,gy*.25F*AINEKIO_FACE_SCALE_Y,false);
+    side_light(&right,side_gaze,gy*.25F*AINEKIO_FACE_SCALE_Y,true);
     eye(&c,f->left,108+gx,83+gy-tilt,1,open);
     eye(&right,f->right,212+gx,83+gy+tilt,-1,right_open);
-    canvas_t a=c;a.offset_y=0;a.color=f->color==CYAN?TEAL:f->color;
+    canvas_t a=c;a.color=f->color==CYAN?TEAL:f->color;
     /* Small symbols and speech bars keep a tighter halo for separation. */
     a.halo_width*=.75F;a.halo_inverse=1/a.halo_width;a.halo_strength*=.8F;
     switch(f->accent){
@@ -278,7 +266,7 @@ void ainekio_face_render(size_t index,uint64_t elapsed_ms,bool talking,
     case FLAT_MOUTH:line(&a,150,120,170,120,2.5F);break;
     case OOH:arc(&a,160,120,6,9,0,2*pi,2.5F);break;
     case TEAR: a.color=CYAN;dot(&a,229,103+15*t,3.5F);line(&a,229,99+15*t,229,103+15*t,3);break;
-    case SWEAT:a.color=BLUE;a.offset_y=5;dot(&a,240,53+8*t,3);break;
+    case SWEAT:a.color=BLUE;dot(&a,240,53+8*t,3);break;
     case SLEEP:{
         float y=114-3*wave;
         line(&a,155,y,166,y,2);line(&a,166,y,155,y+10,2);line(&a,155,y+10,166,y+10,2);
@@ -286,9 +274,7 @@ void ainekio_face_render(size_t index,uint64_t elapsed_ms,bool talking,
         a.light=.45F+.25F*(1-cosf(2*pi*t));y=102-3*sinf(2*pi*t+pi/2);
         line(&a,178,y,184,y,1.5F);line(&a,184,y,178,y+6,1.5F);line(&a,178,y+6,184,y+6,1.5F);break;}
     case QUESTION:{
-        /* Keep the question in the gap between the eyes, below the bezel's
-         * upper band. Eye and side-light geometry stays unchanged. */
-        a.offset_y=18;
+        /* The exposed upper screen now has room above the eyes. */
         float y=f->animation==INQUIRE ? -2*wave : 0;
         arc(&a,161,49+y,7,6,pi,2*pi+.7F,2.5F);line(&a,166,53+y,160,59+y,2.5F);dot(&a,160,68+y,1.6F);break;}
     case ELLIPSIS:for(int i=0;i<3;++i){
@@ -296,10 +282,9 @@ void ainekio_face_render(size_t index,uint64_t elapsed_ms,bool talking,
         const float pulse=.5F+.5F*cosf(2*pi*(t*cycles-i/3.F));
         a.light=.3F+.7F*pulse;dot(&a,146+i*14,122-2*pulse,2+1.2F*pulse);
         }break;
-    /* Two trailing strokes above each eye communicate running; the old
-     * corner strokes sat behind the bezel. Include their glow in the fit. */
+    /* Two trailing strokes above each eye communicate running. */
     case SPEED:for(int i=0;i<2;++i){line(&a,97,58+i*6,110+4*wave,58+i*6,2);line(&a,210-4*wave,58+i*6,223,58+i*6,2);}break;
-    case BUBBLES:for(int i=0;i<3;++i)arc(&a,151+i*12,135-fmodf(t+i*.3F,1)*30,3+i,3+i,0,2*pi,1.5F);break;
+    case BUBBLES:for(int i=0;i<3;++i)arc(&a,151+i*12,123-fmodf(t+i*.3F,1)*30,3+i,3+i,0,2*pi,1.5F);break;
     case NOTES:{
         float y=2*wave,x=2*cosf(2*pi*t);
         dot(&a,153+x,126+y,3);line(&a,156+x,126+y,156+x,110+y,2);
@@ -309,9 +294,9 @@ void ainekio_face_render(size_t index,uint64_t elapsed_ms,bool talking,
     case ZIGZAG:for(int i=0;i<4;++i)line(&a,143+i*9,121+(i%2)*5,152+i*9,126-(i%2)*5,2.5F);break;
     }
     if(talking||f->animation==SPEAK){
-        canvas_t voice=c;voice.offset_y=0;voice.widen=false;
+        canvas_t voice=c;
         voice.halo_width=5;voice.halo_inverse=1.F/5;voice.halo_strength=.18F;
         for(int i=0;i<5;++i){float h=2+6*fabsf(sinf((float)(elapsed_ms%1500)*.025F+i*.8F));
-            line(&voice,144+i*8,138-h,144+i*8,138+h,3);}
+            line(&voice,144+i*8,128-h,144+i*8,128+h,3);}
     }
 }
