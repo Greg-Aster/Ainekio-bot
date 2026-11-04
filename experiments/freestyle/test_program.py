@@ -300,6 +300,38 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['state'],'superseded',result.get('error'))
         self.assertEqual([r['t'] for r in result['receipts']],['ack'])
 
+    async def test_stop_and_release_accept_native_terminal_ack(self):
+        for operation in ('stop', 'release'):
+            with self.subTest(operation=operation):
+                sent = []
+                async def stop(**options):
+                    sent.append(options.get('detach', False))
+                    self.gateway.seq += 1
+                    return self.gateway.seq
+                async def terminal(seq, **kwargs):
+                    return {'t': 'ack', 'seq': seq}
+                self.gateway.estop = stop
+                self.gateway.wait_terminal = terminal
+                self.bridge.generate = lambda *args: {'program': [call(operation), call('hold', seconds=0)]}
+                submitted = await self.bridge.submit('robot', operation, True)
+                result = await self.bridge.result(submitted['job_id'])
+                self.assertEqual(result['state'], 'completed')
+                self.assertEqual(result['receipts'], [{'t': 'ack', 'seq': self.gateway.seq}])
+                self.assertEqual(sent, [operation == 'release'])
+
+    async def test_rejected_stop_remains_a_failure(self):
+        async def stop(**options):
+            return 1
+        async def terminal(seq, **kwargs):
+            return {'t': 'nak', 'seq': seq, 'code': 'fixture'}
+        self.gateway.estop = stop
+        self.gateway.wait_terminal = terminal
+        self.bridge.generate = lambda *args: {'program': [call('stop')]}
+        submitted = await self.bridge.submit('robot', 'stop', True)
+        result = await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'], 'error')
+        self.assertIn('fixture', result['error'])
+
     async def test_model_sees_calibration_domain_and_unusable_extrapolated_position(self):
         async def feedback(*args):
             return {'arrival_tolerance_us':100, 'health':{'enabled':True,

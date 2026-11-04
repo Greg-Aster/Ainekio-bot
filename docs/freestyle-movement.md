@@ -11,6 +11,14 @@ This file is the implementation plan and progress ledger for bounded, AI-generat
 movement on Ainekio. Update the progress section after every implementation or
 validation pass. Do not mark physical behavior complete from emulator evidence.
 
+October 31, 2026: the current V2 standalone generator gained an SSH inference
+adapter to MetaHuman's existing Big Brother provider. The Q6A service now selects
+GPT Sol through that owner, with reasoning off and Fast mode configured there.
+Named motion calls use the maintained training contract and existing Body Control
+compiler/executor. Live generation and offline compilation passed; no robot motion
+was sent. Current setup is documented in
+[`experiments/freestyle/README.md`](../experiments/freestyle/README.md#big-brother-inference).
+
 ## Decision
 
 Ainekio will support AI-generated movement through a new normal-mode motion-plan

@@ -45,14 +45,15 @@ class IncompleteProgram(ValueError):
 
 
 class Generator:
-    def __init__(self, endpoint, model, contract, model_file=None, adapter_file=None):
+    def __init__(self, endpoint, model, contract, model_file=None, adapter_file=None, *, big_brother=None):
         self.endpoint, self.model = endpoint.rstrip('/'), model
         self.adapter_file = str(Path(adapter_file).resolve()) if adapter_file is not None else None
+        self.big_brother = big_brother
         self.system = (Path(contract)/'system.txt').read_text()
         tools = json.loads((Path(contract)/'tools.json').read_text())
         wire_path = Path(contract)/'wire.json'
         self.encoding = None
-        if wire_path.exists():
+        if wire_path.exists() and big_brother is None:
             wire = json.loads(wire_path.read_text())
             if wire['format'] not in (FORMAT, LEGACY_FORMAT):
                 raise ValueError('Unknown Freestyle model representation: '+wire['format'])
@@ -71,6 +72,13 @@ class Generator:
             {'type':'object','additionalProperties':False,'required':['name','arguments'],
              'properties':{'name':{'type':'string','const':t['name']},'arguments':argument_schema(t)}}
             for t in tools]}}
+        if big_brother is not None:
+            # General models use the existing named contract, not the numeric
+            # serialization learned by the local fine-tune.
+            for variant, tool in zip(self.schema['items']['oneOf'], tools):
+                variant['description'] = tool.get('description', '')
+            self.identity.update(provider='big-brother', profile=big_brother.profile,
+                                 format='named-motion-calls')
         if self.encoding:
             self.schema = self.encoding.schema(argument_schema)
             self.identity['format'] = wire['format']
@@ -108,6 +116,8 @@ class Generator:
         return [{'id':adapter['id'],'scale':1}]
 
     def generate(self, request, observation=None, event=None, history=None):
+        if self.big_brother is not None:
+            return asyncio.run(self.async_generate(request, observation, event, history))
         payload = self._payload(request, observation, event, history)
         started = time.perf_counter()
         if self.adapter_file is not None:
@@ -122,9 +132,12 @@ class Generator:
     async def async_generate(self, request, observation=None, event=None, history=None):
         payload = self._payload(request, observation, event, history)
         started = time.perf_counter()
-        if self.adapter_file is not None:
-            payload['lora']=self._request_lora(await _async_json(self._adapter_endpoint(),method='GET'))
-        result = await _async_json(self.endpoint+'/chat/completions', payload)
+        if self.big_brother is not None:
+            result = await self.big_brother.complete(payload)
+        else:
+            if self.adapter_file is not None:
+                payload['lora']=self._request_lora(await _async_json(self._adapter_endpoint(),method='GET'))
+            result = await _async_json(self.endpoint+'/chat/completions', payload)
         return self._program(result, started)
 
     def _program(self, result, started):
@@ -139,9 +152,12 @@ class Generator:
             error.evidence = {'response':result, 'generator':self.identity,
                               'elapsed_s':time.perf_counter()-started}
             raise
+        identity = dict(self.identity)
+        if self.big_brother is not None:
+            identity['model_alias'] = result['model']
         return {'program':program,
                 'elapsed_s':time.perf_counter()-started, 'usage':result.get('usage'),
-                'generator':self.identity}
+                'generator':identity}
 
 
 def remote_generate(endpoint, request):
@@ -243,13 +259,27 @@ def serve(generator, host, port, recorder=None):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--endpoint',required=True);p.add_argument('--model',required=True)
+    provider = p.add_mutually_exclusive_group(required=True)
+    provider.add_argument('--endpoint')
+    provider.add_argument('--big-brother-ssh', help='SSH target of the installed MetaHuman Big Brother owner')
+    p.add_argument('--metahuman-root', help='MetaHuman checkout on the SSH host')
+    p.add_argument('--profile', help='Existing MetaHuman profile used for Big Brother configuration')
+    p.add_argument('--ssh-option', action='append', default=[], help='SSH option, e.g. HostName=10.77.42.1')
+    p.add_argument('--model',required=True)
     p.add_argument('--contract',type=Path,required=True)
     p.add_argument('--model-file',type=Path,help='Configured artifact identity for saved trial provenance')
     p.add_argument('--adapter-file',type=Path,help='LoRA selected only for each Freestyle inference request')
     p.add_argument('--host',default='127.0.0.1');p.add_argument('--port',type=int,default=8794)
     p.add_argument('--recordings',type=Path,help='Local SQLite store for requests and generated outputs')
     a=p.parse_args()
+    big_brother = None
+    if a.big_brother_ssh:
+        if not a.metahuman_root or not a.profile:
+            p.error('--big-brother-ssh requires --metahuman-root and --profile')
+        from .big_brother import BigBrotherClient
+        big_brother = BigBrotherClient(a.big_brother_ssh, a.metahuman_root, a.profile,
+                                      [part for option in a.ssh_option for part in ('-o',option)])
     from .recordings import Recorder
-    serve(Generator(a.endpoint,a.model,a.contract,a.model_file,a.adapter_file),a.host,a.port,
+    serve(Generator(a.endpoint or '',a.model,a.contract,a.model_file,a.adapter_file,
+                    big_brother=big_brother),a.host,a.port,
           Recorder(a.recordings) if a.recordings else None)

@@ -4,6 +4,7 @@ from contextlib import suppress
 from pathlib import Path
 import tempfile
 import unittest
+import sys
 from unittest.mock import patch
 
 from experiments.freestyle.generator import Generator, IncompleteProgram, async_remote_generate, create_app, argument_schema
@@ -203,6 +204,74 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(all(p['model']=='qwen3.5:0.8b' for p in calls))
             self.assertTrue(all(target=='/v1/chat/completions' for method,target,_ in requests if method=='POST'))
             self.assertEqual(generator.identity['configured_adapter_sha256'],hashlib.sha256(b'freestyle adapter').hexdigest())
+
+    async def test_big_brother_uses_named_contract_and_preserves_context(self):
+        from experiments.freestyle.big_brother import command_json
+        from experiments.freestyle.runtime import JOINTS
+        from experiments.freestyle.program import compile_motion
+        from jsonschema import validate
+        operation={'name':'oscillate','arguments':{'joint':JOINTS[9],
+                   'amplitude_deg':10,'cycles':2,'speed_pct':50}}
+        program=[operation]
+        class Client:
+            profile='test'
+            async def complete(self, payload):
+                self.payload=payload
+                code=('import sys,json; p=json.loads(sys.stdin.readline()); '
+                      'print(json.dumps({"model":"gpt-sol-test","choices":[{"finish_reason":"stop",'
+                      '"message":{"content":json.dumps(p["program"])}}]}))')
+                return await command_json([sys.executable,'-c',code],{'program':program})
+        client=Client()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'system.txt').write_text('existing instructions')
+            from experiments.freestyle.motion_space import TOOLS
+            from experiments.freestyle.compact_wire import FORMAT
+            (root/'tools.json').write_text(json.dumps(TOOLS))
+            (root/'wire.json').write_text(json.dumps({'format':FORMAT}))
+            generator=Generator('','configured-model',root,big_brother=client)
+            observation={'joints':{j:{'model_deg':10,'commanded_model_deg':10,'home_deg':10} for j in JOINTS},
+                         'joint_speed_limit_deg_s':90}
+            history=[{'evidence':'unchanged'}]
+            result=await generator.async_generate('two oscillations',observation,history=history)
+            self.assertEqual(result['program'],program)
+            self.assertEqual(result['generator']['model_alias'],'gpt-sol-test')
+            self.assertEqual(result['generator']['provider'],'big-brother')
+            self.assertEqual(client.payload['messages'][0]['content'],'existing instructions')
+            query=json.loads(client.payload['messages'][1]['content'])
+            self.assertEqual(query['history'],history)
+            self.assertIn(JOINTS[9],query['observation']['joints'])
+            self.assertFalse(client.payload['chat_template_kwargs']['enable_thinking'])
+            validate(program,generator.schema)
+            compiled=compile_motion(operation,observation)
+            self.assertEqual(len(compiled['frames']),8)
+            self.assertEqual(compiled['end'][JOINTS[9]],10)
+
+    async def test_big_brother_remote_failure_is_reported(self):
+        from experiments.freestyle.big_brother import command_json
+        with self.assertRaisesRegex(ValueError,'Big Brother SSH exited 7: unavailable'):
+            await command_json([sys.executable,'-c',
+                'import sys;sys.stdin.readline();sys.stderr.write("unavailable");sys.exit(7)'],{})
+
+    async def test_big_brother_cancellation_reaps_transport(self):
+        from experiments.freestyle.big_brother import command_json
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile=Path(directory)/'pid'
+            code=('import sys,os,signal,pathlib;sys.stdin.readline();'
+                  'pathlib.Path(sys.argv[1]).write_text(str(os.getpid()));signal.pause()')
+            task=asyncio.create_task(command_json([sys.executable,'-c',code,str(pidfile)],{}))
+            try:
+                async def ready():
+                    while not pidfile.exists():await asyncio.sleep(.01)
+                await asyncio.wait_for(ready(),3)
+                pid=int(pidfile.read_text())
+                task.cancel()
+                with self.assertRaises(asyncio.CancelledError):await task
+                with self.assertRaises(ProcessLookupError):os.kill(pid,0)
+            finally:
+                if not task.done():task.cancel()
+                await asyncio.gather(task,return_exceptions=True)
 
     async def test_service_propagates_cancellation_and_admits_concurrent_full_history(self):
         from aiohttp import web
